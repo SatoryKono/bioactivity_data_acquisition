@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import responses
 
-from library.clients.chembl import ChEMBLClient
+from src.library.clients.chembl import ChEMBLClient
 
 
 @responses.activate
