@@ -1,70 +1,52 @@
+"""Tests for data normalization logic."""
+
 from __future__ import annotations
 
 import pandas as pd
+import pandera.errors as pa_errors
+import pytest
 
-from library.io.normalize import (
-    coerce_text,
-    normalise_doi,
-    parse_chembl_response,
-    parse_crossref_response,
-    parse_pubmed_response,
-    to_lc_stripped,
-)
+from library.pipeline.transform import normalize_bioactivity_data
 
 
-def test_to_lc_stripped() -> None:
-    assert to_lc_stripped(" Hello ") == "hello"
-    assert to_lc_stripped(None) is None
-    assert to_lc_stripped(123) == "123"
-
-
-def test_coerce_text_handles_sequences() -> None:
-    assert coerce_text(["Hello", "world"]) == "Hello world"
-    assert coerce_text(pd.NA) is None
-    assert coerce_text(None) is None
-
-
-def test_normalise_doi_variants() -> None:
-    assert normalise_doi("https://doi.org/10.1000/XYZ") == "10.1000/xyz"
-    assert normalise_doi("doi:10.1000/abc ") == "10.1000/abc"
-    assert normalise_doi("not-a-doi") is None
-
-
-def test_parse_chembl_response() -> None:
-    payload = {
-        "documents": [
-            {
-                "document_chembl_id": "CHEMBL1122",
-                "doi": "10.1000/xyz",
-                "pubmed_id": "12345",
-                "title": "Sample title",
-            }
-        ]
-    }
-    records = parse_chembl_response(payload)
-    assert records[0]["doi_key"] == "10.1000/xyz"
-    assert records[0]["pmid"] == "12345"
-
-
-def test_parse_crossref_response() -> None:
-    payload = {
-        "message": {
-            "DOI": "10.1000/xyz",
-            "title": ["Crossref title"],
+def _raw_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "compound_id": ["CHEMBL1", "CHEMBL2"],
+            "target_pref_name": ["BRAF", "EGFR"],
+            "activity_value": [1.0, 2.0],
+            "activity_units": ["uM", "nM"],
+            "source": ["chembl", "chembl"],
+            "retrieved_at": [
+                pd.Timestamp("2024-01-01T00:00:00Z"),
+                pd.Timestamp("2024-01-02T00:00:00Z"),
+            ],
+            "smiles": ["CCO", None],
         }
-    }
-    records = parse_crossref_response(payload)
-    assert records[0]["title"] == "Crossref title"
-    assert records[0]["doi_key"] == "10.1000/xyz"
+    )
 
 
-def test_parse_pubmed_response() -> None:
-    payload = {
-        "result": {
-            "uids": ["12345"],
-            "12345": {"uid": "12345", "title": "PubMed title", "elocationid": "10.1000/xyz"},
-        }
-    }
-    records = parse_pubmed_response(payload)
-    assert records[0]["pmid"] == "12345"
-    assert records[0]["doi_key"] == "10.1000/xyz"
+def test_normalize_converts_units_and_orders_rows() -> None:
+    raw = _raw_frame()
+    normalized = normalize_bioactivity_data(raw)
+    assert list(normalized.columns) == [
+        "compound_id",
+        "target",
+        "activity_value",
+        "activity_unit",
+        "source",
+        "retrieved_at",
+        "smiles",
+    ]
+    assert normalized.loc[0, "compound_id"] == "CHEMBL1"
+    assert normalized.loc[0, "activity_value"] == pytest.approx(1000.0)
+    assert (normalized["activity_unit"] == "nM").all()
+    assert normalized.loc[1, "activity_value"] == pytest.approx(2.0)
+    assert pd.api.types.is_datetime64_ns_dtype(normalized["retrieved_at"])
+
+
+def test_normalize_raises_on_unknown_units() -> None:
+    raw = _raw_frame()
+    raw.loc[0, "activity_units"] = "mM"
+    with pytest.raises(pa_errors.SchemaErrors):
+        normalize_bioactivity_data(raw)

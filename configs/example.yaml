@@ -1,0 +1,17 @@
+clients:
+  - name: chembl
+    url: "https://example.com/api"
+    pagination_param: "page"
+    page_size_param: "page_size"
+    page_size: 100
+output:
+  data_path: "data/output/bioactivity.csv"
+  qc_report_path: "data/output/qc_report.csv"
+  correlation_path: "data/output/correlation.csv"
+retries:
+  max_tries: 5
+  backoff_multiplier: 1.0
+logging:
+  level: INFO
+validation:
+  strict: true

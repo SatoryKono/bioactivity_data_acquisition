@@ -1,4 +1,6 @@
-"""Top-level package for bioactivity data acquisition utilities."""
+"""Bioactivity data acquisition library."""
 
-__all__ = ["__version__"]
+from .cli import app
+
+__all__ = ["app", "__version__"]
 __version__ = "0.1.0"
