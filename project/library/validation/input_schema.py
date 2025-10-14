@@ -6,9 +6,10 @@ import pandera as pa
 
 INPUT_SCHEMA = pa.DataFrameSchema(
     {
-        "query": pa.Column(pa.String, nullable=False, checks=pa.Check.str_length(min_value=1)),
-        "type": pa.Column(pa.String, nullable=False, checks=pa.Check.str_length(min_value=1)),
+        "document_chembl_id": pa.Column(pa.String, nullable=False, checks=pa.Check.str_length(min_value=1)),
+        "doi": pa.Column(pa.String, nullable=True, required=False),
+        "pmid": pa.Column(pa.String, nullable=True, required=False),
     },
-    strict=True,
+    strict=False,
     name="InputQueries",
 )

@@ -30,6 +30,7 @@ dependencies = [
   "python-dotenv>=1.0",
   "PyYAML>=6.0",
   "requests>=2.31",
+  "requests-cache>=1.1",
   "structlog>=23.2",
   "typer[all]>=0.9",
 ]
@@ -41,6 +42,7 @@ dev = [
   "pytest>=7.4",
   "pytest-cov>=4.1",
   "ruff>=0.2",
+  "responses>=0.25",
   "types-PyYAML>=6.0.12",
   "types-requests>=2.31.0",
 ]
@@ -74,6 +76,9 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "N", "S", "C4", "T20"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
 
 [tool.ruff.format]
 indent-style = "space"
