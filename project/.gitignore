@@ -1,0 +1,6 @@
+__pycache__/
+.http_cache*
+logs/
+*.error
+*.sqlite
+.tmp/
