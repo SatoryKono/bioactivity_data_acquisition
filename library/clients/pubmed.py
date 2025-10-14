@@ -1,13 +1,92 @@
-"""Client for interacting with the NCBI PubMed API."""
+"""Client for the PubMed API."""
 from __future__ import annotations
 
-from typing import Mapping
+from typing import Any, Dict, Iterable, Optional
 
-from .base import BaseClient
+from library.clients.base import ApiClientError, BaseApiClient
 
 
-class PubMedClient(BaseClient):
-    """Client tailored for the ESummary endpoint."""
+class PubMedClient(BaseApiClient):
+    """HTTP client for PubMed E-utilities."""
 
-    def fetch_by_pmid(self, pmid: str) -> Mapping[str, object]:
-        return self._get("esummary.fcgi", params={"db": "pubmed", "id": pmid, "retmode": "json"})
+    def __init__(self, **kwargs: Any) -> None:
+        default_headers = {"Accept": "application/json"}
+        super().__init__("https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed", default_headers=default_headers, **kwargs)
+
+    def fetch_by_pmid(self, pmid: str) -> Dict[str, Any]:
+        payload = self._request("GET", "", params={"id": pmid, "format": "json"})
+        record = self._extract_record(payload, pmid)
+        if record is None:
+            raise ApiClientError(f"No PubMed record found for PMID {pmid}")
+        return record
+
+    def fetch_by_pmids(self, pmids: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+        pmid_list = list(pmids)
+        if not pmid_list:
+            return {}
+        payload = self._request("POST", "batch", json={"ids": pmid_list})
+        records = payload.get("records", [])
+        result: Dict[str, Dict[str, Any]] = {}
+        for pmid in pmid_list:
+            record = next((item for item in records if str(item.get("pmid")) == str(pmid)), None)
+            if record is not None:
+                result[str(pmid)] = self._normalise_record(record)
+        return result
+
+    def _extract_record(self, payload: Dict[str, Any], pmid: str) -> Optional[Dict[str, Any]]:
+        if "result" in payload and isinstance(payload["result"], dict):
+            data = payload["result"].get(pmid)
+            if data is None and "uids" in payload["result"]:
+                keys = payload["result"]["uids"]
+                for key in keys:
+                    if str(key) == str(pmid):
+                        data = payload["result"].get(key)
+                        break
+            if data is not None:
+                return self._normalise_record(data)
+
+        if "records" in payload and isinstance(payload["records"], list):
+            for item in payload["records"]:
+                if str(item.get("pmid")) == str(pmid):
+                    return self._normalise_record(item)
+
+        if payload.get("pmid") and str(payload.get("pmid")) == str(pmid):
+            return self._normalise_record(payload)
+        return None
+
+    def _normalise_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        authors = record.get("authors") or record.get("authorList")
+        if isinstance(authors, dict):
+            authors = authors.get("authors")
+        if isinstance(authors, list):
+            formatted_authors = [self._format_author(author) for author in authors]
+        else:
+            formatted_authors = None
+
+        doi_value: Optional[str]
+        doi_list = record.get("doiList")
+        if isinstance(doi_list, list) and doi_list:
+            doi_value = doi_list[0]
+        else:
+            doi_value = record.get("doi")
+
+        parsed: Dict[str, Optional[Any]] = {
+            "source": "pubmed",
+            "pmid": record.get("pmid") or record.get("PMID"),
+            "title": record.get("title") or record.get("articleTitle"),
+            "abstract": record.get("abstract"),
+            "doi": doi_value,
+            "authors": formatted_authors,
+        }
+        return {key: value for key, value in parsed.items() if value is not None}
+
+    def _format_author(self, author: Any) -> str:
+        if isinstance(author, str):
+            return author
+        if isinstance(author, dict):
+            last = author.get("lastName") or author.get("lastname")
+            fore = author.get("foreName") or author.get("forename")
+            if last and fore:
+                return f"{fore} {last}"
+            return author.get("name") or " ".join(filter(None, [fore, last]))
+        return str(author)

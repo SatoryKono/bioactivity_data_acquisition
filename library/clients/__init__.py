@@ -1,5 +1,20 @@
-"""HTTP clients for interacting with external bioactivity APIs."""
+"""HTTP clients for external literature sources."""
+from .base import ApiClientError, BaseApiClient, RateLimitConfig, RateLimitError, RateLimiter
+from .chembl import ChEMBLClient
+from .crossref import CrossrefClient
+from .openalex import OpenAlexClient
+from .pubmed import PubMedClient
+from .semantic_scholar import SemanticScholarClient
 
-from .bioactivity import BioactivityClient
-
-__all__ = ["BioactivityClient"]
+__all__ = [
+    "ApiClientError",
+    "BaseApiClient",
+    "RateLimitConfig",
+    "RateLimitError",
+    "RateLimiter",
+    "ChEMBLClient",
+    "CrossrefClient",
+    "OpenAlexClient",
+    "PubMedClient",
+    "SemanticScholarClient",
+]
