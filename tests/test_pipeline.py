@@ -3,97 +3,54 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from typer.testing import CliRunner
+import responses
 
-from library.io.normalize import normalise_doi
-from scripts.fetch_publications import app
-
-
-runner = CliRunner()
+from library.pipeline import run_pipeline
 
 
-def test_cli_pipeline(tmp_path, monkeypatch) -> None:
-    input_df = pd.DataFrame(
-        [
-            {"document_chembl_id": "CHEMBL1", "doi": "10.1000/chembl1", "pmid": "111"},
-            {"document_chembl_id": "CHEMBL2", "doi": "https://doi.org/10.1000/chembl2", "pmid": "222"},
-        ]
-    )
-    input_path = tmp_path / "input.csv"
-    output_path = tmp_path / "output.csv"
-    input_df.to_csv(input_path, index=False)
-
-    chembl_payloads = {
-        "CHEMBL1": {
-            "documents": [
-                {
-                    "document_chembl_id": "CHEMBL1",
-                    "doi": "10.1000/CHEMBL1",
-                    "pubmed_id": "111",
-                    "title": "ChEMBL one",
-                }
-            ]
-        },
-        "CHEMBL2": {
-            "documents": [
-                {
-                    "document_chembl_id": "CHEMBL2",
-                    "doi": "10.1000/chembl2",
-                    "pubmed_id": "222",
-                    "title": "ChEMBL two",
-                }
-            ]
-        },
-    }
-
-    crossref_payloads = {
-        "10.1000/chembl1": {"message": {"DOI": "10.1000/chembl1", "title": ["Crossref one"]}},
-        "10.1000/chembl2": {"message": {"DOI": "10.1000/chembl2", "title": ["Crossref two"]}},
-    }
-
-    pubmed_payloads = {
-        "111": {
-            "result": {
-                "uids": ["111"],
-                "111": {"uid": "111", "title": "PubMed one", "elocationid": "10.1000/chembl1"},
-            }
-        },
-        "222": {
-            "result": {
-                "uids": ["222"],
-                "222": {"uid": "222", "title": "PubMed two", "elocationid": "10.1000/chembl2"},
-            }
-        },
-    }
-
-    from library.clients.chembl import ChEMBLClient
-    from library.clients.crossref import CrossrefClient
-    from library.clients.pubmed import PubMedClient
-
-    monkeypatch.setattr(ChEMBLClient, "fetch_document", lambda self, doc_id: chembl_payloads[doc_id])
-    monkeypatch.setattr(CrossrefClient, "fetch_by_doi", lambda self, doi: crossref_payloads[normalise_doi(doi)])
-    monkeypatch.setattr(PubMedClient, "fetch_by_pmid", lambda self, pmid: pubmed_payloads[pmid])
-
-    log_dir = tmp_path / "logs"
-    result = runner.invoke(
-        app,
-        [str(input_path), str(output_path), "--run-id", "test", "--log-dir", str(log_dir)],
+@responses.activate
+def test_run_pipeline_returns_transformed_frame(tmp_path: Path) -> None:
+    config_path = tmp_path / "config.yaml"
+    output_path = tmp_path / "bioactivities.csv"
+    qc_path = tmp_path / "qc.csv"
+    corr_path = tmp_path / "corr.csv"
+    config_path.write_text(
+        f"""
+        sources:
+          - name: chembl
+            base_url: "https://example.com"
+            activities_endpoint: "/activities"
+            page_size: 2
+        output:
+          output_path: "{output_path}"
+          qc_report_path: "{qc_path}"
+          correlation_path: "{corr_path}"
+        retries:
+          max_tries: 2
+        log_level: INFO
+        strict_validation: true
+        """,
+        encoding="utf-8",
     )
 
-    assert result.exit_code == 0, result.output
-    df = pd.read_csv(output_path)
-    assert list(df.columns) == [
-        "document_chembl_id",
-        "doi_key",
-        "pmid",
-        "chembl_title",
-        "chembl_doi",
-        "crossref_title",
-        "pubmed_title",
-    ]
-    assert df.loc[0, "chembl_title"] == "ChEMBL one"
-    assert df.loc[1, "crossref_title"] == "Crossref two"
-    assert df.loc[0, "pubmed_title"] == "PubMed one"
+    responses.add(
+        responses.GET,
+        "https://example.com/activities",
+        json={
+            "activities": [
+                {
+                    "assay_id": 1,
+                    "molecule_chembl_id": "CHEMBL1",
+                    "standard_value": 1.0,
+                    "standard_units": "nM",
+                    "activity_comment": None,
+                }
+            ],
+            "next_page": False,
+        },
+    )
 
-    error_files = list(Path(log_dir).glob("*.error"))
-    assert not error_files
+    result = run_pipeline(config_path)
+    assert isinstance(result, pd.DataFrame)
+    assert result.iloc[0]["standard_units"] == "nM"
+    assert output_path.exists()

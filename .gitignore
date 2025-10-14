@@ -1,13 +1,16 @@
 __pycache__/
 *.py[cod]
+*.pyc
 .env
 .venv/
 venv/
 logs/
 data/
+!data/.gitkeep
 *.egg-info/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml

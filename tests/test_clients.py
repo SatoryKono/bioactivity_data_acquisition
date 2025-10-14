@@ -1,76 +1,48 @@
-"""Tests for HTTP clients."""
-
 from __future__ import annotations
 
-import pytest
 import responses
 
-from library.clients import BioactivityClient
-from library.config import APIClientConfig, RetrySettings
+from library.clients.chembl import ChEMBLClient
 
 
 @responses.activate
-def test_client_fetches_paginated_results() -> None:
-    config = APIClientConfig(
-        name="chembl",
-        url="https://example.com/bioactivity",
-        pagination_param="page",
-        page_size_param="page_size",
-        page_size=2,
-        max_pages=3,
-    )
+def test_fetch_activities_pages_through_results() -> None:
+    client = ChEMBLClient("https://example.com")
     responses.add(
         responses.GET,
-        "https://example.com/bioactivity",
+        "https://example.com/activities",
         json={
-            "results": [
+            "activities": [
                 {
-                    "compound_id": "CHEMBL1",
-                    "target_pref_name": "BRAF",
-                    "activity_value": 1.0,
-                    "activity_units": "nM",
-                },
-                {
-                    "compound_id": "CHEMBL2",
-                    "target_pref_name": "EGFR",
-                    "activity_value": 2.0,
-                    "activity_units": "nM",
-                },
-            ]
+                    "assay_id": 1,
+                    "molecule_chembl_id": "CHEMBL1",
+                    "standard_value": 1.0,
+                    "standard_units": "nM",
+                    "activity_comment": None,
+                }
+            ],
+            "next_page": True,
         },
         status=200,
     )
     responses.add(
         responses.GET,
-        "https://example.com/bioactivity",
-        json={"results": []},
+        "https://example.com/activities",
+        json={
+            "activities": [
+                {
+                    "assay_id": 2,
+                    "molecule_chembl_id": "CHEMBL2",
+                    "standard_value": 2.0,
+                    "standard_units": "uM",
+                    "activity_comment": "active",
+                }
+            ],
+            "next_page": False,
+        },
         status=200,
     )
-
-    client = BioactivityClient(config, retries=RetrySettings(max_tries=1))
-    records = client.fetch_records()
+    activities = list(client.fetch_activities("/activities", page_size=100))
     client.close()
-
-    assert len(records) == 2
-    assert records[0]["source"] == "chembl"
-    assert "retrieved_at" in records[0]
-    assert len(responses.calls) == 2
-
-
-@responses.activate
-def test_client_rejects_invalid_payload_structure() -> None:
-    config = APIClientConfig(name="chembl", url="https://example.com/bioactivity")
-    responses.add(
-        responses.GET,
-        "https://example.com/bioactivity",
-        json={"results": 1},
-        status=200,
-    )
-    client = BioactivityClient(config, retries=RetrySettings(max_tries=1))
-    try:
-        with pytest.raises(ValueError):
-            client.fetch_records()
-    finally:
-        client.close()
-
-
+    assert len(activities) == 2
+    assert activities[1]["standard_units"] == "uM"

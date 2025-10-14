@@ -29,54 +29,47 @@ If you only need the runtime dependencies, drop the `[dev]` extra.
 
 ## Configuration
 
-Pipeline behaviour is controlled via YAML configuration files. Use `configs/example.yaml` as a
+Pipeline behaviour is controlled via YAML configuration files. Use `configs/config.example.yaml` as a
 starting point:
 
 ```yaml
-clients:
+sources:
   - name: chembl
-    url: "https://example.com/api"
-    pagination_param: "page"
-    page_size_param: "page_size"
-    page_size: 100
+    base_url: "https://example.com"
+    activities_endpoint: "/activities"
+    page_size: 200
 output:
-  data_path: "data/output/bioactivity.csv"
+  output_path: "data/output/bioactivities.csv"
   qc_report_path: "data/output/qc_report.csv"
   correlation_path: "data/output/correlation.csv"
 retries:
   max_tries: 5
-  backoff_multiplier: 1.0
-logging:
-  level: INFO
-validation:
-  strict: true
+log_level: INFO
+strict_validation: true
 ```
 
-- **clients** – API sources with optional pagination settings.
+- **sources** – API sources with endpoint configuration and pagination settings.
 - **output** – destinations for normalized data, QC metrics, and correlation matrices.
-- **retries** – `backoff` configuration for HTTP resilience.
-- **logging** – structlog log level.
-- **validation** – toggle strict schema validation.
+- **retries** – retry configuration for HTTP resilience.
+- **log_level** – structlog log level.
+- **strict_validation** – toggle strict schema validation.
 
-Store secrets such as API tokens in environment variables (consider using `.env` files with
-`python-dotenv`).
+Authentication tokens can be injected through an optional `.env` file placed alongside the
+configuration. Declare keys matching `<SOURCE_NAME>_AUTH_TOKEN` (e.g. `CHEMBL_AUTH_TOKEN`).
 
-## Running the CLI
+## Command Line Interface
 
-Use the Typer app to execute the pipeline:
-
-```bash
-bioactivity-etl pipeline --config configs/example.yaml
-```
-
-Or, if you prefer running the module directly:
+Run the pipeline from the CLI using Typer:
 
 ```bash
-python -m library.cli pipeline --config configs/example.yaml
+bioactivity-data-acquisition pipeline --config configs/config.example.yaml
 ```
 
-The command fetches data from all configured sources, applies normalization, and writes CSV outputs
-and QC artefacts to the paths defined in the configuration file.
+Provide `--env-file` if secret tokens live in a `.env` file:
+
+```bash
+bioactivity-data-acquisition pipeline --config configs/config.example.yaml --env-file .env
+```
 
 ## Testing and Quality Gates
 
@@ -89,19 +82,19 @@ pytest
 Type-check the codebase with mypy in strict mode:
 
 ```bash
-mypy --strict library
+mypy src
 ```
 
 Lint and format using ruff and black:
 
 ```bash
 ruff check .
-black --check .
+black .
 ```
 
 ## Pre-commit Hooks
 
-Install the hooks locally to guard commits:
+Install pre-commit hooks to run Ruff, Black, mypy, and pytest automatically:
 
 ```bash
 pre-commit install
@@ -110,5 +103,13 @@ pre-commit run --all-files
 
 ## Continuous Integration
 
-GitHub Actions workflow `.github/workflows/ci.yaml` runs linting (ruff, black), strict mypy, and the
-pytest suite on every push and pull request targeting `main`.
+The GitHub Actions workflow (`.github/workflows/ci.yaml`) runs Ruff, Black, mypy, and pytest
+on each push and pull request targeting `main` or `work`.
+
+## Outputs
+
+The load stage produces three artefacts:
+
+- **Bioactivities CSV** – sorted deterministic dataset.
+- **QC report** – summary metrics (row counts, duplicates, missing values).
+- **Correlation matrix** – numeric correlations saved as CSV.

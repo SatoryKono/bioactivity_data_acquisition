@@ -59,5 +59,3 @@ def test_normalized_schema_requires_nanometer_units(valid_raw_frame: pd.DataFram
         normalized.reset_index(drop=True),
         check_dtype=False,
     )
-
-

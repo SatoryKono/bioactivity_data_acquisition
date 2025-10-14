@@ -1,0 +1,13 @@
+sources:
+  - name: chembl
+    base_url: "https://example.com"
+    activities_endpoint: "/activities"
+    page_size: 2
+output:
+  output_path: "data/output/bioactivities.csv"
+  qc_report_path: "data/output/qc_report.csv"
+  correlation_path: "data/output/correlation.csv"
+retries:
+  max_tries: 3
+log_level: INFO
+strict_validation: true
