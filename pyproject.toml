@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+include = ["library*"]
+
+[project]
+name = "bioactivity-data-acquisition"
+version = "0.1.0"
+description = "Modular ETL pipeline for bioactivity data."
+authors = [{name = "ETL Team"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "backoff>=2.2",
+    "pandas>=1.5",
+    "pandera>=0.17",
+    "pydantic>=1.10",
+    "PyYAML>=6.0",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+    "structlog>=23.1",
+    "typer>=0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black>=23.12",
+    "mypy>=1.8",
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "responses>=0.25",
+    "ruff>=0.3",
+    "types-PyYAML>=6.0.12",
+    "pandas-stubs>=2.2",
+    "types-requests>=2.32",
+]
+
+[project.scripts]
+bioactivity-etl = "library.cli:main"
+
+[tool.pytest.ini_options]
+addopts = "--cov=library --cov-report=term-missing --cov-fail-under=90"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "UP"]
+ignore = []
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+packages = ["library"]
+warn_unused_configs = true
+ignore_missing_imports = true
+plugins = []
+
