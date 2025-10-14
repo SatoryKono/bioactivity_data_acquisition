@@ -2,6 +2,12 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.py[cod]
 *.sqlite
 .http_cache*
 .pytest_cache/
+*.error
+logs/
+.venv/
+.env
+*.log
