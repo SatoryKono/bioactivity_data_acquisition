@@ -1,0 +1,55 @@
+[common.defaults]
+output_dir = "data/output"
+dry_run = true
+postprocess = true
+
+[pipelines.activity]
+description = "Download and normalize activity data from ChEMBL"
+[pipelines.activity.defaults]
+limit = 1000
+postprocess = true
+
+[pipelines.activity.parameters]
+quality_threshold = 0.9
+workers = 4
+
+[pipelines.assay]
+description = "Fetch assay definitions with optional dictionary enrichment"
+[pipelines.assay.defaults]
+limit = 500
+postprocess = true
+
+[pipelines.assay.parameters]
+batch_size = 200
+offline = true
+
+[pipelines.target]
+description = "Aggregate target metadata from ChEMBL and UniProt"
+[pipelines.target.defaults]
+limit = 250
+postprocess = true
+
+[pipelines.target.parameters]
+fetch_mode = "all"
+require_uniprot = true
+
+[pipelines.document]
+description = "Collect document metadata with CrossRef and OpenAlex enrichment"
+[pipelines.document.defaults]
+limit = 100
+postprocess = true
+
+[pipelines.document.parameters]
+mode = "all"
+crossref_rps = 3
+openalex_rps = 2
+
+[pipelines.testitem]
+description = "Download test item molecules with optional PubChem enrichment"
+[pipelines.testitem.defaults]
+limit = 150
+postprocess = true
+
+[pipelines.testitem.parameters]
+include_pubchem = true
+fallback_dictionary = "dictionary/testitem.csv"

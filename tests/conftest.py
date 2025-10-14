@@ -13,6 +13,13 @@ if str(ROOT) not in sys.path:
 from library.utils import logging as logging_utils
 
 
+def pytest_configure() -> None:
+    src = Path(__file__).resolve().parents[1] / "src"
+    src_str = str(src)
+    if src_str not in sys.path:
+        sys.path.insert(0, src_str)
+
+
 @pytest.fixture(autouse=True)
 def reset_shared_session():
     logging_utils.reset_shared_session()
