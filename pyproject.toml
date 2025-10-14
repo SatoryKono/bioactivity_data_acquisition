@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bioactivity-data-acquisition"
+version = "0.1.0"
+description = "ETL pipeline for ChEMBL bioactivity data"
+readme = "README.md"
+authors = [{ name = "Bioactivity Team" }]
+requires-python = ">=3.10"
+dependencies = [
+    "backoff>=2.2",
+    "pandas>=2.1",
+    "pandera[io]>=0.18",
+    "requests>=2.31",
+    "structlog>=24.1",
+    "typer[all]>=0.9",
+    "pydantic>=1.10",
+    "pydantic-settings>=2.0",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+  dev = [
+    "black>=24.4",
+    "mypy>=1.8",
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "responses>=0.25",
+    "ruff>=0.4",
+    "pre-commit>=3.7",
+    "pandera[mypy]>=0.18",
+  ]
+
+[project.scripts]
+bioactivity-data-acquisition = "library.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=library --cov=tests --cov-report=term-missing --cov-fail-under=90"
+testpaths = ["tests"]
+
+[tool.black]
+target-version = ["py310"]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+strict = true
+plugins = ["pandera.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["pandas.*", "pandera.*", "typer", "structlog"]
+ignore_missing_imports = true
