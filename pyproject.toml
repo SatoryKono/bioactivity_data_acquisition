@@ -1,0 +1,28 @@
+[project]
+name = "bioactivity-data-acquisition"
+version = "0.1.0"
+description = "ETL pipeline for consolidating publication metadata"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "ChEMBL ETL" }]
+dependencies = [
+  "pandas>=1.5",
+  "pandera>=0.15",
+  "typer>=0.9",
+  "structlog>=23.0",
+  "requests>=2.31",
+  "backoff>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.3",
+]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+pythonpath = ["."]
