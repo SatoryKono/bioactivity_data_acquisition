@@ -9,7 +9,7 @@ import pandas as pd
 from .config import PipelineConfig
 from .extract import extract_all
 from .load import write_outputs
-from .logging import configure_logging
+from .utils.logging import configure_logging
 from .transform import normalise_units
 
 
