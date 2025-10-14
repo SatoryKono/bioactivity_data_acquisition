@@ -1,23 +1,14 @@
-"""Pandera schema describing the expected input dataset."""
+"""Pandera schema for pipeline input queries."""
+
 from __future__ import annotations
 
 import pandera as pa
-from pandera import Column, DataFrameSchema
 
-
-def input_schema() -> DataFrameSchema:
-    return DataFrameSchema(
-        {
-            "document_chembl_id": Column(pa.String, nullable=False),
-            "doi": Column(pa.String, nullable=True, required=False),
-            "pmid": Column(pa.String, nullable=True, required=False),
-        },
-        coerce=True,
-        strict=False,
-        name="input_publications",
-    )
-
-
-def validate_input(df):
-    return input_schema().validate(df, lazy=True)
-
+INPUT_SCHEMA = pa.DataFrameSchema(
+    {
+        "query": pa.Column(pa.String, nullable=False, checks=pa.Check.str_length(min_value=1)),
+        "type": pa.Column(pa.String, nullable=False, checks=pa.Check.str_length(min_value=1)),
+    },
+    strict=True,
+    name="InputQueries",
+)

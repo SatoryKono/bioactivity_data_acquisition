@@ -1,160 +1,190 @@
-"""CLI entrypoint orchestrating the publications enrichment pipeline."""
+"""CLI entry point for the publications ETL pipeline."""
+
 from __future__ import annotations
 
-import sys
-import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, Mapping, MutableMapping
 
 import pandas as pd
 import typer
-from pandera.errors import SchemaErrors
+import yaml
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field, ValidationError
 
-from project.library.clients.base import create_session
-from project.library.clients.chembl import ChemblClient
-from project.library.clients.crossref import CrossrefClient
-from project.library.clients.openalex import OpenAlexClient
-from project.library.clients.pubmed import PubMedClient
-from project.library.clients.semscholar import SemanticScholarClient
-from project.library.io.normalize import coerce_text, normalise_doi
-from project.library.io.read_write import read_input_csv, write_output_csv
-from project.library.utils.errors import PipelineExecutionError, SchemaMismatchError
-from project.library.utils.joins import merge_records
-from project.library.utils.logging import get_logger, setup_logging
-from project.library.utils.rate_limit import build_rate_limiter
-from project.library.validation.input_schema import validate_input
-from project.library.validation.output_schema import OUTPUT_COLUMNS, validate_output
+from library.clients import BasePublicationsClient, ClientConfig
+from library.clients.chembl import ChemblClient
+from library.clients.crossref import CrossrefClient
+from library.clients.openalex import OpenAlexClient
+from library.clients.pubmed import PubmedClient
+from library.clients.semscholar import SemanticScholarClient
+from library.io.normalize import normalize_publication_frame
+from library.io.read_write import empty_publications_frame, read_queries, write_publications
+from library.utils.errors import ConfigError, ExtractionError, ValidationError as PipelineValidationError
+from library.utils.logging import configure_logging, get_logger
+from library.validation.input_schema import INPUT_SCHEMA
+from library.validation.output_schema import OUTPUT_SCHEMA
 
-app = typer.Typer(help="Fetch and enrich publication metadata from multiple sources.")
+app = typer.Typer(help="Fetch and normalize publication metadata from multiple public APIs.")
+
+CLIENT_FACTORIES: Mapping[str, type[BasePublicationsClient]] = {
+    "chembl": ChemblClient,
+    "pubmed": PubmedClient,
+    "semscholar": SemanticScholarClient,
+    "crossref": CrossrefClient,
+    "openalex": OpenAlexClient,
+}
 
 
-def _first_non_empty(values: List[Optional[str]]) -> Optional[str]:
-    for value in values:
-        if value not in (None, ""):
-            return value
-    return None
+class LoggingConfig(BaseModel):
+    level: str = Field(default="INFO")
+
+
+class EtlConfig(BaseModel):
+    strict_validation: bool = Field(default=True, alias="strict_validation")
+    output_dir: Path | None = Field(default=None, alias="output_dir")
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class SourceConfig(BaseModel):
+    base_url: str
+    api_key: str | None = None
+    rate_limit_per_minute: int | None = Field(default=None, alias="rate_limit_per_minute")
+    headers: Dict[str, str] = Field(default_factory=dict)
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class PipelineConfig(BaseModel):
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    etl: EtlConfig = Field(default_factory=EtlConfig)
+    sources: Dict[str, SourceConfig] = Field(default_factory=dict)
+
+
+def load_config(path: Path) -> PipelineConfig:
+    """Read and validate a pipeline configuration file."""
+
+    if not path.exists():
+        raise ConfigError(f"Configuration file not found: {path}")
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+
+    try:
+        return PipelineConfig.parse_obj(payload)
+    except ValidationError as exc:  # type: ignore[reportUnknownVariableType]
+        raise ConfigError(f"Invalid configuration: {exc}") from exc
+
+
+def build_clients(config: PipelineConfig) -> Dict[str, BasePublicationsClient]:
+    """Instantiate clients defined in the configuration."""
+
+    clients: Dict[str, BasePublicationsClient] = {}
+    for name, source_config in config.sources.items():
+        factory = CLIENT_FACTORIES.get(name)
+        if not factory:
+            continue
+        client_config = ClientConfig(
+            name=name,
+            base_url=source_config.base_url,
+            api_key=source_config.api_key,
+            rate_limit_per_minute=source_config.rate_limit_per_minute,
+            extra_headers=source_config.headers,
+        )
+        clients[name] = factory(client_config)
+    return clients
+
+
+def extract_publications(
+    queries: pd.DataFrame,
+    clients: Mapping[str, BasePublicationsClient],
+) -> pd.DataFrame:
+    """Fetch publications for each query using the configured clients."""
+
+    logger = get_logger("extract")
+    if queries.empty:
+        return empty_publications_frame()
+
+    records: list[dict[str, Any]] = []
+    for _, row in queries.iterrows():
+        query = str(row["query"])
+        for name, client in clients.items():
+            try:
+                payload = client.fetch_publications(query)
+            except ExtractionError as exc:
+                logger.warning("fetch_failed", source=name, query=query, error=str(exc))
+                continue
+            for record in payload:
+                enriched: MutableMapping[str, Any] = dict(record)
+                enriched.setdefault("source", name)
+                enriched.setdefault("identifier", query)
+                enriched.setdefault("title", f"Publication for {query}")
+                enriched.setdefault("published_at", pd.NaT)
+                enriched.setdefault("doi", None)
+                records.append(dict(enriched))
+
+    if not records:
+        return empty_publications_frame()
+
+    frame = pd.DataFrame.from_records(records)
+    return normalize_publication_frame(frame)
 
 
 @app.command()
-def main(
-    input_path: Path = typer.Argument(..., exists=True, readable=True, help="Path to input CSV."),
-    output_path: Path = typer.Argument(..., help="Path to write the enriched CSV."),
-    run_id: Optional[str] = typer.Option(None, help="Optional run identifier."),
-    global_rps: Optional[float] = typer.Option(10.0, help="Global requests-per-second limit."),
+def extract(
+    config: Path = typer.Option(..., exists=True, readable=True, help="Path to the YAML configuration file."),
+    input: Path = typer.Option(..., exists=True, readable=True, help="CSV file with queries."),
 ) -> None:
-    setup_logging()
-    resolved_run_id = run_id or uuid.uuid4().hex
-    pipeline_logger = get_logger(resolved_run_id, stage="pipeline", source="cli")
-    pipeline_logger.info("starting pipeline", extra={"extra_fields": {"input": str(input_path), "output": str(output_path)}})
+    """Extract publication metadata without writing to disk."""
+
+    _execute_pipeline(config, input, output=None)
+
+
+@app.command()
+def run(
+    config: Path = typer.Option(..., exists=True, readable=True, help="Path to the YAML configuration file."),
+    input: Path = typer.Option(..., exists=True, readable=True, help="CSV file with queries."),
+    output: Path = typer.Option(..., writable=True, help="Destination CSV for the publications."),
+) -> None:
+    """Run the full ETL pipeline and persist the normalized output."""
+
+    _execute_pipeline(config, input, output=output)
+
+
+def _execute_pipeline(config_path: Path, input_path: Path, output: Path | None) -> pd.DataFrame:
+    load_dotenv()
+    config = load_config(config_path)
+    configure_logging(config.logging.level)
+    logger = get_logger("pipeline")
+
+    queries = read_queries(input_path)
+    try:
+        validated_queries = INPUT_SCHEMA.validate(queries, lazy=config.etl.strict_validation)
+    except Exception as exc:  # noqa: BLE001
+        raise PipelineValidationError(f"Input validation failed: {exc}") from exc
+
+    clients = build_clients(config)
+    publications = extract_publications(validated_queries, clients)
 
     try:
-        df_input = read_input_csv(input_path)
-        df_validated = validate_input(df_input)
-    except SchemaErrors as exc:
-        raise SchemaMismatchError("Input data failed validation") from exc
+        validated_publications = OUTPUT_SCHEMA.validate(
+            publications,
+            lazy=config.etl.strict_validation,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise PipelineValidationError(f"Output validation failed: {exc}") from exc
 
-    session = create_session()
-    global_limiter = build_rate_limiter(global_rps)
-    chembl = ChemblClient(run_id=resolved_run_id, session=session, global_limiter=global_limiter)
-    crossref = CrossrefClient(run_id=resolved_run_id, session=session, global_limiter=global_limiter)
-    openalex = OpenAlexClient(run_id=resolved_run_id, session=session, global_limiter=global_limiter)
-    pubmed = PubMedClient(run_id=resolved_run_id, session=session, global_limiter=global_limiter)
-    semscholar = SemanticScholarClient(run_id=resolved_run_id, session=session, global_limiter=global_limiter)
+    if output:
+        target = output
+        if target.is_dir():
+            target = target / "publications.csv"
+        write_publications(validated_publications, target)
+        logger.info("pipeline_completed", output=str(target), records=len(validated_publications))
 
-    enriched_rows = []
-    for row in df_validated.itertuples(index=False):
-        doc_id = coerce_text(getattr(row, "document_chembl_id", None))
-        raw_doi = normalise_doi(getattr(row, "doi", None))
-        raw_pmid = coerce_text(getattr(row, "pmid", None))
-        row_logger = get_logger(resolved_run_id, stage="extract", source="pipeline", doc_id=doc_id, doi=raw_doi, pmid=raw_pmid)
-        row_logger.info("processing row")
-
-        chembl_data = {}
-        try:
-            chembl_data = chembl.fetch_by_doc_id(doc_id)
-        except Exception:
-            # Errors already logged by the client-specific logger.
-            chembl_data = {}
-
-        doi_candidates = [raw_doi, chembl_data.get("chembl.doi")]
-        pmid_candidates = [raw_pmid, chembl_data.get("chembl.pmid")]
-
-        crossref_data = {}
-        doi_lookup = _first_non_empty(doi_candidates)
-        try:
-            if doi_lookup:
-                crossref_data = crossref.fetch_by_doi(doi_lookup)
-            else:
-                crossref_data = crossref.fetch_by_pmid(_first_non_empty(pmid_candidates))
-        except Exception:
-            crossref_data = {}
-        doi_candidates.append(crossref_data.get("crossref.doi"))
-        pmid_candidates.append(crossref_data.get("crossref.pmid"))
-
-        openalex_data = {}
-        try:
-            if doi_lookup:
-                openalex_data = openalex.fetch_by_doi(doi_lookup)
-            if not openalex_data:
-                openalex_data = openalex.fetch_by_pmid(_first_non_empty(pmid_candidates))
-        except Exception:
-            openalex_data = {}
-        doi_candidates.append(openalex_data.get("openalex.doi"))
-        pmid_candidates.append(openalex_data.get("openalex.pmid"))
-
-        pmid_lookup = _first_non_empty(pmid_candidates)
-        pubmed_data = {}
-        semscholar_data = {}
-        if pmid_lookup:
-            try:
-                pubmed_data = pubmed.fetch_by_pmid(pmid_lookup)
-            except Exception:
-                pubmed_data = {}
-            try:
-                semscholar_data = semscholar.fetch_by_pmid(pmid_lookup)
-            except Exception:
-                semscholar_data = {}
-        doi_candidates.extend([
-            pubmed_data.get("pubmed.doi"),
-            semscholar_data.get("semscholar.doi"),
-        ])
-        pmid_candidates.extend([
-            pubmed_data.get("pubmed.pmid"),
-            semscholar_data.get("semscholar.pmid"),
-        ])
-
-        doi_key = _first_non_empty([normalise_doi(v) for v in doi_candidates])
-        pmid_value = _first_non_empty([coerce_text(v) for v in pmid_candidates])
-
-        base_record = {
-            "chembl.document_chembl_id": doc_id,
-            "doi_key": doi_key,
-            "pmid": pmid_value,
-        }
-        merged = merge_records(base_record, [chembl_data, crossref_data, openalex_data, pubmed_data, semscholar_data])
-        merged["doi_key"] = doi_key
-        merged["pmid"] = pmid_value
-        enriched_rows.append(merged)
-
-    df_output = pd.DataFrame(enriched_rows)
-    if not df_output.empty:
-        df_output = df_output.sort_values(
-            by=["chembl.document_chembl_id", "doi_key", "pmid"],
-            na_position="last",
-        ).reset_index(drop=True)
-
-    try:
-        validate_output(df_output)
-    except SchemaErrors as exc:
-        raise SchemaMismatchError("Output data failed validation") from exc
-
-    write_output_csv(df_output, output_path, columns=OUTPUT_COLUMNS)
-    pipeline_logger.info("pipeline finished", extra={"extra_fields": {"rows": len(df_output)}})
+    return validated_publications
 
 
 if __name__ == "__main__":
-    try:
-        app()
-    except PipelineExecutionError as exc:  # pragma: no cover - CLI exit handling
-        typer.echo(str(exc), err=True)
-        sys.exit(1)
+    app()

@@ -1,33 +1,30 @@
-"""Utilities for merging client payloads into a unified record."""
+"""Utility helpers for deterministic DataFrame joins."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Mapping
+from typing import Iterable, Sequence
+
+import pandas as pd
 
 
-def merge_records(base: Mapping[str, Any], payloads: Iterable[Mapping[str, Any]]) -> Dict[str, Any]:
-    """Merge payloads preferring the first non-empty value for every field."""
+def safe_left_join(
+    left: pd.DataFrame,
+    right: pd.DataFrame,
+    *,
+    on: Sequence[str] | str,
+    suffixes: tuple[str, str] = ("_left", "_right"),
+    validate: str = "one_to_many",
+) -> pd.DataFrame:
+    """Perform a left join with validation and deterministic column ordering."""
 
-    result: Dict[str, Any] = dict(base)
-    for payload in payloads:
-        for key, value in payload.items():
-            if value in (None, ""):
-                continue
-            if key not in result or result[key] in (None, ""):
-                result[key] = value
-            else:
-                # Keep values deterministic: convert conflicting scalars to first value, but append
-                # alternative values to a list for traceability.
-                if result[key] == value:
-                    continue
-                list_key = f"{key}__alternatives"
-                existing = result.get(list_key)
-                if isinstance(existing, list):
-                    if value not in existing:
-                        existing.append(value)
-                else:
-                    alt_list = [result[key]]
-                    if value not in alt_list:
-                        alt_list.append(value)
-                    result[list_key] = alt_list
-    return result
+    merged = left.merge(right, how="left", on=on, suffixes=suffixes, validate=validate)
+    ordered_columns: list[str] = list(dict.fromkeys(list(left.columns) + list(right.columns)))
+    return merged.loc[:, [column for column in ordered_columns if column in merged.columns]]
 
+
+def ensure_unique(left: pd.DataFrame, subset: Iterable[str]) -> pd.DataFrame:
+    """Return a DataFrame without duplicate rows on the provided subset."""
+
+    deduplicated = left.drop_duplicates(subset=list(subset))
+    deduplicated.reset_index(drop=True, inplace=True)
+    return deduplicated

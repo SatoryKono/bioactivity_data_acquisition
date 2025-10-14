@@ -1,32 +1,30 @@
-"""I/O helpers for reading inputs and writing outputs deterministically."""
+"""I/O helpers for interacting with CSV artifacts."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, Optional
 
 import pandas as pd
 
-from .normalize import coerce_text
+from library.io.normalize import QUERY_COLUMNS, PUBLICATION_COLUMNS, normalize_publication_frame, normalize_query_frame
 
 
-def read_input_csv(path: Path) -> pd.DataFrame:
-    """Read the input CSV file forcing string dtype for identifier columns."""
+def read_queries(path: Path) -> pd.DataFrame:
+    """Load a CSV containing search queries."""
 
-    df = pd.read_csv(path, dtype=str).fillna("")
-    for column in df.columns:
-        df[column] = df[column].apply(coerce_text)
-    return df
+    frame = pd.read_csv(path)
+    return normalize_query_frame(frame)
 
 
-def write_output_csv(df: pd.DataFrame, path: Path, columns: Optional[Iterable[str]] = None) -> None:
-    """Write a DataFrame to CSV deterministically by ordering columns and rows."""
+def write_publications(df: pd.DataFrame, path: Path) -> None:
+    """Persist publication records as a deterministic CSV."""
 
+    normalized = normalize_publication_frame(df)
     path.parent.mkdir(parents=True, exist_ok=True)
-    ordered_df = df.copy()
-    if columns is not None:
-        missing = [c for c in columns if c not in ordered_df.columns]
-        for column in missing:
-            ordered_df[column] = None
-        ordered_df = ordered_df.loc[:, list(columns)]
-    ordered_df.to_csv(path, index=False, encoding="utf-8", na_rep="", line_terminator="\n")
+    normalized.to_csv(path, index=False, encoding="utf-8")
 
+
+def empty_publications_frame() -> pd.DataFrame:
+    """Return an empty DataFrame with the canonical publication columns."""
+
+    return pd.DataFrame(columns=PUBLICATION_COLUMNS)

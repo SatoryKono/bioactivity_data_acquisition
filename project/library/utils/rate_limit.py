@@ -1,63 +1,27 @@
-"""Rate limiting utilities for controlling HTTP throughput."""
+"""Simple rate limiting helpers for HTTP clients."""
+
 from __future__ import annotations
 
-import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
-class RateLimitConfig:
-    """Configuration for rate limiting in requests per second."""
-
-    rps: float
-
-
 class RateLimiter:
-    """A simple thread-safe rate limiter enforcing a minimum interval between calls."""
+    """Token bucket style limiter based on a fixed per-minute allowance."""
 
-    def __init__(self, rate_limit: RateLimitConfig | None = None) -> None:
-        self._rate_limit = rate_limit
-        self._lock = threading.Lock()
-        self._next_allowed_time = 0.0
+    rate_per_minute: int | None = None
+    _last_invocation: float = field(default=0.0, init=False, repr=False)
 
-    @property
-    def enabled(self) -> bool:
-        return bool(self._rate_limit and self._rate_limit.rps > 0)
+    def throttle(self) -> None:
+        """Sleep just enough to respect the configured rate limit."""
 
-    def wait(self) -> None:
-        if not self.enabled:
+        if not self.rate_per_minute:
             return
-        interval = 1.0 / self._rate_limit.rps
-        with self._lock:
-            now = time.monotonic()
-            if now < self._next_allowed_time:
-                sleep_for = self._next_allowed_time - now
-            else:
-                sleep_for = 0.0
-            self._next_allowed_time = max(self._next_allowed_time, now) + interval
-        if sleep_for > 0:
-            time.sleep(sleep_for)
 
-
-class CompositeRateLimiter:
-    """Combines a global and per-client limiter."""
-
-    def __init__(self, global_limiter: RateLimiter | None, client_limiter: RateLimiter | None) -> None:
-        self._global_limiter = global_limiter
-        self._client_limiter = client_limiter
-
-    def wait(self) -> None:
-        if self._global_limiter:
-            self._global_limiter.wait()
-        if self._client_limiter:
-            self._client_limiter.wait()
-
-
-def build_rate_limiter(rps: float | None) -> RateLimiter | None:
-    """Create a :class:`RateLimiter` from a requested RPS value."""
-
-    if rps is None:
-        return None
-    return RateLimiter(RateLimitConfig(rps=rps))
-
+        interval = 60.0 / float(self.rate_per_minute)
+        now = time.monotonic()
+        elapsed = now - self._last_invocation
+        if self._last_invocation and elapsed < interval:
+            time.sleep(interval - elapsed)
+        self._last_invocation = time.monotonic()

@@ -1,41 +1,46 @@
-"""Normalisation helpers for publication identifiers and text fields."""
+"""Normalization helpers for pipeline inputs and outputs."""
+
 from __future__ import annotations
 
-import re
-from typing import Optional
+from typing import Iterable
+
+import pandas as pd
 
 
-_DOI_PREFIX = re.compile(r"^https?://(dx\.)?doi\.org/", re.IGNORECASE)
-_WHITESPACE = re.compile(r"\s+")
+QUERY_COLUMNS = ["query", "type"]
+PUBLICATION_COLUMNS = ["source", "identifier", "title", "published_at", "doi"]
 
 
-def coerce_text(value: object) -> Optional[str]:
-    """Convert arbitrary values to trimmed strings, returning ``None`` for empty values."""
+def normalize_query_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy with canonical column names and whitespace trimmed."""
 
-    if value is None:
-        return None
-    if isinstance(value, str):
-        text = value.strip()
-    else:
-        text = str(value).strip()
-    return text or None
-
-
-def to_lc_stripped(value: object) -> Optional[str]:
-    text = coerce_text(value)
-    return text.lower() if text is not None else None
+    normalized = df.copy()
+    normalized.columns = [column.strip().lower() for column in normalized.columns]
+    for column in QUERY_COLUMNS:
+        if column in normalized.columns:
+            normalized[column] = normalized[column].astype(str).str.strip()
+    return normalized.loc[:, [column for column in QUERY_COLUMNS if column in normalized.columns]]
 
 
-def normalise_doi(value: object) -> Optional[str]:
-    """Normalise a DOI by stripping URL prefixes, trimming whitespace and lower-casing."""
+def normalize_publication_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """Deterministically order publication columns and sort the frame."""
 
-    text = coerce_text(value)
-    if text is None:
-        return None
-    text = _DOI_PREFIX.sub("", text)
-    text = _WHITESPACE.sub("", text)
-    text = text.strip().strip(".")
-    if not text:
-        return None
-    return text.lower()
+    normalized = df.copy()
+    for column in PUBLICATION_COLUMNS:
+        if column not in normalized.columns:
+            normalized[column] = pd.NA
+    normalized = normalized[PUBLICATION_COLUMNS]
+    if "published_at" in normalized:
+        normalized["published_at"] = pd.to_datetime(normalized["published_at"], errors="coerce")
+    normalized.sort_values(by=["identifier", "source"], inplace=True, ignore_index=True)
+    return normalized
 
+
+def ensure_columns(df: pd.DataFrame, columns: Iterable[str]) -> pd.DataFrame:
+    """Ensure that all columns exist, filling missing ones with ``pd.NA``."""
+
+    enriched = df.copy()
+    for column in columns:
+        if column not in enriched.columns:
+            enriched[column] = pd.NA
+    return enriched

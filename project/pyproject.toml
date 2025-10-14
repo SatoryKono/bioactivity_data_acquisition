@@ -1,49 +1,89 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
 
 [project]
-name = "project-publications-etl"
+name = "bioactivity-data-pipeline"
 version = "0.1.0"
-description = "ETL pipeline for fetching and normalising publication metadata from multiple sources."
+description = "ETL tooling for fetching bioactivity-related publications from multiple sources."
 readme = "README.md"
-authors = [{name = "Bioactivity Data Engineering", email = "data@example.com"}]
 requires-python = ">=3.10"
+authors = [{name = "Bioactivity Data Team", email = "data@example.com"}]
+license = {text = "MIT"}
+keywords = ["etl", "bioactivity", "chembl", "openalex", "publications"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
 dependencies = [
-    "requests>=2.31",
-    "requests-cache>=1.1",
-    "backoff>=2.2",
-    "pandas>=2.0",
-    "pandera>=0.17",
-    "typer>=0.9",
+  "backoff>=2.2",
+  "pandas>=2.1",
+  "pandera>=0.16",
+  "pydantic>=1.10",
+  "python-dotenv>=1.0",
+  "PyYAML>=6.0",
+  "requests>=2.31",
+  "structlog>=23.2",
+  "typer[all]>=0.9",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4",
-    "responses>=0.25",
-    "mypy>=1.6",
-    "ruff>=0.1.7",
+  "mypy>=1.8",
+  "pre-commit>=3.6",
+  "pytest>=7.4",
+  "pytest-cov>=4.1",
+  "ruff>=0.2",
+  "types-PyYAML>=6.0.12",
+  "types-requests>=2.31.0",
 ]
 
 [project.scripts]
-fetch-publications = "project.scripts.fetch_publications:app"
+fetch-publications = "scripts.fetch_publications:app"
 
-[tool.ruff]
-line-length = 100
-select = ["E", "F", "I", "B", "UP", "N", "BLE", "SIM"]
+[tool.pytest.ini_options]
+addopts = "-ra -q"
+testpaths = ["tests"]
+xfail_strict = true
+filterwarnings = [
+  "error::FutureWarning",
+  "error::pandas.errors.PerformanceWarning",
+]
 
 [tool.mypy]
 python_version = "3.10"
-check_untyped_defs = true
-warn_unused_ignores = true
-warn_redundant_casts = true
-warn_return_any = true
+files = ["library", "scripts"]
+strict = true
 warn_unused_configs = true
-ignore_missing_imports = true
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = false
 
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-ra"
-testpaths = ["tests"]
+[tool.ruff]
+line-length = 100
+src = ["library", "scripts", "tests"]
+target-version = "py310"
 
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "N", "S", "C4", "T20"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"
+
+[tool.coverage.run]
+branch = true
+source = ["library", "scripts"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
