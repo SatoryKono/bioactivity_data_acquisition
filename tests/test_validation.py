@@ -7,55 +7,57 @@ import pandas.testing as pdt
 import pandera.errors as pa_errors
 import pytest
 
-from library.validation import NormalizedBioactivitySchema, RawBioactivitySchema
+from src.library.validation.input_schema import INPUT_SCHEMA
+from src.library.validation.output_schema import OUTPUT_SCHEMA
 
 
 @pytest.fixture()
-def valid_raw_frame() -> pd.DataFrame:
+def valid_input_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "compound_id": ["CHEMBL1"],
-            "target_pref_name": ["BRAF"],
-            "activity_value": [12.3],
-            "activity_units": ["nM"],
-            "source": ["chembl"],
-            "retrieved_at": [pd.Timestamp("2024-01-01T00:00:00Z")],
-            "smiles": ["CCO"],
+            "assay_id": [12345],
+            "molecule_chembl_id": ["CHEMBL1"],
+            "standard_value": [12.3],
+            "standard_units": ["nM"],
+            "activity_comment": ["active"],
         }
     )
 
 
-def test_raw_schema_accepts_valid_frame(valid_raw_frame: pd.DataFrame) -> None:
-    validated = RawBioactivitySchema.validate(valid_raw_frame, lazy=True)
+@pytest.fixture()
+def valid_output_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "assay_id": [12345],
+            "molecule_chembl_id": ["CHEMBL1"],
+            "standard_value_nm": [12.3],
+            "standard_units": ["nM"],
+            "activity_comment": ["active"],
+            "source": ["chembl"],
+        }
+    )
+
+
+def test_input_schema_accepts_valid_frame(valid_input_frame: pd.DataFrame) -> None:
+    validated = INPUT_SCHEMA.validate(valid_input_frame, lazy=True)
     pdt.assert_frame_equal(
         validated.reset_index(drop=True),
-        valid_raw_frame.reset_index(drop=True),
+        valid_input_frame.reset_index(drop=True),
         check_dtype=False,
     )
 
 
-def test_raw_schema_rejects_invalid_units(valid_raw_frame: pd.DataFrame) -> None:
-    invalid = valid_raw_frame.copy()
-    invalid.loc[0, "activity_units"] = "mM"
+def test_input_schema_rejects_invalid_units(valid_input_frame: pd.DataFrame) -> None:
+    invalid = valid_input_frame.copy()
+    invalid.loc[0, "standard_units"] = "mg/mL"
     with pytest.raises(pa_errors.SchemaErrors):
-        RawBioactivitySchema.validate(invalid, lazy=True)
+        INPUT_SCHEMA.validate(invalid, lazy=True)
 
 
-def test_normalized_schema_requires_nanometer_units(valid_raw_frame: pd.DataFrame) -> None:
-    normalized = pd.DataFrame(
-        {
-            "compound_id": ["CHEMBL1"],
-            "target": ["BRAF"],
-            "activity_value": [12.3],
-            "activity_unit": ["nM"],
-            "source": ["chembl"],
-            "retrieved_at": [pd.Timestamp("2024-01-01T00:00:00Z")],
-            "smiles": ["CCO"],
-        }
-    )
-    result = NormalizedBioactivitySchema.validate(normalized, lazy=True)
+def test_output_schema_requires_nanometer_units(valid_output_frame: pd.DataFrame) -> None:
+    result = OUTPUT_SCHEMA.validate(valid_output_frame, lazy=True)
     pdt.assert_frame_equal(
         result.reset_index(drop=True),
-        normalized.reset_index(drop=True),
+        valid_output_frame.reset_index(drop=True),
         check_dtype=False,
     )
