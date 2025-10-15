@@ -5,13 +5,13 @@ from __future__ import annotations
 import importlib.util
 
 import pandas as pd
+from pandera.typing import Series
 
 _PANDERA_PANDAS_SPEC = importlib.util.find_spec("pandera.pandas")
 if _PANDERA_PANDAS_SPEC is not None:  # pragma: no cover - import side effect
     import pandera.pandas as pa  # type: ignore[no-redef]
 else:  # pragma: no cover - import side effect
     import pandera as pa
-from pandera.typing import Series
 
 
 class NormalizedBioactivitySchema(pa.DataFrameModel):

@@ -59,18 +59,23 @@ class SemanticScholarClient(BaseApiClient):
 
         record: dict[str, Any | None] = {
             "source": "semantic_scholar",
-            "pmid": self._extract_pmid(payload),
-            "doi": external_ids.get("DOI"),
+            "semantic_scholar_pmid": self._extract_pmid(payload),
+            "semantic_scholar_doi": external_ids.get("DOI"),
+            "semantic_scholar_semantic_scholar_id": payload.get("paperId"),
+            "semantic_scholar_publication_types": payload.get("publicationTypes"),
+            "semantic_scholar_venue": (payload.get("publicationVenue") or {}).get("name")
+            if isinstance(payload.get("publicationVenue"), dict)
+            else None,
+            "semantic_scholar_external_ids": str(external_ids) if external_ids else None,
+            "semantic_scholar_error": None,  # Will be set if there's an error
+            # Legacy fields for backward compatibility
             "title": payload.get("title"),
             "abstract": payload.get("abstract"),
             "year": payload.get("year"),
-            "publication_venue": (payload.get("publicationVenue") or {}).get("name")
-            if isinstance(payload.get("publicationVenue"), dict)
-            else None,
-            "publication_types": payload.get("publicationTypes"),
             "authors": author_names,
         }
-        return {key: value for key, value in record.items() if value is not None}
+        # Return all fields, including None values, to maintain schema consistency
+        return record
 
     def _extract_pmid(self, payload: dict[str, Any]) -> str | None:
         external_ids = payload.get("externalIds") or {}

@@ -50,11 +50,18 @@ class CrossrefClient(BaseApiClient):
         return self._parse_work(items[0])
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
+        # Обрабатываем subject - если это пустой список, возвращаем None
+        subject = work.get("subject")
+        if isinstance(subject, list) and not subject:
+            subject = None
+        
         record: dict[str, Any | None] = {
             "source": "crossref",
-            "doi": work.get("DOI"),
-            "title": (work.get("title") or [None])[0] if isinstance(work.get("title"), list) else work.get("title"),
-            "pmid": work.get("pub-med-id") or work.get("PMID"),
-            "issued": work.get("issued"),
+            "doi_key": work.get("DOI"),
+            "crossref_title": (work.get("title") or [None])[0] if isinstance(work.get("title"), list) else work.get("title"),
+            "crossref_doc_type": work.get("type"),
+            "crossref_subject": subject,
+            "crossref_error": None,  # Will be set if there's an error
         }
-        return {key: value for key, value in record.items() if value is not None}
+        # Return all fields, including None values, to maintain schema consistency
+        return record

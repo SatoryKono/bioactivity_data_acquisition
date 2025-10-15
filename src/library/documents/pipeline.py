@@ -89,7 +89,7 @@ def _get_base_url(source: str) -> str:
         "chembl": "https://www.ebi.ac.uk/chembl/api/data",
         "crossref": "https://api.crossref.org/works",
         "openalex": "https://api.openalex.org/works",
-        "pubmed": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi",
+        "pubmed": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/",
         "semantic_scholar": "https://api.semanticscholar.org/graph/v1/paper",
     }
     return urls.get(source, "")
@@ -116,46 +116,49 @@ def _extract_data_from_source(
     
     for _, row in frame.iterrows():
         try:
+            # Start with the original row data
+            row_data = row.to_dict()
+            
             if source == "chembl":
                 if pd.notna(row.get("document_chembl_id")):
                     data = client.fetch_by_doc_id(str(row["document_chembl_id"]))
-                    enriched_data.append({**row.to_dict(), **data})
-                else:
-                    enriched_data.append(row.to_dict())
+                    # Remove source from data to avoid overwriting
+                    data.pop("source", None)
+                    row_data.update(data)
                     
             elif source == "crossref":
                 if pd.notna(row.get("doi")):
                     data = client.fetch_by_doi(str(row["doi"]))
-                    enriched_data.append({**row.to_dict(), **data})
+                    data.pop("source", None)
+                    row_data.update(data)
                 elif pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
-                    enriched_data.append({**row.to_dict(), **data})
-                else:
-                    enriched_data.append(row.to_dict())
+                    data.pop("source", None)
+                    row_data.update(data)
                     
             elif source == "openalex":
                 if pd.notna(row.get("doi")):
                     data = client.fetch_by_doi(str(row["doi"]))
-                    enriched_data.append({**row.to_dict(), **data})
+                    data.pop("source", None)
+                    row_data.update(data)
                 elif pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
-                    enriched_data.append({**row.to_dict(), **data})
-                else:
-                    enriched_data.append(row.to_dict())
+                    data.pop("source", None)
+                    row_data.update(data)
                     
             elif source == "pubmed":
                 if pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
-                    enriched_data.append({**row.to_dict(), **data})
-                else:
-                    enriched_data.append(row.to_dict())
+                    data.pop("source", None)
+                    row_data.update(data)
                     
             elif source == "semantic_scholar":
                 if pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
-                    enriched_data.append({**row.to_dict(), **data})
-                else:
-                    enriched_data.append(row.to_dict())
+                    data.pop("source", None)
+                    row_data.update(data)
+            
+            enriched_data.append(row_data)
                     
         except Exception as exc:
             # Log error but continue processing other records
@@ -227,10 +230,24 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         {"metric": "enabled_sources", "value": len(enabled_sources)},
     ]
     
-    # Add source-specific metrics
+    # Add source-specific metrics based on non-null fields
     for source in enabled_sources:
-        if "source" in enriched_frame.columns:
-            source_data_count = len(enriched_frame[enriched_frame["source"] == source])
+        if source == "chembl":
+            source_data_count = len(enriched_frame[enriched_frame["document_chembl_id"].notna()])
+        elif source == "openalex":
+            source_data_count = len(enriched_frame[enriched_frame["openalex_title"].notna()])
+        elif source == "crossref":
+            source_data_count = len(enriched_frame[enriched_frame["crossref_title"].notna()])
+        elif source == "pubmed":
+            if "pubmed_pmid" in enriched_frame.columns:
+                source_data_count = len(enriched_frame[enriched_frame["pubmed_pmid"].notna()])
+            else:
+                source_data_count = 0
+        elif source == "semantic_scholar":
+            if "scholar_pmid" in enriched_frame.columns:
+                source_data_count = len(enriched_frame[enriched_frame["scholar_pmid"].notna()])
+            else:
+                source_data_count = 0
         else:
             source_data_count = 0
         qc_metrics.append({"metric": f"{source}_records", "value": source_data_count})

@@ -45,12 +45,20 @@ class OpenAlexClient(BaseApiClient):
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         ids = work.get("ids") or {}
+        
+        # Извлекаем DOI и убираем префикс https://doi.org/
+        doi_value = work.get("doi") or ids.get("doi")
+        if doi_value and doi_value.startswith("https://doi.org/"):
+            doi_value = doi_value.replace("https://doi.org/", "")
+        
         record: dict[str, Any | None] = {
             "source": "openalex",
-            "openalex_id": work.get("id"),
-            "doi": work.get("doi") or ids.get("doi"),
-            "pmid": ids.get("pmid"),
-            "title": work.get("display_name"),
-            "publication_year": work.get("publication_year"),
+            "openalex_doi_key": doi_value,
+            "openalex_title": work.get("title") or work.get("display_name"),
+            "openalex_doc_type": work.get("type"),
+            "openalex_type_crossref": work.get("type_crossref"),
+            "openalex_publication_year": work.get("publication_year"),
+            "openalex_error": None,  # Will be set if there's an error
         }
-        return {key: value for key, value in record.items() if value is not None}
+        # Return all fields, including None values, to maintain schema consistency
+        return record

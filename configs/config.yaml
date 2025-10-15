@@ -46,10 +46,17 @@ sources:
         Accept: application/json
   pubmed:
     name: pubmed
+    rate_limit:
+      max_calls: 10  # С API ключом можно делать 10 запросов в секунду
+      period: 1.0
     http:
-      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi
+      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
+      timeout_sec: 60.0  # Увеличиваем таймаут для медленных запросов
       headers:
         Accept: application/json
+        User-Agent: bioactivity-data-acquisition/0.1.0
+      # API ключ для увеличения лимитов (опционально)
+      # api_key: "{pubmed_api_key}"
   semantic_scholar:
     name: semantic_scholar
     http:

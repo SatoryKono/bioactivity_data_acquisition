@@ -24,9 +24,22 @@ class ChEMBLClient(BaseApiClient):
         record: dict[str, Any | None] = {
             "source": "chembl",
             "document_chembl_id": document.get("document_chembl_id"),
-            "pubmed_id": document.get("pubmed_id"),
-            "doi": document.get("doi"),
             "title": document.get("title"),
+            "doi": document.get("doi"),
+            "pubmed_id": document.get("pubmed_id"),
+            "doc_type": document.get("doc_type"),
+            "journal": document.get("journal"),
+            "year": document.get("year"),
+            # ChemBL-specific fields (согласно схеме)
+            "chembl_title": document.get("title"),
+            "chembl_doi": document.get("doi"),
+            "chembl_pubmed_id": document.get("pubmed_id"),
+            "chembl_journal": document.get("journal"),
+            "chembl_year": document.get("year"),
+            "chembl_volume": document.get("volume"),
+            "chembl_issue": document.get("issue"),
+            # Legacy fields for backward compatibility
             "abstract": document.get("abstract"),
         }
-        return {key: value for key, value in record.items() if value is not None}
+        # Return all fields, including None values, to maintain schema consistency
+        return record

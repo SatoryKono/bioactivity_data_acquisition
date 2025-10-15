@@ -47,8 +47,8 @@ class DocumentOutputSchema(pa.DataFrameModel):
         description="Data source that provided the enrichment"
     )
     
-    # OpenAlex-specific fields
-    doi_key: Series[str] = pa.Field(nullable=True, description="DOI key for joining")
+    # OpenAlex-specific fields (согласно таблице)
+    openalex_doi_key: Series[str] = pa.Field(nullable=True, description="DOI key for joining")
     openalex_title: Series[str] = pa.Field(
         nullable=True, description="Title from OpenAlex"
     )
@@ -63,7 +63,7 @@ class DocumentOutputSchema(pa.DataFrameModel):
     )
     openalex_error: Series[str] = pa.Field(nullable=True, description="Error from OpenAlex")
     
-    # Crossref-specific fields
+    # Crossref-specific fields (согласно таблице)
     crossref_title: Series[str] = pa.Field(
         nullable=True, description="Title from Crossref"
     )
@@ -73,26 +73,26 @@ class DocumentOutputSchema(pa.DataFrameModel):
     crossref_subject: Series[str] = pa.Field(nullable=True, description="Subject from Crossref")
     crossref_error: Series[str] = pa.Field(nullable=True, description="Error from Crossref")
     
-    # Semantic Scholar-specific fields
-    scholar_pmid: Series[str] = pa.Field(nullable=True, description="PMID from Semantic Scholar")
-    scholar_doi: Series[str] = pa.Field(nullable=True, description="DOI from Semantic Scholar")
-    scholar_semantic_scholar_id: Series[str] = pa.Field(
+    # Semantic Scholar-specific fields (согласно таблице)
+    semantic_scholar_pmid: Series[str] = pa.Field(nullable=True, description="PMID from Semantic Scholar")
+    semantic_scholar_doi: Series[str] = pa.Field(nullable=True, description="DOI from Semantic Scholar")
+    semantic_scholar_semantic_scholar_id: Series[str] = pa.Field(
         nullable=True, description="Semantic Scholar ID"
     )
-    scholar_publication_types: Series[str] = pa.Field(
+    semantic_scholar_publication_types: Series[str] = pa.Field(
         nullable=True, description="Publication types from Semantic Scholar"
     )
-    scholar_venue: Series[str] = pa.Field(
+    semantic_scholar_venue: Series[str] = pa.Field(
         nullable=True, description="Venue from Semantic Scholar"
     )
-    scholar_external_ids: Series[str] = pa.Field(
+    semantic_scholar_external_ids: Series[str] = pa.Field(
         nullable=True, description="External IDs JSON from Semantic Scholar"
     )
-    scholar_error: Series[str] = pa.Field(
+    semantic_scholar_error: Series[str] = pa.Field(
         nullable=True, description="Error from Semantic Scholar"
     )
     
-    # PubMed-specific fields
+    # PubMed-specific fields (согласно таблице)
     pubmed_pmid: Series[str] = pa.Field(nullable=True, description="PubMed ID")
     pubmed_doi: Series[str] = pa.Field(nullable=True, description="DOI from PubMed")
     pubmed_article_title: Series[str] = pa.Field(
@@ -136,6 +136,15 @@ class DocumentOutputSchema(pa.DataFrameModel):
     pubmed_day_revised: Series[int] = pa.Field(nullable=True, description="Day revised from PubMed")
     pubmed_issn: Series[str] = pa.Field(nullable=True, description="ISSN from PubMed")
     pubmed_error: Series[str] = pa.Field(nullable=True, description="Error from PubMed")
+    
+    # ChemBL-specific fields (согласно таблице)
+    chembl_title: Series[str] = pa.Field(nullable=True, description="Title from ChemBL")
+    chembl_doi: Series[str] = pa.Field(nullable=True, description="DOI from ChemBL")
+    chembl_pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed ID from ChemBL")
+    chembl_journal: Series[str] = pa.Field(nullable=True, description="Journal from ChemBL")
+    chembl_year: Series[int] = pa.Field(nullable=True, description="Year from ChemBL")
+    chembl_volume: Series[str] = pa.Field(nullable=True, description="Volume from ChemBL")
+    chembl_issue: Series[str] = pa.Field(nullable=True, description="Issue from ChemBL")
 
     class Config:
         strict = True
