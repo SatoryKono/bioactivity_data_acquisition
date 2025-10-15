@@ -1,0 +1,124 @@
+http:
+  global:
+    timeout_sec: 30.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+    headers:
+      User-Agent: bioactivity-data-acquisition/0.1.0
+sources:
+  chembl:
+    name: chembl
+    endpoint: activity
+    params:
+      activity_type: IC50
+    pagination:
+      page_param: page
+      size_param: page_size
+      size: 200
+      max_pages: 10
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      timeout_sec: 30.0
+      headers:
+        Accept: application/json
+        Authorization: "Bearer {chembl_api_token}"
+  crossref:
+    name: crossref
+    params:
+      query: chembl
+      select: DOI,title
+    pagination:
+      page_param: cursor
+      size_param: rows
+      size: 100
+      max_pages: 5
+    http:
+      base_url: https://api.crossref.org/works
+      headers:
+        Accept: application/json
+        Crossref-Plus-API-Token: "{crossref_api_key}"
+  openalex:
+    name: openalex
+    http:
+      base_url: https://api.openalex.org/works
+      headers:
+        Accept: application/json
+  pubmed:
+    name: pubmed
+    rate_limit:
+      max_calls: 2  # Консервативный лимит: 2 запроса в секунду (без API ключа лимит 3/сек)
+      period: 1.0
+    http:
+      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
+      timeout_sec: 60.0  # Увеличиваем таймаут для медленных запросов
+      headers:
+        Accept: application/json
+        User-Agent: bioactivity-data-acquisition/0.1.0
+        api_key: "{PUBMED_API_KEY}"  # API ключ для увеличения лимитов до 10/сек
+      retries:
+        total: 10  # Больше попыток для обработки rate limiting
+        backoff_multiplier: 3.0  # Более агрессивный backoff
+  # Semantic Scholar временно отключен из-за строгих лимитов
+  # semantic_scholar:
+  #   name: semantic_scholar
+  #   rate_limit:
+  #     max_calls: 1   # Экстремально консервативный лимит - 1 запрос в минуту без API ключа
+  #     period: 60.0   # Период в секундах
+  #   http:
+  #     base_url: https://api.semanticscholar.org/graph/v1/paper
+  #     timeout_sec: 60.0  # Увеличиваем таймаут
+  #     headers:
+  #       Accept: application/json
+  #       x-api-key: "{SEMANTIC_SCHOLAR_API_KEY}"  # API ключ для увеличения лимитов
+  #     retries:
+  #       total: 15  # Еще больше попыток для обработки rate limiting
+  #       backoff_multiplier: 5.0  # Очень агрессивный backoff
+io:
+  input:
+    documents_csv: data/input/documents.csv
+  output:
+    data_path: data/output/bioactivities.csv
+    qc_report_path: data/output/qc_report.csv
+    correlation_path: data/output/correlation.csv
+    format: csv
+    csv:
+      encoding: utf-8
+      float_format: "%.3f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+runtime:
+  workers: 4
+logging:
+  level: INFO
+validation:
+  strict: true
+  qc:
+    max_missing_fraction: 0.05
+    max_duplicate_fraction: 0.01
+determinism:
+  sort:
+    by:
+      - compound_id
+      - target
+    ascending:
+      - true
+      - true
+    na_position: last
+  column_order:
+    - compound_id
+    - target
+    - activity_value
+    - activity_unit
+    - source
+    - retrieved_at
+    - smiles
+transforms:
+  unit_conversion:
+    nM: 1.0
+    uM: 1000.0
+    pM: 0.001
+postprocess:
+  qc:
+    enabled: true
+  correlation:
+    enabled: true

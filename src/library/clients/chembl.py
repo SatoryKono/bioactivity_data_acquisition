@@ -27,6 +27,8 @@ class ChEMBLClient(BaseApiClient):
 
     def _parse_document(self, payload: dict[str, Any]) -> dict[str, Any]:
         document = dict(payload)
+        
+        # Ensure all required fields are present with proper defaults
         record: dict[str, Any | None] = {
             "source": "chembl",
             "document_chembl_id": document.get("document_chembl_id"),
@@ -47,5 +49,10 @@ class ChEMBLClient(BaseApiClient):
             # Legacy fields for backward compatibility
             "abstract": document.get("abstract"),
         }
+        
+        # Ensure doc_type is set to a default value if not present
+        if record["doc_type"] is None:
+            record["doc_type"] = "PUBLICATION"  # Default document type
+        
         # Return all fields, including None values, to maintain schema consistency
         return record

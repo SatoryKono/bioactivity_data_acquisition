@@ -38,14 +38,10 @@ class DocumentOutputSchema(pa.DataFrameModel):
     issue: Series[int] = pa.Field(nullable=True, description="Journal issue number")
     last_page: Series[float] = pa.Field(nullable=True, description="Last page number")
     month: Series[int] = pa.Field(nullable=True, description="Publication month")
-    postcodes: Series[str] = pa.Field(nullable=True, description="Postal codes")
     volume: Series[float] = pa.Field(nullable=True, description="Journal volume")
     
     # Enriched fields from external sources
-    source: Series[str] = pa.Field(
-        isin=["chembl", "crossref", "openalex", "pubmed", "semantic_scholar"],
-        description="Data source that provided the enrichment"
-    )
+    # source column removed - not needed in final output
     
     # OpenAlex-specific fields (согласно таблице)
     openalex_doi_key: Series[str] = pa.Field(nullable=True, description="DOI key for joining")

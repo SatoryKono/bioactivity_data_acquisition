@@ -29,7 +29,22 @@ class SemanticScholarClient(BaseApiClient):
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         identifier = f"PMID:{pmid}"
-        payload = self._request("GET", identifier, params={"fields": ",".join(self._DEFAULT_FIELDS)})
+        
+        # Use fallback strategy for handling rate limiting and other errors
+        payload = self._request_with_fallback(
+            "GET", identifier, params={"fields": ",".join(self._DEFAULT_FIELDS)}
+        )
+        
+        # Check if we got fallback data
+        if payload.get("source") == "fallback":
+            self.logger.warning(
+                "semantic_scholar_fallback_used",
+                pmid=pmid,
+                error=payload.get("error"),
+                fallback_reason=payload.get("fallback_reason")
+            )
+            return self._create_empty_record(pmid, payload.get("error", "Unknown error"))
+            
         return self._parse_paper(payload)
 
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
@@ -76,6 +91,24 @@ class SemanticScholarClient(BaseApiClient):
         }
         # Return all fields, including None values, to maintain schema consistency
         return record
+
+    def _create_empty_record(self, pmid: str, error_msg: str) -> dict[str, Any]:
+        """Создает пустую запись для случая ошибки."""
+        return {
+            "source": "semantic_scholar",
+            "semantic_scholar_pmid": pmid,
+            "semantic_scholar_doi": None,
+            "semantic_scholar_semantic_scholar_id": None,
+            "semantic_scholar_publication_types": None,
+            "semantic_scholar_venue": None,
+            "semantic_scholar_external_ids": None,
+            "semantic_scholar_error": error_msg,
+            # Legacy fields
+            "title": None,
+            "abstract": None,
+            "year": None,
+            "authors": None,
+        }
 
     def _extract_pmid(self, payload: dict[str, Any]) -> str | None:
         external_ids = payload.get("externalIds") or {}

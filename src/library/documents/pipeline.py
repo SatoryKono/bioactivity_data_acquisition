@@ -114,49 +114,100 @@ def _extract_data_from_source(
     """Extract data from a specific source."""
     enriched_data = []
     
+    # Define default values for all possible columns to ensure they exist
+    default_columns = {
+        # ChEMBL columns
+        "chembl_title": None, "chembl_doi": None, "chembl_pubmed_id": None,
+        "chembl_journal": None, "chembl_year": None, "chembl_volume": None, 
+        "chembl_issue": None,
+        # Crossref columns  
+        "crossref_title": None, "crossref_doc_type": None, "crossref_subject": None, 
+        "crossref_error": None,
+        # OpenAlex columns
+        "openalex_doi_key": None, "openalex_title": None, "openalex_doc_type": None,
+        "openalex_type_crossref": None, "openalex_publication_year": None, 
+        "openalex_error": None,
+        # PubMed columns
+        "pubmed_pmid": None, "pubmed_doi": None, "pubmed_article_title": None, 
+        "pubmed_abstract": None, "pubmed_journal_title": None, "pubmed_volume": None, 
+        "pubmed_issue": None, "pubmed_start_page": None, "pubmed_end_page": None, 
+        "pubmed_publication_type": None, "pubmed_mesh_descriptors": None, 
+        "pubmed_mesh_qualifiers": None, "pubmed_chemical_list": None,
+        "pubmed_year_completed": None, "pubmed_month_completed": None, 
+        "pubmed_day_completed": None, "pubmed_year_revised": None, 
+        "pubmed_month_revised": None, "pubmed_day_revised": None,
+        "pubmed_issn": None, "pubmed_error": None,
+        # Semantic Scholar columns
+        "semantic_scholar_pmid": None, "semantic_scholar_doi": None, 
+        "semantic_scholar_semantic_scholar_id": None,
+        "semantic_scholar_publication_types": None, "semantic_scholar_venue": None,
+        "semantic_scholar_external_ids": None, "semantic_scholar_error": None,
+        # Common columns
+        "doc_type": None, "doi_key": None
+    }
+    
     for _, row in frame.iterrows():
         try:
-            # Start with the original row data
+            # Start with the original row data and ensure all columns exist
             row_data = row.to_dict()
+            # Only add missing columns with default values, don't overwrite existing data
+            for key, default_value in default_columns.items():
+                if key not in row_data:
+                    row_data[key] = default_value
             
             if source == "chembl":
                 if pd.notna(row.get("document_chembl_id")):
                     data = client.fetch_by_doc_id(str(row["document_chembl_id"]))
                     # Remove source from data to avoid overwriting
                     data.pop("source", None)
-                    row_data.update(data)
+                    # Only update non-None values to preserve existing data
+                    for key, value in data.items():
+                        if value is not None:
+                            row_data[key] = value
                     
             elif source == "crossref":
                 if pd.notna(row.get("doi")):
                     data = client.fetch_by_doi(str(row["doi"]))
                     data.pop("source", None)
-                    row_data.update(data)
+                    for key, value in data.items():
+                        if value is not None:
+                            row_data[key] = value
                 elif pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
                     data.pop("source", None)
-                    row_data.update(data)
+                    for key, value in data.items():
+                        if value is not None:
+                            row_data[key] = value
                     
             elif source == "openalex":
                 if pd.notna(row.get("doi")):
                     data = client.fetch_by_doi(str(row["doi"]))
                     data.pop("source", None)
-                    row_data.update(data)
+                    for key, value in data.items():
+                        if value is not None:
+                            row_data[key] = value
                 elif pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
                     data.pop("source", None)
-                    row_data.update(data)
+                    for key, value in data.items():
+                        if value is not None:
+                            row_data[key] = value
                     
             elif source == "pubmed":
                 if pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
                     data.pop("source", None)
-                    row_data.update(data)
+                    for key, value in data.items():
+                        if value is not None:
+                            row_data[key] = value
                     
             elif source == "semantic_scholar":
                 if pd.notna(row.get("pubmed_id")):
                     data = client.fetch_by_pmid(str(row["pubmed_id"]))
                     data.pop("source", None)
-                    row_data.update(data)
+                    for key, value in data.items():
+                        if value is not None:
+                            row_data[key] = value
             
             enriched_data.append(row_data)
                     
@@ -164,7 +215,32 @@ def _extract_data_from_source(
             # Log error but continue processing other records
             doc_id = row.get('document_chembl_id', 'unknown')
             print(f"Error extracting data from {source} for row {doc_id}: {exc}")
-            enriched_data.append(row.to_dict())
+            print(f"Error type: {type(exc).__name__}")
+            
+            # Ensure error row also has all columns
+            error_row = row.to_dict()
+            error_row.update(default_columns)
+            
+            # Set error flag for this source with more detailed error info
+            error_msg = f"{type(exc).__name__}: {str(exc)}"
+            
+            # Специальная обработка для ошибок rate limiting
+            if "429" in str(exc) or "Rate limited" in str(exc):
+                error_msg = f"Rate limited by API: {str(exc)}"
+                print(f"Rate limiting detected for {source}, continuing with next record...")
+            
+            if source == "crossref":
+                error_row["crossref_error"] = error_msg
+            elif source == "openalex":
+                error_row["openalex_error"] = error_msg
+            elif source == "pubmed":
+                error_row["pubmed_error"] = error_msg
+            elif source == "semantic_scholar":
+                error_row["semantic_scholar_error"] = error_msg
+            elif source == "chembl":
+                error_row["chembl_error"] = error_msg
+                
+            enriched_data.append(error_row)
     
     return pd.DataFrame(enriched_data)
 
@@ -185,6 +261,11 @@ def read_document_input(path: Path) -> pd.DataFrame:
 
 def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     normalised = frame.copy()
+    
+    # Remove postcodes column if it exists (deprecated field)
+    if 'postcodes' in normalised.columns:
+        normalised = normalised.drop(columns=['postcodes'])
+    
     present = {column for column in normalised.columns}
     missing = _REQUIRED_COLUMNS - present
     if missing:
@@ -196,6 +277,53 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     normalised["title"] = normalised["title"].astype(str).str.strip()
     normalised = normalised.sort_values("document_chembl_id").reset_index(drop=True)
     return normalised
+
+
+def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    """Initialize all possible output columns with default values."""
+    
+    # Define all possible columns that should exist in the output
+    all_columns = {
+        # Original ChEMBL fields
+        "document_chembl_id", "title", "doi", "pubmed_id", "doc_type", "journal", "year",
+        # Legacy ChEMBL fields
+        "abstract", "authors", "classification", "document_contains_external_links",
+        "first_page", "is_experimental_doc", "issue", "last_page", "month", "volume",
+        # Enriched fields from external sources
+        # source column removed - not needed in final output
+        # ChEMBL-specific fields
+        "chembl_title", "chembl_doi", "chembl_pubmed_id", "chembl_journal", 
+        "chembl_year", "chembl_volume", "chembl_issue",
+        # Crossref-specific fields
+        "crossref_title", "crossref_doc_type", "crossref_subject", "crossref_error",
+        # OpenAlex-specific fields
+        "openalex_doi_key", "openalex_title", "openalex_doc_type", 
+        "openalex_type_crossref", "openalex_publication_year", "openalex_error",
+        # PubMed-specific fields
+        "pubmed_pmid", "pubmed_doi", "pubmed_article_title", "pubmed_abstract",
+        "pubmed_journal_title", "pubmed_volume", "pubmed_issue", "pubmed_start_page", 
+        "pubmed_end_page", "pubmed_publication_type", "pubmed_mesh_descriptors", 
+        "pubmed_mesh_qualifiers", "pubmed_chemical_list", "pubmed_year_completed",
+        "pubmed_month_completed", "pubmed_day_completed", "pubmed_year_revised",
+        "pubmed_month_revised", "pubmed_day_revised", "pubmed_issn", "pubmed_error",
+        # Semantic Scholar-specific fields
+        "semantic_scholar_pmid", "semantic_scholar_doi", "semantic_scholar_semantic_scholar_id",
+        "semantic_scholar_publication_types", "semantic_scholar_venue", 
+        "semantic_scholar_external_ids", "semantic_scholar_error",
+        # Common fields
+        "doi_key"
+    }
+    
+    # Add missing columns with default values
+    for column in all_columns:
+        if column not in frame.columns:
+            frame[column] = None
+    
+    # Ensure doc_type has a default value for all rows
+    if "doc_type" in frame.columns:
+        frame["doc_type"] = frame["doc_type"].fillna("PUBLICATION")
+    
+    return frame
 
 
 def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETLResult:
@@ -210,18 +338,55 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     if bool(duplicates.any()):
         raise DocumentQCError("Duplicate document_chembl_id values detected")
 
-    # Extract data from enabled sources
-    enriched_frame = normalised.copy()
+    # Initialize all possible columns with default values
+    enriched_frame = _initialize_all_columns(normalised.copy())
     enabled_sources = config.enabled_sources()
     
     for source in enabled_sources:
         try:
             print(f"Extracting data from {source}...")
             client = _create_api_client(source, config)
+            
+            # Для источников с высоким rate limiting добавляем дополнительную задержку
+            if source in ["semantic_scholar", "openalex"]:
+                print(f"Using conservative rate limiting for {source} (no API key)")
+                import time
+                if source == "semantic_scholar":
+                    time.sleep(10)  # Дополнительная задержка для Semantic Scholar
+                else:
+                    time.sleep(2)  # Дополнительная задержка для OpenAlex
+            
             enriched_frame = _extract_data_from_source(source, client, enriched_frame, config)
-            print(f"Successfully extracted data from {source}")
+            
+            # Log success statistics
+            if source == "chembl":
+                success_count = enriched_frame["chembl_title"].notna().sum()
+            elif source == "crossref":
+                success_count = enriched_frame["crossref_title"].notna().sum()
+            elif source == "openalex":
+                success_count = enriched_frame["openalex_title"].notna().sum()
+            elif source == "pubmed":
+                success_count = enriched_frame["pubmed_pmid"].notna().sum()
+            elif source == "semantic_scholar":
+                success_count = enriched_frame["semantic_scholar_pmid"].notna().sum()
+            else:
+                success_count = 0
+                
+            print(f"Successfully extracted data from {source}: "
+                  f"{success_count}/{len(enriched_frame)} records")
+                  
+            # Для источников с высоким rate limiting добавляем задержку после завершения
+            if source in ["semantic_scholar", "openalex"]:
+                print(f"Waiting before next source to respect rate limits...")
+                import time
+                if source == "semantic_scholar":
+                    time.sleep(15)  # Дополнительная задержка для Semantic Scholar
+                else:
+                    time.sleep(5)  # Задержка для OpenAlex
+                
         except Exception as exc:
             print(f"Warning: Failed to extract data from {source}: {exc}")
+            print(f"Error type: {type(exc).__name__}")
             # Continue with other sources even if one fails
 
     # Calculate QC metrics

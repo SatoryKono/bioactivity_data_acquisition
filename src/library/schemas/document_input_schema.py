@@ -38,7 +38,6 @@ class DocumentInputSchema(pa.DataFrameModel):
     issue: Series[int] = pa.Field(nullable=True, description="Journal issue number")
     last_page: Series[float] = pa.Field(nullable=True, description="Last page number")
     month: Series[int] = pa.Field(nullable=True, description="Publication month")
-    postcodes: Series[str] = pa.Field(nullable=True, description="Postal codes")
     volume: Series[float] = pa.Field(nullable=True, description="Journal volume")
 
     class Config:

@@ -4,12 +4,12 @@
 
 ## Доступные скрипты
 
-### 1. Полная проверка всех API (`check_api_limits.py`)
+### 1. Полная проверка всех API (`src/library/scripts/check_api_limits.py`)
 
 Проверяет все API из конфигурации и создает детальный отчет.
 
 ```bash
-python scripts/check_api_limits.py
+python src/library/scripts/check_api_limits.py
 ```
 
 **Что проверяется:**
@@ -23,12 +23,12 @@ python scripts/check_api_limits.py
 - Таблица с результатами в консоли
 - JSON файл с детальными результатами в папке `reports/`
 
-### 2. Детальная проверка лимитов (`check_specific_limits.py`)
+### 2. Детальная проверка лимитов (`src/library/scripts/check_specific_limits.py`)
 
 Показывает детальную информацию о лимитах каждого API с рекомендациями.
 
 ```bash
-python scripts/check_specific_limits.py
+python src/library/scripts/check_specific_limits.py
 ```
 
 **Что показывается:**
@@ -37,12 +37,12 @@ python scripts/check_specific_limits.py
 - Рекомендации по оптимизации
 - Информация об аутентификации
 
-### 3. Быстрая проверка конкретного API (`quick_api_check.py`)
+### 3. Быстрая проверка конкретного API (`src/library/scripts/quick_api_check.py`)
 
 Проверяет один конкретный API с минимальным выводом.
 
 ```bash
-python scripts/quick_api_check.py [api_name]
+python src/library/scripts/quick_api_check.py [api_name]
 ```
 
 **Доступные API:**
@@ -54,8 +54,8 @@ python scripts/quick_api_check.py [api_name]
 
 **Примеры:**
 ```bash
-python scripts/quick_api_check.py crossref
-python scripts/quick_api_check.py pubmed
+python src/library/scripts/quick_api_check.py crossref
+python src/library/scripts/quick_api_check.py pubmed
 ```
 
 ## Анализ результатов
@@ -135,10 +135,10 @@ if response.status_code >= 500:
 
 ```bash
 # Ежедневная проверка
-python scripts/check_api_limits.py
+python src/library/scripts/check_api_limits.py
 
 # Проверка конкретного API при проблемах
-python scripts/quick_api_check.py crossref
+python src/library/scripts/quick_api_check.py crossref
 ```
 
 ### 2. Алерты

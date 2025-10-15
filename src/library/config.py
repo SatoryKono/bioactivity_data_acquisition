@@ -292,12 +292,14 @@ class QCStepSettings(BaseModel):
     """Configuration for QC generation."""
 
     enabled: bool = Field(default=True)
+    enhanced: bool = Field(default=False, description="Enable enhanced QC reporting with detailed metrics")
 
 
 class CorrelationSettings(BaseModel):
     """Configuration for correlation matrix generation."""
 
     enabled: bool = Field(default=True)
+    enhanced: bool = Field(default=False, description="Enable enhanced correlation analysis with multiple correlation types")
 
 
 class PostprocessSettings(BaseModel):

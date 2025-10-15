@@ -1,5 +1,6 @@
 """HTTP clients for external literature sources."""
-from .base import ApiClientError, BaseApiClient, RateLimitConfig, RateLimiter, RateLimitError
+from .base import BaseApiClient, RateLimitConfig, RateLimiter
+from .exceptions import ApiClientError, RateLimitError
 from .bioactivity import BioactivityClient
 from .chembl import ChEMBLClient
 from .crossref import CrossrefClient

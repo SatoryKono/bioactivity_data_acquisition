@@ -47,7 +47,7 @@ sources:
   pubmed:
     name: pubmed
     rate_limit:
-      max_calls: 10  # С API ключом можно делать 10 запросов в секунду
+      max_calls: 2  # Консервативный лимит: 2 запроса в секунду (без API ключа лимит 3/сек)
       period: 1.0
     http:
       base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
@@ -55,14 +55,25 @@ sources:
       headers:
         Accept: application/json
         User-Agent: bioactivity-data-acquisition/0.1.0
-      # API ключ для увеличения лимитов (опционально)
-      # api_key: "{pubmed_api_key}"
-  semantic_scholar:
-    name: semantic_scholar
-    http:
-      base_url: https://api.semanticscholar.org/graph/v1/paper
-      headers:
-        Accept: application/json
+        api_key: "{PUBMED_API_KEY}"  # API ключ для увеличения лимитов до 10/сек
+      retries:
+        total: 10  # Больше попыток для обработки rate limiting
+        backoff_multiplier: 3.0  # Более агрессивный backoff
+  # Semantic Scholar временно отключен из-за строгих лимитов
+  # semantic_scholar:
+  #   name: semantic_scholar
+  #   rate_limit:
+  #     max_calls: 1   # Экстремально консервативный лимит - 1 запрос в минуту без API ключа
+  #     period: 60.0   # Период в секундах
+  #   http:
+  #     base_url: https://api.semanticscholar.org/graph/v1/paper
+  #     timeout_sec: 60.0  # Увеличиваем таймаут
+  #     headers:
+  #       Accept: application/json
+  #       x-api-key: "{SEMANTIC_SCHOLAR_API_KEY}"  # API ключ для увеличения лимитов
+  #     retries:
+  #       total: 15  # Еще больше попыток для обработки rate limiting
+  #       backoff_multiplier: 5.0  # Очень агрессивный backoff
 io:
   input:
     documents_csv: data/input/documents.csv

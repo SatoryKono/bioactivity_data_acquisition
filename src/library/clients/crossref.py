@@ -54,11 +54,45 @@ class CrossrefClient(BaseApiClient):
         subject = work.get("subject")
         if isinstance(subject, list) and not subject:
             subject = None
+        elif isinstance(subject, list) and subject:
+            # Если есть subjects, объединяем их в строку
+            subject = "; ".join(str(s) for s in subject if s)
+        
+        # Если subject не найден, пытаемся вывести из названия журнала
+        if not subject:
+            journal = work.get("container-title", [])
+            if isinstance(journal, list) and journal:
+                journal_name = journal[0].lower()
+                if 'medicinal chemistry' in journal_name or 'j med chem' in journal_name:
+                    subject = "Medicinal Chemistry"
+                elif 'pharmacology' in journal_name:
+                    subject = "Pharmacology"
+                elif 'biochemistry' in journal_name:
+                    subject = "Biochemistry"
+                elif 'organic chemistry' in journal_name:
+                    subject = "Organic Chemistry"
+                elif 'drug' in journal_name:
+                    subject = "Drug Discovery"
+                elif 'therapeutic' in journal_name:
+                    subject = "Therapeutics"
+                elif 'molecular' in journal_name:
+                    subject = "Molecular Biology"
+                elif 'cell' in journal_name:
+                    subject = "Cell Biology"
+                elif 'nature' in journal_name:
+                    subject = "General Science"
+                elif 'science' in journal_name:
+                    subject = "General Science"
+        
+        # Обрабатываем title - извлекаем первый элемент если это список
+        title = work.get("title")
+        if isinstance(title, list) and title:
+            title = title[0]
         
         record: dict[str, Any | None] = {
             "source": "crossref",
             "doi_key": work.get("DOI"),
-            "crossref_title": (work.get("title") or [None])[0] if isinstance(work.get("title"), list) else work.get("title"),
+            "crossref_title": title,
             "crossref_doc_type": work.get("type"),
             "crossref_subject": subject,
             "crossref_error": None,  # Will be set if there's an error

@@ -5,10 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import numpy as np
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from library.etl.qc import build_correlation_matrix, build_qc_report
+from library.etl.qc import (
+    build_correlation_matrix, 
+    build_qc_report,
+    build_enhanced_qc_report,
+    build_enhanced_qc_detailed_reports,
+    build_enhanced_correlation_analysis_report,
+    build_enhanced_correlation_reports_df,
+    build_correlation_insights_report
+)
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers
     from library.config import (
@@ -28,7 +37,14 @@ def _deterministic_order(
     desired_order = [col for col in determinism.column_order if col in df.columns]
     remaining = [col for col in df.columns if col not in desired_order]
     ordered = df[desired_order + remaining]
-    sort_by = determinism.sort.by or ordered.columns.tolist()
+    
+    # Фильтруем колонки для сортировки, оставляя только существующие
+    sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
+    
+    # Если нет колонок для сортировки, возвращаем DataFrame как есть
+    if not sort_by:
+        return ordered.reset_index(drop=True)
+    
     from library.etl.transform import _resolve_ascending
 
     ascending = _resolve_ascending(sort_by, determinism.sort.ascending)
@@ -37,6 +53,60 @@ def _deterministic_order(
         ascending=ascending,
         na_position=determinism.sort.na_position,
     ).reset_index(drop=True)
+
+
+def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
+    """
+    Нормализует DataFrame перед сохранением:
+    - Строковые переменные: в нижний регистр, обрезка пробелов
+    - Пустые ячейки: заполнение NA
+    - Числовые данные: нормализация
+    - Логические данные: нормализация
+    """
+    if df.empty:
+        return df.copy()
+    
+    df_normalized = df.copy()
+    
+    if logger is not None:
+        logger.info("normalize_start", columns=list(df.columns), rows=len(df))
+    
+    for column in df_normalized.columns:
+        # Пропускаем столбец index - он не должен нормализоваться
+        if column == 'index':
+            continue
+            
+        if df_normalized[column].dtype == 'object':  # Строковые данные
+            # Заменяем None на NA
+            df_normalized[column] = df_normalized[column].replace([None], pd.NA)
+            
+            # Нормализуем все значения (включая пустые строки)
+            for idx in df_normalized.index:
+                value = df_normalized.loc[idx, column]
+                if pd.isna(value):
+                    continue  # Пропускаем уже NA значения
+                
+                # Конвертируем в строку и нормализуем
+                str_value = str(value).strip().lower()
+                
+                # Проверяем, является ли результат пустой строкой или специальным значением
+                if str_value in ['', 'nan', 'none', 'null']:
+                    df_normalized.loc[idx, column] = pd.NA
+                else:
+                    df_normalized.loc[idx, column] = str_value
+            
+        elif pd.api.types.is_numeric_dtype(df_normalized[column]):
+            # Числовые данные - заменяем NaN на pd.NA для консистентности
+            df_normalized[column] = df_normalized[column].replace([np.nan, np.inf, -np.inf], pd.NA)
+            
+        elif pd.api.types.is_bool_dtype(df_normalized[column]):
+            # Логические данные - заменяем только NaN на pd.NA
+            df_normalized[column] = df_normalized[column].replace([np.nan], pd.NA)
+    
+    if logger is not None:
+        logger.info("normalize_complete", columns=list(df_normalized.columns))
+    
+    return df_normalized
 
 
 def _csv_options(settings: CsvFormatSettings) -> dict[str, object]:
@@ -153,6 +223,13 @@ def write_deterministic_csv(
         df_to_write = df.copy()
     else:
         df_to_write = _deterministic_order(df, determinism)
+        
+        # Добавляем столбец index с порядковыми номерами строк (начиная с 0)
+        df_to_write = df_to_write.copy()
+        df_to_write.insert(0, 'index', range(len(df_to_write)))
+        
+        # Нормализуем данные перед сохранением
+        df_to_write = _normalize_dataframe(df_to_write, logger=logger)
 
     if file_format == "parquet":
         df_to_write.to_parquet(destination, index=False, compression=parquet_settings.compression)
@@ -173,6 +250,7 @@ def write_qc_artifacts(
     output: OutputSettings | None = None,
     validation: QCValidationSettings | None = None,
     postprocess: PostprocessSettings | None = None,
+    logger: BoundLogger | None = None,
 ) -> None:
     """Write QC and correlation reports according to configuration."""
 
@@ -207,6 +285,7 @@ def write_qc_artifacts(
     if not postprocess.qc.enabled:
         return
 
+    # Базовая QC отчетность
     qc_report = build_qc_report(df)
     qc_report = _apply_qc_thresholds(qc_report, df, validation)
     qc_path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,15 +295,89 @@ def write_qc_artifacts(
     else:
         qc_report.to_csv(qc_path, **_csv_options(csv_settings))
 
+    # Расширенная QC отчетность
+    if hasattr(postprocess.qc, 'enhanced') and postprocess.qc.enhanced:
+        enhanced_qc_path = qc_path.parent / f"{qc_path.stem}_enhanced.csv"
+        detailed_qc_path = qc_path.parent / f"{qc_path.stem}_detailed"
+        
+        # Создаем расширенный отчет
+        enhanced_report = build_enhanced_qc_report(df, logger=logger)
+        if file_format == "parquet":
+            enhanced_report.to_parquet(enhanced_qc_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+        else:
+            enhanced_report.to_csv(enhanced_qc_path, **_csv_options(csv_settings))
+        
+        # Создаем детальные отчеты
+        detailed_reports = build_enhanced_qc_detailed_reports(df, logger=logger)
+        detailed_qc_path.mkdir(parents=True, exist_ok=True)
+        
+        for report_name, report_df in detailed_reports.items():
+            report_path = detailed_qc_path / f"{report_name}.csv"
+            if file_format == "parquet":
+                report_df.to_parquet(report_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+            else:
+                report_df.to_csv(report_path, **_csv_options(csv_settings))
+
     if not postprocess.correlation.enabled:
         return
 
+    # Базовая корреляционная матрица
     correlation = build_correlation_matrix(df)
     corr_path.parent.mkdir(parents=True, exist_ok=True)
     if file_format == "parquet":
         correlation.to_parquet(corr_path, index=False, compression=parquet_settings.compression)
     else:
         correlation.to_csv(corr_path, **_csv_options(csv_settings))
+
+    # Расширенный корреляционный анализ
+    if hasattr(postprocess.correlation, 'enhanced') and postprocess.correlation.enhanced:
+        enhanced_corr_path = corr_path.parent / f"{corr_path.stem}_enhanced"
+        detailed_corr_path = corr_path.parent / f"{corr_path.stem}_detailed"
+        
+        # Создаем расширенные корреляционные отчеты
+        enhanced_corr_reports = build_enhanced_correlation_reports_df(df, logger=logger)
+        enhanced_corr_path.mkdir(parents=True, exist_ok=True)
+        
+        for report_name, report_df in enhanced_corr_reports.items():
+            if not report_df.empty:
+                report_path = enhanced_corr_path / f"{report_name}.csv"
+                if file_format == "parquet":
+                    report_df.to_parquet(report_path.with_suffix('.parquet'), index=True, compression=parquet_settings.compression)
+                else:
+                    report_df.to_csv(report_path, **_csv_options(csv_settings))
+        
+        # Создаем детальные корреляционные отчеты
+        detailed_corr_analysis = build_enhanced_correlation_analysis_report(df, logger=logger)
+        detailed_corr_path.mkdir(parents=True, exist_ok=True)
+        
+        # Сохраняем анализ в JSON формате для сложных структур
+        import json
+        analysis_path = detailed_corr_path / "correlation_analysis.json"
+        with open(analysis_path, 'w', encoding='utf-8') as f:
+            # Преобразуем numpy типы в JSON-совместимые
+            def convert_numpy(obj):
+                if isinstance(obj, np.integer):
+                    return int(obj)
+                elif isinstance(obj, np.floating):
+                    return float(obj)
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif isinstance(obj, pd.DataFrame):
+                    return obj.to_dict()
+                return obj
+            
+            json_analysis = json.loads(json.dumps(detailed_corr_analysis, default=convert_numpy, indent=2))
+            json.dump(json_analysis, f, ensure_ascii=False, indent=2)
+        
+        # Создаем отчет с инсайтами
+        insights = build_correlation_insights_report(df, logger=logger)
+        if insights:
+            insights_df = pd.DataFrame(insights)
+            insights_path = detailed_corr_path / "correlation_insights.csv"
+            if file_format == "parquet":
+                insights_df.to_parquet(insights_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+            else:
+                insights_df.to_csv(insights_path, **_csv_options(csv_settings))
 
 
 __all__ = ["write_deterministic_csv", "write_qc_artifacts"]

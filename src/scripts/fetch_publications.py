@@ -24,7 +24,7 @@ from library.clients.openalex import OpenAlexClient  # type: ignore
 from library.clients.pubmed import PubMedClient  # type: ignore
 from library.clients.semantic_scholar import SemanticScholarClient  # type: ignore
 from library.config import APIClientConfig as ClientConfig  # type: ignore
-from library.logging import configure_logging, get_logger  # type: ignore
+from library.logger import configure_logging, get_logger  # type: ignore
 from library.utils.errors import ConfigError, ExtractionError  # type: ignore
 
 try:

@@ -16,20 +16,10 @@ import requests
 from requests import Response
 
 from library.clients.session import get_shared_session
+from library.clients.fallback import FallbackManager, FallbackConfig, AdaptiveFallbackStrategy
+from library.clients.exceptions import ApiClientError, RateLimitError
 from library.config import APIClientConfig
-from library.logging import get_logger
-
-
-class ApiClientError(RuntimeError):
-    """Generic client error."""
-
-    def __init__(self, message: str, *, status_code: int | None = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-
-
-class RateLimitError(ApiClientError):
-    """Raised when the rate limiter rejects the request."""
+from library.logger import get_logger
 
 
 @dataclass(frozen=True)
@@ -77,6 +67,7 @@ class BaseApiClient:
         timeout: float = 10.0,
         max_retries: int = 3,
         default_headers: MutableMapping[str, str] | None = None,
+        fallback_manager: FallbackManager | None = None,
     ) -> None:
         self.config = config
         self.base_url = config.resolved_base_url.rstrip("/")
@@ -96,6 +87,20 @@ class BaseApiClient:
         if default_headers:
             self.default_headers.update(default_headers)
         self.logger = get_logger(self.__class__.__name__, base_url=self.base_url)
+        
+        # Initialize fallback manager if not provided
+        if fallback_manager is None:
+            fallback_config = FallbackConfig(
+                max_retries=max(3, self.max_retries),
+                base_delay=1.0,
+                max_delay=60.0,
+                backoff_multiplier=2.0,
+                jitter=True
+            )
+            fallback_strategy = AdaptiveFallbackStrategy(fallback_config)
+            self.fallback_manager = FallbackManager(fallback_strategy)
+        else:
+            self.fallback_manager = fallback_manager
 
     def _make_url(self, path: str) -> str:
         if not path:
@@ -109,14 +114,42 @@ class BaseApiClient:
         def _call() -> Response:
             return self.session.request(method, url, timeout=self.timeout, **kwargs)
 
+        def _giveup(exc: Exception) -> bool:
+            """Определяет, когда прекратить повторные попытки."""
+            if isinstance(exc, requests.exceptions.HTTPError):
+                # Для ошибок 429 (rate limiting) продолжаем повторные попытки
+                if hasattr(exc, 'response') and exc.response is not None:
+                    if exc.response.status_code == 429:
+                        return False  # Не прекращаем попытки для 429
+                    # Для других HTTP ошибок прекращаем попытки
+                    return True
+                return True
+            # Для других исключений продолжаем попытки
+            return False
+
         wait_gen = partial(backoff.expo, factor=self.config.retries.backoff_multiplier)
         sender = backoff.on_exception(
             wait_gen,
             requests.exceptions.RequestException,
             max_tries=self.max_retries,
-            giveup=lambda exc: isinstance(exc, requests.exceptions.HTTPError),
+            giveup=_giveup,
         )(_call)
         return sender()  # type: ignore
+
+    def _request_with_fallback(
+        self,
+        method: str,
+        path: str = "",
+        *,
+        expected_status: int = 200,
+        headers: MutableMapping[str, str] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Make a request with fallback strategy for handling errors."""
+        def _make_request():
+            return self._request(method, path, expected_status=expected_status, headers=headers, **kwargs)
+        
+        return self.fallback_manager.execute_with_fallback(_make_request)
 
     def _request(
         self,
@@ -155,6 +188,24 @@ class BaseApiClient:
                 text=response.text,
                 expected_status=expected_status,
             )
+            
+            # Специальная обработка для ошибок rate limiting (429)
+            if response.status_code == 429:
+                retry_after = response.headers.get('Retry-After')
+                if retry_after:
+                    try:
+                        wait_time = int(retry_after)
+                        self.logger.info(f"Rate limited. Waiting {wait_time} seconds before retry.")
+                        time.sleep(wait_time)
+                    except (ValueError, TypeError):
+                        self.logger.warning(f"Invalid Retry-After header: {retry_after}")
+                
+                raise ApiClientError(
+                    f"Rate limited by API (status {response.status_code}). "
+                    f"Message: {response.text}",
+                    status_code=response.status_code,
+                )
+            
             raise ApiClientError(
                 f"unexpected status code {response.status_code}",
                 status_code=response.status_code,

@@ -59,6 +59,7 @@ def run_pipeline(config: Config, logger: BoundLogger) -> Path:
         output=output_settings,
         validation=config.validation.qc,
         postprocess=config.postprocess,
+        logger=logger,
     )
 
     return Path(output_path)
