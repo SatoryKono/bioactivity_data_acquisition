@@ -8,9 +8,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import yaml
-from typer.testing import CliRunner
-
 from scripts.fetch_publications import app
+from typer.testing import CliRunner
 
 
 @pytest.fixture()

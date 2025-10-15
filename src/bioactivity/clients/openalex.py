@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioactivity.config import APIClientConfig
 from bioactivity.clients.base import ApiClientError, BaseApiClient
+from bioactivity.config import APIClientConfig
 
 
 class OpenAlexClient(BaseApiClient):

@@ -57,6 +57,8 @@ def write_publications(
 
     from bioactivity.config import (
         CsvFormatSettings as _CsvFormatSettings,
+    )
+    from bioactivity.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
 

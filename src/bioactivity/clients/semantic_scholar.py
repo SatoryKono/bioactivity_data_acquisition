@@ -4,8 +4,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from bioactivity.config import APIClientConfig
 from bioactivity.clients.base import BaseApiClient
+from bioactivity.config import APIClientConfig
 
 
 class SemanticScholarClient(BaseApiClient):

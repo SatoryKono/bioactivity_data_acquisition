@@ -65,7 +65,7 @@ def _apply_qc_thresholds(
     ratios: list[float | None] = []
     statuses: list[str] = []
 
-    for metric, value in zip(qc_report["metric"], qc_report["value"]):
+    for metric, value in zip(qc_report["metric"], qc_report["value"], strict=False):
         threshold: float | None = None
         ratio: float | None = None
         status = "pass"
@@ -96,7 +96,7 @@ def _apply_qc_thresholds(
         "fail"
         if any(
             status == "fail" and threshold is not None
-            for status, threshold in zip(statuses, thresholds)
+            for status, threshold in zip(statuses, thresholds, strict=False)
         )
         else "pass"
     )
@@ -126,7 +126,11 @@ def write_deterministic_csv(
 
     from bioactivity.config import (
         CsvFormatSettings as _CsvFormatSettings,
+    )
+    from bioactivity.config import (
         DeterminismSettings as _DeterminismSettings,
+    )
+    from bioactivity.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
 
@@ -174,8 +178,14 @@ def write_qc_artifacts(
 
     from bioactivity.config import (
         CsvFormatSettings as _CsvFormatSettings,
+    )
+    from bioactivity.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
+    )
+    from bioactivity.config import (
         PostprocessSettings as _PostprocessSettings,
+    )
+    from bioactivity.config import (
         QCValidationSettings as _QCValidationSettings,
     )
 

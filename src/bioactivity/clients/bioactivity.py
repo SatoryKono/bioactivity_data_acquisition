@@ -11,7 +11,7 @@ from typing import Any, cast
 import backoff
 import requests
 
-from bioactivity.config import APIClientConfig, RetrySettings
+from bioactivity.config import APIClientConfig
 
 Json = dict[str, Any]
 
