@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-import warnings
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -13,23 +12,20 @@ if __package__ in (None, ""):
 
 from library.cli import main as bioactivity_main, app as bioactivity_app  # type: ignore
 
-_DEPRECATION_MESSAGE = (
-    "scripts/get_document_data.py is deprecated and will be removed in a future release. "
-    "Invoke `bioactivity-data-acquisition pipeline` instead."
-)
+
 
 
 def main() -> None:
     """Entry point maintained for backwards compatibility."""
 
-    warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
+   
     bioactivity_main()
 
 
 def app(*args: object, **kwargs: object) -> object:
     """Proxy that preserves the historical ``app`` callable."""
 
-    warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
+    
     return bioactivity_app(*args, **kwargs)
 
 
