@@ -2,35 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import sys
-import warnings
-from pathlib import Path
 
-if __package__ in (None, ""):
-    SRC_PATH = Path(__file__).resolve().parents[1]
-    if str(SRC_PATH) not in sys.path:
-        sys.path.insert(0, str(SRC_PATH))
+# Setup path for library imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)
+# Always insert src_dir at the beginning to ensure it's found first
+sys.path.insert(0, src_dir)
 
-from library.cli import main as bioactivity_main, app as bioactivity_app  # type: ignore
+from library.scripts_base import create_deprecated_script_wrapper
 
-_DEPRECATION_MESSAGE = (
-    "scripts/get_assay_data.py is deprecated and will be removed in a future release. "
-    "Invoke `bioactivity-data-acquisition pipeline` instead."
-)
-
-
-def main() -> None:
-    """Entry point maintained for backwards compatibility."""
-
-    warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
-    bioactivity_main()
-
-
-def app(*args: object, **kwargs: object) -> object:
-    """Proxy that preserves the historical ``app`` callable."""
-
-    warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
-    return bioactivity_app(*args, **kwargs)
+main, app = create_deprecated_script_wrapper("get_assay_data.py")
 
 
 if __name__ == "__main__":

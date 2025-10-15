@@ -2,31 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import sys
-from pathlib import Path
 
-if __package__ in (None, ""):
-    SRC_PATH = Path(__file__).resolve().parents[1]
-    if str(SRC_PATH) not in sys.path:
-        sys.path.insert(0, str(SRC_PATH))
+# Setup path for library imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)
+# Always insert src_dir at the beginning to ensure it's found first
+sys.path.insert(0, src_dir)
 
-from library.cli import app as bioactivity_app, main as bioactivity_main  # type: ignore
+from library.scripts_base import create_deprecated_script_wrapper
 
-
-
-
-def main() -> None:
-    """Entry point maintained for backwards compatibility."""
-
-   
-    bioactivity_main()
-
-
-def app(*args: object, **kwargs: object) -> object:
-    """Proxy that preserves the historical ``app`` callable."""
-
-    
-    return bioactivity_app(*args, **kwargs)
+main, app = create_deprecated_script_wrapper("get_document_data.py")
 
 
 if __name__ == "__main__":

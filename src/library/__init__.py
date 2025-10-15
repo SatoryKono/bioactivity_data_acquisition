@@ -36,6 +36,7 @@ from library.etl.load import write_deterministic_csv, write_qc_artifacts
 from library.etl.run import run_pipeline
 from library.etl.transform import normalize_bioactivity_data
 from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
+from library.scripts_base import DeprecatedScriptWrapper, create_deprecated_script_wrapper
 from library.utils import *  # noqa: F403
 from library.utils import __all__ as _utils_all
 
@@ -63,6 +64,8 @@ __all__ = [
     "TransformSettings",
     "ValidationSettings",
     "app",
+    "create_deprecated_script_wrapper",
+    "DeprecatedScriptWrapper",
     "fetch_bioactivity_data",
     "main",
     "normalize_bioactivity_data",
