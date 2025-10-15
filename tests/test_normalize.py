@@ -27,6 +27,8 @@ def test_coerce_text_handles_sequences() -> None:
 def test_normalise_doi_variants() -> None:
     assert normalise_doi("https://doi.org/10.1000/XYZ") == "10.1000/xyz"
     assert normalise_doi("doi:10.1000/abc ") == "10.1000/abc"
+    assert normalise_doi("10.1000/abc?download=1") == "10.1000/abc"
+    assert normalise_doi("10.1000/abc#section") == "10.1000/abc"
     assert normalise_doi("not-a-doi") is None
 
 

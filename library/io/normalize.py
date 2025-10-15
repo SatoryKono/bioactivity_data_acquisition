@@ -81,6 +81,12 @@ def normalise_doi(doi: Any) -> str | None:
 
     cleaned = _DOI_PREFIX_RE.sub("", raw)
     cleaned = cleaned.replace(" ", "")
+
+    for delimiter in ("?", "#"):
+        if delimiter in cleaned:
+            cleaned = cleaned.split(delimiter, 1)[0]
+            break
+
     cleaned = _DOI_ILLEGAL_SUFFIX_RE.sub("", cleaned)
     cleaned = cleaned.lower()
 
