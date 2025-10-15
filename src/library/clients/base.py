@@ -163,8 +163,22 @@ class BaseApiClient:
         try:
             payload = response.json()
         except json.JSONDecodeError as exc:
-            self.logger.error("invalid_json", error=str(exc))
-            raise ApiClientError("response was not valid JSON") from exc
+            # Проверяем, не является ли ответ XML (например, от ChEMBL API)
+            content_type = response.headers.get('content-type', '').lower()
+            if 'xml' in content_type:
+                self.logger.warning(
+                    "xml_response_received",
+                    content_type=content_type,
+                    url=url,
+                    message="API returned XML instead of JSON, this may indicate a server issue"
+                )
+                raise ApiClientError(
+                    f"API returned XML instead of JSON (content-type: {content_type}). "
+                    "This may be a temporary server issue. Please try again later."
+                ) from exc
+            else:
+                self.logger.error("invalid_json", error=str(exc), content_type=content_type)
+                raise ApiClientError("response was not valid JSON") from exc
 
         self.logger.info("response", status_code=response.status_code)
         if not isinstance(payload, dict):

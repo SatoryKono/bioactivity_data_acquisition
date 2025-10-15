@@ -15,8 +15,14 @@ class ChEMBLClient(BaseApiClient):
 
     def fetch_by_doc_id(self, doc_id: str) -> dict[str, Any]:
         """Retrieve a document by its ChEMBL document identifier."""
-
-        payload = self._request("GET", f"document/{doc_id}")
+        
+        # ChEMBL API иногда возвращает XML вместо JSON, поэтому добавляем дополнительные заголовки
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        
+        payload = self._request("GET", f"document/{doc_id}", headers=headers)
         return self._parse_document(payload)
 
     def _parse_document(self, payload: dict[str, Any]) -> dict[str, Any]:
