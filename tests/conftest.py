@@ -14,7 +14,13 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from bioactivity.clients.session import reset_shared_session as _reset_shared_session
+try:
+    from bioactivity.clients.session import reset_shared_session as _reset_shared_session
+except ImportError:  # pragma: no cover - optional when clients are not available
+    def _reset_shared_session() -> None:  # type: ignore[return-type]
+        """Fallback no-op when the shared session cannot be imported."""
+
+        return None
 
 
 def pytest_configure() -> None:

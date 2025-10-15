@@ -26,6 +26,11 @@ from bioactivity.config import (
     TransformSettings,
     ValidationSettings,
 )
+
+try:  # pragma: no cover - optional wiring for partially generated configs
+    from bioactivity.config import CLISettings
+except ImportError:  # pragma: no cover - optional wiring for partially generated configs
+    CLISettings = None  # type: ignore[assignment]
 from bioactivity.etl.extract import fetch_bioactivity_data
 from bioactivity.etl.load import write_deterministic_csv, write_qc_artifacts
 from bioactivity.etl.run import run_pipeline
@@ -67,4 +72,7 @@ __all__ = [
     "write_deterministic_csv",
     "write_qc_artifacts",
 ]
+
+if CLISettings is not None:
+    __all__.append("CLISettings")
 __all__ += list(_utils_all)

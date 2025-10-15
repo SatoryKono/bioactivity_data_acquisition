@@ -84,14 +84,16 @@ flowchart LR
 | Document | scripts/get_document_data.py | Конвейер ChEMBL→CrossRef/OpenAlex | DOI/PMID списки, rate limiter | output.document_<date>.csv и QC отчёты |
 | Testitem | scripts/get_testitem_data.py | Молекулярные тест-айтемы с PubChem обогащением | ChEMBL, PubChem опционально | output.testitem_<date>.csv и QC отчёты |
 
+> **Важно.** Легаси-скрипты в `scripts/get_*_data.py` теперь выступают только как обёртки вокруг
+> канонического Typer-приложения `bioactivity.cli` и при запуске выводят `DeprecationWarning`.
+> Для новых сценариев используйте точку входа `bioactivity-data-acquisition pipeline --config ...`,
+> а настройки конкретных пайплайнов задавайте через YAML/`--set` (см. `configs/config.yaml` и
+> `configs/pipelines.toml`).
+
 #### Проверка
 
 ```bash
-python scripts/get_activity_data.py --limit 10 --dry-run --output-dir data/output --date-tag 20250101
-python scripts/get_assay_data.py --limit 10 --postprocess --output-dir data/output --date-tag 20250101
-python scripts/get_target_data.py all --limit 10 --output-dir data/output --date-tag 20250101 --dry-run
-python scripts/get_document_data.py --mode all --limit 10 --postprocess --output-dir data/output --date-tag 20250101 --dry-run
-python scripts/get_testitem_data.py --limit 10 --no-pubchem-enable --output-dir data/output --date-tag 20250101 --dry-run
+bioactivity-data-acquisition pipeline --config configs/config.yaml --set runtime.log_level=DEBUG --set postprocess.qc.enabled=true
 ```
 
 ## 2. Modules & Dependencies
@@ -178,34 +180,29 @@ Stdout: только structured-логи; данные пишутся на ди�
 
 ### Параметры `get_document_data.py`
 
-Расширенные опции: `--mode {chembl,pubmed,all}`, лимиты CrossRef/OpenAlex (`--crossref-rps`, `--openalex-rps`), fallback DOI настройки. Обязательных аргументов нет. stdout/stderr — структурированные логи, QC отчёты через `save_standard_outputs`.
+Исторические флаги (`--mode`, `--crossref-rps`, `--openalex-rps` и т. д.) теперь задаются через YAML-конфигурацию или `--set` для `bioactivity-data-acquisition pipeline`. При запуске легаси-обёртки параметры прокидываются в общий конфиг.
 
 ### Параметры `get_target_data.py`
 
-Лёгкий интерфейс: `--limit`, `--date-tag`, `--output-dir`, совместимый command позиционный для legacy. Возвращает 0 в happy-path (CLI тест).
+Флаги `--limit`, `--date-tag`, `--output-dir` также переехали в конфигурацию. Используйте профиль/секцию в `configs/pipelines.toml` либо CLI-override (`--set postprocess.qc.enabled=false` и т. п.).
 
 ### Параметры `get_testitem_data.py`
 
-Особые флаги: `--pubchem-enable/--no-pubchem-enable` для обогащения. Возвращает 0 при успешном run. QC аналогичен.
+Опции `--pubchem-enable/--no-pubchem-enable` отражены в ключах конфигурации для PubChem-энrichment. Рекомендуется управлять ими через `bioactivity-data-acquisition pipeline --config ... --set pipelines.testitem.include_pubchem=false` (или правку YAML).
 
 ### Эталонные команды
 
 ```bash
-python scripts/get_activity_data.py --input data/input/activity.csv --limit 100 --postprocess --output-dir data/output --date-tag 20250101
-python scripts/get_assay_data.py --limit 200 --offline --postprocess --output-dir data/output --date-tag 20250101
-python scripts/get_document_data.py --mode all --limit 50 --postprocess --openalex-rps 2 --crossref-rps 3 --output-dir data/output --date-tag 20250101
-python scripts/get_target_data.py all --limit 100 --output-dir data/output --date-tag 20250101
-python scripts/get_testitem_data.py --limit 100 --pubchem-enable --postprocess --output-dir data/output --date-tag 20250101
+bioactivity-data-acquisition pipeline --config configs/config.yaml \
+  --set postprocess.qc.enabled=true \
+  --set postprocess.reporting.include_timestamp=true
 ```
 
 #### Проверка
 
 ```bash
-python scripts/get_activity_data.py --help
-python scripts/get_assay_data.py --help
-python scripts/get_document_data.py --help
-python scripts/get_target_data.py --help
-python scripts/get_testitem_data.py --help
+bioactivity-data-acquisition --help
+bioactivity-data-acquisition pipeline --help
 ```
 
 ## 4. Clients (HTTP) Spec
@@ -276,10 +273,13 @@ Merge стратегия – `merge(..., how="left")`, `combine_first` пред�
 
 #### Проверка
 
+Запуск выполняется через канонический CLI, например:
+
 ```bash
-python scripts/get_target_data.py all --limit 10 --dry-run --output-dir data/output --date-tag 20250101
-grep -E "target_fetch_(start|success)" activity_logs_tmp/*.log
+bioactivity-data-acquisition pipeline --config configs/target.yaml
 ```
+
+где `configs/target.yaml` — производная от `configs/config.yaml` конфигурация с нужными limit/merge-настройками. Легаси-скрипт `scripts/get_target_data.py` сохраняется лишь как обёртка и выводит предупреждение.
 
 ### 5.2 Document
 
@@ -312,8 +312,10 @@ flowchart TD
 #### Проверка
 
 ```bash
-python scripts/get_document_data.py --mode all --limit 10 --postprocess --output-dir data/output --date-tag 20250101 --dry-run
+bioactivity-data-acquisition pipeline --config configs/document.yaml
 ```
+
+Создайте профайл `configs/document.yaml`, если требуется активировать CrossRef/OpenAlex только для smoke-тестов (см. `configs/pipelines.toml`).
 
 ### 5.3 Assay
 
@@ -339,8 +341,10 @@ flowchart LR
 #### Проверка
 
 ```bash
-python scripts/get_assay_data.py --limit 10 --postprocess --output-dir data/output --date-tag 20250101 --offline
+bioactivity-data-acquisition pipeline --config configs/assay.yaml
 ```
+
+Конфигурация `configs/assay.yaml` наследует общие настройки и включает словарное обогащение/лимиты, ранее доступные через флаги CLI.
 
 ### 5.4 Activity
 
@@ -365,8 +369,10 @@ flowchart LR
 #### Проверка
 
 ```bash
-python scripts/get_activity_data.py --limit 10 --postprocess --dry-run --output-dir data/output --date-tag 20250101
+bioactivity-data-acquisition pipeline --config configs/activity.yaml
 ```
+
+Файл `configs/activity.yaml` задаёт лимиты, dry-run и параметры QC, соответствующие устаревшим ключам `--limit/--postprocess/--dry-run`.
 
 ## 6. Schemas
 
@@ -438,7 +444,9 @@ ls data/output/output.demo_20250101*
 #### Проверка
 
 ```bash
-python scripts/get_activity_data.py --limit -1  # ожидаем exit_code 1, лог error
+# В конфигурации activity-пайплайна задайте limit=-1 и запустите канонический CLI,
+# ожидая `SystemExit`:
+bioactivity-data-acquisition pipeline --config configs/activity.yaml
 python scripts/cleanup_project.py --dry-run --retention-days 0
 ```
 
