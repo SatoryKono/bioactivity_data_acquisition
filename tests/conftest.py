@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from library.utils import logging as logging_utils
+from bioactivity.clients.session import reset_shared_session as _reset_shared_session
 
 
 def pytest_configure() -> None:
@@ -22,9 +22,9 @@ def pytest_configure() -> None:
 
 @pytest.fixture(autouse=True)
 def reset_shared_session():
-    logging_utils.reset_shared_session()
+    _reset_shared_session()
     yield
-    logging_utils.reset_shared_session()
+    _reset_shared_session()
 
 
 @pytest.fixture()
