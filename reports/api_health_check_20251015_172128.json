@@ -1,0 +1,71 @@
+{
+  "timestamp": "2025-10-15T17:21:28.500999",
+  "summary": {
+    "total_apis": 5,
+    "healthy_apis": 3,
+    "unhealthy_apis": 2
+  },
+  "results": [
+    {
+      "api": "ChEMBL",
+      "health_status": "timeout",
+      "status_code": null,
+      "response_time": null,
+      "timestamp": "2025-10-15T17:21:20.047795",
+      "rate_limit_info": {},
+      "error": "Request timeout"
+    },
+    {
+      "api": "PubMed",
+      "health_status": "healthy",
+      "status_code": 200,
+      "response_time": 0.659,
+      "timestamp": "2025-10-15T17:21:21.707984",
+      "rate_limit_info": {
+        "X-RateLimit-Limit": "3",
+        "X-RateLimit-Remaining": "2"
+      },
+      "error": null
+    },
+    {
+      "api": "Crossref",
+      "health_status": "healthy",
+      "status_code": 200,
+      "response_time": 1.225,
+      "timestamp": "2025-10-15T17:21:23.933889",
+      "rate_limit_info": {
+        "x-rate-limit-limit": "50",
+        "x-rate-limit-interval": "1s"
+      },
+      "error": null
+    },
+    {
+      "api": "OpenAlex",
+      "health_status": "healthy",
+      "status_code": 200,
+      "response_time": 0.79,
+      "timestamp": "2025-10-15T17:21:25.725216",
+      "rate_limit_info": {
+        "RateLimit-Limit": "5",
+        "RateLimit-Remaining": "6",
+        "RateLimit-Reset": "1"
+      },
+      "error": null
+    },
+    {
+      "api": "Semantic Scholar",
+      "health_status": "rate_limited",
+      "status_code": 429,
+      "response_time": 0.774,
+      "timestamp": "2025-10-15T17:21:27.499933",
+      "rate_limit_info": {},
+      "error": null
+    }
+  ],
+  "recommendations": [
+    "Некоторые API недоступны или работают некорректно",
+    "- ChEMBL: Увеличьте таймауты или проверьте скорость сети",
+    "Некоторые API ограничивают количество запросов:",
+    "- Semantic Scholar: Увеличьте интервалы между запросами"
+  ]
+}

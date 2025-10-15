@@ -97,6 +97,39 @@ pre-commit run --all-files
 The GitHub Actions workflow (`.github/workflows/ci.yaml`) runs Ruff, Black, mypy, and pytest
 on each push and pull request targeting `main` or `work`.
 
+## API Limits Monitoring
+
+Для проверки лимитов и доступности API используйте следующие скрипты:
+
+### Быстрая проверка
+```bash
+# Проверка всех API
+python scripts/api_health_check.py --save
+
+# Проверка конкретного API
+python scripts/quick_api_check.py crossref
+```
+
+### Детальная проверка
+```bash
+# Полная проверка с отчетом
+python scripts/check_api_limits.py
+
+# Детальная информация о лимитах
+python scripts/check_specific_limits.py
+```
+
+### Мониторинг в реальном времени
+```bash
+# Мониторинг Crossref API каждые 30 секунд
+python scripts/monitor_api.py crossref
+
+# Мониторинг с настройками
+python scripts/monitor_api.py pubmed -i 60 -d 3600  # каждую минуту в течение часа
+```
+
+Подробная документация: [docs/API_LIMITS_CHECK.md](docs/API_LIMITS_CHECK.md)
+
 ## Outputs
 
 The load stage produces three artefacts:
