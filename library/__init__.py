@@ -1,11 +1,6 @@
-"""Deprecated compatibility package."""
+"""Deprecated compatibility package for :mod:`bioactivity`."""
 from __future__ import annotations
 
-from warnings import warn
+from library._compat import reexport
 
-from bioactivity import *  # noqa: F401,F403
-from bioactivity import __all__ as _bioactivity_all
-
-warn("deprecated", DeprecationWarning, stacklevel=2)
-
-__all__ = list(_bioactivity_all)
+reexport("library", "bioactivity", globals())
