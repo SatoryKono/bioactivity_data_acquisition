@@ -8,10 +8,10 @@ import pandas as pd
 from pandera.errors import SchemaErrors
 from structlog.stdlib import BoundLogger
 
-from bioactivity.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
+from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
-    from bioactivity.config import DeterminismSettings, TransformSettings
+    from library.config import DeterminismSettings, TransformSettings
 
 
 def _resolve_ascending(by: list[str], ascending: list[bool] | bool) -> list[bool] | bool:
@@ -43,8 +43,8 @@ def normalize_bioactivity_data(
 ) -> pd.DataFrame:
     """Normalize raw bioactivity data to a consistent schema using configuration."""
 
-    from bioactivity.config import DeterminismSettings as _DeterminismSettings
-    from bioactivity.config import TransformSettings as _TransformSettings
+    from library.config import DeterminismSettings as _DeterminismSettings
+    from library.config import TransformSettings as _TransformSettings
 
     transforms = transforms or _TransformSettings()
     determinism = determinism or _DeterminismSettings()

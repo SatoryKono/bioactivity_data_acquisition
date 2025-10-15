@@ -1,4 +1,4 @@
-"""Deprecated wrapper delegating to ``bioactivity.cli``."""
+"""Deprecated wrapper delegating to ``library.cli``."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ if __package__ in (None, ""):
 from bioactivity import cli as bioactivity_cli
 
 _DEPRECATION_MESSAGE = (
-    "scripts/get_target_data.py is deprecated and will be removed in a future release. "
+    "scripts/get_testitem_data.py is deprecated and will be removed in a future release. "
     "Invoke `bioactivity-data-acquisition pipeline` instead."
 )
 

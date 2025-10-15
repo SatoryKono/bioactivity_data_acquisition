@@ -5,9 +5,9 @@ from __future__ import annotations
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioactivity.clients import BioactivityClient
-from bioactivity.config import APIClientConfig
-from bioactivity.schemas import RawBioactivitySchema
+from library.clients import BioactivityClient
+from library.config import APIClientConfig
+from library.schemas import RawBioactivitySchema
 
 
 def fetch_bioactivity_data(

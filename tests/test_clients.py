@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 import responses
 
-from bioactivity.clients import (
+from library.clients import (
     ApiClientError,
     ChEMBLClient,
     CrossrefClient,
@@ -14,7 +14,7 @@ from bioactivity.clients import (
     RateLimitError,
     SemanticScholarClient,
 )
-from bioactivity.config import APIClientConfig, RateLimitSettings, RetrySettings
+from library.config import APIClientConfig, RateLimitSettings, RetrySettings
 
 
 def make_config(name: str, base_url: str, **kwargs: object) -> APIClientConfig:

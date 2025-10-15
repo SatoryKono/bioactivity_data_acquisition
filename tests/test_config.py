@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from bioactivity.config import Config
+from library.config import Config
 
 
 @pytest.fixture()

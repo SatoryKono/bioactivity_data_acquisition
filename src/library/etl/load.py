@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioactivity.etl.qc import build_correlation_matrix, build_qc_report
+from library.etl.qc import build_correlation_matrix, build_qc_report
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers
-    from bioactivity.config import (
+    from library.config import (
         CsvFormatSettings,
         DeterminismSettings,
         OutputSettings,
@@ -29,7 +29,7 @@ def _deterministic_order(
     remaining = [col for col in df.columns if col not in desired_order]
     ordered = df[desired_order + remaining]
     sort_by = determinism.sort.by or ordered.columns.tolist()
-    from bioactivity.etl.transform import _resolve_ascending
+    from library.etl.transform import _resolve_ascending
 
     ascending = _resolve_ascending(sort_by, determinism.sort.ascending)
     return ordered.sort_values(
@@ -124,13 +124,13 @@ def write_deterministic_csv(
 ) -> Path:
     """Persist data to disk in a deterministic order using configuration."""
 
-    from bioactivity.config import (
+    from library.config import (
         CsvFormatSettings as _CsvFormatSettings,
     )
-    from bioactivity.config import (
+    from library.config import (
         DeterminismSettings as _DeterminismSettings,
     )
-    from bioactivity.config import (
+    from library.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
 
@@ -176,16 +176,16 @@ def write_qc_artifacts(
 ) -> None:
     """Write QC and correlation reports according to configuration."""
 
-    from bioactivity.config import (
+    from library.config import (
         CsvFormatSettings as _CsvFormatSettings,
     )
-    from bioactivity.config import (
+    from library.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
-    from bioactivity.config import (
+    from library.config import (
         PostprocessSettings as _PostprocessSettings,
     )
-    from bioactivity.config import (
+    from library.config import (
         QCValidationSettings as _QCValidationSettings,
     )
 

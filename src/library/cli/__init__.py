@@ -7,9 +7,9 @@ from typing import Any, cast
 
 import typer
 
-from bioactivity.config import Config
-from bioactivity.etl.run import run_pipeline
-from bioactivity.utils.logging import configure_logging
+from library.config import Config
+from library.etl.run import run_pipeline
+from library.utils.logging import configure_logging
 
 CONFIG_OPTION = typer.Option(
     ...,
@@ -61,7 +61,7 @@ def version() -> None:
 
 
 def main() -> None:
-    """Entrypoint for ``python -m bioactivity.cli``."""
+    """Entrypoint for ``python -m library.cli``."""
 
     app()
 

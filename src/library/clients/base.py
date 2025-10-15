@@ -15,9 +15,9 @@ import backoff
 import requests
 from requests import Response
 
-from bioactivity.clients.session import get_shared_session
-from bioactivity.config import APIClientConfig
-from bioactivity.logging import get_logger
+from library.clients.session import get_shared_session
+from library.config import APIClientConfig
+from library.logging import get_logger
 
 
 class ApiClientError(RuntimeError):

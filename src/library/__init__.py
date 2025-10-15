@@ -1,8 +1,8 @@
 """Public interface for the bioactivity ETL pipeline."""
 from __future__ import annotations
 
-from bioactivity.cli import app, main
-from bioactivity.config import (
+from library.cli import app, main
+from library.config import (
     APIClientConfig,
     Config,
     CorrelationSettings,
@@ -28,16 +28,16 @@ from bioactivity.config import (
 )
 
 try:  # pragma: no cover - optional wiring for partially generated configs
-    from bioactivity.config import CLISettings
+    from library.config import CLISettings
 except ImportError:  # pragma: no cover - optional wiring for partially generated configs
     CLISettings = None  # type: ignore[assignment]
-from bioactivity.etl.extract import fetch_bioactivity_data
-from bioactivity.etl.load import write_deterministic_csv, write_qc_artifacts
-from bioactivity.etl.run import run_pipeline
-from bioactivity.etl.transform import normalize_bioactivity_data
-from bioactivity.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
-from bioactivity.utils import *  # noqa: F403
-from bioactivity.utils import __all__ as _utils_all
+from library.etl.extract import fetch_bioactivity_data
+from library.etl.load import write_deterministic_csv, write_qc_artifacts
+from library.etl.run import run_pipeline
+from library.etl.transform import normalize_bioactivity_data
+from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
+from library.utils import *  # noqa: F403
+from library.utils import __all__ as _utils_all
 
 __all__ = [
     "APIClientConfig",

@@ -7,11 +7,11 @@ from pathlib import Path
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioactivity.config import Config
-from bioactivity.etl.extract import fetch_bioactivity_data
-from bioactivity.etl.load import write_deterministic_csv, write_qc_artifacts
-from bioactivity.etl.transform import normalize_bioactivity_data
-from bioactivity.schemas import NormalizedBioactivitySchema
+from library.config import Config
+from library.etl.extract import fetch_bioactivity_data
+from library.etl.load import write_deterministic_csv, write_qc_artifacts
+from library.etl.transform import normalize_bioactivity_data
+from library.schemas import NormalizedBioactivitySchema
 
 
 def _empty_normalized_frame() -> pd.DataFrame:

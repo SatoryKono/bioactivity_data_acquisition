@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from bioactivity.config import Config
+from library.config import Config
 
 
 def write_config(tmp_path: Path) -> Path:

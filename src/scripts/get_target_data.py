@@ -1,4 +1,4 @@
-"""Deprecated wrapper delegating to ``bioactivity.cli``."""
+"""Deprecated wrapper delegating to ``library.cli``."""
 
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ if __package__ in (None, ""):
     if str(SRC_PATH) not in sys.path:
         sys.path.insert(0, str(SRC_PATH))
 
-from bioactivity import cli as bioactivity_cli  # type: ignore
+from bioactivity import cli as bioactivity_cli
 
 _DEPRECATION_MESSAGE = (
-    "scripts/get_document_data.py is deprecated and will be removed in a future release. "
+    "scripts/get_target_data.py is deprecated and will be removed in a future release. "
     "Invoke `bioactivity-data-acquisition pipeline` instead."
 )
 

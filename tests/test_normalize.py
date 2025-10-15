@@ -4,7 +4,7 @@ import pandas as pd
 import pandera.errors as pa_errors
 import pytest
 
-from bioactivity.etl.transform import normalize_bioactivity_data
+from library.etl.transform import normalize_bioactivity_data
 
 
 def test_normalize_units_converts_all_to_nm(sample_frame: pd.DataFrame) -> None:

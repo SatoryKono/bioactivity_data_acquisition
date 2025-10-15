@@ -10,7 +10,7 @@ import responses
 import yaml
 from typer.testing import CliRunner
 
-from bioactivity.cli import app
+from library.cli import app
 
 
 @pytest.fixture()

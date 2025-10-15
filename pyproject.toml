@@ -36,7 +36,7 @@ dev = [
 ]
 
 [project.scripts]
-bioactivity-data-acquisition = "bioactivity.cli:main"
+bioactivity-data-acquisition = "library.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -45,14 +45,14 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.pytest.ini_options]
-addopts = "--cov=bioactivity --cov=tests --cov-report=term-missing --cov-fail-under=90"
+addopts = "--cov=library --cov=tests --cov-report=term-missing --cov-fail-under=90"
 testpaths = ["tests"]
 
 [tool.coverage.run]
 omit = [
-    "src/bioactivity/clients/*",
-    "src/bioactivity/utils/*",
-    "src/bioactivity/io_/normalize.py",
+    "src/library/clients/*",
+    "src/library/utils/*",
+    "src/library/io_/normalize.py",
 ]
 
 [tool.black]

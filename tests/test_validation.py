@@ -7,7 +7,7 @@ import pandas.testing as pdt
 import pandera.errors as pa_errors
 import pytest
 
-from bioactivity.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
+from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
 
 
 @pytest.fixture()

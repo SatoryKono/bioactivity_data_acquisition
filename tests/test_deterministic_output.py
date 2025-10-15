@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioactivity.config import (
+from library.config import (
     CsvFormatSettings,
     DeterminismSettings,
     OutputSettings,
@@ -14,8 +14,8 @@ from bioactivity.config import (
     QCValidationSettings,
     SortSettings,
 )
-from bioactivity.etl.load import write_deterministic_csv, write_qc_artifacts
-from bioactivity.io_.read_write import write_publications
+from library.etl.load import write_deterministic_csv, write_qc_artifacts
+from library.io_.read_write import write_publications
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 

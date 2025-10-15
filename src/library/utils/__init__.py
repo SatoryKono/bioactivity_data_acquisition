@@ -1,9 +1,9 @@
 """Utility helpers for the bioactivity ETL."""
 
-from bioactivity.utils.errors import ConfigError, ExtractionError, ValidationError
-from bioactivity.utils.joins import ensure_unique, safe_left_join
-from bioactivity.utils.logging import bind_stage, configure_logging
-from bioactivity.utils.rate_limit import (
+from library.utils.errors import ConfigError, ExtractionError, ValidationError
+from library.utils.joins import ensure_unique, safe_left_join
+from library.utils.logging import bind_stage, configure_logging
+from library.utils.rate_limit import (
     RateLimiter,
     RateLimitError,
     RateLimiterSet,

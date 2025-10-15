@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioactivity.clients.base import BaseApiClient
-from bioactivity.config import APIClientConfig
+from library.clients.base import BaseApiClient
+from library.config import APIClientConfig
 
 
 class ChEMBLClient(BaseApiClient):

@@ -7,15 +7,15 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from bioactivity.etl.transform import _resolve_ascending
-from bioactivity.io_.normalize import (
+from library.etl.transform import _resolve_ascending
+from library.io_.normalize import (
     PUBLICATION_COLUMNS,
     normalize_publication_frame,
     normalize_query_frame,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - import for typing only
-    from bioactivity.config import (
+    from library.config import (
         CsvFormatSettings,
         DeterminismSettings,
         OutputSettings,
@@ -55,10 +55,10 @@ def write_publications(
 ) -> None:
     """Persist publication records using deterministic configuration."""
 
-    from bioactivity.config import (
+    from library.config import (
         CsvFormatSettings as _CsvFormatSettings,
     )
-    from bioactivity.config import (
+    from library.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
 

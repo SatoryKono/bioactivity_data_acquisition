@@ -24,7 +24,7 @@ def test_legacy_wrapper_delegates_to_bioactivity_cli(script_name: str, monkeypat
 
     calls: list[str] = []
 
-    fake_cli = ModuleType("bioactivity.cli")
+    fake_cli = ModuleType("library.cli")
 
     def fake_main() -> None:
         calls.append(script_name)
@@ -36,9 +36,9 @@ def test_legacy_wrapper_delegates_to_bioactivity_cli(script_name: str, monkeypat
     fake_pkg.cli = fake_cli  # type: ignore[attr-defined]
 
     monkeypatch.setitem(sys.modules, "bioactivity", fake_pkg)
-    monkeypatch.setitem(sys.modules, "bioactivity.cli", fake_cli)
+    monkeypatch.setitem(sys.modules, "library.cli", fake_cli)
 
-    script_path = Path("scripts") / script_name
+    script_path = Path("src/scripts") / script_name
 
     with pytest.warns(DeprecationWarning):
         runpy.run_path(str(script_path), run_name="__main__")

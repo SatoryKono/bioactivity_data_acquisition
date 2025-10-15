@@ -13,19 +13,19 @@ import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 # Add the src directory to the Python path
-src_dir = Path(__file__).resolve().parents[1] / "src"
+src_dir = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(src_dir))
 
 # Local imports
-from bioactivity.clients import BaseApiClient as BasePublicationsClient  # type: ignore
-from bioactivity.clients.chembl import ChEMBLClient as ChemblClient  # type: ignore
-from bioactivity.clients.crossref import CrossrefClient  # type: ignore
-from bioactivity.clients.openalex import OpenAlexClient  # type: ignore
-from bioactivity.clients.pubmed import PubMedClient  # type: ignore
-from bioactivity.clients.semantic_scholar import SemanticScholarClient  # type: ignore
-from bioactivity.config import APIClientConfig as ClientConfig  # type: ignore
-from bioactivity.logging import configure_logging, get_logger  # type: ignore
-from bioactivity.utils.errors import ConfigError, ExtractionError  # type: ignore
+from library.clients import BaseApiClient as BasePublicationsClient  # type: ignore
+from library.clients.chembl import ChEMBLClient as ChemblClient  # type: ignore
+from library.clients.crossref import CrossrefClient  # type: ignore
+from library.clients.openalex import OpenAlexClient  # type: ignore
+from library.clients.pubmed import PubMedClient  # type: ignore
+from library.clients.semantic_scholar import SemanticScholarClient  # type: ignore
+from library.config import APIClientConfig as ClientConfig  # type: ignore
+from library.logging import configure_logging, get_logger  # type: ignore
+from library.utils.errors import ConfigError, ExtractionError  # type: ignore
 
 try:
     from dotenv import load_dotenv  # type: ignore
