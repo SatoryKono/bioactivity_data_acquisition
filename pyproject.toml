@@ -36,7 +36,7 @@ dev = [
 ]
 
 [project.scripts]
-bioactivity-data-acquisition = "library.cli:main"
+bioactivity-data-acquisition = "bioactivity.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

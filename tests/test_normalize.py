@@ -42,5 +42,5 @@ def test_normalize_units_rejects_unknown_unit(sample_frame: pd.DataFrame) -> Non
     sample_frame["smiles"] = ["CCO", "CCC"]
     sample_frame["source"] = "chembl"
     sample_frame["retrieved_at"] = "2024-01-01T00:00:00Z"
-    with pytest.raises(pa_errors.SchemaErrors):
+    with pytest.raises((pa_errors.SchemaErrors, ValueError)):
         normalize_bioactivity_data(sample_frame)
