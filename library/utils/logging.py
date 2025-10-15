@@ -105,6 +105,26 @@ def _wrap_with_backoff(func: Callable[..., requests.Response]) -> Callable[..., 
     return wrapper
 
 
+def _build_shared_session(
+    *,
+    cache_name: str,
+    cache_expire: int,
+    version: str,
+    email: str,
+) -> requests.Session:
+    if not email:
+        raise ValueError("Contact email must be provided for the User-Agent header")
+
+    ua = USER_AGENT_TEMPLATE.format(version=version, email=email)
+
+    session = requests_cache.CachedSession(cache_name=cache_name, expire_after=cache_expire)
+    session.headers.setdefault("User-Agent", ua)
+    session.request = _wrap_with_backoff(session.request)  # type: ignore[assignment]
+    LOGGER.debug("Configured cached HTTP session", cache=cache_name, expire_after=cache_expire)
+
+    return session
+
+
 def create_shared_session(
     *,
     cache_name: str = DEFAULT_CACHE_NAME,
@@ -116,15 +136,12 @@ def create_shared_session(
 
     global _SHARED_SESSION
 
-    if not email:
-        raise ValueError("Contact email must be provided for the User-Agent header")
-
-    ua = USER_AGENT_TEMPLATE.format(version=version, email=email)
-
-    session = requests_cache.CachedSession(cache_name=cache_name, expire_after=cache_expire)
-    session.headers.setdefault("User-Agent", ua)
-    session.request = _wrap_with_backoff(session.request)  # type: ignore[assignment]
-    LOGGER.debug("Configured cached HTTP session", cache=cache_name, expire_after=cache_expire)
+    session = _build_shared_session(
+        cache_name=cache_name,
+        cache_expire=cache_expire,
+        version=version,
+        email=email,
+    )
 
     with _SESSION_LOCK:
         _SHARED_SESSION = session
@@ -135,10 +152,21 @@ def get_shared_session() -> requests.Session:
     """Return the shared HTTP session, creating it lazily if required."""
 
     global _SHARED_SESSION
+    session = _SHARED_SESSION
+    if session is not None:
+        return session
+
     with _SESSION_LOCK:
-        if _SHARED_SESSION is None:
-            return create_shared_session()
-        return _SHARED_SESSION
+        session = _SHARED_SESSION
+        if session is None:
+            session = _build_shared_session(
+                cache_name=DEFAULT_CACHE_NAME,
+                cache_expire=DEFAULT_CACHE_EXPIRE,
+                version=__version__,
+                email=DEFAULT_CONTACT_EMAIL,
+            )
+            _SHARED_SESSION = session
+        return session
 
 
 def reset_shared_session() -> None:
