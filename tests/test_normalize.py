@@ -16,11 +16,11 @@ def test_normalize_units_converts_all_to_nm(sample_frame: pd.DataFrame) -> None:
             "activity_comment": "target_pref_name",
         }
     )
-    sample_frame = sample_frame.drop(columns=["molecule_chembl_id"])
+    sample_frame = sample_frame.drop(columns=["molecule_chembl_id"], errors="ignore")
     sample_frame["target_pref_name"] = sample_frame["target_pref_name"].fillna("unknown")
+    sample_frame["smiles"] = ["CCO", "CCC"]
     sample_frame["source"] = "chembl"
     sample_frame["retrieved_at"] = "2024-01-01T00:00:00Z"
-    sample_frame["smiles"] = ["CCO", "CCC"]
     result = normalize_bioactivity_data(sample_frame)
     assert set(result["activity_unit"].unique()) == {"nM"}
     expected = [1.5, 2_500.0]
@@ -36,11 +36,11 @@ def test_normalize_units_rejects_unknown_unit(sample_frame: pd.DataFrame) -> Non
             "activity_comment": "target_pref_name",
         }
     )
-    sample_frame = sample_frame.drop(columns=["molecule_chembl_id"])
+    sample_frame = sample_frame.drop(columns=["molecule_chembl_id"], errors="ignore")
     sample_frame["target_pref_name"] = sample_frame["target_pref_name"].fillna("unknown")
     sample_frame.loc[0, "activity_units"] = "mg/mL"
+    sample_frame["smiles"] = ["CCO", "CCC"]
     sample_frame["source"] = "chembl"
     sample_frame["retrieved_at"] = "2024-01-01T00:00:00Z"
-    sample_frame["smiles"] = ["CCO", "CCC"]
     with pytest.raises(pa_errors.SchemaErrors):
         normalize_bioactivity_data(sample_frame)

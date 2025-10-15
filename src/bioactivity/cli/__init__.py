@@ -45,6 +45,14 @@ def _parse_override_args(values: list[str]) -> Dict[str, str]:
         assignments[key] = value
     return assignments
 
+
+OVERRIDE_OPTION = typer.Option(
+    [],
+    "--set",
+    "-s",
+    help="Override configuration values using dotted paths, e.g. runtime.log_level=DEBUG.",
+)
+
 app = typer.Typer(help="Bioactivity ETL pipeline")
 
 

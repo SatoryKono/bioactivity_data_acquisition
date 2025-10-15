@@ -18,6 +18,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install .[dev]
+      - name: Config env override smoke test
+        run: |
+          export CHEMBL_API_TOKEN=dummy-token
+          export BIOACTIVITY__RUNTIME__LOG_LEVEL=DEBUG
+          python - <<'PY'
+          from bioactivity.config import Config
+
+          config = Config.load("configs/config.yaml")
+          assert config.runtime.log_level == "DEBUG"
+          assert config.clients[0].headers["Authorization"].endswith("dummy-token")
+          PY
       - name: Ruff
         run: ruff check .
       - name: Black
