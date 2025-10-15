@@ -6,6 +6,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Deque, Dict, MutableMapping, Optional
 from urllib.parse import urljoin
 
@@ -66,20 +67,21 @@ class BaseApiClient:
 
     def __init__(
         self,
-        base_url: str,
+        config: "APIClientConfig",
         *,
         session: Optional[requests.Session] = None,
         rate_limiter: Optional[RateLimiter] = None,
-        timeout: float = 10.0,
-        max_retries: int = 3,
-        default_headers: Optional[MutableMapping[str, str]] = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.config = config
+        self.base_url = config.resolved_base_url.rstrip("/")
         self.session = session or get_shared_session()
+        limiter = config.rate_limit
+        if limiter is not None and rate_limiter is None:
+            rate_limiter = RateLimiter(RateLimitConfig(limiter.max_calls, limiter.period))
         self.rate_limiter = rate_limiter
-        self.timeout = timeout
-        self.max_retries = max(1, max_retries)
-        self.default_headers = {**(default_headers or {})}
+        self.timeout = config.timeout
+        self.max_retries = max(1, config.retries.max_tries)
+        self.default_headers = {**config.headers}
         self.logger = get_logger(self.__class__.__name__, base_url=self.base_url)
 
     def _make_url(self, path: str) -> str:
@@ -94,8 +96,9 @@ class BaseApiClient:
         def _call() -> Response:
             return self.session.request(method, url, timeout=self.timeout, **kwargs)
 
+        wait_gen = partial(backoff.expo, factor=self.config.retries.backoff_multiplier)
         sender = backoff.on_exception(
-            backoff.expo,
+            wait_gen,
             requests.exceptions.RequestException,
             max_tries=self.max_retries,
             giveup=lambda exc: isinstance(exc, requests.exceptions.HTTPError),

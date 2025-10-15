@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Dict
 
 import typer
 
@@ -21,14 +22,41 @@ CONFIG_OPTION = typer.Option(
     resolve_path=True,
 )
 
+OVERRIDE_OPTION = typer.Option(
+    [],
+    "--set",
+    "-s",
+    help=(
+        "Override configuration values using dotted paths, e.g. "
+        "--set http.global.timeout=20"
+    ),
+)
+
+
+def _parse_override_args(values: list[str]) -> Dict[str, str]:
+    assignments: Dict[str, str] = {}
+    for item in values:
+        if "=" not in item:
+            raise typer.BadParameter("Overrides must be in KEY=VALUE format")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise typer.BadParameter("Override key must not be empty")
+        assignments[key] = value
+    return assignments
+
 app = typer.Typer(help="Bioactivity ETL pipeline")
 
 
 @app.command()
-def pipeline(config: Path = CONFIG_OPTION) -> None:
+def pipeline(
+    config: Path = CONFIG_OPTION,
+    overrides: list[str] = OVERRIDE_OPTION,
+) -> None:
     """Execute the ETL pipeline using a configuration file."""
 
-    config_model = Config.load(config)
+    parsed_overrides = _parse_override_args(overrides)
+    config_model = Config.load(config, overrides=parsed_overrides)
     logger = configure_logging(config_model.logging.level)
     logger = logger.bind(command="pipeline")
     output = run_pipeline(config_model, logger)

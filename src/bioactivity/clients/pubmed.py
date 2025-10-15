@@ -3,15 +3,18 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, Optional
 
+from bioactivity.config import APIClientConfig
 from bioactivity.clients.base import ApiClientError, BaseApiClient
 
 
 class PubMedClient(BaseApiClient):
     """HTTP client for PubMed E-utilities."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        default_headers = {"Accept": "application/json"}
-        super().__init__("https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed", default_headers=default_headers, **kwargs)
+    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
+        headers = dict(config.headers)
+        headers.setdefault("Accept", "application/json")
+        enhanced = config.model_copy(update={"headers": headers})
+        super().__init__(enhanced, **kwargs)
 
     def fetch_by_pmid(self, pmid: str) -> Dict[str, Any]:
         payload = self._request("GET", "", params={"id": pmid, "format": "json"})

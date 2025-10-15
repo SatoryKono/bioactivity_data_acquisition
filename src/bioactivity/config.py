@@ -2,16 +2,40 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from typing import Any
-
-from __future__ import annotations
-
-from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Mapping
 
 import yaml
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+
+
+def _merge_dicts(base: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, Any]:
+    """Recursively merge ``overrides`` into ``base`` and return a copy."""
+
+    result = dict(base)
+    for key, value in overrides.items():
+        if isinstance(value, Mapping) and isinstance(result.get(key), Mapping):
+            result[key] = _merge_dicts(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def _assign_path(root: dict[str, Any], path: Iterable[str], value: Any) -> None:
+    current = root
+    *parents, last = list(path)
+    for segment in parents:
+        current = current.setdefault(segment, {})
+    current[last] = value
+
+
+def _parse_scalar(value: str) -> Any:
+    try:
+        parsed = yaml.safe_load(value)
+    except yaml.YAMLError:
+        return value
+    return parsed
 
 
 class RetrySettings(BaseModel):
@@ -21,17 +45,65 @@ class RetrySettings(BaseModel):
     backoff_multiplier: float = Field(default=1.0, gt=0)
 
 
+class RateLimitSettings(BaseModel):
+    """Rate limiting configuration for API clients."""
+
+    max_calls: int = Field(gt=0)
+    period: float = Field(gt=0)
+
+
+class HTTPGlobalSettings(BaseModel):
+    """Defaults applied to all HTTP clients."""
+
+    timeout: float = Field(default=30.0, gt=0)
+    headers: dict[str, str] = Field(default_factory=dict)
+    retries: RetrySettings = Field(default_factory=RetrySettings)
+
+
+class HTTPSourceSettings(BaseModel):
+    """Per-source HTTP configuration overriding the global defaults."""
+
+    base_url: HttpUrl
+    timeout: float | None = Field(default=None, gt=0)
+    retries: RetrySettings | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
+    rate_limit: RateLimitSettings | None = None
+
+
+class PaginationSettings(BaseModel):
+    """Pagination configuration for a data source."""
+
+    page_param: str | None = None
+    size_param: str | None = None
+    size: int | None = Field(default=None, gt=0)
+    max_pages: int | None = Field(default=None, gt=0)
+
+
 class APIClientConfig(BaseModel):
     """Configuration for a single HTTP API client."""
 
     name: str
-    url: HttpUrl
+    base_url: HttpUrl
+    endpoint: str = ""
     headers: dict[str, str] = Field(default_factory=dict)
     params: dict[str, Any] = Field(default_factory=dict)
     pagination_param: str | None = None
     page_size_param: str | None = None
     page_size: int | None = Field(default=None, gt=0)
     max_pages: int | None = Field(default=None, gt=0)
+    timeout: float = Field(default=30.0, gt=0)
+    retries: RetrySettings = Field(default_factory=RetrySettings)
+    rate_limit: RateLimitSettings | None = None
+
+    model_config = ConfigDict(frozen=True)
+
+    @property
+    def resolved_base_url(self) -> str:
+        base = str(self.base_url).rstrip("/")
+        if not self.endpoint:
+            return base
+        endpoint = self.endpoint.lstrip("/")
+        return f"{base}/{endpoint}"
 
     @field_validator("name")
     @classmethod
@@ -39,6 +111,35 @@ class APIClientConfig(BaseModel):
         if not value.strip():
             raise ValueError("Client name must not be empty")
         return value
+
+
+class SourceSettings(BaseModel):
+    """Configuration for an individual data source."""
+
+    name: str
+    endpoint: str = ""
+    params: dict[str, Any] = Field(default_factory=dict)
+    pagination: PaginationSettings = Field(default_factory=PaginationSettings)
+    http: HTTPSourceSettings
+
+    def to_client_config(self, defaults: HTTPGlobalSettings) -> APIClientConfig:
+        headers = {**defaults.headers, **self.http.headers}
+        timeout = self.http.timeout or defaults.timeout
+        retries = self.http.retries or defaults.retries
+        return APIClientConfig(
+            name=self.name,
+            base_url=self.http.base_url,
+            endpoint=self.endpoint,
+            headers=headers,
+            params=dict(self.params),
+            pagination_param=self.pagination.page_param,
+            page_size_param=self.pagination.size_param,
+            page_size=self.pagination.size,
+            max_pages=self.pagination.max_pages,
+            timeout=timeout,
+            retries=retries,
+            rate_limit=self.http.rate_limit,
+        )
 
 
 class OutputSettings(BaseModel):
@@ -55,6 +156,12 @@ class OutputSettings(BaseModel):
         return value
 
 
+class RuntimeSettings(BaseModel):
+    """Runtime configuration for the pipeline."""
+
+    output: OutputSettings
+
+
 class LoggingSettings(BaseModel):
     """Structured logging configuration."""
 
@@ -67,32 +174,106 @@ class ValidationSettings(BaseModel):
     strict: bool = Field(default=True)
 
 
+class HTTPSettings(BaseModel):
+    """Container for HTTP configuration sections."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    global_: HTTPGlobalSettings = Field(default_factory=HTTPGlobalSettings, alias="global")
+
+
 class Config(BaseModel):
     """Top-level configuration for the ETL pipeline."""
 
-    clients: list[APIClientConfig]
-    output: OutputSettings
-    retries: RetrySettings = Field(default_factory=RetrySettings)
+    http: HTTPSettings
+    sources: dict[str, SourceSettings] = Field(default_factory=dict)
+    runtime: RuntimeSettings
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     validation: ValidationSettings = Field(default_factory=ValidationSettings)
 
-    @classmethod
-    def load(cls, path: Path | str) -> Config:
-        """Load configuration from a YAML file."""
+    @property
+    def clients(self) -> list[APIClientConfig]:
+        return [source.to_client_config(self.http.global_) for source in self.sources.values()]
 
-        config_path = Path(path)
-        if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-        with config_path.open("r", encoding="utf-8") as file:
-            data = yaml.safe_load(file)
-        return cls.model_validate(data)
+    @property
+    def output(self) -> OutputSettings:
+        return self.runtime.output
+
+    @property
+    def retries(self) -> RetrySettings:
+        return self.http.global_.retries
+
+    @classmethod
+    def load(
+        cls,
+        path: Path | str | None,
+        *,
+        overrides: Mapping[str, Any] | None = None,
+        env_prefix: str = "ENV_",
+    ) -> Config:
+        """Load configuration from a YAML file applying layered overrides."""
+
+        base_data: dict[str, Any] = {}
+        if path is not None:
+            config_path = Path(path)
+            if not config_path.exists():
+                raise FileNotFoundError(f"Config file not found: {config_path}")
+            with config_path.open("r", encoding="utf-8") as file:
+                base_data = yaml.safe_load(file) or {}
+
+        env_overrides = cls._load_env_overrides(env_prefix)
+        cli_overrides = cls._normalize_overrides(overrides or {})
+
+        merged = _merge_dicts(base_data, env_overrides)
+        merged = _merge_dicts(merged, cli_overrides)
+        return cls.model_validate(merged)
+
+    @staticmethod
+    def _load_env_overrides(prefix: str) -> dict[str, Any]:
+        if not prefix:
+            return {}
+        result: dict[str, Any] = {}
+        for key, value in os.environ.items():
+            if not key.startswith(prefix):
+                continue
+            stripped = key[len(prefix) :]
+            if not stripped:
+                continue
+            path = [segment.lower() for segment in stripped.split("__") if segment]
+            if not path:
+                continue
+            _assign_path(result, path, _parse_scalar(value))
+        return result
+
+    @staticmethod
+    def _normalize_overrides(overrides: Mapping[str, Any]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in overrides.items():
+            if isinstance(value, Mapping):
+                result[key] = Config._normalize_overrides(value)
+                continue
+            if isinstance(key, str) and "." in key:
+                path = [segment.strip().lower() for segment in key.split(".") if segment.strip()]
+                if not path:
+                    continue
+                _assign_path(result, path, value if not isinstance(value, str) else _parse_scalar(value))
+            else:
+                result[key] = value if not isinstance(value, str) else _parse_scalar(value)
+        return result
 
 
 __all__ = [
     "APIClientConfig",
     "Config",
+    "HTTPGlobalSettings",
+    "HTTPSourceSettings",
+    "HTTPSettings",
     "LoggingSettings",
     "OutputSettings",
+    "PaginationSettings",
+    "RateLimitSettings",
     "RetrySettings",
+    "RuntimeSettings",
+    "SourceSettings",
     "ValidationSettings",
 ]

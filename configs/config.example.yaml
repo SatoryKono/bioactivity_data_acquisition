@@ -1,13 +1,52 @@
+http:
+  global:
+    timeout: 30
+    retries:
+      max_tries: 5
+      backoff_multiplier: 2.0
+    headers:
+      User-Agent: bioactivity-data-acquisition/0.1
 sources:
-  - name: chembl
-    base_url: "https://example.com"
-    activities_endpoint: "/activities"
-    page_size: 2
-output:
-  output_path: "data/output/bioactivities.csv"
-  qc_report_path: "data/output/qc_report.csv"
-  correlation_path: "data/output/correlation.csv"
-retries:
-  max_tries: 3
-log_level: INFO
-strict_validation: true
+  chembl:
+    name: chembl
+    endpoint: activities
+    params:
+      limit: 100
+    pagination:
+      page_param: page
+      size_param: page_size
+      size: 200
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      headers:
+        Accept: application/json
+  crossref:
+    name: crossref
+    http:
+      base_url: https://api.crossref.org/works
+  pubmed:
+    name: pubmed
+    http:
+      base_url: https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed
+      headers:
+        Accept: application/json
+  bioactivity:
+    name: chembl_bioactivity
+    endpoint: activity
+    params:
+      format: json
+    pagination:
+      page_param: page
+      size_param: page_size
+      size: 200
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+runtime:
+  output:
+    data_path: data/output/bioactivities.csv
+    qc_report_path: data/output/qc_report.csv
+    correlation_path: data/output/correlation.csv
+logging:
+  level: INFO
+validation:
+  strict: true

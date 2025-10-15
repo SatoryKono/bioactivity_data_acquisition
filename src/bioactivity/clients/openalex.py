@@ -3,14 +3,15 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
+from bioactivity.config import APIClientConfig
 from bioactivity.clients.base import ApiClientError, BaseApiClient
 
 
 class OpenAlexClient(BaseApiClient):
     """HTTP client for OpenAlex works."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__("https://api.openalex.org/works", **kwargs)
+    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
+        super().__init__(config, **kwargs)
 
     def fetch_by_doi(self, doi: str) -> Dict[str, Any]:
         """Fetch a work by DOI with fallback to a filter query."""
