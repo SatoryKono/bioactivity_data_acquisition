@@ -141,6 +141,9 @@ class DocumentOutputSchema(pa.DataFrameModel):
     chembl_year: Series[int] = pa.Field(nullable=True, description="Year from ChemBL")
     chembl_volume: Series[str] = pa.Field(nullable=True, description="Volume from ChemBL")
     chembl_issue: Series[str] = pa.Field(nullable=True, description="Issue from ChemBL")
+    
+    # Citation field
+    citation: Series[str] = pa.Field(nullable=True, description="Formatted citation string")
 
     class Config:
         strict = True

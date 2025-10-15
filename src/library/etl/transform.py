@@ -27,11 +27,15 @@ def _resolve_ascending(by: list[str], ascending: list[bool] | bool) -> list[bool
 
 
 def _convert_to_nanomolar(df: pd.DataFrame, unit_conversion: dict[str, float]) -> pd.Series:
-    factors = df["activity_units"].map(unit_conversion)
+    # Поддерживаем как старые, так и новые имена колонок из ChEMBL API
+    units_col = "activity_units" if "activity_units" in df.columns else "standard_units"
+    value_col = "activity_value" if "activity_value" in df.columns else "standard_value"
+    
+    factors = df[units_col].map(unit_conversion)
     if factors.isnull().any():
-        unknown = sorted(df.loc[factors.isnull(), "activity_units"].unique())
+        unknown = sorted(df.loc[factors.isnull(), units_col].unique())
         raise ValueError(f"Unsupported activity units: {', '.join(unknown)}")
-    return df["activity_value"].astype(float) * factors
+    return df[value_col].astype(float) * factors
 
 
 def normalize_bioactivity_data(
@@ -67,10 +71,22 @@ def normalize_bioactivity_data(
 
     normalized = validated.copy()
     normalized["retrieved_at"] = pd.to_datetime(normalized["retrieved_at"], utc=True)
+    
+    # Маппим колонки из ChEMBL API в стандартный формат
+    if "molecule_chembl_id" in normalized.columns:
+        normalized = normalized.rename(columns={"molecule_chembl_id": "compound_id"})
+    if "canonical_smiles" in normalized.columns:
+        normalized = normalized.rename(columns={"canonical_smiles": "smiles"})
+    if "target_pref_name" in normalized.columns:
+        normalized = normalized.rename(columns={"target_pref_name": "target"})
+    
+    # Преобразуем значения активности
     normalized["activity_value"] = _convert_to_nanomolar(normalized, transforms.unit_conversion)
     normalized["activity_unit"] = "nM"
-    normalized = normalized.rename(columns={"target_pref_name": "target"})
-    normalized = normalized.drop(columns=["activity_units"], errors="ignore")
+    
+    # Удаляем старые колонки
+    columns_to_drop = ["activity_units", "standard_units", "standard_value"]
+    normalized = normalized.drop(columns=[col for col in columns_to_drop if col in normalized.columns], errors="ignore")
 
     desired_order = [col for col in determinism.column_order if col in normalized.columns]
     remaining = [col for col in normalized.columns if col not in desired_order]

@@ -1,0 +1,84 @@
+http:
+  global:
+    timeout_sec: 30.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+    headers:
+      User-Agent: "bioactivity-data-acquisition/0.1.0"
+
+sources:
+  chembl:
+    name: "chembl"
+    endpoint: "activity"
+    params:
+      activity_type: "IC50"
+    pagination:
+      page_param: "page"
+      size_param: "page_size"
+      size: 200
+      max_pages: 1  # Только 1 страница для тестирования
+    http:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      timeout_sec: 30.0
+      headers:
+        Accept: "application/json"
+        Authorization: "Bearer {chembl_api_token}"
+
+io:
+  input:
+    documents_csv: "data/input/documents.csv"
+  output:
+    data_path: "data/output/bioactivities.csv"
+    qc_report_path: "data/output/qc_report.csv"
+    correlation_path: "data/output/correlation.csv"
+    format: "csv"
+    csv:
+      encoding: "utf-8"
+      float_format: "%.3f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+
+runtime:
+  workers: 4
+
+logging:
+  level: INFO
+
+validation:
+  strict: true
+  qc:
+    max_missing_fraction: 0.05
+    max_duplicate_fraction: 0.01
+
+determinism:
+  sort:
+    by:
+      - compound_id
+      - target
+    ascending:
+      - true
+      - true
+    na_position: last
+  column_order:
+    - compound_id
+    - target
+    - activity_value
+    - activity_unit
+    - source
+    - retrieved_at
+    - smiles
+
+transforms:
+  unit_conversion:
+    nM: 1.0
+    uM: 1000.0
+    pM: 0.001
+    "%": 1.0  # Процент - оставляем как есть
+    mmHg: 1.0  # Давление - оставляем как есть
+    ms: 1.0  # Время - оставляем как есть
+
+postprocess:
+  qc:
+    enabled: true
+  correlation:
+    enabled: true

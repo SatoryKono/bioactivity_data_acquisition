@@ -15,6 +15,8 @@ from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
 from library.config import APIClientConfig
 from library.documents.config import DocumentConfig
+from library.tools.citation_formatter import add_citation_column
+from library.tools.journal_normalizer import normalize_journal_columns
 
 
 class DocumentPipelineError(RuntimeError):
@@ -311,7 +313,9 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         "semantic_scholar_publication_types", "semantic_scholar_venue", 
         "semantic_scholar_external_ids", "semantic_scholar_error",
         # Common fields
-        "doi_key"
+        "doi_key",
+        # Citation field
+        "citation"
     }
     
     # Add missing columns with default values
@@ -436,7 +440,13 @@ def write_document_outputs(
     qc_path = output_dir / f"documents_{date_tag}_qc.csv"
 
     try:
-        result.documents.to_csv(documents_path, index=False)
+        # Добавляем колонку с литературными ссылками перед сохранением
+        documents_with_citations = add_citation_column(result.documents)
+        
+        # Нормализуем колонки с названиями журналов
+        documents_normalized = normalize_journal_columns(documents_with_citations)
+        
+        documents_normalized.to_csv(documents_path, index=False)
         result.qc.to_csv(qc_path, index=False)
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise DocumentIOError(f"Failed to write outputs: {exc}") from exc

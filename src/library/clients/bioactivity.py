@@ -35,24 +35,47 @@ class BioactivityClient:
         records: list[Json] = []
         page = 0
         max_pages = self._config.max_pages or float("inf")
+        
         while page < max_pages:
             payload = self._perform_request(page)
             page_records = self._extract_records(payload)
             if not page_records:
                 break
             records.extend(page_records)
+            
+            # Проверяем, есть ли следующая страница
             if not self._config.pagination_param:
                 break
+                
+            # Для ChEMBL API проверяем наличие следующей страницы в page_meta
+            if isinstance(payload, dict) and "page_meta" in payload:
+                page_meta = payload["page_meta"]
+                if isinstance(page_meta, dict) and not page_meta.get("next"):
+                    break  # Нет следующей страницы
+                    
             page += 1
+            
         return records
 
     def _extract_records(self, payload: Json) -> list[Json]:
-        if isinstance(payload, dict) and "results" in payload:
-            data = payload["results"]
+        # Поддерживаем различные форматы ответов API
+        data = None
+        if isinstance(payload, dict):
+            # ChEMBL API возвращает данные в поле "activities"
+            if "activities" in payload:
+                data = payload["activities"]
+            # Стандартный формат с полем "results"
+            elif "results" in payload:
+                data = payload["results"]
+            # Если payload сам является массивом
+            else:
+                data = payload
         else:
             data = payload
+            
         if not isinstance(data, Iterable):
             raise ValueError("API payload must contain an iterable of results")
+            
         results: list[Json] = []
         for item in data:
             if not isinstance(item, dict):

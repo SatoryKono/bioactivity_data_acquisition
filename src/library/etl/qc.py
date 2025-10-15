@@ -17,11 +17,15 @@ from .enhanced_correlation import (
 def build_qc_report(df: pd.DataFrame) -> pd.DataFrame:
     """Generate a QC report with basic completeness metrics."""
 
+    # Проверяем дубликаты только по основным колонкам (избегаем нехешируемых типов)
+    key_columns = ["compound_id", "target", "activity_value", "source"]
+    available_key_columns = [col for col in key_columns if col in df.columns]
+    
     metrics = {
         "row_count": len(df),
         "missing_compound_id": int(df["compound_id"].isna().sum()) if "compound_id" in df else 0,
         "missing_target": int(df["target"].isna().sum()) if "target" in df else 0,
-        "duplicates": int(df.duplicated().sum()),
+        "duplicates": int(df[available_key_columns].duplicated().sum()) if available_key_columns else 0,
     }
     return pd.DataFrame(
         [{"metric": key, "value": value} for key, value in metrics.items()]

@@ -18,6 +18,7 @@ from library.etl.qc import (
     build_enhanced_correlation_reports_df,
     build_correlation_insights_report
 )
+from library.io_.normalize import normalize_doi_advanced
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers
     from library.config import (
@@ -58,6 +59,7 @@ def _deterministic_order(
 def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
     """
     Нормализует DataFrame перед сохранением:
+    - DOI-столбцы: специальная нормализация DOI
     - Строковые переменные: в нижний регистр, обрезка пробелов
     - Пустые ячейки: заполнение NA
     - Числовые данные: нормализация
@@ -71,12 +73,40 @@ def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
     if logger is not None:
         logger.info("normalize_start", columns=list(df.columns), rows=len(df))
     
+    # Определяем DOI-столбцы (case-insensitive)
+    doi_columns = [col for col in df_normalized.columns if 'doi' in col.lower()]
+    
+    if logger is not None and doi_columns:
+        logger.info("doi_normalization_detected", doi_columns=doi_columns)
+    
     for column in df_normalized.columns:
         # Пропускаем столбец index - он не должен нормализоваться
         if column == 'index':
             continue
+        
+        # Специальная обработка DOI-столбцов
+        if column in doi_columns:
+            if logger is not None:
+                logger.info("normalizing_doi_column", column=column)
             
-        if df_normalized[column].dtype == 'object':  # Строковые данные
+            # Заменяем None на NA
+            df_normalized[column] = df_normalized[column].replace([None], pd.NA)
+            
+            # Применяем продвинутую нормализацию DOI
+            for idx in df_normalized.index:
+                value = df_normalized.loc[idx, column]
+                if pd.isna(value):
+                    continue  # Пропускаем уже NA значения
+                
+                # Нормализуем DOI
+                normalized_doi = normalize_doi_advanced(value)
+                # Если DOI невалидный, устанавливаем pd.NA
+                if normalized_doi is None:
+                    df_normalized.loc[idx, column] = pd.NA
+                else:
+                    df_normalized.loc[idx, column] = normalized_doi
+                
+        elif df_normalized[column].dtype == 'object':  # Обычные строковые данные
             # Заменяем None на NA
             df_normalized[column] = df_normalized[column].replace([None], pd.NA)
             

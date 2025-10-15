@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Iterable, Mapping
 from typing import Any
+from urllib.parse import unquote
 
 import pandas as pd
 
@@ -90,6 +92,73 @@ def normalise_doi(doi: Any) -> str | None:
         return None
 
     return cleaned
+
+
+def normalize_doi_advanced(doi: Any) -> str | None:
+    """
+    Продвинутая нормализация DOI согласно требованиям:
+    - Trim: обрезать пробелы в начале/конце
+    - Unicode: привести строку к NFC
+    - Снять оболочку: удалить префиксы "doi:", "urn:doi:", "info:doi/"
+    - URL-оболочки: удалить "http://doi.org/", "https://doi.org/", "http://dx.doi.org/", "https://dx.doi.org/"
+    - Процент-коды: декодировать percent-encoding
+    - Пробелы: удалить все пробелы вокруг разделителя "/" и внутри строки
+    - Регистр: привести всю строку к lowercase
+    - Хвостовая пунктуация: снять завершающие ".", ",", ";", ")", "]", "}" и кавычки
+    - Множественные слэши: сократить повторы и оставить ровно один разделитель
+    - Валидация формы: итог должен быть вида "<префикс>/<суффикс>"
+    """
+    
+    if doi is None:
+        return None
+    
+    # Trim: обрезать пробелы в начале/конце
+    text = str(doi).strip()
+    if not text:
+        return None
+    
+    # Unicode: привести строку к NFC
+    text = unicodedata.normalize('NFC', text)
+    
+    # Снять оболочку: удалить префиксы
+    prefixes_to_remove = [
+        r'^doi:\s*',
+        r'^urn:doi:\s*',
+        r'^info:doi/\s*',
+        r'^https?://doi\.org/\s*',
+        r'^https?://dx\.doi\.org/\s*'
+    ]
+    
+    for prefix_pattern in prefixes_to_remove:
+        text = re.sub(prefix_pattern, '', text, flags=re.IGNORECASE)
+    
+    # Процент-коды: декодировать percent-encoding
+    text = unquote(text)
+    
+    # Пробелы: удалить все пробелы вокруг разделителя "/" и внутри строки
+    # Сначала нормализуем пробелы вокруг слэша
+    text = re.sub(r'\s*/\s*', '/', text)
+    # Затем удаляем все остальные пробелы
+    text = re.sub(r'\s+', '', text)
+    
+    # Регистр: привести всю строку к lowercase
+    text = text.lower()
+    
+    # Множественные слэши: сократить повторы и оставить ровно один разделитель
+    text = re.sub(r'/+', '/', text)
+    
+    # Хвостовая пунктуация: снять завершающие символы
+    text = re.sub(r'[.,;)\]}\'\"]+$', '', text)
+    
+    # Удалить завершающие слэши, если они есть
+    text = text.rstrip('/')
+    
+    # Валидация формы: проверяем, что это валидный DOI
+    doi_pattern = r'^10\.\d+/.+$'
+    if not re.match(doi_pattern, text):
+        return None
+    
+    return text
 
 
 def _list_from_response(candidate: Any) -> list[Mapping[str, Any]]:
@@ -281,6 +350,7 @@ __all__ = [
     "coerce_text",
     "ensure_columns",
     "normalise_doi",
+    "normalize_doi_advanced",
     "normalize_publication_frame",
     "normalize_query_frame",
     "parse_chembl_response",

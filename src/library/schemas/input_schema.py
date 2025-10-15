@@ -17,16 +17,27 @@ from pandera.typing import Series
 class RawBioactivitySchema(pa.DataFrameModel):
     """Schema for raw bioactivity records fetched from the API."""
 
-    compound_id: Series[str]
-    target_pref_name: Series[str]
-    activity_value: Series[float] = pa.Field(gt=0)
-    activity_units: Series[str] = pa.Field(isin=["nM", "uM", "pM"])
+    # Основные поля из ChEMBL API
+    molecule_chembl_id: Series[str] = pa.Field(nullable=True)  # compound_id в ChEMBL
+    target_pref_name: Series[str] = pa.Field(nullable=True)
+    standard_value: Series[float] = pa.Field(nullable=True)  # activity_value в ChEMBL
+    standard_units: Series[str] = pa.Field(nullable=True)  # activity_units в ChEMBL
+    canonical_smiles: Series[str] = pa.Field(nullable=True)  # smiles в ChEMBL
     source: Series[str]
     retrieved_at: Series[pd.Timestamp]  # type: ignore[type-var]
-    smiles: Series[str] = pa.Field(nullable=True)
+    
+    # Дополнительные поля из ChEMBL API (могут быть пустыми)
+    activity_id: Series[int] = pa.Field(nullable=True)
+    assay_chembl_id: Series[str] = pa.Field(nullable=True)
+    document_chembl_id: Series[str] = pa.Field(nullable=True)
+    standard_type: Series[str] = pa.Field(nullable=True)
+    standard_relation: Series[str] = pa.Field(nullable=True)
+    target_chembl_id: Series[str] = pa.Field(nullable=True)
+    target_organism: Series[str] = pa.Field(nullable=True)
+    target_tax_id: Series[str] = pa.Field(nullable=True)  # Может содержать None, поэтому str
 
     class Config:
-        strict = True
+        strict = False  # Разрешаем дополнительные колонки
         coerce = True
 
 
