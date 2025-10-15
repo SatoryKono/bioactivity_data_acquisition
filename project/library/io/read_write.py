@@ -1,4 +1,4 @@
-"""I/O helpers for interacting with CSV artifacts."""
+"""I/O helpers for interacting with CSV artefacts."""
 
 from __future__ import annotations
 
@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from library.io.normalize import QUERY_COLUMNS, PUBLICATION_COLUMNS, normalize_publication_frame, normalize_query_frame
+from library.io.normalize import (
+    PUBLICATION_COLUMNS,
+    normalize_publication_frame,
+    normalize_query_frame,
+)
 
 
 def read_queries(path: Path) -> pd.DataFrame:
@@ -21,7 +25,7 @@ def write_publications(df: pd.DataFrame, path: Path) -> None:
 
     normalized = normalize_publication_frame(df)
     path.parent.mkdir(parents=True, exist_ok=True)
-    normalized.to_csv(path, index=False, encoding="utf-8")
+    normalized.to_csv(path, index=False, encoding="utf-8", columns=PUBLICATION_COLUMNS)
 
 
 def empty_publications_frame() -> pd.DataFrame:
