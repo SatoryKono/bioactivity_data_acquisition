@@ -26,6 +26,23 @@ def flatten_payloads(payloads: dict[str, dict[str, object]]) -> dict[str, object
     return flat
 
 
+def merge_records(base: dict[str, object], records: list[dict[str, object]]) -> dict[str, object]:
+    """Merge records with preference for first value and alternatives tracking."""
+    result = base.copy()
+    for record in records:
+        for key, value in record.items():
+            if key not in result:
+                result[key] = value
+            elif result[key] != value:
+                alt_key = f"{key}__alternatives"
+                if alt_key not in result:
+                    result[alt_key] = [result[key]]
+                alt_list = result.get(alt_key)
+                # Ensure alt_list is a list before checking and appending
+                if isinstance(alt_list, list) and value not in alt_list:
+                    alt_list.append(value)
+    return result
+
 def ordered_sources(sources: Iterable[str]) -> list[str]:
     """Return sources in deterministic order for output columns."""
     priority = ["chembl", "pubmed", "semscholar", "crossref", "openalex"]
