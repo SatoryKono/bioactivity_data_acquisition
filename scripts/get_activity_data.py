@@ -1,8 +1,9 @@
-"""CLI entry point for the activity pipeline."""
+"""Deprecated wrapper delegating to ``bioactivity.cli``."""
 
 from __future__ import annotations
 
 import sys
+import warnings
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -10,10 +11,30 @@ if __package__ in (None, ""):
     if str(SRC_PATH) not in sys.path:
         sys.path.insert(0, str(SRC_PATH))
 
-from library.cli.pipeline_app import create_pipeline_app
+from bioactivity import cli as bioactivity_cli
 
-app = create_pipeline_app("activity")
+_DEPRECATION_MESSAGE = (
+    "scripts/get_activity_data.py is deprecated and will be removed in a future release. "
+    "Invoke `bioactivity-data-acquisition pipeline` instead."
+)
+
+
+def main() -> None:
+    """Entry point maintained for backwards compatibility."""
+
+    warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
+    bioactivity_cli.main()
+
+
+def app(*args: object, **kwargs: object) -> object:
+    """Proxy that preserves the historical ``app`` callable."""
+
+    warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
+    return bioactivity_cli.app(*args, **kwargs)
 
 
 if __name__ == "__main__":
-    app()
+    main()
+
+
+__all__ = ["app", "main"]
