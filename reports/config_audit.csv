@@ -1,47 +1,46 @@
 section,key,type,default,description
-project,name,str,Bioactivity Data Acquisition,Human readable project name used in logs and metadata.
-project,version,str,0.1.0,Semantic version of the pipeline release.
-project,description,str,Canonical configuration for the ChEMBL bioactivity ETL pipeline.,Summary of the configuration profile.
-io,input_dir,path,data/input,Directory for auxiliary input artefacts.
-io,output_dir,path,data/output,Root folder for deterministic outputs.
-io,temp_dir,path,data/tmp,Working directory for intermediate artefacts.
-io.output,data_path,path,data/output/bioactivities.csv,Deterministic CSV with normalized bioactivities.
-io.output,qc_report_path,path,data/output/qc_report.csv,Quality-control summary CSV.
-io.output,correlation_path,path,data/output/correlation.csv,Correlation matrix CSV for numeric features.
-runtime,log_level,str,INFO,Minimum log level for structlog.
-runtime,max_workers,int,4,Thread pool size for concurrent tasks.
-runtime,progress,bool,True,Emit progress information to the console.
-determinism,random_seed,int,42,Seed applied to deterministic operations.
-determinism,sort_rows,bool,True,Sort output rows for reproducibility.
-determinism,sort_columns,bool,True,Sort output columns alphabetically.
-determinism,row_sort_keys,list[source,compound_id],Primary keys used when sorting rows.
-validation,strict,bool,True,Toggle Pandera strict validation mode.
-validation,enforce_output_schema,bool,True,Validate normalized dataset before load.
-validation.thresholds,max_missing_percent,float,0.05,Maximum allowed ratio of missing values.
-validation.thresholds,max_duplicate_rows,int,0,Allowed number of duplicate rows after normalization.
-http,timeout,float,30.0,HTTP request timeout in seconds.
-http.retry,max_tries,int,5,Maximum retry attempts for transient failures.
-http.retry,backoff_multiplier,float,2.0,Base multiplier for exponential backoff.
-http.retry,jitter,float,0.5,Random jitter added to backoff schedule.
-http.rate_limit,per_seconds,int,5,Target request rate per second.
-http.rate_limit,burst,int,5,Burst size allowed by the rate limiter.
-http,user_agent,str,bioactivity-data-acquisition/0.1.0,Default HTTP User-Agent header value.
-sources,chembl.url,url,https://www.ebi.ac.uk/chembl/api/data/activity.json,Endpoint for ChEMBL bioactivities.
-sources,chembl.pagination.param,str,page,Query parameter controlling pagination index.
+http,global.timeout_sec,float,30.0,HTTP request timeout in seconds.
+http,global.retries.total,int,5,Maximum retry attempts for transient failures.
+http,global.retries.backoff_multiplier,float,2.0,Base multiplier for exponential backoff.
+http,global.headers.User-Agent,str,bioactivity-data-acquisition/0.1.0,Default HTTP User-Agent header value.
+sources,chembl.http.base_url,url,https://www.ebi.ac.uk/chembl/api/data,Base URL for ChEMBL API requests.
+sources,chembl.endpoint,str,activity,Relative endpoint appended to the base URL.
+sources,chembl.params.activity_type,str,IC50,Activity type filter applied to ChEMBL requests.
+sources,chembl.pagination.page_param,str,page,Query parameter controlling pagination index.
 sources,chembl.pagination.size_param,str,page_size,Query parameter controlling page size.
 sources,chembl.pagination.size,int,200,Number of records requested per page.
 sources,chembl.pagination.max_pages,int,10,Maximum number of pages requested per run.
-sources,chembl.auth.secret_name,str,chembl_api_token,Logical secret name providing the bearer token.
-sources,crossref.url,url,https://api.crossref.org/works,Endpoint for Crossref works search.
-sources,crossref.pagination.param,str,cursor,Query parameter controlling pagination cursor.
+sources,chembl.http.timeout_sec,float,30.0,Override timeout for ChEMBL requests in seconds.
+sources,chembl.http.headers.Accept,str,application/json,Accept header for ChEMBL requests.
+sources,chembl.http.headers.Authorization,str,"Bearer {chembl_api_token}",Bearer token placeholder resolved from the environment.
+sources,crossref.http.base_url,url,https://api.crossref.org/works,Base URL for Crossref API requests.
+sources,crossref.params.query,str,chembl,Keyword used when querying Crossref.
+sources,crossref.params.select,str,"DOI,title",Projection applied to Crossref responses.
+sources,crossref.pagination.page_param,str,cursor,Query parameter controlling pagination cursor.
 sources,crossref.pagination.size_param,str,rows,Query parameter controlling Crossref page size.
 sources,crossref.pagination.size,int,100,Number of Crossref records requested per page.
 sources,crossref.pagination.max_pages,int,5,Maximum Crossref pagination depth.
-postprocess,qc.enabled,bool,True,Whether to compute QC statistics.
-postprocess,qc.correlation,bool,True,Whether to compute correlation matrices.
-postprocess,reporting.include_timestamp,bool,True,Append timestamp metadata to QC artefacts.
-cli,env_prefix,str,BIOACTIVITY,Prefix for environment variable overrides.
-cli,defaults_file,path,configs/config.yaml,Path to the canonical configuration file.
-cli,allow_env_override,bool,True,Enable environment variable overrides.
-secrets,required[chembl_api_token],env,CHEMBL_API_TOKEN,Environment variable providing the ChEMBL bearer token.
-secrets,optional[crossref_api_key],env,CROSSREF_API_KEY,Environment variable providing an optional Crossref API key.
+sources,crossref.http.headers.Accept,str,application/json,Accept header for Crossref requests.
+sources,crossref.http.headers.Crossref-Plus-API-Token,str,"{crossref_api_key}",API token placeholder resolved from the environment.
+io,input.documents_csv,path,data/input/documents.csv,Optional cache of source document metadata.
+io.output,data_path,path,data/output/bioactivities.csv,Deterministic CSV with normalized bioactivities.
+io.output,qc_report_path,path,data/output/qc_report.csv,Quality-control summary CSV.
+io.output,correlation_path,path,data/output/correlation.csv,Correlation matrix CSV for numeric features.
+io.output,format,str,csv,File format used for the primary dataset.
+io.output.csv,encoding,str,utf-8,Character encoding for CSV outputs.
+io.output.csv,float_format,str,"%.3f",Float formatting pattern for CSV outputs.
+io.output.csv,date_format,str,%Y-%m-%dT%H:%M:%SZ,ISO-8601 timestamp format for exported dates.
+runtime,workers,int,4,Thread pool size for concurrent extraction tasks.
+logging,level,str,INFO,Minimum log level for structlog.
+validation,strict,bool,True,Toggle Pandera strict validation mode.
+validation.qc,max_missing_fraction,float,0.05,Maximum allowed ratio of missing values.
+validation.qc,max_duplicate_fraction,float,0.01,Maximum allowed ratio of duplicate rows.
+determinism.sort,by,list[compound_id,target],Primary keys used when sorting rows.
+determinism.sort,ascending,list[true,true],Sort direction for each sort key.
+determinism.sort,na_position,str,last,Where to place NA values when sorting.
+determinism,column_order,list[compound_id,target,activity_value,activity_unit,source,retrieved_at,smiles],Preferred column order for deterministic outputs.
+transforms.unit_conversion,nM,float,1.0,Conversion factor applied to values reported in nM.
+transforms.unit_conversion,uM,float,1000.0,Conversion factor applied to values reported in µM.
+transforms.unit_conversion,pM,float,0.001,Conversion factor applied to values reported in pM.
+postprocess.qc,enabled,bool,True,Whether to compute QC statistics.
+postprocess.correlation,enabled,bool,True,Whether to compute correlation matrices.
