@@ -7,8 +7,7 @@ import pandas.testing as pdt
 import pandera.errors as pa_errors
 import pytest
 
-from src.library.validation.input_schema import INPUT_SCHEMA
-from src.library.validation.output_schema import OUTPUT_SCHEMA
+from bioactivity.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
 
 
 @pytest.fixture()
@@ -39,7 +38,8 @@ def valid_output_frame() -> pd.DataFrame:
 
 
 def test_input_schema_accepts_valid_frame(valid_input_frame: pd.DataFrame) -> None:
-    validated = INPUT_SCHEMA.validate(valid_input_frame, lazy=True)
+    schema = RawBioactivitySchema.to_schema()
+    validated = schema.validate(valid_input_frame, lazy=True)
     pdt.assert_frame_equal(
         validated.reset_index(drop=True),
         valid_input_frame.reset_index(drop=True),
@@ -51,11 +51,12 @@ def test_input_schema_rejects_invalid_units(valid_input_frame: pd.DataFrame) -> 
     invalid = valid_input_frame.copy()
     invalid.loc[0, "standard_units"] = "mg/mL"
     with pytest.raises(pa_errors.SchemaErrors):
-        INPUT_SCHEMA.validate(invalid, lazy=True)
+        schema.validate(invalid, lazy=True)
 
 
 def test_output_schema_requires_nanometer_units(valid_output_frame: pd.DataFrame) -> None:
-    result = OUTPUT_SCHEMA.validate(valid_output_frame, lazy=True)
+    schema = NormalizedBioactivitySchema.to_schema()
+    result = schema.validate(valid_output_frame, lazy=True)
     pdt.assert_frame_equal(
         result.reset_index(drop=True),
         valid_output_frame.reset_index(drop=True),

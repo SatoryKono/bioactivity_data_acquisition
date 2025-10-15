@@ -10,7 +10,7 @@ import responses
 import yaml
 from typer.testing import CliRunner
 
-from src.library.cli import app
+from bioactivity.cli import app
 
 
 @pytest.fixture()
@@ -28,22 +28,25 @@ def sample_config(tmp_path: Path) -> Path:
     config_path.write_text(
         yaml.safe_dump(
             {
-                "sources": [
+                "clients": [
                     {
                         "name": "chembl",
-                        "base_url": "https://example.com",
-                        "activities_endpoint": "/activities",
-                        "page_size": 2,
+                        "url": "https://example.com/activities",
+                        "params": {},
+                        "pagination_param": "page",
+                        "page_size_param": "page_size",
+                        "page_size": 50,
+                        "max_pages": 1,
                     }
                 ],
                 "output": {
-                    "output_path": str(output_path),
+                    "data_path": str(output_path),
                     "qc_report_path": str(qc_path),
                     "correlation_path": str(corr_path),
                 },
-                "retries": {"max_tries": 2},
-                "log_level": "INFO",
-                "strict_validation": True,
+                "retries": {"max_tries": 2, "backoff_multiplier": 1.0},
+                "logging": {"level": "INFO"},
+                "validation": {"strict": True},
             }
         ),
         encoding="utf-8",
@@ -58,16 +61,17 @@ def test_cli_pipeline_command(runner: CliRunner, sample_config: Path) -> None:
         responses.GET,
         "https://example.com/activities",
         json={
-            "activities": [
+            "results": [
                 {
-                    "assay_id": 1,
-                    "molecule_chembl_id": "CHEMBL1",
-                    "standard_value": 1.0,
-                    "standard_units": "nM",
-                    "activity_comment": None,
+                    "compound_id": "CHEMBL1",
+                    "target_pref_name": "Protein X",
+                    "activity_value": 1.0,
+                    "activity_units": "uM",
+                    "source": "chembl",
+                    "retrieved_at": "2024-01-01T00:00:00Z",
+                    "smiles": "C1=CC=CC=C1",
                 }
-            ],
-            "next_page": False,
+            ]
         },
     )
 
@@ -81,6 +85,16 @@ def test_cli_pipeline_command(runner: CliRunner, sample_config: Path) -> None:
     
     assert output_path.exists()
     frame = pd.read_csv(output_path)
-    assert frame.iloc[0]["standard_units"] == "nM"
+    assert list(frame.columns) == [
+        "activity_unit",
+        "activity_value",
+        "compound_id",
+        "retrieved_at",
+        "smiles",
+        "source",
+        "target",
+    ]
+    assert frame.loc[0, "activity_unit"] == "nM"
+    assert frame.loc[0, "activity_value"] == pytest.approx(1000.0, rel=1e-6)
     assert qc_path.exists()
     assert corr_path.exists()

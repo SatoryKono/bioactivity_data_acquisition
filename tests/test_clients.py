@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 import responses
 
-from library.clients import (
+from bioactivity.clients import (
     ApiClientError,
     ChEMBLClient,
     CrossrefClient,
