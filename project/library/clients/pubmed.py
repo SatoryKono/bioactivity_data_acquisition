@@ -18,7 +18,7 @@ class PubMedClient(BaseClient):
         return payload.get(pmid, {})
 
     def fetch_batch(self, pmids: Iterable[str]) -> dict[str, dict[str, str | None]]:
-        pmid_list = [pmid for pmid in pmids]
+        pmid_list = list(pmids)
         if not pmid_list:
             return {}
         return self._summary_request(pmid_list)

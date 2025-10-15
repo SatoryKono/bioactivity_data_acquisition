@@ -64,7 +64,7 @@ def coerce_text(value: Any) -> str | None:
             text = value.decode("utf-8")
         except UnicodeDecodeError:
             text = value.decode("utf-8", errors="ignore")
-    elif isinstance(value, Iterable) and not isinstance(value, (dict, set)):
+    elif isinstance(value, Iterable) and not isinstance(value, dict | set):
         text = " ".join(str(item) for item in value if item is not None)
     else:
         text = str(value)

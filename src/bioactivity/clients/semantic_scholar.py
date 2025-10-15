@@ -72,7 +72,7 @@ class SemanticScholarClient(BaseApiClient):
     def _extract_pmid(self, payload: dict[str, Any]) -> str | None:
         external_ids = payload.get("externalIds") or {}
         pmid = external_ids.get("PubMed") or external_ids.get("PMID")
-        if isinstance(pmid, (int, float)):
+        if isinstance(pmid, int | float):
             return str(int(pmid))
         if isinstance(pmid, str):
             return pmid.split(":")[-1]
