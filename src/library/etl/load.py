@@ -239,7 +239,191 @@ def write_deterministic_csv(
 
     if logger is not None:
         logger.info("load_complete", path=str(destination), rows=len(df_to_write))
+    
+    # Автоматически генерируем и сохраняем QC и корреляционные таблицы
+    if not df.empty:
+        _auto_generate_qc_and_correlation_reports(
+            df_to_write, 
+            destination, 
+            output, 
+            logger=logger
+        )
+    
     return destination
+
+
+def _auto_generate_qc_and_correlation_reports(
+    df: pd.DataFrame,
+    data_path: Path,
+    output: OutputSettings | None = None,
+    logger: BoundLogger | None = None,
+) -> None:
+    """Автоматически генерирует и сохраняет QC и корреляционные отчеты."""
+    
+    if df.empty:
+        return
+    
+    # Импортируем функции для генерации отчетов
+    from .qc import (
+        build_qc_report,
+        build_correlation_matrix,
+        build_enhanced_qc_report,
+        build_enhanced_qc_detailed_reports,
+        build_enhanced_correlation_analysis_report,
+        build_enhanced_correlation_reports_df,
+        build_correlation_insights_report
+    )
+    
+    # Настройки по умолчанию
+    from library.config import (
+        CsvFormatSettings as _CsvFormatSettings,
+        ParquetFormatSettings as _ParquetFormatSettings,
+        QCValidationSettings as _QCValidationSettings,
+    )
+    
+    csv_settings: CsvFormatSettings
+    parquet_settings: ParquetFormatSettings
+    file_format = "csv"
+    
+    if output is not None:
+        csv_settings = output.csv
+        parquet_settings = output.parquet
+        file_format = output.format
+    else:
+        csv_settings = _CsvFormatSettings()
+        parquet_settings = _ParquetFormatSettings()
+    
+    validation = _QCValidationSettings()
+    
+    # Создаем пути для QC и корреляционных отчетов
+    data_dir = data_path.parent
+    data_stem = data_path.stem
+    
+    # Базовые пути для QC и корреляций
+    qc_path = data_dir / f"{data_stem}_quality_report.csv"
+    corr_path = data_dir / f"{data_stem}_correlation_report.csv"
+    
+    if logger is not None:
+        logger.info("auto_qc_corr_start", 
+                   qc_path=str(qc_path), 
+                   corr_path=str(corr_path),
+                   data_rows=len(df))
+    
+    try:
+        # 1. Генерируем базовый QC отчет
+        qc_report = build_qc_report(df)
+        qc_report = _apply_qc_thresholds(qc_report, df, validation)
+        
+        qc_path.parent.mkdir(parents=True, exist_ok=True)
+        if file_format == "parquet":
+            qc_report.to_parquet(qc_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+        else:
+            qc_report.to_csv(qc_path, **_csv_options(csv_settings))
+        
+        if logger is not None:
+            logger.info("auto_qc_basic_saved", path=str(qc_path))
+        
+        # 2. Генерируем базовую корреляционную матрицу
+        correlation = build_correlation_matrix(df)
+        
+        corr_path.parent.mkdir(parents=True, exist_ok=True)
+        if file_format == "parquet":
+            correlation.to_parquet(corr_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+        else:
+            correlation.to_csv(corr_path, **_csv_options(csv_settings))
+        
+        if logger is not None:
+            logger.info("auto_corr_basic_saved", path=str(corr_path))
+        
+        # 3. Генерируем расширенные QC отчеты
+        enhanced_qc_path = data_dir / f"{data_stem}_quality_report_enhanced.csv"
+        detailed_qc_path = data_dir / f"{data_stem}_quality_report_detailed"
+        
+        enhanced_report = build_enhanced_qc_report(df, logger=logger)
+        if file_format == "parquet":
+            enhanced_report.to_parquet(enhanced_qc_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+        else:
+            enhanced_report.to_csv(enhanced_qc_path, **_csv_options(csv_settings))
+        
+        # Детальные отчеты
+        detailed_reports = build_enhanced_qc_detailed_reports(df, logger=logger)
+        detailed_qc_path.mkdir(parents=True, exist_ok=True)
+        
+        for report_name, report_df in detailed_reports.items():
+            report_path = detailed_qc_path / f"{report_name}.csv"
+            if file_format == "parquet":
+                report_df.to_parquet(report_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+            else:
+                report_df.to_csv(report_path, **_csv_options(csv_settings))
+        
+        if logger is not None:
+            logger.info("auto_qc_enhanced_saved", 
+                       enhanced_path=str(enhanced_qc_path),
+                       detailed_path=str(detailed_qc_path))
+        
+        # 4. Генерируем расширенные корреляционные отчеты
+        enhanced_corr_path = data_dir / f"{data_stem}_correlation_report_enhanced"
+        detailed_corr_path = data_dir / f"{data_stem}_correlation_report_detailed"
+        
+        # Расширенные корреляционные отчеты
+        enhanced_corr_reports = build_enhanced_correlation_reports_df(df, logger=logger)
+        enhanced_corr_path.mkdir(parents=True, exist_ok=True)
+        
+        for report_name, report_df in enhanced_corr_reports.items():
+            if not report_df.empty:
+                report_path = enhanced_corr_path / f"{report_name}.csv"
+                if file_format == "parquet":
+                    report_df.to_parquet(report_path.with_suffix('.parquet'), index=True, compression=parquet_settings.compression)
+                else:
+                    report_df.to_csv(report_path, **_csv_options(csv_settings))
+        
+        # Детальные корреляционные отчеты
+        detailed_corr_analysis = build_enhanced_correlation_analysis_report(df, logger=logger)
+        detailed_corr_path.mkdir(parents=True, exist_ok=True)
+        
+        # Сохраняем анализ в JSON формате
+        import json
+        analysis_path = detailed_corr_path / "correlation_analysis.json"
+        with open(analysis_path, 'w', encoding='utf-8') as f:
+            # Преобразуем numpy типы в JSON-совместимые
+            def convert_numpy(obj):
+                if isinstance(obj, np.integer):
+                    return int(obj)
+                elif isinstance(obj, np.floating):
+                    return float(obj)
+                elif isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                elif isinstance(obj, pd.DataFrame):
+                    return obj.to_dict()
+                return obj
+            
+            json_analysis = json.loads(json.dumps(detailed_corr_analysis, default=convert_numpy, indent=2))
+            json.dump(json_analysis, f, ensure_ascii=False, indent=2)
+        
+        # Создаем отчет с инсайтами
+        insights = build_correlation_insights_report(df, logger=logger)
+        if insights:
+            insights_df = pd.DataFrame(insights)
+            insights_path = detailed_corr_path / "correlation_insights.csv"
+            if file_format == "parquet":
+                insights_df.to_parquet(insights_path.with_suffix('.parquet'), index=False, compression=parquet_settings.compression)
+            else:
+                insights_df.to_csv(insights_path, **_csv_options(csv_settings))
+        
+        if logger is not None:
+            logger.info("auto_corr_enhanced_saved",
+                       enhanced_path=str(enhanced_corr_path),
+                       detailed_path=str(detailed_corr_path))
+        
+        if logger is not None:
+            logger.info("auto_qc_corr_complete", 
+                       qc_files=[str(qc_path), str(enhanced_qc_path), str(detailed_qc_path)],
+                       corr_files=[str(corr_path), str(enhanced_corr_path), str(detailed_corr_path)])
+    
+    except Exception as e:
+        if logger is not None:
+            logger.error("auto_qc_corr_error", error=str(e), error_type=type(e).__name__)
+        # Не прерываем основной процесс, только логируем ошибку
 
 
 def write_qc_artifacts(
