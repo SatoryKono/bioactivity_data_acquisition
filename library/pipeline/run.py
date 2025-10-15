@@ -8,16 +8,13 @@ import pandas as pd
 from structlog.stdlib import BoundLogger
 
 from ..config import Config
-from ..validation import NormalizedBioactivitySchema
 from .extract import fetch_bioactivity_data
 from .load import write_deterministic_csv, write_qc_artifacts
-from .transform import normalize_bioactivity_data
+from .transform import create_empty_normalized_frame, normalize_bioactivity_data
 
 
 def _empty_normalized_frame() -> pd.DataFrame:
-    schema = NormalizedBioactivitySchema.to_schema()
-    empty = schema.empty_dataframe()  # type: ignore[attr-defined]
-    return schema.validate(empty, lazy=True)
+    return create_empty_normalized_frame()
 
 
 def run_pipeline(config: Config, logger: BoundLogger) -> Path:
