@@ -10,12 +10,15 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
 from bioactivity.clients.session import reset_shared_session as _reset_shared_session
 
 
 def pytest_configure() -> None:
-    src = Path(__file__).resolve().parents[1] / "src"
-    src_str = str(src)
+    src_str = str(SRC)
     if src_str not in sys.path:
         sys.path.insert(0, src_str)
 

@@ -1,11 +1,31 @@
 """CLI entry point orchestrating the publication fetching pipeline."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
 import typer
+import yaml
+from pydantic import BaseModel, Field, ValidationError
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from bioactivity.config import (
+    DeterminismSettings,
+    IOSettings,
+    OutputSettings,
+    PostprocessSettings,
+    QCValidationSettings,
+    SortSettings,
+    ValidationSettings,
+)
+from bioactivity.etl.load import write_qc_artifacts
+from bioactivity.io_.read_write import write_publications
 
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient
@@ -24,6 +44,76 @@ from library.validation.output_schema import OUTPUT_SCHEMA
 app = typer.Typer(help="Fetch and consolidate publication metadata for ChEMBL documents.")
 
 
+class LoggingConfig(BaseModel):
+    """Logging configuration."""
+
+    level: str = Field(default="INFO")
+
+
+def _default_publication_determinism() -> DeterminismSettings:
+    return DeterminismSettings(
+        sort=SortSettings(
+            by=["document_chembl_id", "doi_key", "pmid"],
+            ascending=[True, True, True],
+            na_position="last",
+        ),
+        column_order=[
+            "document_chembl_id",
+            "doi_key",
+            "pmid",
+            "chembl_title",
+            "chembl_doi",
+            "crossref_title",
+            "pubmed_title",
+        ],
+    )
+
+
+class PublicationsConfig(BaseModel):
+    """Configuration for deterministic publication exports."""
+
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    determinism: DeterminismSettings = Field(default_factory=_default_publication_determinism)
+    io: IOSettings
+    validation: ValidationSettings = Field(default_factory=ValidationSettings)
+    postprocess: PostprocessSettings = Field(default_factory=PostprocessSettings)
+
+
+def load_config(path: Path) -> PublicationsConfig:
+    """Load CLI configuration from YAML."""
+
+    if not path.exists():
+        raise typer.BadParameter(f"Configuration file not found: {path}", param_name="config")
+
+    with path.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+
+    try:
+        return PublicationsConfig.model_validate(payload)
+    except ValidationError as exc:
+        raise typer.BadParameter(f"Invalid configuration: {exc}", param_name="config") from exc
+
+
+def _enforce_qc_thresholds(frame: pd.DataFrame, qc: QCValidationSettings) -> None:
+    if frame.empty:
+        return
+
+    total_cells = frame.shape[0] * frame.shape[1]
+    if total_cells and qc.max_missing_fraction < 1.0:
+        missing_fraction = float(frame.isna().sum().sum()) / float(total_cells)
+        if missing_fraction > qc.max_missing_fraction:
+            raise ValueError(
+                f"Missing value fraction {missing_fraction:.4f} exceeds threshold {qc.max_missing_fraction:.4f}"
+            )
+
+    if frame.shape[0] and qc.max_duplicate_fraction < 1.0:
+        duplicate_fraction = float(frame.duplicated().sum()) / float(frame.shape[0])
+        if duplicate_fraction > qc.max_duplicate_fraction:
+            raise ValueError(
+                f"Duplicate fraction {duplicate_fraction:.4f} exceeds threshold {qc.max_duplicate_fraction:.4f}"
+            )
+
+
 def _read_input(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
     return INPUT_SCHEMA.validate(df)
@@ -36,14 +126,26 @@ def _merge_titles(base: pd.DataFrame, titles: Iterable[tuple[str, str]], column:
 
 @app.command()
 def run(
-    input_path: Path = typer.Argument(..., help="Path to the CSV file with document_chembl_id column."),
-    output_path: Path = typer.Argument(..., help="Where to store the resulting CSV."),
+    config: Path = typer.Option(
+        ..., "--config", "-c", exists=True, readable=True, help="Path to the YAML configuration file."
+    ),
+    input_path: Path = typer.Option(
+        ..., "--input", "-i", exists=True, readable=True, help="Path to the CSV file with document_chembl_id column."
+    ),
+    output_path: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        writable=True,
+        help="Optional override for the main output artifact.",
+    ),
     run_id: str = typer.Option("local", help="Identifier for the current pipeline run."),
     log_dir: Path = typer.Option(Path("logs"), help="Directory for JSON logs and *.error files."),
     chembl_url: str = typer.Option("https://www.ebi.ac.uk/chembl/api/data", help="Base URL for ChEMBL API."),
     crossref_url: str = typer.Option("https://api.crossref.org", help="Base URL for Crossref API."),
     pubmed_url: str = typer.Option("https://eutils.ncbi.nlm.nih.gov/entrez/eutils", help="Base URL for PubMed API."),
 ) -> None:
+    config_model = load_config(config)
     logger = setup_logging(log_dir=log_dir).bind(run_id=run_id)
     logger.info("starting pipeline", stage="cli")
 
@@ -141,9 +243,39 @@ def run(
     ).reset_index(drop=True)
 
     validated = OUTPUT_SCHEMA.validate(final_df)
-    logger.info("writing output", stage="load", rows=len(validated))
-    validated.to_csv(output_path, index=False, encoding="utf-8")
-    logger.info("pipeline finished", stage="cli", output=str(output_path))
+
+    if config_model.postprocess.qc.enabled:
+        try:
+            _enforce_qc_thresholds(validated, config_model.validation.qc)
+        except ValueError as exc:
+            logger.error("qc_threshold_exceeded", error=str(exc))
+            raise typer.Exit(code=1) from exc
+
+    base_destination = output_path or config_model.io.output.data_path
+    output_settings = config_model.io.output
+    if base_destination.is_dir():
+        suffix = ".csv" if output_settings.format == "csv" else ".parquet"
+        base_destination = base_destination / f"publications{suffix}"
+
+    effective_output: OutputSettings = output_settings.model_copy(update={"data_path": base_destination})
+
+    write_publications(
+        validated,
+        base_destination,
+        determinism=config_model.determinism,
+        output=effective_output,
+    )
+    logger.info("writing output", stage="load", rows=len(validated), path=str(base_destination))
+
+    write_qc_artifacts(
+        validated,
+        effective_output.qc_report_path,
+        effective_output.correlation_path,
+        output=effective_output,
+        validation=config_model.validation.qc,
+        postprocess=config_model.postprocess,
+    )
+    logger.info("pipeline finished", stage="cli", output=str(base_destination))
 
 
 if __name__ == "__main__":

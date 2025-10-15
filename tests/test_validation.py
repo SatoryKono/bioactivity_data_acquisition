@@ -14,11 +14,13 @@ from bioactivity.schemas import NormalizedBioactivitySchema, RawBioactivitySchem
 def valid_input_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "assay_id": [12345],
-            "molecule_chembl_id": ["CHEMBL1"],
-            "standard_value": [12.3],
-            "standard_units": ["nM"],
-            "activity_comment": ["active"],
+            "compound_id": ["CHEMBL1"],
+            "target_pref_name": ["Protein X"],
+            "activity_value": [12.3],
+            "activity_units": ["nM"],
+            "source": ["chembl"],
+            "retrieved_at": pd.to_datetime(["2024-01-01T00:00:00Z"], utc=True),
+            "smiles": ["CCO"],
         }
     )
 
@@ -27,12 +29,13 @@ def valid_input_frame() -> pd.DataFrame:
 def valid_output_frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "assay_id": [12345],
-            "molecule_chembl_id": ["CHEMBL1"],
-            "standard_value_nm": [12.3],
-            "standard_units": ["nM"],
-            "activity_comment": ["active"],
+            "compound_id": ["CHEMBL1"],
+            "target": ["Protein X"],
+            "activity_value": [12.3],
+            "activity_unit": ["nM"],
             "source": ["chembl"],
+            "retrieved_at": pd.to_datetime(["2024-01-01T00:00:00Z"], utc=True),
+            "smiles": ["CCO"],
         }
     )
 
@@ -49,7 +52,8 @@ def test_input_schema_accepts_valid_frame(valid_input_frame: pd.DataFrame) -> No
 
 def test_input_schema_rejects_invalid_units(valid_input_frame: pd.DataFrame) -> None:
     invalid = valid_input_frame.copy()
-    invalid.loc[0, "standard_units"] = "mg/mL"
+    invalid.loc[0, "activity_units"] = "mg/mL"
+    schema = RawBioactivitySchema.to_schema()
     with pytest.raises(pa_errors.SchemaErrors):
         schema.validate(invalid, lazy=True)
 

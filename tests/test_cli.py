@@ -39,14 +39,44 @@ def sample_config(tmp_path: Path) -> Path:
                         "max_pages": 1,
                     }
                 ],
-                "output": {
-                    "data_path": str(output_path),
-                    "qc_report_path": str(qc_path),
-                    "correlation_path": str(corr_path),
+                "io": {
+                    "output": {
+                        "data_path": str(output_path),
+                        "qc_report_path": str(qc_path),
+                        "correlation_path": str(corr_path),
+                        "format": "csv",
+                        "csv": {"encoding": "utf-8", "float_format": "%.6f"},
+                    }
+                },
+                "determinism": {
+                    "sort": {
+                        "by": ["compound_id", "target"],
+                        "ascending": [True, True],
+                        "na_position": "last",
+                    },
+                    "column_order": [
+                        "compound_id",
+                        "target",
+                        "activity_value",
+                        "activity_unit",
+                        "source",
+                        "retrieved_at",
+                        "smiles",
+                    ],
+                },
+                "transforms": {
+                    "unit_conversion": {"nM": 1.0, "uM": 1000.0, "pM": 0.001}
                 },
                 "retries": {"max_tries": 2, "backoff_multiplier": 1.0},
                 "logging": {"level": "INFO"},
-                "validation": {"strict": True},
+                "validation": {
+                    "strict": True,
+                    "qc": {
+                        "max_missing_fraction": 1.0,
+                        "max_duplicate_fraction": 1.0,
+                    },
+                },
+                "postprocess": {"qc": {"enabled": True}, "correlation": {"enabled": True}},
             }
         ),
         encoding="utf-8",
@@ -86,13 +116,13 @@ def test_cli_pipeline_command(runner: CliRunner, sample_config: Path) -> None:
     assert output_path.exists()
     frame = pd.read_csv(output_path)
     assert list(frame.columns) == [
-        "activity_unit",
-        "activity_value",
         "compound_id",
+        "target",
+        "activity_value",
+        "activity_unit",
+        "source",
         "retrieved_at",
         "smiles",
-        "source",
-        "target",
     ]
     assert frame.loc[0, "activity_unit"] == "nM"
     assert frame.loc[0, "activity_value"] == pytest.approx(1000.0, rel=1e-6)
