@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict
 
 import typer
 
@@ -33,8 +32,8 @@ OVERRIDE_OPTION = typer.Option(
 )
 
 
-def _parse_override_args(values: list[str]) -> Dict[str, str]:
-    assignments: Dict[str, str] = {}
+def _parse_override_args(values: list[str]) -> dict[str, str]:
+    assignments: dict[str, str] = {}
     for item in values:
         if "=" not in item:
             raise typer.BadParameter("Overrides must be in KEY=VALUE format")

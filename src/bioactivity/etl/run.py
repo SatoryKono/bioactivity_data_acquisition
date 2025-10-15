@@ -16,8 +16,8 @@ from bioactivity.schemas import NormalizedBioactivitySchema
 
 def _empty_normalized_frame() -> pd.DataFrame:
     schema = NormalizedBioactivitySchema.to_schema()
-    empty = schema.empty_dataframe()  # type: ignore[attr-defined]
-    return schema.validate(empty, lazy=True)
+    empty = schema.empty_dataframe()
+    return schema.validate(empty, lazy=True)  # type: ignore
 
 
 def run_pipeline(config: Config, logger: BoundLogger) -> Path:
@@ -61,7 +61,7 @@ def run_pipeline(config: Config, logger: BoundLogger) -> Path:
         postprocess=config.postprocess,
     )
 
-    return output_path
+    return Path(output_path)
 
 
 __all__ = ["run_pipeline"]

@@ -100,11 +100,11 @@ class BaseApiClient:
 
     def _make_url(self, path: str) -> str:
         if not path:
-            return self.base_url
+            return str(self.base_url)
         if path.startswith(("http://", "https://")):
             return path
         normalized = path.lstrip("/")
-        return urljoin(self.base_url + "/", f"./{normalized}")
+        return str(urljoin(self.base_url + "/", f"./{normalized}"))
 
     def _send_with_backoff(self, method: str, url: str, **kwargs: Any) -> Response:
         def _call() -> Response:
@@ -117,7 +117,7 @@ class BaseApiClient:
             max_tries=self.max_retries,
             giveup=lambda exc: isinstance(exc, requests.exceptions.HTTPError),
         )(_call)
-        return sender()
+        return sender()  # type: ignore
 
     def _request(
         self,

@@ -18,7 +18,7 @@ class SourceRequestError(PipelineError):
     """Raised when a source returns an unexpected response."""
 
 
-class ValidationFailure(PipelineError):
+class ValidationFailureError(PipelineError):
     """Raised when validation fails for input or output data."""
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Any
@@ -11,9 +12,6 @@ import typer
 import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError
-
-import sys
-from pathlib import Path
 
 # Add the project directory to the Python path
 project_dir = Path(__file__).parent.parent
@@ -113,7 +111,7 @@ def extract_publications(
 
     logger = get_logger("extract")
     if queries.empty:
-        return empty_publications_frame()
+        return empty_publications_frame()  # type: ignore
 
     records: list[dict[str, Any]] = []
     for _, row in queries.iterrows():
@@ -134,10 +132,10 @@ def extract_publications(
                 records.append(dict(enriched))
 
     if not records:
-        return empty_publications_frame()
+        return empty_publications_frame()  # type: ignore
 
     frame = pd.DataFrame.from_records(records)
-    return normalize_publication_frame(frame)
+    return normalize_publication_frame(frame)  # type: ignore
 
 
 @app.command()
