@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
@@ -142,12 +143,31 @@ class SourceSettings(BaseModel):
         )
 
 
+class CsvFormatSettings(BaseModel):
+    """Formatting options for CSV outputs."""
+
+    encoding: str = Field(default="utf-8")
+    float_format: str | None = Field(default=None)
+    date_format: str | None = Field(default=None)
+    line_terminator: str | None = Field(default=None)
+    na_rep: str | None = Field(default=None)
+
+
+class ParquetFormatSettings(BaseModel):
+    """Formatting options for Parquet outputs."""
+
+    compression: str | None = Field(default="snappy")
+
+
 class OutputSettings(BaseModel):
-    """Paths for ETL outputs."""
+    """Paths and formatting for ETL outputs."""
 
     data_path: Path
     qc_report_path: Path
     correlation_path: Path
+    format: Literal["csv", "parquet"] = Field(default="csv")
+    csv: CsvFormatSettings = Field(default_factory=CsvFormatSettings)
+    parquet: ParquetFormatSettings = Field(default_factory=ParquetFormatSettings)
 
     @field_validator("data_path", "qc_report_path", "correlation_path")
     @classmethod
@@ -156,8 +176,8 @@ class OutputSettings(BaseModel):
         return value
 
 
-class RuntimeSettings(BaseModel):
-    """Runtime configuration for the pipeline."""
+class IOSettings(BaseModel):
+    """I/O configuration namespace."""
 
     output: OutputSettings
 
@@ -168,10 +188,74 @@ class LoggingSettings(BaseModel):
     level: str = Field(default="INFO")
 
 
+class QCValidationSettings(BaseModel):
+    """Thresholds for QC validation."""
+
+    max_missing_fraction: float = Field(default=1.0, ge=0.0, le=1.0)
+    max_duplicate_fraction: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
 class ValidationSettings(BaseModel):
     """Data validation configuration."""
 
     strict: bool = Field(default=True)
+    qc: QCValidationSettings = Field(default_factory=QCValidationSettings)
+
+
+class SortSettings(BaseModel):
+    """Sorting configuration for deterministic outputs."""
+
+    by: list[str] = Field(default_factory=lambda: ["compound_id", "target"])
+    ascending: list[bool] | bool = Field(default=True)
+    na_position: Literal["first", "last"] = Field(default="last")
+
+
+class DeterminismSettings(BaseModel):
+    """Deterministic ordering configuration."""
+
+    sort: SortSettings = Field(default_factory=SortSettings)
+    column_order: list[str] = Field(
+        default_factory=lambda: [
+            "compound_id",
+            "target",
+            "activity_value",
+            "activity_unit",
+            "source",
+            "retrieved_at",
+            "smiles",
+        ]
+    )
+
+
+class TransformSettings(BaseModel):
+    """Transformation configuration for normalization."""
+
+    unit_conversion: dict[str, float] = Field(
+        default_factory=lambda: {
+            "nM": 1.0,
+            "uM": 1000.0,
+            "pM": 0.001,
+        }
+    )
+
+
+class QCStepSettings(BaseModel):
+    """Configuration for QC generation."""
+
+    enabled: bool = Field(default=True)
+
+
+class CorrelationSettings(BaseModel):
+    """Configuration for correlation matrix generation."""
+
+    enabled: bool = Field(default=True)
+
+
+class PostprocessSettings(BaseModel):
+    """Post-processing configuration."""
+
+    qc: QCStepSettings = Field(default_factory=QCStepSettings)
+    correlation: CorrelationSettings = Field(default_factory=CorrelationSettings)
 
 
 class HTTPSettings(BaseModel):
@@ -187,9 +271,12 @@ class Config(BaseModel):
 
     http: HTTPSettings
     sources: dict[str, SourceSettings] = Field(default_factory=dict)
-    runtime: RuntimeSettings
+    io: IOSettings
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     validation: ValidationSettings = Field(default_factory=ValidationSettings)
+    determinism: DeterminismSettings = Field(default_factory=DeterminismSettings)
+    transforms: TransformSettings = Field(default_factory=TransformSettings)
+    postprocess: PostprocessSettings = Field(default_factory=PostprocessSettings)
 
     @property
     def clients(self) -> list[APIClientConfig]:
@@ -197,7 +284,7 @@ class Config(BaseModel):
 
     @property
     def output(self) -> OutputSettings:
-        return self.runtime.output
+        return self.io.output
 
     @property
     def retries(self) -> RetrySettings:
@@ -256,7 +343,9 @@ class Config(BaseModel):
                 path = [segment.strip().lower() for segment in key.split(".") if segment.strip()]
                 if not path:
                     continue
-                _assign_path(result, path, value if not isinstance(value, str) else _parse_scalar(value))
+                _assign_path(
+                    result, path, value if not isinstance(value, str) else _parse_scalar(value)
+                )
             else:
                 result[key] = value if not isinstance(value, str) else _parse_scalar(value)
         return result
@@ -265,15 +354,24 @@ class Config(BaseModel):
 __all__ = [
     "APIClientConfig",
     "Config",
+    "CorrelationSettings",
+    "CsvFormatSettings",
+    "DeterminismSettings",
     "HTTPGlobalSettings",
     "HTTPSourceSettings",
     "HTTPSettings",
+    "IOSettings",
     "LoggingSettings",
     "OutputSettings",
     "PaginationSettings",
+    "ParquetFormatSettings",
+    "PostprocessSettings",
+    "QCStepSettings",
+    "QCValidationSettings",
     "RateLimitSettings",
     "RetrySettings",
-    "RuntimeSettings",
+    "SortSettings",
     "SourceSettings",
+    "TransformSettings",
     "ValidationSettings",
 ]

@@ -51,15 +51,43 @@ def sample_config(tmp_path: Path) -> Path:
                         },
                     }
                 },
-                "runtime": {
+                "io": {
                     "output": {
                         "data_path": str(output_path),
                         "qc_report_path": str(qc_path),
                         "correlation_path": str(corr_path),
+                        "format": "csv",
+                        "csv": {"encoding": "utf-8", "float_format": "%.6f"},
                     }
                 },
+                "determinism": {
+                    "sort": {
+                        "by": ["compound_id", "target"],
+                        "ascending": [True, True],
+                        "na_position": "last",
+                    },
+                    "column_order": [
+                        "compound_id",
+                        "target",
+                        "activity_value",
+                        "activity_unit",
+                        "source",
+                        "retrieved_at",
+                        "smiles",
+                    ],
+                },
+                "transforms": {
+                    "unit_conversion": {"nM": 1.0, "uM": 1000.0, "pM": 0.001}
+                },
                 "logging": {"level": "INFO"},
-                "validation": {"strict": True},
+                "validation": {
+                    "strict": True,
+                    "qc": {
+                        "max_missing_fraction": 1.0,
+                        "max_duplicate_fraction": 1.0,
+                    },
+                },
+                "postprocess": {"qc": {"enabled": True}, "correlation": {"enabled": True}},
             }
         ),
         encoding="utf-8",

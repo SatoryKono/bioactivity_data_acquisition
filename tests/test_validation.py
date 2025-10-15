@@ -19,8 +19,8 @@ def valid_input_frame() -> pd.DataFrame:
             "activity_value": [12.3],
             "activity_units": ["nM"],
             "source": ["chembl"],
-            "retrieved_at": ["2024-01-01T00:00:00Z"],
-            "smiles": ["C"],
+            "retrieved_at": pd.to_datetime(["2024-01-01T00:00:00Z"], utc=True),
+            "smiles": ["CCO"],
         }
     )
 
@@ -34,8 +34,8 @@ def valid_output_frame() -> pd.DataFrame:
             "activity_value": [12.3],
             "activity_unit": ["nM"],
             "source": ["chembl"],
-            "retrieved_at": ["2024-01-01T00:00:00Z"],
-            "smiles": ["C"],
+            "retrieved_at": pd.to_datetime(["2024-01-01T00:00:00Z"], utc=True),
+            "smiles": ["CCO"],
         }
     )
 
@@ -54,8 +54,8 @@ def test_input_schema_accepts_valid_frame(valid_input_frame: pd.DataFrame) -> No
 
 def test_input_schema_rejects_invalid_units(valid_input_frame: pd.DataFrame) -> None:
     invalid = valid_input_frame.copy()
-    schema = RawBioactivitySchema.to_schema()
     invalid.loc[0, "activity_units"] = "mg/mL"
+    schema = RawBioactivitySchema.to_schema()
     with pytest.raises(pa_errors.SchemaErrors):
         schema.validate(invalid, lazy=True)
 

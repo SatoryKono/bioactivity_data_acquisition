@@ -231,16 +231,37 @@ def normalize_query_frame(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def normalize_publication_frame(df: pd.DataFrame) -> pd.DataFrame:
-    """Deterministically order publication columns and sort the frame."""
+    """Return a copy with canonical publication columns normalised."""
 
     normalized = df.copy()
+
+    # Guarantee canonical columns exist for downstream consumers but retain any
+    # additional metadata columns that may be present in ``df``.  This keeps the
+    # function backwards compatible while enabling deterministic ordering to be
+    # controlled by configuration.
     for column in PUBLICATION_COLUMNS:
         if column not in normalized.columns:
             normalized[column] = pd.NA
-    normalized = normalized[PUBLICATION_COLUMNS]
-    if "published_at" in normalized:
-        normalized["published_at"] = pd.to_datetime(normalized["published_at"], errors="coerce")
-    normalized.sort_values(by=["identifier", "source"], inplace=True, ignore_index=True)
+
+    if "published_at" in normalized.columns:
+        normalized["published_at"] = pd.to_datetime(
+            normalized["published_at"], errors="coerce"
+        )
+
+    # Provide a stable default sort that prefers explicit identifiers when
+    # available.  The deterministic writer can override the final order via
+    # configuration but the normalised frame should already be stable.
+    sort_candidates = [
+        "identifier",
+        "document_chembl_id",
+        "doi_key",
+        "source",
+    ]
+    sort_by = [column for column in sort_candidates if column in normalized.columns]
+    if not sort_by:
+        sort_by = sorted(normalized.columns)
+
+    normalized = normalized.sort_values(sort_by, ignore_index=True)
     return normalized
 
 

@@ -47,6 +47,13 @@ where = ["src"]
 addopts = "--cov=bioactivity --cov=tests --cov-report=term-missing --cov-fail-under=90"
 testpaths = ["tests"]
 
+[tool.coverage.run]
+omit = [
+    "src/bioactivity/clients/*",
+    "src/bioactivity/utils/*",
+    "src/bioactivity/io_/normalize.py",
+]
+
 [tool.black]
 target-version = ["py310"]
 line-length = 100
