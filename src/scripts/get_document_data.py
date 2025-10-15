@@ -11,7 +11,7 @@ if __package__ in (None, ""):
     if str(SRC_PATH) not in sys.path:
         sys.path.insert(0, str(SRC_PATH))
 
-from bioactivity import cli as bioactivity_cli  # type: ignore
+from library import cli as bioactivity_cli  # type: ignore
 
 _DEPRECATION_MESSAGE = (
     "scripts/get_document_data.py is deprecated and will be removed in a future release. "
