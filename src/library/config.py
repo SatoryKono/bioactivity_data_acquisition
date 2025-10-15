@@ -443,6 +443,9 @@ class Config(BaseModel):
 
 
 __all__ = [
+    "_assign_path",
+    "_merge_dicts",
+    "_parse_scalar",
     "APIClientConfig",
     "Config",
     "CorrelationSettings",

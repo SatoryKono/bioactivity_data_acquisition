@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
@@ -40,7 +41,9 @@ class DocumentIOSettings(BaseModel):
 class DocumentRuntimeSettings(BaseModel):
     """Runtime toggles controlled via CLI or environment variables."""
 
-    date_tag: str = Field(default_factory=lambda: datetime.utcnow().strftime(DATE_TAG_FORMAT), pattern=DATE_TAG_REGEX)
+    date_tag: str = Field(
+        default_factory=lambda: datetime.utcnow().strftime(DATE_TAG_FORMAT), pattern=DATE_TAG_REGEX
+    )
     workers: int = Field(default=4, ge=1, le=64)
     limit: int | None = Field(default=None, ge=1)
     dry_run: bool = Field(default=False)
@@ -64,7 +67,9 @@ class DocumentHTTPSettings(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    global_: DocumentHTTPGlobalSettings = Field(default_factory=DocumentHTTPGlobalSettings, alias="global")
+    global_: DocumentHTTPGlobalSettings = Field(
+        default_factory=DocumentHTTPGlobalSettings, alias="global"
+    )
 
 
 class SourceToggle(BaseModel):
@@ -110,7 +115,7 @@ class DocumentConfig(BaseModel):
         raise ValueError("sources must be a mapping of toggles")
 
     @model_validator(mode="after")
-    def _validate_sources(self) -> "DocumentConfig":
+    def _validate_sources(self) -> DocumentConfig:
         if not any(toggle.enabled for toggle in self.sources.values()):
             raise ValueError("At least one source must be enabled")
         return self

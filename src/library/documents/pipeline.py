@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioactivity.config import DocumentConfig
+from library.documents.config import DocumentConfig
 
 
 class DocumentPipelineError(RuntimeError):
@@ -92,7 +92,9 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     return DocumentETLResult(documents=normalised, qc=qc)
 
 
-def write_document_outputs(result: DocumentETLResult, output_dir: Path, date_tag: str) -> dict[str, Path]:
+def write_document_outputs(
+    result: DocumentETLResult, output_dir: Path, date_tag: str
+) -> dict[str, Path]:
     """Persist ETL artefacts to disk and return the generated paths."""
 
     try:

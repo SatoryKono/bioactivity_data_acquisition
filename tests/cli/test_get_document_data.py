@@ -9,9 +9,9 @@ import pandas as pd
 import pytest
 from typer.testing import CliRunner
 
-import bioactivity.cli as cli_module
-from bioactivity.cli import ExitCode, app
-from bioactivity.documents import pipeline as document_pipeline
+import library.cli as cli_module
+from library.cli import ExitCode, app
+from library.documents import pipeline as document_pipeline
 
 
 @pytest.fixture()
