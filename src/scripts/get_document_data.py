@@ -10,7 +10,7 @@ if __package__ in (None, ""):
     if str(SRC_PATH) not in sys.path:
         sys.path.insert(0, str(SRC_PATH))
 
-from library.cli import main as bioactivity_main, app as bioactivity_app  # type: ignore
+from library.cli import app as bioactivity_app, main as bioactivity_main  # type: ignore
 
 
 
