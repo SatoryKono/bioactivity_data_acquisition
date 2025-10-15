@@ -90,8 +90,7 @@ class BaseApiClient:
             else config.timeout
         )
         self.max_retries = (
-            max_retries if max_retries is not None 
-            else max(1, config.retries.max_tries)
+            max_retries if max_retries is not None else max(1, config.retries.total)
         )
         self.default_headers = {**config.headers}
         if default_headers:

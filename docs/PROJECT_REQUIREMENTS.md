@@ -93,7 +93,7 @@ flowchart LR
 #### Проверка
 
 ```bash
-bioactivity-data-acquisition pipeline --config configs/config.yaml --set runtime.log_level=DEBUG --set postprocess.qc.enabled=true
+bioactivity-data-acquisition pipeline --config configs/config.yaml --set logging.level=DEBUG --set postprocess.qc.enabled=true
 ```
 
 ## 2. Modules & Dependencies
