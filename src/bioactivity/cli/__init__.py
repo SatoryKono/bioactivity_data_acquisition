@@ -21,15 +21,30 @@ CONFIG_OPTION = typer.Option(
     resolve_path=True,
 )
 
+OVERRIDE_OPTION = typer.Option(
+    None,
+    "--set",
+    "-s",
+    help="Override configuration values using dotted paths, e.g. runtime.log_level=DEBUG.",
+)
+
 app = typer.Typer(help="Bioactivity ETL pipeline")
 
 
 @app.command()
-def pipeline(config: Path = CONFIG_OPTION) -> None:
+def pipeline(
+    config: Path = CONFIG_OPTION,
+    set: list[str] | None = OVERRIDE_OPTION,
+) -> None:
     """Execute the ETL pipeline using a configuration file."""
 
-    config_model = Config.load(config)
-    logger = configure_logging(config_model.logging.level)
+    try:
+        cli_overrides = Config.parse_cli_overrides(set or [])
+    except ValueError as exc:  # pragma: no cover - Typer handles message formatting
+        raise typer.BadParameter(str(exc)) from exc
+
+    config_model = Config.load(config, cli_overrides=cli_overrides)
+    logger = configure_logging(config_model.runtime.log_level)
     logger = logger.bind(command="pipeline")
     output = run_pipeline(config_model, logger)
     typer.echo(f"Pipeline completed. Output written to {output}")

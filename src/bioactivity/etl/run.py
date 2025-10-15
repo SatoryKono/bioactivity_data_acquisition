@@ -26,7 +26,7 @@ def run_pipeline(config: Config, logger: BoundLogger) -> Path:
     frames: list[pd.DataFrame] = []
     for client in config.clients:
         stage_logger = logger.bind(source=client.name)
-        raw_frame = fetch_bioactivity_data(client, config.retries, logger=stage_logger)
+        raw_frame = fetch_bioactivity_data(client, config.http.retry, logger=stage_logger)
         normalized = normalize_bioactivity_data(raw_frame, logger=stage_logger)
         frames.append(normalized)
 
@@ -35,9 +35,9 @@ def run_pipeline(config: Config, logger: BoundLogger) -> Path:
     else:
         combined = _empty_normalized_frame()
 
-    output_path = config.output.data_path
-    qc_path = config.output.qc_report_path
-    corr_path = config.output.correlation_path
+    output_path = config.io.output.data_path
+    qc_path = config.io.output.qc_report_path
+    corr_path = config.io.output.correlation_path
 
     write_deterministic_csv(combined, output_path, logger=logger)
     write_qc_artifacts(combined, qc_path, corr_path)

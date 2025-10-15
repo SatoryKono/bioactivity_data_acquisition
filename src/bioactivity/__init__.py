@@ -4,10 +4,19 @@ from __future__ import annotations
 from bioactivity.cli import app, main
 from bioactivity.config import (
     APIClientConfig,
+    CLISettings,
     Config,
-    LoggingSettings,
-    OutputSettings,
+    DeterminismSettings,
+    HTTPSettings,
+    IOSettings,
+    OutputPaths,
+    PaginationSettings,
+    PostprocessSettings,
+    ProjectSettings,
     RetrySettings,
+    RuntimeSettings,
+    SecretsSettings,
+    SourceSettings,
     ValidationSettings,
 )
 from bioactivity.etl.extract import fetch_bioactivity_data
@@ -20,10 +29,19 @@ from bioactivity.utils import __all__ as _utils_all
 
 __all__ = [
     "APIClientConfig",
+    "CLISettings",
     "Config",
-    "LoggingSettings",
-    "OutputSettings",
+    "DeterminismSettings",
+    "HTTPSettings",
+    "IOSettings",
+    "OutputPaths",
+    "PaginationSettings",
+    "PostprocessSettings",
+    "ProjectSettings",
     "RetrySettings",
+    "RuntimeSettings",
+    "SecretsSettings",
+    "SourceSettings",
     "ValidationSettings",
     "app",
     "fetch_bioactivity_data",

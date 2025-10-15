@@ -1,0 +1,92 @@
+project:
+  name: "Bioactivity Data Acquisition"
+  version: "0.1.0"
+  description: "Canonical configuration for the ChEMBL bioactivity ETL pipeline."
+io:
+  input_dir: "data/input"
+  output_dir: "data/output"
+  temp_dir: "data/tmp"
+  output:
+    data_path: "data/output/bioactivities.csv"
+    qc_report_path: "data/output/qc_report.csv"
+    correlation_path: "data/output/correlation.csv"
+runtime:
+  log_level: "INFO"
+  max_workers: 4
+  progress: true
+determinism:
+  random_seed: 42
+  sort_rows: true
+  sort_columns: true
+  row_sort_keys:
+    - source
+    - compound_id
+validation:
+  strict: true
+  enforce_output_schema: true
+  thresholds:
+    max_missing_percent: 0.05
+    max_duplicate_rows: 0
+http:
+  timeout: 30.0
+  retry:
+    max_tries: 5
+    backoff_multiplier: 2.0
+    jitter: 0.5
+  rate_limit:
+    per_seconds: 5
+    burst: 5
+  user_agent: "bioactivity-data-acquisition/0.1.0"
+sources:
+  chembl:
+    name: "chembl"
+    url: "https://www.ebi.ac.uk/chembl/api/data/activity.json"
+    params:
+      activity_type: "IC50"
+    headers:
+      Accept: "application/json"
+    pagination:
+      param: "page"
+      size_param: "page_size"
+      size: 200
+      max_pages: 10
+    auth:
+      secret_name: "chembl_api_token"
+      header_name: "Authorization"
+      scheme: "Bearer"
+  crossref:
+    name: "crossref"
+    url: "https://api.crossref.org/works"
+    params:
+      query: "chembl"
+      select: "DOI,title"
+    headers:
+      Accept: "application/json"
+    pagination:
+      param: "cursor"
+      size_param: "rows"
+      size: 100
+      max_pages: 5
+    auth:
+      secret_name: "crossref_api_key"
+      header_name: "Crossref-Plus-API-Token"
+      scheme: null
+postprocess:
+  qc:
+    enabled: true
+    correlation: true
+  reporting:
+    include_timestamp: true
+cli:
+  env_prefix: "BIOACTIVITY"
+  defaults_file: "configs/config.yaml"
+  allow_env_override: true
+secrets:
+  required:
+    - name: "chembl_api_token"
+      env: "CHEMBL_API_TOKEN"
+      description: "Bearer token for authenticated access to the ChEMBL API."
+  optional:
+    - name: "crossref_api_key"
+      env: "CROSSREF_API_KEY"
+      description: "Optional Crossref key for extended rate limits."

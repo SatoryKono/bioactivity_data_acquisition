@@ -95,7 +95,7 @@ class BioactivityClient:
             str(self._config.url),
             headers=self._config.headers,
             params=params,
-            timeout=30,
+            timeout=self._config.timeout,
         )
 
     def _backoff(self) -> Any:

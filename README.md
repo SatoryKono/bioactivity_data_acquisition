@@ -29,46 +29,35 @@ If you only need the runtime dependencies, drop the `[dev]` extra.
 
 ## Configuration
 
-Pipeline behaviour is controlled via YAML configuration files. Use `configs/config.example.yaml` as a
-starting point:
+The canonical configuration lives in [`configs/config.yaml`](configs/config.yaml). It is documented in
+detail in [`docs/CONFIG.md`](docs/CONFIG.md) together with the precedence rules:
 
-```yaml
-sources:
-  - name: chembl
-    base_url: "https://example.com"
-    activities_endpoint: "/activities"
-    page_size: 200
-output:
-  output_path: "data/output/bioactivities.csv"
-  qc_report_path: "data/output/qc_report.csv"
-  correlation_path: "data/output/correlation.csv"
-retries:
-  max_tries: 5
-log_level: INFO
-strict_validation: true
-```
+1. Defaults defined in `bioactivity.config`.
+2. Values from the YAML file passed via `--config`.
+3. Environment variables prefixed with `BIOACTIVITY__` (e.g. `BIOACTIVITY__RUNTIME__LOG_LEVEL=DEBUG`).
+4. CLI overrides provided with `--set section.key=value`.
 
-- **sources** – API sources with endpoint configuration and pagination settings.
-- **output** – destinations for normalized data, QC metrics, and correlation matrices.
-- **retries** – retry configuration for HTTP resilience.
-- **log_level** – structlog log level.
-- **strict_validation** – toggle strict schema validation.
+Secrets such as API tokens are declared under `secrets.required`/`secrets.optional` and are resolved
+exclusively from environment variables (e.g. `CHEMBL_API_TOKEN`). The canonical configuration covers
+ChEMBL and Crossref sources, output destinations, deterministic behaviour, and QC thresholds.
 
-Authentication tokens can be injected through an optional `.env` file placed alongside the
-configuration. Declare keys matching `<SOURCE_NAME>_AUTH_TOKEN` (e.g. `CHEMBL_AUTH_TOKEN`).
+Consult [`reports/config_audit.csv`](reports/config_audit.csv) for an inventory of available keys.
 
 ## Command Line Interface
 
 Run the pipeline from the CLI using Typer:
 
 ```bash
-bioactivity-data-acquisition pipeline --config configs/config.example.yaml
+bioactivity-data-acquisition pipeline --config configs/config.yaml
 ```
 
-Provide `--env-file` if secret tokens live in a `.env` file:
+Override individual configuration values at runtime:
 
 ```bash
-bioactivity-data-acquisition pipeline --config configs/config.example.yaml --env-file .env
+BIOACTIVITY__RUNTIME__LOG_LEVEL=DEBUG \
+  bioactivity-data-acquisition pipeline \
+  --config configs/config.yaml \
+  --set sources.chembl.pagination.max_pages=1
 ```
 
 ## Testing and Quality Gates

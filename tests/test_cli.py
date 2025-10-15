@@ -28,25 +28,26 @@ def sample_config(tmp_path: Path) -> Path:
     config_path.write_text(
         yaml.safe_dump(
             {
-                "clients": [
-                    {
+                "io": {
+                    "output": {
+                        "data_path": str(output_path),
+                        "qc_report_path": str(qc_path),
+                        "correlation_path": str(corr_path),
+                    }
+                },
+                "http": {"retry": {"max_tries": 2, "backoff_multiplier": 1.0}},
+                "sources": {
+                    "chembl": {
                         "name": "chembl",
                         "url": "https://example.com/activities",
-                        "params": {},
-                        "pagination_param": "page",
-                        "page_size_param": "page_size",
-                        "page_size": 50,
-                        "max_pages": 1,
+                        "pagination": {
+                            "param": "page",
+                            "size_param": "page_size",
+                            "size": 50,
+                            "max_pages": 1,
+                        },
                     }
-                ],
-                "output": {
-                    "data_path": str(output_path),
-                    "qc_report_path": str(qc_path),
-                    "correlation_path": str(corr_path),
                 },
-                "retries": {"max_tries": 2, "backoff_multiplier": 1.0},
-                "logging": {"level": "INFO"},
-                "validation": {"strict": True},
             }
         ),
         encoding="utf-8",
@@ -86,13 +87,13 @@ def test_cli_pipeline_command(runner: CliRunner, sample_config: Path) -> None:
     assert output_path.exists()
     frame = pd.read_csv(output_path)
     assert list(frame.columns) == [
-        "activity_unit",
-        "activity_value",
         "compound_id",
+        "target",
+        "activity_value",
+        "activity_unit",
+        "source",
         "retrieved_at",
         "smiles",
-        "source",
-        "target",
     ]
     assert frame.loc[0, "activity_unit"] == "nM"
     assert frame.loc[0, "activity_value"] == pytest.approx(1000.0, rel=1e-6)
