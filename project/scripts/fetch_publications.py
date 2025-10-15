@@ -25,7 +25,7 @@ from bioactivity.clients.pubmed import PubMedClient  # type: ignore
 from bioactivity.clients.semantic_scholar import SemanticScholarClient  # type: ignore
 from bioactivity.config import APIClientConfig as ClientConfig  # type: ignore
 from bioactivity.utils.errors import ConfigError, ExtractionError  # type: ignore
-from bioactivity.utils.logging import configure_logging, get_logger  # type: ignore
+from bioactivity.logging import configure_logging, get_logger  # type: ignore
 
 try:
     from dotenv import load_dotenv  # type: ignore
