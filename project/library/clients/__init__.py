@@ -7,6 +7,7 @@ from typing import Any, Mapping, Optional
 
 import backoff
 import requests
+from json import JSONDecodeError
 
 from library.utils.errors import ExtractionError
 from library.utils.logging import get_logger
@@ -41,12 +42,20 @@ class BasePublicationsClient:
             headers["Authorization"] = f"Bearer {self.config.api_key}"
 
         self.rate_limiter.throttle()
-        response = self.session.get(url, params=params, headers=headers, timeout=30)
+        try:
+            response = self.session.get(url, params=params, headers=headers, timeout=30)
+        except requests.exceptions.RequestException as exc:
+            raise ExtractionError(f"{self.config.name} request failed: {exc}") from exc
         if response.status_code >= 400:
             raise ExtractionError(
                 f"{self.config.name} responded with {response.status_code}: {response.text[:200]}"
             )
-        return response.json()
+        try:
+            return response.json()
+        except (ValueError, JSONDecodeError) as exc:
+            raise ExtractionError(
+                f"{self.config.name} returned invalid JSON: {exc}"
+            ) from exc
 
     def fetch_publications(self, query: str) -> list[dict[str, Any]]:
         """Fetch publications for the provided query."""
