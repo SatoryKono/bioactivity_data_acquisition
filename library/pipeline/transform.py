@@ -7,6 +7,25 @@ from structlog.stdlib import BoundLogger
 
 from ..validation import NormalizedBioactivitySchema, RawBioactivitySchema
 
+_EMPTY_NORMALIZED_DTYPES: dict[str, str] = {
+    "compound_id": "object",
+    "target": "object",
+    "activity_value": "float64",
+    "activity_unit": "object",
+    "source": "object",
+    "retrieved_at": "datetime64[ns]",
+    "smiles": "object",
+}
+
+
+def create_empty_normalized_frame() -> pd.DataFrame:
+    """Return an empty, schema-compliant normalized bioactivity frame."""
+
+    empty = pd.DataFrame({
+        column: pd.Series(dtype=dtype) for column, dtype in _EMPTY_NORMALIZED_DTYPES.items()
+    })
+    return NormalizedBioactivitySchema.validate(empty, lazy=True)
+
 _UNIT_CONVERSION = {
     "nM": 1.0,
     "uM": 1000.0,
@@ -28,9 +47,7 @@ def normalize_bioactivity_data(df: pd.DataFrame, logger: BoundLogger | None = No
     raw_schema = RawBioactivitySchema.to_schema()
     validated = raw_schema.validate(df, lazy=True)
     if validated.empty:
-        normalized_schema = NormalizedBioactivitySchema.to_schema()
-        empty = normalized_schema.empty_dataframe()  # type: ignore[attr-defined]
-        return normalized_schema.validate(empty, lazy=True)
+        return create_empty_normalized_frame()
 
     normalized = validated.copy()
     normalized["retrieved_at"] = pd.to_datetime(normalized["retrieved_at"], utc=True)
@@ -54,4 +71,4 @@ def normalize_bioactivity_data(df: pd.DataFrame, logger: BoundLogger | None = No
     return result
 
 
-__all__ = ["normalize_bioactivity_data"]
+__all__ = ["normalize_bioactivity_data", "create_empty_normalized_frame"]
