@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from library.config import _assign_path, _merge_dicts, _parse_scalar
 
-ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "crossref", "openalex")
+ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "crossref", "openalex", "pubmed", "semantic_scholar")
 DATE_TAG_FORMAT = "%Y%m%d"
 DATE_TAG_REGEX = r"^\d{8}$"
 DEFAULT_ENV_PREFIX = "BIOACTIVITY__"

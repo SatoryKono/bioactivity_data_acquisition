@@ -83,6 +83,7 @@ def _build_cli_overrides(
     workers: int | None,
     limit: int | None,
     sources: list[str],
+    all_sources: bool,
     dry_run: bool | None,
 ) -> dict[str, Any]:
     overrides: dict[str, Any] = {}
@@ -100,7 +101,11 @@ def _build_cli_overrides(
         _assign_path(overrides, ["runtime", "workers"], workers)
     if limit is not None:
         _assign_path(overrides, ["runtime", "limit"], limit)
-    if sources:
+    if all_sources:
+        # Enable all sources when --all is specified
+        overrides["sources"] = {name: {"enabled": True} for name in ALLOWED_SOURCES}
+    elif sources:
+        # Enable only specified sources
         overrides["sources"] = {name: {"enabled": True} for name in sources}
         for name in ALLOWED_SOURCES:
             overrides["sources"].setdefault(name, {"enabled": False})
@@ -184,6 +189,11 @@ def get_document_data(
         "--source",
         help="Enable only the listed sources (repeat for multiple).",
     ),
+    all_sources: bool = typer.Option(
+        False,
+        "--all",
+        help="Enable all available sources (chembl, crossref, openalex, pubmed, semantic_scholar).",
+    ),
     dry_run: bool | None = typer.Option(
         None,
         "--dry-run/--no-dry-run",
@@ -191,6 +201,11 @@ def get_document_data(
     ),
 ) -> None:
     """Collect and enrich document metadata from configured sources."""
+
+    # Validate that --all and --source are not used together
+    if all_sources and sources:
+        typer.echo("Error: Cannot use --all and --source together. Use either --all or --source.", err=True)
+        raise typer.Exit(code=ExitCode.VALIDATION_ERROR)
 
     try:
         normalised_sources = _normalise_sources(sources)
@@ -207,6 +222,7 @@ def get_document_data(
         workers=workers,
         limit=limit,
         sources=normalised_sources,
+        all_sources=all_sources,
         dry_run=dry_run,
     )
 

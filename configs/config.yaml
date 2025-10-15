@@ -38,6 +38,24 @@ sources:
       headers:
         Accept: application/json
         Crossref-Plus-API-Token: "{crossref_api_key}"
+  openalex:
+    name: openalex
+    http:
+      base_url: https://api.openalex.org/works
+      headers:
+        Accept: application/json
+  pubmed:
+    name: pubmed
+    http:
+      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi
+      headers:
+        Accept: application/json
+  semantic_scholar:
+    name: semantic_scholar
+    http:
+      base_url: https://api.semanticscholar.org/graph/v1/paper
+      headers:
+        Accept: application/json
 io:
   input:
     documents_csv: data/input/documents.csv
