@@ -93,6 +93,7 @@ def main(
 
         openalex_data = {}
         try:
+            doi_lookup = _first_non_empty(doi_candidates)
             if doi_lookup:
                 openalex_data = openalex.fetch_by_doi(doi_lookup)
             if not openalex_data:
