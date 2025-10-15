@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from bioactivity.config import APIClientConfig
 from bioactivity.clients.base import BaseApiClient
 
 
@@ -20,9 +21,11 @@ class SemanticScholarClient(BaseApiClient):
         "authors",
     ]
 
-    def __init__(self, **kwargs: Any) -> None:
-        default_headers = {"Accept": "application/json"}
-        super().__init__("https://api.semanticscholar.org/graph/v1/paper", default_headers=default_headers, **kwargs)
+    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
+        headers = dict(config.headers)
+        headers.setdefault("Accept", "application/json")
+        enhanced = config.model_copy(update={"headers": headers})
+        super().__init__(enhanced, **kwargs)
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         identifier = f"PMID:{pmid}"

@@ -4,14 +4,15 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
+from bioactivity.config import APIClientConfig
 from bioactivity.clients.base import ApiClientError, BaseApiClient
 
 
 class CrossrefClient(BaseApiClient):
     """HTTP client for Crossref works."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__("https://api.crossref.org/works", **kwargs)
+    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
+        super().__init__(config, **kwargs)
 
     def fetch_by_doi(self, doi: str) -> dict[str, Any]:
         """Fetch Crossref work by DOI with fallback search."""

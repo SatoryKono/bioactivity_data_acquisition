@@ -22,11 +22,11 @@ class BioactivityClient:
     def __init__(
         self,
         config: APIClientConfig,
-        retries: RetrySettings | None = None,
+        *,
         session: requests.Session | None = None,
     ) -> None:
         self._config = config
-        self._retries = retries or RetrySettings()
+        self._retries = config.retries
         self._session = session or requests.Session()
 
     def fetch_records(self) -> list[Json]:
@@ -91,11 +91,12 @@ class BioactivityClient:
         self.close()
 
     def _request(self, params: dict[str, Any]) -> requests.Response:
+        url = self._config.resolved_base_url
         return self._session.get(
-            str(self._config.url),
+            url,
             headers=self._config.headers,
             params=params,
-            timeout=30,
+            timeout=self._config.timeout,
         )
 
     def _backoff(self) -> Any:

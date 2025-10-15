@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 from structlog.stdlib import BoundLogger
 
 from bioactivity.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
@@ -26,7 +27,16 @@ def normalize_bioactivity_data(df: pd.DataFrame, logger: BoundLogger | None = No
     """Normalize raw bioactivity data to a consistent schema."""
 
     raw_schema = RawBioactivitySchema.to_schema()
-    validated = raw_schema.validate(df, lazy=True)
+    try:
+        validated = raw_schema.validate(df, lazy=True)
+    except SchemaErrors as exc:
+        failure_cases = getattr(exc, "failure_cases", None)
+        if failure_cases is not None and "column" in failure_cases:
+            mask = failure_cases["column"] == "activity_units"
+            if mask.any():
+                invalid = sorted({str(value) for value in failure_cases.loc[mask, "failure_case"]})
+                raise ValueError(f"Unsupported activity units: {', '.join(invalid)}") from exc
+        raise
     if validated.empty:
         normalized_schema = NormalizedBioactivitySchema.to_schema()
         empty = normalized_schema.empty_dataframe()  # type: ignore[attr-defined]

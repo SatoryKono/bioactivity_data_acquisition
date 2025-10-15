@@ -7,6 +7,7 @@ import time
 from collections import deque
 from collections.abc import MutableMapping
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 from urllib.parse import urljoin
 
@@ -15,6 +16,7 @@ import requests
 from requests import Response
 
 from bioactivity.clients.session import get_shared_session
+from bioactivity.config import APIClientConfig
 from bioactivity.logging import get_logger
 
 
@@ -57,7 +59,8 @@ class RateLimiter:
                 self._timestamps.popleft()
             if len(self._timestamps) >= self._config.max_calls:
                 raise RateLimitError(
-                    f"rate limit exceeded: {self._config.max_calls} calls per {self._config.period}s"
+                    f"rate limit exceeded: {self._config.max_calls} calls per "
+                    f"{self._config.period}s"
                 )
             self._timestamps.append(now)
 
@@ -67,7 +70,7 @@ class BaseApiClient:
 
     def __init__(
         self,
-        base_url: str,
+        config: APIClientConfig,
         *,
         session: requests.Session | None = None,
         rate_limiter: RateLimiter | None = None,
@@ -75,12 +78,24 @@ class BaseApiClient:
         max_retries: int = 3,
         default_headers: MutableMapping[str, str] | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.config = config
+        self.base_url = config.resolved_base_url.rstrip("/")
         self.session = session or get_shared_session()
+        limiter = config.rate_limit
+        if limiter is not None and rate_limiter is None:
+            rate_limiter = RateLimiter(RateLimitConfig(limiter.max_calls, limiter.period))
         self.rate_limiter = rate_limiter
-        self.timeout = timeout
-        self.max_retries = max(1, max_retries)
-        self.default_headers = {**(default_headers or {})}
+        self.timeout = (
+            timeout if hasattr(config, 'timeout') and config.timeout is not None 
+            else config.timeout
+        )
+        self.max_retries = (
+            max_retries if max_retries is not None 
+            else max(1, config.retries.max_tries)
+        )
+        self.default_headers = {**config.headers}
+        if default_headers:
+            self.default_headers.update(default_headers)
         self.logger = get_logger(self.__class__.__name__, base_url=self.base_url)
 
     def _make_url(self, path: str) -> str:
@@ -95,8 +110,9 @@ class BaseApiClient:
         def _call() -> Response:
             return self.session.request(method, url, timeout=self.timeout, **kwargs)
 
+        wait_gen = partial(backoff.expo, factor=self.config.retries.backoff_multiplier)
         sender = backoff.on_exception(
-            backoff.expo,
+            wait_gen,
             requests.exceptions.RequestException,
             max_tries=self.max_retries,
             giveup=lambda exc: isinstance(exc, requests.exceptions.HTTPError),

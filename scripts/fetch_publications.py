@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 import typer
 
+from bioactivity.config import APIClientConfig, Config
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient
 from library.clients.pubmed import PubMedClient
@@ -22,6 +23,32 @@ from library.validation.input_schema import INPUT_SCHEMA
 from library.validation.output_schema import OUTPUT_SCHEMA
 
 app = typer.Typer(help="Fetch and consolidate publication metadata for ChEMBL documents.")
+
+CONFIG_OPTION = typer.Option(
+    None,
+    "--config",
+    "-c",
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    resolve_path=True,
+)
+
+OVERRIDE_OPTION = typer.Option(
+    [],
+    "--set",
+    "-s",
+    help="Override configuration values using dotted paths",
+)
+
+
+def _resolve_source(config: Config, name: str) -> APIClientConfig:
+    try:
+        source = config.sources[name]
+    except KeyError as exc:  # pragma: no cover - defensive configuration guard
+        raise typer.BadParameter(f"Source '{name}' is not configured") from exc
+    return source.to_client_config(config.http.global_)
 
 
 def _read_input(path: Path) -> pd.DataFrame:
@@ -40,10 +67,18 @@ def run(
     output_path: Path = typer.Argument(..., help="Where to store the resulting CSV."),
     run_id: str = typer.Option("local", help="Identifier for the current pipeline run."),
     log_dir: Path = typer.Option(Path("logs"), help="Directory for JSON logs and *.error files."),
-    chembl_url: str = typer.Option("https://www.ebi.ac.uk/chembl/api/data", help="Base URL for ChEMBL API."),
-    crossref_url: str = typer.Option("https://api.crossref.org", help="Base URL for Crossref API."),
-    pubmed_url: str = typer.Option("https://eutils.ncbi.nlm.nih.gov/entrez/eutils", help="Base URL for PubMed API."),
+    config: Path | None = CONFIG_OPTION,
+    overrides: list[str] = OVERRIDE_OPTION,
 ) -> None:
+    parsed_overrides = _parse_override_args(overrides)
+    config_model = Config.load(config, overrides=parsed_overrides)
+    chembl_cfg = _resolve_source(config_model, "chembl")
+    crossref_cfg = _resolve_source(config_model, "crossref")
+    pubmed_cfg = _resolve_source(config_model, "pubmed")
+
+    chembl_url = chembl_cfg.resolved_base_url
+    crossref_url = crossref_cfg.resolved_base_url
+    pubmed_url = pubmed_cfg.resolved_base_url
     logger = setup_logging(log_dir=log_dir).bind(run_id=run_id)
     logger.info("starting pipeline", stage="cli")
 
@@ -148,3 +183,16 @@ def run(
 
 if __name__ == "__main__":
     app()
+
+
+def _parse_override_args(values: list[str]) -> dict[str, str]:
+    assignments: dict[str, str] = {}
+    for item in values:
+        if "=" not in item:
+            raise typer.BadParameter("Overrides must be in KEY=VALUE format")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            raise typer.BadParameter("Override key must not be empty")
+        assignments[key] = value
+    return assignments

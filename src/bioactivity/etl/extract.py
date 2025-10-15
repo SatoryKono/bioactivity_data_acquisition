@@ -6,19 +6,18 @@ import pandas as pd
 from structlog.stdlib import BoundLogger
 
 from bioactivity.clients import BioactivityClient
-from bioactivity.config import APIClientConfig, RetrySettings
+from bioactivity.config import APIClientConfig
 from bioactivity.schemas import RawBioactivitySchema
 
 
 def fetch_bioactivity_data(
     client_config: APIClientConfig,
-    retries: RetrySettings,
     logger: BoundLogger | None = None,
 ) -> pd.DataFrame:
     """Retrieve and validate bioactivity data for a single source."""
 
     schema = RawBioactivitySchema.to_schema()
-    with BioactivityClient(client_config, retries=retries) as client:
+    with BioactivityClient(client_config) as client:
         records = client.fetch_records()
     if not records:
         empty_df = pd.DataFrame(columns=list(schema.columns.keys()))

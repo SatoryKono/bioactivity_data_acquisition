@@ -3,14 +3,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from bioactivity.config import APIClientConfig
 from bioactivity.clients.base import BaseApiClient
 
 
 class ChEMBLClient(BaseApiClient):
     """HTTP client for the ChEMBL document endpoint."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__("https://www.ebi.ac.uk/chembl/api/data", **kwargs)
+    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
+        super().__init__(config, **kwargs)
 
     def fetch_by_doc_id(self, doc_id: str) -> dict[str, Any]:
         """Retrieve a document by its ChEMBL document identifier."""

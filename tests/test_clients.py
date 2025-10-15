@@ -14,11 +14,24 @@ from bioactivity.clients import (
     RateLimitError,
     SemanticScholarClient,
 )
+from bioactivity.config import APIClientConfig, RateLimitSettings, RetrySettings
+
+
+def make_config(name: str, base_url: str, **kwargs: object) -> APIClientConfig:
+    data: dict[str, object] = {
+        "endpoint": "",
+        "headers": {},
+        "params": {},
+        "timeout": 30.0,
+        "retries": RetrySettings(),
+    }
+    data.update(kwargs)
+    return APIClientConfig(name=name, base_url=base_url, **data)
 
 
 @responses.activate
 def test_chembl_fetch_by_doc_id_success() -> None:
-    client = ChEMBLClient()
+    client = ChEMBLClient(make_config("chembl", "https://www.ebi.ac.uk/chembl/api/data"))
     responses.add(
         responses.GET,
         "https://www.ebi.ac.uk/chembl/api/data/document/CHEMBL123",
@@ -45,7 +58,7 @@ def test_chembl_fetch_by_doc_id_success() -> None:
 
 @responses.activate
 def test_chembl_fetch_by_doc_id_http_error() -> None:
-    client = ChEMBLClient()
+    client = ChEMBLClient(make_config("chembl", "https://www.ebi.ac.uk/chembl/api/data"))
     responses.add(
         responses.GET,
         "https://www.ebi.ac.uk/chembl/api/data/document/CHEMBL404",
@@ -60,7 +73,12 @@ def test_chembl_fetch_by_doc_id_http_error() -> None:
 @responses.activate
 def test_rate_limit_enforced_before_request() -> None:
     limiter = RateLimiter(RateLimitConfig(max_calls=1, period=60))
-    client = ChEMBLClient(rate_limiter=limiter)
+    cfg = make_config(
+        "chembl",
+        "https://www.ebi.ac.uk/chembl/api/data",
+        rate_limit=RateLimitSettings(max_calls=1, period=60),
+    )
+    client = ChEMBLClient(cfg, rate_limiter=limiter)
     responses.add(
         responses.GET,
         "https://www.ebi.ac.uk/chembl/api/data/document/CHEMBL001",
@@ -74,7 +92,7 @@ def test_rate_limit_enforced_before_request() -> None:
 
 @responses.activate
 def test_pubmed_fetch_by_pmid_parses_record() -> None:
-    client = PubMedClient()
+    client = PubMedClient(make_config("pubmed", "https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed"))
     responses.add(
         responses.GET,
         "https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed",
@@ -109,7 +127,7 @@ def test_pubmed_fetch_by_pmid_parses_record() -> None:
 
 @responses.activate
 def test_pubmed_fetch_by_pmids_batch() -> None:
-    client = PubMedClient()
+    client = PubMedClient(make_config("pubmed", "https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed"))
     responses.add(
         responses.POST,
         "https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed/batch",
@@ -137,7 +155,9 @@ def test_pubmed_fetch_by_pmids_batch() -> None:
 
 @responses.activate
 def test_semantic_scholar_batch_parsing() -> None:
-    client = SemanticScholarClient()
+    client = SemanticScholarClient(
+        make_config("semantic_scholar", "https://api.semanticscholar.org/graph/v1/paper")
+    )
     responses.add(
         responses.POST,
         "https://api.semanticscholar.org/graph/v1/paper/batch",
@@ -171,7 +191,7 @@ def test_semantic_scholar_batch_parsing() -> None:
 
 @responses.activate
 def test_crossref_fallback_to_search() -> None:
-    client = CrossrefClient()
+    client = CrossrefClient(make_config("crossref", "https://api.crossref.org/works"))
     responses.add(
         responses.GET,
         "https://api.crossref.org/works/10.1000%2Ffallback",
@@ -203,7 +223,7 @@ def test_crossref_fallback_to_search() -> None:
 
 @responses.activate
 def test_openalex_pmid_fallback_to_search() -> None:
-    client = OpenAlexClient()
+    client = OpenAlexClient(make_config("openalex", "https://api.openalex.org/works"))
     responses.add(
         responses.GET,
         "https://api.openalex.org/works",
@@ -238,7 +258,7 @@ def test_openalex_pmid_fallback_to_search() -> None:
 
 @responses.activate
 def test_openalex_fetch_by_doi_fallback_filter() -> None:
-    client = OpenAlexClient()
+    client = OpenAlexClient(make_config("openalex", "https://api.openalex.org/works"))
     responses.add(
         responses.GET,
         "https://api.openalex.org/works/https://doi.org/10.1000/primary",
@@ -263,7 +283,9 @@ def test_openalex_fetch_by_doi_fallback_filter() -> None:
 
 @responses.activate
 def test_semantic_scholar_single_fetch() -> None:
-    client = SemanticScholarClient()
+    client = SemanticScholarClient(
+        make_config("semantic_scholar", "https://api.semanticscholar.org/graph/v1/paper")
+    )
     responses.add(
         responses.GET,
         "https://api.semanticscholar.org/graph/v1/paper/PMID:777",
@@ -281,7 +303,7 @@ def test_semantic_scholar_single_fetch() -> None:
 
 @responses.activate
 def test_crossref_fetch_by_pmid_fallback_when_no_items() -> None:
-    client = CrossrefClient()
+    client = CrossrefClient(make_config("crossref", "https://api.crossref.org/works"))
     responses.add(
         responses.GET,
         "https://api.crossref.org/works",
