@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
-from typing import Any, Dict, Mapping, MutableMapping
+from typing import Any
 
 import pandas as pd
 import typer
@@ -19,7 +20,8 @@ from project.library.clients.pubmed import PubmedClient
 from project.library.clients.semscholar import SemanticScholarClient
 from project.library.io.normalize import normalize_publication_frame
 from project.library.io.read_write import empty_publications_frame, read_queries, write_publications
-from project.library.utils.errors import ConfigError, ExtractionError, ValidationError as PipelineValidationError
+from project.library.utils.errors import ConfigError, ExtractionError
+from project.library.utils.errors import ValidationError as PipelineValidationError
 from project.library.utils.logging import configure_logging, get_logger
 from project.library.validation.input_schema import INPUT_SCHEMA
 from project.library.validation.output_schema import OUTPUT_SCHEMA
@@ -51,7 +53,7 @@ class SourceConfig(BaseModel):
     base_url: str
     api_key: str | None = None
     rate_limit_per_minute: int | None = Field(default=None, alias="rate_limit_per_minute")
-    headers: Dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str] = Field(default_factory=dict)
 
     class Config:
         allow_population_by_field_name = True
@@ -60,7 +62,7 @@ class SourceConfig(BaseModel):
 class PipelineConfig(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     etl: EtlConfig = Field(default_factory=EtlConfig)
-    sources: Dict[str, SourceConfig] = Field(default_factory=dict)
+    sources: dict[str, SourceConfig] = Field(default_factory=dict)
 
 
 def load_config(path: Path) -> PipelineConfig:
@@ -78,10 +80,10 @@ def load_config(path: Path) -> PipelineConfig:
         raise ConfigError(f"Invalid configuration: {exc}") from exc
 
 
-def build_clients(config: PipelineConfig) -> Dict[str, BasePublicationsClient]:
+def build_clients(config: PipelineConfig) -> dict[str, BasePublicationsClient]:
     """Instantiate clients defined in the configuration."""
 
-    clients: Dict[str, BasePublicationsClient] = {}
+    clients: dict[str, BasePublicationsClient] = {}
     for name, source_config in config.sources.items():
         factory = CLIENT_FACTORIES.get(name)
         if not factory:

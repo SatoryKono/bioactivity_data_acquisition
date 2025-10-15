@@ -10,8 +10,8 @@ from bioactivity.clients import (
     OpenAlexClient,
     PubMedClient,
     RateLimitConfig,
-    RateLimitError,
     RateLimiter,
+    RateLimitError,
     SemanticScholarClient,
 )
 

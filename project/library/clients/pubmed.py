@@ -1,7 +1,7 @@
 """PubMed client."""
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from collections.abc import Iterable
 
 from library.clients.base import BaseClient, SessionManager
 from library.io.normalize import coerce_text, normalise_doi
@@ -13,17 +13,17 @@ class PubMedClient(BaseClient):
     def __init__(self, session_manager: SessionManager, rate_per_sec: float = 3.0) -> None:
         super().__init__(session_manager, name="pubmed", rate_per_sec=rate_per_sec)
 
-    def fetch_by_pmid(self, pmid: str) -> Dict[str, Optional[str]]:
+    def fetch_by_pmid(self, pmid: str) -> dict[str, str | None]:
         payload = self._summary_request([pmid])
         return payload.get(pmid, {})
 
-    def fetch_batch(self, pmids: Iterable[str]) -> Dict[str, Dict[str, Optional[str]]]:
+    def fetch_batch(self, pmids: Iterable[str]) -> dict[str, dict[str, str | None]]:
         pmid_list = [pmid for pmid in pmids]
         if not pmid_list:
             return {}
         return self._summary_request(pmid_list)
 
-    def _summary_request(self, pmids: List[str]) -> Dict[str, Dict[str, Optional[str]]]:
+    def _summary_request(self, pmids: list[str]) -> dict[str, dict[str, str | None]]:
         params = {
             "db": "pubmed",
             "id": ",".join(pmids),
@@ -31,7 +31,7 @@ class PubMedClient(BaseClient):
         }
         data = self._request("GET", self._build_url("esummary.fcgi"), params=params).json()
         result = data.get("result", {})
-        summaries: Dict[str, Dict[str, Optional[str]]] = {}
+        summaries: dict[str, dict[str, str | None]] = {}
         for pmid in pmids:
             raw = result.get(pmid, {})
             doi = None

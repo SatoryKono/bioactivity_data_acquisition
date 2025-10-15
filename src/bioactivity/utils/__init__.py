@@ -4,10 +4,10 @@ from bioactivity.utils.errors import ConfigError, ExtractionError, ValidationErr
 from bioactivity.utils.joins import ensure_unique, safe_left_join
 from bioactivity.utils.logging import bind_stage, configure_logging
 from bioactivity.utils.rate_limit import (
-    RateLimitError,
-    RateLimitParams,
     RateLimiter,
+    RateLimitError,
     RateLimiterSet,
+    RateLimitParams,
     configure_rate_limits,
     get_rate_limiter,
     limit_async,

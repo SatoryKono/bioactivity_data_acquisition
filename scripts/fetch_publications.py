@@ -1,8 +1,8 @@
 """CLI entry point orchestrating the publication fetching pipeline."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 import typer

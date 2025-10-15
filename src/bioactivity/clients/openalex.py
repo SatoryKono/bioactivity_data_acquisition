@@ -1,7 +1,7 @@
 """Client for the OpenAlex API."""
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from bioactivity.clients.base import ApiClientError, BaseApiClient
 
@@ -12,7 +12,7 @@ class OpenAlexClient(BaseApiClient):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__("https://api.openalex.org/works", **kwargs)
 
-    def fetch_by_doi(self, doi: str) -> Dict[str, Any]:
+    def fetch_by_doi(self, doi: str) -> dict[str, Any]:
         """Fetch a work by DOI with fallback to a filter query."""
 
         path = f"https://doi.org/{doi}"
@@ -27,7 +27,7 @@ class OpenAlexClient(BaseApiClient):
                 raise
             return self._parse_work(results[0])
 
-    def fetch_by_pmid(self, pmid: str) -> Dict[str, Any]:
+    def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         """Fetch a work by PMID with fallback search."""
 
         payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
@@ -42,9 +42,9 @@ class OpenAlexClient(BaseApiClient):
             raise ApiClientError(f"No OpenAlex work found for PMID {pmid}")
         return self._parse_work(results[0])
 
-    def _parse_work(self, work: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         ids = work.get("ids") or {}
-        record: Dict[str, Optional[Any]] = {
+        record: dict[str, Any | None] = {
             "source": "openalex",
             "openalex_id": work.get("id"),
             "doi": work.get("doi") or ids.get("doi"),

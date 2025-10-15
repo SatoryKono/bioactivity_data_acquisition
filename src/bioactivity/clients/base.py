@@ -5,8 +5,9 @@ import json
 import threading
 import time
 from collections import deque
+from collections.abc import MutableMapping
 from dataclasses import dataclass
-from typing import Any, Deque, Dict, MutableMapping, Optional
+from typing import Any
 from urllib.parse import urljoin
 
 import backoff
@@ -20,7 +21,7 @@ from bioactivity.logging import get_logger
 class ApiClientError(RuntimeError):
     """Generic client error."""
 
-    def __init__(self, message: str, *, status_code: Optional[int] = None) -> None:
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
         super().__init__(message)
         self.status_code = status_code
 
@@ -46,7 +47,7 @@ class RateLimiter:
 
     def __init__(self, config: RateLimitConfig) -> None:
         self._config = config
-        self._timestamps: Deque[float] = deque()
+        self._timestamps: deque[float] = deque()
         self._lock = threading.Lock()
 
     def acquire(self) -> None:
@@ -68,11 +69,11 @@ class BaseApiClient:
         self,
         base_url: str,
         *,
-        session: Optional[requests.Session] = None,
-        rate_limiter: Optional[RateLimiter] = None,
+        session: requests.Session | None = None,
+        rate_limiter: RateLimiter | None = None,
         timeout: float = 10.0,
         max_retries: int = 3,
-        default_headers: Optional[MutableMapping[str, str]] = None,
+        default_headers: MutableMapping[str, str] | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.session = session or get_shared_session()
@@ -108,9 +109,9 @@ class BaseApiClient:
         path: str = "",
         *,
         expected_status: int = 200,
-        headers: Optional[MutableMapping[str, str]] = None,
+        headers: MutableMapping[str, str] | None = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if self.rate_limiter is not None:
             self.rate_limiter.acquire()
         url = self._make_url(path)

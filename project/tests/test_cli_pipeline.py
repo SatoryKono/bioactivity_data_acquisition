@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
-from typer.testing import CliRunner
-
-from scripts.fetch_publications import app
 from library.clients.chembl import ChemblClient
 from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semscholar import SemanticScholarClient
-
+from scripts.fetch_publications import app
+from typer.testing import CliRunner
 
 runner = CliRunner()
 

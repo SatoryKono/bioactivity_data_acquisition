@@ -6,7 +6,6 @@ from typing import Any
 
 import structlog
 
-
 _LOGGING_CONFIGURED = False
 
 

@@ -1,7 +1,7 @@
 """Semantic Scholar client."""
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from collections.abc import Iterable
 
 from library.clients.base import BaseClient, SessionManager
 from library.io.normalize import coerce_text, normalise_doi
@@ -14,11 +14,11 @@ class SemanticScholarClient(BaseClient):
         super().__init__(session_manager, name="semscholar", rate_per_sec=rate_per_sec)
         self.fields = "paperId,title,externalIds,publicationVenue"
 
-    def fetch_by_pmid(self, pmid: str) -> Dict[str, Optional[str]]:
+    def fetch_by_pmid(self, pmid: str) -> dict[str, str | None]:
         payload = self.get_json(f"paper/PMID:{pmid}", params={"fields": self.fields})
         return self._parse_payload(payload)
 
-    def fetch_batch(self, pmids: Iterable[str]) -> Dict[str, Dict[str, Optional[str]]]:
+    def fetch_batch(self, pmids: Iterable[str]) -> dict[str, dict[str, str | None]]:
         ids = [f"PMID:{pmid}" for pmid in pmids]
         if not ids:
             return {}
@@ -28,7 +28,7 @@ class SemanticScholarClient(BaseClient):
             json={"ids": ids, "fields": self.fields},
         )
         items = response.json()
-        parsed: Dict[str, Dict[str, Optional[str]]] = {}
+        parsed: dict[str, dict[str, str | None]] = {}
         for item in items:
             parsed_entry = self._parse_payload(item)
             pmid = parsed_entry.get("pmid")
@@ -36,7 +36,7 @@ class SemanticScholarClient(BaseClient):
                 parsed[pmid] = parsed_entry
         return parsed
 
-    def _parse_payload(self, payload: Dict[str, object]) -> Dict[str, Optional[str]]:
+    def _parse_payload(self, payload: dict[str, object]) -> dict[str, str | None]:
         external_ids = payload.get("externalIds") or {}
         doi = None
         pmid = None

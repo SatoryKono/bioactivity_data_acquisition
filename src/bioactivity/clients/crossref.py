@@ -1,7 +1,7 @@
 """Client for the Crossref API."""
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import quote
 
 from bioactivity.clients.base import ApiClientError, BaseApiClient
@@ -13,7 +13,7 @@ class CrossrefClient(BaseApiClient):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__("https://api.crossref.org/works", **kwargs)
 
-    def fetch_by_doi(self, doi: str) -> Dict[str, Any]:
+    def fetch_by_doi(self, doi: str) -> dict[str, Any]:
         """Fetch Crossref work by DOI with fallback search."""
 
         encoded = quote(doi, safe="")
@@ -29,7 +29,7 @@ class CrossrefClient(BaseApiClient):
                 raise
             return self._parse_work(items[0])
 
-    def fetch_by_pmid(self, pmid: str) -> Dict[str, Any]:
+    def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         """Fetch Crossref work by PubMed identifier with fallback query."""
 
         try:
@@ -48,8 +48,8 @@ class CrossrefClient(BaseApiClient):
             raise ApiClientError(f"No Crossref work found for PMID {pmid}")
         return self._parse_work(items[0])
 
-    def _parse_work(self, work: Dict[str, Any]) -> Dict[str, Any]:
-        record: Dict[str, Optional[Any]] = {
+    def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
+        record: dict[str, Any | None] = {
             "source": "crossref",
             "doi": work.get("DOI"),
             "title": (work.get("title") or [None])[0] if isinstance(work.get("title"), list) else work.get("title"),

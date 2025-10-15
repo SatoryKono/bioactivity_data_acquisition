@@ -1,11 +1,10 @@
 """IO helpers for the pipeline."""
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
 import pandas as pd
-
 from library.utils.errors import ValidationFailure
 
 

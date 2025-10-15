@@ -4,16 +4,14 @@ from __future__ import annotations
 import random
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 import requests
-from requests import Response
-from requests_cache import CachedSession
-
 from library import DEFAULT_CONTACT_EMAIL, __version__
 from library.utils.errors import SourceRequestError
 from library.utils.rate_limit import RateLimiter
-
+from requests import Response
+from requests_cache import CachedSession
 
 DEFAULT_TIMEOUT = 30
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
@@ -87,7 +85,7 @@ class BaseClient:
                 raise SourceRequestError(f"{self.name} request failed: {exc}") from exc
             return response
 
-    def get_json(self, path: str, *, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def get_json(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
         url = self._build_url(path)
         response = self._request("GET", url, params=params)
         try:
@@ -96,7 +94,7 @@ class BaseClient:
             raise SourceRequestError(f"{self.name} returned invalid JSON") from exc
 
 
-def _parse_retry_after(response: Response) -> Optional[float]:
+def _parse_retry_after(response: Response) -> float | None:
     header = response.headers.get("Retry-After")
     if not header:
         return None

@@ -1,7 +1,8 @@
 """Client for the PubMed API."""
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 
 from bioactivity.clients.base import ApiClientError, BaseApiClient
 
@@ -13,27 +14,27 @@ class PubMedClient(BaseApiClient):
         default_headers = {"Accept": "application/json"}
         super().__init__("https://api.ncbi.nlm.nih.gov/lit/ctxp/v1/pubmed", default_headers=default_headers, **kwargs)
 
-    def fetch_by_pmid(self, pmid: str) -> Dict[str, Any]:
+    def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         payload = self._request("GET", "", params={"id": pmid, "format": "json"})
         record = self._extract_record(payload, pmid)
         if record is None:
             raise ApiClientError(f"No PubMed record found for PMID {pmid}")
         return record
 
-    def fetch_by_pmids(self, pmids: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+    def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
         pmid_list = list(pmids)
         if not pmid_list:
             return {}
         payload = self._request("POST", "batch", json={"ids": pmid_list})
         records = payload.get("records", [])
-        result: Dict[str, Dict[str, Any]] = {}
+        result: dict[str, dict[str, Any]] = {}
         for pmid in pmid_list:
             record = next((item for item in records if str(item.get("pmid")) == str(pmid)), None)
             if record is not None:
                 result[str(pmid)] = self._normalise_record(record)
         return result
 
-    def _extract_record(self, payload: Dict[str, Any], pmid: str) -> Optional[Dict[str, Any]]:
+    def _extract_record(self, payload: dict[str, Any], pmid: str) -> dict[str, Any] | None:
         if "result" in payload and isinstance(payload["result"], dict):
             data = payload["result"].get(pmid)
             if data is None and "uids" in payload["result"]:
@@ -54,7 +55,7 @@ class PubMedClient(BaseApiClient):
             return self._normalise_record(payload)
         return None
 
-    def _normalise_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalise_record(self, record: dict[str, Any]) -> dict[str, Any]:
         authors = record.get("authors") or record.get("authorList")
         if isinstance(authors, dict):
             authors = authors.get("authors")
@@ -63,14 +64,14 @@ class PubMedClient(BaseApiClient):
         else:
             formatted_authors = None
 
-        doi_value: Optional[str]
+        doi_value: str | None
         doi_list = record.get("doiList")
         if isinstance(doi_list, list) and doi_list:
             doi_value = doi_list[0]
         else:
             doi_value = record.get("doi")
 
-        parsed: Dict[str, Optional[Any]] = {
+        parsed: dict[str, Any | None] = {
             "source": "pubmed",
             "pmid": record.get("pmid") or record.get("PMID"),
             "title": record.get("title") or record.get("articleTitle"),

@@ -1,7 +1,8 @@
 """Client for the Semantic Scholar API."""
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional
+from collections.abc import Iterable
+from typing import Any
 
 from bioactivity.clients.base import BaseApiClient
 
@@ -23,12 +24,12 @@ class SemanticScholarClient(BaseApiClient):
         default_headers = {"Accept": "application/json"}
         super().__init__("https://api.semanticscholar.org/graph/v1/paper", default_headers=default_headers, **kwargs)
 
-    def fetch_by_pmid(self, pmid: str) -> Dict[str, Any]:
+    def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         identifier = f"PMID:{pmid}"
         payload = self._request("GET", identifier, params={"fields": ",".join(self._DEFAULT_FIELDS)})
         return self._parse_paper(payload)
 
-    def fetch_by_pmids(self, pmids: Iterable[str]) -> Dict[str, Dict[str, Any]]:
+    def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
         ids = [f"PMID:{pmid}" for pmid in pmids]
         if not ids:
             return {}
@@ -38,14 +39,14 @@ class SemanticScholarClient(BaseApiClient):
             json={"ids": ids, "fields": ",".join(self._DEFAULT_FIELDS)},
         )
         papers = payload.get("data") or payload.get("papers") or []
-        result: Dict[str, Dict[str, Any]] = {}
+        result: dict[str, dict[str, Any]] = {}
         for paper in papers:
             pmid_value = self._extract_pmid(paper)
             if pmid_value:
                 result[pmid_value] = self._parse_paper(paper)
         return result
 
-    def _parse_paper(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_paper(self, payload: dict[str, Any]) -> dict[str, Any]:
         external_ids = payload.get("externalIds") or {}
         authors = payload.get("authors")
         if isinstance(authors, list):
@@ -53,7 +54,7 @@ class SemanticScholarClient(BaseApiClient):
         else:
             author_names = None
 
-        record: Dict[str, Optional[Any]] = {
+        record: dict[str, Any | None] = {
             "source": "semantic_scholar",
             "pmid": self._extract_pmid(payload),
             "doi": external_ids.get("DOI"),
@@ -68,7 +69,7 @@ class SemanticScholarClient(BaseApiClient):
         }
         return {key: value for key, value in record.items() if value is not None}
 
-    def _extract_pmid(self, payload: Dict[str, Any]) -> Optional[str]:
+    def _extract_pmid(self, payload: dict[str, Any]) -> str | None:
         external_ids = payload.get("externalIds") or {}
         pmid = external_ids.get("PubMed") or external_ids.get("PMID")
         if isinstance(pmid, (int, float)):

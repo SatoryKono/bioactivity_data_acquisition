@@ -1,11 +1,11 @@
 """Utility helpers for normalising textual fields returned by data sources."""
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+import re
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import pandas as pd
-import re
-
 
 _DOI_PREFIX_RE = re.compile(r"^(?:https?://(?:dx\.)?doi\.org/|doi:)", re.IGNORECASE)
 _DOI_ILLEGAL_SUFFIX_RE = re.compile(r"[\.;,]+$")

@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 import pandera as pa
-from pandera import Column, DataFrameSchema
-
 from library.io.normalize import normalise_doi, to_lc_stripped
+from pandera import Column, DataFrameSchema
 
 
 class InputColumns:

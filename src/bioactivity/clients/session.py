@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
 import requests
 
-_SESSION: Optional[requests.Session] = None
+_SESSION: requests.Session | None = None
 _LOCK = threading.Lock()
 
 

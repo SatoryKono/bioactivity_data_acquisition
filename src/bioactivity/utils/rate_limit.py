@@ -12,9 +12,9 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from collections.abc import Iterator
 from contextlib import AbstractContextManager, asynccontextmanager
 from dataclasses import dataclass
-from typing import Dict, Iterator, Optional
 
 
 class RateLimitError(ValueError):
@@ -34,7 +34,7 @@ class RateLimiter(AbstractContextManager["RateLimiter"]):
         throughput.
     """
 
-    def __init__(self, rate: float, *, burst: Optional[int] = None) -> None:
+    def __init__(self, rate: float, *, burst: int | None = None) -> None:
         if rate <= 0:
             raise RateLimitError("Rate must be a positive value")
 
@@ -101,14 +101,14 @@ class RateLimiter(AbstractContextManager["RateLimiter"]):
                 await asyncio.sleep(0)
 
     # ``AbstractContextManager`` requires ``__exit__`` but provides default.
-    def __enter__(self) -> "RateLimiter":  # pragma: no cover - trivial
+    def __enter__(self) -> RateLimiter:  # pragma: no cover - trivial
         self.acquire()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:  # pragma: no cover - trivial
         return False
 
-    async def __aenter__(self) -> "RateLimiter":
+    async def __aenter__(self) -> RateLimiter:
         await self.acquire_async()
         return self
 
@@ -121,7 +121,7 @@ class RateLimitParams:
     """Configuration for a rate limiter."""
 
     rps: float
-    burst: Optional[int] = None
+    burst: int | None = None
 
     def create_limiter(self) -> RateLimiter:
         return RateLimiter(self.rps, burst=self.burst)
@@ -130,7 +130,7 @@ class RateLimitParams:
 class RateLimiterSet:
     """Composite limiter that enforces global and per-client quotas."""
 
-    def __init__(self, *limiters: Optional[RateLimiter]) -> None:
+    def __init__(self, *limiters: RateLimiter | None) -> None:
         self._limiters = tuple(l for l in limiters if l is not None)
 
     def acquire(self) -> None:
@@ -141,11 +141,11 @@ class RateLimiterSet:
         for limiter in self._limiters:
             await limiter.acquire_async()
 
-    def __enter__(self) -> "RateLimiterSet":  # pragma: no cover - trivial
+    def __enter__(self) -> RateLimiterSet:  # pragma: no cover - trivial
         self.acquire()
         return self
 
-    async def __aenter__(self) -> "RateLimiterSet":  # pragma: no cover - trivial
+    async def __aenter__(self) -> RateLimiterSet:  # pragma: no cover - trivial
         await self.acquire_async()
         return self
 
@@ -153,15 +153,15 @@ class RateLimiterSet:
         return None
 
 
-_GLOBAL_LIMITER: Optional[RateLimiter] = None
-_CLIENT_LIMITERS: Dict[str, RateLimiter] = {}
+_GLOBAL_LIMITER: RateLimiter | None = None
+_CLIENT_LIMITERS: dict[str, RateLimiter] = {}
 _CONFIG_LOCK = threading.Lock()
 
 
 def configure_rate_limits(
     *,
-    global_limit: Optional[RateLimitParams] = None,
-    client_limits: Optional[Dict[str, RateLimitParams]] = None,
+    global_limit: RateLimitParams | None = None,
+    client_limits: dict[str, RateLimitParams] | None = None,
 ) -> None:
     """Configure process-wide rate limiters.
 
@@ -184,7 +184,7 @@ def configure_rate_limits(
         )
 
 
-def get_rate_limiter(client_name: str, default: Optional[RateLimitParams] = None) -> RateLimiterSet:
+def get_rate_limiter(client_name: str, default: RateLimitParams | None = None) -> RateLimiterSet:
     """Return the composite limiter for the provided client name."""
 
     with _CONFIG_LOCK:

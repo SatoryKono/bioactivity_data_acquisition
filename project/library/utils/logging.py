@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 
@@ -35,7 +35,7 @@ def configure_logging(run_id: str, level: str = "INFO") -> None:
 
 
 def _inject_run_id(run_id: str):
-    def processor(_: Any, __: str, event_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def processor(_: Any, __: str, event_dict: dict[str, Any]) -> dict[str, Any]:
         event_dict.setdefault("run_id", run_id)
         event_dict.setdefault("stage", "")
         event_dict.setdefault("source", "")
@@ -52,7 +52,7 @@ def get_logger(**kwargs: Any) -> structlog.stdlib.BoundLogger:
     return structlog.get_logger().bind(**kwargs)
 
 
-def write_source_error(source: str, message: str, *, directory: Optional[Path] = None) -> None:
+def write_source_error(source: str, message: str, *, directory: Path | None = None) -> None:
     """Append an error message to the ``<source>.error`` file.
 
     Parameters

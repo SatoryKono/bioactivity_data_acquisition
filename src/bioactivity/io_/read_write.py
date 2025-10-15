@@ -8,7 +8,6 @@ import pandas as pd
 
 from bioactivity.io_.normalize import (
     PUBLICATION_COLUMNS,
-    QUERY_COLUMNS,
     normalize_publication_frame,
     normalize_query_frame,
 )
