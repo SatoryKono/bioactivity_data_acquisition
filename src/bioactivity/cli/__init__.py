@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import typer
 
@@ -59,11 +59,12 @@ app = typer.Typer(help="Bioactivity ETL pipeline")
 @app.command()
 def pipeline(
     config: Path = CONFIG_OPTION,
-    overrides: dict[str, str] = OVERRIDE_OPTION,
+    overrides=OVERRIDE_OPTION,
 ) -> None:
     """Execute the ETL pipeline using a configuration file."""
 
-    config_model = Config.load(config, overrides=overrides)
+    override_mapping = cast(dict[str, str], overrides)
+    config_model = Config.load(config, overrides=override_mapping)
     logger = configure_logging(config_model.logging.level)
     logger = logger.bind(command="pipeline")
     output = run_pipeline(config_model, logger)
