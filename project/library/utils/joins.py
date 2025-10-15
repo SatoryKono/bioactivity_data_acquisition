@@ -18,8 +18,26 @@ def safe_left_join(
     """Perform a left join with validation and deterministic column ordering."""
 
     merged = left.merge(right, how="left", on=on, suffixes=suffixes, validate=validate)
-    ordered_columns: list[str] = list(dict.fromkeys(list(left.columns) + list(right.columns)))
-    return merged.loc[:, [column for column in ordered_columns if column in merged.columns]]
+
+    def append_column(name: str, *, primary_suffix: str, secondary_suffix: str) -> None:
+        for candidate in (name, f"{name}{primary_suffix}", f"{name}{secondary_suffix}"):
+            if candidate in merged.columns and candidate not in seen:
+                ordered_columns.append(candidate)
+                seen.add(candidate)
+                break
+
+    ordered_columns: list[str] = []
+    seen: set[str] = set()
+
+    for column in left.columns:
+        append_column(column, primary_suffix=suffixes[0], secondary_suffix=suffixes[1])
+
+    for column in right.columns:
+        append_column(column, primary_suffix=suffixes[1], secondary_suffix=suffixes[0])
+
+    ordered_columns.extend([column for column in merged.columns if column not in seen])
+
+    return merged.loc[:, ordered_columns]
 
 
 def ensure_unique(left: pd.DataFrame, subset: Iterable[str]) -> pd.DataFrame:
