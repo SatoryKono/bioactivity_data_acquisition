@@ -42,8 +42,16 @@ def _parse_scalar(value: str) -> Any:
 class RetrySettings(BaseModel):
     """Retry configuration for HTTP clients."""
 
-    max_tries: int = Field(default=5, ge=1)
+    model_config = ConfigDict(populate_by_name=True)
+
+    total: int = Field(default=5, ge=1, alias="max_tries")
     backoff_multiplier: float = Field(default=1.0, gt=0)
+
+    @property
+    def max_tries(self) -> int:
+        """Backward-compatible accessor for legacy code paths."""
+
+        return self.total
 
 
 class RateLimitSettings(BaseModel):
@@ -56,19 +64,35 @@ class RateLimitSettings(BaseModel):
 class HTTPGlobalSettings(BaseModel):
     """Defaults applied to all HTTP clients."""
 
-    timeout: float = Field(default=30.0, gt=0)
+    model_config = ConfigDict(populate_by_name=True)
+
+    timeout_sec: float = Field(default=30.0, gt=0, alias="timeout")
     headers: dict[str, str] = Field(default_factory=dict)
     retries: RetrySettings = Field(default_factory=RetrySettings)
+
+    @property
+    def timeout(self) -> float:
+        """Backward-compatible alias used by existing clients."""
+
+        return self.timeout_sec
 
 
 class HTTPSourceSettings(BaseModel):
     """Per-source HTTP configuration overriding the global defaults."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     base_url: HttpUrl
-    timeout: float | None = Field(default=None, gt=0)
+    timeout_sec: float | None = Field(default=None, gt=0, alias="timeout")
     retries: RetrySettings | None = None
     headers: dict[str, str] = Field(default_factory=dict)
     rate_limit: RateLimitSettings | None = None
+
+    @property
+    def timeout(self) -> float | None:
+        """Backward-compatible alias for legacy configuration."""
+
+        return self.timeout_sec
 
 
 class PaginationSettings(BaseModel):
@@ -137,7 +161,7 @@ class SourceSettings(BaseModel):
             else:
                 processed_headers[key] = value
         
-        timeout = self.http.timeout or defaults.timeout
+        timeout = self.http.timeout_sec or defaults.timeout_sec
         retries = self.http.retries or defaults.retries
         return APIClientConfig(
             name=self.name,
@@ -188,10 +212,23 @@ class OutputSettings(BaseModel):
         return value
 
 
+class InputSettings(BaseModel):
+    """Locations of auxiliary input artefacts."""
+
+    documents_csv: Path | None = None
+
+
 class IOSettings(BaseModel):
     """I/O configuration namespace."""
 
+    input: InputSettings = Field(default_factory=InputSettings)
     output: OutputSettings
+
+
+class RuntimeSettings(BaseModel):
+    """Execution-related toggles exposed to the CLI."""
+
+    workers: int = Field(default=4, ge=1)
 
 
 class LoggingSettings(BaseModel):
@@ -284,6 +321,7 @@ class Config(BaseModel):
     http: HTTPSettings
     sources: dict[str, SourceSettings] = Field(default_factory=dict)
     io: IOSettings
+    runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     validation: ValidationSettings = Field(default_factory=ValidationSettings)
     determinism: DeterminismSettings = Field(default_factory=DeterminismSettings)
@@ -414,6 +452,7 @@ __all__ = [
     "HTTPSourceSettings",
     "HTTPSettings",
     "IOSettings",
+    "InputSettings",
     "LoggingSettings",
     "OutputSettings",
     "PaginationSettings",
@@ -423,6 +462,7 @@ __all__ = [
     "QCValidationSettings",
     "RateLimitSettings",
     "RetrySettings",
+    "RuntimeSettings",
     "SortSettings",
     "SourceSettings",
     "TransformSettings",

@@ -15,9 +15,9 @@ def write_config(tmp_path: Path) -> Path:
     config_text = f"""
 http:
   global:
-    timeout: 12
+    timeout_sec: 12
     retries:
-      max_tries: 2
+      total: 2
       backoff_multiplier: 1.5
     headers:
       User-Agent: unit-test
@@ -53,13 +53,13 @@ validation:
 
 def test_config_loads_and_applies_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config_path = write_config(tmp_path)
-    monkeypatch.setenv("BIOACTIVITY__HTTP__GLOBAL__TIMEOUT", "30")
+    monkeypatch.setenv("BIOACTIVITY__HTTP__GLOBAL__TIMEOUT_SEC", "30")
     monkeypatch.setenv("BIOACTIVITY__SOURCES__CHEMBL__HTTP__HEADERS__authorization", "Token test")
 
     overrides = {"sources.chembl.pagination.size": "100"}
     config = Config.load(config_path, overrides=overrides)
 
-    assert config.http.global_.timeout == 30
+    assert config.http.global_.timeout_sec == 30
     chembl_source = config.sources["chembl"]
     client_cfg = chembl_source.to_client_config(config.http.global_)
     assert client_cfg.page_size == 100
@@ -69,8 +69,8 @@ def test_config_loads_and_applies_overrides(tmp_path: Path, monkeypatch: pytest.
 
 def test_cli_override_updates_timeout(tmp_path: Path) -> None:
     config_path = write_config(tmp_path)
-    config = Config.load(config_path, overrides={"sources.chembl.http.timeout": "60"})
+    config = Config.load(config_path, overrides={"sources.chembl.http.timeout_sec": "60"})
 
     chembl_cfg = config.sources["chembl"].to_client_config(config.http.global_)
     assert chembl_cfg.timeout == 60
-    assert chembl_cfg.retries.max_tries == 2
+    assert chembl_cfg.retries.total == 2

@@ -104,7 +104,7 @@ class BioactivityClient:
         return backoff.on_exception(
             wait_gen,
             requests.exceptions.RequestException,
-            max_tries=self._retries.max_tries,
+            max_tries=self._retries.total,
         )
 
     def _request_with_retries(self, params: dict[str, Any]) -> requests.Response:

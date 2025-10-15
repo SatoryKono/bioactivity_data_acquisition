@@ -37,9 +37,10 @@ detail in [`docs/CONFIG.md`](docs/CONFIG.md) together with the precedence rules:
 3. Environment variables prefixed with `BIOACTIVITY__` (e.g. `BIOACTIVITY__RUNTIME__LOG_LEVEL=DEBUG`).
 4. CLI overrides provided with `--set section.key=value`.
 
-Secrets such as API tokens are declared under `secrets.required`/`secrets.optional` and are resolved
-exclusively from environment variables (e.g. `CHEMBL_API_TOKEN`). The canonical configuration covers
-ChEMBL and Crossref sources, output destinations, deterministic behaviour, and QC thresholds.
+Secrets such as API tokens are injected via placeholders in headers (e.g.
+`Authorization: "Bearer {CHEMBL_API_TOKEN}"`) and are resolved exclusively from environment
+variables. The canonical configuration covers ChEMBL and Crossref sources, output destinations,
+deterministic behaviour, and QC thresholds.
 
 Consult [`reports/config_audit.csv`](reports/config_audit.csv) for an inventory of available keys.
 
@@ -54,9 +55,10 @@ bioactivity-data-acquisition pipeline --config configs/config.yaml
 Override individual configuration values at runtime:
 
 ```bash
-BIOACTIVITY__RUNTIME__LOG_LEVEL=DEBUG \
+BIOACTIVITY__LOGGING__LEVEL=DEBUG \
   bioactivity-data-acquisition pipeline \
   --config configs/config.yaml \
+  --set runtime.workers=8 \
   --set sources.chembl.pagination.max_pages=1
 ```
 

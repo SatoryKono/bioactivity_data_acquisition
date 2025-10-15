@@ -14,21 +14,24 @@ from library.config import Config
 def config_yaml(tmp_path: Path) -> Path:
     config_path = tmp_path / "config.yaml"
     output_dir = tmp_path / "outputs"
+    input_docs = tmp_path / "inputs" / "documents.csv"
     output = {
         "http": {
             "global": {
-                "timeout": 30,
-                "retries": {"max_tries": 3},
+                "timeout_sec": 30,
+                "retries": {"total": 3},
                 "headers": {"User-Agent": "test"},
             }
         },
         "io": {
+            "input": {"documents_csv": str(input_docs)},
             "output": {
                 "data_path": str(output_dir / "bioactivities.csv"),
                 "qc_report_path": str(output_dir / "qc.csv"),
                 "correlation_path": str(output_dir / "corr.csv"),
             }
         },
+        "runtime": {"workers": 2},
         "sources": {
             "chembl": {
                 "name": "chembl",

@@ -1,8 +1,8 @@
 http:
   global:
-    timeout: 30
+    timeout_sec: 20
     retries:
-      max_tries: 5
+      total: 3
       backoff_multiplier: 2.0
     headers:
       User-Agent: bioactivity-data-acquisition/0.1
@@ -22,6 +22,10 @@ sources:
         Accept: application/json
   crossref:
     name: crossref
+    pagination:
+      page_param: cursor
+      size_param: rows
+      size: 100
     http:
       base_url: https://api.crossref.org/works
   pubmed:
@@ -42,18 +46,29 @@ sources:
     http:
       base_url: https://www.ebi.ac.uk/chembl/api/data
 io:
+  input:
+    documents_csv: data/input/documents.csv
   output:
-    data_path: "data/output/bioactivities.csv"
-    qc_report_path: "data/output/qc_report.csv"
-    correlation_path: "data/output/correlation.csv"
+    data_path: data/output/bioactivities.csv
+    qc_report_path: data/output/qc_report.csv
+    correlation_path: data/output/correlation.csv
     format: csv
     csv:
-      encoding: "utf-8"
+      encoding: utf-8
       float_format: "%.3f"
       date_format: "%Y-%m-%dT%H:%M:%SZ"
+runtime:
+  workers: 4
+logging:
+  level: INFO
+validation:
+  strict: true
+  qc:
+    max_missing_fraction: 0.05
+    max_duplicate_fraction: 0.01
 determinism:
   sort:
-    by: ["compound_id", "target"]
+    by: [compound_id, target]
     ascending: [true, true]
     na_position: last
   column_order:
@@ -69,17 +84,8 @@ transforms:
     nM: 1.0
     uM: 1000.0
     pM: 0.001
-validation:
-  strict: true
-  qc:
-    max_missing_fraction: 0.05
-    max_duplicate_fraction: 0.01
 postprocess:
   qc:
     enabled: true
   correlation:
     enabled: true
-retries:
-  max_tries: 3
-logging:
-  level: INFO
