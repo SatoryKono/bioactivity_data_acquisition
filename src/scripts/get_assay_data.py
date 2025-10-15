@@ -11,7 +11,7 @@ src_dir = os.path.dirname(current_dir)
 # Always insert src_dir at the beginning to ensure it's found first
 sys.path.insert(0, src_dir)
 
-from library.scripts_base import create_deprecated_script_wrapper
+from library.scripts_base import create_deprecated_script_wrapper  # noqa: E402
 
 main, app = create_deprecated_script_wrapper("get_assay_data.py")
 
