@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from importlib import import_module
+from collections.abc import Iterable
 from typing import Mapping, Sequence
 from warnings import warn
 
@@ -56,14 +57,40 @@ def reexport(
     namespace["__all__"] = sorted(set(exported))
     namespace.setdefault("__doc__", getattr(target, "__doc__", None))
 
+    def _merge_paths(
+        existing: Iterable[str] | None, additions: Iterable[str]
+    ) -> list[str]:
+        merged: list[str] = []
+        seen: set[str] = set()
+
+        if existing is not None:
+            for path in existing:
+                if path not in seen:
+                    merged.append(path)
+                    seen.add(path)
+
+        for path in additions:
+            if path not in seen:
+                merged.append(path)
+                seen.add(path)
+
+        return merged
+
     target_spec = getattr(target, "__spec__", None)
+    target_paths: list[str] | None = None
     if target_spec and getattr(target_spec, "submodule_search_locations", None):
-        namespace["__path__"] = list(target_spec.submodule_search_locations)
+        target_paths = list(target_spec.submodule_search_locations)
+    elif hasattr(target, "__path__"):
+        target_paths = list(getattr(target, "__path__"))  # type: ignore[attr-defined]
+
+    if target_paths:
+        namespace_paths = namespace.get("__path__")
+        namespace["__path__"] = _merge_paths(namespace_paths, target_paths)
+
         spec = namespace.get("__spec__")
         if spec is not None:
-            spec.submodule_search_locations = list(target_spec.submodule_search_locations)
-    elif hasattr(target, "__path__"):
-        namespace["__path__"] = list(getattr(target, "__path__"))  # type: ignore[attr-defined]
+            existing_locations = getattr(spec, "submodule_search_locations", None)
+            spec.submodule_search_locations = _merge_paths(existing_locations, target_paths)
 
     def __getattr__(name: str) -> object:
         if aliases and name in resolved_aliases:
