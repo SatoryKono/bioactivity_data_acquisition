@@ -76,9 +76,8 @@ def load_config(path: Path) -> PipelineConfig:
 
     try:
         return PipelineConfig.parse_obj(payload)
-    except ValidationError as exc:  # type: ignore[reportUnknownVariableType]
+    except ValidationError as exc:
         raise ConfigError(f"Invalid configuration: {exc}") from exc
-
 
 def build_clients(config: PipelineConfig) -> dict[str, BasePublicationsClient]:
     """Instantiate clients defined in the configuration."""
@@ -185,7 +184,7 @@ def _execute_pipeline(config_path: Path, input_path: Path, output: Path | None) 
         write_publications(validated_publications, target)
         logger.info("pipeline_completed", output=str(target), records=len(validated_publications))
 
-    return validated_publications
+    return pd.DataFrame(validated_publications)
 
 
 if __name__ == "__main__":

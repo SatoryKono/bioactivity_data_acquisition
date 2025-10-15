@@ -6,9 +6,21 @@ class PipelineError(Exception):
     """Base class for pipeline errors."""
 
 
+class ConfigError(RuntimeError):
+    """Raised when configuration files are missing or invalid."""
+
+
+class ExtractionError(RuntimeError):
+    """Raised when upstream APIs return errors or malformed payloads."""
+
+
 class SourceRequestError(PipelineError):
     """Raised when a source returns an unexpected response."""
 
 
 class ValidationFailure(PipelineError):
     """Raised when validation fails for input or output data."""
+
+
+class ValidationError(RuntimeError):
+    """Raised when data does not satisfy the expected schema."""
