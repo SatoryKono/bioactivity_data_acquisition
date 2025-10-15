@@ -35,36 +35,18 @@ def _parse_override_args(values: list[str]) -> dict[str, str]:
     return assignments
 
 
-def _override_option_callback(
-    ctx: typer.Context, param: Any, value: list[str] | None
-) -> dict[str, str]:
-    del ctx, param
-    return _parse_override_args(value or [])
-
-
-OVERRIDE_OPTION = typer.Option(
-    [],
-    "--set",
-    "-s",
-    callback=_override_option_callback,
-    help=(
-        "Override configuration values using dotted paths (KEY=VALUE), e.g. "
-        "runtime.log_level=DEBUG."
-    ),
-)
-
 app = typer.Typer(help="Bioactivity ETL pipeline")
 
 
 @app.command()
 def pipeline(
     config: Path = CONFIG_OPTION,
-    overrides=OVERRIDE_OPTION,
+    overrides: list[str] = typer.Option([], "--set", "-s", help="Override configuration values using dotted paths (KEY=VALUE)"),
 ) -> None:
     """Execute the ETL pipeline using a configuration file."""
 
-    override_mapping = cast(dict[str, str], overrides)
-    config_model = Config.load(config, overrides=override_mapping)
+    override_dict = _parse_override_args(overrides)
+    config_model = Config.load(config, overrides=override_dict)
     logger = configure_logging(config_model.logging.level)
     logger = logger.bind(command="pipeline")
     output = run_pipeline(config_model, logger)

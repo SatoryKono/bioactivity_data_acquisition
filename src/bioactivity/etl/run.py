@@ -26,7 +26,7 @@ def run_pipeline(config: Config, logger: BoundLogger) -> Path:
     frames: list[pd.DataFrame] = []
     for client in config.clients:
         stage_logger = logger.bind(source=client.name)
-        raw_frame = fetch_bioactivity_data(client, config.retries, logger=stage_logger)
+        raw_frame = fetch_bioactivity_data(client, logger=stage_logger)
         normalized = normalize_bioactivity_data(
             raw_frame,
             transforms=config.transforms,

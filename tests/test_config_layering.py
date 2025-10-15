@@ -36,7 +36,7 @@ sources:
     name: crossref
     http:
       base_url: https://api.crossref.org/works
-runtime:
+io:
   output:
     data_path: {data_path}
     qc_report_path: {qc_path}
@@ -53,8 +53,8 @@ validation:
 
 def test_config_loads_and_applies_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config_path = write_config(tmp_path)
-    monkeypatch.setenv("ENV_HTTP__GLOBAL__TIMEOUT", "30")
-    monkeypatch.setenv("ENV_SOURCES__CHEMBL__HTTP__HEADERS__authorization", "Token test")
+    monkeypatch.setenv("BIOACTIVITY__HTTP__GLOBAL__TIMEOUT", "30")
+    monkeypatch.setenv("BIOACTIVITY__SOURCES__CHEMBL__HTTP__HEADERS__authorization", "Token test")
 
     overrides = {"sources.chembl.pagination.size": "100"}
     config = Config.load(config_path, overrides=overrides)

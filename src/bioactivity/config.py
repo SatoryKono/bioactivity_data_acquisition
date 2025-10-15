@@ -124,14 +124,26 @@ class SourceSettings(BaseModel):
     http: HTTPSourceSettings
 
     def to_client_config(self, defaults: HTTPGlobalSettings) -> APIClientConfig:
-        headers = {**defaults.headers, **self.http.headers}
+        # Process secrets in headers
+        processed_headers = {}
+        for key, value in {**defaults.headers, **self.http.headers}.items():
+            if isinstance(value, str):
+                import re
+                def replace_placeholder(match):
+                    secret_name = match.group(1)
+                    env_var = os.environ.get(secret_name.upper())
+                    return env_var if env_var is not None else match.group(0)
+                processed_headers[key] = re.sub(r'\{([^}]+)\}', replace_placeholder, value)
+            else:
+                processed_headers[key] = value
+        
         timeout = self.http.timeout or defaults.timeout
         retries = self.http.retries or defaults.retries
         return APIClientConfig(
             name=self.name,
             base_url=self.http.base_url,
             endpoint=self.endpoint,
-            headers=headers,
+            headers=processed_headers,
             params=dict(self.params),
             pagination_param=self.pagination.page_param,
             page_size_param=self.pagination.size_param,
@@ -296,7 +308,7 @@ class Config(BaseModel):
         path: Path | str | None,
         *,
         overrides: Mapping[str, Any] | None = None,
-        env_prefix: str = "ENV_",
+        env_prefix: str = "BIOACTIVITY__",
     ) -> Config:
         """Load configuration from a YAML file applying layered overrides."""
 
@@ -313,6 +325,10 @@ class Config(BaseModel):
 
         merged = _merge_dicts(base_data, env_overrides)
         merged = _merge_dicts(merged, cli_overrides)
+        
+        # Process secrets
+        merged = cls._process_secrets(merged)
+        
         return cls.model_validate(merged)
 
     @staticmethod
@@ -349,6 +365,43 @@ class Config(BaseModel):
             else:
                 result[key] = value if not isinstance(value, str) else _parse_scalar(value)
         return result
+
+    @staticmethod
+    def parse_cli_overrides(values: list[str]) -> dict[str, str]:
+        """Parse CLI override arguments into a dictionary."""
+        assignments: dict[str, str] = {}
+        for item in values:
+            if "=" not in item:
+                raise ValueError("Overrides must be in KEY=VALUE format")
+            key, value = item.split("=", 1)
+            key = key.strip()
+            if not key:
+                raise ValueError("Override key must not be empty")
+            assignments[key] = value
+        return assignments
+
+    @staticmethod
+    def _process_secrets(config_data: dict[str, Any]) -> dict[str, Any]:
+        """Process secret placeholders in configuration data."""
+        import re
+        
+        def replace_secrets(obj: Any) -> Any:
+            if isinstance(obj, str):
+                # Replace {secret_name} with environment variable value
+                def replace_placeholder(match):
+                    secret_name = match.group(1)
+                    env_var = os.environ.get(secret_name.upper())
+                    return env_var if env_var is not None else match.group(0)
+                
+                return re.sub(r'\{([^}]+)\}', replace_placeholder, obj)
+            elif isinstance(obj, dict):
+                return {key: replace_secrets(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [replace_secrets(item) for item in obj]
+            else:
+                return obj
+        
+        return replace_secrets(config_data)
 
 
 __all__ = [
