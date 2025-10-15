@@ -10,9 +10,9 @@ if __package__ in (None, ""):
     if str(SRC_PATH) not in sys.path:
         sys.path.insert(0, str(SRC_PATH))
 
-from library.cli.pipeline_app import create_pipeline_app
+from bioactivity.cli import app as cli_app
 
-app = create_pipeline_app("target")
+app = cli_app
 
 
 if __name__ == "__main__":
