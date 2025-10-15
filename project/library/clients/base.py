@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from typing import Any
 
 import requests
-from library import DEFAULT_CONTACT_EMAIL, __version__
-from library.utils.errors import SourceRequestError
-from library.utils.rate_limit import RateLimiter
+from .. import DEFAULT_CONTACT_EMAIL, __version__
+from ..utils.errors import SourceRequestError
+from ..utils.rate_limit import RateLimiter
 from requests import Response
 from requests_cache import CachedSession
 
@@ -102,3 +102,29 @@ def _parse_retry_after(response: Response) -> float | None:
         return float(header)
     except ValueError:
         return None
+
+
+@dataclass(slots=True)
+class ClientConfig:
+    """Configuration for a publication client."""
+    name: str
+    base_url: str
+    api_key: str | None = None
+    rate_limit_per_minute: int | None = None
+    extra_headers: dict[str, str] | None = None
+
+
+class BasePublicationsClient(BaseClient):
+    """Base class for publication clients."""
+    
+    def __init__(self, config: ClientConfig) -> None:
+        session_config = SessionConfig()
+        session_manager = SessionManager(session_config)
+        rate_per_sec = (config.rate_limit_per_minute or 60) / 60.0
+        super().__init__(session_manager, name=config.name, rate_per_sec=rate_per_sec)
+        self.config = config
+        self.base_url = config.base_url
+        
+    def fetch_publications(self, query: str) -> list[dict[str, Any]]:
+        """Fetch publications for a given query."""
+        raise NotImplementedError("Subclasses must implement fetch_publications")

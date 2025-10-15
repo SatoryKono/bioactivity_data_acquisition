@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pandera as pa
-from library.io.normalize import normalise_doi, to_lc_stripped
+from ..io.normalize import normalise_doi, to_lc_stripped
 from pandera import Column, DataFrameSchema
 
 
@@ -21,3 +21,5 @@ input_schema = DataFrameSchema(
     coerce=True,
     strict=False,
 )
+
+INPUT_SCHEMA = input_schema

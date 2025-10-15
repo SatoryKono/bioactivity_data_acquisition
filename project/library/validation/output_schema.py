@@ -20,3 +20,5 @@ output_schema = DataFrameSchema(
     coerce=True,
     strict=False,
 )
+
+OUTPUT_SCHEMA = output_schema

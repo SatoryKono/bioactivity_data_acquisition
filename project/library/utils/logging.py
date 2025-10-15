@@ -7,13 +7,11 @@ from typing import Any
 import structlog
 
 
-def configure_logging(run_id: str, level: str = "INFO") -> None:
+def configure_logging(level: str = "INFO") -> None:
     """Configure structlog with JSON output.
 
     Parameters
     ----------
-    run_id:
-        Identifier for the current pipeline run.
     level:
         Logging level string, defaults to ``INFO``.
     """
@@ -21,7 +19,6 @@ def configure_logging(run_id: str, level: str = "INFO") -> None:
         processors=[
             structlog.processors.TimeStamper(key="ts", fmt="iso"),
             structlog.processors.add_log_level,
-            _inject_run_id(run_id),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer(),
@@ -47,9 +44,9 @@ def _inject_run_id(run_id: str):
     return processor
 
 
-def get_logger(**kwargs: Any) -> structlog.stdlib.BoundLogger:
+def get_logger(name: str = "") -> structlog.stdlib.BoundLogger:
     """Return a logger bound with provided contextual values."""
-    return structlog.get_logger().bind(**kwargs)
+    return structlog.get_logger(name)
 
 
 def write_source_error(source: str, message: str, *, directory: Path | None = None) -> None:

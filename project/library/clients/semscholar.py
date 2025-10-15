@@ -3,16 +3,24 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from library.clients.base import BaseClient, SessionManager
-from library.io.normalize import coerce_text, normalise_doi
+from .base import BasePublicationsClient, ClientConfig
+from ..io.normalize import coerce_text, normalise_doi
 
 
-class SemanticScholarClient(BaseClient):
+class SemanticScholarClient(BasePublicationsClient):
     base_url = "https://api.semanticscholar.org/graph/v1/"
 
-    def __init__(self, session_manager: SessionManager, rate_per_sec: float = 2.0) -> None:
-        super().__init__(session_manager, name="semscholar", rate_per_sec=rate_per_sec)
+    def __init__(self, config: ClientConfig) -> None:
+        super().__init__(config)
         self.fields = "paperId,title,externalIds,publicationVenue"
+
+    def fetch_publications(self, query: str) -> list[dict[str, str | None]]:
+        """Fetch publications for a given query."""
+        try:
+            result = self.fetch_by_pmid(query)
+            return [result] if result else []
+        except Exception:
+            return []
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, str | None]:
         payload = self.get_json(f"paper/PMID:{pmid}", params={"fields": self.fields})

@@ -3,15 +3,23 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from library.clients.base import BaseClient, SessionManager
-from library.io.normalize import coerce_text, normalise_doi
+from .base import BasePublicationsClient, ClientConfig
+from ..io.normalize import coerce_text, normalise_doi
 
 
-class PubMedClient(BaseClient):
+class PubMedClient(BasePublicationsClient):
     base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
 
-    def __init__(self, session_manager: SessionManager, rate_per_sec: float = 3.0) -> None:
-        super().__init__(session_manager, name="pubmed", rate_per_sec=rate_per_sec)
+    def __init__(self, config: ClientConfig) -> None:
+        super().__init__(config)
+
+    def fetch_publications(self, query: str) -> list[dict[str, str | None]]:
+        """Fetch publications for a given query."""
+        try:
+            result = self.fetch_by_pmid(query)
+            return [result] if result else []
+        except Exception:
+            return []
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, str | None]:
         payload = self._summary_request([pmid])
