@@ -7,11 +7,11 @@ import warnings
 from pathlib import Path
 
 if __package__ in (None, ""):
-    SRC_PATH = Path(__file__).resolve().parents[1] / "src"
+    SRC_PATH = Path(__file__).resolve().parents[1]
     if str(SRC_PATH) not in sys.path:
         sys.path.insert(0, str(SRC_PATH))
 
-from bioactivity import cli as bioactivity_cli
+from library.cli import main as bioactivity_main, app as bioactivity_app  # type: ignore
 
 _DEPRECATION_MESSAGE = (
     "scripts/get_testitem_data.py is deprecated and will be removed in a future release. "
@@ -23,14 +23,14 @@ def main() -> None:
     """Entry point maintained for backwards compatibility."""
 
     warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
-    bioactivity_cli.main()
+    bioactivity_main()
 
 
 def app(*args: object, **kwargs: object) -> object:
     """Proxy that preserves the historical ``app`` callable."""
 
     warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
-    return bioactivity_cli.app(*args, **kwargs)
+    return bioactivity_app(*args, **kwargs)
 
 
 if __name__ == "__main__":
