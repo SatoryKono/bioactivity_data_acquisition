@@ -50,6 +50,9 @@ bioactivity-data-acquisition pipeline --config configs/config.yaml \
   --set sources.chembl.pagination.max_pages=1
 ```
 
+Each `--set` argument must use `KEY=VALUE` syntax (the equals sign is mandatory). Passing a
+malformed value, such as `--set runtime.log_level`, results in an error before the pipeline starts.
+
 Values are parsed using YAML semantics, so `true`, `false`, `null`, integers, and floats are
 converted automatically. Later overrides win over earlier ones.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -21,17 +22,6 @@ CONFIG_OPTION = typer.Option(
     resolve_path=True,
 )
 
-OVERRIDE_OPTION = typer.Option(
-    [],
-    "--set",
-    "-s",
-    help=(
-        "Override configuration values using dotted paths, e.g. "
-        "--set http.global.timeout=20"
-    ),
-)
-
-
 def _parse_override_args(values: list[str]) -> dict[str, str]:
     assignments: dict[str, str] = {}
     for item in values:
@@ -45,11 +35,22 @@ def _parse_override_args(values: list[str]) -> dict[str, str]:
     return assignments
 
 
+def _override_option_callback(
+    ctx: typer.Context, param: Any, value: list[str] | None
+) -> dict[str, str]:
+    del ctx, param
+    return _parse_override_args(value or [])
+
+
 OVERRIDE_OPTION = typer.Option(
     [],
     "--set",
     "-s",
-    help="Override configuration values using dotted paths, e.g. runtime.log_level=DEBUG.",
+    callback=_override_option_callback,
+    help=(
+        "Override configuration values using dotted paths (KEY=VALUE), e.g. "
+        "runtime.log_level=DEBUG."
+    ),
 )
 
 app = typer.Typer(help="Bioactivity ETL pipeline")
@@ -58,12 +59,11 @@ app = typer.Typer(help="Bioactivity ETL pipeline")
 @app.command()
 def pipeline(
     config: Path = CONFIG_OPTION,
-    overrides: list[str] = OVERRIDE_OPTION,
+    overrides: dict[str, str] = OVERRIDE_OPTION,
 ) -> None:
     """Execute the ETL pipeline using a configuration file."""
 
-    parsed_overrides = _parse_override_args(overrides)
-    config_model = Config.load(config, overrides=parsed_overrides)
+    config_model = Config.load(config, overrides=overrides)
     logger = configure_logging(config_model.logging.level)
     logger = logger.bind(command="pipeline")
     output = run_pipeline(config_model, logger)

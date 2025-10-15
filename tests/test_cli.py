@@ -139,3 +139,14 @@ def test_cli_pipeline_command(runner: CliRunner, sample_config: Path) -> None:
     assert frame.loc[0, "activity_value"] == pytest.approx(1000.0, rel=1e-6)
     assert qc_path.exists()
     assert corr_path.exists()
+
+
+def test_cli_invalid_override_format(runner: CliRunner, sample_config: Path) -> None:
+    """Invalid override syntax should surface a helpful error."""
+
+    result = runner.invoke(
+        app, ["pipeline", "--config", str(sample_config), "--set", "not-a-valid-override"]
+    )
+
+    assert result.exit_code == 2
+    assert "Overrides must be in KEY=VALUE format" in result.stderr
