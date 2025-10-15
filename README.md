@@ -7,10 +7,15 @@ exporting deterministic CSV outputs together with QC reports.
 ## Features
 
 - **Config-driven** execution using YAML files parsed with Pydantic.
+
 - **Resilient HTTP clients** powered by `requests` and `backoff`.
+
 - **Data validation** with Pandera schemas for both raw and normalized data.
+
 - **Deterministic outputs** including QC metrics and correlation matrices.
+
 - **Typer-based CLI** for orchestrating the pipeline.
+
 - **Comprehensive QA** with pytest (coverage ≥ 90 %), mypy `--strict`, ruff, and black.
 
 ## Installation
@@ -102,29 +107,38 @@ on each push and pull request targeting `main` or `work`.
 Для проверки лимитов и доступности API используйте следующие скрипты:
 
 ### Быстрая проверка
+
 ```bash
 # Проверка всех API
+
 python src/library/scripts/api_health_check.py --save
 
 # Проверка конкретного API
+
 python src/library/scripts/quick_api_check.py crossref
 ```
 
 ### Детальная проверка
+
 ```bash
 # Полная проверка с отчетом
+
 python src/library/scripts/check_api_limits.py
 
 # Детальная информация о лимитах
+
 python src/library/scripts/check_specific_limits.py
 ```
 
 ### Мониторинг в реальном времени
+
 ```bash
 # Мониторинг Crossref API каждые 30 секунд
+
 python src/library/scripts/monitor_api.py crossref
 
 # Мониторинг с настройками
+
 python src/library/scripts/monitor_api.py pubmed -i 60 -d 3600  # каждую минуту в течение часа
 ```
 
@@ -135,5 +149,7 @@ python src/library/scripts/monitor_api.py pubmed -i 60 -d 3600  # каждую �
 The load stage produces three artefacts:
 
 - **Bioactivities CSV** – sorted deterministic dataset.
+
 - **QC report** – summary metrics (row counts, duplicates, missing values).
+
 - **Correlation matrix** – numeric correlations saved as CSV.

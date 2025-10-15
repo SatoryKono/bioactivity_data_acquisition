@@ -17,7 +17,7 @@ if df.empty:
     df_to_write = df.copy()
 else:
     df_to_write = _deterministic_order(df, determinism)
-    
+
     # Добавляем столбец index с порядковыми номерами строк (начиная с 0)
     df_to_write = df_to_write.copy()
     df_to_write.insert(0, 'index', range(len(df_to_write)))
@@ -31,9 +31,11 @@ else:
 
 ```python
 # Фильтруем колонки для сортировки, оставляя только существующие
+
 sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
 
 # Если нет колонок для сортировки, возвращаем DataFrame как есть
+
 if not sort_by:
     return ordered.reset_index(drop=True)
 ```
@@ -74,15 +76,18 @@ index compound_id   target  activity_value activity_type reference
 Созданы тесты для проверки функциональности:
 
 - **`tests/test_index_column_simple.py`**: Простые тесты для проверки добавления столбца `index`
+
 - **`scripts/test_index_column_demo.py`**: Демонстрационный скрипт с реальными данными
 
 ### Запуск тестов
 
 ```bash
 # Простые тесты
+
 python tests/test_index_column_simple.py
 
 # Демонстрация
+
 python scripts/test_index_column_demo.py
 ```
 
@@ -91,7 +96,9 @@ python scripts/test_index_column_demo.py
 ### Обратная совместимость
 
 - ✅ Все существующие функции продолжают работать без изменений
+
 - ✅ Столбец `index` добавляется автоматически, не требует изменения конфигурации
+
 - ✅ Поддерживаются все форматы вывода (CSV, Parquet)
 
 ### Интеграция с существующим кодом
@@ -99,6 +106,7 @@ python scripts/test_index_column_demo.py
 Столбец `index` добавляется в функции `write_deterministic_csv`, которая используется во всех местах сохранения итоговых данных:
 
 - `src/library/etl/run.py` - основная функция пайплайна
+
 - Любые другие места, где вызывается `write_deterministic_csv`
 
 ## Преимущества
@@ -118,12 +126,15 @@ python scripts/test_index_column_demo.py
 import pandas as pd
 
 # Загрузка данных с индексом
+
 df = pd.read_csv('output/documents_20250115.csv')
 
 # Ссылка на конкретную строку
+
 specific_row = df[df['index'] == 42]
 
 # Группировка по диапазонам индексов
+
 first_hundred = df[df['index'] < 100]
 ```
 

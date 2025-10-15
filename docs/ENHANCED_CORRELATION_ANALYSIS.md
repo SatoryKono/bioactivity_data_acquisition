@@ -7,26 +7,39 @@
 ## Основные возможности
 
 ### 1. Числовые корреляции
+
 - **Корреляция Пирсона**: Линейная корреляция между числовыми переменными
+
 - **Корреляция Спирмена**: Ранговая корреляция для нелинейных зависимостей
+
 - **Ковариационная матрица**: Мера совместной изменчивости переменных
 
 ### 2. Категориальные корреляции
+
 - **Cramér's V**: Мера ассоциации между категориальными переменными
+
 - **Таблицы сопряженности**: Детальный анализ распределения категорий
+
 - **Chi-squared статистики**: Тесты значимости ассоциаций
 
 ### 3. Смешанные корреляции
+
 - **Eta-squared**: Связь между числовыми и категориальными переменными
+
 - **Point-biserial correlation**: Корреляция между числовой и бинарной переменными
 
 ### 4. Кросс-корреляции
+
 - **Лаговые корреляции**: Анализ временных зависимостей
+
 - **Скользящие корреляции**: Динамика корреляций во времени
 
 ### 5. Автоматические инсайты
+
 - Обнаружение сильных корреляций (|r| > 0.8)
+
 - Выявление умеренных корреляций (|r| > 0.7)
+
 - Рекомендации по обработке мультиколлинеарности
 
 ## Использование
@@ -46,15 +59,19 @@ postprocess:
 from library.etl.enhanced_correlation import EnhancedCorrelationAnalyzer
 
 # Создание анализатора
+
 analyzer = EnhancedCorrelationAnalyzer(logger=logger)
 
 # Анализ корреляций
+
 correlation_analysis = analyzer.analyze_correlations(dataframe)
 
 # Генерация отчетов
+
 reports = analyzer.generate_correlation_reports(correlation_analysis)
 
 # Генерация инсайтов
+
 insights = analyzer.generate_correlation_insights(correlation_analysis)
 ```
 
@@ -63,6 +80,7 @@ insights = analyzer.generate_correlation_insights(correlation_analysis)
 При включении расширенного корреляционного анализа система создает следующие файлы:
 
 ### Расширенные корреляционные отчеты
+
 1. **enhanced_correlation_numeric_pearson.csv** - Корреляционная матрица Пирсона
 2. **enhanced_correlation_numeric_spearman.csv** - Корреляционная матрица Спирмена
 3. **enhanced_correlation_numeric_covariance.csv** - Ковариационная матрица
@@ -72,44 +90,62 @@ insights = analyzer.generate_correlation_insights(correlation_analysis)
 7. **enhanced_correlation_correlation_summary.csv** - Сводная статистика
 
 ### Детальные отчеты
+
 8. **correlation_analysis.json** - Полный анализ в JSON формате
 9. **correlation_insights.csv** - Инсайты и рекомендации
 
 ## Интерпретация результатов
 
 ### Сила корреляций
+
 - **|r| > 0.8**: Очень сильная корреляция (высокий риск мультиколлинеарности)
+
 - **0.6 < |r| < 0.8**: Сильная корреляция
+
 - **0.4 < |r| < 0.6**: Умеренная корреляция
+
 - **0.2 < |r| < 0.4**: Слабая корреляция
+
 - **|r| < 0.2**: Очень слабая или отсутствующая корреляция
 
 ### Cramér's V для категориальных данных
+
 - **V > 0.5**: Сильная ассоциация
+
 - **0.3 < V < 0.5**: Умеренная ассоциация
+
 - **0.1 < V < 0.3**: Слабая ассоциация
+
 - **V < 0.1**: Очень слабая ассоциация
 
 ### Eta-squared для смешанных корреляций
+
 - **η² > 0.14**: Сильная связь
+
 - **0.06 < η² < 0.14**: Умеренная связь
+
 - **0.01 < η² < 0.06**: Слабая связь
+
 - **η² < 0.01**: Очень слабая связь
 
 ## Примеры использования
 
 ### Анализ биоактивности соединений
+
 ```python
 # Анализ корреляций между различными показателями активности
+
 activity_correlations = correlation_analysis['numeric_correlations']['pearson']
 ic50_ec50_corr = activity_correlations.loc['activity_ic50', 'activity_ec50']
 print(f"Корреляция IC50 и EC50: {ic50_ec50_corr:.3f}")
 ```
 
 ### Проверка мультиколлинеарности
+
 ```python
 # Поиск сильных корреляций
-strong_correlations = [insight for insight in insights 
+
+strong_correlations = [insight for insight in insights
                       if insight['type'] == 'strong_correlation']
 for corr in strong_correlations:
     print(f"Сильная корреляция: {corr['message']}")
@@ -117,8 +153,10 @@ for corr in strong_correlations:
 ```
 
 ### Анализ связей между типами данных
+
 ```python
 # Анализ связей между числовыми и категориальными переменными
+
 eta_squared = correlation_analysis['mixed_correlations']['eta_squared']
 strong_mixed = eta_squared[eta_squared > 0.3]
 print("Сильные связи числовых и категориальных переменных:")
@@ -128,15 +166,19 @@ print(strong_mixed)
 ## Производительность и оптимизация
 
 ### Рекомендации по использованию
+
 1. **Размер данных**: Система оптимизирована для наборов данных до 10,000 строк
 2. **Количество столбцов**: Эффективно работает с до 100 столбцов
 3. **Типы данных**: Автоматически определяет и обрабатывает различные типы данных
 
 ### Настройки производительности
+
 ```python
 # Для больших наборов данных можно ограничить анализ
+
 analyzer = EnhancedCorrelationAnalyzer()
 # Анализ только числовых корреляций для ускорения
+
 numeric_only = df.select_dtypes(include=[np.number])
 analysis = analyzer.analyze_correlations(numeric_only)
 ```
@@ -144,6 +186,7 @@ analysis = analyzer.analyze_correlations(numeric_only)
 ## Расширение системы
 
 ### Добавление новых типов корреляций
+
 ```python
 def _analyze_custom_correlation(self, df: pd.DataFrame) -> Dict[str, Any]:
     """Анализ пользовательского типа корреляций."""
@@ -152,8 +195,10 @@ def _analyze_custom_correlation(self, df: pd.DataFrame) -> Dict[str, Any]:
 ```
 
 ### Настройка порогов
+
 ```python
 # Изменение порогов для обнаружения сильных корреляций
+
 analyzer.strong_correlation_threshold = 0.8
 analyzer.moderate_correlation_threshold = 0.6
 ```
@@ -161,36 +206,56 @@ analyzer.moderate_correlation_threshold = 0.6
 ## Совместимость
 
 - Python 3.8+
+
 - pandas 1.3+
+
 - numpy 1.20+
+
 - scipy 1.7+
+
 - scikit-learn 1.0+
+
 - structlog (для логирования)
 
 ## Примеры интерпретации
 
 ### Биохимические данные
+
 ```python
 # Сильная корреляция между IC50 и EC50 указывает на:
+
 # 1. Согласованность методов измерения
+
 # 2. Возможную мультиколлинеарность в моделях
+
 # 3. Необходимость выбора одного показателя для анализа
+
 ```
 
 ### Категориальные данные
+
 ```python
 # Высокий Cramér's V между типом ассайя и организмом:
+
 # 1. Указывает на систематические различия в подходах
+
 # 2. Может потребовать стратификации данных
+
 # 3. Важно для интерпретации результатов
+
 ```
 
 ### Смешанные корреляции
+
 ```python
 # Высокий eta-squared между активностью и типом соединения:
+
 # 1. Подтверждает биологическую значимость
+
 # 2. Позволяет прогнозировать активность по типу
+
 # 3. Может быть использован для классификации
+
 ```
 
 ## Лучшие практики
