@@ -5,6 +5,13 @@ from public data sources such as ChEMBL, PubMed, Semantic Scholar, Crossref, and
 pipeline is built around resilient HTTP clients, Pandas-based transformations, and deterministic
 CSV exports to support downstream analytics and reproducible research.
 
+## Quick start
+
+```bash
+pip install -e .[dev]
+fetch-publications run --config config/pipeline.yaml --input data/input/queries.csv --output data/output/publications.csv
+```
+
 ## Requirements
 
 - Python 3.10 or newer

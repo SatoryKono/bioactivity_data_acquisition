@@ -1,11 +1,9 @@
-"""Deprecated compatibility package."""
-from __future__ import annotations
+"""Library package for publication ETL."""
 
-from warnings import warn
+__all__ = [
+    "__version__",
+    "DEFAULT_CONTACT_EMAIL",
+]
 
-from bioactivity import *  # noqa: F401,F403
-from bioactivity import __all__ as _bioactivity_all
-
-warn("deprecated", DeprecationWarning, stacklevel=2)
-
-__all__ = list(_bioactivity_all)
+__version__ = "0.1.0"
+DEFAULT_CONTACT_EMAIL = "etl@example.com"

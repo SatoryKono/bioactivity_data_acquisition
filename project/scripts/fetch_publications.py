@@ -11,18 +11,18 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError
 
-from library.clients import BasePublicationsClient, ClientConfig
-from library.clients.chembl import ChemblClient
-from library.clients.crossref import CrossrefClient
-from library.clients.openalex import OpenAlexClient
-from library.clients.pubmed import PubmedClient
-from library.clients.semscholar import SemanticScholarClient
-from library.io.normalize import normalize_publication_frame
-from library.io.read_write import empty_publications_frame, read_queries, write_publications
-from library.utils.errors import ConfigError, ExtractionError, ValidationError as PipelineValidationError
-from library.utils.logging import configure_logging, get_logger
-from library.validation.input_schema import INPUT_SCHEMA
-from library.validation.output_schema import OUTPUT_SCHEMA
+from project.library.clients import BasePublicationsClient, ClientConfig
+from project.library.clients.chembl import ChemblClient
+from project.library.clients.crossref import CrossrefClient
+from project.library.clients.openalex import OpenAlexClient
+from project.library.clients.pubmed import PubmedClient
+from project.library.clients.semscholar import SemanticScholarClient
+from project.library.io.normalize import normalize_publication_frame
+from project.library.io.read_write import empty_publications_frame, read_queries, write_publications
+from project.library.utils.errors import ConfigError, ExtractionError, ValidationError as PipelineValidationError
+from project.library.utils.logging import configure_logging, get_logger
+from project.library.validation.input_schema import INPUT_SCHEMA
+from project.library.validation.output_schema import OUTPUT_SCHEMA
 
 app = typer.Typer(help="Fetch and normalize publication metadata from multiple public APIs.")
 
