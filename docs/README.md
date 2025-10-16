@@ -156,3 +156,13 @@ The load stage produces three artefacts:
 - **QC report** – summary metrics (row counts, duplicates, missing values).
 
 - **Correlation matrix** – numeric correlations saved as CSV.
+
+## Archive
+
+Исторические отчеты и документы о реализации улучшений сохранены в папке [`docs/archive/`](docs/archive/):
+
+- **`docs/archive/implementation/`** – отчеты о реализации улучшений HTTP надежности, security hardening, graceful degradation
+- **`docs/archive/reports/`** – финальные отчеты по реализованной функциональности (data normalization, QC, correlation analysis)
+- **`docs/archive/debug/`** – отчеты о решенных проблемах и исправлениях
+
+Эти документы сохранены для истории проекта, но не являются частью активной документации.
