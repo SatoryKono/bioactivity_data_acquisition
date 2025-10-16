@@ -96,7 +96,7 @@ variable name in
 curly braces. For example, the canonical configuration sets
 `Authorization: "Bearer {CHEMBL_API_TOKEN}"`. At load time, `Config` replaces
 the placeholder with
-the value of the`CHEMBL*API*TOKEN`environment variable. Placeholders that do
+the value of the `CHEMBL_API_TOKEN` environment variable. Placeholders that do
 not resolve are left
 untouched, which keeps validation deterministic for local development.
 

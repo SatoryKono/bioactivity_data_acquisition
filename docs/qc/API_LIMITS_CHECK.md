@@ -1,11 +1,11 @@
 # Проверка лимитов API
 
 Этот документ описывает, как проверить лимиты и доступность API, используемых в
-проекте bioactivity*data*acquisition.
+проекте bioactivity_data_acquisition.
 
 ## Доступные скрипты
 
-### 1. Полная проверка всех API (`src/library/scripts/check*api*limits.py`)
+### 1. Полная проверка всех API (`src/library/scripts/check_api_limits.py`)
 
 Проверяет все API из конфигурации и создает детальный отчет.
 
@@ -31,7 +31,7 @@ python src/library/scripts/check_api_limits.py
 
 - JSON файл с детальными результатами в папке`reports/`
 
-### 2. Детальная проверка лимитов (`src/library/scripts/check*specific*limits.py`)
+### 2. Детальная проверка лимитов (`src/library/scripts/check_specific_limits.py`)
 
 Показывает детальную информацию о лимитах каждого API с рекомендациями.
 
@@ -49,7 +49,7 @@ python src/library/scripts/check_specific_limits.py
 
 - Информация об аутентификации
 
-### 3. Быстрая проверка конкретного API (`src/library/scripts/quick*api*check.py`)
+### 3. Быстрая проверка конкретного API (`src/library/scripts/quick_api_check.py`)
 
 Проверяет один конкретный API с минимальным выводом.
 
