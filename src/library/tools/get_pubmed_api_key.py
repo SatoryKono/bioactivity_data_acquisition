@@ -64,7 +64,7 @@ def check_api_key_status(api_key: Optional[str] = None) -> bool:
                     print("✅ Получены данные из PubMed")
                 else:
                     print("⚠️ Ответ получен, но структура данных неожиданная")
-            except:
+            except ValueError:
                 print("⚠️ Ответ получен, но не в JSON формате")
                 
             return True

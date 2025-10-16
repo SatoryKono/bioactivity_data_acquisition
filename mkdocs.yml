@@ -56,6 +56,10 @@ nav:
   - Релизы и изменения: changelog.md
   - FAQ: faq.md
   - Глоссарий: glossary.md
+  - Руководства:
+      - Туториалы: tutorials/index.md
+      - Обогащение документов (E2E): tutorials/e2e_documents.md
+      - Полный пайплайн (E2E): tutorials/e2e_pipeline.md
   - API:
       - API Reference: api/index.md
   - Справочные материалы:

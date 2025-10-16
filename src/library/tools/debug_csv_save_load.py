@@ -65,7 +65,7 @@ def debug_csv_save_load():
     try:
         os.remove(test_file)
         print(f"   Тестовый файл {test_file} удален")
-    except:
+    except OSError:
         pass
     
     print()
@@ -85,11 +85,11 @@ def debug_csv_save_load():
             print(f"   Количество nan значений: {nan_count}")
             
             # Проверяем, есть ли False значения
-            false_count = (real_data['invalid_doi'] == False).sum()
+            false_count = (~real_data['invalid_doi'].astype(bool)).sum()
             print(f"   Количество False значений: {false_count}")
             
             # Проверяем, есть ли True значения
-            true_count = (real_data['invalid_doi'] == True).sum()
+            true_count = (real_data['invalid_doi'].astype(bool)).sum()
             print(f"   Количество True значений: {true_count}")
             
         except Exception as e:

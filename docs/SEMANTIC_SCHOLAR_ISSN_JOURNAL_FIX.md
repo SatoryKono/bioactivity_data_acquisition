@@ -35,20 +35,24 @@ def *extract*issn(self, payload: dict[str, Any]) -> str | None:
 
 ## Сначала проверяем в publicationVenue
 
-    publication*venue = payload.get("publicationVenue", {})
-    if isinstance(publication*venue, dict):
-        issn = publication*venue.get("issn")
-        if issn:
-            return str(issn)
+```
+publication*venue = payload.get("publicationVenue", {})
+if isinstance(publication*venue, dict):
+    issn = publication*venue.get("issn")
+    if issn:
+        return str(issn)
+```
 
 ## Затем проверяем в externalIds
 
-    external*ids = payload.get("externalIds", {})
-    issn = external*ids.get("issn")
-    if issn:
-        return str(issn)
+```
+external*ids = payload.get("externalIds", {})
+issn = external*ids.get("issn")
+if issn:
+    return str(issn)
 
-    return None
+return None
+```
 
 ```
 
@@ -61,20 +65,24 @@ def *extract*journal(self, payload: dict[str, Any]) -> str | None:
 
 ## Проверяем в publicationVenue
 
-    publication*venue = payload.get("publicationVenue", {})
-    if isinstance(publication*venue, dict):
+```
+publication*venue = payload.get("publicationVenue", {})
+if isinstance(publication*venue, dict):
+```
 
 ## Пробуем разные поля для названия журнала
 
-        journal = (
-            publication*venue.get("name") or
-            publication*venue.get("alternateName") or
-            publication*venue.get("displayName")
-        )
-        if journal:
-            return str(journal)
+```
+    journal = (
+        publication*venue.get("name") or
+        publication*venue.get("alternateName") or
+        publication*venue.get("displayName")
+    )
+    if journal:
+        return str(journal)
 
-    return None
+return None
+```
 
 ```
 
@@ -87,21 +95,27 @@ def *extract*doc*type(self, payload: dict[str, Any]) -> str | None:
 
 ## Проверяем в publicationTypes
 
-    publication*types = payload.get("publicationTypes", [])
-    if isinstance(publication*types, list) and publication*types:
+```
+publication*types = payload.get("publicationTypes", [])
+if isinstance(publication*types, list) and publication*types:
+```
 
 ## Берем первый тип документа
 
-        doc*type = publication*types[0]
-        if isinstance(doc*type, str):
-            return doc*type
-        elif isinstance(doc*type, dict):
+```
+    doc*type = publication*types[0]
+    if isinstance(doc*type, str):
+        return doc*type
+    elif isinstance(doc*type, dict):
+```
 
 ## Если это объект, берем поле name или type
 
-            return doc*type.get("name") or doc*type.get("type")
+```
+        return doc*type.get("name") or doc*type.get("type")
 
-    return None
+return None
+```
 
 ```
 
@@ -111,13 +125,15 @@ def *extract*doc*type(self, payload: dict[str, Any]) -> str | None:
 
 record: dict[str, Any | None] = {
 
-## ... другие поля ..
+## ... другие поля
 
-    "semantic*scholar*doc*type": self.*extract*doc*type(payload), # ✅ Добавлено
-    "semantic*scholar*journal": self.*extract*journal(payload),   # ✅ Исправлено
-    "semantic*scholar*issn": self.*extract*issn(payload),         # ✅ Улучшено
+```
+"semantic*scholar*doc*type": self.*extract*doc*type(payload), # ✅ Добавлено
+"semantic*scholar*journal": self.*extract*journal(payload),   # ✅ Исправлено
+"semantic*scholar*issn": self.*extract*issn(payload),         # ✅ Улучшено
+```
 
-## ... остальные поля ..
+## ... остальные поля
 
 }
 

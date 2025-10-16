@@ -3,6 +3,7 @@
 CLI основан на Typer. Ниже — частые команды и рецепты.
 
 ## Базовые команды
+
 ```bash
 # помощь
 bioactivity-data-acquisition --help
@@ -12,6 +13,7 @@ bioactivity-data-acquisition pipeline --config configs/config.yaml --set http.gl
 ```
 
 ## Работа с документами (обогащение)
+
 ```bash
 # минимальный запуск (пути берутся из конфига если указаны)
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
@@ -36,6 +38,7 @@ bioactivity-data-acquisition get-document-data --config configs/config_documents
 ```
 
 Опции:
+
 - `--documents-csv PATH` — входной CSV со списком идентификаторов документов
 - `--output-dir PATH` — директория для артефактов
 - `--date-tag YYYYMMDD` — тег даты в именах файлов
@@ -48,11 +51,13 @@ bioactivity-data-acquisition get-document-data --config configs/config_documents
 - `--dry-run/--no-dry-run` — выполнить без записи артефактов
 
 ## Версия
+
 ```bash
 bioactivity-data-acquisition version
 ```
 
 ## Рецепты
+
 ```bash
 # ограничить скорость для источника (пример ключа в конфиге)
 bioactivity-data-acquisition pipeline --config configs/config.yaml --set api.chembl.rate_limit=5/s

@@ -165,13 +165,13 @@ data/output/correlation*test/
 
 2.**`src/library/documents/config.py`**
 
-   - Добавлен `DocumentPostprocessSettings`для конфигурации postprocessing
+- Добавлен `DocumentPostprocessSettings`для конфигурации postprocessing
 
-   - Интегрирован в`DocumentConfig`
+- Интегрирован в`DocumentConfig`
 
 3.**`configs/config*documents*full.yaml`**
 
-   - Добавлена секция `postprocess`с включенным корреляционным анализом
+- Добавлена секция `postprocess`с включенным корреляционным анализом
 
 ### Зависимости
 
@@ -205,8 +205,8 @@ data/output/correlation*test/
 
 1. Расширить`EnhancedCorrelationAnalyzer`в`src/library/etl/enhanced*correlation.py`2. Добавить новые
 методы анализа
-3. Обновить`generate*correlation*reports()`для включения новых отчетов
-4. При необходимости обновить конфигурацию
+2. Обновить`generate*correlation*reports()`для включения новых отчетов
+3. При необходимости обновить конфигурацию
 
 ## Тестирование
 

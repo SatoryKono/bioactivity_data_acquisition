@@ -16,6 +16,7 @@ flowchart LR
 ```
 
 ## Потоки ошибок и ретраи
+
 ```mermaid
 sequenceDiagram
   participant Client as HTTP клиент
@@ -29,11 +30,13 @@ sequenceDiagram
 ```
 
 ## Точки расширения
+
 - Клиенты API в `src/library/clients`
 - Трансформации/ETL в `src/library/etl`
 - Схемы данных в `src/library/schemas`
 
 ## Потоки ошибок
+
 - 4xx/5xx → экспоненциальный backoff, ограничение попыток
 - 429 (rate limit) → пауза/джиттер, повтор; чтение `Retry-After`
 - Фолы валидации Pandera → отчёты/логи, корректирующие действия

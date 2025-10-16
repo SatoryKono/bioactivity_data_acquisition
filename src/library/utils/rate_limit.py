@@ -131,7 +131,7 @@ class RateLimiterSet:
     """Composite limiter that enforces global and per-client quotas."""
 
     def __init__(self, *limiters: RateLimiter | None) -> None:
-        self._limiters = tuple(l for l in limiters if l is not None)
+        self._limiters = tuple(limiter for limiter in limiters if limiter is not None)
 
     def acquire(self) -> None:
         for limiter in self._limiters:

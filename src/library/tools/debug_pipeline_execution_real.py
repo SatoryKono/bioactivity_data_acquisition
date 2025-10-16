@@ -77,11 +77,11 @@ def debug_pipeline_execution_real():
                     print(f"   Количество nan значений: {nan_count}")
                     
                     # Проверяем, есть ли False значения
-                    false_count = (result_df['invalid_doi'] == False).sum()
+                    false_count = (~result_df['invalid_doi'].astype(bool)).sum()
                     print(f"   Количество False значений: {false_count}")
                     
                     # Проверяем, есть ли True значения
-                    true_count = (result_df['invalid_doi'] == True).sum()
+                    true_count = (result_df['invalid_doi'].astype(bool)).sum()
                     print(f"   Количество True значений: {true_count}")
                     
                 else:

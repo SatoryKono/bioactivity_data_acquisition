@@ -68,7 +68,7 @@ class PubMedMonitor:
                         'has_result': 'result' in data,
                         'pmid_found': test_pmid in str(data),
                     }
-                except:
+                except ValueError:
                     result['data_received'] = {'json_parse_error': True}
             else:
                 result['error'] = response.text
@@ -82,7 +82,7 @@ class PubMedMonitor:
                             'count': error_data.get('count'),
                             'api_key': error_data.get('api-key'),
                         }
-                    except:
+                    except ValueError:
                         pass
             
             return result
@@ -168,7 +168,7 @@ class PubMedMonitor:
                     try:
                         error_data = response.json()
                         result['rate_limit_info'] = error_data
-                    except:
+                    except ValueError:
                         pass
                 
                 results.append(result)

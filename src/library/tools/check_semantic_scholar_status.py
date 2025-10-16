@@ -57,7 +57,7 @@ def check_api_status(api_key: Optional[str] = None, test_pmid: str = "7154002") 
                     'year': data.get('year')
                 }
                 result['message'] = "[OK] API работает нормально"
-            except:
+            except ValueError:
                 result['data_received'] = {'json_parse_error': True}
                 result['message'] = "[WARN] Ответ получен, но не в JSON формате"
                 
@@ -66,7 +66,7 @@ def check_api_status(api_key: Optional[str] = None, test_pmid: str = "7154002") 
             try:
                 error_data = response.json()
                 result['error_details'] = error_data
-            except:
+            except ValueError:
                 result['error_details'] = {'raw_response': response.text}
                 
         elif response.status_code == 401:

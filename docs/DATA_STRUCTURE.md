@@ -379,7 +379,7 @@ Scholar. Данные проходят через ETL-процесс, котор
 
 ### 3. OpenAlex API
 
-**Базовый URL**:`[https://api.openalex.org/works`](https://api.openalex.org/works`)
+**Базовый URL**:`[https://api.openalex.org/works`](<https://api.openalex.org/works`>)
 
 **Документация**: [https://docs.openalex.org/](https://docs.openalex.org/)
 
@@ -472,7 +472,7 @@ Scholar. Данные проходят через ETL-процесс, котор
 ### 5. Semantic Scholar API
 
 **Базовый
-URL**:`[https://api.semanticscholar.org/graph/v1/paper`](https://api.semanticscholar.org/graph/v1/paper`)
+URL**:`[https://api.semanticscholar.org/graph/v1/paper`](<https://api.semanticscholar.org/graph/v1/paper`>)
 
 **Документация**: [https://api.semanticscholar.org/](https://api.semanticscholar.org/)
 
@@ -550,10 +550,10 @@ URL**:`[https://api.semanticscholar.org/graph/v1/paper`](https://api.semanticsch
 
    - Semantic Scholar (академические метаданные)
 
-3. **Трансформация**: Объединение и нормализация данных из всех источников
-4. **Загрузка**: Результаты сохраняются в папку`data/output/`с датой в
+2. **Трансформация**: Объединение и нормализация данных из всех источников
+3. **Загрузка**: Результаты сохраняются в папку`data/output/`с датой в
 названии файла
-5. **QC**: Генерируются метрики контроля качества и корреляционный анализ
+4. **QC**: Генерируются метрики контроля качества и корреляционный анализ
 
 ## Расширенный корреляционный анализ
 
