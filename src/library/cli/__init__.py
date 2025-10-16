@@ -27,6 +27,8 @@ from library.documents.pipeline import (
 from library.etl.run import run_pipeline
 from library.utils.logging import configure_logging
 from library.telemetry import setup_telemetry
+from library.clients.health import HealthChecker
+from library.utils.graceful_shutdown import ShutdownContext, register_shutdown_handler
 
 CONFIG_OPTION = typer.Option(
     ...,
@@ -129,8 +131,17 @@ def pipeline(
     config_model = Config.load(config, overrides=override_dict)
     logger = configure_logging(config_model.logging.level)
     logger = logger.bind(command="pipeline")
-    output = run_pipeline(config_model, logger)
-    typer.echo(f"Pipeline completed. Output written to {output}")
+    
+    # Setup graceful shutdown
+    def cleanup_handler():
+        logger.info("Pipeline shutdown requested, cleaning up...")
+        # Add any cleanup logic here
+    
+    register_shutdown_handler(cleanup_handler)
+    
+    with ShutdownContext(timeout=30.0):
+        output = run_pipeline(config_model, logger)
+        typer.echo(f"Pipeline completed. Output written to {output}")
 
 
 @app.command("get-document-data")
@@ -250,8 +261,16 @@ def get_document_data(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=ExitCode.IO_ERROR) from exc
 
+    # Setup graceful shutdown for document processing
+    def cleanup_handler():
+        logger.info("Document processing shutdown requested, cleaning up...")
+        # Add any cleanup logic here
+    
+    register_shutdown_handler(cleanup_handler)
+    
     try:
-        result = run_document_etl(config_model, input_frame)
+        with ShutdownContext(timeout=60.0):
+            result = run_document_etl(config_model, input_frame)
     except DocumentValidationError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
@@ -279,6 +298,66 @@ def get_document_data(
 
     for name, path in outputs.items():
         typer.echo(f"{name}: {path}")
+
+
+@app.command()
+def health(
+    config: Path = CONFIG_OPTION,
+    timeout: float = typer.Option(10.0, "--timeout", "-t", help="Timeout for health checks in seconds"),
+    json_output: bool = typer.Option(False, "--json", help="Output results in JSON format"),
+) -> None:
+    """Check health status of all configured API clients."""
+    
+    try:
+        # Load configuration
+        config_model = Config.load(config)
+        logger = configure_logging(config_model.logging.level)
+        logger = logger.bind(command="health")
+        
+        # Create health checker from API configurations
+        api_configs = {}
+        if hasattr(config_model, 'http') and hasattr(config_model.http, 'clients'):
+            for name, client_config in config_model.http.clients.items():
+                if hasattr(client_config, 'enabled') and client_config.enabled:
+                    api_configs[name] = client_config
+        
+        if not api_configs:
+            typer.echo("No API clients configured for health checking", err=True)
+            raise typer.Exit(1)
+        
+        health_checker = create_health_checker_from_config(api_configs)
+        
+        # Perform health checks
+        typer.echo("Checking API health...")
+        statuses = health_checker.check_all(timeout=timeout)
+        
+        if json_output:
+            # Output JSON format
+            import json
+            summary = health_checker.get_health_summary(statuses)
+            summary["apis"] = [
+                {
+                    "name": s.name,
+                    "healthy": s.is_healthy,
+                    "response_time_ms": s.response_time_ms,
+                    "circuit_state": s.circuit_state,
+                    "error": s.error_message
+                }
+                for s in statuses
+            ]
+            typer.echo(json.dumps(summary, indent=2))
+        else:
+            # Output formatted table
+            health_checker.print_health_report(statuses)
+            
+            # Exit with error code if any APIs are unhealthy
+            unhealthy_count = sum(1 for s in statuses if not s.is_healthy)
+            if unhealthy_count > 0:
+                raise typer.Exit(1)
+        
+    except Exception as exc:
+        typer.echo(f"Health check failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
 
 
 @app.command()

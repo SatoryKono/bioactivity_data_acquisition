@@ -1,0 +1,279 @@
+# Bioactivity Data Acquisition - Example Configuration
+# Полный пример конфигурации с комментариями и объяснениями
+
+# =============================================================================
+# HTTP НАСТРОЙКИ
+# =============================================================================
+http:
+  global:
+    # Таймаут по умолчанию для всех HTTP запросов (секунды)
+    timeout_sec: 30.0
+    
+    # Настройки повторных попыток
+    retries:
+      total: 5                    # Общее количество попыток
+      backoff_multiplier: 2.0     # Множитель для экспоненциального backoff
+    
+    # Глобальные HTTP заголовки
+    headers:
+      User-Agent: bioactivity-data-acquisition/0.1.0
+
+# =============================================================================
+# ИСТОЧНИКИ ДАННЫХ
+# =============================================================================
+sources:
+  # ChEMBL - основной источник биоактивностных данных
+  chembl:
+    name: chembl
+    enabled: true                 # Включить/выключить источник
+    endpoint: document            # API endpoint для документов
+    
+    # Параметры запросов по умолчанию
+    params:
+      document_type: article      # Тип документов для поиска
+    
+    # Настройки пагинации
+    pagination:
+      page_param: page            # Параметр номера страницы
+      size_param: page_size       # Параметр размера страницы
+      size: 200                   # Размер страницы (записей)
+      max_pages: 10               # Максимальное количество страниц
+    
+    # HTTP настройки для ChEMBL
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      timeout_sec: 60.0           # Увеличенный таймаут для ChEMBL
+      headers:
+        Accept: application/json
+        # Плейсхолдер для API токена (заменяется из переменной окружения)
+        Authorization: "Bearer {CHEMBL_API_TOKEN}"
+
+  # Crossref - DOI регистрация и метаданные
+  crossref:
+    name: crossref
+    enabled: true
+    params:
+      query: chembl               # Поисковый запрос
+      select: DOI,title           # Поля для выборки
+    
+    pagination:
+      page_param: cursor          # Crossref использует cursor-based пагинацию
+      size_param: rows
+      size: 100
+      max_pages: 5
+    
+    http:
+      base_url: https://api.crossref.org/works
+      timeout_sec: 30.0
+      headers:
+        Accept: application/json
+        # Crossref Plus API токен (опционально)
+        Crossref-Plus-API-Token: "{CROSSREF_API_KEY}"
+
+  # OpenAlex - открытый академический API
+  openalex:
+    name: openalex
+    enabled: true
+    http:
+      base_url: https://api.openalex.org/works
+      timeout_sec: 30.0
+      headers:
+        Accept: application/json
+
+  # PubMed - биомедицинские публикации
+  pubmed:
+    name: pubmed
+    enabled: true
+    
+    # Rate limiting для PubMed
+    rate_limit:
+      max_calls: 2                # Консервативный лимит: 2 запроса в секунду
+      period: 1.0                 # Период в секундах
+    
+    http:
+      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
+      timeout_sec: 60.0           # Увеличенный таймаут для медленных запросов
+      headers:
+        Accept: application/json
+        User-Agent: bioactivity-data-acquisition/0.1.0
+        # API ключ для увеличения лимитов до 10/сек
+        api_key: "{PUBMED_API_KEY}"
+      
+      # Настройки повторных попыток для PubMed
+      retries:
+        total: 10                 # Больше попыток для обработки rate limiting
+        backoff_multiplier: 3.0   # Более агрессивный backoff
+
+  # Semantic Scholar - AI-обогащённые научные данные
+  semantic_scholar:
+    name: semantic_scholar
+    enabled: true                 # Всегда включен
+    
+    # Строгие ограничения скорости для Semantic Scholar
+    rate_limit:
+      max_calls: 1                # 1 запрос в 5 секунд
+      period: 5.0                 # Период в секундах
+    
+    http:
+      base_url: https://api.semanticscholar.org/graph/v1/paper
+      timeout_sec: 60.0
+      headers:
+        Accept: application/json
+        # API ключ для увеличения лимитов
+        x-api-key: "{SEMANTIC_SCHOLAR_API_KEY}"
+      
+      retries:
+        total: 15
+        backoff_multiplier: 5.0
+
+# =============================================================================
+# НАСТРОЙКИ ВВОДА/ВЫВОДА
+# =============================================================================
+io:
+  input:
+    # Путь к входному CSV файлу с документами
+    documents_csv: data/input/documents.csv
+  
+  output:
+    # Пути к выходным файлам
+    data_path: data/output/documents.csv
+    qc_report_path: data/output/documents_qc_report.csv
+    correlation_path: data/output/documents_correlation.csv
+    
+    # Формат вывода
+    format: csv
+    
+    # Настройки CSV
+    csv:
+      encoding: utf-8             # Кодировка файла
+      float_format: "%.3f"        # Формат чисел с плавающей точкой
+      date_format: "%Y-%m-%dT%H:%M:%SZ"  # ISO 8601 формат дат
+
+# =============================================================================
+# RUNTIME НАСТРОЙКИ
+# =============================================================================
+runtime:
+  workers: 4                      # Количество рабочих потоков
+  limit: null                     # Ограничение количества документов (null = без ограничений)
+  dry_run: false                  # Режим тестирования без сохранения
+  date_tag: null                  # Автоматически генерируется если null
+
+# =============================================================================
+# ЛОГИРОВАНИЕ
+# =============================================================================
+logging:
+  level: INFO                     # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+# =============================================================================
+# ВАЛИДАЦИЯ
+# =============================================================================
+validation:
+  strict: true                    # Строгая валидация данных
+  
+  # Настройки контроля качества
+  qc:
+    max_missing_fraction: 0.05    # Максимальная доля пропущенных значений
+    max_duplicate_fraction: 0.01  # Максимальная доля дубликатов
+
+# =============================================================================
+# ДЕТЕРМИНИЗМ
+# =============================================================================
+determinism:
+  # Настройки сортировки для воспроизводимости
+  sort:
+    by:
+      - document_chembl_id        # Первичный ключ сортировки
+      - title                     # Вторичный ключ сортировки
+    ascending:
+      - true                      # Сортировка по document_chembl_id по возрастанию
+      - true                      # Сортировка по title по возрастанию
+    na_position: last             # Позиция NULL значений в конце
+  
+  # Порядок колонок в выходном файле
+  column_order:
+    - document_chembl_id
+    - title
+    - doi
+    - journal
+    - volume
+    - issue
+    - first_page
+    - last_page
+    - document_citation
+    - source
+    - retrieved_at
+
+# =============================================================================
+# ПОСТОБРАБОТКА
+# =============================================================================
+postprocess:
+  # Генерация QC отчётов
+  qc:
+    enabled: true
+  
+  # Корреляционный анализ
+  correlation:
+    enabled: true
+  
+  # Нормализация названий журналов
+  journal_normalization:
+    enabled: true
+    columns: ["journal", "pubmed_journal", "chembl_journal", "crossref_journal"]
+  
+  # Форматирование библиографических ссылок
+  citation_formatting:
+    enabled: true
+    columns:
+      journal: "journal"
+      volume: "volume"
+      issue: "issue"
+      first_page: "first_page"
+      last_page: "last_page"
+
+# =============================================================================
+# ПРИМЕРЫ КОНФИГУРАЦИЙ ДЛЯ РАЗНЫХ СЦЕНАРИЕВ
+# =============================================================================
+
+# Для разработки (быстрый прогон):
+# runtime:
+#   workers: 1
+#   limit: 10
+# sources:
+#   chembl:
+#     pagination:
+#       max_pages: 1
+#   crossref:
+#     pagination:
+#       max_pages: 1
+
+# Для production (полная выгрузка):
+# runtime:
+#   workers: 8
+#   limit: null
+# sources:
+#   chembl:
+#     pagination:
+#       max_pages: 100
+#   crossref:
+#     pagination:
+#       max_pages: 50
+
+# Для отладки (детальные логи):
+# logging:
+#   level: DEBUG
+# runtime:
+#   dry_run: true
+#   limit: 5
+
+# Для тестирования (только определённые источники):
+# sources:
+#   chembl:
+#     enabled: true
+#   crossref:
+#     enabled: false
+#   openalex:
+#     enabled: false
+#   pubmed:
+#     enabled: false
+#   semantic_scholar:
+#     enabled: false

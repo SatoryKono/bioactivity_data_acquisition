@@ -1,0 +1,24 @@
+# Bandit ignore file
+# This file specifies which files and directories bandit should skip
+
+# Skip test files as they may contain test-specific security patterns
+tests/
+
+# Skip virtual environment
+venv/
+__pycache__/
+
+# Skip generated files
+*.pyc
+*.pyo
+*.egg-info/
+
+# Skip specific test patterns that may trigger false positives
+tests/**/*test*.py
+tests/**/test_*.py
+
+# Skip benchmark files
+tests/benchmarks/
+
+# Skip integration test files that may use external APIs
+tests/integration/

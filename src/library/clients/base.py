@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import random
 import threading
 import time
 from collections import deque
@@ -15,12 +16,14 @@ import backoff
 import requests
 from requests import Response
 
-from library.clients.session import get_shared_session
-from library.clients.fallback import FallbackManager, FallbackConfig, AdaptiveFallbackStrategy
+from library.clients.circuit_breaker import APICircuitBreaker
 from library.clients.exceptions import ApiClientError, RateLimitError
+from library.clients.fallback import AdaptiveFallbackStrategy, FallbackConfig, FallbackManager
+from library.clients.graceful_degradation import get_degradation_manager
+from library.clients.session import get_shared_session
 from library.config import APIClientConfig
 from library.logger import get_logger
-from library.telemetry import traced_operation, add_span_attribute, add_span_event
+from library.telemetry import add_span_attribute
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,7 @@ class BaseApiClient:
         max_retries: int = 3,
         default_headers: MutableMapping[str, str] | None = None,
         fallback_manager: FallbackManager | None = None,
+        circuit_breaker: APICircuitBreaker | None = None,
     ) -> None:
         self.config = config
         self.base_url = config.resolved_base_url.rstrip("/")
@@ -77,8 +81,17 @@ class BaseApiClient:
         if limiter is not None and rate_limiter is None:
             rate_limiter = RateLimiter(RateLimitConfig(limiter.max_calls, limiter.period))
         self.rate_limiter = rate_limiter
-        # Use config timeout, session will use its default if not overridden
-        self.timeout = config.timeout
+        # Use config timeout, with API-specific defaults for slow APIs
+        if config.timeout is not None:
+            self.timeout = config.timeout
+        else:
+            # Set longer timeouts for slow APIs
+            if 'semanticscholar' in self.base_url.lower():
+                self.timeout = 60.0  # 60 seconds for Semantic Scholar
+            elif 'pubmed' in self.base_url.lower():
+                self.timeout = 45.0  # 45 seconds for PubMed
+            else:
+                self.timeout = 30.0  # 30 seconds default
         self.max_retries = (
             max_retries if max_retries is not None else max(1, config.retries.total)
         )
@@ -100,6 +113,15 @@ class BaseApiClient:
             self.fallback_manager = FallbackManager(fallback_strategy)
         else:
             self.fallback_manager = fallback_manager
+        
+        # Initialize circuit breaker if not provided
+        if circuit_breaker is None:
+            self.circuit_breaker = APICircuitBreaker(self.config.name)
+        else:
+            self.circuit_breaker = circuit_breaker
+        
+        # Initialize degradation manager
+        self.degradation_manager = get_degradation_manager()
 
     def _make_url(self, path: str) -> str:
         if not path:
@@ -120,13 +142,44 @@ class BaseApiClient:
             if isinstance(exc, requests.exceptions.HTTPError):
                 # Для ошибок 429 (rate limiting) продолжаем повторные попытки
                 if hasattr(exc, 'response') and exc.response is not None:
-                    if exc.response.status_code == 429:
+                    status_code = exc.response.status_code
+                    if status_code == 429:
                         return False  # Не прекращаем попытки для 429
+                    # Для 4xx ошибок (кроме 429) прекращаем попытки
+                    elif 400 <= status_code < 500:
+                        return True
+                    # Для 5xx ошибок продолжаем попытки
+                    elif 500 <= status_code < 600:
+                        return False
                     # Для других HTTP ошибок прекращаем попытки
                     return True
                 return True
+            elif isinstance(exc, requests.exceptions.ConnectionError):
+                # Для ошибок соединения продолжаем попытки
+                return False
+            elif isinstance(exc, requests.exceptions.Timeout):
+                # Для таймаутов продолжаем попытки
+                return False
+            elif isinstance(exc, requests.exceptions.RequestException):
+                # Для других HTTP исключений прекращаем попытки
+                return True
             # Для других исключений продолжаем попытки
             return False
+
+        def _call_with_rate_limit() -> Response:
+            # Apply rate limiting before making request
+            if self.rate_limiter is not None:
+                try:
+                    self.rate_limiter.acquire()
+                except RateLimitError as e:
+                    # If rate limited, wait and retry
+                    self.logger.warning(f"Rate limit hit: {e}")
+                    # Use exponential backoff for rate limiting (non-cryptographic use)
+                    delay = min(2.0 ** 2, 60.0) + random.uniform(0, 1)  # 4-5 seconds with jitter  # noqa: S311
+                    time.sleep(delay)
+                    self.rate_limiter.acquire()
+            
+            return _call()
 
         wait_gen = partial(backoff.expo, factor=self.config.retries.backoff_multiplier)
         sender = backoff.on_exception(
@@ -134,8 +187,10 @@ class BaseApiClient:
             requests.exceptions.RequestException,
             max_tries=self.max_retries,
             giveup=_giveup,
-        )(_call)
-        return sender()  # type: ignore
+        )(_call_with_rate_limit)
+        
+        # Use circuit breaker to protect the request
+        return self.circuit_breaker.call(sender)  # type: ignore
 
     def _request_with_fallback(
         self,
@@ -151,6 +206,36 @@ class BaseApiClient:
             return self._request(method, path, expected_status=expected_status, headers=headers, **kwargs)
         
         return self.fallback_manager.execute_with_fallback(_make_request)
+    
+    def _request_with_graceful_degradation(
+        self,
+        method: str,
+        path: str = "",
+        *,
+        expected_status: int = 200,
+        headers: MutableMapping[str, str] | None = None,
+        original_request_data: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Make a request with graceful degradation fallback."""
+        try:
+            return self._request_with_fallback(
+                method, path, expected_status=expected_status, headers=headers, **kwargs
+            )
+        except ApiClientError as e:
+            # Check if we should degrade gracefully
+            if self.degradation_manager.should_degrade(self.config.name, e):
+                self.logger.warning(
+                    f"API {self.config.name} failed, using graceful degradation: {e}"
+                )
+                return self.degradation_manager.get_fallback_data(
+                    self.config.name, 
+                    original_request_data or {},
+                    e
+                )
+            else:
+                # Re-raise the error if degradation is not appropriate
+                raise
 
     def _request(
         self,
@@ -161,8 +246,6 @@ class BaseApiClient:
         headers: MutableMapping[str, str] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        if self.rate_limiter is not None:
-            self.rate_limiter.acquire()
         url = self._make_url(path)
         request_headers = dict(self.default_headers)
         if headers:
@@ -247,8 +330,14 @@ class BaseApiClient:
                 )
                 # Пытаемся парсить XML
                 try:
-                    import xml.etree.ElementTree as ET
-                    root = ET.fromstring(response.text)
+                    # Use defusedxml for safe XML parsing
+                    try:
+                        from defusedxml.ElementTree import fromstring as safe_fromstring  # noqa: F401
+                        root = safe_fromstring(response.text)
+                    except ImportError:
+                        # Fallback to regular ElementTree if defusedxml not available
+                        import xml.etree.ElementTree as ET  # noqa: S405
+                        root = ET.fromstring(response.text)  # noqa: S405
                     payload = self._xml_to_dict(root)
                 except Exception as xml_exc:
                     self.logger.error("xml_parse_error", error=str(xml_exc))

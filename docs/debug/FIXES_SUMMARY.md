@@ -27,7 +27,9 @@ API:
 
 ## Внесенные исправления
 
-### 1. Исправлена логика в`src/library/documents/pipeline.py`## Функция`*extract*data*from*source`
+### 1. Исправлена логика в `src/library/documents/pipeline.py`
+
+#### Функция `extract_data_from_source`
 
 - Добавлена инициализация всех возможных колонок значениями по умолчанию
 
@@ -35,7 +37,7 @@ API:
 
 - Улучшена обработка ошибок с детальным логированием
 
-## Новая функция `*initialize*all*columns`
+#### Новая функция `initialize_all_columns`
 
 - Инициализирует все возможные колонки значениями по умолчанию
 
@@ -43,7 +45,7 @@ API:
 
 - Гарантирует наличие всех колонок в выходном DataFrame
 
-## Функция`run*document*etl`
+#### Функция `run_document_etl`
 
 - Добавлен вызов `*initialize*all*columns` перед обработкой источников
 
@@ -51,23 +53,23 @@ API:
 
 ### 2. Исправлены клиенты API
 
-## ChEMBL клиент (`src/library/clients/chembl.py`)
+#### ChEMBL клиент (`src/library/clients/chembl.py`)
 
 - Добавлена установка значения по умолчанию `chembl*doc*type = "PUBLICATION"`
 
-## Crossref клиент (`src/library/clients/crossref.py`)
+#### Crossref клиент (`src/library/clients/crossref.py`)
 
 - Улучшена обработка `subject`- теперь объединяет множественные значения в строку
 
 - Улучшена обработка`title` - извлекает первый элемент из списка
 
-## OpenAlex клиент (`src/library/clients/openalex.py`)
+#### OpenAlex клиент (`src/library/clients/openalex.py`)
 
 - Улучшена обработка `publication*year`- конвертирует в число
 
 - Улучшена обработка`title`- использует`display*name` как fallback
 
-## PubMed клиент (`src/library/clients/pubmed.py`)
+#### PubMed клиент (`src/library/clients/pubmed.py`)
 
 - Улучшена обработка MeSH descriptors, qualifiers и chemical list
 
@@ -85,7 +87,7 @@ API:
 
 ### 4. Исправления Rate Limiting (429 ошибки)
 
-## Базовый API клиент (`src/library/clients/base.py`)
+#### Базовый API клиент (`src/library/clients/base.py`)
 
 - Улучшена логика retry для ошибок 429 - теперь продолжает попытки вместо остановки
 
@@ -93,7 +95,7 @@ API:
 
 - Улучшена функция`*giveup` для корректной обработки rate limiting
 
-## Конфигурация (`configs/config.yaml`)
+#### Конфигурация (`configs/config.yaml`)
 
 - **Semantic Scholar**: добавлен rate limiting 50 запросов/минуту, поддержка API ключа
 
@@ -101,7 +103,7 @@ API:
 
 - Увеличены настройки retry для обоих API
 
-## PubMed клиент (`src/library/clients/pubmed.py`)
+#### PubMed клиент (`src/library/clients/pubmed.py`)
 
 - Добавлена специальная обработка ошибок 429
 
@@ -111,7 +113,7 @@ API:
 
 ### 5. Новые скрипты мониторинга
 
-## `src/library/scripts/get*semantic*scholar*api*key.py`
+#### `src/library/scripts/get_semantic_scholar_api_key.py`
 
 - Проверка статуса API ключа Semantic Scholar
 
@@ -119,7 +121,7 @@ API:
 
 - Тестирование лимитов с ключом и без
 
-## `src/library/scripts/get*pubmed*api*key.py`
+#### `src/library/scripts/get_pubmed_api_key.py`
 
 - Проверка статуса API ключа PubMed
 
@@ -127,7 +129,7 @@ API:
 
 - Сравнение производительности с ключом и без
 
-## `src/library/scripts/monitor*semantic*scholar.py`
+#### `src/library/scripts/monitor_semantic_scholar.py`
 
 - Непрерывный мониторинг Semantic Scholar API
 
@@ -135,7 +137,7 @@ API:
 
 - Сохранение отчетов в JSON
 
-## `src/library/scripts/monitor*pubmed.py`
+#### `src/library/scripts/monitor_pubmed.py`
 
 - Непрерывный мониторинг PubMed E-utilities
 
@@ -168,54 +170,58 @@ API:
 
 Запуск тестов:
 
-```
-
-python test*fixes.py
-
+```bash
+python test_fixes.py
 ```
 
 ## Использование новых возможностей
 
 ### Получение API ключей
 
-## Semantic Scholar API:```bash
+#### Semantic Scholar API:
 
+```bash
 .\scripts.bat check-semantic-scholar
-export SEMANTIC*SCHOLAR*API*KEY=your*key*here
+export SEMANTIC_SCHOLAR_API_KEY=your_key_here
+```
 
-```## PubMed E-utilities:```bash
+#### PubMed E-utilities:
 
+```bash
 .\scripts.bat check-pubmed
-export PUBMED*API*KEY=your*key*here
-
+export PUBMED_API_KEY=your_key_here
 ```
 
 ### Мониторинг API
 
-## Однократная проверка:```bash
+#### Однократная проверка:
 
+```bash
 .\scripts.bat monitor-semantic-scholar --single
 .\scripts.bat monitor-pubmed --single
+```
 
-```## Агрессивное тестирование лимитов:```bash
+#### Агрессивное тестирование лимитов:
 
+```bash
 .\scripts.bat monitor-pubmed --test-limits
+```
 
-```## Непрерывный мониторинг:```bash
+#### Непрерывный мониторинг:
 
+```bash
 .\scripts.bat monitor-semantic-scholar --interval 30 --duration 5
 .\scripts.bat monitor-pubmed --interval 60 --duration 10
-
 ```
 
 ### Управление конфигурацией
 
-## Переключение Semantic Scholar API:```bash
+#### Переключение Semantic Scholar API:
 
+```bash
 .\scripts.bat toggle-semantic-scholar --disable  # Отключить
 .\scripts.bat toggle-semantic-scholar --enable   # Включить
 .\scripts.bat toggle-semantic-scholar --status   # Проверить статус
-
 ```
 
 ### Рекомендации по оптимизации

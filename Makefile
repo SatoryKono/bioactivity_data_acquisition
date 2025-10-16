@@ -50,6 +50,10 @@ ci-lint: ## Run linting in CI container
 	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci black --check .
 	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci mypy src
 
+ci-security: ## Run security checks in CI container
+	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci safety check --policy-file .safety_policy.yaml
+	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci bandit -r src/ -c .bandit -ll
+
 # Testing targets
 test: ## Run tests locally
 	pytest -v
@@ -162,8 +166,23 @@ version-check: ## Check version consistency
 
 # Security targets
 security-check: ## Run security checks
-	safety check
-	bandit -r src/
+	safety check --policy-file .safety_policy.yaml
+	bandit -r src/ -c .bandit
+
+security-check-ci: ## Run security checks for CI (with JSON output)
+	safety check --policy-file .safety_policy.yaml --json --output safety-report.json || true
+	safety check --policy-file .safety_policy.yaml
+	bandit -r src/ -c .bandit -f json -o bandit-report.json || true
+	bandit -r src/ -c .bandit -ll
+
+security-install: ## Install security tools
+	pip install safety bandit
+
+security-report: ## Generate security reports
+	@echo "Generating security reports..."
+	safety check --policy-file .safety_policy.yaml --json --output reports/safety-report.json || true
+	bandit -r src/ -c .bandit -f json -o reports/bandit-report.json || true
+	@echo "Security reports generated in reports/ directory"
 
 # Dependencies targets
 deps-update: ## Update dependencies

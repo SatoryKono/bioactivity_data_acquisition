@@ -1,0 +1,63 @@
+{
+  "repo": "SatoryKono/bioactivity_data_acquisition",
+  "python_version": "3.10",
+  "package_manager": ["pip"],
+  "cli": {
+    "framework": "typer",
+    "entry_points": ["library.cli:main", "bioactivity-data-acquisition"]
+  },
+  "configs": {
+    "formats": ["yaml", "json", "env"],
+    "files": ["configs/config.yaml", "configs/config_documents_full.yaml", "configs/schema.json"],
+    "secrets": "env"
+  },
+  "etl": {
+    "stages": ["Extract", "Validate", "Transform", "Load"],
+    "validators": ["pandera", "pydantic"],
+    "determinism_controls": ["sort", "column_order", "hashing"]
+  },
+  "deps": {
+    "runtime": [
+      "backoff>=2.2",
+      "pandas>=2.1",
+      "pandera[io]>=0.18",
+      "requests>=2.31",
+      "structlog>=24.1",
+      "typer[all]>=0.9",
+      "pydantic>=1.10",
+      "pydantic-settings>=2.0",
+      "python-dotenv>=1.0",
+      "pyyaml>=6.0",
+      "scipy>=1.10",
+      "scikit-learn>=1.3",
+      "jsonschema>=4.0",
+      "opentelemetry-api>=1.20",
+      "opentelemetry-sdk>=1.20",
+      "opentelemetry-instrumentation-requests>=0.42",
+      "opentelemetry-exporter-jaeger>=1.17"
+    ],
+    "dev": [
+      "pytest",
+      "mypy",
+      "ruff",
+      "black",
+      "pre-commit",
+      "pytest-cov",
+      "pytest-benchmark",
+      "responses",
+      "pandera[mypy]",
+      "types-PyYAML"
+    ]
+  },
+  "ci": {
+    "system": "github_actions",
+    "workflows": [".github/workflows/ci.yaml", ".github/workflows/docs.yml"],
+    "jobs": ["build", "lint", "typecheck", "test", "docs"]
+  },
+  "artifacts": [
+    "data/input",
+    "data/output",
+    "reports",
+    "logs"
+  ]
+}

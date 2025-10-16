@@ -85,14 +85,21 @@ ENTRYPOINT ["python", "-m", "library.cli"]
 # Stage 4: CI image
 FROM base as ci
 
-# Install CI-specific dependencies
+# Install CI-specific dependencies including security tools
 RUN pip install --no-deps \
     pytest-xdist \
     pytest-benchmark \
-    pytest-mock
+    pytest-mock \
+    safety \
+    bandit
 
 # Copy all source code and tests
 COPY . .
+
+# Copy security configuration files
+COPY .bandit .bandit
+COPY .banditignore .banditignore
+COPY .safety_policy.yaml .safety_policy.yaml
 
 # Set ownership to non-root user
 RUN chown -R bioactivity:bioactivity /app

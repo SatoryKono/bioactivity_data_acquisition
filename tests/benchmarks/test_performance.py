@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 
 from library.clients.base import RateLimiter, RateLimitConfig
-from library.utils.rate_limit import TokenBucketRateLimiter
+from library.utils.rate_limit import RateLimiter as TokenBucketRateLimiter
 
 
 class TestCSVExportPerformance:

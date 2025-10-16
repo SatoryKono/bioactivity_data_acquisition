@@ -10,13 +10,13 @@
 
 ### ✅ 1. Анализ текущей системы нормализации
 
-Изучена функция `*normalize*dataframe`в файле`src/library/etl/load.py`,
+Изучена функция `normalize_dataframe` в файле `src/library/etl/load.py`,
 которая вызывается после добавления индексного столбца в строке 232. Функция
 выполняет общую нормализацию данных, но не имела специальной обработки для DOI.
 
 ### ✅ 2. Реализация функции нормализации DOI
 
-Создана функция `normalize*doi*advanced`в файле`src/library/io*/normalize.py`,
+Создана функция `normalize_doi_advanced` в файле `src/library/io_/normalize.py`,
 которая выполняет следующие операции:
 
 1. **Trim**: обрезка пробелов в начале/конце
@@ -25,7 +25,7 @@
 
    - `doi:`, `urn:doi:`, `info:doi/`
 
-   - URL-оболочки:`[http://doi.org/`,](<http://doi.org/`>,) `[https://doi.org/`,](<https://doi.org/`>,) `[http://dx.doi.org/`,](<http://dx.doi.org/`>,) `[https://dx.doi.org/`](<https://dx.doi.org/`>)
+   - URL-оболочки: `http://doi.org/`, `https://doi.org/`, `http://dx.doi.org/`, `https://dx.doi.org/`
 
 4. **Процент-коды**: декодирование percent-encoding
 5. **Пробелы**: удаление всех пробелов вокруг разделителя "/" и внутри строки
@@ -34,10 +34,12 @@
 кавычек
 8. **Множественные слэши**: сокращение повторов и оставление ровно одного
 разделителя
-9. **Валидация формы**: проверка соответствия паттерну `^10\.\d+/.+$`### ✅ 3. Интеграция в систему
+9. **Валидация формы**: проверка соответствия паттерну `^10\.\d+/.+$`
+
+### ✅ 3. Интеграция в систему
 нормализации
 
-Модифицирована функция`*normalize*dataframe`для:
+Модифицирована функция `normalize_dataframe` для:
 
 - Автоматического определения DOI-столбцов (case-insensitive поиск подстроки "doi")
 
@@ -49,7 +51,7 @@
 
 ### ✅ 4. Тестирование
 
-Создан comprehensive набор тестов в файле`tests/test*doi*normalization.py`:
+Создан comprehensive набор тестов в файле `tests/test_doi_normalization.py`:
 
 #### Тесты функции нормализации
 
@@ -87,7 +89,7 @@
 
 ### ✅ 5. Демонстрация
 
-Создан демонстрационный скрипт `scripts/test*doi*normalization*demo.py`, который
+Создан демонстрационный скрипт `scripts/test_doi_normalization_demo.py`, который
 показывает:
 
 - Нормализацию отдельных DOI
@@ -101,21 +103,21 @@
 | Исходный DOI | Нормализованный DOI |
 |--------------|-------------------|
 | `" DOI:10.1000/XYZ-123 "`|`"10.1000/xyz-123"`|
-|`"[https://doi.org/10.1000/xyz-123](https://doi.org/10.1000/xyz-123) "`|`"10.1000/xyz-123"`|
+|`"https://doi.org/10.1000/xyz-123 "`|`"10.1000/xyz-123"`|
 |`"10.1000/xyz%2D123"`|`"10.1000/xyz-123"`|
 |`"10.1000/xyz-123."`|`"10.1000/xyz-123"`|
 |`"URN:DOI:10.5555/  A B C "`|`"10.5555/abc"`|
-|`"[https://dx.doi.org/10.1038/ABC.1"`](<https://dx.doi.org/10.1038/ABC.1"`>) | `"10.1038/abc.1"`|
+|`"https://dx.doi.org/10.1038/ABC.1"`|`"10.1038/abc.1"`|
 |`"info:doi/10.1038/ABC.1///"`|`"10.1038/abc.1"`|
 
 ## Технические детали
 
 ### Файлы изменений
 
-1.`src/library/io*/normalize.py`- добавлена
-функция`normalize*doi*advanced`2.`src/library/etl/load.py`- модифицирована
-функция`*normalize*dataframe`3.`tests/test*doi*normalization.py`- созданы тесты
-4.`scripts/test*doi*normalization*demo.py`- демонстрационный скрипт
+1. `src/library/io_/normalize.py` - добавлена функция `normalize_doi_advanced`
+2. `src/library/etl/load.py` - модифицирована функция `normalize_dataframe`
+3. `tests/test_doi_normalization.py` - созданы тесты
+4. `scripts/test_doi_normalization_demo.py` - демонстрационный скрипт
 
 ### Ключевые особенности
 
