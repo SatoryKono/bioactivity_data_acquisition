@@ -54,14 +54,26 @@ ci-lint: ## Run linting in CI container
 test: ## Run tests locally
 	pytest -v
 
-test-integration: ## Run integration tests
-	pytest -v -m integration
+test-integration: ## Run integration tests (requires --run-integration flag)
+	@echo "Running integration tests..."
+	@echo "Note: Integration tests require network access and may need API keys"
+	@echo "Set environment variables: CHEMBL_API_TOKEN, PUBMED_API_KEY, SEMANTIC_SCHOLAR_API_KEY"
+	pytest tests/integration/ --run-integration -v
 
 test-coverage: ## Run tests with coverage
 	pytest --cov=library --cov-report=term-missing --cov-report=html
 
 test-watch: ## Run tests in watch mode
 	pytest-watch
+
+test-benchmark: ## Run performance benchmarks
+	pytest tests/benchmarks/ -v --benchmark-only
+
+test-benchmark-compare: ## Run benchmarks and compare with previous results
+	pytest tests/benchmarks/ -v --benchmark-only --benchmark-compare
+
+test-benchmark-save: ## Run benchmarks and save results
+	pytest tests/benchmarks/ -v --benchmark-only --benchmark-save
 
 # Quality targets
 lint: ## Run all linting tools

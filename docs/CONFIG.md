@@ -73,12 +73,11 @@ $env:BIOACTIVITY__RUNTIME__WORKERS = "8"
 
 The CLI exposes a `--set` (`-s`) option that accepts dotted paths:
 
-```
+```bash
 
 bioactivity-data-acquisition pipeline --config configs/config.yaml \
   --set runtime.workers=8 \
   --set sources.chembl.pagination.max_pages=1
-
 ```
 
 Each`--set`argument must use`KEY=VALUE`syntax (the equals sign is
@@ -117,8 +116,8 @@ environments. Keep
 | http.global.retries.total | int | 5 | Total retry attempts |
 | http.global.retries.backoff_multiplier | float | 1.0 | Exponential backoff |
 | http.global.headers.User-Agent | str | bioactivity-data-acquisition/0.1.0 | Sent to all sources |
-| sources.<name>.http.base_url | url | — | Per-source base URL |
-| sources.<name>.pagination.max_pages | int/null | null | Pagination cap |
+| sources.\<name\>.http.base_url | url | — | Per-source base URL |
+| sources.\<name\>.pagination.max_pages | int/null | null | Pagination cap |
 | io.output.data_path | path | — | Output dataset path |
 | io.output.qc_report_path | path | — | QC report path |
 | io.output.correlation_path | path | — | Correlation path |

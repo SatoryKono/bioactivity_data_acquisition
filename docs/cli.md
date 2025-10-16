@@ -24,6 +24,7 @@ bioactivity-data-acquisition install-completion powershell
 CLI поддерживает автодополнение для популярных shell:
 
 ### Bash
+
 ```bash
 # Установка
 bioactivity-data-acquisition install-completion bash
@@ -33,6 +34,7 @@ source ~/.local/share/bash-completion/completions/bioactivity-data-acquisition
 ```
 
 ### Zsh
+
 ```bash
 # Установка
 bioactivity-data-acquisition install-completion zsh
@@ -43,6 +45,7 @@ autoload -U compinit && compinit
 ```
 
 ### Fish
+
 ```bash
 # Установка
 bioactivity-data-acquisition install-completion fish
@@ -51,6 +54,7 @@ bioactivity-data-acquisition install-completion fish
 ```
 
 ### PowerShell
+
 ```powershell
 # Установка
 bioactivity-data-acquisition install-completion powershell

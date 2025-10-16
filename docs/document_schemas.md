@@ -11,11 +11,11 @@
 
 ### Обязательные поля
 
- - `document_chembl_id` (str) — Идентификатор документа ChEMBL
+- `document_chembl_id` (str) — Идентификатор документа ChEMBL
 
- - `doi` (str) — Digital Object Identifier
+- `doi` (str) — Digital Object Identifier
 
- - `title` (str) — Название документа
+- `title` (str) — Название документа
 
 ### Опциональные поля
 
@@ -39,7 +39,7 @@
 
 -`month`(int, nullable) - Месяц публикации
 
- - `postcodes` (str, nullable) — Почтовые коды (устарело; поле удаляется на этапе нормализации, если присутствует)
+- `postcodes` (str, nullable) — Почтовые коды (устарело; поле удаляется на этапе нормализации, если присутствует)
 
 -`document*pubmed*id`(int, nullable) - Идентификатор PubMed
 
@@ -55,7 +55,7 @@
 
 ### Обогащенные поля
 
- - `source` (str) — Источник данных: "chembl", "crossref", "openalex", "pubmed", "semantic_scholar"
+- `source` (str) — Источник данных: "chembl", "crossref", "openalex", "pubmed", "semantic_scholar"
 
 ### Поля из Crossref
 

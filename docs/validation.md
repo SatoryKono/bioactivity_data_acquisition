@@ -8,6 +8,7 @@
 - Нормализованные: см. `src/library/schemas/output_schema.py` (NormalizedBioactivitySchema)
 
 Ключевые поля и поведение:
+
 - `strict = False`, допускаются дополнительные колонки
 - `coerce = True`, авто‑приведение типов
 

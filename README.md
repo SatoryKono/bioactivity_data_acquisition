@@ -65,6 +65,33 @@ bioactivity-data-acquisition get-document-data \
 - Тесты, типы и линтеры: `docs/quality.md`
 - CI workflow и триггеры: `docs/ci.md`
 
+### Интеграционные тесты
+
+Интеграционные тесты требуют сетевого доступа и могут потребовать API ключи:
+
+```bash
+# Установка API ключей (опционально)
+export CHEMBL_API_TOKEN="your_chembl_token"
+export PUBMED_API_KEY="your_pubmed_key"
+export SEMANTIC_SCHOLAR_API_KEY="your_semantic_scholar_key"
+
+# Запуск интеграционных тестов
+pytest tests/integration/ --run-integration -v
+
+# Запуск медленных тестов
+pytest -m slow
+
+# Пропуск медленных тестов
+pytest -m "not slow"
+```
+
+Интеграционные тесты включают:
+- **ChEMBL API**: Поиск соединений и активностей, ограничение скорости, обработка ошибок
+- **Pipeline**: Сквозная обработка документов с реальными данными
+- **API Limits**: Ограничение скорости, параллельный доступ, обработка таймаутов
+
+Подробнее: `tests/integration/README.md`
+
 ## Документация
 
 Локальный предпросмотр:
@@ -74,10 +101,8 @@ pip install -r requirements.txt  # при необходимости
 mkdocs serve
 ```
 
-Полный портал: см. материалы в `docs/` и навигацию `mkdocs.yml`.
+Сайт документации: <https://satorykono.github.io/bioactivity_data_acquisition/>
 
 ## Лицензия и вклад
 
 Правила контрибьюшенов: `docs/contributing.md`. Изменения: `docs/changelog.md`.
-
-

@@ -46,6 +46,7 @@ export BIOACTIVITY__HTTP__GLOBAL__TIMEOUT_SEC=60
 ```
 
 Дополнительно:
+
 - Конфигурация: configuration.md
 - CLI: cli.md
 - Артефакты и QC: outputs.md

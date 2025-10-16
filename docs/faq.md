@@ -8,6 +8,7 @@
 
 - Отключить конкретный источник в YAML: `sources.semantic_scholar.enabled: false`
 - Ограничить частоту (YAML):
+
   ```yaml
   sources:
     chembl:
@@ -16,8 +17,10 @@
           max_calls: 1
           period: 5.0
   ```
+
 - Переопределить через CLI: `--set sources.chembl.pagination.max_pages=1`
 - Таймаут/ретраи глобально:
+
   ```bash
   bioactivity-data-acquisition pipeline --config configs/config.yaml \
     --set http.global.timeout_sec=60 \
