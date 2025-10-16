@@ -1,20 +1,20 @@
-# Исправления для гарантированного заполнения колонок в get*document*data
+# Исправления для гарантированного заполнения колонок в get_document_data
 
 ## Проблема
 
-Скрипт `get*document*data`оставлял пустыми колонки:
+Скрипт `get_document_data` оставлял пустыми колонки:
 
-- `chembl*doc*type`
+- `chembl_doc_type`
 
-- `chembl*title`, `chembl*doi`, `chembl*pmid`, `chembl*journal`, `chembl*year`, `chembl*volume`,
-`chembl*issue`
+- `chembl_title`, `chembl_doi`, `chembl_pmid`, `chembl_journal`, `chembl_year`, `chembl_volume`,
+`chembl_issue`
 
-- `crossref*subject`, `crossref*error`
+- `crossref_subject`, `crossref_error`
 
-- `openalex*doi`, `openalex*crossref*doc*type`, `openalex*year`, `openalex*error`
+- `openalex_doi`, `openalex_crossref_doc_type`, `openalex_year`, `openalex_error`
 
-- `pubmed*doi`, `pubmed*mesh*descriptors`, `pubmed*mesh*qualifiers`, `pubmed*chemical*list`,
-`pubmed*error`
+- `pubmed_doi`, `pubmed_mesh_descriptors`, `pubmed_mesh_qualifiers`, `pubmed_chemical_list`,
+`pubmed_error`
 
 ## Проблема с Rate Limiting (429 ошибки)
 
@@ -41,13 +41,13 @@ API:
 
 - Инициализирует все возможные колонки значениями по умолчанию
 
-- Устанавливает `chembl*doc*type = "PUBLICATION"`для всех записей
+- Устанавливает `chembl_doc_type = "PUBLICATION"` для всех записей
 
 - Гарантирует наличие всех колонок в выходном DataFrame
 
 #### Функция `run_document_etl`
 
-- Добавлен вызов `*initialize*all*columns` перед обработкой источников
+- Добавлен вызов `initialize_all_columns` перед обработкой источников
 
 - Улучшено логирование статистики успешных запросов
 
@@ -55,7 +55,7 @@ API:
 
 #### ChEMBL клиент (`src/library/clients/chembl.py`)
 
-- Добавлена установка значения по умолчанию `chembl*doc*type = "PUBLICATION"`
+- Добавлена установка значения по умолчанию `chembl_doc_type = "PUBLICATION"`
 
 #### Crossref клиент (`src/library/clients/crossref.py`)
 

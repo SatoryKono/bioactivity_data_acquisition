@@ -1,5 +1,5 @@
 """HTTP clients for external literature sources."""
-from .base import BaseApiClient, RateLimitConfig, RateLimiter
+from .base import RateLimitConfig, RateLimiter
 from .exceptions import ApiClientError, RateLimitError
 from .bioactivity import BioactivityClient
 from .chembl import ChEMBLClient
@@ -11,7 +11,6 @@ from .session import get_shared_session, reset_shared_session
 
 __all__ = [
     "ApiClientError",
-    "BaseApiClient",
     "RateLimitConfig",
     "RateLimitError",
     "RateLimiter",

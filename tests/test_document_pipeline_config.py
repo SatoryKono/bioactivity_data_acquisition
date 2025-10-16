@@ -46,9 +46,8 @@ def custom_headers_config_yaml(tmp_path: Path) -> Path:
                     }
                 },
                 "rate_limit": {
-                    "requests_per_second": 0.5,
-                    "requests_per_minute": 30,
-                    "burst_size": 5
+                    "max_calls": 1,
+                    "period": 2.0
                 }
             },
             "crossref": {
@@ -98,11 +97,12 @@ def test_create_api_client_uses_source_config(custom_headers_config_yaml: Path) 
         assert str(api_config.base_url) == "https://custom.chembl.api/"
         assert api_config.timeout == 90.0  # Source-specific timeout
         
-        # Check headers are merged correctly (global + source-specific)
+        # Check headers are merged correctly (default + global + source-specific)
         expected_headers = {
-            "User-Agent": "custom-user-agent/1.0",
+            "Accept": "application/json",  # Default
+            "User-Agent": "custom-user-agent/1.0",  # Global overrides default
             "X-Custom-Header": "chembl-override",  # Source overrides global
-            "Authorization": "Bearer custom-token"
+            "Authorization": "Bearer custom-token"  # Source-specific
         }
         assert api_config.headers == expected_headers
         
@@ -112,9 +112,8 @@ def test_create_api_client_uses_source_config(custom_headers_config_yaml: Path) 
         
         # Check rate limit settings
         assert api_config.rate_limit is not None
-        assert api_config.rate_limit.requests_per_second == 0.5
-        assert api_config.rate_limit.requests_per_minute == 30
-        assert api_config.rate_limit.burst_size == 5
+        assert api_config.rate_limit.max_calls == 1
+        assert api_config.rate_limit.period == 2.0
 
 
 def test_create_api_client_fallback_to_global_config(custom_headers_config_yaml: Path) -> None:
@@ -134,11 +133,12 @@ def test_create_api_client_fallback_to_global_config(custom_headers_config_yaml:
         assert str(api_config.base_url) == "https://custom.crossref.api/"
         assert api_config.timeout == 45.0  # Falls back to global
         
-        # Check headers are merged correctly
+        # Check headers are merged correctly (default + global + source-specific)
         expected_headers = {
-            "User-Agent": "custom-user-agent/1.0",
+            "Accept": "application/json",  # Default
+            "User-Agent": "custom-user-agent/1.0",  # Global overrides default
             "X-Custom-Header": "global-value",  # Global value (not overridden)
-            "X-API-Key": "custom-crossref-key"
+            "X-API-Key": "custom-crossref-key"  # Source-specific
         }
         assert api_config.headers == expected_headers
         
@@ -196,11 +196,11 @@ def test_create_api_client_uses_default_urls_when_not_configured() -> None:
         # Should use default URL from _get_base_url
         assert str(api_config.base_url) == "https://www.ebi.ac.uk/chembl/api/data"
         
-        # Should use global timeout
-        assert api_config.timeout == 30.0  # Default global timeout
+        # Should use global timeout, but ChEMBL gets minimum 60 seconds
+        assert api_config.timeout == 60.0  # ChEMBL minimum timeout
         
-        # Should use global headers
-        assert api_config.headers == {"User-Agent": "bioactivity-data-acquisition/0.1.0"}
+        # Should use default headers (from _get_headers function)
+        assert api_config.headers == {"User-Agent": "bioactivity-data-acquisition/0.1.0", "Accept": "application/json"}
 
 
 def test_create_api_client_chembl_minimum_timeout() -> None:

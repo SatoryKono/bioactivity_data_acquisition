@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 
 def _create_api_client(source: str, config: DocumentConfig) -> Any:
     """Create an API client for the specified source."""
-    from library.config import RetrySettings, RateLimitSettings
+    from library.config import RateLimitSettings, RetrySettings
     
     # Get source-specific configuration
     source_config = config.sources.get(source)
@@ -76,8 +76,9 @@ def _create_api_client(source: str, config: DocumentConfig) -> Any:
     if source == "chembl":
         timeout = max(timeout, 60.0)  # At least 60 seconds for ChEMBL
     
-    # Merge headers: global + source-specific
-    headers = {**config.http.global_.headers, **source_config.http.headers}
+    # Merge headers: default + global + source-specific
+    default_headers = _get_headers(source)
+    headers = {**default_headers, **config.http.global_.headers, **source_config.http.headers}
     
     # Use source-specific base_url or fallback to default
     base_url = source_config.http.base_url or _get_base_url(source)
@@ -91,12 +92,21 @@ def _create_api_client(source: str, config: DocumentConfig) -> Any:
     # Create rate limit settings if configured
     rate_limit = None
     if source_config.rate_limit:
-        rate_limit = RateLimitSettings(
-            requests_per_second=source_config.rate_limit.get('requests_per_second'),
-            requests_per_minute=source_config.rate_limit.get('requests_per_minute'),
-            requests_per_hour=source_config.rate_limit.get('requests_per_hour'),
-            burst_size=source_config.rate_limit.get('burst_size')
-        )
+        # Convert various rate limit formats to max_calls/period
+        max_calls = source_config.rate_limit.get('max_calls')
+        period = source_config.rate_limit.get('period')
+        
+        # If not in max_calls/period format, try to convert from other formats
+        if max_calls is None or period is None:
+            requests_per_second = source_config.rate_limit.get('requests_per_second')
+            if requests_per_second is not None:
+                max_calls = 1
+                period = 1.0 / requests_per_second
+            else:
+                # Skip rate limiting if we can't determine the format
+                rate_limit = None
+        else:
+            rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
     
     # Create base API client config
     api_config = APIClientConfig(

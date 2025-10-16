@@ -247,7 +247,7 @@ def health_config(tmp_path: Path) -> Path:
 @responses.activate
 def test_health_command_with_enabled_sources(runner: CliRunner, health_config: Path) -> None:
     """Test that the health command works with enabled sources."""
-    # Mock responses for health checks
+    # Mock responses for health checks - use the actual URLs that will be constructed
     responses.add(
         responses.HEAD,
         "https://www.ebi.ac.uk/chembl/api/data/health",
@@ -290,7 +290,10 @@ def test_health_command_json_output(runner: CliRunner, health_config: Path) -> N
     # Should succeed and output JSON
     assert result.exit_code == 0
     import json
-    output = json.loads(result.stdout)
+    # Extract JSON from output (skip the "Checking API health..." message)
+    json_start = result.stdout.find('{')
+    json_output = result.stdout[json_start:]
+    output = json.loads(json_output)
     assert "total_apis" in output
     assert "healthy_apis" in output
     assert "apis" in output
@@ -309,17 +312,17 @@ def test_health_command_no_enabled_sources(runner: CliRunner, tmp_path: Path) ->
                 "headers": {"User-Agent": "test"}
             }
         },
-        "sources": {
-            "disabled_source": {
-                "name": "disabled_source",
-                "enabled": False,
-                "http": {
-                    "base_url": "https://example.com/api",
-                    "timeout_sec": 30.0,
-                    "headers": {"Accept": "application/json"}
+            "sources": {
+                "chembl": {
+                    "name": "chembl",
+                    "enabled": False,
+                    "http": {
+                        "base_url": "https://example.com/api",
+                        "timeout_sec": 30.0,
+                        "headers": {"Accept": "application/json"}
+                    }
                 }
-            }
-        },
+            },
         "io": {
             "input": {},
             "output": {

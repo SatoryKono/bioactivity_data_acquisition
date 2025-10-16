@@ -8,10 +8,26 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from library.clients.base import BaseApiClient
+import requests
 from library.clients.circuit_breaker import CircuitState
 from library.config import APIClientConfig
 from library.logger import get_logger
+
+
+class SimpleHealthClient:
+    """Simple client for health checking."""
+    
+    def __init__(self, config: APIClientConfig):
+        self.config = config
+        self.base_url = str(config.base_url)
+        self.session = requests.Session()
+        self.session.headers.update(config.headers)
+    
+    def _make_url(self, path: str = "") -> str:
+        """Make a URL from base URL and path."""
+        if path:
+            return f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
+        return self.base_url
 
 
 @dataclass
@@ -29,7 +45,7 @@ class HealthStatus:
 class HealthChecker:
     """Health checker for API clients."""
     
-    def __init__(self, clients: Dict[str, BaseApiClient]):
+    def __init__(self, clients: Dict[str, Any]):
         self.clients = clients
         self.logger = get_logger(self.__class__.__name__)
         self.console = Console()
@@ -55,7 +71,7 @@ class HealthChecker:
         
         return results
     
-    def _check_client_health(self, client: BaseApiClient, name: str, timeout: float) -> HealthStatus:
+    def _check_client_health(self, client: Any, name: str, timeout: float) -> HealthStatus:
         """Check health of a single client."""
         start_time = time.time()
         
@@ -212,8 +228,8 @@ def create_health_checker_from_config(config: Dict[str, APIClientConfig]) -> Hea
     
     for name, api_config in config.items():
         try:
-            # Create a basic client for health checking
-            client = BaseApiClient(api_config)
+            # Create a simple client for health checking
+            client = SimpleHealthClient(api_config)
             clients[name] = client
         except Exception as e:
             # Log error but continue with other clients

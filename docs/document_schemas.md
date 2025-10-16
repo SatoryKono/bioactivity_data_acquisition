@@ -21,27 +21,27 @@
 
 -`abstract`(str, nullable) - Аннотация документа
 
--`pubmed*authors`(str, nullable) - Авторы документа из PubMed
+- `pubmed_authors` (str, nullable) - Авторы документа из PubMed
 
--`document*classification`(float, nullable) - Классификация документа
+- `document_classification` (float, nullable) - Классификация документа
 
--`referenses*on*previous*experiments`(bool, nullable) - Содержит внешние ссылки
+- `referenses_on_previous_experiments` (bool, nullable) - Содержит внешние ссылки
 
--`first*page`(int, nullable) - Номер первой страницы
+- `first_page` (int, nullable) - Номер первой страницы
 
--`original*experimental*document`(bool, nullable) - Экспериментальный документ
+- `original_experimental_document` (bool, nullable) - Экспериментальный документ
 
 -`issue`(int, nullable) - Номер выпуска журнала
 
 -`journal`(str, nullable) - Название журнала
 
--`last*page`(float, nullable) - Номер последней страницы
+- `last_page` (float, nullable) - Номер последней страницы
 
 -`month`(int, nullable) - Месяц публикации
 
 - `postcodes` (str, nullable) — Почтовые коды (устарело; поле удаляется на этапе нормализации, если присутствует)
 
--`document*pubmed*id`(int, nullable) - Идентификатор PubMed
+- `document_pubmed_id` (int, nullable) - Идентификатор PubMed
 
 -`volume`(float, nullable) - Том журнала
 
@@ -63,9 +63,9 @@
 
 ### Поля из OpenAlex
 
--`openalex*id`(str, nullable) - Идентификатор работы OpenAlex
+- `openalex_id` (str, nullable) - Идентификатор работы OpenAlex
 
--`publication*year`(int, nullable) - Год публикации из OpenAlex
+- `publication_year` (int, nullable) - Год публикации из OpenAlex
 
 ### Поля из PubMed
 
@@ -73,9 +73,9 @@
 
 ### Поля из Semantic Scholar
 
--`publication*venue`(str, nullable) - Место публикации из Semantic Scholar
+- `publication_venue` (str, nullable) - Место публикации из Semantic Scholar
 
--`publication*types`(str, nullable) - Типы публикации из Semantic Scholar
+- `publication_types` (str, nullable) - Типы публикации из Semantic Scholar
 
 ## Схема QC метрик (DocumentQCSchema)
 
@@ -85,19 +85,19 @@
 
 ### Примеры QC метрик
 
--`row*count`- Количество обработанных строк
+- `row_count` - Количество обработанных строк
 
--`enabled*sources`- Количество включенных источников
+- `enabled_sources` - Количество включенных источников
 
--`chembl*records`- Количество записей из ChEMBL
+- `chembl_records` - Количество записей из ChEMBL
 
--`crossref*records`- Количество записей из Crossref
+- `crossref_records` - Количество записей из Crossref
 
--`openalex*records`- Количество записей из OpenAlex
+- `openalex_records` - Количество записей из OpenAlex
 
--`pubmed*records`- Количество записей из PubMed
+- `pubmed_records` - Количество записей из PubMed
 
--`semantic*scholar*records`- Количество записей из Semantic Scholar
+- `semantic_scholar_records` - Количество записей из Semantic Scholar
 
 ## Диаграмма потока данных
 
@@ -121,7 +121,7 @@ flowchart TB
 ### Валидация входных данных
 
 ```python
-from library.schemas.document*input*schema import DocumentInputSchema
+from library.schemas.document_input_schema import DocumentInputSchema
 
 # Загрузка и валидация данных
 df = pd.read_csv("data/input/documents.csv")
@@ -131,7 +131,7 @@ validated_df = DocumentInputSchema.validate(df)
 ### Валидация выходных данных
 
 ```python
-from library.schemas.document*output*schema import DocumentOutputSchema
+from library.schemas.document_output_schema import DocumentOutputSchema
 
 # Валидация обогащенных данных
 enriched_df = DocumentOutputSchema.validate(df)
@@ -140,7 +140,7 @@ enriched_df = DocumentOutputSchema.validate(df)
 ### Валидация QC метрик
 
 ```python
-from library.schemas.document*output*schema import DocumentQCSchema
+from library.schemas.document_output_schema import DocumentQCSchema
 
 # Валидация QC метрик
 qc_df = DocumentQCSchema.validate(qc_data)

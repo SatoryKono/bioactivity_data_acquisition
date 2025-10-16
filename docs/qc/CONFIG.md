@@ -12,7 +12,7 @@ passed to the CLI.
 3.**Environment variables**– keys prefixed with `BIOACTIVITY__` by default.
 4.**CLI overrides**– provided with repeated`--set section.key=value`options.
 
-Secrets (API tokens, credentials) are**never** read from YAML. They are
+Secrets (API tokens, credentials) are **never** read from YAML. They are
 resolved exclusively from
 environment variables during the final loading step. Missing required secrets
 raise an error before
@@ -29,7 +29,7 @@ any network call is attempted.
 
 | `sources`| Per-source HTTP configuration. Each key is a source slug. |`http.base*url`, `pagination.*`, `http.timeout*sec`. |
 
-| `io`| Input/output paths. Directories are created automatically. |`input.documents*csv`, `output.data*path`, `output.qc*report*path`. |
+| `io`| Input/output paths. Directories are created automatically. |`input.documents_csv`, `output.data_path`, `output.qc_report_path`. |
 
 | `runtime`| Execution toggles exposed via CLI and env overrides. |`workers`.
 |
@@ -37,7 +37,7 @@ any network call is attempted.
 | `logging`| Structured logging configuration. |`level`. |
 
 | `validation`| Pandera validation options and QC thresholds. |`strict`,
-`qc.max*missing*fraction`, `qc.max*duplicate*fraction`. |
+`qc.max_missing_fraction`, `qc.max_duplicate_fraction`. |
 
 | `determinism`| Controls reproducibility of generated artefacts. |`sort.by`,
 `sort.ascending`, `column*order`. |
