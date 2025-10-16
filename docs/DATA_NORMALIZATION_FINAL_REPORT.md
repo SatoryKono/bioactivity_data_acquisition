@@ -11,7 +11,7 @@
 
 ### 1. Основные изменения
 
-#### Файл:`src/library/etl/load.py`## Функция`*normalize*dataframe`:
+#### Файл:`src/library/etl/load.py`## Функция`*normalize*dataframe`
 
 - Добавлена функция для нормализации всех типов данных
 
@@ -23,7 +23,7 @@
 
 - Исключение столбца index из нормализации
 
-## Интеграция в `write*deterministic*csv`:
+## Интеграция в `write*deterministic*csv`
 
 - Нормализация выполняется после добавления столбца index
 

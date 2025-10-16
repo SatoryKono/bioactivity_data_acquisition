@@ -13,7 +13,7 @@
 python src/library/scripts/check_api_limits.py
 ```
 
-## Что проверяется:
+## Что проверяется
 
 - Доступность каждого API
 
@@ -25,7 +25,7 @@ python src/library/scripts/check_api_limits.py
 
 - Ошибки подключения
 
-## Результат:
+## Результат
 
 - Таблица с результатами в консоли
 
@@ -39,7 +39,7 @@ python src/library/scripts/check_api_limits.py
 python src/library/scripts/check_specific_limits.py
 ```
 
-## Что показывается:
+## Что показывается
 
 - Лимиты для каждого API
 
@@ -57,7 +57,7 @@ python src/library/scripts/check_specific_limits.py
 python src/library/scripts/quick_api_check.py [api_name]
 ```
 
-## Доступные API:
+## Доступные API
 
 -`chembl`- ChEMBL API
 
@@ -69,7 +69,7 @@ python src/library/scripts/quick_api_check.py [api_name]
 
 -`semantic`- Semantic Scholar API
 
-## Примеры:
+## Примеры
 
 ```bash
 python src/library/scripts/quick_api_check.py crossref

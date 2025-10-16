@@ -17,6 +17,7 @@ higher rate limits.
 ## 📊 Анализ логов
 
 Из ваших логов видно:
+
 1. **Первая попытка**: Ошибка 429
 2. **Повторная попытка через 109.5 секунд**: Снова ошибка 429
 3. **Fallback**: Использование резервных данных
@@ -25,7 +26,7 @@ higher rate limits.
 
 ### 1. **Получить API ключ Semantic Scholar**(Рекомендуется)
 
-## Шаги:
+## Шаги
 
 1. Перейдите на:
 [https://www.semanticscholar.org/product/api#api-key-form](https://www.semanticscholar.org/product/api#api-key-form)
@@ -139,11 +140,11 @@ fallback*config = FallbackConfig(
 
 ```
 
-## Для rate limiting (429):
+## Для rate limiting (429)
 
 delay = min(180.0 + (attempt * 120.0), 600.0)  # 3-10 минут
 
-## Для Retry-After заголовков:
+## Для Retry-After заголовков
 
 wait*time = max(wait*time, 300)  # Минимум 5 минут для Semantic Scholar
 

@@ -379,7 +379,7 @@ Scholar. Данные проходят через ETL-процесс, котор
 
 ### 3. OpenAlex API
 
-**Базовый URL**:`[https://api.openalex.org/works`](https://api.openalex.org/works`)
+**Базовый URL**:`[https://api.openalex.org/works`](<https://api.openalex.org/works`>)
 
 **Документация**: [https://docs.openalex.org/](https://docs.openalex.org/)
 
@@ -472,7 +472,7 @@ Scholar. Данные проходят через ETL-процесс, котор
 ### 5. Semantic Scholar API
 
 **Базовый
-URL**:`[https://api.semanticscholar.org/graph/v1/paper`](https://api.semanticscholar.org/graph/v1/paper`)
+URL**:`[https://api.semanticscholar.org/graph/v1/paper`](<https://api.semanticscholar.org/graph/v1/paper`>)
 
 **Документация**: [https://api.semanticscholar.org/](https://api.semanticscholar.org/)
 
