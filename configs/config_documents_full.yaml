@@ -225,11 +225,24 @@ determinism:
     na_position: last
   # Порядок колонок в выходном файле
   column_order:
-    # Основные поля документа
+    # Основные поля документа (оригинальные из ChEMBL)
     - document_chembl_id      # ID документа в ChEMBL
     - title                   # Название публикации (объединенное)
-    - authors                 # Авторы
-    - citation                # Форматированная цитата
+    - doi                     # DOI публикации (объединенный)
+    - pubmed_id               # PubMed идентификатор
+    - journal                 # Название журнала (нормализованное)
+    - year                    # Год публикации
+    - abstract                # Аннотация документа
+    - authors                 # Авторы документа
+    - classification          # Классификация документа
+    - document_contains_external_links  # Содержит ли документ внешние ссылки
+    - first_page              # Номер первой страницы
+    - is_experimental_doc     # Является ли документ экспериментальным
+    - issue                   # Номер выпуска журнала
+    - last_page               # Номер последней страницы
+    - month                   # Месяц публикации
+    - volume                  # Том журнала
+    - citation                # Форматированная литературная ссылка
     - retrieved_at            # Время получения данных
     
     # Поля из ChEMBL
@@ -239,11 +252,9 @@ determinism:
     - chembl_year             # Год из ChEMBL
     - chembl_volume           # Том из ChEMBL
     - chembl_issue            # Номер выпуска из ChEMBL
-    - doc_type                # Тип документа из ChEMBL
     
     # Поля из Crossref
     - crossref_title          # Название из Crossref
-    - crossref_doc_type       # Тип документа из Crossref
     - crossref_subject        # Предметная область из Crossref
     - crossref_journal        # Название журнала из Crossref
     - crossref_volume         # Том из Crossref
@@ -255,7 +266,8 @@ determinism:
     
     # Поля из OpenAlex
     - openalex_title          # Название из OpenAlex
-    - openalex_type_crossref  # Тип документа из OpenAlex
+    - openalex_doc_type       # Тип документа из OpenAlex
+    - openalex_publication_year  # Год публикации из OpenAlex
     - openalex_journal        # Название журнала из OpenAlex
     - openalex_volume         # Том из OpenAlex
     - openalex_issue          # Номер выпуска из OpenAlex
@@ -264,22 +276,33 @@ determinism:
     - openalex_year           # Год из OpenAlex
     - openalex_error          # Ошибка из OpenAlex
     
-    # Поля из PubMed
+    # Поля из PubMed (расширенные)
     - pubmed_pmid             # PMID из PubMed
-    - pubmed_title            # Название из PubMed
+    - pubmed_article_title    # Название статьи из PubMed
+    - pubmed_abstract         # Полный текст аннотации из PubMed
     - pubmed_journal_title    # Название журнала из PubMed
-    - pubmed_volume           # Том из PubMed
+    - pubmed_volume           # Том журнала из PubMed
     - pubmed_issue            # Номер выпуска из PubMed
-    - pubmed_pages            # Страницы из PubMed
-    - pubmed_year             # Год из PubMed
+    - pubmed_start_page       # Начальная страница из PubMed
+    - pubmed_end_page         # Конечная страница из PubMed
+    - pubmed_publication_type # Тип публикации из PubMed
+    - pubmed_mesh_descriptors # MeSH дескрипторы из PubMed
+    - pubmed_mesh_qualifiers  # MeSH квалификаторы из PubMed
+    - pubmed_chemical_list    # Список химических веществ из PubMed
+    - pubmed_year_completed   # Год завершения из PubMed
+    - pubmed_month_completed  # Месяц завершения из PubMed
+    - pubmed_day_completed    # День завершения из PubMed
+    - pubmed_year_revised     # Год пересмотра из PubMed
+    - pubmed_month_revised    # Месяц пересмотра из PubMed
+    - pubmed_day_revised      # День пересмотра из PubMed
+    - pubmed_issn             # ISSN журнала из PubMed
     - pubmed_authors          # Авторы из PubMed
-    - pubmed_abstract         # Аннотация из PubMed
+    - pubmed_year             # Год из PubMed
     - pubmed_error            # Ошибка из PubMed
     
     # Поля из Semantic Scholar
     - semantic_scholar_pmid   # PMID из Semantic Scholar
     - semantic_scholar_semantic_scholar_id  # ID из Semantic Scholar
-    - semantic_scholar_publication_types    # Типы публикации из Semantic Scholar
     - semantic_scholar_venue  # Название журнала из Semantic Scholar
     - semantic_scholar_external_ids         # Внешние ID из Semantic Scholar
     - semantic_scholar_error  # Ошибка из Semantic Scholar
@@ -289,6 +312,13 @@ determinism:
     - openalex_doi_key        # DOI из OpenAlex
     - pubmed_doi              # DOI из PubMed
     - semantic_scholar_doi    # DOI из Semantic Scholar
+    
+    # Группа полей типов публикации из всех источников
+    - doc_type                # Тип документа из ChEMBL
+    - crossref_doc_type       # Тип документа из Crossref
+    - openalex_type_crossref  # Тип документа из OpenAlex
+    - pubmed_publication_type # Тип публикации из PubMed
+    - semantic_scholar_publication_types    # Типы публикации из Semantic Scholar
 
 # Настройки постобработки данных
 postprocess:
