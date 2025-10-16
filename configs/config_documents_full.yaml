@@ -104,7 +104,6 @@ runtime:
   workers: 8  # Больше воркеров для полной обработки
   limit: null  # Без ограничений
   dry_run: false
-  date_tag: null  # Автоматически генерируется
 
 logging:
   level: INFO
@@ -152,19 +151,5 @@ postprocess:
     enabled: true
   journal_normalization:
     enabled: true
-    columns: [
-      "journal", 
-      "pubmed_journal_title", 
-      "chembl_journal", 
-      "crossref_journal",
-      "openalex_journal",
-      "semantic_scholar_venue"
-    ]
   citation_formatting:
     enabled: true
-    columns:
-      journal: "journal"
-      volume: "volume"
-      issue: "issue"
-      first_page: "first_page"
-      last_page: "last_page"

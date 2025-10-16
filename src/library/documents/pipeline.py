@@ -17,6 +17,11 @@ from library.config import APIClientConfig
 from library.documents.config import DocumentConfig
 from library.tools.citation_formatter import add_citation_column
 from library.tools.journal_normalizer import normalize_journal_columns
+from library.etl.enhanced_correlation import (
+    build_enhanced_correlation_analysis,
+    build_enhanced_correlation_reports,
+    build_correlation_insights
+)
 
 
 class DocumentPipelineError(RuntimeError):
@@ -45,6 +50,9 @@ class DocumentETLResult:
 
     documents: pd.DataFrame
     qc: pd.DataFrame
+    correlation_analysis: dict[str, Any] | None = None
+    correlation_reports: dict[str, pd.DataFrame] | None = None
+    correlation_insights: list[dict[str, Any]] | None = None
 
 
 _REQUIRED_COLUMNS = {"document_chembl_id", "doi", "title"}
@@ -423,7 +431,42 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     
     qc = pd.DataFrame(qc_metrics)
 
-    return DocumentETLResult(documents=enriched_frame, qc=qc)
+    # Выполняем корреляционный анализ если включен в конфигурации
+    correlation_analysis = None
+    correlation_reports = None
+    correlation_insights = None
+    
+    # Проверяем, включен ли корреляционный анализ в конфигурации
+    if hasattr(config, 'postprocess') and hasattr(config.postprocess, 'correlation') and config.postprocess.correlation.enabled:
+        try:
+            print("Выполняем корреляционный анализ документов...")
+            
+            # Создаем временный DataFrame для анализа (только числовые и категориальные колонки)
+            analysis_df = enriched_frame.copy()
+            
+            # Удаляем колонки с ошибками и временными данными
+            error_columns = [col for col in analysis_df.columns if col.endswith('_error')]
+            analysis_df = analysis_df.drop(columns=error_columns)
+            
+            # Выполняем корреляционный анализ
+            correlation_analysis = build_enhanced_correlation_analysis(analysis_df)
+            correlation_reports = build_enhanced_correlation_reports(analysis_df)
+            correlation_insights = build_correlation_insights(analysis_df)
+            
+            print(f"Корреляционный анализ завершен. Найдено {len(correlation_insights)} инсайтов.")
+            
+        except Exception as exc:
+            print(f"Предупреждение: Ошибка при выполнении корреляционного анализа: {exc}")
+            print(f"Тип ошибки: {type(exc).__name__}")
+            # Продолжаем без корреляционного анализа
+
+    return DocumentETLResult(
+        documents=enriched_frame, 
+        qc=qc,
+        correlation_analysis=correlation_analysis,
+        correlation_reports=correlation_reports,
+        correlation_insights=correlation_insights
+    )
 
 
 def write_document_outputs(
@@ -451,7 +494,36 @@ def write_document_outputs(
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise DocumentIOError(f"Failed to write outputs: {exc}") from exc
 
-    return {"documents": documents_path, "qc": qc_path}
+    outputs = {"documents": documents_path, "qc": qc_path}
+
+    # Сохраняем корреляционные отчеты если они есть
+    if result.correlation_reports:
+        try:
+            correlation_dir = output_dir / f"documents_correlation_report_{date_tag}"
+            correlation_dir.mkdir(exist_ok=True)
+            
+            # Сохраняем каждый тип корреляционного отчета
+            for report_name, report_df in result.correlation_reports.items():
+                if not report_df.empty:
+                    report_path = correlation_dir / f"{report_name}.csv"
+                    report_df.to_csv(report_path, index=True)
+                    outputs[f"correlation_{report_name}"] = report_path
+            
+            # Сохраняем инсайты как JSON
+            if result.correlation_insights:
+                import json
+                insights_path = correlation_dir / "correlation_insights.json"
+                with open(insights_path, 'w', encoding='utf-8') as f:
+                    json.dump(result.correlation_insights, f, ensure_ascii=False, indent=2)
+                outputs["correlation_insights"] = insights_path
+            
+            print(f"Корреляционные отчеты сохранены в: {correlation_dir}")
+            
+        except Exception as exc:
+            print(f"Предупреждение: Ошибка при сохранении корреляционных отчетов: {exc}")
+            print(f"Тип ошибки: {type(exc).__name__}")
+
+    return outputs
 
 
 __all__ = [

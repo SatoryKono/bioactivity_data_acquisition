@@ -49,6 +49,15 @@ class DocumentRuntimeSettings(BaseModel):
     dry_run: bool = Field(default=False)
 
 
+class DocumentPostprocessSettings(BaseModel):
+    """Postprocessing configuration for documents."""
+
+    qc: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=True))
+    correlation: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=False))
+    journal_normalization: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=True))
+    citation_formatting: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=True))
+
+
 class DocumentHTTPRetrySettings(BaseModel):
     """Retry configuration for HTTP calls."""
 
@@ -89,6 +98,7 @@ class DocumentConfig(BaseModel):
     runtime: DocumentRuntimeSettings = Field(default_factory=DocumentRuntimeSettings)
     http: DocumentHTTPSettings = Field(default_factory=DocumentHTTPSettings)
     sources: dict[str, SourceToggle] = Field(default_factory=_default_sources)
+    postprocess: DocumentPostprocessSettings = Field(default_factory=DocumentPostprocessSettings)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -192,6 +202,7 @@ __all__ = [
     "DocumentInputSettings",
     "DocumentOutputSettings",
     "DocumentRuntimeSettings",
+    "DocumentPostprocessSettings",
     "SourceToggle",
     "load_document_config",
 ]
