@@ -14,18 +14,15 @@
 В функцию`write*deterministic*csv`добавлен код для автоматического добавления
 столбца`index`:
 
-```
-
+```python
 if df.empty:
-    df*to*write = df.copy()
+    df_to_write = df.copy()
 else:
-    df*to*write = *deterministic*order(df, determinism)
+    df_to_write = _deterministic_order(df, determinism)
 
-## Добавляем столбец index с порядковыми номерами строк (начиная с 0)
-
-    df*to*write = df*to*write.copy()
-    df*to*write.insert(0, 'index', range(len(df*to*write)))
-
+# Добавляем столбец index с порядковыми номерами строк (начиная с 0)
+    df_to_write = df_to_write.copy()
+    df_to_write.insert(0, 'index', range(len(df_to_write)))
 ```
 
 ### 2. Улучшение функции`*deterministic*order`
@@ -34,18 +31,13 @@ else:
 Функция`*deterministic*order`была улучшена для корректной обработки случаев,
 когда колонки для сортировки отсутствуют в данных:
 
-```
+```python
+# Фильтруем колонки для сортировки, оставляя только существующие
+sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
 
-## Фильтруем колонки для сортировки, оставляя только существующие
-
-sort*by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if
-col in df.columns]
-
-## Если нет колонок для сортировки, возвращаем DataFrame как есть
-
-if not sort*by:
-    return ordered.reset*index(drop=True)
-
+# Если нет колонок для сортировки, возвращаем DataFrame как есть
+if not sort_by:
+    return ordered.reset_index(drop=True)
 ```
 
 ## Функциональность
@@ -62,22 +54,24 @@ if not sort*by:
 
 ### Пример результата
 
-## Исходные данные:```
+### Исходные данные
 
-compound*id   target  activity*value activity*type reference
+```csv
+compound_id   target  activity_value activity_type reference
 CHEMBL1      TARGET1             5.2          IC50   PMID123
 CHEMBL2      TARGET2             7.1          EC50   PMID456
 CHEMBL3      TARGET1             3.8          IC50   PMID789
 CHEMBL4      TARGET3             9.4            Ki   PMID012
+```
 
-```## Результат после добавления index:```
+### Результат после добавления index
 
-index compound*id   target  activity*value activity*type reference
+```csv
+index compound_id   target  activity_value activity_type reference
     0     CHEMBL1  TARGET1             5.2          IC50   PMID123
     1     CHEMBL2  TARGET2             7.1          EC50   PMID456
     2     CHEMBL3  TARGET1             3.8          IC50   PMID789
     3     CHEMBL4  TARGET3             9.4            Ki   PMID012
-
 ```
 
 ## Тестирование
@@ -92,16 +86,12 @@ index compound*id   target  activity*value activity*type reference
 
 ### Запуск тестов
 
-```
+```bash
+# Простые тесты
+python tests/test_index_column_simple.py
 
-## Простые тесты
-
-python tests/test*index*column*simple.py
-
-## Демонстрация
-
-python scripts/test*index*column*demo.py
-
+# Демонстрация
+python scripts/test_index_column_demo.py
 ```
 
 ## Совместимость
@@ -139,24 +129,19 @@ python scripts/test*index*column*demo.py
 Столбец`index`добавляется автоматически при каждом сохранении данных через
 пайплайн. Никаких дополнительных действий не требуется.
 
-### Пример использования в анализе:
+### Пример использования в анализе
 
-```
-
+```python
 import pandas as pd
 
-## Загрузка данных с индексом
+# Загрузка данных с индексом
+df = pd.read_csv('output/documents_20250115.csv')
 
-df = pd.read*csv('output/documents*20250115.csv')
+# Ссылка на конкретную строку
+specific_row = df[df['index'] == 42]
 
-## Ссылка на конкретную строку
-
-specific*row = df[df['index'] == 42]
-
-## Группировка по диапазонам индексов
-
-first*hundred = df[df['index'] < 100]
-
+# Группировка по диапазонам индексов
+first_hundred = df[df['index'] < 100]
 ```
 
 ## Заключение

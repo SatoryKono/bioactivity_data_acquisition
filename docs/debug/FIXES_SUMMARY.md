@@ -4,16 +4,16 @@
 
 Скрипт `get*document*data`оставлял пустыми колонки:
 
--`chembl*doc*type`
+- `chembl*doc*type`
 
--`chembl*title`, `chembl*doi`, `chembl*pmid`, `chembl*journal`, `chembl*year`, `chembl*volume`,
+- `chembl*title`, `chembl*doi`, `chembl*pmid`, `chembl*journal`, `chembl*year`, `chembl*volume`,
 `chembl*issue`
 
--`crossref*subject`, `crossref*error`
+- `crossref*subject`, `crossref*error`
 
--`openalex*doi`, `openalex*crossref*doc*type`, `openalex*year`, `openalex*error`
+- `openalex*doi`, `openalex*crossref*doc*type`, `openalex*year`, `openalex*error`
 
--`pubmed*doi`, `pubmed*mesh*descriptors`, `pubmed*mesh*qualifiers`, `pubmed*chemical*list`,
+- `pubmed*doi`, `pubmed*mesh*descriptors`, `pubmed*mesh*qualifiers`, `pubmed*chemical*list`,
 `pubmed*error`
 
 ## Проблема с Rate Limiting (429 ошибки)
@@ -103,7 +103,7 @@ API:
 
 - Увеличены настройки retry для обоих API
 
-#### PubMed клиент (`src/library/clients/pubmed.py`)
+#### PubMed клиент - Rate Limiting (`src/library/clients/pubmed.py`)
 
 - Добавлена специальная обработка ошибок 429
 
@@ -178,14 +178,14 @@ python test_fixes.py
 
 ### Получение API ключей
 
-#### Semantic Scholar API:
+#### Semantic Scholar API
 
 ```bash
 .\scripts.bat check-semantic-scholar
 export SEMANTIC_SCHOLAR_API_KEY=your_key_here
 ```
 
-#### PubMed E-utilities:
+#### PubMed E-utilities
 
 ```bash
 .\scripts.bat check-pubmed
@@ -194,20 +194,20 @@ export PUBMED_API_KEY=your_key_here
 
 ### Мониторинг API
 
-#### Однократная проверка:
+#### Однократная проверка
 
 ```bash
 .\scripts.bat monitor-semantic-scholar --single
 .\scripts.bat monitor-pubmed --single
 ```
 
-#### Агрессивное тестирование лимитов:
+#### Агрессивное тестирование лимитов
 
 ```bash
 .\scripts.bat monitor-pubmed --test-limits
 ```
 
-#### Непрерывный мониторинг:
+#### Непрерывный мониторинг
 
 ```bash
 .\scripts.bat monitor-semantic-scholar --interval 30 --duration 5
@@ -216,7 +216,7 @@ export PUBMED_API_KEY=your_key_here
 
 ### Управление конфигурацией
 
-#### Переключение Semantic Scholar API:
+#### Переключение Semantic Scholar API
 
 ```bash
 .\scripts.bat toggle-semantic-scholar --disable  # Отключить
@@ -226,12 +226,12 @@ export PUBMED_API_KEY=your_key_here
 
 ### Рекомендации по оптимизации
 
-1.**Получите API ключи**для увеличения лимитов:
+1. **Получите API ключи** для увеличения лимитов:
 
    - Semantic Scholar: [https://www.semanticscholar.org/product/api#api-key-form](https://www.semanticscholar.org/product/api#api-key-form)
 
    - PubMed: [https://www.ncbi.nlm.nih.gov/account/](https://www.ncbi.nlm.nih.gov/account/)
 
-2.**Используйте мониторинг**для отслеживания использования лимитов
+2. **Используйте мониторинг** для отслеживания использования лимитов
 
-3.**Настройте переменные окружения** для автоматического использования ключей
+3. **Настройте переменные окружения** для автоматического использования ключей

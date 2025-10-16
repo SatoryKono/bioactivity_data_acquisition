@@ -27,13 +27,11 @@ Create and activate a virtual environment (Python ≥ 3.10), then install the
 project with the
 development dependencies:
 
-```
-
+```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install .[dev]
-
 ```
 
 If you only need the runtime dependencies, drop the `[dev]` extra.
@@ -63,60 +61,48 @@ of available keys.
 
 Run the pipeline from the CLI using Typer:
 
-```
-
+```bash
 bioactivity-data-acquisition pipeline --config configs/config.yaml
-
 ```
 
 Override individual configuration values at runtime:
 
-```
-
+```bash
 BIOACTIVITY__LOGGING__LEVEL=DEBUG \
   bioactivity-data-acquisition pipeline \
   --config configs/config.yaml \
   --set runtime.workers=8 \
   --set sources.chembl.pagination.max_pages=1
-
 ```
 
 ## Testing and Quality Gates
 
 Run the full validation suite (coverage threshold 90% is enforced by pytest):
 
-```
-
+```bash
 pytest
-
 ```
 
 Type-check the codebase with mypy in strict mode:
 
-```
-
+```bash
 mypy src
-
 ```
 
 Lint and format using ruff and black:
 
-```
-
+```bash
 ruff check .
 black .
-
 ```
 
 ## Pre-commit Hooks
 
 Install pre-commit hooks to run Ruff, Black, mypy, and pytest automatically:
 
-```
-
+```bash
 pre-commit install
 pre-commit run --all-files
-
 ```
 
 ## Continuous Integration
@@ -131,45 +117,32 @@ on each push and pull request targeting `main` or `work`.
 
 ### Быстрая проверка
 
-```
-
-## Проверка всех API
-
+```bash
+# Проверка всех API
 python src/library/scripts/api_health_check.py --save
 
-## Проверка конкретного API
-
+# Проверка конкретного API
 python src/library/scripts/quick_api_check.py crossref
-
 ```
 
 ### Детальная проверка
 
-```
-
-## Полная проверка с отчетом
-
+```bash
+# Полная проверка с отчетом
 python src/library/scripts/check_api_limits.py
 
-## Детальная информация о лимитах
-
+# Детальная информация о лимитах
 python src/library/scripts/check_specific_limits.py
-
 ```
 
 ### Мониторинг в реальном времени
 
-```
-
-## Мониторинг Crossref API каждые 30 секунд
-
+```bash
+# Мониторинг Crossref API каждые 30 секунд
 python src/library/scripts/monitor_api.py crossref
 
-## Мониторинг с настройками
-
-python src/library/scripts/monitor_api.py pubmed -i 60 -d 3600 # каждую минуту в
-течение часа
-
+# Мониторинг с настройками
+python src/library/scripts/monitor_api.py pubmed -i 60 -d 3600 # каждую минуту в течение часа
 ```
 
 Подробная документация: [docs/API_LIMITS_CHECK.md](docs/API_LIMITS_CHECK.md)
