@@ -1,0 +1,5 @@
+metric,value,threshold,ratio,status
+row_count,5,,,pass
+total_columns,2,,,pass
+duplicates,0,1.0,0.0,pass
+qc_passed,1,,,pass

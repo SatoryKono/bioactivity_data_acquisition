@@ -1,0 +1,4 @@
+column,dtype,role,non_null,non_empty,empty_pct,unique_cnt,unique_pct_of_non_empty,pattern_cov_doi,pattern_cov_issn,pattern_cov_isbn,pattern_cov_url,pattern_cov_email,bool_like_cov,numeric_cov,numeric_min,numeric_p50,numeric_p95,numeric_max,numeric_mean,numeric_std,date_cov,date_min,date_p50,date_max,text_len_min,text_len_p50,text_len_p95,text_len_max,top_values
+index,int64,identifier,3,3,0.0,3,100.0,0.0,0.0,0.0,0.0,0.0,0.0,100.0,0.0,1.0,1.9,2.0,1.0,1.0,0.0,,,,0,0,0,0,"{'0': 1, '1': 1, '2': 1}"
+document_chembl_id,object,identifier,3,3,0.0,3,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,,,9,9,9,9,"{'chembl123': 1, 'chembl456': 1, 'chembl789': 1}"
+doi,object,text,2,2,33.33333333333333,2,100.0,66.66666666666666,0.0,66.66666666666666,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,,,4,11,11,11,"{'10.1000/123': 1, '10.1000/456': 1}"

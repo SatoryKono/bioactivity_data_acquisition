@@ -254,7 +254,7 @@ class ValidationSettings(BaseModel):
 class SortSettings(BaseModel):
     """Sorting configuration for deterministic outputs."""
 
-    by: list[str] = Field(default_factory=lambda: ["compound_id", "target"])
+    by: list[str] = Field(default_factory=lambda: ["document_chembl_id", "doi"])
     ascending: list[bool] | bool = Field(default=True)
     na_position: Literal["first", "last"] = Field(default="last")
 
@@ -265,8 +265,8 @@ class DeterminismSettings(BaseModel):
     sort: SortSettings = Field(default_factory=SortSettings)
     column_order: list[str] = Field(
         default_factory=lambda: [
-            "compound_id",
-            "target",
+            "document_chembl_id",
+            "doi",
             "activity_value",
             "activity_unit",
             "source",

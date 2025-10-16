@@ -35,6 +35,10 @@ def _deterministic_order(
     df: pd.DataFrame,
     determinism: DeterminismSettings,
 ) -> pd.DataFrame:
+    # Если это QC отчет, не применяем фильтрацию колонок
+    if _is_qc_report(df):
+        return df.reset_index(drop=True)
+    
     # Сохраняем только колонки, указанные в column_order
     desired_order = [col for col in determinism.column_order if col in df.columns]
     # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
@@ -263,8 +267,10 @@ def write_deterministic_csv(
         df_to_write = _deterministic_order(df, determinism)
         
         # Добавляем столбец index с порядковыми номерами строк (начиная с 0)
+        # Но только если это не QC отчет (который уже имеет структуру metric/value)
         df_to_write = df_to_write.copy()
-        df_to_write.insert(0, 'index', range(len(df_to_write)))
+        if not _is_qc_report(df_to_write):
+            df_to_write.insert(0, 'index', range(len(df_to_write)))
         
         # Нормализуем данные перед сохранением
         df_to_write = _normalize_dataframe(df_to_write, logger=logger)
@@ -279,7 +285,8 @@ def write_deterministic_csv(
         logger.info("load_complete", path=str(destination), rows=len(df_to_write))
     
     # Автоматически генерируем и сохраняем QC и корреляционные таблицы
-    if not df.empty:
+    # Но только для основных данных, не для самих QC отчетов и корреляций
+    if not df.empty and not _is_report_file(destination):
         _auto_generate_qc_and_correlation_reports(
             df_to_write, 
             destination, 
@@ -288,6 +295,35 @@ def write_deterministic_csv(
         )
     
     return destination
+
+
+def _is_qc_report(df: pd.DataFrame) -> bool:
+    """Проверяет, является ли DataFrame QC отчетом."""
+    # QC отчеты имеют структуру с колонками metric и value
+    return (
+        len(df.columns) == 2 and 
+        'metric' in df.columns and 
+        'value' in df.columns
+    )
+
+
+def _is_report_file(file_path: Path) -> bool:
+    """Проверяет, является ли файл отчетом (QC или корреляционным)."""
+    file_name = file_path.name.lower()
+    
+    # Проверяем паттерны имен файлов отчетов
+    report_patterns = [
+        '_quality_report.csv',
+        '_quality_report_enhanced.csv',
+        '_quality_report_detailed',
+        '_correlation_report.csv',
+        '_correlation_analysis.csv',
+        '_correlation_insights.csv',
+        '_qc.csv',
+        '_corr.csv'
+    ]
+    
+    return any(pattern in file_name for pattern in report_patterns)
 
 
 def _auto_generate_qc_and_correlation_reports(

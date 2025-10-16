@@ -1,0 +1,49 @@
+{
+  "numeric_correlations": {
+    "pearson": {},
+    "spearman": {},
+    "covariance": {}
+  },
+  "categorical_correlations": {
+    "cramers_v": {
+      "document_chembl_id": {
+        "document_chembl_id": 1.0,
+        "doi": 0.0
+      },
+      "doi": {
+        "document_chembl_id": 0.0,
+        "doi": 1.0
+      }
+    },
+    "contingency_tables": {},
+    "chi2_stats": {}
+  },
+  "mixed_correlations": {
+    "eta_squared": {
+      "document_chembl_id": {
+        "index": 1.0
+      },
+      "doi": {
+        "index": 0.5
+      }
+    },
+    "point_biserial": {
+      "document_chembl_id": {
+        "index": 0.0
+      },
+      "doi": {
+        "index": 0.0
+      }
+    }
+  },
+  "cross_correlations": {
+    "lag_correlations": {},
+    "rolling_correlations": {}
+  },
+  "correlation_summary": {
+    "total_columns": 3,
+    "numeric_columns": 1,
+    "categorical_columns": 2,
+    "datetime_columns": 0
+  }
+}

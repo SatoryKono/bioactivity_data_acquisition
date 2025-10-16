@@ -55,7 +55,13 @@ def validate_doi_fields(df: pd.DataFrame) -> pd.DataFrame:
         elif len(non_empty_dois) == 1:
             # Только один DOI - считаем валидным
             invalid_doi.append(False)
-            valid_doi.append(row['chembl_doi'] if not _is_empty_value(row['chembl_doi']) else non_empty_dois[0])
+            # Находим оригинальное значение DOI (не нормализованное)
+            original_doi = None
+            for field in doi_fields:
+                if field in row and not _is_empty_value(row[field]):
+                    original_doi = row[field]
+                    break
+            valid_doi.append(original_doi)
         else:
             # Несколько DOI - проверяем совпадения
             chembl_doi = _normalize_value(row['chembl_doi']) if not _is_empty_value(row['chembl_doi']) else None
@@ -75,7 +81,15 @@ def validate_doi_fields(df: pd.DataFrame) -> pd.DataFrame:
                 valid_doi.append(pd.NA)
             else:
                 invalid_doi.append(False)
-                valid_doi.append(row['chembl_doi'] if not _is_empty_value(row['chembl_doi']) else chembl_doi)
+                # Возвращаем оригинальное значение DOI из ChEMBL, если оно есть
+                if not _is_empty_value(row['chembl_doi']):
+                    valid_doi.append(row['chembl_doi'])
+                else:
+                    # Иначе берем первый найденный DOI
+                    for field in doi_fields:
+                        if field in row and not _is_empty_value(row[field]):
+                            valid_doi.append(row[field])
+                            break
     
     df_copy['invalid_doi'] = invalid_doi
     df_copy['valid_doi'] = valid_doi
@@ -95,7 +109,7 @@ def validate_journal_fields(df: pd.DataFrame) -> pd.DataFrame:
     df_copy = df.copy()
     
     # Поля journal из разных источников
-    journal_fields = ['chembl_journal', 'pubmed_journal', 'semantic_scholar_journal']
+    journal_fields = ['chembl_journal', 'crossref_journal', 'pubmed_journal', 'semantic_scholar_journal']
     
     invalid_journal = []
     valid_journal = []
@@ -114,7 +128,13 @@ def validate_journal_fields(df: pd.DataFrame) -> pd.DataFrame:
         elif len(non_empty_journals) == 1:
             # Только один journal - считаем валидным
             invalid_journal.append(False)
-            valid_journal.append(row['chembl_journal'] if not _is_empty_value(row['chembl_journal']) else non_empty_journals[0])
+            # Находим оригинальное значение journal (не нормализованное)
+            original_journal = None
+            for field in journal_fields:
+                if field in row and not _is_empty_value(row[field]):
+                    original_journal = row[field]
+                    break
+            valid_journal.append(original_journal)
         else:
             # Несколько journal - проверяем совпадения
             chembl_journal = _normalize_value(row['chembl_journal']) if not _is_empty_value(row['chembl_journal']) else None
@@ -134,7 +154,15 @@ def validate_journal_fields(df: pd.DataFrame) -> pd.DataFrame:
                 valid_journal.append(pd.NA)
             else:
                 invalid_journal.append(False)
-                valid_journal.append(row['chembl_journal'] if not _is_empty_value(row['chembl_journal']) else chembl_journal)
+                # Возвращаем оригинальное значение journal из ChEMBL, если оно есть
+                if not _is_empty_value(row['chembl_journal']):
+                    valid_journal.append(row['chembl_journal'])
+                else:
+                    # Иначе берем первый найденный journal
+                    for field in journal_fields:
+                        if field in row and not _is_empty_value(row[field]):
+                            valid_journal.append(row[field])
+                            break
     
     df_copy['invalid_journal'] = invalid_journal
     df_copy['valid_journal'] = valid_journal
@@ -154,7 +182,7 @@ def validate_year_fields(df: pd.DataFrame) -> pd.DataFrame:
     df_copy = df.copy()
     
     # Поля year из разных источников
-    year_fields = ['chembl_year', 'openalex_year']
+    year_fields = ['chembl_year', 'crossref_year', 'openalex_year']
     
     invalid_year = []
     valid_year = []
@@ -177,7 +205,16 @@ def validate_year_fields(df: pd.DataFrame) -> pd.DataFrame:
         elif len(non_empty_years) == 1:
             # Только один year - считаем валидным
             invalid_year.append(False)
-            valid_year.append(row['chembl_year'] if not _is_empty_value(row['chembl_year']) else non_empty_years[0])
+            # Находим оригинальное значение year (не нормализованное)
+            original_year = None
+            for field in year_fields:
+                if field in row and not _is_empty_value(row[field]):
+                    try:
+                        original_year = int(row[field])
+                        break
+                    except (ValueError, TypeError):
+                        pass
+            valid_year.append(original_year)
         else:
             # Несколько year - проверяем совпадения
             chembl_year = None
@@ -202,7 +239,21 @@ def validate_year_fields(df: pd.DataFrame) -> pd.DataFrame:
                 valid_year.append(pd.NA)
             else:
                 invalid_year.append(False)
-                valid_year.append(row['chembl_year'] if not _is_empty_value(row['chembl_year']) else chembl_year)
+                # Возвращаем оригинальное значение year из ChEMBL, если оно есть
+                if not _is_empty_value(row['chembl_year']):
+                    try:
+                        valid_year.append(int(row['chembl_year']))
+                    except (ValueError, TypeError):
+                        valid_year.append(pd.NA)
+                else:
+                    # Иначе берем первый найденный year
+                    for field in year_fields:
+                        if field in row and not _is_empty_value(row[field]):
+                            try:
+                                valid_year.append(int(row[field]))
+                                break
+                            except (ValueError, TypeError):
+                                pass
     
     df_copy['invalid_year'] = invalid_year
     df_copy['valid_year'] = valid_year
@@ -222,7 +273,7 @@ def validate_volume_fields(df: pd.DataFrame) -> pd.DataFrame:
     df_copy = df.copy()
     
     # Поля volume из разных источников
-    volume_fields = ['chembl_volume', 'pubmed_volume']
+    volume_fields = ['chembl_volume', 'crossref_volume', 'openalex_volume', 'pubmed_volume']
     
     invalid_volume = []
     valid_volume = []
@@ -241,7 +292,13 @@ def validate_volume_fields(df: pd.DataFrame) -> pd.DataFrame:
         elif len(non_empty_volumes) == 1:
             # Только один volume - считаем валидным
             invalid_volume.append(False)
-            valid_volume.append(row['chembl_volume'] if not _is_empty_value(row['chembl_volume']) else non_empty_volumes[0])
+            # Находим оригинальное значение volume (не нормализованное)
+            original_volume = None
+            for field in volume_fields:
+                if field in row and not _is_empty_value(row[field]):
+                    original_volume = row[field]
+                    break
+            valid_volume.append(original_volume)
         else:
             # Несколько volume - проверяем совпадения
             chembl_volume = _normalize_value(row['chembl_volume']) if not _is_empty_value(row['chembl_volume']) else None
@@ -261,7 +318,15 @@ def validate_volume_fields(df: pd.DataFrame) -> pd.DataFrame:
                 valid_volume.append(pd.NA)
             else:
                 invalid_volume.append(False)
-                valid_volume.append(row['chembl_volume'] if not _is_empty_value(row['chembl_volume']) else chembl_volume)
+                # Возвращаем оригинальное значение volume из ChEMBL, если оно есть
+                if not _is_empty_value(row['chembl_volume']):
+                    valid_volume.append(row['chembl_volume'])
+                else:
+                    # Иначе берем первый найденный volume
+                    for field in volume_fields:
+                        if field in row and not _is_empty_value(row[field]):
+                            valid_volume.append(row[field])
+                            break
     
     df_copy['invalid_volume'] = invalid_volume
     df_copy['valid_volume'] = valid_volume
@@ -281,7 +346,7 @@ def validate_issue_fields(df: pd.DataFrame) -> pd.DataFrame:
     df_copy = df.copy()
     
     # Поля issue из разных источников
-    issue_fields = ['chembl_issue', 'pubmed_issue']
+    issue_fields = ['chembl_issue', 'crossref_issue', 'openalex_issue', 'pubmed_issue']
     
     invalid_issue = []
     valid_issue = []
@@ -300,7 +365,13 @@ def validate_issue_fields(df: pd.DataFrame) -> pd.DataFrame:
         elif len(non_empty_issues) == 1:
             # Только один issue - считаем валидным
             invalid_issue.append(False)
-            valid_issue.append(row['chembl_issue'] if not _is_empty_value(row['chembl_issue']) else non_empty_issues[0])
+            # Находим оригинальное значение issue (не нормализованное)
+            original_issue = None
+            for field in issue_fields:
+                if field in row and not _is_empty_value(row[field]):
+                    original_issue = row[field]
+                    break
+            valid_issue.append(original_issue)
         else:
             # Несколько issue - проверяем совпадения
             chembl_issue = _normalize_value(row['chembl_issue']) if not _is_empty_value(row['chembl_issue']) else None
@@ -320,7 +391,15 @@ def validate_issue_fields(df: pd.DataFrame) -> pd.DataFrame:
                 valid_issue.append(pd.NA)
             else:
                 invalid_issue.append(False)
-                valid_issue.append(row['chembl_issue'] if not _is_empty_value(row['chembl_issue']) else chembl_issue)
+                # Возвращаем оригинальное значение issue из ChEMBL, если оно есть
+                if not _is_empty_value(row['chembl_issue']):
+                    valid_issue.append(row['chembl_issue'])
+                else:
+                    # Иначе берем первый найденный issue
+                    for field in issue_fields:
+                        if field in row and not _is_empty_value(row[field]):
+                            valid_issue.append(row[field])
+                            break
     
     df_copy['invalid_issue'] = invalid_issue
     df_copy['valid_issue'] = valid_issue

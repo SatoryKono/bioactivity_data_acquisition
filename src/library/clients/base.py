@@ -224,16 +224,20 @@ class BaseApiClient:
             # Проверяем, не является ли ответ XML (например, от ChEMBL API)
             content_type = response.headers.get('content-type', '').lower()
             if 'xml' in content_type:
-                self.logger.warning(
+                self.logger.info(
                     "xml_response_received",
                     content_type=content_type,
                     url=url,
-                    message="API returned XML instead of JSON, this may indicate a server issue"
+                    message="API returned XML, attempting to parse"
                 )
-                raise ApiClientError(
-                    f"API returned XML instead of JSON (content-type: {content_type}). "
-                    "This may be a temporary server issue. Please try again later."
-                ) from exc
+                # Пытаемся парсить XML
+                try:
+                    import xml.etree.ElementTree as ET
+                    root = ET.fromstring(response.text)
+                    payload = self._xml_to_dict(root)
+                except Exception as xml_exc:
+                    self.logger.error("xml_parse_error", error=str(xml_exc))
+                    raise ApiClientError(f"Failed to parse XML response: {xml_exc}") from xml_exc
             else:
                 self.logger.error("invalid_json", error=str(exc), content_type=content_type)
                 raise ApiClientError("response was not valid JSON") from exc
@@ -242,3 +246,28 @@ class BaseApiClient:
         if not isinstance(payload, dict):
             raise ApiClientError("expected JSON object from API")
         return payload
+
+    def _xml_to_dict(self, element) -> dict[str, Any]:
+        """Преобразует XML элемент в словарь."""
+        result = {}
+        
+        # Обрабатываем атрибуты
+        if element.attrib:
+            result.update(element.attrib)
+        
+        # Обрабатываем дочерние элементы
+        for child in element:
+            child_dict = self._xml_to_dict(child)
+            if child.tag in result:
+                # Если ключ уже существует, создаем список
+                if not isinstance(result[child.tag], list):
+                    result[child.tag] = [result[child.tag]]
+                result[child.tag].append(child_dict)
+            else:
+                result[child.tag] = child_dict
+        
+        # Если нет дочерних элементов и атрибутов, возвращаем текст
+        if not result and element.text:
+            return element.text.strip()
+        
+        return result

@@ -289,6 +289,28 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     normalised["document_chembl_id"] = normalised["document_chembl_id"].astype(str).str.strip()
     normalised["doi"] = normalised["doi"].astype(str).str.strip()
     normalised["title"] = normalised["title"].astype(str).str.strip()
+    
+    # Обрабатываем дополнительные поля из исходного CSV, если они присутствуют
+    # Маппинг старых имен колонок на новые
+    if "classification" in normalised.columns:
+        normalised["document_classification"] = pd.to_numeric(normalised["classification"], errors='coerce')
+    
+    if "document_contains_external_links" in normalised.columns:
+        normalised["referenses_on_previous_experiments"] = normalised["document_contains_external_links"].astype('boolean')
+    
+    if "is_experimental_doc" in normalised.columns:
+        normalised["original_experimental_document"] = normalised["is_experimental_doc"].astype('boolean')
+    
+    # Также обрабатываем поля, если они уже имеют правильные имена
+    if "document_classification" in normalised.columns:
+        normalised["document_classification"] = pd.to_numeric(normalised["document_classification"], errors='coerce')
+    
+    if "referenses_on_previous_experiments" in normalised.columns:
+        normalised["referenses_on_previous_experiments"] = normalised["referenses_on_previous_experiments"].astype('boolean')
+    
+    if "original_experimental_document" in normalised.columns:
+        normalised["original_experimental_document"] = normalised["original_experimental_document"].astype('boolean')
+    
     normalised = normalised.sort_values("document_chembl_id").reset_index(drop=True)
     return normalised
 
@@ -373,12 +395,12 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                     print("=" * 80)
                     print("SEMANTIC SCHOLAR RATE LIMITING INFO:")
                     print("Semantic Scholar API has very strict rate limits without an API key.")
-                    print("Current limit: ~1 request per minute")
+                    print("Current limit: 1 request per minute (controlled by rate limiter)")
                     print("To get higher limits, apply for an API key at:")
                     print("https://www.semanticscholar.org/product/api#api-key-form")
                     print("=" * 80)
-                    time.sleep(65)  # 65 секунд между запросами (чуть больше минуты)
-                    print("Semantic Scholar: Waiting 65 seconds to respect rate limits...")
+                    # Убираем избыточную задержку - rate limiter уже контролирует это
+                    print("Semantic Scholar: Rate limiting controlled by configuration...")
                 else:
                     time.sleep(2)  # Дополнительная задержка для OpenAlex
             
@@ -403,11 +425,11 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                   
             # Для источников с высоким rate limiting добавляем задержку после завершения
             if source in ["semantic_scholar", "openalex"]:
-                print("Waiting before next source to respect rate limits...")
+                print("Rate limiting controlled by configuration...")
                 import time
                 if source == "semantic_scholar":
-                    time.sleep(30)  # Дополнительная задержка для Semantic Scholar
-                    print("Semantic Scholar: Additional 30 seconds wait completed.")
+                    # Убираем избыточную задержку - rate limiter уже контролирует это
+                    print("Semantic Scholar: Rate limiting handled by configuration.")
                 else:
                     time.sleep(5)  # Задержка для OpenAlex
                 

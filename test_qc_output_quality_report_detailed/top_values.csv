@@ -1,0 +1,9 @@
+column,value,count,percentage
+metric,row_count,1,20.0
+metric,missing_document_chembl_id,1,20.0
+metric,missing_doi,1,20.0
+metric,missing_title,1,20.0
+metric,duplicates,1,20.0
+value,0,3,60.0
+value,3,1,20.0
+value,1,1,20.0
