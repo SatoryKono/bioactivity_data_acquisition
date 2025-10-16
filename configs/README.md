@@ -50,7 +50,7 @@ configs/config*documents.yaml
 
 ```
 
-### 3.`config*documents*test.yaml`(Быстрое тестирование)
+### 3. `config_documents_test.yaml` (Быстрое тестирование)
 
 **Назначение**: Быстрое тестирование функциональности
 **Особенности**:
@@ -70,11 +70,11 @@ configs/config*documents.yaml
 ```
 
 bioactivity-data-acquisition get-document-data --config
-configs/config*documents*test.yaml
+configs/config_documents_test.yaml
 
 ```
 
-### 4.`config*documents*full.yaml`(Полная обработка)
+### 4. `config_documents_full.yaml` (Полная обработка)
 
 **Назначение**: Максимальная детализация и все источники
 **Особенности**:
@@ -94,7 +94,7 @@ configs/config*documents*test.yaml
 ```
 
 bioactivity-data-acquisition get-document-data --config
-configs/config*documents*full.yaml
+configs/config_documents_full.yaml
 
 ```
 
@@ -155,17 +155,18 @@ postprocess:
 
 ```
 
-export CHEMBL*API*TOKEN="your*chembl*token"
-export CROSSREF*API*KEY="your*crossref*key"
-export PUBMED*API*KEY="your*pubmed*key"
-export SEMANTIC*SCHOLAR*API*KEY="your*semantic*scholar*key"
+export CHEMBL_API_TOKEN="your_chembl_token"
+export CROSSREF_API_KEY="your_crossref_key"
+export PUBMED_API_KEY="your_pubmed_key"
+export SEMANTIC_SCHOLAR_API_KEY="your_semantic_scholar_key"
 
 ```
 
 ## Рекомендации по использованию
 
-1. **Для разработки**: Используйте`config*documents*test.yaml`2. **Для продакшена**:
-Используйте`config*documents.yaml`или`config*documents*full.yaml`3. **Для отладки**: Включите DEBUG
+1. **Для разработки**: Используйте `config_documents_test.yaml`
+2. **Для продакшена**: Используйте `config_documents.yaml` или `config_documents_full.yaml`
+3. **Для отладки**: Включите DEBUG
 уровень логирования
 4. **Для больших объемов**: Увеличьте количество воркеров и таймауты
 
@@ -183,7 +184,7 @@ export SEMANTIC*SCHOLAR*API*KEY="your*semantic*scholar*key"
 
 ```
 
-python -m library.tools.check*api*limits
+python -m library.tools.check_api_limits
 python -m library.tools.monitor*api
 
 ```
