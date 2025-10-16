@@ -109,6 +109,7 @@ class HTTPSourceSettings(BaseModel):
     retries: RetrySettings | None = None
     headers: dict[str, str] = Field(default_factory=dict)
     rate_limit: RateLimitSettings | None = None
+    health_endpoint: str | None = Field(default=None, description="Custom health check endpoint. If None, uses base_url for health checks")
 
     @property
     def timeout(self) -> float | None:
@@ -141,6 +142,7 @@ class APIClientConfig(BaseModel):
     timeout: float = Field(default=30.0, gt=0)
     retries: RetrySettings = Field(default_factory=RetrySettings)
     rate_limit: RateLimitSettings | None = None
+    health_endpoint: str | None = Field(default=None, description="Custom health check endpoint. If None, uses base_url for health checks")
 
     model_config = ConfigDict(frozen=True)
 
@@ -202,6 +204,7 @@ class SourceSettings(BaseModel):
             timeout=timeout,
             retries=retries,
             rate_limit=self.http.rate_limit,
+            health_endpoint=self.http.health_endpoint,
         )
 
 
@@ -299,6 +302,10 @@ class DeterminismSettings(BaseModel):
             "retrieved_at",
             "smiles",
         ]
+    )
+    lowercase_columns: list[str] = Field(
+        default_factory=list,
+        description="Список колонок, которые должны быть приведены к нижнему регистру при нормализации. По умолчанию пустой - регистр сохраняется."
     )
 
 

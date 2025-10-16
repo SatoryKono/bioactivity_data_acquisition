@@ -61,11 +61,11 @@ def _deterministic_order(
     ).reset_index(drop=True)
 
 
-def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
+def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | None = None, logger: BoundLogger | None = None) -> pd.DataFrame:
     """
     Нормализует DataFrame перед сохранением:
     - DOI-столбцы: специальная нормализация DOI
-    - Строковые переменные: в нижний регистр, обрезка пробелов
+    - Строковые переменные: обрезка пробелов, приведение к нижнему регистру только для колонок из determinism.lowercase_columns
     - Пустые ячейки: заполнение NA
     - Числовые данные: нормализация
     - Логические данные: нормализация
@@ -129,6 +129,13 @@ def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
             # Заменяем None на NA
             df_normalized[column] = df_normalized[column].replace([None], pd.NA)
             
+            # Определяем, нужно ли приводить эту колонку к нижнему регистру
+            should_lowercase = (
+                determinism is not None and 
+                determinism.lowercase_columns is not None and 
+                column in determinism.lowercase_columns
+            )
+            
             # Нормализуем все значения (включая пустые строки)
             for idx in df_normalized.index:
                 value = df_normalized.loc[idx, column]
@@ -142,7 +149,11 @@ def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
                     pass
                 
                 # Конвертируем в строку и нормализуем
-                str_value = str(value).strip().lower()
+                str_value = str(value).strip()
+                
+                # Приводим к нижнему регистру только если колонка указана в конфигурации
+                if should_lowercase:
+                    str_value = str_value.lower()
                 
                 # Проверяем, является ли результат пустой строкой или специальным значением
                 if str_value in ['', 'nan', 'none', 'null']:
@@ -287,7 +298,7 @@ def write_deterministic_csv(
             df_to_write.insert(0, 'index', range(len(df_to_write)))
         
         # Нормализуем данные перед сохранением
-        df_to_write = _normalize_dataframe(df_to_write, logger=logger)
+        df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)
 
     if file_format == "parquet":
         df_to_write.to_parquet(destination, index=False, compression=parquet_settings.compression)

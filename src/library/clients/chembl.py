@@ -3,15 +3,15 @@ from __future__ import annotations
 
 from typing import Any
 
-# BaseApiClient is not available, using direct implementation
+from library.clients.base import BaseApiClient
 from library.config import APIClientConfig
 
 
-class ChEMBLClient:
+class ChEMBLClient(BaseApiClient):
     """HTTP client for the ChEMBL document endpoint."""
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
-        self.config = config
+        super().__init__(config, **kwargs)
 
     def fetch_by_doc_id(self, doc_id: str) -> dict[str, Any]:
         """Retrieve a document by its ChEMBL document identifier."""
@@ -22,8 +22,12 @@ class ChEMBLClient:
             "Content-Type": "application/json"
         }
         
-        payload = self._request("GET", f"document/{doc_id}", headers=headers)
-        return self._parse_document(payload)
+        try:
+            payload = self._request("GET", f"document/{doc_id}", headers=headers)
+            return self._parse_document(payload)
+        except Exception as e:
+            # В случае ошибки возвращаем пустую запись с информацией об ошибке
+            return self._create_empty_record(doc_id, str(e))
 
     def _parse_document(self, payload: dict[str, Any]) -> dict[str, Any]:
         document = dict(payload)

@@ -105,7 +105,9 @@ def _create_api_client(source: str, config: DocumentConfig) -> Any:
             else:
                 # Skip rate limiting if we can't determine the format
                 rate_limit = None
-        else:
+        
+        # Create RateLimitSettings object if we have valid max_calls and period
+        if max_calls is not None and period is not None:
             rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
     
     # Create base API client config

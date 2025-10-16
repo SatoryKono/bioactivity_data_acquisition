@@ -2,7 +2,8 @@
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
+from enum import Enum
 
 import typer
 from rich.console import Console
@@ -12,6 +13,13 @@ import requests
 from library.clients.circuit_breaker import CircuitState
 from library.config import APIClientConfig
 from library.logger import get_logger
+
+
+class HealthCheckStrategy(Enum):
+    """Strategy for health checking."""
+    BASE_URL = "base_url"  # Check base URL directly
+    CUSTOM_ENDPOINT = "custom_endpoint"  # Check custom health endpoint
+    DEFAULT_HEALTH = "default_health"  # Check /health endpoint (legacy)
 
 
 class SimpleHealthClient:
@@ -28,6 +36,21 @@ class SimpleHealthClient:
         if path:
             return f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
         return self.base_url
+    
+    def get_health_check_url(self) -> str:
+        """Get the URL to use for health checking based on configuration."""
+        if self.config.health_endpoint:
+            return self._make_url(self.config.health_endpoint)
+        else:
+            # Use base URL for health checks (more reliable for external APIs)
+            return self.base_url
+    
+    def get_health_check_strategy(self) -> HealthCheckStrategy:
+        """Determine the health check strategy based on configuration."""
+        if self.config.health_endpoint:
+            return HealthCheckStrategy.CUSTOM_ENDPOINT
+        else:
+            return HealthCheckStrategy.BASE_URL
 
 
 @dataclass
@@ -88,17 +111,48 @@ class HealthChecker:
                         error_message="Circuit breaker is OPEN"
                     )
             
-            # Try to make a simple request to check connectivity
-            # Use a lightweight endpoint if available
-            if hasattr(client, '_make_url'):
-                # Try to access a simple endpoint
+            # Determine health check strategy and URL
+            if hasattr(client, 'get_health_check_url'):
+                test_url = client.get_health_check_url()
+                strategy = client.get_health_check_strategy()
+            else:
+                # Fallback for legacy clients
                 test_url = client._make_url("health") if hasattr(client, '_make_url') else None
+                strategy = HealthCheckStrategy.DEFAULT_HEALTH
+            
+            if test_url:
+                # Make a simple HEAD request to check connectivity
+                response = client.session.head(test_url, timeout=timeout)
+                response_time_ms = (time.time() - start_time) * 1000
                 
-                if test_url:
-                    # Make a simple HEAD request to check connectivity
-                    response = client.session.head(test_url, timeout=timeout)
-                    response_time_ms = (time.time() - start_time) * 1000
-                    
+                # For external APIs, 404 might be acceptable if the base URL is reachable
+                if strategy == HealthCheckStrategy.BASE_URL:
+                    # For base URL checks, any response (including 404) indicates the service is reachable
+                    if response.status_code in [200, 404, 405]:  # 405 = Method Not Allowed (common for HEAD)
+                        return HealthStatus(
+                            name=name,
+                            is_healthy=True,
+                            response_time_ms=response_time_ms,
+                            circuit_state=circuit_state
+                        )
+                    elif response.status_code < 500:  # 4xx errors (except 404) might indicate issues
+                        return HealthStatus(
+                            name=name,
+                            is_healthy=False,
+                            response_time_ms=response_time_ms,
+                            circuit_state=circuit_state,
+                            error_message=f"HTTP {response.status_code}"
+                        )
+                    else:  # 5xx errors indicate server issues
+                        return HealthStatus(
+                            name=name,
+                            is_healthy=False,
+                            response_time_ms=response_time_ms,
+                            circuit_state=circuit_state,
+                            error_message=f"HTTP {response.status_code}"
+                        )
+                else:
+                    # For custom endpoints, expect 200-299 for healthy status
                     if response.status_code < 400:
                         return HealthStatus(
                             name=name,
@@ -240,6 +294,7 @@ def create_health_checker_from_config(config: Dict[str, APIClientConfig]) -> Hea
 
 
 __all__ = [
+    "HealthCheckStrategy",
     "HealthStatus",
     "HealthChecker", 
     "create_health_checker_from_config"

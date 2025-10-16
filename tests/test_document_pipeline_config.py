@@ -257,3 +257,61 @@ def test_create_api_client_all_sources() -> None:
             call_args = mock_client.call_args
             api_config = call_args[0][0]
             assert api_config.name == source
+
+
+def test_create_api_client_requests_per_second_rate_limit() -> None:
+    """Test that _create_api_client creates RateLimitSettings from requests_per_second format."""
+    
+    config_data = {
+        "sources": {
+            "semantic_scholar": {
+                "enabled": True,
+                "rate_limit": {
+                    "requests_per_second": 0.5  # 1 request every 2 seconds
+                }
+            }
+        }
+    }
+    
+    config = DocumentConfig.model_validate(config_data)
+    
+    with patch('library.documents.pipeline.SemanticScholarClient') as mock_client:
+        client = _create_api_client("semantic_scholar", config)
+        
+        mock_client.assert_called_once()
+        call_args = mock_client.call_args
+        api_config = call_args[0][0]
+        
+        # Verify rate limit settings were created correctly
+        assert api_config.rate_limit is not None
+        assert api_config.rate_limit.max_calls == 1
+        assert api_config.rate_limit.period == 2.0  # 1.0 / 0.5 = 2.0
+
+
+def test_create_api_client_requests_per_second_rate_limit_openalex() -> None:
+    """Test that _create_api_client creates RateLimitSettings from requests_per_second for OpenAlex."""
+    
+    config_data = {
+        "sources": {
+            "openalex": {
+                "enabled": True,
+                "rate_limit": {
+                    "requests_per_second": 1.0  # 1 request per second
+                }
+            }
+        }
+    }
+    
+    config = DocumentConfig.model_validate(config_data)
+    
+    with patch('library.documents.pipeline.OpenAlexClient') as mock_client:
+        client = _create_api_client("openalex", config)
+        
+        mock_client.assert_called_once()
+        call_args = mock_client.call_args
+        api_config = call_args[0][0]
+        
+        # Verify rate limit settings were created correctly
+        assert api_config.rate_limit is not None
+        assert api_config.rate_limit.max_calls == 1
+        assert api_config.rate_limit.period == 1.0  # 1.0 / 1.0 = 1.0

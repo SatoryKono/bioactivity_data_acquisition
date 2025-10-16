@@ -128,3 +128,97 @@ def test_write_publications_matches_fixture(tmp_path: Path) -> None:
 
     write_publications(frame, destination, determinism=determinism, output=output_settings)
     assert destination.read_bytes() == _load_fixture("expected_publications.csv")
+
+
+def test_case_sensitivity_preservation(tmp_path: Path) -> None:
+    """Тест для проверки сохранения регистра в SMILES и других чувствительных к регистру полях."""
+    frame = pd.DataFrame(
+        {
+            "compound_id": ["CHEMBL1", "CHEMBL2"],
+            "target": ["ProteinA", "ProteinB"],  # Заглавные буквы должны сохраниться
+            "smiles": ["CCO", "CCN"],  # SMILES должны сохранить регистр
+            "activity_value": [100.0, 200.0],
+            "activity_unit": ["nM", "uM"],  # Единицы измерения должны сохранить регистр
+            "source": ["ChEMBL", "PubChem"],  # Источники должны сохранить регистр
+        }
+    )
+    destination = tmp_path / "case_sensitive_test.csv"
+    output_settings = OutputSettings(
+        data_path=destination,
+        qc_report_path=tmp_path / "qc.csv",
+        correlation_path=tmp_path / "corr.csv",
+        format="csv",
+        csv=CsvFormatSettings(encoding="utf-8"),
+        parquet=ParquetFormatSettings(compression=None),
+    )
+    
+    # Конфигурация БЕЗ lowercase_columns - регистр должен сохраниться
+    determinism = DeterminismSettings(
+        sort=SortSettings(by=["compound_id"], ascending=[True]),
+        column_order=["compound_id", "target", "smiles", "activity_value", "activity_unit", "source"],
+        lowercase_columns=[],  # Пустой список - регистр сохраняется
+    )
+
+    write_deterministic_csv(frame, destination, determinism=determinism, output=output_settings)
+    
+    # Читаем результат и проверяем, что регистр сохранился
+    result_df = pd.read_csv(destination)
+    
+    # Проверяем, что SMILES сохранили регистр
+    assert result_df["smiles"].tolist() == ["CCO", "CCN"]
+    
+    # Проверяем, что target сохранил заглавные буквы
+    assert result_df["target"].tolist() == ["ProteinA", "ProteinB"]
+    
+    # Проверяем, что activity_unit сохранил регистр
+    assert result_df["activity_unit"].tolist() == ["nM", "uM"]
+    
+    # Проверяем, что source сохранил регистр
+    assert result_df["source"].tolist() == ["ChEMBL", "PubChem"]
+
+
+def test_selective_lowercase_normalization(tmp_path: Path) -> None:
+    """Тест для проверки селективного приведения к нижнему регистру только указанных колонок."""
+    frame = pd.DataFrame(
+        {
+            "compound_id": ["CHEMBL1", "CHEMBL2"],
+            "target": ["ProteinA", "ProteinB"],
+            "smiles": ["CCO", "CCN"],
+            "activity_value": [100.0, 200.0],
+            "activity_unit": ["nM", "uM"],
+            "source": ["ChEMBL", "PubChem"],
+        }
+    )
+    destination = tmp_path / "selective_lowercase_test.csv"
+    output_settings = OutputSettings(
+        data_path=destination,
+        qc_report_path=tmp_path / "qc.csv",
+        correlation_path=tmp_path / "corr.csv",
+        format="csv",
+        csv=CsvFormatSettings(encoding="utf-8"),
+        parquet=ParquetFormatSettings(compression=None),
+    )
+    
+    # Конфигурация с селективным приведением к нижнему регистру
+    determinism = DeterminismSettings(
+        sort=SortSettings(by=["compound_id"], ascending=[True]),
+        column_order=["compound_id", "target", "smiles", "activity_value", "activity_unit", "source"],
+        lowercase_columns=["source"],  # Только source должен быть приведен к нижнему регистру
+    )
+
+    write_deterministic_csv(frame, destination, determinism=determinism, output=output_settings)
+    
+    # Читаем результат и проверяем селективную нормализацию
+    result_df = pd.read_csv(destination)
+    
+    # Проверяем, что SMILES сохранили регистр
+    assert result_df["smiles"].tolist() == ["CCO", "CCN"]
+    
+    # Проверяем, что target сохранил заглавные буквы
+    assert result_df["target"].tolist() == ["ProteinA", "ProteinB"]
+    
+    # Проверяем, что activity_unit сохранил регистр
+    assert result_df["activity_unit"].tolist() == ["nM", "uM"]
+    
+    # Проверяем, что source был приведен к нижнему регистру
+    assert result_df["source"].tolist() == ["chembl", "pubchem"]

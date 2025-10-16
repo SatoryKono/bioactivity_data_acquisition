@@ -24,6 +24,7 @@ sources:
       headers:
         Accept: application/json
         Authorization: "Bearer {chembl_api_token}"
+      health_endpoint: "status"  # Используем специальный эндпоинт для проверки здоровья
   crossref:
     name: crossref
     enabled: true
@@ -41,6 +42,7 @@ sources:
       headers:
         Accept: application/json
         Crossref-Plus-API-Token: "{crossref_api_key}"
+      # health_endpoint не указан - будет использоваться base_url для проверки здоровья
   openalex:
     name: openalex
     enabled: true
@@ -49,6 +51,7 @@ sources:
       timeout_sec: 30.0
       headers:
         Accept: application/json
+      # health_endpoint не указан - будет использоваться base_url для проверки здоровья
   pubmed:
     name: pubmed
     enabled: true

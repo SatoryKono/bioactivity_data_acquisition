@@ -41,19 +41,27 @@ def test_chembl_fetch_by_doc_id_success() -> None:
             "doi": "10.1000/test",
             "title": "Test title",
             "abstract": "Body",
+            "journal": "Test Journal",
+            "year": 2023,
+            "doc_type": "PUBLICATION",
         },
     )
 
     data = client.fetch_by_doc_id("CHEMBL123")
 
-    assert data == {
-        "source": "chembl",
-        "document_chembl_id": "CHEMBL123",
-        "document_pubmed_id": "999",
-        "doi": "10.1000/test",
-        "title": "Test title",
-        "abstract": "Body",
-    }
+    assert data["source"] == "chembl"
+    assert data["document_chembl_id"] == "CHEMBL123"
+    assert data["document_pubmed_id"] == "999"
+    assert data["doi"] == "10.1000/test"
+    assert data["title"] == "Test title"
+    assert data["abstract"] == "Body"
+    assert data["chembl_title"] == "Test title"
+    assert data["chembl_doi"] == "10.1000/test"
+    assert data["chembl_pmid"] == "999"
+    assert data["chembl_journal"] == "Test Journal"
+    assert data["chembl_year"] == 2023
+    assert data["chembl_doc_type"] == "PUBLICATION"
+    assert data["chembl_error"] is None
 
 
 @responses.activate
@@ -66,8 +74,56 @@ def test_chembl_fetch_by_doc_id_http_error() -> None:
         json={"error": "not found"},
     )
 
-    with pytest.raises(ApiClientError):
-        client.fetch_by_doc_id("CHEMBL404")
+    data = client.fetch_by_doc_id("CHEMBL404")
+    
+    # Проверяем, что возвращается пустая запись с ошибкой
+    assert data["source"] == "chembl"
+    assert data["document_chembl_id"] == "CHEMBL404"
+    assert data["title"] is None
+    assert data["doi"] is None
+    assert data["chembl_error"] is not None
+    assert "404" in data["chembl_error"] or "not found" in data["chembl_error"]
+
+
+@responses.activate
+def test_chembl_fetch_by_doc_id_xml_response() -> None:
+    """Test handling of XML responses from ChEMBL API."""
+    client = ChEMBLClient(make_config("chembl", "https://www.ebi.ac.uk/chembl/api/data"))
+    
+    # XML response from ChEMBL API
+    xml_content = '''<?xml version="1.0" encoding="UTF-8"?>
+    <document>
+        <document_chembl_id>CHEMBL456</document_chembl_id>
+        <title>XML Test Document</title>
+        <doi>10.1000/xml</doi>
+        <pubmed_id>888</pubmed_id>
+        <journal>XML Journal</journal>
+        <year>2023</year>
+        <doc_type>PUBLICATION</doc_type>
+        <abstract>XML abstract content</abstract>
+    </document>'''
+    
+    responses.add(
+        responses.GET,
+        "https://www.ebi.ac.uk/chembl/api/data/document/CHEMBL456",
+        body=xml_content,
+        content_type="application/xml",
+        status=200,
+    )
+
+    data = client.fetch_by_doc_id("CHEMBL456")
+    
+    # Проверяем, что XML правильно парсится
+    assert data["source"] == "chembl"
+    assert data["document_chembl_id"] == "CHEMBL456"
+    assert data["title"] == "XML Test Document"
+    assert data["doi"] == "10.1000/xml"
+    assert data["document_pubmed_id"] == "888"
+    assert data["journal"] == "XML Journal"
+    assert data["year"] == "2023"  # XML парсит как строку
+    assert data["chembl_doc_type"] == "PUBLICATION"
+    assert data["abstract"] == "XML abstract content"
+    assert data["chembl_error"] is None
 
 
 @responses.activate
