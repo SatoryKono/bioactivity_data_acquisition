@@ -137,7 +137,7 @@ sources:
       # Максимальное количество запросов в период
       max_calls: 1  # Консервативный лимит: 1 запрос в минуту без API ключа
       # Период в секундах (1 минута)
-      period: 60.0  # 1 минута
+      period: 10.0  # 1 минута
     # HTTP настройки для Semantic Scholar
     http:
       # Базовый URL API Semantic Scholar
@@ -225,11 +225,11 @@ determinism:
     - index                   # ID документа 
     # Основные поля документа (оригинальные из ChEMBL)
     - document_chembl_id      # ID документа в ChEMBL
-    - pubmed_id               # PubMed идентификатор
-    - classification          # Классификация документа
-    - document_contains_external_links  # Содержит ли документ внешние ссылки            # Номер первой страницы
-    - is_experimental_doc     # Является ли документ экспериментальным
-    - citation                # Форматированная литературная ссылка
+    - document_pubmed_id      # PubMed идентификатор
+    - document_classification # Классификация документа
+    - referenses_on_previous_experiments  # Содержит ли документ внешние ссылки            # Номер первой страницы
+    - original_experimental_document     # Является ли документ экспериментальным
+    - document_citation       # Форматированная литературная ссылка
     - retrieved_at            # Время получения данных
 
     - pubmed_mesh_descriptors # MeSH дескрипторы из PubMed

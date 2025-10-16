@@ -26,7 +26,11 @@ class SemanticScholarClient(BaseApiClient):
         enhanced = config.model_copy(update={"headers": headers})
         
         # Создаем специальную fallback стратегию для Semantic Scholar
-        from library.clients.fallback import FallbackConfig, SemanticScholarFallbackStrategy
+        from library.clients.fallback import (
+            FallbackConfig,
+            FallbackManager,
+            SemanticScholarFallbackStrategy,
+        )
         fallback_config = FallbackConfig(
             max_retries=2,  # Меньше попыток для Semantic Scholar
             base_delay=30.0,  # Базовая задержка 30 секунд
@@ -35,8 +39,9 @@ class SemanticScholarClient(BaseApiClient):
             jitter=True
         )
         fallback_strategy = SemanticScholarFallbackStrategy(fallback_config)
+        fallback_manager = FallbackManager(fallback_strategy)
         
-        super().__init__(enhanced, fallback_manager=fallback_strategy, **kwargs)
+        super().__init__(enhanced, fallback_manager=fallback_manager, **kwargs)
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         identifier = f"PMID:{pmid}"

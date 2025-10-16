@@ -37,7 +37,7 @@ def test_chembl_fetch_by_doc_id_success() -> None:
         "https://www.ebi.ac.uk/chembl/api/data/document/CHEMBL123",
         json={
             "document_chembl_id": "CHEMBL123",
-            "pubmed_id": "999",
+            "document_pubmed_id": "999",
             "doi": "10.1000/test",
             "title": "Test title",
             "abstract": "Body",
@@ -49,7 +49,7 @@ def test_chembl_fetch_by_doc_id_success() -> None:
     assert data == {
         "source": "chembl",
         "document_chembl_id": "CHEMBL123",
-        "pubmed_id": "999",
+        "document_pubmed_id": "999",
         "doi": "10.1000/test",
         "title": "Test title",
         "abstract": "Body",

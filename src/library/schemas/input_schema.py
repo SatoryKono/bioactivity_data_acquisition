@@ -18,7 +18,7 @@ class RawBioactivitySchema(pa.DataFrameModel):
     """Schema for raw bioactivity records fetched from the API."""
 
     # Основные поля из ChEMBL API
-    molecule_chembl_id: Series[str] = pa.Field(nullable=True)  # compound_id в ChEMBL
+    # molecule_chembl_id: Series[str] = pa.Field(nullable=True)  # compound_id удален - используется только для документов
     target_pref_name: Series[str] = pa.Field(nullable=True)
     standard_value: Series[float] = pa.Field(nullable=True)  # activity_value в ChEMBL
     standard_units: Series[str] = pa.Field(nullable=True)  # activity_units в ChEMBL

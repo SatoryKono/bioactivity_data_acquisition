@@ -73,8 +73,7 @@ def normalize_bioactivity_data(
     normalized["retrieved_at"] = pd.to_datetime(normalized["retrieved_at"], utc=True)
     
     # Маппим колонки из ChEMBL API в стандартный формат
-    if "molecule_chembl_id" in normalized.columns:
-        normalized = normalized.rename(columns={"molecule_chembl_id": "compound_id"})
+    # compound_id удален - используется только для документов
     if "canonical_smiles" in normalized.columns:
         normalized = normalized.rename(columns={"canonical_smiles": "smiles"})
     if "target_pref_name" in normalized.columns:

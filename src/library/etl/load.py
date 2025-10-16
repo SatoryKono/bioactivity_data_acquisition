@@ -179,7 +179,7 @@ def _apply_qc_thresholds(
         status = "pass"
         numeric_value = float(value)
 
-        if metric in {"missing_compound_id", "missing_target"}:
+        if metric in {"missing_document_chembl_id", "missing_doi", "missing_title"}:
             threshold = validation.max_missing_fraction
             ratio = numeric_value / row_count if row_count else 0.0
             if ratio > threshold:

@@ -36,7 +36,7 @@ def validate_doi_fields(df: pd.DataFrame) -> pd.DataFrame:
     df_copy = df.copy()
     
     # Поля DOI из разных источников (только те, что есть в данных)
-    doi_fields = ['chembl_doi', 'openalex_doi', 'pubmed_doi', 'semantic_scholar_doi']
+    doi_fields = ['chembl_doi', 'crossref_doi', 'openalex_doi', 'pubmed_doi', 'semantic_scholar_doi']
     
     invalid_doi = []
     valid_doi = []

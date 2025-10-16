@@ -3,7 +3,7 @@
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from library.clients.exceptions import ApiClientError
 from library.logger import get_logger
@@ -38,7 +38,7 @@ class FallbackStrategy(ABC):
         pass
     
     @abstractmethod
-    def get_fallback_data(self, error: ApiClientError) -> Dict[str, Any]:
+    def get_fallback_data(self, error: ApiClientError) -> dict[str, Any]:
         """Get fallback data when all retries are exhausted."""
         pass
 
@@ -63,7 +63,7 @@ class RateLimitFallbackStrategy(FallbackStrategy):
             
             if self.config.jitter:
                 # Add random jitter (±25%)
-                import random
+                import random  # noqa: S311
                 jitter_factor = random.uniform(0.75, 1.25)
                 delay *= jitter_factor
             
@@ -71,7 +71,7 @@ class RateLimitFallbackStrategy(FallbackStrategy):
         
         return self.config.base_delay
     
-    def get_fallback_data(self, error: ApiClientError) -> Dict[str, Any]:
+    def get_fallback_data(self, error: ApiClientError) -> dict[str, Any]:
         """Return empty record with error information."""
         return {
             "source": "fallback",
@@ -100,7 +100,8 @@ class SemanticScholarFallbackStrategy(FallbackStrategy):
         """Very long delays for Semantic Scholar rate limiting."""
         if error.status_code == 429:
             # Very long delay for rate limiting (2-5 minutes)
-            delay = min(120.0 + (attempt * 60.0), 300.0)
+            # Увеличиваем базовую задержку для Semantic Scholar
+            delay = min(180.0 + (attempt * 120.0), 600.0)  # 3-10 минут
         elif error.status_code in [500, 502, 503, 504]:
             # Moderate delay for server errors
             delay = min(30.0 + (attempt * 15.0), 120.0)
@@ -109,13 +110,13 @@ class SemanticScholarFallbackStrategy(FallbackStrategy):
             delay = self.config.base_delay
         
         if self.config.jitter:
-            import random
-            jitter_factor = random.uniform(0.9, 1.1)
+            import random  # noqa: S311
+            jitter_factor = random.uniform(0.8, 1.2)  # Больше вариативности
             delay *= jitter_factor
         
         return delay
     
-    def get_fallback_data(self, error: ApiClientError) -> Dict[str, Any]:
+    def get_fallback_data(self, error: ApiClientError) -> dict[str, Any]:
         """Return fallback data for Semantic Scholar."""
         return {
             "source": "fallback",
@@ -167,13 +168,13 @@ class AdaptiveFallbackStrategy(FallbackStrategy):
             )
         
         if self.config.jitter:
-            import random
+            import random  # noqa: S311
             jitter_factor = random.uniform(0.8, 1.2)
             delay *= jitter_factor
         
         return delay
     
-    def get_fallback_data(self, error: ApiClientError) -> Dict[str, Any]:
+    def get_fallback_data(self, error: ApiClientError) -> dict[str, Any]:
         """Return appropriate fallback data based on error type."""
         if error.status_code == 429:
             return {
@@ -205,7 +206,7 @@ class FallbackManager:
         self.strategy = strategy
         self.logger = get_logger(self.__class__.__name__)
     
-    def execute_with_fallback(self, func, *args, **kwargs) -> Dict[str, Any]:
+    def execute_with_fallback(self, func, *args, **kwargs) -> dict[str, Any]:
         """Execute function with fallback strategy."""
         last_error = None
         
@@ -219,7 +220,9 @@ class FallbackManager:
                 last_error = e
                 
                 if not self.strategy.should_retry(e, attempt):
-                    self.logger.warning(f"Max retries reached for error: {e}")
+                    self.logger.warning(
+                    f"Max retries reached for error: {e}"
+                )
                     break
                 
                 delay = self.strategy.get_delay(e, attempt)
@@ -227,5 +230,17 @@ class FallbackManager:
                 time.sleep(delay)
         
         # All retries exhausted, return fallback data
-        self.logger.warning(f"Using fallback data after {self.strategy.config.max_retries} failed attempts")
+        self.logger.warning(
+            f"Using fallback data after {self.strategy.config.max_retries} failed attempts"
+        )
         return self.strategy.get_fallback_data(last_error)
+
+
+__all__ = [
+    "FallbackConfig",
+    "FallbackStrategy", 
+    "RateLimitFallbackStrategy",
+    "SemanticScholarFallbackStrategy",
+    "AdaptiveFallbackStrategy",
+    "FallbackManager"
+]

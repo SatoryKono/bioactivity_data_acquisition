@@ -23,13 +23,13 @@
 
 - `pubmed_authors` (str, nullable) - Авторы документа из PubMed
 
-- `classification` (float, nullable) - Классификация документа
+- `document_classification` (float, nullable) - Классификация документа
 
-- `document_contains_external_links` (bool, nullable) - Содержит внешние ссылки
+- `referenses_on_previous_experiments` (bool, nullable) - Содержит внешние ссылки
 
 - `first_page` (int, nullable) - Номер первой страницы
 
-- `is_experimental_doc` (bool, nullable) - Экспериментальный документ
+- `original_experimental_document` (bool, nullable) - Экспериментальный документ
 
 - `issue` (int, nullable) - Номер выпуска журнала
 
@@ -41,7 +41,7 @@
 
 - `postcodes` (str, nullable) - Почтовые коды
 
-- `pubmed_id` (int, nullable) - Идентификатор PubMed
+- `document_pubmed_id` (int, nullable) - Идентификатор PubMed
 
 - `volume` (float, nullable) - Том журнала
 

@@ -19,7 +19,7 @@ def test_pipeline_step():
     test_data = {
         'document_chembl_id': ['CHEMBL1121421'],
         'doi': ['10.1021/jm00178a007'],
-        'pubmed_id': [6991692],
+        'document_pubmed_id': [6991692],
         'title': ['Test Title'],
         'journal': ['Test Journal']
     }

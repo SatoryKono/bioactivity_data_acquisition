@@ -50,25 +50,6 @@ def build_qc_report(df: pd.DataFrame) -> pd.DataFrame:
                 if available_key_columns else 0
             ),
         }
-    elif "compound_id" in df.columns:
-        # Это данные биоактивности
-        key_columns = ["compound_id", "target", "activity_value", "source"]
-        available_key_columns = [col for col in key_columns if col in df.columns]
-        
-        metrics = {
-            "row_count": len(df),
-            "missing_compound_id": (
-                int(df["compound_id"].isna().sum()) 
-                if "compound_id" in df else 0
-            ),
-            "missing_target": (
-                int(df["target"].isna().sum()) if "target" in df else 0
-            ),
-            "duplicates": (
-                int(df[available_key_columns].duplicated().sum()) 
-                if available_key_columns else 0
-            ),
-        }
     else:
         # Общие метрики для неизвестного типа данных
         metrics = {

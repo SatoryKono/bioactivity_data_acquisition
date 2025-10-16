@@ -17,7 +17,7 @@ else:  # pragma: no cover - import side effect
 class NormalizedBioactivitySchema(pa.DataFrameModel):
     """Schema for normalized bioactivity data ready for export."""
 
-    compound_id: Series[str] = pa.Field(nullable=True)
+    # compound_id: Series[str] = pa.Field(nullable=True)  # Удален - используется только для документов
     target: Series[str] = pa.Field(nullable=True)
     activity_value: Series[float] = pa.Field(nullable=True)  # Разрешаем NULL значения
     activity_unit: Series[str] = pa.Field(nullable=True)  # Разрешаем другие единицы

@@ -131,7 +131,7 @@ def _extract_data_from_source(
         "chembl_journal": None, "chembl_year": None, "chembl_volume": None, 
         "chembl_issue": None,
         # Crossref columns  
-        "crossref_title": None, "crossref_doc_type": None, "crossref_subject": None, 
+        "crossref_doi": None, "crossref_title": None, "crossref_doc_type": None, "crossref_subject": None, 
         "crossref_error": None,
         # OpenAlex columns
         "openalex_doi": None, "openalex_title": None, "openalex_doc_type": None,
@@ -185,8 +185,8 @@ def _extract_data_from_source(
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-                elif pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
+                elif pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
@@ -199,24 +199,24 @@ def _extract_data_from_source(
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-                elif pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
+                elif pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
                     
             elif source == "pubmed":
-                if pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
+                if pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
                     
             elif source == "semantic_scholar":
-                if pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
+                if pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
@@ -299,17 +299,17 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
     # Define all possible columns that should exist in the output
     all_columns = {
         # Original ChEMBL fields
-        "document_chembl_id", "title", "doi", "pubmed_id", "chembl_doc_type", "journal", "year",
+        "document_chembl_id", "title", "doi", "document_pubmed_id", "chembl_doc_type", "journal", "year",
         # Legacy ChEMBL fields
-        "abstract", "pubmed_authors", "classification", "document_contains_external_links",
-        "first_page", "is_experimental_doc", "issue", "last_page", "month", "volume",
+        "abstract", "pubmed_authors", "document_classification", "referenses_on_previous_experiments",
+        "first_page", "original_experimental_document", "issue", "last_page", "month", "volume",
         # Enriched fields from external sources
         # source column removed - not needed in final output
         # ChEMBL-specific fields
         "chembl_title", "chembl_doi", "chembl_pmid", "chembl_journal", 
         "chembl_year", "chembl_volume", "chembl_issue",
         # Crossref-specific fields
-        "crossref_title", "crossref_doc_type", "crossref_subject", "crossref_error",
+        "crossref_doi", "crossref_title", "crossref_doc_type", "crossref_subject", "crossref_error",
         # OpenAlex-specific fields
         "openalex_doi", "openalex_title", "openalex_doc_type", 
         "openalex_crossref_doc_type", "openalex_year", "openalex_error",
@@ -328,7 +328,7 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         # Common fields
         "doi_key",
         # Citation field
-        "citation"
+        "document_citation"
     }
     
     # Add missing columns with default values

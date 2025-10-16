@@ -92,6 +92,7 @@ class CrossrefClient(BaseApiClient):
         record: dict[str, Any | None] = {
             "source": "crossref",
             "doi_key": work.get("DOI"),
+            "crossref_doi": work.get("DOI"),
             "crossref_title": title,
             "crossref_doc_type": work.get("type"),
             "crossref_subject": subject,

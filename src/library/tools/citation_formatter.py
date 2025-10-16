@@ -173,7 +173,7 @@ def add_citation_column(df: pd.DataFrame, column_mapping: dict[str, str] | None 
                        Формат: {"journal": "column_name", "volume": "column_name", ...}
         
     Returns:
-        DataFrame с добавленной колонкой 'citation'
+        DataFrame с добавленной колонкой 'document_citation'
     """
     df_copy = df.copy()
     
@@ -203,7 +203,7 @@ def add_citation_column(df: pd.DataFrame, column_mapping: dict[str, str] | None 
         )
         citations.append(citation)
     
-    df_copy['citation'] = citations
+    df_copy['document_citation'] = citations
     return df_copy
 
 

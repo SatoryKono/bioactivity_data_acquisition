@@ -195,10 +195,17 @@ class BaseApiClient:
                 if retry_after:
                     try:
                         wait_time = int(retry_after)
+                        # Увеличиваем время ожидания для Semantic Scholar
+                        if 'semanticscholar' in self.base_url.lower():
+                            wait_time = max(wait_time, 300)  # Минимум 5 минут для Semantic Scholar
                         self.logger.info(f"Rate limited. Waiting {wait_time} seconds before retry.")
                         time.sleep(wait_time)
                     except (ValueError, TypeError):
                         self.logger.warning(f"Invalid Retry-After header: {retry_after}")
+                        # Для Semantic Scholar используем консервативную задержку
+                        if 'semanticscholar' in self.base_url.lower():
+                            self.logger.info("Using conservative 5-minute delay for Semantic Scholar")
+                            time.sleep(300)
                 
                 raise ApiClientError(
                     f"Rate limited by API (status {response.status_code}). "

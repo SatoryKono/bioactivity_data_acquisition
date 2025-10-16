@@ -33,9 +33,9 @@ def debug_missing_data(csv_path: str):
     
     if crossref_empty.sum() > 0:
         print("\nЗаписи с пустым Crossref:")
-        empty_crossref = df[crossref_empty][['document_chembl_id', 'doi', 'pubmed_id', 'crossref_error']]
+        empty_crossref = df[crossref_empty][['document_chembl_id', 'doi', 'document_pubmed_id', 'crossref_error']]
         for _, row in empty_crossref.head(5).iterrows():
-            print(f"  {row['document_chembl_id']}: DOI={row['doi']}, PMID={row['pubmed_id']}, Error={row['crossref_error']}")
+            print(f"  {row['document_chembl_id']}: DOI={row['doi']}, PMID={row['document_pubmed_id']}, Error={row['crossref_error']}")
     
     # Анализируем OpenAlex
     print("\nАНАЛИЗ OPENALEX:")
@@ -49,9 +49,9 @@ def debug_missing_data(csv_path: str):
     
     if openalex_empty.sum() > 0:
         print("\nЗаписи с пустым OpenAlex:")
-        empty_openalex = df[openalex_empty][['document_chembl_id', 'doi', 'pubmed_id', 'openalex_error']]
+        empty_openalex = df[openalex_empty][['document_chembl_id', 'doi', 'document_pubmed_id', 'openalex_error']]
         for _, row in empty_openalex.head(5).iterrows():
-            print(f"  {row['document_chembl_id']}: DOI={row['doi']}, PMID={row['pubmed_id']}, Error={row['openalex_error']}")
+            print(f"  {row['document_chembl_id']}: DOI={row['doi']}, PMID={row['document_pubmed_id']}, Error={row['openalex_error']}")
     
     # Анализируем ошибки
     print("\nАНАЛИЗ ОШИБОК:")
@@ -78,9 +78,9 @@ def debug_missing_data(csv_path: str):
     
     if doi_count < len(df):
         print("Записи без DOI:")
-        no_doi = df[df['doi'].isna()][['document_chembl_id', 'pubmed_id']]
+        no_doi = df[df['doi'].isna()][['document_chembl_id', 'document_pubmed_id']]
         for _, row in no_doi.head(5).iterrows():
-            print(f"  {row['document_chembl_id']}: PMID={row['pubmed_id']}")
+            print(f"  {row['document_chembl_id']}: PMID={row['document_pubmed_id']}")
 
 def main():
     if len(sys.argv) != 2:

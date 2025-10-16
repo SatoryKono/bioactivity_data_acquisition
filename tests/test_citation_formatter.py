@@ -223,10 +223,10 @@ class TestAddCitationColumn:
         
         result = add_citation_column(df)
         
-        assert 'citation' in result.columns
-        assert result['citation'].iloc[0] == "Nature, 612 (7940). p. 100-105"
-        assert result['citation'].iloc[1] == "Science, 380. 50"
-        assert result['citation'].iloc[2] == "Cell."
+        assert 'document_citation' in result.columns
+        assert result['document_citation'].iloc[0] == "Nature, 612 (7940). p. 100-105"
+        assert result['document_citation'].iloc[1] == "Science, 380. 50"
+        assert result['document_citation'].iloc[2] == "Cell."
 
     def test_add_citation_column_preserves_original_data(self):
         """Тест что оригинальные данные сохраняются."""
@@ -251,7 +251,7 @@ class TestAddCitationColumn:
         
         result = add_citation_column(df)
         
-        assert 'citation' in result.columns
+        assert 'document_citation' in result.columns
         assert len(result) == 0
 
     def test_add_citation_column_missing_columns(self):
@@ -263,8 +263,8 @@ class TestAddCitationColumn:
         
         result = add_citation_column(df)
         
-        assert 'citation' in result.columns
-        assert result['citation'].iloc[0] == "Nature, 612."
+        assert 'document_citation' in result.columns
+        assert result['document_citation'].iloc[0] == "Nature, 612."
 
 
 if __name__ == "__main__":

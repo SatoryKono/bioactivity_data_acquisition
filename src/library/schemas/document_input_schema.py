@@ -23,7 +23,7 @@ class DocumentInputSchema(pa.DataFrameModel):
     
     # Optional fields
     doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
-    pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed identifier")
+    document_pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed identifier")
     chembl_doc_type: Series[str] = pa.Field(nullable=True, description="Document type from ChEMBL")
     journal: Series[str] = pa.Field(nullable=True, description="Journal name")
     year: Series[int] = pa.Field(nullable=True, description="Publication year")
@@ -33,10 +33,10 @@ class DocumentInputSchema(pa.DataFrameModel):
     pubmed_authors: Series[str] = pa.Field(
         nullable=True, description="Document authors from PubMed"
     )
-    classification: Series[float] = pa.Field(nullable=True, description="Document classification")
-    document_contains_external_links: Series[bool] = pa.Field(nullable=True, description="Contains external links")
+    document_classification: Series[float] = pa.Field(nullable=True, description="Document classification")
+    referenses_on_previous_experiments: Series[bool] = pa.Field(nullable=True, description="Contains external links")
     first_page: Series[int] = pa.Field(nullable=True, description="First page number")
-    is_experimental_doc: Series[bool] = pa.Field(nullable=True, description="Is experimental document")
+    original_experimental_document: Series[bool] = pa.Field(nullable=True, description="Is experimental document")
     issue: Series[int] = pa.Field(nullable=True, description="Journal issue number")
     last_page: Series[float] = pa.Field(nullable=True, description="Last page number")
     month: Series[int] = pa.Field(nullable=True, description="Publication month")

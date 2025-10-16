@@ -191,7 +191,7 @@ def parse_chembl_response(response: Mapping[str, Any]) -> list[dict[str, Any]]:
             doc.get("document_chembl_id") or doc.get("chembl_id") or doc.get("id")
         )
         doi = normalise_doi(doc.get("doi") or doc.get("document_doi"))
-        pmid = coerce_text(doc.get("pubmed_id") or doc.get("pmid"))
+        pmid = coerce_text(doc.get("document_pubmed_id") or doc.get("pmid"))
         parsed.append(
             {
                 "source": "chembl",

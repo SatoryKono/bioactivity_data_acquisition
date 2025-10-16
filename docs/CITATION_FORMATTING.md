@@ -54,13 +54,13 @@
 
 ### `add_citation_column(df) -> pd.DataFrame`
 
-Добавляет колонку `citation` к DataFrame с документами.
+Добавляет колонку `document_citation` к DataFrame с документами.
 
 **Параметры:**
 - `df` (pd.DataFrame): DataFrame с колонками `journal`, `volume`, `issue`, `first_page`, `last_page`
 
 **Возвращает:**
-- DataFrame с добавленной колонкой `citation`
+- DataFrame с добавленной колонкой `document_citation`
 
 ## Примеры использования
 
@@ -128,14 +128,14 @@ df = pd.DataFrame({
 })
 
 df_with_citations = add_citation_column(df)
-# Добавляет колонку 'citation' с форматированными ссылками
+# Добавляет колонку 'document_citation' с форматированными ссылками
 ```
 
 ## Интеграция с pipeline
 
 Функция автоматически вызывается при сохранении документов через `write_document_outputs()`.
 
-Колонка `citation` добавляется к итоговому DataFrame перед записью в CSV:
+Колонка `document_citation` добавляется к итоговому DataFrame перед записью в CSV:
 - Находится в `data/output/documents_<date_tag>.csv`
 - Включена в схему `DocumentOutputSchema`
 - Nullable (может быть пустой)
@@ -154,7 +154,7 @@ pytest tests/test_citation_formatter.py -v
 
 ## Схема данных
 
-Поле `citation` добавлено в схему выходных данных:
+Поле `document_citation` добавлено в схему выходных данных:
 - **Тип**: `Series[str]`
 - **Nullable**: `True`
 - **Описание**: "Formatted citation string"
