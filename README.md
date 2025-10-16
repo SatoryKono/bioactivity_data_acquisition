@@ -345,6 +345,72 @@ mkdocs serve
 
 Сайт документации: <https://satorykono.github.io/bioactivity_data_acquisition/>
 
+## Rate Limiting (Ограничение скорости запросов)
+
+Для предотвращения получения ошибок 429 (Too Many Requests) от API источников, система поддерживает настройку ограничения скорости запросов. Это особенно важно для источников без API ключей (Semantic Scholar, OpenAlex), которые имеют строгие лимиты.
+
+### Поддерживаемые форматы конфигурации
+
+#### 1. Формат `max_calls`/`period`
+```yaml
+sources:
+  semantic_scholar:
+    enabled: true
+    rate_limit:
+      max_calls: 1      # Количество запросов
+      period: 60.0      # Период в секундах
+```
+
+#### 2. Формат `requests_per_second`
+```yaml
+sources:
+  semantic_scholar:
+    enabled: true
+    rate_limit:
+      requests_per_second: 0.5  # 1 запрос каждые 2 секунды
+```
+
+### Рекомендуемые настройки для источников без API ключей
+
+```yaml
+sources:
+  semantic_scholar:
+    enabled: true
+    rate_limit:
+      requests_per_second: 0.5  # 1 запрос каждые 2 секунды (очень консервативно)
+  
+  openalex:
+    enabled: true
+    rate_limit:
+      requests_per_second: 1.0  # 1 запрос в секунду
+```
+
+### Источники с API ключами
+
+Для источников с API ключами можно использовать более агрессивные настройки:
+
+```yaml
+sources:
+  chembl:
+    enabled: true
+    rate_limit:
+      requests_per_second: 10.0  # 10 запросов в секунду
+  
+  crossref:
+    enabled: true
+    rate_limit:
+      max_calls: 50
+      period: 1.0  # 50 запросов в секунду
+```
+
+### Важные замечания
+
+1. **Semantic Scholar** без API ключа имеет очень строгие ограничения (1 запрос в минуту)
+2. **OpenAlex** без API ключа позволяет до 1 запроса в секунду
+3. **ChEMBL** и **Crossref** с API ключами имеют более высокие лимиты
+4. Система автоматически конвертирует `requests_per_second` в формат `max_calls`/`period`
+5. При получении ошибки 429 система логирует предупреждение и продолжает работу
+
 ## Лицензия и вклад
 
 Правила контрибьюшенов: `docs/contributing.md`. Изменения: `docs/changelog.md`.
