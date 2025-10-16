@@ -46,7 +46,16 @@ def read_queries(input_path: Path) -> pd.DataFrame:
 
 def write_publications(publications: pd.DataFrame, output_path: Path) -> None:
     """Write publications to CSV file."""
-    publications.to_csv(output_path, index=False)
+    # Используем готовую функцию детерминистического сохранения
+    from library.etl.load import write_deterministic_csv
+    
+    # Применяем column_order из конфигурации и детерминистическую сортировку
+    write_deterministic_csv(
+        publications, 
+        output_path,
+        determinism=config.determinism,
+        output=config.io.output
+    )
 
 # Placeholder schemas
 class InputSchema:

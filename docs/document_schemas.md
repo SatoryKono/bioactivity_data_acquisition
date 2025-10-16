@@ -3,6 +3,7 @@
 ## Обзор
 
 Система извлечения данных документов использует две основные схемы:
+
 1. **DocumentInputSchema** - для входных данных из ChEMBL
 2. **DocumentOutputSchema** - для обогащенных данных из всех источников
 
@@ -20,7 +21,7 @@
 
 - `abstract` (str, nullable) - Аннотация документа
 
-- `authors` (str, nullable) - Авторы документа
+- `pubmed_authors` (str, nullable) - Авторы документа из PubMed
 
 - `classification` (float, nullable) - Классификация документа
 
@@ -82,7 +83,7 @@
 
 - `value` (int, ge=0) - Значение метрики QC
 
-### Примеры QC метрик:
+### Примеры QC метрик
 
 - `row_count` - Количество обработанных строк
 
@@ -100,7 +101,7 @@
 
 ## Диаграмма потока данных
 
-```
+```text
 Входные данные (ChEMBL CSV)
     ↓
 DocumentInputSchema (валидация)

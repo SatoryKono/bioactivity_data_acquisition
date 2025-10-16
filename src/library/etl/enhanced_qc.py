@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import re
-import statistics
-from collections import Counter
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -27,7 +24,7 @@ class EnhancedTableQualityProfiler:
             'email': re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'),
         }
 
-    def consume(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def consume(self, df: pd.DataFrame) -> dict[str, Any]:
         """Анализ DataFrame и генерация расширенных метрик качества."""
         if self.logger:
             self.logger.info("Начинаем анализ качества данных", rows=len(df), columns=len(df.columns))
@@ -45,7 +42,7 @@ class EnhancedTableQualityProfiler:
         
         return quality_report
 
-    def _analyze_table_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _analyze_table_summary(self, df: pd.DataFrame) -> dict[str, Any]:
         """Анализ общей информации о таблице."""
         return {
             'total_rows': len(df),
@@ -54,7 +51,7 @@ class EnhancedTableQualityProfiler:
             'dtypes_count': df.dtypes.value_counts().to_dict(),
         }
 
-    def _analyze_columns(self, df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
+    def _analyze_columns(self, df: pd.DataFrame) -> dict[str, dict[str, Any]]:
         """Детальный анализ каждой колонки."""
         column_analysis = {}
         
@@ -85,12 +82,21 @@ class EnhancedTableQualityProfiler:
             # Анализ длины текста
             if series.dtype == 'object':
                 text_lengths = series.astype(str).str.len()
-                analysis.update({
-                    'text_len_min': int(text_lengths.min()) if len(text_lengths.dropna()) > 0 else 0,
-                    'text_len_p50': int(text_lengths.median()) if len(text_lengths.dropna()) > 0 else 0,
-                    'text_len_p95': int(text_lengths.quantile(0.95)) if len(text_lengths.dropna()) > 0 else 0,
-                    'text_len_max': int(text_lengths.max()) if len(text_lengths.dropna()) > 0 else 0,
-                })
+                non_empty_lengths = text_lengths.dropna()
+                if len(non_empty_lengths) > 0:
+                    analysis.update({
+                        'text_len_min': int(non_empty_lengths.min()),
+                        'text_len_p50': int(non_empty_lengths.median()),
+                        'text_len_p95': int(non_empty_lengths.quantile(0.95)),
+                        'text_len_max': int(non_empty_lengths.max()),
+                    })
+                else:
+                    analysis.update({
+                        'text_len_min': 0,
+                        'text_len_p50': 0,
+                        'text_len_p95': 0,
+                        'text_len_max': 0,
+                    })
             
             # Топ значения
             value_counts = series.value_counts().head(10)
@@ -102,7 +108,7 @@ class EnhancedTableQualityProfiler:
         
         return column_analysis
 
-    def _analyze_text_patterns(self, text_series: pd.Series) -> Dict[str, float]:
+    def _analyze_text_patterns(self, text_series: pd.Series) -> dict[str, float]:
         """Анализ паттернов в текстовых данных."""
         patterns = {}
         total_non_empty = len(text_series[text_series.str.strip() != ''])
@@ -118,11 +124,11 @@ class EnhancedTableQualityProfiler:
         # Анализ булевых значений
         bool_pattern = re.compile(r'^(true|false|yes|no|1|0|y|n)$', re.IGNORECASE)
         bool_matches = text_series.str.match(bool_pattern, na=False)
-        patterns['bool_like_cov'] = float(bool_matches.sum() / total_non_empty * 100)
+        patterns['bool_like_cov'] = float(bool_matches.sum() / total_non_empty * 100) if total_non_empty > 0 else 0.0
         
         return patterns
 
-    def _analyze_numeric_series(self, series: pd.Series) -> Dict[str, float]:
+    def _analyze_numeric_series(self, series: pd.Series) -> dict[str, float]:
         """Анализ числовых данных."""
         numeric_data = series.dropna()
         
@@ -144,10 +150,10 @@ class EnhancedTableQualityProfiler:
             'numeric_p95': float(numeric_data.quantile(0.95)),
             'numeric_max': float(numeric_data.max()),
             'numeric_mean': float(numeric_data.mean()),
-            'numeric_std': float(numeric_data.std()),
+            'numeric_std': float(numeric_data.std()) if len(numeric_data) > 1 else 0.0,
         }
 
-    def _analyze_datetime_series(self, series: pd.Series) -> Dict[str, Any]:
+    def _analyze_datetime_series(self, series: pd.Series) -> dict[str, Any]:
         """Анализ временных данных."""
         datetime_data = pd.to_datetime(series, errors='coerce').dropna()
         
@@ -166,7 +172,7 @@ class EnhancedTableQualityProfiler:
             'date_max': datetime_data.max().isoformat(),
         }
 
-    def _analyze_patterns(self, df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
+    def _analyze_patterns(self, df: pd.DataFrame) -> dict[str, dict[str, float]]:
         """Анализ паттернов по всей таблице."""
         pattern_summary = {}
         
@@ -186,7 +192,7 @@ class EnhancedTableQualityProfiler:
         
         return pattern_summary
 
-    def _analyze_statistics(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _analyze_statistics(self, df: pd.DataFrame) -> dict[str, Any]:
         """Общая статистическая информация."""
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         categorical_cols = df.select_dtypes(include=['object']).columns
@@ -200,7 +206,7 @@ class EnhancedTableQualityProfiler:
             'memory_per_row': float(df.memory_usage(deep=True).sum() / len(df)) if len(df) > 0 else 0.0,
         }
 
-    def _analyze_data_roles(self, df: pd.DataFrame) -> Dict[str, str]:
+    def _analyze_data_roles(self, df: pd.DataFrame) -> dict[str, str]:
         """Автоматическое определение ролей колонок."""
         roles = {}
         
@@ -233,7 +239,7 @@ class EnhancedTableQualityProfiler:
         
         return roles
 
-    def generate_summary_report(self, quality_report: Dict[str, Any]) -> pd.DataFrame:
+    def generate_summary_report(self, quality_report: dict[str, Any]) -> pd.DataFrame:
         """Генерация сводного отчета по качеству данных."""
         summary_data = []
         
@@ -274,7 +280,7 @@ class EnhancedTableQualityProfiler:
         
         return pd.DataFrame(summary_data)
 
-    def generate_detailed_report(self, quality_report: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
+    def generate_detailed_report(self, quality_report: dict[str, Any]) -> dict[str, pd.DataFrame]:
         """Генерация детального отчета с отдельными таблицами."""
         reports = {}
         
@@ -312,7 +318,7 @@ class EnhancedTableQualityProfiler:
         return reports
 
 
-def build_enhanced_qc_report(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> Dict[str, Any]:
+def build_enhanced_qc_report(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> dict[str, Any]:
     """Создание расширенного отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
     return profiler.consume(df)
@@ -325,7 +331,7 @@ def build_enhanced_qc_summary(df: pd.DataFrame, logger: Optional[BoundLogger] = 
     return profiler.generate_summary_report(quality_report)
 
 
-def build_enhanced_qc_detailed(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> Dict[str, pd.DataFrame]:
+def build_enhanced_qc_detailed(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> dict[str, pd.DataFrame]:
     """Создание детального отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
     quality_report = profiler.consume(df)

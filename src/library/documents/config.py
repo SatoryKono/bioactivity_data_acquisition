@@ -11,7 +11,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from library.config import _assign_path, _merge_dicts, _parse_scalar
+from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "crossref", "openalex", "pubmed", "semantic_scholar")
 DATE_TAG_FORMAT = "%Y%m%d"
@@ -49,13 +49,26 @@ class DocumentRuntimeSettings(BaseModel):
     dry_run: bool = Field(default=False)
 
 
+class CitationFormattingSettings(BaseModel):
+    """Configuration for citation formatting."""
+    
+    enabled: bool = Field(default=True)
+    columns: dict[str, str] = Field(default_factory=lambda: {
+        "journal": "journal",
+        "volume": "volume", 
+        "issue": "issue",
+        "first_page": "first_page",
+        "last_page": "last_page"
+    })
+
+
 class DocumentPostprocessSettings(BaseModel):
     """Postprocessing configuration for documents."""
 
     qc: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=True))
     correlation: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=False))
     journal_normalization: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=True))
-    citation_formatting: SourceToggle = Field(default_factory=lambda: SourceToggle(enabled=True))
+    citation_formatting: CitationFormattingSettings = Field(default_factory=CitationFormattingSettings)
 
 
 class DocumentHTTPRetrySettings(BaseModel):
@@ -99,6 +112,7 @@ class DocumentConfig(BaseModel):
     http: DocumentHTTPSettings = Field(default_factory=DocumentHTTPSettings)
     sources: dict[str, SourceToggle] = Field(default_factory=_default_sources)
     postprocess: DocumentPostprocessSettings = Field(default_factory=DocumentPostprocessSettings)
+    determinism: DeterminismSettings = Field(default_factory=DeterminismSettings)
 
     model_config = ConfigDict(extra="ignore")
 

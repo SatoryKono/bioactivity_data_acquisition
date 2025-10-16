@@ -121,30 +121,105 @@ class OpenAlexClient(BaseApiClient):
         
         record: dict[str, Any | None] = {
             "source": "openalex",
-            "openalex_doi_key": doi_value,
+            "openalex_doi": doi_value,
             "openalex_title": title,
             "openalex_doc_type": work.get("type"),
-            "openalex_type_crossref": type_crossref,
-            "openalex_publication_year": pub_year,
+            "openalex_crossref_doc_type": type_crossref,
+            "openalex_year": pub_year,
+            "openalex_pmid": self._extract_pmid(work),
+            "openalex_abstract": work.get("abstract"),
+            "openalex_issn": self._extract_issn(work),
+            "openalex_authors": self._extract_authors(work),
             "openalex_error": None,  # Will be set if there's an error
         }
         
         # Debug logging for the final record
         self.logger.debug("openalex_parsed_record", 
-                         openalex_type_crossref=type_crossref,
+                         openalex_crossref_doc_type=type_crossref,
                          openalex_doc_type=work.get("type"))
         
         # Return all fields, including None values, to maintain schema consistency
         return record
 
+    def _extract_pmid(self, work: dict[str, Any]) -> str | None:
+        """Извлекает PMID из OpenAlex work."""
+        # OpenAlex может содержать PMID в ids
+        ids = work.get("ids", {})
+        pmid = ids.get("pmid") or ids.get("pubmed")
+        if pmid:
+            # Убираем префикс если есть
+            if pmid.startswith("https://pubmed.ncbi.nlm.nih.gov/"):
+                pmid = pmid.split("/")[-1]
+            return str(pmid)
+        
+        # Проверяем в external_ids
+        external_ids = work.get("external_ids", {})
+        pmid = external_ids.get("pmid") or external_ids.get("pubmed")
+        if pmid:
+            return str(pmid)
+        
+        return None
+
+    def _extract_authors(self, work: dict[str, Any]) -> list[str] | None:
+        """Извлекает авторов из OpenAlex work."""
+        authors = work.get("authorships")
+        if isinstance(authors, list):
+            author_names = []
+            for authorship in authors:
+                if isinstance(authorship, dict):
+                    author = authorship.get("author")
+                    if isinstance(author, dict):
+                        # OpenAlex имеет структуру: {"display_name": "John Doe"}
+                        display_name = author.get("display_name")
+                        if display_name:
+                            author_names.append(display_name)
+            return author_names if author_names else None
+        
+        return None
+
+    def _extract_issn(self, work: dict[str, Any]) -> str | None:
+        """Извлекает ISSN из OpenAlex work."""
+        # OpenAlex может содержать ISSN в разных местах
+        issn = work.get("issn")
+        if issn:
+            if isinstance(issn, list) and issn:
+                return issn[0]  # Берем первый ISSN если их несколько
+            return str(issn)
+        
+        # Проверяем в primary_location.source
+        primary_location = work.get("primary_location")
+        if primary_location and isinstance(primary_location, dict):
+            source = primary_location.get("source")
+            if source and isinstance(source, dict):
+                issn = source.get("issn")
+                if issn:
+                    return str(issn)
+        
+        # Проверяем в locations
+        locations = work.get("locations", [])
+        if isinstance(locations, list):
+            for location in locations:
+                if isinstance(location, dict):
+                    source = location.get("source")
+                    if source and isinstance(source, dict):
+                        issn = source.get("issn")
+                        if issn:
+                            return str(issn)
+        
+        return None
+
     def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:
         """Создает пустую запись для случая ошибки."""
         return {
             "source": "openalex",
-            "openalex_doi_key": None,
+            "openalex_doi": None,
             "openalex_title": None,
             "openalex_doc_type": None,
-            "openalex_type_crossref": None,
-            "openalex_publication_year": None,
+            "openalex_crossref_doc_type": None,
+            "openalex_year": None,
+            "openalex_pmid": None,
+            "openalex_abstract": None,
+            "openalex_issn": None,
+            "openalex_authors": None,
             "openalex_error": error_msg,
         }

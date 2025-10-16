@@ -74,7 +74,7 @@ bioactivity-data-acquisition get-document-data --config configs/config_documents
 postprocess:
   journal_normalization:
     enabled: true
-    columns: ["journal", "pubmed_journal_title", "chembl_journal", "crossref_journal"]
+    columns: ["journal", "pubmed_journal", "chembl_journal", "crossref_journal"]
 ```
 
 ### Формирование ссылок

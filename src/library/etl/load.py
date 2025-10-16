@@ -35,9 +35,10 @@ def _deterministic_order(
     df: pd.DataFrame,
     determinism: DeterminismSettings,
 ) -> pd.DataFrame:
+    # Сохраняем только колонки, указанные в column_order
     desired_order = [col for col in determinism.column_order if col in df.columns]
-    remaining = [col for col in df.columns if col not in desired_order]
-    ordered = df[desired_order + remaining]
+    # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
+    ordered = df[desired_order]
     
     # Фильтруем колонки для сортировки, оставляя только существующие
     sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
@@ -113,8 +114,14 @@ def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
             # Нормализуем все значения (включая пустые строки)
             for idx in df_normalized.index:
                 value = df_normalized.loc[idx, column]
-                if pd.isna(value):
-                    continue  # Пропускаем уже NA значения
+                
+                # Проверяем на NA только для скалярных значений
+                try:
+                    if pd.isna(value):
+                        continue  # Пропускаем уже NA значения
+                except (TypeError, ValueError):
+                    # Если pd.isna не может обработать тип (например, список), продолжаем
+                    pass
                 
                 # Конвертируем в строку и нормализуем
                 str_value = str(value).strip().lower()
@@ -130,8 +137,9 @@ def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
             df_normalized[column] = df_normalized[column].replace([np.nan, np.inf, -np.inf], pd.NA)
             
         elif pd.api.types.is_bool_dtype(df_normalized[column]):
-            # Логические данные - заменяем только NaN на pd.NA
-            df_normalized[column] = df_normalized[column].replace([np.nan], pd.NA)
+            # Логические данные - пропускаем нормализацию для всех булевых колонок
+            # так как они уже содержат правильные значения
+            pass
     
     if logger is not None:
         logger.info("normalize_complete", columns=list(df_normalized.columns))

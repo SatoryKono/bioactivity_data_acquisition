@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import warnings
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2_contingency, spearmanr, pearsonr
 from sklearn.preprocessing import LabelEncoder
 from structlog.stdlib import BoundLogger
 from typing import Any, Dict, List, Optional, Tuple
+
+# Подавляем предупреждения о делении на ноль в NumPy
+warnings.filterwarnings('ignore', category=RuntimeWarning, message='invalid value encountered in divide')
 
 
 class EnhancedCorrelationAnalyzer:
@@ -53,8 +57,13 @@ class EnhancedCorrelationAnalyzer:
         
         # Корреляция Пирсона
         try:
-            pearson_corr = numeric_df.corr(method='pearson')
-            correlations['pearson'] = pearson_corr.fillna(0.0)
+            # Проверяем, что у нас есть достаточно данных
+            if len(numeric_df) > 1:
+                pearson_corr = numeric_df.corr(method='pearson')
+                # Заменяем NaN и inf на 0
+                correlations['pearson'] = pearson_corr.fillna(0.0).replace([np.inf, -np.inf], 0.0)
+            else:
+                correlations['pearson'] = pd.DataFrame()
         except Exception as e:
             if self.logger:
                 self.logger.warning("Ошибка при вычислении корреляции Пирсона", error=str(e))
@@ -62,8 +71,13 @@ class EnhancedCorrelationAnalyzer:
 
         # Корреляция Спирмена
         try:
-            spearman_corr = numeric_df.corr(method='spearman')
-            correlations['spearman'] = spearman_corr.fillna(0.0)
+            # Проверяем, что у нас есть достаточно данных
+            if len(numeric_df) > 1:
+                spearman_corr = numeric_df.corr(method='spearman')
+                # Заменяем NaN и inf на 0
+                correlations['spearman'] = spearman_corr.fillna(0.0).replace([np.inf, -np.inf], 0.0)
+            else:
+                correlations['spearman'] = pd.DataFrame()
         except Exception as e:
             if self.logger:
                 self.logger.warning("Ошибка при вычислении корреляции Спирмена", error=str(e))
@@ -71,8 +85,13 @@ class EnhancedCorrelationAnalyzer:
 
         # Ковариационная матрица
         try:
-            covariance = numeric_df.cov()
-            correlations['covariance'] = covariance.fillna(0.0)
+            # Проверяем, что у нас есть достаточно данных
+            if len(numeric_df) > 1:
+                covariance = numeric_df.cov()
+                # Заменяем NaN и inf на 0
+                correlations['covariance'] = covariance.fillna(0.0).replace([np.inf, -np.inf], 0.0)
+            else:
+                correlations['covariance'] = pd.DataFrame()
         except Exception as e:
             if self.logger:
                 self.logger.warning("Ошибка при вычислении ковариации", error=str(e))
@@ -113,10 +132,19 @@ class EnhancedCorrelationAnalyzer:
                     # Создаем таблицу сопряженности
                     contingency = pd.crosstab(df[col1], df[col2])
                     
-                    # Вычисляем Cramér's V
+                    # Вычисляем Cramér's V с проверкой деления на ноль
                     chi2, p_value, dof, expected = chi2_contingency(contingency)
                     n = contingency.sum().sum()
-                    cramers_v = np.sqrt(chi2 / (n * (min(contingency.shape) - 1)))
+                    
+                    # Проверяем, что n > 0 и есть вариация в данных
+                    if n > 0 and min(contingency.shape) > 1:
+                        denominator = n * (min(contingency.shape) - 1)
+                        if denominator > 0:
+                            cramers_v = np.sqrt(chi2 / denominator)
+                        else:
+                            cramers_v = 0.0
+                    else:
+                        cramers_v = 0.0
                     
                     cramers_v_matrix.loc[col1, col2] = cramers_v
                     
@@ -179,7 +207,14 @@ class EnhancedCorrelationAnalyzer:
                         # Вычисляем eta-squared
                         ss_between = grouped.apply(lambda x: (x.mean() - df[num_col].mean())**2 * len(x)).sum()
                         ss_total = ((df[num_col] - df[num_col].mean())**2).sum()
-                        eta_squared = ss_between / ss_total if ss_total > 0 else 0
+                        
+                        # Проверяем деление на ноль для eta-squared
+                        if ss_total > 0 and not np.isnan(ss_total):
+                            eta_squared = ss_between / ss_total
+                            # Ограничиваем значение от 0 до 1
+                            eta_squared = max(0.0, min(1.0, eta_squared))
+                        else:
+                            eta_squared = 0.0
                         eta_squared_matrix.loc[num_col, cat_col] = eta_squared
                     else:
                         eta_squared_matrix.loc[num_col, cat_col] = 0.0
@@ -191,8 +226,17 @@ class EnhancedCorrelationAnalyzer:
                         le = LabelEncoder()
                         encoded = le.fit_transform(df[cat_col].fillna('missing'))
                         if len(np.unique(encoded)) == 2:
-                            correlation, _ = pearsonr(df[num_col].fillna(0), encoded)
-                            point_biserial_matrix.loc[num_col, cat_col] = correlation
+                            # Проверяем, что у нас есть вариация в данных
+                            num_data = df[num_col].fillna(0)
+                            if num_data.std() > 0:  # Есть вариация в числовых данных
+                                correlation, _ = pearsonr(num_data, encoded)
+                                # Проверяем на NaN и inf
+                                if not np.isnan(correlation) and not np.isinf(correlation):
+                                    point_biserial_matrix.loc[num_col, cat_col] = correlation
+                                else:
+                                    point_biserial_matrix.loc[num_col, cat_col] = 0.0
+                            else:
+                                point_biserial_matrix.loc[num_col, cat_col] = 0.0
                         else:
                             point_biserial_matrix.loc[num_col, cat_col] = 0.0
                     else:

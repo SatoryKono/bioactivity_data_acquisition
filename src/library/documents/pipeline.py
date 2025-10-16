@@ -13,15 +13,15 @@ from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
-from library.config import APIClientConfig
+from library.config import APIClientConfig, Config
 from library.documents.config import DocumentConfig
-from library.tools.citation_formatter import add_citation_column
-from library.tools.journal_normalizer import normalize_journal_columns
 from library.etl.enhanced_correlation import (
+    build_correlation_insights,
     build_enhanced_correlation_analysis,
     build_enhanced_correlation_reports,
-    build_correlation_insights
 )
+from library.tools.citation_formatter import add_citation_column
+from library.tools.journal_normalizer import normalize_journal_columns
 
 
 class DocumentPipelineError(RuntimeError):
@@ -127,21 +127,21 @@ def _extract_data_from_source(
     # Define default values for all possible columns to ensure they exist
     default_columns = {
         # ChEMBL columns
-        "chembl_title": None, "chembl_doi": None, "chembl_pubmed_id": None,
+        "chembl_title": None, "chembl_doi": None, "chembl_pmid": None,
         "chembl_journal": None, "chembl_year": None, "chembl_volume": None, 
         "chembl_issue": None,
         # Crossref columns  
         "crossref_title": None, "crossref_doc_type": None, "crossref_subject": None, 
         "crossref_error": None,
         # OpenAlex columns
-        "openalex_doi_key": None, "openalex_title": None, "openalex_doc_type": None,
-        "openalex_type_crossref": None, "openalex_publication_year": None, 
+        "openalex_doi": None, "openalex_title": None, "openalex_doc_type": None,
+        "openalex_crossref_doc_type": None, "openalex_year": None, 
         "openalex_error": None,
         # PubMed columns
         "pubmed_pmid": None, "pubmed_doi": None, "pubmed_article_title": None, 
-        "pubmed_abstract": None, "pubmed_journal_title": None, "pubmed_volume": None, 
-        "pubmed_issue": None, "pubmed_start_page": None, "pubmed_end_page": None, 
-        "pubmed_publication_type": None, "pubmed_mesh_descriptors": None, 
+        "pubmed_abstract": None, "pubmed_journal": None, "pubmed_volume": None, 
+        "pubmed_issue": None, "pubmed_first_page": None, "pubmed_last_page": None, 
+        "pubmed_doc_type": None, "pubmed_mesh_descriptors": None, 
         "pubmed_mesh_qualifiers": None, "pubmed_chemical_list": None,
         "pubmed_year_completed": None, "pubmed_month_completed": None, 
         "pubmed_day_completed": None, "pubmed_year_revised": None, 
@@ -149,11 +149,13 @@ def _extract_data_from_source(
         "pubmed_issn": None, "pubmed_error": None,
         # Semantic Scholar columns
         "semantic_scholar_pmid": None, "semantic_scholar_doi": None, 
-        "semantic_scholar_semantic_scholar_id": None,
-        "semantic_scholar_publication_types": None, "semantic_scholar_venue": None,
-        "semantic_scholar_external_ids": None, "semantic_scholar_error": None,
+        "semantic_scholar_semantic_scholar_id": None, "semantic_scholar_title": None,
+        "semantic_scholar_doc_type": None, "semantic_scholar_journal": None,
+        "semantic_scholar_external_ids": None, "semantic_scholar_abstract": None,
+        "semantic_scholar_issn": None, "semantic_scholar_authors": None,
+        "semantic_scholar_error": None,
         # Common columns
-        "doc_type": None, "doi_key": None
+        "chembl_doc_type": None, "doi_key": None
     }
     
     for _, row in frame.iterrows():
@@ -166,8 +168,9 @@ def _extract_data_from_source(
                     row_data[key] = default_value
             
             if source == "chembl":
-                if pd.notna(row.get("document_chembl_id")):
-                    data = client.fetch_by_doc_id(str(row["document_chembl_id"]))
+                if (pd.notna(row.get("document_chembl_id")) and 
+                    str(row["document_chembl_id"]).strip()):
+                    data = client.fetch_by_doc_id(str(row["document_chembl_id"]).strip())
                     # Remove source from data to avoid overwriting
                     data.pop("source", None)
                     # Only update non-None values to preserve existing data
@@ -176,44 +179,44 @@ def _extract_data_from_source(
                             row_data[key] = value
                     
             elif source == "crossref":
-                if pd.notna(row.get("doi")):
-                    data = client.fetch_by_doi(str(row["doi"]))
+                if pd.notna(row.get("doi")) and str(row["doi"]).strip():
+                    data = client.fetch_by_doi(str(row["doi"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-                elif pd.notna(row.get("pubmed_id")):
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]))
+                elif pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
                     
             elif source == "openalex":
-                if pd.notna(row.get("doi")):
-                    data = client.fetch_by_doi(str(row["doi"]))
+                if pd.notna(row.get("doi")) and str(row["doi"]).strip():
+                    data = client.fetch_by_doi(str(row["doi"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-                elif pd.notna(row.get("pubmed_id")):
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]))
+                elif pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
                     
             elif source == "pubmed":
-                if pd.notna(row.get("pubmed_id")):
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]))
+                if pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
                     
             elif source == "semantic_scholar":
-                if pd.notna(row.get("pubmed_id")):
-                    data = client.fetch_by_pmid(str(row["pubmed_id"]))
+                if pd.notna(row.get("pubmed_id")) and str(row["pubmed_id"]).strip():
+                    data = client.fetch_by_pmid(str(row["pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
@@ -235,7 +238,8 @@ def _extract_data_from_source(
             error_msg = f"{type(exc).__name__}: {str(exc)}"
             
             # Специальная обработка для ошибок rate limiting
-            if "429" in str(exc) or "Rate limited" in str(exc):
+            if ("429" in str(exc) or "Rate limited" in str(exc) or 
+                "RateLimitError" in str(type(exc).__name__)):
                 error_msg = f"Rate limited by API: {str(exc)}"
                 print(f"Rate limiting detected for {source}, continuing with next record...")
             
@@ -295,31 +299,32 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
     # Define all possible columns that should exist in the output
     all_columns = {
         # Original ChEMBL fields
-        "document_chembl_id", "title", "doi", "pubmed_id", "doc_type", "journal", "year",
+        "document_chembl_id", "title", "doi", "pubmed_id", "chembl_doc_type", "journal", "year",
         # Legacy ChEMBL fields
-        "abstract", "authors", "classification", "document_contains_external_links",
+        "abstract", "pubmed_authors", "classification", "document_contains_external_links",
         "first_page", "is_experimental_doc", "issue", "last_page", "month", "volume",
         # Enriched fields from external sources
         # source column removed - not needed in final output
         # ChEMBL-specific fields
-        "chembl_title", "chembl_doi", "chembl_pubmed_id", "chembl_journal", 
+        "chembl_title", "chembl_doi", "chembl_pmid", "chembl_journal", 
         "chembl_year", "chembl_volume", "chembl_issue",
         # Crossref-specific fields
         "crossref_title", "crossref_doc_type", "crossref_subject", "crossref_error",
         # OpenAlex-specific fields
-        "openalex_doi_key", "openalex_title", "openalex_doc_type", 
-        "openalex_type_crossref", "openalex_publication_year", "openalex_error",
+        "openalex_doi", "openalex_title", "openalex_doc_type", 
+        "openalex_crossref_doc_type", "openalex_year", "openalex_error",
         # PubMed-specific fields
         "pubmed_pmid", "pubmed_doi", "pubmed_article_title", "pubmed_abstract",
-        "pubmed_journal_title", "pubmed_volume", "pubmed_issue", "pubmed_start_page", 
-        "pubmed_end_page", "pubmed_publication_type", "pubmed_mesh_descriptors", 
+        "pubmed_journal", "pubmed_volume", "pubmed_issue", "pubmed_first_page", 
+        "pubmed_last_page", "pubmed_doc_type", "pubmed_mesh_descriptors", 
         "pubmed_mesh_qualifiers", "pubmed_chemical_list", "pubmed_year_completed",
         "pubmed_month_completed", "pubmed_day_completed", "pubmed_year_revised",
         "pubmed_month_revised", "pubmed_day_revised", "pubmed_issn", "pubmed_error",
         # Semantic Scholar-specific fields
         "semantic_scholar_pmid", "semantic_scholar_doi", "semantic_scholar_semantic_scholar_id",
-        "semantic_scholar_publication_types", "semantic_scholar_venue", 
-        "semantic_scholar_external_ids", "semantic_scholar_error",
+        "semantic_scholar_title", "semantic_scholar_doc_type", "semantic_scholar_journal", 
+        "semantic_scholar_external_ids", "semantic_scholar_abstract", "semantic_scholar_issn",
+        "semantic_scholar_authors", "semantic_scholar_error",
         # Common fields
         "doi_key",
         # Citation field
@@ -331,9 +336,9 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         if column not in frame.columns:
             frame[column] = None
     
-    # Ensure doc_type has a default value for all rows
-    if "doc_type" in frame.columns:
-        frame["doc_type"] = frame["doc_type"].fillna("PUBLICATION")
+    # Ensure chembl_doc_type has a default value for all rows
+    if "chembl_doc_type" in frame.columns:
+        frame["chembl_doc_type"] = frame["chembl_doc_type"].fillna("PUBLICATION")
     
     return frame
 
@@ -364,7 +369,16 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                 print(f"Using conservative rate limiting for {source} (no API key)")
                 import time
                 if source == "semantic_scholar":
-                    time.sleep(10)  # Дополнительная задержка для Semantic Scholar
+                    # Semantic Scholar имеет очень строгие ограничения без API ключа
+                    print("=" * 80)
+                    print("SEMANTIC SCHOLAR RATE LIMITING INFO:")
+                    print("Semantic Scholar API has very strict rate limits without an API key.")
+                    print("Current limit: ~1 request per minute")
+                    print("To get higher limits, apply for an API key at:")
+                    print("https://www.semanticscholar.org/product/api#api-key-form")
+                    print("=" * 80)
+                    time.sleep(65)  # 65 секунд между запросами (чуть больше минуты)
+                    print("Semantic Scholar: Waiting 65 seconds to respect rate limits...")
                 else:
                     time.sleep(2)  # Дополнительная задержка для OpenAlex
             
@@ -389,16 +403,29 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                   
             # Для источников с высоким rate limiting добавляем задержку после завершения
             if source in ["semantic_scholar", "openalex"]:
-                print(f"Waiting before next source to respect rate limits...")
+                print("Waiting before next source to respect rate limits...")
                 import time
                 if source == "semantic_scholar":
-                    time.sleep(15)  # Дополнительная задержка для Semantic Scholar
+                    time.sleep(30)  # Дополнительная задержка для Semantic Scholar
+                    print("Semantic Scholar: Additional 30 seconds wait completed.")
                 else:
                     time.sleep(5)  # Задержка для OpenAlex
                 
         except Exception as exc:
             print(f"Warning: Failed to extract data from {source}: {exc}")
             print(f"Error type: {type(exc).__name__}")
+            
+            # Специальная информация для Semantic Scholar
+            if source == "semantic_scholar":
+                print("=" * 80)
+                print("SEMANTIC SCHOLAR ERROR - RECOMMENDATIONS:")
+                print("1. Consider getting an API key for higher rate limits:")
+                print("   https://www.semanticscholar.org/product/api#api-key-form")
+                print("2. Or disable Semantic Scholar in your config file:")
+                print("   sources.semantic_scholar.enabled: false")
+                print("3. The pipeline will continue with other sources.")
+                print("=" * 80)
+            
             # Continue with other sources even if one fails
 
     # Calculate QC metrics
@@ -421,8 +448,10 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             else:
                 source_data_count = 0
         elif source == "semantic_scholar":
-            if "scholar_pmid" in enriched_frame.columns:
-                source_data_count = len(enriched_frame[enriched_frame["scholar_pmid"].notna()])
+            if "semantic_scholar_pmid" in enriched_frame.columns:
+                source_data_count = len(
+                    enriched_frame[enriched_frame["semantic_scholar_pmid"].notna()]
+                )
             else:
                 source_data_count = 0
         else:
@@ -437,7 +466,9 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     correlation_insights = None
     
     # Проверяем, включен ли корреляционный анализ в конфигурации
-    if hasattr(config, 'postprocess') and hasattr(config.postprocess, 'correlation') and config.postprocess.correlation.enabled:
+    if (hasattr(config, 'postprocess') and 
+        hasattr(config.postprocess, 'correlation') and 
+        config.postprocess.correlation.enabled):
         try:
             print("Выполняем корреляционный анализ документов...")
             
@@ -470,7 +501,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
 
 
 def write_document_outputs(
-    result: DocumentETLResult, output_dir: Path, date_tag: str
+    result: DocumentETLResult, output_dir: Path, date_tag: str, config: Config | None = None
 ) -> dict[str, Path]:
     """Persist ETL artefacts to disk and return the generated paths."""
 
@@ -483,14 +514,47 @@ def write_document_outputs(
     qc_path = output_dir / f"documents_{date_tag}_qc.csv"
 
     try:
-        # Добавляем колонку с литературными ссылками перед сохранением
-        documents_with_citations = add_citation_column(result.documents)
+        # Нормализуем колонки с названиями журналов (если включено)
+        if config is not None and config.postprocess.journal_normalization.enabled:
+            documents_normalized = normalize_journal_columns(result.documents)
+        else:
+            documents_normalized = result.documents
         
-        # Нормализуем колонки с названиями журналов
-        documents_normalized = normalize_journal_columns(documents_with_citations)
+        # Валидируем данные из различных источников
+        from library.tools.data_validator import validate_all_fields
+        documents_validated = validate_all_fields(documents_normalized)
         
-        documents_normalized.to_csv(documents_path, index=False)
-        result.qc.to_csv(qc_path, index=False)
+        # Добавляем колонку с литературными ссылками после валидации (если включено)
+        if config is not None and config.postprocess.citation_formatting.enabled:
+            # Получаем маппинг колонок из конфигурации, если он есть
+            column_mapping = getattr(config.postprocess.citation_formatting, 'columns', None)
+            documents_with_citations = add_citation_column(documents_validated, column_mapping)
+        else:
+            documents_with_citations = documents_validated
+        
+        # Используем готовую функцию детерминистического сохранения
+        if config is not None:
+            from library.etl.load import write_deterministic_csv
+            write_deterministic_csv(
+                documents_with_citations,
+                documents_path,
+                determinism=config.determinism,
+                output=None  # Используем fallback настройки
+            )
+        else:
+            # Fallback для случаев, когда конфигурация не передана
+            documents_with_citations.to_csv(documents_path, index=False)
+        
+        # Сохраняем QC данные также с детерминистическим порядком
+        if config is not None:
+            write_deterministic_csv(
+                result.qc,
+                qc_path,
+                determinism=config.determinism,
+                output=None  # Используем fallback настройки
+            )
+        else:
+            result.qc.to_csv(qc_path, index=False)
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise DocumentIOError(f"Failed to write outputs: {exc}") from exc
 

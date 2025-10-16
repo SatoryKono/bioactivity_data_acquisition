@@ -18,8 +18,34 @@ def normalize_journal_name(text: Any) -> str | None:
     Returns:
         Нормализованное название журнала или None для пустых значений
     """
-    if pd.isna(text) or text is None:
+    # Проверяем на None и NaN значения
+    if text is None:
         return None
+    
+    # Проверяем на NaN только для скалярных значений
+    try:
+        if pd.isna(text):
+            return None
+    except (TypeError, ValueError):
+        # Если pd.isna не может обработать тип (например, список), продолжаем
+        pass
+    
+    # Если это список или другой итерируемый объект, берем первый элемент
+    if isinstance(text, (list, tuple)) and len(text) > 0:
+        text = text[0]
+    elif isinstance(text, dict):
+        # Для словарей берем первое значение
+        text = next(iter(text.values())) if text else None
+    
+    # Проверяем еще раз после извлечения значения
+    if text is None:
+        return None
+    
+    try:
+        if pd.isna(text):
+            return None
+    except (TypeError, ValueError):
+        pass
     
     # Преобразуем в строку и обрезаем пробелы
     text = str(text).strip()

@@ -133,7 +133,7 @@ postprocess:
     enabled: true
   journal_normalization:
     enabled: true
-    columns: ["journal", "pubmed_journal_title", "chembl_journal", "crossref_journal"]
+    columns: ["journal", "pubmed_journal", "chembl_journal", "crossref_journal"]
   citation_formatting:
     enabled: true
     columns:

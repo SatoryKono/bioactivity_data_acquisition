@@ -298,7 +298,9 @@ def test_semantic_scholar_single_fetch() -> None:
 
     result = client.fetch_by_pmid("777")
 
-    assert result == {"source": "semantic_scholar", "pmid": "777", "title": "Single"}
+    assert result["source"] == "semantic_scholar"
+    assert result["semantic_scholar_pmid"] == "777"
+    assert result["semantic_scholar_title"] == "Single"
 
 
 @responses.activate

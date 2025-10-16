@@ -11,7 +11,7 @@
 #### 🏆 **ТОП-20 ЗАПОЛНЕННЫХ КОЛОНОК (100% заполнение):**
 
 1. `document_chembl_id` - 20/20 (100.0%)
-2. `authors` - 20/20 (100.0%)
+2. `pubmed_authors` - 20/20 (100.0%)
 3. `document_contains_external_links` - 20/20 (100.0%)
 4. `doi` - 20/20 (100.0%)
 5. `first_page` - 20/20 (100.0%)
@@ -32,7 +32,7 @@
 
 - `abstract` - 15/20 (75.0%)
 
-- `semantic_scholar_venue` - 14/20 (70.0%)
+- `semantic_scholar_journal` - 14/20 (70.0%)
 
 - `semantic_scholar_semantic_scholar_id` - 14/20 (70.0%)
 

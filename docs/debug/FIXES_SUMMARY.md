@@ -4,13 +4,13 @@
 
 Скрипт `get_document_data` оставлял пустыми колонки:
 
-- `doc_type`
+- `chembl_doc_type`
 
-- `chembl_title`, `chembl_doi`, `chembl_pubmed_id`, `chembl_journal`, `chembl_year`, `chembl_volume`, `chembl_issue`
+- `chembl_title`, `chembl_doi`, `chembl_pmid`, `chembl_journal`, `chembl_year`, `chembl_volume`, `chembl_issue`
 
 - `crossref_subject`, `crossref_error`
 
-- `openalex_doi_key`, `openalex_type_crossref`, `openalex_publication_year`, `openalex_error`
+- `openalex_doi`, `openalex_crossref_doc_type`, `openalex_year`, `openalex_error`
 
 - `pubmed_doi`, `pubmed_mesh_descriptors`, `pubmed_mesh_qualifiers`, `pubmed_chemical_list`, `pubmed_error`
 
@@ -38,7 +38,7 @@
 
 - Инициализирует все возможные колонки значениями по умолчанию
 
-- Устанавливает `doc_type = "PUBLICATION"` для всех записей
+- Устанавливает `chembl_doc_type = "PUBLICATION"` для всех записей
 
 - Гарантирует наличие всех колонок в выходном DataFrame
 
@@ -52,7 +52,7 @@
 
 **ChEMBL клиент (`src/library/clients/chembl.py`):**
 
-- Добавлена установка значения по умолчанию `doc_type = "PUBLICATION"`
+- Добавлена установка значения по умолчанию `chembl_doc_type = "PUBLICATION"`
 
 **Crossref клиент (`src/library/clients/crossref.py`):**
 

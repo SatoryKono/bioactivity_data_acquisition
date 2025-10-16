@@ -81,6 +81,51 @@ class RateLimitFallbackStrategy(FallbackStrategy):
         }
 
 
+class SemanticScholarFallbackStrategy(FallbackStrategy):
+    """Specialized fallback strategy for Semantic Scholar API with very strict rate limits."""
+    
+    def should_retry(self, error: ApiClientError, attempt: int) -> bool:
+        """Very conservative retry logic for Semantic Scholar."""
+        if error.status_code == 429:
+            # For rate limiting, only retry once with very long delay
+            return attempt < 1
+        elif error.status_code in [500, 502, 503, 504]:
+            # For server errors, retry once
+            return attempt < 1
+        else:
+            # For other errors, don't retry
+            return False
+    
+    def get_delay(self, error: ApiClientError, attempt: int) -> float:
+        """Very long delays for Semantic Scholar rate limiting."""
+        if error.status_code == 429:
+            # Very long delay for rate limiting (2-5 minutes)
+            delay = min(120.0 + (attempt * 60.0), 300.0)
+        elif error.status_code in [500, 502, 503, 504]:
+            # Moderate delay for server errors
+            delay = min(30.0 + (attempt * 15.0), 120.0)
+        else:
+            # Standard delay
+            delay = self.config.base_delay
+        
+        if self.config.jitter:
+            import random
+            jitter_factor = random.uniform(0.9, 1.1)
+            delay *= jitter_factor
+        
+        return delay
+    
+    def get_fallback_data(self, error: ApiClientError) -> Dict[str, Any]:
+        """Return fallback data for Semantic Scholar."""
+        return {
+            "source": "fallback",
+            "fallback_used": True,
+            "error": str(error),
+            "fallback_reason": f"Semantic Scholar API error: {error.status_code}",
+            "retry_count": 1
+        }
+
+
 class AdaptiveFallbackStrategy(FallbackStrategy):
     """Adaptive fallback strategy that learns from API behavior."""
     

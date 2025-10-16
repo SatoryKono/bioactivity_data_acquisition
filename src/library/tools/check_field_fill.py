@@ -24,9 +24,9 @@ def check_field_fill(csv_path: str):
     # Проверяем конкретные поля
     fields_to_check = {
         'Crossref': ['crossref_title', 'crossref_doc_type', 'crossref_subject', 'doi_key'],
-        'OpenAlex': ['openalex_title', 'openalex_doc_type', 'openalex_publication_year', 'openalex_doi_key'],
-        'PubMed': ['pubmed_pmid', 'pubmed_doi', 'pubmed_article_title', 'pubmed_abstract', 'pubmed_journal_title'],
-        'Semantic Scholar': ['semantic_scholar_pmid', 'semantic_scholar_doi', 'semantic_scholar_venue', 'semantic_scholar_publication_types']
+        'OpenAlex': ['openalex_title', 'openalex_doc_type', 'openalex_year', 'openalex_doi'],
+        'PubMed': ['pubmed_pmid', 'pubmed_doi', 'pubmed_article_title', 'pubmed_abstract', 'pubmed_journal'],
+        'Semantic Scholar': ['semantic_scholar_pmid', 'semantic_scholar_doi', 'semantic_scholar_journal', 'semantic_scholar_doc_type']
     }
     
     for source, fields in fields_to_check.items():

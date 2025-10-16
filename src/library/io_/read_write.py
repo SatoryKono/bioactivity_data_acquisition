@@ -76,13 +76,13 @@ def write_publications(
         parquet_settings = _ParquetFormatSettings()
 
     if determinism is not None:
+        # Сохраняем только колонки, указанные в column_order
         column_order = [col for col in determinism.column_order if col in normalized.columns]
-        remaining = [col for col in normalized.columns if col not in column_order]
-        ordered_columns = column_order + remaining
-        if ordered_columns:
-            normalized = normalized[ordered_columns]
+        # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
+        if column_order:
+            normalized = normalized[column_order]
 
-        sort_by = determinism.sort.by or ordered_columns or normalized.columns.tolist()
+        sort_by = determinism.sort.by or column_order or normalized.columns.tolist()
         ascending = _resolve_ascending(sort_by, determinism.sort.ascending)
         normalized = normalized.sort_values(
             sort_by,

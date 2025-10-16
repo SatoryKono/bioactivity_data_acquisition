@@ -88,12 +88,13 @@ def normalize_bioactivity_data(
     columns_to_drop = ["activity_units", "standard_units", "standard_value"]
     normalized = normalized.drop(columns=[col for col in columns_to_drop if col in normalized.columns], errors="ignore")
 
+    # Сохраняем только колонки, указанные в column_order
     desired_order = [col for col in determinism.column_order if col in normalized.columns]
-    remaining = [col for col in normalized.columns if col not in desired_order]
-    ordered_columns = desired_order + remaining
-    normalized = normalized[ordered_columns]
+    # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
+    if desired_order:
+        normalized = normalized[desired_order]
 
-    sort_by = determinism.sort.by or ordered_columns
+    sort_by = determinism.sort.by or desired_order
     sort_ascending = _resolve_ascending(sort_by, determinism.sort.ascending)
     normalized = normalized.sort_values(
         sort_by,

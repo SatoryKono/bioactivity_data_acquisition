@@ -270,6 +270,7 @@ def get_document_data(
             result,
             config_model.io.output.dir,
             config_model.runtime.date_tag,
+            config_model,
         )
     except DocumentIOError as exc:
         typer.echo(str(exc), err=True)

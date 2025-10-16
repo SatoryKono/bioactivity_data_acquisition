@@ -53,15 +53,15 @@
 
 ### Колонки с 100% заполнением (55 колонок)
 
-- **ChEMBL**: `document_chembl_id`, `doi`, `title`, `journal`, `year`, `authors`, `volume`, `issue`
+- **ChEMBL**: `document_chembl_id`, `doi`, `title`, `journal`, `year`, `pubmed_authors`, `volume`, `issue`
 
 - **PubMed**: `pubmed_pmid`, `pubmed_doi`, `pubmed_abstract`, `pubmed_mesh_descriptors`, `pubmed_mesh_qualifiers`, `pubmed_chemical_list`
 
 - **Crossref**: `crossref_subject`, `crossref_title`, `crossref_doc_type`
 
-- **OpenAlex**: `openalex_doi_key`, `openalex_title`, `openalex_publication_year`, `openalex_doc_type`
+- **OpenAlex**: `openalex_doi`, `openalex_title`, `openalex_year`, `openalex_doc_type`
 
-- **Semantic Scholar**: `semantic_scholar_pmid`, `semantic_scholar_doi`, `semantic_scholar_venue`, `semantic_scholar_publication_types`
+- **Semantic Scholar**: `semantic_scholar_pmid`, `semantic_scholar_doi`, `semantic_scholar_journal`, `semantic_scholar_doc_type`
 
 ### Колонки с 90%+ заполнением
 
@@ -77,7 +77,7 @@
 
 ### Колонки с 0% заполнения (2 колонки)
 
-- `openalex_type_crossref`: 0.0%
+- `openalex_crossref_doc_type`: 0.0%
 
 - `source`: 0.0%
 
@@ -125,7 +125,7 @@
 
 ### 1. Немедленные действия
 
-- Улучшить извлечение `openalex_type_crossref`
+- Улучшить извлечение `openalex_crossref_doc_type`
 
 - Добавить обработку поля `source`
 

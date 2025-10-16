@@ -95,7 +95,68 @@ class CrossrefClient(BaseApiClient):
             "crossref_title": title,
             "crossref_doc_type": work.get("type"),
             "crossref_subject": subject,
+            "crossref_pmid": self._extract_pmid(work),
+            "crossref_abstract": work.get("abstract"),
+            "crossref_issn": self._extract_issn(work),
+            "crossref_authors": self._extract_authors(work),
             "crossref_error": None,  # Will be set if there's an error
         }
         # Return all fields, including None values, to maintain schema consistency
         return record
+
+    def _extract_pmid(self, work: dict[str, Any]) -> str | None:
+        """Извлекает PMID из Crossref work."""
+        # Crossref может содержать PMID в разных местах
+        pmid = work.get("pmid")
+        if pmid:
+            return str(pmid)
+        
+        # Проверяем в link
+        links = work.get("link", [])
+        if isinstance(links, list):
+            for link in links:
+                if isinstance(link, dict) and link.get("intended-application") == "text-mining":
+                    url = link.get("URL", "")
+                    if "pubmed.ncbi.nlm.nih.gov" in url and "pmid=" in url:
+                        # Извлекаем PMID из URL
+                        import re
+                        match = re.search(r'pmid=(\d+)', url)
+                        if match:
+                            return match.group(1)
+        
+        return None
+
+    def _extract_authors(self, work: dict[str, Any]) -> list[str] | None:
+        """Извлекает авторов из Crossref work."""
+        authors = work.get("author")
+        if isinstance(authors, list):
+            author_names = []
+            for author in authors:
+                if isinstance(author, dict):
+                    # Crossref обычно имеет структуру: {"given": "John", "family": "Doe"}
+                    given = author.get("given", "")
+                    family = author.get("family", "")
+                    if given or family:
+                        full_name = f"{given} {family}".strip()
+                        author_names.append(full_name)
+            return author_names if author_names else None
+        
+        return None
+
+    def _extract_issn(self, work: dict[str, Any]) -> str | None:
+        """Извлекает ISSN из Crossref work."""
+        # Crossref может содержать ISSN в разных местах
+        issn = work.get("issn")
+        if issn:
+            if isinstance(issn, list) and issn:
+                return issn[0]  # Берем первый ISSN если их несколько
+            return str(issn)
+        
+        # Проверяем в container-title
+        container_title = work.get("container-title", [])
+        if isinstance(container_title, list) and container_title:
+            # В Crossref ISSN может быть в метаданных контейнера
+            # Но обычно он находится в отдельном поле issn
+            pass
+        
+        return None

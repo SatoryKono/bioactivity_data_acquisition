@@ -24,13 +24,15 @@ class DocumentInputSchema(pa.DataFrameModel):
     # Optional fields
     doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
     pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed identifier")
-    doc_type: Series[str] = pa.Field(nullable=True, description="Document type")
+    chembl_doc_type: Series[str] = pa.Field(nullable=True, description="Document type from ChEMBL")
     journal: Series[str] = pa.Field(nullable=True, description="Journal name")
     year: Series[int] = pa.Field(nullable=True, description="Publication year")
     
     # Legacy fields (keeping for backward compatibility)
     abstract: Series[str] = pa.Field(nullable=True, description="Document abstract")
-    authors: Series[str] = pa.Field(nullable=True, description="Document authors")
+    pubmed_authors: Series[str] = pa.Field(
+        nullable=True, description="Document authors from PubMed"
+    )
     classification: Series[float] = pa.Field(nullable=True, description="Document classification")
     document_contains_external_links: Series[bool] = pa.Field(nullable=True, description="Contains external links")
     first_page: Series[int] = pa.Field(nullable=True, description="First page number")

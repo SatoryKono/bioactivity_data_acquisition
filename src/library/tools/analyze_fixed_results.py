@@ -35,7 +35,7 @@ def analyze_results(csv_path: str):
         'OpenAlex': [col for col in df.columns if col.startswith('openalex_')],
         'PubMed': [col for col in df.columns if col.startswith('pubmed_')],
         'Semantic Scholar': [col for col in df.columns if col.startswith('semantic_scholar_')],
-        'Основные': ['document_chembl_id', 'title', 'doi', 'pubmed_id', 'journal', 'year', 'volume', 'issue', 'first_page', 'last_page', 'month', 'abstract', 'authors']
+        'Основные': ['document_chembl_id', 'title', 'doi', 'pubmed_id', 'journal', 'year', 'volume', 'issue', 'first_page', 'last_page', 'month', 'abstract', 'pubmed_authors']
     }
     
     for source, columns in source_columns.items():
