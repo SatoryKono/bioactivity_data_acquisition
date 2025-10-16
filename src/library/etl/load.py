@@ -78,8 +78,22 @@ def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
     if logger is not None:
         logger.info("normalize_start", columns=list(df.columns), rows=len(df))
     
-    # Определяем DOI-столбцы (case-insensitive)
-    doi_columns = [col for col in df_normalized.columns if 'doi' in col.lower()]
+    # Определяем DOI-столбцы (case-insensitive), исключая служебные флаги валидации
+    lower_names = {col: col.lower() for col in df_normalized.columns}
+    doi_columns: list[str] = []
+    for col, low in lower_names.items():
+        # Не нормализуем булев флаг валидации DOI
+        if low == 'invalid_doi':
+            continue
+        # Явные DOI-колонки и канонические имена
+        if low in {
+            'doi', 'document_doi', 'doi_key', 'valid_doi',
+            'chembl_doi', 'crossref_doi', 'openalex_doi', 'pubmed_doi', 'semantic_scholar_doi'
+        }:
+            doi_columns.append(col)
+        # Общий случай: поля, заканчивающиеся на _doi (кроме invalid_doi, уже исключили)
+        elif low.endswith('_doi'):
+            doi_columns.append(col)
     
     if logger is not None and doi_columns:
         logger.info("doi_normalization_detected", doi_columns=doi_columns)

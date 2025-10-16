@@ -1,0 +1,66 @@
+site_name: bioactivity_data_acquisition
+site_url: https://satorykono.github.io/bioactivity_data_acquisition/
+repo_url: https://github.com/SatoryKono/bioactivity_data_acquisition
+repo_name: SatoryKono/bioactivity_data_acquisition
+edit_uri: edit/main/docs/
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.indexes
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+  language: ru
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - src
+          options:
+            show_source: true
+            docstring_style: google
+            separate_signature: true
+  - mermaid2
+  - table-reader
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - footnotes
+  - def_list
+  - attr_list
+  - tables
+
+nav:
+  - Обзор: index.md
+  - Архитектура: architecture.md
+  - Конфигурация: configuration.md
+  - CLI: cli.md
+  - Схемы данных: data_schemas.md
+  - Артефакты выгрузки: outputs.md
+  - Качество и тесты: quality.md
+  - CI/CD: ci.md
+  - Эксплуатация: operations.md
+  - Руководство по контрибьюшену: contributing.md
+  - Релизы и изменения: changelog.md
+  - FAQ: faq.md
+  - Глоссарий: glossary.md
+  - API:
+      - API Reference: api/index.md
+  - Справочные материалы:
+      - DATA_STRUCTURE: DATA_STRUCTURE.md
+      - API limits: API_LIMITS_CHECK.md
+      - Document schemas: document_schemas.md
+      - Citation formatting: CITATION_FORMATTING.md
+
