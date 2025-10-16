@@ -25,7 +25,7 @@
 
    - `doi:`, `urn:doi:`, `info:doi/`
 
-   - URL-оболочки:`[http://doi.org/`,](http://doi.org/`,) `[https://doi.org/`,](https://doi.org/`,) `[http://dx.doi.org/`,](http://dx.doi.org/`,) `[https://dx.doi.org/`](https://dx.doi.org/`)
+   - URL-оболочки:`[http://doi.org/`,](<http://doi.org/`>,) `[https://doi.org/`,](<https://doi.org/`>,) `[http://dx.doi.org/`,](<http://dx.doi.org/`>,) `[https://dx.doi.org/`](<https://dx.doi.org/`>)
 
 4. **Процент-коды**: декодирование percent-encoding
 5. **Пробелы**: удаление всех пробелов вокруг разделителя "/" и внутри строки
@@ -51,7 +51,7 @@
 
 Создан comprehensive набор тестов в файле`tests/test*doi*normalization.py`:
 
-#### Тесты функции нормализации:
+#### Тесты функции нормализации
 
 - ✅ Базовые примеры из требований
 
@@ -77,7 +77,7 @@
 
 - ✅ Сохранение различий между разными DOI
 
-#### Тесты интеграции:
+#### Тесты интеграции
 
 - ✅ Нормализация DOI-столбцов в DataFrame
 
@@ -105,19 +105,19 @@
 |`"10.1000/xyz%2D123"`|`"10.1000/xyz-123"`|
 |`"10.1000/xyz-123."`|`"10.1000/xyz-123"`|
 |`"URN:DOI:10.5555/  A B C "`|`"10.5555/abc"`|
-|`"[https://dx.doi.org/10.1038/ABC.1"`](https://dx.doi.org/10.1038/ABC.1"`) | `"10.1038/abc.1"`|
+|`"[https://dx.doi.org/10.1038/ABC.1"`](<https://dx.doi.org/10.1038/ABC.1"`>) | `"10.1038/abc.1"`|
 |`"info:doi/10.1038/ABC.1///"`|`"10.1038/abc.1"`|
 
 ## Технические детали
 
-### Файлы изменений:
+### Файлы изменений
 
 1.`src/library/io*/normalize.py`- добавлена
 функция`normalize*doi*advanced`2.`src/library/etl/load.py`- модифицирована
 функция`*normalize*dataframe`3.`tests/test*doi*normalization.py`- созданы тесты
 4.`scripts/test*doi*normalization*demo.py`- демонстрационный скрипт
 
-### Ключевые особенности:
+### Ключевые особенности
 
 - **Идемпотентность**: повторное применение нормализации не изменяет результат
 

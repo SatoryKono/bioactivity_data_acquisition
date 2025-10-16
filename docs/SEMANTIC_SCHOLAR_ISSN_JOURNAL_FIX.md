@@ -111,13 +111,13 @@ def *extract*doc*type(self, payload: dict[str, Any]) -> str | None:
 
 record: dict[str, Any | None] = {
 
-## ... другие поля ..
+## ... другие поля
 
     "semantic*scholar*doc*type": self.*extract*doc*type(payload), # ✅ Добавлено
     "semantic*scholar*journal": self.*extract*journal(payload),   # ✅ Исправлено
     "semantic*scholar*issn": self.*extract*issn(payload),         # ✅ Улучшено
 
-## ... остальные поля ..
+## ... остальные поля
 
 }
 

@@ -254,7 +254,7 @@ index
 if logger is not None:
     logger.info("normalize*start", columns=list(df.columns), rows=len(df))
 
-## ... процесс нормализации ..
+## ... процесс нормализации
 
     logger.info("normalize*complete", columns=list(df_normalized.columns))
 

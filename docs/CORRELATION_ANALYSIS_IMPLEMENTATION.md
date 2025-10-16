@@ -165,13 +165,13 @@ data/output/correlation*test/
 
 2.**`src/library/documents/config.py`**
 
-   - Добавлен `DocumentPostprocessSettings`для конфигурации postprocessing
+- Добавлен `DocumentPostprocessSettings`для конфигурации postprocessing
 
-   - Интегрирован в`DocumentConfig`
+- Интегрирован в`DocumentConfig`
 
 3.**`configs/config*documents*full.yaml`**
 
-   - Добавлена секция `postprocess`с включенным корреляционным анализом
+- Добавлена секция `postprocess`с включенным корреляционным анализом
 
 ### Зависимости
 

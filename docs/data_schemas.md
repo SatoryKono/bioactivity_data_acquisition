@@ -3,6 +3,7 @@
 Схемы описаны в Pandera для сырья и нормализованных данных.
 
 ## Входные документы (DocumentInputSchema)
+
 | поле | тип | nullable | описание |
 |---|---|---|---|
 | document_chembl_id | str | no | ChEMBL document identifier |
@@ -24,6 +25,7 @@
 | volume | float | yes | Том |
 
 ## Выходные документы (DocumentOutputSchema, фрагмент)
+
 | поле | тип | nullable | описание |
 |---|---|---|---|
 | document_chembl_id | str | no | ChEMBL ID |
@@ -43,6 +45,7 @@
 Полный список полей — см. исходники в `src/library/schemas/document_output_schema.py`.
 
 ## Примеры
+
 ```csv
 id,assay_id,value,unit
 A1,AS123,1.23,uM
