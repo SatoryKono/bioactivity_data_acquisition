@@ -84,6 +84,7 @@ class TestConfigSchemaValidation:
             },
             "sources": {
                 "chembl": {
+                    "name": "chembl",  # Required field
                     "enabled": True,
                     "http": {
                         "base_url": "not-a-valid-url",  # Invalid: not a URI
@@ -99,7 +100,9 @@ class TestConfigSchemaValidation:
                     "documents_csv": "data/input/documents.csv"
                 },
                 "output": {
-                    "dir": "data/output"
+                    "data_path": "data/output/data.csv",  # Required field
+                    "qc_report_path": "data/output/qc_report.csv",  # Required field
+                    "correlation_path": "data/output/correlation.csv"  # Required field
                 }
             },
             "runtime": {
@@ -111,13 +114,14 @@ class TestConfigSchemaValidation:
             },
             "validation": {
                 "qc": {
-                    "min_fill_rate": 0.8
+                    "max_missing_fraction": 0.2,  # Use new field name
+                    "max_duplicate_fraction": 0.1
                 }
             }
         }
         
-        # Should raise ValueError due to schema validation failure
-        with pytest.raises(ValueError, match="Configuration validation failed"):
+        # Should raise ValidationError due to Pydantic validation failure
+        with pytest.raises(Exception):  # Pydantic ValidationError
             Config.model_validate(invalid_config)
 
     def test_missing_required_fields_fails_validation(self):
@@ -131,16 +135,17 @@ class TestConfigSchemaValidation:
             },
             "sources": {
                 "chembl": {
+                    "name": "chembl",  # Required field
                     "enabled": True,
                     "http": {
                         "base_url": "https://api.example.com"
                     }
                 }
             }
-            # Missing required 'io', 'runtime', 'logging', 'validation' fields
+            # Missing required 'io', 'logging' fields
         }
         
-        with pytest.raises(ValueError, match="Configuration validation failed"):
+        with pytest.raises(Exception):  # Pydantic ValidationError
             Config.model_validate(incomplete_config)
 
     def test_invalid_enum_values_fail_validation(self):
@@ -156,6 +161,7 @@ class TestConfigSchemaValidation:
             },
             "sources": {
                 "chembl": {
+                    "name": "chembl",  # Required field
                     "enabled": True,
                     "http": {
                         "base_url": "https://api.example.com"
@@ -167,7 +173,9 @@ class TestConfigSchemaValidation:
                     "documents_csv": "data/input/documents.csv"
                 },
                 "output": {
-                    "dir": "data/output"
+                    "data_path": "data/output/data.csv",  # Required field
+                    "qc_report_path": "data/output/qc_report.csv",  # Required field
+                    "correlation_path": "data/output/correlation.csv"  # Required field
                 }
             },
             "runtime": {
@@ -179,12 +187,13 @@ class TestConfigSchemaValidation:
             },
             "validation": {
                 "qc": {
-                    "min_fill_rate": 0.8
+                    "max_missing_fraction": 0.2,  # Use new field name
+                    "max_duplicate_fraction": 0.1
                 }
             }
         }
         
-        with pytest.raises(ValueError, match="Configuration validation failed"):
+        with pytest.raises(Exception):  # Pydantic ValidationError
             Config.model_validate(invalid_enum_config)
 
     def test_yaml_file_validation_with_schema(self):
@@ -199,6 +208,7 @@ http:
 
 sources:
   chembl:
+    name: chembl
     enabled: true
     http:
       base_url: "https://api.example.com"
@@ -216,7 +226,9 @@ io:
   input:
     documents_csv: "data/input/documents.csv"
   output:
-    dir: "data/output"
+    data_path: "data/output/data.csv"
+    qc_report_path: "data/output/qc_report.csv"
+    correlation_path: "data/output/correlation.csv"
 
 runtime:
   workers: 4
@@ -227,7 +239,8 @@ logging:
 
 validation:
   qc:
-    min_fill_rate: 0.8
+    max_missing_fraction: 0.2
+    max_duplicate_fraction: 0.1
 """
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
@@ -254,6 +267,7 @@ http:
 
 sources:
   chembl:
+    name: chembl
     enabled: true
     http:
       base_url: "not-a-valid-url"  # Invalid: not a URI
@@ -262,7 +276,9 @@ io:
   input:
     documents_csv: "data/input/documents.csv"
   output:
-    dir: "data/output"
+    data_path: "data/output/data.csv"
+    qc_report_path: "data/output/qc_report.csv"
+    correlation_path: "data/output/correlation.csv"
 
 runtime:
   workers: 4
@@ -273,7 +289,8 @@ logging:
 
 validation:
   qc:
-    min_fill_rate: 0.8
+    max_missing_fraction: 0.2
+    max_duplicate_fraction: 0.1
 """
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:

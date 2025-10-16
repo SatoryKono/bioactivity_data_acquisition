@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -57,26 +58,54 @@ class DocumentETLResult:
 
 _REQUIRED_COLUMNS = {"document_chembl_id", "doi", "title"}
 
+# Get logger for this module
+logger = logging.getLogger(__name__)
+
 
 def _create_api_client(source: str, config: DocumentConfig) -> Any:
     """Create an API client for the specified source."""
-    from library.config import RetrySettings
+    from library.config import RetrySettings, RateLimitSettings
     
-    # ChEMBL API is slower, so increase timeout
-    timeout = config.http.global_.timeout_sec
+    # Get source-specific configuration
+    source_config = config.sources.get(source)
+    if not source_config:
+        raise DocumentValidationError(f"Source '{source}' not found in configuration")
+    
+    # Use source-specific timeout or fallback to global
+    timeout = source_config.http.timeout_sec or config.http.global_.timeout_sec
     if source == "chembl":
         timeout = max(timeout, 60.0)  # At least 60 seconds for ChEMBL
+    
+    # Merge headers: global + source-specific
+    headers = {**config.http.global_.headers, **source_config.http.headers}
+    
+    # Use source-specific base_url or fallback to default
+    base_url = source_config.http.base_url or _get_base_url(source)
+    
+    # Use source-specific retry settings or fallback to global
+    retry_settings = RetrySettings(
+        total=source_config.http.retries.get('total', config.http.global_.retries.total),
+        backoff_multiplier=source_config.http.retries.get('backoff_multiplier', config.http.global_.retries.backoff_multiplier)
+    )
+    
+    # Create rate limit settings if configured
+    rate_limit = None
+    if source_config.rate_limit:
+        rate_limit = RateLimitSettings(
+            requests_per_second=source_config.rate_limit.get('requests_per_second'),
+            requests_per_minute=source_config.rate_limit.get('requests_per_minute'),
+            requests_per_hour=source_config.rate_limit.get('requests_per_hour'),
+            burst_size=source_config.rate_limit.get('burst_size')
+        )
     
     # Create base API client config
     api_config = APIClientConfig(
         name=source,
-        base_url=_get_base_url(source),
-        headers=_get_headers(source),
+        base_url=base_url,
+        headers=headers,
         timeout=timeout,
-        retries=RetrySettings(
-            total=config.http.global_.retries.total,
-            backoff_multiplier=2.0
-        ),
+        retries=retry_settings,
+        rate_limit=rate_limit,
     )
    
     if source == "chembl":
@@ -227,8 +256,8 @@ def _extract_data_from_source(
         except Exception as exc:
             # Log error but continue processing other records
             doc_id = row.get('document_chembl_id', 'unknown')
-            print(f"Error extracting data from {source} for row {doc_id}: {exc}")
-            print(f"Error type: {type(exc).__name__}")
+            logger.error(f"Error extracting data from {source} for row {doc_id}: {exc}")
+            logger.error(f"Error type: {type(exc).__name__}")
             
             # Ensure error row also has all columns
             error_row = row.to_dict()
@@ -241,7 +270,7 @@ def _extract_data_from_source(
             if ("429" in str(exc) or "Rate limited" in str(exc) or 
                 "RateLimitError" in str(type(exc).__name__)):
                 error_msg = f"Rate limited by API: {str(exc)}"
-                print(f"Rate limiting detected for {source}, continuing with next record...")
+                logger.warning(f"Rate limiting detected for {source}, continuing with next record...")
             
             if source == "crossref":
                 error_row["crossref_error"] = error_msg
@@ -383,24 +412,24 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     
     for source in enabled_sources:
         try:
-            print(f"Extracting data from {source}...")
+            logger.info(f"Extracting data from {source}...")
             client = _create_api_client(source, config)
             
             # Для источников с высоким rate limiting добавляем дополнительную задержку
             if source in ["semantic_scholar", "openalex"]:
-                print(f"Using conservative rate limiting for {source} (no API key)")
+                logger.info(f"Using conservative rate limiting for {source} (no API key)")
                 import time
                 if source == "semantic_scholar":
                     # Semantic Scholar имеет очень строгие ограничения без API ключа
-                    print("=" * 80)
-                    print("SEMANTIC SCHOLAR RATE LIMITING INFO:")
-                    print("Semantic Scholar API has very strict rate limits without an API key.")
-                    print("Current limit: 1 request per minute (controlled by rate limiter)")
-                    print("To get higher limits, apply for an API key at:")
-                    print("https://www.semanticscholar.org/product/api#api-key-form")
-                    print("=" * 80)
+                    logger.info("=" * 80)
+                    logger.info("SEMANTIC SCHOLAR RATE LIMITING INFO:")
+                    logger.info("Semantic Scholar API has very strict rate limits without an API key.")
+                    logger.info("Current limit: 1 request per minute (controlled by rate limiter)")
+                    logger.info("To get higher limits, apply for an API key at:")
+                    logger.info("https://www.semanticscholar.org/product/api#api-key-form")
+                    logger.info("=" * 80)
                     # Убираем избыточную задержку - rate limiter уже контролирует это
-                    print("Semantic Scholar: Rate limiting controlled by configuration...")
+                    logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
                 else:
                     time.sleep(2)  # Дополнительная задержка для OpenAlex
             
@@ -420,33 +449,33 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             else:
                 success_count = 0
                 
-            print(f"Successfully extracted data from {source}: "
-                  f"{success_count}/{len(enriched_frame)} records")
+            logger.info(f"Successfully extracted data from {source}: "
+                       f"{success_count}/{len(enriched_frame)} records")
                   
             # Для источников с высоким rate limiting добавляем задержку после завершения
             if source in ["semantic_scholar", "openalex"]:
-                print("Rate limiting controlled by configuration...")
+                logger.info("Rate limiting controlled by configuration...")
                 import time
                 if source == "semantic_scholar":
                     # Убираем избыточную задержку - rate limiter уже контролирует это
-                    print("Semantic Scholar: Rate limiting handled by configuration.")
+                    logger.info("Semantic Scholar: Rate limiting handled by configuration.")
                 else:
                     time.sleep(5)  # Задержка для OpenAlex
                 
         except Exception as exc:
-            print(f"Warning: Failed to extract data from {source}: {exc}")
-            print(f"Error type: {type(exc).__name__}")
+            logger.warning(f"Failed to extract data from {source}: {exc}")
+            logger.warning(f"Error type: {type(exc).__name__}")
             
             # Специальная информация для Semantic Scholar
             if source == "semantic_scholar":
-                print("=" * 80)
-                print("SEMANTIC SCHOLAR ERROR - RECOMMENDATIONS:")
-                print("1. Consider getting an API key for higher rate limits:")
-                print("   https://www.semanticscholar.org/product/api#api-key-form")
-                print("2. Or disable Semantic Scholar in your config file:")
-                print("   sources.semantic_scholar.enabled: false")
-                print("3. The pipeline will continue with other sources.")
-                print("=" * 80)
+                logger.warning("=" * 80)
+                logger.warning("SEMANTIC SCHOLAR ERROR - RECOMMENDATIONS:")
+                logger.warning("1. Consider getting an API key for higher rate limits:")
+                logger.warning("   https://www.semanticscholar.org/product/api#api-key-form")
+                logger.warning("2. Or disable Semantic Scholar in your config file:")
+                logger.warning("   sources.semantic_scholar.enabled: false")
+                logger.warning("3. The pipeline will continue with other sources.")
+                logger.warning("=" * 80)
             
             # Continue with other sources even if one fails
 
@@ -492,7 +521,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         hasattr(config.postprocess, 'correlation') and 
         config.postprocess.correlation.enabled):
         try:
-            print("Выполняем корреляционный анализ документов...")
+            logger.info("Выполняем корреляционный анализ документов...")
             
             # Создаем временный DataFrame для анализа (только числовые и категориальные колонки)
             analysis_df = enriched_frame.copy()
@@ -506,11 +535,11 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             correlation_reports = build_enhanced_correlation_reports(analysis_df)
             correlation_insights = build_correlation_insights(analysis_df)
             
-            print(f"Корреляционный анализ завершен. Найдено {len(correlation_insights)} инсайтов.")
+            logger.info(f"Корреляционный анализ завершен. Найдено {len(correlation_insights)} инсайтов.")
             
         except Exception as exc:
-            print(f"Предупреждение: Ошибка при выполнении корреляционного анализа: {exc}")
-            print(f"Тип ошибки: {type(exc).__name__}")
+            logger.warning(f"Ошибка при выполнении корреляционного анализа: {exc}")
+            logger.warning(f"Тип ошибки: {type(exc).__name__}")
             # Продолжаем без корреляционного анализа
 
     return DocumentETLResult(
@@ -603,11 +632,11 @@ def write_document_outputs(
                     json.dump(result.correlation_insights, f, ensure_ascii=False, indent=2)
                 outputs["correlation_insights"] = insights_path
             
-            print(f"Корреляционные отчеты сохранены в: {correlation_dir}")
+            logger.info(f"Корреляционные отчеты сохранены в: {correlation_dir}")
             
         except Exception as exc:
-            print(f"Предупреждение: Ошибка при сохранении корреляционных отчетов: {exc}")
-            print(f"Тип ошибки: {type(exc).__name__}")
+            logger.warning(f"Ошибка при сохранении корреляционных отчетов: {exc}")
+            logger.warning(f"Тип ошибки: {type(exc).__name__}")
 
     return outputs
 

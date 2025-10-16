@@ -11,7 +11,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings
+from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings, LoggingSettings
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "crossref", "openalex", "pubmed", "semantic_scholar")
 DATE_TAG_FORMAT = "%Y%m%d"
@@ -41,8 +41,8 @@ class DocumentIOSettings(BaseModel):
 class DocumentRuntimeSettings(BaseModel):
     """Runtime toggles controlled via CLI or environment variables."""
 
-    date_tag: str = Field(
-        default_factory=lambda: datetime.utcnow().strftime(DATE_TAG_FORMAT), pattern=DATE_TAG_REGEX
+    date_tag: str | None = Field(
+        default=None, pattern=DATE_TAG_REGEX
     )
     workers: int = Field(default=4, ge=1, le=64)
     limit: int | None = Field(default=None, ge=1)
@@ -75,6 +75,7 @@ class DocumentHTTPRetrySettings(BaseModel):
     """Retry configuration for HTTP calls."""
 
     total: int = Field(default=5, ge=0, le=10)
+    backoff_multiplier: float = Field(default=2.0, gt=0.0, le=10.0)
 
 
 class DocumentHTTPGlobalSettings(BaseModel):
@@ -82,6 +83,7 @@ class DocumentHTTPGlobalSettings(BaseModel):
 
     timeout_sec: float = Field(default=30.0, gt=0.0, le=600.0)
     retries: DocumentHTTPRetrySettings = Field(default_factory=DocumentHTTPRetrySettings)
+    headers: dict[str, str] = Field(default_factory=dict)
 
 
 class DocumentHTTPSettings(BaseModel):
@@ -100,8 +102,38 @@ class SourceToggle(BaseModel):
     enabled: bool = Field(default=True)
 
 
-def _default_sources() -> dict[str, SourceToggle]:
-    return {name: SourceToggle() for name in ALLOWED_SOURCES}
+class DocumentSourceHTTPSettings(BaseModel):
+    """HTTP settings specific to a document source."""
+    
+    base_url: str | None = Field(default=None)
+    timeout_sec: float | None = Field(default=None, gt=0.0, le=600.0)
+    headers: dict[str, str] = Field(default_factory=dict)
+    retries: dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentSourcePaginationSettings(BaseModel):
+    """Pagination settings for a document source."""
+    
+    page_param: str | None = Field(default=None)
+    size_param: str | None = Field(default=None)
+    size: int | None = Field(default=None, ge=1, le=1000)
+    max_pages: int | None = Field(default=None, ge=1, le=1000)
+
+
+class DocumentSourceSettings(BaseModel):
+    """Configuration settings for a document source."""
+    
+    enabled: bool = Field(default=True)
+    name: str | None = Field(default=None)
+    endpoint: str | None = Field(default=None)
+    params: dict[str, Any] = Field(default_factory=dict)
+    pagination: DocumentSourcePaginationSettings = Field(default_factory=DocumentSourcePaginationSettings)
+    http: DocumentSourceHTTPSettings = Field(default_factory=DocumentSourceHTTPSettings)
+    rate_limit: dict[str, Any] = Field(default_factory=dict)
+
+
+def _default_sources() -> dict[str, DocumentSourceSettings]:
+    return {name: DocumentSourceSettings(name=name) for name in ALLOWED_SOURCES}
 
 
 class DocumentConfig(BaseModel):
@@ -110,9 +142,10 @@ class DocumentConfig(BaseModel):
     io: DocumentIOSettings = Field(default_factory=DocumentIOSettings)
     runtime: DocumentRuntimeSettings = Field(default_factory=DocumentRuntimeSettings)
     http: DocumentHTTPSettings = Field(default_factory=DocumentHTTPSettings)
-    sources: dict[str, SourceToggle] = Field(default_factory=_default_sources)
+    sources: dict[str, DocumentSourceSettings] = Field(default_factory=_default_sources)
     postprocess: DocumentPostprocessSettings = Field(default_factory=DocumentPostprocessSettings)
     determinism: DeterminismSettings = Field(default_factory=DeterminismSettings)
+    logging: LoggingSettings = Field(default_factory=LoggingSettings)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -120,7 +153,7 @@ class DocumentConfig(BaseModel):
     @classmethod
     def _normalise_sources(cls, value: Any) -> dict[str, Any]:
         if value is None:
-            return {name: {"enabled": True} for name in ALLOWED_SOURCES}
+            return {name: {"enabled": True, "name": name} for name in ALLOWED_SOURCES}
         if isinstance(value, Mapping):
             normalised: dict[str, Any] = {}
             for raw_key, raw_value in value.items():
@@ -128,15 +161,20 @@ class DocumentConfig(BaseModel):
                 if key not in ALLOWED_SOURCES:
                     raise ValueError(f"Unsupported source '{raw_key}'")
                 if isinstance(raw_value, Mapping):
-                    normalised[key] = dict(raw_value)
+                    # Сохраняем все вложенные словари без отбрасывания
+                    source_config = dict(raw_value)
+                    # Устанавливаем имя источника если не указано
+                    if "name" not in source_config:
+                        source_config["name"] = key
+                    normalised[key] = source_config
                 elif isinstance(raw_value, bool):
-                    normalised[key] = {"enabled": raw_value}
+                    normalised[key] = {"enabled": raw_value, "name": key}
                 else:
-                    raise ValueError(f"Invalid toggle for source '{raw_key}'")
+                    raise ValueError(f"Invalid configuration for source '{raw_key}'")
             for name in ALLOWED_SOURCES:
-                normalised.setdefault(name, {"enabled": True})
+                normalised.setdefault(name, {"enabled": True, "name": name})
             return normalised
-        raise ValueError("sources must be a mapping of toggles")
+        raise ValueError("sources must be a mapping of source configurations")
 
     @model_validator(mode="after")
     def _validate_sources(self) -> DocumentConfig:
@@ -147,7 +185,7 @@ class DocumentConfig(BaseModel):
     def enabled_sources(self) -> list[str]:
         """Return the list of enabled sources respecting declaration order."""
 
-        return [name for name in ALLOWED_SOURCES if self.sources.get(name, SourceToggle()).enabled]
+        return [name for name in ALLOWED_SOURCES if self.sources.get(name, DocumentSourceSettings()).enabled]
 
 
 class ConfigLoadError(RuntimeError):
@@ -217,6 +255,9 @@ __all__ = [
     "DocumentOutputSettings",
     "DocumentRuntimeSettings",
     "DocumentPostprocessSettings",
+    "DocumentSourceSettings",
+    "DocumentSourceHTTPSettings",
+    "DocumentSourcePaginationSettings",
     "SourceToggle",
     "load_document_config",
 ]

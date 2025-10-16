@@ -164,6 +164,7 @@ class SourceSettings(BaseModel):
     """Configuration for an individual data source."""
 
     name: str
+    enabled: bool = Field(default=True)
     endpoint: str = ""
     params: dict[str, Any] = Field(default_factory=dict)
     pagination: PaginationSettings = Field(default_factory=PaginationSettings)
@@ -259,7 +260,7 @@ class RuntimeSettings(BaseModel):
 class LoggingSettings(BaseModel):
     """Structured logging configuration."""
 
-    level: str = Field(default="INFO")
+    level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(default="INFO")
 
 
 class QCValidationSettings(BaseModel):

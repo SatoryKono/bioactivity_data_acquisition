@@ -27,7 +27,7 @@ from library.documents.pipeline import (
 from library.etl.run import run_pipeline
 from library.utils.logging import configure_logging
 from library.telemetry import setup_telemetry
-from library.clients.health import HealthChecker
+from library.clients.health import HealthChecker, create_health_checker_from_config
 from library.utils.graceful_shutdown import ShutdownContext, register_shutdown_handler
 
 CONFIG_OPTION = typer.Option(
@@ -248,6 +248,10 @@ def get_document_data(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
 
+    # Initialize logging
+    logger = configure_logging(config_model.logging.level)
+    logger = logger.bind(command="get-document-data")
+
     if not config_model.enabled_sources():
         typer.echo("At least one document source must be enabled", err=True)
         raise typer.Exit(code=ExitCode.VALIDATION_ERROR)
@@ -315,14 +319,17 @@ def health(
         logger = logger.bind(command="health")
         
         # Create health checker from API configurations
+        # Get clients from config_model.clients (list of APIClientConfig)
+        # and filter by enabled sources
         api_configs = {}
-        if hasattr(config_model, 'http') and hasattr(config_model.http, 'clients'):
-            for name, client_config in config_model.http.clients.items():
-                if hasattr(client_config, 'enabled') and client_config.enabled:
-                    api_configs[name] = client_config
+        enabled_sources = {name for name, source in config_model.sources.items() if source.enabled}
+        
+        for client_config in config_model.clients:
+            if client_config.name in enabled_sources:
+                api_configs[client_config.name] = client_config
         
         if not api_configs:
-            typer.echo("No API clients configured for health checking", err=True)
+            typer.echo("No enabled API clients found for health checking", err=True)
             raise typer.Exit(1)
         
         health_checker = create_health_checker_from_config(api_configs)

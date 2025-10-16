@@ -150,3 +150,192 @@ def test_cli_invalid_override_format(runner: CliRunner, sample_config: Path) -> 
 
     assert result.exit_code == 2
     assert "Overrides must be in KEY=VALUE format" in result.stderr
+
+
+@pytest.fixture()
+def health_config(tmp_path: Path) -> Path:
+    """Create a test configuration file with two enabled sources for health checking."""
+    config_path = tmp_path / "health_config.yaml"
+    
+    config_data = {
+        "http": {
+            "global": {
+                "timeout_sec": 30.0,
+                "retries": {
+                    "total": 5,
+                    "backoff_multiplier": 2.0
+                },
+                "headers": {
+                    "User-Agent": "bioactivity-data-acquisition/0.1.0"
+                }
+            }
+        },
+        "sources": {
+            "chembl": {
+                "name": "chembl",
+                "enabled": True,
+                "endpoint": "document",
+                "params": {
+                    "document_type": "article"
+                },
+                "pagination": {
+                    "page_param": "page",
+                    "size_param": "page_size",
+                    "size": 200,
+                    "max_pages": 10
+                },
+                "http": {
+                    "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+                    "timeout_sec": 60.0,
+                    "headers": {
+                        "Accept": "application/json"
+                    }
+                }
+            },
+            "crossref": {
+                "name": "crossref",
+                "enabled": True,
+                "params": {
+                    "query": "chembl",
+                    "select": "DOI,title"
+                },
+                "pagination": {
+                    "page_param": "cursor",
+                    "size_param": "rows",
+                    "size": 100,
+                    "max_pages": 5
+                },
+                "http": {
+                    "base_url": "https://api.crossref.org/works",
+                    "timeout_sec": 30.0,
+                    "headers": {
+                        "Accept": "application/json"
+                    }
+                }
+            },
+            "disabled_source": {
+                "name": "disabled_source",
+                "enabled": False,
+                "http": {
+                    "base_url": "https://example.com/api",
+                    "timeout_sec": 30.0,
+                    "headers": {
+                        "Accept": "application/json"
+                    }
+                }
+            }
+        },
+        "io": {
+            "input": {},
+            "output": {
+                "data_path": str(tmp_path / "bioactivities.csv"),
+                "qc_report_path": str(tmp_path / "qc.csv"),
+                "correlation_path": str(tmp_path / "corr.csv")
+            }
+        },
+        "logging": {
+            "level": "INFO"
+        }
+    }
+    
+    with config_path.open("w", encoding="utf-8") as f:
+        yaml.dump(config_data, f)
+    
+    return config_path
+
+
+@responses.activate
+def test_health_command_with_enabled_sources(runner: CliRunner, health_config: Path) -> None:
+    """Test that the health command works with enabled sources."""
+    # Mock responses for health checks
+    responses.add(
+        responses.HEAD,
+        "https://www.ebi.ac.uk/chembl/api/data/health",
+        status=200
+    )
+    responses.add(
+        responses.HEAD,
+        "https://api.crossref.org/works/health",
+        status=200
+    )
+    
+    result = runner.invoke(app, ["health", "--config", str(health_config)])
+    
+    # Should succeed and show health status for enabled sources
+    assert result.exit_code == 0
+    assert "API Health Status" in result.stdout
+    assert "chembl" in result.stdout
+    assert "crossref" in result.stdout
+    # Disabled source should not appear
+    assert "disabled_source" not in result.stdout
+
+
+@responses.activate
+def test_health_command_json_output(runner: CliRunner, health_config: Path) -> None:
+    """Test that the health command works with JSON output."""
+    # Mock responses for health checks
+    responses.add(
+        responses.HEAD,
+        "https://www.ebi.ac.uk/chembl/api/data/health",
+        status=200
+    )
+    responses.add(
+        responses.HEAD,
+        "https://api.crossref.org/works/health",
+        status=200
+    )
+    
+    result = runner.invoke(app, ["health", "--config", str(health_config), "--json"])
+    
+    # Should succeed and output JSON
+    assert result.exit_code == 0
+    import json
+    output = json.loads(result.stdout)
+    assert "total_apis" in output
+    assert "healthy_apis" in output
+    assert "apis" in output
+    assert len(output["apis"]) == 2  # Only enabled sources
+
+
+def test_health_command_no_enabled_sources(runner: CliRunner, tmp_path: Path) -> None:
+    """Test that the health command fails when no sources are enabled."""
+    config_path = tmp_path / "no_sources_config.yaml"
+    
+    config_data = {
+        "http": {
+            "global": {
+                "timeout_sec": 30.0,
+                "retries": {"total": 5},
+                "headers": {"User-Agent": "test"}
+            }
+        },
+        "sources": {
+            "disabled_source": {
+                "name": "disabled_source",
+                "enabled": False,
+                "http": {
+                    "base_url": "https://example.com/api",
+                    "timeout_sec": 30.0,
+                    "headers": {"Accept": "application/json"}
+                }
+            }
+        },
+        "io": {
+            "input": {},
+            "output": {
+                "data_path": str(tmp_path / "bioactivities.csv"),
+                "qc_report_path": str(tmp_path / "qc.csv"),
+                "correlation_path": str(tmp_path / "corr.csv")
+            }
+        },
+        "logging": {"level": "INFO"}
+    }
+    
+    with config_path.open("w", encoding="utf-8") as f:
+        yaml.dump(config_data, f)
+    
+    result = runner.invoke(app, ["health", "--config", str(config_path)])
+    
+    # Should fail with appropriate error message
+    assert result.exit_code == 1
+    assert "No enabled API clients found for health checking" in result.stderr

@@ -148,3 +148,52 @@ def test_qc_failure_returns_expected_exit_code(
 
     assert result.exit_code == ExitCode.QC_ERROR
     assert "synthetic qc failure" in result.output
+
+
+def test_cleanup_handler_no_nameerror_on_shutdown(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, runner: CliRunner
+) -> None:
+    """Test that cleanup_handler doesn't raise NameError when logger is properly initialized."""
+    input_csv = tmp_path / "input.csv"
+    _write_input(input_csv)
+
+    # Track the cleanup handler that gets registered
+    registered_handlers: list[callable] = []
+
+    def mock_register_shutdown_handler(handler: callable) -> None:
+        registered_handlers.append(handler)
+
+    monkeypatch.setattr(cli_module, "register_shutdown_handler", mock_register_shutdown_handler)
+
+    # Mock the document ETL to return quickly
+    def fake_run(config: Any, frame: pd.DataFrame) -> document_pipeline.DocumentETLResult:
+        return document_pipeline.DocumentETLResult(documents=frame, qc=pd.DataFrame())
+
+    monkeypatch.setattr(cli_module, "run_document_etl", fake_run)
+
+    result = runner.invoke(
+        app,
+        [
+            "get-document-data",
+            "--documents-csv",
+            str(input_csv),
+            "--output-dir",
+            str(tmp_path / "out"),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == ExitCode.OK
+    
+    # Verify that a cleanup handler was registered
+    assert len(registered_handlers) == 1
+    
+    # Test that the cleanup handler can be called without NameError
+    cleanup_handler = registered_handlers[0]
+    try:
+        cleanup_handler()
+    except NameError as e:
+        pytest.fail(f"cleanup_handler raised NameError: {e}")
+    except Exception:
+        # Other exceptions are acceptable (e.g., logger not configured in test environment)
+        pass

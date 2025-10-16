@@ -32,9 +32,11 @@ def config_yaml(tmp_path: Path) -> Path:
             }
         },
         "runtime": {"workers": 2},
+        "logging": {"level": "INFO"},
         "sources": {
             "chembl": {
                 "name": "chembl",
+                "enabled": True,
                 "endpoint": "activities",
                 "pagination": {"max_pages": 1},
                 "http": {
@@ -90,9 +92,10 @@ def test_missing_required_secret_raises(monkeypatch: pytest.MonkeyPatch, config_
     """Missing required secrets result in a validation error."""
 
     monkeypatch.delenv("CHEMBL_TOKEN", raising=False)
-    # Config should still load, but with placeholder values
+    # Config should raise an error when trying to access clients with missing secrets
     loaded = Config.load(config_yaml)
-    assert loaded.clients[0].headers["Authorization"] == "Bearer {CHEMBL_TOKEN}"
+    with pytest.raises(ValueError, match="Missing required environment variables: CHEMBL_TOKEN"):
+        _ = loaded.clients
 
 
 def test_parse_cli_overrides_errors() -> None:
