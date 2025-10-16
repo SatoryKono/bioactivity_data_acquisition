@@ -2,8 +2,10 @@
 """Анализ результатов исправленного пайплайна."""
 
 import sys
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 
 def analyze_results(csv_path: str):
     """Анализирует результаты исправленного пайплайна."""

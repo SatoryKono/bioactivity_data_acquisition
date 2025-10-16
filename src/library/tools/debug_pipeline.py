@@ -3,13 +3,15 @@
 
 import sys
 from pathlib import Path
+
 import pandas as pd
 
 # Добавляем путь к модулям
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from library.documents.config import load_document_config
-from library.documents.pipeline import _extract_data_from_source, _create_api_client
+from library.documents.pipeline import _create_api_client, _extract_data_from_source
+
 
 def test_pipeline_step():
     """Тестируем один шаг пайплайна."""

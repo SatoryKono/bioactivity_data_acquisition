@@ -76,10 +76,8 @@ class BaseApiClient:
         if limiter is not None and rate_limiter is None:
             rate_limiter = RateLimiter(RateLimitConfig(limiter.max_calls, limiter.period))
         self.rate_limiter = rate_limiter
-        self.timeout = (
-            timeout if hasattr(config, 'timeout') and config.timeout is not None 
-            else config.timeout
-        )
+        # Use config timeout, session will use its default if not overridden
+        self.timeout = config.timeout
         self.max_retries = (
             max_retries if max_retries is not None else max(1, config.retries.total)
         )
@@ -112,7 +110,9 @@ class BaseApiClient:
 
     def _send_with_backoff(self, method: str, url: str, **kwargs: Any) -> Response:
         def _call() -> Response:
-            return self.session.request(method, url, timeout=self.timeout, **kwargs)
+            # Use config timeout if specified, otherwise rely on session default timeout
+            request_timeout = self.timeout if self.timeout is not None else None
+            return self.session.request(method, url, timeout=request_timeout, **kwargs)
 
         def _giveup(exc: Exception) -> bool:
             """Определяет, когда прекратить повторные попытки."""

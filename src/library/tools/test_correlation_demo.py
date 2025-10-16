@@ -4,12 +4,12 @@
 import sys
 from pathlib import Path
 
+from library.documents.config import load_document_config
+from library.documents.pipeline import read_document_input, run_document_etl, write_document_outputs
+
 # Добавляем src в путь для импорта
 src_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(src_dir))
-
-from library.documents.config import load_document_config
-from library.documents.pipeline import run_document_etl, read_document_input, write_document_outputs
 
 
 def main():

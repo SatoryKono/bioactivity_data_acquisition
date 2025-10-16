@@ -2,11 +2,10 @@
 """Мониторинг API в реальном времени."""
 
 import argparse
-import time
 import json
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
 
 import requests
 
@@ -21,7 +20,7 @@ class APIMonitor:
         self.headers = headers or {}
         self.history = []
         
-    def check_status(self) -> Dict:
+    def check_status(self) -> dict:
         """Проверяет текущий статус API."""
         start_time = time.time()
         
@@ -66,7 +65,7 @@ class APIMonitor:
         self.history.append(status)
         return status
     
-    def get_stats(self, last_n: int = 10) -> Dict:
+    def get_stats(self, last_n: int = 10) -> dict:
         """Возвращает статистику за последние N проверок."""
         recent = self.history[-last_n:] if len(self.history) >= last_n else self.history
         

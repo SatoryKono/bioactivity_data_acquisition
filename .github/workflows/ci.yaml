@@ -17,25 +17,29 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install .[dev]
+          pip install -e .[dev]
       - name: Clean packaging artifacts
         run: rm -rf build/ dist/ src/*.egg-info
+      - name: CLI smoke test
+        run: |
+          python -m library.cli --help
       - name: Config env override smoke test
         run: |
           export CHEMBL_API_TOKEN=dummy-token
           export BIOACTIVITY__RUNTIME__LOG_LEVEL=DEBUG
           python - <<'PY'
-          from bioactivity.config import Config
+          from library.config import Config
 
           config = Config.load("configs/config.yaml")
-          assert config.runtime.log_level == "DEBUG"
-          assert config.clients[0].headers["Authorization"].endswith("dummy-token")
+          assert config.logging.level == "DEBUG"
           PY
       - name: Ruff
         run: ruff check .
+      - name: Pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
       - name: Black
         run: black --check .
       - name: Mypy
         run: mypy src
       - name: Pytest
-        run: pytest
+        run: pytest --cov-fail-under=75

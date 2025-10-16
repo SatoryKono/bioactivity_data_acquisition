@@ -15,12 +15,12 @@ Semantic Scholar предоставляет API ключи для увеличе
 """
 
 import os
-import requests
 import sys
-from typing import Optional
+
+import requests
 
 
-def check_api_key_status(api_key: Optional[str] = None) -> bool:
+def check_api_key_status(api_key: str | None = None) -> bool:
     """Проверяет статус API ключа Semantic Scholar."""
     
     if not api_key:

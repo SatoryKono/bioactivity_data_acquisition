@@ -10,7 +10,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 import requests
 
@@ -29,7 +29,7 @@ class PubMedMonitor:
             'User-Agent': 'bioactivity-data-acquisition/0.1.0'
         }
     
-    def test_api_call(self) -> Dict[str, Any]:
+    def test_api_call(self) -> dict[str, Any]:
         """Выполняет тестовый запрос к PubMed E-utilities."""
         
         # Тестовый PMID
@@ -96,7 +96,7 @@ class PubMedMonitor:
                 'api_key_used': bool(self.api_key),
             }
     
-    def check_rate_limits(self) -> Dict[str, Any]:
+    def check_rate_limits(self) -> dict[str, Any]:
         """Проверяет текущие лимиты API."""
         
         result = self.test_api_call()
@@ -128,7 +128,7 @@ class PubMedMonitor:
         
         return analysis
     
-    def test_rate_limits_aggressively(self) -> Dict[str, Any]:
+    def test_rate_limits_aggressively(self) -> dict[str, Any]:
         """Агрессивно тестирует лимиты API."""
         
         print("🧪 Агрессивное тестирование лимитов PubMed API...")

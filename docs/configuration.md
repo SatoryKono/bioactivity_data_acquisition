@@ -11,10 +11,10 @@
 
 ```bash
 # базовый запуск
-bioactivity-data-acquisition pipeline run --config configs/config.yaml
+bioactivity-data-acquisition pipeline --config configs/config.yaml
 
 # override через CLI
-bioactivity-data-acquisition pipeline run --config configs/config.yaml --set http.global.timeout_sec=10
+bioactivity-data-acquisition pipeline --config configs/config.yaml --set http.global.timeout_sec=10
 
 # override через окружение
 export BIOACTIVITY__HTTP__GLOBAL__TIMEOUT_SEC=10
@@ -48,3 +48,25 @@ export BIOACTIVITY__HTTP__GLOBAL__TIMEOUT_SEC=10
 | determinism.column_order | list[str] | см. файл | Порядок колонок |
 
 Полный перечень ключей уточняется по `configs/config_documents_full.yaml`.
+
+## Профили конфигурации (примеры)
+
+| Профиль | Назначение | Изменяемые ключи |
+|---|---|---|
+| smoke | быстрый прогон | `sources.*.pagination.max_pages=1`, `runtime.workers=1` |
+| full | полная выгрузка | значения по умолчанию из `configs/config.yaml` |
+| no_semantic_scholar | отключить SS | `sources.semantic_scholar.enabled=false` |
+
+Пример yaml‑оверлея для smoke:
+
+```yaml
+sources:
+  chembl:
+    pagination:
+      max_pages: 1
+  crossref:
+    pagination:
+      max_pages: 1
+runtime:
+  workers: 1
+```

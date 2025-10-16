@@ -6,12 +6,12 @@
 """
 
 import os
-import requests
 import time
-from typing import Optional
+
+import requests
 
 
-def check_api_status(api_key: Optional[str] = None, test_pmid: str = "7154002") -> dict:
+def check_api_status(api_key: str | None = None, test_pmid: str = "7154002") -> dict:
     """Проверяет статус Semantic Scholar API."""
     
     if not api_key:
@@ -88,7 +88,7 @@ def check_api_status(api_key: Optional[str] = None, test_pmid: str = "7154002") 
         }
 
 
-def test_multiple_requests(api_key: Optional[str] = None, num_requests: int = 5) -> dict:
+def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) -> dict:
     """Тестирует множественные запросы для проверки rate limiting."""
     
     if not api_key:

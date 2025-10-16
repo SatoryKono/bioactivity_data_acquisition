@@ -7,12 +7,20 @@ python -m library.tools.quick_api_check
 python -m library.tools.api_health_check --save
 ```
 
+Параметры:
+
+- `api_health_check`: `--save` — сохранить отчёт в `reports/`
+
 ## Проверка лимитов
 
 ```bash
 python -m library.tools.check_api_limits
 python -m library.tools.check_specific_limits --source chembl
 ```
+
+Параметры:
+
+- `check_specific_limits`: `--source <name>` — один из: `chembl`, `crossref`, `openalex`, `pubmed`, `semantic_scholar`
 
 ## Мониторинг по расписанию
 

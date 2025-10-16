@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Диагностика реальных данных для валидации DOI."""
 
-import pandas as pd
-import sys
 import os
+import sys
+
+import pandas as pd
+
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src', 'library', 'tools'))
 
 from data_validator import validate_doi_fields
+
 
 def debug_real_data():
     """Диагностика реальных данных."""

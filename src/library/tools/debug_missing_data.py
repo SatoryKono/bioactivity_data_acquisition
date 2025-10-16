@@ -2,8 +2,10 @@
 """Отладка недостающих данных в Crossref и OpenAlex."""
 
 import sys
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 
 def debug_missing_data(csv_path: str):
     """Анализирует недостающие данные."""

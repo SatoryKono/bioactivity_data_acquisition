@@ -43,7 +43,7 @@ bioactivity-data-acquisition get-document-data \
 - Приоритеты: дефолты в коде < YAML < ENV `BIOACTIVITY__*` < CLI `--set key=value`
 - Секреты задаются только через переменные окружения и подставляются в плейсхолдеры вида `{CHEMBL_API_TOKEN}`
 
-Подробнее: `docs/CONFIG.md`, `docs/configuration.md`.
+Подробнее: `docs/configuration.md`.
 
 ## Схемы и валидация
 

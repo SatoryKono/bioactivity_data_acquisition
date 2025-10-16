@@ -29,7 +29,7 @@ class APILimitChecker:
     def _load_config(self) -> dict[str, Any]:
         """Загружает конфигурацию из YAML файла."""
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(self.config_path, encoding='utf-8') as f:
                 return yaml.safe_load(f)
         except Exception as e:
             console.print(f"[red]Ошибка загрузки конфигурации: {e}[/red]")

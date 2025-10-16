@@ -8,8 +8,8 @@ flowchart LR
   B --> C[ETL: извлечение/нормализация]
   C --> D[Pandera валидация]
   D --> E[Экспорт CSV (детерминированный)]
-  E --> F[QC отчёты]
-  E --> G[Корреляции]
+  E --> F[Авто QC отчёты]
+  E --> G[Авто корреляции]
   B --> H{Ошибки/лимиты}
   H -->|retry/backoff| B
   H -->|логирование| I[Логи/метрики]
@@ -31,9 +31,10 @@ sequenceDiagram
 
 ## Точки расширения
 
-- Клиенты API в `src/library/clients`
-- Трансформации/ETL в `src/library/etl`
-- Схемы данных в `src/library/schemas`
+- Клиенты API: `src/library/clients/*`
+- Трансформации/ETL: `src/library/etl/*`
+- Схемы данных: `src/library/schemas/*`
+- Запись и авто‑артефакты: `src/library/etl/load.py` (`write_deterministic_csv`, авто‑QC/корреляции)
 
 ## Потоки ошибок
 

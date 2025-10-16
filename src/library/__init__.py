@@ -1,7 +1,7 @@
 """Public interface for the bioactivity ETL pipeline."""
 from __future__ import annotations
 
-from library.cli import app, main
+from library.cli import app, main, ExitCode
 from library.config import (
     APIClientConfig,
     Config,

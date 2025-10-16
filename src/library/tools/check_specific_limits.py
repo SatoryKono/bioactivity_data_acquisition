@@ -5,8 +5,8 @@ import time
 
 import requests
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 console = Console()
 

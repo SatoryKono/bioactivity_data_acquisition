@@ -2,13 +2,35 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, Literal
 
 import yaml
+import jsonschema
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+
+
+def _validate_secrets(headers: dict[str, Any]) -> None:
+    """Validate that all required secrets are available in environment variables."""
+    missing_secrets = []
+    
+    for key, value in headers.items():
+        if isinstance(value, str):
+            placeholders = re.findall(r'\{([^}]+)\}', value)
+            for placeholder in placeholders:
+                env_var = os.environ.get(placeholder.upper())
+                if env_var is None:
+                    missing_secrets.append(placeholder.upper())
+    
+    if missing_secrets:
+        raise ValueError(
+            f"Missing required environment variables: {', '.join(set(missing_secrets))}. "
+            f"Please set these variables before running the pipeline."
+        )
 
 
 def _merge_dicts(base: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, Any]:
@@ -148,11 +170,14 @@ class SourceSettings(BaseModel):
     http: HTTPSourceSettings
 
     def to_client_config(self, defaults: HTTPGlobalSettings) -> APIClientConfig:
+        # Merge headers and validate secrets
+        merged_headers = {**defaults.headers, **self.http.headers}
+        _validate_secrets(merged_headers)
+        
         # Process secrets in headers
         processed_headers = {}
-        for key, value in {**defaults.headers, **self.http.headers}.items():
+        for key, value in merged_headers.items():
             if isinstance(value, str):
-                import re
                 def replace_placeholder(match):
                     secret_name = match.group(1)
                     env_var = os.environ.get(secret_name.upper())
@@ -330,6 +355,27 @@ class Config(BaseModel):
     transforms: TransformSettings = Field(default_factory=TransformSettings)
     postprocess: PostprocessSettings = Field(default_factory=PostprocessSettings)
 
+    @classmethod
+    def _load_schema(cls) -> dict[str, Any]:
+        """Load JSON Schema for configuration validation."""
+        schema_path = Path(__file__).parent.parent.parent / "configs" / "schema.json"
+        if not schema_path.exists():
+            raise FileNotFoundError(f"Schema file not found: {schema_path}")
+        
+        with schema_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+
+    @classmethod
+    def _validate_with_schema(cls, config_data: dict[str, Any]) -> None:
+        """Validate configuration data against JSON Schema."""
+        try:
+            schema = cls._load_schema()
+            jsonschema.validate(config_data, schema)
+        except jsonschema.ValidationError as e:
+            raise ValueError(f"Configuration validation failed: {e.message}") from e
+        except jsonschema.SchemaError as e:
+            raise ValueError(f"Schema error: {e.message}") from e
+
     @property
     def clients(self) -> list[APIClientConfig]:
         return [source.to_client_config(self.http.global_) for source in self.sources.values()]
@@ -365,6 +411,9 @@ class Config(BaseModel):
 
         merged = _merge_dicts(base_data, env_overrides)
         merged = _merge_dicts(merged, cli_overrides)
+        
+        # Validate against JSON Schema before processing
+        cls._validate_with_schema(merged)
         
         # Process secrets
         merged = cls._process_secrets(merged)

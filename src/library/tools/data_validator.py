@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pandas as pd
 from typing import Any
+
+import pandas as pd
 
 
 def _is_empty_value(value: Any) -> bool:

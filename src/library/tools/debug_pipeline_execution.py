@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Диагностика выполнения пайплайна."""
 
-import pandas as pd
-import sys
 import os
+import sys
+
+import pandas as pd
+
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 def test_pipeline_execution():

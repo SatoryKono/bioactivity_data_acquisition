@@ -62,7 +62,7 @@ def show_status():
     
     if main_config.exists():
         try:
-            with open(main_config, 'r', encoding='utf-8') as f:
+            with open(main_config, encoding='utf-8') as f:
                 content = f.read()
                 # Проверяем, есть ли незакомментированная секция semantic_scholar
                 lines = content.split('\n')

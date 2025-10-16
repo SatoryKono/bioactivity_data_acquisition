@@ -3,6 +3,7 @@
 
 import pandas as pd
 
+
 def debug_real_doi_data():
     """Диагностика реальных DOI данных."""
     

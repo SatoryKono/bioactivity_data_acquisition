@@ -31,7 +31,7 @@ def normalize_journal_name(text: Any) -> str | None:
         pass
     
     # Если это список или другой итерируемый объект, берем первый элемент
-    if isinstance(text, (list, tuple)) and len(text) > 0:
+    if isinstance(text, list | tuple) and len(text) > 0:
         text = text[0]
     elif isinstance(text, dict):
         # Для словарей берем первое значение

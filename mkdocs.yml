@@ -1,4 +1,4 @@
-site_name: bioactivity_data_acquisition
+site_name: Bioactivity Data Acquisition
 site_url: https://satorykono.github.io/bioactivity_data_acquisition/
 repo_url: https://github.com/SatoryKono/bioactivity_data_acquisition
 repo_name: SatoryKono/bioactivity_data_acquisition
@@ -44,11 +44,15 @@ markdown_extensions:
 
 nav:
   - Обзор: index.md
+  - Getting started: getting-started.md
   - Архитектура: architecture.md
   - Конфигурация: configuration.md
   - CLI: cli.md
-  - Схемы данных: data_schemas.md
+  - Validation: validation.md
+  - Источники данных: data-sources.md
   - Артефакты выгрузки: outputs.md
+  - API limits: api-limits.md
+  - Разработка: development.md
   - Качество и тесты: quality.md
   - CI/CD: ci.md
   - Эксплуатация: operations.md
@@ -60,11 +64,6 @@ nav:
       - Туториалы: tutorials/index.md
       - Обогащение документов (E2E): tutorials/e2e_documents.md
       - Полный пайплайн (E2E): tutorials/e2e_pipeline.md
-  - API:
-      - API Reference: api/index.md
-  - Справочные материалы:
-      - DATA_STRUCTURE: DATA_STRUCTURE.md
-      - API limits: API_LIMITS_CHECK.md
-      - Document schemas: document_schemas.md
-      - Citation formatting: CITATION_FORMATTING.md
+  - API Reference:
+      - Library: reference/index.md
 

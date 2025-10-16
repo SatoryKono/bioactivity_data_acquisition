@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Диагностика логики валидации."""
 
-import pandas as pd
-import sys
 import os
+import sys
+
+import pandas as pd
+
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src', 'library', 'tools'))
 
-from data_validator import validate_doi_fields, _is_empty_value, _normalize_value
+from data_validator import _is_empty_value, _normalize_value, validate_doi_fields
+
 
 def debug_validation_logic():
     """Диагностика логики валидации."""

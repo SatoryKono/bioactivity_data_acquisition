@@ -1,15 +1,30 @@
 # CI/CD
 
-- Основной конвейер: `.github/workflows/ci.yaml`
-- Документация: `.github/workflows/docs.yml`
+Основной конвейер: `.github/workflows/ci.yaml`
 
-## Документация (Pages)
+## Триггеры
 
-- Сборка при push в `main`
-- Публикация в ветку `gh-pages`
+- `push` в ветки `main`, `work`
+- `pull_request`
 
 ## Проверки качества
 
-- pytest (порог покрытия ≥ 90%)
-- mypy --strict
-- ruff, black
+Выполняются шаги:
+
+1. checkout
+2. setup-python (3.11)
+3. install deps: `pip install .[dev]`
+4. smoke тест ENV override:
+
+   ```python
+   from bioactivity.config import Config
+   config = Config.load("configs/config.yaml")
+   assert config.runtime.log_level == "DEBUG"
+   ```
+
+5. ruff: `ruff check .`
+6. black: `black --check .`
+7. mypy: `mypy src`
+8. pytest: `pytest`
+
+Порог покрытия: задаётся в `pyproject.toml` → `[tool.pytest.ini_options] addopts` с `--cov-fail-under=90`.

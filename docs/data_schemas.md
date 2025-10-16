@@ -1,55 +1,53 @@
 # Схемы данных и валидация
 
-Схемы описаны в Pandera для сырья и нормализованных данных.
+Схемы описаны в Pandera для двух основных наборов:
 
-## Входные документы (DocumentInputSchema)
+- Сырьё (RawBioactivitySchema) — `src/library/schemas/input_schema.py`
+- Нормализованные данные (NormalizedBioactivitySchema) — `src/library/schemas/output_schema.py`
 
-| поле | тип | nullable | описание |
+## Сырьё: RawBioactivitySchema (фрагмент)
+
+| поле | тип | nullable | источник |
 |---|---|---|---|
-| document_chembl_id | str | no | ChEMBL document identifier |
-| title | str | no | Document title |
-| doi | str | yes | DOI |
-| document_pubmed_id | str | yes | PubMed ID |
-| chembl_doc_type | str | yes | Тип документа (ChEMBL) |
-| journal | str | yes | Журнал |
-| year | int | yes | Год |
-| abstract | str | yes | Аннотация |
-| pubmed_authors | str | yes | Авторы (PubMed) |
-| document_classification | float | yes | Классификация |
-| referenses_on_previous_experiments | bool | yes | Внешние ссылки |
-| first_page | int | yes | Первая страница |
-| original_experimental_document | bool | yes | Экспериментальный |
-| issue | int | yes | Номер выпуска |
-| last_page | float | yes | Последняя страница |
-| month | int | yes | Месяц |
-| volume | float | yes | Том |
+| target_pref_name | str | yes | ChEMBL |
+| standard_value | float | yes | ChEMBL (activity value) |
+| standard_units | str | yes | ChEMBL (activity units) |
+| canonical_smiles | str | yes | ChEMBL |
+| source | str | no | клиент источника |
+| retrieved_at | datetime | no | время выборки |
+| activity_id | int | yes | ChEMBL |
+| assay_chembl_id | str | yes | ChEMBL |
+| document_chembl_id | str | yes | ChEMBL |
 
-## Выходные документы (DocumentOutputSchema, фрагмент)
+Поведение: `strict = False`, `coerce = True` (доп.колонки допускаются, типы приводятся).
 
-| поле | тип | nullable | описание |
+## Нормализация: NormalizedBioactivitySchema (фрагмент)
+
+| поле | тип | nullable | примечание |
 |---|---|---|---|
-| document_chembl_id | str | no | ChEMBL ID |
-| title | str | no | Title |
-| doi | str | yes | DOI |
-| document_pubmed_id | str | yes | PubMed ID |
-| journal | str | yes | Journal |
-| year | int | yes | Year |
-| document_citation | str | yes | Форматированная ссылка |
-| valid_doi | str | yes | Валидный DOI |
-| invalid_doi | bool | yes | Флаг невалидности DOI |
-| valid_journal | str | yes | Валидный журнал |
-| invalid_journal | bool | yes | Флаг невалидности журнала |
-| valid_year | int | yes | Валидный год |
-| invalid_year | bool | yes | Флаг невалидности года |
+| target | str | yes | нормализованное имя таргета |
+| activity_value | float | yes | допускает NULL |
+| activity_unit | str | yes | допускает различные ед. |
+| source | str | no | источник |
+| retrieved_at | datetime | no | время выборки |
+| smiles | str | yes | канонический SMILES |
 
-Полный список полей — см. исходники в `src/library/schemas/document_output_schema.py`.
+Поведение: `strict = False`, `coerce = True`.
 
-## Примеры
+## Примеры валид/инвалид
+
+Валидный CSV (фрагмент):
 
 ```csv
-id,assay_id,value,unit
-A1,AS123,1.23,uM
-A2,AS124,not_a_number,uM  # невалид
+target,activity_value,activity_unit,source,retrieved_at,smiles
+Protein X,12.3,nM,chembl,2024-01-01T00:00:00Z,C1=CC=CC=C1
 ```
 
-Ошибки валидации Pandera содержат название поля и ожидаемый тип/инвариант. Примеры см. тесты.
+Невалидный CSV (тип не приводится):
+
+```csv
+target,activity_value,activity_unit,source,retrieved_at,smiles
+Protein X,not_a_number,nM,chembl,2024-01-01T00:00:00Z,C1=CC=CC=C1
+```
+
+Ошибки Pandera содержат название поля и ожидаемый тип/инварианты (см. `tests/test_validation.py`).

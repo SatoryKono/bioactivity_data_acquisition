@@ -15,13 +15,13 @@ PubMed E-utilities предоставляет API ключи для увелич
 """
 
 import os
-import requests
 import sys
 import time
-from typing import Optional
+
+import requests
 
 
-def check_api_key_status(api_key: Optional[str] = None) -> bool:
+def check_api_key_status(api_key: str | None = None) -> bool:
     """Проверяет статус API ключа PubMed."""
     
     if not api_key:

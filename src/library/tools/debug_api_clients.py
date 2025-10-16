@@ -7,12 +7,13 @@ from pathlib import Path
 # Добавляем путь к модулям
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from library.documents.config import load_document_config
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
+from library.documents.config import load_document_config
+
 
 def test_chembl_client():
     """Тестируем ChEMBL клиент."""

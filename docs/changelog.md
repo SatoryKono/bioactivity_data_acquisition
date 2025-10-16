@@ -18,3 +18,16 @@
 ### Changed
 
 ### Fixed
+
+Шаблон (Keep a Changelog):
+
+```markdown
+## [Unreleased]
+### Added
+### Changed
+### Fixed
+
+## [0.1.0] - 2025-10-16
+### Added
+- Initial release
+```

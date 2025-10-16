@@ -1,0 +1,350 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Bioactivity Data Acquisition Configuration",
+  "description": "Schema for validating bioactivity ETL pipeline configuration",
+  "type": "object",
+  "required": ["http", "sources", "io", "runtime", "logging", "validation"],
+  "properties": {
+    "http": {
+      "type": "object",
+      "required": ["global"],
+      "properties": {
+        "global": {
+          "type": "object",
+          "required": ["timeout_sec", "retries"],
+          "properties": {
+            "timeout_sec": {
+              "type": "number",
+              "minimum": 1.0,
+              "maximum": 300.0,
+              "description": "HTTP timeout in seconds"
+            },
+            "retries": {
+              "type": "object",
+              "required": ["total"],
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10,
+                  "description": "Total number of retry attempts"
+                },
+                "backoff_factor": {
+                  "type": "number",
+                  "minimum": 0.1,
+                  "maximum": 10.0,
+                  "description": "Backoff factor for exponential retry delay"
+                }
+              }
+            },
+            "headers": {
+              "type": "object",
+              "description": "Global HTTP headers"
+            }
+          }
+        },
+        "sources": {
+          "type": "object",
+          "description": "Source-specific HTTP settings"
+        }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "required": ["chembl"],
+      "properties": {
+        "chembl": {
+          "type": "object",
+          "required": ["enabled", "http"],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether this source is enabled"
+            },
+            "http": {
+              "type": "object",
+              "required": ["base_url"],
+              "properties": {
+                "base_url": {
+                  "type": "string",
+                  "format": "uri",
+                  "description": "Base URL for the API"
+                },
+                "headers": {
+                  "type": "object",
+                  "description": "HTTP headers for this source"
+                },
+                "rate_limit": {
+                  "type": "object",
+                  "properties": {
+                    "max_calls": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "Maximum calls per period"
+                    },
+                    "period": {
+                      "type": "number",
+                      "minimum": 0.1,
+                      "description": "Rate limit period in seconds"
+                    }
+                  }
+                }
+              }
+            },
+            "params": {
+              "type": "object",
+              "description": "Default query parameters"
+            },
+            "pagination": {
+              "type": "object",
+              "properties": {
+                "page_param": {
+                  "type": "string",
+                  "description": "Parameter name for page number"
+                },
+                "size_param": {
+                  "type": "string",
+                  "description": "Parameter name for page size"
+                },
+                "size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000,
+                  "description": "Default page size"
+                },
+                "max_pages": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Maximum number of pages to fetch"
+                }
+              }
+            }
+          }
+        },
+        "crossref": {
+          "type": "object",
+          "required": ["enabled", "http"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "http": {
+              "type": "object",
+              "required": ["base_url"],
+              "properties": {
+                "base_url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          }
+        },
+        "openalex": {
+          "type": "object",
+          "required": ["enabled", "http"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "http": {
+              "type": "object",
+              "required": ["base_url"],
+              "properties": {
+                "base_url": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          }
+        },
+        "pubmed": {
+          "type": "object",
+          "required": ["enabled", "http"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "http": {
+              "type": "object",
+              "required": ["base_url"],
+              "properties": {
+                "base_url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "rate_limit": {
+                  "type": "object",
+                  "properties": {
+                    "max_calls": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "period": {
+                      "type": "number",
+                      "minimum": 0.1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "semantic_scholar": {
+          "type": "object",
+          "required": ["enabled", "http"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "http": {
+              "type": "object",
+              "required": ["base_url"],
+              "properties": {
+                "base_url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "rate_limit": {
+                  "type": "object",
+                  "properties": {
+                    "max_calls": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "period": {
+                      "type": "number",
+                      "minimum": 0.1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "io": {
+      "type": "object",
+      "required": ["input", "output"],
+      "properties": {
+        "input": {
+          "type": "object",
+          "required": ["documents_csv"],
+          "properties": {
+            "documents_csv": {
+              "type": "string",
+              "description": "Path to input CSV file"
+            }
+          }
+        },
+        "output": {
+          "type": "object",
+          "required": ["dir"],
+          "properties": {
+            "dir": {
+              "type": "string",
+              "description": "Output directory path"
+            }
+          }
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["workers", "limit"],
+      "properties": {
+        "workers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32,
+          "description": "Number of worker threads"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum number of documents to process"
+        },
+        "date_tag": {
+          "type": "string",
+          "pattern": "^\\d{8}$",
+          "description": "Date tag in YYYYMMDD format"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "description": "Run without writing output files"
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "required": ["level"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+          "description": "Logging level"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": ["qc"],
+      "properties": {
+        "qc": {
+          "type": "object",
+          "required": ["min_fill_rate"],
+          "properties": {
+            "min_fill_rate": {
+              "type": "number",
+              "minimum": 0.0,
+              "maximum": 1.0,
+              "description": "Minimum fill rate threshold"
+            }
+          }
+        }
+      }
+    },
+    "determinism": {
+      "type": "object",
+      "properties": {
+        "sort_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Column order for sorting"
+        },
+        "column_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Column order for output"
+        }
+      }
+    },
+    "postprocess": {
+      "type": "object",
+      "properties": {
+        "qc": {
+          "type": "boolean",
+          "description": "Generate QC reports"
+        },
+        "correlation": {
+          "type": "boolean",
+          "description": "Generate correlation analysis"
+        },
+        "journal_normalization": {
+          "type": "boolean",
+          "description": "Normalize journal names"
+        },
+        "citation_formatting": {
+          "type": "boolean",
+          "description": "Format citations"
+        }
+      }
+    }
+  }
+}

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Диагностика импорта в пайплайне."""
 
-import sys
 import os
+import sys
+
 
 def debug_pipeline_import():
     """Диагностика импорта в пайплайне."""

@@ -7,8 +7,9 @@ from pathlib import Path
 # Добавляем путь к модулям
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from library.config import APIClientConfig, RetrySettings
 from library.clients.chembl import ChEMBLClient
+from library.config import APIClientConfig, RetrySettings
+
 
 def test_chembl():
     """Тестируем ChEMBL клиент."""

@@ -4,18 +4,18 @@
 
 Система извлечения данных документов использует две основные схемы:
 
-1. **DocumentInputSchema**- для входных данных из ChEMBL
-2.**DocumentOutputSchema** - для обогащенных данных из всех источников
+1. DocumentInputSchema — входной CSV с ChEMBL ID, DOI, названием
+2. DocumentOutputSchema — обогащённые поля из ChEMBL/Crossref/OpenAlex/PubMed/Semantic Scholar
 
 ## Схема входных данных (DocumentInputSchema)
 
 ### Обязательные поля
 
-- `document*chembl*id`(str) - Идентификатор документа ChEMBL
+ - `document_chembl_id` (str) — Идентификатор документа ChEMBL
 
--`doi`(str) - Digital Object Identifier
+ - `doi` (str) — Digital Object Identifier
 
--`title`(str) - Название документа
+ - `title` (str) — Название документа
 
 ### Опциональные поля
 
@@ -39,7 +39,7 @@
 
 -`month`(int, nullable) - Месяц публикации
 
--`postcodes`(str, nullable) - Почтовые коды
+ - `postcodes` (str, nullable) — Почтовые коды (устарело; поле удаляется на этапе нормализации, если присутствует)
 
 -`document*pubmed*id`(int, nullable) - Идентификатор PubMed
 
@@ -55,7 +55,7 @@
 
 ### Обогащенные поля
 
--`source`(str) - Источник данных: "chembl", "crossref", "openalex", "pubmed", "semantic*scholar"
+ - `source` (str) — Источник данных: "chembl", "crossref", "openalex", "pubmed", "semantic_scholar"
 
 ### Поля из Crossref
 
@@ -101,62 +101,47 @@
 
 ## Диаграмма потока данных
 
-```
-
-Входные данные (ChEMBL CSV)
-    ↓
-DocumentInputSchema (валидация)
-    ↓
-Извлечение данных из источников:
-    ├── ChEMBL API
-    ├── Crossref API
-    ├── OpenAlex API
-    ├── PubMed API
-    └── Semantic Scholar API
-    ↓
-DocumentOutputSchema (обогащенные данные)
-    ↓
-Выходные файлы:
-    ├── documents*YYYYMMDD.csv
-    └── documents*YYYYMMDD*qc.csv
-
+```mermaid
+flowchart TB
+  A[Входные данные (documents.csv)] --> B[DocumentInputSchema валидация]
+  B --> C[Нормализация входа]
+  C --> D{Источники}
+  D --> D1[ChEMBL]
+  D --> D2[Crossref]
+  D --> D3[OpenAlex]
+  D --> D4[PubMed]
+  D --> D5[Semantic Scholar]
+  D1 & D2 & D3 & D4 & D5 --> E[DocumentOutputSchema]
+  E --> F[QC: row_count, enabled_sources, *_records]
+  F --> G[Экспорт documents_<date>.csv и documents_<date>_qc.csv]
 ```
 
 ## Примеры использования
 
 ### Валидация входных данных
 
-```
-
+```python
 from library.schemas.document*input*schema import DocumentInputSchema
 
-## Загрузка и валидация данных
-
-df = pd.read*csv("data/input/documents.csv")
-validated*df = DocumentInputSchema.validate(df)
-
+# Загрузка и валидация данных
+df = pd.read_csv("data/input/documents.csv")
+validated_df = DocumentInputSchema.validate(df)
 ```
 
 ### Валидация выходных данных
 
-```
-
+```python
 from library.schemas.document*output*schema import DocumentOutputSchema
 
-## Валидация обогащенных данных
-
-enriched*df = DocumentOutputSchema.validate(df)
-
+# Валидация обогащенных данных
+enriched_df = DocumentOutputSchema.validate(df)
 ```
 
 ### Валидация QC метрик
 
-```
-
+```python
 from library.schemas.document*output*schema import DocumentQCSchema
 
-## Валидация QC метрик
-
-qc*df = DocumentQCSchema.validate(qc*data)
-
+# Валидация QC метрик
+qc_df = DocumentQCSchema.validate(qc_data)
 ```

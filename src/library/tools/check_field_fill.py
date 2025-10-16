@@ -2,8 +2,10 @@
 """Проверка заполнения конкретных полей."""
 
 import sys
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 
 def check_field_fill(csv_path: str):
     """Проверяет заполнение конкретных полей."""

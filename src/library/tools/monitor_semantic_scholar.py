@@ -10,7 +10,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 import requests
 
@@ -32,7 +32,7 @@ class SemanticScholarMonitor:
         if self.api_key:
             self.headers['x-api-key'] = self.api_key
     
-    def test_api_call(self) -> Dict[str, Any]:
+    def test_api_call(self) -> dict[str, Any]:
         """Выполняет тестовый запрос к API."""
         
         # Тестовый PMID
@@ -84,7 +84,7 @@ class SemanticScholarMonitor:
                 'error_type': type(e).__name__
             }
     
-    def check_rate_limits(self) -> Dict[str, Any]:
+    def check_rate_limits(self) -> dict[str, Any]:
         """Проверяет текущие лимиты API."""
         
         result = self.test_api_call()
