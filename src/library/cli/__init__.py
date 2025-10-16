@@ -8,7 +8,7 @@ from typing import Any
 
 import typer
 
-from library.config import Config, _assign_path
+from library.config import Config, _assign_path, ensure_output_directories_exist
 from library.documents.config import (
     ALLOWED_SOURCES,
     DEFAULT_ENV_PREFIX,
@@ -129,6 +129,10 @@ def pipeline(
 
     override_dict = _parse_override_args(overrides)
     config_model = Config.load(config, overrides=override_dict)
+    
+    # Создаем необходимые директории после загрузки конфигурации
+    ensure_output_directories_exist(config_model)
+    
     logger = configure_logging(config_model.logging.level)
     logger = logger.bind(command="pipeline")
     
@@ -397,7 +401,7 @@ def install_completion(
     try:
         # Generate completion script
         result = subprocess.run([
-            executable, "-m", "typer", "src.library.cli:app", 
+            executable, "-m", "typer", "library.cli:app", 
             f"--name={script_name}", 
             f"{shell}",
             "--output-file", "-"

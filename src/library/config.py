@@ -61,6 +61,16 @@ def _parse_scalar(value: str) -> Any:
     return parsed
 
 
+def ensure_output_directories_exist(config: "Config") -> None:
+    """Создает необходимые директории для выходных файлов конфигурации."""
+    output_settings = config.io.output
+    
+    # Создаем родительские директории для всех выходных путей
+    output_settings.data_path.parent.mkdir(parents=True, exist_ok=True)
+    output_settings.qc_report_path.parent.mkdir(parents=True, exist_ok=True)
+    output_settings.correlation_path.parent.mkdir(parents=True, exist_ok=True)
+
+
 class RetrySettings(BaseModel):
     """Retry configuration for HTTP clients."""
 
@@ -236,8 +246,8 @@ class OutputSettings(BaseModel):
 
     @field_validator("data_path", "qc_report_path", "correlation_path")
     @classmethod
-    def ensure_parent_exists(cls, value: Path) -> Path:
-        value.parent.mkdir(parents=True, exist_ok=True)
+    def validate_paths(cls, value: Path) -> Path:
+        # Валидация путей без создания директорий
         return value
 
 
@@ -505,6 +515,7 @@ __all__ = [
     "_assign_path",
     "_merge_dicts",
     "_parse_scalar",
+    "ensure_output_directories_exist",
     "APIClientConfig",
     "Config",
     "CorrelationSettings",
