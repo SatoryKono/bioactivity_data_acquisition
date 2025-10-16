@@ -18,6 +18,8 @@ class SemanticScholarClient(BaseApiClient):
         "externalIds",
         "year",
         "authors",
+        "publicationVenue",  # Добавляем для получения ISSN и названия журнала
+        "publicationTypes",  # Добавляем для получения типа документа
     ]
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
@@ -143,8 +145,8 @@ class SemanticScholarClient(BaseApiClient):
             "semantic_scholar_doi": external_ids.get("DOI"),
             "semantic_scholar_semantic_scholar_id": payload.get("paperId"),
             "semantic_scholar_title": payload.get("title"),
-            "semantic_scholar_doc_type": None,  # Не запрашиваем publicationTypes
-            "semantic_scholar_journal": None,  # Не запрашиваем publicationVenue
+            "semantic_scholar_doc_type": self._extract_doc_type(payload),
+            "semantic_scholar_journal": self._extract_journal(payload),
             "semantic_scholar_external_ids": (
                 json.dumps(external_ids) if external_ids else None
             ),
@@ -163,11 +165,49 @@ class SemanticScholarClient(BaseApiClient):
 
     def _extract_issn(self, payload: dict[str, Any]) -> str | None:
         """Извлекает ISSN из Semantic Scholar payload."""
-        # Проверяем в externalIds (publicationVenue больше не запрашиваем)
+        # Сначала проверяем в publicationVenue
+        publication_venue = payload.get("publicationVenue", {})
+        if isinstance(publication_venue, dict):
+            issn = publication_venue.get("issn")
+            if issn:
+                return str(issn)
+        
+        # Затем проверяем в externalIds
         external_ids = payload.get("externalIds", {})
         issn = external_ids.get("issn")
         if issn:
             return str(issn)
+        
+        return None
+
+    def _extract_journal(self, payload: dict[str, Any]) -> str | None:
+        """Извлекает название журнала из Semantic Scholar payload."""
+        # Проверяем в publicationVenue
+        publication_venue = payload.get("publicationVenue", {})
+        if isinstance(publication_venue, dict):
+            # Пробуем разные поля для названия журнала
+            journal = (
+                publication_venue.get("name") or 
+                publication_venue.get("alternateName") or
+                publication_venue.get("displayName")
+            )
+            if journal:
+                return str(journal)
+        
+        return None
+
+    def _extract_doc_type(self, payload: dict[str, Any]) -> str | None:
+        """Извлекает тип документа из Semantic Scholar payload."""
+        # Проверяем в publicationTypes
+        publication_types = payload.get("publicationTypes", [])
+        if isinstance(publication_types, list) and publication_types:
+            # Берем первый тип документа
+            doc_type = publication_types[0]
+            if isinstance(doc_type, str):
+                return doc_type
+            elif isinstance(doc_type, dict):
+                # Если это объект, берем поле name или type
+                return doc_type.get("name") or doc_type.get("type")
         
         return None
 

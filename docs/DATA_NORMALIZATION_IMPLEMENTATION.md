@@ -2,7 +2,10 @@
 
 ## Обзор
 
-В проект добавлена функциональность автоматической нормализации данных перед сохранением итоговых таблиц с извлеченными данными. Нормализация выполняется после добавления столбца `index` и включает обработку строковых, числовых и логических данных.
+В проект добавлена функциональность автоматической нормализации данных перед
+сохранением итоговых таблиц с извлеченными данными. Нормализация выполняется
+после добавления столбца `index` и включает обработку строковых, числовых и
+логических данных.
 
 ## Функциональность нормализации
 
@@ -16,38 +19,40 @@
 
 - **Замена пустых значений**: Пустые строки (`''`, `'   '`) заменяются на `pd.NA`
 
-- **Замена специальных значений**: Строки `'nan'`, `'none'`, `'null'` заменяются на `pd.NA`
+- **Замена специальных значений**: Строки`'nan'`, `'none'`, `'null'`заменяются на`pd.NA`
 
-- **Замена None**: Значения `None` заменяются на `pd.NA`
+- **Замена None**: Значения`None`заменяются на`pd.NA`
 
 #### 2. Числовые данные (numeric dtype)
 
-- **Замена NaN**: Значения `np.nan` заменяются на `pd.NA`
+- **Замена NaN**: Значения`np.nan`заменяются на`pd.NA`
 
-- **Замена бесконечности**: Значения `np.inf` и `-np.inf` заменяются на `pd.NA`
+- **Замена бесконечности**: Значения`np.inf`и`-np.inf`заменяются на`pd.NA`
 
 - **Сохранение обычных чисел**: Обычные числовые значения остаются без изменений
 
 #### 3. Логические данные (boolean dtype)
 
-- **Замена NaN**: Значения `np.nan` заменяются на `pd.NA`
+- **Замена NaN**: Значения`np.nan`заменяются на`pd.NA`
 
-- **Сохранение булевых значений**: `True` и `False` остаются без изменений
+- **Сохранение булевых значений**:`True`и`False`остаются без изменений
 
 #### 4. Столбец index
 
-- **Исключение из нормализации**: Столбец `index` не подвергается нормализации
+- **Исключение из нормализации**: Столбец`index`не подвергается нормализации
 
 - **Сохранение исходных значений**: Порядковые номера остаются без изменений
 
 ## Реализация
 
-### Функция `_normalize_dataframe`
+### Функция`*normalize*dataframe`
 
-**Файл:** `src/library/etl/load.py`
+**Файл:**`src/library/etl/load.py`
 
-```python
-def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
+```
+
+def *normalize*dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
+pd.DataFrame:
     """
     Нормализует DataFrame перед сохранением:
 
@@ -58,103 +63,107 @@ def _normalize_dataframe(df: pd.DataFrame, logger: BoundLogger | None = None) ->
     - Числовые данные: нормализация
 
     - Логические данные: нормализация
+
     """
+
 ```
 
 ### Интеграция в пайплайн
 
-Нормализация интегрирована в функцию `write_deterministic_csv`:
+Нормализация интегрирована в функцию`write*deterministic*csv`:
 
-```python
-# Добавляем столбец index с порядковыми номерами строк (начиная с 0)
+```
 
-df_to_write = df_to_write.copy()
-df_to_write.insert(0, 'index', range(len(df_to_write)))
+## Добавляем столбец index с порядковыми номерами строк (начиная с 0)
 
-# Нормализуем данные перед сохранением
+df*to*write = df*to*write.copy()
+df*to*write.insert(0, 'index', range(len(df*to*write)))
 
-df_to_write = _normalize_dataframe(df_to_write, logger=logger)
+## Нормализуем данные перед сохранением
+
+df*to*write = *normalize*dataframe(df*to*write, logger=logger)
+
 ```
 
 ## Примеры нормализации
 
 ### Строковые данные
 
-**Исходные данные:**
-```
-compound_id       target        reference
+## Исходные данные:```
+
+compound*id       target        reference
 '  CHEMBL1  '     'TARGET1'     'PMID123'
 'CHEMBL2'         '  target2  ' '  PMID456  '
 'chembl3'         'TARGET3'     'PMID789'
 ''                'nan'         ''
 '   '             'NONE'        'None'
 'None'            ''            'PMID012'
-```
 
-**После нормализации:**
-```
-compound_id   target   reference
+```## После нормализации:```
+
+compound*id   target   reference
 'chembl1'     'target1' 'pmid123'
 'chembl2'     'target2' 'pmid456'
 'chembl3'     'target3' 'pmid789'
 <NA>          <NA>      <NA>
 <NA>          <NA>      <NA>
 <NA>          <NA>      'pmid012'
+
 ```
 
 ### Числовые данные
 
-**Исходные данные:**
-```
-activity_value
+## Исходные данные:```
+
+activity*value
 5.2
 nan
 7.1
 9.4
 inf
 -inf
-```
 
-**После нормализации:**
-```
-activity_value
+```## После нормализации:```
+
+activity*value
 5.2
 <NA>
 7.1
 9.4
 <NA>
 <NA>
+
 ```
 
 ### Логические данные
 
-**Исходные данные:**
-```
-is_active
+## Исходные данные:```
+
+is*active
 True
 False
 nan
 True
 False
 True
-```
 
-**После нормализации:**
-```
-is_active
+```## После нормализации:```
+
+is*active
 true
 false
 <NA>
 true
 false
 true
+
 ```
 
 ## Тестирование
 
 ### Созданные тесты
 
-1. **`tests/test_data_normalization_simple.py`**:
+1.**`tests/test*data*normalization*simple.py`**:
 
    - Тест нормализации строковых данных
 
@@ -164,7 +173,7 @@ true
 
    - Тест полного пайплайна с нормализацией
 
-2. **`scripts/test_normalization_simple_demo.py`**:
+2. **`scripts/test*normalization*simple*demo.py`**:
 
    - Демонстрационный скрипт с реальными данными
 
@@ -172,14 +181,16 @@ true
 
 ### Запуск тестов
 
-```bash
-# Простые тесты
+```
 
-python tests/test_data_normalization_simple.py
+## Простые тесты
 
-# Демонстрация
+python tests/test*data*normalization*simple.py
 
-python scripts/test_normalization_simple_demo.py
+## Демонстрация
+
+python scripts/test*normalization*simple*demo.py
+
 ```
 
 ## Преимущества нормализации
@@ -230,20 +241,28 @@ python scripts/test_normalization_simple_demo.py
 
 1. **Детерминированный порядок**: Применяется сортировка согласно настройкам
 2. **Добавление index**: Вставляется столбец с порядковыми номерами
-3. **Нормализация данных**: Применяется нормализация ко всем колонкам кроме index
+3. **Нормализация данных**: Применяется нормализация ко всем колонкам кроме
+index
 4. **Сохранение**: Данные сохраняются в выбранном формате
 
 ## Логирование
 
 Функция нормализации поддерживает логирование:
 
-```python
+```
+
 if logger is not None:
-    logger.info("normalize_start", columns=list(df.columns), rows=len(df))
-    # ... процесс нормализации ...
-    logger.info("normalize_complete", columns=list(df_normalized.columns))
+    logger.info("normalize*start", columns=list(df.columns), rows=len(df))
+
+## ... процесс нормализации ..
+
+    logger.info("normalize*complete", columns=list(df_normalized.columns))
+
 ```
 
 ## Заключение
 
-Нормализация данных обеспечивает консистентность и качество итоговых таблиц, автоматически обрабатывая различные проблемы с данными и приводя их к единому стандарту. Функциональность полностью интегрирована в существующий пайплайн и работает прозрачно для пользователя.
+Нормализация данных обеспечивает консистентность и качество итоговых таблиц,
+автоматически обрабатывая различные проблемы с данными и приводя их к единому
+стандарту. Функциональность полностью интегрирована в существующий пайплайн и
+работает прозрачно для пользователя.

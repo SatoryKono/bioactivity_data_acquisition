@@ -2,128 +2,188 @@
 
 ## Обзор
 
-Данная папка содержит конфигурационные файлы для различных сценариев обработки документов с использованием ETL pipeline.
+Данная папка содержит конфигурационные файлы для различных сценариев обработки
+документов с использованием ETL pipeline.
 
 ## Доступные конфигурации
 
-### 1. `config.yaml` (Основная конфигурация)
+### 1. `config.yaml`(Основная конфигурация)
+
 **Назначение**: Основная конфигурация для обработки документов
 **Особенности**:
+
 - Включает ChEMBL, Crossref, OpenAlex, PubMed
+
 - Semantic Scholar отключен по умолчанию
+
 - Стандартные настройки таймаутов и retry
+
 - Нормализация журналов и формирование ссылок включены
 
 **Использование**:
-```bash
-bioactivity-data-acquisition get-document-data --config configs/config.yaml
+
 ```
 
-### 2. `config_documents.yaml` (Специализированная для документов)
+bioactivity-data-acquisition get-document-data --config configs/config.yaml
+
+```
+
+### 2.`config*documents.yaml`(Специализированная для документов)
+
 **Назначение**: Оптимизированная конфигурация специально для документов
 **Особенности**:
+
 - Все источники включены (включая Semantic Scholar с флагом enabled: false)
+
 - Увеличенные таймауты для ChEMBL
+
 - Настроенная нормализация журналов
+
 - Формирование литературных ссылок
 
 **Использование**:
-```bash
-bioactivity-data-acquisition get-document-data --config configs/config_documents.yaml
+
 ```
 
-### 3. `config_documents_test.yaml` (Быстрое тестирование)
+bioactivity-data-acquisition get-document-data --config
+configs/config*documents.yaml
+
+```
+
+### 3.`config*documents*test.yaml`(Быстрое тестирование)
+
 **Назначение**: Быстрое тестирование функциональности
 **Особенности**:
+
 - Только ChEMBL источник
+
 - Ограничение до 10 документов
+
 - Меньшие таймауты и размеры страниц
+
 - Отключена корреляция для скорости
+
 - DEBUG уровень логирования
 
 **Использование**:
-```bash
-bioactivity-data-acquisition get-document-data --config configs/config_documents_test.yaml
+
 ```
 
-### 4. `config_documents_full.yaml` (Полная обработка)
+bioactivity-data-acquisition get-document-data --config
+configs/config*documents*test.yaml
+
+```
+
+### 4.`config*documents*full.yaml`(Полная обработка)
+
 **Назначение**: Максимальная детализация и все источники
 **Особенности**:
+
 - Все источники включены
+
 - Увеличенные таймауты и retry
+
 - Больше воркеров (8)
+
 - Строгие требования к качеству данных
+
 - Максимальное количество страниц
 
 **Использование**:
-```bash
-bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml
+
+```
+
+bioactivity-data-acquisition get-document-data --config
+configs/config*documents*full.yaml
+
 ```
 
 ## Ключевые параметры
 
 ### Источники данных
+
 - **ChEMBL**: Основной источник документов
+
 - **Crossref**: Дополнительные метаданные по DOI
+
 - **OpenAlex**: Альтернативные метаданные
+
 - **PubMed**: Медицинские публикации
+
 - **Semantic Scholar**: Академические метаданные (опционально)
 
 ### Нормализация журналов
-```yaml
+
+```
+
 postprocess:
-  journal_normalization:
+  journal*normalization:
     enabled: true
-    columns: ["journal", "pubmed_journal", "chembl_journal", "crossref_journal"]
+    columns: ["journal", "pubmed*journal", "chembl*journal", "crossref*journal"]
+
 ```
 
 ### Формирование ссылок
-```yaml
+
+```
+
 postprocess:
-  citation_formatting:
+  citation*formatting:
     enabled: true
     columns:
       journal: "journal"
       volume: "volume"
       issue: "issue"
-      first_page: "first_page"
-      last_page: "last_page"
+      first*page: "first*page"
+      last*page: "last*page"
+
 ```
 
 ### Runtime параметры
-- `workers`: Количество параллельных воркеров
+
+-`workers`: Количество параллельных воркеров
+
 - `limit`: Ограничение количества документов (null = без ограничений)
-- `dry_run`: Режим тестирования без сохранения
-- `date_tag`: Тег даты в имени файла
+
+- `dry*run`: Режим тестирования без сохранения
+
+- `date*tag`: Тег даты в имени файла
 
 ## Переменные окружения
 
 Для работы с API ключами установите следующие переменные:
 
-```bash
-export CHEMBL_API_TOKEN="your_chembl_token"
-export CROSSREF_API_KEY="your_crossref_key"
-export PUBMED_API_KEY="your_pubmed_key"
-export SEMANTIC_SCHOLAR_API_KEY="your_semantic_scholar_key"
+```
+
+export CHEMBL*API*TOKEN="your*chembl*token"
+export CROSSREF*API*KEY="your*crossref*key"
+export PUBMED*API*KEY="your*pubmed*key"
+export SEMANTIC*SCHOLAR*API*KEY="your*semantic*scholar*key"
+
 ```
 
 ## Рекомендации по использованию
 
-1. **Для разработки**: Используйте `config_documents_test.yaml`
-2. **Для продакшена**: Используйте `config_documents.yaml` или `config_documents_full.yaml`
-3. **Для отладки**: Включите DEBUG уровень логирования
+1. **Для разработки**: Используйте`config*documents*test.yaml`2. **Для продакшена**:
+Используйте`config*documents.yaml`или`config*documents*full.yaml`3. **Для отладки**: Включите DEBUG
+уровень логирования
 4. **Для больших объемов**: Увеличьте количество воркеров и таймауты
 
 ## Выходные файлы
 
 После обработки создаются следующие файлы:
-- `documents_<date_tag>.csv` - Основные данные с нормализованными журналами и ссылками
-- `documents_<date_tag>_qc.csv` - Отчет о качестве данных
+
+-`documents*<date*tag>.csv`- Основные данные с нормализованными журналами и ссылками
+
+-`documents*<date*tag>*qc.csv`- Отчет о качестве данных
 
 ## Мониторинг
 
 Для мониторинга API лимитов используйте:
-```bash
-python -m library.tools.check_api_limits
-python -m library.tools.monitor_api
+
+```
+
+python -m library.tools.check*api*limits
+python -m library.tools.monitor*api
+
 ```

@@ -1,7 +1,0 @@
-metric,value,threshold,ratio,status
-row_count,3,,,pass
-missing_document_chembl_id,0,1.0,0.0,pass
-missing_doi,1,1.0,0.3333333333333333,pass
-missing_title,0,1.0,0.0,pass
-duplicates,0,1.0,0.0,pass
-qc_passed,1,,,pass

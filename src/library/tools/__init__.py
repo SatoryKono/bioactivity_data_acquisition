@@ -26,4 +26,10 @@ __all__ = [
     "monitor_semantic_scholar",
     "quick_api_check",
     "toggle_semantic_scholar",
+    "validate_all_fields",
+    "validate_doi_fields",
+    "validate_journal_fields",
+    "validate_year_fields",
+    "validate_volume_fields",
+    "validate_issue_fields",
 ]

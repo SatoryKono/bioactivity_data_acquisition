@@ -42,9 +42,10 @@
 
 ## 1. Architecture Overview
 
-```mermaid
+```
+
 flowchart LR
-    subgraph External_APIs
+    subgraph External*APIs
         Chembl["ChEMBL REST"]
         PubChem["PubChem PUG"]
         UniProt["UniProt REST"]
@@ -52,12 +53,12 @@ flowchart LR
         OpenAlex["OpenAlex Works"]
     end
 
-    subgraph Library_Layers
+    subgraph Library*Layers
         Clients["library/clients"]
         IO["library/io"]
         PostProc["library/postprocessing"]
         Schemas["library/schemas"]
-        Scripts["scripts/get_*_data.py"]
+        Scripts["scripts/get***data.py"]
     end
 
     Chembl --> Clients
@@ -77,91 +78,129 @@ flowchart LR
     Scripts -->|"document"| PostProc
     Scripts -->|"testitem"| PostProc
     PostProc -->|"validated QC datasets"| IO
+
 ```
 
 ### Таблица директорий верхнего уровня
 
-| Имя | Путь/Модуль | Краткое назначение | Зависимости/Входы | Артефакты/Выходы |
+| Имя | Путь/Модуль | Краткое назначение | Зависимости/Входы | Артефакты/Выходы
+|
 
 | --- | --- | --- | --- | --- |
 
-| scripts | scripts/ | CLI-обёртки ETL и утилиты, совместимые с legacy-пайплайнами | library.cli, postprocessing, io | CSV/QA бандлы, метаданные |
+| scripts | scripts/ | CLI-обёртки ETL и утилиты, совместимые с
+legacy-пайплайнами | library.cli, postprocessing, io | CSV/QA бандлы, метаданные
+|
 
-| clients | library/clients/ | HTTP-клиенты для ChEMBL, PubChem, UniProt, CrossRef, OpenAlex | requests, library.utils.retry | JSON-пэйлоады |
+| clients | library/clients/ | HTTP-клиенты для ChEMBL, PubChem, UniProt,
+CrossRef, OpenAlex | requests, library.utils.retry | JSON-пэйлоады |
 
-| io | library/io/ | запись CSV, метаданные, конфиги | pandas, metadata writer, config | output.* CSV, .meta.yaml |
+| io | library/io/ | запись CSV, метаданные, конфиги | pandas, metadata writer,
+config | output.* CSV, .meta.yaml |
 
-| postprocessing | library/postprocessing/ | модульные ETL-стадии на pandas | clients, schemas, utils | нормализованные DataFrame |
+| postprocessing | library/postprocessing/ | модульные ETL-стадии на pandas |
+clients, schemas, utils | нормализованные DataFrame |
 
-| schemas | library/schemas/ | Pandera-схемы таблиц | pandera | DataFrame после validate |
+| schemas | library/schemas/ | Pandera-схемы таблиц | pandera | DataFrame после
+validate |
 
-| utils | library/utils/ | логирование, ретраи, QC | logging, backoff | структурированные логи, retry-декораторы |
+| utils | library/utils/ | логирование, ретраи, QC | logging, backoff |
+структурированные логи, retry-декораторы |
 
-| tests | tests/ | pytest-покрытие (unit/integration/cli) | pytest, pandas | отчёты pytest, golden CSV |
+| tests | tests/ | pytest-покрытие (unit/integration/cli) | pytest, pandas |
+отчёты pytest, golden CSV |
 
-| data/output | data/output/ | каталог для стандартных артефактов | output_writer | output.<table>_*.csv |
+| data/output | data/output/ | каталог для стандартных артефактов |
+output*writer | output.<table>**.csv |
 
-| dictionary | dictionary/ | справочники для обогащения | CSV dictionary | lookup-данные |
+| dictionary | dictionary/ | справочники для обогащения | CSV dictionary |
+lookup-данные |
 
 | docs | docs/ | руководства, протоколы | n/a | статичная документация |
 
-### Сводная таблица CLI-скриптов `scripts/get_*_data.py`
+### Сводная таблица CLI-скриптов`scripts/get***data.py`
 
-| Имя | Путь/Модуль | Краткое назначение | Зависимости/Входы | Артефакты/Выходы |
+| Имя | Путь/Модуль | Краткое назначение | Зависимости/Входы | Артефакты/Выходы
+|
 
 | --- | --- | --- | --- | --- |
 
-| Activity | scripts/get_activity_data.py | Загрузка активностей ChEMBL, постобработка и QC | идентификаторы, ChEMBL API, postprocessing.activities | output.activity_<date>.csv, *_quality_report_table.csv, *_data_correlation_report_table.csv, .meta.yaml |
+| Activity | scripts/get*activity*data.py | Загрузка активностей ChEMBL,
+постобработка и QC | идентификаторы, ChEMBL API, postprocessing.activities |
+output.activity*<date>.csv, **quality*report*table.csv,
+**data*correlation*report*table.csv, .meta.yaml |
 
-| Assay | scripts/get_assay_data.py | Пакетное чтение ассайев и Pandera-валидация | ChEMBL API, dictionary _assay | output.assay_<date>.csv и QC отчёты |
+| Assay | scripts/get*assay*data.py | Пакетное чтение ассайев и
+Pandera-валидация | ChEMBL API, dictionary *assay | output.assay*<date>.csv и QC
+отчёты |
 
-| Target | scripts/get_target_data.py | Обёртка над постпроцессингом таргетов с UniProt/GtoPdb | ChemblClient, UniProtClient, GtoPdbClient | output.target_<date>.csv и QC отчёты |
+| Target | scripts/get*target*data.py | Обёртка над постпроцессингом таргетов с
+UniProt/GtoPdb | ChemblClient, UniProtClient, GtoPdbClient |
+output.target*<date>.csv и QC отчёты |
 
-| Document | scripts/get_document_data.py | Конвейер ChEMBL→CrossRef/OpenAlex | DOI/PMID списки, rate limiter | output.document_<date>.csv и QC отчёты |
+| Document | scripts/get*document*data.py | Конвейер ChEMBL→CrossRef/OpenAlex |
+DOI/PMID списки, rate limiter | output.document*<date>.csv и QC отчёты |
 
-| Testitem | scripts/get_testitem_data.py | Молекулярные тест-айтемы с PubChem обогащением | ChEMBL, PubChem опционально | output.testitem_<date>.csv и QC отчёты |
+| Testitem | scripts/get*testitem*data.py | Молекулярные тест-айтемы с PubChem
+обогащением | ChEMBL, PubChem опционально | output.testitem*<date>.csv и QC
+отчёты |
 
-> **Важно.** Легаси-скрипты в `scripts/get_*_data.py` теперь выступают только как обёртки вокруг
-> канонического Typer-приложения `bioactivity.cli` и при запуске выводят `DeprecationWarning`.
-> Для новых сценариев используйте точку входа `bioactivity-data-acquisition pipeline --config ...`,
-> а настройки конкретных пайплайнов задавайте через YAML/`--set` (см. `configs/config.yaml` и
-> `configs/pipelines.toml`).
+> **Важно.** Легаси-скрипты в`scripts/get***data.py`теперь выступают только
+как обёртки вокруг
+> канонического Typer-приложения`bioactivity.cli`и при запуске выводят`DeprecationWarning`.
+> Для новых сценариев используйте точку входа `bioactivity-data-acquisition
+pipeline --config ...`,
+> а настройки конкретных пайплайнов задавайте через YAML/`--set`(см.`configs/config.yaml`и
+>`configs/pipelines.toml`).
 
 #### Проверка
 
-```bash
-bioactivity-data-acquisition pipeline --config configs/config.yaml --set logging.level=DEBUG --set postprocess.qc.enabled=true
+```
+
+bioactivity-data-acquisition pipeline --config configs/config.yaml --set
+logging.level=DEBUG --set postprocess.qc.enabled=true
+
 ```
 
 ## 2. Modules & Dependencies
 
-### Обязанности пакетов `library/*`
+### Обязанности пакетов`library/*`
 
-| Имя | Путь/Модуль | Краткое назначение | Зависимости/Входы | Артефакты/Выходы |
+| Имя | Путь/Модуль | Краткое назначение | Зависимости/Входы | Артефакты/Выходы
+|
 
 | --- | --- | --- | --- | --- |
 
-| logging | library/utils/logging.py | Структурированное логирование с контекстом стадий | logging, ContextVar | форматированные записи |
+| logging | library/utils/logging.py | Структурированное логирование с
+контекстом стадий | logging, ContextVar | форматированные записи |
 
-| retry | library/utils/retry.py | backoff-декораторы над requests | backoff / fallback, requests | надёжные вызовы |
+| retry | library/utils/retry.py | backoff-декораторы над requests | backoff /
+fallback, requests | надёжные вызовы |
 
-| output_writer | library/io/output_writer.py | Детерминированная запись CSV+QC | pandas, csv_utils | стандартный бандл CSV |
+| output*writer | library/io/output*writer.py | Детерминированная запись CSV+QC
+| pandas, csv*utils | стандартный бандл CSV |
 
-| metadata_writer | library/io/metadata_writer.py | сериализация .meta.yaml | metadata_writer общ., RunContext | YAML sidecar |
+| metadata*writer | library/io/metadata*writer.py | сериализация .meta.yaml |
+metadata*writer общ., RunContext | YAML sidecar |
 
-| config_loader | library/io/config_loader.py | чтение config.yaml с ENV override | yaml, os | Config dataclass |
+| config*loader | library/io/config*loader.py | чтение config.yaml с ENV
+override | yaml, os | Config dataclass |
 
 | clients.* | см. раздел 4 | API-клиенты | requests, retry | JSON |
 
-| postprocessing.* | см. раздел 5 | ETL-стадии на pandas | clients, schemas | нормализованные DataFrame |
+| postprocessing.* | см. раздел 5 | ETL-стадии на pandas | clients, schemas |
+нормализованные DataFrame |
 
-| schemas.* | см. раздел 6 | Pandera DataFrameSchema | pandera, pandas | валидация |
+| schemas.* | см. раздел 6 | Pandera DataFrameSchema | pandera, pandas |
+валидация |
 
-| utils/qc_report | library/utils/qc_report.py | Формирование QC/корреляций | TableQualityProfiler | QC DataFrame |
+| utils/qc*report | library/utils/qc*report.py | Формирование QC/корреляций |
+TableQualityProfiler | QC DataFrame |
 
 ### Граф зависимостей
 
-```mermaid
+```
+
 graph TD
     subgraph utils
         Logging
@@ -178,6 +217,7 @@ graph TD
     Schemas --> Pandera
     Scripts --> Postprocessing
     Scripts --> IO
+
 ```
 
 ### Внешние зависимости
@@ -210,14 +250,16 @@ graph TD
 
 #### Проверка
 
-```bash
+```
+
 python -c "import pandas, requests, pandera, backoff"
 pip list | grep -E 'pandas|requests|pandera|backoff'
+
 ```
 
 ## 3. CLI Reference
 
-### Параметры `get_activity_data.py`
+### Параметры`get*activity*data.py`
 
 | Флаг | Тип/Значения | По умолчанию | Назначение | Обязательность |
 
@@ -237,39 +279,54 @@ pip list | grep -E 'pandas|requests|pandera|backoff'
 
 | --date-tag | str | авто (YYYYMMDD) | тег выпусков | нет |
 
-Возвраты: 0 при успешной обработке, 1 при ошибках валидации (см. unit-тест на отрицательный limit).
+Возвраты: 0 при успешной обработке, 1 при ошибках валидации (см. unit-тест на
+отрицательный limit).
 
-Stdout: только structured-логи; данные пишутся на диск через `save_standard_outputs`. Stderr используется для trace при исключениях (pytest проверяет `SystemExit`).
+Stdout: только structured-логи; данные пишутся на диск через`save*standard*outputs`. Stderr
+используется для trace при исключениях (pytest
+проверяет `SystemExit`).
 
-### Параметры `get_assay_data.py`
+### Параметры `get*assay*data.py`
 
-Аналогичная таблица: ключевые флаги `--column`, `--batch-size`, `--offline`, `--postprocess`. Все необязательные.
+Аналогичная таблица: ключевые флаги`--column`, `--batch-size`, `--offline`,
+`--postprocess`. Все необязательные.
 
-### Параметры `get_document_data.py`
+### Параметры `get*document*data.py`
 
-Исторические флаги (`--mode`, `--crossref-rps`, `--openalex-rps` и т. д.) теперь задаются через YAML-конфигурацию или `--set` для `bioactivity-data-acquisition pipeline`. При запуске легаси-обёртки параметры прокидываются в общий конфиг.
+Исторические флаги (`--mode`, `--crossref-rps`, `--openalex-rps`и т. д.) теперь
+задаются через YAML-конфигурацию или`--set`для`bioactivity-data-acquisition
+pipeline`. При запуске легаси-обёртки параметры прокидываются в общий конфиг.
 
-### Параметры `get_target_data.py`
+### Параметры `get*target*data.py`
 
-Флаги `--limit`, `--date-tag`, `--output-dir` также переехали в конфигурацию. Используйте профиль/секцию в `configs/pipelines.toml` либо CLI-override (`--set postprocess.qc.enabled=false` и т. п.).
+Флаги`--limit`, `--date-tag`, `--output-dir`также переехали в конфигурацию.
+Используйте профиль/секцию в`configs/pipelines.toml` либо CLI-override (`--set
+postprocess.qc.enabled=false`и т. п.).
 
-### Параметры `get_testitem_data.py`
+### Параметры`get*testitem*data.py`
 
-Опции `--pubchem-enable/--no-pubchem-enable` отражены в ключах конфигурации для PubChem-энrichment. Рекомендуется управлять ими через `bioactivity-data-acquisition pipeline --config ... --set pipelines.testitem.include_pubchem=false` (или правку YAML).
+Опции`--pubchem-enable/--no-pubchem-enable`отражены в ключах конфигурации для
+PubChem-энrichment. Рекомендуется управлять ими через`bioactivity-data-acquisition pipeline --config
+... --set
+pipelines.testitem.include*pubchem=false`(или правку YAML).
 
 ### Эталонные команды
 
-```bash
+```
+
 bioactivity-data-acquisition pipeline --config configs/config.yaml \
   --set postprocess.qc.enabled=true \
-  --set postprocess.reporting.include_timestamp=true
+  --set postprocess.reporting.include*timestamp=true
+
 ```
 
 #### Проверка
 
-```bash
+```
+
 bioactivity-data-acquisition --help
 bioactivity-data-acquisition pipeline --help
+
 ```
 
 ## 4. Clients (HTTP) Spec
@@ -278,19 +335,25 @@ bioactivity-data-acquisition pipeline --help
 
 | --- | --- | --- | --- | --- |
 
-| ChemblClient | /molecule/{id}, /target.json | timeout=10s, max_tries=3 (override), backoff expo | JSON → dict | `raise_for_status`, structured логи, retry warn/error |
+| ChemblClient | /molecule/{id}, /target.json | timeout=10s, max*tries=3
+(override), backoff expo | JSON → dict |`raise*for*status`, structured логи,
+retry warn/error |
 
-| PubChemClient | /compound/cid/{cid}/JSON | аналогично | JSON | retries, лог `pubchem_request` |
+| PubChemClient | /compound/cid/{cid}/JSON | аналогично | JSON | retries, лог
+`pubchem*request`|
 
-| UniProtClient | /uniprotkb/{accession}.json | аналогично | JSON | retries, лог `uniprot_request` |
+| UniProtClient | /uniprotkb/{accession}.json | аналогично | JSON | retries, лог`uniprot*request`|
 
-| CrossrefClient | /works/{doi} | аналогично | JSON | retries, лог `crossref_request` |
+| CrossrefClient | /works/{doi} | аналогично | JSON | retries, лог`crossref*request`|
 
 ### Нормализация → DataFrame
 
-Document pipeline: `pd.DataFrame.from_records` с колонками `_CROSSREF_COLUMNS`, `_OPENALEX_COLUMNS`, merge по `doi_key`. Combine-first для `title`/`doc_type`, защита от перезаписи.
+Document pipeline:`pd.DataFrame.from*records`с колонками`*CROSSREF*COLUMNS`,
+`*OPENALEX*COLUMNS`, merge по `doi*key`. Combine-first для `title`/`doc*type`,
+защита от перезаписи.
 
-Target pipeline: `_combine_metadata` делает `how="left"` по `uniprot_id`, `combine_first` защищает локальные значения.
+Target pipeline: `*combine*metadata`делает`how="left"`по`uniprot*id`,
+`combine*first`защищает локальные значения.
 
 ### Стабильность
 
@@ -298,39 +361,46 @@ Target pipeline: `_combine_metadata` делает `how="left"` по `uniprot_id`
 
 | --- | --- | --- |
 
-| ChEMBL | backoff retry с логами `retry/giveup` | страница ≤200, offset прогресс |
+| ChEMBL | backoff retry с логами`retry/giveup`| страница ≤200, offset
+прогресс |
 
-| CrossRef | rate limiter через `get_limiter`, запись ошибок в `crossref_error` | RPS из config |
+| CrossRef | rate limiter через`get*limiter`, запись ошибок в `crossref*error`| RPS из config |
 
-| OpenAlex | rate limiter аналогичен, ошибки → `openalex_error` | RPS из config |
+| OpenAlex | rate limiter аналогичен, ошибки →`openalex*error`| RPS из config
+|
 
 | UniProt/GtoPdb | retry, ошибки логируются и пропускаются | — |
 
 #### Проверка
 
-```python
-# Псевдо-запросы
+```
+
+## Псевдо-запросы
 
 python - <<'PY'
-from library.clients.chembl_client import ChemblClient
-print(ChemblClient()._request_json(endpoint="target.json", params={"limit":1}, timeout=0.1))  # мок через monkeypatch requests.Session.get
+from library.clients.chembl*client import ChemblClient
+print(ChemblClient().*request*json(endpoint="target.json", params={"limit":1},
+timeout=0.1)) # мок через monkeypatch requests.Session.get
 PY
+
 ```
 
 ## 5. Pipelines
 
 ### 5.1 Target
 
-```mermaid
+```
+
 flowchart LR
-    Fetch["fetch_normalize_target"] --> Normalize["_normalise_targets"]
-    Normalize --> Enrich1["_load_uniprot_metadata"]
-    Normalize --> Enrich2["_load_gtopdb_metadata"]
-    Enrich1 --> Merge["enrich_target_metadata (combine_first)"]
+    Fetch["fetch*normalize*target"] --> Normalize["*normalise*targets"]
+    Normalize --> Enrich1["*load*uniprot*metadata"]
+    Normalize --> Enrich2["*load*gtopdb*metadata"]
+    Enrich1 --> Merge["enrich*target*metadata (combine*first)"]
     Enrich2 --> Merge
     Merge --> Validate["TargetSchema.validate"]
-    Validate --> QC["generate_target_reports (TableQualityProfiler)"]
-    QC --> Save["save_standard_outputs + save_metadata"]
+    Validate --> QC["generate*target*reports (TableQualityProfiler)"]
+    QC --> Save["save*standard*outputs + save*metadata"]
+
 ```
 
 #### Таблица стадий
@@ -339,44 +409,57 @@ flowchart LR
 
 | --- | --- | --- | --- |
 
-| _normalise_targets | raw JSON target_chembl_id, pref_name, components | trim/типизация StringDtype, skip пустые ID | _TARGET_COLUMNS (9 колонок) |
+| *normalise*targets | raw JSON target*chembl*id, pref*name, components |
+trim/типизация StringDtype, skip пустые ID | *TARGET*COLUMNS (9 колонок) |
 
-| UniProt merge | uniprot_id, UniProt payload | combine_first protein_family, synonyms | добавленные столбцы |
+| UniProt merge | uniprot*id, UniProt payload | combine*first protein*family,
+synonyms | добавленные столбцы |
 
-| GtoPdb merge | target_class | combine_first | сохранение curator значений |
+| GtoPdb merge | target*class | combine*first | сохранение curator значений |
 
 | Validate | Pandera TargetSchema | coerce=True | строковые типы |
 
 | QC | TableQualityProfiler | отчёты + summary | QC таблицы |
 
-Merge стратегия – `merge(..., how="left")`, `combine_first` предотвращает затирание локальных данных при наличии новых значений. `synonyms` нормализуются через `_normalise_synonym_list`.
+Merge стратегия –`merge(..., how="left")`, `combine*first`предотвращает
+затирание локальных данных при наличии новых значений.`synonyms`нормализуются
+через`*normalise*synonym*list`.
 
-Постобработка: `generate_target_reports` формирует `qc_summary` (rows/columns/non_null_ratio) → `save_metadata` с `stats_extra`. QC отчёты именуются стандартно.
+Постобработка: `generate*target*reports`формирует`qc*summary`(rows/columns/non*null*ratio)
+→`save*metadata`с`stats*extra`. QC отчёты
+именуются стандартно.
 
-`.meta.yaml` поля: `table`, `parameters`, `sources`, `outputs`, `qc_summary`, `stats`. Дополнительно `generated_at`, `stats.records` и т.п.
+`.meta.yaml`поля:`table`, `parameters`, `sources`, `outputs`, `qc*summary`,
+`stats`. Дополнительно `generated*at`, `stats.records`и т.п.
 
 #### Проверка
 
 Запуск выполняется через канонический CLI, например:
 
-```bash
-bioactivity-data-acquisition pipeline --config configs/target.yaml
 ```
 
-где `configs/target.yaml` — производная от `configs/config.yaml` конфигурация с нужными limit/merge-настройками. Легаси-скрипт `scripts/get_target_data.py` сохраняется лишь как обёртка и выводит предупреждение.
+bioactivity-data-acquisition pipeline --config configs/target.yaml
+
+```
+
+где`configs/target.yaml`— производная от`configs/config.yaml`конфигурация с
+нужными limit/merge-настройками. Легаси-скрипт`scripts/get*target*data.py`сохраняется лишь как
+обёртка и выводит предупреждение.
 
 ### 5.2 Document
 
-```mermaid
+```
+
 flowchart TD
-    FetchChembl["fetch_chembl_documents"] --> Normalize["normalize_document_frame"]
-    Normalize --> FetchCrossRef["fetch_crossref_metadata"]
-    Normalize --> FetchOpenAlex["fetch_openalex_metadata"]
-    FetchCrossRef --> Merge["merge_document_metadata"]
+FetchChembl["fetch*chembl*documents"] --> Normalize["normalize*document*frame"]
+    Normalize --> FetchCrossRef["fetch*crossref*metadata"]
+    Normalize --> FetchOpenAlex["fetch*openalex*metadata"]
+    FetchCrossRef --> Merge["merge*document*metadata"]
     FetchOpenAlex --> Merge
-    Merge --> Validate["validate_document_frame"]
-    Validate --> QC["TableQualityProfiler + build_reports"]
-    QC --> Save["save_standard_outputs + save_metadata"]
+    Merge --> Validate["validate*document*frame"]
+    Validate --> QC["TableQualityProfiler + build*reports"]
+    QC --> Save["save*standard*outputs + save*metadata"]
+
 ```
 
 #### Колонки/правила
@@ -385,39 +468,45 @@ flowchart TD
 
 | --- | --- | --- |
 
-| Fetch | пагинация limit/offset, `_update_limit_parameter` | DataFrame `_CHEMBL_DOCUMENT_COLUMNS` |
+| Fetch | пагинация limit/offset,`*update*limit*parameter`| DataFrame`*CHEMBL*DOCUMENT*COLUMNS`|
 
-| Normalize | Trim, `clean_doi_value`, numeric PMID→string | добавляется `doi_key` |
+| Normalize | Trim,`clean*doi*value`, numeric PMID→string | добавляется
+`doi*key`|
 
-| CrossRef | Rate limiter, ошибки → `crossref_error` | `_CROSSREF_COLUMNS` |
+| CrossRef | Rate limiter, ошибки →`crossref*error`|`*CROSSREF*COLUMNS`|
 
-| OpenAlex | Rate limiter, DOI нормализация | `_OPENALEX_COLUMNS` |
+| OpenAlex | Rate limiter, DOI нормализация |`*OPENALEX*COLUMNS`|
 
-| Merge | left join, `combine_first` для `title/doc_type` | enriched DataFrame |
+| Merge | left join,`combine*first`для`title/doc*type`| enriched DataFrame |
 
 | Validate | Pandera schema strict=False | enriched frame |
 
-| QC | `profiler.consume` + `build_reports` | quality + correlation |
+| QC |`profiler.consume`+`build*reports`| quality + correlation |
 
-Отчёты: `quality_report`, `data_correlation_report_table` формируются через `_build_quality_artifacts`.
+Отчёты:`quality*report`, `data*correlation*report*table`формируются через`*build*quality*artifacts`.
 
 #### Проверка
 
-```bash
-bioactivity-data-acquisition pipeline --config configs/document.yaml
 ```
 
-Создайте профайл `configs/document.yaml`, если требуется активировать CrossRef/OpenAlex только для smoke-тестов (см. `configs/pipelines.toml`).
+bioactivity-data-acquisition pipeline --config configs/document.yaml
+
+```
+
+Создайте профайл`configs/document.yaml`, если требуется активировать
+CrossRef/OpenAlex только для smoke-тестов (см. `configs/pipelines.toml`).
 
 ### 5.3 Assay
 
-```mermaid
+```
+
 flowchart LR
-    Fetcher["AssayFetcher.fetch"] --> Prepare["_prepare_dataframe"]
-    Prepare --> Timestamp["_apply_timestamp"]
-    Timestamp --> Dict["enrich_with_dictionaries"]
+    Fetcher["AssayFetcher.fetch"] --> Prepare["*prepare*dataframe"]
+    Prepare --> Timestamp["*apply*timestamp"]
+    Timestamp --> Dict["enrich*with*dictionaries"]
     Dict --> Validate["AssayDataSchema.validate"]
-    Validate --> Save["save_standard_outputs + save_metadata"]
+    Validate --> Save["save*standard*outputs + save*metadata"]
+
 ```
 
 #### Стадия → Описание
@@ -428,31 +517,37 @@ flowchart LR
 
 | AssayFetcher | запрос assay.json батчами, retry | список dict |
 
-| _prepare_dataframe | заполнение NA, сортировка колонок, cast | DataFrame |
+| *prepare*dataframe | заполнение NA, сортировка колонок, cast | DataFrame |
 
-| _apply_timestamp | derive UTC timestamp, year Int64 | обогащённый DataFrame |
+| *apply*timestamp | derive UTC timestamp, year Int64 | обогащённый DataFrame |
 
-| enrich_with_dictionaries | merge dictionary CSV (combine_first) | DataFrame с lookup |
+| enrich*with*dictionaries | merge dictionary CSV (combine*first) | DataFrame с
+lookup |
 
 | Validate | Pandera schema | строгая структура |
 
 #### Проверка
 
-```bash
-bioactivity-data-acquisition pipeline --config configs/assay.yaml
 ```
 
-Конфигурация `configs/assay.yaml` наследует общие настройки и включает словарное обогащение/лимиты, ранее доступные через флаги CLI.
+bioactivity-data-acquisition pipeline --config configs/assay.yaml
+
+```
+
+Конфигурация`configs/assay.yaml`наследует общие настройки и включает словарное
+обогащение/лимиты, ранее доступные через флаги CLI.
 
 ### 5.4 Activity
 
-```mermaid
+```
+
 flowchart LR
-    Normalize["normalize_activity_records"] --> Quality["enrich_activity_quality"]
-    Quality --> Finalize["finalize_activity_records"]
-    Finalize --> Run["run_activity_pipeline (config-driven)"]
+Normalize["normalize*activity*records"] --> Quality["enrich*activity*quality"]
+    Quality --> Finalize["finalize*activity*records"]
+    Finalize --> Run["run*activity*pipeline (config-driven)"]
     Run --> QC["PipelineRunMetrics + QC hooks"]
-    QC --> Save["save_standard_outputs + save_metadata"]
+    QC --> Save["save*standard*outputs + save*metadata"]
+
 ```
 
 #### Стадия → Правила
@@ -463,7 +558,7 @@ flowchart LR
 
 | Normalize | lower/trim, uppercase relation/units | cleaned DataFrame |
 
-| Quality | детерминированный flag по comment | bool column `quality_flag` |
+| Quality | детерминированный flag по comment | bool column`quality*flag`|
 
 | Finalize | cast ID to Int64, Pandera schema | валидированный DataFrame |
 
@@ -471,11 +566,14 @@ flowchart LR
 
 #### Проверка
 
-```bash
-bioactivity-data-acquisition pipeline --config configs/activity.yaml
 ```
 
-Файл `configs/activity.yaml` задаёт лимиты, dry-run и параметры QC, соответствующие устаревшим ключам `--limit/--postprocess/--dry-run`.
+bioactivity-data-acquisition pipeline --config configs/activity.yaml
+
+```
+
+Файл`configs/activity.yaml`задаёт лимиты, dry-run и параметры QC,
+соответствующие устаревшим ключам`--limit/--postprocess/--dry-run`.
 
 ## 6. Schemas
 
@@ -483,13 +581,17 @@ bioactivity-data-acquisition pipeline --config configs/activity.yaml
 
 | --- | --- | --- | --- |
 
-| TargetSchema | library/schemas/target_schema.py | target_chembl_id..synonyms (StringDtype, часть nullable) | strict=True, lazy validation |
+| TargetSchema | library/schemas/target*schema.py | target*chembl*id..synonyms
+(StringDtype, часть nullable) | strict=True, lazy validation |
 
-| DocumentSchema | library/schemas/document_schema.py | base+CrossRef+OpenAlex, строки nullable | strict=False (разрешены дополнительные столбцы) |
+| DocumentSchema | library/schemas/document*schema.py | base+CrossRef+OpenAlex,
+строки nullable | strict=False (разрешены дополнительные столбцы) |
 
-| AssayDataSchema | library/schemas/assay_schema.py | assay_chembl_id (non-null), даты UTC | lazy, nullable fields |
+| AssayDataSchema | library/schemas/assay*schema.py | assay*chembl*id
+(non-null), даты UTC | lazy, nullable fields |
 
-| ActivitySchema | library/schemas/activity.py | числовой activity_id, строки, bool | nullable значения для quality_flag, standard_value |
+| ActivitySchema | library/schemas/activity.py | числовой activity*id, строки,
+bool | nullable значения для quality*flag, standard*value |
 
 ### Строгие/мягкие поля
 
@@ -499,70 +601,100 @@ bioactivity-data-acquisition pipeline --config configs/activity.yaml
 
 | Target | все 9 | — | Pandera SchemaErrors |
 
-| Document | base strict, доп. поля optional | CrossRef/OpenAlex nullable | ошибка при отсутствующих ключевых столбцах |
+| Document | base strict, доп. поля optional | CrossRef/OpenAlex nullable |
+ошибка при отсутствующих ключевых столбцах |
 
-| Assay | assay_chembl_id обязательный | остальные nullable | SchemaErrors (lazy=true) |
+| Assay | assay*chembl*id обязательный | остальные nullable | SchemaErrors
+(lazy=true) |
 
-| Activity | activity_id обязателен | quality_flag nullable | SchemaErrors |
+| Activity | activity*id обязателен | quality*flag nullable | SchemaErrors |
 
-Предотвращение отбрасывания: перед валидацией колонки заполняются/кастятся (`normalize_document_frame`, `_prepare_dataframe`, `_normalise_targets`). Tests покрывают порядок (`test_output_writer`, `test_document_normalize`).
+Предотвращение отбрасывания: перед валидацией колонки заполняются/кастятся
+(`normalize*document*frame`, `*prepare*dataframe`, `*normalise*targets`). Tests
+покрывают порядок (`test*output*writer`, `test*document*normalize`).
 
 #### Проверка
 
-```python
+```
+
 python - <<'PY'
 import pandas as pd
-from library.schemas.target_schema import TargetSchema
-df = pd.DataFrame({"target_chembl_id":["CHEMBL1"],"pref_name":["A"],"target_type":["protein"],"organism":["Human"],"uniprot_id":["P1"],"gene_symbol":["G1"],"target_class":[None],"protein_family":[None],"synonyms":[None]})
+from library.schemas.target*schema import TargetSchema
+df =
+pd.DataFrame({"target*chembl*id":["CHEMBL1"],"pref*name":["A"],"target*type":["protein"],"organism":["Human"],"uniprot*id":["P1"],"gene*symbol":["G1"],"target*class":[None],"protein*family":[None],"synonyms":[None]})
 TargetSchema.validate(df)
 PY
+
 ```
 
 Ожидаемое исключение: SchemaErrors при отсутствии обязательной колонки.
 
 ## 7. IO & Config
 
-`save_standard_outputs(df_main, df_corr, df_qc, table_name, date_tag, ...)` — имя `output.<table>_<date>.csv`, QC отчёты c суффиксами `_quality_report_table.csv`, `_data_correlation_report_table.csv`. `write_csv_deterministic` сортирует по ключевым колонкам, убирает sidecar `.meta.yaml.lock`. `na_rep` управляется pandas default (пустая строка→`<NA>`).
+`save*standard*outputs(df*main, df*corr, df*qc, table*name, date*tag, ...)`—
+имя`output.<table>*<date>.csv`, QC отчёты c суффиксами
+`*quality*report*table.csv`, `*data*correlation*report*table.csv`.
+`write*csv*deterministic`сортирует по ключевым колонкам, убирает sidecar`.meta.yaml.lock`. `na*rep`
+управляется pandas default (пустая строка→`<NA>`).
 
-`metadata_writer.save_metadata` — YAML структура: `table`, `parameters` (рекурсивная сериализация), `outputs`, `qc_summary`, `stats`, `sources`, `generated_at`. Берёт RunContext или текущую UTC. Артефакты по имени, если не переданы — дефолтный тройной список.
+`metadata*writer.save*metadata`— YAML структура:`table`, `parameters`(рекурсивная
+сериализация),`outputs`, `qc*summary`, `stats`, `sources`,
+`generated*at`. Берёт RunContext или текущую UTC. Артефакты по имени, если не
+переданы — дефолтный тройной список.
 
-`config_loader.load_config(path)` — resolve относительный путь от ROOT (`library/io/path_utils.py`), ENV override `CHEMBL_DA__SECTION__KEY`, YAML coercion. ROOT=`Path(__file__).resolve().parents[2]`. `OUTPUT_DIR` создаётся автоматически.
+`config*loader.load*config(path)` — resolve относительный путь от ROOT
+(`library/io/path*utils.py`), ENV override `CHEMBL*DA**SECTION**KEY`, YAML
+coercion. ROOT=`Path(**file**).resolve().parents[2]`. `OUTPUT*DIR` создаётся
+автоматически.
 
-Политика путей: все относительные (`Path(...)/parents[2]`), запрет абсолютных при записи.
+Политика путей: все относительные (`Path(...)/parents[2]`), запрет абсолютных
+при записи.
 
 #### Проверка
 
-```python
+```
+
 python - <<'PY'
 from pathlib import Path
 import pandas as pd
-from library.io.output_writer import save_standard_outputs
+from library.io.output*writer import save*standard*outputs
 df = pd.DataFrame({"id":[1]})
-artifacts = save_standard_outputs(df, pd.DataFrame(), pd.DataFrame(), table_name="demo", date_tag="20250101", output_dir=Path("data/output"))
+artifacts = save*standard*outputs(df, pd.DataFrame(), pd.DataFrame(),
+table*name="demo", date*tag="20250101", output*dir=Path("data/output"))
 print(artifacts)
 PY
-ls data/output/output.demo_20250101*
+ls data/output/output.demo*20250101*
+
 ```
 
 ## 8. Reliability
 
-Логи: StructuredFormatter → `[LEVEL] [logger] message` key=value + stage, run_id, duration_s. Context менеджеры `log_context`, `log_stage`.
+Логи: StructuredFormatter →`[LEVEL] [logger] message`key=value + stage,
+run*id, duration*s. Context менеджеры`log*context`, `log*stage`.
 
-Ретраи: `with_retry` (backoff expo, full jitter, max_tries>=1). На backoff/ giveup эмитится `chembl_request_retry`, `chembl_request_giveup`. Таймаут по умолчанию 10s. Ошибка — raise.
+Ретраи: `with*retry`(backoff expo, full jitter, max*tries>=1). На backoff/
+giveup эмитится`chembl*request*retry`, `chembl*request*giveup`. Таймаут по
+умолчанию 10s. Ошибка — raise.
 
-Кэш/lock: deterministic writer удаляет `.meta.yaml` и `.lock` после записи; cleanup скрипт чистит `*.lock`, `*_intermediate*`, pytest caches. Fail-fast: ошибки в Pandera пробрасываются → `SystemExit=1` (unit tests).
+Кэш/lock: deterministic writer удаляет `.meta.yaml`и`.lock`после записи;
+cleanup скрипт чистит`*.lock`, `**intermediate*`, pytest caches. Fail-fast:
+ошибки в Pandera пробрасываются → `SystemExit=1`(unit tests).
 
-Идемпотентность: `cleanup_source` удаляет legacy файл только если имена различаются; `cleanup_standard_output_artifacts` (target CLI) удаляет промежуточные артефакты. Retry на HTTP даёт устойчивость.
+Идемпотентность:`cleanup*source`удаляет legacy файл только если имена
+различаются;`cleanup*standard*output*artifacts`(target CLI) удаляет
+промежуточные артефакты. Retry на HTTP даёт устойчивость.
 
 #### Проверка
 
-```bash
-# В конфигурации activity-пайплайна задайте limit=-1 и запустите канонический CLI,
+```
 
-# ожидая `SystemExit`:
+## В конфигурации activity-пайплайна задайте limit=-1 и запустите канонический CLI,
+
+## ожидая `SystemExit`:
 
 bioactivity-data-acquisition pipeline --config configs/activity.yaml
-python scripts/cleanup_project.py --dry-run --retention-days 0
+python scripts/cleanup*project.py --dry-run --retention-days 0
+
 ```
 
 ## 9. Tests
@@ -577,36 +709,44 @@ python scripts/cleanup_project.py --dry-run --retention-days 0
 
 | CLI | tests/cli | smoke CLI (exit codes, артефакты) |
 
-| Integration/Postprocess | tests/postprocess/test_activity_pipeline.py | end-to-end activity steps |
+| Integration/Postprocess | tests/postprocess/test*activity*pipeline.py |
+end-to-end activity steps |
 
-| Helpers | tests/helpers, fixtures | mocks HTTP, tmp_path |
+| Helpers | tests/helpers, fixtures | mocks HTTP, tmp*path |
 
-Golden CSV: `tests/resources` содержит expected файлы; проверка через pandas. `test_output_writer` гарантирует порядок колонок и отсутствие sidecar.
+Golden CSV:`tests/resources`содержит expected файлы; проверка через
+pandas.`test*output*writer`гарантирует порядок колонок и отсутствие sidecar.
 
-Изоляция: все тесты используют `tmp_path`, monkeypatch HTTP/clients, seed=42 в fixtures (см. `tests/conftest.py`).
+Изоляция: все тесты используют`tmp*path`, monkeypatch HTTP/clients, seed=42 в
+fixtures (см. `tests/conftest.py`).
 
 #### Проверка
 
-```bash
+```
+
 pytest -q --disable-warnings
-pytest tests/cli/test_get_target_data.py -q
+pytest tests/cli/test*get*target*data.py -q
+
 ```
 
 ## 10. CI & Dev Checks
 
-GitHub Actions `ci.yml`: Python 3.11, install requirements-lock, `pip check`, затем `ruff check .`, `mypy --config-file pyproject.toml`, `pytest --cov`, отчёт coverage артефакт.
+GitHub Actions`ci.yml`: Python 3.11, install requirements-lock, `pip check`,
+затем `ruff check .`, `mypy --config-file pyproject.toml`, `pytest --cov`, отчёт
+coverage артефакт.
 
-Pre-commit: `ruff` (lint+format), `mypy` с stub зависимостями, локальный pytest, запрет репортов.
+Pre-commit: `ruff`(lint+format),`mypy`с stub зависимостями, локальный pytest,
+запрет репортов.
 
 Локальный чек-лист разработчика:
 
-- `ruff check .`
+-`ruff check .`
 
-- `mypy library/ scripts/`
+-`mypy library/ scripts/`
 
-- `pytest -q --disable-warnings`
+-`pytest -q --disable-warnings`
 
-- `pre-commit run --all-files`
+-`pre-commit run --all-files`
 
 ## 11. Risks & Improvements
 
@@ -614,30 +754,40 @@ Pre-commit: `ruff` (lint+format), `mypy` с stub зависимостями, л�
 
 | --- | --- | --- | --- | --- |
 
-| library/postprocessing/document/steps.py (многократные merges) | отсутствие unit-тестов на combine_first конфликтов | Потенциальная потеря CrossRef данных | добавить тесты на конфликт DOI и doc_type | M |
+| library/postprocessing/document/steps.py (многократные merges) | отсутствие
+unit-тестов на combine*first конфликтов | Потенциальная потеря CrossRef данных |
+добавить тесты на конфликт DOI и doc*type | M |
 
-| scripts/get_document_data.py (огромный CLI) | перегруженный интерфейс, сложно поддерживать | Ошибки конфигурации | вынести профили конфигов в YAML-профиль | L |
+| scripts/get*document*data.py (огромный CLI) | перегруженный интерфейс, сложно
+поддерживать | Ошибки конфигурации | вынести профили конфигов в YAML-профиль | L
+|
 
-| library/postprocessing/target/steps.py (цикл API без rate-limit) | нет rate limiter → риск 429 | Прерывание выгрузки | интегрировать limiter аналогично document | M |
+| library/postprocessing/target/steps.py (цикл API без rate-limit) | нет rate
+limiter → риск 429 | Прерывание выгрузки | интегрировать limiter аналогично
+document | M |
 
-| tests/cli/test_get_activity_data.py (моки сложны) | сложный monkeypatch → flaky | Ложно отрицательные тесты | выделить fixture для pipeline runner | M |
+| tests/cli/test*get*activity*data.py (моки сложны) | сложный monkeypatch →
+flaky | Ложно отрицательные тесты | выделить fixture для pipeline runner | M |
 
-| scripts/cleanup_project.py (shell print) | print вместо структурированного лога | Неединообразный вывод | заменить logger/structured format | L |
+| scripts/cleanup*project.py (shell print) | print вместо структурированного
+лога | Неединообразный вывод | заменить logger/structured format | L |
 
 ### Приоритетный план (10 пунктов)
 
-1. Добавить rate limiter в `fetch_normalize_target` для UniProt/GtoPdb.
+1. Добавить rate limiter в`fetch*normalize*target`для UniProt/GtoPdb.
 2. Покрыть merge conflict tests (CrossRef/OpenAlex).
 3. Ввести конфиг-профили для document CLI.
 4. Экстрагировать общие CLI-парсер секции в helper.
-5. Добавить CLI тесты для `get_testitem_data`.
+5. Добавить CLI тесты для`get*testitem*data`.
 6. Автоматизировать mock HTTP fixtures (`responses`).
-7. Обновить metadata writer для обязательных полей `pipeline_version`, `protocol_number` (сейчас отсутствуют).
-8. Включить `ruff format` в CI (прогон уже есть в pre-commit).
-9. Добавить smoke тест `--dry-run` для всех CLI (pytest).
+7. Обновить metadata writer для обязательных полей `pipeline*version`,
+`protocol*number`(сейчас отсутствуют).
+8. Включить`ruff format`в CI (прогон уже есть в pre-commit).
+9. Добавить smoke тест`--dry-run`для всех CLI (pytest).
 10. Обновить docs/ru + docs/en синхронно с новой документацией.
 
-Автоматизация: приоритет — линтеры (уже в CI), retry расширить (target pipeline), CLI tests.
+Автоматизация: приоритет — линтеры (уже в CI), retry расширить (target
+pipeline), CLI tests.
 
 ## 12. Applications & Артефакты
 
@@ -647,21 +797,30 @@ Pre-commit: `ruff` (lint+format), `mypy` с stub зависимостями, л�
 
 | --- | --- | --- | --- |
 
-| docs/ARCHITECTURE.md | отсутствует | TOC, разделы: Обзор, Dataflow (mermaid), Модули, Интеграции, Команды воспроизведения | ссылки на разделы (#architecture-overview) |
+| docs/ARCHITECTURE.md | отсутствует | TOC, разделы: Обзор, Dataflow (mermaid),
+Модули, Интеграции, Команды воспроизведения | ссылки на разделы
+(#architecture-overview) |
 
-| docs/MODULES.md | отсутствует | каталог API модулей, таблицы Responsibilities, Commands | ссылается на Clients/IO/Schemas |
+| docs/MODULES.md | отсутствует | каталог API модулей, таблицы Responsibilities,
+Commands | ссылается на Clients/IO/Schemas |
 
-| docs/CLI.md | отсутствует | таблицы аргументов, примеры, exit codes | ссылается на Scripts |
+| docs/CLI.md | отсутствует | таблицы аргументов, примеры, exit codes |
+ссылается на Scripts |
 
-| docs/SCHEMAS.md | отсутствует | перечень полей Pandera, nullable policy | ссылки на tests |
+| docs/SCHEMAS.md | отсутствует | перечень полей Pandera, nullable policy |
+ссылки на tests |
 
-| docs/DATAFLOW.md | отсутствует | граф ETL стадий, inputs/outputs | ссылается на pipelines |
+| docs/DATAFLOW.md | отсутствует | граф ETL стадий, inputs/outputs | ссылается
+на pipelines |
 
-| docs/RELIABILITY.md | отсутствует | retry матрица, log формат, cleanup процедуры | ссыль на cleanup_project |
+| docs/RELIABILITY.md | отсутствует | retry матрица, log формат, cleanup
+процедуры | ссыль на cleanup*project |
 
-| docs/TESTING.md | отсутствует | стратегия pytest, фикстуры, команды | ссылается на CI |
+| docs/TESTING.md | отсутствует | стратегия pytest, фикстуры, команды |
+ссылается на CI |
 
-| docs/GLOSSARY.md | отсутствует | термины: ChEMBL, PubChem, QC, correlation | crosslink на SCHEMAS |
+| docs/GLOSSARY.md | отсутствует | термины: ChEMBL, PubChem, QC, correlation |
+crosslink на SCHEMAS |
 
 Каждый файл: добавить мини-оглавление (- [ ]), описать команды в конце.
 
@@ -671,32 +830,38 @@ Pre-commit: `ruff` (lint+format), `mypy` с stub зависимостями, л�
 
 | --- | --- | --- |
 
-| output.<table>_<date>.csv | `save_standard_outputs` в конце пайплайна | вход в BI/аналитику |
+| output.<table>*<date>.csv |`save*standard*outputs`в конце пайплайна | вход в
+BI/аналитику |
 
-| output.<table>_<date>_quality_report_table.csv | QC writer | аудит качества |
+| output.<table>*<date>*quality*report*table.csv | QC writer | аудит качества |
 
-| output.<table>_<date>_data_correlation_report_table.csv | QC writer | корреляционный анализ |
+| output.<table>*<date>*data*correlation*report*table.csv | QC writer |
+корреляционный анализ |
 
-| output.<table>_<date>.meta.yaml | `metadata_writer.save_metadata` | lineage/протокол |
+| output.<table>*<date>.meta.yaml |`metadata*writer.save*metadata`|
+lineage/протокол |
 
-| *_data_correlation_report_table.csv | `build_reports_from_profiler` | downstream QC dashboards |
+| **data*correlation*report*table.csv |`build*reports*from*profiler`|
+downstream QC dashboards |
 
 #### Проверка
 
-```bash
+```
+
 ls docs
-# убедиться в наличии новых файлов после внедрения
+
+## убедиться в наличии новых файлов после внедрения
 
 ```
 
 ## 13. Сводный чек-лист проверки
 
 1. Настроить окружение (Python 3.11, зависимости из requirements-lock.txt).
-2. Выполнить dry-run всех CLI с `--limit 10` и `--output-dir tmp`.
+2. Выполнить dry-run всех CLI с`--limit 10`и`--output-dir tmp`.
 3. Проверить наличие стандартных артефактов и `.meta.yaml`.
 4. Просмотреть structured-логи на ошибки.
 5. Запустить `pytest -q --disable-warnings`.
-6. Выполнить `ruff check .` и `mypy --config-file pyproject.toml`.
+6. Выполнить `ruff check .`и`mypy --config-file pyproject.toml`.
 7. Проверить `cleanup_project.py --dry-run`.
 8. Сверить QC отчёты (пустые ⇒ нет данных).
 9. Убедиться в заполнении ключевых полей `.meta.yaml`.
@@ -708,10 +873,14 @@ ls docs
 
 | --- | --- | --- |
 
-| 1.0.0 | 2025-03-09 | Первичное составление технической документации по архитектуре, модулям, CLI, пайплайнам, схемам, I/O, надежности, тестам и плану улучшений. |
+| 1.0.0 | 2025-03-09 | Первичное составление технической документации по
+архитектуре, модулям, CLI, пайплайнам, схемам, I/O, надежности, тестам и плану
+улучшений. |
 
 ## Summary
 
-Систематизировал архитектуру, модули, CLI и пайплайны ChEMBL ETL, включая диаграммы потоков данных и таблицы зависимостей.
+Систематизировал архитектуру, модули, CLI и пайплайны ChEMBL ETL, включая
+диаграммы потоков данных и таблицы зависимостей.
 
-Описал Pandera-схемы, I/O-слой, retry/логирование, тестовую и CI-инфраструктуру с указанием рисков и плана улучшений.
+Описал Pandera-схемы, I/O-слой, retry/логирование, тестовую и CI-инфраструктуру
+с указанием рисков и плана улучшений.

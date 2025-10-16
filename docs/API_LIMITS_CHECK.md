@@ -1,10 +1,11 @@
 # Проверка лимитов API
 
-Этот документ описывает, как проверить лимиты и доступность API, используемых в проекте bioactivity_data_acquisition.
+Этот документ описывает, как проверить лимиты и доступность API, используемых в
+проекте bioactivity*data*acquisition.
 
 ## Доступные скрипты
 
-### 1. Полная проверка всех API (`src/library/scripts/check_api_limits.py`)
+### 1. Полная проверка всех API (`src/library/scripts/check*api*limits.py`)
 
 Проверяет все API из конфигурации и создает детальный отчет.
 
@@ -12,7 +13,7 @@
 python src/library/scripts/check_api_limits.py
 ```
 
-**Что проверяется:**
+## Что проверяется:
 
 - Доступность каждого API
 
@@ -24,13 +25,13 @@ python src/library/scripts/check_api_limits.py
 
 - Ошибки подключения
 
-**Результат:**
+## Результат:
 
 - Таблица с результатами в консоли
 
-- JSON файл с детальными результатами в папке `reports/`
+- JSON файл с детальными результатами в папке`reports/`
 
-### 2. Детальная проверка лимитов (`src/library/scripts/check_specific_limits.py`)
+### 2. Детальная проверка лимитов (`src/library/scripts/check*specific*limits.py`)
 
 Показывает детальную информацию о лимитах каждого API с рекомендациями.
 
@@ -38,7 +39,7 @@ python src/library/scripts/check_api_limits.py
 python src/library/scripts/check_specific_limits.py
 ```
 
-**Что показывается:**
+## Что показывается:
 
 - Лимиты для каждого API
 
@@ -48,7 +49,7 @@ python src/library/scripts/check_specific_limits.py
 
 - Информация об аутентификации
 
-### 3. Быстрая проверка конкретного API (`src/library/scripts/quick_api_check.py`)
+### 3. Быстрая проверка конкретного API (`src/library/scripts/quick*api*check.py`)
 
 Проверяет один конкретный API с минимальным выводом.
 
@@ -56,19 +57,19 @@ python src/library/scripts/check_specific_limits.py
 python src/library/scripts/quick_api_check.py [api_name]
 ```
 
-**Доступные API:**
+## Доступные API:
 
-- `chembl` - ChEMBL API
+-`chembl`- ChEMBL API
 
-- `pubmed` - PubMed API  
+-`pubmed`- PubMed API
 
-- `crossref` - Crossref API
+-`crossref`- Crossref API
 
-- `openalex` - OpenAlex API
+-`openalex`- OpenAlex API
 
-- `semantic` - Semantic Scholar API
+-`semantic`- Semantic Scholar API
 
-**Примеры:**
+## Примеры:
 
 ```bash
 python src/library/scripts/quick_api_check.py crossref
@@ -79,17 +80,17 @@ python src/library/scripts/quick_api_check.py pubmed
 
 ### Статусы API
 
-- **Available** - API доступен и работает нормально
+- **Available**- API доступен и работает нормально
 
-- **Rate Limited** - API ограничивает количество запросов (код 429)
+-**Rate Limited**- API ограничивает количество запросов (код 429)
 
-- **Auth Required** - Требуется аутентификация (коды 401/403)
+-**Auth Required**- Требуется аутентификация (коды 401/403)
 
-- **Server Error** - Ошибка сервера (коды 5xx)
+-**Server Error**- Ошибка сервера (коды 5xx)
 
-- **Timeout** - Превышен таймаут запроса
+-**Timeout**- Превышен таймаут запроса
 
-- **Connection Error** - Ошибка подключения к API
+-**Connection Error**- Ошибка подключения к API
 
 ### Лимиты по API
 
@@ -97,21 +98,23 @@ python src/library/scripts/quick_api_check.py pubmed
 
 |-----|---------------------|----------------|--------------|
 
-| **ChEMBL** | 20 | Не требуется | Используйте пагинацию |
+|**ChEMBL**| 20 | Не требуется | Используйте пагинацию |
 
-| **PubMed** | 3 (без ключа), 10 (с ключом) | API ключ опционален | Получите API ключ |
+|**PubMed**| 3 (без ключа), 10 (с ключом) | API ключ опционален | Получите API
+ключ |
 
-| **Crossref** | 50 (free), 100 (plus) | Plus API Token | Рассмотрите Plus токен |
+|**Crossref**| 50 (free), 100 (plus) | Plus API Token | Рассмотрите Plus токен
+|
 
-| **OpenAlex** | 10 | Не требуется | Контролируйте размер ответов |
+|**OpenAlex**| 10 | Не требуется | Контролируйте размер ответов |
 
-| **Semantic Scholar** | 100 | Не требуется | Самый либеральный API |
+|**Semantic Scholar**| 100 | Не требуется | Самый либеральный API |
 
 ## Рекомендации по оптимизации
 
 ### 1. Общие рекомендации
 
-- **Мониторинг**: Регулярно проверяйте статус API
+-**Мониторинг**: Регулярно проверяйте статус API
 
 - **Кэширование**: Сохраняйте результаты часто используемых запросов
 
@@ -123,7 +126,7 @@ python src/library/scripts/quick_api_check.py pubmed
 
 #### ChEMBL API
 
-- Используйте параметр `limit` для контроля размера ответа
+- Используйте параметр`limit`для контроля размера ответа
 
 - Мониторьте заголовки ответов на предмет rate limiting
 
@@ -147,7 +150,7 @@ python src/library/scripts/quick_api_check.py pubmed
 
 #### OpenAlex API
 
-- Используйте параметр `per-page` для контроля размера ответа
+- Используйте параметр`per-page`для контроля размера ответа
 
 - Мониторьте использование через заголовки ответов
 
@@ -161,13 +164,11 @@ python src/library/scripts/quick_api_check.py pubmed
 
 ```python
 # Пример обработки rate limiting
-
 if response.status_code == 429:
     retry_after = response.headers.get('Retry-After', 60)
     time.sleep(int(retry_after))
 
 # Пример обработки временных ошибок
-
 if response.status_code >= 500:
     # Повторить запрос через некоторое время
     time.sleep(2 ** attempt_number)
@@ -181,11 +182,9 @@ if response.status_code >= 500:
 
 ```bash
 # Ежедневная проверка
-
 python src/library/scripts/check_api_limits.py
 
 # Проверка конкретного API при проблемах
-
 python src/library/scripts/quick_api_check.py crossref
 ```
 
@@ -201,7 +200,8 @@ python src/library/scripts/quick_api_check.py crossref
 
 ### 3. Логирование
 
-Все результаты проверок сохраняются в папке `reports/` в формате JSON для дальнейшего анализа.
+Все результаты проверок сохраняются в папке`reports/` в формате JSON для
+дальнейшего анализа.
 
 ## Устранение проблем
 

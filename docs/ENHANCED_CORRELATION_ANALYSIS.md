@@ -2,7 +2,9 @@
 
 ## Обзор
 
-Система расширенного корреляционного анализа предоставляет комплексный анализ взаимосвязей между переменными в наборе данных, включая числовые, категориальные и смешанные типы данных.
+Система расширенного корреляционного анализа предоставляет комплексный анализ
+взаимосвязей между переменными в наборе данных, включая числовые, категориальные
+и смешанные типы данных.
 
 ## Основные возможности
 
@@ -46,59 +48,67 @@
 
 ### Включение расширенного корреляционного анализа в конфигурации
 
-```yaml
+```
+
 postprocess:
   correlation:
     enabled: true
     enhanced: true  # Включает расширенный корреляционный анализ
+
 ```
 
 ### Программное использование
 
-```python
-from library.etl.enhanced_correlation import EnhancedCorrelationAnalyzer
+```
 
-# Создание анализатора
+from library.etl.enhanced*correlation import EnhancedCorrelationAnalyzer
+
+## Создание анализатора
 
 analyzer = EnhancedCorrelationAnalyzer(logger=logger)
 
-# Анализ корреляций
+## Анализ корреляций
 
-correlation_analysis = analyzer.analyze_correlations(dataframe)
+correlation*analysis = analyzer.analyze*correlations(dataframe)
 
-# Генерация отчетов
+## Генерация отчетов
 
-reports = analyzer.generate_correlation_reports(correlation_analysis)
+reports = analyzer.generate*correlation*reports(correlation*analysis)
 
-# Генерация инсайтов
+## Генерация инсайтов
 
-insights = analyzer.generate_correlation_insights(correlation_analysis)
+insights = analyzer.generate*correlation*insights(correlation*analysis)
+
 ```
 
 ## Выходные файлы
 
-При включении расширенного корреляционного анализа система создает следующие файлы:
+При включении расширенного корреляционного анализа система создает следующие
+файлы:
 
 ### Расширенные корреляционные отчеты
 
-1. **enhanced_correlation_numeric_pearson.csv** - Корреляционная матрица Пирсона
-2. **enhanced_correlation_numeric_spearman.csv** - Корреляционная матрица Спирмена
-3. **enhanced_correlation_numeric_covariance.csv** - Ковариационная матрица
-4. **enhanced_correlation_categorical_cramers_v.csv** - Cramér's V для категориальных данных
-5. **enhanced_correlation_mixed_eta_squared.csv** - Eta-squared для смешанных корреляций
-6. **enhanced_correlation_mixed_point_biserial.csv** - Point-biserial корреляции
-7. **enhanced_correlation_correlation_summary.csv** - Сводная статистика
+1. **enhanced*correlation*numeric*pearson.csv**- Корреляционная матрица Пирсона
+2.**enhanced*correlation*numeric*spearman.csv**- Корреляционная матрица
+Спирмена
+3.**enhanced*correlation*numeric*covariance.csv**- Ковариационная матрица
+4.**enhanced*correlation*categorical*cramers*v.csv**- Cramér's V для
+категориальных данных
+5.**enhanced*correlation*mixed*eta*squared.csv**- Eta-squared для смешанных
+корреляций
+6.**enhanced*correlation*mixed*point*biserial.csv**- Point-biserial корреляции
+7.**enhanced*correlation*correlation*summary.csv**- Сводная статистика
 
 ### Детальные отчеты
 
-8. **correlation_analysis.json** - Полный анализ в JSON формате
-9. **correlation_insights.csv** - Инсайты и рекомендации
+8.**correlation*analysis.json**- Полный анализ в JSON формате
+9.**correlation*insights.csv**- Инсайты и рекомендации
 
 ## Интерпретация результатов
 
 ### Сила корреляций
 
-- **|r| > 0.8**: Очень сильная корреляция (высокий риск мультиколлинеарности)
+-**|r| > 0.8**: Очень сильная корреляция (высокий риск мультиколлинеарности)
 
 - **0.6 < |r| < 0.8**: Сильная корреляция
 
@@ -132,35 +142,41 @@ insights = analyzer.generate_correlation_insights(correlation_analysis)
 
 ### Анализ биоактивности соединений
 
-```python
-# Анализ корреляций между различными показателями активности
+```
 
-activity_correlations = correlation_analysis['numeric_correlations']['pearson']
-ic50_ec50_corr = activity_correlations.loc['activity_ic50', 'activity_ec50']
-print(f"Корреляция IC50 и EC50: {ic50_ec50_corr:.3f}")
+## Анализ корреляций между различными показателями активности
+
+activity*correlations = correlation*analysis['numeric*correlations']['pearson']
+ic50*ec50*corr = activity*correlations.loc['activity*ic50', 'activity*ec50']
+print(f"Корреляция IC50 и EC50: {ic50*ec50*corr:.3f}")
+
 ```
 
 ### Проверка мультиколлинеарности
 
-```python
-# Поиск сильных корреляций
+```
 
-strong_correlations = [insight for insight in insights
-                      if insight['type'] == 'strong_correlation']
-for corr in strong_correlations:
+## Поиск сильных корреляций
+
+strong*correlations = [insight for insight in insights
+                      if insight['type'] == 'strong*correlation']
+for corr in strong*correlations:
     print(f"Сильная корреляция: {corr['message']}")
     print(f"Рекомендация: {corr['recommendation']}")
+
 ```
 
 ### Анализ связей между типами данных
 
-```python
-# Анализ связей между числовыми и категориальными переменными
+```
 
-eta_squared = correlation_analysis['mixed_correlations']['eta_squared']
-strong_mixed = eta_squared[eta_squared > 0.3]
+## Анализ связей между числовыми и категориальными переменными
+
+eta*squared = correlation*analysis['mixed*correlations']['eta*squared']
+strong*mixed = eta*squared[eta*squared > 0.3]
 print("Сильные связи числовых и категориальных переменных:")
-print(strong_mixed)
+print(strong*mixed)
+
 ```
 
 ## Производительность и оптимизация
@@ -169,38 +185,48 @@ print(strong_mixed)
 
 1. **Размер данных**: Система оптимизирована для наборов данных до 10,000 строк
 2. **Количество столбцов**: Эффективно работает с до 100 столбцов
-3. **Типы данных**: Автоматически определяет и обрабатывает различные типы данных
+3. **Типы данных**: Автоматически определяет и обрабатывает различные типы
+данных
 
 ### Настройки производительности
 
-```python
-# Для больших наборов данных можно ограничить анализ
+```
+
+## Для больших наборов данных можно ограничить анализ
 
 analyzer = EnhancedCorrelationAnalyzer()
-# Анализ только числовых корреляций для ускорения
 
-numeric_only = df.select_dtypes(include=[np.number])
-analysis = analyzer.analyze_correlations(numeric_only)
+## Анализ только числовых корреляций для ускорения
+
+numeric*only = df.select*dtypes(include=[np.number])
+analysis = analyzer.analyze*correlations(numeric*only)
+
 ```
 
 ## Расширение системы
 
 ### Добавление новых типов корреляций
 
-```python
-def _analyze_custom_correlation(self, df: pd.DataFrame) -> Dict[str, Any]:
+```
+
+def *analyze*custom*correlation(self, df: pd.DataFrame) -> Dict[str, Any]:
     """Анализ пользовательского типа корреляций."""
-    # Реализация пользовательского анализа
+
+## Реализация пользовательского анализа
+
     pass
+
 ```
 
 ### Настройка порогов
 
-```python
-# Изменение порогов для обнаружения сильных корреляций
+```
 
-analyzer.strong_correlation_threshold = 0.8
-analyzer.moderate_correlation_threshold = 0.6
+## Изменение порогов для обнаружения сильных корреляций
+
+analyzer.strong*correlation*threshold = 0.8
+analyzer.moderate*correlation_threshold = 0.6
+
 ```
 
 ## Совместимость
@@ -221,47 +247,53 @@ analyzer.moderate_correlation_threshold = 0.6
 
 ### Биохимические данные
 
-```python
-# Сильная корреляция между IC50 и EC50 указывает на:
+```
 
-# 1. Согласованность методов измерения
+## Сильная корреляция между IC50 и EC50 указывает на:
 
-# 2. Возможную мультиколлинеарность в моделях
+## 1. Согласованность методов измерения
 
-# 3. Необходимость выбора одного показателя для анализа
+## 2. Возможную мультиколлинеарность в моделях
+
+## 3. Необходимость выбора одного показателя для анализа
 
 ```
 
 ### Категориальные данные
 
-```python
-# Высокий Cramér's V между типом ассайя и организмом:
+```
 
-# 1. Указывает на систематические различия в подходах
+## Высокий Cramér's V между типом ассайя и организмом:
 
-# 2. Может потребовать стратификации данных
+## 1. Указывает на систематические различия в подходах
 
-# 3. Важно для интерпретации результатов
+## 2. Может потребовать стратификации данных
+
+## 3. Важно для интерпретации результатов
 
 ```
 
 ### Смешанные корреляции
 
-```python
-# Высокий eta-squared между активностью и типом соединения:
+```
 
-# 1. Подтверждает биологическую значимость
+## Высокий eta-squared между активностью и типом соединения:
 
-# 2. Позволяет прогнозировать активность по типу
+## 1. Подтверждает биологическую значимость
 
-# 3. Может быть использован для классификации
+## 2. Позволяет прогнозировать активность по типу
+
+## 3. Может быть использован для классификации
 
 ```
 
 ## Лучшие практики
 
-1. **Интерпретация**: Всегда учитывайте биологический контекст при интерпретации корреляций
-2. **Валидация**: Проверяйте значимость корреляций с помощью статистических тестов
-3. **Визуализация**: Используйте тепловые карты для визуализации корреляционных матриц
+1. **Интерпретация**: Всегда учитывайте биологический контекст при интерпретации
+корреляций
+2. **Валидация**: Проверяйте значимость корреляций с помощью статистических
+тестов
+3. **Визуализация**: Используйте тепловые карты для визуализации корреляционных
+матриц
 4. **Документирование**: Записывайте обнаруженные корреляции и их интерпретацию
 5. **Мониторинг**: Регулярно проверяйте корреляции в новых данных

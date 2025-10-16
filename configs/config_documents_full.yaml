@@ -256,7 +256,6 @@ determinism:
     - crossref_abstract          # Аннотация из Crossref
     - openalex_abstract          # Аннотация из OpenAlex
     - pubmed_abstract            # Аннотация из PubMed
-    - semantic_scholar_abstract  # Аннотация из Semantic Scholar
     
     # Группа полей авторов из всех источников
     - chembl_authors             # Авторы из ChEMBL

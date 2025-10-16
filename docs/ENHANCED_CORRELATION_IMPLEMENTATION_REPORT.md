@@ -2,7 +2,9 @@
 
 ## Обзор
 
-Успешно реализован расширенный корреляционный анализ данных с поддержкой множественных типов корреляций и автоматической генерацией инсайтов. Система интегрирована в существующую архитектуру проекта и готова к использованию.
+Успешно реализован расширенный корреляционный анализ данных с поддержкой
+множественных типов корреляций и автоматической генерацией инсайтов. Система
+интегрирована в существующую архитектуру проекта и готова к использованию.
 
 ## Реализованные возможности
 
@@ -10,7 +12,7 @@
 
 - **Корреляция Пирсона**: Линейная корреляция между числовыми переменными
 
-- **Корреляция Спирмена**: Ранговая корреляция для нелинейных зависимостей  
+- **Корреляция Спирмена**: Ранговая корреляция для нелинейных зависимостей
 
 - **Ковариационная матрица**: Мера совместной изменчивости переменных
 
@@ -46,25 +48,30 @@
 
 ### Основные модули
 
-1. **`src/library/etl/enhanced_correlation.py`** - Основной модуль с классом `EnhancedCorrelationAnalyzer`
-2. **Обновлен `src/library/etl/qc.py`** - Интеграция новых функций корреляционного анализа
-3. **Обновлен `src/library/etl/load.py`** - Поддержка расширенного корреляционного анализа
-4. **Обновлен `src/library/config.py`** - Добавлена опция `enhanced` в `CorrelationSettings`
-5. **Обновлен `pyproject.toml`** - Добавлены зависимости scipy и scikit-learn
+1. **`src/library/etl/enhanced*correlation.py`**- Основной модуль с классом
+`EnhancedCorrelationAnalyzer`2.**Обновлен`src/library/etl/qc.py`**- Интеграция новых функций
+корреляционного анализа
+3.**Обновлен `src/library/etl/load.py`**- Поддержка расширенного
+корреляционного анализа
+4.**Обновлен `src/library/config.py`**- Добавлена опция
+`enhanced`в`CorrelationSettings`5.**Обновлен`pyproject.toml`**- Добавлены зависимости scipy и
+scikit-learn
 
 ### Конфигурация
 
-6. **Обновлен `configs/config_enhanced_qc.yaml`** - Включен расширенный корреляционный анализ
+6.**Обновлен `configs/config*enhanced*qc.yaml`**- Включен расширенный
+корреляционный анализ
 
 ### Документация
 
-7. **`docs/ENHANCED_CORRELATION_ANALYSIS.md`** - Подробная документация по корреляционному анализу
-8. **`docs/ENHANCED_CORRELATION_IMPLEMENTATION_REPORT.md`** - Данный отчет
+7.**`docs/ENHANCED*CORRELATION*ANALYSIS.md`**- Подробная документация по
+корреляционному анализу
+8.**`docs/ENHANCED*CORRELATION*IMPLEMENTATION*REPORT.md`**- Данный отчет
 
 ### Тестирование
 
-9. **`scripts/test_enhanced_correlation.py`** - Демонстрационный скрипт
-10. **`tests/test_enhanced_correlation.py`** - Полный набор тестов
+9.**`scripts/test*enhanced*correlation.py`**- Демонстрационный скрипт
+10.**`tests/test*enhanced*correlation.py`**- Полный набор тестов
 
 ## Результаты тестирования
 
@@ -78,50 +85,59 @@
 
 ### ✅ Автоматические тесты
 
-- **13 тестов** - все прошли успешно
+-**13 тестов**- все прошли успешно
 
-- Покрытие кода: **72%** для модуля enhanced_correlation
+- Покрытие кода:**72%**для модуля enhanced*correlation
 
 - Проверены все основные функции и граничные случаи
 
 ### ✅ Созданные отчеты
 
-1. **enhanced_correlation_numeric_pearson.csv** - Корреляционная матрица Пирсона
-2. **enhanced_correlation_numeric_spearman.csv** - Корреляционная матрица Спирмена
-3. **enhanced_correlation_numeric_covariance.csv** - Ковариационная матрица
-4. **enhanced_correlation_categorical_cramers_v.csv** - Cramér's V для категориальных данных
-5. **enhanced_correlation_mixed_eta_squared.csv** - Eta-squared для смешанных корреляций
-6. **enhanced_correlation_mixed_point_biserial.csv** - Point-biserial корреляции
-7. **enhanced_correlation_correlation_summary.csv** - Сводная статистика
-8. **correlation_analysis.json** - Полный анализ в JSON формате
-9. **correlation_insights.csv** - Инсайты и рекомендации
+1.**enhanced*correlation*numeric*pearson.csv**- Корреляционная матрица Пирсона
+2.**enhanced*correlation*numeric*spearman.csv**- Корреляционная матрица
+Спирмена
+3.**enhanced*correlation*numeric*covariance.csv**- Ковариационная матрица
+4.**enhanced*correlation*categorical*cramers*v.csv**- Cramér's V для
+категориальных данных
+5.**enhanced*correlation*mixed*eta*squared.csv**- Eta-squared для смешанных
+корреляций
+6.**enhanced*correlation*mixed*point*biserial.csv**- Point-biserial корреляции
+7.**enhanced*correlation*correlation*summary.csv**- Сводная статистика
+8.**correlation*analysis.json**- Полный анализ в JSON формате
+9.**correlation*insights.csv**- Инсайты и рекомендации
 
 ## Примеры использования
 
 ### Включение в конфигурации
 
-```yaml
+```
+
 postprocess:
   correlation:
     enabled: true
     enhanced: true  # Включает расширенный корреляционный анализ
+
 ```
 
 ### Программное использование
 
-```python
-from library.etl.enhanced_correlation import EnhancedCorrelationAnalyzer
+```
+
+from library.etl.enhanced*correlation import EnhancedCorrelationAnalyzer
 
 analyzer = EnhancedCorrelationAnalyzer(logger=logger)
-correlation_analysis = analyzer.analyze_correlations(dataframe)
-reports = analyzer.generate_correlation_reports(correlation_analysis)
-insights = analyzer.generate_correlation_insights(correlation_analysis)
+correlation*analysis = analyzer.analyze*correlations(dataframe)
+reports = analyzer.generate*correlation*reports(correlation*analysis)
+insights = analyzer.generate*correlation*insights(correlation*analysis)
+
 ```
 
 ### Запуск демонстрации
 
-```bash
-python scripts/test_enhanced_correlation.py
+```
+
+python scripts/test*enhanced*correlation.py
+
 ```
 
 ## Ключевые особенности реализации
@@ -164,7 +180,7 @@ python scripts/test_enhanced_correlation.py
 
 ### Общая информация
 
-- **Общее количество столбцов**: 20
+-**Общее количество столбцов**: 20
 
 - **Числовые столбцы**: 10
 
@@ -182,31 +198,33 @@ python scripts/test_enhanced_correlation.py
 
 ### Примеры сильных корреляций
 
-- **activity_ic50 ↔ activity_ec50**: 0.953
+- **activity*ic50 ↔ activity*ec50**: 0.953
 
-- **activity_ec50 ↔ activity_ki**: 0.930
+- **activity*ec50 ↔ activity*ki**: 0.930
 
-- **activity_ic50 ↔ activity_ki**: 0.909
+- **activity*ic50 ↔ activity*ki**: 0.909
 
-- **activity_ec50 ↔ efficacy_score**: 0.875
+- **activity*ec50 ↔ efficacy*score**: 0.875
 
-- **activity_ic50 ↔ efficacy_score**: 0.866
+- **activity*ic50 ↔ efficacy*score**: 0.866
 
 ### Автоматические инсайты
 
-- **10 инсайтов** с рекомендациями
+- **10 инсайтов**с рекомендациями
 
-- **6 высокоприоритетных** предупреждений о сильных корреляциях
+-**6 высокоприоритетных**предупреждений о сильных корреляциях
 
-- **4 среднеприоритетных** предупреждения о категориальных ассоциациях
+-**4 среднеприоритетных**предупреждения о категориальных ассоциациях
 
 ## Заключение
 
-Расширенный корреляционный анализ успешно реализован и протестирован. Система предоставляет комплексный анализ взаимосвязей между переменными различных типов и автоматически генерирует практические рекомендации.
+Расширенный корреляционный анализ успешно реализован и протестирован. Система
+предоставляет комплексный анализ взаимосвязей между переменными различных типов
+и автоматически генерирует практические рекомендации.
 
 ### Преимущества новой системы
 
-1. **Комплексность**: 7 различных типов корреляционного анализа
+1.**Комплексность**: 7 различных типов корреляционного анализа
 2. **Автоматизация**: Автоматическая генерация инсайтов и рекомендаций
 3. **Гибкость**: Поддержка числовых, категориальных и смешанных данных
 4. **Производительность**: Оптимизированные алгоритмы для больших данных
@@ -214,11 +232,11 @@ python scripts/test_enhanced_correlation.py
 
 ### Практические применения
 
-1. **Обнаружение мультиколлинеарности** в моделях машинного обучения
-2. **Валидация качества данных** через анализ согласованности
-3. **Исследовательский анализ данных** для понимания взаимосвязей
-4. **Автоматическая генерация отчетов** для мониторинга качества
-5. **Поддержка принятия решений** через инсайты и рекомендации
+1. **Обнаружение мультиколлинеарности**в моделях машинного обучения
+2.**Валидация качества данных**через анализ согласованности
+3.**Исследовательский анализ данных**для понимания взаимосвязей
+4.**Автоматическая генерация отчетов**для мониторинга качества
+5.**Поддержка принятия решений** через инсайты и рекомендации
 
 ### Следующие шаги
 
@@ -228,4 +246,5 @@ python scripts/test_enhanced_correlation.py
 4. Оптимизация производительности для очень больших наборов данных
 5. Добавление новых типов корреляций (например, частичные корреляции)
 
-Система готова к использованию в продакшене и значительно расширяет возможности анализа качества данных в проекте.
+Система готова к использованию в продакшене и значительно расширяет возможности
+анализа качества данных в проекте.

@@ -2,13 +2,17 @@
 
 ## Обзор
 
-В проект добавлена функциональность автоматического сохранения таблиц корреляций и таблиц по качеству данных при каждом сохранении итоговой таблицы с данными. Это обеспечивает комплексный анализ качества данных и взаимосвязей между переменными без необходимости дополнительной настройки.
+В проект добавлена функциональность автоматического сохранения таблиц корреляций
+и таблиц по качеству данных при каждом сохранении итоговой таблицы с данными.
+Это обеспечивает комплексный анализ качества данных и взаимосвязей между
+переменными без необходимости дополнительной настройки.
 
 ## Функциональность
 
 ### Автоматическая генерация отчетов
 
-При каждом сохранении итоговых данных через функцию `write_deterministic_csv` автоматически создаются:
+При каждом сохранении итоговых данных через функцию `write*deterministic*csv`автоматически
+создаются:
 
 #### 1. Базовые отчеты
 
@@ -34,80 +38,89 @@
 
 ### Структура создаваемых файлов
 
-Для файла данных `example_data.csv` создаются следующие отчеты:
+Для файла данных`example*data.csv`создаются следующие отчеты:
 
-```text
-example_data.csv                                    # Основной файл данных
-example_data_quality_report.csv                     # Базовый QC отчет
-example_data_correlation_report.csv                 # Базовая корреляционная матрица
-example_data_quality_report_enhanced.csv            # Расширенный QC отчет
-example_data_quality_report_detailed/               # Детальные QC отчеты
-├── column_summary.csv
-├── pattern_coverage.csv
-└── top_values.csv
-example_data_correlation_report_enhanced/           # Расширенные корреляционные отчеты
-├── numeric_pearson.csv
-├── numeric_spearman.csv
-├── numeric_covariance.csv
-├── categorical_cramers_v.csv
-├── mixed_eta_squared.csv
-├── mixed_point_biserial.csv
-└── correlation_summary.csv
-example_data_correlation_report_detailed/           # Детальные корреляционные отчеты
-├── correlation_analysis.json
-└── correlation_insights.csv
+```
+
+example*data.csv                                    # Основной файл данных
+example*data*quality*report.csv                     # Базовый QC отчет
+example*data*correlation*report.csv # Базовая корреляционная матрица
+example*data*quality*report*enhanced.csv            # Расширенный QC отчет
+example*data*quality*report*detailed/               # Детальные QC отчеты
+├── column*summary.csv
+├── pattern*coverage.csv
+└── top*values.csv
+example*data*correlation*report*enhanced/ # Расширенные корреляционные отчеты
+├── numeric*pearson.csv
+├── numeric*spearman.csv
+├── numeric*covariance.csv
+├── categorical*cramers*v.csv
+├── mixed*eta*squared.csv
+├── mixed*point*biserial.csv
+└── correlation*summary.csv
+example*data*correlation*report*detailed/ # Детальные корреляционные отчеты
+├── correlation*analysis.json
+└── correlation*insights.csv
+
 ```
 
 ## Реализация
 
-### Функция `_auto_generate_qc_and_correlation_reports`
+### Функция`*auto*generate*qc*and*correlation*reports`
 
-**Файл:** `src/library/etl/load.py`
+**Файл:**`src/library/etl/load.py`
 
-```python
-def _auto_generate_qc_and_correlation_reports(
+```
+
+def *auto*generate*qc*and*correlation*reports(
     df: pd.DataFrame,
-    data_path: Path,
+    data*path: Path,
     output: OutputSettings | None = None,
     logger: BoundLogger | None = None,
 ) -> None:
     """Автоматически генерирует и сохраняет QC и корреляционные отчеты."""
+
 ```
 
 ### Интеграция в пайплайн
 
-Функция автоматически вызывается в `write_deterministic_csv`:
+Функция автоматически вызывается в`write*deterministic*csv`:
 
-```python
-# Автоматически генерируем и сохраняем QC и корреляционные таблицы
+```
+
+## Автоматически генерируем и сохраняем QC и корреляционные таблицы
 
 if not df.empty:
-    _auto_generate_qc_and_correlation_reports(
-        df_to_write,
+    *auto*generate*qc*and*correlation*reports(
+        df*to*write,
         destination,
         output,
         logger=logger
     )
+
 ```
 
 ### Логирование
 
 Функция поддерживает детальное логирование:
 
-```python
-logger.info("auto_qc_corr_start", qc_path=str(qc_path), corr_path=str(corr_path))
-logger.info("auto_qc_basic_saved", path=str(qc_path))
-logger.info("auto_corr_basic_saved", path=str(corr_path))
-logger.info("auto_qc_enhanced_saved", enhanced_path=str(enhanced_qc_path))
-logger.info("auto_corr_enhanced_saved", enhanced_path=str(enhanced_corr_path))
-logger.info("auto_qc_corr_complete", qc_files=[...], corr_files=[...])
+```
+
+logger.info("auto*qc*corr*start", qc*path=str(qc*path),
+corr*path=str(corr*path))
+logger.info("auto*qc*basic*saved", path=str(qc*path))
+logger.info("auto*corr*basic*saved", path=str(corr*path))
+logger.info("auto*qc*enhanced*saved", enhanced*path=str(enhanced*qc*path))
+logger.info("auto*corr*enhanced*saved", enhanced*path=str(enhanced*corr*path))
+logger.info("auto*qc*corr*complete", qc*files=[...], corr*files=[...])
+
 ```
 
 ## Типы создаваемых отчетов
 
 ### Базовые отчеты
 
-#### QC отчет (`*_quality_report.csv`)
+#### QC отчет (`**quality*report.csv`)
 
 - `metric`: Название метрики
 
@@ -119,7 +132,7 @@ logger.info("auto_qc_corr_complete", qc_files=[...], corr_files=[...])
 
 - `status`: Статус (pass/fail)
 
-#### Корреляционный отчет (`*_correlation_report.csv`)
+#### Корреляционный отчет (`**correlation*report.csv`)
 
 - Базовая корреляционная матрица для числовых данных
 
@@ -127,74 +140,79 @@ logger.info("auto_qc_corr_complete", qc_files=[...], corr_files=[...])
 
 ### Расширенные QC отчеты
 
-#### Расширенный QC отчет (`*_quality_report_enhanced.csv`)
+#### Расширенный QC отчет (`**quality*report*enhanced.csv`)
 
 Содержит 30+ метрик качества данных:
 
-- `non_null`, `non_empty`, `empty_pct`
+- `non*null`, `non*empty`, `empty*pct`
 
-- `unique_cnt`, `unique_pct_of_non_empty`
+-`unique*cnt`, `unique*pct*of*non*empty`
 
-- `pattern_cov_doi`, `pattern_cov_issn`, `pattern_cov_isbn`
+-`pattern*cov*doi`, `pattern*cov*issn`, `pattern*cov*isbn`
 
-- `pattern_cov_url`, `pattern_cov_email`
+-`pattern*cov*url`, `pattern*cov*email`
 
-- `bool_like_cov`, `numeric_cov`
+-`bool*like*cov`, `numeric*cov`
 
-- `numeric_min`, `numeric_p50`, `numeric_p95`, `numeric_max`
+-`numeric*min`, `numeric*p50`, `numeric*p95`, `numeric*max`
 
-- `numeric_mean`, `numeric_std`
+-`numeric*mean`, `numeric*std`
 
-- `date_cov`, `date_min`, `date_p50`, `date_max`
+-`date*cov`, `date*min`, `date*p50`, `date*max`
 
-- `text_len_min`, `text_len_p50`, `text_len_p95`, `text_len_max`
+-`text*len*min`, `text*len*p50`, `text*len*p95`, `text*len*max`
 
-- `guessed_roles`, `top_values`
+-`guessed*roles`, `top*values`
 
-#### Детальные QC отчеты (`*_quality_report_detailed/`)
+#### Детальные QC отчеты (`**quality*report*detailed/`)
 
-- `column_summary.csv`: Сводка по колонкам
+- `column*summary.csv`: Сводка по колонкам
 
-- `pattern_coverage.csv`: Покрытие паттернов
+- `pattern*coverage.csv`: Покрытие паттернов
 
-- `top_values.csv`: Топ значения
+- `top*values.csv`: Топ значения
 
 ### Расширенные корреляционные отчеты
 
-#### Корреляционные матрицы (`*_correlation_report_enhanced/`)
+#### Корреляционные матрицы (`**correlation*report*enhanced/`)
 
-- `numeric_pearson.csv`: Корреляция Пирсона
+- `numeric*pearson.csv`: Корреляция Пирсона
 
-- `numeric_spearman.csv`: Корреляция Спирмена
+- `numeric*spearman.csv`: Корреляция Спирмена
 
-- `numeric_covariance.csv`: Ковариация
+- `numeric*covariance.csv`: Ковариация
 
-- `categorical_cramers_v.csv`: Cramer's V для категориальных данных
+- `categorical*cramers*v.csv`: Cramer's V для категориальных данных
 
-- `mixed_eta_squared.csv`: Eta-squared для смешанных данных
+- `mixed*eta*squared.csv`: Eta-squared для смешанных данных
 
-- `mixed_point_biserial.csv`: Point-Biserial корреляция
+- `mixed*point*biserial.csv`: Point-Biserial корреляция
 
-- `correlation_summary.csv`: Сводка корреляций
+- `correlation*summary.csv`: Сводка корреляций
 
-#### Детальные корреляционные отчеты (`*_correlation_report_detailed/`)
+#### Детальные корреляционные отчеты (`**correlation*report*detailed/`)
 
-- `correlation_analysis.json`: Полный анализ в JSON формате
+- `correlation*analysis.json`: Полный анализ в JSON формате
 
-- `correlation_insights.csv`: Человекочитаемые инсайты и рекомендации
+- `correlation*insights.csv`: Человекочитаемые инсайты и рекомендации
 
 ## Обработка ошибок
 
 Функция включает обработку ошибок:
 
-```python
+```
+
 try:
-    # Генерация отчетов
+
+## Генерация отчетов
+
     ...
 except Exception as e:
     if logger is not None:
-        logger.error("auto_qc_corr_error", error=str(e), error_type=type(e).__name__)
-    # Не прерываем основной процесс, только логируем ошибку
+logger.error("auto*qc*corr*error", error=str(e), error*type=type(e).**name**)
+
+## Не прерываем основной процесс, только логируем ошибку
+
 ```
 
 ## Совместимость
@@ -259,58 +277,70 @@ except Exception as e:
 
 ### Базовое использование
 
-```python
-from library.etl.load import write_deterministic_csv
+```
 
-# Простое сохранение данных - отчеты создаются автоматически
+from library.etl.load import write*deterministic*csv
 
-write_deterministic_csv(df, "output/data.csv")
+## Простое сохранение данных - отчеты создаются автоматически
+
+write*deterministic*csv(df, "output/data.csv")
+
 ```
 
 ### С настройками
 
-```python
+```
+
 from library.config import OutputSettings, CsvFormatSettings
 
-output_settings = OutputSettings(
-    data_path=Path("output/data.csv"),
-    qc_report_path=Path("output/qc.csv"),
-    correlation_path=Path("output/corr.csv"),
+output*settings = OutputSettings(
+    data*path=Path("output/data.csv"),
+    qc*report*path=Path("output/qc.csv"),
+    correlation*path=Path("output/corr.csv"),
     format="csv",
     csv=CsvFormatSettings()
 )
 
-write_deterministic_csv(df, Path("output/data.csv"), output=output_settings)
+write*deterministic*csv(df, Path("output/data.csv"), output=output*settings)
+
 ```
 
 ### Анализ созданных отчетов
 
-```python
+```
+
 import pandas as pd
 import json
 
-# Загрузка QC отчета
+## Загрузка QC отчета
 
-qc_report = pd.read_csv("output/data_quality_report.csv")
-print("QC метрики:", qc_report)
+qc*report = pd.read*csv("output/data*quality*report.csv")
+print("QC метрики:", qc*report)
 
-# Загрузка расширенного QC отчета
+## Загрузка расширенного QC отчета
 
-enhanced_qc = pd.read_csv("output/data_quality_report_enhanced.csv")
-print("Расширенные метрики:", enhanced_qc)
+enhanced*qc = pd.read*csv("output/data*quality*report*enhanced.csv")
+print("Расширенные метрики:", enhanced*qc)
 
-# Загрузка корреляционных инсайтов
+## Загрузка корреляционных инсайтов
 
-insights = pd.read_csv("output/data_correlation_report_detailed/correlation_insights.csv")
+insights =
+pd.read*csv("output/data*correlation*report*detailed/correlation*insights.csv")
 print("Корреляционные инсайты:", insights)
 
-# Загрузка JSON анализа
+## Загрузка JSON анализа
 
-with open("output/data_correlation_report_detailed/correlation_analysis.json", 'r') as f:
+with open("output/data*correlation*report*detailed/correlation*analysis.json",
+'r') as f:
     analysis = json.load(f)
 print("Полный анализ:", analysis)
+
 ```
 
 ## Заключение
 
-Автоматическое сохранение QC и корреляционных отчетов обеспечивает комплексный анализ качества данных и взаимосвязей между переменными без необходимости дополнительной настройки. Функциональность полностью интегрирована в существующий пайплайн и работает прозрачно для пользователя, предоставляя богатый набор аналитических отчетов для каждого сохранения данных.
+Автоматическое сохранение QC и корреляционных отчетов обеспечивает комплексный
+анализ качества данных и взаимосвязей между переменными без необходимости
+дополнительной настройки. Функциональность полностью интегрирована в
+существующий пайплайн и работает прозрачно для пользователя, предоставляя
+богатый набор аналитических отчетов для каждого сохранения данных.

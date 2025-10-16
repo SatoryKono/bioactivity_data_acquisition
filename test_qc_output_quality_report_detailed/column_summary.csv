@@ -1,3 +1,0 @@
-column,dtype,role,non_null,non_empty,empty_pct,unique_cnt,unique_pct_of_non_empty,pattern_cov_doi,pattern_cov_issn,pattern_cov_isbn,pattern_cov_url,pattern_cov_email,bool_like_cov,numeric_cov,numeric_min,numeric_p50,numeric_p95,numeric_max,numeric_mean,numeric_std,date_cov,date_min,date_p50,date_max,text_len_min,text_len_p50,text_len_p95,text_len_max,top_values
-metric,object,identifier,5,5,0.0,5,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,,,9,11,23,26,"{'row_count': 1, 'missing_document_chembl_id': 1, 'missing_doi': 1, 'missing_title': 1, 'duplicates': 1}"
-value,int64,numeric_metric,5,5,0.0,3,60.0,0.0,0.0,0.0,0.0,0.0,0.0,100.0,0.0,0.0,2.5999999999999996,3.0,0.8,1.3038404810405297,0.0,,,,0,0,0,0,"{'0': 3, '3': 1, '1': 1}"

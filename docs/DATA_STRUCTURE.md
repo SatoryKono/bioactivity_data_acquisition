@@ -2,36 +2,41 @@
 
 ## Обзор
 
-Проект `bioactivity_data_acquisition` обрабатывает данные о биоактивности из различных источников, включая ChEMBL, PubMed, Crossref, OpenAlex и Semantic Scholar. Данные проходят через ETL-процесс, который включает извлечение, трансформацию и загрузку с обогащением из внешних источников.
+Проект `bioactivity*data*acquisition`обрабатывает данные о биоактивности из
+различных источников, включая ChEMBL, PubMed, Crossref, OpenAlex и Semantic
+Scholar. Данные проходят через ETL-процесс, который включает извлечение,
+трансформацию и загрузку с обогащением из внешних источников.
 
 ## Входные данные (data/input/)
 
 ### 1. documents.csv
 
-**Описание**: Основной файл с документами из ChEMBL, содержащий метаданные публикаций.
+**Описание**: Основной файл с документами из ChEMBL, содержащий метаданные
+публикаций.
 
 | Колонка | Тип | Обязательная | Описание |
 |---------|-----|--------------|----------|
-| `document_chembl_id` | string | Да | Уникальный идентификатор документа в ChEMBL |
-| `title` | string | Да | Название публикации |
-| `doi` | string | Нет | Digital Object Identifier |
-| `pubmed_id` | string | Нет | PubMed идентификатор |
-| `doc_type` | string | Нет | Тип документа |
-| `journal` | string | Нет | Название журнала |
-| `year` | int | Нет | Год публикации |
-| `abstract` | string | Нет | Аннотация документа |
-| `authors` | string | Нет | Авторы документа |
-| `classification` | float | Нет | Классификация документа |
-| `document_contains_external_links` | bool | Нет | Содержит ли документ внешние ссылки |
-| `first_page` | int | Нет | Номер первой страницы |
-| `is_experimental_doc` | bool | Нет | Является ли документ экспериментальным |
-| `issue` | int | Нет | Номер выпуска журнала |
-| `last_page` | float | Нет | Номер последней страницы |
-| `month` | int | Нет | Месяц публикации |
-| `volume` | float | Нет | Том журнала |
-| `citation` | string | Нет | Форматированная литературная ссылка |
+|`document_chembl_id`| string | Да | Уникальный идентификатор документа в ChEMBL |
+|`title`| string | Да | Название публикации |
+|`doi`| string | Нет | Digital Object Identifier |
+|`pubmed*id`| string | Нет | PubMed идентификатор |
+|`doc*type`| string | Нет | Тип документа |
+|`journal`| string | Нет | Название журнала |
+|`year`| int | Нет | Год публикации |
+|`abstract`| string | Нет | Аннотация документа |
+|`authors`| string | Нет | Авторы документа |
+|`classification`| float | Нет | Классификация документа |
+|`document_contains_external_links`| bool | Нет | Содержит ли документ внешние ссылки |
+|`first*page`| int | Нет | Номер первой страницы |
+|`is*experimental*doc`| bool | Нет | Является ли документ экспериментальным |
+|`issue`| int | Нет | Номер выпуска журнала |
+|`last*page`| float | Нет | Номер последней страницы |
+|`month`| int | Нет | Месяц публикации |
+|`volume`| float | Нет | Том журнала |
+|`citation`| string | Нет | Форматированная литературная ссылка |
 
-**Примечание**: Колонки с названиями журналов (содержащие 'journal' в названии) автоматически нормализуются для обеспечения единообразия.
+**Примечание**: Колонки с названиями журналов (содержащие 'journal' в названии)
+автоматически нормализуются для обеспечения единообразия.
 
 **Размер**: ~15,677 записей
 
@@ -41,23 +46,23 @@
 
 | Колонка | Тип | Обязательная | Описание |
 |---------|-----|--------------|----------|
-| `activity_chembl_id` | string | Да | Уникальный идентификатор активности |
-| `assay_chembl_id` | string | Да | Идентификатор эксперимента |
-| `compound_key` | string | Да | Ключ соединения |
-| `compound_name` | string | Да | Название соединения |
-| `document_chembl_id` | string | Да | Идентификатор документа |
-| `molecule_chembl_id` | string | Да | Идентификатор молекулы |
-| `standard_type` | string | Да | Тип стандартного значения |
-| `standard_value` | float | Да | Стандартное значение активности |
-| `target_chembl_id` | string | Да | Идентификатор мишени |
-| `original_activity_exact` | float | Да | Точное значение активности |
-| `pA_value` | float | Да | pA значение |
-| `bao_endpoint` | string | Да | BAO endpoint |
-| `bao_format` | string | Да | BAO формат |
-| `IUPHAR_class` | string | Да | IUPHAR класс |
-| `IUPHAR_subclass` | string | Да | IUPHAR подкласс |
-| `gene_index` | string | Да | Индекс гена |
-| `taxon_index` | int | Да | Индекс таксона |
+|`activity*chembl*id`| string | Да | Уникальный идентификатор активности |
+|`assay*chembl*id`| string | Да | Идентификатор эксперимента |
+|`compound*key`| string | Да | Ключ соединения |
+|`compound*name`| string | Да | Название соединения |
+|`document*chembl*id`| string | Да | Идентификатор документа |
+|`molecule*chembl*id`| string | Да | Идентификатор молекулы |
+|`standard*type`| string | Да | Тип стандартного значения |
+|`standard*value`| float | Да | Стандартное значение активности |
+|`target*chembl*id`| string | Да | Идентификатор мишени |
+|`original*activity*exact`| float | Да | Точное значение активности |
+|`pA*value`| float | Да | pA значение |
+|`bao*endpoint`| string | Да | BAO endpoint |
+|`bao*format`| string | Да | BAO формат |
+|`IUPHAR*class`| string | Да | IUPHAR класс |
+|`IUPHAR*subclass`| string | Да | IUPHAR подкласс |
+|`gene*index`| string | Да | Индекс гена |
+|`taxon*index`| int | Да | Индекс таксона |
 
 **Размер**: ~145,952 записей
 
@@ -67,20 +72,20 @@
 
 | Колонка | Тип | Обязательная | Описание |
 |---------|-----|--------------|----------|
-| `assay_chembl_id` | string | Да | Уникальный идентификатор эксперимента |
-| `target_chembl_id` | string | Да | Идентификатор мишени |
-| `target_name` | string | Да | Название мишени |
-| `target_type` | string | Да | Тип мишени |
-| `document_chembl_id` | string | Да | Идентификатор документа |
-| `description` | string | Да | Описание эксперимента |
-| `bao_format` | string | Да | BAO формат |
-| `assay_cell_type` | string | Нет | Тип клетки |
-| `assay_subcellular_fraction` | string | Нет | Субклеточная фракция |
-| `assay_tissue` | string | Нет | Ткань |
-| `substrate_name` | string | Нет | Название субстрата |
-| `version` | int | Нет | Версия |
-| `year` | int | Нет | Год |
-| `month` | int | Нет | Месяц |
+|`assay*chembl*id`| string | Да | Уникальный идентификатор эксперимента |
+|`target*chembl*id`| string | Да | Идентификатор мишени |
+|`target*name`| string | Да | Название мишени |
+|`target*type`| string | Да | Тип мишени |
+|`document*chembl*id`| string | Да | Идентификатор документа |
+|`description`| string | Да | Описание эксперимента |
+|`bao*format`| string | Да | BAO формат |
+|`assay*cell*type`| string | Нет | Тип клетки |
+|`assay*subcellular*fraction`| string | Нет | Субклеточная фракция |
+|`assay*tissue`| string | Нет | Ткань |
+|`substrate*name`| string | Нет | Название субстрата |
+|`version`| int | Нет | Версия |
+|`year`| int | Нет | Год |
+|`month`| int | Нет | Месяц |
 
 **Размер**: ~41,578 записей
 
@@ -90,15 +95,15 @@
 
 | Колонка | Тип | Обязательная | Описание |
 |---------|-----|--------------|----------|
-| `target_chembl_id` | string | Да | Уникальный идентификатор мишени |
-| `target_names` | string | Да | Названия мишени |
-| `target_uniprot_id` | string | Да | UniProt идентификатор |
-| `primaryAccession` | string | Да | Основной аксесс-номер |
-| `organism` | string | Да | Организм |
-| `isoform_ids` | string | Нет | Идентификаторы изоформ |
-| `isoform_names` | string | Нет | Названия изоформ |
-| `isoforms` | int | Нет | Количество изоформ |
-| `pH_dependence` | string | Нет | pH зависимость |
+|`target*chembl*id`| string | Да | Уникальный идентификатор мишени |
+|`target*names`| string | Да | Названия мишени |
+|`target*uniprot*id`| string | Да | UniProt идентификатор |
+|`primaryAccession`| string | Да | Основной аксесс-номер |
+|`organism`| string | Да | Организм |
+|`isoform*ids`| string | Нет | Идентификаторы изоформ |
+|`isoform*names`| string | Нет | Названия изоформ |
+|`isoforms`| int | Нет | Количество изоформ |
+|`pH*dependence`| string | Нет | pH зависимость |
 
 **Размер**: ~1,962 записи
 
@@ -108,23 +113,23 @@
 
 | Колонка | Тип | Обязательная | Описание |
 |---------|-----|--------------|----------|
-| `molecule_chembl_id` | string | Да | Уникальный идентификатор молекулы |
-| `all_names` | string | Да | Все названия соединения |
-| `canonical_smiles` | string | Да | Каноническая SMILES структура |
-| `chirality` | int | Да | Хиральность |
-| `inchi_key_from_mol` | string | Да | InChI ключ из молекулы |
-| `inchi_key_from_smiles` | string | Да | InChI ключ из SMILES |
-| `is_radical` | bool | Да | Является ли радикалом |
-| `molecule_type` | string | Да | Тип молекулы |
-| `mw_freebase` | float | Да | Молекулярный вес свободного основания |
-| `n_stereocenters` | int | Да | Количество стереоцентров |
-| `nstereo` | int | Да | Количество стереоизомеров |
-| `num_ro5_violations` | int | Да | Количество нарушений правила Липински |
-| `salt_chembl_id` | string | Нет | Идентификатор соли |
-| `standard_inchi_key` | string | Нет | Стандартный InChI ключ |
-| `standard_inchi_skeleton` | string | Нет | Скелет стандартного InChI |
-| `standard_inchi_stereo` | string | Нет | Стерео стандартного InChI |
-| `mw_<100_or_>1000` | bool | Нет | Молекулярный вес <100 или >1000 |
+|`molecule*chembl*id`| string | Да | Уникальный идентификатор молекулы |
+|`all*names`| string | Да | Все названия соединения |
+|`canonical*smiles`| string | Да | Каноническая SMILES структура |
+|`chirality`| int | Да | Хиральность |
+|`inchi*key*from*mol`| string | Да | InChI ключ из молекулы |
+|`inchi*key*from*smiles`| string | Да | InChI ключ из SMILES |
+|`is*radical`| bool | Да | Является ли радикалом |
+|`molecule*type`| string | Да | Тип молекулы |
+|`mw*freebase`| float | Да | Молекулярный вес свободного основания |
+|`n*stereocenters`| int | Да | Количество стереоцентров |
+|`nstereo`| int | Да | Количество стереоизомеров |
+|`num*ro5*violations`| int | Да | Количество нарушений правила Липински |
+|`salt*chembl*id`| string | Нет | Идентификатор соли |
+|`standard*inchi*key`| string | Нет | Стандартный InChI ключ |
+|`standard*inchi*skeleton`| string | Нет | Скелет стандартного InChI |
+|`standard*inchi*stereo`| string | Нет | Стерео стандартного InChI |
+|`mw*<100*or*>1000`| bool | Нет | Молекулярный вес <100 или >1000 |
 
 **Размер**: ~41,385 записей
 
@@ -134,7 +139,7 @@
 
 | Колонка | Тип | Обязательная | Описание |
 |---------|-----|--------------|----------|
-| `cell_chembl_id` | string | Да | Уникальный идентификатор клеточной линии |
+|`cell*chembl*id`| string | Да | Уникальный идентификатор клеточной линии |
 
 **Размер**: ~9,407 записей
 
@@ -144,344 +149,410 @@
 
 | Колонка | Тип | Обязательная | Описание |
 |---------|-----|--------------|----------|
-| `tissue_chembl_id` | string | Да | Уникальный идентификатор ткани |
+|`tissue*chembl*id`| string | Да | Уникальный идентификатор ткани |
 
 **Размер**: ~62 записи
 
 ## Выходные данные (data/output/)
 
-### 1. documents_YYYYMMDD.csv
+### 1. documents*YYYYMMDD.csv
 
-**Описание**: Обогащенные данные документов с информацией из всех внешних источников.
+**Описание**: Обогащенные данные документов с информацией из всех внешних
+источников.
 
 #### Основные поля ChEMBL (оригинальные)
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `document_chembl_id` | string | ChEMBL идентификатор документа |
-| `title` | string | Название документа |
-| `doi` | string | Digital Object Identifier |
-| `pubmed_id` | string | PubMed идентификатор |
-| `doc_type` | string | Тип документа |
-| `journal` | string | Название журнала |
-| `year` | int | Год публикации |
-| `abstract` | string | Аннотация |
-| `authors` | string | Авторы |
-| `classification` | float | Классификация |
-| `document_contains_external_links` | bool | Содержит внешние ссылки |
-| `first_page` | int | Первая страница |
-| `is_experimental_doc` | bool | Экспериментальный документ |
-| `issue` | int | Номер выпуска |
-| `last_page` | float | Последняя страница |
-| `month` | int | Месяц |
-| `volume` | float | Том |
+|`document*chembl*id`| string | ChEMBL идентификатор документа |
+|`title`| string | Название документа |
+|`doi`| string | Digital Object Identifier |
+|`pubmed*id`| string | PubMed идентификатор |
+|`doc*type`| string | Тип документа |
+|`journal`| string | Название журнала |
+|`year`| int | Год публикации |
+|`abstract`| string | Аннотация |
+|`authors`| string | Авторы |
+|`classification`| float | Классификация |
+|`document*contains*external*links`| bool | Содержит внешние ссылки |
+|`first*page`| int | Первая страница |
+|`is*experimental*doc`| bool | Экспериментальный документ |
+|`issue`| int | Номер выпуска |
+|`last*page`| float | Последняя страница |
+|`month`| int | Месяц |
+|`volume`| float | Том |
 
 #### Поля обогащения
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `source` | string | Источник данных (chembl, crossref, openalex, pubmed, semantic_scholar) |
+|`source`| string | Источник данных (chembl, crossref, openalex, pubmed, semantic_scholar) |
 
 #### OpenAlex поля
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `openalex_doi_key` | string | DOI ключ для соединения |
-| `openalex_title` | string | Название из OpenAlex |
-| `openalex_doc_type` | string | Тип документа из OpenAlex |
-| `openalex_type_crossref` | string | Crossref тип из OpenAlex |
-| `openalex_publication_year` | int | Год публикации из OpenAlex |
-| `openalex_error` | string | Ошибка OpenAlex |
+|`openalex_doi_key`| string | DOI ключ для соединения |
+|`openalex_title`| string | Название из OpenAlex |
+|`openalex*doc*type`| string | Тип документа из OpenAlex |
+|`openalex*type*crossref`| string | Crossref тип из OpenAlex |
+|`openalex*publication*year`| int | Год публикации из OpenAlex |
+|`openalex*error`| string | Ошибка OpenAlex |
 
 #### Crossref поля
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `crossref_title` | string | Название из Crossref |
-| `crossref_doc_type` | string | Тип документа из Crossref |
-| `crossref_subject` | string | Предмет из Crossref |
-| `crossref_error` | string | Ошибка Crossref |
+|`crossref*title`| string | Название из Crossref |
+|`crossref*doc*type`| string | Тип документа из Crossref |
+|`crossref*subject`| string | Предмет из Crossref |
+|`crossref*error`| string | Ошибка Crossref |
 
 #### Semantic Scholar поля
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `semantic_scholar_pmid` | string | PMID из Semantic Scholar |
-| `semantic_scholar_doi` | string | DOI из Semantic Scholar |
-| `semantic_scholar_semantic_scholar_id` | string | Semantic Scholar ID |
-| `semantic_scholar_publication_types` | string | Типы публикаций из Semantic Scholar |
-| `semantic_scholar_venue` | string | Место публикации из Semantic Scholar |
-| `semantic_scholar_external_ids` | string | Внешние ID из Semantic Scholar (JSON) |
-| `semantic_scholar_error` | string | Ошибка Semantic Scholar |
+|`semantic_scholar_pmid`| string | PMID из Semantic Scholar |
+|`semantic_scholar_doi`| string | DOI из Semantic Scholar |
+|`semantic_scholar_semantic_scholar_id`| string | Semantic Scholar ID |
+|`semantic_scholar_publication_types`| string | Типы публикаций из Semantic Scholar |
+|`semantic_scholar_venue`| string | Место публикации из Semantic Scholar |
+|`semantic_scholar_external_ids`| string | Внешние ID из Semantic Scholar (JSON) |
+|`semantic_scholar_error`| string | Ошибка Semantic Scholar |
 
 #### PubMed поля
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `pubmed_pmid` | string | PubMed ID |
-| `pubmed_doi` | string | DOI из PubMed |
-| `pubmed_article_title` | string | Название статьи из PubMed |
-| `pubmed_abstract` | string | Аннотация из PubMed |
-| `pubmed_journal_title` | string | Название журнала из PubMed |
-| `pubmed_volume` | string | Том из PubMed |
-| `pubmed_issue` | string | Выпуск из PubMed |
-| `pubmed_start_page` | string | Начальная страница из PubMed |
-| `pubmed_end_page` | string | Конечная страница из PubMed |
-| `pubmed_publication_type` | string | Тип публикации из PubMed |
-| `pubmed_mesh_descriptors` | string | MeSH дескрипторы из PubMed |
-| `pubmed_mesh_qualifiers` | string | MeSH квалификаторы из PubMed |
-| `pubmed_chemical_list` | string | Список химических веществ из PubMed |
-| `pubmed_year_completed` | int | Год завершения из PubMed |
-| `pubmed_month_completed` | int | Месяц завершения из PubMed |
-| `pubmed_day_completed` | int | День завершения из PubMed |
-| `pubmed_year_revised` | int | Год пересмотра из PubMed |
-| `pubmed_month_revised` | int | Месяц пересмотра из PubMed |
-| `pubmed_day_revised` | int | День пересмотра из PubMed |
-| `pubmed_issn` | string | ISSN из PubMed |
-| `pubmed_error` | string | Ошибка PubMed |
+|`pubmed*pmid`| string | PubMed ID |
+|`pubmed*doi`| string | DOI из PubMed |
+|`pubmed*article*title`| string | Название статьи из PubMed |
+|`pubmed*abstract`| string | Аннотация из PubMed |
+|`pubmed*journal*title`| string | Название журнала из PubMed |
+|`pubmed*volume`| string | Том из PubMed |
+|`pubmed*issue`| string | Выпуск из PubMed |
+|`pubmed*start*page`| string | Начальная страница из PubMed |
+|`pubmed*end*page`| string | Конечная страница из PubMed |
+|`pubmed*publication*type`| string | Тип публикации из PubMed |
+|`pubmed*mesh*descriptors`| string | MeSH дескрипторы из PubMed |
+|`pubmed*mesh*qualifiers`| string | MeSH квалификаторы из PubMed |
+|`pubmed*chemical*list`| string | Список химических веществ из PubMed |
+|`pubmed*year*completed`| int | Год завершения из PubMed |
+|`pubmed*month*completed`| int | Месяц завершения из PubMed |
+|`pubmed*day*completed`| int | День завершения из PubMed |
+|`pubmed*year*revised`| int | Год пересмотра из PubMed |
+|`pubmed*month*revised`| int | Месяц пересмотра из PubMed |
+|`pubmed*day*revised`| int | День пересмотра из PubMed |
+|`pubmed*issn`| string | ISSN из PubMed |
+|`pubmed*error`| string | Ошибка PubMed |
 
 #### ChEMBL дополнительные поля
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `chembl_title` | string | Название из ChEMBL |
-| `chembl_doi` | string | DOI из ChEMBL |
-| `chembl_pubmed_id` | string | PubMed ID из ChEMBL |
-| `chembl_journal` | string | Журнал из ChEMBL |
-| `chembl_year` | int | Год из ChEMBL |
-| `chembl_volume` | string | Том из ChEMBL |
-| `chembl_issue` | string | Выпуск из ChEMBL |
+|`chembl*title`| string | Название из ChEMBL |
+|`chembl*doi`| string | DOI из ChEMBL |
+|`chembl*pubmed*id`| string | PubMed ID из ChEMBL |
+|`chembl*journal`| string | Журнал из ChEMBL |
+|`chembl*year`| int | Год из ChEMBL |
+|`chembl*volume`| string | Том из ChEMBL |
+|`chembl*issue`| string | Выпуск из ChEMBL |
 
 **Размер**: ~10 записей (в тестовом наборе)
 
-### 2. documents_YYYYMMDD_qc.csv
+### 2. documents*YYYYMMDD*qc.csv
 
 **Описание**: Метрики контроля качества обработки документов.
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| `metric` | string | Название метрики QC |
-| `value` | int | Значение метрики QC |
+|`metric`| string | Название метрики QC |
+|`value`| int | Значение метрики QC |
 
 #### Примеры метрик
 
-- `row_count`: Общее количество обработанных записей
-- `enabled_sources`: Количество включенных источников данных
-- `chembl_records`: Количество записей из ChEMBL
-- `crossref_records`: Количество записей из Crossref
-- `openalex_records`: Количество записей из OpenAlex
-- `pubmed_records`: Количество записей из PubMed
-- `semantic_scholar_records`: Количество записей из Semantic Scholar
+-`row*count`: Общее количество обработанных записей
+
+- `enabled*sources`: Количество включенных источников данных
+
+- `chembl*records`: Количество записей из ChEMBL
+
+- `crossref*records`: Количество записей из Crossref
+
+- `openalex*records`: Количество записей из OpenAlex
+
+- `pubmed*records`: Количество записей из PubMed
+
+- `semantic*scholar*records`: Количество записей из Semantic Scholar
 
 ## Схемы данных (src/library/schemas/)
 
 ### 1. DocumentInputSchema
 
-**Файл**: `document_input_schema.py`
-
+**Файл**: `document*input*schema.py`
 **Описание**: Pandera схема для входных данных документов из ChEMBL CSV файлов.
 
 ### 2. DocumentOutputSchema
 
-**Файл**: `document_output_schema.py`
-
-**Описание**: Pandera схема для обогащенных данных документов из всех источников.
+**Файл**:`document*output*schema.py`
+**Описание**: Pandera схема для обогащенных данных документов из всех
+источников.
 
 ### 3. RawBioactivitySchema
 
-**Файл**: `input_schema.py`
-
+**Файл**:`input*schema.py`
 **Описание**: Pandera схема для сырых данных биоактивности из API.
 
 ### 4. NormalizedBioactivitySchema
 
-**Файл**: `output_schema.py`
-
+**Файл**:`output*schema.py`
 **Описание**: Pandera схема для нормализованных данных биоактивности.
 
 ### 5. DocumentQCSchema
 
-**Файл**: `document_output_schema.py`
-
+**Файл**:`document*output*schema.py`
 **Описание**: Pandera схема для метрик QC документов.
 
 ## API источники данных
 
 ### 1. ChEMBL API
 
-**Базовый URL**: `https://www.ebi.ac.uk/chembl/api/data`
+**Базовый URL**: [https://www.ebi.ac.uk/chembl/api/data](https://www.ebi.ac.uk/chembl/api/data)
 
-**Документация**: <https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services>
+**Документация**: [https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services](https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services)
 
 **Лимиты**: 20 запросов/сек, без аутентификации
 
-**Эндпоинт**: `/document/{doc_id}`
+**Эндпоинт**: `/document/{doc*id}`#### Извлекаемые поля ChEMBL
 
-#### Извлекаемые поля ChEMBL
+-`document*chembl*id`- Идентификатор документа в ChEMBL
 
-- `document_chembl_id` - Идентификатор документа в ChEMBL
-- `title` - Название публикации
-- `doi` - Digital Object Identifier
-- `pubmed_id` - PubMed идентификатор
-- `doc_type` - Тип документа (по умолчанию: "PUBLICATION")
-- `journal` - Название журнала
-- `year` - Год публикации
-- `volume` - Том журнала
-- `issue` - Номер выпуска
-- `abstract` - Аннотация (если доступна)
+-`title`- Название публикации
+
+-`doi`- Digital Object Identifier
+
+-`pubmed*id`- PubMed идентификатор
+
+-`doc*type`- Тип документа (по умолчанию: "PUBLICATION")
+
+-`journal`- Название журнала
+
+-`year`- Год публикации
+
+-`volume`- Том журнала
+
+-`issue`- Номер выпуска
+
+-`abstract`- Аннотация (если доступна)
 
 ### 2. Crossref API
 
-**Базовый URL**: `https://api.crossref.org/works`
+**Базовый URL**: [https://api.crossref.org/works](https://api.crossref.org/works)
 
-**Документация**: <https://github.com/CrossRef/rest-api-doc>
+**Документация**: [https://github.com/CrossRef/rest-api-doc](https://github.com/CrossRef/rest-api-doc)
 
 **Лимиты**: 50 запросов/сек (free), 100 запросов/сек (plus token)
 
 **Эндпоинты**:
 
-- `/{doi}` - поиск по DOI
-- `?filter=pmid:{pmid}` - поиск по PubMed ID
-- `?query.bibliographic={doi}` - fallback поиск
+- `/{doi}`- поиск по DOI
+
+-`?filter=pmid:{pmid}`- поиск по PubMed ID
+
+-`?query.bibliographic={doi}`- fallback поиск
 
 #### Извлекаемые поля Crossref
 
-- `crossref_title` - Название из Crossref
-- `crossref_doc_type` - Тип документа (journal-article, book-chapter, etc.)
-- `crossref_subject` - Предметная область (автоматически определяется по журналу)
+-`crossref*title`- Название из Crossref
+
+-`crossref*doc*type`- Тип документа (journal-article, book-chapter, etc.)
+
+-`crossref*subject`- Предметная область (автоматически определяется по журналу)
 
 #### Особенности Crossref
 
 - Автоматическое определение предметной области по названию журнала
+
 - Fallback поиск при отсутствии точного совпадения по DOI
+
 - Обработка пустых списков subjects
 
 ### 3. OpenAlex API
 
-**Базовый URL**: `https://api.openalex.org/works`
+**Базовый URL**:`[https://api.openalex.org/works`](https://api.openalex.org/works`)
 
-**Документация**: <https://docs.openalex.org/>
+**Документация**: [https://docs.openalex.org/](https://docs.openalex.org/)
 
 **Лимиты**: 10 запросов/сек, без аутентификации
 
 **Эндпоинты**:
 
-- `<https://doi.org/{doi}>` - прямой поиск по DOI
-- `?filter=doi:{doi}` - фильтр по DOI
-- `?filter=pmid:{pmid}` - поиск по PubMed ID
+- [https://doi.org/{doi}](https://doi.org/{doi}) - прямой поиск по DOI
+
+- `?filter=doi:{doi}`- фильтр по DOI
+
+-`?filter=pmid:{pmid}`- поиск по PubMed ID
 
 #### Извлекаемые поля OpenAlex
 
-- `openalex_doi_key` - DOI для соединения данных
-- `openalex_title` - Название из OpenAlex
-- `openalex_doc_type` - Тип документа
-- `openalex_type_crossref` - Crossref тип документа
-- `openalex_publication_year` - Год публикации (извлекается из разных полей)
+-`openalex*doi*key`- DOI для соединения данных
+
+-`openalex*title`- Название из OpenAlex
+
+-`openalex*doc*type`- Тип документа
+
+-`openalex*type*crossref`- Crossref тип документа
+
+-`openalex*publication*year`- Год публикации (извлекается из разных полей)
 
 #### Особенности OpenAlex
 
 - Специальная обработка rate limiting (429 ошибок)
-- Извлечение года публикации из поля `published-print`
-- Fallback на `display_name` для названия
+
+- Извлечение года публикации из поля`published-print`
+
+- Fallback на`display*name`для названия
 
 ### 4. PubMed API (E-utilities)
 
-**Базовый URL**: `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/`
+**Базовый URL**: [https://eutils.ncbi.nlm.nih.gov/entrez/eutils/](https://eutils.ncbi.nlm.nih.gov/entrez/eutils/)
 
-**Документация**: <https://www.ncbi.nlm.nih.gov/books/NBK25501/>
+**Документация**: [https://www.ncbi.nlm.nih.gov/books/NBK25501/](https://www.ncbi.nlm.nih.gov/books/NBK25501/)
 
 **Лимиты**: 3 запроса/сек (без ключа), 10 запросов/сек (с API ключом)
 
 **Эндпоинты**:
 
-- `esummary.fcgi` - получение метаданных
-- `efetch.fcgi` - получение полного контента
+- `esummary.fcgi`- получение метаданных
+
+-`efetch.fcgi`- получение полного контента
 
 #### Извлекаемые поля PubMed
 
-- `pubmed_pmid` - PubMed идентификатор
-- `pubmed_doi` - DOI из PubMed
-- `pubmed_article_title` - Название статьи
-- `pubmed_abstract` - Полный текст аннотации
-- `pubmed_journal_title` - Название журнала
-- `pubmed_volume` - Том журнала
-- `pubmed_issue` - Номер выпуска
-- `pubmed_start_page` / `pubmed_end_page` - Страницы
-- `pubmed_publication_type` - Тип публикации
-- `pubmed_mesh_descriptors` - MeSH дескрипторы
-- `pubmed_mesh_qualifiers` - MeSH квалификаторы
-- `pubmed_chemical_list` - Список химических веществ
-- `pubmed_year_completed` / `pubmed_month_completed` / `pubmed_day_completed` - Даты завершения
-- `pubmed_year_revised` / `pubmed_month_revised` / `pubmed_day_revised` - Даты пересмотра
-- `pubmed_issn` - ISSN журнала
+-`pubmed*pmid`- PubMed идентификатор
+
+-`pubmed*doi`- DOI из PubMed
+
+-`pubmed*article*title`- Название статьи
+
+-`pubmed*abstract`- Полный текст аннотации
+
+-`pubmed*journal*title`- Название журнала
+
+-`pubmed*volume`- Том журнала
+
+-`pubmed*issue`- Номер выпуска
+
+-`pubmed*start*page`/`pubmed*end*page`- Страницы
+
+-`pubmed*publication*type`- Тип публикации
+
+-`pubmed*mesh*descriptors`- MeSH дескрипторы
+
+-`pubmed*mesh*qualifiers`- MeSH квалификаторы
+
+-`pubmed*chemical*list`- Список химических веществ
+
+-`pubmed*year*completed`/`pubmed*month*completed`/`pubmed*day*completed`- Даты завершения
+
+-`pubmed*year*revised`/`pubmed*month*revised`/`pubmed*day*revised`- Даты пересмотра
+
+-`pubmed*issn`- ISSN журнала
 
 #### Особенности PubMed
 
 - Двухэтапный процесс: esummary + efetch для получения полной информации
+
 - XML парсинг для извлечения DOI и аннотации
+
 - Обработка множественных авторов
-- Извлечение дат из поля `history`
+
+- Извлечение дат из поля`history`
 
 ### 5. Semantic Scholar API
 
-**Базовый URL**: `https://api.semanticscholar.org/graph/v1/paper`
+**Базовый
+URL**:`[https://api.semanticscholar.org/graph/v1/paper`](https://api.semanticscholar.org/graph/v1/paper`)
 
-**Документация**: <https://api.semanticscholar.org/>
+**Документация**: [https://api.semanticscholar.org/](https://api.semanticscholar.org/)
 
 **Лимиты**: 100 запросов/сек, без аутентификации
 
 **Эндпоинты**:
 
-- `PMID:{pmid}` - поиск по PubMed ID
-- `batch` - массовые запросы
+- `PMID:{pmid}`- поиск по PubMed ID
+
+-`batch`- массовые запросы
 
 #### Извлекаемые поля Semantic Scholar
 
-- `semantic_scholar_pmid` - PubMed ID из Semantic Scholar
-- `semantic_scholar_doi` - DOI из Semantic Scholar
-- `semantic_scholar_semantic_scholar_id` - Уникальный ID в Semantic Scholar
-- `semantic_scholar_publication_types` - Типы публикаций
-- `semantic_scholar_venue` - Место публикации
-- `semantic_scholar_external_ids` - Внешние идентификаторы (JSON)
+-`semantic*scholar*pmid`- PubMed ID из Semantic Scholar
+
+-`semantic*scholar*doi`- DOI из Semantic Scholar
+
+-`semantic*scholar*semantic*scholar*id`- Уникальный ID в Semantic Scholar
+
+-`semantic*scholar*publication*types`- Типы публикаций
+
+-`semantic*scholar*venue`- Место публикации
+
+-`semantic*scholar*external*ids`- Внешние идентификаторы (JSON)
 
 #### Особенности Semantic Scholar
 
 - Поддержка batch запросов для множественных PMID
+
 - Извлечение внешних ID в JSON формате
+
 - Fallback стратегия для обработки ошибок
 
 ## Стратегии обработки ошибок
 
 ### Rate Limiting (429 ошибки)
 
-- Автоматическое ожидание с использованием заголовка `Retry-After`
+- Автоматическое ожидание с использованием заголовка`Retry-After`
+
 - Экспоненциальный backoff с множителем 2.0-5.0
+
 - Специальная обработка для OpenAlex и PubMed
 
 ### Fallback стратегии
 
 - **Crossref**: Поиск по библиографическому запросу при отсутствии точного DOI
+
 - **OpenAlex**: Фильтр по DOI при неудаче прямого запроса
+
 - **PubMed**: Fallback данные при недоступности API
+
 - **Semantic Scholar**: Адаптивная стратегия с увеличением задержек
 
 ### Обработка временных ошибок
 
 - Максимум 3-15 повторных попыток в зависимости от API
+
 - Timeout: 30-60 секунд
+
 - Логирование всех ошибок для мониторинга
 
 ## Процесс обработки данных
 
-1. **Извлечение**: Данные загружаются из CSV файлов в папке `data/input/`
-2. **Обогащение**: Данные дополняются информацией из внешних API в следующем порядке:
+1. **Извлечение**: Данные загружаются из CSV файлов в папке`data/input/`2. **Обогащение**: Данные
+дополняются информацией из внешних API в следующем
+порядке:
+
    - ChEMBL (базовые данные)
+
    - Crossref (метаданные публикаций)
+
    - OpenAlex (дополнительные метаданные)
+
    - PubMed (медицинские аннотации и MeSH)
+
    - Semantic Scholar (академические метаданные)
+
 3. **Трансформация**: Объединение и нормализация данных из всех источников
-4. **Загрузка**: Результаты сохраняются в папку `data/output/` с датой в названии файла
+4. **Загрузка**: Результаты сохраняются в папку`data/output/`с датой в
+названии файла
 5. **QC**: Генерируются метрики контроля качества и корреляционный анализ
 
 ## Расширенный корреляционный анализ
@@ -491,45 +562,61 @@
 #### Числовые корреляции
 
 - **Корреляция Пирсона**: Линейная корреляция между числовыми переменными
-- **Корреляция Спирмена**: Ранговая корреляция для нелинейных зависимостей  
+
+- **Корреляция Спирмена**: Ранговая корреляция для нелинейных зависимостей
+
 - **Ковариационная матрица**: Мера совместной изменчивости переменных
 
 #### Категориальные корреляции
 
 - **Cramér's V**: Мера ассоциации между категориальными переменными
+
 - **Таблицы сопряженности**: Детальный анализ распределения категорий
+
 - **Chi-squared статистики**: Тесты значимости ассоциаций
 
 #### Смешанные корреляции
 
 - **Eta-squared**: Связь между числовыми и категориальными переменными
+
 - **Point-biserial correlation**: Корреляция между числовой и бинарной переменными
 
 #### Кросс-корреляции
 
 - **Лаговые корреляции**: Анализ временных зависимостей
+
 - **Скользящие корреляции**: Динамика корреляций во времени
 
 ### Автоматические инсайты
 
 - Обнаружение сильных корреляций (|r| > 0.8)
+
 - Выявление умеренных корреляций (|r| > 0.7)
+
 - Рекомендации по обработке мультиколлинеарности
+
 - Статистическая значимость корреляций
 
 ### Выходные файлы корреляционного анализа
 
 - **Корреляционная матрица**: Все парные корреляции между переменными
+
 - **Инсайты**: Автоматически сгенерированные выводы о значимых корреляциях
+
 - **Визуализации**: Heatmaps и scatter plots для визуального анализа
+
 - **Статистики**: p-values, confidence intervals, effect sizes
 
 ## Типы данных
 
 - **string**: Текстовые данные
+
 - **int**: Целочисленные значения
+
 - **float**: Числа с плавающей точкой
+
 - **bool**: Логические значения (True/False)
+
 - **pd.Timestamp**: Временные метки
 
 ## Конфигурация API
@@ -537,118 +624,160 @@
 ### Глобальные настройки
 
 - **Timeout**: 30 секунд (60 секунд для PubMed)
+
 - **Retries**: 3-15 попыток в зависимости от API
+
 - **Backoff multiplier**: 2.0-5.0 для экспоненциальной задержки
-- **User-Agent**: `bioactivity-data-acquisition/0.1.0`
+
+- **User-Agent**:`bioactivity-data-acquisition/0.1.0`
 
 ### Настройки по API
 
 #### ChEMBL
 
 - Лимит: 20 запросов/сек
+
 - Аутентификация: Bearer token (опционально)
-- Headers: `Accept: application/json`
+
+- Headers:`Accept: application/json`
 
 #### Crossref
 
 - Лимит: 50 запросов/сек (free), 100 запросов/сек (plus)
+
 - Аутентификация: Crossref-Plus-API-Token
+
 - Поддержка пагинации: cursor-based
 
 #### OpenAlex
 
 - Лимит: 10 запросов/сек
+
 - Без аутентификации
+
 - Специальная обработка rate limiting
 
 #### PubMed
 
 - Лимит: 3 запроса/сек (без ключа), 10 запросов/сек (с ключом)
-- Аутентификация: API key через параметр `api_key`
+
+- Аутентификация: API key через параметр`api*key`
+
 - Использует E-utilities (esummary + efetch)
 
 #### Semantic Scholar
 
 - Лимит: 100 запросов/сек
+
 - Без аутентификации
+
 - Поддержка batch запросов
 
 ## Мониторинг и диагностика
 
 ### Скрипты проверки API
 
-- `check_api_limits.py` - Полная проверка всех API
-- `check_specific_limits.py` - Детальная информация о лимитах
-- `quick_api_check.py` - Быстрая проверка конкретного API
-- `api_health_check.py` - Мониторинг состояния API
+-`check*api*limits.py`- Полная проверка всех API
+
+-`check*specific*limits.py`- Детальная информация о лимитах
+
+-`quick*api*check.py`- Быстрая проверка конкретного API
+
+-`api*health*check.py`- Мониторинг состояния API
 
 ### Метрики мониторинга
 
 - Время ответа API
+
 - Статус коды ответов
+
 - Количество ошибок 429 (rate limiting)
+
 - Успешность запросов по источникам
+
 - Использование fallback стратегий
 
 ### Логирование
 
 - Структурированные логи для каждого API клиента
+
 - Отслеживание rate limiting событий
+
 - Мониторинг fallback использований
+
 - Детальные ошибки для диагностики
 
 ## Ограничения и валидация
 
 - Все схемы используют Pandera для валидации типов данных
+
 - Обязательные поля не могут быть NULL
-- Опциональные поля помечены как `nullable=True`
-- Некоторые поля имеют ограничения на значения (например, `activity_value > 0`)
-- Источники данных ограничены предопределенным списком: `["chembl", "crossref", "openalex", "pubmed", "semantic_scholar"]`
+
+- Опциональные поля помечены как`nullable=True`
+
+- Некоторые поля имеют ограничения на значения (например,`activity*value > 0`)
+
+- Источники данных ограничены предопределенным списком: `["chembl", "crossref", "openalex", "pubmed", "semantic*scholar"]`
+
 - Автоматическая обработка ошибок API с fallback стратегиями
+
 - Rate limiting с экспоненциальным backoff
+
 - Валидация ответов API на соответствие ожидаемой структуре
 
 ## Группировка полей в выходных данных
 
 ### Обзор группировки
 
-Выходные данные организованы в логические группы полей для улучшения анализа и сравнения данных между источниками. Все поля сгруппированы по типу информации и источнику данных.
+Выходные данные организованы в логические группы полей для улучшения анализа и
+сравнения данных между источниками. Все поля сгруппированы по типу информации и
+источнику данных.
 
 ### Полная структура группировки полей
 
-```text
+```
+
 Основные поля документа
-├── document_chembl_id, doi, pubmed_id, classification, etc.
+├── document*chembl*id, doi, pubmed*id, classification, etc.
 Группа полей PMID
-├── chembl_pubmed_id, crossref_pmid, openalex_pmid, pubmed_pmid, semantic_scholar_pmid
+├── chembl*pubmed*id, crossref*pmid, openalex*pmid, pubmed*pmid,
+semantic*scholar*pmid
 Группа полей названий статей
-├── chembl_title, crossref_title, openalex_title, pubmed_article_title, semantic_scholar_title
+├── chembl*title, crossref*title, openalex*title, pubmed*article*title,
+semantic*scholar*title
 Группа полей аннотаций
-├── chembl_abstract, crossref_abstract, openalex_abstract, pubmed_abstract, semantic_scholar_abstract
+├── chembl*abstract, crossref*abstract, openalex*abstract, pubmed*abstract,
+semantic*scholar*abstract
 Группа полей авторов
-├── chembl_authors, crossref_authors, openalex_authors, pubmed_authors, semantic_scholar_authors
+├── chembl*authors, crossref*authors, openalex*authors, pubmed*authors,
+semantic*scholar*authors
 Поля из отдельных источников
 ├── ChEMBL, Crossref, OpenAlex, PubMed, Semantic Scholar
 Группа полей DOI
-├── chembl_doi, openalex_doi_key, pubmed_doi, semantic_scholar_doi
+├── chembl*doi, openalex*doi*key, pubmed*doi, semantic*scholar*doi
 Группа полей типов публикации
-├── doc_type, crossref_doc_type, openalex_doc_type, openalex_type_crossref, pubmed_publication_type, semantic_scholar_publication_types
+├── doc*type, crossref*doc*type, openalex*doc*type, openalex*type*crossref,
+pubmed*publication*type, semantic*scholar*publication*types
 Группа полей ISSN
-├── chembl_issn, crossref_issn, openalex_issn, pubmed_issn, semantic_scholar_issn
+├── chembl*issn, crossref*issn, openalex*issn, pubmed*issn,
+semantic*scholar*issn
 Группа полей названий журналов
-├── chembl_journal, crossref_journal, openalex_journal, pubmed_journal_title, semantic_scholar_venue
+├── chembl*journal, crossref*journal, openalex*journal, pubmed*journal*title,
+semantic*scholar*venue
 Группа полей годов издания
-├── chembl_year, crossref_year, openalex_year, pubmed_year
+├── chembl*year, crossref*year, openalex*year, pubmed*year
 Группа полей томов
-├── chembl_volume, crossref_volume, openalex_volume, pubmed_volume
+├── chembl*volume, crossref*volume, openalex*volume, pubmed*volume
 Группа полей выпусков
-├── chembl_issue, crossref_issue, openalex_issue, pubmed_issue
+├── chembl*issue, crossref*issue, openalex*issue, pubmed*issue
 Группа полей первых страниц
-├── crossref_first_page, openalex_first_page, pubmed_start_page
+├── crossref*first*page, openalex*first*page, pubmed*start*page
 Группа полей последних страниц
-├── crossref_last_page, openalex_last_page, pubmed_end_page
+├── crossref*last*page, openalex*last*page, pubmed*end*page
 Группа полей ошибок
-├── chembl_error, crossref_error, openalex_error, pubmed_error, semantic_scholar_error
+├── chembl*error, crossref*error, openalex*error, pubmed*error,
+semantic*scholar*error
+
 ```
 
 ### Детальное описание групп полей
@@ -657,137 +786,171 @@
 
 Поля содержат PubMed идентификаторы из всех источников:
 
-- **`chembl_pmid`** - PMID из ChEMBL
-- **`crossref_pmid`** - PMID из Crossref  
-- **`openalex_pmid`** - PMID из OpenAlex
-- **`pubmed_pmid`** - PMID из PubMed
-- **`semantic_scholar_pmid`** - PMID из Semantic Scholar
+- **`chembl*pmid`**- PMID из ChEMBL
 
-**Использование**: Связывание записей между источниками, дедупликация, валидация.
+-**`crossref*pmid`**- PMID из Crossref
+
+-**`openalex*pmid`**- PMID из OpenAlex
+
+-**`pubmed*pmid`**- PMID из PubMed
+
+-**`semantic*scholar*pmid`**- PMID из Semantic Scholar
+**Использование**: Связывание записей между источниками, дедупликация,
+валидация.
 
 #### 2. Группа полей названий статей
 
 Поля содержат названия публикаций из всех источников:
 
-- **`chembl_title`** - Название статьи из ChEMBL
-- **`crossref_title`** - Название статьи из Crossref
-- **`openalex_title`** - Название статьи из OpenAlex
-- **`pubmed_article_title`** - Название статьи из PubMed
-- **`semantic_scholar_title`** - Название статьи из Semantic Scholar
+- **`chembl*title`**- Название статьи из ChEMBL
 
+-**`crossref*title`**- Название статьи из Crossref
+
+-**`openalex*title`**- Название статьи из OpenAlex
+
+-**`pubmed*article*title`**- Название статьи из PubMed
+
+-**`semantic*scholar*title`**- Название статьи из Semantic Scholar
 **Использование**: Сравнение названий между источниками, анализ полноты данных.
 
 #### 3. Группа полей аннотаций
 
 Поля содержат аннотации (abstracts) из всех источников:
 
-- **`chembl_abstract`** - Аннотация из ChEMBL
-- **`crossref_abstract`** - Аннотация из Crossref
-- **`openalex_abstract`** - Аннотация из OpenAlex
-- **`pubmed_abstract`** - Аннотация из PubMed
-- **`semantic_scholar_abstract`** - Аннотация из Semantic Scholar
+- **`chembl*abstract`**- Аннотация из ChEMBL
 
-**Использование**: Текстовый анализ, сравнение содержания, создание объединенных аннотаций.
+-**`crossref*abstract`**- Аннотация из Crossref
+
+-**`openalex*abstract`**- Аннотация из OpenAlex
+
+-**`pubmed*abstract`**- Аннотация из PubMed
+
+-**`semantic*scholar*abstract`**- Аннотация из Semantic Scholar
+**Использование**: Текстовый анализ, сравнение содержания, создание объединенных
+аннотаций.
 
 #### 4. Группа полей авторов
 
 Поля содержат авторов публикаций из всех источников:
 
-- **`chembl_authors`** - Авторы из ChEMBL
-- **`crossref_authors`** - Авторы из Crossref
-- **`openalex_authors`** - Авторы из OpenAlex
-- **`pubmed_authors`** - Авторы из PubMed
-- **`semantic_scholar_authors`** - Авторы из Semantic Scholar
+- **`chembl*authors`**- Авторы из ChEMBL
 
-**Использование**: Анализ авторства, поиск по авторам, анализ научного сотрудничества.
+-**`crossref*authors`**- Авторы из Crossref
+
+-**`openalex*authors`**- Авторы из OpenAlex
+
+-**`pubmed*authors`**- Авторы из PubMed
+
+-**`semantic*scholar*authors`**- Авторы из Semantic Scholar
+**Использование**: Анализ авторства, поиск по авторам, анализ научного
+сотрудничества.
 
 #### 5. Группа полей ISSN
 
 Поля содержат ISSN (International Standard Serial Number) из всех источников:
 
-- **`chembl_issn`** - ISSN из ChEMBL
-- **`crossref_issn`** - ISSN из Crossref
-- **`openalex_issn`** - ISSN из OpenAlex
-- **`pubmed_issn`** - ISSN из PubMed
-- **`semantic_scholar_issn`** - ISSN из Semantic Scholar
+- **`chembl*issn`**- ISSN из ChEMBL
 
-**Использование**: Идентификация журналов, валидация ISSN, связывание данных по журналам.
+-**`crossref*issn`**- ISSN из Crossref
+
+-**`openalex*issn`**- ISSN из OpenAlex
+
+-**`pubmed*issn`**- ISSN из PubMed
+
+-**`semantic*scholar*issn`**- ISSN из Semantic Scholar
+**Использование**: Идентификация журналов, валидация ISSN, связывание данных по
+журналам.
 
 #### 6. Группа полей названий журналов
 
 Поля содержат названия журналов из всех источников:
 
-- **`chembl_journal`** - Название журнала из ChEMBL
-- **`crossref_journal`** - Название журнала из Crossref
-- **`openalex_journal`** - Название журнала из OpenAlex
-- **`pubmed_journal_title`** - Название журнала из PubMed
-- **`semantic_scholar_venue`** - Название журнала из Semantic Scholar
+- **`chembl*journal`**- Название журнала из ChEMBL
 
-**Использование**: Анализ публикаций по журналам, нормализация названий журналов.
+-**`crossref*journal`**- Название журнала из Crossref
+
+-**`openalex*journal`**- Название журнала из OpenAlex
+
+-**`pubmed*journal*title`**- Название журнала из PubMed
+
+-**`semantic*scholar*venue`**- Название журнала из Semantic Scholar
+**Использование**: Анализ публикаций по журналам, нормализация названий
+журналов.
 
 #### 7. Группа полей годов издания
 
 Поля содержат годы публикации из всех источников:
 
-- **`chembl_year`** - Год из ChEMBL
-- **`crossref_year`** - Год из Crossref
-- **`openalex_year`** - Год из OpenAlex
-- **`pubmed_year`** - Год из PubMed
+- **`chembl*year`**- Год из ChEMBL
 
+-**`crossref*year`**- Год из Crossref
+
+-**`openalex*year`**- Год из OpenAlex
+
+-**`pubmed*year`**- Год из PubMed
 **Использование**: Временной анализ публикаций, валидация дат.
 
 #### 8. Группа полей томов
 
 Поля содержат номера томов из всех источников:
 
-- **`chembl_volume`** - Том из ChEMBL
-- **`crossref_volume`** - Том из Crossref
-- **`openalex_volume`** - Том из OpenAlex
-- **`pubmed_volume`** - Том из PubMed
+- **`chembl*volume`**- Том из ChEMBL
 
+-**`crossref*volume`**- Том из Crossref
+
+-**`openalex*volume`**- Том из OpenAlex
+
+-**`pubmed*volume`**- Том из PubMed
 **Использование**: Создание полных библиографических ссылок.
 
 #### 9. Группа полей выпусков
 
 Поля содержат номера выпусков из всех источников:
 
-- **`chembl_issue`** - Номер выпуска из ChEMBL
-- **`crossref_issue`** - Номер выпуска из Crossref
-- **`openalex_issue`** - Номер выпуска из OpenAlex
-- **`pubmed_issue`** - Номер выпуска из PubMed
+- **`chembl*issue`**- Номер выпуска из ChEMBL
 
+-**`crossref*issue`**- Номер выпуска из Crossref
+
+-**`openalex*issue`**- Номер выпуска из OpenAlex
+
+-**`pubmed*issue`**- Номер выпуска из PubMed
 **Использование**: Детализация библиографических ссылок.
 
 #### 10. Группа полей первых страниц
 
 Поля содержат номера первых страниц из всех источников:
 
-- **`crossref_first_page`** - Первая страница из Crossref
-- **`openalex_first_page`** - Первая страница из OpenAlex
-- **`pubmed_start_page`** - Начальная страница из PubMed
+- **`crossref*first*page`**- Первая страница из Crossref
 
+-**`openalex*first*page`**- Первая страница из OpenAlex
+
+-**`pubmed*start*page`**- Начальная страница из PubMed
 **Использование**: Создание точных библиографических ссылок.
 
 #### 11. Группа полей последних страниц
 
 Поля содержат номера последних страниц из всех источников:
 
-- **`crossref_last_page`** - Последняя страница из Crossref
-- **`openalex_last_page`** - Последняя страница из OpenAlex
-- **`pubmed_end_page`** - Конечная страница из PubMed
+- **`crossref*last*page`**- Последняя страница из Crossref
 
+-**`openalex*last*page`**- Последняя страница из OpenAlex
+
+-**`pubmed*end*page`**- Конечная страница из PubMed
 **Использование**: Определение диапазона страниц публикации.
 
 #### 12. Группа полей ошибок
 
 Поля содержат информацию об ошибках из всех источников:
 
-- **`chembl_error`** - Ошибка из ChEMBL
-- **`crossref_error`** - Ошибка из Crossref
-- **`openalex_error`** - Ошибка из OpenAlex
-- **`pubmed_error`** - Ошибка из PubMed
-- **`semantic_scholar_error`** - Ошибка из Semantic Scholar
+- **`chembl*error`**- Ошибка из ChEMBL
 
+-**`crossref*error`**- Ошибка из Crossref
+
+-**`openalex*error`**- Ошибка из OpenAlex
+
+-**`pubmed*error`**- Ошибка из PubMed
+
+-**`semantic*scholar*error`**- Ошибка из Semantic Scholar
 **Использование**: Мониторинг качества данных, диагностика проблем с API.
 
 ### Преимущества группировки полей
@@ -802,100 +965,135 @@
 
 #### Анализ заполненности по группам
 
-```python
-def analyze_field_groups(df):
+```
+
+def analyze*field*groups(df):
     """Анализирует заполненность полей по группам."""
     groups = {
-        'PMID': ['chembl_pmid', 'crossref_pmid', 'openalex_pmid', 'pubmed_pmid', 'semantic_scholar_pmid'],
-        'Titles': ['chembl_title', 'crossref_title', 'openalex_title', 'pubmed_article_title', 'semantic_scholar_title'],
-        'Abstracts': ['chembl_abstract', 'crossref_abstract', 'openalex_abstract', 'pubmed_abstract', 'semantic_scholar_abstract'],
-        'Authors': ['chembl_authors', 'crossref_authors', 'openalex_authors', 'pubmed_authors', 'semantic_scholar_authors'],
-        'ISSN': ['chembl_issn', 'crossref_issn', 'openalex_issn', 'pubmed_issn', 'semantic_scholar_issn'],
-        'Journals': ['chembl_journal', 'crossref_journal', 'openalex_journal', 'pubmed_journal_title', 'semantic_scholar_venue'],
-        'Years': ['chembl_year', 'crossref_year', 'openalex_year', 'pubmed_year'],
-        'Volumes': ['chembl_volume', 'crossref_volume', 'openalex_volume', 'pubmed_volume'],
-        'Issues': ['chembl_issue', 'crossref_issue', 'openalex_issue', 'pubmed_issue'],
-        'First Pages': ['crossref_first_page', 'openalex_first_page', 'pubmed_start_page'],
-        'Last Pages': ['crossref_last_page', 'openalex_last_page', 'pubmed_end_page'],
-        'Errors': ['chembl_error', 'crossref_error', 'openalex_error', 'pubmed_error', 'semantic_scholar_error']
+'PMID': ['chembl*pmid', 'crossref*pmid', 'openalex*pmid', 'pubmed*pmid',
+'semantic*scholar*pmid'],
+'Titles': ['chembl*title', 'crossref*title', 'openalex*title',
+'pubmed*article*title', 'semantic*scholar*title'],
+'Abstracts': ['chembl*abstract', 'crossref*abstract', 'openalex*abstract',
+'pubmed*abstract', 'semantic*scholar*abstract'],
+'Authors': ['chembl*authors', 'crossref*authors', 'openalex*authors',
+'pubmed*authors', 'semantic*scholar*authors'],
+'ISSN': ['chembl*issn', 'crossref*issn', 'openalex*issn', 'pubmed*issn',
+'semantic*scholar*issn'],
+'Journals': ['chembl*journal', 'crossref*journal', 'openalex*journal',
+'pubmed*journal*title', 'semantic*scholar*venue'],
+'Years': ['chembl*year', 'crossref*year', 'openalex*year', 'pubmed*year'],
+'Volumes': ['chembl*volume', 'crossref*volume', 'openalex*volume',
+'pubmed*volume'],
+'Issues': ['chembl*issue', 'crossref*issue', 'openalex*issue', 'pubmed*issue'],
+'First Pages': ['crossref*first*page', 'openalex*first*page',
+'pubmed*start*page'],
+'Last Pages': ['crossref*last*page', 'openalex*last*page', 'pubmed*end*page'],
+'Errors': ['chembl*error', 'crossref*error', 'openalex*error', 'pubmed*error',
+'semantic*scholar*error']
     }
-    for group_name, fields in groups.items():
-        total_records = len(df)
-        filled_records = df[fields].notna().any(axis=1).sum()
-        print(f"{group_name}: {filled_records}/{total_records} ({filled_records/total_records*100:.1f}%)")
+    for group*name, fields in groups.items():
+        total*records = len(df)
+        filled*records = df[fields].notna().any(axis=1).sum()
+print(f"{group*name}: {filled*records}/{total*records}
+({filled*records/total*records*100:.1f}%)")
+
 ```
 
 #### Создание полных библиографических ссылок
 
-```python
-def create_complete_citation(record):
+```
+
+def create*complete*citation(record):
     """Создает полную библиографическую ссылку из сгруппированных полей."""
-    # Используем приоритет источников: PubMed > ChEMBL > Crossref > OpenAlex > Semantic Scholar
-    # Название журнала
-    journal = (record['pubmed_journal_title'] or 
-               record['chembl_journal'] or 
-               record['crossref_journal'] or 
-               record['openalex_journal'] or 
-               record['semantic_scholar_venue'])
-    # Год
-    year = (record['pubmed_year'] or 
-            record['chembl_year'] or 
-            record['crossref_year'] or 
-            record['openalex_year'])
-    # Том
-    volume = (record['pubmed_volume'] or 
-              record['chembl_volume'] or 
-              record['crossref_volume'] or 
-              record['openalex_volume'])
-    # Выпуск
-    issue = (record['pubmed_issue'] or 
-             record['chembl_issue'] or 
-             record['crossref_issue'] or 
-             record['openalex_issue'])
-    # Страницы
-    first_page = (record['pubmed_start_page'] or 
-                  record['crossref_first_page'] or 
-                  record['openalex_first_page'])
-    last_page = (record['pubmed_end_page'] or 
-                 record['crossref_last_page'] or 
-                 record['openalex_last_page'])
-    # Формируем цитату
+
+## Используем приоритет источников: PubMed > ChEMBL > Crossref > OpenAlex > Semantic Scholar
+
+## Название журнала
+
+    journal = (record['pubmed*journal*title'] or
+               record['chembl*journal'] or
+               record['crossref*journal'] or
+               record['openalex*journal'] or
+               record['semantic*scholar*venue'])
+
+## Год
+
+    year = (record['pubmed*year'] or
+            record['chembl*year'] or
+            record['crossref*year'] or
+            record['openalex*year'])
+
+## Том
+
+    volume = (record['pubmed*volume'] or
+              record['chembl*volume'] or
+              record['crossref*volume'] or
+              record['openalex*volume'])
+
+## Выпуск
+
+    issue = (record['pubmed*issue'] or
+             record['chembl*issue'] or
+             record['crossref*issue'] or
+             record['openalex*issue'])
+
+## Страницы
+
+    first*page = (record['pubmed*start*page'] or
+                  record['crossref*first*page'] or
+                  record['openalex*first*page'])
+    last*page = (record['pubmed*end*page'] or
+                 record['crossref*last*page'] or
+                 record['openalex*last*page'])
+
+## Формируем цитату
+
     parts = []
     if journal: parts.append(journal)
     if year: parts.append(f"({year})")
     if volume: parts.append(f"Vol. {volume}")
     if issue: parts.append(f"Issue {issue}")
-    if first_page:
-        if last_page and last_page != first_page:
-            parts.append(f"pp. {first_page}-{last_page}")
+    if first*page:
+        if last*page and last*page != first*page:
+            parts.append(f"pp. {first*page}-{last*page}")
         else:
-            parts.append(f"p. {first_page}")
+            parts.append(f"p. {first*page}")
     return ", ".join(parts)
+
 ```
 
 #### Мониторинг качества данных
 
-```python
-def monitor_data_quality(df):
+```
+
+def monitor*data*quality(df):
     """Мониторинг качества данных по группам полей."""
-    error_fields = ['chembl_error', 'crossref_error', 'openalex_error', 'pubmed_error', 'semantic_scholar_error']
-    total_records = len(df)
-    records_with_errors = df[error_fields].notna().any(axis=1).sum()
-    error_rate = (records_with_errors / total_records) * 100
+error*fields = ['chembl*error', 'crossref*error', 'openalex*error',
+'pubmed*error', 'semantic*scholar*error']
+    total*records = len(df)
+    records*with*errors = df[error*fields].notna().any(axis=1).sum()
+    error*rate = (records*with*errors / total*records) *100
     print(f"Общая статистика:")
-    print(f"  Всего записей: {total_records}")
-    print(f"  Записей с ошибками: {records_with_errors}")
-    print(f"  Процент ошибок: {error_rate:.2f}%")
-    # Детальная статистика по источникам
-    for field in error_fields:
-        source_errors = df[field].notna().sum()
-        source_rate = (source_errors / total_records) * 100
-        print(f"  {field}: {source_errors} ошибок ({source_rate:.2f}%)")
+    print(f"  Всего записей: {total*records}")
+    print(f"  Записей с ошибками: {records*with*errors}")
+    print(f"  Процент ошибок: {error*rate:.2f}%")
+
+## Детальная статистика по источникам
+
+    for field in error*fields:
+        source*errors = df[field].notna().sum()
+        source*rate = (source*errors / total*records)* 100
+        print(f"  {field}: {source*errors} ошибок ({source*rate:.2f}%)")
+
 ```
 
 ### Конфигурация группировки
 
-Группировка полей настроена в файле `configs/config_documents_full.yaml` в секции `determinism.column_order`. Порядок полей определяет структуру выходных данных и обеспечивает логичную организацию информации.
+Группировка полей настроена в файле`configs/config*documents*full.yaml`в
+секции`determinism.column*order`. Порядок полей определяет структуру выходных
+данных и обеспечивает логичную организацию информации.
 
-Все изменения касаются только порядка колонок в конфигурации, не затрагивая логику обработки данных.
+Все изменения касаются только порядка колонок в конфигурации, не затрагивая
+логику обработки данных.
  

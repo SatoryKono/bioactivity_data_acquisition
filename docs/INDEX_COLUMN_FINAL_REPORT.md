@@ -2,23 +2,23 @@
 
 ## Выполненная работа
 
-Успешно реализована функциональность автоматического добавления столбца `index` с порядковыми номерами строк (начиная с 0) при сохранении итоговых таблиц с извлеченными данными.
+Успешно реализована функциональность автоматического добавления столбца `index`с порядковыми
+номерами строк (начиная с 0) при сохранении итоговых таблиц с
+извлеченными данными.
 
 ## Детали реализации
 
 ### 1. Основные изменения
 
-#### Файл: `src/library/etl/load.py`
+#### Файл:`src/library/etl/load.py`## Функция`write*deterministic*csv`:
 
-**Функция `write_deterministic_csv`:**
+- Добавлен код для автоматического добавления столбца `index`в начало таблицы
 
-- Добавлен код для автоматического добавления столбца `index` в начало таблицы
-
-- Столбец содержит порядковые номера от 0 до (количество_строк - 1)
+- Столбец содержит порядковые номера от 0 до (количество*строк - 1)
 
 - Обработка пустых DataFrame без добавления index
 
-**Функция `_deterministic_order`:**
+## Функция`*deterministic*order`:
 
 - Улучшена обработка случаев отсутствия колонок для сортировки
 
@@ -29,7 +29,9 @@
 ### 2. Логика работы
 
 ```
+
 Исходные данные → Детерминированный порядок → Добавление index → Сохранение
+
 ```
 
 1. **Проверка на пустоту**: Если DataFrame пустой, index не добавляется
@@ -42,28 +44,32 @@
 #### Исходные данные:
 
 ```
-compound_id   target  activity_value activity_type reference
+
+compound*id   target  activity*value activity*type reference
 CHEMBL1      TARGET1             5.2          IC50   PMID123
 CHEMBL2      TARGET2             7.1          EC50   PMID456
 CHEMBL3      TARGET1             3.8          IC50   PMID789
 CHEMBL4      TARGET3             9.4            Ki   PMID012
+
 ```
 
 #### Результат с index:
 
 ```
-index compound_id   target  activity_value activity_type reference
+
+index compound*id   target  activity*value activity*type reference
     0     CHEMBL1  TARGET1             5.2          IC50   PMID123
     1     CHEMBL2  TARGET2             7.1          EC50   PMID456
     2     CHEMBL3  TARGET1             3.8          IC50   PMID789
     3     CHEMBL4  TARGET3             9.4            Ki   PMID012
+
 ```
 
 ## Тестирование
 
 ### Созданные тесты
 
-1. **`tests/test_index_column_simple.py`**:
+1. **`tests/test*index*column*simple.py`**:
 
    - Тест добавления index в обычный DataFrame
 
@@ -73,7 +79,7 @@ index compound_id   target  activity_value activity_type reference
 
    - Проверка позиционирования столбца
 
-2. **`scripts/test_index_column_demo.py`**:
+2. **`scripts/test*index*column*demo.py`**:
 
    - Демонстрационный скрипт с реальными данными
 
@@ -85,11 +91,11 @@ index compound_id   target  activity_value activity_type reference
 
 ✅ **Все тесты прошли успешно**
 
-- Столбец `index` добавляется корректно
+- Столбец `index`добавляется корректно
 
 - Значения index соответствуют порядковым номерам (0, 1, 2, 3, ...)
 
-- Столбец `index` размещается первым в таблице
+- Столбец`index`размещается первым в таблице
 
 - Пустые DataFrame обрабатываются корректно
 
@@ -99,7 +105,7 @@ index compound_id   target  activity_value activity_type reference
 
 ### Обратная совместимость
 
-✅ **Полная обратная совместимость**:
+✅**Полная обратная совместимость**:
 
 - Все существующие функции работают без изменений
 
@@ -111,7 +117,7 @@ index compound_id   target  activity_value activity_type reference
 
 ### Интеграция
 
-Столбец `index` автоматически добавляется во всех местах использования `write_deterministic_csv`:
+Столбец`index`автоматически добавляется во всех местах использования`write*deterministic*csv`:
 
 - Основная функция пайплайна (`src/library/etl/run.py`)
 
@@ -153,7 +159,7 @@ index compound_id   target  activity_value activity_type reference
 
 ### Созданная документация
 
-1. **`docs/INDEX_COLUMN_IMPLEMENTATION.md`**:
+1. **`docs/INDEX*COLUMN*IMPLEMENTATION.md`**:
 
    - Подробное описание реализации
 
@@ -161,7 +167,7 @@ index compound_id   target  activity_value activity_type reference
 
    - Техническая документация
 
-2. **`docs/INDEX_COLUMN_FINAL_REPORT.md`** (этот файл):
+2. **`docs/INDEX*COLUMN*FINAL*REPORT.md`**(этот файл):
 
    - Итоговый отчет о проделанной работе
 
@@ -171,11 +177,13 @@ index compound_id   target  activity_value activity_type reference
 
 ### Статус: ✅ ЗАВЕРШЕНО
 
-Задача успешно выполнена. Столбец `index` с порядковыми номерами строк (начиная с 0) автоматически добавляется при сохранении всех итоговых таблиц с извлеченными данными.
+Задача успешно выполнена. Столбец `index`с порядковыми номерами строк (начиная
+с 0) автоматически добавляется при сохранении всех итоговых таблиц с
+извлеченными данными.
 
 ### Ключевые достижения:
 
-1. **Функциональность**: Столбец `index` добавляется автоматически
+1.**Функциональность**: Столбец`index`добавляется автоматически
 2. **Качество**: Все тесты проходят успешно
 3. **Совместимость**: Полная обратная совместимость
 4. **Документация**: Подробная документация создана
@@ -191,4 +199,6 @@ index compound_id   target  activity_value activity_type reference
 
 - ✅ Интеграция с пайплайном выполнена
 
-Столбец `index` теперь будет автоматически добавляться во все выходные файлы пайплайна извлечения биоактивных данных, обеспечивая уникальную идентификацию каждой строки.
+Столбец`index` теперь будет автоматически добавляться во все выходные файлы
+пайплайна извлечения биоактивных данных, обеспечивая уникальную идентификацию
+каждой строки.

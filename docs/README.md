@@ -1,106 +1,129 @@
 # Bioactivity Data Acquisition
 
-A modular ETL pipeline for downloading bioactivity data via HTTP APIs, validating it with
-[Pandera](https://pandera.readthedocs.io/), transforming it into a normalized representation, and
+A modular ETL pipeline for downloading bioactivity data via HTTP APIs,
+validating it with
+[Pandera]([https://pandera.readthedocs.io/](https://pandera.readthedocs.io/)), transforming it into
+a normalized
+representation, and
 exporting deterministic CSV outputs together with QC reports.
 
 ## Features
 
-- **Config-driven** execution using YAML files parsed with Pydantic.
+- **Config-driven**execution using YAML files parsed with Pydantic.
 
-- **Resilient HTTP clients** powered by `requests` and `backoff`.
+-**Resilient HTTP clients**powered by `requests`and`backoff`.
 
-- **Data validation** with Pandera schemas for both raw and normalized data.
+-**Data validation**with Pandera schemas for both raw and normalized data.
 
-- **Deterministic outputs** including QC metrics and correlation matrices.
+-**Deterministic outputs**including QC metrics and correlation matrices.
 
-- **Typer-based CLI** for orchestrating the pipeline.
+-**Typer-based CLI**for orchestrating the pipeline.
 
-- **Comprehensive QA** with pytest (coverage ≥ 90 %), mypy `--strict`, ruff, and black.
+-**Comprehensive QA**with pytest (coverage ≥ 90 %), mypy `--strict`, ruff, and black.
 
 ## Installation
 
-Create and activate a virtual environment (Python ≥ 3.10), then install the project with the
+Create and activate a virtual environment (Python ≥ 3.10), then install the
+project with the
 development dependencies:
 
-```bash
+```
+
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install .[dev]
+
 ```
 
-If you only need the runtime dependencies, drop the `[dev]` extra.
+If you only need the runtime dependencies, drop the`[dev]` extra.
 
 ## Configuration
 
-The canonical configuration lives in [`configs/config.yaml`](configs/config.yaml). It is documented in
+The canonical configuration lives in
+[`configs/config.yaml`](configs/config.yaml). It is documented in
 detail in [`docs/CONFIG.md`](docs/CONFIG.md) together with the precedence rules:
 
 1. Defaults defined in `bioactivity.config`.
 2. Values from the YAML file passed via `--config`.
-3. Environment variables prefixed with `BIOACTIVITY__` (e.g. `BIOACTIVITY__RUNTIME__LOG_LEVEL=DEBUG`).
+3. Environment variables prefixed with `BIOACTIVITY**`(e.g.`BIOACTIVITY**RUNTIME_*LOG*LEVEL=DEBUG`).
 4. CLI overrides provided with `--set section.key=value`.
 
 Secrets such as API tokens are injected via placeholders in headers (e.g.
-`Authorization: "Bearer {CHEMBL_API_TOKEN}"`) and are resolved exclusively from environment
-variables. The canonical configuration covers ChEMBL and Crossref sources, output destinations,
+`Authorization: "Bearer {CHEMBL*API*TOKEN}"`) and are resolved exclusively from
+environment
+variables. The canonical configuration covers ChEMBL and Crossref sources,
+output destinations,
 deterministic behaviour, and QC thresholds.
 
-Consult [`reports/config_audit.csv`](reports/config_audit.csv) for an inventory of available keys.
+Consult [`reports/config*audit.csv`](reports/config*audit.csv) for an inventory
+of available keys.
 
 ## Command Line Interface
 
 Run the pipeline from the CLI using Typer:
 
-```bash
+```
+
 bioactivity-data-acquisition pipeline --config configs/config.yaml
+
 ```
 
 Override individual configuration values at runtime:
 
-```bash
-BIOACTIVITY__LOGGING__LEVEL=DEBUG \
+```
+
+BIOACTIVITY**LOGGING**LEVEL=DEBUG \
   bioactivity-data-acquisition pipeline \
   --config configs/config.yaml \
   --set runtime.workers=8 \
-  --set sources.chembl.pagination.max_pages=1
+  --set sources.chembl.pagination.max*pages=1
+
 ```
 
 ## Testing and Quality Gates
 
 Run the full validation suite (coverage threshold 90 % is enforced by pytest):
 
-```bash
+```
+
 pytest
+
 ```
 
 Type-check the codebase with mypy in strict mode:
 
-```bash
+```
+
 mypy src
+
 ```
 
 Lint and format using ruff and black:
 
-```bash
+```
+
 ruff check .
 black .
+
 ```
 
 ## Pre-commit Hooks
 
 Install pre-commit hooks to run Ruff, Black, mypy, and pytest automatically:
 
-```bash
+```
+
 pre-commit install
 pre-commit run --all-files
+
 ```
 
 ## Continuous Integration
 
-The GitHub Actions workflow (`.github/workflows/ci.yaml`) runs Ruff, Black, mypy, and pytest
-on each push and pull request targeting `main` or `work`.
+The GitHub Actions workflow (`.github/workflows/ci.yaml`) runs Ruff, Black,
+mypy, and pytest
+on each push and pull request targeting `main`or`work`.
 
 ## API Limits Monitoring
 
@@ -108,48 +131,55 @@ on each push and pull request targeting `main` or `work`.
 
 ### Быстрая проверка
 
-```bash
-# Проверка всех API
+```
 
-python src/library/scripts/api_health_check.py --save
+## Проверка всех API
 
-# Проверка конкретного API
+python src/library/scripts/api*health*check.py --save
 
-python src/library/scripts/quick_api_check.py crossref
+## Проверка конкретного API
+
+python src/library/scripts/quick*api*check.py crossref
+
 ```
 
 ### Детальная проверка
 
-```bash
-# Полная проверка с отчетом
+```
 
-python src/library/scripts/check_api_limits.py
+## Полная проверка с отчетом
 
-# Детальная информация о лимитах
+python src/library/scripts/check*api*limits.py
 
-python src/library/scripts/check_specific_limits.py
+## Детальная информация о лимитах
+
+python src/library/scripts/check*specific*limits.py
+
 ```
 
 ### Мониторинг в реальном времени
 
-```bash
-# Мониторинг Crossref API каждые 30 секунд
-
-python src/library/scripts/monitor_api.py crossref
-
-# Мониторинг с настройками
-
-python src/library/scripts/monitor_api.py pubmed -i 60 -d 3600  # каждую минуту в течение часа
 ```
 
-Подробная документация: [docs/API_LIMITS_CHECK.md](docs/API_LIMITS_CHECK.md)
+## Мониторинг Crossref API каждые 30 секунд
+
+python src/library/scripts/monitor*api.py crossref
+
+## Мониторинг с настройками
+
+python src/library/scripts/monitor*api.py pubmed -i 60 -d 3600 # каждую минуту в
+течение часа
+
+```
+
+Подробная документация: [docs/API*LIMITS*CHECK.md](docs/API*LIMITS_CHECK.md)
 
 ## Outputs
 
 The load stage produces three artefacts:
 
-- **Bioactivities CSV** – sorted deterministic dataset.
+-**Bioactivities CSV**– sorted deterministic dataset.
 
-- **QC report** – summary metrics (row counts, duplicates, missing values).
+-**QC report**– summary metrics (row counts, duplicates, missing values).
 
-- **Correlation matrix** – numeric correlations saved as CSV.
+-**Correlation matrix** – numeric correlations saved as CSV.

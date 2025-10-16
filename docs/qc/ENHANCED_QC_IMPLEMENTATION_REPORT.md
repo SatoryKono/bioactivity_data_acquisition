@@ -2,100 +2,103 @@
 
 ## Обзор
 
-Успешно реализована расширенная система оценки качества данных с поддержкой всех запрошенных метрик. Система интегрирована в существующую архитектуру проекта и готова к использованию.
+Успешно реализована расширенная система оценки качества данных с поддержкой всех
+запрошенных метрик. Система интегрирована в существующую архитектуру проекта и
+готова к использованию.
 
 ## Реализованные метрики
 
 ### ✅ Базовые метрики полноты данных
 
-- **non_null**: Количество непустых значений
+- **non*null**: Количество непустых значений
 
-- **non_empty**: Количество непустых и непустых строковых значений  
+- **non*empty**: Количество непустых и непустых строковых значений
 
-- **empty_pct**: Процент пустых значений
+- **empty*pct**: Процент пустых значений
 
-- **unique_cnt**: Количество уникальных значений
+- **unique*cnt**: Количество уникальных значений
 
-- **unique_pct_of_non_empty**: Процент уникальных значений от общего количества непустых
+- **unique*pct*of*non*empty**: Процент уникальных значений от общего количества непустых
 
 ### ✅ Анализ паттернов данных
 
-- **pattern_cov_doi**: Покрытие паттерном DOI (Digital Object Identifier)
+- **pattern*cov*doi**: Покрытие паттерном DOI (Digital Object Identifier)
 
-- **pattern_cov_issn**: Покрытие паттерном ISSN (International Standard Serial Number)
+- **pattern*cov*issn**: Покрытие паттерном ISSN (International Standard Serial Number)
 
-- **pattern_cov_isbn**: Покрытие паттерном ISBN (International Standard Book Number)
+- **pattern*cov*isbn**: Покрытие паттерном ISBN (International Standard Book Number)
 
-- **pattern_cov_url**: Покрытие паттерном URL
+- **pattern*cov*url**: Покрытие паттерном URL
 
-- **pattern_cov_email**: Покрытие паттерном email адресов
+- **pattern*cov*email**: Покрытие паттерном email адресов
 
-- **bool_like_cov**: Покрытие булевыми значениями (true/false, yes/no, 1/0)
+- **bool*like*cov**: Покрытие булевыми значениями (true/false, yes/no, 1/0)
 
 ### ✅ Статистический анализ числовых данных
 
-- **numeric_cov**: Покрытие числовыми значениями
+- **numeric*cov**: Покрытие числовыми значениями
 
-- **numeric_min**: Минимальное значение
+- **numeric*min**: Минимальное значение
 
-- **numeric_p50**: Медиана (50-й процентиль)
+- **numeric*p50**: Медиана (50-й процентиль)
 
-- **numeric_p95**: 95-й процентиль
+- **numeric*p95**: 95-й процентиль
 
-- **numeric_max**: Максимальное значение
+- **numeric*max**: Максимальное значение
 
-- **numeric_mean**: Среднее значение
+- **numeric*mean**: Среднее значение
 
-- **numeric_std**: Стандартное отклонение
+- **numeric*std**: Стандартное отклонение
 
 ### ✅ Анализ временных данных
 
-- **date_cov**: Покрытие датами
+- **date*cov**: Покрытие датами
 
-- **date_min**: Минимальная дата
+- **date*min**: Минимальная дата
 
-- **date_p50**: Медианная дата
+- **date*p50**: Медианная дата
 
-- **date_max**: Максимальная дата
+- **date*max**: Максимальная дата
 
 ### ✅ Анализ длины текста
 
-- **text_len_min**: Минимальная длина текста
+- **text*len*min**: Минимальная длина текста
 
-- **text_len_p50**: Медианная длина текста
+- **text*len*p50**: Медианная длина текста
 
-- **text_len_p95**: 95-й процентиль длины текста
+- **text*len*p95**: 95-й процентиль длины текста
 
-- **text_len_max**: Максимальная длина текста
+- **text*len*max**: Максимальная длина текста
 
 ### ✅ Дополнительные метрики
 
-- **guessed_roles**: Автоматически определенные роли столбцов (identifier, datetime, numeric_metric, categorical, text)
+- **guessed*roles**: Автоматически определенные роли столбцов (identifier, datetime, numeric*metric, categorical, text)
 
-- **top_values**: Топ-10 наиболее частых значений с их количеством
+- **top*values**: Топ-10 наиболее частых значений с их количеством
 
 ## Созданные файлы
 
 ### Основные модули
 
-1. **`src/library/etl/enhanced_qc.py`** - Основной модуль с классом `EnhancedTableQualityProfiler`
-2. **Обновлен `src/library/etl/qc.py`** - Интеграция новых функций
-3. **Обновлен `src/library/etl/load.py`** - Поддержка расширенной QC отчетности
-4. **Обновлен `src/library/config.py`** - Добавлена опция `enhanced` в `QCStepSettings`
+1. **`src/library/etl/enhanced*qc.py`**- Основной модуль с классом
+`EnhancedTableQualityProfiler`2.**Обновлен`src/library/etl/qc.py`**- Интеграция новых функций
+3.**Обновлен `src/library/etl/load.py`**- Поддержка расширенной QC отчетности
+4.**Обновлен `src/library/config.py`**- Добавлена опция `enhanced`в`QCStepSettings`
 
 ### Конфигурация
 
-5. **`configs/config_enhanced_qc.yaml`** - Пример конфигурации с включенной расширенной QC
+5.**`configs/config*enhanced*qc.yaml`**- Пример конфигурации с включенной
+расширенной QC
 
 ### Документация
 
-6. **`docs/ENHANCED_QC_METRICS.md`** - Подробная документация по метрикам
-7. **`docs/ENHANCED_QC_IMPLEMENTATION_REPORT.md`** - Данный отчет
+6.**`docs/ENHANCED*QC*METRICS.md`**- Подробная документация по метрикам
+7.**`docs/ENHANCED*QC*IMPLEMENTATION*REPORT.md`**- Данный отчет
 
 ### Тестирование
 
-8. **`scripts/test_enhanced_qc.py`** - Демонстрационный скрипт
-9. **`tests/test_enhanced_qc.py`** - Полный набор тестов
+8.**`scripts/test*enhanced*qc.py`**- Демонстрационный скрипт
+9.**`tests/test*enhanced*qc.py`**- Полный набор тестов
 
 ## Результаты тестирования
 
@@ -109,44 +112,50 @@
 
 ### ✅ Автоматические тесты
 
-- **11 тестов** - все прошли успешно
+-**11 тестов**- все прошли успешно
 
-- Покрытие кода: **98%** для модуля enhanced_qc
+- Покрытие кода:**98%**для модуля enhanced*qc
 
 - Проверены все основные функции и граничные случаи
 
 ### ✅ Созданные отчеты
 
-1. **enhanced_qc_summary.csv** - Сводная таблица со всеми метриками
-2. **enhanced_qc_column_summary.csv** - Детальная информация по столбцам
-3. **enhanced_qc_top_values.csv** - Топ значения для каждого столбца
-4. **enhanced_qc_pattern_coverage.csv** - Покрытие паттернами по столбцам
+1.**enhanced*qc*summary.csv**- Сводная таблица со всеми метриками
+2.**enhanced*qc*column*summary.csv**- Детальная информация по столбцам
+3.**enhanced*qc*top*values.csv**- Топ значения для каждого столбца
+4.**enhanced*qc*pattern*coverage.csv**- Покрытие паттернами по столбцам
 
 ## Примеры использования
 
 ### Включение в конфигурации
 
-```yaml
+```
+
 postprocess:
   qc:
     enabled: true
     enhanced: true  # Включает расширенную QC отчетность
+
 ```
 
 ### Программное использование
 
-```python
-from library.etl.enhanced_qc import EnhancedTableQualityProfiler
+```
+
+from library.etl.enhanced*qc import EnhancedTableQualityProfiler
 
 profiler = EnhancedTableQualityProfiler(logger=logger)
-quality_report = profiler.consume(dataframe)
-summary = profiler.generate_summary_report(quality_report)
+quality*report = profiler.consume(dataframe)
+summary = profiler.generate*summary*report(quality*report)
+
 ```
 
 ### Запуск демонстрации
 
-```bash
-python scripts/test_enhanced_qc.py
+```
+
+python scripts/test*enhanced_qc.py
+
 ```
 
 ## Ключевые особенности реализации
@@ -189,7 +198,7 @@ python scripts/test_enhanced_qc.py
 
 ### Общая информация
 
-- **Общее количество строк**: 1050
+-**Общее количество строк**: 1050
 
 - **Общее количество колонок**: 21
 
@@ -197,13 +206,13 @@ python scripts/test_enhanced_qc.py
 
 ### Примеры обнаруженных паттернов
 
-- **DOI**: 79.2% покрытие в колонке `doi`
+- **DOI**: 79.2% покрытие в колонке`doi`
 
-- **ISSN**: 28.8% покрытие в колонке `issn`
+- **ISSN**: 28.8% покрытие в колонке`issn`
 
-- **URL**: 37.3% покрытие в колонке `url`
+- **URL**: 37.3% покрытие в колонке`url`
 
-- **Email**: 8.7% покрытие в колонке `email`
+- **Email**: 8.7% покрытие в колонке`email`
 
 ### Статистические данные
 
@@ -217,7 +226,9 @@ python scripts/test_enhanced_qc.py
 
 ## Заключение
 
-Расширенная система оценки качества данных успешно реализована и протестирована. Все запрошенные метрики работают корректно и предоставляют детальную информацию о качестве и структуре данных. Система готова к использованию в продакшене.
+Расширенная система оценки качества данных успешно реализована и протестирована.
+Все запрошенные метрики работают корректно и предоставляют детальную информацию
+о качестве и структуре данных. Система готова к использованию в продакшене.
 
 ### Преимущества новой системы
 

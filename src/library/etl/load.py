@@ -337,6 +337,12 @@ def _auto_generate_qc_and_correlation_reports(
     if df.empty:
         return
     
+    # Не генерируем отчеты для самих QC отчетов и корреляций
+    if _is_qc_report(df) or _is_report_file(data_path):
+        if logger is not None:
+            logger.info("skip_report_generation", reason="input_is_report", path=str(data_path))
+        return
+    
     # Импортируем функции для генерации отчетов
     from .qc import (
         build_qc_report,

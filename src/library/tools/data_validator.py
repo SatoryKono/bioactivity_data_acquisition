@@ -27,6 +27,8 @@ def _normalize_value(value: Any) -> str | None:
 def validate_doi_fields(df: pd.DataFrame) -> pd.DataFrame:
     """Валидирует DOI из различных источников.
     
+    Простая логика: DOI валиден, если все доступные DOI совпадают.
+    
     Args:
         df: DataFrame с данными документов
         
@@ -35,54 +37,46 @@ def validate_doi_fields(df: pd.DataFrame) -> pd.DataFrame:
     """
     df_copy = df.copy()
     
-    # Поля DOI из разных источников (только те, что есть в данных)
+    # Поля DOI из разных источников
     doi_fields = ['chembl_doi', 'crossref_doi', 'openalex_doi', 'pubmed_doi', 'semantic_scholar_doi']
+    
+    # Удаляем старые колонки валидации, если они есть
+    if 'invalid_doi' in df_copy.columns:
+        df_copy = df_copy.drop(columns=['invalid_doi'])
+    if 'valid_doi' in df_copy.columns:
+        df_copy = df_copy.drop(columns=['valid_doi'])
     
     invalid_doi = []
     valid_doi = []
     
     for _, row in df_copy.iterrows():
-        # Собираем непустые DOI значения
-        non_empty_dois = []
+        # Собираем все непустые DOI значения
+        available_dois = []
         for field in doi_fields:
             if field in row and not _is_empty_value(row[field]):
-                non_empty_dois.append(_normalize_value(row[field]))
+                available_dois.append(_normalize_value(row[field]))
         
-        if len(non_empty_dois) == 0:
+        if len(available_dois) == 0:
             # Нет ни одного DOI
             invalid_doi.append(True)
             valid_doi.append(pd.NA)
-        elif len(non_empty_dois) == 1:
+        elif len(available_dois) == 1:
             # Только один DOI - считаем валидным
             invalid_doi.append(False)
             # Находим оригинальное значение DOI (не нормализованное)
-            original_doi = None
             for field in doi_fields:
                 if field in row and not _is_empty_value(row[field]):
-                    original_doi = row[field]
+                    valid_doi.append(row[field])
                     break
-            valid_doi.append(original_doi)
         else:
-            # Несколько DOI - проверяем совпадения
-            chembl_doi = _normalize_value(row['chembl_doi']) if not _is_empty_value(row['chembl_doi']) else None
+            # Несколько DOI - проверяем, все ли они одинаковые
+            unique_dois = list(set(available_dois))
             
-            matches = 0
-            mismatches = 0
-            
-            for doi in non_empty_dois:
-                if chembl_doi is not None and doi == chembl_doi:
-                    matches += 1
-                elif chembl_doi is not None:
-                    mismatches += 1
-            
-            # Если количество совпадений <= количества несовпадений - DOI невалидный
-            if matches <= mismatches:
-                invalid_doi.append(True)
-                valid_doi.append(pd.NA)
-            else:
+            if len(unique_dois) == 1:
+                # Все DOI одинаковые - валидный
                 invalid_doi.append(False)
-                # Возвращаем оригинальное значение DOI из ChEMBL, если оно есть
-                if not _is_empty_value(row['chembl_doi']):
+                # Возвращаем оригинальное значение DOI из ChEMBL, если есть
+                if not _is_empty_value(row.get('chembl_doi')):
                     valid_doi.append(row['chembl_doi'])
                 else:
                     # Иначе берем первый найденный DOI
@@ -90,7 +84,12 @@ def validate_doi_fields(df: pd.DataFrame) -> pd.DataFrame:
                         if field in row and not _is_empty_value(row[field]):
                             valid_doi.append(row[field])
                             break
+            else:
+                # DOI разные - невалидный
+                invalid_doi.append(True)
+                valid_doi.append(pd.NA)
     
+    # Добавляем новые колонки
     df_copy['invalid_doi'] = invalid_doi
     df_copy['valid_doi'] = valid_doi
     
@@ -424,7 +423,6 @@ def validate_all_fields(df: pd.DataFrame) -> pd.DataFrame:
     df_validated = validate_year_fields(df_validated)
     df_validated = validate_volume_fields(df_validated)
     df_validated = validate_issue_fields(df_validated)
-    
     return df_validated
 
 
