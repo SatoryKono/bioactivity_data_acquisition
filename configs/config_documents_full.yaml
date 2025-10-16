@@ -1,155 +1,386 @@
 # Конфигурация для полной обработки документов со всеми источниками
 # Включает все доступные API и максимальную детализацию
 
+# Глобальные настройки HTTP-клиента
 http:
   global:
+    # Максимальное время ожидания ответа от сервера в секундах
     timeout_sec: 60.0  # Увеличенный таймаут для всех запросов
+    # Настройки повторных попыток при неудачных запросах
     retries:
+      # Общее количество попыток (включая первую)
       total: 10
+      # Множитель для экспоненциальной задержки между попытками
       backoff_multiplier: 3.0
-    headers:
-      User-Agent: bioactivity-data-acquisition/0.1.0
-
-sources:
-  chembl:
-    name: chembl
-    enabled: true
-    endpoint: document
-    params:
-      document_type: article
-    pagination:
-      page_param: page
-      size_param: page_size
-      size: 200
-      max_pages: 50  # Больше страниц для полной обработки
-    http:
-      base_url: https://www.ebi.ac.uk/chembl/api/data
-      timeout_sec: 120.0  # Увеличенный таймаут для ChEMBL
+      # Настройки ограничения скорости запросов по умолчанию
+      rate_limit:
+        max_calls: 3
+        period: 1.0      
+      # Заголовки, отправляемые с каждым HTTP-запросом
       headers:
-        Accept: application/json
-        Authorization: "Bearer {chembl_api_token}"
-
-  crossref:
-    name: crossref
-    enabled: true
-    params:
-      query: chembl
-      select: DOI,title
-    pagination:
-      page_param: cursor
-      size_param: rows
-      size: 100
-      max_pages: 20  # Больше страниц для полной обработки
-    http:
-      base_url: https://api.crossref.org/works
-      timeout_sec: 60.0
-      headers:
-        Accept: application/json
-        Crossref-Plus-API-Token: "{crossref_api_key}"
-
-  openalex:
-    name: openalex
-    enabled: true
-    http:
-      base_url: https://api.openalex.org/works
-      timeout_sec: 60.0
-      headers:
-        Accept: application/json
-
-  pubmed:
-    name: pubmed
-    enabled: true
-    rate_limit:
-      max_calls: 5  # Увеличенный лимит при наличии API ключа
-      period: 1.0
-    http:
-      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
-      timeout_sec: 120.0
-      headers:
+      # Идентификатор клиента для API-провайдеров
         Accept: application/json
         User-Agent: bioactivity-data-acquisition/0.1.0
-        api_key: "{PUBMED_API_KEY}"
-      retries:
-        total: 15
-        backoff_multiplier: 4.0
 
-  semantic_scholar:
-    name: semantic_scholar
-    enabled: true  # Включен для полной обработки
-    rate_limit:
-      max_calls: 2  # Увеличенный лимит при наличии API ключа
-      period: 60.0  # 1 минута
+# Конфигурация источников данных
+sources:
+  # ChEMBL - база данных химических соединений и биологической активности
+  chembl:
+    # Уникальное имя источника
+    name: chembl
+    # API endpoint для получения документов
+    endpoint: document
+    # Параметры запроса к API
+    params:
+      # Тип документов для поиска (статьи)
+      document_type: article
+    # Переопределения настроек пагинации
+    pagination:
+      # Количество записей на странице (больше для ChEMBL)
+      size: 200
+      # Максимальное количество страниц для обработки
+      max_pages: 50  # Больше страниц для полной обработки
+    # Переопределения HTTP настроек
     http:
-      base_url: https://api.semanticscholar.org/graph/v1/paper
-      timeout_sec: 120.0
+      # Базовый URL API ChEMBL
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      # Таймаут для запросов к ChEMBL (больше из-за сложности данных)
+      timeout_sec: 120.0  # Увеличенный таймаут для ChEMBL
+      # Дополнительные заголовки для ChEMBL
       headers:
-        Accept: application/json
-        x-api-key: "{SEMANTIC_SCHOLAR_API_KEY}"
+        # Токен авторизации (заменяется на реальный токен)
+        Authorization: "Bearer {chembl_api_token}"
+
+  # Crossref - сервис для получения метаданных научных публикаций
+  crossref:
+    # Уникальное имя источника
+    name: crossref
+    # Параметры поиска в Crossref
+    params:
+      # Поисковый запрос (ищем публикации связанные с ChEMBL)
+      query: chembl
+      # Поля, которые нужно получить из API
+      select: DOI,title
+    # Переопределения настроек пагинации
+    pagination:
+      # Параметр курсора для навигации по страницам
+      page_param: cursor
+      # Параметр количества записей на странице
+      size_param: rows
+      # Максимальное количество страниц
+      max_pages: 20  # Больше страниц для полной обработки
+    # Переопределения HTTP настроек
+    http:
+      # Базовый URL API Crossref
+      base_url: https://api.crossref.org/works
+      # Дополнительные заголовки для Crossref
+      headers:
+        # API ключ для Crossref Plus (заменяется на реальный ключ)
+        Crossref-Plus-API-Token: "{crossref_api_key}"
+
+  # OpenAlex - открытая база данных научных публикаций
+  openalex:
+    # Уникальное имя источника
+    name: openalex
+    # Переопределения HTTP настроек
+    http:
+      # Базовый URL API OpenAlex
+      base_url: https://api.openalex.org/works
+      # Переопределения настроек повторных попыток
       retries:
+        # Общее количество попыток
         total: 20
+        # Множитель задержки между попытками
         backoff_multiplier: 5.0
 
+  # PubMed - база данных биомедицинской литературы NCBI
+  pubmed:
+    # Уникальное имя источника
+    name: pubmed
+    # Включен ли источник
+    enabled: true
+    # Настройки ограничения скорости запросов (rate limiting)
+    rate_limit:
+      # Максимальное количество запросов в период
+      max_calls: 5  # Увеличенный лимит при наличии API ключа
+      # Период в секундах для подсчета запросов
+      period: 1.0
+    # HTTP настройки для PubMed
+    http:
+      # Базовый URL для E-utilities API NCBI
+      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils/
+      # Таймаут для запросов (больше из-за сложности PubMed)
+      timeout_sec: 120.0
+      # Заголовки для запросов
+      headers:
+        # Предпочитаемый формат ответа
+        Accept: application/json
+        # Идентификатор клиента
+        User-Agent: bioactivity-data-acquisition/0.1.0
+        # API ключ для PubMed (заменяется на реальный ключ)
+        api_key: "{PUBMED_API_KEY}"
+      # Настройки повторных попыток для PubMed
+      retries:
+        # Общее количество попыток
+        total: 15
+        # Множитель задержки между попытками
+        backoff_multiplier: 4.0
+
+  # Semantic Scholar - AI-платформа для научных публикаций
+  semantic_scholar:
+    # Уникальное имя источника
+    name: semantic_scholar
+    # Включен ли источник
+    enabled: true  # Включен для полной обработки
+    # Настройки ограничения скорости запросов
+    rate_limit:
+      # Максимальное количество запросов в период
+      max_calls: 1  # Консервативный лимит: 1 запрос в минуту без API ключа
+      # Период в секундах (1 минута)
+      period: 60.0  # 1 минута
+    # HTTP настройки для Semantic Scholar
+    http:
+      # Базовый URL API Semantic Scholar
+      base_url: https://api.semanticscholar.org/graph/v1/paper
+      # Таймаут для запросов
+      timeout_sec: 120.0
+      # Заголовки для запросов
+      headers:
+        # Предпочитаемый формат ответа
+        Accept: application/json
+        # Идентификатор клиента
+        User-Agent: bioactivity-data-acquisition/0.1.0        
+        # API ключ для Semantic Scholar (заменяется на реальный ключ        
+        x-api-key: "{SEMANTIC_SCHOLAR_API_KEY}"
+      # Настройки повторных попыток
+      retries:
+        # Общее количество попыток
+        total: 20
+        # Множитель задержки между попытками
+        backoff_multiplier: 5.0
+
+# Настройки ввода-вывода данных
 io:
+  # Настройки входных данных
   input:
+    # Путь к CSV файлу с исходными документами
     documents_csv: data/input/documents.csv
+  # Настройки выходных данных
   output:
+    # Директория для сохранения результатов
     dir: data/output/full
+    # Формат выходных файлов
     format: csv
+    # Специфичные настройки для CSV формата
     csv:
+      # Кодировка файла
       encoding: utf-8
+      # Формат чисел с плавающей точкой (3 знака после запятой)
       float_format: "%.3f"
+      # Формат даты и времени (ISO 8601)
       date_format: "%Y-%m-%dT%H:%M:%SZ"
 
+# Настройки выполнения программы
 runtime:
+  # Количество параллельных воркеров для обработки данных
   workers: 8  # Больше воркеров для полной обработки
+  # Ограничение на количество обрабатываемых записей (null = без ограничений)
   limit: null  # Без ограничений
+  # Режим тестирования (true = только симуляция, false = реальная обработка)
   dry_run: false
+  # Тег даты для именования файлов (автоматическая генерация)
+  # date_tag будет сгенерирован автоматически
 
+
+# Настройки логирования
 logging:
-  level: INFO
+  # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: WARNING
 
+# Настройки валидации данных
 validation:
+  # Строгий режим валидации (true = останавливать при ошибках)
   strict: true
+  # Настройки контроля качества (QC)
   qc:
+    # Максимальная доля пропущенных значений (2%)
     max_missing_fraction: 0.02  # Более строгие требования
+    # Максимальная доля дублирующихся записей (0.5%)
     max_duplicate_fraction: 0.005
 
+# Настройки детерминизма для воспроизводимости результатов
 determinism:
+  # Настройки сортировки данных
   sort:
+    # Поля для сортировки (в порядке приоритета)
     by:
-      - document_chembl_id
-      - title
-      - doi
+      - document_chembl_id  # ID документа в ChEMBL
+    # Направление сортировки для каждого поля
     ascending:
-      - true
-      - true
-      - true
+      - true   # document_chembl_id - по возрастанию
+    # Позиция для значений NULL/NA (last = в конце)
     na_position: last
+  # Порядок колонок в выходном файле
   column_order:
-    - document_chembl_id
-    - title
-    - doi
-    - journal
-    - volume
-    - issue
-    - first_page
-    - last_page
-    - citation
-    - source
-    - retrieved_at
-    - chembl_title
-    - chembl_doi
-    - crossref_title
-    - openalex_title
-    - pubmed_pmid
-    - semantic_scholar_pmid
+    - index                   # ID документа 
+    # Основные поля документа (оригинальные из ChEMBL)
+    - document_chembl_id      # ID документа в ChEMBL
+    - pubmed_id               # PubMed идентификатор
+    - classification          # Классификация документа
+    - document_contains_external_links  # Содержит ли документ внешние ссылки            # Номер первой страницы
+    - is_experimental_doc     # Является ли документ экспериментальным
+    - citation                # Форматированная литературная ссылка
+    - retrieved_at            # Время получения данных
 
+    - pubmed_mesh_descriptors # MeSH дескрипторы из PubMed
+    - pubmed_mesh_qualifiers  # MeSH квалификаторы из PubMed
+    - pubmed_chemical_list    # Список химических веществ из PubMed
+    - crossref_subject        # Предметная область из Crossref
+
+    # Группа полей PMID из всех источников
+    - chembl_pmid             # PMID из ChEMBL
+    - crossref_pmid           # PMID из Crossref
+    - openalex_pmid           # PMID из OpenAlex
+    - pubmed_pmid             # PMID из PubMed
+    - semantic_scholar_pmid   # PMID из Semantic Scholar
+    
+    # Группа полей названий статей из всех источников
+    - chembl_title            # Название статьи из ChEMBL
+    - crossref_title          # Название статьи из Crossref
+    - openalex_title          # Название статьи из OpenAlex
+    - pubmed_article_title    # Название статьи из PubMed
+    - semantic_scholar_title  # Название статьи из Semantic Scholar
+    
+    # Группа полей аннотаций из всех источников
+    - chembl_abstract            # Аннотация из ChEMBL
+    - crossref_abstract          # Аннотация из Crossref
+    - openalex_abstract          # Аннотация из OpenAlex
+    - pubmed_abstract            # Аннотация из PubMed
+    - semantic_scholar_abstract  # Аннотация из Semantic Scholar
+    
+    # Группа полей авторов из всех источников
+    - chembl_authors             # Авторы из ChEMBL
+    - crossref_authors           # Авторы из Crossref
+    - openalex_authors           # Авторы из OpenAlex
+    - pubmed_authors             # Авторы из PubMed
+    - semantic_scholar_authors   # Авторы из Semantic Scholar
+    
+    # Группа полей DOI из всех источников
+    - chembl_doi              # DOI из ChEMBL
+    - crossref_doi            # DOI из Crossref
+    - openalex_doi             # DOI из OpenAlex
+    - pubmed_doi              # DOI из PubMed
+    - semantic_scholar_doi    # DOI из Semantic Scholar
+    
+    # Группа полей типов публикации из всех источников
+    - chembl_doc_type          # Тип документа из ChEMBL
+    - crossref_doc_type       # Тип документа из Crossref
+    - openalex_doc_type      # Тип документа из OpenAlex
+    - openalex_crossref_doc_type  # Тип документа из OpenAlex    
+    - pubmed_doc_type          # Тип публикации из PubMed
+    - semantic_scholar_doc_type    # Типы публикации из Semantic Scholar
+    
+    # Группа полей ISSN из всех источников
+    - chembl_issn             # ISSN из ChEMBL
+    - crossref_issn           # ISSN из Crossref
+    - openalex_issn           # ISSN из OpenAlex
+    - pubmed_issn             # ISSN из PubMed
+    - semantic_scholar_issn   # ISSN из Semantic Scholar
+    
+    # Группа полей названий журналов из всех источников
+    - chembl_journal          # Название журнала из ChEMBL
+    - crossref_journal        # Название журнала из Crossref
+    - openalex_journal        # Название журнала из OpenAlex
+    - pubmed_journal           # Название журнала из PubMed
+    - semantic_scholar_journal  # Название журнала из Semantic Scholar
+    
+    # Группа полей годов издания из всех источников
+    - chembl_year             # Год из ChEMBL
+    - crossref_year           # Год из Crossref
+    - openalex_year           # Год из OpenAlex
+    - pubmed_year             # Год из PubMed
+    #- openalex_year  # Год публикации из OpenAlex
+
+    # Группа полей томов из всех источников
+    - chembl_volume           # Том из ChEMBL
+    - crossref_volume         # Том из Crossref
+    - openalex_volume         # Том из OpenAlex
+    - pubmed_volume           # Том из PubMed
+    
+    # Группа полей выпусков из всех источников
+    - chembl_issue            # Номер выпуска из ChEMBL
+    - crossref_issue          # Номер выпуска из Crossref
+    - openalex_issue          # Номер выпуска из OpenAlex
+    - pubmed_issue            # Номер выпуска из PubMed
+    
+    # Группа полей первых страниц из всех источников
+    - crossref_first_page     # Первая страница из Crossref
+    - openalex_first_page     # Первая страница из OpenAlex
+    - pubmed_first_page       # Начальная страница из PubMed
+    
+    # Группа полей последних страниц из всех источников
+    - crossref_last_page      # Последняя страница из Crossref
+    - openalex_last_page      # Последняя страница из OpenAlex
+    - pubmed_last_page        # Конечная страница из PubMed
+    
+    # Группа полей ошибок из всех источников
+    - chembl_error            # Ошибка из ChEMBL
+    - crossref_error          # Ошибка из Crossref
+    - openalex_error          # Ошибка из OpenAlex
+    - pubmed_error            # Ошибка из PubMed
+    - semantic_scholar_error  # Ошибка из Semantic Scholar
+
+    # Поля из PubMed (расширенные)
+    - pubmed_year_completed   # Год завершения из PubMed
+    - pubmed_month_completed  # Месяц завершения из PubMed
+    - pubmed_day_completed    # День завершения из PubMed
+    - pubmed_year_revised     # Год пересмотра из PubMed
+    - pubmed_month_revised    # Месяц пересмотра из PubMed
+    - pubmed_day_revised      # День пересмотра из PubMed
+
+    # Поля валидации данных из различных источников
+
+    - valid_doi               # Валидное значение DOI
+    - valid_journal           # Валидное значение журнала
+    - valid_year              # Валидное значение года
+    - valid_volume            # Валидное значение тома
+    - valid_issue             # Валидное значение номера выпуска
+    - invalid_doi             # Флаг невалидности DOI
+    - invalid_journal         # Флаг невалидности журнала   
+    - invalid_year            # Флаг невалидности года
+    - invalid_volume          # Флаг невалидности тома
+    - invalid_issue           # Флаг невалидности номера выпуска         
+# Настройки постобработки данных
 postprocess:
+  # Контроль качества данных
   qc:
+    # Включить анализ качества данных
     enabled: true
+  # Корреляционный анализ между источниками
   correlation:
+    # Включить анализ корреляций
     enabled: true
+  # Нормализация названий журналов
   journal_normalization:
+    # Включить нормализацию журналов
     enabled: true
+    # Колонки для нормализации названий журналов
+    columns: [
+      "pubmed_journal",         # Название журнала из PubMed
+      "chembl_journal",         # Название журнала из ChEMBL
+      "crossref_journal",       # Название журнала из Crossref
+      "openalex_journal",       # Название журнала из OpenAlex
+      "semantic_scholar_journal"  # Название журнала из Semantic Scholar
+    ]
+  # Форматирование цитат
   citation_formatting:
+    # Включить форматирование цитат
     enabled: true
+    # Маппинг колонок для форматирования цитат
+    columns:
+      journal: "valid_journal"        # Колонка с названием журнала
+      year: "valid_year"              # Колонка с годом публикации
+      volume: "valid_volume"          # Колонка с томом
+      issue: "valid_issue"            # Колонка с номером выпуска
+      first_page: "pubmed_first_page"  # Колонка с первой страницей
+      last_page: "pubmed_last_page"    # Колонка с последней страницей
