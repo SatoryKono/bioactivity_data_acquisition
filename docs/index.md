@@ -20,4 +20,13 @@
 - Фиксация версий окружения и зависимостей
 - Согласованные схемы данных (Pandera)
 
-Смотрите разделы: `Архитектура`, `Конфигурация`, `CLI`, `Схемы данных`, `Артефакты выгрузки`.
+Дальше:
+
+- Getting started: getting-started.md
+- Конфигурация: configuration.md
+- CLI: cli.md
+- Validation: validation.md
+- Источники данных: data-sources.md
+- Артефакты: outputs.md
+- API limits: api-limits.md
+- Разработка: development.md

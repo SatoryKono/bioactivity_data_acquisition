@@ -23,6 +23,9 @@ pip install .
 # Проверка установки и доступных команд
 bioactivity-data-acquisition --help
 
+# Установка автодополнения для bash/zsh (опционально)
+bioactivity-data-acquisition install-completion bash
+
 # Запуск основного пайплайна по конфигу
 bioactivity-data-acquisition pipeline --config configs/config.yaml \
   --set http.global.timeout_sec=45

@@ -1,0 +1,54 @@
+# Example override file for docker-compose.yml
+# Copy this to docker-compose.override.yml and customize as needed
+
+version: '3.8'
+
+services:
+  bioactivity-etl:
+    environment:
+      # API Keys (set these in .env.local)
+      - BIOACTIVITY__SOURCES__CHEMBL__HTTP__HEADERS__Authorization=Bearer ${CHEMBL_API_TOKEN}
+      - BIOACTIVITY__SOURCES__PUBMED__HTTP__HEADERS__Authorization=Bearer ${PUBMED_API_KEY}
+      - BIOACTIVITY__SOURCES__SEMANTIC_SCHOLAR__HTTP__HEADERS__Authorization=Bearer ${SEMANTIC_SCHOLAR_API_KEY}
+      
+      # OpenTelemetry configuration
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - JAEGER_AGENT_HOST=jaeger
+      - JAEGER_AGENT_PORT=6831
+      - SERVICE_VERSION=0.1.0
+      - ENVIRONMENT=development
+      
+      # Pipeline configuration
+      - BIOACTIVITY__RUNTIME__WORKERS=4
+      - BIOACTIVITY__RUNTIME__LIMIT=1000
+      - BIOACTIVITY__HTTP__GLOBAL__TIMEOUT_SEC=60
+      - BIOACTIVITY__LOGGING__LEVEL=DEBUG
+      
+      # Output configuration
+      - BIOACTIVITY__IO__OUTPUT__DIR=/app/data/output
+      - BIOACTIVITY__IO__INPUT__DOCUMENTS_CSV=/app/data/input/documents.csv
+
+  # Override for production-like testing
+  bioactivity-etl-prod:
+    build:
+      context: .
+      target: production
+    container_name: bioactivity-etl-prod
+    environment:
+      - ENVIRONMENT=production
+      - BIOACTIVITY__LOGGING__LEVEL=INFO
+      - BIOACTIVITY__RUNTIME__WORKERS=8
+    command: ["pipeline", "--config", "/app/configs/config_documents_full.yaml"]
+
+  # Override for CI testing
+  bioactivity-etl-ci:
+    build:
+      context: .
+      target: ci
+    container_name: bioactivity-etl-ci
+    environment:
+      - ENVIRONMENT=ci
+      - BIOACTIVITY__LOGGING__LEVEL=WARNING
+    volumes:
+      - ./test-results:/app/test-results
+    command: ["pytest", "-v", "--junitxml=/app/test-results/junit.xml", "--cov=library", "--cov-report=xml:/app/test-results/coverage.xml"]

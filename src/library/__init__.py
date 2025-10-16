@@ -64,6 +64,7 @@ from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
 from library.scripts_base import DeprecatedScriptWrapper, create_deprecated_script_wrapper
 from library.utils import *  # noqa: F403
 from library.utils import __all__ as _utils_all
+from library.telemetry import setup_telemetry, traced_operation, get_current_trace_id
 
 __all__ = [
     "ALLOWED_SOURCES",
@@ -122,6 +123,9 @@ __all__ = [
     "write_deterministic_csv",
     "write_document_outputs",
     "write_qc_artifacts",
+    "setup_telemetry",
+    "traced_operation",
+    "get_current_trace_id",
 ]
 
 if CLISettings is not None:

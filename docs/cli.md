@@ -11,6 +11,52 @@ bioactivity-data-acquisition --help
 # запуск пайплайна
 bioactivity-data-acquisition pipeline --config configs/config.yaml \
   --set http.global.timeout_sec=10
+
+# установка автодополнения для shell
+bioactivity-data-acquisition install-completion bash
+bioactivity-data-acquisition install-completion zsh
+bioactivity-data-acquisition install-completion fish
+bioactivity-data-acquisition install-completion powershell
+```
+
+## Автодополнение
+
+CLI поддерживает автодополнение для популярных shell:
+
+### Bash
+```bash
+# Установка
+bioactivity-data-acquisition install-completion bash
+
+# Активация (добавить в ~/.bashrc)
+source ~/.local/share/bash-completion/completions/bioactivity-data-acquisition
+```
+
+### Zsh
+```bash
+# Установка
+bioactivity-data-acquisition install-completion zsh
+
+# Активация (добавить в ~/.zshrc)
+fpath=(~/.zsh/completions $fpath)
+autoload -U compinit && compinit
+```
+
+### Fish
+```bash
+# Установка
+bioactivity-data-acquisition install-completion fish
+
+# Автоматически активируется после перезапуска shell
+```
+
+### PowerShell
+```powershell
+# Установка
+bioactivity-data-acquisition install-completion powershell
+
+# Активация (добавить в профиль PowerShell)
+. ~/Documents/PowerShell/Modules/bioactivity-data-acquisition.ps1
 ```
 
 ### Опции команды `pipeline`

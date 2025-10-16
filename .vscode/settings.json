@@ -12,5 +12,6 @@
     "chatgpt.commentCodeLensEnabled": false,
     "python.testing.pytestArgs": [
         "tests"
-    ]
+    ],
+    "makefile.configureOnOpen": false
 }

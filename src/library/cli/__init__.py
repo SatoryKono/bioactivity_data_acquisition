@@ -26,6 +26,7 @@ from library.documents.pipeline import (
 )
 from library.etl.run import run_pipeline
 from library.utils.logging import configure_logging
+from library.telemetry import setup_telemetry
 
 CONFIG_OPTION = typer.Option(
     ...,
@@ -283,13 +284,111 @@ def get_document_data(
 @app.command()
 def version() -> None:
     """Print the package version."""
+    try:
+        from importlib.metadata import version
+        package_version = version("bioactivity-data-acquisition")
+        typer.echo(f"bioactivity-data-acquisition {package_version}")
+    except Exception:
+        # Fallback to hardcoded version if importlib.metadata fails
+        typer.echo("bioactivity-data-acquisition 0.1.0")
 
-    typer.echo("bioactivity-data-acquisition 0.1.0")
+
+@app.command()
+def install_completion(
+    shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)")
+) -> None:
+    """Install shell completion for the CLI."""
+    
+    import subprocess
+    import sys
+    
+    # Get the current executable path
+    executable = sys.executable
+    
+    # Get the script name
+    script_name = "bioactivity-data-acquisition"
+    
+    try:
+        # Generate completion script
+        result = subprocess.run([
+            executable, "-m", "typer", "src.library.cli:app", 
+            f"--name={script_name}", 
+            f"{shell}",
+            "--output-file", "-"
+        ], capture_output=True, text=True, check=True)
+        
+        completion_script = result.stdout
+        
+        if shell == "bash":
+            completion_file = Path.home() / ".bashrc"
+            completion_dir = Path.home() / ".local" / "share" / "bash-completion" / "completions"
+            completion_dir.mkdir(parents=True, exist_ok=True)
+            completion_path = completion_dir / script_name
+            
+            with completion_path.open("w") as f:
+                f.write(completion_script)
+            
+            typer.echo(f"✅ Bash completion installed to {completion_path}")
+            typer.echo(f"Run 'source {completion_path}' or restart your shell to activate.")
+            
+        elif shell == "zsh":
+            completion_dir = Path.home() / ".zsh" / "completions"
+            completion_dir.mkdir(parents=True, exist_ok=True)
+            completion_path = completion_dir / f"_{script_name}"
+            
+            with completion_path.open("w") as f:
+                f.write(completion_script)
+            
+            typer.echo(f"✅ Zsh completion installed to {completion_path}")
+            typer.echo("Add the following to your ~/.zshrc:")
+            typer.echo(f"  fpath=(~/.zsh/completions $fpath)")
+            typer.echo("  autoload -U compinit && compinit")
+            
+        elif shell == "fish":
+            completion_dir = Path.home() / ".config" / "fish" / "completions"
+            completion_dir.mkdir(parents=True, exist_ok=True)
+            completion_path = completion_dir / f"{script_name}.fish"
+            
+            with completion_path.open("w") as f:
+                f.write(completion_script)
+            
+            typer.echo(f"✅ Fish completion installed to {completion_path}")
+            typer.echo("Restart your shell to activate.")
+            
+        elif shell == "powershell":
+            completion_dir = Path.home() / "Documents" / "PowerShell" / "Modules"
+            completion_dir.mkdir(parents=True, exist_ok=True)
+            completion_path = completion_dir / f"{script_name}.ps1"
+            
+            with completion_path.open("w") as f:
+                f.write(completion_script)
+            
+            typer.echo(f"✅ PowerShell completion installed to {completion_path}")
+            typer.echo("Add the following to your PowerShell profile:")
+            typer.echo(f"  . {completion_path}")
+            
+        else:
+            typer.echo(f"❌ Unsupported shell: {shell}")
+            typer.echo("Supported shells: bash, zsh, fish, powershell")
+            raise typer.Exit(1)
+            
+    except subprocess.CalledProcessError as e:
+        typer.echo(f"❌ Failed to generate completion script: {e}")
+        typer.echo(f"Error output: {e.stderr}")
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"❌ Failed to install completion: {e}")
+        raise typer.Exit(1)
 
 
 def main() -> None:
     """Entrypoint for ``python -m library.cli``."""
-
+    # Initialize telemetry
+    setup_telemetry(
+        service_name="bioactivity-etl",
+        enable_requests_instrumentation=True,
+    )
+    
     app()
 
 
@@ -297,4 +396,4 @@ if __name__ == "__main__":  # pragma: no cover - convenience entrypoint
     main()
 
 
-__all__ = ["ExitCode", "app", "get_document_data", "main"]
+__all__ = ["ExitCode", "app", "get_document_data", "install_completion", "main"]

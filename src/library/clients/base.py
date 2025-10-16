@@ -20,6 +20,7 @@ from library.clients.fallback import FallbackManager, FallbackConfig, AdaptiveFa
 from library.clients.exceptions import ApiClientError, RateLimitError
 from library.config import APIClientConfig
 from library.logger import get_logger
+from library.telemetry import traced_operation, add_span_attribute, add_span_event
 
 
 @dataclass(frozen=True)
@@ -167,6 +168,12 @@ class BaseApiClient:
         if headers:
             request_headers.update(headers)
 
+        # Add tracing attributes
+        add_span_attribute("http.method", method)
+        add_span_attribute("http.url", url)
+        add_span_attribute("api.client", self.config.name)
+        add_span_attribute("http.expected_status", expected_status)
+
         self.logger.info(
             "request",
             method=method,
@@ -179,7 +186,13 @@ class BaseApiClient:
             response = self._send_with_backoff(method, url, headers=request_headers, **kwargs)
         except requests.exceptions.RequestException as exc:  # pragma: no cover - defensive
             self.logger.error("transport_error", error=str(exc))
+            add_span_attribute("error", True)
+            add_span_attribute("error.type", "transport_error")
             raise ApiClientError(str(exc)) from exc
+
+        # Add response attributes to span
+        add_span_attribute("http.status_code", response.status_code)
+        add_span_attribute("http.response_size", len(response.content))
 
         if response.status_code != expected_status:
             self.logger.warning(
@@ -188,6 +201,8 @@ class BaseApiClient:
                 text=response.text,
                 expected_status=expected_status,
             )
+            add_span_attribute("error", True)
+            add_span_attribute("error.type", "unexpected_status")
             
             # Специальная обработка для ошибок rate limiting (429)
             if response.status_code == 429:
