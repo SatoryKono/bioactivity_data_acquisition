@@ -107,6 +107,4 @@ class ChEMBLClient(BaseApiClient):
             "chembl_issn": None,
             "chembl_authors": None,
             "chembl_error": error_msg,
-            # Legacy fields
-            "abstract": None,
         }

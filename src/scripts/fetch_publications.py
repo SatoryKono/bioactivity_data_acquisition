@@ -44,7 +44,7 @@ def read_queries(input_path: Path) -> pd.DataFrame:
     """Read queries from CSV file."""
     return pd.read_csv(input_path)
 
-def write_publications(publications: pd.DataFrame, output_path: Path) -> None:
+def write_publications(publications: pd.DataFrame, output_path: Path, config: Any) -> None:
     """Write publications to CSV file."""
     # Используем готовую функцию детерминистического сохранения
     from library.etl.load import write_deterministic_csv
@@ -239,7 +239,7 @@ def _execute_pipeline(config_path: Path, input_path: Path, output: Path | None) 
         target = output
         if target.is_dir():
             target = target / "publications.csv"
-        write_publications(validated_publications, target)
+        write_publications(validated_publications, target, config)
         logger.info("pipeline_completed", output=str(target), records=len(validated_publications))
 
     return pd.DataFrame(validated_publications)

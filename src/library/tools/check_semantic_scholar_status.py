@@ -7,7 +7,6 @@
 
 import os
 import requests
-import sys
 import time
 from typing import Optional
 
@@ -132,7 +131,7 @@ def test_multiple_requests(api_key: Optional[str] = None, num_requests: int = 5)
                     'success': True
                 })
             elif response.status_code == 429:
-                print(f"[ERROR] Rate limited")
+                print("[ERROR] Rate limited")
                 results.append({
                     'request': i+1,
                     'pmid': pmid,
@@ -199,7 +198,7 @@ def main():
         # Тестируем лимиты
         result = test_multiple_requests(api_key, args.requests)
         
-        print(f"\n[RESULTS] Результаты тестирования:")
+        print("\n[RESULTS] Результаты тестирования:")
         print(f"Всего запросов: {result['total_requests']}")
         print(f"Успешных: {result['successful_requests']}")
         print(f"Rate limited: {'Да' if result['rate_limited'] else 'Нет'}")
@@ -216,7 +215,7 @@ def main():
         # Одиночная проверка
         result = check_api_status(api_key, args.pmid)
         
-        print(f"[RESULTS] Результат проверки:")
+        print("[RESULTS] Результат проверки:")
         print(f"Статус: {result['message']}")
         print(f"Время ответа: {result.get('response_time_ms', 0):.0f}ms")
         print(f"API ключ: {'Используется' if result.get('api_key_used') else 'Не используется'}")

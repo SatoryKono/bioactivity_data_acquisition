@@ -56,7 +56,7 @@ def debug_doi_validation_issue():
     try:
         result.to_csv(test_file, index=False)
         loaded = pd.read_csv(test_file)
-        print(f"   Файл сохранен и загружен")
+        print("   Файл сохранен и загружен")
         print(f"   invalid_doi после загрузки: {loaded['invalid_doi'].tolist()}")
         print(f"   Тип invalid_doi после загрузки: {loaded['invalid_doi'].dtype}")
         
@@ -87,7 +87,7 @@ def debug_doi_validation_issue():
         print(f"     Количество непустых DOI: {len(non_empty_dois)}")
         
         if len(non_empty_dois) == 0:
-            print(f"     Результат: invalid_doi=True, valid_doi=NA")
+            print("     Результат: invalid_doi=True, valid_doi=NA")
         elif len(non_empty_dois) == 1:
             print(f"     Результат: invalid_doi=False, valid_doi={non_empty_dois[0]}")
         else:
@@ -107,7 +107,7 @@ def debug_doi_validation_issue():
             print(f"     Совпадений: {matches}, Несовпадений: {mismatches}")
             
             if matches <= mismatches:
-                print(f"     Результат: invalid_doi=True, valid_doi=NA")
+                print("     Результат: invalid_doi=True, valid_doi=NA")
             else:
                 print(f"     Результат: invalid_doi=False, valid_doi={row['chembl_doi']}")
         print()

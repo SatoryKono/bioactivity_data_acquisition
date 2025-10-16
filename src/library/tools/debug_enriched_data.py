@@ -69,7 +69,7 @@ def debug_enriched_data():
         if 'invalid_doi' in result.columns:
             invalid_count = result['invalid_doi'].sum()
             total_count = len(result)
-            print(f"5. Статистика валидации:")
+            print("5. Статистика валидации:")
             print(f"   Всего записей: {total_count}")
             print(f"   Невалидных DOI: {invalid_count}")
             print(f"   Валидных DOI: {total_count - invalid_count}")

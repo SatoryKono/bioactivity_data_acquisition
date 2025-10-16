@@ -10,7 +10,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 import requests
 
@@ -202,7 +202,7 @@ class PubMedMonitor:
     def monitor_continuous(self, interval_seconds: int = 60, duration_minutes: int = 10):
         """Непрерывный мониторинг API."""
         
-        print(f"🔍 Начинаем мониторинг PubMed E-utilities API")
+        print("🔍 Начинаем мониторинг PubMed E-utilities API")
         print(f"⏱️ Интервал: {interval_seconds} секунд")
         print(f"⏳ Продолжительность: {duration_minutes} минут")
         print(f"🔑 API ключ: {'Настроен' if self.api_key else 'Не настроен'}")
@@ -332,7 +332,7 @@ def main():
         print("🧪 Агрессивное тестирование лимитов...")
         result = monitor.test_rate_limits_aggressively()
         
-        print(f"\n📊 Результаты тестирования:")
+        print("\n📊 Результаты тестирования:")
         print(f"Всего запросов: {result['total_requests']}")
         print(f"Успешных: {result['successful_requests']}")
         print(f"Rate limited: {'Да' if result['rate_limited'] else 'Нет'}")

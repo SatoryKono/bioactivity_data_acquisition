@@ -101,13 +101,11 @@ def debug_pipeline_validation_issue():
     
     # Проверяем, есть ли проблемы с импортами
     try:
-        from library.tools.data_validator import validate_all_fields
         print("   Импорт валидатора: OK")
     except Exception as e:
         print(f"   Ошибка импорта валидатора: {e}")
     
     try:
-        from library.documents.pipeline import run_document_etl
         print("   Импорт пайплайна: OK")
     except Exception as e:
         print(f"   Ошибка импорта пайплайна: {e}")

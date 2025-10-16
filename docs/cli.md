@@ -9,8 +9,16 @@ CLI основан на Typer. Ниже — частые команды и ре�
 bioactivity-data-acquisition --help
 
 # запуск пайплайна
-bioactivity-data-acquisition pipeline --config configs/config.yaml --set http.global.timeout_sec=10
+bioactivity-data-acquisition pipeline --config configs/config.yaml \
+  --set http.global.timeout_sec=10
 ```
+
+### Опции команды `pipeline`
+
+- `--config, -c PATH` — путь к YAML-конфигу
+- `--set KEY=VALUE` (повторяемый) — переопределение значений по «точечным» путям. Пример:
+  - `--set logging.level=DEBUG`
+  - `--set sources.chembl.pagination.max_pages=1`
 
 ## Работа с документами (обогащение)
 
@@ -32,23 +40,26 @@ bioactivity-data-acquisition get-document-data --config configs/config_documents
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
   --limit 50 --dry-run
 
-# настроить HTTP таймауты/ретраи с CLI-оверрайдами
+# настроить HTTP таймауты/ретраи через CLI-оверрайды конфигурации
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
   --timeout-sec 10 --retries 3
 ```
 
-Опции:
+### Опции команды `get-document-data`
 
+- `--config, -c PATH` — путь к YAML-конфигу
 - `--documents-csv PATH` — входной CSV со списком идентификаторов документов
 - `--output-dir PATH` — директория для артефактов
 - `--date-tag YYYYMMDD` — тег даты в именах файлов
-- `--timeout-sec N` — таймаут HTTP
-- `--retries N` — число ретраев
-- `--workers N` — число потоков
-- `--limit N` — ограничение количества документов
+- `--timeout-sec N` — таймаут HTTP (попадает в `http.global.timeout_sec`)
+- `--retries N` — число ретраев (попадает в `http.global.retries.total`)
+- `--workers N` — число потоков (попадает в `runtime.workers`)
+- `--limit N` — ограничение количества документов (`runtime.limit`)
 - `--all` — включить все источники
 - `--source NAME` — включить только указанные источники (можно повторять)
 - `--dry-run/--no-dry-run` — выполнить без записи артефактов
+
+Взаимоисключение: `--all` и `--source` нельзя использовать одновременно.
 
 ## Версия
 
@@ -59,11 +70,17 @@ bioactivity-data-acquisition version
 ## Рецепты
 
 ```bash
-# ограничить скорость для источника (пример ключа в конфиге)
-bioactivity-data-acquisition pipeline --config configs/config.yaml --set api.chembl.rate_limit=5/s
+# Переопределение лимитов/таймаутов через --set
+bioactivity-data-acquisition pipeline --config configs/config.yaml \
+  --set http.global.timeout_sec=45 \
+  --set sources.chembl.pagination.max_pages=1
 
-# dry-run пайплайна (если поддерживается в конфиге)
-bioactivity-data-acquisition pipeline --config configs/config.yaml --set runtime.dry_run=true
+# Rate limit на источник через YAML (пример ключей в конфиге)
+# sources.<name>.http.rate_limit.max_calls / period
+
+# Dry-run (если поддерживается профилем документов)
+bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
+  --dry-run
 ```
 
 Подробная справка по флагам доступна через `--help` на подкомандах.

@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """Скрипт для проверки конкретных лимитов API с детальной информацией."""
 
-import json
 import time
-from datetime import datetime
-from typing import Dict, Any
 
 import requests
 from rich.console import Console

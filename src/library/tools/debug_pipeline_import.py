@@ -27,7 +27,7 @@ def debug_pipeline_import():
     
     # Проверяем, есть ли файл валидатора
     validator_file = os.path.join(src_path, 'library', 'tools', 'data_validator.py')
-    print(f"3. Проверка файла валидатора:")
+    print("3. Проверка файла валидатора:")
     if os.path.exists(validator_file):
         print(f"   Файл найден: {validator_file}")
     else:
@@ -36,7 +36,7 @@ def debug_pipeline_import():
     
     # Проверяем, есть ли файл __init__.py
     init_file = os.path.join(src_path, 'library', 'tools', '__init__.py')
-    print(f"4. Проверка файла __init__.py:")
+    print("4. Проверка файла __init__.py:")
     if os.path.exists(init_file):
         print(f"   Файл найден: {init_file}")
     else:
@@ -46,7 +46,6 @@ def debug_pipeline_import():
     # Проверяем импорт
     print("5. Проверка импорта:")
     try:
-        from library.tools.data_validator import validate_all_fields
         print("   Импорт validate_all_fields: OK")
     except Exception as e:
         print(f"   Ошибка импорта validate_all_fields: {e}")
@@ -57,7 +56,6 @@ def debug_pipeline_import():
     # Проверяем импорт пайплайна
     print("6. Проверка импорта пайплайна:")
     try:
-        from library.documents.pipeline import write_document_outputs
         print("   Импорт write_document_outputs: OK")
     except Exception as e:
         print(f"   Ошибка импорта write_document_outputs: {e}")

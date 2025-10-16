@@ -52,12 +52,12 @@ def main():
         print("[RUN] Запускаем ETL pipeline с корреляционным анализом...")
         result = run_document_etl(config, input_frame)
         
-        print(f"[OK] ETL завершен")
+        print("[OK] ETL завершен")
         print(f"[OK] Обработано документов: {len(result.documents)}")
         print(f"[OK] QC метрики: {len(result.qc)} записей")
         
         if result.correlation_analysis:
-            print(f"[OK] Корреляционный анализ выполнен")
+            print("[OK] Корреляционный анализ выполнен")
             print(f"[OK] Корреляционные отчеты: {len(result.correlation_reports) if result.correlation_reports else 0}")
             print(f"[OK] Инсайты: {len(result.correlation_insights) if result.correlation_insights else 0}")
         else:

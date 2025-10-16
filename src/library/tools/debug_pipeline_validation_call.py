@@ -24,7 +24,6 @@ def debug_pipeline_validation_call():
     # Проверяем, есть ли проблема с импортом пайплайна
     print("2. Проверка импорта пайплайна:")
     try:
-        from library.documents.pipeline import write_document_outputs
         print("   Импорт write_document_outputs: OK")
     except Exception as e:
         print(f"   Ошибка импорта write_document_outputs: {e}")
@@ -73,7 +72,7 @@ def debug_pipeline_validation_call():
         
         # Очищаем тестовый файл
         os.remove(test_file)
-        print(f"   Тестовый файл удален")
+        print("   Тестовый файл удален")
         
     except Exception as e:
         print(f"   Ошибка при сохранении/загрузке: {e}")

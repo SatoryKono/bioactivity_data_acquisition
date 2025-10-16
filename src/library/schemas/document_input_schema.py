@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.util
 
-import pandas as pd
 from pandera.typing import Series
 
 _PANDERA_PANDAS_SPEC = importlib.util.find_spec("pandera.pandas")

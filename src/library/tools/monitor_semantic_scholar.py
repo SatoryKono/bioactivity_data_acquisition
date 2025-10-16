@@ -118,7 +118,7 @@ class SemanticScholarMonitor:
     def monitor_continuous(self, interval_seconds: int = 60, duration_minutes: int = 10):
         """Непрерывный мониторинг API."""
         
-        print(f"🔍 Начинаем мониторинг Semantic Scholar API")
+        print("🔍 Начинаем мониторинг Semantic Scholar API")
         print(f"⏱️ Интервал: {interval_seconds} секунд")
         print(f"⏳ Продолжительность: {duration_minutes} минут")
         print(f"🔑 API ключ: {'Настроен' if self.api_key else 'Не настроен'}")

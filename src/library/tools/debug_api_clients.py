@@ -3,7 +3,6 @@
 
 import sys
 from pathlib import Path
-import pandas as pd
 
 # Добавляем путь к модулям
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -19,8 +18,8 @@ def test_chembl_client():
     """Тестируем ChEMBL клиент."""
     print("=== ТЕСТИРОВАНИЕ ChEMBL КЛИЕНТА ===")
     
-    config_path = Path("configs/config.yaml")
-    doc_config = load_document_config(config_path)
+    # config_path = Path("configs/config.yaml")  # Не используется
+    # doc_config = load_document_config(config_path)  # Не используется
     
     # Создаем клиент как в пайплайне
     from library.config import APIClientConfig, RetrySettings

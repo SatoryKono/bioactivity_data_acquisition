@@ -21,7 +21,7 @@ def check_api(name: str, url: str, params: dict = None, headers: dict = None):
         response = requests.get(url, params=params, headers=headers, timeout=10)
         response_time = time.time() - start_time
         
-        print(f"\nРезультат:")
+        print("\nРезультат:")
         print(f"  Статус: {response.status_code}")
         print(f"  Время ответа: {response_time:.3f}с")
         
@@ -32,18 +32,18 @@ def check_api(name: str, url: str, params: dict = None, headers: dict = None):
                 rate_limit_headers.append(f"{header}: {response.headers[header]}")
         
         if rate_limit_headers:
-            print(f"  Rate Limit заголовки:")
+            print("  Rate Limit заголовки:")
             for header in rate_limit_headers:
                 print(f"    {header}")
         
         if response.status_code == 200:
-            print(f"  Статус: OK")
+            print("  Статус: OK")
         elif response.status_code == 429:
-            print(f"  Статус: RATE LIMITED")
+            print("  Статус: RATE LIMITED")
         elif response.status_code in [401, 403]:
-            print(f"  Статус: AUTH REQUIRED")
+            print("  Статус: AUTH REQUIRED")
         else:
-            print(f"  Статус: ERROR")
+            print("  Статус: ERROR")
             print(f"  Ответ: {response.text[:200]}...")
             
     except Exception as e:

@@ -55,7 +55,7 @@ def debug_validation_logic():
         print(f"     Количество непустых DOI: {len(non_empty_dois)}")
         
         if len(non_empty_dois) == 0:
-            print(f"     Результат: invalid_doi=True, valid_doi=NA")
+            print("     Результат: invalid_doi=True, valid_doi=NA")
         elif len(non_empty_dois) == 1:
             print(f"     Результат: invalid_doi=False, valid_doi={non_empty_dois[0]}")
         else:
@@ -75,7 +75,7 @@ def debug_validation_logic():
             print(f"     Совпадений: {matches}, Несовпадений: {mismatches}")
             
             if matches <= mismatches:
-                print(f"     Результат: invalid_doi=True, valid_doi=NA")
+                print("     Результат: invalid_doi=True, valid_doi=NA")
             else:
                 print(f"     Результат: invalid_doi=False, valid_doi={row['chembl_doi']}")
         print()

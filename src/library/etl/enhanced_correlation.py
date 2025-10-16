@@ -5,10 +5,10 @@ from __future__ import annotations
 import warnings
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2_contingency, spearmanr, pearsonr
+from scipy.stats import chi2_contingency, pearsonr
 from sklearn.preprocessing import LabelEncoder
 from structlog.stdlib import BoundLogger
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # Подавляем предупреждения о делении на ноль в NumPy
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='invalid value encountered in divide')

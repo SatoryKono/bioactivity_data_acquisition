@@ -20,6 +20,22 @@ bioactivity-data-acquisition get-document-data \
 ```
 
 ## Ожидаемые артефакты
-- `data/output/full/*_documents.csv`
-- `data/output/full/*_documents_qc_report.csv`
-- `data/output/full/*_documents_correlation.csv`
+- `data/output/full/documents_<YYYYMMDD>.csv`
+- `data/output/full/documents_<YYYYMMDD>_qc.csv`
+- (если включён корреляционный анализ) каталог `data/output/full/documents_correlation_report_<YYYYMMDD>/` с CSV/JSON файлами
+
+Пример структуры корреляционных артефактов:
+
+```
+data/output/full/
+  documents_20251016.csv
+  documents_20251016_qc.csv
+  documents_correlation_report_20251016/
+    correlation_insights.json
+    numeric_pearson.csv
+    numeric_spearman.csv
+    numeric_covariance.csv
+    categorical_cramers_v.csv
+    mixed_eta_squared.csv
+    mixed_point_biserial.csv
+```

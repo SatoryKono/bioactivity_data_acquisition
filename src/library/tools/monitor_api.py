@@ -6,7 +6,7 @@ import time
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import requests
 
@@ -154,7 +154,7 @@ def monitor_api(api_name: str, interval: int = 30, duration: int = None):
             # Показываем статистику каждые 10 проверок
             if check_count % 10 == 0:
                 stats = monitor.get_stats()
-                print(f"\nСтатистика за последние 10 проверок:")
+                print("\nСтатистика за последние 10 проверок:")
                 print(f"  Доступность: {stats['availability']}%")
                 print(f"  Среднее время ответа: {stats['avg_response_time']}с")
                 print(f"  Ошибки: {stats['errors']}\n")
@@ -166,11 +166,11 @@ def monitor_api(api_name: str, interval: int = 30, duration: int = None):
             time.sleep(interval)
             
     except KeyboardInterrupt:
-        print(f"\nМониторинг остановлен пользователем")
+        print("\nМониторинг остановлен пользователем")
     
     # Финальная статистика
     stats = monitor.get_stats()
-    print(f"\nФинальная статистика:")
+    print("\nФинальная статистика:")
     print(f"  Всего проверок: {stats['checks']}")
     print(f"  Доступность: {stats['availability']}%")
     print(f"  Среднее время ответа: {stats['avg_response_time']}с")
