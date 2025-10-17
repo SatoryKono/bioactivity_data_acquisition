@@ -44,6 +44,49 @@ class TestitemChEMBLClient(BaseApiClient):
             logger.warning(f"Failed to fetch molecule {molecule_chembl_id}: {e}")
             return self._create_empty_molecule_record(molecule_chembl_id, str(e))
 
+    def fetch_molecules_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch multiple molecules in a single batch request."""
+        try:
+            # ChEMBL supports batch requests for up to 50 molecules
+            if len(molecule_chembl_ids) > 50:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds ChEMBL limit of 50, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 50):
+                    chunk = molecule_chembl_ids[i:i+50]
+                    chunk_results = self.fetch_molecules_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Prepare batch request payload
+            batch_payload = {"chembl_ids": molecule_chembl_ids}
+            
+            # Make batch request
+            payload = self._request("POST", "molecule/batch", json=batch_payload)
+            
+            # Parse results
+            results = {}
+            molecules = payload.get("molecules", [])
+            
+            for molecule in molecules:
+                chembl_id = molecule.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_molecule({"molecules": [molecule]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = self._create_empty_molecule_record(chembl_id, "Not found in batch response")
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch molecules batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_molecule(chembl_id)
+            return results
+
     def fetch_molecule_form(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule form data."""
         try:
@@ -61,6 +104,49 @@ class TestitemChEMBLClient(BaseApiClient):
         except Exception as e:
             logger.warning(f"Failed to fetch molecule properties for {molecule_chembl_id}: {e}")
             return {}
+
+    def fetch_molecule_properties_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch molecule properties for multiple molecules in batch."""
+        try:
+            # ChEMBL supports batch requests for properties
+            if len(molecule_chembl_ids) > 50:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds ChEMBL limit of 50, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 50):
+                    chunk = molecule_chembl_ids[i:i+50]
+                    chunk_results = self.fetch_molecule_properties_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Prepare batch request payload
+            batch_payload = {"molecule_chembl_ids": molecule_chembl_ids}
+            
+            # Make batch request
+            payload = self._request("POST", "molecule_properties/batch", json=batch_payload)
+            
+            # Parse results
+            results = {}
+            properties = payload.get("molecule_properties", [])
+            
+            for prop in properties:
+                chembl_id = prop.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_molecule_properties({"molecule_properties": [prop]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch molecule properties batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_molecule_properties(chembl_id)
+            return results
 
     def fetch_mechanism(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch mechanism data."""

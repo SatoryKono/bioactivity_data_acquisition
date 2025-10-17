@@ -14,6 +14,91 @@ from library.testitem.config import TestitemConfig
 logger = logging.getLogger(__name__)
 
 
+def extract_molecules_batch(
+    client: TestitemChEMBLClient,
+    molecule_chembl_ids: list[str],
+    config: TestitemConfig
+) -> list[dict[str, Any]]:
+    """Extract comprehensive molecule data from ChEMBL API using batch requests."""
+    
+    logger.info(f"Extracting data for {len(molecule_chembl_ids)} molecules using batch requests")
+    
+    results = []
+    
+    try:
+        # S02: Fetch molecule core data in batch
+        logger.debug(f"S02: Fetching molecule core data for {len(molecule_chembl_ids)} molecules")
+        molecule_data_batch = client.fetch_molecules_batch(molecule_chembl_ids)
+        
+        # S04: Fetch properties in batch
+        logger.debug(f"S04: Fetching properties for {len(molecule_chembl_ids)} molecules")
+        properties_data_batch = client.fetch_molecule_properties_batch(molecule_chembl_ids)
+        
+        # Process each molecule
+        for molecule_chembl_id in molecule_chembl_ids:
+            result = {
+                "molecule_chembl_id": molecule_chembl_id,
+                "source_system": "ChEMBL",
+                "extracted_at": pd.Timestamp.utcnow().isoformat() + "Z"
+            }
+            
+            # Add core molecule data
+            if molecule_chembl_id in molecule_data_batch:
+                result.update(molecule_data_batch[molecule_chembl_id])
+            
+            # Add properties data
+            if molecule_chembl_id in properties_data_batch:
+                result.update(properties_data_batch[molecule_chembl_id])
+            
+            # Fetch additional data individually (these don't support batch)
+            try:
+                # S03: Fetch parent/child relationship data
+                molecule_form_data = client.fetch_molecule_form(molecule_chembl_id)
+                result.update(molecule_form_data)
+                
+                # Fetch mechanism data
+                mechanism_data = client.fetch_mechanism(molecule_chembl_id)
+                result.update(mechanism_data)
+                
+                # Fetch ATC classification data
+                atc_data = client.fetch_atc_classification(molecule_chembl_id)
+                result.update(atc_data)
+                
+                # Fetch compound synonyms
+                synonym_data = client.fetch_compound_synonym(molecule_chembl_id)
+                result.update(synonym_data)
+                
+                # Fetch drug data
+                drug_data = client.fetch_drug(molecule_chembl_id)
+                result.update(drug_data)
+                
+                # Fetch drug warnings
+                warning_data = client.fetch_drug_warning(molecule_chembl_id)
+                result.update(warning_data)
+                
+                # Fetch cross-reference sources
+                xref_data = client.fetch_xref_source(molecule_chembl_id)
+                result.update(xref_data)
+                
+            except Exception as e:
+                logger.warning(f"Failed to fetch additional data for {molecule_chembl_id}: {e}")
+            
+            results.append(result)
+        
+        logger.info(f"Successfully extracted data for {len(results)} molecules")
+        return results
+        
+    except Exception as e:
+        logger.error(f"Failed to extract molecules batch: {e}")
+        # Fallback to individual extraction
+        logger.info("Falling back to individual molecule extraction")
+        results = []
+        for molecule_chembl_id in molecule_chembl_ids:
+            result = extract_molecule_data(client, molecule_chembl_id, config)
+            results.append(result)
+        return results
+
+
 def extract_molecule_data(
     client: TestitemChEMBLClient,
     molecule_chembl_id: str,

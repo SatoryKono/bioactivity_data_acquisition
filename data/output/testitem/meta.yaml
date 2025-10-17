@@ -1,25 +1,12 @@
 artifacts:
   csv:
     filename: testitem__20251017.csv
-    rows: 1
-    sha256: cf121e8bb940750708e6122650f70e1c8b1b3f16bdcd5509efcee8a2c7ab75d4
+    rows: 5
+    sha256: 43084dbb603f97ff3e8032baaf4ee82aa327bc33f4620d9c07a09c6afec40c4c
 chembl_release: unknown
 data_quality:
-  error_rate: 0.0
-  records_with_errors: 0
-extraction_parameters:
-  allow_parent_missing: false
-  batch_size: 200
-  enable_pubchem: true
-  retries: 5
-  timeout_sec: 30
-file_checksums:
-  csv: cf121e8bb940750708e6122650f70e1c8b1b3f16bdcd5509efcee8a2c7ab75d4
-pipeline_version: 1.1.0
-pubchem_enrichment:
-  enabled: true
-  enrichment_rate: !!python/object/apply:numpy._core.multiarray.scalar
-  - !!python/object/apply:numpy.dtype
+  error_rate: !!python/object/apply:numpy._core.multiarray.scalar
+  - &id001 !!python/object/apply:numpy.dtype
     args:
     - f8
     - false
@@ -34,9 +21,9 @@ pubchem_enrichment:
     - -1
     - 0
   - !!binary |
-    AAAAAAAAWUA=
-  records_with_pubchem_data: !!python/object/apply:numpy._core.multiarray.scalar
-  - !!python/object/apply:numpy.dtype
+    AAAAAAAANEA=
+  records_with_errors: !!python/object/apply:numpy._core.multiarray.scalar
+  - &id002 !!python/object/apply:numpy.dtype
     args:
     - i8
     - false
@@ -52,7 +39,26 @@ pubchem_enrichment:
     - 0
   - !!binary |
     AQAAAAAAAAA=
+extraction_parameters:
+  allow_parent_missing: false
+  batch_size: 200
+  enable_pubchem: true
+  retries: 5
+  timeout_sec: 30
+file_checksums:
+  csv: 43084dbb603f97ff3e8032baaf4ee82aa327bc33f4620d9c07a09c6afec40c4c
+pipeline_version: 1.1.0
+pubchem_enrichment:
+  enabled: true
+  enrichment_rate: !!python/object/apply:numpy._core.multiarray.scalar
+  - *id001
+  - !!binary |
+    AAAAAAAAWUA=
+  records_with_pubchem_data: !!python/object/apply:numpy._core.multiarray.scalar
+  - *id002
+  - !!binary |
+    BQAAAAAAAAA=
 run_date: '20251017'
 source_counts:
-  ChEMBL: 1
-total_records: 1
+  ChEMBL: 5
+total_records: 5
