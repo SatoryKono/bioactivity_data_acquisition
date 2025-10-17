@@ -22,7 +22,7 @@ from library.clients.fallback import AdaptiveFallbackStrategy, FallbackConfig, F
 from library.clients.graceful_degradation import get_degradation_manager
 from library.clients.session import get_shared_session
 from library.config import APIClientConfig
-from library.logger import get_logger
+from library.logging_setup import get_logger
 from library.telemetry import add_span_attribute
 
 

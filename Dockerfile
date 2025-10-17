@@ -43,7 +43,7 @@ COPY tests/ ./tests/
 COPY configs/ ./configs/
 COPY docs/ ./docs/
 COPY .pre-commit-config.yaml ./
-COPY mkdocs.yml ./
+COPY configs/mkdocs.yml ./
 
 # Copy scripts and configs
 COPY scripts/ ./scripts/

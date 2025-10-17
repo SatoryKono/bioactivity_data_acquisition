@@ -8,6 +8,10 @@ from typing import Any
 
 import pandas as pd
 
+from library.logging_setup import get_logger
+
+logger = get_logger(__name__)
+
 
 def normalize_journal_name(text: Any) -> str | None:
     """Нормализует название журнала согласно установленным правилам.
@@ -239,12 +243,12 @@ def normalize_journal_columns(df: pd.DataFrame) -> pd.DataFrame:
         if 'journal' in col_lower or 'журнал' in col_lower:
             journal_columns.append(col)
     
-    print(f"Найдено колонок журналов для нормализации: {journal_columns}")
+    logger.info(f"Найдено колонок журналов для нормализации: {journal_columns}")
     
     # Нормализуем каждую колонку
     for col in journal_columns:
         if col in df_copy.columns:
-            print(f"Нормализация колонки: {col}")
+            logger.info(f"Нормализация колонки: {col}")
             df_copy[col] = df_copy[col].apply(normalize_journal_name)
     
     return df_copy

@@ -94,7 +94,7 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
     if not api_key:
         api_key = os.environ.get('SEMANTIC_SCHOLAR_API_KEY')
     
-    print(f"[TEST] Тестируем {num_requests} запросов подряд...")
+    logger.info(f"[TEST] Тестируем {num_requests} запросов подряд...")
     
     headers = {
         'Accept': 'application/json',
@@ -109,7 +109,7 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
     
     for i in range(min(num_requests, len(test_pmids))):
         pmid = test_pmids[i]
-        print(f"  Запрос {i+1}/{num_requests} (PMID: {pmid})...", end=" ")
+        logger.info(f"  Запрос {i+1}/{num_requests} (PMID: {pmid})...", end=" ")
         
         try:
             start_time = time.time()
@@ -122,7 +122,7 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
             response_time = (time.time() - start_time) * 1000
             
             if response.status_code == 200:
-                print(f"[OK] ({response_time:.0f}ms)")
+                logger.info(f"[OK] ({response_time:.0f}ms)")
                 results.append({
                     'request': i+1,
                     'pmid': pmid,
@@ -131,7 +131,7 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
                     'success': True
                 })
             elif response.status_code == 429:
-                print("[ERROR] Rate limited")
+                logger.error("[ERROR] Rate limited")
                 results.append({
                     'request': i+1,
                     'pmid': pmid,
@@ -141,7 +141,7 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
                 })
                 break
             else:
-                print(f"[WARN] {response.status_code}")
+                logger.warning(f"[WARN] {response.status_code}")
                 results.append({
                     'request': i+1,
                     'pmid': pmid,
@@ -154,7 +154,7 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
             time.sleep(0.5)
             
         except Exception as e:
-            print(f"[ERROR] {e}")
+            logger.error(f"[ERROR] {e}")
             results.append({
                 'request': i+1,
                 'pmid': pmid,
@@ -171,65 +171,68 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
     }
 
 
+import argparse
+from library.logging_setup import get_logger
+
 def main():
     """Основная функция."""
-    import argparse
-    
+    logger = get_logger(__name__)
+
     parser = argparse.ArgumentParser(description="Быстрая проверка Semantic Scholar API")
     parser.add_argument("--test-limits", action="store_true", help="Тестировать лимиты API")
     parser.add_argument("--requests", type=int, default=5, help="Количество запросов для тестирования")
     parser.add_argument("--pmid", type=str, default="7154002", help="PMID для тестирования")
-    
+
     args = parser.parse_args()
-    
-    print("[INFO] Проверка Semantic Scholar API")
-    print("=" * 50)
-    
+
+    logger.info("[INFO] Проверка Semantic Scholar API")
+    logger.info("=" * 50)
+
     api_key = os.environ.get('SEMANTIC_SCHOLAR_API_KEY')
     if api_key:
-        print(f"[KEY] API ключ: {api_key[:10]}...")
+        logger.info(f"[KEY] API ключ: {api_key[:10]}...")
     else:
-        print("[WARN] API ключ не настроен")
-        print("   Установите: export SEMANTIC_SCHOLAR_API_KEY=your_key_here")
-    
+        logger.warning("[WARN] API ключ не настроен")
+        logger.info("   Установите: export SEMANTIC_SCHOLAR_API_KEY=your_key_here")
+
     print()
-    
+
     if args.test_limits:
         # Тестируем лимиты
         result = test_multiple_requests(api_key, args.requests)
         
-        print("\n[RESULTS] Результаты тестирования:")
-        print(f"Всего запросов: {result['total_requests']}")
-        print(f"Успешных: {result['successful_requests']}")
-        print(f"Rate limited: {'Да' if result['rate_limited'] else 'Нет'}")
+        logger.info("\n[RESULTS] Результаты тестирования:")
+        logger.info(f"Всего запросов: {result['total_requests']}")
+        logger.info(f"Успешных: {result['successful_requests']}")
+        logger.info(f"Rate limited: {'Да' if result['rate_limited'] else 'Нет'}")
         
         if result['rate_limited']:
-            print("\n[TIPS] Рекомендации:")
+            logger.info("\n[TIPS] Рекомендации:")
             if not api_key:
-                print("- Получите API ключ: https://www.semanticscholar.org/product/api#api-key-form")
+                logger.info("- Получите API ключ: https://www.semanticscholar.org/product/api#api-key-form")
             else:
-                print("- API ключ настроен, но все еще rate limited")
-                print("- Попробуйте увеличить интервалы между запросами")
-                print("- Проверьте, не превышаете ли вы лимиты в других процессах")
+                logger.info("- API ключ настроен, но все еще rate limited")
+                logger.info("- Попробуйте увеличить интервалы между запросами")
+                logger.info("- Проверьте, не превышаете ли вы лимиты в других процессах")
     else:
         # Одиночная проверка
         result = check_api_status(api_key, args.pmid)
         
-        print("[RESULTS] Результат проверки:")
-        print(f"Статус: {result['message']}")
-        print(f"Время ответа: {result.get('response_time_ms', 0):.0f}ms")
-        print(f"API ключ: {'Используется' if result.get('api_key_used') else 'Не используется'}")
+        logger.info("[RESULTS] Результат проверки:")
+        logger.info(f"Статус: {result['message']}")
+        logger.info(f"Время ответа: {result.get('response_time_ms', 0):.0f}ms")
+        logger.info(f"API ключ: {'Используется' if result.get('api_key_used') else 'Не используется'}")
         
         if 'data_received' in result:
             data = result['data_received']
-            print(f"Данные: Заголовок: {'[OK]' if data.get('has_title') else '[NO]'}, "
+            logger.info(f"Данные: Заголовок: {'[OK]' if data.get('has_title') else '[NO]'}, "
                   f"Аннотация: {'[OK]' if data.get('has_abstract') else '[NO]'}, "
                   f"Год: {data.get('year', 'N/A')}")
         
         if 'error_details' in result:
-            print(f"Детали ошибки: {result['error_details']}")
-    
-    print(f"\n[TIME] Время проверки: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.error(f"Детали ошибки: {result['error_details']}")
+
+    logger.info(f"\n[TIME] Время проверки: {time.strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 if __name__ == "__main__":

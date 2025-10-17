@@ -5,7 +5,7 @@ import sys
 import threading
 from typing import Callable, Optional
 
-from library.logger import get_logger
+from library.logging_setup import get_logger
 
 
 class GracefulShutdownManager:

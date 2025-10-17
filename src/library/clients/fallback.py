@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from library.clients.exceptions import ApiClientError
-from library.logger import get_logger
+from library.logging_setup import get_logger
 
 
 @dataclass
@@ -132,7 +132,7 @@ class AdaptiveFallbackStrategy(FallbackStrategy):
     
     def __init__(self, config: FallbackConfig):
         super().__init__(config)
-        self.api_behavior = {}  # Track API behavior per endpoint
+        self.api_behavior: dict[str, dict[str, Any]] = {}  # Track API behavior per endpoint
     
     def should_retry(self, error: ApiClientError, attempt: int) -> bool:
         """Adaptive retry logic based on API behavior."""

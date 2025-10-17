@@ -1,190 +1,59 @@
-# Конфигурационные файлы для обработки документов
+# Configuration Files
 
-## Обзор
+Эта директория содержит все конфигурационные файлы проекта bioactivity data acquisition.
 
-Данная папка содержит конфигурационные файлы для различных сценариев обработки
-документов с использованием ETL pipeline.
+## Структура файлов
 
-## Доступные конфигурации
+### Конфигурации приложения
+- **`config.yaml`** - Основная конфигурация для пайплайна биоактивных данных
+- **`config_documents_full.yaml`** - Конфигурация для пайплайна документов
+- **`config.example.yaml`** - Пример конфигурации для быстрого старта
+- **`schema.json`** - JSON Schema для валидации конфигураций
 
-### 1. `config.yaml`(Основная конфигурация)
+### Конфигурации Python проекта
+- **`pyproject.toml`** - Основная конфигурация Python проекта (зависимости, инструменты разработки, настройки линтеров)
+- **`requirements.txt`** - Список зависимостей для pip
 
-**Назначение**: Основная конфигурация для обработки документов
-**Особенности**:
+### Конфигурации инструментов
+- **`mkdocs.yml`** - Конфигурация документации MkDocs
+- **`pytest-benchmark.ini`** - Настройки pytest-benchmark для тестов производительности
+- **`logging.yaml`** - Конфигурация структурированного логирования
 
-- Включает ChEMBL, Crossref, OpenAlex, PubMed
+### Docker
+- **`docker-compose.override.yml.example`** - Пример переопределений для docker-compose
 
-- Semantic Scholar отключен по умолчанию
+## Использование
 
-- Стандартные настройки таймаутов и retry
-
-- Нормализация журналов и формирование ссылок включены
-
-**Использование**:
-
+### Основная конфигурация
+Скопируйте `config.example.yaml` в `config.yaml` и настройте под ваши нужды:
+```bash
+cp configs/config.example.yaml configs/config.yaml
 ```
 
-bioactivity-data-acquisition get-document-data --config configs/config.yaml
+### Переменные окружения
+См. `.env.example` в корне проекта для настройки API ключей и других секретов.
 
+### Установка зависимостей
+```bash
+pip install -e .
 ```
 
-### 2.`config*documents.yaml`(Специализированная для документов)
-
-**Назначение**: Оптимизированная конфигурация специально для документов
-**Особенности**:
-
-- Все источники включены (включая Semantic Scholar с флагом enabled: false)
-
-- Увеличенные таймауты для ChEMBL
-
-- Настроенная нормализация журналов
-
-- Формирование литературных ссылок
-
-**Использование**:
-
+Или для разработки:
+```bash
+pip install -e ".[dev]"
 ```
 
-bioactivity-data-acquisition get-document-data --config
-configs/config*documents.yaml
+## Важные настройки в pyproject.toml
 
-```
+### Инструменты разработки
+- **pytest**: покрытие кода >= 90%
+- **mypy**: строгая типизация (strict mode)
+- **ruff**: линтинг и форматирование
+- **black**: форматирование кода (line-length: 180)
 
-### 3. `config_documents_test.yaml` (Быстрое тестирование)
-
-**Назначение**: Быстрое тестирование функциональности
-**Особенности**:
-
-- Только ChEMBL источник
-
-- Ограничение до 10 документов
-
-- Меньшие таймауты и размеры страниц
-
-- Отключена корреляция для скорости
-
-- DEBUG уровень логирования
-
-**Использование**:
-
-```
-
-bioactivity-data-acquisition get-document-data --config
-configs/config_documents_test.yaml
-
-```
-
-### 4. `config_documents_full.yaml` (Полная обработка)
-
-**Назначение**: Максимальная детализация и все источники
-**Особенности**:
-
-- Все источники включены
-
-- Увеличенные таймауты и retry
-
-- Больше воркеров (8)
-
-- Строгие требования к качеству данных
-
-- Максимальное количество страниц
-
-**Использование**:
-
-```
-
-bioactivity-data-acquisition get-document-data --config
-configs/config_documents_full.yaml
-
-```
-
-## Ключевые параметры
-
-### Источники данных
-
-- **ChEMBL**: Основной источник документов
-
-- **Crossref**: Дополнительные метаданные по DOI
-
-- **OpenAlex**: Альтернативные метаданные
-
-- **PubMed**: Медицинские публикации
-
-- **Semantic Scholar**: Академические метаданные (опционально)
-
-### Нормализация журналов
-
-```
-
-postprocess:
-  journal*normalization:
-    enabled: true
-    columns: ["journal", "pubmed*journal", "chembl*journal", "crossref*journal"]
-
-```
-
-### Формирование ссылок
-
-```
-
-postprocess:
-  citation*formatting:
-    enabled: true
-    columns:
-      journal: "journal"
-      volume: "volume"
-      issue: "issue"
-      first*page: "first*page"
-      last*page: "last*page"
-
-```
-
-### Runtime параметры
-
--`workers`: Количество параллельных воркеров
-
-- `limit`: Ограничение количества документов (null = без ограничений)
-
-- `dry*run`: Режим тестирования без сохранения
-
-- `date*tag`: Тег даты в имени файла
-
-## Переменные окружения
-
-Для работы с API ключами установите следующие переменные:
-
-```
-
-export CHEMBL_API_TOKEN="your_chembl_token"
-export CROSSREF_API_KEY="your_crossref_key"
-export PUBMED_API_KEY="your_pubmed_key"
-export SEMANTIC_SCHOLAR_API_KEY="your_semantic_scholar_key"
-
-```
-
-## Рекомендации по использованию
-
-1. **Для разработки**: Используйте `config_documents_test.yaml`
-2. **Для продакшена**: Используйте `config_documents.yaml` или `config_documents_full.yaml`
-3. **Для отладки**: Включите DEBUG
-уровень логирования
-4. **Для больших объемов**: Увеличьте количество воркеров и таймауты
-
-## Выходные файлы
-
-После обработки создаются следующие файлы:
-
--`documents*<date*tag>.csv`- Основные данные с нормализованными журналами и ссылками
-
--`documents*<date*tag>*qc.csv`- Отчет о качестве данных
-
-## Мониторинг
-
-Для мониторинга API лимитов используйте:
-
-```
-
-python -m library.tools.check_api_limits
-python -m library.tools.monitor*api
-
-```
+### Зависимости проекта
+Все зависимости управляются через `pyproject.toml`. Основные библиотеки:
+- pandas, pydantic, pandera - работа с данными и валидация
+- typer - CLI интерфейс
+- structlog - структурированное логирование
+- opentelemetry - трассировка и мониторинг

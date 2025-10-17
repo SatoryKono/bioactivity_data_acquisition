@@ -1,35 +1,37 @@
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.3
+  - repo: local
     hooks:
-      - id: ruff
-        args: ["--fix"]
-      - id: ruff-format
+      - id: no-print-statements
+        name: No print statements in library code
+        entry: python -c "import sys, re; content = open(sys.argv[1], 'r', encoding='utf-8').read(); print_matches = re.findall(r'print\s*\(', content); exit(1) if print_matches and 'src/library/' in sys.argv[1] and 'typer.echo' not in content else exit(0)"
+        language: system
+        files: ^src/library/.*\.py$
+        exclude: ^src/library/cli/.*\.py$  # Allow typer.echo in CLI
+        pass_filenames: true
+        always_run: false
+
   - repo: https://github.com/psf/black
     rev: 24.4.2
     hooks:
       - id: black
+        language_version: python3
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v1.8.0
     hooks:
       - id: mypy
-        additional_dependencies: ["pandera[mypy]"]
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
+        additional_dependencies: [types-PyYAML, pandera]
+        args: [--ignore-missing-imports]
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
     hooks:
-      - id: bandit
-        args: ["-r", "src/", "-c", ".bandit"]
-        exclude: ^tests/
-  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-    rev: v1.3.2
-    hooks:
-      - id: python-safety-dependencies-check
-        args: ["--policy-file", ".safety_policy.yaml"]
-  - repo: local
-    hooks:
-      - id: pytest
-        name: pytest
-        entry: pytest
-        language: system
-        types: [python]
-        pass_filenames: false
+      - id: markdownlint
+        args: [--config, .markdownlint.json]
+        files: ^docs/.*\.md$

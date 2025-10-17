@@ -25,7 +25,7 @@ from library.documents.pipeline import (
     write_document_outputs,
 )
 from library.etl.run import run_pipeline
-from library.utils.logging import configure_logging
+from library.logging_setup import configure_logging, generate_run_id, set_run_context, bind_stage
 from library.telemetry import setup_telemetry
 from library.clients.health import HealthChecker, create_health_checker_from_config
 from library.utils.graceful_shutdown import ShutdownContext, register_shutdown_handler
@@ -124,8 +124,16 @@ app = typer.Typer(help="Bioactivity ETL pipeline")
 def pipeline(
     config: Path = CONFIG_OPTION,
     overrides: list[str] = typer.Option([], "--set", "-s", help="Override configuration values using dotted paths (KEY=VALUE)"),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
+    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
+    log_format: str = typer.Option("text", "--log-format", help="Console format (text or json)"),
+    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
 ) -> None:
     """Execute the ETL pipeline using a configuration file."""
+
+    # Generate unique run ID for this execution
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="cli_startup")
 
     override_dict = _parse_override_args(overrides)
     config_model = Config.load(config, overrides=override_dict)
@@ -133,19 +141,33 @@ def pipeline(
     # Создаем необходимые директории после загрузки конфигурации
     ensure_output_directories_exist(config_model)
     
-    logger = configure_logging(config_model.logging.level)
-    logger = logger.bind(command="pipeline")
-    
-    # Setup graceful shutdown
-    def cleanup_handler():
-        logger.info("Pipeline shutdown requested, cleaning up...")
-        # Add any cleanup logic here
-    
-    register_shutdown_handler(cleanup_handler)
-    
-    with ShutdownContext(timeout=30.0):
-        output = run_pipeline(config_model, logger)
-        typer.echo(f"Pipeline completed. Output written to {output}")
+    # Configure logging with CLI parameters
+    logger = configure_logging(
+        level=log_level,
+        file_enabled=not no_file_log,
+        console_format=log_format,
+        log_file=log_file,
+        logging_config=config_model.logging.model_dump() if hasattr(config_model, 'logging') else None,
+    )
+    with bind_stage(logger, "pipeline", run_id=run_id) as logger:
+        logger.info("Pipeline started", run_id=run_id, config=str(config))
+        
+        # Setup graceful shutdown
+        def cleanup_handler() -> None:
+            logger.info("Pipeline shutdown requested, cleaning up...", run_id=run_id)
+            # Add any cleanup logic here
+        
+        register_shutdown_handler(cleanup_handler)
+        
+        try:
+            with ShutdownContext(timeout=30.0):
+                output = run_pipeline(config_model, logger)
+                logger.info("Pipeline completed successfully", output=str(output), run_id=run_id)
+                typer.echo(f"Pipeline completed. Output written to {output}")
+        except Exception as exc:
+            logger.error("Pipeline failed", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(f"Pipeline failed: {exc}", err=True)
+            raise typer.Exit(1) from exc
 
 
 @app.command("get-document-data")
@@ -215,8 +237,16 @@ def get_document_data(
         "--dry-run/--no-dry-run",
         help="Execute without writing artefacts to disk.",
     ),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
+    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
+    log_format: str = typer.Option("text", "--log-format", help="Console format (text or json)"),
+    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
 ) -> None:
     """Collect and enrich document metadata from configured sources."""
+
+    # Generate unique run ID for this execution
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="document_processing")
 
     # Validate that --all and --source are not used together
     if all_sources and sources:
@@ -252,60 +282,80 @@ def get_document_data(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
 
-    # Initialize logging
-    logger = configure_logging(config_model.logging.level)
-    logger = logger.bind(command="get-document-data")
+    # Configure logging with CLI parameters
+    logger = configure_logging(
+        level=log_level,
+        file_enabled=not no_file_log,
+        console_format=log_format,
+        log_file=log_file,
+        logging_config=config_model.logging.model_dump() if hasattr(config_model, 'logging') else None,
+    )
+    with bind_stage(logger, "document_processing", run_id=run_id) as logger:
+        logger.info("Document processing started", run_id=run_id)
 
-    if not config_model.enabled_sources():
-        typer.echo("At least one document source must be enabled", err=True)
-        raise typer.Exit(code=ExitCode.VALIDATION_ERROR)
+        if not config_model.enabled_sources():
+            typer.echo("At least one document source must be enabled", err=True)
+            raise typer.Exit(code=ExitCode.VALIDATION_ERROR)
 
-    try:
-        input_frame = read_document_input(config_model.io.input.documents_csv)
-    except DocumentValidationError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
-    except DocumentIOError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=ExitCode.IO_ERROR) from exc
+        try:
+            input_frame = read_document_input(config_model.io.input.documents_csv)
+        except DocumentValidationError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
+        except DocumentIOError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.IO_ERROR) from exc
 
-    # Setup graceful shutdown for document processing
-    def cleanup_handler():
-        logger.info("Document processing shutdown requested, cleaning up...")
-        # Add any cleanup logic here
-    
-    register_shutdown_handler(cleanup_handler)
-    
-    try:
-        with ShutdownContext(timeout=60.0):
-            result = run_document_etl(config_model, input_frame)
-    except DocumentValidationError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
-    except DocumentHTTPError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=ExitCode.HTTP_ERROR) from exc
-    except DocumentQCError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=ExitCode.QC_ERROR) from exc
+        # Setup graceful shutdown for document processing
+        def cleanup_handler() -> None:
+            logger.info("Document processing shutdown requested, cleaning up...", run_id=run_id)
+            # Add any cleanup logic here
+        
+        register_shutdown_handler(cleanup_handler)
+        
+        try:
+            with ShutdownContext(timeout=60.0):
+                with bind_stage(logger, "document_etl"):
+                    result = run_document_etl(config_model, input_frame)
+                    
+            logger.info("Document processing completed", run_id=run_id, records=len(result.documents))
+            
+        except DocumentValidationError as exc:
+            logger.error("Document validation failed", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
+        except DocumentHTTPError as exc:
+            logger.error("Document HTTP error", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.HTTP_ERROR) from exc
+        except DocumentQCError as exc:
+            logger.error("Document QC error", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.QC_ERROR) from exc
 
-    if config_model.runtime.dry_run:
-        typer.echo("Dry run completed; no artefacts written.")
-        raise typer.Exit(code=ExitCode.OK)
+        if config_model.runtime.dry_run:
+            logger.info("Dry run completed; no artefacts written.", run_id=run_id)
+            typer.echo("Dry run completed; no artefacts written.")
+            raise typer.Exit(code=ExitCode.OK)
 
-    try:
-        outputs = write_document_outputs(
-            result,
-            config_model.io.output.dir,
-            config_model.runtime.date_tag,
-            config_model,
-        )
-    except DocumentIOError as exc:
-        typer.echo(str(exc), err=True)
-        raise typer.Exit(code=ExitCode.IO_ERROR) from exc
+        try:
+            with bind_stage(logger, "write_outputs"):
+                outputs = write_document_outputs(
+                    result,
+                    config_model.io.output.dir,
+                    config_model.runtime.date_tag or "",
+                    None,  # config parameter is optional and not used in document processing
+                )
+                
+            logger.info("Outputs written successfully", run_id=run_id, outputs=list(outputs.keys()))
+            
+        except DocumentIOError as exc:
+            logger.error("Document IO error", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.IO_ERROR) from exc
 
-    for name, path in outputs.items():
-        typer.echo(f"{name}: {path}")
+        for name, path in outputs.items():
+            typer.echo(f"{name}: {path}")
 
 
 @app.command()
@@ -313,60 +363,89 @@ def health(
     config: Path = CONFIG_OPTION,
     timeout: float = typer.Option(10.0, "--timeout", "-t", help="Timeout for health checks in seconds"),
     json_output: bool = typer.Option(False, "--json", help="Output results in JSON format"),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
+    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
+    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
 ) -> None:
     """Check health status of all configured API clients."""
+    
+    # Generate unique run ID for health check
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="health_check")
     
     try:
         # Load configuration
         config_model = Config.load(config)
-        logger = configure_logging(config_model.logging.level)
-        logger = logger.bind(command="health")
         
-        # Create health checker from API configurations
-        # Get clients from config_model.clients (list of APIClientConfig)
-        # and filter by enabled sources
-        api_configs = {}
-        enabled_sources = {name for name, source in config_model.sources.items() if source.enabled}
-        
-        for client_config in config_model.clients:
-            if client_config.name in enabled_sources:
-                api_configs[client_config.name] = client_config
-        
-        if not api_configs:
-            typer.echo("No enabled API clients found for health checking", err=True)
-            raise typer.Exit(1)
-        
-        health_checker = create_health_checker_from_config(api_configs)
-        
-        # Perform health checks
-        typer.echo("Checking API health...")
-        statuses = health_checker.check_all(timeout=timeout)
-        
-        if json_output:
-            # Output JSON format
-            import json
-            summary = health_checker.get_health_summary(statuses)
-            summary["apis"] = [
-                {
-                    "name": s.name,
-                    "healthy": s.is_healthy,
-                    "response_time_ms": s.response_time_ms,
-                    "circuit_state": s.circuit_state,
-                    "error": s.error_message
-                }
-                for s in statuses
-            ]
-            typer.echo(json.dumps(summary, indent=2))
-        else:
-            # Output formatted table
-            health_checker.print_health_report(statuses)
+        # Configure logging
+        logger = configure_logging(
+            level=log_level,
+            file_enabled=not no_file_log,
+            log_file=log_file,
+            logging_config=config_model.logging.model_dump() if hasattr(config_model, 'logging') else None,
+        )
+        with bind_stage(logger, "health_check", run_id=run_id) as logger:
+            logger.info("Health check started", run_id=run_id, timeout=timeout)
             
+            # Create health checker from API configurations
+            # Get clients from config_model.clients (list of APIClientConfig)
+            # and filter by enabled sources
+            api_configs = {}
+            enabled_sources = {name for name, source in config_model.sources.items() if source.enabled}
+            
+            for client_config in config_model.clients:
+                if client_config.name in enabled_sources:
+                    api_configs[client_config.name] = client_config
+            
+            if not api_configs:
+                typer.echo("No enabled API clients found for health checking", err=True)
+                raise typer.Exit(1)
+            
+            health_checker = create_health_checker_from_config(api_configs)
+            
+            # Perform health checks
+            typer.echo("Checking API health...")
+            
+            with bind_stage(logger, "api_health_checks"):
+                statuses = health_checker.check_all(timeout=timeout)
+            
+            # Log results
+            healthy_count = sum(1 for s in statuses if s.is_healthy)
+            unhealthy_count = len(statuses) - healthy_count
+            
+            logger.info(
+                "Health check completed",
+                run_id=run_id,
+                total_apis=len(statuses),
+                healthy=healthy_count,
+                unhealthy=unhealthy_count
+            )
+            
+            if json_output:
+                # Output JSON format
+                import json
+                summary = health_checker.get_health_summary(statuses)
+                summary["apis"] = [
+                    {
+                        "name": s.name,
+                        "healthy": s.is_healthy,
+                        "response_time_ms": s.response_time_ms,
+                        "circuit_state": s.circuit_state,
+                        "error": s.error_message
+                    }
+                    for s in statuses
+                ]
+                typer.echo(json.dumps(summary, indent=2))
+            else:
+                # Output formatted table
+                health_checker.print_health_report(statuses)
+                
             # Exit with error code if any APIs are unhealthy
-            unhealthy_count = sum(1 for s in statuses if not s.is_healthy)
             if unhealthy_count > 0:
                 raise typer.Exit(1)
         
     except Exception as exc:
+        logger.error("Health check failed", error=str(exc), run_id=run_id, exc_info=True)
         typer.echo(f"Health check failed: {exc}", err=True)
         raise typer.Exit(1) from exc
 

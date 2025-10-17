@@ -1,559 +1,1015 @@
-# План улучшений качества кода: 20 приоритетных задач
+# План улучшений: bioactivity_data_acquisition
 
-## Сортировка: по приоритету (P1→P2→P3), затем по трудозатратам (S→M→L)
+**Репозиторий:** SatoryKono/bioactivity_data_acquisition  
+**Дата:** 2025-10-17  
+**Количество улучшений:** 20  
+**Сортировка:** Приоритет (P1 → P3), затем трудозатраты (S → L)
 
 ---
 
-## P1: Критические улучшения (7 задач)
+## Улучшение 1: Создать .env.example с документацией секретов
 
-### 1. Добавить .env.example с документированными переменными окружения
+**ID:** `imp-001`  
+**Тип:** `devx`  
+**Приоритет:** P1  
+**Трудозатраты:** S (Small, 1–2 часа)
 
-**Тип:** `docs` | **Приоритет:** `P1` | **Трудозатраты:** `S`
+### Описание
 
-**Описание:**
-1. Создать `.env.example` в корне репозитория со всеми необходимыми env vars
-2. Скопировать список из `README.md:163-175` и добавить placeholder значения
-3. Добавить комментарии о том, где получить API ключи
-4. Обновить `.gitignore`, чтобы исключить `.env`, но не `.env.example`
-5. Добавить ссылку на `.env.example` в Getting Started секции README
+Создать файл `.env.example` в корне репозитория с шаблоном всех необходимых переменных окружения, включая комментарии и placeholder-значения.
 
-**Критерии приёмки:**
-- [ ] Файл `.env.example` существует в корне
-- [ ] Содержит все env vars из `README.md:163-175`
-- [ ] Каждая переменная имеет placeholder значение и комментарий
-- [ ] `.gitignore` корректно настроен
-- [ ] README ссылается на `.env.example`
+### Как сделать
 
-**Связанные файлы:**
-- `README.md:163-175`
-- `.gitignore:4`
+1. Собрать все упоминания секретов из `README.md`, `src/library/config.py`, `configs/config*.yaml`.
+2. Создать `.env.example` с секциями (API Keys, Configuration Overrides, Telemetry).
+3. Для каждой переменной добавить:
+   - Комментарий с описанием назначения
+   - Placeholder-значение (e.g., `CHEMBL_API_TOKEN=your_token_here`)
+   - Указание обязательности (required/optional)
+4. Добавить ссылку на `.env.example` в README.md секцию Quick Start.
+5. Добавить `.env` в `.gitignore` (если ещё не добавлено).
+6. Обновить `docs/configuration.md` с примером из `.env.example`.
+
+### Критерии приёмки
+
+- [ ] Файл `.env.example` существует в корне репозитория.
+- [ ] Содержит все секреты, упомянутые в README и конфигах (минимум: CHEMBL_API_TOKEN, PUBMED_API_KEY, SEMANTIC_SCHOLAR_API_KEY, CROSSREF_API_KEY, JAEGER_ENDPOINT).
+- [ ] Каждая переменная имеет комментарий и placeholder.
+- [ ] `.env` добавлен в `.gitignore`.
+- [ ] README.md ссылается на `.env.example` в секции "Настройка переменных окружения".
+
+### Связанные файлы
+
+- `README.md:56-63, 169-186`
+- `src/library/config.py:17-33` (validate_secrets)
 - Новый файл: `.env.example`
+- `.gitignore`
 
 ---
 
-### 2. Настроить Dependabot для автоматических обновлений зависимостей
+## Улучшение 2: Удалить deprecated модуль logger.py
 
-**Тип:** `ci` | **Приоритет:** `P1` | **Трудозатраты:** `S`
+**ID:** `imp-002`  
+**Тип:** `arch`  
+**Приоритет:** P1  
+**Трудозатраты:** S (1 час)
 
-**Описание:**
-1. Создать `.github/dependabot.yml` с конфигурацией для pip ecosystem
-2. Настроить еженедельные обновления для production dependencies
-3. Настроить ежемесячные обновления для dev dependencies
-4. Добавить auto-merge для patch версий через GitHub Actions
-5. Настроить группировку обновлений по категориям (security, minor, major)
+### Описание
 
-**Критерии приёмки:**
-- [ ] Файл `.github/dependabot.yml` создан
-- [ ] Dependabot создаёт PR для обновлений
-- [ ] Security updates имеют высокий приоритет
-- [ ] Настроена группировка по типам обновлений
-- [ ] Auto-merge работает для patch версий
+Удалить `src/library/logger.py`, так как он помечен как deprecated, а функциональность перенесена в `logging_setup.py`.
 
-**Связанные файлы:**
-- Новый файл: `.github/dependabot.yml`
-- `pyproject.toml:12-48` (зависимости)
+### Как сделать
 
----
+1. Выполнить grep-поиск импортов из `library.logger` во всех файлах проекта:
+   ```bash
+   rg "from library.logger import|import library.logger"
+   ```
+2. Заменить найденные импорты на `from library.logging_setup import`.
+3. Удалить файл `src/library/logger.py`.
+4. Обновить `__all__` в `src/library/__init__.py`, если там экспортировался старый модуль.
+5. Запустить тесты: `pytest -v`.
+6. Проверить mypy: `mypy src/`.
 
-### 3. Добавить upper bounds на критические зависимости
+### Критерии приёмки
 
-**Тип:** `deps` | **Приоритет:** `P1` | **Трудозатраты:** `S`
+- [ ] `src/library/logger.py` удалён.
+- [ ] Нет импортов из `library.logger` в кодовой базе (grep возвращает 0 результатов).
+- [ ] Все тесты проходят.
+- [ ] MyPy не выдаёт ошибок.
+- [ ] Pre-commit hooks проходят.
 
-**Описание:**
-1. Добавить upper bounds для pandas, pydantic, typer с учётом мажорных версий
-2. Использовать формат `package>=X.Y,<(X+1).0` для избежания breaking changes
-3. Протестировать установку с новыми constraints
-4. Добавить комментарии о причинах ограничений
-5. Обновить CI для проверки совместимости с минимальными и максимальными версиями
+### Связанные файлы
 
-**Критерии приёмки:**
-- [ ] Upper bounds добавлены для pandas, pydantic, typer, requests, structlog
-- [ ] CI проходит с текущими зависимостями
-- [ ] Документированы причины выбора границ
-- [ ] Тесты проходят на минимальной и максимальной версиях
-- [ ] README обновлён с информацией о версионных ограничениях
-
-**Связанные файлы:**
-- `pyproject.toml:12-32`
-- `.github/workflows/ci.yaml`
+- `src/library/logger.py` (удалить)
+- `src/library/__init__.py` (возможно обновить)
+- Все файлы с импортами `library.logger` (grep результаты)
 
 ---
 
-### 4. Создать CODEOWNERS файл для автоматического review assignment
+## Улучшение 3: Создать конфигурационные файлы безопасности
 
-**Тип:** `devx` | **Приоритет:** `P1` | **Трудозатраты:** `S`
+**ID:** `imp-003`  
+**Тип:** `security`  
+**Приоритет:** P1  
+**Трудозатраты:** S (1–2 часа)
 
-**Описание:**
-1. Создать `.github/CODEOWNERS` с ответственными за разные части кода
-2. Назначить владельцев для `src/library/clients/`, `src/library/etl/`, `tests/`
-3. Установить глобального владельца для критических файлов (pyproject.toml, CI configs)
-4. Добавить команду/группу для docs review
-5. Документировать процесс в `CONTRIBUTING.md`
+### Описание
 
-**Критерии приёмки:**
-- [ ] Файл `.github/CODEOWNERS` создан
-- [ ] Указаны владельцы для всех критических директорий
-- [ ] GitHub автоматически запрашивает review от владельцев
-- [ ] `CONTRIBUTING.md` обновлён с информацией о CODEOWNERS
-- [ ] Тестовый PR показывает корректное назначение reviewers
+Создать отсутствующие файлы `.bandit`, `.banditignore`, `.safety_policy.yaml`, на которые ссылаются Dockerfile и Makefile.
 
-**Связанные файлы:**
+### Как сделать
+
+1. Создать `.bandit` с базовой конфигурацией:
+   ```yaml
+   skips: ['B101']  # assert_used (разрешён в тестах)
+   exclude_dirs: ['/tests/', '/venv/', '/.venv/']
+   ```
+2. Создать `.banditignore` (если нужны исключения для специфичных файлов).
+3. Создать `.safety_policy.yaml` с примером:
+   ```yaml
+   security:
+     ignore-vulnerabilities:
+       # Список CVE для игнорирования с обоснованием
+   ```
+4. Обновить `Dockerfile:100-102` и `Makefile:54,169`, чтобы корректно ссылаться на эти файлы.
+5. Запустить локально:
+   ```bash
+   bandit -r src/ -c .bandit -ll
+   safety check --policy-file .safety_policy.yaml
+   ```
+6. Убедиться, что CI проходит.
+
+### Критерии приёмки
+
+- [ ] Файлы `.bandit`, `.banditignore`, `.safety_policy.yaml` существуют.
+- [ ] `bandit -r src/ -c .bandit -ll` выполняется успешно.
+- [ ] `safety check --policy-file .safety_policy.yaml` выполняется успешно.
+- [ ] CI workflow проходит без ошибок.
+- [ ] Dockerfile и Makefile копируют/используют эти файлы корректно.
+
+### Связанные файлы
+
+- Новые файлы: `.bandit`, `.banditignore`, `.safety_policy.yaml`
+- `Dockerfile:100-102`
+- `Makefile:54-55, 169-176`
+- `.github/workflows/ci.yaml:38-46`
+
+---
+
+## Улучшение 4: Сократить длину строки до 120 символов
+
+**ID:** `imp-004`  
+**Тип:** `lint`  
+**Приоритет:** P1  
+**Трудозатраты:** M (Medium, 3–4 часа)
+
+### Описание
+
+Уменьшить максимальную длину строки с 180 до 120 символов (стандарт Python community) для улучшения читаемости.
+
+### Как сделать
+
+1. Обновить `configs/pyproject.toml`:
+   ```toml
+   [tool.black]
+   line-length = 120
+   
+   [tool.ruff]
+   line-length = 120
+   ```
+2. Запустить автоформатирование:
+   ```bash
+   black .
+   ruff check --fix .
+   ```
+3. Вручную отредактировать строки, которые не поддаются автоформатированию (длинные URL, docstrings).
+4. Обновить `.pre-commit-config.yaml`, если там захардкожены параметры.
+5. Запустить тесты и проверку типов.
+6. Закоммитить изменения с сообщением "style: reduce line length to 120".
+
+### Критерии приёмки
+
+- [ ] `configs/pyproject.toml` обновлён: `line-length = 120`.
+- [ ] Все файлы отформатированы с новым лимитом.
+- [ ] `black --check .` и `ruff check .` проходят без ошибок.
+- [ ] Тесты проходят.
+- [ ] Pre-commit hooks проходят.
+
+### Связанные файлы
+
+- `configs/pyproject.toml:81-82, 84`
+- Все `.py` файлы в `src/` и `tests/`
+
+---
+
+## Улучшение 5: Добавить CODEOWNERS файл
+
+**ID:** `imp-005`  
+**Тип:** `devx`  
+**Приоритет:** P2  
+**Трудозатраты:** S (30 минут)
+
+### Описание
+
+Создать файл `.github/CODEOWNERS` для автоматического назначения ревьюеров на PR.
+
+### Как сделать
+
+1. Создать `.github/CODEOWNERS` со структурой:
+   ```
+   # Global owners
+   * @SatoryKono
+   
+   # Configuration files
+   configs/ @SatoryKono
+   
+   # Documentation
+   docs/ @SatoryKono
+   
+   # CI/CD
+   .github/workflows/ @SatoryKono
+   
+   # Security
+   SECURITY.md @SatoryKono
+   ```
+2. Указать реальных владельцев для каждой секции (если команда больше одного человека).
+3. Добавить в `docs/contributing.md` описание процесса код-ревью с упоминанием CODEOWNERS.
+4. Протестировать: создать PR и проверить, что владельцы автоматически назначены.
+
+### Критерии приёмки
+
+- [ ] Файл `.github/CODEOWNERS` существует.
+- [ ] Указаны владельцы для основных директорий (src/, tests/, docs/, configs/).
+- [ ] При создании PR автоматически запрашивается ревью от указанных владельцев.
+- [ ] `docs/contributing.md` содержит упоминание CODEOWNERS.
+
+### Связанные файлы
+
 - Новый файл: `.github/CODEOWNERS`
 - `docs/contributing.md`
 
 ---
 
-### 5. Добавить SECURITY.md с процедурой раскрытия уязвимостей
+## Улучшение 6: Добавить lock-файлы зависимостей
 
-**Тип:** `security` | **Приоритет:** `P1` | **Трудозатраты:** `S`
+**ID:** `imp-006`  
+**Тип:** `devx`  
+**Приоритет:** P2  
+**Трудозатраты:** M (2–3 часа)
 
-**Описание:**
-1. Создать `SECURITY.md` в корне с шаблоном GitHub security policy
-2. Указать поддерживаемые версии проекта
-3. Описать процесс приватного раскрытия уязвимостей
-4. Добавить контактную информацию (email/security issue)
-5. Указать SLA на ответ и патчи
+### Описание
 
-**Критерии приёмки:**
-- [ ] Файл `SECURITY.md` создан в корне
-- [ ] Содержит секцию "Supported Versions"
-- [ ] Описан процесс раскрытия уязвимостей
-- [ ] Указаны контакты для security reports
-- [ ] Документирован SLA на ответ (например, 72 часа)
+Внедрить pip-tools (или poetry) для генерации lock-файлов зависимостей, обеспечивая детерминизм установки.
 
-**Связанные файлы:**
-- Новый файл: `SECURITY.md`
-- `.safety_policy.yaml`
-- `.bandit`
+### Как сделать
 
----
+1. Установить pip-tools: `pip install pip-tools`.
+2. Создать `requirements.in` из dependencies в `pyproject.toml`.
+3. Создать `requirements-dev.in` из optional-dependencies[dev].
+4. Сгенерировать lock-файлы:
+   ```bash
+   pip-compile requirements.in -o requirements.txt
+   pip-compile requirements-dev.in -o requirements-dev.txt
+   ```
+5. Обновить CI workflow для использования lock-файлов:
+   ```yaml
+   pip install -r requirements.txt -r requirements-dev.txt
+   ```
+6. Обновить `Dockerfile` для установки из lock-файлов.
+7. Добавить в `Makefile` цели `deps-compile`, `deps-sync`, `deps-upgrade`.
+8. Обновить `docs/development.md` с инструкциями по управлению зависимостями.
 
-### 6. Усилить Pandera schemas: перейти на strict mode для production
+### Критерии приёмки
 
-**Тип:** `data-quality` | **Приоритет:** `P1` | **Трудозатраты:** `M`
+- [ ] `requirements.txt` и `requirements-dev.txt` содержат закреплённые версии всех зависимостей.
+- [ ] CI использует lock-файлы для установки зависимостей.
+- [ ] `Dockerfile` установка использует lock-файлы.
+- [ ] `Makefile` содержит цели для компиляции/синхронизации зависимостей.
+- [ ] `docs/development.md` документирует процесс управления зависимостями.
 
-**Описание:**
-1. Установить `strict = True` в `RawBioactivitySchema` и `NormalizedBioactivitySchema`
-2. Пересмотреть все `nullable=True` поля — оставить только действительно опциональные
-3. Добавить Pandera checks для допустимых значений (например, `activity_value > 0`)
-4. Создать отдельные schemas для разных источников данных (ChEMBL, Crossref, etc.)
-5. Добавить тесты для валидации с invalid data
+### Связанные файлы
 
-**Критерии приёмки:**
-- [ ] `strict = True` для всех production schemas
-- [ ] Документированы причины для каждого `nullable=True`
-- [ ] Добавлены Pandera checks для бизнес-правил
-- [ ] Созданы source-specific schemas
-- [ ] Тесты покрывают позитивные и негативные сценарии валидации
-
-**Связанные файлы:**
-- `src/library/schemas/input_schema.py:39-42`
-- `src/library/schemas/output_schema.py:29-31`
-- `tests/test_validation.py`
+- Новые файлы: `requirements.in`, `requirements-dev.in`, `requirements.txt`, `requirements-dev.txt`
+- `.github/workflows/ci.yaml:25-27`
+- `Dockerfile:28-29`
+- `Makefile` (новые цели)
+- `docs/development.md`
 
 ---
 
-### 7. Добавить кэширование и артефакты в CI workflow
+## Улучшение 7: Добавить кэширование зависимостей в CI
 
-**Тип:** `ci` | **Приоритет:** `P1` | **Трудозатраты:** `M`
+**ID:** `imp-007`  
+**Тип:** `ci`  
+**Приоритет:** P2  
+**Трудозатраты:** S (1 час)
 
-**Описание:**
-1. Добавить `actions/cache@v3` для pip cache в `.github/workflows/ci.yaml`
-2. Кэшировать `.mypy_cache/`, `.ruff_cache/`, `.pytest_cache/`
-3. Настроить upload артефактов для coverage reports, benchmark results
-4. Добавить badge в README для CI status и coverage
-5. Оптимизировать матрицу: fail-fast для быстрой обратной связи
+### Описание
 
-**Критерии приёмки:**
-- [ ] Pip cache настроен и работает
-- [ ] Время выполнения CI сокращено минимум на 30%
-- [ ] Coverage reports загружаются как артефакты
-- [ ] README содержит CI status badge
-- [ ] Fail-fast настроен корректно
+Настроить `actions/cache` для кэширования pip зависимостей в GitHub Actions, ускоряя CI на 50–70%.
 
-**Связанные файлы:**
+### Как сделать
+
+1. Обновить `.github/workflows/ci.yaml`, добавить шаг после `setup-python`:
+   ```yaml
+   - name: Cache pip dependencies
+     uses: actions/cache@v3
+     with:
+       path: ~/.cache/pip
+       key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+       restore-keys: |
+         ${{ runner.os }}-pip-
+   ```
+2. Убедиться, что кэш инвалидируется при изменении `requirements.txt`.
+3. Запустить CI несколько раз и сравнить время выполнения (до/после).
+4. Добавить кэширование для pre-commit: `~/.cache/pre-commit`.
+5. Документировать в `docs/ci.md`.
+
+### Критерии приёмки
+
+- [ ] CI workflow использует `actions/cache` для pip зависимостей.
+- [ ] Кэш инвалидируется при изменении `requirements.txt`.
+- [ ] Время выполнения CI сокращено на ≥30% (измерить на нескольких запусках).
+- [ ] Кэш для pre-commit также настроен.
+- [ ] `docs/ci.md` документирует кэширование.
+
+### Связанные файлы
+
 - `.github/workflows/ci.yaml`
-- `README.md` (для badges)
+- `docs/ci.md`
 
 ---
 
-## P2: Важные улучшения (8 задач)
+## Улучшение 8: Переместить CONTRIBUTING.md в корень
 
-### 8. Создать диаграммы архитектуры в Mermaid
+**ID:** `imp-008`  
+**Тип:** `docs`  
+**Приоритет:** P2  
+**Трудозатраты:** S (15 минут)
 
-**Тип:** `docs` | **Приоритет:** `P2` | **Трудозатраты:** `M`
+### Описание
 
-**Описание:**
-1. Создать `docs/diagrams/architecture.mmd` с high-level архитектурой системы
-2. Создать `docs/diagrams/etl_flow.mmd` с детальным потоком ETL процесса
-3. Создать `docs/diagrams/client_hierarchy.mmd` для HTTP clients структуры
-4. Встроить диаграммы в `docs/architecture.md` через Mermaid blocks
-5. Добавить легенду с объяснением нотации
+Создать `CONTRIBUTING.md` в корне репозитория (или симлинк на `docs/contributing.md`), так как GitHub ищет его именно там для отображения в UI.
 
-**Критерии приёмки:**
-- [ ] 3 Mermaid диаграммы созданы в `docs/diagrams/`
-- [ ] Диаграммы отображаются в MkDocs сайте
-- [ ] `docs/architecture.md` содержит встроенные диаграммы
-- [ ] Добавлена легенда/описание для каждой диаграммы
-- [ ] Диаграммы синхронизированы с кодом (проверено ревьюером)
+### Как сделать
 
-**Связанные файлы:**
-- `docs/architecture.md`
-- Новые файлы: `docs/diagrams/*.mmd`
-- `mkdocs.yml:33` (mermaid2 plugin)
+1. Скопировать `docs/contributing.md` в `CONTRIBUTING.md`:
+   ```bash
+   cp docs/contributing.md CONTRIBUTING.md
+   ```
+2. Или создать симлинк (если GitHub поддерживает):
+   ```bash
+   ln -s docs/contributing.md CONTRIBUTING.md
+   ```
+3. Добавить в конце `CONTRIBUTING.md` ссылку на полную документацию: "Дополнительная информация: [docs/contributing.md](docs/contributing.md)".
+4. Обновить `README.md`, добавить секцию "Как контрибутить" со ссылкой на `CONTRIBUTING.md`.
+5. Проверить, что GitHub UI показывает кнопку "Contributing guidelines" на странице репозитория.
 
----
+### Критерии приёмки
 
-### 9. Добавить объяснение для исключённого из coverage файла
+- [ ] Файл `CONTRIBUTING.md` существует в корне репозитория.
+- [ ] GitHub UI показывает "Contributing guidelines" на странице репо.
+- [ ] `README.md` ссылается на `CONTRIBUTING.md`.
+- [ ] Содержимое актуально и совпадает с `docs/contributing.md`.
 
-**Тип:** `tests` | **Приоритет:** `P2` | **Трудозатраты:** `S`
+### Связанные файлы
 
-**Описание:**
-1. Изучить причину исключения `src/library/io_/normalize.py` из coverage
-2. Добавить inline комментарий в `pyproject.toml` с объяснением
-3. Если файл deprecated — переместить в `src/library/io_/_legacy/`
-4. Если тестируется в integration tests — документировать это
-5. Рассмотреть возможность повышения coverage для этого файла
-
-**Критерии приёмки:**
-- [ ] Комментарий с объяснением добавлен в `pyproject.toml:76`
-- [ ] Если deprecated — файл перемещён в `_legacy/`
-- [ ] Если integration-only — это документировано
-- [ ] Issue создан для будущего удаления/рефакторинга (если применимо)
-
-**Связанные файлы:**
-- `pyproject.toml:74-77`
-- `src/library/io_/normalize.py`
+- Новый файл: `CONTRIBUTING.md`
+- `docs/contributing.md`
+- `README.md`
 
 ---
 
-### 10. Добавить PR и issue templates
+## Улучшение 9: Создать ER-диаграмму для схем данных
 
-**Тип:** `devx` | **Приоритет:** `P2` | **Трудозатраты:** `S`
+**ID:** `imp-009`  
+**Тип:** `docs`  
+**Приоритет:** P2  
+**Трудозатраты:** M (3–4 часа)
 
-**Описание:**
-1. Создать `.github/pull_request_template.md` с чек-листом из CONTRIBUTING
-2. Создать `.github/ISSUE_TEMPLATE/bug_report.yml` для structured bug reports
-3. Создать `.github/ISSUE_TEMPLATE/feature_request.yml` для feature proposals
-4. Создать `.github/ISSUE_TEMPLATE/config.yml` для custom issue routing
-5. Добавить ссылки на templates в `CONTRIBUTING.md`
+### Описание
 
-**Критерии приёмки:**
-- [ ] PR template создан и содержит checklist
-- [ ] 2 issue templates (bug, feature) созданы в YAML формате
-- [ ] Config файл настраивает routing issues
-- [ ] Templates валидируются GitHub (проверить в test issue)
-- [ ] `CONTRIBUTING.md` ссылается на templates
+Создать ER-диаграмму в Mermaid формате, визуализирующую Pandera схемы и связи между таблицами (documents, activities, assays, targets).
 
-**Связанные файлы:**
-- Новые файлы: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*.yml`
+### Как сделать
+
+1. Изучить Pandera схемы в `src/library/schemas/`.
+2. Идентифицировать ключевые таблицы и их колонки.
+3. Определить связи (foreign keys, например, `document_chembl_id` как связь).
+4. Создать файл `docs/data_schemas_erd.md` с Mermaid ER-диаграммой:
+   ```mermaid
+   erDiagram
+       DOCUMENTS ||--o{ ACTIVITIES : has
+       DOCUMENTS {
+           string document_chembl_id PK
+           string doi
+           string title
+       }
+       ACTIVITIES {
+           int activity_id PK
+           string document_chembl_id FK
+           float standard_value
+       }
+   ```
+5. Добавить ссылку на диаграмму в `docs/data_schemas.md` и `README.md`.
+6. Обновить при изменении схем (добавить в чек-лист релиза).
+
+### Критерии приёмки
+
+- [ ] Файл `docs/data_schemas_erd.md` существует с Mermaid ER-диаграммой.
+- [ ] Диаграмма включает все основные таблицы (documents, activities, assays, targets, testitem, tissue, cell).
+- [ ] Связи между таблицами корректно отображены (FK).
+- [ ] `docs/data_schemas.md` ссылается на ER-диаграмму.
+- [ ] `README.md` содержит краткое упоминание ER-диаграммы.
+
+### Связанные файлы
+
+- Новый файл: `docs/data_schemas_erd.md`
+- `docs/data_schemas.md`
+- `README.md`
+- `src/library/schemas/*.py` (источник данных)
+
+---
+
+## Улучшение 10: Добавить матрицу OS в CI
+
+**ID:** `imp-010`  
+**Тип:** `ci`  
+**Приоритет:** P2  
+**Трудозатраты:** S (1 час)
+
+### Описание
+
+Расширить CI матрицу для тестирования на Windows и macOS помимо Ubuntu.
+
+### Как сделать
+
+1. Обновить `.github/workflows/ci.yaml`:
+   ```yaml
+   strategy:
+     matrix:
+       os: [ubuntu-latest, windows-latest, macos-latest]
+       python-version: ['3.10', '3.11', '3.12']
+   ```
+2. Заменить `runs-on: ubuntu-latest` на `runs-on: ${{ matrix.os }}`.
+3. Добавить условия для OS-специфичных команд (e.g., path separators).
+4. Запустить CI и проверить, что все OS проходят тесты.
+5. Если Windows/macOS падают, добавить `allow-failure` или фикс.
+6. Документировать в `docs/ci.md`.
+
+### Критерии приёмки
+
+- [ ] CI matrix включает `os: [ubuntu-latest, windows-latest, macos-latest]`.
+- [ ] Все комбинации OS × Python проходят (или помечены как allowed-failure с TODO).
+- [ ] Время выполнения CI увеличилось незначительно (матрица параллельна).
+- [ ] `docs/ci.md` документирует поддержку нескольких OS.
+
+### Связанные файлы
+
+- `.github/workflows/ci.yaml:11-14`
+- `docs/ci.md`
+
+---
+
+## Улучшение 11: Настроить Dependabot
+
+**ID:** `imp-011`  
+**Тип:** `security`  
+**Приоритет:** P2  
+**Трудозатраты:** S (30 минут)
+
+### Описание
+
+Настроить Dependabot для автоматических обновлений зависимостей и GitHub Actions.
+
+### Как сделать
+
+1. Создать `.github/dependabot.yml`:
+   ```yaml
+   version: 2
+   updates:
+     - package-ecosystem: pip
+       directory: "/"
+       schedule:
+         interval: weekly
+       open-pull-requests-limit: 10
+       reviewers:
+         - SatoryKono
+     - package-ecosystem: github-actions
+       directory: "/"
+       schedule:
+         interval: monthly
+   ```
+2. Включить Dependabot в настройках репозитория на GitHub.
+3. Дождаться первого PR от Dependabot и проверить.
+4. Настроить автоматический мерж для minor/patch обновлений (опционально).
+5. Документировать в `SECURITY.md` и `docs/contributing.md`.
+
+### Критерии приёмки
+
+- [ ] Файл `.github/dependabot.yml` существует.
+- [ ] Dependabot создаёт PR для обновления зависимостей (проверить через неделю).
+- [ ] Reviewers назначены автоматически.
+- [ ] `SECURITY.md` и `docs/contributing.md` упоминают Dependabot.
+
+### Связанные файлы
+
+- Новый файл: `.github/dependabot.yml`
+- `SECURITY.md`
 - `docs/contributing.md`
 
 ---
 
-### 11. Рефакторинг tools/ директории: сократить фрагментацию
+## Улучшение 12: Добавить sequence diagrams для критичных флоу
 
-**Тип:** `arch` | **Приоритет:** `P2` | **Трудозатраты:** `M`
+**ID:** `imp-012`  
+**Тип:** `docs`  
+**Приоритет:** P2  
+**Трудозатраты:** M (4–5 часов)
 
-**Описание:**
-1. Сгруппировать 17 файлов в `tools/` по назначению: monitoring, validation, formatting
-2. Создать subdirectories: `tools/monitoring/`, `tools/validation/`, `tools/formatters/`
-3. Объединить схожие скрипты (например, 3 monitor_*.py → один с strategy pattern)
-4. Переместить `api_health_check.py` в `clients/` (более подходящее место)
-5. Добавить README в `tools/` с описанием каждой категории
+### Описание
 
-**Критерии приёмки:**
-- [ ] Файлы сгруппированы в 3-4 subdirectories
-- [ ] Монолитные скрипты рефакторены в модули
-- [ ] `tools/README.md` документирует структуру
-- [ ] Все импорты обновлены и тесты проходят
-- [ ] Уменьшено количество top-level файлов минимум на 50%
+Создать sequence diagrams в Mermaid для критичных сценариев: полный ETL pipeline, обработка ретраев, rate limiting.
 
-**Связанные файлы:**
+### Как сделать
+
+1. Идентифицировать топ-3 критичных сценария:
+   - Полный ETL pipeline с API запросами
+   - Обработка HTTP ошибок с backoff
+   - Rate limiting и circuit breaker
+2. Создать файлы в `docs/diagrams/`:
+   - `etl_pipeline_sequence.md`
+   - `http_retry_sequence.md`
+   - `rate_limiting_sequence.md`
+3. Для каждого файла создать Mermaid sequenceDiagram:
+   ```mermaid
+   sequenceDiagram
+       CLI->>Config: load(config.yaml)
+       Config->>CLI: Config object
+       CLI->>ETL: run_pipeline(config)
+       ETL->>APIClient: fetch_data()
+       ...
+   ```
+4. Добавить ссылки на диаграммы в `docs/architecture.md` и `README.md`.
+5. Обновить при изменении логики (добавить в чек-лист релиза).
+
+### Критерии приёмки
+
+- [ ] Созданы 3 sequence диаграммы в `docs/diagrams/`.
+- [ ] Диаграммы читаются и отражают реальный код.
+- [ ] `docs/architecture.md` ссылается на sequence diagrams.
+- [ ] `README.md` содержит раздел "Диаграммы" со ссылками.
+
+### Связанные файлы
+
+- Новые файлы: `docs/diagrams/*.md` (3 файла)
+- `docs/architecture.md`
+- `README.md`
+
+---
+
+## Улучшение 13: Разделить tools/ на скрипты и утилиты
+
+**ID:** `imp-013`  
+**Тип:** `arch`  
+**Приоритет:** P2  
+**Trудозатраты:** M (3 часа)
+
+### Описание
+
+Рефакторинг `src/library/tools/`: CLI-утилиты перенести в `scripts/`, библиотечные модули оставить в `tools/`.
+
+### Как сделать
+
+1. Аудит `src/library/tools/` (17 файлов): определить, какие файлы — CLI скрипты (имеют `if __name__ == '__main__'`), а какие — библиотечные утилиты.
+2. CLI скрипты (e.g., `get_pubmed_api_key.py`, `quick_api_check.py`) переместить в `scripts/`.
+3. Обновить импорты в скриптах на абсолютные пути (`from library.config import ...`).
+4. Обновить `README.md` и `docs/operations.md`, заменив пути к скриптам.
+5. Обновить `Makefile`, если там ссылаются на эти скрипты.
+6. Запустить тесты: `pytest -v`.
+7. Проверить линтеры: `ruff check .` и `mypy src/`.
+
+### Критерии приёмки
+
+- [ ] CLI скрипты перенесены из `src/library/tools/` в `scripts/`.
+- [ ] Библиотечные утилиты остались в `src/library/tools/`.
+- [ ] Все импорты обновлены и корректны.
+- [ ] Тесты проходят.
+- [ ] Документация обновлена с новыми путями.
+- [ ] MyPy и ruff проходят без ошибок.
+
+### Связанные файлы
+
 - `src/library/tools/` (17 файлов)
-- Тесты, использующие эти модули
-
----
-
-### 12. Добавить property-based тестирование с Hypothesis
-
-**Тип:** `tests` | **Приоритет:** `P2` | **Трудозатраты:** `M`
-
-**Описание:**
-1. Добавить `hypothesis>=6.0` в dev dependencies
-2. Создать `tests/property/test_transforms.py` для unit conversions
-3. Создать `tests/property/test_normalization.py` для data transformations
-4. Добавить strategies для генерации валидных DataFrame inputs
-5. Интегрировать Hypothesis с Pandera для schema-based generation
-
-**Критерии приёмки:**
-- [ ] Hypothesis добавлен в `pyproject.toml`
-- [ ] 2 модуля property tests созданы
-- [ ] Минимум 5 property-based тестов написаны
-- [ ] CI запускает property tests с достаточным количеством examples (1000+)
-- [ ] Документация обновлена с примерами property tests
-
-**Связанные файлы:**
-- `pyproject.toml:35-48` (dev dependencies)
-- Новые файлы: `tests/property/*.py`
-- `docs/quality.md`
-
----
-
-### 13. Внедрить atomic writes для CSV экспорта
-
-**Тип:** `data-quality` | **Приоритет:** `P2` | **Трудозатраты:** `M`
-
-**Описание:**
-1. Реализовать atomic write pattern: запись в `.tmp` → rename
-2. Обновить `write_deterministic_csv()` для использования atomic writes
-3. Добавить file locking через `fcntl` (Unix) / `msvcrt` (Windows)
-4. Обработать исключения с cleanup temp files
-5. Добавить тесты для concurrent writes и crash recovery
-
-**Критерии приёмки:**
-- [ ] Atomic write реализован через temp file + rename
-- [ ] File locking работает на Linux и Windows
-- [ ] Temp files очищаются при ошибках
-- [ ] Тесты покрывают concurrent writes
-- [ ] Документация обновлена с описанием atomic behavior
-
-**Связанные файлы:**
-- `src/library/etl/load.py`
-- `src/library/io_/read_write.py`
-- Новые тесты: `tests/test_atomic_io.py`
-
----
-
-### 14. Настроить мутационное тестирование (mutmut/cosmic-ray)
-
-**Тип:** `tests` | **Приоритет:** `P2` | **Трудозатраты:** `M`
-
-**Описание:**
-1. Добавить `mutmut` в dev dependencies
-2. Создать `.mutmut.toml` для конфигурации
-3. Запустить мутационное тестирование на критических модулях (`config.py`, `base.py`)
-4. Повысить покрытие для низкоскоринговых мутантов
-5. Добавить mutation testing в CI как optional check
-
-**Критерии приёмки:**
-- [ ] `mutmut` установлен и настроен
-- [ ] Mutation score ≥80% для критических модулей
-- [ ] CI запускает mutation tests (с allow_failure)
-- [ ] Документированы найденные недостатки в тестах
-- [ ] Создан baseline для отслеживания прогресса
-
-**Связанные файлы:**
-- `pyproject.toml` (dev deps)
-- Новый файл: `.mutmut.toml`
-- `.github/workflows/ci.yaml`
-
----
-
-### 15. Добавить HTTP response caching для идемпотентных запросов
-
-**Тип:** `perf` | **Приоритет:** `P2` | **Трудозатраты:** `L`
-
-**Описание:**
-1. Интегрировать `requests-cache` для GET запросов
-2. Настроить SQLite backend для кэша с TTL по источникам
-3. Добавить cache headers в конфигурацию (`Cache-Control`, `ETag`)
-4. Реализовать cache invalidation logic для force refresh
-5. Добавить CLI флаг `--no-cache` для обхода кэша
-
-**Критерии приёмки:**
-- [ ] `requests-cache` интегрирован в `BaseApiClient`
-- [ ] Кэш настроен с reasonable TTL (1 час для metadata, 24 часа для documents)
-- [ ] Cache hit/miss логируется
-- [ ] CLI флаг `--no-cache` работает
-- [ ] Benchmark показывает 50%+ ускорение для повторных запросов
-
-**Связанные файлы:**
-- `src/library/clients/base.py`
-- `src/library/clients/session.py`
-- `src/library/cli/__init__.py`
-
----
-
-## P3: Желательные улучшения (5 задач)
-
-### 16. Добавить Ruff docstring правила (D-категория)
-
-**Тип:** `lint` | **Приоритет:** `P3` | **Трудозатраты:** `M`
-
-**Описание:**
-1. Добавить `"D"` в `ruff.lint.select` для docstring linting
-2. Настроить per-file ignores для tests (D100, D101, D102)
-3. Выбрать docstring convention (Google/NumPy) — уже используется Google в mkdocstrings
-4. Добавить missing docstrings для публичных функций/классов
-5. Обновить pre-commit hook для проверки docstrings
-
-**Критерии приёмки:**
-- [ ] `"D"` добавлен в `pyproject.toml:87`
-- [ ] Выбрана и документирована Google convention
-- [ ] Все публичные API имеют docstrings
-- [ ] Pre-commit проверяет docstrings
-- [ ] CI проходит без D-ошибок
-
-**Связанные файлы:**
-- `pyproject.toml:83-95`
-- `.pre-commit-config.yaml`
-- `src/library/` (все модули)
-
----
-
-### 17. Снизить line-length со 180 до 120 символов
-
-**Тип:** `lint` | **Приоритет:** `P3` | **Трудозатраты:** `M`
-
-**Описание:**
-1. Изменить `line-length` в `pyproject.toml` для black и ruff на 120
-2. Запустить `black .` для автоформатирования
-3. Вручную исправить случаи, где автоформат нарушает читаемость
-4. Обновить pre-commit hooks
-5. Добавить ADR (Architecture Decision Record) с обоснованием выбора 120
-
-**Критерии приёмки:**
-- [ ] `line-length = 120` в `pyproject.toml`
-- [ ] Весь код переформатирован
-- [ ] Читаемость не ухудшилась (ревью)
-- [ ] ADR документирует решение
-- [ ] CI проходит с новыми правилами
-
-**Связанные файлы:**
-- `pyproject.toml:81`, `pyproject.toml:84`
-- Весь код в `src/library/`
-
----
-
-### 18. Добавить профилирование производительности (py-spy)
-
-**Тип:** `perf` | **Приоритет:** `P3` | **Трудозатраты:** `S`
-
-**Описание:**
-1. Добавить `py-spy` в dev dependencies
-2. Создать `scripts/profile_pipeline.py` для профилирования полного ETL цикла
-3. Генерировать flamegraphs в `reports/profiling/`
-4. Добавить Makefile target `make profile`
-5. Документировать процесс профилирования в `docs/development.md`
-
-**Критерии приёмки:**
-- [ ] `py-spy` установлен
-- [ ] Скрипт профилирования работает
-- [ ] Flamegraphs генерируются
-- [ ] Makefile target `profile` добавлен
-- [ ] Документация обновлена
-
-**Связанные файлы:**
-- `pyproject.toml` (dev deps)
-- Новый файл: `scripts/profile_pipeline.py`
+- `scripts/`
+- `README.md`
+- `docs/operations.md`
 - `Makefile`
 
 ---
 
-### 19. Добавить второй static analyzer (Pyright) для cross-validation
+## Улучшение 14: Добавить requests-cache для HTTP кэширования
 
-**Тип:** `lint` | **Приоритет:** `P3` | **Трудозатраты:** `M`
+**ID:** `imp-014`  
+**Тип:** `perf`  
+**Приоритет:** P2  
+**Трудозатраты:** M (4 часа)
 
-**Описание:**
-1. Добавить `pyright` в dev dependencies
-2. Создать `pyrightconfig.json` с strict настройками
-3. Синхронизировать настройки с `mypy` (target Python version, strictness)
-4. Добавить CI step для pyright проверки
-5. Исправить различия между mypy и pyright результатами
+### Описание
 
-**Критерии приёмки:**
-- [ ] `pyright` установлен и настроен
-- [ ] `pyrightconfig.json` создан
-- [ ] CI запускает pyright (после mypy)
-- [ ] Оба анализатора проходят без ошибок
-- [ ] Документирована причина использования двух analyzers
+Интегрировать `requests-cache` для кэширования HTTP ответов от API, снижая нагрузку на внешние сервисы и ускоряя повторные запуски.
 
-**Связанные файлы:**
-- `pyproject.toml` (dev deps)
-- Новый файл: `pyrightconfig.json`
-- `.github/workflows/ci.yaml`
+### Как сделать
 
----
+1. Добавить зависимость в `pyproject.toml`:
+   ```toml
+   dependencies = [
+       ...
+       "requests-cache>=1.0",
+   ]
+   ```
+2. Обновить `src/library/clients/session.py` (или base.py):
+   ```python
+   import requests_cache
+   
+   def get_cached_session(backend='sqlite', expire_after=3600):
+       return requests_cache.CachedSession(
+           'bioactivity_cache',
+           backend=backend,
+           expire_after=expire_after,
+       )
+   ```
+3. Добавить конфигурацию в `config.yaml`:
+   ```yaml
+   http:
+     global:
+       cache:
+         enabled: true
+         backend: sqlite
+         expire_after: 3600  # seconds
+   ```
+4. Обновить `Config` pydantic model с полями для cache.
+5. Обновить инициализацию сессии в `BaseApiClient`.
+6. Добавить CLI флаг `--no-cache` для отключения кэша.
+7. Документировать в `docs/configuration.md` и `README.md`.
+8. Добавить тесты для кэша в `tests/test_clients.py`.
 
-### 20. Создать ADR (Architecture Decision Records) директорию
+### Критерии приёмки
 
-**Тип:** `docs` | **Приоритет:** `P3` | **Трудозатраты:** `M`
+- [ ] Зависимость `requests-cache` добавлена.
+- [ ] HTTP кэш настраивается через конфигурацию.
+- [ ] CLI флаг `--no-cache` работает.
+- [ ] Тесты для кэша написаны и проходят.
+- [ ] Документация обновлена.
+- [ ] Повторные запуски пайплайна с кэшем ≥2x быстрее (измерить бенчмарком).
 
-**Описание:**
-1. Создать `docs/adr/` для Architecture Decision Records
-2. Создать шаблон ADR в `docs/adr/template.md`
-3. Написать первые 3 ADR для критических решений:
-   - ADR-001: Выбор Pandera вместо Pydantic для data validation
-   - ADR-002: Использование structlog для structured logging
-   - ADR-003: Детерминированный вывод через sort + column_order
-4. Добавить ADR index в MkDocs navigation
-5. Документировать процесс создания ADR в `CONTRIBUTING.md`
+### Связанные файлы
 
-**Критерии приёмки:**
-- [ ] Директория `docs/adr/` создана
-- [ ] Шаблон ADR существует
-- [ ] 3 ADR написаны и ревьюированы
-- [ ] ADR индексируются в MkDocs
-- [ ] `CONTRIBUTING.md` описывает процесс ADR
-
-**Связанные файлы:**
-- Новые файлы: `docs/adr/*.md`
-- `mkdocs.yml` (navigation)
-- `docs/contributing.md`
-
----
-
-## Дорожная карта: батч-PR с зависимостями
-
-### Batch 1: Foundational DevOps (P1, независимые)
-**Задачи:** #1, #2, #4, #5  
-**Зависимости:** нет  
-**Ожидаемое время:** 1-2 дня  
-**Описание:** Базовая инфраструктура для безопасности и автоматизации
-
-### Batch 2: CI/CD Optimization (P1, зависит от Batch 1)
-**Задачи:** #3, #7  
-**Зависимости:** Batch 1 (особенно #2 для dependabot)  
-**Ожидаемое время:** 2-3 дня  
-**Описание:** Улучшение CI pipeline и управление зависимостями
-
-### Batch 3: Data Quality Enhancement (P1, независимый)
-**Задачи:** #6, #13  
-**Зависимости:** нет  
-**Ожидаемое время:** 3-4 дня  
-**Описание:** Усиление валидации данных и надёжности I/O
-
-### Batch 4: Documentation & Architecture (P2, зависит от Batch 3)
-**Задачи:** #8, #9, #10, #20  
-**Зависимости:** Batch 3 (для актуальной архитектуры)  
-**Ожидаемое время:** 3-5 дней  
-**Описание:** Визуализация и документирование архитектурных решений
-
-### Batch 5: Code Quality & Testing (P2, независимый)
-**Задачи:** #11, #12, #14  
-**Зависимости:** нет  
-**Ожидаемое время:** 5-7 дней  
-**Описание:** Рефакторинг и расширенное тестирование
-
-### Batch 6: Performance & Polish (P2-P3, зависит от всех предыдущих)
-**Задачи:** #15, #16, #17, #18, #19  
-**Зависимости:** Batch 1-5  
-**Ожидаемое время:** 4-6 дней  
-**Описание:** Оптимизации производительности и финальный polish
+- `configs/pyproject.toml` (dependencies)
+- `src/library/clients/session.py` или `base.py`
+- `src/library/config.py` (добавить cache config)
+- `src/library/cli/__init__.py` (CLI флаг)
+- `tests/test_clients.py`
+- `docs/configuration.md`
+- `README.md`
 
 ---
 
-## Итоговая оценка
+## Улучшение 15: Настроить автоматический cleanup старых логов
 
-**Общее время реализации:** 18-27 рабочих дней (3.5-5.5 недель)  
-**Критический путь:** Batch 1 → Batch 2 → Batch 4 → Batch 6  
-**Быстрые победы (Quick Wins):** #1, #2, #4, #5, #9, #10 (можно сделать за 1 неделю)
+**ID:** `imp-015`  
+**Тип:** `devx`  
+**Приоритет:** P3  
+**Трудозатраты:** S (1 час)
 
-**Рекомендуемый порядок выполнения:**
-1. Начать с Batch 1 (foundational) — обязательно для безопасности
-2. Параллельно Batch 3 (data quality) — high impact на надёжность
-3. Batch 2 после завершения Batch 1 — для автоматизации CI
-4. Batch 4 и 5 можно выполнять параллельно разными людьми
-5. Batch 6 в конце, когда всё стабильно работает
+### Описание
 
+Автоматизировать удаление старых логов (>14 дней) при старте пайплайна, используя существующую функцию `cleanup_old_logs`.
+
+### Как сделать
+
+1. Обновить `src/library/logging_setup.py`, добавить вызов `cleanup_old_logs()` в `configure_logging()`:
+   ```python
+   if logging_config and logging_config.get("file", {}).get("cleanup_on_start", False):
+       cleanup_old_logs(
+           older_than_days=logging_config.get("file", {}).get("retention_days", 14),
+           logs_dir=Path(logging_config.get("file", {}).get("path", "logs/app.log")).parent
+       )
+   ```
+2. Обновить `configs/logging.yaml`:
+   ```yaml
+   file:
+     cleanup_on_start: true
+     retention_days: 14
+   ```
+3. Добавить CLI флаг `--cleanup-logs` для принудительного cleanup.
+4. Документировать в `docs/operations.md`.
+5. Добавить тест для `cleanup_old_logs` в `tests/test_utils_logging.py`.
+
+### Критерии приёмки
+
+- [ ] Функция `cleanup_old_logs` вызывается при старте, если `cleanup_on_start=true`.
+- [ ] Старые логи (>14 дней) удаляются успешно.
+- [ ] CLI флаг `--cleanup-logs` работает.
+- [ ] Тест для cleanup написан и проходит.
+- [ ] `docs/operations.md` документирует механизм cleanup.
+
+### Связанные файлы
+
+- `src/library/logging_setup.py:279-303`
+- `configs/logging.yaml`
+- `src/library/cli/__init__.py` (CLI флаг)
+- `tests/test_utils_logging.py`
+- `docs/operations.md`
+
+---
+
+## Улучшение 16: Добавить CODE_OF_CONDUCT.md
+
+**ID:** `imp-016`  
+**Тип:** `docs`  
+**Приоритет:** P3  
+**Трудозатраты:** S (15 минут)
+
+### Описание
+
+Создать `CODE_OF_CONDUCT.md` в корне репозитория, используя шаблон Contributor Covenant.
+
+### Как сделать
+
+1. Скачать шаблон Contributor Covenant (версия 2.1): https://www.contributor-covenant.org/version/2/1/code_of_conduct/
+2. Скопировать текст в `CODE_OF_CONDUCT.md`.
+3. Заменить placeholder `[INSERT CONTACT METHOD]` на email: `security@example.com` (или реальный контакт).
+4. Добавить ссылку на `CODE_OF_CONDUCT.md` в `README.md` (секция "Лицензия и вклад").
+5. Обновить `CONTRIBUTING.md`, добавив раздел "Кодекс поведения".
+6. Проверить, что GitHub UI показывает "Code of conduct" на странице репо.
+
+### Критерии приёмки
+
+- [ ] Файл `CODE_OF_CONDUCT.md` существует в корне.
+- [ ] GitHub UI показывает "Code of conduct".
+- [ ] `README.md` и `CONTRIBUTING.md` ссылаются на `CODE_OF_CONDUCT.md`.
+- [ ] Контактная информация для жалоб указана корректно.
+
+### Связанные файлы
+
+- Новый файл: `CODE_OF_CONDUCT.md`
+- `README.md`
+- `CONTRIBUTING.md`
+
+---
+
+## Улучшение 17: Добавить .editorconfig
+
+**ID:** `imp-017`  
+**Тип:** `devx`  
+**Приоритет:** P3  
+**Трудозатраты:** S (15 минут)
+
+### Описание
+
+Создать `.editorconfig` для унификации настроек редактора (отступы, кодировка, перевод строки).
+
+### Как сделать
+
+1. Создать `.editorconfig`:
+   ```ini
+   root = true
+   
+   [*]
+   charset = utf-8
+   end_of_line = lf
+   insert_final_newline = true
+   trim_trailing_whitespace = true
+   
+   [*.py]
+   indent_style = space
+   indent_size = 4
+   
+   [*.{yaml,yml}]
+   indent_style = space
+   indent_size = 2
+   
+   [Makefile]
+   indent_style = tab
+   ```
+2. Проверить, что VSCode/PyCharm автоматически подхватывают настройки (установить EditorConfig plugin, если нужно).
+3. Добавить упоминание в `docs/development.md`.
+4. Закоммитить.
+
+### Критерии приёмки
+
+- [ ] Файл `.editorconfig` существует.
+- [ ] Редакторы (VSCode, PyCharm) подхватывают настройки (проверить вручную).
+- [ ] `docs/development.md` упоминает `.editorconfig`.
+
+### Связанные файлы
+
+- Новый файл: `.editorconfig`
+- `docs/development.md`
+
+---
+
+## Улучшение 18: Добавить профилирование в бенчмарки
+
+**ID:** `imp-018`  
+**Тип:** `perf`  
+**Приоритет:** P3  
+**Трудозатраты:** M (3 часа)
+
+### Описание
+
+Интегрировать `py-spy` или `cProfile` для профилирования производительности в бенчмарках, выявляя узкие места.
+
+### Как сделать
+
+1. Добавить зависимость:
+   ```toml
+   [project.optional-dependencies]
+   dev = [
+       ...
+       "py-spy>=0.3",
+   ]
+   ```
+2. Создать `tests/benchmarks/test_profiling.py`:
+   ```python
+   import pytest
+   from library.etl.run import run_pipeline
+   
+   @pytest.mark.benchmark
+   def test_profile_pipeline(benchmark, sample_config):
+       result = benchmark.pedantic(
+           run_pipeline,
+           args=(sample_config,),
+           rounds=1,
+       )
+   ```
+3. Добавить Makefile цель:
+   ```makefile
+   profile-pipeline:
+       py-spy record -o profile.svg -- python -m library.cli pipeline --config configs/config.yaml
+   ```
+4. Запустить профилирование:
+   ```bash
+   make profile-pipeline
+   ```
+5. Проанализировать `profile.svg` (flamegraph) и выявить топ-3 slowest функций.
+6. Документировать в `docs/development.md`.
+
+### Критерии приёмки
+
+- [ ] Зависимость `py-spy` добавлена в `[dev]`.
+- [ ] Тесты профилирования написаны в `tests/benchmarks/test_profiling.py`.
+- [ ] Makefile цель `profile-pipeline` работает.
+- [ ] Сгенерирован flamegraph `profile.svg`.
+- [ ] `docs/development.md` документирует профилирование.
+
+### Связанные файлы
+
+- `configs/pyproject.toml` (dev dependencies)
+- Новый файл: `tests/benchmarks/test_profiling.py`
+- `Makefile` (новая цель)
+- `docs/development.md`
+
+---
+
+## Улучшение 19: Добавить Docker build в CI
+
+**ID:** `imp-019`  
+**Тип:** `ci`  
+**Приоритет:** P3  
+**Трудозатраты:** M (2 часа)
+
+### Описание
+
+Добавить job в CI для сборки Docker образов и проверки их работоспособности.
+
+### Как сделать
+
+1. Создать новый job в `.github/workflows/ci.yaml`:
+   ```yaml
+   docker-build:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+       - name: Set up Docker Buildx
+         uses: docker/setup-buildx-action@v2
+       - name: Build development image
+         run: docker build --target development -t bioactivity-etl:dev .
+       - name: Build production image
+         run: docker build --target production -t bioactivity-etl:prod .
+       - name: Test production image
+         run: docker run --rm bioactivity-etl:prod --version
+   ```
+2. Добавить кэширование Docker слоёв:
+   ```yaml
+   - name: Cache Docker layers
+     uses: actions/cache@v3
+     with:
+       path: /tmp/.buildx-cache
+       key: ${{ runner.os }}-buildx-${{ github.sha }}
+       restore-keys: |
+         ${{ runner.os }}-buildx-
+   ```
+3. Опционально: публиковать образы в GitHub Container Registry при push в main.
+4. Документировать в `docs/ci.md`.
+
+### Критерии приёмки
+
+- [ ] CI job `docker-build` успешно собирает образы.
+- [ ] Тест `--version` проходит в production образе.
+- [ ] Docker слои кэшируются между запусками.
+- [ ] Время сборки образов приемлемо (≤5 минут).
+- [ ] `docs/ci.md` документирует Docker build в CI.
+
+### Связанные файлы
+
+- `.github/workflows/ci.yaml` (новый job)
+- `Dockerfile`
+- `docs/ci.md`
+
+---
+
+## Улучшение 20: Разрешить TODO в fetch_publications.py
+
+**ID:** `imp-020`  
+**Тип:** `arch`  
+**Приоритет:** P3  
+**Трудозатраты:** L (Large, 6–8 часов)
+
+### Описание
+
+Реализовать метод `fetch_publications` для клиентов, устранив TODO комментарий в `src/scripts/fetch_publications.py:158`.
+
+### Как сделать
+
+1. Изучить TODO: `src/scripts/fetch_publications.py:158`.
+2. Проанализировать, какие клиенты должны поддерживать `fetch_publications` (PubMed, Crossref, Semantic Scholar, OpenAlex).
+3. Реализовать метод `fetch_publications(query: str, limit: int) -> List[Dict]` в каждом клиенте.
+4. Обновить `BaseApiClient` с абстрактным методом (или default implementation).
+5. Обновить `src/scripts/fetch_publications.py`, заменив TODO на реальный вызов.
+6. Добавить тесты в `tests/test_clients.py` для нового метода.
+7. Обновить документацию API клиентов в `docs/api/index.md`.
+8. Убедиться, что интеграционные тесты проходят.
+
+### Критерии приёмки
+
+- [ ] Метод `fetch_publications` реализован в 4+ клиентах.
+- [ ] TODO комментарий удалён из `fetch_publications.py`.
+- [ ] Скрипт `fetch_publications.py` работает и возвращает результаты.
+- [ ] Тесты для метода написаны и проходят.
+- [ ] `docs/api/index.md` документирует новый метод.
+
+### Связанные файлы
+
+- `src/scripts/fetch_publications.py:158`
+- `src/library/clients/base.py`
+- `src/library/clients/pubmed.py`
+- `src/library/clients/crossref.py`
+- `src/library/clients/semantic_scholar.py`
+- `src/library/clients/openalex.py`
+- `tests/test_clients.py`
+- `docs/api/index.md`
+
+---
+
+## Краткая дорожная карта по батч-PR
+
+Рекомендуется объединять улучшения в логические батчи для упрощения ревью и снижения риска конфликтов.
+
+### Батч 1: Критичные DevX улучшения (P1)
+**Цель:** Улучшить onboarding и стабильность  
+**Улучшения:** #1 (env.example), #2 (deprecated logger), #3 (security configs)  
+**Трудозатраты:** S+S+S = 3–5 часов  
+**Зависимости:** Нет  
+**PR название:** `chore: critical devx improvements (env.example, cleanup deprecated code, security configs)`
+
+### Батч 2: Линтинг и стандарты кода (P1)
+**Цель:** Унифицировать стиль, улучшить читаемость  
+**Улучшения:** #4 (line length 120)  
+**Трудозатраты:** M = 3–4 часа  
+**Зависимости:** Батч 1 (избежать конфликтов форматирования)  
+**PR название:** `style: reduce line length to 120`
+
+### Батч 3: CI/CD оптимизации (P2)
+**Цель:** Ускорить CI, расширить покрытие  
+**Улучшения:** #7 (cache), #10 (OS matrix), #11 (Dependabot), #19 (Docker build)  
+**Трудозатраты:** S+S+S+M = 4–6 часов  
+**Зависимости:** Батч 2 (stable codebase)  
+**PR название:** `ci: optimize builds (caching, OS matrix, Docker, Dependabot)`
+
+### Батч 4: Управление зависимостями и производительность (P2)
+**Цель:** Детерминизм зависимостей, кэширование HTTP  
+**Улучшения:** #6 (lock-files), #14 (requests-cache)  
+**Трудозатраты:** M+M = 5–7 часов  
+**Зависимости:** Батч 3 (CI stable)  
+**PR название:** `feat: add dependency locking and HTTP caching`
+
+### Батч 5: Документация и диаграммы (P2)
+**Цель:** Улучшить визуализацию и UX документации  
+**Улучшения:** #5 (CODEOWNERS), #8 (CONTRIBUTING в корень), #9 (ER-диаграммы), #12 (sequence diagrams)  
+**Трудозатраты:** S+S+M+M = 8–10 часов  
+**Зависимости:** Нет (параллельно с батчами 3–4)  
+**PR название:** `docs: add diagrams, CODEOWNERS, and improve structure`
+
+### Батч 6: Архитектурный рефакторинг и дополнительные фичи (P2–P3)
+**Цель:** Чистка архитектуры, реализация TODO  
+**Улучшения:** #13 (разделить tools/), #15 (cleanup logs), #16 (CODE_OF_CONDUCT), #17 (.editorconfig), #18 (profiling), #20 (fetch_publications TODO)  
+**Трудозатраты:** M+S+S+S+M+L = 15–20 часов  
+**Зависимости:** Все предыдущие батчи (финальный polish)  
+**PR название:** `refactor: architecture cleanup and feature completions`
+
+---
+
+## Примечания
+
+- **Порядок выполнения:** Строго по приоритетам P1 → P2 → P3, затем по трудозатратам S → M → L внутри приоритета.
+- **Тестирование:** После каждого улучшения запускать полный CI: `pytest`, `mypy`, `ruff`, `black`.
+- **Документация:** Обновлять `docs/changelog.md` после каждого батч-PR.
+- **Версионирование:** После батчей 1–3 (критичные) можно выпустить минорную версию 0.2.0.
+
+---
+
+**Подготовлено:** AI Code Analyst  
+**Дата:** 2025-10-17  
+**Общая оценка трудозатрат:** ~60–75 часов для всех 20 улучшений

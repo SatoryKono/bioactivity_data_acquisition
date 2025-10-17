@@ -1,10 +1,18 @@
-"""Utility helpers for structlog-based logging."""
+"""Legacy logging utilities - DEPRECATED.
+
+This module is deprecated. Use library.logging_setup instead.
+"""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
+import warnings
 
-import structlog
+# structlog import removed - using new logging_setup
+
+# Import the new unified logging setup
+from .logging_setup import configure_logging as _configure_logging, get_logger as _get_logger
 
 _LOGGING_CONFIGURED = False
 
@@ -12,33 +20,32 @@ _LOGGING_CONFIGURED = False
 def configure_logging(level: int = logging.INFO) -> None:
     """Configure structlog for structured logging.
 
-    The configuration is idempotent – subsequent calls do not reconfigure
-    logging to avoid interfering with test log capture.
+    DEPRECATED: Use library.logging_setup.configure_logging() instead.
+    This function is kept for backward compatibility.
     """
 
-    global _LOGGING_CONFIGURED
-
-    if _LOGGING_CONFIGURED:
-        return
-
-    logging.basicConfig(level=level, format="%(message)s")
-    structlog.configure(
-        wrapper_class=structlog.make_filtering_bound_logger(level),
-        processors=[
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.add_log_level,
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.JSONRenderer(),
-        ],
-        cache_logger_on_first_use=True,
+    warnings.warn(
+        "library.logger.configure_logging is deprecated. Use library.logging_setup.configure_logging instead.",
+        DeprecationWarning,
+        stacklevel=2
     )
-    _LOGGING_CONFIGURED = True
+
+    # Convert int level to string for new function
+    level_str = logging.getLevelName(level)
+    _configure_logging(level=level_str)
 
 
-def get_logger(name: str, **initial_values: Any) -> structlog.BoundLogger:
-    """Return a configured structlog logger."""
+def get_logger(name: str, **initial_values: Any) -> Any:
+    """Return a configured structlog logger.
 
-    if not _LOGGING_CONFIGURED:
-        configure_logging()
-    return structlog.get_logger(name).bind(**initial_values)
+    DEPRECATED: Use library.logging_setup.get_logger() instead.
+    This function is kept for backward compatibility.
+    """
+
+    warnings.warn(
+        "library.logger.get_logger is deprecated. Use library.logging_setup.get_logger instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+
+    return _get_logger(name, **initial_values)

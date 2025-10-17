@@ -118,11 +118,11 @@ class SemanticScholarMonitor:
     def monitor_continuous(self, interval_seconds: int = 60, duration_minutes: int = 10):
         """Непрерывный мониторинг API."""
         
-        print("🔍 Начинаем мониторинг Semantic Scholar API")
-        print(f"⏱️ Интервал: {interval_seconds} секунд")
-        print(f"⏳ Продолжительность: {duration_minutes} минут")
-        print(f"🔑 API ключ: {'Настроен' if self.api_key else 'Не настроен'}")
-        print("=" * 60)
+        logger.info("🔍 Начинаем мониторинг Semantic Scholar API")
+        logger.info(f"⏱️ Интервал: {interval_seconds} секунд")
+        logger.info(f"⏳ Продолжительность: {duration_minutes} минут")
+        logger.info(f"🔑 API ключ: {'Настроен' if self.api_key else 'Не настроен'}")
+        logger.info("=" * 60)
         
         start_time = time.time()
         end_time = start_time + (duration_minutes * 60)
@@ -131,16 +131,16 @@ class SemanticScholarMonitor:
         try:
             while time.time() < end_time:
                 timestamp = datetime.now().strftime("%H:%M:%S")
-                print(f"[{timestamp}] Проверяем API...", end=" ")
+                logger.info(f"[{timestamp}] Проверяем API...", end=" ")
                 
                 result = self.check_rate_limits()
                 results.append(result)
                 
                 if result['current_status'] == 'healthy':
-                    print("✅ OK", end="")
+                    logger.info("✅ OK", end="")
                     
                     if 'response_time_ms' in result:
-                        print(f" ({result['response_time_ms']:.0f}ms)", end="")
+                        logger.info(f" ({result['response_time_ms']:.0f}ms)", end="")
                     
                     if 'usage_percent' in result:
                         status_emoji = {
@@ -148,11 +148,11 @@ class SemanticScholarMonitor:
                             'warning': '🟡', 
                             'critical': '🔴'
                         }
-                        print(f" {status_emoji.get(result['status'], '⚪')} {result['usage_percent']}%", end="")
+                        logger.info(f" {status_emoji.get(result['status'], '⚪')} {result['usage_percent']}%", end="")
                 else:
-                    print("❌ ERROR")
+                    logger.error("❌ ERROR")
                     if 'error' in result:
-                        print(f"   Ошибка: {result['error']}")
+                        logger.error(f"   Ошибка: {result['error']}")
                 
                 print()  # Новая строка
                 
@@ -160,7 +160,7 @@ class SemanticScholarMonitor:
                 time.sleep(interval_seconds)
                 
         except KeyboardInterrupt:
-            print("\n⏹️ Мониторинг прерван пользователем")
+            logger.info("\n⏹️ Мониторинг прерван пользователем")
         
         # Сохраняем результаты
         self._save_results(results)
@@ -180,7 +180,7 @@ class SemanticScholarMonitor:
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         
-        print(f"📊 Результаты сохранены в {filename}")
+        logger.info(f"📊 Результаты сохранены в {filename}")
     
     def _print_summary(self, results: list):
         """Выводит сводку результатов мониторинга."""
@@ -192,46 +192,49 @@ class SemanticScholarMonitor:
         successful_checks = sum(1 for r in results if r['current_status'] == 'healthy')
         success_rate = (successful_checks / total_checks) * 100
         
-        print("\n" + "=" * 60)
-        print("📈 СВОДКА МОНИТОРИНГА")
-        print("=" * 60)
-        print(f"Всего проверок: {total_checks}")
-        print(f"Успешных: {successful_checks}")
-        print(f"Процент успеха: {success_rate:.1f}%")
+        logger.info("\n" + "=" * 60)
+        logger.info("📈 СВОДКА МОНИТОРИНГА")
+        logger.info("=" * 60)
+        logger.info(f"Всего проверок: {total_checks}")
+        logger.info(f"Успешных: {successful_checks}")
+        logger.info(f"Процент успеха: {success_rate:.1f}%")
         
         # Среднее время ответа
         response_times = [r.get('response_time_ms', 0) for r in results if 'response_time_ms' in r]
         if response_times:
             avg_response_time = sum(response_times) / len(response_times)
-            print(f"Среднее время ответа: {avg_response_time:.0f}ms")
+            logger.info(f"Среднее время ответа: {avg_response_time:.0f}ms")
         
         # Анализ использования лимитов
         usage_percents = [r.get('usage_percent', 0) for r in results if 'usage_percent' in r]
         if usage_percents:
             max_usage = max(usage_percents)
             avg_usage = sum(usage_percents) / len(usage_percents)
-            print(f"Максимальное использование: {max_usage:.1f}%")
-            print(f"Среднее использование: {avg_usage:.1f}%")
+            logger.info(f"Максимальное использование: {max_usage:.1f}%")
+            logger.info(f"Среднее использование: {avg_usage:.1f}%")
         
-        print("\n💡 РЕКОМЕНДАЦИИ:")
+        logger.info("\n💡 РЕКОМЕНДАЦИИ:")
         
         if success_rate < 95:
-            print("⚠️ Низкий процент успеха - проверьте подключение к интернету")
+            logger.info("⚠️ Низкий процент успеха - проверьте подключение к интернету")
         
         if response_times and avg_response_time > 5000:
-            print("⚠️ Медленные ответы API - возможны проблемы с сетью")
+            logger.info("⚠️ Медленные ответы API - возможны проблемы с сетью")
         
         if usage_percents and max_usage > 80:
-            print("⚠️ Высокое использование лимитов - рассмотрите получение API ключа")
+            logger.info("⚠️ Высокое использование лимитов - рассмотрите получение API ключа")
         
         if not self.api_key:
-            print("💡 Получите API ключ для увеличения лимитов: https://www.semanticscholar.org/product/api#api-key-form")
+            logger.info("💡 Получите API ключ для увеличения лимитов: https://www.semanticscholar.org/product/api#api-key-form")
 
+
+import argparse
+from library.logging_setup import get_logger
 
 def main():
     """Основная функция."""
-    import argparse
-    
+    logger = get_logger(__name__)
+
     parser = argparse.ArgumentParser(description="Мониторинг Semantic Scholar API")
     parser.add_argument("--single", action="store_true", help="Выполнить одну проверку")
     parser.add_argument("--interval", type=int, default=60, help="Интервал между проверками (секунды)")
@@ -242,19 +245,19 @@ def main():
     monitor = SemanticScholarMonitor()
     
     if args.single:
-        print("🔍 Выполняем одну проверку API...")
+        logger.info("🔍 Выполняем одну проверку API...")
         result = monitor.check_rate_limits()
         
-        print(f"Статус: {'✅ OK' if result['current_status'] == 'healthy' else '❌ ERROR'}")
+        logger.info(f"Статус: {'✅ OK' if result['current_status'] == 'healthy' else '❌ ERROR'}")
         
         if 'response_time_ms' in result:
-            print(f"Время ответа: {result['response_time_ms']:.0f}ms")
+            logger.info(f"Время ответа: {result['response_time_ms']:.0f}ms")
         
         if 'usage_percent' in result:
-            print(f"Использование лимитов: {result['usage_percent']:.1f}%")
+            logger.info(f"Использование лимитов: {result['usage_percent']:.1f}%")
         
         if 'error' in result:
-            print(f"Ошибка: {result['error']}")
+            logger.error(f"Ошибка: {result['error']}")
     else:
         monitor.monitor_continuous(args.interval, args.duration)
 

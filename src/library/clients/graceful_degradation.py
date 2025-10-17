@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from library.clients.exceptions import ApiClientError
-from library.logger import get_logger
+from library.logging_setup import get_logger
 
 
 @dataclass

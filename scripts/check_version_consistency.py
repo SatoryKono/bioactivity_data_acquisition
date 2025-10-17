@@ -7,15 +7,15 @@ from pathlib import Path
 
 
 def get_version_from_pyproject() -> str:
-    """Extract version from pyproject.toml."""
-    pyproject_path = Path("pyproject.toml")
+    """Extract version from configs/pyproject.toml."""
+    pyproject_path = Path("configs/pyproject.toml")
     if not pyproject_path.exists():
-        raise FileNotFoundError("pyproject.toml not found")
+        raise FileNotFoundError("configs/pyproject.toml not found")
     
     content = pyproject_path.read_text()
     match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
     if not match:
-        raise ValueError("Version not found in pyproject.toml")
+        raise ValueError("Version not found in configs/pyproject.toml")
     
     return match.group(1)
 
@@ -57,7 +57,7 @@ def main():
         readme_version = get_version_from_readme()
         
         versions = {
-            "pyproject.toml": pyproject_version,
+            "configs/pyproject.toml": pyproject_version,
             "CLI": cli_version,
             "README.md": readme_version,
         }

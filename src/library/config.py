@@ -15,7 +15,17 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 
 def _validate_secrets(headers: dict[str, Any]) -> None:
-    """Validate that all required secrets are available in environment variables."""
+    """Validate that all required secrets are available in environment variables.
+    
+    Checks all header values for placeholder patterns like {API_KEY} and ensures
+    the corresponding environment variables are set.
+    
+    Args:
+        headers: Dictionary of HTTP headers that may contain secret placeholders.
+    
+    Raises:
+        ValueError: If any required environment variables are missing.
+    """
     missing_secrets = []
     
     for key, value in headers.items():
@@ -34,7 +44,18 @@ def _validate_secrets(headers: dict[str, Any]) -> None:
 
 
 def _merge_dicts(base: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, Any]:
-    """Recursively merge ``overrides`` into ``base`` and return a copy."""
+    """Recursively merge overrides into base and return a copy.
+    
+    Performs deep merge of nested dictionaries, with overrides taking precedence
+    over base values.
+    
+    Args:
+        base: Base dictionary to merge into.
+        overrides: Dictionary with override values.
+    
+    Returns:
+        New dictionary with merged values.
+    """
 
     result = dict(base)
     for key, value in overrides.items():
@@ -62,7 +83,14 @@ def _parse_scalar(value: str) -> Any:
 
 
 def ensure_output_directories_exist(config: "Config") -> None:
-    """Создает необходимые директории для выходных файлов конфигурации."""
+    """Create necessary directories for output files in configuration.
+    
+    Creates parent directories for all output paths specified in the configuration
+    to ensure they exist before writing files.
+    
+    Args:
+        config: Configuration object containing output paths.
+    """
     output_settings = config.io.output
     
     # Создаем родительские директории для всех выходных путей
@@ -270,10 +298,30 @@ class RuntimeSettings(BaseModel):
     workers: int = Field(default=4, ge=1)
 
 
+class FileLoggingSettings(BaseModel):
+    """File logging configuration."""
+
+    enabled: bool = Field(default=True)
+    path: Path = Field(default=Path("logs/app.log"))
+    max_bytes: int = Field(default=10485760, description="Maximum file size in bytes (10MB)")
+    backup_count: int = Field(default=10, description="Number of backup files to keep")
+    rotation_strategy: Literal["size", "time"] = Field(default="size", description="Rotation strategy")
+    retention_days: int = Field(default=14, description="Days to retain log files")
+    cleanup_on_start: bool = Field(default=False, description="Clean old logs on startup")
+
+
+class ConsoleLoggingSettings(BaseModel):
+    """Console logging configuration."""
+
+    format: Literal["text", "json"] = Field(default="text", description="Console output format")
+
+
 class LoggingSettings(BaseModel):
     """Structured logging configuration."""
 
     level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(default="INFO")
+    file: FileLoggingSettings = Field(default_factory=FileLoggingSettings)
+    console: ConsoleLoggingSettings = Field(default_factory=ConsoleLoggingSettings)
 
 
 class QCValidationSettings(BaseModel):
@@ -518,9 +566,11 @@ __all__ = [
     "ensure_output_directories_exist",
     "APIClientConfig",
     "Config",
+    "ConsoleLoggingSettings",
     "CorrelationSettings",
     "CsvFormatSettings",
     "DeterminismSettings",
+    "FileLoggingSettings",
     "HTTPGlobalSettings",
     "HTTPSourceSettings",
     "HTTPSettings",

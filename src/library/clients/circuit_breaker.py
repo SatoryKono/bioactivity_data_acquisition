@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Callable, Optional
 
 from library.clients.exceptions import ApiClientError
-from library.logger import get_logger
+from library.logging_setup import get_logger
 
 
 class CircuitState(Enum):
@@ -26,7 +26,7 @@ class CircuitBreakerConfig:
     recovery_timeout: float = 60.0  # Time to wait before trying half-open
     success_threshold: int = 3  # Number of successes needed to close circuit
     timeout: float = 30.0  # Request timeout
-    expected_exception: type = ApiClientError  # Exception type to track
+    expected_exception: type[Exception] = ApiClientError  # Exception type to track
 
 
 class CircuitBreaker:

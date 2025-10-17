@@ -6,9 +6,10 @@ import logging
 import logging.config
 import re
 import uuid
+from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any
+from typing import Any, MutableMapping, Mapping
 
 import structlog
 import yaml
@@ -52,7 +53,7 @@ class AddContextFilter(logging.Filter):
         
         # Add trace_id from OpenTelemetry if available
         try:
-            from library.telemetry import get_current_trace_id
+            from library.telemetry import get_current_trace_id  # type: ignore[import-untyped]
             record.trace_id = get_current_trace_id() or "unknown"
         except ImportError:
             record.trace_id = "unknown"
@@ -60,16 +61,16 @@ class AddContextFilter(logging.Filter):
         return True
 
 
-def _redact_secrets_processor(logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+def _redact_secrets_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
     """Remove sensitive information from structlog event dictionary."""
     sensitive_keys = [
         "authorization", "api_key", "token", "password", "secret", "key",
         "bearer", "auth", "credential", "access_token", "refresh_token"
     ]
     
-    def redact_dict(d: dict[str, Any]) -> dict[str, Any]:
+    def redact_dict(d: MutableMapping[str, Any]) -> Mapping[str, Any]:
         """Recursively redact sensitive values in a dictionary."""
-        result = {}
+        result: dict[str, Any] = {}
         for key, value in d.items():
             if isinstance(value, dict):
                 result[key] = redact_dict(value)
@@ -84,19 +85,19 @@ def _redact_secrets_processor(logger: Any, method_name: str, event_dict: dict[st
         event_dict["headers"] = redact_dict(event_dict["headers"])
     
     # Redact any other sensitive fields
-    event_dict = redact_dict(event_dict)
+    redacted_dict = redact_dict(event_dict)
     
-    return event_dict
+    return redacted_dict
 
 
-def _add_context_processor(logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+def _add_context_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
     """Add context variables to structlog event dictionary."""
     event_dict["run_id"] = run_id_var.get() or "unknown"
     event_dict["stage"] = stage_var.get() or "unknown"
     
     # Add trace_id from OpenTelemetry if available
     try:
-        from library.telemetry import get_current_trace_id
+        from library.telemetry import get_current_trace_id  # type: ignore[import-untyped]
         event_dict["trace_id"] = get_current_trace_id() or "unknown"
     except ImportError:
         event_dict["trace_id"] = "unknown"
@@ -128,9 +129,10 @@ def generate_run_id() -> str:
 def configure_logging(
     level: str = "INFO",
     config_path: Path | None = None,
-    file_enabled: bool = True,
-    console_format: str = "text",
+    file_enabled: bool | None = None,
+    console_format: str | None = None,
     log_file: Path | None = None,
+    logging_config: dict | None = None,
 ) -> BoundLogger:
     """Configure structured logging with file and console handlers.
     
@@ -149,10 +151,24 @@ def configure_logging(
     if _LOGGING_CONFIGURED:
         return structlog.get_logger()
     
+    # Use logging config from parameters or defaults
+    if logging_config:
+        file_enabled = file_enabled if file_enabled is not None else logging_config.get("file", {}).get("enabled", True)
+        console_format = console_format if console_format is not None else logging_config.get("console", {}).get("format", "text")
+        log_file = log_file or Path(logging_config.get("file", {}).get("path", "logs/app.log"))
+    
+    # Set defaults if not provided
+    if file_enabled is None:
+        file_enabled = True
+    if console_format is None:
+        console_format = "text"
+    if log_file is None:
+        log_file = Path("logs/app.log")
+    
     # Create logs directory if file logging is enabled
     if file_enabled:
-        logs_dir = Path("logs")
-        logs_dir.mkdir(exist_ok=True)
+        logs_dir = log_file.parent
+        logs_dir.mkdir(parents=True, exist_ok=True)
     
     # Load configuration from YAML if provided
     if config_path and config_path.exists():
@@ -228,7 +244,7 @@ def _configure_programmatic_logging(
     
     if file_enabled:
         file_path = log_file or Path("logs/app.log")
-        file_handler = logging.handlers.RotatingFileHandler(
+        file_handler = logging.handlers.RotatingFileHandler(  # type: ignore
             filename=file_path,
             maxBytes=10485760,  # 10MB
             backupCount=10,
@@ -248,10 +264,21 @@ def _configure_programmatic_logging(
     )
 
 
-def bind_stage(logger: BoundLogger, stage: str, **extra: Any) -> BoundLogger:
-    """Attach contextual metadata to the logger."""
-    set_run_context(stage=stage)
-    return logger.bind(stage=stage, **extra)
+@contextmanager
+def bind_stage(logger: BoundLogger, stage: str, **extra: Any):
+    """Context manager to temporarily bind stage context."""
+    token = stage_var.set(stage)
+    try:
+        yield logger.bind(stage=stage, **extra)
+    finally:
+        stage_var.reset(token)
+
+
+def get_logger(name: str, **initial_values: Any) -> BoundLogger:
+    """Get a configured structlog logger with optional initial values."""
+    if not _LOGGING_CONFIGURED:
+        configure_logging()
+    return structlog.get_logger(name).bind(**initial_values)
 
 
 def cleanup_old_logs(older_than_days: int = 14, logs_dir: Path | None = None) -> None:
@@ -262,7 +289,6 @@ def cleanup_old_logs(older_than_days: int = 14, logs_dir: Path | None = None) ->
         logs_dir: Directory to clean (defaults to logs/)
     """
     import time
-    from datetime import datetime, timedelta
     
     if logs_dir is None:
         logs_dir = Path("logs")
@@ -283,6 +309,7 @@ def cleanup_old_logs(older_than_days: int = 14, logs_dir: Path | None = None) ->
 
 __all__ = [
     "configure_logging",
+    "get_logger",
     "set_run_context",
     "get_run_context",
     "generate_run_id",

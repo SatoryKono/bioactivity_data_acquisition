@@ -83,7 +83,7 @@ test-benchmark-save: ## Run benchmarks and save results
 lint: ## Run all linting tools
 	ruff check .
 	black --check .
-	mypy src
+	python scripts/run_mypy.py
 
 format: ## Format code
 	black .
@@ -160,7 +160,7 @@ version: ## Show current version
 
 version-check: ## Check version consistency
 	@echo "Checking version consistency..."
-	@grep -q "version = \"0.1.0\"" pyproject.toml || (echo "Version mismatch in pyproject.toml" && exit 1)
+	@grep -q "version = \"0.1.0\"" configs/pyproject.toml || (echo "Version mismatch in configs/pyproject.toml" && exit 1)
 	@grep -q "bioactivity-data-acquisition 0.1.0" src/library/cli/__init__.py || (echo "Version mismatch in CLI" && exit 1)
 	@echo "Version consistency check passed"
 
@@ -186,8 +186,8 @@ security-report: ## Generate security reports
 
 # Dependencies targets
 deps-update: ## Update dependencies
-	pip-compile pyproject.toml
-	pip-compile pyproject.toml --dev
+	pip-compile configs/pyproject.toml
+	pip-compile configs/pyproject.toml --dev
 
 deps-sync: ## Sync dependencies
-	pip-sync requirements.txt requirements-dev.txt
+	pip-sync configs/requirements.txt requirements-dev.txt

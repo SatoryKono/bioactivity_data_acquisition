@@ -27,4 +27,4 @@
 7. mypy: `mypy src`
 8. pytest: `pytest`
 
-Порог покрытия: задаётся в `pyproject.toml` → `[tool.pytest.ini_options] addopts` с `--cov-fail-under=90`.
+Порог покрытия: задаётся в `configs/pyproject.toml` → `[tool.pytest.ini_options] addopts` с `--cov-fail-under=90`.

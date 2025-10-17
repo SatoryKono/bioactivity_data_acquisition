@@ -13,7 +13,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.resources import Resource
 
-from library.logger import get_logger
+from library.logging_setup import get_logger
 
 
 logger = get_logger(__name__)

@@ -2,7 +2,7 @@
 
 from library.utils.errors import ConfigError, ExtractionError, ValidationError
 from library.utils.joins import ensure_unique, safe_left_join
-from library.utils.logging import bind_stage, configure_logging
+from library.logging_setup import bind_stage, configure_logging
 from library.utils.rate_limit import (
     RateLimiter,
     RateLimitError,

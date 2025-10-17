@@ -19,7 +19,8 @@ theme:
   language: ru
 
 plugins:
-  - search
+  - search:
+      lang: ru
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -27,9 +28,19 @@ plugins:
           paths:
             - src
           options:
-            show_source: true
             docstring_style: google
+            docstring_section_style: spacy
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: false
+            show_object_full_path: false
+            show_category_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
             separate_signature: true
+            line_length: 80
+            merge_init_into_class: true
+            show_if_no_docstring: false
   - mermaid2
   - table-reader
 
@@ -44,26 +55,59 @@ markdown_extensions:
 
 nav:
   - Обзор: index.md
-  - Getting started: getting-started.md
-  - Архитектура: architecture.md
-  - Конфигурация: configuration.md
-  - CLI: cli.md
-  - Validation: validation.md
-  - Источники данных: data-sources.md
-  - Артефакты выгрузки: outputs.md
-  - API limits: api-limits.md
-  - Разработка: development.md
-  - Качество и тесты: quality.md
-  - CI/CD: ci.md
-  - Эксплуатация: operations.md
-  - Руководство по контрибьюшену: contributing.md
-  - Релизы и изменения: changelog.md
-  - FAQ: faq.md
-  - Глоссарий: glossary.md
-  - Руководства:
-      - Туториалы: tutorials/index.md
-      - Обогащение документов (E2E): tutorials/e2e_documents.md
-      - Полный пайплайн (E2E): tutorials/e2e_pipeline.md
-  - API Reference:
-      - Library: reference/index.md
+  - Руководство по стилю: STYLE_GUIDE.md
+  - Туториалы:
+      - Обзор: tutorials/index.md
+      - Быстрый старт: tutorials/quickstart.md
+      - Полный пайплайн (E2E): tutorials/e2e-pipeline.md
+      - Обогащение документов (E2E): tutorials/e2e-documents.md
+  - How-to:
+      - Обзор: how-to/index.md
+      - Установка: how-to/installation.md
+      - Запуск ETL локально: how-to/run-etl-locally.md
+      - Настройка API клиентов: how-to/configure-api-clients.md
+      - Отладка пайплайна: how-to/debug-pipeline.md
+      - Проверки качества: how-to/run-quality-checks.md
+      - Контрибьюшн: how-to/contribute.md
+      - Эксплуатация: how-to/operations.md
+  - Справочник:
+      - Обзор: reference/index.md
+      - CLI:
+          - Обзор: reference/cli/index.md
+          - Команда pipeline: reference/cli/pipeline.md
+          - Команда get-document-data: reference/cli/get-document-data.md
+      - API:
+          - Обзор: reference/api/index.md
+          - Клиенты: reference/api/clients.md
+          - ETL: reference/api/etl.md
+          - Схемы: reference/api/schemas.md
+          - Конфигурация: reference/api/config.md
+      - Конфигурация:
+          - Обзор: reference/configuration/index.md
+          - Схема: reference/configuration/schema.md
+          - Примеры: reference/configuration/examples.md
+      - Схемы данных:
+          - Обзор: reference/data-schemas/index.md
+          - Биоактивности: reference/data-schemas/bioactivity.md
+          - Документы: reference/data-schemas/documents.md
+          - Валидация: reference/data-schemas/validation.md
+      - Выходные данные:
+          - Обзор: reference/outputs/index.md
+          - CSV формат: reference/outputs/csv-format.md
+          - QC отчёты: reference/outputs/qc-reports.md
+          - Корреляционные отчёты: reference/outputs/correlation-reports.md
+  - Объяснения:
+      - Обзор: explanations/index.md
+      - Архитектура: explanations/architecture.md
+      - Решения дизайна: explanations/design-decisions.md
+      - Поток данных: explanations/data-flow.md
+      - Детерминизм: explanations/determinism.md
+      - Чувствительность к регистру: explanations/case-sensitivity.md
+  - Дополнительно:
+      - Источники данных: data-sources.md
+      - API limits: api-limits.md
+      - CI/CD: ci.md
+      - FAQ: faq.md
+      - Глоссарий: glossary.md
+      - Релизы и изменения: changelog.md
 

@@ -48,6 +48,9 @@ jobs:
     - name: Test with pytest
       run: |
         pytest --cov=library --cov=tests --cov-report=xml --cov-report=term-missing
+      env:
+        BIOACTIVITY__LOGGING__LEVEL: DEBUG
+        BIOACTIVITY__LOGGING__FILE__ENABLED: true
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -56,6 +59,13 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
+    
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-logs-${{ matrix.python-version }}
+        path: logs/
 
   security:
     runs-on: ubuntu-latest
