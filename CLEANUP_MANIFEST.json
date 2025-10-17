@@ -1,410 +1,73 @@
 {
-  "large_files": [
-    {
-      "path": ".mypy_cache\\3.10\\builtins.data.json",
-      "size_bytes": 1845367
-    },
-    {
-      "path": ".mypy_cache\\3.10\\itertools.data.json",
-      "size_bytes": 696488
-    },
-    {
-      "path": ".mypy_cache\\3.10\\typing.data.json",
-      "size_bytes": 589201
-    },
-    {
-      "path": ".mypy_cache\\3.10\\collections\\__init__.data.json",
-      "size_bytes": 839823
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\__init__.data.json",
-      "size_bytes": 6971055
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\core\\fromnumeric.data.json",
-      "size_bytes": 575988
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\lib\\_arraysetops_impl.data.json",
-      "size_bytes": 536498
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\lib\\_function_base_impl.data.json",
-      "size_bytes": 568355
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\ma\\core.data.json",
-      "size_bytes": 978309
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\polynomial\\_polytypes.data.json",
-      "size_bytes": 543960
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\_core\\defchararray.data.json",
-      "size_bytes": 646496
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\_core\\fromnumeric.data.json",
-      "size_bytes": 1181152
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\_core\\multiarray.data.json",
-      "size_bytes": 755270
-    },
-    {
-      "path": ".mypy_cache\\3.10\\numpy\\_typing\\_ufunc.data.json",
-      "size_bytes": 824796
-    },
-    {
-      "path": ".mypy_cache\\3.10\\pandas\\core\\frame.data.json",
-      "size_bytes": 1331287
-    },
-    {
-      "path": ".mypy_cache\\3.10\\pandas\\core\\series.data.json",
-      "size_bytes": 3593584
-    },
-    {
-      "path": ".mypy_cache\\3.10\\pandas\\core\\groupby\\generic.data.json",
-      "size_bytes": 625657
-    },
-    {
-      "path": ".mypy_cache\\3.10\\pandas\\core\\indexes\\base.data.json",
-      "size_bytes": 816178
-    },
-    {
-      "path": ".mypy_cache\\3.10\\pandas\\core\\strings\\accessor.data.json",
-      "size_bytes": 594912
-    },
-    {
-      "path": ".mypy_cache\\3.10\\sqlalchemy\\orm\\query.data.json",
-      "size_bytes": 627434
-    },
-    {
-      "path": ".mypy_cache\\3.10\\sqlalchemy\\sql\\dml.data.json",
-      "size_bytes": 594906
-    },
-    {
-      "path": ".mypy_cache\\3.10\\sqlalchemy\\sql\\elements.data.json",
-      "size_bytes": 1032539
-    },
-    {
-      "path": ".mypy_cache\\3.10\\sqlalchemy\\sql\\selectable.data.json",
-      "size_bytes": 968251
-    },
-    {
-      "path": ".mypy_cache\\3.13\\ast.data.json",
-      "size_bytes": 544005
-    },
-    {
-      "path": ".mypy_cache\\3.13\\builtins.data.json",
-      "size_bytes": 1979297
-    },
-    {
-      "path": ".mypy_cache\\3.13\\inspect.data.json",
-      "size_bytes": 514860
-    },
-    {
-      "path": ".mypy_cache\\3.13\\itertools.data.json",
-      "size_bytes": 704827
-    },
-    {
-      "path": ".mypy_cache\\3.13\\typing.data.json",
-      "size_bytes": 649958
-    },
-    {
-      "path": ".mypy_cache\\3.13\\collections\\__init__.data.json",
-      "size_bytes": 858210
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\__init__.data.json",
-      "size_bytes": 7549469
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\lib\\_arraysetops_impl.data.json",
-      "size_bytes": 551826
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\lib\\_function_base_impl.data.json",
-      "size_bytes": 568335
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\ma\\core.data.json",
-      "size_bytes": 988127
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\_core\\defchararray.data.json",
-      "size_bytes": 666321
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\_core\\fromnumeric.data.json",
-      "size_bytes": 1180645
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\_core\\multiarray.data.json",
-      "size_bytes": 765662
-    },
-    {
-      "path": ".mypy_cache\\3.13\\numpy\\_typing\\_ufunc.data.json",
-      "size_bytes": 883283
-    },
-    {
-      "path": ".mypy_cache\\3.13\\pandas\\core\\frame.data.json",
-      "size_bytes": 1331265
-    },
-    {
-      "path": ".mypy_cache\\3.13\\pandas\\core\\series.data.json",
-      "size_bytes": 3593562
-    },
-    {
-      "path": ".mypy_cache\\3.13\\pandas\\core\\groupby\\generic.data.json",
-      "size_bytes": 630022
-    },
-    {
-      "path": ".mypy_cache\\3.13\\pandas\\core\\indexes\\base.data.json",
-      "size_bytes": 816156
-    },
-    {
-      "path": ".mypy_cache\\3.13\\pandas\\core\\strings\\accessor.data.json",
-      "size_bytes": 594912
-    },
-    {
-      "path": "data\\input\\activity.csv",
-      "size_bytes": 51864200
-    },
-    {
-      "path": "data\\input\\assay.csv",
-      "size_bytes": 10514867
-    },
-    {
-      "path": "data\\input\\documents.csv",
-      "size_bytes": 19375515
-    },
-    {
-      "path": "data\\input\\documents_backup.csv",
-      "size_bytes": 19384572
-    },
-    {
-      "path": "data\\input\\testitem.csv",
-      "size_bytes": 10035608
-    },
-    {
-      "path": "logs\\app.log",
-      "size_bytes": 815083
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\builtins.data.json",
-      "size_bytes": 1845367
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\itertools.data.json",
-      "size_bytes": 696488
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\typing.data.json",
-      "size_bytes": 589201
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\collections\\__init__.data.json",
-      "size_bytes": 839823
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\__init__.data.json",
-      "size_bytes": 6971055
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\lib\\_arraysetops_impl.data.json",
-      "size_bytes": 536498
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\lib\\_function_base_impl.data.json",
-      "size_bytes": 568355
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\ma\\core.data.json",
-      "size_bytes": 978309
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\polynomial\\_polytypes.data.json",
-      "size_bytes": 543960
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\_core\\defchararray.data.json",
-      "size_bytes": 646496
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\_core\\fromnumeric.data.json",
-      "size_bytes": 1181152
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\_core\\multiarray.data.json",
-      "size_bytes": 755270
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\numpy\\_typing\\_ufunc.data.json",
-      "size_bytes": 824796
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\pandas\\core\\frame.data.json",
-      "size_bytes": 1331287
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\pandas\\core\\series.data.json",
-      "size_bytes": 3593584
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\pandas\\core\\groupby\\generic.data.json",
-      "size_bytes": 625657
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\pandas\\core\\indexes\\base.data.json",
-      "size_bytes": 816178
-    },
-    {
-      "path": "src\\.mypy_cache\\3.10\\pandas\\core\\strings\\accessor.data.json",
-      "size_bytes": 594912
+  "repo": "SatoryKono/bioactivity_data_acquisition",
+  "generated_at": "2025-10-17T09:52:39Z",
+  "criteria": {
+    "large_file_threshold_bytes": 512000,
+    "notes": "Files meeting or exceeding this size should be evaluated for removal or alternative storage."
+  },
+  "large_files": [],
+  "tracked_artifacts": [
+    {
+      "path": ".cursor/.agent-tools/29d2d824-5c32-419b-ac15-09c6df601bca.txt",
+      "size_bytes": 140618,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": ".cursor/.agent-tools/96e9be08-ab04-4143-89f6-e949e1446993.txt",
+      "size_bytes": 32857,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": ".cursor/.agent-tools/9eaa6244-c0e2-4ed0-a635-e76db2dbb026.txt",
+      "size_bytes": 32857,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": ".cursor/.agent-tools/07e35f98-6bd6-4cf9-91ed-e29470479fce.txt",
+      "size_bytes": 13419,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": "temp_files.txt",
+      "size_bytes": 0,
+      "category": "temporary_placeholder",
+      "reason": "Placeholder list for temporary files; should be removed or regenerated dynamically.",
+      "status": "pending_review"
+    },
+    {
+      "path": "temp_added_files.txt",
+      "size_bytes": 0,
+      "category": "temporary_placeholder",
+      "reason": "Placeholder tracking file committed to repository.",
+      "status": "pending_review"
+    },
+    {
+      "path": "reports/config_audit.csv",
+      "size_bytes": 4073,
+      "category": "generated_report",
+      "reason": "Generated audit report checked into source control.",
+      "status": "pending_decision"
     }
   ],
-  "logs": [],
-  "temp_files": [
-    "temp_added_files.txt",
-    "temp_files.txt"
+  "other_cleanup_targets": [
+    {
+      "path": ".cursor/.agent-tools/",
+      "issue": "Ensure Cursor agent artifacts are excluded via .gitignore after cleanup.",
+      "status": "pending"
+    },
+    {
+      "path": "reports/",
+      "issue": "Decide whether generated reports should remain tracked or move to release artifacts only.",
+      "status": "pending"
+    }
   ],
-  "test_outputs": [],
-  "pycache": [
-    "src\\library\\cli\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\cli\\__pycache__\\__main__.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\base.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\bioactivity.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\chembl.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\circuit_breaker.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\crossref.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\exceptions.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\fallback.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\graceful_degradation.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\health.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\openalex.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\pubmed.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\semantic_scholar.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\session.cpython-313.pyc",
-    "src\\library\\clients\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\documents\\__pycache__\\config.cpython-313.pyc",
-    "src\\library\\documents\\__pycache__\\pipeline.cpython-313.pyc",
-    "src\\library\\documents\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\enhanced_correlation.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\enhanced_qc.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\extract.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\load.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\qc.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\run.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\transform.cpython-313.pyc",
-    "src\\library\\etl\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\io_\\__pycache__\\atomic_writes.cpython-313.pyc",
-    "src\\library\\io_\\__pycache__\\normalize.cpython-313.pyc",
-    "src\\library\\io_\\__pycache__\\read_write.cpython-313.pyc",
-    "src\\library\\io_\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\schemas\\__pycache__\\document_input_schema.cpython-313.pyc",
-    "src\\library\\schemas\\__pycache__\\document_output_schema.cpython-313.pyc",
-    "src\\library\\schemas\\__pycache__\\input_schema.cpython-313.pyc",
-    "src\\library\\schemas\\__pycache__\\output_schema.cpython-313.pyc",
-    "src\\library\\schemas\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\api_health_check.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\check_api_limits.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\check_semantic_scholar_status.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\check_specific_limits.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\citation_formatter.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\data_validator.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\get_pubmed_api_key.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\get_semantic_scholar_api_key.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\journal_normalizer.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\monitor_api.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\monitor_pubmed.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\monitor_semantic_scholar.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\quick_api_check.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\toggle_semantic_scholar.cpython-313.pyc",
-    "src\\library\\tools\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\utils\\__pycache__\\errors.cpython-313.pyc",
-    "src\\library\\utils\\__pycache__\\graceful_shutdown.cpython-313.pyc",
-    "src\\library\\utils\\__pycache__\\joins.cpython-313.pyc",
-    "src\\library\\utils\\__pycache__\\logging.cpython-313.pyc",
-    "src\\library\\utils\\__pycache__\\rate_limit.cpython-313.pyc",
-    "src\\library\\utils\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\library\\__pycache__\\config.cpython-313.pyc",
-    "src\\library\\__pycache__\\logger.cpython-313.pyc",
-    "src\\library\\__pycache__\\logging.cpython-313.pyc",
-    "src\\library\\__pycache__\\logging_setup.cpython-313.pyc",
-    "src\\library\\__pycache__\\scripts_base.cpython-313.pyc",
-    "src\\library\\__pycache__\\telemetry.cpython-313.pyc",
-    "src\\library\\__pycache__\\__init__.cpython-313.pyc",
-    "src\\scripts\\__pycache__\\get_document_data.cpython-313.pyc",
-    "src\\__pycache__\\__init__.cpython-313.pyc",
-    "tests\\benchmarks\\__pycache__\\test_performance.cpython-313-pytest-7.4.4.pyc",
-    "tests\\benchmarks\\__pycache__\\test_performance.cpython-313-pytest-8.4.2.pyc",
-    "tests\\cli\\__pycache__\\test_get_document_data.cpython-313-pytest-7.4.4.pyc",
-    "tests\\cli\\__pycache__\\test_get_document_data.cpython-313-pytest-8.4.2.pyc",
-    "tests\\integration\\__pycache__\\conftest.cpython-313-pytest-7.4.4.pyc",
-    "tests\\integration\\__pycache__\\conftest.cpython-313-pytest-8.4.2.pyc",
-    "tests\\integration\\__pycache__\\test_api_limits_integration.cpython-313-pytest-7.4.4.pyc",
-    "tests\\integration\\__pycache__\\test_api_limits_integration.cpython-313-pytest-8.4.2.pyc",
-    "tests\\integration\\__pycache__\\test_chembl_integration.cpython-313-pytest-7.4.4.pyc",
-    "tests\\integration\\__pycache__\\test_chembl_integration.cpython-313-pytest-8.4.2.pyc",
-    "tests\\integration\\__pycache__\\test_pipeline_integration.cpython-313-pytest-7.4.4.pyc",
-    "tests\\integration\\__pycache__\\test_pipeline_integration.cpython-313-pytest-8.4.2.pyc",
-    "tests\\integration\\__pycache__\\__init__.cpython-313.pyc",
-    "tests\\scripts\\__pycache__\\test_cli_wrappers.cpython-313-pytest-7.4.4.pyc",
-    "tests\\scripts\\__pycache__\\test_cli_wrappers.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\conftest.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\conftest.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\conftest.cpython-313.pyc",
-    "tests\\__pycache__\\test_atomic_writes.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_atomic_writes.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_auto_qc_correlation.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_auto_qc_correlation.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_citation_formatter.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_citation_formatter.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_cli.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_cli.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_clients.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_clients.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_clients_base.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_clients_base.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_config.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_config.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_config_layering.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_config_layering.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_config_schema_validation.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_config_schema_validation.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_data_normalization.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_data_normalization.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_data_normalization_simple.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_data_normalization_simple.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_deterministic_output.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_deterministic_output.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_document_config.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_document_config.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_document_pipeline_config.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_document_pipeline_config.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_doi_normalization.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_doi_normalization.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_enhanced_correlation.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_enhanced_correlation.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_enhanced_qc.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_enhanced_qc.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_health_checker.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_health_checker.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_index_column.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_index_column_simple.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_index_column_simple.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_normalize.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_normalize.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_strict_schemas.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_strict_schemas.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_telemetry.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_telemetry.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_utils_logging.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_utils_logging.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\test_validation.cpython-313-pytest-7.4.4.pyc",
-    "tests\\__pycache__\\test_validation.cpython-313-pytest-8.4.2.pyc",
-    "tests\\__pycache__\\__init__.cpython-313.pyc"
-  ]
+  "maintenance_notes": "Update this manifest after each cleanup task to reflect removed files or status changes."
 }
