@@ -84,7 +84,10 @@ class HealthChecker:
                 status.last_check = time.time()
                 results.append(status)
             except Exception as e:
-                self.logger.error(f"Health check failed for {name}: {e}")
+                # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                name_msg = str(name).replace("%", "%%")
+                error_msg = str(e).replace("%", "%%")
+                self.logger.error(f"Health check failed for {name_msg}: {error_msg}")
                 results.append(HealthStatus(
                     name=name,
                     is_healthy=False,

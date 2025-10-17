@@ -1,0 +1,8 @@
+metric,value
+row_count,10
+enabled_sources,5
+chembl_records,10
+crossref_records,10
+openalex_records,10
+pubmed_records,10
+semantic_scholar_records,10

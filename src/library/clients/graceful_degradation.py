@@ -187,7 +187,9 @@ class GracefulDegradationManager:
     def register_strategy(self, api_name: str, strategy: DegradationStrategy):
         """Register a degradation strategy for an API."""
         self.strategies[api_name] = strategy
-        self.logger.info(f"Registered degradation strategy for {api_name}")
+        # Экранируем символы % в сообщениях для безопасного логирования
+        api_name_msg = str(api_name).replace("%", "%%")
+        self.logger.info(f"Registered degradation strategy for {api_name_msg}")
     
     def should_degrade(self, api_name: str, error: ApiClientError) -> bool:
         """Check if we should degrade for this API and error."""

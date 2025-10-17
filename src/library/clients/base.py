@@ -173,7 +173,9 @@ class BaseApiClient:
                     self.rate_limiter.acquire()
                 except RateLimitError as e:
                     # If rate limited, wait and retry
-                    self.logger.warning(f"Rate limit hit: {e}")
+                    # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                    error_msg = str(e).replace("%", "%%")
+                    self.logger.warning(f"Rate limit hit: {error_msg}")
                     # Use exponential backoff for rate limiting (non-cryptographic use)
                     delay = min(2.0 ** 2, 60.0) + random.uniform(0, 1)  # 4-5 seconds with jitter  # noqa: S311
                     time.sleep(delay)
@@ -299,7 +301,9 @@ class BaseApiClient:
                         self.logger.info(f"Rate limited. Waiting {wait_time} seconds before retry.")
                         time.sleep(wait_time)
                     except (ValueError, TypeError):
-                        self.logger.warning(f"Invalid Retry-After header: {retry_after}")
+                        # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                        retry_after_msg = str(retry_after).replace("%", "%%")
+                        self.logger.warning(f"Invalid Retry-After header: {retry_after_msg}")
                         # Для Semantic Scholar используем консервативную задержку
                         if 'semanticscholar' in self.base_url.lower():
                             self.logger.info("Using conservative 5-minute delay for Semantic Scholar")

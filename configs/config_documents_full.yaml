@@ -400,7 +400,7 @@ postprocess:
 #   $env:CROSSREF_API_KEY = "your_crossref_key_here"
 #   $env:OPENALEX_API_KEY = "your_openalex_key_here"
 #   $env:PUBMED_API_KEY = "your_pubmed_key_here"
-#   $env:SEMANTIC_SCHOLAR_API_KEY = "your_semantic_scholar_key_here"
+#   $env:SEMANTIC_SCHOLAR_API_KEY = "o2N1y1RHYU3aqEj556Oyv4oBzZrHthM2bWda2lf4"
 #
 # Linux/macOS (bash):
 #   export CHEMBL_API_TOKEN="your_chembl_token_here"
