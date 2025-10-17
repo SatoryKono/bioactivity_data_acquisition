@@ -73,8 +73,8 @@ sources:
     name: semantic_scholar
     enabled: true  # Всегда включен
     rate_limit:
-      max_calls: 1   # 1 запрос в 3.5 секунд (соответствует официальным лимитам API)
-      period: 3.5    # Период в секундах (3.5 секунды - официальный лимит без API ключа)
+      max_calls: 1   # 1 запрос в 10 секунд (реальные лимиты API: максимум 2 запроса подряд)
+      period: 10.0   # Период в секундах (10 секунд - консервативный лимит для стабильности)
     http:
       base_url: https://api.semanticscholar.org/graph/v1/paper
       timeout_sec: 60.0

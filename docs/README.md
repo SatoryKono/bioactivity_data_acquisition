@@ -107,9 +107,25 @@ pre-commit run --all-files
 
 ## Continuous Integration
 
-The GitHub Actions workflow (`.github/workflows/ci.yaml`) runs Ruff, Black,
-mypy, and pytest
-on each push and pull request targeting `main` or `work`.
+The GitHub Actions workflow (`.github/workflows/ci.yaml`) runs comprehensive quality checks on each push and pull request targeting `main` or `develop`:
+
+- **Linting**: Ruff for code style and formatting
+- **Type checking**: mypy in strict mode
+- **Security**: Bandit and Safety vulnerability scans
+- **Testing**: pytest with 90% coverage threshold
+- **Documentation**: MkDocs build and deployment
+
+### CI Artifacts
+
+All generated reports and outputs are uploaded as GitHub Actions artifacts instead of being committed to the repository:
+
+- **Test outputs**: Generated test files and results
+- **Coverage reports**: XML and HTML coverage reports
+- **Security reports**: Bandit and Safety JSON reports
+- **Benchmark results**: Performance test results
+- **Logs**: Test execution logs
+
+Access artifacts via the Actions tab in GitHub. See [docs/ci.md](docs/ci.md) for detailed information about artifact locations and access.
 
 ## API Limits Monitoring
 
@@ -157,12 +173,23 @@ The load stage produces three artefacts:
 
 - **Correlation matrix** – numeric correlations saved as CSV.
 
-## Archive
+## Git LFS для больших файлов
 
-Исторические отчеты и документы о реализации улучшений сохранены в папке [`docs/archive/`](docs/archive/):
+Репозиторий настроен для использования Git Large File Storage (LFS) для отслеживания больших бинарных файлов (>500KB).
 
-- **`docs/archive/implementation/`** – отчеты о реализации улучшений HTTP надежности, security hardening, graceful degradation
-- **`docs/archive/reports/`** – финальные отчеты по реализованной функциональности (data normalization, QC, correlation analysis)
-- **`docs/archive/debug/`** – отчеты о решенных проблемах и исправлениях
+Подробная документация: [docs/GIT_LFS_WORKFLOW.md](docs/GIT_LFS_WORKFLOW.md)
 
-Эти документы сохранены для истории проекта, но не являются частью активной документации.
+### Быстрый старт
+
+```bash
+# Проверить статус LFS
+git lfs ls-files
+
+# Добавить новый большой файл (автоматически отслеживается)
+git add large_dataset.parquet
+git commit -m "Add large dataset"
+```
+
+## Архивная документация
+
+Исторические отчеты и документы о реализации улучшений сохранены в отдельной ветке `archive/internal-reports` для сохранения истории проекта. Эти документы не являются частью активной документации.

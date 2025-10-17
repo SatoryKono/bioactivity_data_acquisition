@@ -12,14 +12,22 @@ from library.config import APIClientConfig
 class SemanticScholarClient(BaseApiClient):
     """HTTP client for Semantic Scholar."""
 
+    # Минимальный набор полей для оптимизации производительности
     _DEFAULT_FIELDS = [
-        "title",
-        "abstract",
+        "title",      
         "externalIds",
         "year",
         "authors",
-        "publicationVenue",  # Добавляем для получения ISSN и названия журнала
-        "publicationTypes",  # Добавляем для получения типа документа
+        "publicationVenue",  # Для получения ISSN и названия журнала
+        "publicationTypes",  # Для получения типа документа
+    ]
+    
+    # Альтернативный минимальный набор для максимальной производительности
+    _MINIMAL_FIELDS = [
+        "title",
+        "externalIds", 
+        "year",
+        "authors"
     ]
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
@@ -34,10 +42,10 @@ class SemanticScholarClient(BaseApiClient):
             SemanticScholarFallbackStrategy,
         )
         fallback_config = FallbackConfig(
-            max_retries=2,  # Меньше попыток для Semantic Scholar
-            base_delay=30.0,  # Базовая задержка 30 секунд
-            max_delay=300.0,  # Максимальная задержка 5 минут
-            backoff_multiplier=2.0,
+            max_retries=1,  # Минимальное количество попыток для SemanticScholar
+            base_delay=10.0,  # Базовая задержка 10 секунд
+            max_delay=30.0,  # Максимальная задержка 30 секунд
+            backoff_multiplier=1.5,  # Меньший множитель
             jitter=True
         )
         fallback_strategy = SemanticScholarFallbackStrategy(fallback_config)
@@ -159,13 +167,13 @@ class SemanticScholarClient(BaseApiClient):
             "semantic_scholar_external_ids": (
                 json.dumps(external_ids) if external_ids else None
             ),
-            "semantic_scholar_abstract": payload.get("abstract"),
+            
             "semantic_scholar_issn": self._extract_issn(payload),
             "semantic_scholar_authors": author_names,
             "semantic_scholar_error": None,  # Will be set if there's an error
             # Legacy fields for backward compatibility
             "title": payload.get("title"),
-            "abstract": payload.get("abstract"),
+            
             "year": payload.get("year"),
             "pubmed_authors": author_names,
         }
@@ -231,13 +239,12 @@ class SemanticScholarClient(BaseApiClient):
             "semantic_scholar_doc_type": None,
             "semantic_scholar_journal": None,
             "semantic_scholar_external_ids": None,
-            "semantic_scholar_abstract": None,
             "semantic_scholar_issn": None,
             "semantic_scholar_authors": None,
             "semantic_scholar_error": error_msg,
             # Legacy fields
             "title": None,
-            "abstract": None,
+         
             "year": None,
             "pubmed_authors": None,
         }

@@ -87,8 +87,8 @@ class SemanticScholarFallbackStrategy(FallbackStrategy):
     def should_retry(self, error: ApiClientError, attempt: int) -> bool:
         """Very conservative retry logic for Semantic Scholar."""
         if error.status_code == 429:
-            # For rate limiting, only retry once with very long delay
-            return attempt < 1
+            # For rate limiting, don't retry - let the main rate limiter handle it
+            return False
         elif error.status_code in [500, 502, 503, 504]:
             # For server errors, retry once
             return attempt < 1
@@ -97,14 +97,13 @@ class SemanticScholarFallbackStrategy(FallbackStrategy):
             return False
     
     def get_delay(self, error: ApiClientError, attempt: int) -> float:
-        """Very long delays for Semantic Scholar rate limiting."""
+        """Optimized delays for Semantic Scholar rate limiting."""
         if error.status_code == 429:
-            # Very long delay for rate limiting (2-5 minutes)
-            # Увеличиваем базовую задержку для Semantic Scholar
-            delay = min(180.0 + (attempt * 120.0), 600.0)  # 3-10 минут
+            # Более разумные задержки для rate limiting
+            delay = min(10.0 + (attempt * 5.0), 60.0)  # 10-60 секунд
         elif error.status_code in [500, 502, 503, 504]:
             # Moderate delay for server errors
-            delay = min(30.0 + (attempt * 15.0), 120.0)
+            delay = min(15.0 + (attempt * 10.0), 60.0)
         else:
             # Standard delay
             delay = self.config.base_delay

@@ -19,7 +19,7 @@ http:
       # Настройки ограничения скорости запросов по умолчанию
       rate_limit:
         max_calls: 3
-        period: 1.0      
+        period: 15.0      
       # Заголовки, отправляемые с каждым HTTP-запросом
       headers:
       # Идентификатор клиента для API-провайдеров
@@ -291,6 +291,9 @@ determinism:
     - pubmed_issn             # ISSN из PubMed
     - semantic_scholar_issn   # ISSN из Semantic Scholar
     
+    # Общие поля
+    - index                   # Индекс документа для сортировки
+    
     # Группа полей названий журналов из всех источников
     - chembl_journal          # Название журнала из ChEMBL
     - crossref_journal        # Название журнала из Crossref
@@ -341,6 +344,8 @@ determinism:
     - pubmed_year_revised     # Год пересмотра из PubMed
     - pubmed_month_revised    # Месяц пересмотра из PubMed
     - pubmed_day_revised      # День пересмотра из PubMed
+    - publication_date        # Дата публикации (определяется на основе полей PubMed)
+    - document_sortorder      # Порядок сортировки документов (определяется на основе pubmed_issn, publication_date и index)
 
     # Поля валидации данных из различных источников
 
@@ -353,7 +358,8 @@ determinism:
     - invalid_journal         # Флаг невалидности журнала   
     - invalid_year            # Флаг невалидности года
     - invalid_volume          # Флаг невалидности тома
-    - invalid_issue           # Флаг невалидности номера выпуска         
+    - invalid_issue           # Флаг невалидности номера выпуска       
+ 
 # Настройки постобработки данных
 postprocess:
   # Контроль качества данных

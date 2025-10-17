@@ -1,6 +1,0 @@
-column,dtype,role,non_null,non_empty,empty_pct,unique_cnt,unique_pct_of_non_empty,pattern_cov_doi,pattern_cov_issn,pattern_cov_isbn,pattern_cov_url,pattern_cov_email,bool_like_cov,numeric_cov,numeric_min,numeric_p50,numeric_p95,numeric_max,numeric_mean,numeric_std,date_cov,date_min,date_p50,date_max,text_len_min,text_len_p50,text_len_p95,text_len_max,top_values
-index,int64,identifier,3,3,0.0,3,100.0,0.0,0.0,0.0,0.0,0.0,0.0,100.0,0.0,1.0,1.9,2.0,1.0,1.0,0.0,,,,0,0,0,0,"{'0': 1, '1': 1, '2': 1}"
-a_column,object,identifier,3,3,0.0,3,100.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,,,1,1,1,1,"{'a': 1, 'b': 1, 'c': 1}"
-b_column,object,identifier,3,3,0.0,3,100.0,0.0,0.0,0.0,0.0,0.0,33.33333333333333,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,,,,1,1,1,1,"{'x': 1, 'y': 1, 'z': 1}"
-m_column,float64,identifier,3,3,0.0,3,100.0,0.0,0.0,0.0,0.0,0.0,0.0,100.0,1.1,2.2,3.19,3.3,2.1999999999999997,1.0999999999999999,0.0,,,,0,0,0,0,"{'1.1': 1, '2.2': 1, '3.3': 1}"
-z_column,int64,identifier,3,3,0.0,3,100.0,0.0,0.0,0.0,0.0,0.0,0.0,100.0,1.0,2.0,2.9,3.0,2.0,1.0,0.0,,,,0,0,0,0,"{'1': 1, '2': 1, '3': 1}"

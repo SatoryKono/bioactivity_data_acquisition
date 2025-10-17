@@ -2,76 +2,6 @@ name: CI
 
 on:
   push:
-  pull_request:
-
-jobs:
-  build-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r configs/requirements.txt
-          if [ -f configs/pyproject.toml ]; then pip install .; fi
-
-      - name: Run tests with coverage
-        run: |
-          pytest -v --maxfail=1 --durations=10 --cov=src --cov-report=xml --cov-report=html
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-
-      - name: Run bandit (security)
-        run: |
-          pip install bandit
-          bandit -q -r src -f json -o bandit.json || true
-
-      - name: Upload test outputs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-outputs
-          path: |
-            tests/test_outputs/**
-          if-no-files-found: warn
-
-      - name: Upload coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: |
-            coverage.xml
-            htmlcov/**
-          if-no-files-found: warn
-
-      - name: Upload security reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-reports
-          path: |
-            bandit.json
-          if-no-files-found: warn
-name: CI
-
-on:
-  push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
@@ -87,9 +17,17 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
     
     - name: Install dependencies
       run: |
@@ -117,7 +55,7 @@ jobs:
     
     - name: Test with pytest
       run: |
-        pytest --cov=library --cov=tests --cov-report=xml --cov-report=term-missing
+        pytest --cov=library --cov=tests --cov-report=xml --cov-report=html --cov-report=term-missing
       env:
         BIOACTIVITY__LOGGING__LEVEL: DEBUG
         BIOACTIVITY__LOGGING__FILE__ENABLED: true
@@ -130,38 +68,48 @@ jobs:
         name: codecov-umbrella
         fail_ci_if_error: false
     
-    - name: Upload logs
+    - name: Upload test outputs
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
-        name: test-logs-${{ matrix.python-version }}
-        path: logs/
-
-  security:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
+        name: test-outputs-${{ matrix.python-version }}
+        path: |
+          tests/test_outputs/**
+        if-no-files-found: warn
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Upload coverage artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install safety bandit
-    
-    - name: Run safety check
-      run: safety check
-    
-    - name: Run bandit security scan
-      run: bandit -r src/ -ll
+        name: coverage-${{ matrix.python-version }}
+        path: |
+          coverage.xml
+          htmlcov/**
+        if-no-files-found: warn
     
     - name: Upload security reports
-      uses: actions/upload-artifact@v3
+      if: always()
+      uses: actions/upload-artifact@v4
       with:
-        name: security-reports
+        name: security-reports-${{ matrix.python-version }}
         path: |
           bandit-report.json
           safety-report.json
+        if-no-files-found: warn
+    
+    - name: Upload benchmark results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results-${{ matrix.python-version }}
+        path: |
+          benchmark_results.json
+        if-no-files-found: warn
+    
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs-${{ matrix.python-version }}
+        path: logs/
+        if-no-files-found: warn

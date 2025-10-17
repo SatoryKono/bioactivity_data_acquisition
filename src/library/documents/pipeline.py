@@ -16,7 +16,7 @@ from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
-from library.config import APIClientConfig, Config
+from library.config import APIClientConfig
 from library.documents.config import DocumentConfig
 from library.etl.enhanced_correlation import (
     build_correlation_insights,
@@ -215,7 +215,7 @@ def _extract_data_from_source(
         "semantic_scholar_issn": None, "semantic_scholar_authors": None,
         "semantic_scholar_error": None,
         # Common columns
-        "chembl_doc_type": None, "doi_key": None
+        "chembl_doc_type": None, "doi_key": None, "index": None
     }
     
     for _, row in frame.iterrows():
@@ -377,6 +377,152 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     return normalised
 
 
+def _determine_publication_date(row: pd.Series) -> str:
+    """
+    Определяет дату публикации на основе полей PubMed.
+    
+    Логика определения:
+    1. Если заданы pubmed_year_completed, pubmed_month_completed, pubmed_day_completed - 
+       используется YYYY-MM-DD из этих полей
+    2. Если эти значения не заданы - проверяются pubmed_year_revised, pubmed_month_revised, pubmed_day_revised
+    3. Если и эти значения пусты - проверяется pubmed_year_completed и используется YYYY-01-01
+    4. В противном случае проверяется pubmed_year_revised и используется YYYY-01-01
+    5. В противном случае 0000-01-01
+    
+    Args:
+        row: Строка DataFrame с данными документа
+        
+    Returns:
+        str: Дата в формате YYYY-MM-DD
+    """
+    def _is_valid_value(value) -> bool:
+        """Проверяет, что значение не пустое и не NaN."""
+        return pd.notna(value) and str(value).strip() != ""
+    
+    def _format_date(year: str | int, month: str | int = "01", day: str | int = "01") -> str:
+        """Форматирует дату в YYYY-MM-DD."""
+        try:
+            year_str = str(int(float(year))).zfill(4)
+            month_str = str(int(float(month))).zfill(2)
+            day_str = str(int(float(day))).zfill(2)
+            return f"{year_str}-{month_str}-{day_str}"
+        except (ValueError, TypeError):
+            return "0000-01-01"
+    
+    # Проверяем pubmed_year_completed, pubmed_month_completed, pubmed_day_completed
+    year_completed = row.get("pubmed_year_completed")
+    month_completed = row.get("pubmed_month_completed")
+    day_completed = row.get("pubmed_day_completed")
+    
+    if (_is_valid_value(year_completed) and 
+        _is_valid_value(month_completed) and 
+        _is_valid_value(day_completed)):
+        return _format_date(year_completed, month_completed, day_completed)
+    
+    # Проверяем pubmed_year_revised, pubmed_month_revised, pubmed_day_revised
+    year_revised = row.get("pubmed_year_revised")
+    month_revised = row.get("pubmed_month_revised")
+    day_revised = row.get("pubmed_day_revised")
+    
+    if (_is_valid_value(year_revised) and 
+        _is_valid_value(month_revised) and 
+        _is_valid_value(day_revised)):
+        return _format_date(year_revised, month_revised, day_revised)
+    
+    # Проверяем только pubmed_year_completed
+    if _is_valid_value(year_completed):
+        return _format_date(year_completed)
+    
+    # Проверяем только pubmed_year_revised
+    if _is_valid_value(year_revised):
+        return _format_date(year_revised)
+    
+    # По умолчанию
+    return "0000-01-01"
+
+
+def _add_publication_date_column(frame: pd.DataFrame) -> pd.DataFrame:
+    """
+    Добавляет колонку publication_date в DataFrame на основе полей PubMed.
+    
+    Args:
+        frame: DataFrame с данными документов
+        
+    Returns:
+        pd.DataFrame: DataFrame с добавленной колонкой publication_date
+    """
+    frame = frame.copy()
+    
+    # Применяем функцию определения даты публикации к каждой строке
+    frame["publication_date"] = frame.apply(_determine_publication_date, axis=1)
+    
+    return frame
+
+
+def _determine_document_sortorder(row: pd.Series) -> str:
+    """
+    Определяет порядок сортировки документов на основе pubmed_issn, publication_date и index.
+    
+    Логика определения:
+    1. Каждый параметр приводится к строковому типу
+    2. index дополняется символом "0" до общей длины в 6 символов
+    3. Полученные строки склеиваются используя ":" как разделитель
+    
+    Args:
+        row: Строка DataFrame с данными документа
+        
+    Returns:
+        str: Строка для сортировки в формате "pubmed_issn:publication_date:index"
+    """
+    def _safe_str(value) -> str:
+        """Безопасно преобразует значение в строку."""
+        if pd.isna(value) or value is None:
+            return ""
+        return str(value).strip()
+    
+    def _pad_index(index_str: str) -> str:
+        """Дополняет index нулями до 6 символов."""
+        if not index_str:
+            return "000000"
+        # Преобразуем в int, если возможно, чтобы убрать .0 у float значений
+        try:
+            int_value = int(float(index_str))
+            return str(int_value).zfill(6)
+        except (ValueError, TypeError):
+            return index_str.zfill(6)
+    
+    # Получаем значения и преобразуем в строки
+    pubmed_issn = _safe_str(row.get("pubmed_issn", ""))
+    publication_date = _safe_str(row.get("publication_date", ""))
+    index = _safe_str(row.get("index", ""))
+    
+    # Дополняем index до 6 символов
+    padded_index = _pad_index(index)
+    
+    # Склеиваем строки с разделителем ":"
+    sortorder = f"{pubmed_issn}:{publication_date}:{padded_index}"
+    
+    return sortorder
+
+
+def _add_document_sortorder_column(frame: pd.DataFrame) -> pd.DataFrame:
+    """
+    Добавляет колонку document_sortorder в DataFrame на основе pubmed_issn, publication_date и index.
+    
+    Args:
+        frame: DataFrame с данными документов
+        
+    Returns:
+        pd.DataFrame: DataFrame с добавленной колонкой document_sortorder
+    """
+    frame = frame.copy()
+    
+    # Применяем функцию определения порядка сортировки к каждой строке
+    frame["document_sortorder"] = frame.apply(_determine_document_sortorder, axis=1)
+    
+    return frame
+
+
 def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
     """Initialize all possible output columns with default values."""
     
@@ -410,9 +556,13 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         "semantic_scholar_external_ids", "semantic_scholar_abstract", "semantic_scholar_issn",
         "semantic_scholar_authors", "semantic_scholar_error",
         # Common fields
-        "doi_key",
+        "doi_key", "index",
         # Citation field
-        "document_citation"
+        "document_citation",
+        # Publication date field
+        "publication_date",
+        # Document sort order field
+        "document_sortorder"
     }
     
     # Add missing columns with default values
@@ -450,8 +600,8 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             
             # Для источников с высоким rate limiting добавляем дополнительную задержку
             if source in ["semantic_scholar", "openalex"]:
-                import time
                 import os
+                import time
                 
                 if source == "semantic_scholar":
                     # Проверяем, есть ли API ключ для Semantic Scholar
@@ -523,6 +673,14 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             
             # Continue with other sources even if one fails
 
+    # Добавляем колонку publication_date на основе полей PubMed
+    logger.info("Добавляем колонку publication_date...")
+    enriched_frame = _add_publication_date_column(enriched_frame)
+    
+    # Добавляем колонку document_sortorder на основе pubmed_issn, publication_date и index
+    logger.info("Добавляем колонку document_sortorder...")
+    enriched_frame = _add_document_sortorder_column(enriched_frame)
+    
     # Calculate QC metrics
     qc_metrics = [
         {"metric": "row_count", "value": int(len(enriched_frame))},
@@ -696,7 +854,11 @@ __all__ = [
     "DocumentPipelineError",
     "DocumentQCError",
     "DocumentValidationError",
+    "_add_document_sortorder_column",
+    "_add_publication_date_column",
     "_create_api_client",
+    "_determine_document_sortorder",
+    "_determine_publication_date",
     "_extract_data_from_source",
     "read_document_input",
     "run_document_etl",

@@ -1,193 +1,100 @@
-# Makefile for bioactivity-data-acquisition
+# Makefile для bioactivity-data-acquisition
 
-.PHONY: help build dev prod ci test clean logs shell
+.PHONY: help setup-api-keys clean-backups test run-dev install-dev
 
-# Default target
-help: ## Show this help message
-	@echo "Available targets:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+# Показать справку
+help:
+	@echo "Доступные команды:"
+	@echo "  setup-api-keys    - Установить API ключи в переменные окружения"
+	@echo "  clean-backups     - Очистить backup файлы"
+	@echo "  test             - Запустить тесты"
+	@echo "  run-dev          - Запустить с тестовыми данными (3 записи)"
+	@echo "  run-full         - Запустить с полными данными (100 записей)"
+	@echo "  install-dev      - Установить в режиме разработки"
+	@echo "  health-check     - Проверить здоровье API"
+	@echo "  format           - Форматировать код"
+	@echo "  lint             - Проверить код линтером"
+	@echo "  type-check       - Проверить типы"
 
-# Docker targets
-build: ## Build all Docker images
-	docker-compose build
+# Установить API ключи
+setup-api-keys:
+	@echo "🔑 Установка API ключей..."
+ifeq ($(OS),Windows_NT)
+	powershell -ExecutionPolicy Bypass -File scripts/setup_api_keys.ps1
+else
+	python scripts/setup_api_keys.py
+endif
 
-build-dev: ## Build development image
-	docker-compose build bioactivity-etl
+# Очистить backup файлы
+clean-backups:
+	@echo "🧹 Очистка backup файлов..."
+ifeq ($(OS),Windows_NT)
+	powershell -Command "Remove-Item 'data\output\full\*.backup' -Force -ErrorAction SilentlyContinue"
+else
+	find data/output/full -name "*.backup" -delete 2>/dev/null || true
+endif
 
-build-prod: ## Build production image
-	docker build --target production -t bioactivity-etl:prod .
+# Запустить тесты
+test:
+	@echo "🧪 Запуск тестов..."
+	pytest tests/ -v
 
-build-ci: ## Build CI image
-	docker build --target ci -t bioactivity-etl:ci .
+# Запустить с тестовыми данными
+run-dev:
+	@echo "🚀 Запуск с тестовыми данными (3 записи)..."
+	bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 3
 
-# Development targets
-dev: ## Start development environment
-	docker-compose up -d jaeger prometheus grafana postgres redis
-	docker-compose run --rm bioactivity-etl
+# Запустить с полными данными
+run-full:
+	@echo "🚀 Запуск с полными данными (100 записей)..."
+	bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 100
 
-dev-build: ## Start development environment with rebuild
-	docker-compose up -d jaeger prometheus grafana postgres redis
-	docker-compose build bioactivity-etl
-	docker-compose run --rm bioactivity-etl
-
-# Production targets
-prod: ## Start production environment
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-prod-build: ## Build and start production environment
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml build
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-
-# CI targets
-ci: ## Run CI pipeline in Docker
-	docker-compose run --rm bioactivity-etl-ci
-
-ci-test: ## Run tests in CI container
-	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci pytest -v
-
-ci-lint: ## Run linting in CI container
-	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci ruff check .
-	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci black --check .
-	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci mypy src
-
-ci-security: ## Run security checks in CI container
-	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci safety check --policy-file .safety_policy.yaml
-	docker run --rm -v $(PWD):/app -w /app bioactivity-etl:ci bandit -r src/ -c .bandit -ll
-
-# Testing targets
-test: ## Run tests locally
-	pytest -v
-
-test-integration: ## Run integration tests (requires --run-integration flag)
-	@echo "Running integration tests..."
-	@echo "Note: Integration tests require network access and may need API keys"
-	@echo "Set environment variables: CHEMBL_API_TOKEN, PUBMED_API_KEY, SEMANTIC_SCHOLAR_API_KEY"
-	pytest tests/integration/ --run-integration -v
-
-test-coverage: ## Run tests with coverage
-	pytest --cov=library --cov-report=term-missing --cov-report=html
-
-test-watch: ## Run tests in watch mode
-	pytest-watch
-
-test-benchmark: ## Run performance benchmarks
-	pytest tests/benchmarks/ -v --benchmark-only
-
-test-benchmark-compare: ## Run benchmarks and compare with previous results
-	pytest tests/benchmarks/ -v --benchmark-only --benchmark-compare
-
-test-benchmark-save: ## Run benchmarks and save results
-	pytest tests/benchmarks/ -v --benchmark-only --benchmark-save
-
-# Quality targets
-lint: ## Run all linting tools
-	ruff check .
-	black --check .
-	python scripts/run_mypy.py
-
-format: ## Format code
-	black .
-	ruff --fix .
-
-pre-commit: ## Run pre-commit hooks
-	pre-commit run --all-files
-
-# Utility targets
-shell: ## Open shell in development container
-	docker-compose run --rm bioactivity-etl bash
-
-shell-prod: ## Open shell in production container
-	docker run --rm -it bioactivity-etl:prod bash
-
-logs: ## Show logs from all services
-	docker-compose logs -f
-
-logs-etl: ## Show logs from ETL service only
-	docker-compose logs -f bioactivity-etl
-
-clean: ## Clean up Docker resources
-	docker-compose down -v
-	docker system prune -f
-
-clean-all: ## Clean up all Docker resources including images
-	docker-compose down -v --rmi all
-	docker system prune -af
-
-# Pipeline execution targets
-run-pipeline: ## Run ETL pipeline in development container
-	docker-compose run --rm bioactivity-etl pipeline
-
-run-pipeline-prod: ## Run ETL pipeline in production container
-	docker run --rm -v $(PWD)/data:/app/data bioactivity-etl:prod pipeline
-
-run-documents: ## Run document processing pipeline
-	docker-compose run --rm bioactivity-etl get-document-data
-
-# Monitoring targets
-monitor: ## Start monitoring stack (Jaeger, Prometheus, Grafana)
-	docker-compose up -d jaeger prometheus grafana
-
-monitor-stop: ## Stop monitoring stack
-	docker-compose stop jaeger prometheus grafana
-
-# Data targets
-data-setup: ## Set up data directories
-	mkdir -p data/input data/output data/logs
-
-data-clean: ## Clean output data
-	rm -rf data/output/* data/logs/*
-
-# Documentation targets
-docs-serve: ## Serve documentation locally
-	mkdocs serve
-
-docs-build: ## Build documentation
-	mkdocs build
-
-docs-deploy: ## Deploy documentation to GitHub Pages
-	mkdocs gh-deploy
-
-# Installation targets
-install: ## Install package in development mode
+# Установить в режиме разработки
+install-dev:
+	@echo "📦 Установка в режиме разработки..."
 	pip install -e .[dev]
 
-install-prod: ## Install package for production
-	pip install .
+# Проверить здоровье API
+health-check:
+	@echo "🏥 Проверка здоровья API..."
+	bioactivity-data-acquisition health --config configs/config_documents_full.yaml
 
-# Version targets
-version: ## Show current version
-	python -c "from library.cli import app; print('bioactivity-data-acquisition 0.1.0')"
+# Форматировать код
+format:
+	@echo "🎨 Форматирование кода..."
+	black src/ tests/
+	ruff check src/ tests/ --fix
 
-version-check: ## Check version consistency
-	@echo "Checking version consistency..."
-	@grep -q "version = \"0.1.0\"" configs/pyproject.toml || (echo "Version mismatch in configs/pyproject.toml" && exit 1)
-	@grep -q "bioactivity-data-acquisition 0.1.0" src/library/cli/__init__.py || (echo "Version mismatch in CLI" && exit 1)
-	@echo "Version consistency check passed"
+# Проверить код линтером
+lint:
+	@echo "🔍 Проверка кода линтером..."
+	ruff check src/ tests/
 
-# Security targets
-security-check: ## Run security checks
-	safety check --policy-file .safety_policy.yaml
-	bandit -r src/ -c .bandit
+# Проверить типы
+type-check:
+	@echo "🔍 Проверка типов..."
+	mypy src/
 
-security-check-ci: ## Run security checks for CI (with JSON output)
-	safety check --policy-file .safety_policy.yaml --json --output safety-report.json || true
-	safety check --policy-file .safety_policy.yaml
-	bandit -r src/ -c .bandit -f json -o bandit-report.json || true
-	bandit -r src/ -c .bandit -ll
+# Полная проверка качества кода
+quality: format lint type-check
 
-security-install: ## Install security tools
-	pip install safety bandit
+# Очистить все временные файлы
+clean: clean-backups
+	@echo "🧹 Очистка временных файлов..."
+ifeq ($(OS),Windows_NT)
+	powershell -Command "Remove-Item '__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
+	powershell -Command "Remove-Item 'src\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
+	powershell -Command "Remove-Item 'tests\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
+	powershell -Command "Remove-Item '.pytest_cache' -Recurse -Force -ErrorAction SilentlyContinue"
+	powershell -Command "Remove-Item '.mypy_cache' -Recurse -Force -ErrorAction SilentlyContinue"
+else
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+endif
 
-security-report: ## Generate security reports
-	@echo "Generating security reports..."
-	safety check --policy-file .safety_policy.yaml --json --output reports/safety-report.json || true
-	bandit -r src/ -c .bandit -f json -o reports/bandit-report.json || true
-	@echo "Security reports generated in reports/ directory"
+# Быстрый старт - установить ключи и запустить тест
+quick-start: setup-api-keys run-dev
 
-# Dependencies targets
-deps-update: ## Update dependencies
-	pip-compile configs/pyproject.toml
-	pip-compile configs/pyproject.toml --dev
-
-deps-sync: ## Sync dependencies
-	pip-sync configs/requirements.txt requirements-dev.txt
+# Полная настройка и запуск
+full-setup: install-dev setup-api-keys clean-backups run-dev

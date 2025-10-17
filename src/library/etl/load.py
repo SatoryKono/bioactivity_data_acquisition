@@ -305,6 +305,12 @@ def write_deterministic_csv(
         # Нормализуем данные перед сохранением
         df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)
 
+    # Очищаем старые backup файлы перед записью
+    from library.io_.atomic_writes import cleanup_backups
+    backup_count = cleanup_backups(destination.parent)
+    if backup_count > 0 and logger is not None:
+        logger.info("cleaned_up_backups", count=backup_count, directory=str(destination.parent))
+
     # Use atomic writes for safe file operations
     with atomic_write_context(destination, logger=logger) as temp_path:
         if file_format == "parquet":

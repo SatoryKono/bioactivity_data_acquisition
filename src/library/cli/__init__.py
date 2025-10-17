@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,27 @@ from library.etl.run import run_pipeline
 from library.logging_setup import configure_logging, generate_run_id, set_run_context, bind_stage
 from library.telemetry import setup_telemetry
 from library.clients.health import HealthChecker, create_health_checker_from_config
+
+
+def _setup_api_keys_automatically() -> None:
+    """Автоматически установить API ключи в переменные окружения при запуске."""
+    # Список API ключей с их значениями по умолчанию
+    api_keys = {
+        "SEMANTIC_SCHOLAR_API_KEY": "o2N1y1RHYU3aqEj556Oyv4oBzZrHthM2bWda2lf4",
+        # Другие ключи можно добавить здесь при необходимости
+        # "CHEMBL_API_TOKEN": "your_chembl_token_here",
+        # "CROSSREF_API_KEY": "your_crossref_key_here", 
+        # "OPENALEX_API_KEY": "your_openalex_key_here",
+        # "PUBMED_API_KEY": "your_pubmed_key_here",
+    }
+    
+    # Устанавливаем ключи только если они не установлены
+    for key, default_value in api_keys.items():
+        if not os.environ.get(key):
+            os.environ[key] = default_value
+            # Логируем установку ключа (только первые 10 символов для безопасности)
+            display_key = default_value[:10] + "..." if len(default_value) > 10 else default_value
+            print(f"Автоматически установлен API ключ: {key} = {display_key}")
 from library.utils.graceful_shutdown import ShutdownContext, register_shutdown_handler
 
 CONFIG_OPTION = typer.Option(
@@ -552,6 +574,9 @@ def install_completion(
 
 def main() -> None:
     """Entrypoint for ``python -m library.cli``."""
+    # Автоматически установить API ключи
+    _setup_api_keys_automatically()
+    
     # Initialize telemetry
     setup_telemetry(
         service_name="bioactivity-etl",
