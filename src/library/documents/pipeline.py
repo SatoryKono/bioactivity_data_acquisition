@@ -450,20 +450,29 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             
             # Для источников с высоким rate limiting добавляем дополнительную задержку
             if source in ["semantic_scholar", "openalex"]:
-                logger.info(f"Using conservative rate limiting for {source} (no API key)")
                 import time
+                import os
+                
                 if source == "semantic_scholar":
-                    # Semantic Scholar имеет очень строгие ограничения без API ключа
-                    logger.info("=" * 80)
-                    logger.info("SEMANTIC SCHOLAR RATE LIMITING INFO:")
-                    logger.info("Semantic Scholar API has very strict rate limits without an API key.")
-                    logger.info("Current limit: 1 request per minute (controlled by rate limiter)")
-                    logger.info("To get higher limits, apply for an API key at:")
-                    logger.info("https://www.semanticscholar.org/product/api#api-key-form")
-                    logger.info("=" * 80)
-                    # Убираем избыточную задержку - rate limiter уже контролирует это
-                    logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
+                    # Проверяем, есть ли API ключ для Semantic Scholar
+                    api_key = os.environ.get('SEMANTIC_SCHOLAR_API_KEY')
+                    if api_key:
+                        logger.info(f"Using Semantic Scholar with API key: {api_key[:10]}...")
+                        logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
+                    else:
+                        logger.info(f"Using conservative rate limiting for {source} (no API key)")
+                        # Semantic Scholar имеет очень строгие ограничения без API ключа
+                        logger.info("=" * 80)
+                        logger.info("SEMANTIC SCHOLAR RATE LIMITING INFO:")
+                        logger.info("Semantic Scholar API has very strict rate limits without an API key.")
+                        logger.info("Current limit: 1 request per minute (controlled by rate limiter)")
+                        logger.info("To get higher limits, apply for an API key at:")
+                        logger.info("https://www.semanticscholar.org/product/api#api-key-form")
+                        logger.info("=" * 80)
+                        # Убираем избыточную задержку - rate limiter уже контролирует это
+                        logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
                 else:
+                    logger.info(f"Using conservative rate limiting for {source}")
                     time.sleep(2)  # Дополнительная задержка для OpenAlex
             
             enriched_frame = _extract_data_from_source(source, client, enriched_frame, config)
