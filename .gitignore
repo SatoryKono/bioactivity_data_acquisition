@@ -5,8 +5,6 @@ __pycache__/
 .venv/
 venv/
 logs/
-data/
-!data/.gitkeep
 build/
 *.egg-info/
 .mypy_cache/
@@ -15,3 +13,24 @@ build/
 .coverage
 htmlcov/
 coverage.xml
+.cursor/plans/---------------------------df534ed4.plan.md
+dist/
+
+# OS/IDE
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db
+
+# Test outputs and reports (generated)
+tests/test_outputs/
+reports/*.csv
+reports/*.json
+
+# Documentation build artifacts
+site/
+.mkdocs-cache/
+
+# Temporary files
+*.tmp
+temp_*.txt

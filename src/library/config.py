@@ -223,7 +223,11 @@ class SourceSettings(BaseModel):
                     secret_name = match.group(1)
                     env_var = os.environ.get(secret_name.upper())
                     return env_var if env_var is not None else match.group(0)
-                processed_headers[key] = re.sub(r'\{([^}]+)\}', replace_placeholder, value)
+                processed_value = re.sub(r'\{([^}]+)\}', replace_placeholder, value)
+                # Only include header if the value is not empty after processing and not a placeholder
+                if (processed_value and processed_value.strip() and 
+                    not processed_value.startswith('{') and not processed_value.endswith('}')):
+                    processed_headers[key] = processed_value
             else:
                 processed_headers[key] = value
         

@@ -56,11 +56,14 @@ class SemanticScholarClient(BaseApiClient):
             
             # Check if we got fallback data
             if payload.get("source") == "fallback" or payload.get("fallback_used"):
+                # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                error_msg = str(payload.get("error", "")).replace("%", "%%")
+                fallback_reason_msg = str(payload.get("fallback_reason", "")).replace("%", "%%")
                 self.logger.warning(
                     "semantic_scholar_fallback_used",
                     pmid=pmid,
-                    error=payload.get("error"),
-                    fallback_reason=payload.get("fallback_reason")
+                    error=error_msg,
+                    fallback_reason=fallback_reason_msg
                 )
                 return self._create_empty_record(pmid, payload.get("error", "Unknown error"))
                 
@@ -69,10 +72,12 @@ class SemanticScholarClient(BaseApiClient):
         except Exception as exc:
             # Специальная обработка для rate limiting ошибок
             if "429" in str(exc) or "rate limited" in str(exc).lower():
+                # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                error_msg = str(exc).replace("%", "%%")
                 self.logger.warning(
                     "semantic_scholar_rate_limited",
                     pmid=pmid,
-                    error=str(exc),
+                    error=error_msg,
                     message=(
                         "Rate limited by Semantic Scholar API. "
                         "Consider getting an API key for higher limits."
@@ -84,10 +89,12 @@ class SemanticScholarClient(BaseApiClient):
                     f"Consider getting an API key for higher limits."
                 )
             else:
+                # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                error_msg = str(exc).replace("%", "%%")
                 self.logger.error(
                     "semantic_scholar_request_failed",
                     pmid=pmid,
-                    error=str(exc),
+                    error=error_msg,
                     error_type=type(exc).__name__
                 )
                 return self._create_empty_record(pmid, f"Request failed: {str(exc)}")
@@ -104,7 +111,9 @@ class SemanticScholarClient(BaseApiClient):
                 json={"ids": ids, "fields": ",".join(self._DEFAULT_FIELDS)},
             )
         except Exception as exc:
-            self.logger.error(f"Batch request failed: {exc}")
+            # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+            error_msg = str(exc).replace("%", "%%")
+            self.logger.error(f"Batch request failed: {error_msg}")
             # Возвращаем пустые записи для всех PMID
             result: dict[str, dict[str, Any]] = {}
             for pmid in pmids:

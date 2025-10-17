@@ -1,5 +1,9 @@
 # Конфигурация для полной обработки документов со всеми источниками
 # Включает все доступные API и максимальную детализацию
+# 
+# ВАЖНО: Система поддерживает graceful degradation - при недоступности API
+# источников система продолжает работу с другими источниками и предоставляет
+# fallback данные с информацией об ошибках
 
 # Глобальные настройки HTTP-клиента
 http:
@@ -52,15 +56,14 @@ sources:
         Authorization: "Bearer {chembl_api_token}"
 
   # Crossref - сервис для получения метаданных научных публикаций
+  # Работает без API ключа с ограничениями по rate limiting
+  # При ошибках API использует graceful degradation
   crossref:
     # Уникальное имя источника
     name: crossref
-    # Параметры поиска в Crossref
-    params:
-      # Поисковый запрос (ищем публикации связанные с ChEMBL)
-      query: chembl
-      # Поля, которые нужно получить из API
-      select: DOI,title
+    # Параметры для Crossref (не используются в текущей реализации)
+    # Crossref клиент работает напрямую с DOI и PMID
+    params: {}
     # Переопределения настроек пагинации
     pagination:
       # Параметр курсора для навигации по страницам
@@ -75,7 +78,9 @@ sources:
       base_url: https://api.crossref.org/works
       # Дополнительные заголовки для Crossref
       headers:
-        # API ключ для Crossref Plus (заменяется на реальный ключ)
+        # API ключ для Crossref Plus (опционально)
+        # Если не установлен, заголовок не отправляется
+        # Установите переменную окружения CROSSREF_API_KEY для использования
         Crossref-Plus-API-Token: "{crossref_api_key}"
 
   # OpenAlex - открытая база данных научных публикаций
@@ -383,3 +388,36 @@ postprocess:
       issue: "valid_issue"            # Колонка с номером выпуска
       first_page: "pubmed_first_page"  # Колонка с первой страницей
       last_page: "pubmed_last_page"    # Колонка с последней страницей
+
+# =============================================================================
+# ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ДЛЯ API КЛЮЧЕЙ
+# =============================================================================
+# 
+# Для использования API ключей установите следующие переменные окружения:
+#
+# Windows (PowerShell):
+#   $env:CHEMBL_API_TOKEN = "your_chembl_token_here"
+#   $env:CROSSREF_API_KEY = "your_crossref_key_here"
+#   $env:OPENALEX_API_KEY = "your_openalex_key_here"
+#   $env:PUBMED_API_KEY = "your_pubmed_key_here"
+#   $env:SEMANTIC_SCHOLAR_API_KEY = "your_semantic_scholar_key_here"
+#
+# Linux/macOS (bash):
+#   export CHEMBL_API_TOKEN="your_chembl_token_here"
+#   export CROSSREF_API_KEY="your_crossref_key_here"
+#   export OPENALEX_API_KEY="your_openalex_key_here"
+#   export PUBMED_API_KEY="your_pubmed_key_here"
+#   export SEMANTIC_SCHOLAR_API_KEY="your_semantic_scholar_key_here"
+#
+# ВАЖНО:
+# - Система работает БЕЗ API ключей с ограничениями по rate limiting
+# - При отсутствии API ключей используется graceful degradation
+# - Crossref работает без API ключа, но с ограничениями по запросам
+# - OpenAlex и Semantic Scholar работают без API ключей с консервативными лимитами
+#
+# Получить API ключи можно по следующим ссылкам:
+# - ChEMBL: https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services
+# - Crossref: https://www.crossref.org/services/api/
+# - OpenAlex: https://openalex.org/works
+# - PubMed: https://ncbiinsights.ncbi.nlm.nih.gov/2017/11/02/new-api-keys-for-the-e-utilities/
+# - Semantic Scholar: https://www.semanticscholar.org/product/api#api-key-form

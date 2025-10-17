@@ -1,0 +1,476 @@
+[
+  {
+    "type": "strong_correlation",
+    "severity": "high",
+    "message": "Сильная корреляция между last_page и month: 0.994",
+    "recommendation": "Рассмотрите возможность удаления одного из столбцов или создания составного признака"
+  },
+  {
+    "type": "moderate_correlation",
+    "severity": "medium",
+    "message": "Умеренная корреляция между last_page и volume: 0.749",
+    "recommendation": "Мониторьте мультиколлинеарность при построении моделей"
+  },
+  {
+    "type": "moderate_correlation",
+    "severity": "medium",
+    "message": "Умеренная корреляция между last_page и year: 0.749",
+    "recommendation": "Мониторьте мультиколлинеарность при построении моделей"
+  },
+  {
+    "type": "moderate_correlation",
+    "severity": "medium",
+    "message": "Умеренная корреляция между last_page и chembl_year: 0.749",
+    "recommendation": "Мониторьте мультиколлинеарность при построении моделей"
+  },
+  {
+    "type": "moderate_correlation",
+    "severity": "medium",
+    "message": "Умеренная корреляция между month и volume: 0.721",
+    "recommendation": "Мониторьте мультиколлинеарность при построении моделей"
+  },
+  {
+    "type": "moderate_correlation",
+    "severity": "medium",
+    "message": "Умеренная корреляция между month и year: 0.721",
+    "recommendation": "Мониторьте мультиколлинеарность при построении моделей"
+  },
+  {
+    "type": "moderate_correlation",
+    "severity": "medium",
+    "message": "Умеренная корреляция между month и chembl_year: 0.721",
+    "recommendation": "Мониторьте мультиколлинеарность при построении моделей"
+  },
+  {
+    "type": "strong_correlation",
+    "severity": "high",
+    "message": "Сильная корреляция между pubmed_id и document_pubmed_id: 1.000",
+    "recommendation": "Рассмотрите возможность удаления одного из столбцов или создания составного признака"
+  },
+  {
+    "type": "strong_correlation",
+    "severity": "high",
+    "message": "Сильная корреляция между pubmed_id и chembl_pmid: 1.000",
+    "recommendation": "Рассмотрите возможность удаления одного из столбцов или создания составного признака"
+  },
+  {
+    "type": "strong_correlation",
+    "severity": "high",
+    "message": "Сильная корреляция между volume и year: 1.000",
+    "recommendation": "Рассмотрите возможность удаления одного из столбцов или создания составного признака"
+  },
+  {
+    "type": "strong_correlation",
+    "severity": "high",
+    "message": "Сильная корреляция между volume и chembl_year: 1.000",
+    "recommendation": "Рассмотрите возможность удаления одного из столбцов или создания составного признака"
+  },
+  {
+    "type": "strong_correlation",
+    "severity": "high",
+    "message": "Сильная корреляция между year и chembl_year: 1.000",
+    "recommendation": "Рассмотрите возможность удаления одного из столбцов или создания составного признака"
+  },
+  {
+    "type": "strong_correlation",
+    "severity": "high",
+    "message": "Сильная корреляция между document_pubmed_id и chembl_pmid: 1.000",
+    "recommendation": "Рассмотрите возможность удаления одного из столбцов или создания составного признака"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и authors: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и first_page: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и chembl_doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными document_chembl_id и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и authors: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и first_page: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и chembl_doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными abstract и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и first_page: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и chembl_doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными authors и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и first_page: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и chembl_doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными doi и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными first_page и issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными first_page и title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными first_page и chembl_doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными first_page и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными first_page и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными first_page и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными first_page и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными issue и title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными issue и chembl_doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными issue и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными issue и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными issue и chembl_volume: 0.764",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными issue и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными title и chembl_doi: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными title и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными title и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными title и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными title и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_doi и chembl_title: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_doi и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_doi и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_doi и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_title и chembl_issue: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_title и chembl_volume: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_title и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_issue и chembl_volume: 0.764",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_issue и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  },
+  {
+    "type": "categorical_association",
+    "severity": "medium",
+    "message": "Сильная ассоциация между категориальными переменными chembl_volume и chembl_abstract: 1.000",
+    "recommendation": "Проанализируйте логическую связь между этими переменными"
+  }
+]
