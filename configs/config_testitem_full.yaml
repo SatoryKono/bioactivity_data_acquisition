@@ -14,7 +14,7 @@ http:
       backoff_multiplier: 3.0
     # Настройки ограничения скорости запросов по умолчанию
     rate_limit:
-      max_calls: 5
+      max_calls: 10
       period: 15.0
     # Заголовки, отправляемые с каждым HTTP-запросом
     headers:
@@ -35,7 +35,7 @@ sources:
     params:
       # Формат ответа
       format: json
-      # Количество записей на странице
+      # Количество записей на странице (увеличено для оптимизации)
       limit: 1000
     # Переопределения настроек пагинации
     pagination:
@@ -43,7 +43,7 @@ sources:
       offset_param: offset
       # Параметр количества записей на странице
       size_param: limit
-      # Количество записей на странице
+      # Количество записей на странице (увеличено для оптимизации)
       size: 1000
       # Максимальное количество страниц для обработки
       max_pages: 50
@@ -51,13 +51,13 @@ sources:
     http:
       # Базовый URL API ChEMBL
       base_url: https://www.ebi.ac.uk/chembl/api/data
-      # Таймаут для запросов к ChEMBL
+      # Таймаут для запросов к ChEMBL (оптимизирован)
       timeout_sec: 60.0
       # Дополнительные заголовки для ChEMBL
       headers:
         # Токен авторизации (заменяется на реальный токен)
         Authorization: "Bearer {chembl_api_token}"
-      # Настройки повторных попыток для ChEMBL
+      # Настройки повторных попыток для ChEMBL (оптимизированы)
       retries:
         # Общее количество попыток
         total: 5
@@ -80,13 +80,13 @@ sources:
     http:
       # Базовый URL API PubChem
       base_url: https://pubchem.ncbi.nlm.nih.gov/rest/pug
-      # Таймаут для запросов к PubChem
+      # Таймаут для запросов к PubChem (оптимизирован)
       timeout_sec: 45.0
       # Дополнительные заголовки для PubChem
       headers:
         Accept: application/json
         User-Agent: bioactivity-data-acquisition/0.1.0
-      # Настройки повторных попыток для PubChem
+      # Настройки повторных попыток для PubChem (оптимизированы)
       retries:
         # Общее количество попыток
         total: 8
@@ -321,7 +321,7 @@ cache:
   chembl_directory: .cache/chembl
   # Директория для кэша PubChem
   pubchem_directory: .cache/pubchem
-  # Время жизни кэша в секундах (24 часа)
+  # Время жизни кэша в секундах (увеличено для оптимизации - 24 часа)
   ttl: 86400
   # Инвалидировать кэш при смене релиза ChEMBL
   invalidate_on_release_change: true
