@@ -206,7 +206,7 @@ class TestitemChEMBLClient(BaseApiClient):
         """Parse molecule data from ChEMBL API response."""
         molecule = payload.get("molecules", [{}])[0] if "molecules" in payload else payload
         
-        return {
+        result = {
             "molecule_chembl_id": molecule.get("molecule_chembl_id"),
             "molregno": molecule.get("molregno"),
             "pref_name": molecule.get("pref_name"),
@@ -239,6 +239,68 @@ class TestitemChEMBLClient(BaseApiClient):
             "source_system": "ChEMBL",
             "extracted_at": datetime.utcnow().isoformat() + "Z"
         }
+        
+        # Extract molecule properties if available
+        if "molecule_properties" in molecule and molecule["molecule_properties"]:
+            props = molecule["molecule_properties"]
+            result.update({
+                "mw_freebase": props.get("mw_freebase"),
+                "alogp": props.get("alogp"),
+                "hba": props.get("hba"),
+                "hbd": props.get("hbd"),
+                "psa": props.get("psa"),
+                "rtb": props.get("rtb"),
+                "ro3_pass": props.get("ro3_pass"),
+                "num_ro5_violations": props.get("num_ro5_violations"),
+                "acd_most_apka": props.get("acd_most_apka"),
+                "acd_most_bpka": props.get("acd_most_bpka"),
+                "acd_logp": props.get("acd_logp"),
+                "acd_logd": props.get("acd_logd"),
+                "molecular_species": props.get("molecular_species"),
+                "full_mwt": props.get("full_mwt"),
+                "aromatic_rings": props.get("aromatic_rings"),
+                "heavy_atoms": props.get("heavy_atoms"),
+                "qed_weighted": props.get("qed_weighted"),
+                "mw_monoisotopic": props.get("mw_monoisotopic"),
+                "full_molformula": props.get("full_molformula"),
+                "hba_lipinski": props.get("hba_lipinski"),
+                "hbd_lipinski": props.get("hbd_lipinski"),
+                "num_lipinski_ro5_violations": props.get("num_lipinski_ro5_violations")
+            })
+        
+        # Extract molecule structures if available
+        if "molecule_structures" in molecule and molecule["molecule_structures"]:
+            struct = molecule["molecule_structures"]
+            result.update({
+                "inchi": struct.get("inchi"),
+                "inchikey": struct.get("inchikey"),
+                "canonical_smiles": struct.get("canonical_smiles"),
+                "standard_inchi": struct.get("standard_inchi"),
+                "standard_inchikey": struct.get("standard_inchikey"),
+                "standard_smiles": struct.get("standard_smiles"),
+                "molecular_formula": struct.get("molecular_formula")
+            })
+        
+        # Extract molecule synonyms if available
+        if "molecule_synonyms" in molecule and molecule["molecule_synonyms"]:
+            synonyms = molecule["molecule_synonyms"]
+            synonym_list = [syn.get("molecule_synonym") for syn in synonyms if syn.get("molecule_synonym")]
+            result["synonyms"] = synonym_list
+        
+        # Extract cross references if available
+        if "cross_references" in molecule and molecule["cross_references"]:
+            xrefs = molecule["cross_references"]
+            xref_list = []
+            for xref in xrefs:
+                xref_data = {
+                    "xref_name": xref.get("xref_name"),
+                    "xref_id": xref.get("xref_id"),
+                    "xref_src": xref.get("xref_src")
+                }
+                xref_list.append(xref_data)
+            result["xref_sources"] = xref_list
+        
+        return result
 
     def _parse_molecule_form(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Parse molecule form data."""

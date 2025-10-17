@@ -101,7 +101,7 @@ class TestitemConfig(Config):
         """Generate output filename based on run date."""
         if hasattr(self, 'output') and hasattr(self.output, 'csv_pattern'):
             return self.output.csv_pattern.format(run_date=run_date)
-        return f"testitem__{run_date}.csv"
+        return f"testitem_{run_date}.csv"
 
     def get_meta_filename(self) -> str:
         """Get metadata filename."""
@@ -113,7 +113,7 @@ class TestitemConfig(Config):
         """Get QC directory path."""
         if hasattr(self, 'output') and hasattr(self.output, 'qc_dir'):
             return Path(self.output.qc_dir)
-        return Path("data/qc/testitem")
+        return Path("data/output/testitem")
 
     def get_logs_dir(self) -> Path:
         """Get logs directory path."""

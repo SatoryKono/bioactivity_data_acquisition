@@ -30,9 +30,7 @@ def extract_molecules_batch(
         logger.debug(f"S02: Fetching molecule core data for {len(molecule_chembl_ids)} molecules")
         molecule_data_batch = client.fetch_molecules_batch(molecule_chembl_ids)
         
-        # S04: Fetch properties in batch
-        logger.debug(f"S04: Fetching properties for {len(molecule_chembl_ids)} molecules")
-        properties_data_batch = client.fetch_molecule_properties_batch(molecule_chembl_ids)
+        # Note: Properties are now included in main endpoint, no need for separate batch request
         
         # Process each molecule
         for molecule_chembl_id in molecule_chembl_ids:
@@ -46,11 +44,9 @@ def extract_molecules_batch(
             if molecule_chembl_id in molecule_data_batch:
                 result.update(molecule_data_batch[molecule_chembl_id])
             
-            # Add properties data
-            if molecule_chembl_id in properties_data_batch:
-                result.update(properties_data_batch[molecule_chembl_id])
+            # Properties are now included in main endpoint data
             
-            # Fetch additional data individually (these don't support batch)
+            # Fetch additional data individually (only for data not included in main endpoint)
             try:
                 # S03: Fetch parent/child relationship data
                 molecule_form_data = client.fetch_molecule_form(molecule_chembl_id)
@@ -64,9 +60,8 @@ def extract_molecules_batch(
                 atc_data = client.fetch_atc_classification(molecule_chembl_id)
                 result.update(atc_data)
                 
-                # Fetch compound synonyms
-                synonym_data = client.fetch_compound_synonym(molecule_chembl_id)
-                result.update(synonym_data)
+                # Note: Synonyms, properties, structures, and cross-references are now included in main endpoint
+                # No need for separate requests for these
                 
                 # Fetch drug data
                 drug_data = client.fetch_drug(molecule_chembl_id)
@@ -75,10 +70,6 @@ def extract_molecules_batch(
                 # Fetch drug warnings
                 warning_data = client.fetch_drug_warning(molecule_chembl_id)
                 result.update(warning_data)
-                
-                # Fetch cross-reference sources
-                xref_data = client.fetch_xref_source(molecule_chembl_id)
-                result.update(xref_data)
                 
             except Exception as e:
                 logger.warning(f"Failed to fetch additional data for {molecule_chembl_id}: {e}")
@@ -126,10 +117,8 @@ def extract_molecule_data(
         molecule_form_data = client.fetch_molecule_form(molecule_chembl_id)
         result.update(molecule_form_data)
         
-        # S04: Fetch properties and classifications
-        logger.debug(f"S04: Fetching properties and classifications for {molecule_chembl_id}")
-        properties_data = client.fetch_molecule_properties(molecule_chembl_id)
-        result.update(properties_data)
+        # Note: Properties, structures, synonyms, and cross-references are now included in main endpoint
+        # No need for separate requests for these
         
         # Fetch mechanism data
         mechanism_data = client.fetch_mechanism(molecule_chembl_id)
@@ -138,14 +127,6 @@ def extract_molecule_data(
         # Fetch ATC classification
         atc_data = client.fetch_atc_classification(molecule_chembl_id)
         result.update(atc_data)
-        
-        # S06: Fetch synonyms and cross-references
-        logger.debug(f"S06: Fetching synonyms and xrefs for {molecule_chembl_id}")
-        synonym_data = client.fetch_compound_synonym(molecule_chembl_id)
-        result.update(synonym_data)
-        
-        xref_data = client.fetch_xref_source(molecule_chembl_id)
-        result.update(xref_data)
         
         # Fetch drug data
         drug_data = client.fetch_drug(molecule_chembl_id)
@@ -229,11 +210,13 @@ def extract_batch_data(
     input_data: pd.DataFrame,
     config: TestitemConfig
 ) -> pd.DataFrame:
-    """Extract data for a batch of molecules."""
+    """Extract data for a batch of molecules using optimized batch requests."""
     
     logger.info(f"Extracting data for {len(input_data)} molecules")
     
-    extracted_data = []
+    # Collect all molecule_chembl_ids for batch processing
+    molecule_chembl_ids = []
+    row_mapping = {}  # Map molecule_chembl_id to row index
     
     for idx, row in input_data.iterrows():
         try:
@@ -251,25 +234,52 @@ def extract_batch_data(
                 logger.warning(f"Row {idx} has no valid molecule identifier - skipping")
                 continue
             
-            # Extract ChEMBL data
-            molecule_data = extract_molecule_data(chembl_client, molecule_chembl_id, config)
-            
-            # Enrich with PubChem data
-            enriched_data = extract_pubchem_data(pubchem_client, molecule_data, config)
-            
-            # Add any additional input data
-            for col in input_data.columns:
-                if col not in enriched_data and pd.notna(row[col]):
-                    enriched_data[col] = row[col]
-            
-            extracted_data.append(enriched_data)
+            molecule_chembl_ids.append(molecule_chembl_id)
+            row_mapping[molecule_chembl_id] = idx
             
         except Exception as e:
-            logger.error(f"Error processing row {idx}: {e}")
+            logger.warning(f"Error processing row {idx}: {e}")
+            continue
+    
+    if not molecule_chembl_ids:
+        logger.warning("No valid molecule identifiers found")
+        return pd.DataFrame()
+    
+    # Use batch extraction for better performance
+    logger.info(f"Using batch extraction for {len(molecule_chembl_ids)} molecules")
+    batch_results = extract_molecules_batch(chembl_client, molecule_chembl_ids, config)
+    
+    extracted_data = []
+    
+    # Process batch results and add PubChem enrichment
+    for molecule_data in batch_results:
+        try:
+            molecule_chembl_id = molecule_data.get("molecule_chembl_id")
+            if not molecule_chembl_id:
+                continue
+            
+            # Get original row data
+            row_idx = row_mapping.get(molecule_chembl_id)
+            if row_idx is not None:
+                original_row = input_data.iloc[row_idx]
+                
+                # Add original input data
+                for col in input_data.columns:
+                    if col not in molecule_data and pd.notna(original_row[col]):
+                        molecule_data[col] = original_row[col]
+            
+            # Extract PubChem data if enabled
+            if config.enable_pubchem:
+                pubchem_data = extract_pubchem_data(pubchem_client, molecule_data, config)
+                molecule_data.update(pubchem_data)
+            
+            extracted_data.append(molecule_data)
+            
+        except Exception as e:
+            logger.error(f"Error processing molecule {molecule_chembl_id}: {e}")
             # Create error record
             error_data = {
-                "molecule_chembl_id": row.get("molecule_chembl_id"),
-                "molregno": row.get("molregno"),
+                "molecule_chembl_id": molecule_chembl_id,
                 "source_system": "ChEMBL",
                 "extracted_at": pd.Timestamp.utcnow().isoformat() + "Z",
                 "error": str(e)

@@ -148,13 +148,13 @@ output:
   # Директория для сохранения результатов
   dir: data/output/testitem
   # Паттерн имени CSV файла (run_date = YYYYMMDD из extracted_at)
-  csv_pattern: "testitem__{run_date}.csv"
+  csv_pattern: "testitem_{run_date}.csv"
   # Имя файла метаданных
-  meta_filename: meta.yaml
+  meta_filename: "testitem_{run_date}_meta.yaml"
   # Директория для логов
   logs_dir: logs
   # Директория для QC артефактов
-  qc_dir: data/qc/testitem
+  qc_dir: data/output/testitem
 
 # Настройки детерминизма для воспроизводимости результатов
 determinism:
