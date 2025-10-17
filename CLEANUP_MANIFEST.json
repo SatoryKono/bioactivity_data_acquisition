@@ -1,0 +1,73 @@
+{
+  "repo": "SatoryKono/bioactivity_data_acquisition",
+  "generated_at": "2025-10-17T09:52:39Z",
+  "criteria": {
+    "large_file_threshold_bytes": 512000,
+    "notes": "Files meeting or exceeding this size should be evaluated for removal or alternative storage."
+  },
+  "large_files": [],
+  "tracked_artifacts": [
+    {
+      "path": ".cursor/.agent-tools/29d2d824-5c32-419b-ac15-09c6df601bca.txt",
+      "size_bytes": 140618,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": ".cursor/.agent-tools/96e9be08-ab04-4143-89f6-e949e1446993.txt",
+      "size_bytes": 32857,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": ".cursor/.agent-tools/9eaa6244-c0e2-4ed0-a635-e76db2dbb026.txt",
+      "size_bytes": 32857,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": ".cursor/.agent-tools/07e35f98-6bd6-4cf9-91ed-e29470479fce.txt",
+      "size_bytes": 13419,
+      "category": "tooling_cache",
+      "reason": "Cursor agent tool scratchpad committed to the repository.",
+      "status": "pending_cleanup"
+    },
+    {
+      "path": "temp_files.txt",
+      "size_bytes": 0,
+      "category": "temporary_placeholder",
+      "reason": "Placeholder list for temporary files; should be removed or regenerated dynamically.",
+      "status": "pending_review"
+    },
+    {
+      "path": "temp_added_files.txt",
+      "size_bytes": 0,
+      "category": "temporary_placeholder",
+      "reason": "Placeholder tracking file committed to repository.",
+      "status": "pending_review"
+    },
+    {
+      "path": "reports/config_audit.csv",
+      "size_bytes": 4073,
+      "category": "generated_report",
+      "reason": "Generated audit report checked into source control.",
+      "status": "pending_decision"
+    }
+  ],
+  "other_cleanup_targets": [
+    {
+      "path": ".cursor/.agent-tools/",
+      "issue": "Ensure Cursor agent artifacts are excluded via .gitignore after cleanup.",
+      "status": "pending"
+    },
+    {
+      "path": "reports/",
+      "issue": "Decide whether generated reports should remain tracked or move to release artifacts only.",
+      "status": "pending"
+    }
+  ],
+  "maintenance_notes": "Update this manifest after each cleanup task to reflect removed files or status changes."
+}
