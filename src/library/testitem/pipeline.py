@@ -377,6 +377,8 @@ def run_testitem_etl(
         len(validated_frame) > 1):
         try:
             logger.info("Performing correlation analysis...")
+            logger.info(f"Input data shape: {validated_frame.shape}")
+            logger.info(f"Input columns: {list(validated_frame.columns)}")
             
             # Подготавливаем данные для корреляционного анализа
             analysis_df = prepare_data_for_correlation_analysis(
@@ -385,22 +387,32 @@ def run_testitem_etl(
                 logger=logger
             )
             
+            logger.info(f"Prepared data shape: {analysis_df.shape}")
             logger.info(f"Correlation analysis: {len(analysis_df.columns)} numeric columns, {len(analysis_df)} rows")
             logger.info(f"Columns for analysis: {list(analysis_df.columns)}")
             
             if len(analysis_df.columns) > 1:
+                logger.info("Starting enhanced correlation analysis...")
                 # Perform correlation analysis
-                correlation_analysis = build_enhanced_correlation_analysis(analysis_df)
-                correlation_reports = build_enhanced_correlation_reports(analysis_df)
-                correlation_insights = build_correlation_insights(analysis_df)
+                correlation_analysis = build_enhanced_correlation_analysis(analysis_df, logger)
+                logger.info("Enhanced correlation analysis completed")
                 
+                logger.info("Building correlation reports...")
+                correlation_reports = build_enhanced_correlation_reports(analysis_df, logger)
+                logger.info(f"Generated {len(correlation_reports)} correlation reports")
+                
+                logger.info("Building correlation insights...")
+                correlation_insights = build_correlation_insights(analysis_df, logger)
                 logger.info(f"Correlation analysis completed. Found {len(correlation_insights)} insights.")
             else:
                 logger.warning("Not enough numeric columns for correlation analysis")
+                logger.warning(f"Available columns: {list(analysis_df.columns)}")
                 
         except Exception as exc:
             logger.warning(f"Error during correlation analysis: {exc}")
             logger.warning(f"Error type: {type(exc).__name__}")
+            import traceback
+            logger.warning(f"Traceback: {traceback.format_exc()}")
             # Continue without correlation analysis
 
     return TestitemETLResult(
