@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -79,6 +81,23 @@ def _create_api_client(source: str, config: DocumentConfig) -> Any:
     # Merge headers: default + global + source-specific
     default_headers = _get_headers(source)
     headers = {**default_headers, **config.http.global_.headers, **source_config.http.headers}
+    
+    # Process secret placeholders in headers
+    processed_headers = {}
+    for key, value in headers.items():
+        if isinstance(value, str):
+            def replace_placeholder(match):
+                secret_name = match.group(1)
+                env_var = os.environ.get(secret_name.upper())
+                return env_var if env_var is not None else match.group(0)
+            processed_value = re.sub(r'\{([^}]+)\}', replace_placeholder, value)
+            # Only include header if the value is not empty after processing and not a placeholder
+            if (processed_value and processed_value.strip() and 
+                not processed_value.startswith('{') and not processed_value.endswith('}')):
+                processed_headers[key] = processed_value
+        else:
+            processed_headers[key] = value
+    headers = processed_headers
     
     # Use source-specific base_url or fallback to default
     base_url = source_config.http.base_url or _get_base_url(source)
@@ -224,13 +243,15 @@ def _extract_data_from_source(
                     data = client.fetch_by_doi(str(row["doi"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
-                        if value is not None:
+                        # Always include error fields and non-None values
+                        if value is not None or key.endswith("_error") or key == "degraded":
                             row_data[key] = value
                 elif pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
                     data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
-                        if value is not None:
+                        # Always include error fields and non-None values
+                        if value is not None or key.endswith("_error") or key == "degraded":
                             row_data[key] = value
                     
             elif source == "openalex":
@@ -451,7 +472,9 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             if source == "chembl":
                 success_count = enriched_frame["chembl_title"].notna().sum()
             elif source == "crossref":
-                success_count = enriched_frame["crossref_title"].notna().sum()
+                # Count successful records (either with title or with graceful degradation)
+                success_count = (enriched_frame["crossref_title"].notna() | 
+                               enriched_frame["crossref_error"].notna()).sum()
             elif source == "openalex":
                 success_count = enriched_frame["openalex_title"].notna().sum()
             elif source == "pubmed":
@@ -504,7 +527,11 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         elif source == "openalex":
             source_data_count = len(enriched_frame[enriched_frame["openalex_title"].notna()])
         elif source == "crossref":
-            source_data_count = len(enriched_frame[enriched_frame["crossref_title"].notna()])
+            # Count records with either title or graceful degradation
+            source_data_count = len(enriched_frame[
+                enriched_frame["crossref_title"].notna() | 
+                enriched_frame["crossref_error"].notna()
+            ])
         elif source == "pubmed":
             if "pubmed_pmid" in enriched_frame.columns:
                 source_data_count = len(enriched_frame[enriched_frame["pubmed_pmid"].notna()])
@@ -564,7 +591,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
 
 
 def write_document_outputs(
-    result: DocumentETLResult, output_dir: Path, date_tag: str, config: Config | None = None
+    result: DocumentETLResult, output_dir: Path, date_tag: str, config: DocumentConfig | None = None
 ) -> dict[str, Path]:
     """Persist ETL artefacts to disk and return the generated paths."""
 

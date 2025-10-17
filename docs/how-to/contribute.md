@@ -36,3 +36,18 @@
 pip install -r configs/requirements.txt
 mkdocs serve
 ```
+
+## Политика артефактов и LFS
+
+- Не коммитьте в Git сгенерированные артефакты: `logs/`, `tests/test_outputs/`, `reports/*.{csv,json}`, `site/`, кэши (`__pycache__`, `.pytest_cache`, и т.п.).
+- Крупные бинарники (> 500 КБ) должны храниться в Git LFS. Уже настроены паттерны в `.gitattributes`: `*.parquet`, `*.pkl`, `*.xlsm`, `*.png`, `*.jpg`.
+- Перед первым коммитом выполните `git lfs install`.
+
+## Pre-commit хуки
+
+- Установите: `pip install pre-commit && pre-commit install`.
+- Хуки блокируют добавление крупных файлов (>500 КБ) и артефактов из `logs/` и `reports/`.
+
+## CI артефакты
+
+- Отчёты покрытия, test outputs и security-отчёты публикуются в артефакты GitHub Actions (см. `Actions → Artifacts` для вашего билда).

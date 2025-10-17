@@ -68,13 +68,13 @@ sources:
       retries:
         total: 10  # Больше попыток для обработки rate limiting
         backoff_multiplier: 3.0  # Более агрессивный backoff
-  # Semantic Scholar включен с консервативными настройками rate limiting
+  # Semantic Scholar включен с оптимизированными настройками rate limiting
   semantic_scholar:
     name: semantic_scholar
     enabled: true  # Всегда включен
     rate_limit:
-      max_calls: 1   # 1 запрос в 5 секунд
-      period: 5.0    # Период в секундах (5 секунд)
+      max_calls: 1   # 1 запрос в 3.5 секунд (соответствует официальным лимитам API)
+      period: 3.5    # Период в секундах (3.5 секунды - официальный лимит без API ключа)
     http:
       base_url: https://api.semanticscholar.org/graph/v1/paper
       timeout_sec: 60.0
@@ -88,9 +88,9 @@ io:
   input:
     documents_csv: data/input/documents.csv
   output:
-    data_path: data/output/documents.csv
-    qc_report_path: data/output/documents_qc_report.csv
-    correlation_path: data/output/documents_correlation.csv
+    data_path: data/output/full/documents.csv
+    qc_report_path: data/output/full/documents_qc_report.csv
+    correlation_path: data/output/full/documents_correlation.csv
     format: csv
     csv:
       encoding: utf-8

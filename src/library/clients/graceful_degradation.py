@@ -84,20 +84,42 @@ class CrossrefDegradationStrategy(DegradationStrategy):
     def should_degrade(self, error: ApiClientError) -> bool:
         """Degrade for Crossref-specific errors."""
         # Crossref is less critical, so degrade more aggressively
-        if error.status_code in [429, 500, 502, 503, 504, 503]:
+        if error.status_code in [401, 403, 429, 500, 502, 503, 504]:
             return True
         if "timeout" in str(error).lower():
+            return True
+        if "access denied" in str(error).lower():
             return True
         return False
     
     def get_fallback_data(self, original_request: Dict[str, Any], error: ApiClientError) -> Dict[str, Any]:
         """Get fallback data for Crossref."""
+        # Determine the specific reason for fallback
+        if error.status_code == 401:
+            fallback_reason = "crossref_api_key_missing"
+            error_message = "Crossref API key not configured or invalid"
+        elif error.status_code == 403:
+            fallback_reason = "crossref_access_forbidden"
+            error_message = "Crossref API access forbidden"
+        elif error.status_code == 429:
+            fallback_reason = "crossref_rate_limited"
+            error_message = "Crossref API rate limited"
+        else:
+            fallback_reason = "crossref_unavailable"
+            error_message = str(error)
+        
         return {
-            "source": "fallback",
-            "api": "crossref",
-            "error": str(error),
-            "fallback_reason": "crossref_unavailable",
-            "doi": original_request.get("doi"),
+            "source": "crossref",
+            "doi_key": original_request.get("doi"),
+            "crossref_doi": original_request.get("doi"),
+            "crossref_title": None,
+            "crossref_doc_type": None,
+            "crossref_subject": None,
+            "crossref_pmid": None,
+            "crossref_abstract": None,
+            "crossref_issn": None,
+            "crossref_authors": None,
+            "crossref_error": error_message,
             "degraded": True
         }
     

@@ -1,9 +1,26 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: check-yaml
+
   - repo: local
     hooks:
+      - id: block-logs-reports
+        name: Block committing logs and reports artifacts
+        entry: python -c "import sys; print('Committing artifacts in logs/ or reports/ is forbidden'); sys.exit(1)"
+        language: system
+        files: ^(logs/|reports/).*
+        exclude: ^(reports/README\.md|logs/README\.md|(.*/)?.gitkeep)$
       - id: no-print-statements
         name: No print statements in library code
-        entry: python -c "import sys, re; content = open(sys.argv[1], 'r', encoding='utf-8').read(); print_matches = re.findall(r'print\s*\(', content); exit(1) if print_matches and 'src/library/' in sys.argv[1] and 'typer.echo' not in content else exit(0)"
+        entry: python -c "import sys, re; content = open(sys.argv[1], 'r', encoding='utf-8').read(); print_matches = re.findall(r'print\\s*\\(', content); exit(1) if print_matches and 'src/library/' in sys.argv[1] and 'typer.echo' not in content else exit(0)"
         language: system
         files: ^src/library/.*\.py$
         exclude: ^src/library/cli/.*\.py$  # Allow typer.echo in CLI

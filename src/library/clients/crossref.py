@@ -23,12 +23,38 @@ class CrossrefClient(BaseApiClient):
             message = payload.get("message", payload)
             return self._parse_work(message)
         except ApiClientError as exc:
+            # Try graceful degradation first
+            if self.degradation_manager.should_degrade(self.config.name, exc):
+                self.logger.warning(
+                    f"Crossref API failed, using graceful degradation: {exc}"
+                )
+                return self.degradation_manager.get_fallback_data(
+                    self.config.name,
+                    {"doi": doi},
+                    exc
+                )
+            
+            # If not degrading, try fallback search
             self.logger.info("fallback_to_search", doi=doi, error=str(exc))
-            payload = self._request("GET", "", params={"query.bibliographic": doi})
-            items = payload.get("message", {}).get("items", [])
-            if not items:
-                raise
-            return self._parse_work(items[0])
+            try:
+                payload = self._request("GET", "", params={"query.bibliographic": doi})
+                items = payload.get("message", {}).get("items", [])
+                if not items:
+                    raise
+                return self._parse_work(items[0])
+            except ApiClientError as fallback_exc:
+                # If fallback also fails, use graceful degradation
+                if self.degradation_manager.should_degrade(self.config.name, fallback_exc):
+                    self.logger.warning(
+                        f"Crossref fallback also failed, using graceful degradation: {fallback_exc}"
+                    )
+                    return self.degradation_manager.get_fallback_data(
+                        self.config.name,
+                        {"doi": doi},
+                        fallback_exc
+                    )
+                else:
+                    raise
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         """Fetch Crossref work by PubMed identifier with fallback query."""
@@ -36,18 +62,44 @@ class CrossrefClient(BaseApiClient):
         try:
             payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
         except ApiClientError as exc:
+            # Try graceful degradation first
+            if self.degradation_manager.should_degrade(self.config.name, exc):
+                self.logger.warning(
+                    f"Crossref PMID lookup failed, using graceful degradation: {exc}"
+                )
+                return self.degradation_manager.get_fallback_data(
+                    self.config.name,
+                    {"pmid": pmid},
+                    exc
+                )
+            
             self.logger.info("pmid_lookup_failed", pmid=pmid, error=str(exc))
             payload = {"message": {"items": []}}
+        
         items = payload.get("message", {}).get("items", [])
         if items:
             return self._parse_work(items[0])
 
         self.logger.info("pmid_fallback_to_query", pmid=pmid)
-        payload = self._request("GET", "", params={"query": pmid})
-        items = payload.get("message", {}).get("items", [])
-        if not items:
-            raise ApiClientError(f"No Crossref work found for PMID {pmid}")
-        return self._parse_work(items[0])
+        try:
+            payload = self._request("GET", "", params={"query": pmid})
+            items = payload.get("message", {}).get("items", [])
+            if not items:
+                raise ApiClientError(f"No Crossref work found for PMID {pmid}")
+            return self._parse_work(items[0])
+        except ApiClientError as exc:
+            # If fallback also fails, use graceful degradation
+            if self.degradation_manager.should_degrade(self.config.name, exc):
+                self.logger.warning(
+                    f"Crossref PMID fallback also failed, using graceful degradation: {exc}"
+                )
+                return self.degradation_manager.get_fallback_data(
+                    self.config.name,
+                    {"pmid": pmid},
+                    exc
+                )
+            else:
+                raise
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         # Обрабатываем subject - если это пустой список, возвращаем None

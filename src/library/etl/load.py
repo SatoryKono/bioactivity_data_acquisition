@@ -289,13 +289,18 @@ def write_deterministic_csv(
     if df.empty:
         df_to_write = df.copy()
     else:
-        df_to_write = _deterministic_order(df, determinism)
-        
         # Добавляем столбец index с порядковыми номерами строк (начиная с 0)
         # Но только если это не QC отчет (который уже имеет структуру metric/value)
-        df_to_write = df_to_write.copy()
+        df_to_write = df.copy()
         if not _is_qc_report(df_to_write):
             df_to_write.insert(0, 'index', range(len(df_to_write)))
+            if logger is not None:
+                logger.info("index_column_added", columns_before=len(df.columns), columns_after=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
+        
+        # Применяем детерминистический порядок колонок после добавления index
+        df_to_write = _deterministic_order(df_to_write, determinism)
+        if logger is not None:
+            logger.info("deterministic_order_applied", columns_after=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
         
         # Нормализуем данные перед сохранением
         df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)

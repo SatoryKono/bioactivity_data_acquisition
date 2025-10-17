@@ -344,7 +344,7 @@ def get_document_data(
                     result,
                     config_model.io.output.dir,
                     config_model.runtime.date_tag or "",
-                    None,  # config parameter is optional and not used in document processing
+                    config_model,  # Передаем конфигурацию для применения determinism.column_order
                 )
                 
             logger.info("Outputs written successfully", run_id=run_id, outputs=list(outputs.keys()))

@@ -14,8 +14,14 @@
 ### Added
 
 - Документация (MkDocs Material), API Reference, диаграммы, CI публикации
+- Настроен Git LFS для `*.parquet`, `*.pkl`, `*.xlsm`, `*.png`, `*.jpg`
+- Добавлены pre-commit хуки (порог 500 КБ, блокировка артефактов)
+- CI публикует test outputs, coverage и security отчёты как artifacts
 
 ### Changed
+
+-.gitignore расширен: OS/IDE файлы, test outputs, site/, временные файлы
+- Обновлены пути конфигурации на `configs/`
 
 ### Fixed
 
