@@ -291,9 +291,6 @@ determinism:
     - pubmed_issn             # ISSN из PubMed
     - semantic_scholar_issn   # ISSN из Semantic Scholar
     
-    # Общие поля
-    - index                   # Индекс документа для сортировки
-    
     # Группа полей названий журналов из всех источников
     - chembl_journal          # Название журнала из ChEMBL
     - crossref_journal        # Название журнала из Crossref

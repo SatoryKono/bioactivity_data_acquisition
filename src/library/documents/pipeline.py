@@ -215,10 +215,10 @@ def _extract_data_from_source(
         "semantic_scholar_issn": None, "semantic_scholar_authors": None,
         "semantic_scholar_error": None,
         # Common columns
-        "chembl_doc_type": None, "doi_key": None, "index": None
+        "chembl_doc_type": None, "doi_key": None
     }
     
-    for _, row in frame.iterrows():
+    for idx, (_, row) in enumerate(frame.iterrows()):
         try:
             # Start with the original row data and ensure all columns exist
             row_data = row.to_dict()
@@ -568,11 +568,20 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
     # Add missing columns with default values
     for column in all_columns:
         if column not in frame.columns:
-            frame[column] = None
+            if column == "index":
+                # Для колонки index используем порядковые номера строк
+                frame[column] = range(len(frame))
+            else:
+                frame[column] = None
     
     # Ensure chembl_doc_type has a default value for all rows
     if "chembl_doc_type" in frame.columns:
         frame["chembl_doc_type"] = frame["chembl_doc_type"].fillna("PUBLICATION")
+    
+    # Ensure index column has proper values (replace None values with row indices)
+    if "index" in frame.columns:
+        # Заменяем None значения на реальные индексы строк
+        frame["index"] = frame["index"].fillna(pd.Series(range(len(frame)), index=frame.index))
     
     return frame
 

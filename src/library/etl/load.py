@@ -49,7 +49,7 @@ def _deterministic_order(
     
     # Если нет колонок для сортировки, возвращаем DataFrame как есть
     if not sort_by:
-        return ordered.reset_index(drop=True)
+        return ordered
     
     from library.etl.transform import _resolve_ascending
 
@@ -58,7 +58,7 @@ def _deterministic_order(
         sort_by,
         ascending=ascending,
         na_position=determinism.sort.na_position,
-    ).reset_index(drop=True)
+    )
 
 
 def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | None = None, logger: BoundLogger | None = None) -> pd.DataFrame:
@@ -293,9 +293,14 @@ def write_deterministic_csv(
         # Но только если это не QC отчет (который уже имеет структуру metric/value)
         df_to_write = df.copy()
         if not _is_qc_report(df_to_write):
-            df_to_write.insert(0, 'index', range(len(df_to_write)))
-            if logger is not None:
-                logger.info("index_column_added", columns_before=len(df.columns), columns_after=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
+            # Проверяем, существует ли уже колонка index
+            if 'index' not in df_to_write.columns:
+                df_to_write.insert(0, 'index', range(len(df_to_write)))
+                if logger is not None:
+                    logger.info("index_column_added", columns_before=len(df.columns), columns_after=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
+            else:
+                if logger is not None:
+                    logger.info("index_column_exists", columns=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
         
         # Применяем детерминистический порядок колонок после добавления index
         df_to_write = _deterministic_order(df_to_write, determinism)

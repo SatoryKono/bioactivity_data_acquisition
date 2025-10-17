@@ -130,8 +130,8 @@ class TestDocumentSortorderIntegration:
         # Проверяем, что колонка document_sortorder добавлена
         assert "document_sortorder" in result.documents.columns
         
-        # Проверяем, что все значения равны ":0000-01-01:000000" (publication_date создается автоматически)
-        expected_sortorders = [":0000-01-01:000000", ":0000-01-01:000000"]
+        # Проверяем, что значения содержат правильные индексы (publication_date создается автоматически)
+        expected_sortorders = [":0000-01-01:000000", ":0000-01-01:000001"]
         actual_sortorders = result.documents["document_sortorder"].tolist()
         
         assert actual_sortorders == expected_sortorders
@@ -185,8 +185,7 @@ class TestDocumentSortorderIntegration:
             "pubmed_day_completed":[15, None, None],
             "pubmed_year_revised":[2022, 2021, None],
             "pubmed_month_revised":[3, None, None],
-            "pubmed_day_revised":[10, None, None],
-            "index":[123, "456", None]
+            "pubmed_day_revised":[10, None, None]
         })
         
         # Запускаем pipeline
@@ -195,11 +194,11 @@ class TestDocumentSortorderIntegration:
         # Проверяем, что колонка document_sortorder добавлена
         assert "document_sortorder" in result.documents.columns
         
-        # Проверяем значения document_sortorder
+        # Проверяем значения document_sortorder (index создается автоматически как 0, 1, 2)
         expected_sortorders = [
-            "1234-5678:2023-05-15:000123",
-            ":2021-01-01:000456",
-            ":2022-01-01:000000"
+            "1234-5678:2023-05-15:000000",
+            ":2021-01-01:000001",
+            ":2022-01-01:000002"
         ]
         actual_sortorders = result.documents["document_sortorder"].tolist()
         
