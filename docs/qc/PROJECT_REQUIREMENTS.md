@@ -125,23 +125,23 @@ lookup-данные |
 
 | --- | --- | --- | --- | --- |
 
-| Activity | scripts/get*activity*data.py | Загрузка активностей ChEMBL,
+| Activity | scripts/get_activity_data.py | Загрузка активностей ChEMBL,
 постобработка и QC | идентификаторы, ChEMBL API, postprocessing.activities |
-output.activity*<date>.csv, **quality*report*table.csv,
-**data*correlation*report*table.csv, .meta.yaml |
+output.activity_<date>.csv, **quality_report_table.csv,
+**data_correlation_report_table.csv, .meta.yaml |
 
-| Assay | scripts/get*assay*data.py | Пакетное чтение ассайев и
+| Assay | scripts/get_assay_data.py | Пакетное чтение ассайев и
 Pandera-валидация | ChEMBL API, dictionary *assay | output.assay*<date>.csv и QC
 отчёты |
 
-| Target | scripts/get*target*data.py | Обёртка над постпроцессингом таргетов с
+| Target | scripts/get_target_data.py | Обёртка над постпроцессингом таргетов с
 UniProt/GtoPdb | ChemblClient, UniProtClient, GtoPdbClient |
 output.target*<date>.csv и QC отчёты |
 
-| Document | scripts/get*document*data.py | Конвейер ChEMBL→CrossRef/OpenAlex |
+| Document | scripts/get_document_data.py | Конвейер ChEMBL→CrossRef/OpenAlex |
 DOI/PMID списки, rate limiter | output.document*<date>.csv и QC отчёты |
 
-| Testitem | scripts/get*testitem*data.py | Молекулярные тест-айтемы с PubChem
+| Testitem | scripts/get_testitem_data.py | Молекулярные тест-айтемы с PubChem
 обогащением | ChEMBL, PubChem опционально | output.testitem*<date>.csv и QC
 отчёты |
 
@@ -259,7 +259,7 @@ pip list | grep -E 'pandas|requests|pandera|backoff'
 
 ## 3. CLI Reference
 
-### Параметры`get*activity*data.py`
+### Параметры `get_activity_data.py`
 
 | Флаг | Тип/Значения | По умолчанию | Назначение | Обязательность |
 
@@ -286,24 +286,24 @@ Stdout: только structured-логи; данные пишутся на ди�
 используется для trace при исключениях (pytest
 проверяет `SystemExit`).
 
-### Параметры `get*assay*data.py`
+### Параметры `get_assay_data.py`
 
 Аналогичная таблица: ключевые флаги`--column`, `--batch-size`, `--offline`,
 `--postprocess`. Все необязательные.
 
-### Параметры `get*document*data.py`
+### Параметры `get_document_data.py`
 
 Исторические флаги (`--mode`, `--crossref-rps`, `--openalex-rps`и т. д.) теперь
 задаются через YAML-конфигурацию или`--set`для`bioactivity-data-acquisition
 pipeline`. При запуске легаси-обёртки параметры прокидываются в общий конфиг.
 
-### Параметры `get*target*data.py`
+### Параметры `get_target_data.py`
 
 Флаги`--limit`, `--date-tag`, `--output-dir`также переехали в конфигурацию.
 Используйте профиль/секцию в`configs/pipelines.toml` либо CLI-override (`--set
 postprocess.qc.enabled=false`и т. п.).
 
-### Параметры`get*testitem*data.py`
+### Параметры `get_testitem_data.py`
 
 Опции`--pubchem-enable/--no-pubchem-enable`отражены в ключах конфигурации для
 PubChem-энrichment. Рекомендуется управлять ими через`bioactivity-data-acquisition pipeline --config

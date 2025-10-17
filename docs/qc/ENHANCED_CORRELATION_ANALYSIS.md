@@ -73,11 +73,11 @@ correlation*analysis = analyzer.analyze*correlations(dataframe)
 
 ## Генерация отчетов
 
-reports = analyzer.generate*correlation*reports(correlation*analysis)
+reports = analyzer.generate_correlation_reports(correlation_analysis)
 
 ## Генерация инсайтов
 
-insights = analyzer.generate*correlation*insights(correlation*analysis)
+insights = analyzer.generate_correlation_insights(correlation_analysis)
 
 ```
 
@@ -88,21 +88,21 @@ insights = analyzer.generate*correlation*insights(correlation*analysis)
 
 ### Расширенные корреляционные отчеты
 
-1. **enhanced*correlation*numeric*pearson.csv**- Корреляционная матрица Пирсона
-2.**enhanced*correlation*numeric*spearman.csv**- Корреляционная матрица
+1. **enhanced_correlation_numeric_pearson.csv** - Корреляционная матрица Пирсона
+2. **enhanced_correlation_numeric_spearman.csv** - Корреляционная матрица
 Спирмена
-3.**enhanced*correlation*numeric*covariance.csv**- Ковариационная матрица
-4.**enhanced*correlation*categorical*cramers*v.csv**- Cramér's V для
+3. **enhanced_correlation_numeric_covariance.csv** - Ковариационная матрица
+4. **enhanced_correlation_categorical_cramers_v.csv** - Cramér's V для
 категориальных данных
-5.**enhanced*correlation*mixed*eta*squared.csv**- Eta-squared для смешанных
+5. **enhanced_correlation_mixed_eta_squared.csv** - Eta-squared для смешанных
 корреляций
-6.**enhanced*correlation*mixed*point*biserial.csv**- Point-biserial корреляции
-7.**enhanced*correlation*correlation*summary.csv**- Сводная статистика
+6. **enhanced_correlation_mixed_point_biserial.csv** - Point-biserial корреляции
+7. **enhanced_correlation_correlation_summary.csv** - Сводная статистика
 
 ### Детальные отчеты
 
-8.**correlation*analysis.json**- Полный анализ в JSON формате
-9.**correlation*insights.csv**- Инсайты и рекомендации
+8. **correlation_analysis.json** - Полный анализ в JSON формате
+9. **correlation_insights.csv** - Инсайты и рекомендации
 
 ## Интерпретация результатов
 
@@ -209,7 +209,7 @@ analysis = analyzer.analyze*correlations(numeric*only)
 
 ```
 
-def *analyze*custom*correlation(self, df: pd.DataFrame) -> Dict[str, Any]:
+def _analyze_custom_correlation(self, df: pd.DataFrame) -> Dict[str, Any]:
     """Анализ пользовательского типа корреляций."""
 
 ## Реализация пользовательского анализа
@@ -224,7 +224,7 @@ def *analyze*custom*correlation(self, df: pd.DataFrame) -> Dict[str, Any]:
 
 ## Изменение порогов для обнаружения сильных корреляций
 
-analyzer.strong*correlation*threshold = 0.8
+analyzer.strong_correlation_threshold = 0.8
 analyzer.moderate*correlation_threshold = 0.6
 
 ```

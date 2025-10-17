@@ -9,7 +9,7 @@
 
 ## Основные функции
 
-### `normalize*journal*name(text) -> str | None`
+### `normalize_journal_name(text) -> str | None`
 
 Нормализует название журнала согласно установленным правилам.
 
@@ -21,7 +21,7 @@
 
 - Нормализованное название журнала (str) или None для пустых значений
 
-### `normalize*journal*columns(df) -> pd.DataFrame`
+### `normalize_journal_columns(df) -> pd.DataFrame`
 
 Нормализует все колонки с названиями журналов в DataFrame.
 
@@ -33,7 +33,7 @@
 
 - DataFrame с нормализованными колонками журналов
 
-### `get*journal*columns(df) -> list[str]`
+### `get_journal_columns(df) -> list[str]`
 
 Возвращает список колонок с названиями журналов.
 
@@ -263,7 +263,7 @@ analysis" |
 
 ## Интеграция с pipeline
 
-Функция автоматически вызывается при сохранении документов через`write*document*outputs()`.
+Функция автоматически вызывается при сохранении документов через `write_document_outputs()`.
 
 Нормализация применяется к колонкам, содержащим 'journal' или 'журнал' в
 названии:
@@ -308,7 +308,7 @@ analysis" |
 
 ```
 
-python scripts/test*journal*normalizer_demo.py
+python scripts/test_journal_normalizer_demo.py
 
 ```
 

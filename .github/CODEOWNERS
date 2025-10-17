@@ -1,0 +1,70 @@
+# Code owners for bioactivity-data-acquisition
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Global owners - these users will be requested for review on any pull request
+* @SatoryKono
+
+# Core library code - requires expertise in ETL and data processing
+/src/library/clients/ @SatoryKono
+/src/library/etl/ @SatoryKono
+/src/library/schemas/ @SatoryKono
+/src/library/config.py @SatoryKono
+
+# CLI and user interface - requires UX and CLI design knowledge
+/src/library/cli/ @SatoryKono
+/src/scripts/ @SatoryKono
+
+# Configuration and deployment - requires DevOps knowledge
+/configs/ @SatoryKono
+/Dockerfile @SatoryKono
+/docker-compose.yml @SatoryKono
+/docker-compose.override.yml.example @SatoryKono
+
+# CI/CD and automation - requires CI/CD expertise
+/.github/ @SatoryKono
+/Makefile @SatoryKono
+
+# Project configuration and dependencies - requires Python packaging knowledge
+/pyproject.toml @SatoryKono
+/requirements.txt @SatoryKono
+/pytest-benchmark.ini @SatoryKono
+/.pre-commit-config.yaml @SatoryKono
+
+# Security and quality configuration - requires security expertise
+/.bandit @SatoryKono
+/.safety_policy.yaml @SatoryKono
+/.banditignore @SatoryKono
+
+# Documentation - requires technical writing skills
+/docs/ @SatoryKono
+/README.md @SatoryKono
+/mkdocs.yml @SatoryKono
+
+# Tests - requires testing expertise
+/tests/ @SatoryKono
+
+# Environment and secrets - requires security knowledge
+/.env.example @SatoryKono
+/.gitignore @SatoryKono
+
+# Tools and utilities - requires domain expertise
+/src/library/tools/ @SatoryKono
+
+# Data schemas and validation - requires data engineering knowledge
+/src/library/schemas/ @SatoryKono
+/configs/schema.json @SatoryKono
+
+# Logging and telemetry - requires observability expertise
+/src/library/logger.py @SatoryKono
+/src/library/telemetry.py @SatoryKono
+
+# I/O and data processing - requires data engineering knowledge
+/src/library/io_/ @SatoryKono
+
+# Utilities and helpers - requires general Python expertise
+/src/library/utils/ @SatoryKono
+
+# Note: This file follows the principle that all code requires at least one review
+# from the repository owner (@SatoryKono) to ensure quality and consistency.
+# As the project grows, specific teams or individuals can be assigned to
+# different areas based on their expertise.

@@ -15,19 +15,43 @@ else:  # pragma: no cover - import side effect
 
 
 class NormalizedBioactivitySchema(pa.DataFrameModel):
-    """Schema for normalized bioactivity data ready for export."""
+    """Schema for normalized bioactivity data ready for export.
+    
+    This schema validates normalized data after ETL processing.
+    All data should be clean and consistent for downstream analysis.
+    """
 
-    # compound_id: Series[str] = pa.Field(nullable=True)  # Удален - используется только для документов
-    target: Series[str] = pa.Field(nullable=True)
-    activity_value: Series[float] = pa.Field(nullable=True)  # Разрешаем NULL значения
-    activity_unit: Series[str] = pa.Field(nullable=True)  # Разрешаем другие единицы
-    source: Series[str]
-    retrieved_at: Series[pd.Timestamp]  # type: ignore[type-var]
-    smiles: Series[str] = pa.Field(nullable=True)
+    # Required fields - must be present in all normalized records
+    source: Series[str] = pa.Field(
+        description="Data source identifier (normalized)",
+        nullable=False
+    )
+    retrieved_at: Series[pd.Timestamp] = pa.Field(
+        description="Timestamp when data was retrieved from API",
+        nullable=False
+    )
+    
+    # Core bioactivity fields - nullable=True for missing data
+    target: Series[str] = pa.Field(
+        description="Normalized target name",
+        nullable=True
+    )
+    activity_value: Series[float] = pa.Field(
+        description="Normalized bioactivity value (converted to nM)",
+        nullable=True
+    )
+    activity_unit: Series[str] = pa.Field(
+        description="Normalized activity unit (should be nM after conversion)",
+        nullable=True
+    )
+    smiles: Series[str] = pa.Field(
+        description="Canonical SMILES representation (normalized)",
+        nullable=True
+    )
 
     class Config:
-        strict = False  # Разрешаем дополнительные колонки
-        coerce = True
+        strict = True  # STRICT MODE: No additional columns allowed
+        coerce = True  # Allow type coercion for data cleaning
 
 
 __all__ = ["NormalizedBioactivitySchema"]

@@ -22,7 +22,7 @@ RUN groupadd --gid 1000 bioactivity && \
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY pyproject.toml requirements.txt ./
+COPY configs/pyproject.toml configs/requirements.txt ./
 
 # Install Python dependencies
 RUN pip install --upgrade pip && \

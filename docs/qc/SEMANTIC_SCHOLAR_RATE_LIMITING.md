@@ -36,7 +36,7 @@ requests. please wait and try again or apply for a key for higher rate limits.
    sources:
      semantic*scholar:
        headers:
-         x-api-key: "ваш*api*ключ*здесь"
+         x-api-key: "ваш_api_ключ_здесь"
 
    ```
 

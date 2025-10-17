@@ -260,7 +260,7 @@ def write_deterministic_csv(
     output: OutputSettings | None = None,
     postprocess: PostprocessSettings | None = None,
 ) -> Path:
-    """Persist data to disk in a deterministic order using configuration."""
+    """Persist data to disk in a deterministic order using atomic writes."""
 
     from library.config import (
         CsvFormatSettings as _CsvFormatSettings,
@@ -271,6 +271,7 @@ def write_deterministic_csv(
     from library.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
+    from library.io_.atomic_writes import atomic_write_context
 
     determinism = determinism or _DeterminismSettings()
     csv_settings: CsvFormatSettings
@@ -284,8 +285,6 @@ def write_deterministic_csv(
     else:  # pragma: no cover - fallback for direct usage
         csv_settings = _CsvFormatSettings()
         parquet_settings = _ParquetFormatSettings()
-
-    destination.parent.mkdir(parents=True, exist_ok=True)
 
     if df.empty:
         df_to_write = df.copy()
@@ -301,11 +300,13 @@ def write_deterministic_csv(
         # Нормализуем данные перед сохранением
         df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)
 
-    if file_format == "parquet":
-        df_to_write.to_parquet(destination, index=False, compression=parquet_settings.compression)
-    else:
-        options = _csv_options(csv_settings)
-        df_to_write.to_csv(destination, **options)
+    # Use atomic writes for safe file operations
+    with atomic_write_context(destination, logger=logger) as temp_path:
+        if file_format == "parquet":
+            df_to_write.to_parquet(temp_path, index=False, compression=parquet_settings.compression)
+        else:
+            options = _csv_options(csv_settings)
+            df_to_write.to_csv(temp_path, **options)
 
     if logger is not None:
         logger.info("load_complete", path=str(destination), rows=len(df_to_write))

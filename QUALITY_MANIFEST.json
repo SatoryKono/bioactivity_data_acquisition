@@ -1,0 +1,41 @@
+{
+  "repo": "SatoryKono/bioactivity_data_acquisition",
+  "python_version": ">=3.10 (CI matrix: 3.10, 3.11, 3.12)",
+  "package_manager": ["pip", "setuptools"],
+  "cli": {
+    "framework": "typer",
+    "entry_points": ["src/library/cli/__init__.py:main"]
+  },
+  "configs": {
+    "files": ["configs/config.yaml", "configs/config_documents_full.yaml", "configs/schema.json", "config.example.yaml"],
+    "formats": ["yaml", "json"],
+    "secrets": "env"
+  },
+  "schemas": {
+    "data": ["pandera"],
+    "config": ["pydantic", "jsonschema"]
+  },
+  "ci": {
+    "system": "github_actions",
+    "workflows": [".github/workflows/ci.yaml", ".github/workflows/docs.yml"],
+    "jobs": ["lint", "typecheck", "test", "security", "docs"]
+  },
+  "tooling": {
+    "lint": ["ruff", "black"],
+    "types": ["mypy"],
+    "tests": ["pytest", "pytest-cov", "pytest-benchmark"],
+    "hooks": ["pre-commit"],
+    "security": ["bandit", "safety"]
+  },
+  "determinism": ["seed", "csv_order", "column_order", "sort_config"],
+  "observability": {
+    "logging": "structlog",
+    "telemetry": "opentelemetry",
+    "monitoring": ["jaeger", "prometheus", "grafana"]
+  },
+  "docker": {
+    "multistage": true,
+    "stages": ["base", "development", "production", "ci"]
+  }
+}
+

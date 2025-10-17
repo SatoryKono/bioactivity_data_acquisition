@@ -1,43 +1,85 @@
+# Dependabot configuration for bioactivity-data-acquisition
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
 version: 2
 updates:
-  # Enable version updates for GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "bioactivity-team"
-    assignees:
-      - "bioactivity-team"
-    commit-message:
-      prefix: "ci"
-      include: "scope"
-
-  # Enable version updates for Python dependencies
+  # Python dependencies (production)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
+      timezone: "UTC"
     open-pull-requests-limit: 10
     reviewers:
-      - "bioactivity-team"
+      - "SatoryKono"
     assignees:
-      - "bioactivity-team"
+      - "SatoryKono"
     commit-message:
       prefix: "deps"
       include: "scope"
+    labels:
+      - "dependencies"
+      - "python"
+    # Group minor and patch updates together
     groups:
+      production-dependencies:
+        patterns:
+          - "pandas*"
+          - "pydantic*"
+          - "typer*"
+          - "requests*"
+          - "structlog*"
+          - "pandera*"
+          - "backoff*"
+          - "pyyaml*"
+          - "scipy*"
+          - "scikit-learn*"
+          - "jsonschema*"
+          - "opentelemetry*"
+          - "rich*"
+          - "defusedxml*"
+          - "python-dotenv*"
+        update-types:
+          - "minor"
+          - "patch"
       security-updates:
         patterns:
-          - "safety*"
-          - "bandit*"
+          - "*"
         update-types:
           - "security"
+    # Ignore major version updates for critical dependencies
+    ignore:
+      - dependency-name: "pandas"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pydantic"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typer"
+        update-types: ["version-update:semver-major"]
+
+  # Python development dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "SatoryKono"
+    assignees:
+      - "SatoryKono"
+    commit-message:
+      prefix: "deps-dev"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "development"
+      - "python"
+    # Group dev dependencies
+    groups:
       dev-dependencies:
         patterns:
           - "black*"
@@ -45,25 +87,75 @@ updates:
           - "pytest*"
           - "ruff*"
           - "pre-commit*"
-      data-science:
-        patterns:
-          - "pandas*"
-          - "scipy*"
-          - "scikit-learn*"
-          - "pandera*"
+          - "safety*"
+          - "bandit*"
+          - "responses*"
+          - "types-*"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignore major version updates for dev tools
+    ignore:
+      - dependency-name: "mypy"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pytest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "black"
+        update-types: ["version-update:semver-major"]
 
-  # Enable version updates for Docker
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "SatoryKono"
+    assignees:
+      - "SatoryKono"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "ci"
+      - "github-actions"
+    # Group action updates
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Docker dependencies (if Dockerfile exists)
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 5
+      timezone: "UTC"
+    open-pull-requests-limit: 3
     reviewers:
-      - "bioactivity-team"
+      - "SatoryKono"
     assignees:
-      - "bioactivity-team"
+      - "SatoryKono"
     commit-message:
       prefix: "docker"
       include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
+    # Group Docker updates
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

@@ -78,7 +78,7 @@
 
 - Висячие знаки препинания очищаются
 
-### `add*citation*column(df) -> pd.DataFrame`
+### `add_citation_column(df) -> pd.DataFrame`
 
 Добавляет колонку`document*citation`к DataFrame с документами.
 
@@ -162,7 +162,7 @@ citation = format*citation(
 ```
 
 import pandas as pd
-from library.tools.citation*formatter import add*citation*column
+from library.tools.citation_formatter import add_citation_column
 
 df = pd.DataFrame({
     'journal': ['Nature', 'Science'],
@@ -172,7 +172,7 @@ df = pd.DataFrame({
     'last*page': ['105', '60']
 })
 
-df*with*citations = add*citation*column(df)
+df_with_citations = add_citation_column(df)
 
 ## Добавляет колонку 'document*citation' с форматированными ссылками
 
@@ -180,7 +180,7 @@ df*with*citations = add*citation*column(df)
 
 ## Интеграция с pipeline
 
-Функция автоматически вызывается при сохранении документов через`write*document*outputs()`.
+Функция автоматически вызывается при сохранении документов через `write_document_outputs()`.
 
 Колонка `document*citation`добавляется к итоговому DataFrame перед записью в
 CSV:
@@ -197,7 +197,7 @@ CSV:
 
 ```
 
-python scripts/test*citation*demo.py
+python scripts/test_citation_demo.py
 
 ```
 
@@ -205,7 +205,7 @@ python scripts/test*citation*demo.py
 
 ```
 
-pytest tests/test*citation*formatter.py -v
+pytest tests/test_citation_formatter.py -v
 
 ```
 
