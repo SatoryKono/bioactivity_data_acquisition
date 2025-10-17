@@ -103,11 +103,11 @@ class TestitemConfig(Config):
             return self.output.csv_pattern.format(run_date=run_date)
         return f"testitem_{run_date}.csv"
 
-    def get_meta_filename(self) -> str:
+    def get_meta_filename(self, run_date: str) -> str:
         """Get metadata filename."""
         if hasattr(self, 'output') and hasattr(self.output, 'meta_filename'):
-            return self.output.meta_filename
-        return "meta.yaml"
+            return self.output.meta_filename.format(run_date=run_date)
+        return f"testitem_{run_date}_meta.yaml"
 
     def get_qc_dir(self) -> Path:
         """Get QC directory path."""

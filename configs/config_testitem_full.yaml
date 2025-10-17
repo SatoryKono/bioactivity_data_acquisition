@@ -146,7 +146,7 @@ runtime:
 # Настройки выходных файлов
 output:
   # Директория для сохранения результатов
-  dir: data/output/testitem
+  dir: data\output\testitem
   # Паттерн имени CSV файла (run_date = YYYYMMDD из extracted_at)
   csv_pattern: "testitem_{run_date}.csv"
   # Имя файла метаданных
@@ -154,7 +154,7 @@ output:
   # Директория для логов
   logs_dir: logs
   # Директория для QC артефактов
-  qc_dir: data/output/testitem
+  qc_dir: data\output\testitem
 
 # Настройки детерминизма для воспроизводимости результатов
 determinism:
@@ -325,6 +325,21 @@ cache:
   ttl: 86400
   # Инвалидировать кэш при смене релиза ChEMBL
   invalidate_on_release_change: true
+
+# Настройки постобработки данных
+postprocess:
+  # Контроль качества данных
+  qc:
+    # Включить анализ качества данных
+    enabled: true
+    # Расширенный QC анализ
+    enhanced: true
+  # Корреляционный анализ между источниками
+  correlation:
+    # Включить анализ корреляций
+    enabled: true
+    # Расширенный корреляционный анализ
+    enhanced: true
 
 # =============================================================================
 # ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ДЛЯ API КЛЮЧЕЙ

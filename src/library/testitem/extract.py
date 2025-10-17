@@ -245,9 +245,12 @@ def extract_batch_data(
         logger.warning("No valid molecule identifiers found")
         return pd.DataFrame()
     
-    # Use batch extraction for better performance
-    logger.info(f"Using batch extraction for {len(molecule_chembl_ids)} molecules")
-    batch_results = extract_molecules_batch(chembl_client, molecule_chembl_ids, config)
+    # Use individual extraction (batch endpoint not available)
+    logger.info(f"Using individual extraction for {len(molecule_chembl_ids)} molecules")
+    batch_results = []
+    for molecule_chembl_id in molecule_chembl_ids:
+        result = extract_molecule_data(chembl_client, molecule_chembl_id, config)
+        batch_results.append(result)
     
     extracted_data = []
     

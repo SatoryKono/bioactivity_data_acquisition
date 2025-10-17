@@ -663,6 +663,10 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         description="PubChem synonyms (list)",
         nullable=True
     )
+    synonyms: Series[object] = pa.Field(
+        description="ChEMBL molecule synonyms (list)",
+        nullable=True
+    )
     
     # Standardized structure fields
     standardized_inchi: Series[str] = pa.Field(

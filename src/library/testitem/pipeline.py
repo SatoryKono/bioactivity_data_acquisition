@@ -12,6 +12,12 @@ import pandas as pd
 from library.config import APIClientConfig, RateLimitSettings, RetrySettings
 from library.clients.chembl import TestitemChEMBLClient
 from library.clients.pubchem import PubChemClient
+from library.etl.enhanced_correlation import (
+    build_enhanced_correlation_analysis,
+    build_enhanced_correlation_reports,
+    build_correlation_insights,
+    prepare_data_for_correlation_analysis,
+)
 from library.testitem.config import TestitemConfig
 from library.testitem.extract import extract_batch_data
 from library.testitem.normalize import normalize_testitem_data
@@ -48,6 +54,9 @@ class TestitemETLResult:
     testitems: pd.DataFrame
     qc: pd.DataFrame
     meta: dict[str, Any]
+    correlation_analysis: dict[str, Any] | None = None
+    correlation_reports: dict[str, pd.DataFrame] | None = None
+    correlation_insights: list[dict[str, Any]] | None = None
 
 
 def _create_chembl_client(config: TestitemConfig) -> TestitemChEMBLClient:
@@ -357,10 +366,50 @@ def run_testitem_etl(
         }
     }
 
+    # Perform correlation analysis if enabled in config
+    correlation_analysis = None
+    correlation_reports = None
+    correlation_insights = None
+    
+    if (hasattr(config, 'postprocess') and 
+        hasattr(config.postprocess, 'correlation') and 
+        config.postprocess.correlation.enabled and 
+        len(validated_frame) > 1):
+        try:
+            logger.info("Performing correlation analysis...")
+            
+            # Подготавливаем данные для корреляционного анализа
+            analysis_df = prepare_data_for_correlation_analysis(
+                validated_frame, 
+                data_type="testitems", 
+                logger=logger
+            )
+            
+            logger.info(f"Correlation analysis: {len(analysis_df.columns)} numeric columns, {len(analysis_df)} rows")
+            logger.info(f"Columns for analysis: {list(analysis_df.columns)}")
+            
+            if len(analysis_df.columns) > 1:
+                # Perform correlation analysis
+                correlation_analysis = build_enhanced_correlation_analysis(analysis_df)
+                correlation_reports = build_enhanced_correlation_reports(analysis_df)
+                correlation_insights = build_correlation_insights(analysis_df)
+                
+                logger.info(f"Correlation analysis completed. Found {len(correlation_insights)} insights.")
+            else:
+                logger.warning("Not enough numeric columns for correlation analysis")
+                
+        except Exception as exc:
+            logger.warning(f"Error during correlation analysis: {exc}")
+            logger.warning(f"Error type: {type(exc).__name__}")
+            # Continue without correlation analysis
+
     return TestitemETLResult(
         testitems=validated_frame, 
         qc=qc,
-        meta=meta
+        meta=meta,
+        correlation_analysis=correlation_analysis,
+        correlation_reports=correlation_reports,
+        correlation_insights=correlation_insights
     )
 
 
@@ -371,7 +420,38 @@ def write_testitem_outputs(
 ) -> dict[str, Path]:
     """Persist ETL artefacts to disk and return the generated paths."""
 
-    return persist_testitem_data(result.testitems, output_dir, config)
+    # Get basic output paths from persist function
+    result_paths = persist_testitem_data(result.testitems, output_dir, config)
+    
+    # Save correlation reports if available
+    if result.correlation_reports:
+        try:
+            from datetime import datetime
+            date_tag = datetime.now().strftime("%Y%m%d")
+            correlation_dir = output_dir / f"testitem_correlation_report_{date_tag}"
+            correlation_dir.mkdir(exist_ok=True)
+            
+            correlation_paths = {}
+            for report_name, report_df in result.correlation_reports.items():
+                report_path = correlation_dir / f"{report_name}.csv"
+                report_df.to_csv(report_path, index=False)
+                correlation_paths[report_name] = report_path
+                
+            logger.info(f"Saved {len(correlation_paths)} correlation reports to {correlation_dir}")
+            result_paths["correlation_reports"] = correlation_paths
+            
+            # Save correlation insights if available
+            if result.correlation_insights:
+                import json
+                insights_path = correlation_dir / "correlation_insights.json"
+                with open(insights_path, 'w', encoding='utf-8') as f:
+                    json.dump(result.correlation_insights, f, ensure_ascii=False, indent=2)
+                result_paths["correlation_insights"] = insights_path
+                
+        except Exception as exc:
+            logger.warning(f"Failed to save correlation reports: {exc}")
+    
+    return result_paths
 
 
 __all__ = [

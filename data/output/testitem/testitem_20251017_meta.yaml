@@ -1,8 +1,8 @@
 artifacts:
   csv:
-    filename: testitem__20251017.csv
+    filename: testitem_20251017.csv
     rows: 1
-    sha256: 9db5043a4978d8478555bd38a71e74cfc391945eff12d7853ab15afb95fdfbdd
+    sha256: 14c23f653ea7a85d2863c96ff843a93628374a5db1c0bdca2709475acecb733d
 chembl_release: unknown
 data_quality:
   error_rate: 0.0
@@ -14,7 +14,7 @@ extraction_parameters:
   retries: 5
   timeout_sec: 30
 file_checksums:
-  csv: 9db5043a4978d8478555bd38a71e74cfc391945eff12d7853ab15afb95fdfbdd
+  csv: 14c23f653ea7a85d2863c96ff843a93628374a5db1c0bdca2709475acecb733d
 pipeline_version: 1.1.0
 pubchem_enrichment:
   enabled: true

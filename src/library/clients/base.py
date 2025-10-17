@@ -283,10 +283,15 @@ class BaseApiClient:
         add_span_attribute("http.response_size", len(response.content))
 
         if response.status_code != expected_status:
+            # Ограничиваем вывод текста ответа для HTML ошибок
+            response_text = response.text
+            if response_text.startswith('<!DOCTYPE html>') or response_text.startswith('<html'):
+                response_text = f"HTML error page ({len(response_text)} characters)"
+            
             self.logger.warning(
                 "unexpected_status",
                 status_code=response.status_code,
-                text=response.text,
+                text=response_text,
                 expected_status=expected_status,
             )
             add_span_attribute("error", True)

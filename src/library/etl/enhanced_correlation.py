@@ -518,6 +518,43 @@ def prepare_data_for_correlation_analysis(
         analysis_df = analysis_df[numeric_columns]
         _log_info(logger, "Выбраны только числовые колонки", numeric_columns=list(numeric_columns))
     
+    elif data_type == "testitems":
+        # Для testitems: конвертируем категориальные колонки в числовые
+        categorical_columns = [
+            'molecule_type', 'chirality', 'prodrug', 'inorganic_flag', 'polymer_flag',
+            'drug_type', 'drug_substance_flag', 'drug_indication_flag', 'drug_antibacterial_flag',
+            'drug_antiviral_flag', 'drug_antifungal_flag', 'drug_antiparasitic_flag',
+            'drug_antineoplastic_flag', 'drug_immunosuppressant_flag', 'drug_antiinflammatory_flag',
+            'withdrawn_flag', 'direct_interaction', 'molecular_mechanism', 'oral', 'parenteral',
+            'topical', 'black_box_warning', 'natural_product', 'first_in_class',
+            'atc_level1', 'atc_level2', 'atc_level3', 'atc_level4', 'atc_level5'
+        ]
+        
+        for col in categorical_columns:
+            if col in analysis_df.columns:
+                # Convert to numeric codes
+                analysis_df[f'{col}_numeric'] = pd.Categorical(analysis_df[col]).codes
+                _log_info(logger, "Конвертирована категориальная колонка", column=col)
+        
+        # Добавляем текстовые признаки
+        text_columns = ['pref_name', 'molecule_chembl_id', 'drug_name', 'mechanism_of_action']
+        for col in text_columns:
+            if col in analysis_df.columns:
+                analysis_df[f'{col}_length'] = analysis_df[col].fillna('').str.len()
+                _log_info(logger, "Добавлен признак длины текста", column=col)
+        
+        # Добавляем хеш-признаки
+        if 'hash_row' in analysis_df.columns:
+            analysis_df['hash_numeric'] = analysis_df['hash_row'].fillna('').str[:8].apply(
+                lambda x: int(x, 16) if x and len(x) == 8 else 0
+            )
+            _log_info(logger, "Добавлен числовой хеш-признак")
+        
+        # Выбираем только числовые колонки (включая созданные выше)
+        numeric_columns = analysis_df.select_dtypes(include=[np.number]).columns
+        analysis_df = analysis_df[numeric_columns]
+        _log_info(logger, "Выбраны только числовые колонки", numeric_columns=list(numeric_columns))
+    
     # Общая обработка: удаляем колонки с высоким процентом пропущенных значений
     missing_threshold = 0.5
     columns_to_keep = analysis_df.columns[analysis_df.isnull().mean() < missing_threshold]

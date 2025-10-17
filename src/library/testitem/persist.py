@@ -233,7 +233,7 @@ def generate_qc_artifacts(
     
     try:
         # Create QC directory
-        qc_dir = output_dir / "qc"
+        qc_dir = output_dir  
         qc_dir.mkdir(parents=True, exist_ok=True)
         
         # Generate basic QC metrics
@@ -308,7 +308,7 @@ def persist_testitem_data(
     # Generate output file paths
     csv_filename = config.get_output_filename(run_date)
     csv_path = output_dir / csv_filename
-    meta_filename = config.get_meta_filename()
+    meta_filename = config.get_meta_filename(run_date)
     meta_path = output_dir / meta_filename
     
     # Persist CSV
