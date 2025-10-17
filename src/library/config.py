@@ -129,6 +129,7 @@ class HTTPGlobalSettings(BaseModel):
     timeout_sec: float = Field(default=30.0, gt=0, alias="timeout")
     headers: dict[str, str] = Field(default_factory=dict)
     retries: RetrySettings = Field(default_factory=RetrySettings)
+    rate_limit: dict[str, Any] | None = Field(default=None)
 
     @property
     def timeout(self) -> float:

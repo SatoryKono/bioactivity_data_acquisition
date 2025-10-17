@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -22,6 +23,7 @@ from library.etl.enhanced_correlation import (
     build_correlation_insights,
     build_enhanced_correlation_analysis,
     build_enhanced_correlation_reports,
+    prepare_data_for_correlation_analysis,
 )
 from library.tools.citation_formatter import add_citation_column
 from library.tools.journal_normalizer import normalize_journal_columns
@@ -53,6 +55,7 @@ class DocumentETLResult:
 
     documents: pd.DataFrame
     qc: pd.DataFrame
+    meta: dict[str, Any]
     correlation_analysis: dict[str, Any] | None = None
     correlation_reports: dict[str, pd.DataFrame] | None = None
     correlation_insights: list[dict[str, Any]] | None = None
@@ -218,7 +221,7 @@ def _extract_data_from_source(
         "chembl_doc_type": None, "doi_key": None
     }
     
-    for idx, (_, row) in enumerate(frame.iterrows()):
+    for _, row in frame.iterrows():
         try:
             # Start with the original row data and ensure all columns exist
             row_data = row.to_dict()
@@ -586,6 +589,15 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def _calculate_checksum(file_path: Path) -> str:
+    """Calculate SHA256 checksum of a file."""
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(chunk)
+    return sha256_hash.hexdigest()
+
+
 def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETLResult:
     """Execute the document ETL pipeline returning enriched artefacts."""
 
@@ -738,17 +750,17 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         try:
             logger.info("Выполняем корреляционный анализ документов...")
             
-            # Создаем временный DataFrame для анализа (только числовые и категориальные колонки)
-            analysis_df = enriched_frame.copy()
-            
-            # Удаляем колонки с ошибками и временными данными
-            error_columns = [col for col in analysis_df.columns if col.endswith('_error')]
-            analysis_df = analysis_df.drop(columns=error_columns)
+            # Подготавливаем данные для корреляционного анализа
+            analysis_df = prepare_data_for_correlation_analysis(
+                enriched_frame, 
+                data_type="documents", 
+                logger=logger
+            )
             
             # Выполняем корреляционный анализ
-            correlation_analysis = build_enhanced_correlation_analysis(analysis_df)
-            correlation_reports = build_enhanced_correlation_reports(analysis_df)
-            correlation_insights = build_correlation_insights(analysis_df)
+            correlation_analysis = build_enhanced_correlation_analysis(analysis_df, logger)
+            correlation_reports = build_enhanced_correlation_reports(analysis_df, logger)
+            correlation_insights = build_correlation_insights(analysis_df, logger)
             
             logger.info(f"Корреляционный анализ завершен. Найдено {len(correlation_insights)} инсайтов.")
             
@@ -757,9 +769,51 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             logger.warning(f"Тип ошибки: {type(exc).__name__}")
             # Продолжаем без корреляционного анализа
 
+    # Создаем метаданные
+    meta = {
+        "pipeline_version": "1.0.0",
+        "row_count": len(enriched_frame),
+        "enabled_sources": enabled_sources,
+        "extraction_parameters": {
+            "total_documents": len(enriched_frame),
+            "sources_processed": len(enabled_sources),
+            "correlation_analysis_enabled": correlation_analysis is not None,
+            "correlation_insights_count": len(correlation_insights) if correlation_insights else 0
+        }
+    }
+    
+    # Добавляем статистику по источникам
+    for source in enabled_sources:
+        if source == "chembl":
+            source_data_count = len(enriched_frame[enriched_frame["document_chembl_id"].notna()])
+        elif source == "openalex":
+            source_data_count = len(enriched_frame[enriched_frame["openalex_title"].notna()])
+        elif source == "crossref":
+            source_data_count = len(enriched_frame[
+                enriched_frame["crossref_title"].notna() | 
+                enriched_frame["crossref_error"].notna()
+            ])
+        elif source == "pubmed":
+            if "pubmed_pmid" in enriched_frame.columns:
+                source_data_count = len(enriched_frame[enriched_frame["pubmed_pmid"].notna()])
+            else:
+                source_data_count = 0
+        elif source == "semantic_scholar":
+            if "semantic_scholar_pmid" in enriched_frame.columns:
+                source_data_count = len(
+                    enriched_frame[enriched_frame["semantic_scholar_pmid"].notna()]
+                )
+            else:
+                source_data_count = 0
+        else:
+            source_data_count = 0
+        
+        meta["extraction_parameters"][f"{source}_records"] = source_data_count
+
     return DocumentETLResult(
         documents=enriched_frame, 
         qc=qc,
+        meta=meta,
         correlation_analysis=correlation_analysis,
         correlation_reports=correlation_reports,
         correlation_insights=correlation_insights
@@ -778,6 +832,7 @@ def write_document_outputs(
 
     documents_path = output_dir / f"documents_{date_tag}.csv"
     qc_path = output_dir / f"documents_{date_tag}_qc.csv"
+    meta_path = output_dir / f"documents_{date_tag}_meta.yaml"
 
     try:
         # Нормализуем колонки с названиями журналов (если включено)
@@ -821,10 +876,26 @@ def write_document_outputs(
             )
         else:
             result.qc.to_csv(qc_path, index=False)
+        
+        # Save metadata
+        import yaml
+        with open(meta_path, 'w', encoding='utf-8') as f:
+            yaml.dump(result.meta, f, default_flow_style=False, allow_unicode=True)
+        
+        # Add file checksums to metadata
+        result.meta["file_checksums"] = {
+            "csv": _calculate_checksum(documents_path),
+            "qc": _calculate_checksum(qc_path)
+        }
+        
+        # Update metadata file with checksums
+        with open(meta_path, 'w', encoding='utf-8') as f:
+            yaml.dump(result.meta, f, default_flow_style=False, allow_unicode=True)
+            
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise DocumentIOError(f"Failed to write outputs: {exc}") from exc
 
-    outputs = {"documents": documents_path, "qc": qc_path}
+    outputs = {"documents": documents_path, "qc": qc_path, "meta": meta_path}
 
     # Сохраняем корреляционные отчеты если они есть
     if result.correlation_reports:
@@ -865,6 +936,7 @@ __all__ = [
     "DocumentValidationError",
     "_add_document_sortorder_column",
     "_add_publication_date_column",
+    "_calculate_checksum",
     "_create_api_client",
     "_determine_document_sortorder",
     "_determine_publication_date",

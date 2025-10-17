@@ -438,6 +438,114 @@ class EnhancedCorrelationAnalyzer:
         return insights
 
 
+def _log_info(logger: Optional[BoundLogger], message: str, **kwargs) -> None:
+    """Вспомогательная функция для логирования с поддержкой разных типов логгеров."""
+    if logger:
+        if hasattr(logger, 'info') and hasattr(logger.info, '__code__') and 'extra' in logger.info.__code__.co_varnames:
+            # Структурированный логгер (structlog)
+            logger.info(message, **kwargs)
+        else:
+            # Стандартный Python logger
+            if kwargs:
+                kwargs_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
+                logger.info(f"{message}: {kwargs_str}")
+            else:
+                logger.info(message)
+
+
+def prepare_data_for_correlation_analysis(
+    df: pd.DataFrame, 
+    data_type: str = "general",
+    logger: Optional[BoundLogger] = None
+) -> pd.DataFrame:
+    """
+    Подготовка данных для корреляционного анализа.
+    
+    Args:
+        df: Исходный DataFrame
+        data_type: Тип данных ("documents", "assays", "general")
+        logger: Логгер для записи информации
+    
+    Returns:
+        Подготовленный DataFrame для корреляционного анализа
+    """
+    _log_info(logger, "Подготовка данных для корреляционного анализа", 
+              data_type=data_type, 
+              original_rows=len(df), 
+              original_columns=len(df.columns))
+    
+    analysis_df = df.copy()
+    
+    # Удаляем колонки с ошибками (общее для всех типов)
+    error_columns = [col for col in analysis_df.columns if col.endswith('_error')]
+    if error_columns:
+        analysis_df = analysis_df.drop(columns=error_columns)
+        _log_info(logger, "Удалены колонки с ошибками", removed_columns=error_columns)
+    
+    # Специфичная обработка для разных типов данных
+    if data_type == "documents":
+        # Для документов: используем все доступные колонки
+        # Удаляем только технические колонки
+        technical_columns = ['retrieved_at', 'extracted_at', 'hash_row', 'hash_business_key']
+        technical_columns = [col for col in technical_columns if col in analysis_df.columns]
+        if technical_columns:
+            analysis_df = analysis_df.drop(columns=technical_columns)
+            _log_info(logger, "Удалены технические колонки", removed_columns=technical_columns)
+    
+    elif data_type == "assays":
+        # Для ассеев: конвертируем категориальные колонки в числовые
+        categorical_columns = ['assay_type', 'relationship_type', 'src_id', 'assay_organism', 'assay_tissue']
+        for col in categorical_columns:
+            if col in analysis_df.columns:
+                # Convert to numeric codes
+                analysis_df[f'{col}_numeric'] = pd.Categorical(analysis_df[col]).codes
+                _log_info(logger, "Конвертирована категориальная колонка", column=col)
+        
+        # Добавляем текстовые признаки
+        if 'description' in analysis_df.columns:
+            analysis_df['description_length'] = analysis_df['description'].fillna('').str.len()
+            _log_info(logger, "Добавлен признак длины описания")
+        
+        # Добавляем хеш-признаки
+        if 'hash_row' in analysis_df.columns:
+            analysis_df['hash_numeric'] = analysis_df['hash_row'].fillna('').str[:8].apply(
+                lambda x: int(x, 16) if x and len(x) == 8 else 0
+            )
+            _log_info(logger, "Добавлен числовой хеш-признак")
+        
+        # Выбираем только числовые колонки (включая созданные выше)
+        numeric_columns = analysis_df.select_dtypes(include=[np.number]).columns
+        analysis_df = analysis_df[numeric_columns]
+        _log_info(logger, "Выбраны только числовые колонки", numeric_columns=list(numeric_columns))
+    
+    # Общая обработка: удаляем колонки с высоким процентом пропущенных значений
+    missing_threshold = 0.5
+    columns_to_keep = analysis_df.columns[analysis_df.isnull().mean() < missing_threshold]
+    removed_columns = set(analysis_df.columns) - set(columns_to_keep)
+    if removed_columns:
+        analysis_df = analysis_df[columns_to_keep]
+        _log_info(logger, "Удалены колонки с высоким процентом пропущенных значений", 
+                  removed_columns=list(removed_columns), 
+                  threshold=missing_threshold)
+    
+    # Удаляем колонки с нулевой дисперсией (константные значения)
+    constant_columns = []
+    for col in analysis_df.columns:
+        if analysis_df[col].nunique() <= 1:
+            constant_columns.append(col)
+    
+    if constant_columns:
+        analysis_df = analysis_df.drop(columns=constant_columns)
+        _log_info(logger, "Удалены константные колонки", removed_columns=constant_columns)
+    
+    _log_info(logger, "Подготовка данных завершена", 
+              final_rows=len(analysis_df), 
+              final_columns=len(analysis_df.columns),
+              columns=list(analysis_df.columns))
+    
+    return analysis_df
+
+
 def build_enhanced_correlation_analysis(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> Dict[str, Any]:
     """Создание расширенного анализа корреляций."""
     analyzer = EnhancedCorrelationAnalyzer(logger=logger)
@@ -460,6 +568,7 @@ def build_correlation_insights(df: pd.DataFrame, logger: Optional[BoundLogger] =
 
 __all__ = [
     'EnhancedCorrelationAnalyzer',
+    'prepare_data_for_correlation_analysis',
     'build_enhanced_correlation_analysis',
     'build_enhanced_correlation_reports',
     'build_correlation_insights',

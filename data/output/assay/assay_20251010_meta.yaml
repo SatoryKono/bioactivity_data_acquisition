@@ -1,0 +1,13 @@
+chembl_release: unknown
+extraction_parameters:
+  assay_types:
+    B: 9369
+    F: 631
+  relationship_types:
+    D: 10000
+  total_assays: 10000
+  unique_sources: 1
+file_checksums:
+  csv: aa304031fde906abbca26cda1f4b50b66757836010a6734252782f85b56fb411
+pipeline_version: 1.0.0
+row_count: 10000

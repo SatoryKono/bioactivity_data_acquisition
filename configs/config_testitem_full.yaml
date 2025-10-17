@@ -1,0 +1,348 @@
+# Конфигурация для пайплайна извлечения и нормализации сущности testitem из ChEMBL и PubChem
+# Следует стандартам проекта и архитектуре ETL
+
+# Глобальные настройки HTTP-клиента
+http:
+  global:
+    # Максимальное время ожидания ответа от сервера в секундах
+    timeout_sec: 60.0
+    # Настройки повторных попыток при неудачных запросах
+    retries:
+      # Общее количество попыток (включая первую)
+      total: 10
+      # Множитель для экспоненциальной задержки между попытками
+      backoff_multiplier: 3.0
+    # Настройки ограничения скорости запросов по умолчанию
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+    # Заголовки, отправляемые с каждым HTTP-запросом
+    headers:
+      Accept: application/json
+      User-Agent: bioactivity-data-acquisition/0.1.0
+
+# Конфигурация источников данных
+sources:
+  # ChEMBL - база данных химических соединений и биологической активности
+  chembl:
+    # Уникальное имя источника
+    name: chembl
+    # Включен ли источник
+    enabled: true
+    # API endpoint для получения молекул
+    endpoint: molecule
+    # Параметры запроса к API
+    params:
+      # Формат ответа
+      format: json
+      # Количество записей на странице
+      limit: 1000
+    # Переопределения настроек пагинации
+    pagination:
+      # Параметр смещения для пагинации
+      offset_param: offset
+      # Параметр количества записей на странице
+      size_param: limit
+      # Количество записей на странице
+      size: 1000
+      # Максимальное количество страниц для обработки
+      max_pages: 50
+    # Переопределения HTTP настроек
+    http:
+      # Базовый URL API ChEMBL
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      # Таймаут для запросов к ChEMBL
+      timeout_sec: 60.0
+      # Дополнительные заголовки для ChEMBL
+      headers:
+        # Токен авторизации (заменяется на реальный токен)
+        Authorization: "Bearer {chembl_api_token}"
+      # Настройки повторных попыток для ChEMBL
+      retries:
+        # Общее количество попыток
+        total: 5
+        # Множитель задержки между попытками
+        backoff_multiplier: 2.0
+
+  # PubChem - база данных химических соединений NCBI
+  pubchem:
+    # Уникальное имя источника
+    name: pubchem
+    # Включен ли источник
+    enabled: true
+    # API endpoint для получения соединений
+    endpoint: compound
+    # Параметры запроса к API
+    params:
+      # Формат ответа
+      format: json
+    # Переопределения HTTP настроек
+    http:
+      # Базовый URL API PubChem
+      base_url: https://pubchem.ncbi.nlm.nih.gov/rest/pug
+      # Таймаут для запросов к PubChem
+      timeout_sec: 45.0
+      # Дополнительные заголовки для PubChem
+      headers:
+        Accept: application/json
+        User-Agent: bioactivity-data-acquisition/0.1.0
+      # Настройки повторных попыток для PubChem
+      retries:
+        # Общее количество попыток
+        total: 8
+        # Множитель задержки между попытками
+        backoff_multiplier: 2.5
+
+# Настройки ввода-вывода данных
+io:
+  # Настройки входных данных
+  input:
+    # Путь к CSV файлу с идентификаторами молекул
+    testitem_keys_csv: data/input/testitem.csv
+  # Настройки выходных данных
+  output:
+    # Директория для сохранения результатов
+    dir: data/output/testitem
+    # Путь к основному файлу данных
+    data_path: data/output/testitem/testitem.csv
+    # Путь к файлу QC отчета
+    qc_report_path: data/output/testitem/testitem_qc.csv
+    # Путь к файлу корреляционного анализа
+    correlation_path: data/output/testitem/testitem_correlation.csv
+    # Формат выходных файлов
+    format: csv
+    # Специфичные настройки для CSV формата
+    csv:
+      # Кодировка файла
+      encoding: utf-8
+      # Формат чисел с плавающей точкой (3 знака после запятой)
+      float_format: "%.3f"
+      # Формат даты и времени (ISO 8601)
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+      # Представление отсутствующих значений
+      na_rep: ""
+
+# Настройки выполнения программы
+runtime:
+  # Количество воркеров для обработки
+  workers: 8
+  # Размер батча для обработки
+  batch_size: 200
+  # Количество повторных попыток
+  retries: 5
+  # Таймаут в секундах
+  timeout_sec: 30
+  # Уровень логирования
+  log_level: INFO
+  # Директория для кэша ChEMBL
+  cache_dir: .cache/chembl
+  # Директория для кэша PubChem
+  pubchem_cache_dir: .cache/pubchem
+  # Ограничение на количество обрабатываемых записей (null = без ограничений)
+  limit: null
+  # Режим тестирования (true = только симуляция, false = реальная обработка)
+  dry_run: false
+
+# Настройки выходных файлов
+output:
+  # Директория для сохранения результатов
+  dir: data/output/testitem
+  # Паттерн имени CSV файла (run_date = YYYYMMDD из extracted_at)
+  csv_pattern: "testitem__{run_date}.csv"
+  # Имя файла метаданных
+  meta_filename: meta.yaml
+  # Директория для логов
+  logs_dir: logs
+  # Директория для QC артефактов
+  qc_dir: data/qc/testitem
+
+# Настройки детерминизма для воспроизводимости результатов
+determinism:
+  # Настройки сортировки данных
+  sort:
+    # Поля для сортировки (в порядке приоритета)
+    by:
+      - molecule_chembl_id
+      - molregno
+      - pref_name_key
+    # Направление сортировки для каждого поля
+    ascending:
+      - true
+      - true
+      - true
+    # Позиция для значений NULL/NA (last = в конце)
+    na_position: last
+  # Порядок колонок в выходном файле
+  column_order:
+    # Основные поля молекулы (ключи и идентификаторы)
+    - molecule_chembl_id         # ID молекулы в ChEMBL
+    - molregno                   # Регистрационный номер молекулы
+    - pref_name                  # Предпочтительное название
+    - pref_name_key              # Ключ для сортировки
+    # Связь родитель-дочерний
+    - parent_chembl_id           # ID родительской молекулы
+    - parent_molregno            # Регистрационный номер родительской молекулы
+    # Разработка лекарств
+    - max_phase                  # Максимальная фаза разработки
+    - therapeutic_flag           # Флаг терапевтического средства
+    - dosed_ingredient           # Флаг дозируемого ингредиента
+    - first_approval             # Год первого одобрения
+    # Структура и свойства
+    - structure_type             # Тип структуры
+    - molecule_type              # Тип молекулы
+    - mw_freebase                # Молекулярная масса (свободное основание)
+    - alogp                      # ALogP
+    - hba                        # Акцепторы водородных связей
+    - hbd                        # Доноры водородных связей
+    - psa                        # Полярная площадь поверхности
+    - rtb                        # Поворотные связи
+    - ro3_pass                   # Прохождение правила 3
+    - num_ro5_violations         # Количество нарушений правила 5
+    - acd_most_apka              # ACD наиболее кислый pKa
+    - acd_most_bpka              # ACD наиболее основной pKa
+    - acd_logp                   # ACD LogP
+    - acd_logd                   # ACD LogD
+    - molecular_species          # Молекулярный вид
+    - full_mwt                   # Полная молекулярная масса
+    - aromatic_rings             # Количество ароматических колец
+    - heavy_atoms                # Количество тяжелых атомов
+    - qed_weighted               # Взвешенный QED
+    - mw_monoisotopic            # Моноизотопная молекулярная масса
+    - full_molformula            # Полная молекулярная формула
+    - hba_lipinski               # Lipinski HBA
+    - hbd_lipinski               # Lipinski HBD
+    - num_lipinski_ro5_violations # Количество нарушений Lipinski правила 5
+    # Свойства лекарств
+    - oral                       # Флаг перорального введения
+    - parenteral                 # Флаг парентерального введения
+    - topical                    # Флаг местного применения
+    - black_box_warning          # Флаг предупреждения черного ящика
+    # Классификационные поля
+    - natural_product            # Флаг природного продукта
+    - first_in_class             # Флаг первого в классе
+    - chirality                  # Хиральность
+    - prodrug                    # Флаг пролекарства
+    - inorganic_flag             # Флаг неорганического соединения
+    - polymer_flag               # Флаг полимера
+    # USAN поля
+    - usan_year                  # Год USAN
+    - availability_type          # Тип доступности
+    - usan_stem                  # USAN основа
+    - usan_substem               # USAN подоснова
+    - usan_stem_definition       # Определение USAN основы
+    - indication_class           # Класс показаний
+    # Поля отзыва
+    - withdrawn_flag             # Флаг отзыва
+    - withdrawn_year             # Год отзыва
+    - withdrawn_country          # Страна отзыва
+    - withdrawn_reason           # Причина отзыва
+    # Поля механизма
+    - mechanism_of_action        # Механизм действия
+    - direct_interaction         # Флаг прямого взаимодействия
+    - molecular_mechanism        # Флаг молекулярного механизма
+    - mechanism_comment          # Комментарий к механизму
+    - target_chembl_id           # ID мишени в ChEMBL
+    # Поля классификации ATC
+    - atc_level1                 # ATC уровень 1
+    - atc_level1_description     # Описание ATC уровня 1
+    - atc_level2                 # ATC уровень 2
+    - atc_level2_description     # Описание ATC уровня 2
+    - atc_level3                 # ATC уровень 3
+    - atc_level3_description     # Описание ATC уровня 3
+    - atc_level4                 # ATC уровень 4
+    - atc_level4_description     # Описание ATC уровня 4
+    - atc_level5                 # ATC уровень 5
+    - atc_level5_description     # Описание ATC уровня 5
+    # Поля лекарства
+    - drug_chembl_id             # ID лекарства в ChEMBL
+    - drug_name                  # Название лекарства
+    - drug_type                  # Тип лекарства
+    - drug_substance_flag        # Флаг лекарственного вещества
+    - drug_indication_flag       # Флаг показания лекарства
+    - drug_antibacterial_flag    # Флаг антибактериального лекарства
+    - drug_antiviral_flag        # Флаг противовирусного лекарства
+    - drug_antifungal_flag       # Флаг противогрибкового лекарства
+    - drug_antiparasitic_flag    # Флаг противопаразитарного лекарства
+    - drug_antineoplastic_flag   # Флаг противоопухолевого лекарства
+    - drug_immunosuppressant_flag # Флаг иммуносупрессивного лекарства
+    - drug_antiinflammatory_flag # Флаг противовоспалительного лекарства
+    # Поля PubChem
+    - pubchem_cid                # PubChem CID
+    - pubchem_molecular_formula  # Молекулярная формула PubChem
+    - pubchem_molecular_weight   # Молекулярная масса PubChem
+    - pubchem_canonical_smiles   # Канонические SMILES PubChem
+    - pubchem_isomeric_smiles    # Изомерные SMILES PubChem
+    - pubchem_inchi              # InChI PubChem
+    - pubchem_inchi_key          # InChI ключ PubChem
+    - pubchem_registry_id        # Регистрационный ID PubChem
+    - pubchem_rn                 # RN PubChem
+    - pubchem_synonyms           # Синонимы PubChem
+    # Стандартизированные поля структуры
+    - standardized_inchi         # Стандартизированный InChI
+    - standardized_inchi_key     # Стандартизированный InChI ключ
+    - standardized_smiles        # Стандартизированные SMILES
+    # Техслужебные поля
+    - source_system              # Система-источник
+    - chembl_release             # Версия ChEMBL
+    - extracted_at               # Время извлечения
+    - hash_row                   # Хеш строки
+    - hash_business_key          # Хеш бизнес-ключа
+
+# Настройки пайплайна
+pipeline:
+  # Версия пайплайна
+  version: 1.1.0
+  # Разрешить отсутствие родительской молекулы
+  allow_parent_missing: false
+  # Включить обогащение из PubChem
+  enable_pubchem: true
+
+# Настройки логирования
+logging:
+  # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: INFO
+
+# Настройки валидации данных
+validation:
+  # Строгий режим валидации (true = останавливать при ошибках)
+  strict: true
+  # Настройки контроля качества (QC)
+  qc:
+    # Максимальная доля пропущенных значений (2%)
+    max_missing_fraction: 0.02
+    # Максимальная доля дублирующихся записей (0.5%)
+    max_duplicate_fraction: 0.005
+
+# Настройки кэширования
+cache:
+  # Включить HTTP-кэш
+  enabled: true
+  # Директория для кэша ChEMBL
+  chembl_directory: .cache/chembl
+  # Директория для кэша PubChem
+  pubchem_directory: .cache/pubchem
+  # Время жизни кэша в секундах (24 часа)
+  ttl: 86400
+  # Инвалидировать кэш при смене релиза ChEMBL
+  invalidate_on_release_change: true
+
+# =============================================================================
+# ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ДЛЯ API КЛЮЧЕЙ
+# =============================================================================
+# 
+# Для использования API ключей установите следующие переменные окружения:
+#
+# Windows (PowerShell):
+#   $env:CHEMBL_API_TOKEN = "your_chembl_token_here"
+#
+# Linux/macOS (bash):
+#   export CHEMBL_API_TOKEN="your_chembl_token_here"
+#
+# ВАЖНО:
+# - Система работает БЕЗ API ключей с ограничениями по rate limiting
+# - При отсутствии API ключей используется graceful degradation
+# - ChEMBL API работает без токена, но с ограничениями по запросам
+# - PubChem API работает без токена
+#
+# Получить API ключи можно по следующим ссылкам:
+# - ChEMBL: https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services

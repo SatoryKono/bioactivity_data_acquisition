@@ -13,6 +13,7 @@
 ## 🔑 Установка API ключей
 
 ### Python (кроссплатформенный)
+
 ```bash
 # Установить только Semantic Scholar ключ (по умолчанию)
 python scripts/setup_api_keys.py
@@ -28,6 +29,7 @@ python scripts/setup_api_keys.py --help
 ```
 
 ### PowerShell (Windows)
+
 ```powershell
 # Установить только Semantic Scholar ключ (по умолчанию)
 .\scripts\setup_api_keys.ps1
@@ -43,6 +45,7 @@ python scripts/setup_api_keys.py --help
 ```
 
 ### Bash (Linux/macOS)
+
 ```bash
 # Установить только Semantic Scholar ключ (по умолчанию)
 ./scripts/setup_api_keys.sh
@@ -60,16 +63,19 @@ python scripts/setup_api_keys.py --help
 ## 🚀 Быстрый старт
 
 ### 1. Установить API ключи
+
 ```bash
 python scripts/setup_api_keys.py
 ```
 
 ### 2. Запустить тест
+
 ```bash
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 3
 ```
 
 ### 3. Проверить результат
+
 ```bash
 # Проверить, что API ключ работает
 grep "Using Semantic Scholar with API key" logs/app.log
@@ -115,13 +121,17 @@ make help
 ## 🔧 Устранение проблем
 
 ### Проблема: "Using conservative rate limiting for semantic_scholar (no API key)"
+
 **Решение:** Запустите скрипт установки API ключей:
+
 ```bash
 python scripts/setup_api_keys.py
 ```
 
 ### Проблема: "FileExistsError: Cannot create a file when that file already exists"
+
 **Решение:** Очистите backup файлы:
+
 ```bash
 # Windows
 Remove-Item "data\output\full\*.backup" -Force
@@ -131,7 +141,9 @@ rm data/output/full/*.backup
 ```
 
 ### Проблема: Ошибки кодировки в Windows
+
 **Решение:** Используйте Python скрипт вместо PowerShell:
+
 ```bash
 python scripts/setup_api_keys.py
 ```
@@ -139,6 +151,7 @@ python scripts/setup_api_keys.py
 ## 🧹 Stage 11: Финальная валидация и создание PR
 
 ### Автоматизированная валидация репозитория
+
 После завершения очистки репозитория используйте эти скрипты для финальной валидации:
 
 ```bash
@@ -169,6 +182,7 @@ python scripts/create_cleanup_pr.py --branch feature/cleanup-validation
 ```
 
 ### Что проверяется
+
 - ✅ **Тесты**: `make test` - все unit и integration тесты
 - ✅ **Линтинг**: `make lint` - проверка качества кода
 - ✅ **Типы**: `make type-check` - проверка типов mypy
@@ -179,7 +193,7 @@ python scripts/create_cleanup_pr.py --branch feature/cleanup-validation
 
 ## 📁 Структура файлов
 
-```
+```text
 scripts/
 ├── setup_api_keys.py         # Python скрипт (кроссплатформенный)
 ├── setup_api_keys.ps1        # PowerShell скрипт (Windows)
@@ -193,6 +207,7 @@ scripts/
 ## 🎯 Примеры использования
 
 ### Автоматизация в CI/CD
+
 ```bash
 # Установить ключи и запустить тест
 python scripts/setup_api_keys.py && \
@@ -200,6 +215,7 @@ bioactivity-data-acquisition get-document-data --config configs/config_documents
 ```
 
 ### Разработка
+
 ```bash
 # Установить ключи для разработки
 python scripts/setup_api_keys.py --persistent
@@ -209,6 +225,7 @@ bioactivity-data-acquisition get-document-data --config configs/config_documents
 ```
 
 ### Продакшн
+
 ```bash
 # Установить все ключи постоянно
 python scripts/setup_api_keys.py --persistent \

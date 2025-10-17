@@ -91,9 +91,10 @@ class SemanticScholarClient(BaseApiClient):
                         "Consider getting an API key for higher limits."
                     )
                 )
+                exc_msg = str(exc).replace('%', '%%')
                 return self._create_empty_record(
                     pmid, 
-                    f"Rate limited: {str(exc).replace('%', '%%')}. "
+                    f"Rate limited: {exc_msg}. "
                     f"Consider getting an API key for higher limits."
                 )
             else:
@@ -105,7 +106,8 @@ class SemanticScholarClient(BaseApiClient):
                     error=error_msg,
                     error_type=type(exc).__name__
                 )
-                return self._create_empty_record(pmid, f"Request failed: {str(exc).replace('%', '%%')}")
+                exc_msg = str(exc).replace('%', '%%')
+                return self._create_empty_record(pmid, f"Request failed: {exc_msg}")
 
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
         ids = [f"PMID:{pmid}" for pmid in pmids]
@@ -125,7 +127,8 @@ class SemanticScholarClient(BaseApiClient):
             # Возвращаем пустые записи для всех PMID
             result: dict[str, dict[str, Any]] = {}
             for pmid in pmids:
-                result[pmid] = self._create_empty_record(pmid, str(exc).replace('%', '%%'))
+                exc_msg = str(exc).replace('%', '%%')
+                result[pmid] = self._create_empty_record(pmid, exc_msg)
             return result
         
         papers = payload.get("data") or payload.get("papers") or []

@@ -60,7 +60,7 @@ class FinalValidator:
         
         try:
             # Безопасный запуск команд - все команды предопределены
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603
                 command,
                 cwd=cwd,
                 capture_output=True,

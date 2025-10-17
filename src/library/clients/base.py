@@ -324,6 +324,7 @@ class BaseApiClient:
 
         try:
             payload = response.json()
+            self.logger.debug(f"JSON response received: {type(payload)}")
         except json.JSONDecodeError as exc:
             # Проверяем, не является ли ответ XML (например, от ChEMBL API)
             content_type = response.headers.get('content-type', '').lower()
@@ -337,13 +338,8 @@ class BaseApiClient:
                 # Пытаемся парсить XML
                 try:
                     # Use defusedxml for safe XML parsing
-                    try:
-                        from defusedxml.ElementTree import fromstring as safe_fromstring  # noqa: F401
-                        root = safe_fromstring(response.text)
-                    except ImportError:
-                        # Fallback to regular ElementTree if defusedxml not available
-                        import xml.etree.ElementTree as ET  # noqa: S405
-                        root = ET.fromstring(response.text)  # noqa: S405
+                    from defusedxml.ElementTree import fromstring as safe_fromstring
+                    root = safe_fromstring(response.text)
                     payload = self._xml_to_dict(root)
                 except Exception as xml_exc:
                     self.logger.error("xml_parse_error", error=str(xml_exc))

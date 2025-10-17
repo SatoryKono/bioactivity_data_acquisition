@@ -1,0 +1,191 @@
+# Makefile для пайплайна Assay
+# Упрощает запуск и тестирование пайплайна извлечения данных ассев
+
+.PHONY: help assay-example assay-target test-assay clean-assay install-assay
+
+# Переменные
+PYTHON := python
+SCRIPT_DIR := src/scripts
+CONFIG_DIR := configs
+DATA_DIR := data
+INPUT_DIR := $(DATA_DIR)/input
+OUTPUT_DIR := $(DATA_DIR)/output/assay
+
+# Цвета для вывода
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+RED := \033[0;31m
+NC := \033[0m # No Color
+
+help: ## Показать справку по командам
+	@echo "$(GREEN)Пайплайн Assay - Команды:$(NC)"
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(GREEN)Примеры использования:$(NC)"
+	@echo "  make assay-example          # Запуск с примером данных"
+	@echo "  make assay-target           # Извлечение по таргету"
+	@echo "  make test-assay             # Запуск тестов"
+	@echo "  make clean-assay            # Очистка выходных файлов"
+
+install-assay: ## Установить зависимости для пайплайна assay
+	@echo "$(GREEN)Установка зависимостей...$(NC)"
+	pip install -r requirements.txt
+	@echo "$(GREEN)Зависимости установлены$(NC)"
+
+assay-example: ## Запустить пайплайн с примером данных
+	@echo "$(GREEN)Запуск пайплайна assay с примером данных...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py \
+		--input $(INPUT_DIR)/assay_ids_example.csv \
+		--config $(CONFIG_DIR)/config_assay_full.yaml \
+		--output-dir $(OUTPUT_DIR) \
+		--log-level INFO
+	@echo "$(GREEN)Пайплайн завершен. Результаты в $(OUTPUT_DIR)$(NC)"
+
+assay-target: ## Извлечь ассеи для таргета CHEMBL231
+	@echo "$(GREEN)Извлечение ассев для таргета CHEMBL231...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py \
+		--target CHEMBL231 \
+		--filters human_single_protein \
+		--config $(CONFIG_DIR)/config_assay_full.yaml \
+		--output-dir $(OUTPUT_DIR) \
+		--limit 50 \
+		--log-level INFO
+	@echo "$(GREEN)Извлечение завершено. Результаты в $(OUTPUT_DIR)$(NC)"
+
+assay-target-binding: ## Извлечь только binding ассеи для таргета
+	@echo "$(GREEN)Извлечение binding ассев для таргета CHEMBL231...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py \
+		--target CHEMBL231 \
+		--filters binding_assays \
+		--config $(CONFIG_DIR)/config_assay_full.yaml \
+		--output-dir $(OUTPUT_DIR) \
+		--limit 100 \
+		--log-level INFO
+	@echo "$(GREEN)Извлечение завершено. Результаты в $(OUTPUT_DIR)$(NC)"
+
+assay-target-functional: ## Извлечь только functional ассеи для таргета
+	@echo "$(GREEN)Извлечение functional ассев для таргета CHEMBL231...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py \
+		--target CHEMBL231 \
+		--filters functional_assays \
+		--config $(CONFIG_DIR)/config_assay_full.yaml \
+		--output-dir $(OUTPUT_DIR) \
+		--limit 100 \
+		--log-level INFO
+	@echo "$(GREEN)Извлечение завершено. Результаты в $(OUTPUT_DIR)$(NC)"
+
+assay-high-quality: ## Извлечь только высококачественные ассеи
+	@echo "$(GREEN)Извлечение высококачественных ассев для таргета CHEMBL231...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py \
+		--target CHEMBL231 \
+		--filters high_quality \
+		--config $(CONFIG_DIR)/config_assay_full.yaml \
+		--output-dir $(OUTPUT_DIR) \
+		--limit 200 \
+		--log-level INFO
+	@echo "$(GREEN)Извлечение завершено. Результаты в $(OUTPUT_DIR)$(NC)"
+
+assay-dry-run: ## Тестовый запуск без сохранения файлов
+	@echo "$(YELLOW)Тестовый запуск пайплайна assay...$(NC)"
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py \
+		--target CHEMBL231 \
+		--filters human_single_protein \
+		--config $(CONFIG_DIR)/config_assay_full.yaml \
+		--limit 10 \
+		--dry-run \
+		--log-level DEBUG
+	@echo "$(GREEN)Тестовый запуск завершен$(NC)"
+
+test-assay: ## Запустить тесты пайплайна assay
+	@echo "$(GREEN)Запуск тестов пайплайна assay...$(NC)"
+	pytest tests/test_assay_pipeline.py -v --tb=short
+	@echo "$(GREEN)Тесты завершены$(NC)"
+
+test-assay-coverage: ## Запустить тесты с покрытием кода
+	@echo "$(GREEN)Запуск тестов с покрытием кода...$(NC)"
+	pytest tests/test_assay_pipeline.py --cov=library.assay --cov-report=html --cov-report=term
+	@echo "$(GREEN)Отчет о покрытии создан в htmlcov/index.html$(NC)"
+
+test-assay-unit: ## Запустить только unit тесты
+	@echo "$(GREEN)Запуск unit тестов...$(NC)"
+	pytest tests/test_assay_pipeline.py::TestAssayPipeline -v
+	@echo "$(GREEN)Unit тесты завершены$(NC)"
+
+test-assay-client: ## Запустить тесты клиента
+	@echo "$(GREEN)Запуск тестов клиента...$(NC)"
+	pytest tests/test_assay_pipeline.py::TestAssayChEMBLClient -v
+	@echo "$(GREEN)Тесты клиента завершены$(NC)"
+
+lint-assay: ## Проверить код пайплайна assay
+	@echo "$(GREEN)Проверка кода пайплайна assay...$(NC)"
+	flake8 src/library/assay/ src/scripts/get_assay_data.py tests/test_assay_pipeline.py
+	mypy src/library/assay/ src/scripts/get_assay_data.py
+	@echo "$(GREEN)Проверка кода завершена$(NC)"
+
+format-assay: ## Форматировать код пайплайна assay
+	@echo "$(GREEN)Форматирование кода пайплайна assay...$(NC)"
+	black src/library/assay/ src/scripts/get_assay_data.py tests/test_assay_pipeline.py
+	isort src/library/assay/ src/scripts/get_assay_data.py tests/test_assay_pipeline.py
+	@echo "$(GREEN)Форматирование завершено$(NC)"
+
+clean-assay: ## Очистить выходные файлы пайплайна assay
+	@echo "$(YELLOW)Очистка выходных файлов...$(NC)"
+	rm -rf $(OUTPUT_DIR)/assay_*.csv
+	rm -rf $(OUTPUT_DIR)/assay_*_qc.csv
+	rm -rf $(OUTPUT_DIR)/assay_*_meta.yaml
+	rm -rf .cache/chembl/
+	@echo "$(GREEN)Очистка завершена$(NC)"
+
+clean-assay-cache: ## Очистить только кэш
+	@echo "$(YELLOW)Очистка кэша...$(NC)"
+	rm -rf .cache/chembl/
+	@echo "$(GREEN)Кэш очищен$(NC)"
+
+show-assay-config: ## Показать текущую конфигурацию
+	@echo "$(GREEN)Текущая конфигурация пайплайна assay:$(NC)"
+	@cat $(CONFIG_DIR)/config_assay_full.yaml | head -50
+	@echo "$(YELLOW)... (показаны первые 50 строк)$(NC)"
+
+show-assay-help: ## Показать справку CLI
+	@echo "$(GREEN)Справка по CLI пайплайна assay:$(NC)"
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py --help
+
+show-assay-examples: ## Показать примеры использования CLI
+	@echo "$(GREEN)Примеры использования CLI:$(NC)"
+	$(PYTHON) $(SCRIPT_DIR)/get_assay_data.py --help | grep -A 20 "Examples:"
+
+check-assay-deps: ## Проверить зависимости пайплайна assay
+	@echo "$(GREEN)Проверка зависимостей...$(NC)"
+	$(PYTHON) -c "import pandas, yaml, pydantic, pandera; print('Все зависимости установлены')" || echo "$(RED)Некоторые зависимости отсутствуют$(NC)"
+
+validate-assay-config: ## Проверить конфигурацию
+	@echo "$(GREEN)Проверка конфигурации...$(NC)"
+	$(PYTHON) -c "from library.assay import load_assay_config; config = load_assay_config('$(CONFIG_DIR)/config_assay_full.yaml'); print('Конфигурация валидна')"
+	@echo "$(GREEN)Конфигурация корректна$(NC)"
+
+# Комбинированные команды
+assay-full-test: clean-assay test-assay assay-dry-run ## Полный тест пайплайна
+	@echo "$(GREEN)Полный тест пайплайна завершен$(NC)"
+
+assay-quick-start: install-assay validate-assay-config assay-example ## Быстрый старт
+	@echo "$(GREEN)Быстрый старт завершен. Проверьте результаты в $(OUTPUT_DIR)$(NC)"
+
+# Информационные команды
+assay-info: ## Показать информацию о пайплайне
+	@echo "$(GREEN)Информация о пайплайне Assay:$(NC)"
+	@echo "  Версия: 1.0.0"
+	@echo "  Источник: ChEMBL API"
+	@echo "  Конфигурация: $(CONFIG_DIR)/config_assay_full.yaml"
+	@echo "  Скрипт: $(SCRIPT_DIR)/get_assay_data.py"
+	@echo "  Тесты: tests/test_assay_pipeline.py"
+	@echo "  Документация: docs/assay.md, docs/assay_usage.md"
+
+assay-status: ## Показать статус ChEMBL API
+	@echo "$(GREEN)Проверка статуса ChEMBL API...$(NC)"
+	$(PYTHON) -c "from library.assay.client import AssayChEMBLClient; from library.config import APIClientConfig; import sys; config = APIClientConfig(name='test', base_url='https://www.ebi.ac.uk/chembl/api/data'); client = AssayChEMBLClient(config); status = client.get_chembl_status(); print(f'ChEMBL Release: {status[\"chembl_release\"]}'); print(f'Status: {status[\"status\"]}')" || echo "$(RED)Не удалось получить статус ChEMBL$(NC)"
