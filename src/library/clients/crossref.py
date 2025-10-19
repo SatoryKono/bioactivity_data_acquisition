@@ -1,4 +1,5 @@
 """Client for the Crossref API."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,15 +26,9 @@ class CrossrefClient(BaseApiClient):
         except ApiClientError as exc:
             # Try graceful degradation first
             if self.degradation_manager.should_degrade(self.config.name, exc):
-                self.logger.warning(
-                    f"Crossref API failed, using graceful degradation: {exc}"
-                )
-                return self.degradation_manager.get_fallback_data(
-                    self.config.name,
-                    {"doi": doi},
-                    exc
-                )
-            
+                self.logger.warning(f"Crossref API failed, using graceful degradation: {exc}")
+                return self.degradation_manager.get_fallback_data(self.config.name, {"doi": doi}, exc)
+
             # If not degrading, try fallback search
             self.logger.info("fallback_to_search", doi=doi, error=str(exc))
             try:
@@ -45,14 +40,8 @@ class CrossrefClient(BaseApiClient):
             except ApiClientError as fallback_exc:
                 # If fallback also fails, use graceful degradation
                 if self.degradation_manager.should_degrade(self.config.name, fallback_exc):
-                    self.logger.warning(
-                        f"Crossref fallback also failed, using graceful degradation: {fallback_exc}"
-                    )
-                    return self.degradation_manager.get_fallback_data(
-                        self.config.name,
-                        {"doi": doi},
-                        fallback_exc
-                    )
+                    self.logger.warning(f"Crossref fallback also failed, using graceful degradation: {fallback_exc}")
+                    return self.degradation_manager.get_fallback_data(self.config.name, {"doi": doi}, fallback_exc)
                 else:
                     raise
 
@@ -64,18 +53,12 @@ class CrossrefClient(BaseApiClient):
         except ApiClientError as exc:
             # Try graceful degradation first
             if self.degradation_manager.should_degrade(self.config.name, exc):
-                self.logger.warning(
-                    f"Crossref PMID lookup failed, using graceful degradation: {exc}"
-                )
-                return self.degradation_manager.get_fallback_data(
-                    self.config.name,
-                    {"pmid": pmid},
-                    exc
-                )
-            
+                self.logger.warning(f"Crossref PMID lookup failed, using graceful degradation: {exc}")
+                return self.degradation_manager.get_fallback_data(self.config.name, {"pmid": pmid}, exc)
+
             self.logger.info("pmid_lookup_failed", pmid=pmid, error=str(exc))
             payload = {"message": {"items": []}}
-        
+
         items = payload.get("message", {}).get("items", [])
         if items:
             return self._parse_work(items[0])
@@ -90,14 +73,8 @@ class CrossrefClient(BaseApiClient):
         except ApiClientError as exc:
             # If fallback also fails, use graceful degradation
             if self.degradation_manager.should_degrade(self.config.name, exc):
-                self.logger.warning(
-                    f"Crossref PMID fallback also failed, using graceful degradation: {exc}"
-                )
-                return self.degradation_manager.get_fallback_data(
-                    self.config.name,
-                    {"pmid": pmid},
-                    exc
-                )
+                self.logger.warning(f"Crossref PMID fallback also failed, using graceful degradation: {exc}")
+                return self.degradation_manager.get_fallback_data(self.config.name, {"pmid": pmid}, exc)
             else:
                 raise
 
@@ -109,38 +86,38 @@ class CrossrefClient(BaseApiClient):
         elif isinstance(subject, list) and subject:
             # Если есть subjects, объединяем их в строку
             subject = "; ".join(str(s) for s in subject if s)
-        
+
         # Если subject не найден, пытаемся вывести из названия журнала
         if not subject:
             journal = work.get("container-title", [])
             if isinstance(journal, list) and journal:
                 journal_name = journal[0].lower()
-                if 'medicinal chemistry' in journal_name or 'j med chem' in journal_name:
+                if "medicinal chemistry" in journal_name or "j med chem" in journal_name:
                     subject = "Medicinal Chemistry"
-                elif 'pharmacology' in journal_name:
+                elif "pharmacology" in journal_name:
                     subject = "Pharmacology"
-                elif 'biochemistry' in journal_name:
+                elif "biochemistry" in journal_name:
                     subject = "Biochemistry"
-                elif 'organic chemistry' in journal_name:
+                elif "organic chemistry" in journal_name:
                     subject = "Organic Chemistry"
-                elif 'drug' in journal_name:
+                elif "drug" in journal_name:
                     subject = "Drug Discovery"
-                elif 'therapeutic' in journal_name:
+                elif "therapeutic" in journal_name:
                     subject = "Therapeutics"
-                elif 'molecular' in journal_name:
+                elif "molecular" in journal_name:
                     subject = "Molecular Biology"
-                elif 'cell' in journal_name:
+                elif "cell" in journal_name:
                     subject = "Cell Biology"
-                elif 'nature' in journal_name:
+                elif "nature" in journal_name:
                     subject = "General Science"
-                elif 'science' in journal_name:
+                elif "science" in journal_name:
                     subject = "General Science"
-        
+
         # Обрабатываем title - извлекаем первый элемент если это список
         title = work.get("title")
         if isinstance(title, list) and title:
             title = title[0]
-        
+
         record: dict[str, Any | None] = {
             "source": "crossref",
             "doi_key": work.get("DOI"),
@@ -163,7 +140,7 @@ class CrossrefClient(BaseApiClient):
         pmid = work.get("pmid")
         if pmid:
             return str(pmid)
-        
+
         # Проверяем в link
         links = work.get("link", [])
         if isinstance(links, list):
@@ -173,10 +150,11 @@ class CrossrefClient(BaseApiClient):
                     if "pubmed.ncbi.nlm.nih.gov" in url and "pmid=" in url:
                         # Извлекаем PMID из URL
                         import re
-                        match = re.search(r'pmid=(\d+)', url)
+
+                        match = re.search(r"pmid=(\d+)", url)
                         if match:
                             return match.group(1)
-        
+
         return None
 
     def _extract_authors(self, work: dict[str, Any]) -> list[str] | None:
@@ -193,7 +171,7 @@ class CrossrefClient(BaseApiClient):
                         full_name = f"{given} {family}".strip()
                         author_names.append(full_name)
             return author_names if author_names else None
-        
+
         return None
 
     def _extract_issn(self, work: dict[str, Any]) -> str | None:
@@ -204,12 +182,12 @@ class CrossrefClient(BaseApiClient):
             if isinstance(issn, list) and issn:
                 return issn[0]  # Берем первый ISSN если их несколько
             return str(issn)
-        
+
         # Проверяем в container-title
         container_title = work.get("container-title", [])
         if isinstance(container_title, list) and container_title:
             # В Crossref ISSN может быть в метаданных контейнера
             # Но обычно он находится в отдельном поле issn
             pass
-        
+
         return None

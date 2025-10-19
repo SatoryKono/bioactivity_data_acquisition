@@ -1,9 +1,10 @@
 """Tests for configuration schema validation."""
 
-import pytest
 import tempfile
 from pathlib import Path
-import yaml
+
+import pytest
+from pydantic import ValidationError
 
 from library.config import Config
 
@@ -121,7 +122,7 @@ class TestConfigSchemaValidation:
         }
         
         # Should raise ValidationError due to Pydantic validation failure
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValidationError):
             Config.model_validate(invalid_config)
 
     def test_missing_required_fields_fails_validation(self):
@@ -145,7 +146,7 @@ class TestConfigSchemaValidation:
             # Missing required 'io', 'logging' fields
         }
         
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValidationError):
             Config.model_validate(incomplete_config)
 
     def test_invalid_enum_values_fail_validation(self):
@@ -193,7 +194,7 @@ class TestConfigSchemaValidation:
             }
         }
         
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValidationError):
             Config.model_validate(invalid_enum_config)
 
     def test_yaml_file_validation_with_schema(self):

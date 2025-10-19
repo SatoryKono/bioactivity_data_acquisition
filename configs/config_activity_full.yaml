@@ -17,6 +17,13 @@ sources:
       size_param: page_size
       size: 200
       max_pages: 50
+    batch:
+      enabled: true
+      size: 100
+      max_batches: null
+      parallel_workers: 4
+      id_field: activity_chembl_id
+      filter_param: activity_id__in
     http:
       base_url: https://www.ebi.ac.uk/chembl/api/data
       timeout_sec: 60.0
@@ -39,9 +46,12 @@ postprocess:
   qc:
     enabled: true
   correlation:
-    enabled: false
+    enabled: true
 determinism:
   column_order:
+    # Технические служебные поля
+    - source_system
+    - chembl_release
     # Основные поля
     - source
     - retrieved_at
@@ -103,6 +113,9 @@ determinism:
     - record_id
     - src_id
     - toid
+    # Хеш-поля для дедупликации
+    - hash_row
+    - hash_business_key
   sort:
     by:
       - source

@@ -1,9 +1,8 @@
 """Тесты для функции определения publication_date."""
 
 import pandas as pd
-import pytest
 
-from library.documents.pipeline import _determine_publication_date, _add_publication_date_column
+from library.documents.pipeline import _add_publication_date_column, _determine_publication_date
 
 
 class TestPublicationDate:

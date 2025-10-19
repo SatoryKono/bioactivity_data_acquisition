@@ -6,7 +6,7 @@ from .pipeline import AssayETLResult, run_assay_etl, write_assay_outputs
 
 __all__ = [
     "AssayConfig",
-    "AssayETLResult", 
+    "AssayETLResult",
     "AssayChEMBLClient",
     "load_assay_config",
     "run_assay_etl",

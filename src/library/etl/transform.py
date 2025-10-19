@@ -30,22 +30,23 @@ def _convert_to_nanomolar(df: pd.DataFrame, unit_conversion: dict[str, float]) -
     # Поддерживаем как старые, так и новые имена колонок из ChEMBL API
     units_col = "activity_units" if "activity_units" in df.columns else "standard_units"
     value_col = "activity_value" if "activity_value" in df.columns else "standard_value"
-    
+
     factors = df[units_col].map(unit_conversion)
-    
+
     # Пропускаем записи с неподдерживаемыми единицами (устанавливаем NaN)
     result = pd.Series(index=df.index, dtype=float)
     valid_mask = factors.notnull()
     result.loc[valid_mask] = df.loc[valid_mask, value_col].astype(float) * factors.loc[valid_mask]
     result.loc[~valid_mask] = pd.NA
-    
+
     # Логируем неподдерживаемые единицы, но не прерываем выполнение
     if factors.isnull().any():
         unknown = sorted(df.loc[factors.isnull(), units_col].unique())
         import structlog
+
         logger = structlog.get_logger()
         logger.warning(f"Skipping records with unsupported activity units: {', '.join(unknown)}")
-    
+
     return result
 
 
@@ -88,18 +89,18 @@ def normalize_bioactivity_data(
 
     normalized = validated.copy()
     normalized["retrieved_at"] = pd.to_datetime(normalized["retrieved_at"], utc=True)
-    
+
     # Маппим колонки из ChEMBL API в стандартный формат
     # compound_id удален - используется только для документов
     if "canonical_smiles" in normalized.columns:
         normalized = normalized.rename(columns={"canonical_smiles": "smiles"})
     if "target_pref_name" in normalized.columns:
         normalized = normalized.rename(columns={"target_pref_name": "target"})
-    
+
     # Преобразуем значения активности
     normalized["activity_value"] = _convert_to_nanomolar(normalized, transforms.unit_conversion)
     normalized["activity_unit"] = "nM"
-    
+
     # Удаляем старые колонки
     columns_to_drop = ["activity_units", "standard_units", "standard_value"]
     normalized = normalized.drop(columns=[col for col in columns_to_drop if col in normalized.columns], errors="ignore")
@@ -109,7 +110,7 @@ def normalize_bioactivity_data(
     # Добавляем остальные колонки в конец, сохраняя их
     other_columns = [col for col in normalized.columns if col not in desired_order]
     final_order = desired_order + other_columns
-    
+
     # Переупорядочиваем колонки, но сохраняем все
     if final_order:
         normalized = normalized[final_order]

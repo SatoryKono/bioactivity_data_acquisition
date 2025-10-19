@@ -5,20 +5,25 @@
 из-за строгих лимитов rate limiting.
 """
 
+import argparse
 import shutil
 from pathlib import Path
+
+from library.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 def toggle_semantic_scholar(enable: bool = True) -> bool:
     """Переключает Semantic Scholar API в конфигурации."""
-    
+
     # Получаем путь к корню проекта (на 3 уровня выше)
     project_root = Path(__file__).parent.parent.parent.parent
     config_dir = project_root / "configs"
     main_config = config_dir / "config.yaml"
     backup_config = config_dir / "config_with_semantic_scholar.yaml"
     no_scholar_config = config_dir / "config_no_semantic_scholar.yaml"
-    
+
     if enable:
         # Включаем Semantic Scholar
         if backup_config.exists():
@@ -35,7 +40,7 @@ def toggle_semantic_scholar(enable: bool = True) -> bool:
             # Создаем резервную копию текущей конфигурации
             shutil.copy2(main_config, backup_config)
             logger.info(f"[BACKUP] Создана резервная копия: {backup_config}")
-        
+
         if no_scholar_config.exists():
             shutil.copy2(no_scholar_config, main_config)
             logger.info("[OK] Semantic Scholar API отключен")
@@ -47,35 +52,35 @@ def toggle_semantic_scholar(enable: bool = True) -> bool:
 
 def show_status():
     """Показывает текущий статус конфигурации."""
-    
+
     # Получаем путь к корню проекта (на 3 уровня выше)
     project_root = Path(__file__).parent.parent.parent.parent
     config_dir = project_root / "configs"
     main_config = config_dir / "config.yaml"
     backup_config = config_dir / "config_with_semantic_scholar.yaml"
     no_scholar_config = config_dir / "config_no_semantic_scholar.yaml"
-    
+
     logger.info("[STATUS] Статус конфигурации:")
     logger.info(f"Основная конфигурация: {'[OK]' if main_config.exists() else '[MISSING]'}")
     logger.info(f"Резервная копия: {'[OK]' if backup_config.exists() else '[MISSING]'}")
     logger.info(f"Конфигурация без Semantic Scholar: {'[OK]' if no_scholar_config.exists() else '[MISSING]'}")
-    
+
     if main_config.exists():
         try:
-            with open(main_config, encoding='utf-8') as f:
+            with open(main_config, encoding="utf-8") as f:
                 content = f.read()
                 # Проверяем, есть ли незакомментированная секция semantic_scholar
-                lines = content.split('\n')
+                lines = content.split("\n")
                 semantic_enabled = False
                 for line in lines:
                     stripped = line.strip()
-                    if stripped.startswith('semantic_scholar:'):
+                    if stripped.startswith("semantic_scholar:"):
                         semantic_enabled = True
                         break
-                    elif stripped.startswith('# semantic_scholar:'):
+                    elif stripped.startswith("# semantic_scholar:"):
                         semantic_enabled = False
                         break
-                
+
                 if semantic_enabled:
                     logger.info("Semantic Scholar API: [ENABLED]")
                 else:
@@ -84,45 +89,42 @@ def show_status():
             logger.error(f"[ERROR] Не удалось прочитать конфигурацию: {e}")
 
 
-import argparse
-from library.logging_setup import get_logger
-
 def main():
     """Основная функция."""
-    logger = get_logger(__name__)
+    # logger уже инициализирован на уровне модуля
 
     parser = argparse.ArgumentParser(description="Переключение Semantic Scholar API")
     parser.add_argument("--enable", action="store_true", help="Включить Semantic Scholar API")
     parser.add_argument("--disable", action="store_true", help="Отключить Semantic Scholar API")
     parser.add_argument("--status", action="store_true", help="Показать статус конфигурации")
     parser.add_argument("--backup", action="store_true", help="Создать резервную копию текущей конфигурации")
-    
+
     args = parser.parse_args()
-    
+
     logger.info("[INFO] Управление конфигурацией Semantic Scholar API")
     logger.info("=" * 60)
-    
+
     if args.status:
         show_status()
         return
-    
+
     if args.backup:
         project_root = Path(__file__).parent.parent.parent.parent
         config_dir = project_root / "configs"
         main_config = config_dir / "config.yaml"
         backup_config = config_dir / "config_with_semantic_scholar.yaml"
-        
+
         if main_config.exists():
             shutil.copy2(main_config, backup_config)
             logger.info(f"[OK] Создана резервная копия: {backup_config}")
         else:
             logger.error("[ERROR] Основная конфигурация не найдена")
         return
-    
+
     if args.enable and args.disable:
         logger.error("[ERROR] Нельзя одновременно включить и отключить API")
         return
-    
+
     if not args.enable and not args.disable:
         logger.info("[INFO] Использование:")
         logger.info("  --enable   - включить Semantic Scholar API")
@@ -132,7 +134,7 @@ def main():
         print()
         show_status()
         return
-    
+
     if args.enable:
         success = toggle_semantic_scholar(True)
         if success:
@@ -148,10 +150,10 @@ def main():
             logger.info("[TIPS] Semantic Scholar отключен из-за строгих лимитов")
             logger.info("Пайплайн будет работать только с другими API:")
             logger.info("- ChEMBL")
-            logger.info("- Crossref") 
+            logger.info("- Crossref")
             logger.info("- OpenAlex")
             logger.info("- PubMed")
-    
+
     print()
     show_status()
 

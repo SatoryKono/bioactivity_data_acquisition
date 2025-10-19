@@ -70,68 +70,69 @@ logger = logging.getLogger(__name__)
 def _create_api_client(source: str, config: DocumentConfig) -> Any:
     """Create an API client for the specified source."""
     from library.config import RateLimitSettings, RetrySettings
-    
+
     # Get source-specific configuration
     source_config = config.sources.get(source)
     if not source_config:
         raise DocumentValidationError(f"Source '{source}' not found in configuration")
-    
+
     # Use source-specific timeout or fallback to global
     timeout = source_config.http.timeout_sec or config.http.global_.timeout_sec
     if source == "chembl":
         timeout = max(timeout, 60.0)  # At least 60 seconds for ChEMBL
-    
+
     # Merge headers: default + global + source-specific
     default_headers = _get_headers(source)
     headers = {**default_headers, **config.http.global_.headers, **source_config.http.headers}
-    
+
     # Process secret placeholders in headers
     processed_headers = {}
     for key, value in headers.items():
         if isinstance(value, str):
+
             def replace_placeholder(match):
                 secret_name = match.group(1)
                 env_var = os.environ.get(secret_name.upper())
                 return env_var if env_var is not None else match.group(0)
-            processed_value = re.sub(r'\{([^}]+)\}', replace_placeholder, value)
+
+            processed_value = re.sub(r"\{([^}]+)\}", replace_placeholder, value)
             # Only include header if the value is not empty after processing and not a placeholder
-            if (processed_value and processed_value.strip() and 
-                not processed_value.startswith('{') and not processed_value.endswith('}')):
+            if processed_value and processed_value.strip() and not processed_value.startswith("{") and not processed_value.endswith("}"):
                 processed_headers[key] = processed_value
         else:
             processed_headers[key] = value
     headers = processed_headers
-    
+
     # Use source-specific base_url or fallback to default
     base_url = source_config.http.base_url or _get_base_url(source)
-    
+
     # Use source-specific retry settings or fallback to global
     retry_settings = RetrySettings(
-        total=source_config.http.retries.get('total', config.http.global_.retries.total),
-        backoff_multiplier=source_config.http.retries.get('backoff_multiplier', config.http.global_.retries.backoff_multiplier)
+        total=source_config.http.retries.get("total", config.http.global_.retries.total),
+        backoff_multiplier=source_config.http.retries.get("backoff_multiplier", config.http.global_.retries.backoff_multiplier),
     )
-    
+
     # Create rate limit settings if configured
     rate_limit = None
     if source_config.rate_limit:
         # Convert various rate limit formats to max_calls/period
-        max_calls = source_config.rate_limit.get('max_calls')
-        period = source_config.rate_limit.get('period')
-        
+        max_calls = source_config.rate_limit.get("max_calls")
+        period = source_config.rate_limit.get("period")
+
         # If not in max_calls/period format, try to convert from other formats
         if max_calls is None or period is None:
-            requests_per_second = source_config.rate_limit.get('requests_per_second')
+            requests_per_second = source_config.rate_limit.get("requests_per_second")
             if requests_per_second is not None:
                 max_calls = 1
                 period = 1.0 / requests_per_second
             else:
                 # Skip rate limiting if we can't determine the format
                 rate_limit = None
-        
+
         # Create RateLimitSettings object if we have valid max_calls and period
         if max_calls is not None and period is not None:
             rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
-    
+
     # Create base API client config
     api_config = APIClientConfig(
         name=source,
@@ -141,7 +142,7 @@ def _create_api_client(source: str, config: DocumentConfig) -> Any:
         retries=retry_settings,
         rate_limit=rate_limit,
     )
-   
+
     if source == "chembl":
         return ChEMBLClient(api_config, timeout=timeout)
     elif source == "crossref":
@@ -174,53 +175,76 @@ def _get_headers(source: str) -> dict[str, str]:
         "User-Agent": "bioactivity-data-acquisition/0.1.0",
         "Accept": "application/json",  # All sources should accept JSON
     }
-    
+
     return headers
 
 
-def _extract_data_from_source(
-    source: str, 
-    client: Any, 
-    frame: pd.DataFrame, 
-    config: DocumentConfig
-) -> pd.DataFrame:
+def _extract_data_from_source(source: str, client: Any, frame: pd.DataFrame, config: DocumentConfig) -> pd.DataFrame:
     """Extract data from a specific source."""
     enriched_data = []
-    
+
     # Define default values for all possible columns to ensure they exist
     default_columns = {
         # ChEMBL columns
-        "chembl_title": None, "chembl_doi": None, "chembl_pmid": None,
-        "chembl_journal": None, "chembl_year": None, "chembl_volume": None, 
+        "chembl_title": None,
+        "chembl_doi": None,
+        "chembl_pmid": None,
+        "chembl_journal": None,
+        "chembl_year": None,
+        "chembl_volume": None,
         "chembl_issue": None,
-        # Crossref columns  
-        "crossref_doi": None, "crossref_title": None, "crossref_doc_type": None, "crossref_subject": None, 
+        # Crossref columns
+        "crossref_doi": None,
+        "crossref_title": None,
+        "crossref_doc_type": None,
+        "crossref_subject": None,
         "crossref_error": None,
         # OpenAlex columns
-        "openalex_doi": None, "openalex_title": None, "openalex_doc_type": None,
-        "openalex_crossref_doc_type": None, "openalex_year": None, 
+        "openalex_doi": None,
+        "openalex_title": None,
+        "openalex_doc_type": None,
+        "openalex_crossref_doc_type": None,
+        "openalex_year": None,
         "openalex_error": None,
         # PubMed columns
-        "pubmed_pmid": None, "pubmed_doi": None, "pubmed_article_title": None, 
-        "pubmed_abstract": None, "pubmed_journal": None, "pubmed_volume": None, 
-        "pubmed_issue": None, "pubmed_first_page": None, "pubmed_last_page": None, 
-        "pubmed_doc_type": None, "pubmed_mesh_descriptors": None, 
-        "pubmed_mesh_qualifiers": None, "pubmed_chemical_list": None,
-        "pubmed_year_completed": None, "pubmed_month_completed": None, 
-        "pubmed_day_completed": None, "pubmed_year_revised": None, 
-        "pubmed_month_revised": None, "pubmed_day_revised": None,
-        "pubmed_issn": None, "pubmed_error": None,
+        "pubmed_pmid": None,
+        "pubmed_doi": None,
+        "pubmed_article_title": None,
+        "pubmed_abstract": None,
+        "pubmed_journal": None,
+        "pubmed_volume": None,
+        "pubmed_issue": None,
+        "pubmed_first_page": None,
+        "pubmed_last_page": None,
+        "pubmed_doc_type": None,
+        "pubmed_mesh_descriptors": None,
+        "pubmed_mesh_qualifiers": None,
+        "pubmed_chemical_list": None,
+        "pubmed_year_completed": None,
+        "pubmed_month_completed": None,
+        "pubmed_day_completed": None,
+        "pubmed_year_revised": None,
+        "pubmed_month_revised": None,
+        "pubmed_day_revised": None,
+        "pubmed_issn": None,
+        "pubmed_error": None,
         # Semantic Scholar columns
-        "semantic_scholar_pmid": None, "semantic_scholar_doi": None, 
-        "semantic_scholar_semantic_scholar_id": None, "semantic_scholar_title": None,
-        "semantic_scholar_doc_type": None, "semantic_scholar_journal": None,
-        "semantic_scholar_external_ids": None, "semantic_scholar_abstract": None,
-        "semantic_scholar_issn": None, "semantic_scholar_authors": None,
+        "semantic_scholar_pmid": None,
+        "semantic_scholar_doi": None,
+        "semantic_scholar_semantic_scholar_id": None,
+        "semantic_scholar_title": None,
+        "semantic_scholar_doc_type": None,
+        "semantic_scholar_journal": None,
+        "semantic_scholar_external_ids": None,
+        "semantic_scholar_abstract": None,
+        "semantic_scholar_issn": None,
+        "semantic_scholar_authors": None,
         "semantic_scholar_error": None,
         # Common columns
-        "chembl_doc_type": None, "doi_key": None
+        "chembl_doc_type": None,
+        "doi_key": None,
     }
-    
+
     for _, row in frame.iterrows():
         try:
             # Start with the original row data and ensure all columns exist
@@ -229,10 +253,9 @@ def _extract_data_from_source(
             for key, default_value in default_columns.items():
                 if key not in row_data:
                     row_data[key] = default_value
-            
+
             if source == "chembl":
-                if (pd.notna(row.get("document_chembl_id")) and 
-                    str(row["document_chembl_id"]).strip()):
+                if pd.notna(row.get("document_chembl_id")) and str(row["document_chembl_id"]).strip():
                     data = client.fetch_by_doc_id(str(row["document_chembl_id"]).strip())
                     # Remove source from data to avoid overwriting
                     data.pop("source", None)
@@ -240,7 +263,7 @@ def _extract_data_from_source(
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-                    
+
             elif source == "crossref":
                 if pd.notna(row.get("doi")) and str(row["doi"]).strip():
                     data = client.fetch_by_doi(str(row["doi"]).strip())
@@ -256,7 +279,7 @@ def _extract_data_from_source(
                         # Always include error fields and non-None values
                         if value is not None or key.endswith("_error") or key == "degraded":
                             row_data[key] = value
-                    
+
             elif source == "openalex":
                 if pd.notna(row.get("doi")) and str(row["doi"]).strip():
                     data = client.fetch_by_doi(str(row["doi"]).strip())
@@ -270,7 +293,7 @@ def _extract_data_from_source(
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-                    
+
             elif source == "pubmed":
                 if pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
                     data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
@@ -278,7 +301,7 @@ def _extract_data_from_source(
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-                    
+
             elif source == "semantic_scholar":
                 if pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
                     data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
@@ -286,28 +309,27 @@ def _extract_data_from_source(
                     for key, value in data.items():
                         if value is not None:
                             row_data[key] = value
-            
+
             enriched_data.append(row_data)
-                    
+
         except Exception as exc:
             # Log error but continue processing other records
-            doc_id = row.get('document_chembl_id', 'unknown')
+            doc_id = row.get("document_chembl_id", "unknown")
             logger.error(f"Error extracting data from {source} for row {doc_id}: {exc}")
             logger.error(f"Error type: {type(exc).__name__}")
-            
+
             # Ensure error row also has all columns
             error_row = row.to_dict()
             error_row.update(default_columns)
-            
+
             # Set error flag for this source with more detailed error info
             error_msg = f"{type(exc).__name__}: {str(exc)}"
-            
+
             # Специальная обработка для ошибок rate limiting
-            if ("429" in str(exc) or "Rate limited" in str(exc) or 
-                "RateLimitError" in str(type(exc).__name__)):
+            if "429" in str(exc) or "Rate limited" in str(exc) or "RateLimitError" in str(type(exc).__name__):
                 error_msg = f"Rate limited by API: {str(exc)}"
                 logger.warning(f"Rate limiting detected for {source}, continuing with next record...")
-            
+
             if source == "crossref":
                 error_row["crossref_error"] = error_msg
             elif source == "openalex":
@@ -318,9 +340,9 @@ def _extract_data_from_source(
                 error_row["semantic_scholar_error"] = error_msg
             elif source == "chembl":
                 error_row["chembl_error"] = error_msg
-                
+
             enriched_data.append(error_row)
-    
+
     return pd.DataFrame(enriched_data)
 
 
@@ -340,42 +362,40 @@ def read_document_input(path: Path) -> pd.DataFrame:
 
 def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     normalised = frame.copy()
-    
+
     # Remove postcodes column if it exists (deprecated field)
-    if 'postcodes' in normalised.columns:
-        normalised = normalised.drop(columns=['postcodes'])
-    
+    if "postcodes" in normalised.columns:
+        normalised = normalised.drop(columns=["postcodes"])
+
     present = {column for column in normalised.columns}
     missing = _REQUIRED_COLUMNS - present
     if missing:
-        raise DocumentValidationError(
-            f"Input data is missing required columns: {', '.join(sorted(missing))}"
-        )
+        raise DocumentValidationError(f"Input data is missing required columns: {', '.join(sorted(missing))}")
     normalised["document_chembl_id"] = normalised["document_chembl_id"].astype(str).str.strip()
     normalised["doi"] = normalised["doi"].astype(str).str.strip()
     normalised["title"] = normalised["title"].astype(str).str.strip()
-    
+
     # Обрабатываем дополнительные поля из исходного CSV, если они присутствуют
     # Маппинг старых имен колонок на новые
     if "classification" in normalised.columns:
-        normalised["document_classification"] = pd.to_numeric(normalised["classification"], errors='coerce')
-    
+        normalised["document_classification"] = pd.to_numeric(normalised["classification"], errors="coerce")
+
     if "document_contains_external_links" in normalised.columns:
-        normalised["referenses_on_previous_experiments"] = normalised["document_contains_external_links"].astype('boolean')
-    
+        normalised["referenses_on_previous_experiments"] = normalised["document_contains_external_links"].astype("boolean")
+
     if "is_experimental_doc" in normalised.columns:
-        normalised["original_experimental_document"] = normalised["is_experimental_doc"].astype('boolean')
-    
+        normalised["original_experimental_document"] = normalised["is_experimental_doc"].astype("boolean")
+
     # Также обрабатываем поля, если они уже имеют правильные имена
     if "document_classification" in normalised.columns:
-        normalised["document_classification"] = pd.to_numeric(normalised["document_classification"], errors='coerce')
-    
+        normalised["document_classification"] = pd.to_numeric(normalised["document_classification"], errors="coerce")
+
     if "referenses_on_previous_experiments" in normalised.columns:
-        normalised["referenses_on_previous_experiments"] = normalised["referenses_on_previous_experiments"].astype('boolean')
-    
+        normalised["referenses_on_previous_experiments"] = normalised["referenses_on_previous_experiments"].astype("boolean")
+
     if "original_experimental_document" in normalised.columns:
-        normalised["original_experimental_document"] = normalised["original_experimental_document"].astype('boolean')
-    
+        normalised["original_experimental_document"] = normalised["original_experimental_document"].astype("boolean")
+
     normalised = normalised.sort_values("document_chembl_id").reset_index(drop=True)
     return normalised
 
@@ -383,25 +403,26 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
 def _determine_publication_date(row: pd.Series) -> str:
     """
     Определяет дату публикации на основе полей PubMed.
-    
+
     Логика определения:
-    1. Если заданы pubmed_year_completed, pubmed_month_completed, pubmed_day_completed - 
+    1. Если заданы pubmed_year_completed, pubmed_month_completed, pubmed_day_completed -
        используется YYYY-MM-DD из этих полей
     2. Если эти значения не заданы - проверяются pubmed_year_revised, pubmed_month_revised, pubmed_day_revised
     3. Если и эти значения пусты - проверяется pubmed_year_completed и используется YYYY-01-01
     4. В противном случае проверяется pubmed_year_revised и используется YYYY-01-01
     5. В противном случае 0000-01-01
-    
+
     Args:
         row: Строка DataFrame с данными документа
-        
+
     Returns:
         str: Дата в формате YYYY-MM-DD
     """
+
     def _is_valid_value(value) -> bool:
         """Проверяет, что значение не пустое и не NaN."""
         return pd.notna(value) and str(value).strip() != ""
-    
+
     def _format_date(year: str | int, month: str | int = "01", day: str | int = "01") -> str:
         """Форматирует дату в YYYY-MM-DD."""
         try:
@@ -411,35 +432,31 @@ def _determine_publication_date(row: pd.Series) -> str:
             return f"{year_str}-{month_str}-{day_str}"
         except (ValueError, TypeError):
             return "0000-01-01"
-    
+
     # Проверяем pubmed_year_completed, pubmed_month_completed, pubmed_day_completed
     year_completed = row.get("pubmed_year_completed")
     month_completed = row.get("pubmed_month_completed")
     day_completed = row.get("pubmed_day_completed")
-    
-    if (_is_valid_value(year_completed) and 
-        _is_valid_value(month_completed) and 
-        _is_valid_value(day_completed)):
+
+    if _is_valid_value(year_completed) and _is_valid_value(month_completed) and _is_valid_value(day_completed):
         return _format_date(year_completed, month_completed, day_completed)
-    
+
     # Проверяем pubmed_year_revised, pubmed_month_revised, pubmed_day_revised
     year_revised = row.get("pubmed_year_revised")
     month_revised = row.get("pubmed_month_revised")
     day_revised = row.get("pubmed_day_revised")
-    
-    if (_is_valid_value(year_revised) and 
-        _is_valid_value(month_revised) and 
-        _is_valid_value(day_revised)):
+
+    if _is_valid_value(year_revised) and _is_valid_value(month_revised) and _is_valid_value(day_revised):
         return _format_date(year_revised, month_revised, day_revised)
-    
+
     # Проверяем только pubmed_year_completed
     if _is_valid_value(year_completed):
         return _format_date(year_completed)
-    
+
     # Проверяем только pubmed_year_revised
     if _is_valid_value(year_revised):
         return _format_date(year_revised)
-    
+
     # По умолчанию
     return "0000-01-01"
 
@@ -447,42 +464,43 @@ def _determine_publication_date(row: pd.Series) -> str:
 def _add_publication_date_column(frame: pd.DataFrame) -> pd.DataFrame:
     """
     Добавляет колонку publication_date в DataFrame на основе полей PubMed.
-    
+
     Args:
         frame: DataFrame с данными документов
-        
+
     Returns:
         pd.DataFrame: DataFrame с добавленной колонкой publication_date
     """
     frame = frame.copy()
-    
+
     # Применяем функцию определения даты публикации к каждой строке
     frame["publication_date"] = frame.apply(_determine_publication_date, axis=1)
-    
+
     return frame
 
 
 def _determine_document_sortorder(row: pd.Series) -> str:
     """
     Определяет порядок сортировки документов на основе pubmed_issn, publication_date и index.
-    
+
     Логика определения:
     1. Каждый параметр приводится к строковому типу
     2. index дополняется символом "0" до общей длины в 6 символов
     3. Полученные строки склеиваются используя ":" как разделитель
-    
+
     Args:
         row: Строка DataFrame с данными документа
-        
+
     Returns:
         str: Строка для сортировки в формате "pubmed_issn:publication_date:index"
     """
+
     def _safe_str(value) -> str:
         """Безопасно преобразует значение в строку."""
         if pd.isna(value) or value is None:
             return ""
         return str(value).strip()
-    
+
     def _pad_index(index_str: str) -> str:
         """Дополняет index нулями до 6 символов."""
         if not index_str:
@@ -493,73 +511,123 @@ def _determine_document_sortorder(row: pd.Series) -> str:
             return str(int_value).zfill(6)
         except (ValueError, TypeError):
             return index_str.zfill(6)
-    
+
     # Получаем значения и преобразуем в строки
     pubmed_issn = _safe_str(row.get("pubmed_issn", ""))
     publication_date = _safe_str(row.get("publication_date", ""))
     index = _safe_str(row.get("index", ""))
-    
+
     # Дополняем index до 6 символов
     padded_index = _pad_index(index)
-    
+
     # Склеиваем строки с разделителем ":"
     sortorder = f"{pubmed_issn}:{publication_date}:{padded_index}"
-    
+
     return sortorder
 
 
 def _add_document_sortorder_column(frame: pd.DataFrame) -> pd.DataFrame:
     """
     Добавляет колонку document_sortorder в DataFrame на основе pubmed_issn, publication_date и index.
-    
+
     Args:
         frame: DataFrame с данными документов
-        
+
     Returns:
         pd.DataFrame: DataFrame с добавленной колонкой document_sortorder
     """
     frame = frame.copy()
-    
+
     # Применяем функцию определения порядка сортировки к каждой строке
     frame["document_sortorder"] = frame.apply(_determine_document_sortorder, axis=1)
-    
+
     return frame
 
 
 def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
     """Initialize all possible output columns with default values."""
-    
+
     # Define all possible columns that should exist in the output
     all_columns = {
         # Original ChEMBL fields
-        "document_chembl_id", "title", "doi", "document_pubmed_id", "chembl_doc_type", "journal", "year",
+        "document_chembl_id",
+        "title",
+        "doi",
+        "document_pubmed_id",
+        "chembl_doc_type",
+        "journal",
+        "year",
         # Legacy ChEMBL fields
-        "abstract", "pubmed_authors", "document_classification", "referenses_on_previous_experiments",
-        "first_page", "original_experimental_document", "issue", "last_page", "month", "volume",
+        "abstract",
+        "pubmed_authors",
+        "document_classification",
+        "referenses_on_previous_experiments",
+        "first_page",
+        "original_experimental_document",
+        "issue",
+        "last_page",
+        "month",
+        "volume",
         # Enriched fields from external sources
         # source column removed - not needed in final output
         # ChEMBL-specific fields
-        "chembl_title", "chembl_doi", "chembl_pmid", "chembl_journal", 
-        "chembl_year", "chembl_volume", "chembl_issue",
+        "chembl_title",
+        "chembl_doi",
+        "chembl_pmid",
+        "chembl_journal",
+        "chembl_year",
+        "chembl_volume",
+        "chembl_issue",
         # Crossref-specific fields
-        "crossref_doi", "crossref_title", "crossref_doc_type", "crossref_subject", "crossref_error",
+        "crossref_doi",
+        "crossref_title",
+        "crossref_doc_type",
+        "crossref_subject",
+        "crossref_error",
         # OpenAlex-specific fields
-        "openalex_doi", "openalex_title", "openalex_doc_type", 
-        "openalex_crossref_doc_type", "openalex_year", "openalex_error",
+        "openalex_doi",
+        "openalex_title",
+        "openalex_doc_type",
+        "openalex_crossref_doc_type",
+        "openalex_year",
+        "openalex_error",
         # PubMed-specific fields
-        "pubmed_pmid", "pubmed_doi", "pubmed_article_title", "pubmed_abstract",
-        "pubmed_journal", "pubmed_volume", "pubmed_issue", "pubmed_first_page", 
-        "pubmed_last_page", "pubmed_doc_type", "pubmed_mesh_descriptors", 
-        "pubmed_mesh_qualifiers", "pubmed_chemical_list", "pubmed_year_completed",
-        "pubmed_month_completed", "pubmed_day_completed", "pubmed_year_revised",
-        "pubmed_month_revised", "pubmed_day_revised", "pubmed_issn", "pubmed_error",
+        "pubmed_pmid",
+        "pubmed_doi",
+        "pubmed_article_title",
+        "pubmed_abstract",
+        "pubmed_journal",
+        "pubmed_volume",
+        "pubmed_issue",
+        "pubmed_first_page",
+        "pubmed_last_page",
+        "pubmed_doc_type",
+        "pubmed_mesh_descriptors",
+        "pubmed_mesh_qualifiers",
+        "pubmed_chemical_list",
+        "pubmed_year_completed",
+        "pubmed_month_completed",
+        "pubmed_day_completed",
+        "pubmed_year_revised",
+        "pubmed_month_revised",
+        "pubmed_day_revised",
+        "pubmed_issn",
+        "pubmed_error",
         # Semantic Scholar-specific fields
-        "semantic_scholar_pmid", "semantic_scholar_doi", "semantic_scholar_semantic_scholar_id",
-        "semantic_scholar_title", "semantic_scholar_doc_type", "semantic_scholar_journal", 
-        "semantic_scholar_external_ids", "semantic_scholar_abstract", "semantic_scholar_issn",
-        "semantic_scholar_authors", "semantic_scholar_error",
+        "semantic_scholar_pmid",
+        "semantic_scholar_doi",
+        "semantic_scholar_semantic_scholar_id",
+        "semantic_scholar_title",
+        "semantic_scholar_doc_type",
+        "semantic_scholar_journal",
+        "semantic_scholar_external_ids",
+        "semantic_scholar_abstract",
+        "semantic_scholar_issn",
+        "semantic_scholar_authors",
+        "semantic_scholar_error",
         # Common fields
-        "doi_key", "index",
+        "doi_key",
+        "index",
         # Citation field
         "document_citation",
         # Publication date field
@@ -567,9 +635,12 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         # Document sort order field
         "document_sortorder",
         # Technical fields
-        "source_system", "chembl_release", "hash_row", "hash_business_key"
+        "source_system",
+        "chembl_release",
+        "hash_row",
+        "hash_business_key",
     }
-    
+
     # Add missing columns with default values
     for column in all_columns:
         if column not in frame.columns:
@@ -578,16 +649,16 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
                 frame[column] = range(len(frame))
             else:
                 frame[column] = None
-    
+
     # Ensure chembl_doc_type has a default value for all rows
     if "chembl_doc_type" in frame.columns:
         frame["chembl_doc_type"] = frame["chembl_doc_type"].fillna("PUBLICATION")
-    
+
     # Ensure index column has proper values (replace None values with row indices)
     if "index" in frame.columns:
         # Заменяем None значения на реальные индексы строк
         frame["index"] = frame["index"].fillna(pd.Series(range(len(frame)), index=frame.index))
-    
+
     return frame
 
 
@@ -615,20 +686,20 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     # Initialize all possible columns with default values
     enriched_frame = _initialize_all_columns(normalised.copy())
     enabled_sources = config.enabled_sources()
-    
+
     for source in enabled_sources:
         try:
             logger.info(f"Extracting data from {source}...")
             client = _create_api_client(source, config)
-            
+
             # Для источников с высоким rate limiting добавляем дополнительную задержку
             if source in ["semantic_scholar", "openalex"]:
                 import os
                 import time
-                
+
                 if source == "semantic_scholar":
                     # Проверяем, есть ли API ключ для Semantic Scholar
-                    api_key = os.environ.get('SEMANTIC_SCHOLAR_API_KEY')
+                    api_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
                     if api_key:
                         logger.info(f"Using Semantic Scholar with API key: {api_key[:10]}...")
                         logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
@@ -647,16 +718,15 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                 else:
                     logger.info(f"Using conservative rate limiting for {source}")
                     time.sleep(2)  # Дополнительная задержка для OpenAlex
-            
+
             enriched_frame = _extract_data_from_source(source, client, enriched_frame, config)
-            
+
             # Log success statistics
             if source == "chembl":
                 success_count = enriched_frame["chembl_title"].notna().sum()
             elif source == "crossref":
                 # Count successful records (either with title or with graceful degradation)
-                success_count = (enriched_frame["crossref_title"].notna() | 
-                               enriched_frame["crossref_error"].notna()).sum()
+                success_count = (enriched_frame["crossref_title"].notna() | enriched_frame["crossref_error"].notna()).sum()
             elif source == "openalex":
                 success_count = enriched_frame["openalex_title"].notna().sum()
             elif source == "pubmed":
@@ -665,24 +735,24 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                 success_count = enriched_frame["semantic_scholar_pmid"].notna().sum()
             else:
                 success_count = 0
-                
-            logger.info(f"Successfully extracted data from {source}: "
-                       f"{success_count}/{len(enriched_frame)} records")
-                  
+
+            logger.info(f"Successfully extracted data from {source}: {success_count}/{len(enriched_frame)} records")
+
             # Для источников с высоким rate limiting добавляем задержку после завершения
             if source in ["semantic_scholar", "openalex"]:
                 logger.info("Rate limiting controlled by configuration...")
                 import time
+
                 if source == "semantic_scholar":
                     # Убираем избыточную задержку - rate limiter уже контролирует это
                     logger.info("Semantic Scholar: Rate limiting handled by configuration.")
                 else:
                     time.sleep(5)  # Задержка для OpenAlex
-                
+
         except Exception as exc:
             logger.warning(f"Failed to extract data from {source}: {exc}")
             logger.warning(f"Error type: {type(exc).__name__}")
-            
+
             # Специальная информация для Semantic Scholar
             if source == "semantic_scholar":
                 logger.warning("=" * 80)
@@ -693,13 +763,13 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                 logger.warning("   sources.semantic_scholar.enabled: false")
                 logger.warning("3. The pipeline will continue with other sources.")
                 logger.warning("=" * 80)
-            
+
             # Continue with other sources even if one fails
 
     # Добавляем колонку publication_date на основе полей PubMed
     logger.info("Добавляем колонку publication_date...")
     enriched_frame = _add_publication_date_column(enriched_frame)
-    
+
     # Добавляем колонку document_sortorder на основе pubmed_issn, publication_date и index
     logger.info("Добавляем колонку document_sortorder...")
     enriched_frame = _add_document_sortorder_column(enriched_frame)
@@ -736,13 +806,13 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     # Генерация хешей
     enriched_frame["hash_business_key"] = enriched_frame["document_chembl_id"].apply(_calculate_document_business_key_hash)
     enriched_frame["hash_row"] = enriched_frame.apply(_calculate_document_row_hash, axis=1)
-    
+
     # Calculate QC metrics
     qc_metrics = [
         {"metric": "row_count", "value": int(len(enriched_frame))},
         {"metric": "enabled_sources", "value": len(enabled_sources)},
     ]
-    
+
     # Add source-specific metrics based on non-null fields
     for source in enabled_sources:
         if source == "chembl":
@@ -751,10 +821,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             source_data_count = len(enriched_frame[enriched_frame["openalex_title"].notna()])
         elif source == "crossref":
             # Count records with either title or graceful degradation
-            source_data_count = len(enriched_frame[
-                enriched_frame["crossref_title"].notna() | 
-                enriched_frame["crossref_error"].notna()
-            ])
+            source_data_count = len(enriched_frame[enriched_frame["crossref_title"].notna() | enriched_frame["crossref_error"].notna()])
         elif source == "pubmed":
             if "pubmed_pmid" in enriched_frame.columns:
                 source_data_count = len(enriched_frame[enriched_frame["pubmed_pmid"].notna()])
@@ -762,43 +829,35 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                 source_data_count = 0
         elif source == "semantic_scholar":
             if "semantic_scholar_pmid" in enriched_frame.columns:
-                source_data_count = len(
-                    enriched_frame[enriched_frame["semantic_scholar_pmid"].notna()]
-                )
+                source_data_count = len(enriched_frame[enriched_frame["semantic_scholar_pmid"].notna()])
             else:
                 source_data_count = 0
         else:
             source_data_count = 0
         qc_metrics.append({"metric": f"{source}_records", "value": source_data_count})
-    
+
     qc = pd.DataFrame(qc_metrics)
 
     # Выполняем корреляционный анализ если включен в конфигурации
     correlation_analysis = None
     correlation_reports = None
     correlation_insights = None
-    
+
     # Проверяем, включен ли корреляционный анализ в конфигурации
-    if (hasattr(config, 'postprocess') and 
-        hasattr(config.postprocess, 'correlation') and 
-        config.postprocess.correlation.enabled):
+    if hasattr(config, "postprocess") and hasattr(config.postprocess, "correlation") and config.postprocess.correlation.enabled:
         try:
             logger.info("Выполняем корреляционный анализ документов...")
-            
+
             # Подготавливаем данные для корреляционного анализа
-            analysis_df = prepare_data_for_correlation_analysis(
-                enriched_frame, 
-                data_type="documents", 
-                logger=logger
-            )
-            
+            analysis_df = prepare_data_for_correlation_analysis(enriched_frame, data_type="documents", logger=logger)
+
             # Выполняем корреляционный анализ
             correlation_analysis = build_enhanced_correlation_analysis(analysis_df, logger)
             correlation_reports = build_enhanced_correlation_reports(analysis_df, logger)
             correlation_insights = build_correlation_insights(analysis_df, logger)
-            
+
             logger.info(f"Корреляционный анализ завершен. Найдено {len(correlation_insights)} инсайтов.")
-            
+
         except Exception as exc:
             logger.warning(f"Ошибка при выполнении корреляционного анализа: {exc}")
             logger.warning(f"Тип ошибки: {type(exc).__name__}")
@@ -813,10 +872,10 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
             "total_documents": len(enriched_frame),
             "sources_processed": len(enabled_sources),
             "correlation_analysis_enabled": correlation_analysis is not None,
-            "correlation_insights_count": len(correlation_insights) if correlation_insights else 0
-        }
+            "correlation_insights_count": len(correlation_insights) if correlation_insights else 0,
+        },
     }
-    
+
     # Добавляем статистику по источникам
     for source in enabled_sources:
         if source == "chembl":
@@ -824,10 +883,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         elif source == "openalex":
             source_data_count = len(enriched_frame[enriched_frame["openalex_title"].notna()])
         elif source == "crossref":
-            source_data_count = len(enriched_frame[
-                enriched_frame["crossref_title"].notna() | 
-                enriched_frame["crossref_error"].notna()
-            ])
+            source_data_count = len(enriched_frame[enriched_frame["crossref_title"].notna() | enriched_frame["crossref_error"].notna()])
         elif source == "pubmed":
             if "pubmed_pmid" in enriched_frame.columns:
                 source_data_count = len(enriched_frame[enriched_frame["pubmed_pmid"].notna()])
@@ -835,29 +891,20 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
                 source_data_count = 0
         elif source == "semantic_scholar":
             if "semantic_scholar_pmid" in enriched_frame.columns:
-                source_data_count = len(
-                    enriched_frame[enriched_frame["semantic_scholar_pmid"].notna()]
-                )
+                source_data_count = len(enriched_frame[enriched_frame["semantic_scholar_pmid"].notna()])
             else:
                 source_data_count = 0
         else:
             source_data_count = 0
-        
+
         meta["extraction_parameters"][f"{source}_records"] = source_data_count
 
     return DocumentETLResult(
-        documents=enriched_frame, 
-        qc=qc,
-        meta=meta,
-        correlation_analysis=correlation_analysis,
-        correlation_reports=correlation_reports,
-        correlation_insights=correlation_insights
+        documents=enriched_frame, qc=qc, meta=meta, correlation_analysis=correlation_analysis, correlation_reports=correlation_reports, correlation_insights=correlation_insights
     )
 
 
-def write_document_outputs(
-    result: DocumentETLResult, output_dir: Path, date_tag: str, config: DocumentConfig | None = None
-) -> dict[str, Path]:
+def write_document_outputs(result: DocumentETLResult, output_dir: Path, date_tag: str, config: DocumentConfig | None = None) -> dict[str, Path]:
     """Persist ETL artefacts to disk and return the generated paths."""
 
     try:
@@ -875,58 +922,58 @@ def write_document_outputs(
             documents_normalized = normalize_journal_columns(result.documents)
         else:
             documents_normalized = result.documents
-        
+
         # Валидируем данные из различных источников
         from library.tools.data_validator import validate_all_fields
+
         documents_validated = validate_all_fields(documents_normalized)
-        
+
         # Добавляем колонку с литературными ссылками после валидации (если включено)
         if config is not None and config.postprocess.citation_formatting.enabled:
             # Получаем маппинг колонок из конфигурации, если он есть
-            column_mapping = getattr(config.postprocess.citation_formatting, 'columns', None)
+            column_mapping = getattr(config.postprocess.citation_formatting, "columns", None)
             documents_with_citations = add_citation_column(documents_validated, column_mapping)
         else:
             documents_with_citations = documents_validated
-        
+
         # Используем готовую функцию детерминистического сохранения
         if config is not None:
             from library.etl.load import write_deterministic_csv
+
             write_deterministic_csv(
                 documents_with_citations,
                 documents_path,
                 determinism=config.determinism,
-                output=None  # Используем fallback настройки
+                output=None,  # Используем fallback настройки
             )
         else:
             # Fallback для случаев, когда конфигурация не передана
             documents_with_citations.to_csv(documents_path, index=False)
-        
+
         # Сохраняем QC данные также с детерминистическим порядком
         if config is not None:
             write_deterministic_csv(
                 result.qc,
                 qc_path,
                 determinism=config.determinism,
-                output=None  # Используем fallback настройки
+                output=None,  # Используем fallback настройки
             )
         else:
             result.qc.to_csv(qc_path, index=False)
-        
+
         # Save metadata
         import yaml
-        with open(meta_path, 'w', encoding='utf-8') as f:
+
+        with open(meta_path, "w", encoding="utf-8") as f:
             yaml.dump(result.meta, f, default_flow_style=False, allow_unicode=True)
-        
+
         # Add file checksums to metadata
-        result.meta["file_checksums"] = {
-            "csv": _calculate_checksum(documents_path),
-            "qc": _calculate_checksum(qc_path)
-        }
-        
+        result.meta["file_checksums"] = {"csv": _calculate_checksum(documents_path), "qc": _calculate_checksum(qc_path)}
+
         # Update metadata file with checksums
-        with open(meta_path, 'w', encoding='utf-8') as f:
+        with open(meta_path, "w", encoding="utf-8") as f:
             yaml.dump(result.meta, f, default_flow_style=False, allow_unicode=True)
-            
+
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise DocumentIOError(f"Failed to write outputs: {exc}") from exc
 
@@ -937,24 +984,25 @@ def write_document_outputs(
         try:
             correlation_dir = output_dir / f"documents_correlation_report_{date_tag}"
             correlation_dir.mkdir(exist_ok=True)
-            
+
             # Сохраняем каждый тип корреляционного отчета
             for report_name, report_df in result.correlation_reports.items():
                 if not report_df.empty:
                     report_path = correlation_dir / f"{report_name}.csv"
                     report_df.to_csv(report_path, index=True)
                     outputs[f"correlation_{report_name}"] = report_path
-            
+
             # Сохраняем инсайты как JSON
             if result.correlation_insights:
                 import json
+
                 insights_path = correlation_dir / "correlation_insights.json"
-                with open(insights_path, 'w', encoding='utf-8') as f:
+                with open(insights_path, "w", encoding="utf-8") as f:
                     json.dump(result.correlation_insights, f, ensure_ascii=False, indent=2)
                 outputs["correlation_insights"] = insights_path
-            
+
             logger.info(f"Корреляционные отчеты сохранены в: {correlation_dir}")
-            
+
         except Exception as exc:
             logger.warning(f"Ошибка при сохранении корреляционных отчетов: {exc}")
             logger.warning(f"Тип ошибки: {type(exc).__name__}")

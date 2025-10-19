@@ -6,6 +6,7 @@ from .normalize import (
     normalize_query_frame,
     to_lc_stripped,
 )
+
 # write_deterministic_csv is imported from library.etl.load
 
 __all__ = [

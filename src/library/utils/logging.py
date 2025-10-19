@@ -5,15 +5,15 @@ This module is deprecated. Use library.logging_setup instead.
 
 from __future__ import annotations
 
-import logging
-from typing import Any, cast
 import warnings
+from typing import Any
 
-import structlog
 from structlog.stdlib import BoundLogger
 
+from library.logging_setup import bind_stage as _bind_stage
+
 # Import the new unified logging setup
-from library.logging_setup import configure_logging as _configure_logging, bind_stage as _bind_stage
+from library.logging_setup import configure_logging as _configure_logging
 
 
 def configure_logging(level: str = "INFO") -> BoundLogger:
@@ -23,11 +23,7 @@ def configure_logging(level: str = "INFO") -> BoundLogger:
     This function is kept for backward compatibility.
     """
 
-    warnings.warn(
-        "library.utils.logging.configure_logging is deprecated. Use library.logging_setup.configure_logging instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
+    warnings.warn("library.utils.logging.configure_logging is deprecated. Use library.logging_setup.configure_logging instead.", DeprecationWarning, stacklevel=2)
 
     return _configure_logging(level=level)
 
@@ -39,11 +35,7 @@ def bind_stage(logger: BoundLogger, stage: str, **extra: Any) -> BoundLogger:
     This function is kept for backward compatibility.
     """
 
-    warnings.warn(
-        "library.utils.logging.bind_stage is deprecated. Use library.logging_setup.bind_stage instead.",
-        DeprecationWarning,
-        stacklevel=2
-    )
+    warnings.warn("library.utils.logging.bind_stage is deprecated. Use library.logging_setup.bind_stage instead.", DeprecationWarning, stacklevel=2)
 
     return _bind_stage(logger, stage, **extra)
 

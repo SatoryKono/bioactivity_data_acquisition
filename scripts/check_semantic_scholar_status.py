@@ -5,11 +5,19 @@
 и есть ли проблемы с rate limiting.
 """
 
-import sys
+import argparse
 import os
+import sys
 import time
+from pathlib import Path
 
 import requests
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+from library.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 def check_api_status(api_key: str | None = None, test_pmid: str = "7154002") -> dict:
@@ -110,7 +118,7 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
     
     for i in range(min(num_requests, len(test_pmids))):
         pmid = test_pmids[i]
-        logger.info(f"  Запрос {i+1}/{num_requests} (PMID: {pmid})...", end=" ")
+        logger.info(f"  Запрос {i+1}/{num_requests} (PMID: {pmid})...")
         
         try:
             start_time = time.time()
@@ -172,16 +180,9 @@ def test_multiple_requests(api_key: str | None = None, num_requests: int = 5) ->
     }
 
 
-import argparse
-from pathlib import Path
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from library.logging_setup import get_logger
-
 def main():
     """Основная функция."""
-    logger = get_logger(__name__)
+    # logger уже инициализирован на уровне модуля
 
     parser = argparse.ArgumentParser(description="Быстрая проверка Semantic Scholar API")
     parser.add_argument("--test-limits", action="store_true", help="Тестировать лимиты API")

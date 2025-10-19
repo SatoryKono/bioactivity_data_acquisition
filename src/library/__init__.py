@@ -1,7 +1,8 @@
 """Public interface for the bioactivity ETL pipeline."""
+
 from __future__ import annotations
 
-from library.cli import app, main, ExitCode
+from library.cli import app, main
 from library.config import (
     APIClientConfig,
     Config,
@@ -62,9 +63,9 @@ from library.etl.run import run_pipeline
 from library.etl.transform import normalize_bioactivity_data
 from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
 from library.scripts_base import DeprecatedScriptWrapper, create_deprecated_script_wrapper
+from library.telemetry import get_current_trace_id, setup_telemetry, traced_operation
 from library.utils import *  # noqa: F403
 from library.utils import __all__ as _utils_all
-from library.telemetry import setup_telemetry, traced_operation, get_current_trace_id
 
 __all__ = [
     "ALLOWED_SOURCES",

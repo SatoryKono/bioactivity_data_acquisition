@@ -1,4 +1,5 @@
 """Base utilities shared by all HTTP clients."""
+
 from __future__ import annotations
 
 import json
@@ -52,10 +53,7 @@ class RateLimiter:
             while self._timestamps and now - self._timestamps[0] >= self._config.period:
                 self._timestamps.popleft()
             if len(self._timestamps) >= self._config.max_calls:
-                raise RateLimitError(
-                    f"rate limit exceeded: {self._config.max_calls} calls per "
-                    f"{self._config.period}s"
-                )
+                raise RateLimitError(f"rate limit exceeded: {self._config.max_calls} calls per {self._config.period}s")
             self._timestamps.append(now)
 
 
@@ -86,40 +84,32 @@ class BaseApiClient:
             self.timeout = config.timeout
         else:
             # Set longer timeouts for slow APIs
-            if 'semanticscholar' in self.base_url.lower():
+            if "semanticscholar" in self.base_url.lower():
                 self.timeout = 60.0  # 60 seconds for Semantic Scholar
-            elif 'pubmed' in self.base_url.lower():
+            elif "pubmed" in self.base_url.lower():
                 self.timeout = 45.0  # 45 seconds for PubMed
             else:
                 self.timeout = 30.0  # 30 seconds default
-        self.max_retries = (
-            max_retries if max_retries is not None else max(1, config.retries.total)
-        )
+        self.max_retries = max_retries if max_retries is not None else max(1, config.retries.total)
         self.default_headers = {**config.headers}
         if default_headers:
             self.default_headers.update(default_headers)
         self.logger = get_logger(self.__class__.__name__, base_url=self.base_url)
-        
+
         # Initialize fallback manager if not provided
         if fallback_manager is None:
-            fallback_config = FallbackConfig(
-                max_retries=max(3, self.max_retries),
-                base_delay=1.0,
-                max_delay=60.0,
-                backoff_multiplier=2.0,
-                jitter=True
-            )
+            fallback_config = FallbackConfig(max_retries=max(3, self.max_retries), base_delay=1.0, max_delay=60.0, backoff_multiplier=2.0, jitter=True)
             fallback_strategy = AdaptiveFallbackStrategy(fallback_config)
             self.fallback_manager = FallbackManager(fallback_strategy)
         else:
             self.fallback_manager = fallback_manager
-        
+
         # Initialize circuit breaker if not provided
         if circuit_breaker is None:
             self.circuit_breaker = APICircuitBreaker(self.config.name)
         else:
             self.circuit_breaker = circuit_breaker
-        
+
         # Initialize degradation manager
         self.degradation_manager = get_degradation_manager()
 
@@ -141,7 +131,7 @@ class BaseApiClient:
             """Определяет, когда прекратить повторные попытки."""
             if isinstance(exc, requests.exceptions.HTTPError):
                 # Для ошибок 429 (rate limiting) продолжаем повторные попытки
-                if hasattr(exc, 'response') and exc.response is not None:
+                if hasattr(exc, "response") and exc.response is not None:
                     status_code = exc.response.status_code
                     if status_code == 429:
                         return False  # Не прекращаем попытки для 429
@@ -177,13 +167,13 @@ class BaseApiClient:
                     error_msg = str(e).replace("%", "%%")
                     self.logger.warning(f"Rate limit hit: {error_msg}")
                     # Use config-based delay instead of hardcoded delay
-                    if hasattr(self.config, 'rate_limit') and self.config.rate_limit:
+                    if hasattr(self.config, "rate_limit") and self.config.rate_limit:
                         delay = self.config.rate_limit.period + random.uniform(0, 1)  # noqa: S311
                     else:
                         delay = 5.0 + random.uniform(0, 1)  # Default 5-6 seconds with jitter  # noqa: S311
                     time.sleep(delay)
                     self.rate_limiter.acquire()
-            
+
             return _call()
 
         wait_gen = partial(backoff.expo, factor=self.config.retries.backoff_multiplier)
@@ -193,7 +183,7 @@ class BaseApiClient:
             max_tries=self.max_retries,
             giveup=_giveup,
         )(_call_with_rate_limit)
-        
+
         # Use circuit breaker to protect the request
         return self.circuit_breaker.call(sender)  # type: ignore
 
@@ -207,11 +197,12 @@ class BaseApiClient:
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Make a request with fallback strategy for handling errors."""
+
         def _make_request():
             return self._request(method, path, expected_status=expected_status, headers=headers, **kwargs)
-        
+
         return self.fallback_manager.execute_with_fallback(_make_request)
-    
+
     def _request_with_graceful_degradation(
         self,
         method: str,
@@ -224,20 +215,12 @@ class BaseApiClient:
     ) -> dict[str, Any]:
         """Make a request with graceful degradation fallback."""
         try:
-            return self._request_with_fallback(
-                method, path, expected_status=expected_status, headers=headers, **kwargs
-            )
+            return self._request_with_fallback(method, path, expected_status=expected_status, headers=headers, **kwargs)
         except ApiClientError as e:
             # Check if we should degrade gracefully
             if self.degradation_manager.should_degrade(self.config.name, e):
-                self.logger.warning(
-                    f"API {self.config.name} failed, using graceful degradation: {e}"
-                )
-                return self.degradation_manager.get_fallback_data(
-                    self.config.name, 
-                    original_request_data or {},
-                    e
-                )
+                self.logger.warning(f"API {self.config.name} failed, using graceful degradation: {e}")
+                return self.degradation_manager.get_fallback_data(self.config.name, original_request_data or {}, e)
             else:
                 # Re-raise the error if degradation is not appropriate
                 raise
@@ -285,9 +268,9 @@ class BaseApiClient:
         if response.status_code != expected_status:
             # Ограничиваем вывод текста ответа для HTML ошибок
             response_text = response.text
-            if response_text.startswith('<!DOCTYPE html>') or response_text.startswith('<html'):
+            if response_text.startswith("<!DOCTYPE html>") or response_text.startswith("<html"):
                 response_text = f"HTML error page ({len(response_text)} characters)"
-            
+
             self.logger.warning(
                 "unexpected_status",
                 status_code=response.status_code,
@@ -296,10 +279,10 @@ class BaseApiClient:
             )
             add_span_attribute("error", True)
             add_span_attribute("error.type", "unexpected_status")
-            
+
             # Специальная обработка для ошибок rate limiting (429)
             if response.status_code == 429:
-                retry_after = response.headers.get('Retry-After')
+                retry_after = response.headers.get("Retry-After")
                 if retry_after:
                     try:
                         wait_time = int(retry_after)
@@ -315,13 +298,12 @@ class BaseApiClient:
                         # Используем консервативную задержку 30 секунд
                         self.logger.info("Using conservative 30-second delay")
                         time.sleep(30)
-                
+
                 raise ApiClientError(
-                    f"Rate limited by API (status {response.status_code}). "
-                    f"Message: {response.text}",
+                    f"Rate limited by API (status {response.status_code}). Message: {response.text}",
                     status_code=response.status_code,
                 )
-            
+
             raise ApiClientError(
                 f"unexpected status code {response.status_code}",
                 status_code=response.status_code,
@@ -332,18 +314,14 @@ class BaseApiClient:
             self.logger.debug(f"JSON response received: {type(payload)}")
         except json.JSONDecodeError as exc:
             # Проверяем, не является ли ответ XML (например, от ChEMBL API)
-            content_type = response.headers.get('content-type', '').lower()
-            if 'xml' in content_type:
-                self.logger.info(
-                    "xml_response_received",
-                    content_type=content_type,
-                    url=url,
-                    message="API returned XML, attempting to parse"
-                )
+            content_type = response.headers.get("content-type", "").lower()
+            if "xml" in content_type:
+                self.logger.info("xml_response_received", content_type=content_type, url=url, message="API returned XML, attempting to parse")
                 # Пытаемся парсить XML
                 try:
                     # Use defusedxml for safe XML parsing
                     from defusedxml.ElementTree import fromstring as safe_fromstring
+
                     root = safe_fromstring(response.text)
                     payload = self._xml_to_dict(root)
                 except Exception as xml_exc:
@@ -361,11 +339,11 @@ class BaseApiClient:
     def _xml_to_dict(self, element) -> dict[str, Any]:
         """Преобразует XML элемент в словарь."""
         result = {}
-        
+
         # Обрабатываем атрибуты
         if element.attrib:
             result.update(element.attrib)
-        
+
         # Обрабатываем дочерние элементы
         for child in element:
             child_dict = self._xml_to_dict(child)
@@ -376,9 +354,9 @@ class BaseApiClient:
                 result[child.tag].append(child_dict)
             else:
                 result[child.tag] = child_dict
-        
+
         # Если нет дочерних элементов и атрибутов, возвращаем текст
         if not result and element.text:
             return element.text.strip()
-        
+
         return result

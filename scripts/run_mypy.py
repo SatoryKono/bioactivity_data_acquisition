@@ -32,7 +32,7 @@ def main():
     
     # Запускаем mypy из директории src
     try:
-        result = subprocess.run(cmd, cwd=src_dir, check=False)
+        result = subprocess.run(cmd, cwd=src_dir, check=False)  # noqa: S603
         sys.exit(result.returncode)
     except KeyboardInterrupt:
         print("\nПрервано пользователем", file=sys.stderr)

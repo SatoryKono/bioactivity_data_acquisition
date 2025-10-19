@@ -1,14 +1,12 @@
 """Integration tests for the complete ETL pipeline."""
 
-import pytest
-import pandas as pd
-from pathlib import Path
-import tempfile
-import os
 
-from library.documents.pipeline import run_document_etl
-from library.documents.config import load_document_config
+import pandas as pd
+import pytest
+from pydantic import ValidationError
+
 from library.config import Config
+from library.documents.pipeline import run_document_etl
 
 
 @pytest.mark.integration
@@ -168,7 +166,7 @@ class TestPipelineIntegration:
         }
         
         # Should raise validation error
-        with pytest.raises(Exception):  # Could be ValidationError or ValueError
+        with pytest.raises((ValidationError, ValueError)):
             Config.model_validate(invalid_config_data)
 
     def test_pipeline_with_different_sources(self, integration_config, temp_output_dir, test_documents_csv, skip_if_no_network, skip_if_no_api_key):

@@ -5,15 +5,22 @@
 и предупреждает о приближении к лимитам.
 """
 
-import sys
+import argparse
 import json
 import os
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import requests
+
+# Добавляем путь к src для импорта пакета library
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+from library.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 class PubMedMonitor:
@@ -216,16 +223,16 @@ class PubMedMonitor:
         try:
             while time.time() < end_time:
                 timestamp = datetime.now().strftime("%H:%M:%S")
-                logger.info(f"[{timestamp}] Проверяем API...", end=" ")
+                logger.info(f"[{timestamp}] Проверяем API...")
                 
                 result = self.check_rate_limits()
                 results.append(result)
                 
                 if result['current_status'] == 'healthy':
-                    logger.info("✅ OK", end="")
+                    logger.info("✅ OK")
                     
                     if 'response_time_ms' in result:
-                        logger.info(f" ({result['response_time_ms']:.0f}ms)", end="")
+                        logger.info(f" ({result['response_time_ms']:.0f}ms)")
                     
                     if 'usage_percent' in result:
                         status_emoji = {
@@ -233,7 +240,7 @@ class PubMedMonitor:
                             'warning': '🟡', 
                             'critical': '🔴'
                         }
-                        logger.info(f" {status_emoji.get(result['status'], '⚪')} {result['usage_percent']}%", end="")
+                        logger.info(f" {status_emoji.get(result['status'], '⚪')} {result['usage_percent']}%")
                 else:
                     logger.error("❌ ERROR")
                     if 'error' in result:
@@ -313,17 +320,9 @@ class PubMedMonitor:
             logger.info("💡 Получите API ключ для увеличения лимитов:")
             logger.info("   https://www.ncbi.nlm.nih.gov/account/")
             logger.info("   Лимиты: 3 запроса/сек без ключа, 10 запросов/сек с ключом")
-
-
-import argparse
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from library.logging_setup import get_logger
-
 def main():
     """Основная функция."""
-    logger = get_logger(__name__)
+    # logger уже инициализирован на уровне модуля
 
     parser = argparse.ArgumentParser(description="Мониторинг PubMed E-utilities API")
     parser.add_argument("--single", action="store_true", help="Выполнить одну проверку")

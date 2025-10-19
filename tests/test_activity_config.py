@@ -35,6 +35,6 @@ def test_activity_config_load_with_overrides():
     assert "Accept" in cfg.http.global_.headers
     assert cfg.sources["chembl"].enabled is True
     assert cfg.enabled_sources() == ["chembl"]
-    assert str(cfg.io.input.activity_csv).endswith("data/input/activity.csv")
-    assert str(cfg.io.output.dir).endswith("data/output/activity")
+    assert str(cfg.io.input.activity_csv).replace("\\", "/").endswith("data/input/activity.csv")
+    assert str(cfg.io.output.dir).replace("\\", "/").endswith("data/output/activity")
 

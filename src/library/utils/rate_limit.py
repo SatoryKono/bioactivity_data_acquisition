@@ -177,11 +177,7 @@ def configure_rate_limits(
 
     with _CONFIG_LOCK:
         _GLOBAL_LIMITER = global_limit.create_limiter() if global_limit else None
-        _CLIENT_LIMITERS = (
-            {name: params.create_limiter() for name, params in client_limits.items()}
-            if client_limits
-            else {}
-        )
+        _CLIENT_LIMITERS = {name: params.create_limiter() for name, params in client_limits.items()} if client_limits else {}
 
 
 def get_rate_limiter(client_name: str, default: RateLimitParams | None = None) -> RateLimiterSet:

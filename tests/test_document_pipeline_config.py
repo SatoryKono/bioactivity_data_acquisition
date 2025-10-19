@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
 
 from library.documents.config import DocumentConfig, load_document_config
-from library.documents.pipeline import _create_api_client, DocumentValidationError
+from library.documents.pipeline import DocumentValidationError, _create_api_client
 
 
 @pytest.fixture()
@@ -84,7 +84,7 @@ def test_create_api_client_uses_source_config(custom_headers_config_yaml: Path) 
     
     # Test ChEMBL client creation
     with patch('library.documents.pipeline.ChEMBLClient') as mock_client:
-        client = _create_api_client("chembl", config)
+        _create_api_client("chembl", config)
         
         # Verify client was created
         mock_client.assert_called_once()
@@ -123,7 +123,7 @@ def test_create_api_client_fallback_to_global_config(custom_headers_config_yaml:
     
     # Test Crossref client creation (uses global timeout, partial headers)
     with patch('library.documents.pipeline.CrossrefClient') as mock_client:
-        client = _create_api_client("crossref", config)
+        _create_api_client("crossref", config)
         
         mock_client.assert_called_once()
         call_args = mock_client.call_args
@@ -157,7 +157,7 @@ def test_create_api_client_partial_retry_config(custom_headers_config_yaml: Path
     
     # Test PubMed client creation (partial retry config)
     with patch('library.documents.pipeline.PubMedClient') as mock_client:
-        client = _create_api_client("pubmed", config)
+        _create_api_client("pubmed", config)
         
         mock_client.assert_called_once()
         call_args = mock_client.call_args
@@ -187,7 +187,7 @@ def test_create_api_client_uses_default_urls_when_not_configured() -> None:
     
     # Test with a source that has no custom base_url
     with patch('library.documents.pipeline.ChEMBLClient') as mock_client:
-        client = _create_api_client("chembl", config)
+        _create_api_client("chembl", config)
         
         mock_client.assert_called_once()
         call_args = mock_client.call_args
@@ -225,7 +225,7 @@ def test_create_api_client_chembl_minimum_timeout() -> None:
     config = DocumentConfig.model_validate(config_data)
     
     with patch('library.documents.pipeline.ChEMBLClient') as mock_client:
-        client = _create_api_client("chembl", config)
+        _create_api_client("chembl", config)
         
         mock_client.assert_called_once()
         call_args = mock_client.call_args
@@ -250,7 +250,7 @@ def test_create_api_client_all_sources() -> None:
     
     for source, client_class in sources_and_clients:
         with patch(f'library.documents.pipeline.{client_class}') as mock_client:
-            client = _create_api_client(source, config)
+            _create_api_client(source, config)
             mock_client.assert_called_once()
             
             # Verify the client was created with APIClientConfig
@@ -276,7 +276,7 @@ def test_create_api_client_requests_per_second_rate_limit() -> None:
     config = DocumentConfig.model_validate(config_data)
     
     with patch('library.documents.pipeline.SemanticScholarClient') as mock_client:
-        client = _create_api_client("semantic_scholar", config)
+        _create_api_client("semantic_scholar", config)
         
         mock_client.assert_called_once()
         call_args = mock_client.call_args
@@ -305,7 +305,7 @@ def test_create_api_client_requests_per_second_rate_limit_openalex() -> None:
     config = DocumentConfig.model_validate(config_data)
     
     with patch('library.documents.pipeline.OpenAlexClient') as mock_client:
-        client = _create_api_client("openalex", config)
+        _create_api_client("openalex", config)
         
         mock_client.assert_called_once()
         call_args = mock_client.call_args

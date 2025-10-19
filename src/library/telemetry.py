@@ -9,12 +9,11 @@ from typing import Any
 from opentelemetry import trace
 from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import Resource
 
 from library.logging_setup import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -25,7 +24,7 @@ def setup_telemetry(
     enable_requests_instrumentation: bool = True,
 ) -> None:
     """Setup OpenTelemetry tracing.
-    
+
     Args:
         service_name: Name of the service for tracing
         jaeger_endpoint: Jaeger collector endpoint (e.g., "http://localhost:14268/api/traces")
@@ -33,35 +32,38 @@ def setup_telemetry(
     """
     # Get configuration from environment variables
     jaeger_endpoint = jaeger_endpoint or os.getenv("JAEGER_ENDPOINT")
-    
+
     # Get package version
     try:
         from importlib.metadata import version
+
         package_version = version("bioactivity-data-acquisition")
     except Exception:
         package_version = "0.1.0"
-    
+
     # Create resource with service name
-    resource = Resource.create({
-        "service.name": service_name,
-        "service.version": os.getenv("SERVICE_VERSION", package_version),
-        "deployment.environment": os.getenv("ENVIRONMENT", "development"),
-    })
-    
+    resource = Resource.create(
+        {
+            "service.name": service_name,
+            "service.version": os.getenv("SERVICE_VERSION", package_version),
+            "deployment.environment": os.getenv("ENVIRONMENT", "development"),
+        }
+    )
+
     # Set up tracer provider
     tracer_provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(tracer_provider)
-    
+
     # Add Jaeger exporter if endpoint is provided
     if jaeger_endpoint:
         jaeger_exporter = JaegerExporter(
             agent_host_name=os.getenv("JAEGER_AGENT_HOST", "localhost"),
             agent_port=int(os.getenv("JAEGER_AGENT_PORT", "6831")),
         )
-        
+
         span_processor = BatchSpanProcessor(jaeger_exporter)
         tracer_provider.add_span_processor(span_processor)
-        
+
         logger.info(
             "OpenTelemetry configured with Jaeger",
             jaeger_endpoint=jaeger_endpoint,
@@ -72,7 +74,7 @@ def setup_telemetry(
             "OpenTelemetry configured without exporter",
             service_name=service_name,
         )
-    
+
     # Instrument requests library if enabled
     if enable_requests_instrumentation:
         RequestsInstrumentor().instrument()
@@ -82,23 +84,23 @@ def setup_telemetry(
 @contextmanager
 def traced_operation(operation_name: str, **attributes: Any):
     """Context manager for tracing operations.
-    
+
     Args:
         operation_name: Name of the operation to trace
         **attributes: Additional attributes to add to the span
-    
+
     Example:
         with traced_operation("etl.extract", source="chembl", batch_id=123):
             # ETL operation code
             pass
     """
     tracer = trace.get_tracer(__name__)
-    
+
     with tracer.start_as_current_span(operation_name) as span:
         # Add attributes to span
         for key, value in attributes.items():
             span.set_attribute(key, value)
-        
+
         try:
             yield span
         except Exception as e:
@@ -140,56 +142,62 @@ def add_span_event(name: str, attributes: dict[str, Any] | None = None) -> None:
 
 class TraceContextManager:
     """Context manager for managing trace context across operations."""
-    
+
     def __init__(self, operation_name: str, **attributes: Any):
         self.operation_name = operation_name
         self.attributes = attributes
         self.span = None
-    
+
     def __enter__(self):
         tracer = trace.get_tracer(__name__)
         self.span = tracer.start_span(self.operation_name)
-        
+
         # Add attributes
         for key, value in self.attributes.items():
             self.span.set_attribute(key, value)
-        
+
         # Set as current span
         trace.set_span_in_context(self.span)
         return self.span
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.span:
             if exc_type:
                 self.span.record_exception(exc_val)
                 self.span.set_status(trace.Status(trace.StatusCode.ERROR, str(exc_val)))
-            
+
             self.span.end()
 
 
 def instrument_etl_stage(stage_name: str):
     """Decorator for instrumenting ETL stages.
-    
+
     Args:
         stage_name: Name of the ETL stage (e.g., "extract", "transform", "load")
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             with traced_operation(f"etl.{stage_name}", stage=stage_name):
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 def instrument_api_client(client_name: str):
     """Decorator for instrumenting API client methods.
-    
+
     Args:
         client_name: Name of the API client (e.g., "chembl", "crossref")
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             with traced_operation(f"api.{client_name}", client=client_name):
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator

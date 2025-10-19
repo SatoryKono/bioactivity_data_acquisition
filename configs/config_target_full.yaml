@@ -1,0 +1,367 @@
+# Конфиг для конвейера таргетов (Sxx_target)
+# Включает все доступные API и максимальную детализацию
+
+# Глобальные настройки HTTP-клиента
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+    headers:
+      Accept: application/json
+      User-Agent: bioactivity-data-acquisition/0.1.0
+
+# Конфигурация источников данных
+sources:
+  # ChEMBL - база данных химических соединений и биологической активности
+  chembl:
+    name: chembl
+    enabled: true
+    endpoint: target
+    # Параметры запроса к API
+    params:
+      # Включаемые поля для получения расширенной информации
+      include: protein_classifications,cross_references
+    # Переопределения HTTP настроек
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      timeout_sec: 60.0
+      headers: {}
+      # Настройки повторных попыток для ChEMBL
+      retries:
+        total: 10
+        backoff_multiplier: 3.0
+
+  # UniProt - база данных белков
+  uniprot:
+    name: uniprot
+    enabled: true
+    # Настройки ограничения скорости запросов
+    rate_limit:
+      max_calls: 3
+      period: 1.0
+    # HTTP настройки для UniProt
+    http:
+      base_url: https://rest.uniprot.org/uniprotkb
+      timeout_sec: 120.0
+      headers:
+        Accept: application/json
+        User-Agent: bioactivity-data-acquisition/0.1.0
+      # Настройки повторных попыток
+      retries:
+        total: 15
+        backoff_multiplier: 4.0
+
+  # IUPHAR - база данных фармакологических мишеней
+  iuphar:
+    name: iuphar
+    enabled: true
+    # HTTP настройки для IUPHAR (локальные словари)
+    http:
+      base_url: https://www.guidetopharmacology.org
+      timeout_sec: 60.0
+      headers:
+        Accept: application/json
+        User-Agent: bioactivity-data-acquisition/0.1.0
+      # Настройки повторных попыток
+      retries:
+        total: 5
+        backoff_multiplier: 2.0
+
+# Настройки ввода-вывода данных
+io:
+  input:
+    # Путь к CSV файлу с исходными таргетами
+    documents_csv: data/input/target.csv
+    # Настройки чтения CSV
+    csv:
+      encoding: utf-8
+      sep: ","
+      na_rep: "[#N/A]"
+  output:
+    # Директория для сохранения результатов
+    dir: data/output/target
+    # Основной файл с данными
+    data_path: data/output/target/target_YYYYMMDD.csv
+    # Отчет по контролю качества
+    qc_report_path: data/output/target/target_YYYYMMDD_qc.csv
+    # Отчет по корреляциям
+    correlation_path: data/output/target/target_YYYYMMDD_corr.csv
+    # Формат выходных файлов
+    format: csv
+    # Специфичные настройки для CSV формата
+    csv:
+      encoding: utf-8
+      na_rep: "[#N/A]"
+      sep: ","
+      float_format: "%.3f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+    # Настройки для Parquet (если потребуется)
+    parquet:
+      compression: snappy
+
+# Настройки выполнения программы
+runtime:
+  # Количество параллельных воркеров для обработки данных
+  workers: 4
+  # Ограничение на количество обрабатываемых записей (null = без ограничений)
+  limit: null
+  # Режим тестирования (true = только симуляция, false = реальная обработка)
+  dry_run: false
+
+# Настройки логирования
+logging:
+  # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: INFO
+
+# Настройки валидации данных
+validation:
+  # Строгий режим валидации (true = останавливать при ошибках)
+  strict: true
+  # Настройки контроля качества (QC)
+  qc:
+    # Максимальная доля пропущенных значений
+    max_missing_fraction: 1.0
+    # Максимальная доля дублирующихся записей
+    max_duplicate_fraction: 1.0
+
+# Настройки детерминизма для воспроизводимости результатов
+determinism:
+  # Настройки сортировки данных
+  sort:
+    # Поля для сортировки (в порядке приоритета)
+    by:
+      - target_chembl_id  # ID таргета в ChEMBL
+    # Направление сортировки для каждого поля
+    ascending:
+      - true   # target_chembl_id - по возрастанию
+    # Позиция для значений NULL/NA (last = в конце)
+    na_position: last
+  # Порядок колонок в выходном файле (полная схема данных)
+  column_order:
+    # Основные поля таргета (оригинальные из ChEMBL)
+    - target_chembl_id      # ID таргета в ChEMBL
+    - target_type           # Тип таргета
+    - target_organism       # Организм таргета
+    - target_organism_tax_id # Таксономический ID организма
+    - pref_name             # Предпочтительное название
+    - target_components     # Компоненты таргета (JSON)
+    - target_synonym        # Синонимы таргета
+    - target_description    # Описание таргета
+    
+    # Поля из protein_classifications
+    - protein_classifications # Классификации белков (JSON)
+    
+    # Поля из cross_references
+    - cross_references      # Перекрестные ссылки (JSON)
+    
+    # Извлеченные и нормализованные поля
+    - uniprot_id           # UniProt ID (основной)
+    - uniprot_ids_secondary # Дополнительные UniProt ID
+    - hgnc_id              # HGNC ID
+    - hgnc_name            # HGNC название
+    - gene_name            # Название гена
+    - gene_synonyms        # Синонимы гена
+    - alternative_names    # Альтернативные названия
+    - ec_numbers           # EC номера (нормализованные)
+    
+    # Таксономические поля
+    - organism_genus       # Род организма
+    - organism_species     # Вид организма
+    - organism_family      # Семейство организма
+    - organism_class       # Класс организма
+    - organism_phylum      # Тип организма
+    - organism_kingdom     # Царство организма
+    
+    # Вычисленные поля
+    - cellularity          # Клеточность (unicellular/multicellular/viral)
+    - multifunctional_enzyme # Многофункциональный фермент (boolean)
+    
+    # IUPHAR классификация
+    - iuphar_family_id     # ID семейства IUPHAR
+    - iuphar_family_name   # Название семейства IUPHAR
+    - iuphar_target_id     # ID таргета IUPHAR
+    - iuphar_target_name   # Название таргета IUPHAR
+    - iuphar_type_name     # Тип IUPHAR
+    - iuphar_type_index    # Индекс типа IUPHAR
+    - iuphar_prediction_confidence # Уверенность предсказания IUPHAR
+    
+    # Метаданные
+    - retrieved_at         # Время получения данных
+    - source_system        # Система-источник
+    - chembl_release       # Версия ChEMBL
+    - hash_row             # Хеш строки
+    - hash_business_key    # Хеш бизнес-ключа
+
+# Настройки постобработки данных
+postprocess:
+  # Контроль качества данных
+  qc:
+    # Включить анализ качества данных
+    enabled: true
+  # Корреляционный анализ между источниками
+  correlation:
+    # Включить анализ корреляций
+    enabled: true
+  # Нормализация UniProt ID
+  uniprot_normalization:
+    # Включить нормализацию UniProt ID
+    enabled: true
+    # Приоритет источников для UniProt ID
+    priority_sources: ["cross_references", "protein_classifications"]
+  # Классификация клеточности
+  cellularity_classification:
+    # Включить классификацию клеточности
+    enabled: true
+    # Использовать умную классификацию
+    use_smart_classification: true
+  # Предсказание IUPHAR классов
+  iuphar_prediction:
+    # Включить предсказание IUPHAR классов
+    enabled: true
+    # Путь к словарям IUPHAR
+    dictionary_path: configs/dictionary/_target/
+    # Минимальная уверенность предсказания
+    min_confidence: 0.7
+
+# Настройки для конкретных источников
+target:
+  # Настройки для ChEMBL
+  chembl:
+    # Размер чанка для батчевых запросов
+    chunk_size: 100
+    # Таймаут для запросов
+    timeout: 60
+    # Настройки ретраев
+    retry:
+      enable: true
+      shrink_factor: 0.5
+      min_size: 1
+      single_timeout_retries: 3
+      single_timeout_delay: 1.0
+  
+  # Настройки для UniProt
+  uniprot:
+    # Включить обогащение из UniProt
+    enabled: true
+    # Размер чанка для запросов (оптимизировано для UniProt API)
+    chunk_size: 100
+    # Таймаут для запросов
+    timeout: 120
+    # Включить получение изоформ
+    include_isoforms: true
+    # Включить получение ортологов
+    include_orthologs: true
+    # Настройки маппинга target_chembl_id -> uniprot_id
+    mapping:
+      # Включить маппинг
+      enabled: true
+      # URL API сервиса маппинга (опционально)
+      mapping_service_url: null
+      # Стратегия маппинга: "cross_references", "protein_classifications", "both"
+      strategy: "both"
+      # Приоритет источников для извлечения UniProt ID
+      priority_sources: ["cross_references", "protein_classifications"]
+      # Поля для поиска UniProt ID в cross_references
+      cross_references_fields:
+        - "xref_id"
+        - "xref_src"
+      # Поля для поиска UniProt ID в protein_classifications
+      protein_classifications_fields:
+        - "protein_class_id"
+        - "protein_classification_id"
+      # Паттерны для идентификации UniProt ID
+      uniprot_patterns:
+        - "^[A-Z0-9]{6}$"  # Стандартный формат UniProt ID
+        - "^[A-Z0-9]{6}-[0-9]+$"  # UniProt ID с изоформой
+      # Настройки fallback маппинга
+      fallback:
+        # Использовать внешний маппинг файл
+        use_external_mapping: true
+        # Путь к файлу маппинга (если есть)
+        mapping_file: "data/mappings/chembl_uniprot_mapping.csv"
+        # Колонки в файле маппинга
+        mapping_columns:
+          chembl_id: "target_chembl_id"
+          uniprot_id: "uniprot_id"
+          confidence: "confidence_score"
+  
+  # Настройки для IUPHAR
+  iuphar:
+    # Включить обогащение из IUPHAR
+    enabled: true
+    # Путь к словарям IUPHAR
+    dictionary_path: configs/dictionary/_target/
+    # Файлы словарей
+    family_file: _IUPHAR_family.csv
+    target_file: _IUPHAR_target.csv
+    # Минимальная уверенность предсказания
+    min_confidence: 0.7
+    # Настройки маппинга target_chembl_id -> iuphar_id
+    mapping:
+      # Стратегия маппинга: "uniprot", "gene_name", "target_name", "all"
+      strategy: "all"
+      # Приоритет полей для маппинга
+      priority_fields: ["swissprot", "gene_name", "target_name", "synonyms"]
+      # Настройки маппинга через UniProt ID
+      uniprot_mapping:
+        # Использовать UniProt ID как промежуточный ключ
+        enabled: true
+        # Колонка с UniProt ID в IUPHAR словаре
+        uniprot_column: "swissprot"
+        # Колонка с IUPHAR target_id
+        iuphar_column: "target_id"
+      # Настройки маппинга через названия генов
+      gene_mapping:
+        # Использовать названия генов для маппинга
+        enabled: true
+        # Колонка с названием гена в IUPHAR словаре
+        gene_column: "gene_name"
+        # Колонка с HGNC названием
+        hgnc_column: "HGNC_NAME"
+        # Учитывать синонимы генов
+        use_synonyms: true
+        # Колонка с синонимами
+        synonyms_column: "synonyms"
+      # Настройки маппинга через названия таргетов
+      target_mapping:
+        # Использовать названия таргетов для маппинга
+        enabled: true
+        # Колонка с названием таргета в IUPHAR словаре
+        target_column: "target_name"
+        # Учитывать альтернативные названия
+        use_alternative_names: true
+      # Настройки нечеткого маппинга
+      fuzzy_matching:
+        # Включить нечеткое сопоставление
+        enabled: true
+        # Минимальный порог схожести (0.0 - 1.0)
+        similarity_threshold: 0.95
+        # Алгоритм сравнения: "levenshtein", "jaro_winkler", "fuzzywuzzy"
+        algorithm: "fuzzywuzzy"
+
+# =============================================================================
+# ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ДЛЯ API КЛЮЧЕЙ
+# =============================================================================
+# 
+# Для использования API ключей установите следующие переменные окружения:
+#
+# Windows (PowerShell):
+#   $env:CHEMBL_API_TOKEN = "your_chembl_token_here"
+#   $env:UNIPROT_API_TOKEN = "your_uniprot_token_here"
+#
+# Linux/macOS (bash):
+#   export CHEMBL_API_TOKEN="your_chembl_token_here"
+#   export UNIPROT_API_TOKEN="your_uniprot_token_here"
+#
+# ВАЖНО:
+# - Система работает БЕЗ API ключей с ограничениями по rate limiting
+# - При отсутствии API ключей используется graceful degradation
+# - UniProt работает без API ключа, но с ограничениями по запросам
+#
+# Получить API ключи можно по следующим ссылкам:
+# - ChEMBL: https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services
+# - UniProt: https://www.uniprot.org/help/api
+
+

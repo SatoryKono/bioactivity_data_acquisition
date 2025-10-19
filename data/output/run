@@ -6,3 +6,6 @@ python src\scripts\get_testitem_data.py --config configs\config_testitem_full.ya
 
 python src\scripts\get_activity_data.py --config configs\config_activity_full.yaml  --limit 10 --input data\input\activity.csv
 
+python src\scripts\get_target_data.py --config configs\config_target_full.yaml  --limit 10 --input data\input\target.csv
+
+

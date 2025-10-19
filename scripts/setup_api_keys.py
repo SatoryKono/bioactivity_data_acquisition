@@ -4,9 +4,9 @@
 Setup script for API keys environment variables
 """
 
+import argparse
 import os
 import sys
-import argparse
 from pathlib import Path
 
 
@@ -28,7 +28,7 @@ def set_environment_variable(name: str, value: str, persistent: bool = False) ->
             if sys.platform == "win32":
                 # Windows - используем реестр через setx
                 import subprocess
-                subprocess.run(["setx", name, value], check=True, capture_output=True)
+                subprocess.run(["setx", name, value], check=True, capture_output=True)  # noqa: S607
                 print(f"[OK] {name} установлен постоянно (Windows)")
             else:
                 # Unix-like системы

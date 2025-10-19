@@ -17,6 +17,10 @@ else:  # pragma: no cover - import side effect
 class RawActivitySchema(pa.DataFrameModel):
     """Схема для сырых записей активности, загружаемых из API."""
 
+    # Технические служебные поля
+    source_system: Series[str] = pa.Field(nullable=False, description="Система-источник (ChEMBL)")
+    chembl_release: Series[str] = pa.Field(nullable=True, description="Версия ChEMBL")
+
     # Обязательные служебные поля
     source: Series[str] = pa.Field(nullable=False)
     retrieved_at: Series[pd.Timestamp] = pa.Field(nullable=False)
@@ -36,7 +40,7 @@ class RawActivitySchema(pa.DataFrameModel):
     target_chembl_id: Series[str] = pa.Field(nullable=True)
     target_organism: Series[str] = pa.Field(nullable=True)
     target_tax_id: Series[str] = pa.Field(nullable=True)
-    
+
     # Дополнительные поля из ChEMBL API (только те, что реально есть в данных)
     action_type: Series[str] = pa.Field(nullable=True)
     activity_comment: Series[str] = pa.Field(nullable=True)
@@ -73,6 +77,10 @@ class RawActivitySchema(pa.DataFrameModel):
     value: Series[float] = pa.Field(nullable=True)
     units: Series[str] = pa.Field(nullable=True)
 
+    # Хеш-поля для дедупликации
+    hash_row: Series[str] = pa.Field(nullable=True, description="Хеш строки для дедупликации")
+    hash_business_key: Series[str] = pa.Field(nullable=True, description="Хеш бизнес-ключа (activity_id)")
+
     class Config:
         strict = False  # Разрешаем дополнительные колонки от ChEMBL API
         coerce = True
@@ -80,6 +88,10 @@ class RawActivitySchema(pa.DataFrameModel):
 
 class NormalizedActivitySchema(pa.DataFrameModel):
     """Схема для нормализованных таблиц активности (готовых к экспорту)."""
+
+    # Технические служебные поля
+    source_system: Series[str] = pa.Field(nullable=False, description="Система-источник (ChEMBL)")
+    chembl_release: Series[str] = pa.Field(nullable=False, description="Версия ChEMBL")
 
     # Обязательные служебные поля
     source: Series[str] = pa.Field(nullable=False)
@@ -90,7 +102,7 @@ class NormalizedActivitySchema(pa.DataFrameModel):
     activity_value: Series[float] = pa.Field(nullable=True)
     activity_unit: Series[str] = pa.Field(nullable=True)
     smiles: Series[str] = pa.Field(nullable=True)
-    
+
     # Дополнительные поля, которые остаются после нормализации
     activity_id: Series[int] = pa.Field(nullable=True)
     assay_chembl_id: Series[str] = pa.Field(nullable=True)
@@ -100,7 +112,7 @@ class NormalizedActivitySchema(pa.DataFrameModel):
     target_chembl_id: Series[str] = pa.Field(nullable=True)
     target_organism: Series[str] = pa.Field(nullable=True)
     target_tax_id: Series[str] = pa.Field(nullable=True)
-    
+
     # Дополнительные поля из ChEMBL API
     action_type: Series[str] = pa.Field(nullable=True)
     activity_comment: Series[str] = pa.Field(nullable=True)
@@ -137,11 +149,13 @@ class NormalizedActivitySchema(pa.DataFrameModel):
     value: Series[float] = pa.Field(nullable=True)
     units: Series[str] = pa.Field(nullable=True)
 
+    # Хеш-поля для дедупликации
+    hash_row: Series[str] = pa.Field(nullable=False, description="Хеш строки для дедупликации")
+    hash_business_key: Series[str] = pa.Field(nullable=False, description="Хеш бизнес-ключа (activity_id)")
+
     class Config:
         strict = False  # Разрешаем дополнительные колонки
         coerce = True
 
 
 __all__ = ["RawActivitySchema", "NormalizedActivitySchema"]
-
-

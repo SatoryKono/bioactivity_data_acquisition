@@ -22,22 +22,22 @@ def _empty_normalized_frame() -> pd.DataFrame:
 
 def run_pipeline(config: Config, logger: BoundLogger) -> Path:
     """Execute the ETL pipeline using the provided configuration.
-    
+
     Runs the complete ETL process: extract data from configured sources,
     transform and normalize it, then load it to output files with QC reports.
-    
+
     Args:
         config: Configuration object containing source settings, transforms,
             and output paths.
         logger: Structured logger for tracking pipeline progress.
-    
+
     Returns:
         Path to the main output data file.
-    
+
     Raises:
         ValidationError: If data validation fails during processing.
         IOError: If output files cannot be written.
-    
+
     Examples:
         >>> from library.config import Config
         >>> from library.logging_setup import get_logger
@@ -48,12 +48,12 @@ def run_pipeline(config: Config, logger: BoundLogger) -> Path:
     """
 
     from library.logging_setup import bind_stage
-    
+
     frames: list[pd.DataFrame] = []
     for client in config.clients:
         with bind_stage(logger, "extract", source=client.name):
             raw_frame = fetch_bioactivity_data(client, logger=logger)
-        
+
         with bind_stage(logger, "transform", source=client.name):
             normalized = normalize_bioactivity_data(
                 raw_frame,
@@ -81,7 +81,7 @@ def run_pipeline(config: Config, logger: BoundLogger) -> Path:
             determinism=config.determinism,
             output=output_settings,
         )
-        
+
     with bind_stage(logger, "qc"):
         write_qc_artifacts(
             combined,

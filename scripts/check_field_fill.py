@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from library.logging_setup import get_logger

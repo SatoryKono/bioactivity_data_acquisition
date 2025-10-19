@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-from datetime import timezone
 import os
 import sys
+from datetime import timezone
 from pathlib import Path
 
 # Setup path for library imports
@@ -22,7 +22,6 @@ src_dir = os.path.dirname(current_dir)
 # Always insert src_dir at the beginning to ensure it's found first
 sys.path.insert(0, src_dir)
 
-import pandas as pd  # noqa: E402
 from library.activity import (  # noqa: E402
     load_activity_config,
     read_activity_input,
@@ -81,18 +80,34 @@ def main(argv: list[str] | None = None) -> int:
     result = run_activity_etl(cfg, df)
 
     # Определяем date_tag
-    date_tag = (
-        str(args.date_tag)
-        if args.date_tag
-        else (cfg.runtime.date_tag or dt.datetime.now(timezone.utc).strftime("%Y%m%d"))
-    )
+    date_tag = str(args.date_tag) if args.date_tag else (cfg.runtime.date_tag or dt.datetime.now(timezone.utc).strftime("%Y%m%d"))
 
     # Записываем выводы
     output_dir = Path(cfg.io.output.dir)
     paths = write_activity_outputs(result, output_dir, date_tag=date_tag, config=cfg)
 
-    # Печатаем пути для интеграции в CI
-    print({k: str(v) for k, v in paths.items()})
+    # Печатаем подробную сводку как в assay
+    print("\nPipeline completed successfully. Output files:")
+    for name, path in paths.items():
+        print(f"  {name}: {path}")
+
+    # Print summary (aligned with assay style)
+    print("\nSummary:")
+    print(f"  Total activities: {result.meta.get('row_count', 0)}")
+    print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown')}")
+    print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
+    print(f"  Date tag: {date_tag}")
+
+    # Print source statistics
+    extraction_params = result.meta.get("extraction_parameters", {})
+    print("\nSource statistics:")
+    print(f"  chembl: {extraction_params.get('chembl_records', 0)} records")
+
+    # Print correlation analysis info
+    if extraction_params.get("correlation_analysis_enabled", False):
+        insights_count = extraction_params.get("correlation_insights_count", 0)
+        print(f"  Correlation analysis: {insights_count} insights found")
+
     return 0
 
 

@@ -1,4 +1,5 @@
 """Client for the PubMed API."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -19,34 +20,25 @@ class PubMedClient(BaseApiClient):
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         # Используем esummary.fcgi для получения метаданных статьи
-        params = {
-            "db": "pubmed",
-            "id": pmid,
-            "retmode": "json"
-        }
-        
+        params = {"db": "pubmed", "id": pmid, "retmode": "json"}
+
         # Добавляем API ключ если он настроен
-        api_key = getattr(self.config, 'api_key', None)
+        api_key = getattr(self.config, "api_key", None)
         if api_key:
             params["api_key"] = api_key
-        
+
         # Use fallback strategy for handling rate limiting and other errors
         payload = self._request_with_fallback("GET", "esummary.fcgi", params=params)
-        
+
         # Check if we got fallback data
         if payload.get("source") == "fallback":
-            self.logger.warning(
-                "pubmed_fallback_used",
-                pmid=pmid,
-                error=payload.get("error"),
-                fallback_reason=payload.get("fallback_reason")
-            )
+            self.logger.warning("pubmed_fallback_used", pmid=pmid, error=payload.get("error"), fallback_reason=payload.get("fallback_reason"))
             return self._create_empty_record(pmid, payload.get("error", "Unknown error"))
-            
+
         record = self._extract_record(payload, pmid)
         if record is None:
             raise ApiClientError(f"No PubMed record found for PMID {pmid}")
-        
+
         # Пытаемся получить дополнительную информацию через efetch
         try:
             enhanced_record = self._enhance_with_efetch(record, pmid)
@@ -60,22 +52,18 @@ class PubMedClient(BaseApiClient):
         pmid_list = list(pmids)
         if not pmid_list:
             return {}
-        
+
         # NCBI E-utilities поддерживает множественные ID через запятую
         ids_param = ",".join(pmid_list)
-        params = {
-            "db": "pubmed",
-            "id": ids_param,
-            "retmode": "json"
-        }
-        
+        params = {"db": "pubmed", "id": ids_param, "retmode": "json"}
+
         # Добавляем API ключ если он настроен
-        api_key = getattr(self.config, 'api_key', None)
+        api_key = getattr(self.config, "api_key", None)
         if api_key:
             params["api_key"] = api_key
-            
+
         payload = self._request("GET", "esummary.fcgi", params=params)
-        
+
         result: dict[str, dict[str, Any]] = {}
         for pmid in pmid_list:
             record = self._extract_record(payload, pmid)
@@ -89,17 +77,17 @@ class PubMedClient(BaseApiClient):
             error_msg = payload.get("error", "Unknown error")
             self.logger.warning("pubmed_api_error", pmid=pmid, error=error_msg)
             return None
-            
+
         # NCBI E-utilities возвращает данные в формате {"result": {"uids": [...], "pmid": {...}}}
         if "result" in payload and isinstance(payload["result"], dict):
             result = payload["result"]
-            
+
             # Проверяем, есть ли запрашиваемый PMID в списке UIDs
             uids = result.get("uids", [])
             if str(pmid) not in uids:
                 self.logger.warning("pmid_not_found", pmid=pmid, available_uids=uids)
                 return None
-                
+
             # Получаем данные для конкретного PMID
             data = result.get(pmid)
             if data is not None:
@@ -116,7 +104,7 @@ class PubMedClient(BaseApiClient):
 
         if payload.get("pmid") and str(payload.get("pmid")) == str(pmid):
             return self._normalise_record(payload)
-            
+
         self.logger.warning("unexpected_payload_format", pmid=pmid, payload_keys=list(payload.keys()))
         return None
 
@@ -144,6 +132,7 @@ class PubMedClient(BaseApiClient):
             # Парсим дату в формате "2023 Dec 15" или "2023"
             try:
                 from datetime import datetime
+
                 if len(pub_date.split()) >= 3:
                     parsed_date = datetime.strptime(pub_date, "%Y %b %d")
                 elif len(pub_date.split()) == 2:
@@ -166,19 +155,19 @@ class PubMedClient(BaseApiClient):
             mesh_descriptors = "; ".join(str(d) for d in mesh_descriptors if d)
         elif mesh_descriptors is None:
             mesh_descriptors = None
-            
+
         mesh_qualifiers = record.get("meshqualifiers")
         if isinstance(mesh_qualifiers, list):
             mesh_qualifiers = "; ".join(str(q) for q in mesh_qualifiers if q)
         elif mesh_qualifiers is None:
             mesh_qualifiers = None
-            
+
         chemical_list = record.get("chemicals")
         if isinstance(chemical_list, list):
             chemical_list = "; ".join(str(c) for c in chemical_list if c)
         elif chemical_list is None:
             chemical_list = None
-        
+
         # Обрабатываем publication type
         pub_type = record.get("pubtype")
         if isinstance(pub_type, list):
@@ -223,22 +212,22 @@ class PubMedClient(BaseApiClient):
         history = record.get("history", [])
         if not history:
             return None
-        
+
         # Берем последнюю дату из history (обычно это дата последнего обновления)
         last_entry = history[-1]
         date_str = last_entry.get("date", "")
-        
+
         if not date_str:
             return None
-        
+
         try:
             # Парсим дату в формате "1980/04/01 00:00"
             date_part_only = date_str.split(" ")[0]  # "1980/04/01"
             parts = date_part_only.split("/")
-            
+
             if len(parts) >= 3:
                 year, month, day = parts[0], parts[1], parts[2]
-                
+
                 if date_part == "year":
                     return year
                 elif date_part == "month":
@@ -247,7 +236,7 @@ class PubMedClient(BaseApiClient):
                     return day
         except (ValueError, IndexError):
             pass
-        
+
         return None
 
     def _create_empty_record(self, pmid: str, error_msg: str) -> dict[str, Any]:
@@ -287,79 +276,69 @@ class PubMedClient(BaseApiClient):
         try:
             # Получаем полную информацию через efetch напрямую через requests
             import requests
-            
-            fetch_params = {
-                "db": "pubmed",
-                "id": pmid,
-                "retmode": "xml",
-                "rettype": "abstract"
-            }
-            
+
+            fetch_params = {"db": "pubmed", "id": pmid, "retmode": "xml", "rettype": "abstract"}
+
             # Добавляем API ключ если он настроен
-            api_key = getattr(self.config, 'api_key', None)
+            api_key = getattr(self.config, "api_key", None)
             if api_key:
                 fetch_params["api_key"] = api_key
-                
+
             # Делаем прямой запрос к efetch
-            response = requests.get(
-                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
-                params=fetch_params,
-                headers={"Accept": "application/xml"},
-                timeout=30.0
-            )
-            
+            response = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", params=fetch_params, headers={"Accept": "application/xml"}, timeout=30.0)
+
             if response.status_code == 200:
                 xml_content = response.text
-                
+
                 # Простой парсинг XML для извлечения DOI и abstract
                 import re
-                
+
                 # Ищем DOI в XML
                 doi_match = re.search(r'<ArticleId IdType="doi">([^<]+)</ArticleId>', xml_content)
                 if doi_match:
                     record["pubmed_doi"] = doi_match.group(1)
-                
+
                 # Ищем abstract в XML - улучшенный поиск
                 # Сначала ищем все AbstractText теги
-                abstract_matches = re.findall(r'<AbstractText[^>]*>(.*?)</AbstractText>', xml_content, re.DOTALL)
+                abstract_matches = re.findall(r"<AbstractText[^>]*>(.*?)</AbstractText>", xml_content, re.DOTALL)
                 if abstract_matches:
                     # Объединяем все части abstract
                     abstract_parts = []
                     for match in abstract_matches:
                         # Очищаем от HTML тегов внутри abstract
-                        clean_abstract = re.sub(r'<[^>]+>', '', match).strip()
+                        clean_abstract = re.sub(r"<[^>]+>", "", match).strip()
                         if clean_abstract:
                             abstract_parts.append(clean_abstract)
-                    
+
                     if abstract_parts:
-                        record["pubmed_abstract"] = ' '.join(abstract_parts)
-                
+                        record["pubmed_abstract"] = " ".join(abstract_parts)
+
                 # Если не нашли через AbstractText, попробуем другие варианты
                 if not record.get("pubmed_abstract"):
                     # Ищем в других возможных местах
-                    abstract_alt = re.search(r'<Abstract[^>]*>(.*?)</Abstract>', xml_content, re.DOTALL)
+                    abstract_alt = re.search(r"<Abstract[^>]*>(.*?)</Abstract>", xml_content, re.DOTALL)
                     if abstract_alt:
-                        clean_abstract = re.sub(r'<[^>]+>', '', abstract_alt.group(1)).strip()
+                        clean_abstract = re.sub(r"<[^>]+>", "", abstract_alt.group(1)).strip()
                         if clean_abstract:
                             record["pubmed_abstract"] = clean_abstract
-                
+
                 # Извлекаем MeSH descriptors
-                mesh_descriptors = re.findall(r'<MeshHeadingList[^>]*>.*?<DescriptorName[^>]*>([^<]+)</DescriptorName>.*?</MeshHeadingList>', xml_content, re.DOTALL)
+                mesh_descriptors = re.findall(r"<MeshHeadingList[^>]*>.*?<DescriptorName[^>]*>([^<]+)</DescriptorName>.*?</MeshHeadingList>", xml_content, re.DOTALL)
                 if mesh_descriptors:
                     record["pubmed_mesh_descriptors"] = "; ".join(mesh_descriptors)
-                
+
                 # Извлекаем MeSH qualifiers
-                mesh_qualifiers = re.findall(r'<QualifierName[^>]*>([^<]+)</QualifierName>', xml_content)
+                mesh_qualifiers = re.findall(r"<QualifierName[^>]*>([^<]+)</QualifierName>", xml_content)
                 if mesh_qualifiers:
                     record["pubmed_mesh_qualifiers"] = "; ".join(mesh_qualifiers)
-                
+
                 # Извлекаем Chemical List
-                chemical_list = re.findall(r'<ChemicalList[^>]*>.*?<NameOfSubstance[^>]*>([^<]+)</NameOfSubstance>.*?</ChemicalList>', xml_content, re.DOTALL)
+                chemical_list = re.findall(r"<ChemicalList[^>]*>.*?<NameOfSubstance[^>]*>([^<]+)</NameOfSubstance>.*?</ChemicalList>", xml_content, re.DOTALL)
                 if chemical_list:
                     record["pubmed_chemical_list"] = "; ".join(chemical_list)
-            
+
             return record
-            
+
         except Exception as e:
             self.logger.warning("efetch_parsing_failed", pmid=pmid, error=str(e))
             return record

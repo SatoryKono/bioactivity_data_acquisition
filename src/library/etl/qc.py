@@ -10,11 +10,7 @@ import pandas as pd
 from structlog.stdlib import BoundLogger
 
 # Подавляем предупреждения о делении на ноль в NumPy
-warnings.filterwarnings(
-    'ignore', 
-    category=RuntimeWarning, 
-    message='invalid value encountered in divide'
-)
+warnings.filterwarnings("ignore", category=RuntimeWarning, message="invalid value encountered in divide")
 
 from .enhanced_correlation import (
     build_correlation_insights,
@@ -32,23 +28,13 @@ def build_qc_report(df: pd.DataFrame) -> pd.DataFrame:
         # Это данные документов
         key_columns = ["document_chembl_id", "doi", "title"]
         available_key_columns = [col for col in key_columns if col in df.columns]
-        
+
         metrics = {
             "row_count": len(df),
-            "missing_document_chembl_id": (
-                int(df["document_chembl_id"].isna().sum()) 
-                if "document_chembl_id" in df else 0
-            ),
-            "missing_doi": (
-                int(df["doi"].isna().sum()) if "doi" in df else 0
-            ),
-            "missing_title": (
-                int(df["title"].isna().sum()) if "title" in df else 0
-            ),
-            "duplicates": (
-                int(df[available_key_columns].duplicated().sum()) 
-                if available_key_columns else 0
-            ),
+            "missing_document_chembl_id": (int(df["document_chembl_id"].isna().sum()) if "document_chembl_id" in df else 0),
+            "missing_doi": (int(df["doi"].isna().sum()) if "doi" in df else 0),
+            "missing_title": (int(df["title"].isna().sum()) if "title" in df else 0),
+            "duplicates": (int(df[available_key_columns].duplicated().sum()) if available_key_columns else 0),
         }
     else:
         # Общие метрики для неизвестного типа данных
@@ -57,10 +43,8 @@ def build_qc_report(df: pd.DataFrame) -> pd.DataFrame:
             "total_columns": len(df.columns),
             "duplicates": int(df.duplicated().sum()),
         }
-    
-    return pd.DataFrame(
-        [{"metric": key, "value": value} for key, value in metrics.items()]
-    )
+
+    return pd.DataFrame([{"metric": key, "value": value} for key, value in metrics.items()])
 
 
 def build_enhanced_qc_report(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
@@ -68,30 +52,22 @@ def build_enhanced_qc_report(df: pd.DataFrame, logger: BoundLogger | None = None
     return build_enhanced_qc_summary(df, logger=logger)
 
 
-def build_enhanced_qc_detailed_reports(
-    df: pd.DataFrame, logger: BoundLogger | None = None
-) -> dict[str, pd.DataFrame]:
+def build_enhanced_qc_detailed_reports(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, pd.DataFrame]:
     """Generate detailed QC reports including summary, top values, and pattern coverage."""
     return build_enhanced_qc_detailed(df, logger=logger)
 
 
-def build_enhanced_correlation_analysis_report(
-    df: pd.DataFrame, logger: BoundLogger | None = None
-) -> dict[str, Any]:
+def build_enhanced_correlation_analysis_report(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, Any]:
     """Generate enhanced correlation analysis with multiple correlation types."""
     return build_enhanced_correlation_analysis(df, logger=logger)
 
 
-def build_enhanced_correlation_reports_df(
-    df: pd.DataFrame, logger: BoundLogger | None = None
-) -> dict[str, pd.DataFrame]:
+def build_enhanced_correlation_reports_df(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, pd.DataFrame]:
     """Generate enhanced correlation reports as DataFrames."""
     return build_enhanced_correlation_reports(df, logger=logger)
 
 
-def build_correlation_insights_report(
-    df: pd.DataFrame, logger: BoundLogger | None = None
-) -> list[dict[str, Any]]:
+def build_correlation_insights_report(df: pd.DataFrame, logger: BoundLogger | None = None) -> list[dict[str, Any]]:
     """Generate correlation insights and recommendations."""
     return build_correlation_insights(df, logger=logger)
 
@@ -102,24 +78,34 @@ def build_correlation_matrix(df: pd.DataFrame) -> pd.DataFrame:
     numeric = df.select_dtypes(include="number")
     if numeric.empty or len(numeric) < 2:
         return pd.DataFrame()
-    
+
     try:
-        corr_matrix = numeric.corr()
-        # Заменяем NaN и inf на 0
-        return corr_matrix.fillna(0.0).replace([np.inf, -np.inf], 0.0)
+        # Удаляем колонки, которые содержат только NaN или константные значения
+        numeric_clean = numeric.copy()
+        for col in numeric_clean.columns:
+            if numeric_clean[col].isna().all() or numeric_clean[col].nunique() <= 1:
+                numeric_clean = numeric_clean.drop(columns=[col])
+
+        if numeric_clean.empty or len(numeric_clean.columns) < 2:
+            return pd.DataFrame()
+
+        corr_matrix = numeric_clean.corr()
+        # Заменяем только inf на 0, NaN оставляем как есть
+        return corr_matrix.replace([np.inf, -np.inf], 0.0)
     except (ValueError, TypeError, MemoryError) as e:
         # Логируем конкретные ошибки для отладки
         import warnings
+
         warnings.warn(f"Ошибка при вычислении корреляционной матрицы: {e}", stacklevel=2)
         return pd.DataFrame()
 
 
 __all__ = [
-    "build_correlation_matrix", 
-    "build_qc_report", 
-    "build_enhanced_qc_report", 
+    "build_correlation_matrix",
+    "build_qc_report",
+    "build_enhanced_qc_report",
     "build_enhanced_qc_detailed_reports",
     "build_enhanced_correlation_analysis_report",
     "build_enhanced_correlation_reports_df",
-    "build_correlation_insights_report"
+    "build_correlation_insights_report",
 ]

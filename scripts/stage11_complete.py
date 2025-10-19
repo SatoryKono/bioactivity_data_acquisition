@@ -52,7 +52,7 @@ class Stage11Completer:
         
         try:
             # Безопасный запуск скриптов - все пути предопределены
-            result = subprocess.run(cmd, cwd=self.project_root)
+            result = subprocess.run(cmd, cwd=self.project_root)  # noqa: S603
             return result.returncode == 0
         except (subprocess.SubprocessError, OSError) as e:
             self.log(f"❌ Ошибка запуска скрипта {script_path.name}: {e}", "ERROR")

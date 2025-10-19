@@ -1,13 +1,12 @@
 """Integration tests for API rate limiting and error handling."""
 
-import pytest
 import time
-import threading
 from concurrent.futures import ThreadPoolExecutor
+
+import pytest
 
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient
-from library.clients.pubmed import PubMedClient
 from library.clients.exceptions import ApiClientError, RateLimitError
 
 
@@ -18,6 +17,7 @@ class TestAPILimitsIntegration:
     @pytest.fixture
     def chembl_client(self, integration_config):
         """Create a ChEMBL client for rate limiting tests."""
+        import os
         api_token = os.getenv("CHEMBL_API_TOKEN")
         if api_token:
             integration_config.sources["chembl"].http.headers["Authorization"] = f"Bearer {api_token}"
@@ -49,9 +49,8 @@ class TestAPILimitsIntegration:
         # Make first request - should succeed
         try:
             strict_client._request("GET", "/status")
-            first_request_success = True
         except ApiClientError:
-            first_request_success = False
+            pass
         
         # Make second request immediately - should be rate limited
         start_time = time.time()
@@ -119,7 +118,6 @@ class TestAPILimitsIntegration:
         assert len(results) > 0
         
         # Some requests might be rate limited
-        rate_limit_errors = [e for e in errors if "rate limit" in e.lower()]
         # This is acceptable - rate limiting is working
 
     def test_api_error_handling(self, chembl_client, skip_if_no_network):
@@ -197,6 +195,7 @@ class TestAPILimitsIntegration:
         
         # Test Crossref (if available)
         try:
+            from library.config import APIClientConfig
             crossref_config = APIClientConfig(
                 name="crossref",
                 base_url="https://api.crossref.org",
@@ -216,7 +215,7 @@ class TestAPILimitsIntegration:
             response = crossref_client._request("GET", "/works")
             assert response is not None
             
-        except Exception:
+        except Exception:  # noqa: S110
             # Crossref might not be available or have different rate limits
             pass
 
@@ -255,7 +254,7 @@ class TestAPILimitsIntegration:
         
         for i in range(10):  # Make 10 requests over 20 seconds
             try:
-                compounds = chembl_client.search_compounds(f"test_{i}", limit=1)
+                chembl_client.search_compounds(f"test_{i}", limit=1)
                 successful_requests += 1
             except Exception:
                 failed_requests += 1

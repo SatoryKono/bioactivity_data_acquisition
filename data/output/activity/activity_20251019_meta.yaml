@@ -1,8 +1,13 @@
+chembl_release: unknown
 enabled_sources:
 - chembl
+extraction_parameters:
+  chembl_records: 10
+  correlation_analysis_enabled: true
+  correlation_insights_count: 150
 file_checksums:
-  csv: 8799b6718522f6442bdfe6fa9384cb1d423a9eebd74ec2db766bf05ec990ad47
-  qc: a8468c7ca431ef2d1793871e539bfcaed9c33eefdb050da616e691e9bf07671e
+  csv: 8d110f350e5952e518709b160411deefdfb58f120d79def399c4a49c58b21cf9
+  qc: 9e425bdd46991625c7e2181661f02c7dfb40fbce735ee2c236763ae1b6e2d845
 pipeline: activity
 pipeline_version: 1.0.0
-row_count: 1000
+row_count: 10

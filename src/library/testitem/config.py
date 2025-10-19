@@ -11,13 +11,12 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from library.config import (
+    DeterminismSettings,
+    LoggingSettings,
     _assign_path,
     _merge_dicts,
     _parse_scalar,
-    DeterminismSettings,
-    LoggingSettings,
 )
-
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "pubchem")
 DATE_TAG_FORMAT = "%Y%m%d"
@@ -55,6 +54,7 @@ class TestitemRuntimeSettings(BaseModel):
 
     date_tag: str | None = Field(default=None, pattern=DATE_TAG_REGEX)
     workers: int = Field(default=4, ge=1, le=64)
+    pubchem_workers: int = Field(default=4, ge=1, le=16)
     limit: int | None = Field(default=None, ge=1)
     dry_run: bool = Field(default=False)
     # Keep testitem-specific knobs for compatibility
@@ -63,6 +63,8 @@ class TestitemRuntimeSettings(BaseModel):
     timeout_sec: int = Field(default=30, ge=1)
     cache_dir: str = Field(default=".cache/chembl")
     pubchem_cache_dir: str = Field(default=".cache/pubchem")
+    enable_parallel_pubchem: bool = Field(default=True)
+    fallback_to_sequential: bool = Field(default=True)
 
 
 class TestitemHTTPRetrySettings(BaseModel):
@@ -183,7 +185,7 @@ class TestitemConfig(BaseModel):
         raise ValueError("sources must be a mapping of source configurations")
 
     @model_validator(mode="after")
-    def _validate_sources(self) -> "TestitemConfig":
+    def _validate_sources(self) -> TestitemConfig:
         if not any(toggle.enabled for toggle in self.sources.values()):
             raise ValueError("At least one source must be enabled")
         # Basic checks for pipeline version

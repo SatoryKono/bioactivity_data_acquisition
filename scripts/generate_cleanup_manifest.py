@@ -3,7 +3,6 @@ import os
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List
 
 
 @dataclass
@@ -12,14 +11,14 @@ class LargeFile:
     size_bytes: int
 
 
-def run_git_ls_files() -> List[str]:
+def run_git_ls_files() -> list[str]:
     try:
         result = subprocess.run(
-            ["git", "ls-files"], capture_output=True, text=True, check=True
+            ["git", "ls-files"], capture_output=True, text=True, check=True  # noqa: S607
         )
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
     except (subprocess.CalledProcessError, FileNotFoundError):
-        files: List[str] = []
+        files: list[str] = []
         for root, _dirs, filenames in os.walk("."):
             # skip .git and venvs
             if ".git" in root.split(os.sep):
@@ -43,11 +42,11 @@ def file_size_bytes(path: str) -> int:
 def main() -> None:
     tracked = run_git_ls_files()
 
-    large_files: List[LargeFile] = []
-    logs: List[str] = []
-    temp_files: List[str] = []
-    test_outputs: List[str] = []
-    pycache: List[str] = []
+    large_files: list[LargeFile] = []
+    logs: list[str] = []
+    temp_files: list[str] = []
+    test_outputs: list[str] = []
+    pycache: list[str] = []
 
     for f in tracked:
         size = file_size_bytes(f)

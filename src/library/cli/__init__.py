@@ -11,6 +11,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from library.clients.health import create_health_checker_from_config
 from library.config import Config, _assign_path, ensure_output_directories_exist
 from library.documents.config import (
     ALLOWED_SOURCES,
@@ -27,7 +28,12 @@ from library.documents.pipeline import (
     run_document_etl,
     write_document_outputs,
 )
-from library.testitem.config import TestitemConfig
+from library.etl.run import run_pipeline
+from library.logging_setup import bind_stage, configure_logging, generate_run_id, set_run_context
+from library.telemetry import setup_telemetry
+from library.testitem.config import (
+    load_testitem_config,
+)
 from library.testitem.pipeline import (
     TestitemHTTPError,
     TestitemIOError,
@@ -36,11 +42,133 @@ from library.testitem.pipeline import (
     run_testitem_etl,
     write_testitem_outputs,
 )
-from library.etl.run import run_pipeline
-from library.logging_setup import configure_logging, generate_run_id, set_run_context, bind_stage
-from library.telemetry import setup_telemetry
-from library.clients.health import create_health_checker_from_config
 from library.utils.graceful_shutdown import ShutdownContext, register_shutdown_handler
+
+# Typer option constants to avoid B008 errors
+CONFIG_OPTION = typer.Option(..., "--config", "-c", help="Path to configuration YAML file")
+OVERRIDES_OPTION = typer.Option([], "--set", "-s", help="Override configuration values using dotted paths (KEY=VALUE)")
+LOG_LEVEL_OPTION = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+LOG_FILE_OPTION = typer.Option(None, "--log-file", help="Path to log file")
+LOG_FORMAT_OPTION = typer.Option("text", "--log-format", help="Console format (text or json)")
+NO_FILE_LOG_OPTION = typer.Option(False, "--no-file-log", help="Disable file logging")
+
+# Document data command options
+DOC_CONFIG_OPTION = typer.Option(
+    None,
+    "--config",
+    "-c",
+    help="Path to the YAML configuration file.",
+    dir_okay=False,
+    resolve_path=True,
+)
+DOCUMENTS_CSV_OPTION = typer.Option(
+    None,
+    "--documents-csv",
+    help="CSV containing document identifiers to enrich.",
+    file_okay=True,
+    dir_okay=False,
+    resolve_path=True,
+)
+OUTPUT_DIR_OPTION = typer.Option(
+    None,
+    "--output-dir",
+    help="Destination directory for generated artefacts.",
+    file_okay=False,
+    dir_okay=True,
+    resolve_path=True,
+)
+DATE_TAG_OPTION = typer.Option(
+    None,
+    "--date-tag",
+    help="Date tag (YYYYMMDD) embedded in output filenames.",
+)
+TIMEOUT_SEC_OPTION = typer.Option(
+    None,
+    "--timeout-sec",
+    help="HTTP timeout in seconds applied to all sources.",
+)
+RETRIES_OPTION = typer.Option(
+    None,
+    "--retries",
+    help="Total retry attempts for HTTP requests.",
+)
+WORKERS_OPTION = typer.Option(
+    None,
+    "--workers",
+    help="Number of concurrent workers for parallel processing.",
+)
+LIMIT_OPTION = typer.Option(
+    None,
+    "--limit",
+    help="Limit the number of documents processed.",
+)
+SOURCES_OPTION = typer.Option(
+    [],
+    "--source",
+    help="Enable only the listed sources (repeat for multiple).",
+)
+ALL_SOURCES_OPTION = typer.Option(
+    False,
+    "--all-sources",
+    help="Enable all available sources.",
+)
+
+# Testitem command options
+TESTITEM_CONFIG_OPTION = typer.Option(
+    ...,
+    "--config",
+    "-c",
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    resolve_path=True,
+    help="Path to testitem configuration YAML file",
+)
+TESTITEM_INPUT_OPTION = typer.Option(
+    ...,
+    "--input",
+    "-i",
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    resolve_path=True,
+    help="Path to input CSV file with molecule identifiers",
+)
+TESTITEM_OUTPUT_OPTION = typer.Option(
+    None,
+    "--output",
+    "-o",
+    resolve_path=True,
+    help="Output directory for results (defaults to config io.output.dir)",
+)
+TESTITEM_CACHE_DIR_OPTION = typer.Option(
+    None,
+    "--cache-dir",
+    resolve_path=True,
+    help="Directory for ChEMBL HTTP cache",
+)
+TESTITEM_PUBCHEM_CACHE_DIR_OPTION = typer.Option(
+    None,
+    "--pubchem-cache-dir",
+    resolve_path=True,
+    help="Directory for PubChem HTTP cache",
+)
+TESTITEM_TIMEOUT_OPTION = typer.Option(
+    None,
+    "--timeout",
+    help="HTTP timeout in seconds",
+)
+TESTITEM_RETRIES_OPTION = typer.Option(
+    None,
+    "--retries",
+    help="Number of retry attempts for failed requests",
+)
+
+# Health command options
+HEALTH_TIMEOUT_OPTION = typer.Option(10.0, "--timeout", "-t", help="Timeout for health checks in seconds")
+JSON_OUTPUT_OPTION = typer.Option(False, "--json", help="Output results in JSON format")
 
 
 def _setup_api_keys_automatically() -> None:
@@ -50,11 +178,11 @@ def _setup_api_keys_automatically() -> None:
         "SEMANTIC_SCHOLAR_API_KEY": "o2N1y1RHYU3aqEj556Oyv4oBzZrHthM2bWda2lf4",
         # Другие ключи можно добавить здесь при необходимости
         # "CHEMBL_API_TOKEN": "your_chembl_token_here",
-        # "CROSSREF_API_KEY": "your_crossref_key_here", 
+        # "CROSSREF_API_KEY": "your_crossref_key_here",
         # "OPENALEX_API_KEY": "your_openalex_key_here",
         # "PUBMED_API_KEY": "your_pubmed_key_here",
     }
-    
+
     # Устанавливаем ключи только если они не установлены
     for key, default_value in api_keys.items():
         if not os.environ.get(key):
@@ -62,6 +190,7 @@ def _setup_api_keys_automatically() -> None:
             # Логируем установку ключа (только первые 10 символов для безопасности)
             display_key = default_value[:10] + "..." if len(default_value) > 10 else default_value
             print(f"Автоматически установлен API ключ: {key} = {display_key}")
+
 
 CONFIG_OPTION = typer.Option(
     ...,
@@ -73,6 +202,7 @@ CONFIG_OPTION = typer.Option(
     readable=True,
     resolve_path=True,
 )
+
 
 def _parse_override_args(values: list[str]) -> dict[str, str]:
     assignments: dict[str, str] = {}
@@ -102,9 +232,7 @@ def _normalise_sources(raw_sources: Iterable[str]) -> list[str]:
     for item in raw_sources:
         key = item.lower()
         if key not in ALLOWED_SOURCES:
-            raise DocumentValidationError(
-                f"Unsupported source '{item}'. Valid options: {', '.join(ALLOWED_SOURCES)}"
-            )
+            raise DocumentValidationError(f"Unsupported source '{item}'. Valid options: {', '.join(ALLOWED_SOURCES)}")
         seen.setdefault(key, None)
     return list(seen.keys())
 
@@ -156,11 +284,11 @@ app = typer.Typer(help="Bioactivity ETL pipeline")
 @app.command()
 def pipeline(
     config: Path = CONFIG_OPTION,
-    overrides: list[str] = typer.Option([], "--set", "-s", help="Override configuration values using dotted paths (KEY=VALUE)"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    log_format: str = typer.Option("text", "--log-format", help="Console format (text or json)"),
-    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
+    overrides: list[str] = OVERRIDES_OPTION,
+    log_level: str = LOG_LEVEL_OPTION,
+    log_file: Path | None = LOG_FILE_OPTION,
+    log_format: str = LOG_FORMAT_OPTION,
+    no_file_log: bool = NO_FILE_LOG_OPTION,
 ) -> None:
     """Execute the ETL pipeline using a configuration file."""
 
@@ -170,28 +298,28 @@ def pipeline(
 
     override_dict = _parse_override_args(overrides)
     config_model = Config.load(config, overrides=override_dict)
-    
+
     # Создаем необходимые директории после загрузки конфигурации
     ensure_output_directories_exist(config_model)
-    
+
     # Configure logging with CLI parameters
     logger = configure_logging(
         level=log_level,
         file_enabled=not no_file_log,
         console_format=log_format,
         log_file=log_file,
-        logging_config=config_model.logging.model_dump() if hasattr(config_model, 'logging') else None,
+        logging_config=config_model.logging.model_dump() if hasattr(config_model, "logging") else None,
     )
     with bind_stage(logger, "pipeline", run_id=run_id) as logger:
         logger.info("Pipeline started", run_id=run_id, config=str(config))
-        
+
         # Setup graceful shutdown
         def cleanup_handler() -> None:
             logger.info("Pipeline shutdown requested, cleaning up...", run_id=run_id)
             # Add any cleanup logic here
-        
+
         register_shutdown_handler(cleanup_handler)
-        
+
         try:
             with ShutdownContext(timeout=30.0):
                 output = run_pipeline(config_model, logger)
@@ -206,74 +334,25 @@ def pipeline(
 @app.command("get-document-data")
 def get_document_data(
     *,
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="Path to the YAML configuration file.",
-        dir_okay=False,
-        resolve_path=True,
-    ),
-    documents_csv: Path | None = typer.Option(
-        None,
-        "--documents-csv",
-        help="CSV containing document identifiers to enrich.",
-        file_okay=True,
-        dir_okay=False,
-        resolve_path=True,
-    ),
-    output_dir: Path | None = typer.Option(
-        None,
-        "--output-dir",
-        help="Destination directory for generated artefacts.",
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-    ),
-    date_tag: str | None = typer.Option(
-        None,
-        "--date-tag",
-        help="Date tag (YYYYMMDD) embedded in output filenames.",
-    ),
-    timeout_sec: float | None = typer.Option(
-        None,
-        "--timeout-sec",
-        help="HTTP timeout in seconds applied to all sources.",
-    ),
-    retries: int | None = typer.Option(
-        None,
-        "--retries",
-        help="Total retry attempts for HTTP requests.",
-    ),
-    workers: int | None = typer.Option(
-        None,
-        "--workers",
-        help="Number of worker threads for HTTP fetching.",
-    ),
-    limit: int | None = typer.Option(
-        None,
-        "--limit",
-        help="Limit the number of documents processed.",
-    ),
-    sources: list[str] = typer.Option(
-        [],
-        "--source",
-        help="Enable only the listed sources (repeat for multiple).",
-    ),
-    all_sources: bool = typer.Option(
-        False,
-        "--all",
-        help="Enable all available sources (chembl, crossref, openalex, pubmed, semantic_scholar).",
-    ),
+    config: Path | None = DOC_CONFIG_OPTION,
+    documents_csv: Path | None = DOCUMENTS_CSV_OPTION,
+    output_dir: Path | None = OUTPUT_DIR_OPTION,
+    date_tag: str | None = DATE_TAG_OPTION,
+    timeout_sec: float | None = TIMEOUT_SEC_OPTION,
+    retries: int | None = RETRIES_OPTION,
+    workers: int | None = WORKERS_OPTION,
+    limit: int | None = LIMIT_OPTION,
+    sources: list[str] = SOURCES_OPTION,
+    all_sources: bool = ALL_SOURCES_OPTION,
     dry_run: bool | None = typer.Option(
         None,
         "--dry-run/--no-dry-run",
         help="Execute without writing artefacts to disk.",
     ),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    log_format: str = typer.Option("text", "--log-format", help="Console format (text or json)"),
-    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
+    log_level: str = LOG_LEVEL_OPTION,
+    log_file: Path | None = LOG_FILE_OPTION,
+    log_format: str = LOG_FORMAT_OPTION,
+    no_file_log: bool = NO_FILE_LOG_OPTION,
 ) -> None:
     """Collect and enrich document metadata from configured sources."""
 
@@ -321,7 +400,7 @@ def get_document_data(
         file_enabled=not no_file_log,
         console_format=log_format,
         log_file=log_file,
-        logging_config=config_model.logging.model_dump() if hasattr(config_model, 'logging') else None,
+        logging_config=config_model.logging.model_dump() if hasattr(config_model, "logging") else None,
     )
     with bind_stage(logger, "document_processing", run_id=run_id) as logger:
         logger.info("Document processing started", run_id=run_id)
@@ -343,16 +422,16 @@ def get_document_data(
         def cleanup_handler() -> None:
             logger.info("Document processing shutdown requested, cleaning up...", run_id=run_id)
             # Add any cleanup logic here
-        
+
         register_shutdown_handler(cleanup_handler)
-        
+
         try:
             with ShutdownContext(timeout=60.0):
                 with bind_stage(logger, "document_etl"):
                     result = run_document_etl(config_model, input_frame)
-                    
+
             logger.info("Document processing completed", run_id=run_id, records=len(result.documents))
-            
+
         except DocumentValidationError as exc:
             logger.error("Document validation failed", error=str(exc), run_id=run_id, exc_info=True)
             typer.echo(str(exc), err=True)
@@ -379,9 +458,9 @@ def get_document_data(
                     config_model.runtime.date_tag or "",
                     config_model,  # Передаем конфигурацию для применения determinism.column_order
                 )
-                
+
             logger.info("Outputs written successfully", run_id=run_id, outputs=list(outputs.keys()))
-            
+
         except DocumentIOError as exc:
             logger.error("Document IO error", error=str(exc), run_id=run_id, exc_info=True)
             typer.echo(str(exc), err=True)
@@ -407,57 +486,13 @@ class TestitemExitCode(int):
 
 @app.command("testitem-run")
 def testitem_run(
-    config: Path = typer.Option(
-        ...,
-        "--config",
-        "-c",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="Path to testitem configuration YAML file",
-    ),
-    input: Path = typer.Option(
-        ...,
-        "--input",
-        "-i",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="Path to input CSV file with molecule identifiers",
-    ),
-    output: Path = typer.Option(
-        None,
-        "--output",
-        "-o",
-        resolve_path=True,
-        help="Output directory for results (defaults to config io.output.dir)",
-    ),
-    cache_dir: Path = typer.Option(
-        None,
-        "--cache-dir",
-        resolve_path=True,
-        help="Directory for ChEMBL HTTP cache",
-    ),
-    pubchem_cache_dir: Path = typer.Option(
-        None,
-        "--pubchem-cache-dir",
-        resolve_path=True,
-        help="Directory for PubChem HTTP cache",
-    ),
-    timeout: int = typer.Option(
-        None,
-        "--timeout",
-        help="HTTP timeout in seconds",
-    ),
-    retries: int = typer.Option(
-        None,
-        "--retries",
-        help="Number of HTTP retries",
-    ),
+    config: Path = TESTITEM_CONFIG_OPTION,
+    input: Path = TESTITEM_INPUT_OPTION,
+    output: Path = TESTITEM_OUTPUT_OPTION,
+    cache_dir: Path = TESTITEM_CACHE_DIR_OPTION,
+    pubchem_cache_dir: Path = TESTITEM_PUBCHEM_CACHE_DIR_OPTION,
+    timeout: int = TESTITEM_TIMEOUT_OPTION,
+    retries: int = TESTITEM_RETRIES_OPTION,
     limit: int = typer.Option(
         None,
         "--limit",
@@ -486,12 +521,12 @@ def testitem_run(
     ),
 ) -> None:
     """Run the testitem ETL pipeline."""
-    
+
     try:
         # Load configuration
         console.print(f"[blue]Loading configuration from: {config}[/blue]")
-        testitem_config = TestitemConfig.from_file(config)
-        
+        testitem_config = load_testitem_config(config)
+
         # Override configuration with CLI arguments
         if cache_dir:
             testitem_config.runtime.cache_dir = str(cache_dir)
@@ -509,19 +544,20 @@ def testitem_run(
             testitem_config.runtime.dry_run = dry_run
         if date_tag:
             testitem_config.runtime.date_tag = date_tag
-        
+
         # Set default output directory if not provided
         if output is None:
             # Try to get from config, fallback to default
-            config_output = getattr(testitem_config.io.output, 'dir', 'data/output/testitem')
+            config_output = getattr(testitem_config.io.output, "dir", "data/output/testitem")
             output = Path(config_output)
-        
+
         # Configure logging
         if verbose:
             import logging
+
             logging.getLogger().setLevel(logging.DEBUG)
-        
-        console.print(f"[green]Configuration loaded successfully[/green]")
+
+        console.print("[green]Configuration loaded successfully[/green]")
         console.print(f"  Pipeline version: {testitem_config.pipeline_version}")
         console.print(f"  PubChem enabled: {testitem_config.enable_pubchem}")
         console.print(f"  Allow parent missing: {testitem_config.allow_parent_missing}")
@@ -529,111 +565,102 @@ def testitem_run(
         console.print(f"  Retries: {getattr(testitem_config.runtime, 'retries', 5)}")
         console.print(f"  Timeout: {getattr(testitem_config.runtime, 'timeout_sec', 30)}s")
         console.print(f"  Output directory: {output}")
-        
+
         if dry_run:
             console.print("[yellow]Running in dry-run mode - no actual processing will occur[/yellow]")
             return
-        
+
         # Run ETL pipeline
-        console.print(f"[blue]Starting testitem ETL pipeline...[/blue]")
+        console.print("[blue]Starting testitem ETL pipeline...[/blue]")
         console.print(f"  Input file: {input}")
         console.print(f"  Output directory: {output}")
-        
+
         result = run_testitem_etl(testitem_config, input_path=input)
-        
+
         # Display results summary
-        console.print(f"[green]ETL pipeline completed successfully![/green]")
+        console.print("[green]ETL pipeline completed successfully![/green]")
         console.print(f"  Processed {len(result.testitems)} molecules")
         console.print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
-        
+
         # Display QC metrics
         if not result.qc.empty:
             console.print("\n[blue]Quality Control Metrics:[/blue]")
             qc_table = Table(show_header=True, header_style="bold magenta")
             qc_table.add_column("Metric", style="cyan")
             qc_table.add_column("Value", style="green")
-            
+
             for _, row in result.qc.iterrows():
                 metric = row["metric"]
                 value = row["value"]
                 if isinstance(value, dict):
                     value = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
                 qc_table.add_row(metric, str(value))
-            
+
             console.print(qc_table)
-        
+
         # Write outputs
         console.print(f"[blue]Writing outputs to: {output}[/blue]")
-        output_paths = write_testitem_outputs(result, output, testitem_config)
-        
-        console.print(f"[green]Outputs written successfully:[/green]")
+        output_paths = write_testitem_outputs(result, output, date_tag or "", testitem_config)
+
+        console.print("[green]Outputs written successfully:[/green]")
         for artifact_type, path in output_paths.items():
             console.print(f"  {artifact_type}: {path}")
-        
-        console.print(f"\n[green]Testitem ETL pipeline completed successfully![/green]")
-        
+
+        console.print("\n[green]Testitem ETL pipeline completed successfully![/green]")
+
     except TestitemValidationError as e:
         console.print(f"[red]Validation Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR)
+        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR) from e
     except TestitemHTTPError as e:
         console.print(f"[red]HTTP Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.HTTP_ERROR)
+        raise typer.Exit(TestitemExitCode.HTTP_ERROR) from e
     except TestitemQCError as e:
         console.print(f"[red]QC Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.QC_ERROR)
+        raise typer.Exit(TestitemExitCode.QC_ERROR) from e
     except TestitemIOError as e:
         console.print(f"[red]I/O Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.IO_ERROR)
+        raise typer.Exit(TestitemExitCode.IO_ERROR) from e
     except Exception as e:
         console.print(f"[red]Unexpected Error: {e}[/red]")
         if verbose:
             import traceback
+
             console.print(traceback.format_exc())
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command("testitem-validate-config")
 def testitem_validate_config(
-    config: Path = typer.Option(
-        ...,
-        "--config",
-        "-c",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="Path to testitem configuration YAML file",
-    ),
+    config: Path = TESTITEM_CONFIG_OPTION,
 ) -> None:
     """Validate testitem configuration file."""
-    
+
     try:
         console.print(f"[blue]Validating configuration: {config}[/blue]")
-        testitem_config = TestitemConfig.from_file(config)
-        
-        console.print(f"[green]Configuration is valid![/green]")
+        testitem_config = load_testitem_config(config)
+
+        console.print("[green]Configuration is valid![/green]")
         console.print(f"  Pipeline version: {testitem_config.pipeline_version}")
         console.print(f"  PubChem enabled: {testitem_config.enable_pubchem}")
         console.print(f"  Allow parent missing: {testitem_config.allow_parent_missing}")
-        
+
         # Display source configurations
-        console.print(f"\n[blue]Source Configurations:[/blue]")
+        console.print("\n[blue]Source Configurations:[/blue]")
         for source_name, source_config in testitem_config.sources.items():
             console.print(f"  {source_name}:")
             console.print(f"    Base URL: {source_config.http.base_url}")
             console.print(f"    Timeout: {source_config.http.timeout_sec}s")
             console.print(f"    Retries: {getattr(source_config.http.retries, 'total', 'default')}")
-        
+
     except Exception as e:
         console.print(f"[red]Configuration validation failed: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR)
+        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR) from e
 
 
 @app.command("testitem-info")
 def testitem_info() -> None:
     """Display information about the testitem ETL pipeline."""
-    
+
     console.print("[bold blue]Testitem ETL Pipeline[/bold blue]")
     console.print("=" * 50)
     console.print()
@@ -668,89 +695,77 @@ def testitem_info() -> None:
 @app.command()
 def health(
     config: Path = CONFIG_OPTION,
-    timeout: float = typer.Option(10.0, "--timeout", "-t", help="Timeout for health checks in seconds"),
-    json_output: bool = typer.Option(False, "--json", help="Output results in JSON format"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
+    timeout: float = HEALTH_TIMEOUT_OPTION,
+    json_output: bool = JSON_OUTPUT_OPTION,
+    log_level: str = LOG_LEVEL_OPTION,
+    log_file: Path | None = LOG_FILE_OPTION,
+    no_file_log: bool = NO_FILE_LOG_OPTION,
 ) -> None:
     """Check health status of all configured API clients."""
-    
+
     # Generate unique run ID for health check
     run_id = generate_run_id()
     set_run_context(run_id=run_id, stage="health_check")
-    
+
     try:
         # Load configuration
         config_model = Config.load(config)
-        
+
         # Configure logging
         logger = configure_logging(
             level=log_level,
             file_enabled=not no_file_log,
             log_file=log_file,
-            logging_config=config_model.logging.model_dump() if hasattr(config_model, 'logging') else None,
+            logging_config=config_model.logging.model_dump() if hasattr(config_model, "logging") else None,
         )
         with bind_stage(logger, "health_check", run_id=run_id) as logger:
             logger.info("Health check started", run_id=run_id, timeout=timeout)
-            
+
             # Create health checker from API configurations
             # Get clients from config_model.clients (list of APIClientConfig)
             # and filter by enabled sources
             api_configs = {}
             enabled_sources = {name for name, source in config_model.sources.items() if source.enabled}
-            
+
             for client_config in config_model.clients:
                 if client_config.name in enabled_sources:
                     api_configs[client_config.name] = client_config
-            
+
             if not api_configs:
                 typer.echo("No enabled API clients found for health checking", err=True)
                 raise typer.Exit(1)
-            
+
             health_checker = create_health_checker_from_config(api_configs)
-            
+
             # Perform health checks
             typer.echo("Checking API health...")
-            
+
             with bind_stage(logger, "api_health_checks"):
                 statuses = health_checker.check_all(timeout=timeout)
-            
+
             # Log results
             healthy_count = sum(1 for s in statuses if s.is_healthy)
             unhealthy_count = len(statuses) - healthy_count
-            
-            logger.info(
-                "Health check completed",
-                run_id=run_id,
-                total_apis=len(statuses),
-                healthy=healthy_count,
-                unhealthy=unhealthy_count
-            )
-            
+
+            logger.info("Health check completed", run_id=run_id, total_apis=len(statuses), healthy=healthy_count, unhealthy=unhealthy_count)
+
             if json_output:
                 # Output JSON format
                 import json
+
                 summary = health_checker.get_health_summary(statuses)
                 summary["apis"] = [
-                    {
-                        "name": s.name,
-                        "healthy": s.is_healthy,
-                        "response_time_ms": s.response_time_ms,
-                        "circuit_state": s.circuit_state,
-                        "error": s.error_message
-                    }
-                    for s in statuses
+                    {"name": s.name, "healthy": s.is_healthy, "response_time_ms": s.response_time_ms, "circuit_state": s.circuit_state, "error": s.error_message} for s in statuses
                 ]
                 typer.echo(json.dumps(summary, indent=2))
             else:
                 # Output formatted table
                 health_checker.print_health_report(statuses)
-                
+
             # Exit with error code if any APIs are unhealthy
             if unhealthy_count > 0:
                 raise typer.Exit(1)
-        
+
     except Exception as exc:
         logger.error("Health check failed", error=str(exc), run_id=run_id, exc_info=True)
         typer.echo(f"Health check failed: {exc}", err=True)
@@ -762,6 +777,7 @@ def version() -> None:
     """Print the package version."""
     try:
         from importlib.metadata import version
+
         package_version = version("bioactivity-data-acquisition")
         typer.echo(f"bioactivity-data-acquisition {package_version}")
     except Exception:
@@ -770,85 +786,92 @@ def version() -> None:
 
 
 @app.command()
-def install_completion(
-    shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)")
-) -> None:
+def install_completion(shell: str = typer.Argument(..., help="Shell type (bash, zsh, fish, powershell)")) -> None:
     """Install shell completion for the CLI."""
-    
+
     import subprocess
     import sys
-    
+
     # Get the current executable path
     executable = sys.executable
-    
+
     # Get the script name
     script_name = "bioactivity-data-acquisition"
-    
+
     # Validate shell parameter
     allowed_shells = {"bash", "zsh", "fish", "powershell"}
     if shell not in allowed_shells:
         typer.echo(f"❌ Unsupported shell: {shell}")
         typer.echo(f"Supported shells: {', '.join(allowed_shells)}")
         raise typer.Exit(1)
-    
+
     try:
         # Generate completion script
-        result = subprocess.run([
-            executable, "-m", "typer", "library.cli:app", 
-            f"--name={script_name}", 
-            f"{shell}",
-            "--output-file", "-"
-        ], capture_output=True, text=True, check=True)
-        
+        result = subprocess.run(  # noqa: S603
+            [
+                executable,
+                "-m",
+                "typer",
+                "library.cli:app",
+                f"--name={script_name}",
+                f"{shell}",
+                "--output-file",
+                "-",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
         completion_script = result.stdout
-        
+
         if shell == "bash":
             completion_dir = Path.home() / ".local" / "share" / "bash-completion" / "completions"
             completion_dir.mkdir(parents=True, exist_ok=True)
             completion_path = completion_dir / script_name
-            
+
             with completion_path.open("w") as f:
                 f.write(completion_script)
-            
+
             typer.echo(f"✅ Bash completion installed to {completion_path}")
             typer.echo(f"Run 'source {completion_path}' or restart your shell to activate.")
-            
+
         elif shell == "zsh":
             completion_dir = Path.home() / ".zsh" / "completions"
             completion_dir.mkdir(parents=True, exist_ok=True)
             completion_path = completion_dir / f"_{script_name}"
-            
+
             with completion_path.open("w") as f:
                 f.write(completion_script)
-            
+
             typer.echo(f"✅ Zsh completion installed to {completion_path}")
             typer.echo("Add the following to your ~/.zshrc:")
             typer.echo("  fpath=(~/.zsh/completions $fpath)")
             typer.echo("  autoload -U compinit && compinit")
-            
+
         elif shell == "fish":
             completion_dir = Path.home() / ".config" / "fish" / "completions"
             completion_dir.mkdir(parents=True, exist_ok=True)
             completion_path = completion_dir / f"{script_name}.fish"
-            
+
             with completion_path.open("w") as f:
                 f.write(completion_script)
-            
+
             typer.echo(f"✅ Fish completion installed to {completion_path}")
             typer.echo("Restart your shell to activate.")
-            
+
         elif shell == "powershell":
             completion_dir = Path.home() / "Documents" / "PowerShell" / "Modules"
             completion_dir.mkdir(parents=True, exist_ok=True)
             completion_path = completion_dir / f"{script_name}.ps1"
-            
+
             with completion_path.open("w") as f:
                 f.write(completion_script)
-            
+
             typer.echo(f"✅ PowerShell completion installed to {completion_path}")
             typer.echo("Add the following to your PowerShell profile:")
             typer.echo(f"  . {completion_path}")
-            
+
     except subprocess.CalledProcessError as e:
         typer.echo(f"❌ Failed to generate completion script: {e}")
         typer.echo(f"Error output: {e.stderr}")
@@ -862,13 +885,13 @@ def main() -> None:
     """Entrypoint for ``python -m library.cli``."""
     # Автоматически установить API ключи
     _setup_api_keys_automatically()
-    
+
     # Initialize telemetry
     setup_telemetry(
         service_name="bioactivity-etl",
         enable_requests_instrumentation=True,
     )
-    
+
     app()
 
 

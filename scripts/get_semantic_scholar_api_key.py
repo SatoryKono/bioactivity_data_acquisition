@@ -16,10 +16,9 @@ Semantic Scholar предоставляет API ключи для увеличе
 
 import os
 import sys
+from pathlib import Path
 
 import requests
-
-from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

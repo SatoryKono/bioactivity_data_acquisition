@@ -9,24 +9,19 @@ This module contains utility scripts for:
 - Journal name normalization
 """
 
-# from .check_semantic_scholar_status import main as check_semantic_scholar_status  # File not found
-from .citation_formatter import format_citation, add_citation_column
-from .journal_normalizer import (
-    normalize_journal_name,
-    normalize_journal_columns,
-    get_journal_columns,
-)
-# from .monitor_pubmed import main as monitor_pubmed  # File not found
-# from .monitor_semantic_scholar import main as monitor_semantic_scholar  # File not found
-# from .quick_api_check import main as quick_api_check  # File not found
-# from .toggle_semantic_scholar import main as toggle_semantic_scholar  # File not found
+from .citation_formatter import add_citation_column, format_citation
 from .data_validator import (
     validate_all_fields,
     validate_doi_fields,
-    validate_journal_fields,
-    validate_year_fields,
-    validate_volume_fields,
     validate_issue_fields,
+    validate_journal_fields,
+    validate_volume_fields,
+    validate_year_fields,
+)
+from .journal_normalizer import (
+    get_journal_columns,
+    normalize_journal_columns,
+    normalize_journal_name,
 )
 
 __all__ = [

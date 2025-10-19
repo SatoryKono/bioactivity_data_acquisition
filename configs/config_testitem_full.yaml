@@ -12,10 +12,6 @@ http:
       total: 10
       # Множитель для экспоненциальной задержки между попытками
       backoff_multiplier: 3.0
-    # Настройки ограничения скорости запросов по умолчанию
-    rate_limit:
-      max_calls: 10
-      period: 15.0
     # Заголовки, отправляемые с каждым HTTP-запросом
     headers:
       Accept: application/json
@@ -39,14 +35,16 @@ sources:
       limit: 1000
     # Переопределения настроек пагинации
     pagination:
-      # Параметр смещения для пагинации
-      offset_param: offset
       # Параметр количества записей на странице
       size_param: limit
       # Количество записей на странице (увеличено для оптимизации)
       size: 1000
       # Максимальное количество страниц для обработки
       max_pages: 50
+    # Настройки ограничения скорости запросов для ChEMBL
+    rate_limit:
+      max_calls: 10
+      period: 15.0
     # Переопределения HTTP настроек
     http:
       # Базовый URL API ChEMBL
@@ -76,6 +74,10 @@ sources:
     params:
       # Формат ответа
       format: json
+    # Настройки ограничения скорости запросов для PubChem
+    rate_limit:
+      max_calls: 5
+      period: 10.0
     # Переопределения HTTP настроек
     http:
       # Базовый URL API PubChem
@@ -103,31 +105,19 @@ io:
   output:
     # Директория для сохранения результатов
     dir: data/output/testitem
-    # Путь к основному файлу данных
-    data_path: data/output/testitem/testitem.csv
-    # Путь к файлу QC отчета
-    qc_report_path: data/output/testitem/testitem_qc.csv
-    # Путь к файлу корреляционного анализа
-    correlation_path: data/output/testitem/testitem_correlation.csv
-    # Формат выходных файлов
-    format: csv
-    # Специфичные настройки для CSV формата
-    csv:
-      # Кодировка файла
-      encoding: utf-8
-      # Формат чисел с плавающей точкой (3 знака после запятой)
-      float_format: "%.3f"
-      # Формат даты и времени (ISO 8601)
-      date_format: "%Y-%m-%dT%H:%M:%SZ"
-      # Представление отсутствующих значений
-      na_rep: ""
 
 # Настройки выполнения программы
 runtime:
   # Количество воркеров для обработки
   workers: 8
+  # Число воркеров для PubChem (ограничиваем отдельно)
+  pubchem_workers: 4
   # Размер батча для обработки
   batch_size: 200
+  # Включить параллельную обработку PubChem
+  enable_parallel_pubchem: true
+  # Fallback на последовательный режим при сбоях batch
+  fallback_to_sequential: true
   # Количество повторных попыток
   retries: 5
   # Таймаут в секундах
@@ -143,18 +133,25 @@ runtime:
   # Режим тестирования (true = только симуляция, false = реальная обработка)
   dry_run: false
 
-# Настройки выходных файлов
-output:
-  # Директория для сохранения результатов
-  dir: data\output\testitem
-  # Паттерн имени CSV файла (run_date = YYYYMMDD из extracted_at)
-  csv_pattern: "testitem_{run_date}.csv"
-  # Имя файла метаданных
-  meta_filename: "testitem_{run_date}_meta.yaml"
-  # Директория для логов
-  logs_dir: logs
-  # Директория для QC артефактов
-  qc_dir: data\output\testitem
+# Настройки постобработки данных
+postprocess:
+  # Контроль качества данных
+  qc:
+    # Включить анализ качества данных
+    enabled: true
+    # Расширенный QC анализ
+    enhanced: true
+  # Корреляционный анализ между источниками
+  correlation:
+    # Включить анализ корреляций
+    enabled: true
+    # Расширенный корреляционный анализ
+    enhanced: true
+
+# Настройки логирования
+logging:
+  # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: INFO
 
 # Настройки детерминизма для воспроизводимости результатов
 determinism:
@@ -297,11 +294,6 @@ pipeline:
   # Включить обогащение из PubChem
   enable_pubchem: true
 
-# Настройки логирования
-logging:
-  # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-  level: INFO
-
 # Настройки валидации данных
 validation:
   # Строгий режим валидации (true = останавливать при ошибках)
@@ -325,21 +317,6 @@ cache:
   ttl: 86400
   # Инвалидировать кэш при смене релиза ChEMBL
   invalidate_on_release_change: true
-
-# Настройки постобработки данных
-postprocess:
-  # Контроль качества данных
-  qc:
-    # Включить анализ качества данных
-    enabled: true
-    # Расширенный QC анализ
-    enhanced: true
-  # Корреляционный анализ между источниками
-  correlation:
-    # Включить анализ корреляций
-    enabled: true
-    # Расширенный корреляционный анализ
-    enhanced: true
 
 # =============================================================================
 # ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ДЛЯ API КЛЮЧЕЙ

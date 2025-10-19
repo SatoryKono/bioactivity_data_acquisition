@@ -12,7 +12,7 @@ extraction_parameters:
   total_assays: 10
   unique_sources: 1
 file_checksums:
-  csv: 9a67dda2aeb2ee78503b4266ac4a7c545a2c13ee264682206a7c24ae7975269e
+  csv: 08496c14a65e0bb236315770b8171611a6e150a7735cc7e332ec1943a90c6c27
   qc: 35f896df711db8c951ea52ca982246346eb9aca94febb009af024205ae20fb46
 pipeline_version: 1.0.0
 row_count: 10

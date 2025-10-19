@@ -23,8 +23,7 @@ import requests
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-# Add src to path for imports`nsys.path.insert(0, str(Path(__file__).parent.parent / "src"))`n`nfrom library.logging_setup import get_logger
+from library.logging_setup import get_logger
 
 logger = get_logger(__name__)
 

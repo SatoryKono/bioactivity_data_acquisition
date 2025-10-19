@@ -1,10 +1,9 @@
 """Интеграционные тесты для функции publication_date в pipeline."""
 
 import pandas as pd
-import pytest
 
-from library.documents.pipeline import run_document_etl
 from library.documents.config import DocumentConfig
+from library.documents.pipeline import run_document_etl
 
 
 class TestPublicationDateIntegration:

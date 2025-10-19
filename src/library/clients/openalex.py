@@ -1,4 +1,5 @@
 """Client for the OpenAlex API."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -24,14 +25,9 @@ class OpenAlexClient(BaseApiClient):
         except ApiClientError as exc:
             # Специальная обработка для ошибок 429 от OpenAlex
             if exc.status_code == 429:
-                self.logger.warning(
-                    "openalex_rate_limited",
-                    doi=doi,
-                    error=str(exc),
-                    message="OpenAlex API rate limit exceeded. Consider getting an API key."
-                )
+                self.logger.warning("openalex_rate_limited", doi=doi, error=str(exc), message="OpenAlex API rate limit exceeded. Consider getting an API key.")
                 return self._create_empty_record(doi, f"Rate limited: {str(exc)}")
-            
+
             self.logger.info("openalex_doi_fallback", doi=doi, error=str(exc))
             try:
                 # Fallback to OpenAlex search API
@@ -63,32 +59,24 @@ class OpenAlexClient(BaseApiClient):
         except ApiClientError as exc:
             # Специальная обработка для ошибок 429 от OpenAlex
             if exc.status_code == 429:
-                self.logger.warning(
-                    "openalex_rate_limited",
-                    pmid=pmid,
-                    error=str(exc),
-                    message="OpenAlex API rate limit exceeded. Consider getting an API key."
-                )
+                self.logger.warning("openalex_rate_limited", pmid=pmid, error=str(exc), message="OpenAlex API rate limit exceeded. Consider getting an API key.")
                 return self._create_empty_record(pmid, f"Rate limited: {str(exc)}")
             raise
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         ids = work.get("ids") or {}
-        
+
         # Debug logging
-        self.logger.debug("openalex_parse_work", 
-                         work_type=work.get("type"),
-                         work_type_crossref=work.get("type_crossref"),
-                         work_keys=list(work.keys()))
-        
+        self.logger.debug("openalex_parse_work", work_type=work.get("type"), work_type_crossref=work.get("type_crossref"), work_keys=list(work.keys()))
+
         # Извлекаем DOI - проверяем разные возможные поля
         doi_value = work.get("doi") or ids.get("doi") or work.get("DOI")
         if doi_value and doi_value.startswith("https://doi.org/"):
             doi_value = doi_value.replace("https://doi.org/", "")
-        
+
         # Обрабатываем title - используем display_name как fallback
         title = work.get("title") or work.get("display_name")
-        
+
         # Обрабатываем publication_year - проверяем разные поля
         pub_year = work.get("publication_year") or work.get("year")
         if pub_year is not None:
@@ -96,7 +84,7 @@ class OpenAlexClient(BaseApiClient):
                 pub_year = int(pub_year)
             except (ValueError, TypeError):
                 pub_year = None
-        
+
         # Если publication_year не найден, попробуем извлечь из published-print
         if pub_year is None and "published-print" in work:
             published_print = work["published-print"]
@@ -105,7 +93,7 @@ class OpenAlexClient(BaseApiClient):
                     pub_year = int(published_print["date-parts"][0][0])
                 except (ValueError, TypeError, IndexError):
                     pub_year = None
-        
+
         # Извлекаем type_crossref - проверяем разные возможные поля
         type_crossref = work.get("type_crossref")
         if type_crossref is None:
@@ -118,7 +106,7 @@ class OpenAlexClient(BaseApiClient):
                     source = primary_location["source"]
                     if source and "type_crossref" in source:
                         type_crossref = source["type_crossref"]
-        
+
         record: dict[str, Any | None] = {
             "source": "openalex",
             "openalex_doi": doi_value,
@@ -132,12 +120,10 @@ class OpenAlexClient(BaseApiClient):
             "openalex_authors": self._extract_authors(work),
             "openalex_error": None,  # Will be set if there's an error
         }
-        
+
         # Debug logging for the final record
-        self.logger.debug("openalex_parsed_record", 
-                         openalex_crossref_doc_type=type_crossref,
-                         openalex_doc_type=work.get("type"))
-        
+        self.logger.debug("openalex_parsed_record", openalex_crossref_doc_type=type_crossref, openalex_doc_type=work.get("type"))
+
         # Return all fields, including None values, to maintain schema consistency
         return record
 
@@ -151,13 +137,13 @@ class OpenAlexClient(BaseApiClient):
             if pmid.startswith("https://pubmed.ncbi.nlm.nih.gov/"):
                 pmid = pmid.split("/")[-1]
             return str(pmid)
-        
+
         # Проверяем в external_ids
         external_ids = work.get("external_ids", {})
         pmid = external_ids.get("pmid") or external_ids.get("pubmed")
         if pmid:
             return str(pmid)
-        
+
         return None
 
     def _extract_authors(self, work: dict[str, Any]) -> list[str] | None:
@@ -174,7 +160,7 @@ class OpenAlexClient(BaseApiClient):
                         if display_name:
                             author_names.append(display_name)
             return author_names if author_names else None
-        
+
         return None
 
     def _extract_issn(self, work: dict[str, Any]) -> str | None:
@@ -185,7 +171,7 @@ class OpenAlexClient(BaseApiClient):
             if isinstance(issn, list) and issn:
                 return issn[0]  # Берем первый ISSN если их несколько
             return str(issn)
-        
+
         # Проверяем в primary_location.source
         primary_location = work.get("primary_location")
         if primary_location and isinstance(primary_location, dict):
@@ -194,7 +180,7 @@ class OpenAlexClient(BaseApiClient):
                 issn = source.get("issn")
                 if issn:
                     return str(issn)
-        
+
         # Проверяем в locations
         locations = work.get("locations", [])
         if isinstance(locations, list):
@@ -205,7 +191,7 @@ class OpenAlexClient(BaseApiClient):
                         issn = source.get("issn")
                         if issn:
                             return str(issn)
-        
+
         return None
 
     def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:

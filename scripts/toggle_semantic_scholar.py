@@ -5,9 +5,16 @@
 из-за строгих лимитов rate limiting.
 """
 
-import sys
+import argparse
 import shutil
+import sys
 from pathlib import Path
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+from library.logging_setup import get_logger
+
+logger = get_logger(__name__)
 
 
 def toggle_semantic_scholar(enable: bool = True) -> bool:
@@ -85,15 +92,9 @@ def show_status():
             logger.error(f"[ERROR] Не удалось прочитать конфигурацию: {e}")
 
 
-import argparse
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from library.logging_setup import get_logger
-
 def main():
     """Основная функция."""
-    logger = get_logger(__name__)
+    # logger уже инициализирован на уровне модуля
 
     parser = argparse.ArgumentParser(description="Переключение Semantic Scholar API")
     parser.add_argument("--enable", action="store_true", help="Включить Semantic Scholar API")

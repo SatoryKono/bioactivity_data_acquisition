@@ -4,17 +4,11 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pandas as pd
+import pandera
 import pytest
 
-from library.assay import AssayConfig, AssayChEMBLClient, run_assay_etl, write_assay_outputs
-from library.assay.pipeline import (
-    AssayETLResult,
-    AssayValidationError,
-    _normalise_columns,
-    _extract_assay_data,
-    _normalize_assay_fields,
-    _normalize_list_field
-)
+from library.assay import AssayChEMBLClient, AssayConfig, run_assay_etl, write_assay_outputs
+from library.assay.pipeline import AssayETLResult, AssayValidationError, _extract_assay_data, _normalise_columns, _normalize_assay_fields, _normalize_list_field
 from library.schemas.assay_schema import AssayInputSchema, AssayNormalizedSchema
 
 
@@ -173,7 +167,7 @@ class TestAssayPipeline:
             "some_other_column": ["value1", "value2"]
         })
         
-        with pytest.raises(Exception):  # Pandera validation error (can be various types)
+        with pytest.raises((pandera.errors.SchemaError, ValueError)):
             AssayInputSchema.validate(invalid_df)
 
     def test_assay_normalized_schema_validation(self):

@@ -1,6 +1,7 @@
 """Тесты для нормализации DOI."""
 
 import pandas as pd
+
 from library.io_.normalize import normalize_doi_advanced
 
 

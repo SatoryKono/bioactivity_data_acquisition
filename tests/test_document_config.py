@@ -8,12 +8,12 @@ import pytest
 import yaml
 
 from library.documents.config import (
+    ConfigLoadError,
     DocumentConfig,
-    DocumentSourceSettings,
     DocumentSourceHTTPSettings,
     DocumentSourcePaginationSettings,
+    DocumentSourceSettings,
     load_document_config,
-    ConfigLoadError,
 )
 
 

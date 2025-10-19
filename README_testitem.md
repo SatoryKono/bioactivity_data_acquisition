@@ -30,15 +30,9 @@
 
 ```
 src/library/testitem/
-├── __init__.py          # Основной модуль
-├── config.py            # Конфигурация
-├── clients.py           # HTTP клиенты для ChEMBL и PubChem
-├── extract.py           # Этап извлечения данных
-├── normalize.py         # Этап нормализации
-├── validate.py          # Этап валидации
-├── persist.py           # Этап сохранения
-├── pipeline.py          # Основной конвейер
-└── cli.py              # CLI интерфейс
+├── __init__.py          # Публичный интерфейс модуля
+├── config.py            # Pydantic конфигурация (documents-style)
+└── pipeline.py          # Консолидированный ETL конвейер
 
 src/library/schemas/
 └── testitem_schema.py   # Pandera схемы валидации
@@ -49,6 +43,8 @@ configs/
 src/scripts/
 └── get_testitem_data.py # Скрипт запуска
 ```
+
+**Примечание**: Модули `extract.py`, `normalize.py`, `validate.py`, `persist.py` были консолидированы в `pipeline.py` для упрощения архитектуры и соответствия стандартам `documents` модуля.
 
 ## Использование
 
@@ -99,24 +95,29 @@ python src/scripts/get_testitem_data.py testitem-run \
 ### Программный интерфейс
 
 ```python
-from library.testitem.config import TestitemConfig
+from library.testitem.config import load_testitem_config
 from library.testitem.pipeline import run_testitem_etl, write_testitem_outputs
-import pandas as pd
+from pathlib import Path
 
-# Загрузка конфигурации
-config = TestitemConfig.from_file("configs/config_testitem_full.yaml")
+# Загрузка конфигурации (новый API)
+config = load_testitem_config("configs/config_testitem_full.yaml")
 
-# Подготовка входных данных
-input_data = pd.DataFrame({
-    "molecule_chembl_id": ["CHEMBL25", "CHEMBL153"],
-    "molregno": [1, 2]
-})
-
-# Запуск ETL конвейера
-result = run_testitem_etl(config, input_data=input_data)
+# Запуск ETL конвейера с файлом входных данных
+result = run_testitem_etl(config, input_path=Path("data/input/testitem.csv"))
 
 # Сохранение результатов
 output_paths = write_testitem_outputs(result, Path("data/output/testitem"), config)
+```
+
+**Миграция с старого API**:
+```python
+# Старый способ (deprecated)
+config = TestitemConfig.from_file("config.yaml")
+result = run_testitem_etl(config, input_data=dataframe)
+
+# Новый способ (рекомендуется)
+config = load_testitem_config("config.yaml")
+result = run_testitem_etl(config, input_path=Path("input.csv"))
 ```
 
 ## Входные данные
@@ -225,13 +226,20 @@ testitem__{run_date}.csv
 
 ```yaml
 # Версия пайплайна
-pipeline:
-  version: 1.1.0
-  allow_parent_missing: false
-  enable_pubchem: true
+pipeline_version: 1.1.0
+allow_parent_missing: false
+enable_pubchem: true
+
+# Настройки ввода-вывода
+io:
+  input:
+    testitem_keys_csv: data/input/testitem.csv
+  output:
+    dir: data/output/testitem
 
 # Настройки выполнения
 runtime:
+  workers: 8
   batch_size: 200
   retries: 5
   timeout_sec: 30
@@ -245,6 +253,19 @@ determinism:
     by: [molecule_chembl_id, molregno, pref_name_key]
     ascending: [true, true, true]
     na_position: last
+
+# Настройки постобработки
+postprocess:
+  qc:
+    enabled: true
+    enhanced: true
+  correlation:
+    enabled: true
+    enhanced: true
+
+# Настройки логирования
+logging:
+  level: INFO
 ```
 
 ### Источники данных
@@ -253,7 +274,11 @@ determinism:
 sources:
   chembl:
     name: chembl
+    enabled: true
     endpoint: molecule
+    rate_limit:
+      max_calls: 10
+      period: 15.0
     http:
       base_url: https://www.ebi.ac.uk/chembl/api/data
       timeout_sec: 60.0
@@ -263,7 +288,11 @@ sources:
 
   pubchem:
     name: pubchem
+    enabled: true
     endpoint: compound
+    rate_limit:
+      max_calls: 5
+      period: 10.0
     http:
       base_url: https://pubchem.ncbi.nlm.nih.gov/rest/pug
       timeout_sec: 45.0
@@ -271,6 +300,11 @@ sources:
         total: 8
         backoff_multiplier: 2.5
 ```
+
+**Важные изменения**:
+- `rate_limit` теперь настраивается на уровне источника, а не глобально
+- Убраны подсекции `csv`/`parquet` из `io.output`
+- Добавлены секции `postprocess` и `logging`
 
 ## Детерминизм
 
@@ -353,3 +387,69 @@ pytest tests/test_testitem_pipeline.py --cov=library.testitem --cov-report=html
 - Время выполнения операций
 - Успешность обогащения PubChem
 - Количество ошибок и предупреждений
+
+## Миграционное руководство
+
+### Переход с версии 1.0.x на 1.1.x
+
+#### Breaking Changes
+
+1. **Конфигурация**:
+   - Замените `TestitemConfig.from_file()` на `load_testitem_config()`
+   - Обновите структуру YAML конфигурации (см. раздел "Конфигурация")
+   - Переместите `rate_limit` из `http.global` в `sources.{source_name}`
+
+2. **API**:
+   - `run_testitem_etl()` теперь принимает `input_path` вместо `input_data`
+   - Удалены модули `extract.py`, `normalize.py`, `validate.py`, `persist.py`
+
+3. **Структура проекта**:
+   - Консолидация ETL логики в `pipeline.py`
+   - Новые Pydantic модели конфигурации
+
+#### Шаги миграции
+
+1. **Обновите импорты**:
+   ```python
+   # Старый способ
+   from library.testitem.config import TestitemConfig
+   
+   # Новый способ
+   from library.testitem.config import load_testitem_config
+   ```
+
+2. **Обновите загрузку конфигурации**:
+   ```python
+   # Старый способ
+   config = TestitemConfig.from_file("config.yaml")
+   
+   # Новый способ
+   config = load_testitem_config("config.yaml")
+   ```
+
+3. **Обновите вызовы ETL**:
+   ```python
+   # Старый способ
+   result = run_testitem_etl(config, input_data=dataframe)
+   
+   # Новый способ
+   result = run_testitem_etl(config, input_path=Path("input.csv"))
+   ```
+
+4. **Обновите конфигурационные файлы**:
+   - Переместите `rate_limit` из `http.global` в `sources.{source_name}`
+   - Добавьте секции `postprocess` и `logging`
+   - Уберите подсекции `csv`/`parquet` из `io.output`
+
+#### Backward Compatibility
+
+Старые функции помечены как deprecated, но продолжают работать:
+- `TestitemConfig.from_file()` → `load_testitem_config()`
+- `run_testitem_etl(config, input_data=...)` → `run_testitem_etl(config, input_path=...)`
+
+#### Поддержка
+
+При возникновении проблем с миграцией:
+1. Проверьте логи на наличие deprecated warnings
+2. Обновите код согласно новому API
+3. Обратитесь к разделу "Программный интерфейс" для примеров

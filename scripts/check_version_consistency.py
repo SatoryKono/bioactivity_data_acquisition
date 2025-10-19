@@ -32,7 +32,7 @@ def get_version_from_cli() -> str:
         match = re.search(r'"bioactivity-data-acquisition\s+([^"]+)"', content)
         if match:
             return match.group(1)
-        raise ValueError("Version not found in CLI")
+        raise ValueError("Version not found in CLI") from None
 
 
 def get_version_from_readme() -> str:

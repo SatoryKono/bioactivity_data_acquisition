@@ -11,11 +11,11 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from library.config import (
+    DeterminismSettings,
+    LoggingSettings,
     _assign_path,
     _merge_dicts,
     _parse_scalar,
-    DeterminismSettings,
-    LoggingSettings,
 )
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl",)
@@ -99,6 +99,17 @@ class ActivitySourcePaginationSettings(BaseModel):
     max_pages: int | None = Field(default=None, ge=1, le=1000)
 
 
+class BatchSettings(BaseModel):
+    """Настройки batch-запросов."""
+
+    enabled: bool = Field(default=False, description="Включить batch режим")
+    size: int = Field(default=50, ge=1, le=1000, description="Размер batch (кол-во ID в запросе)")
+    max_batches: int | None = Field(default=None, ge=1, description="Максимальное число batches")
+    parallel_workers: int = Field(default=4, ge=1, le=32, description="Кол-во параллельных воркеров")
+    id_field: str = Field(default="activity_chembl_id", description="Имя поля с ID во входном CSV")
+    filter_param: str = Field(default="activity_id__in", description="Параметр API для фильтрации по ID")
+
+
 class ActivitySourceSettings(BaseModel):
     """Configuration settings for an activity source."""
 
@@ -109,6 +120,7 @@ class ActivitySourceSettings(BaseModel):
     pagination: ActivitySourcePaginationSettings = Field(default_factory=ActivitySourcePaginationSettings)
     http: ActivitySourceHTTPSettings = Field(default_factory=ActivitySourceHTTPSettings)
     rate_limit: dict[str, Any] = Field(default_factory=dict)
+    batch: BatchSettings = Field(default_factory=BatchSettings)
 
 
 def _default_sources() -> dict[str, ActivitySourceSettings]:
@@ -245,5 +257,3 @@ __all__ = [
     "SourceToggle",
     "load_activity_config",
 ]
-
-

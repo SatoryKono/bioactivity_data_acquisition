@@ -1,8 +1,8 @@
 """Integration tests for ChEMBL API client."""
 
-import pytest
 import os
-from unittest.mock import patch
+
+import pytest
 
 from library.clients.chembl import ChEMBLClient
 from library.clients.exceptions import ApiClientError
@@ -74,7 +74,7 @@ class TestChEMBLIntegration:
                     if "rate limit" in str(e).lower() or e.status_code == 429:
                         break  # Rate limiting is working
                 time.sleep(0.1)  # Small delay between requests
-        except Exception:
+        except Exception:  # noqa: S110
             # Handle any unexpected errors gracefully
             pass
         

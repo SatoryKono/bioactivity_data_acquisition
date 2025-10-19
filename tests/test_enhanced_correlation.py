@@ -6,16 +6,11 @@ from pathlib import Path
 # Добавляем путь к библиотеке
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pytest
 
-from library.etl.enhanced_correlation import (
-    EnhancedCorrelationAnalyzer,
-    build_enhanced_correlation_analysis,
-    build_enhanced_correlation_reports,
-    build_correlation_insights
-)
+from library.etl.enhanced_correlation import EnhancedCorrelationAnalyzer, build_correlation_insights, build_enhanced_correlation_analysis, build_enhanced_correlation_reports
 
 
 class TestEnhancedCorrelationAnalyzer:

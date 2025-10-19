@@ -30,6 +30,7 @@ from library.utils.errors import ConfigError, ExtractionError  # type: ignore
 try:
     from dotenv import load_dotenv  # type: ignore
 except ImportError:
+
     def load_dotenv() -> None:
         """Placeholder for dotenv functionality."""
         pass
@@ -38,24 +39,23 @@ except ImportError:
 # Define missing classes and functions as placeholders
 class PipelineValidationError(Exception):
     """Custom validation error for pipeline operations."""
+
     pass
+
 
 def read_queries(input_path: Path) -> pd.DataFrame:
     """Read queries from CSV file."""
     return pd.read_csv(input_path)
 
+
 def write_publications(publications: pd.DataFrame, output_path: Path, config: Any) -> None:
     """Write publications to CSV file."""
     # Используем готовую функцию детерминистического сохранения
     from library.etl.load import write_deterministic_csv
-    
+
     # Применяем column_order из конфигурации и детерминистическую сортировку
-    write_deterministic_csv(
-        publications, 
-        output_path,
-        determinism=config.determinism,
-        output=config.io.output
-    )
+    write_deterministic_csv(publications, output_path, determinism=config.determinism, output=config.io.output)
+
 
 # Placeholder schemas
 class InputSchema:
@@ -63,10 +63,12 @@ class InputSchema:
     def validate(df: pd.DataFrame, lazy: bool = True) -> pd.DataFrame:
         return df
 
+
 class OutputSchema:
     @staticmethod
     def validate(df: pd.DataFrame, lazy: bool = True) -> pd.DataFrame:
         return df
+
 
 app = typer.Typer(help="Fetch and normalize publication metadata from multiple public APIs.")
 
@@ -120,6 +122,7 @@ def load_config(path: Path) -> PipelineConfig:
         return PipelineConfig.parse_obj(payload)
     except ValidationError as exc:
         raise ConfigError(f"Invalid configuration: {exc}") from exc
+
 
 def build_clients(config: PipelineConfig) -> dict[str, BasePublicationsClient]:
     """Instantiate clients defined in the configuration."""
@@ -182,7 +185,7 @@ def extract(
     input: Path,
 ) -> None:
     """Extract publication metadata without writing to disk."""
-    
+
     # Validate file existence
     if not config.exists() or not config.is_file():
         raise typer.BadParameter(f"Configuration file not found: {config}")
@@ -199,13 +202,13 @@ def run(
     output: Path,
 ) -> None:
     """Run the full ETL pipeline and persist the normalized output."""
-    
+
     # Validate file existence
     if not config.exists() or not config.is_file():
         raise typer.BadParameter(f"Configuration file not found: {config}")
     if not input.exists() or not input.is_file():
         raise typer.BadParameter(f"Input file not found: {input}")
-    
+
     # Ensure output directory exists
     output.parent.mkdir(parents=True, exist_ok=True)
 

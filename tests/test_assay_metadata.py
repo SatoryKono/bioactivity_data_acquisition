@@ -1,6 +1,5 @@
 """Tests for assay metadata structure."""
 
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pandas as pd

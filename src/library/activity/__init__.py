@@ -7,15 +7,15 @@ from .config import (
     ActivityHTTPGlobalSettings,
     ActivityHTTPRetrySettings,
     ActivityHTTPSettings,
-    ActivityIOSettings,
     ActivityInputSettings,
+    ActivityIOSettings,
     ActivityOutputSettings,
     ActivityPostprocessSettings,
     ActivityRuntimeSettings,
-    SourceToggle,
     ActivitySourceHTTPSettings,
     ActivitySourcePaginationSettings,
     ActivitySourceSettings,
+    SourceToggle,
     load_activity_config,
 )
 from .pipeline import (
@@ -55,5 +55,3 @@ __all__ = [
     "run_activity_etl",
     "write_activity_outputs",
 ]
-
-
