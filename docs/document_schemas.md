@@ -121,7 +121,7 @@ flowchart TB
 ### Валидация входных данных
 
 ```python
-from library.schemas.document_input_schema import DocumentInputSchema
+from library.schemas.document_schema import DocumentInputSchema
 
 # Загрузка и валидация данных
 df = pd.read_csv("data/input/documents.csv")
@@ -131,7 +131,7 @@ validated_df = DocumentInputSchema.validate(df)
 ### Валидация выходных данных
 
 ```python
-from library.schemas.document_output_schema import DocumentOutputSchema
+from library.schemas.document_schema import DocumentOutputSchema
 
 # Валидация обогащенных данных
 enriched_df = DocumentOutputSchema.validate(df)
@@ -140,7 +140,7 @@ enriched_df = DocumentOutputSchema.validate(df)
 ### Валидация QC метрик
 
 ```python
-from library.schemas.document_output_schema import DocumentQCSchema
+from library.schemas.document_schema import DocumentQCSchema
 
 # Валидация QC метрик
 qc_df = DocumentQCSchema.validate(qc_data)

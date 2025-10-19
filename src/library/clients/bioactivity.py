@@ -81,7 +81,7 @@ class BioactivityClient:
             if not isinstance(item, dict):
                 raise ValueError("Each record must be a JSON object")
             item.setdefault("source", self._config.name)
-            item.setdefault("retrieved_at", dt.datetime.utcnow().isoformat())
+            item.setdefault("retrieved_at", dt.datetime.now(dt.timezone.utc).isoformat())
             results.append(item)
         return results
 

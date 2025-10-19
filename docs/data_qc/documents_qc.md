@@ -128,7 +128,7 @@ def check_determinism(df: pd.DataFrame, expected_columns: list) -> dict:
 
 ### Схемы валидации
 
-**Основная схема:** `src/library/schemas/document_output_schema.py`
+**Основная схема:** `src/library/schemas/document_schema.py`
 
 ```python
 import pandera as pa

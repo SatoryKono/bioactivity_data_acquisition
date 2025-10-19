@@ -1,0 +1,18 @@
+chembl_release: unknown
+enabled_sources:
+- chembl
+extraction_parameters:
+  assay_types:
+    B: 10
+  chembl_records: 10
+  correlation_analysis_enabled: true
+  correlation_insights_count: 1
+  relationship_types:
+    D: 10
+  total_assays: 10
+  unique_sources: 1
+file_checksums:
+  csv: 9a67dda2aeb2ee78503b4266ac4a7c545a2c13ee264682206a7c24ae7975269e
+  qc: 35f896df711db8c951ea52ca982246346eb9aca94febb009af024205ae20fb46
+pipeline_version: 1.0.0
+row_count: 10

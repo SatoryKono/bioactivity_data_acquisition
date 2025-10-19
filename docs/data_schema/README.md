@@ -49,7 +49,7 @@ class RawBioactivitySchema(pa.DataFrameModel):
 
 ### DocumentInputSchema
 
-**Расположение**: `src/library/schemas/document_input_schema.py`
+**Расположение**: `src/library/schemas/document_schema.py`
 
 Схема для входных данных документов:
 
@@ -96,7 +96,7 @@ class NormalizedBioactivitySchema(pa.DataFrameModel):
 
 ### DocumentOutputSchema
 
-**Расположение**: `src/library/schemas/document_output_schema.py`
+**Расположение**: `src/library/schemas/document_schema.py`
 
 Схема для обогащённых данных документов из всех источников:
 
@@ -165,7 +165,7 @@ Protein X,not_a_number,nM,chembl,2024-01-01T00:00:00Z,C1=CC=CC=C1
 ```python
 # Пример валидации входных данных документов
 import pandas as pd
-from library.schemas.document_input_schema import DocumentInputSchema
+from library.schemas.document_schema import DocumentInputSchema
 
 # Валидные данные
 valid_data = pd.DataFrame({

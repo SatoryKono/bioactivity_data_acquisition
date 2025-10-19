@@ -52,12 +52,11 @@
 
 ### Валидация через Pandera
 
-Схемы валидации определены в:
-- `src/library/schemas/document_input_schema.py` — входные данные
-- `src/library/schemas/document_output_schema.py` — выходные данные
+Схемы валидации определены в едином модуле:
+- `src/library/schemas/document_schema.py` — входные и выходные данные, а также QC
 
 ```python
-from library.schemas.document_output_schema import DocumentOutputSchema
+from library.schemas.document_schema import DocumentOutputSchema
 import pandera as pa
 
 # Валидация выходных данных
@@ -214,7 +213,7 @@ document_citation = format_citation(
 **Трансформации:**
 ```python
 from library.tools.data_validator import validate_all_fields
-from library.schemas.document_output_schema import DocumentOutputSchema
+from library.schemas.document_schema import DocumentOutputSchema
 
 # Валидация полей из разных источников
 df_validated = validate_all_fields(df)

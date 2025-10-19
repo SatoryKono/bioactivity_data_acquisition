@@ -213,21 +213,31 @@ Examples:
             
             # Print summary
             print("\nSummary:")
-            print(f"  Total molecules: {result.meta.get('total_records', 0)}")
+            total_molecules = int(result.meta.get('total_records', len(result.testitems)))
+            print(f"  Total molecules: {total_molecules}")
             print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown')}")
             print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
-            print(f"  PubChem enabled: {result.meta.get('pubchem_enrichment', {}).get('enabled', False)}")
+            pubchem_enabled = result.meta.get('extraction_parameters', {}).get('pubchem_enabled', config.enable_pubchem)
+            print(f"  PubChem enabled: {pubchem_enabled}")
             print(f"  Date tag: {date_tag}")
             
             # Print source statistics
-            source_counts = result.meta.get('source_counts', {})
+            source_counts = result.meta.get('source_counts')
+            if not source_counts and hasattr(result, 'testitems') and 'source_system' in result.testitems.columns:
+                source_counts = result.testitems['source_system'].value_counts().to_dict()
             print("\nSource statistics:")
-            for source, count in source_counts.items():
-                print(f"  {source}: {count} records")
+            if source_counts:
+                for source, count in source_counts.items():
+                    print(f"  {source}: {count} records")
             
             # Print PubChem enrichment statistics
-            pubchem_stats = result.meta.get('pubchem_enrichment', {})
-            if pubchem_stats.get('enabled', False):
+            pubchem_stats = result.meta.get('pubchem_enrichment')
+            if not pubchem_stats and pubchem_enabled and hasattr(result, 'testitems') and 'pubchem_cid' in result.testitems.columns:
+                records_with_pubchem = int(result.testitems['pubchem_cid'].notna().sum())
+                enrichment_rate = (records_with_pubchem / total_molecules) if total_molecules > 0 else 0
+                print(f"  PubChem enrichment rate: {enrichment_rate:.1%}")
+                print(f"  Records with PubChem data: {records_with_pubchem}")
+            elif isinstance(pubchem_stats, dict) and pubchem_stats.get('enabled', False):
                 enrichment_rate = pubchem_stats.get('enrichment_rate', 0)
                 records_with_pubchem = pubchem_stats.get('records_with_pubchem_data', 0)
                 print(f"  PubChem enrichment rate: {enrichment_rate:.1%}")

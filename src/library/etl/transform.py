@@ -8,7 +8,7 @@ import pandas as pd
 from pandera.errors import SchemaErrors
 from structlog.stdlib import BoundLogger
 
-from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
+from library.schemas import NormalizedActivitySchema, RawActivitySchema
 
 if TYPE_CHECKING:  # pragma: no cover - for type checking only
     from library.config import DeterminismSettings, TransformSettings
@@ -32,10 +32,21 @@ def _convert_to_nanomolar(df: pd.DataFrame, unit_conversion: dict[str, float]) -
     value_col = "activity_value" if "activity_value" in df.columns else "standard_value"
     
     factors = df[units_col].map(unit_conversion)
+    
+    # Пропускаем записи с неподдерживаемыми единицами (устанавливаем NaN)
+    result = pd.Series(index=df.index, dtype=float)
+    valid_mask = factors.notnull()
+    result.loc[valid_mask] = df.loc[valid_mask, value_col].astype(float) * factors.loc[valid_mask]
+    result.loc[~valid_mask] = pd.NA
+    
+    # Логируем неподдерживаемые единицы, но не прерываем выполнение
     if factors.isnull().any():
         unknown = sorted(df.loc[factors.isnull(), units_col].unique())
-        raise ValueError(f"Unsupported activity units: {', '.join(unknown)}")
-    return df[value_col].astype(float) * factors
+        import structlog
+        logger = structlog.get_logger()
+        logger.warning(f"Skipping records with unsupported activity units: {', '.join(unknown)}")
+    
+    return result
 
 
 def normalize_bioactivity_data(
@@ -53,10 +64,16 @@ def normalize_bioactivity_data(
     transforms = transforms or _TransformSettings()
     determinism = determinism or _DeterminismSettings()
 
-    raw_schema = RawBioactivitySchema.to_schema()
+    raw_schema = RawActivitySchema.to_schema()
     try:
         validated = raw_schema.validate(df, lazy=True)
     except SchemaErrors as exc:
+        # Логируем детали ошибки валидации
+        if logger is not None:
+            logger.error(f"Schema validation failed: {exc}")
+            failure_cases = getattr(exc, "failure_cases", None)
+            if failure_cases is not None:
+                logger.error(f"Failure cases: {failure_cases}")
         failure_cases = getattr(exc, "failure_cases", None)
         if failure_cases is not None and "column" in failure_cases:
             mask = failure_cases["column"] == "activity_units"
@@ -65,7 +82,7 @@ def normalize_bioactivity_data(
                 raise ValueError(f"Unsupported activity units: {', '.join(invalid)}") from exc
         raise
     if validated.empty:
-        normalized_schema = NormalizedBioactivitySchema.to_schema()
+        normalized_schema = NormalizedActivitySchema.to_schema()
         empty = normalized_schema.empty_dataframe()  # type: ignore[attr-defined]
         return normalized_schema.validate(empty, lazy=True)
 
@@ -87,11 +104,15 @@ def normalize_bioactivity_data(
     columns_to_drop = ["activity_units", "standard_units", "standard_value"]
     normalized = normalized.drop(columns=[col for col in columns_to_drop if col in normalized.columns], errors="ignore")
 
-    # Сохраняем только колонки, указанные в column_order
+    # Определяем порядок колонок для детерминированного вывода
     desired_order = [col for col in determinism.column_order if col in normalized.columns]
-    # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
-    if desired_order:
-        normalized = normalized[desired_order]
+    # Добавляем остальные колонки в конец, сохраняя их
+    other_columns = [col for col in normalized.columns if col not in desired_order]
+    final_order = desired_order + other_columns
+    
+    # Переупорядочиваем колонки, но сохраняем все
+    if final_order:
+        normalized = normalized[final_order]
 
     sort_by = determinism.sort.by or desired_order
     sort_ascending = _resolve_ascending(sort_by, determinism.sort.ascending)
@@ -101,9 +122,9 @@ def normalize_bioactivity_data(
         na_position=determinism.sort.na_position,
     ).reset_index(drop=True)
 
-    result = NormalizedBioactivitySchema.validate(normalized, lazy=True)
+    result = NormalizedActivitySchema.validate(normalized, lazy=True)
     if logger is not None:
-        logger.info("transform_complete", rows=len(result))
+        logger.info(f"Transform complete: {len(result)} rows processed")
     return result
 
 

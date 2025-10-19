@@ -5,18 +5,18 @@ Pandera схемы для валидации и нормализации дан�
 ## Основные схемы
 
 ### Входные данные
-::: library.schemas.input_schema.RawBioactivitySchema
+:::: library.schemas.input_schema.RawBioactivitySchema
 
 ### Нормализованные данные
-::: library.schemas.output_schema.NormalizedBioactivitySchema
+:::: library.schemas.output_schema.NormalizedBioactivitySchema
 
 ## Схемы документов
 
 ### Входные документы
-::: library.schemas.document_input_schema.DocumentInputSchema
+:::: library.schemas.document_schema.DocumentInputSchema
 
 ### Выходные документы
-::: library.schemas.document_output_schema.DocumentOutputSchema
+:::: library.schemas.document_schema.DocumentOutputSchema
 
 ## Примеры использования
 

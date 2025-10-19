@@ -1,0 +1,8 @@
+enabled_sources:
+- chembl
+file_checksums:
+  csv: 8799b6718522f6442bdfe6fa9384cb1d423a9eebd74ec2db766bf05ec990ad47
+  qc: a8468c7ca431ef2d1793871e539bfcaed9c33eefdb050da616e691e9bf07671e
+pipeline: activity
+pipeline_version: 1.0.0
+row_count: 1000

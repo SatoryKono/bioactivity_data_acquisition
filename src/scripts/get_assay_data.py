@@ -257,11 +257,22 @@ Examples:
             for name, path in output_paths.items():
                 print(f"  {name}: {path}")
             
-            # Print summary
+            # Print summary (aligned with documents style)
             print("\nSummary:")
             print(f"  Total assays: {result.meta.get('row_count', 0)}")
+            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown')}")
             print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
             print(f"  Date tag: {date_tag}")
+            
+            # Print source statistics
+            extraction_params = result.meta.get('extraction_parameters', {})
+            print("\nSource statistics:")
+            print(f"  chembl: {extraction_params.get('chembl_records', 0)} records")
+            
+            # Print correlation analysis info
+            if extraction_params.get('correlation_analysis_enabled', False):
+                insights_count = extraction_params.get('correlation_insights_count', 0)
+                print(f"  Correlation analysis: {insights_count} insights found")
         else:
             print("Dry run completed. No files were written.")
         

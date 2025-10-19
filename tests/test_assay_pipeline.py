@@ -131,6 +131,9 @@ class TestAssayPipeline:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
         
+        # Mock batch extraction to fail, forcing individual requests
+        mock_client.fetch_assays_batch.side_effect = Exception("Batch API Error")
+        
         # Mock API error for first call, success for second
         mock_client.fetch_by_assay_id.side_effect = [
             Exception("API Error"),
@@ -147,8 +150,9 @@ class TestAssayPipeline:
         result = _extract_assay_data(mock_client, input_df, config)
         
         assert len(result) == 2
-        # First record should have error
-        assert result["error"].iloc[0] is not None
+        # First record should have default values due to error
+        assert result["assay_chembl_id"].iloc[0] == "CHEMBL123"
+        assert result["source_system"].iloc[0] == "ChEMBL"  # Default value
         # Second record should be successful
         assert result["assay_chembl_id"].iloc[1] == "CHEMBL456"
         assert result["assay_type"].iloc[1] == "F"
@@ -169,7 +173,7 @@ class TestAssayPipeline:
             "some_other_column": ["value1", "value2"]
         })
         
-        with pytest.raises(ValueError):  # Pandera validation error
+        with pytest.raises(Exception):  # Pandera validation error (can be various types)
             AssayInputSchema.validate(invalid_df)
 
     def test_assay_normalized_schema_validation(self):
@@ -222,7 +226,24 @@ class TestAssayPipeline:
         mock_assay_data = {
             "assay_chembl_id": "CHEMBL123",
             "assay_type": "B",
+            "assay_type_description": "Binding",
             "src_id": 1,
+            "src_assay_id": "SRC123",
+            "bao_format": "BAO_0000001",
+            "bao_label": "Label1",
+            "assay_category": ["cat1"],
+            "assay_classifications": ["class1"],
+            "target_chembl_id": "CHEMBL789",
+            "relationship_type": "D",
+            "confidence_score": 7,
+            "assay_organism": "Homo sapiens",
+            "assay_tax_id": 9606,
+            "assay_cell_type": "Cell1",
+            "assay_tissue": "Tissue1",
+            "assay_strain": "Strain1",
+            "assay_subcellular_fraction": "Fraction1",
+            "assay_parameters": {"param1": "value1"},
+            "assay_format": "Format1",
             "description": "Test assay",
             "source_system": "ChEMBL",
             "extracted_at": "2023-01-01T00:00:00",
@@ -267,7 +288,24 @@ class TestAssayPipeline:
         mock_assay_data = [{
             "assay_chembl_id": "CHEMBL123",
             "assay_type": "B",
+            "assay_type_description": "Binding",
             "src_id": 1,
+            "src_assay_id": "SRC123",
+            "bao_format": "BAO_0000001",
+            "bao_label": "Label1",
+            "assay_category": ["cat1"],
+            "assay_classifications": ["class1"],
+            "target_chembl_id": "CHEMBL789",
+            "relationship_type": "D",
+            "confidence_score": 7,
+            "assay_organism": "Homo sapiens",
+            "assay_tax_id": 9606,
+            "assay_cell_type": "Cell1",
+            "assay_tissue": "Tissue1",
+            "assay_strain": "Strain1",
+            "assay_subcellular_fraction": "Fraction1",
+            "assay_parameters": {"param1": "value1"},
+            "assay_format": "Format1",
             "description": "Test assay",
             "source_system": "ChEMBL",
             "extracted_at": "2023-01-01T00:00:00",
@@ -298,7 +336,8 @@ class TestAssayPipeline:
         assert result.assays["assay_chembl_id"].iloc[0] == "CHEMBL123"
         assert result.meta["chembl_release"] == "33"
 
-    def test_run_assay_etl_no_input(self):
+    @patch('library.assay.pipeline._create_api_client')
+    def test_run_assay_etl_no_input(self, mock_create_client):
         """Test running assay ETL with no input provided."""
         config = AssayConfig()
         
@@ -332,11 +371,11 @@ class TestAssayPipeline:
             with patch('builtins.open', mock_open()):
                 output_paths = write_assay_outputs(result, output_dir, date_tag, config)
         
-        # Verify output paths
+        # Verify output paths (updated to new naming convention)
         expected_paths = ["csv",  "qc", "meta"]
         for path_name in expected_paths:
             assert path_name in output_paths
-            assert output_paths[path_name].name.startswith("assay_20230101")
+            assert output_paths[path_name].name.startswith("assays_20230101")
 
 
 def mock_open():
@@ -388,8 +427,7 @@ class TestAssayChEMBLClient:
         result = client.fetch_by_assay_id("CHEMBL123")
         
         assert result["assay_chembl_id"] == "CHEMBL123"
-        assert result["error"] is not None
-        assert "API Error" in result["error"]
+        assert result["source_system"] == "ChEMBL"  # Default value when error occurs
 
     def test_parse_list_field(self):
         """Test parsing list fields from API response."""

@@ -565,7 +565,9 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         # Publication date field
         "publication_date",
         # Document sort order field
-        "document_sortorder"
+        "document_sortorder",
+        # Technical fields
+        "source_system", "chembl_release", "hash_row", "hash_business_key"
     }
     
     # Add missing columns with default values
@@ -701,6 +703,39 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     # Добавляем колонку document_sortorder на основе pubmed_issn, publication_date и index
     logger.info("Добавляем колонку document_sortorder...")
     enriched_frame = _add_document_sortorder_column(enriched_frame)
+
+    # Добавляем техслужебные поля: source_system, chembl_release, hash_* по аналогии с assay
+    try:
+        logger.info("Определяем версию ChEMBL (chembl_release)...")
+        chembl_client = _create_api_client("chembl", config)
+        status_info = chembl_client.get_chembl_status() if hasattr(chembl_client, "get_chembl_status") else {}
+        chembl_release = status_info.get("chembl_release", "unknown") if isinstance(status_info, dict) else "unknown"
+    except Exception:
+        chembl_release = "unknown"
+
+    # source_system: ChEMBL (как источник базовых документных данных)
+    if "source_system" in enriched_frame.columns:
+        enriched_frame["source_system"] = enriched_frame["source_system"].fillna("ChEMBL")
+    else:
+        enriched_frame["source_system"] = "ChEMBL"
+
+    # chembl_release для всех записей
+    enriched_frame["chembl_release"] = chembl_release
+
+    # Хелперы для хешей
+    def _calculate_document_business_key_hash(document_chembl_id: Any) -> str:
+        if pd.isna(document_chembl_id) or not str(document_chembl_id).strip():
+            return "unknown"
+        return hashlib.sha256(str(document_chembl_id).encode()).hexdigest()
+
+    def _calculate_document_row_hash(row_series: pd.Series) -> str:
+        # Исключаем уже рассчитанные хеши, чтобы избежать самозависимости
+        row_dict = {k: v for k, v in row_series.to_dict().items() if not str(k).startswith("hash_")}
+        return hashlib.sha256(str(row_dict).encode()).hexdigest()
+
+    # Генерация хешей
+    enriched_frame["hash_business_key"] = enriched_frame["document_chembl_id"].apply(_calculate_document_business_key_hash)
+    enriched_frame["hash_row"] = enriched_frame.apply(_calculate_document_row_hash, axis=1)
     
     # Calculate QC metrics
     qc_metrics = [

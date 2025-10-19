@@ -161,7 +161,11 @@ def extract_pubchem_data(
     
     # Check if CID is already provided in input
     if "pubchem_cid" in molecule_data and molecule_data["pubchem_cid"]:
-        pubchem_cid = str(molecule_data["pubchem_cid"])
+        # Нормализуем CID до целой строки (напр. 12345.0 -> "12345")
+        try:
+            pubchem_cid = str(int(float(str(molecule_data["pubchem_cid"]).strip())))
+        except (ValueError, TypeError):
+            pubchem_cid = None
     # Check if we can get CID from molecule name
     elif "pref_name" in molecule_data and molecule_data["pref_name"]:
         try:

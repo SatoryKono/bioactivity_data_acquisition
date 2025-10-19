@@ -1,0 +1,8 @@
+python src\scripts\get_document_data.py --config configs\config_documents_full.yaml  --limit 10 --input data\input\documents.csv
+python src\scripts\get_assay_data.py --config configs\config_assay_full.yaml  --limit 10 --input data\input\assay.csv
+
+python src\scripts\get_testitem_data.py --config configs\config_testitem_full.yaml  --limit 10 --input data\input\testitem.csv
+
+
+python src\scripts\get_activity_data.py --config configs\config_activity_full.yaml  --limit 10 --input data\input\activity.csv
+

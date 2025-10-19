@@ -227,7 +227,7 @@ postprocess:
         enabled: true                   # Включить валидацию схемы Pandera
         strict_mode: true               # Строгий режим валидации
         coerce_types: true              # Автоматическое приведение типов
-        schema_path: "src/library/schemas/document_output_schema.py"  # Путь к схеме
+        schema_path: "src/library/schemas/document_schema.py"  # Путь к объединённой схеме
     
     # Настройки логирования
     logging:

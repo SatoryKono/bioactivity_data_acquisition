@@ -122,6 +122,7 @@ class AssaySourceSettings(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)
     pagination: AssaySourcePaginationSettings = Field(default_factory=AssaySourcePaginationSettings)
     http: AssaySourceHTTPSettings = Field(default_factory=AssaySourceHTTPSettings)
+    rate_limit: dict[str, Any] = Field(default_factory=dict)
 
 
 class AssayPostprocessSettings(BaseModel):

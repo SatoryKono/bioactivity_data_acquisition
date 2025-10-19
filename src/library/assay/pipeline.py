@@ -110,10 +110,22 @@ def _create_api_client(config: AssayConfig) -> AssayChEMBLClient:
     
     # Create rate limit settings if configured
     rate_limit = None
-    if config.http.global_.rate_limit:
-        max_calls = config.http.global_.rate_limit.get('max_calls')
-        period = config.http.global_.rate_limit.get('period')
+    if chembl_config.rate_limit:
+        # Convert various rate limit formats to max_calls/period
+        max_calls = chembl_config.rate_limit.get('max_calls')
+        period = chembl_config.rate_limit.get('period')
         
+        # If not in max_calls/period format, try to convert from other formats
+        if max_calls is None or period is None:
+            requests_per_second = chembl_config.rate_limit.get('requests_per_second')
+            if requests_per_second is not None:
+                max_calls = 1
+                period = 1.0 / requests_per_second
+            else:
+                # Skip rate limiting if we can't determine the format
+                rate_limit = None
+        
+        # Create RateLimitSettings object if we have valid max_calls and period
         if max_calls is not None and period is not None:
             rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
     
@@ -297,7 +309,10 @@ def _extract_assay_data_individual(
             
             # Ensure error row also has all columns
             error_row = row.to_dict()
-            error_row.update(default_columns)
+            # Only add missing columns, don't overwrite existing ones
+            for key, default_value in default_columns.items():
+                if key not in error_row:
+                    error_row[key] = default_value
             enriched_data.append(error_row)
     
     return pd.DataFrame(enriched_data)
@@ -392,6 +407,9 @@ def _normalize_assay_fields(assays_df: pd.DataFrame) -> pd.DataFrame:
     }
     
     if "assay_type" in normalized.columns:
+        # Create assay_type_description column if it doesn't exist
+        if "assay_type_description" not in normalized.columns:
+            normalized["assay_type_description"] = None
         normalized["assay_type_description"] = normalized["assay_type"].map(
             assay_type_mapping
         ).fillna(normalized["assay_type_description"])
@@ -575,28 +593,30 @@ def run_assay_etl(
     logger.info("S05: Validating schema...")
     validated_frame = _validate_assay_schema(enriched_frame)
 
-    # Calculate QC metrics
+    # Calculate QC metrics (unified with documents: atomic metrics only)
     qc_metrics = [
         {"metric": "row_count", "value": int(len(validated_frame))},
-        {"metric": "unique_sources", "value": int(validated_frame["src_id"].nunique())},
-        {"metric": "assay_types", "value": validated_frame["assay_type"].value_counts().to_dict()},
-        {"metric": "relationship_types", "value": validated_frame["relationship_type"].value_counts().to_dict()},
-        {"metric": "confidence_scores", "value": validated_frame["confidence_score"].value_counts().to_dict()},
+        {"metric": "enabled_sources", "value": 1},
+        {"metric": "chembl_records", "value": int(validated_frame["assay_chembl_id"].notna().sum())},
     ]
-    
+
     qc = pd.DataFrame(qc_metrics)
 
-    # Create metadata
+    # Create metadata (aligned with documents)
     meta = {
         "pipeline_version": "1.0.0",
         "chembl_release": chembl_release,
         "row_count": len(validated_frame),
+        "enabled_sources": ["chembl"],
         "extraction_parameters": {
             "total_assays": len(validated_frame),
-            "unique_sources": validated_frame["src_id"].nunique(),
-            "assay_types": validated_frame["assay_type"].value_counts().to_dict(),
-            "relationship_types": validated_frame["relationship_type"].value_counts().to_dict()
-        }
+            "unique_sources": int(validated_frame["src_id"].nunique()) if "src_id" in validated_frame.columns else 0,
+            "assay_types": validated_frame["assay_type"].value_counts().to_dict() if "assay_type" in validated_frame.columns else {},
+            "relationship_types": validated_frame["relationship_type"].value_counts().to_dict() if "relationship_type" in validated_frame.columns else {},
+            "chembl_records": int(validated_frame["assay_chembl_id"].notna().sum()),
+            "correlation_analysis_enabled": False,
+            "correlation_insights_count": 0,
+        },
     }
 
     # Perform correlation analysis if enabled in config
@@ -625,6 +645,9 @@ def run_assay_etl(
                 correlation_insights = build_correlation_insights(analysis_df)
                 
                 logger.info(f"Correlation analysis completed. Found {len(correlation_insights)} insights.")
+                # Update metadata flags
+                meta["extraction_parameters"]["correlation_analysis_enabled"] = True
+                meta["extraction_parameters"]["correlation_insights_count"] = len(correlation_insights)
             else:
                 logger.warning("Not enough numeric columns for correlation analysis")
                 
@@ -653,10 +676,10 @@ def write_assay_outputs(
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise AssayIOError(f"Failed to create output directory: {exc}") from exc
 
-    # File paths
-    csv_path = output_dir / f"assay_{date_tag}.csv"    
-    qc_path = output_dir / f"assay_{date_tag}_qc.csv"
-    meta_path = output_dir / f"assay_{date_tag}_meta.yaml"
+    # File paths (unified naming with documents)
+    csv_path = output_dir / f"assays_{date_tag}.csv"
+    qc_path = output_dir / f"assays_{date_tag}_qc.csv"
+    meta_path = output_dir / f"assays_{date_tag}_meta.yaml"
 
     try:
         # S06: Persist data with deterministic serialization
@@ -671,33 +694,54 @@ def write_assay_outputs(
         )
         
  
-        # Save QC data
-        result.qc.to_csv(qc_path, index=False)
+        # Save QC data (deterministic if possible)
+        try:
+            write_deterministic_csv(
+                result.qc,
+                qc_path,
+                determinism=config.determinism,
+                output=None
+            )
+        except Exception:
+            # Fallback to plain CSV
+            result.qc.to_csv(qc_path, index=False)
         
         # Save metadata
         with open(meta_path, 'w', encoding='utf-8') as f:
             yaml.dump(result.meta, f, default_flow_style=False, allow_unicode=True)
         
         # Save correlation reports if available
-        correlation_paths = {}
+        outputs: dict[str, Path] = {"csv": csv_path, "qc": qc_path, "meta": meta_path}
+
         if result.correlation_reports:
             try:
-                correlation_dir = output_dir / f"assay_correlation_report_{date_tag}"
+                correlation_dir = output_dir / f"assays_correlation_report_{date_tag}"
                 correlation_dir.mkdir(exist_ok=True)
-                
+
+                # Save each correlation report and expose as flat keys similar to documents
                 for report_name, report_df in result.correlation_reports.items():
-                    report_path = correlation_dir / f"{report_name}.csv"
-                    report_df.to_csv(report_path, index=False)
-                    correlation_paths[report_name] = report_path
-                    
-                logger.info(f"Saved {len(correlation_paths)} correlation reports to {correlation_dir}")
-                
+                    if report_df is not None and not report_df.empty:
+                        report_path = correlation_dir / f"{report_name}.csv"
+                        report_df.to_csv(report_path, index=False)
+                        outputs[f"correlation_{report_name}"] = report_path
+
+                # Save insights as JSON if present
+                if result.correlation_insights:
+                    import json
+                    insights_path = correlation_dir / "correlation_insights.json"
+                    with open(insights_path, 'w', encoding='utf-8') as f:
+                        json.dump(result.correlation_insights, f, ensure_ascii=False, indent=2)
+                    outputs["correlation_insights"] = insights_path
+
+                logger.info(f"Correlation reports saved to: {correlation_dir}")
+
             except Exception as exc:
                 logger.warning(f"Failed to save correlation reports: {exc}")
         
-        # Add file checksums to metadata
+        # Add file checksums to metadata (include qc like documents)
         result.meta["file_checksums"] = {
             "csv": _calculate_checksum(csv_path),
+            "qc": _calculate_checksum(qc_path),
         }
         
         # Update metadata file with checksums
@@ -707,17 +751,7 @@ def write_assay_outputs(
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise AssayIOError(f"Failed to write outputs: {exc}") from exc
 
-    result_paths = {
-        "csv": csv_path, 
-        "qc": qc_path,
-        "meta": meta_path
-    }
-    
-    # Add correlation report paths if available
-    if correlation_paths:
-        result_paths["correlation_reports"] = correlation_paths
-    
-    return result_paths
+    return outputs
 
 
 __all__ = [

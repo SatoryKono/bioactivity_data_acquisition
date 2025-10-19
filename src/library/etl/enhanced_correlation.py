@@ -23,9 +23,8 @@ class EnhancedCorrelationAnalyzer:
 
     def analyze_correlations(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Комплексный анализ корреляций для DataFrame."""
-        if self.logger:
-            self.logger.info("Начинаем расширенный анализ корреляций", 
-                           rows=len(df), columns=len(df.columns))
+        _log_info(self.logger, "Начинаем расширенный анализ корреляций",
+                  rows=len(df), columns=len(df.columns))
 
         correlation_analysis = {
             'numeric_correlations': self._analyze_numeric_correlations(df),
@@ -65,8 +64,7 @@ class EnhancedCorrelationAnalyzer:
             else:
                 correlations['pearson'] = pd.DataFrame()
         except Exception as e:
-            if self.logger:
-                self.logger.warning("Ошибка при вычислении корреляции Пирсона", error=str(e))
+            _log_warning(self.logger, "Ошибка при вычислении корреляции Пирсона", error=str(e))
             correlations['pearson'] = pd.DataFrame()
 
         # Корреляция Спирмена
@@ -79,8 +77,7 @@ class EnhancedCorrelationAnalyzer:
             else:
                 correlations['spearman'] = pd.DataFrame()
         except Exception as e:
-            if self.logger:
-                self.logger.warning("Ошибка при вычислении корреляции Спирмена", error=str(e))
+            _log_warning(self.logger, "Ошибка при вычислении корреляции Спирмена", error=str(e))
             correlations['spearman'] = pd.DataFrame()
 
         # Ковариационная матрица
@@ -93,8 +90,7 @@ class EnhancedCorrelationAnalyzer:
             else:
                 correlations['covariance'] = pd.DataFrame()
         except Exception as e:
-            if self.logger:
-                self.logger.warning("Ошибка при вычислении ковариации", error=str(e))
+            _log_warning(self.logger, "Ошибка при вычислении ковариации", error=str(e))
             correlations['covariance'] = pd.DataFrame()
 
         return correlations
@@ -159,9 +155,8 @@ class EnhancedCorrelationAnalyzer:
                         }
 
                 except Exception as e:
-                    if self.logger:
-                        self.logger.warning("Ошибка при анализе категориальных корреляций", 
-                                          col1=col1, col2=col2, error=str(e))
+                    _log_warning(self.logger, "Ошибка при анализе категориальных корреляций",
+                                 col1=col1, col2=col2, error=str(e))
                     cramers_v_matrix.loc[col1, col2] = 0.0
 
         correlations['cramers_v'] = cramers_v_matrix.fillna(0.0)
@@ -243,9 +238,8 @@ class EnhancedCorrelationAnalyzer:
                         point_biserial_matrix.loc[num_col, cat_col] = 0.0
 
                 except Exception as e:
-                    if self.logger:
-                        self.logger.warning("Ошибка при анализе смешанных корреляций", 
-                                          num_col=num_col, cat_col=cat_col, error=str(e))
+                    _log_warning(self.logger, "Ошибка при анализе смешанных корреляций",
+                                 num_col=num_col, cat_col=cat_col, error=str(e))
                     eta_squared_matrix.loc[num_col, cat_col] = 0.0
                     point_biserial_matrix.loc[num_col, cat_col] = 0.0
 
@@ -296,9 +290,8 @@ class EnhancedCorrelationAnalyzer:
                         lag_correlations[f"{col1}_vs_{col2}"] = lag_corr
 
                 except Exception as e:
-                    if self.logger:
-                        self.logger.warning("Ошибка при вычислении лаговых корреляций", 
-                                          col1=col1, col2=col2, error=str(e))
+                    _log_warning(self.logger, "Ошибка при вычислении лаговых корреляций",
+                                 col1=col1, col2=col2, error=str(e))
 
         correlations['lag_correlations'] = lag_correlations
 
@@ -316,9 +309,8 @@ class EnhancedCorrelationAnalyzer:
                         rolling_corr = df[col1].rolling(window=window_size).corr(df[col2])
                         rolling_correlations[f"{col1}_vs_{col2}"] = rolling_corr.dropna().to_dict()
                     except Exception as e:
-                        if self.logger:
-                            self.logger.warning("Ошибка при вычислении скользящих корреляций", 
-                                              col1=col1, col2=col2, error=str(e))
+                        _log_warning(self.logger, "Ошибка при вычислении скользящих корреляций",
+                                     col1=col1, col2=col2, error=str(e))
 
         correlations['rolling_correlations'] = rolling_correlations
 
@@ -357,8 +349,7 @@ class EnhancedCorrelationAnalyzer:
                     summary['max_correlation'] = corr_matrix.abs().max().max()
                     summary['mean_correlation'] = corr_matrix.abs().mean().mean()
             except Exception as e:
-                if self.logger:
-                    self.logger.warning("Ошибка при анализе сводной статистики корреляций", error=str(e))
+                _log_warning(self.logger, "Ошибка при анализе сводной статистики корреляций", error=str(e))
 
         return summary
 
@@ -451,6 +442,21 @@ def _log_info(logger: Optional[BoundLogger], message: str, **kwargs) -> None:
                 logger.info(f"{message}: {kwargs_str}")
             else:
                 logger.info(message)
+
+
+def _log_warning(logger: Optional[BoundLogger], message: str, **kwargs) -> None:
+    """Вспомогательная функция для логирования предупреждений с поддержкой разных типов логгеров."""
+    if logger:
+        if hasattr(logger, 'warning') and hasattr(logger.warning, '__code__') and 'extra' in logger.warning.__code__.co_varnames:
+            # Структурированный логгер (structlog)
+            logger.warning(message, **kwargs)
+        else:
+            # Стандартный Python logger
+            if kwargs:
+                kwargs_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
+                logger.warning(f"{message}: {kwargs_str}")
+            else:
+                logger.warning(message)
 
 
 def prepare_data_for_correlation_analysis(

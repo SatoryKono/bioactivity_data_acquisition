@@ -356,6 +356,11 @@ determinism:
     - invalid_year            # Флаг невалидности года
     - invalid_volume          # Флаг невалидности тома
     - invalid_issue           # Флаг невалидности номера выпуска       
+    # Техслужебные поля
+    - source_system           # Система-источник
+    - chembl_release          # Версия ChEMBL
+    - hash_row                # Хеш строки
+    - hash_business_key       # Хеш бизнес-ключа
  
 # Настройки постобработки данных
 postprocess:

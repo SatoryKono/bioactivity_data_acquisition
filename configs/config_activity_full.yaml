@@ -1,0 +1,125 @@
+http:
+  global:
+    timeout_sec: 30.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+    headers:
+      User-Agent: bioactivity-data-acquisition/0.1.0
+sources:
+  chembl:
+    name: chembl
+    enabled: true
+    endpoint: activity
+    params: {}
+    pagination:
+      page_param: page
+      size_param: page_size
+      size: 200
+      max_pages: 50
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      timeout_sec: 60.0
+      headers:
+        Accept: application/json
+    rate_limit:
+      max_calls: 5
+      period: 1.0
+io:
+  input:
+    activity_csv: data/input/activity.csv
+  output:
+    dir: data/output/activity
+runtime:
+  date_tag: null
+  workers: 4
+  limit: null
+  dry_run: false
+postprocess:
+  qc:
+    enabled: true
+  correlation:
+    enabled: false
+determinism:
+  column_order:
+    # Основные поля
+    - source
+    - retrieved_at
+    - target
+    - activity_value
+    - activity_unit
+    - smiles
+    # ChEMBL идентификаторы
+    - activity_id
+    - assay_chembl_id
+    - document_chembl_id
+    - target_chembl_id
+    - molecule_chembl_id
+    - parent_molecule_chembl_id
+    # Стандартные поля активности
+    - standard_type
+    - standard_relation
+    - standard_text_value
+    - standard_upper_value
+    - standard_flag
+    # Целевые белки
+    - target_organism
+    - target_tax_id
+    - target_pref_name
+    # Дополнительные поля активности
+    - action_type
+    - activity_comment
+    - activity_properties
+    - relation
+    - type
+    - value
+    - units
+    - upper_value
+    - text_value
+    - pchembl_value
+    # Ассей информация
+    - assay_description
+    - assay_type
+    - assay_variant_accession
+    - assay_variant_mutation
+    - bao_endpoint
+    - bao_format
+    - bao_label
+    - qudt_units
+    - uo_units
+    # Валидация данных
+    - data_validity_comment
+    - data_validity_description
+    - potential_duplicate
+    - confidence_score
+    - curated_by
+    # Документ информация
+    - document_journal
+    - document_year
+    # Молекула информация
+    - molecule_pref_name
+    - ligand_efficiency
+    # Системные поля
+    - record_id
+    - src_id
+    - toid
+  sort:
+    by:
+      - source
+      - retrieved_at
+      - activity_id
+    ascending: true
+    na_position: last
+logging:
+  level: INFO
+  file:
+    enabled: true
+    path: logs/app.log
+    max_bytes: 10485760
+    backup_count: 10
+    rotation_strategy: size
+    retention_days: 14
+    cleanup_on_start: false
+  console:
+    format: text
+
