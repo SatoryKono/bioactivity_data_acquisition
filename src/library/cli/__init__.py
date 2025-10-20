@@ -113,6 +113,32 @@ ALL_SOURCES_OPTION = typer.Option(
     help="Enable all available sources.",
 )
 
+# Unified command options for all pipelines
+UNIFIED_CONFIG_OPTION = typer.Option(
+    None,
+    "--config",
+    "-c",
+    help="Path to the YAML configuration file.",
+    dir_okay=False,
+    resolve_path=True,
+)
+UNIFIED_INPUT_OPTION = typer.Option(
+    None,
+    "--input",
+    help="CSV containing entity identifiers to process.",
+    file_okay=True,
+    dir_okay=False,
+    resolve_path=True,
+)
+UNIFIED_OUTPUT_DIR_OPTION = typer.Option(
+    None,
+    "--output-dir",
+    help="Destination directory for generated artefacts.",
+    file_okay=False,
+    dir_okay=True,
+    resolve_path=True,
+)
+
 # Testitem command options
 TESTITEM_CONFIG_OPTION = typer.Option(
     ...,
@@ -690,6 +716,306 @@ def testitem_info() -> None:
     console.print("[bold]Usage:[/bold]")
     console.print("  python -m library.cli testitem-run --config config.yaml --input data.csv --output results/")
     console.print()
+
+
+# Deprecated aliases with warnings
+@app.command("assay-run")
+def assay_run_deprecated(*args, **kwargs) -> None:
+    """DEPRECATED: Use 'get-assay-data' instead."""
+    import warnings
+    warnings.warn(
+        "Command 'assay-run' is deprecated and will be removed in a future version. "
+        "Use 'get-assay-data' instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return get_assay_data(*args, **kwargs)
+
+
+@app.command("activity-run")
+def activity_run_deprecated(*args, **kwargs) -> None:
+    """DEPRECATED: Use 'get-activity-data' instead."""
+    import warnings
+    warnings.warn(
+        "Command 'activity-run' is deprecated and will be removed in a future version. "
+        "Use 'get-activity-data' instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    return get_activity_data(*args, **kwargs)
+
+
+@app.command("get-assay-data")
+def get_assay_data(
+    *,
+    config: Path | None = UNIFIED_CONFIG_OPTION,
+    input: Path | None = UNIFIED_INPUT_OPTION,
+    output_dir: Path | None = UNIFIED_OUTPUT_DIR_OPTION,
+    date_tag: str | None = DATE_TAG_OPTION,
+    timeout_sec: float | None = TIMEOUT_SEC_OPTION,
+    retries: int | None = RETRIES_OPTION,
+    workers: int | None = WORKERS_OPTION,
+    limit: int | None = LIMIT_OPTION,
+    dry_run: bool | None = typer.Option(
+        None,
+        "--dry-run/--no-dry-run",
+        help="Enable dry run mode (no actual API calls).",
+    ),
+    log_level: str = LOG_LEVEL_OPTION,
+    log_file: Path | None = LOG_FILE_OPTION,
+    no_file_log: bool = NO_FILE_LOG_OPTION,
+) -> None:
+    """Extract and enrich assay data from ChEMBL."""
+    from library.assay.config import load_assay_config
+    from library.assay.pipeline import read_assay_input, run_assay_etl_from_frame, write_assay_outputs
+
+    # Generate unique run ID
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="assay_etl")
+
+    try:
+        # Load configuration
+        config_model = load_assay_config(config)
+        
+        # Apply CLI overrides
+        overrides = {}
+        if input is not None:
+            overrides["io.input.assay_ids_csv"] = input
+        if output_dir is not None:
+            overrides["io.output.dir"] = output_dir
+        if date_tag is not None:
+            overrides["runtime.date_tag"] = date_tag
+        if timeout_sec is not None:
+            overrides["http.global.timeout_sec"] = timeout_sec
+        if retries is not None:
+            overrides["http.global.retries.total"] = retries
+        if workers is not None:
+            overrides["runtime.workers"] = workers
+        if limit is not None:
+            overrides["runtime.limit"] = limit
+        if dry_run is not None:
+            overrides["runtime.dry_run"] = dry_run
+
+        if overrides:
+            config_model = load_assay_config(config, overrides=overrides)
+
+        # Setup logging
+        logger = configure_logging(
+            level=log_level,
+            file_enabled=not no_file_log,
+            log_file=log_file,
+        )
+
+        logger.info("Starting assay ETL pipeline", run_id=run_id)
+
+        # Read input data
+        with bind_stage(logger, "read_input"):
+            frame = read_assay_input(config_model.io.input.assay_ids_csv)
+            logger.info("Input data loaded", run_id=run_id, records=len(frame))
+
+        # Run ETL
+        with bind_stage(logger, "run_etl"):
+            result = run_assay_etl_from_frame(config_model, frame)
+            logger.info("ETL completed", run_id=run_id, assays=len(result.assays))
+
+        # Write outputs
+        with bind_stage(logger, "write_outputs"):
+            outputs = write_assay_outputs(
+                result,
+                config_model.io.output.dir,
+                config_model.runtime.date_tag or "",
+                config_model,
+            )
+            logger.info("Outputs written successfully", run_id=run_id, outputs=list(outputs.keys()))
+
+        logger.info("Assay ETL pipeline completed successfully", run_id=run_id)
+
+    except Exception as exc:
+        logger.error("Assay ETL pipeline failed", run_id=run_id, error=str(exc), exc_info=True)
+        typer.echo(f"Pipeline failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
+@app.command("get-activity-data")
+def get_activity_data(
+    *,
+    config: Path | None = UNIFIED_CONFIG_OPTION,
+    input: Path | None = UNIFIED_INPUT_OPTION,
+    output_dir: Path | None = UNIFIED_OUTPUT_DIR_OPTION,
+    date_tag: str | None = DATE_TAG_OPTION,
+    timeout_sec: float | None = TIMEOUT_SEC_OPTION,
+    retries: int | None = RETRIES_OPTION,
+    workers: int | None = WORKERS_OPTION,
+    limit: int | None = LIMIT_OPTION,
+    dry_run: bool | None = typer.Option(
+        None,
+        "--dry-run/--no-dry-run",
+        help="Enable dry run mode (no actual API calls).",
+    ),
+    log_level: str = LOG_LEVEL_OPTION,
+    log_file: Path | None = LOG_FILE_OPTION,
+    no_file_log: bool = NO_FILE_LOG_OPTION,
+) -> None:
+    """Extract and enrich activity data from ChEMBL."""
+    from library.activity.config import load_activity_config
+    from library.activity.pipeline import read_activity_input, run_activity_etl, write_activity_outputs
+
+    # Generate unique run ID
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="activity_etl")
+
+    try:
+        # Load configuration
+        config_model = load_activity_config(config)
+        
+        # Apply CLI overrides
+        overrides = {}
+        if input is not None:
+            overrides["io.input.activity_csv"] = input
+        if output_dir is not None:
+            overrides["io.output.dir"] = output_dir
+        if date_tag is not None:
+            overrides["runtime.date_tag"] = date_tag
+        if timeout_sec is not None:
+            overrides["http.global.timeout_sec"] = timeout_sec
+        if retries is not None:
+            overrides["http.global.retries.total"] = retries
+        if workers is not None:
+            overrides["runtime.workers"] = workers
+        if limit is not None:
+            overrides["runtime.limit"] = limit
+        if dry_run is not None:
+            overrides["runtime.dry_run"] = dry_run
+
+        if overrides:
+            config_model = load_activity_config(config, overrides=overrides)
+
+        # Setup logging
+        logger = configure_logging(
+            level=log_level,
+            file_enabled=not no_file_log,
+            log_file=log_file,
+        )
+
+        logger.info("Starting activity ETL pipeline", run_id=run_id)
+
+        # Read input data
+        with bind_stage(logger, "read_input"):
+            frame = read_activity_input(config_model.io.input.activity_csv)
+            logger.info("Input data loaded", run_id=run_id, records=len(frame))
+
+        # Run ETL
+        with bind_stage(logger, "run_etl"):
+            result = run_activity_etl(config_model, frame)
+            logger.info("ETL completed", run_id=run_id, activities=len(result.activity))
+
+        # Write outputs
+        with bind_stage(logger, "write_outputs"):
+            outputs = write_activity_outputs(
+                result,
+                config_model.io.output.dir,
+                config_model.runtime.date_tag or "",
+                config_model,
+            )
+            logger.info("Outputs written successfully", run_id=run_id, outputs=list(outputs.keys()))
+
+        logger.info("Activity ETL pipeline completed successfully", run_id=run_id)
+
+    except Exception as exc:
+        logger.error("Activity ETL pipeline failed", run_id=run_id, error=str(exc), exc_info=True)
+        typer.echo(f"Pipeline failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+
+@app.command("get-testitem-data")
+def get_testitem_data(
+    *,
+    config: Path | None = UNIFIED_CONFIG_OPTION,
+    input: Path | None = UNIFIED_INPUT_OPTION,
+    output_dir: Path | None = UNIFIED_OUTPUT_DIR_OPTION,
+    date_tag: str | None = DATE_TAG_OPTION,
+    timeout_sec: float | None = TIMEOUT_SEC_OPTION,
+    retries: int | None = RETRIES_OPTION,
+    workers: int | None = WORKERS_OPTION,
+    limit: int | None = LIMIT_OPTION,
+    dry_run: bool | None = typer.Option(
+        None,
+        "--dry-run/--no-dry-run",
+        help="Enable dry run mode (no actual API calls).",
+    ),
+    log_level: str = LOG_LEVEL_OPTION,
+    log_file: Path | None = LOG_FILE_OPTION,
+    no_file_log: bool = NO_FILE_LOG_OPTION,
+) -> None:
+    """Extract and enrich testitem data from PubChem."""
+    from library.testitem.config import load_testitem_config
+    from library.testitem.pipeline import read_testitem_input, run_testitem_etl, write_testitem_outputs
+
+    # Generate unique run ID
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="testitem_etl")
+
+    try:
+        # Load configuration
+        config_model = load_testitem_config(config)
+        
+        # Apply CLI overrides
+        overrides = {}
+        if input is not None:
+            overrides["io.input.testitem_csv"] = input
+        if output_dir is not None:
+            overrides["io.output.dir"] = output_dir
+        if date_tag is not None:
+            overrides["runtime.date_tag"] = date_tag
+        if timeout_sec is not None:
+            overrides["http.global.timeout_sec"] = timeout_sec
+        if retries is not None:
+            overrides["http.global.retries.total"] = retries
+        if workers is not None:
+            overrides["runtime.workers"] = workers
+        if limit is not None:
+            overrides["runtime.limit"] = limit
+        if dry_run is not None:
+            overrides["runtime.dry_run"] = dry_run
+
+        if overrides:
+            config_model = load_testitem_config(config, overrides=overrides)
+
+        # Setup logging
+        logger = configure_logging(
+            level=log_level,
+            file_enabled=not no_file_log,
+            log_file=log_file,
+        )
+
+        logger.info("Starting testitem ETL pipeline", run_id=run_id)
+
+        # Read input data
+        with bind_stage(logger, "read_input"):
+            frame = read_testitem_input(config_model.io.input.testitem_csv)
+            logger.info("Input data loaded", run_id=run_id, records=len(frame))
+
+        # Run ETL
+        with bind_stage(logger, "run_etl"):
+            result = run_testitem_etl(config_model, frame)
+            logger.info("ETL completed", run_id=run_id, testitems=len(result.testitems))
+
+        # Write outputs
+        with bind_stage(logger, "write_outputs"):
+            outputs = write_testitem_outputs(
+                result,
+                config_model.io.output.dir,
+                config_model.runtime.date_tag or "",
+                config_model,
+            )
+            logger.info("Outputs written successfully", run_id=run_id, outputs=list(outputs.keys()))
+
+        logger.info("Testitem ETL pipeline completed successfully", run_id=run_id)
+
+    except Exception as exc:
+        logger.error("Testitem ETL pipeline failed", run_id=run_id, error=str(exc), exc_info=True)
+        typer.echo(f"Pipeline failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
 
 
 @app.command()

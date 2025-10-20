@@ -25,8 +25,10 @@
 - CSV + YAML meta; детерминизм через `library.etl.load.write_deterministic_csv`.
 
 ## S07 CLI
-- Команда: `bioactivity-data-acquisition testitem-run` (см. `library.cli:testitem_run`).
-- Ключевые параметры: `--config`, `--input`, `--output`, `--cache-dir`, `--pubchem-cache-dir`, `--timeout`, `--retries`, `--limit`, `--disable-pubchem`, `--dry-run`.
+- Новая команда: `get-testitem-data --config config.yaml --input data.csv --output-dir results/`
+- Legacy команда: `testitem-run` (deprecated, будет удалена в следующей версии)
+- Единые флаги: `--config`, `--input`, `--output-dir`, `--date-tag`, `--timeout-sec`, `--retries`, `--workers`, `--limit`, `--dry-run`
+- Специфичные флаги: `--cache-dir`, `--pubchem-cache-dir`, `--disable-pubchem`
 
 ## S08 Ops/CI
 - Публикация артефактов в CI, детерминизм и логирование аналогично documents.

@@ -4,18 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
+import yaml  # type: ignore
 
 from library.assay.client import AssayChEMBLClient
 from library.assay.config import AssayConfig
-from library.config import APIClientConfig
 from library.etl.enhanced_correlation import (
     build_correlation_insights,
     build_enhanced_correlation_analysis,
@@ -65,81 +62,14 @@ _REQUIRED_COLUMNS = {"assay_chembl_id"}
 
 def _create_api_client(config: AssayConfig) -> AssayChEMBLClient:
     """Create an API client for ChEMBL."""
-    from library.config import RateLimitSettings, RetrySettings
-
-    # Get ChEMBL-specific configuration
-    chembl_config = config.sources.get("chembl")
-    if not chembl_config:
-        raise AssayValidationError("ChEMBL source not found in configuration")
-
-    # Use source-specific timeout or fallback to global
-    timeout = chembl_config.http.timeout_sec or config.http.global_.timeout_sec
-    if timeout is None:
-        timeout = 60.0  # At least 60 seconds for ChEMBL
-
-    # Merge headers: default + global + source-specific
-    default_headers = _get_headers()
-    headers = {**default_headers, **config.http.global_.headers, **chembl_config.http.headers}
-
-    # Process secret placeholders in headers
-    processed_headers = {}
-    for key, value in headers.items():
-        if isinstance(value, str):
-
-            def replace_placeholder(match):
-                secret_name = match.group(1)
-                env_var = os.environ.get(secret_name.upper())
-                return env_var if env_var is not None else match.group(0)
-
-            processed_value = re.sub(r"\{([^}]+)\}", replace_placeholder, value)
-            # Only include header if the value is not empty after processing and not a placeholder
-            if processed_value and processed_value.strip() and not processed_value.startswith("{") and not processed_value.endswith("}"):
-                processed_headers[key] = processed_value
-        else:
-            processed_headers[key] = value
-    headers = processed_headers
-
-    # Use source-specific base_url or fallback to default
-    base_url = chembl_config.http.base_url or "https://www.ebi.ac.uk/chembl/api/data"
-
-    # Use source-specific retry settings or fallback to global
-    retry_settings = RetrySettings(
-        total=chembl_config.http.retries.get("total", config.http.global_.retries.total),
-        backoff_multiplier=chembl_config.http.retries.get("backoff_multiplier", config.http.global_.retries.backoff_multiplier),
-    )
-
-    # Create rate limit settings if configured
-    rate_limit = None
-    if chembl_config.rate_limit:
-        # Convert various rate limit formats to max_calls/period
-        max_calls = chembl_config.rate_limit.get("max_calls")
-        period = chembl_config.rate_limit.get("period")
-
-        # If not in max_calls/period format, try to convert from other formats
-        if max_calls is None or period is None:
-            requests_per_second = chembl_config.rate_limit.get("requests_per_second")
-            if requests_per_second is not None:
-                max_calls = 1
-                period = 1.0 / requests_per_second
-            else:
-                # Skip rate limiting if we can't determine the format
-                rate_limit = None
-
-        # Create RateLimitSettings object if we have valid max_calls and period
-        if max_calls is not None and period is not None:
-            rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
-
-    # Create base API client config
-    api_config = APIClientConfig(
-        name="chembl",
-        base_url=base_url,
-        headers=headers,
-        timeout=timeout,
-        retries=retry_settings,
-        rate_limit=rate_limit,
-    )
-
-    return AssayChEMBLClient(api_config, timeout=timeout)
+    from library.clients.factory import create_api_client as factory_create_client
+    
+    try:
+        client = factory_create_client("chembl", config)
+        # Cast to AssayChEMBLClient since factory returns ChEMBLClient
+        return client  # type: ignore
+    except ValueError as exc:
+        raise AssayValidationError(str(exc)) from exc
 
 
 def _get_headers() -> dict[str, str]:
@@ -658,8 +588,17 @@ def write_assay_outputs(result: AssayETLResult, output_dir: Path, date_tag: str,
         # S06: Persist data with deterministic serialization
         logger.info("S06: Persisting data...")
 
+        # Опциональная валидация полей как в documents
+        assays_to_write = result.assays
+        try:
+            from library.tools.data_validator import validate_all_fields
+
+            assays_to_write = validate_all_fields(assays_to_write)
+        except Exception as _exc:
+            logger.debug("Optional assay data validation skipped or failed: %s", _exc)
+
         # Save CSV with deterministic order
-        write_deterministic_csv(result.assays, csv_path, determinism=config.determinism, output=config.io.output)
+        write_deterministic_csv(assays_to_write, csv_path, determinism=config.determinism, output=config.io.output)
 
         # Save QC data (deterministic if possible)
         try:
@@ -717,6 +656,18 @@ def write_assay_outputs(result: AssayETLResult, output_dir: Path, date_tag: str,
     return outputs
 
 
+def run_assay_etl_from_frame(config: AssayConfig, frame: pd.DataFrame) -> AssayETLResult:
+    """Execute the assay ETL pipeline using an input DataFrame with assay_chembl_id column.
+
+    Совместимо со стилем document/testitem/activity: принимает готовый DataFrame,
+    нормализует колонки и делегирует выполнение в общий run_assay_etl.
+    """
+
+    normalised = _normalise_columns(frame)
+    assay_ids = normalised["assay_chembl_id"].astype(str).tolist()
+    return run_assay_etl(config=config, assay_ids=assay_ids)
+
+
 __all__ = [
     "AssayETLResult",
     "AssayHTTPError",
@@ -724,6 +675,7 @@ __all__ = [
     "AssayPipelineError",
     "AssayQCError",
     "AssayValidationError",
+    "run_assay_etl_from_frame",
     "run_assay_etl",
     "write_assay_outputs",
 ]

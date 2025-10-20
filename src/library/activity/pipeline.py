@@ -96,65 +96,26 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
 
 def _create_api_client(source: str, config: ActivityConfig) -> Any:
     """Create an API client for the specified source (chembl only for now)."""
-
-    from library.clients.chembl import ChEMBLClient  # type: ignore
-    from library.config import RateLimitSettings, RetrySettings
-
-    source_config = config.sources.get(source)
-    if not source_config:
-        raise ActivityValidationError(f"Source '{source}' not found in configuration")
-
-    timeout = source_config.http.timeout_sec or config.http.global_.timeout_sec
-
-    # Merge headers: default + global + source-specific
-    headers = {"User-Agent": "bioactivity-data-acquisition/0.1.0", "Accept": "application/json"}
-    headers = {**headers, **config.http.global_.headers, **source_config.http.headers}
-
-    # Use source-specific base_url or default ChEMBL
-    base_url = source_config.http.base_url or "https://www.ebi.ac.uk/chembl/api/data"
-
-    retry_settings = RetrySettings(
-        total=source_config.http.retries.get("total", config.http.global_.retries.total),
-        backoff_multiplier=source_config.http.retries.get("backoff_multiplier", config.http.global_.retries.backoff_multiplier),
-    )
-
-    rate_limit = None
-    if source_config.rate_limit:
-        max_calls = source_config.rate_limit.get("max_calls")
-        period = source_config.rate_limit.get("period")
-        if max_calls is not None and period is not None:
-            rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
-
-    api_config = APIClientConfig(
-        name=source,
-        base_url=base_url,
-        headers=headers,
-        timeout=timeout,
-        retries=retry_settings,
-        rate_limit=rate_limit,
-        endpoint=source_config.endpoint or "activity",
-        params=source_config.params,
-        pagination_param=source_config.pagination.page_param,
-        page_size_param=source_config.pagination.size_param,
-        page_size=source_config.pagination.size,
-        max_pages=source_config.pagination.max_pages,
-    )
-
-    return ChEMBLClient(api_config, timeout=timeout)
+    from library.clients.factory import create_api_client as factory_create_client
+    
+    try:
+        return factory_create_client(source, config)
+    except ValueError as exc:
+        raise ActivityValidationError(str(exc)) from exc
 
 
 def _calculate_business_key_hash(activity_id: Any) -> str:
-    """Calculate hash for business key (activity_id)."""
+    """Calculate hash for business key (activity_id) - full SHA256."""
     business_key = str(activity_id) if pd.notna(activity_id) else ""
-    return hashlib.sha256(business_key.encode()).hexdigest()[:16]
+    return hashlib.sha256(business_key.encode()).hexdigest()
 
 
 def _calculate_row_hash(row_data: dict[str, Any]) -> str:
-    """Calculate hash for entire row for deduplication."""
+    """Calculate hash for entire row for deduplication - full SHA256."""
     # Создаем строку из всех значений, исключая хеши и технические поля
     filtered_data = {k: v for k, v in row_data.items() if not k.startswith("hash_") and k not in ["source_system", "chembl_release"]}
     row_string = json.dumps(filtered_data, sort_keys=True, default=str)
-    return hashlib.sha256(row_string.encode()).hexdigest()[:16]
+    return hashlib.sha256(row_string.encode()).hexdigest()
 
 
 def _extract_activity_from_source(source: str, client: Any, frame: pd.DataFrame, config: ActivityConfig) -> pd.DataFrame:
@@ -385,16 +346,27 @@ def write_activity_outputs(result: ActivityETLResult, output_dir: Path, date_tag
     except OSError as exc:  # pragma: no cover
         raise ActivityIOError(f"Failed to create output directory: {exc}") from exc
 
-    activity_path = output_dir / f"activity_{date_tag}.csv"
-    qc_path = output_dir / f"activity_{date_tag}_qc.csv"
-    meta_path = output_dir / f"activity_{date_tag}_meta.yaml"
+    # Новые имена во множественном числе (унификация с documents/assays/testitems)
+    activities_path = output_dir / f"activities_{date_tag}.csv"
+    qc_path = output_dir / f"activities_{date_tag}_qc.csv"
+    meta_path = output_dir / f"activities_{date_tag}_meta.yaml"
 
-    # Deterministic writes
+    # Валидация данных и детерминированная запись
+    activity_to_write = result.activity
+    try:
+        # Опциональная валидация полей как в documents
+        from library.tools.data_validator import validate_all_fields
+
+        activity_to_write = validate_all_fields(activity_to_write)
+    except Exception:
+        # Продолжаем без дополнительной валидации, если валидатор недоступен
+        pass
+
     if config is not None:
-        write_deterministic_csv(result.activity, activity_path, determinism=config.determinism, output=None)
+        write_deterministic_csv(activity_to_write, activities_path, determinism=config.determinism, output=None)
         write_deterministic_csv(result.qc, qc_path, determinism=config.determinism, output=None)
     else:
-        result.activity.to_csv(activity_path, index=False)
+        activity_to_write.to_csv(activities_path, index=False)
         result.qc.to_csv(qc_path, index=False)
 
     # Save metadata
@@ -404,11 +376,11 @@ def write_activity_outputs(result: ActivityETLResult, output_dir: Path, date_tag
         yaml.dump(result.meta, f, default_flow_style=False, allow_unicode=True)
 
     # Save correlation reports if available
-    outputs: dict[str, Path] = {"activity": activity_path, "qc": qc_path, "meta": meta_path}
+    outputs: dict[str, Path] = {"activities": activities_path, "qc": qc_path, "meta": meta_path}
 
     if result.correlation_reports:
         try:
-            correlation_dir = output_dir / f"activity_correlation_report_{date_tag}"
+            correlation_dir = output_dir / f"activities_correlation_report_{date_tag}"
             correlation_dir.mkdir(exist_ok=True)
 
             # Save each correlation report and expose as flat keys similar to documents
@@ -434,11 +406,54 @@ def write_activity_outputs(result: ActivityETLResult, output_dir: Path, date_tag
 
     # Add checksums
     result.meta["file_checksums"] = {
-        "csv": _calculate_checksum(activity_path),
+        "csv": _calculate_checksum(activities_path),
         "qc": _calculate_checksum(qc_path),
     }
     with open(meta_path, "w", encoding="utf-8") as f:
         yaml.dump(result.meta, f, default_flow_style=False, allow_unicode=True)
+
+    # Legacy-алиасы старых имён файлов (временная совместимость)
+    try:
+        legacy_activity_path = output_dir / f"activity_{date_tag}.csv"
+        legacy_qc_path = output_dir / f"activity_{date_tag}_qc.csv"
+        legacy_meta_path = output_dir / f"activity_{date_tag}_meta.yaml"
+
+        # Копируем файлы, чтобы сохранить обратно совместимость на один релиз
+        import shutil
+
+        shutil.copy2(activities_path, legacy_activity_path)
+        shutil.copy2(qc_path, legacy_qc_path)
+        shutil.copy2(meta_path, legacy_meta_path)
+
+        # Дублируем корреляционные отчёты в legacy-каталог, если он нужен
+        legacy_corr_dir = output_dir / f"activity_correlation_report_{date_tag}"
+        if (output_dir / f"activities_correlation_report_{date_tag}").exists():
+            legacy_corr_dir.mkdir(exist_ok=True)
+            for report_name, report_df in (result.correlation_reports or {}).items():
+                if report_df is not None and not report_df.empty:
+                    legacy_report_path = legacy_corr_dir / f"{report_name}.csv"
+                    try:
+                        report_df.to_csv(legacy_report_path, index=False)
+                    except Exception:
+                        pass
+            if result.correlation_insights:
+                try:
+                    import json
+
+                    legacy_insights_path = legacy_corr_dir / "correlation_insights.json"
+                    with open(legacy_insights_path, "w", encoding="utf-8") as f:
+                        json.dump(result.correlation_insights, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+
+        outputs.update({
+            "activity_legacy": legacy_activity_path,
+            "qc_legacy": legacy_qc_path,
+            "meta_legacy": legacy_meta_path,
+        })
+    except Exception:
+        # Игнорируем ошибки совместимости, чтобы не мешать основному потоку
+        pass
 
     return outputs
 

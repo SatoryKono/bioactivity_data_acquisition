@@ -10,11 +10,11 @@ import pandas as pd
 
 def format_citation(
     journal: Any,
-    year: Any | None = None,
     volume: Any,
     issue: Any,
     first_page: Any,
     last_page: Any,
+    year: Any | None = None,
 ) -> str:
     """Формирует литературную ссылку на статью по заданным правилам.
 

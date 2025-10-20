@@ -1,0 +1,13 @@
+chembl_release: unknown
+extraction_parameters:
+  allow_parent_missing: false
+  batch_size: 200
+  pubchem_enabled: true
+  retries: 5
+  timeout_sec: 30
+  total_molecules: 10
+file_checksums:
+  csv: f597d0d5a4be7a55baaccf0edd0181bb6ab3021d3946c3913c096e173be65417
+  qc: d4b4f4ef43c8faa13d85a49a7cdbe15ee55afc6b1a41476a8bebbc8296c044b2
+pipeline_version: 1.1.0
+row_count: 10

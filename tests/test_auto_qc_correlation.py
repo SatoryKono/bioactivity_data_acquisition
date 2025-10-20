@@ -427,13 +427,15 @@ class TestAutoQCCorrelation:
                 os.unlink(data_path)
             
             # Удаляем все возможные отчеты
+            report_base = data_dir
+            report_stem = data_stem
             for suffix in ['_quality_report.csv', '_correlation_report.csv', '_quality_report_enhanced.csv']:
-                report_path = data_dir / f"{data_stem}{suffix}"
+                report_path = report_base / f"{report_stem}{suffix}"
                 if report_path.exists():
                     os.unlink(report_path)
             
             for suffix in ['_quality_report_detailed', '_correlation_report_enhanced', '_correlation_report_detailed']:
-                report_dir = data_dir / f"{data_stem}{suffix}"
+                report_dir = report_base / f"{report_stem}{suffix}"
                 if report_dir.exists():
                     import shutil
                     shutil.rmtree(report_dir, ignore_errors=True)

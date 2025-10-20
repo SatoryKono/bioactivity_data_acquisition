@@ -2,7 +2,7 @@
 
 from .client import AssayChEMBLClient
 from .config import AssayConfig, load_assay_config
-from .pipeline import AssayETLResult, run_assay_etl, write_assay_outputs
+from .pipeline import AssayETLResult, run_assay_etl, run_assay_etl_from_frame, write_assay_outputs
 
 __all__ = [
     "AssayConfig",
@@ -10,5 +10,6 @@ __all__ = [
     "AssayChEMBLClient",
     "load_assay_config",
     "run_assay_etl",
+    "run_assay_etl_from_frame",
     "write_assay_outputs",
 ]

@@ -45,9 +45,10 @@ class AssayOutputSettings(BaseModel):
     """Output configuration for generated artefacts."""
 
     dir: Path = Field(default=Path("data/output/assay"))
-    format: str = Field(default="csv")
-    csv: AssayCSVSettings = Field(default_factory=AssayCSVSettings)
-    parquet: AssayParquetSettings = Field(default_factory=AssayParquetSettings)
+    # Deprecated: use write_deterministic_csv instead
+    format: str = Field(default="csv", deprecated=True)
+    csv: AssayCSVSettings = Field(default_factory=AssayCSVSettings, deprecated=True)
+    parquet: AssayParquetSettings = Field(default_factory=AssayParquetSettings, deprecated=True)
 
 
 class AssayIOSettings(BaseModel):
@@ -79,7 +80,6 @@ class AssayHTTPGlobalSettings(BaseModel):
     timeout_sec: float = Field(default=30.0, gt=0.0, le=600.0)
     retries: AssayHTTPRetrySettings = Field(default_factory=AssayHTTPRetrySettings)
     headers: dict[str, str] = Field(default_factory=dict)
-    rate_limit: dict[str, Any] = Field(default_factory=dict)
 
 
 class AssayHTTPSettings(BaseModel):

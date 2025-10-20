@@ -239,5 +239,5 @@ git clean -fd
 
 ## Дополнительные ресурсы
 
-- Pre-commit документация: https://pre-commit.com/
-- Git LFS документация: https://git-lfs.github.io/
+- Pre-commit документация: [pre-commit.com](https://pre-commit.com/)
+- Git LFS документация: [git-lfs.github.io](https://git-lfs.github.io/)

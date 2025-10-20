@@ -7,7 +7,7 @@ import pandas as pd
 import pandera
 import pytest
 
-from library.assay import AssayChEMBLClient, AssayConfig, run_assay_etl, write_assay_outputs
+from library.assay import AssayChEMBLClient, AssayConfig, run_assay_etl, run_assay_etl_from_frame, write_assay_outputs
 from library.assay.pipeline import AssayETLResult, AssayValidationError, _extract_assay_data, _normalise_columns, _normalize_assay_fields, _normalize_list_field
 from library.schemas.assay_schema import AssayInputSchema, AssayNormalizedSchema
 
@@ -457,6 +457,43 @@ class TestAssayChEMBLClient:
         hash_row = client._calculate_row_hash(record)
         assert len(hash_row) == 16
         assert isinstance(hash_row, str)
+
+    def test_run_assay_etl_from_frame(self):
+        """Test the new unified interface run_assay_etl_from_frame."""
+        # Create test data
+        test_data = pd.DataFrame({
+            "assay_chembl_id": ["CHEMBL123", "CHEMBL456"]
+        })
+        
+        # Create minimal config
+        config = AssayConfig()
+        
+        # Mock the extraction and processing functions
+        with patch("library.assay.pipeline._extract_assay_data") as mock_extract, \
+             patch("library.assay.pipeline._normalise_columns") as mock_normalise, \
+             patch("library.assay.pipeline._normalize_assay_fields") as mock_normalize, \
+             patch("library.assay.pipeline._validate_assay_data") as mock_validate:
+            
+            # Setup mocks
+            mock_normalise.return_value = test_data
+            mock_normalize.return_value = test_data
+            mock_validate.return_value = test_data
+            
+            # Mock extraction to return test data
+            mock_extract.return_value = test_data
+            
+            # Run the function
+            result = run_assay_etl_from_frame(config, test_data)
+            
+            # Verify the result
+            assert isinstance(result, AssayETLResult)
+            assert "assay_chembl_id" in result.assays.columns
+            assert len(result.assays) == 2
+            
+            # Verify mocks were called
+            mock_normalise.assert_called_once()
+            mock_normalize.assert_called_once()
+            mock_validate.assert_called_once()
 
 
 if __name__ == "__main__":

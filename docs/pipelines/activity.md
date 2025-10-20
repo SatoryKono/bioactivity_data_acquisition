@@ -1,29 +1,38 @@
 <!-- Generated from template: docs/_templates/staging_template.md -->
 
 ## S00 Spec
-- Цель: нормализация и экспорт таблиц биоактивностей (если реализовано в коде).
-- Вход/выход: по конфигу `configs/config_activity_full.yaml` (если используется).
+- Цель: извлечение и нормализация данных о биоактивностях ChEMBL, сохранение детерминированных артефактов.
+- Вход: CSV с колонкой `activity_chembl_id`.
+- Выход: `data/output/activity/activities_{date_tag}.csv` + QC + meta + корреляции.
 
 ## S01 Extract
-- Источники: согласно конфигу; ограничение — описывать только реально используемые клиенты.
+- Источники: ChEMBL — batch-запросы для эффективности (см. `library.activity.pipeline._extract_activity_data`).
+- Параметры/лимиты/ретраи — через `ActivityConfig.sources.chembl.http` и `http.global`.
+- Унифицированная фабрика клиентов: `library.clients.factory.create_api_client`.
 
 ## S02 Raw-Schema
-- Pandera-схемы: см. `src/library/schemas/activity_schema.py` (если применяется в пайплайне).
+- Входные требования: `activity_chembl_id` обязательный — `library.activity.pipeline._normalise_columns`.
 
 ## S03 Normalize
-- Правила нормализации: зафиксировать после интеграции фактических функций (пока каркас).
+- Нормализация строк/списков, приведение типов, ограничения диапазонов — `library.activity.pipeline._normalize_activity_fields`.
+- Полные SHA256 хеши для `hash_row` и `hash_business_key`.
 
 ## S04 Validate
-- Проверки типов/бизнес-правила: использовать `activity_schema` при наличии.
+- Pandera: `library.schemas.activity_schema.ActivityNormalizedSchema.validate` + бизнес-правила.
+- Опциональная валидация данных при записи через `data_validator.validate_all_fields`.
 
 ## S05 QC
-- Метрики/пороги и пути репортов — по аналогии с другими пайплайнами.
+- Метрики: `row_count`, `enabled_sources`, `chembl_records`.
+- Корреляционный анализ: `postprocess.correlation.enabled` (по умолчанию отключен).
 
 ## S06 Persist
-- CSV + YAML meta; детерминизм как в остальной системе.
+- CSV + YAML meta; детерминированная запись `library.etl.load.write_deterministic_csv`.
+- Имена артефактов: `activities_*` (множественное число) с legacy-алиасами.
 
 ## S07 CLI
-- Использование через общую команду `pipeline` и соответствующий конфиг.
+- Новая команда: `get-activity-data --config config.yaml --input data.csv --output-dir results/`
+- Deprecated: `activity-run` (будет удалена в следующей версии)
+- Единые флаги: `--config`, `--input`, `--output-dir`, `--date-tag`, `--timeout-sec`, `--retries`, `--workers`, `--limit`, `--dry-run`
 
 ## S08 Ops/CI
 - Общие правила репозитория (логи, репродуцируемость, артефакты CI).
