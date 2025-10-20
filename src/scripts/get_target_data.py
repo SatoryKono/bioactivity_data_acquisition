@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+from typing import cast
 
 # Ensure 'src' is on sys.path when running as: python src/scripts/get_target_data.py
 _THIS_DIR = Path(__file__).resolve().parent
@@ -30,6 +31,9 @@ from library.pipelines.target.pipeline import run_pipeline  # noqa: E402
 from library.pipelines.target.postprocessing import (  # noqa: E402
     finalise_targets,
     postprocess_targets,
+)
+from library.pipelines.target.protein_classification import (  # noqa: E402
+    compute_protein_class_pred,
 )
 from library.pipelines.target.uniprot_target import (  # noqa: E402
     UniprotApiCfg,
@@ -166,36 +170,51 @@ def main() -> None:
         merged = result.chembl
     else:
         merged = pd.concat(list(result.chembl), ignore_index=True)
+    # Типовая подсказка анализатору типов: далее работаем как с DataFrame
+    merged = cast(pd.DataFrame, merged)
 
     # Если есть данные UniProt, объединяем их
     if result.uniprot is not None:
         if isinstance(result.uniprot, pd.DataFrame):
-            uniprot_data = result.uniprot
+            uniprot_data_df: pd.DataFrame = result.uniprot
         else:
-            uniprot_data = pd.concat(list(result.uniprot), ignore_index=True)
+            uniprot_iter = cast(Iterable[pd.DataFrame], result.uniprot)
+            uniprot_data_df = pd.concat(list(uniprot_iter), ignore_index=True)
+        uniprot_data_df = cast(pd.DataFrame, uniprot_data_df)
 
         # Проверяем, что есть данные для объединения
-        if not uniprot_data.empty and "uniprot_id_primary" in uniprot_data.columns:
+        if not uniprot_data_df.empty and "uniprot_id_primary" in uniprot_data_df.columns:
             # Объединяем данные ChEMBL с данными UniProt
-            merged = merged.merge(uniprot_data, left_on="mapping_uniprot_id", right_on="uniprot_id_primary", how="left")
+            merged = merged.merge(uniprot_data_df, left_on="mapping_uniprot_id", right_on="uniprot_id_primary", how="left")
         else:
             logger.warning("No valid UniProt data to merge")
 
     # Если есть данные IUPHAR, объединяем их
     if result.iuphar is not None:
         if isinstance(result.iuphar, pd.DataFrame):
-            iuphar_data = result.iuphar
+            iuphar_data_df: pd.DataFrame = result.iuphar
         else:
-            iuphar_data = pd.concat(list(result.iuphar), ignore_index=True)
+            iuphar_iter = cast(Iterable[pd.DataFrame], result.iuphar)
+            iuphar_data_df = pd.concat(list(iuphar_iter), ignore_index=True)
+        iuphar_data_df = cast(pd.DataFrame, iuphar_data_df)
 
         # Проверяем, что есть данные для объединения
-        if not iuphar_data.empty and "iuphar_target_id" in iuphar_data.columns:
+        if not iuphar_data_df.empty and "iuphar_target_id" in iuphar_data_df.columns:
             # Объединяем данные с данными IUPHAR
             # Используем индекс для объединения, так как у нас нет прямого ключа
-            merged = merged.merge(iuphar_data, left_index=True, right_index=True, how="left")
+            merged = merged.merge(iuphar_data_df, left_index=True, right_index=True, how="left")
         else:
             logger.warning("No valid IUPHAR data to merge")
 
+    # Расчёт protein_class_pred L1/L2/L3 на базе IUPHAR до постобработки
+    try:
+        merged = compute_protein_class_pred(merged, dictionary_path="configs/dictionary/_target/")
+        logger.info("Computed protein_class_pred L1/L2/L3")
+    except Exception as e:
+        logger.exception(f"Failed to compute protein_class_pred L1/L2/L3: {e}")
+
+    # Явно приводим тип для статического анализатора
+    merged = cast(pd.DataFrame, merged)
     logger.info(f"Data before postprocessing: {len(merged)} rows")
     logger.info(f"Columns before postprocessing: {list(merged.columns)}")
     processed = postprocess_targets(merged)

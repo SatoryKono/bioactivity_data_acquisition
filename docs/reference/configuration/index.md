@@ -27,17 +27,17 @@ export BIOACTIVITY__HTTP__GLOBAL__TIMEOUT_SEC=10
 | http.global.timeout_sec | float | 30.0 | Таймаут HTTP по умолчанию |
 | http.global.retries.total | int | 5 | Общее число попыток |
 | http.global.retries.backoff_multiplier | float | 2.0 | Множитель backoff |
-| http.global.headers.User-Agent | str | bioactivity-data-acquisition/0.1.0 | Идентификатор клиента |
-| sources.chembl.http.base_url | str | <https://www.ebi.ac.uk/chembl/api/data> | Базовый URL ChEMBL |
-| sources.crossref.http.base_url | str | <https://api.crossref.org/works> | Базовый URL Crossref |
-| sources.openalex.http.base_url | str | <https://api.openalex.org/works> | Базовый URL OpenAlex |
+| http.global.headers.User-Agent | str | `bioactivity-data-acquisition/0.1.0` | Идентификатор клиента |
+| sources.chembl.http.base_url | str | `https://www.ebi.ac.uk/chembl/api/data` | Базовый URL ChEMBL |
+| sources.crossref.http.base_url | str | `https://api.crossref.org/works` | Базовый URL Crossref |
+| sources.openalex.http.base_url | str | `https://api.openalex.org/works` | Базовый URL OpenAlex |
 | sources.pubmed.rate_limit.max_calls | int | 2 | Лимит запросов в секунду |
-| sources.pubmed.http.base_url | str | <https://eutils.ncbi.nlm.nih.gov/entrez/eutils/> | Базовый URL PubMed |
+| sources.pubmed.http.base_url | str | `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/` | Базовый URL PubMed |
 | sources.semantic_scholar.rate_limit.period | float | 5.0 | Период лимита (сек) |
-| io.input.documents_csv | path | data/input/documents.csv | Входной CSV |
-| io.output.data_path | path | data/output/documents.csv | Путь датасета |
-| io.output.qc_report_path | path | data/output/documents_qc_report.csv | Путь QC |
-| io.output.correlation_path | path | data/output/documents_correlation.csv | Путь корреляций |
+| io.input.documents_csv | path | `data/input/documents.csv` | Входной CSV |
+| io.output.data_path | path | `data/output/documents.csv` | Путь датасета |
+| io.output.qc_report_path | path | `data/output/documents_qc_report.csv` | Путь QC |
+| io.output.correlation_path | path | `data/output/documents_correlation.csv` | Путь корреляций |
 | runtime.workers | int | 4 | Кол-во потоков |
 | runtime.limit | int/null | null | Ограничение записей |
 | runtime.dry_run | bool | false | Тестовый режим |

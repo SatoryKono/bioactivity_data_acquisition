@@ -170,7 +170,7 @@ git lfs env
 
 - [Git LFS официальная документация](https://git-lfs.github.io/)
 - [GitHub LFS документация](https://docs.github.com/en/repositories/working-with-files/managing-large-files)
-- [План развития репозитория - Stage 10](../archive/REFORM_PLAN.md)
+- План развития репозитория — Stage 10: см. `archive/REFORM_PLAN.md`
 
 ---
 

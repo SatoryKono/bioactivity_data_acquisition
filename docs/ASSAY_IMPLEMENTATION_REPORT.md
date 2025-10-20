@@ -54,8 +54,7 @@
 
 ### 7. Документация
 
-- ✅ Техническая документация `docs/assay.md`
-- ✅ Руководство по использованию `docs/assay_usage.md`
+- ✅ Техническая документация и использование: `docs/pipelines/assay.md`
 - ✅ README с примерами `README_assay.md`
 - ✅ Makefile для удобного запуска `Makefile.assay`
 

@@ -44,7 +44,7 @@
 - Нормализация: `docs/normalization.md`
 - Обогащение: `docs/enrichment.md`
 - Валидация: `docs/validation.md`
-- Качество (QC): `docs/qc.md`
+- Качество (QC): `docs/data_qc/README.md`
 - Персистентность и детерминизм: `docs/persistence.md`
 - CLI обзор: `docs/cli.md`
 - Логи и метрики: `docs/logging.md`
@@ -78,14 +78,22 @@
 - `docs/CHECKLIST_postprocess_documents.md`
 - `docs/CHECKLIST.md`
 - `docs/TEST_OUTPUTS_CLEANUP.md`
-- `docs/README_LOGGING_SECTION.md`
+- (устар.) `docs/README_LOGGING_SECTION.md`
 
 ## Маппинг существующих страниц
-- `docs/activity.md`, `docs/activity_usage.md` → будут референсами из `docs/pipelines/activity.md` (S00–S08)
-- `docs/assay.md`, `docs/assay_usage.md` → `docs/pipelines/assay.md`
-- `docs/postprocess/documents.md`, `docs/document_schemas.md`, `docs/data_qc/*` → ссылки в `docs/pipelines/documents.md` и `docs/qc.md`
+- (объединено) `docs/activity.md`, `docs/activity_usage.md` → `docs/pipelines/activity.md`
+- (объединено) `docs/assay.md`, `docs/assay_usage.md` → `docs/pipelines/assay.md`
+- `docs/postprocess/documents.md`, `docs/reference/data-schemas/*`, `docs/data_qc/*` → ссылки в `docs/pipelines/documents.md` и `docs/data_qc/README.md`
+
+### Статус выполнения (housekeeping)
+- Все дубликаты удалены из корня `docs/`
+- Пайплайны сведены в `docs/pipelines/*`
+- Логирование объединено в `docs/logging.md`
+- Схемы сведены в `docs/reference/data-schemas/index.md`
+- QC канонизирован в `docs/data_qc/README.md`
+- Навигация `configs/mkdocs.yml` обновлена
 - `docs/api-limits.md`, `docs/health-checking.md` → ссылки в `docs/extraction-contract.md`
-- `docs/README_main.md`, `docs/README.md`, `docs/getting-started.md` → остаются как обзоры; добавим ссылки на новые разделы
+- `docs/README_main.md` объединён в `docs/index.md`; `docs/README.md` оставить при отличиях; `docs/getting-started.md` остаётся
 
 ## Навигация MkDocs
 Навигацию обновить после создания новых страниц: добавить раздел «Пайплайны», «Configuration → Sources», «Persistence & Determinism», «Logging & Metrics», «Tests», «Output Artifacts». Не ссылаться на несуществующие файлы (strict: true).

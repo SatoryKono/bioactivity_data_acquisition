@@ -1,0 +1,4910 @@
+
+<!doctype html>
+<html lang="ru" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://satorykono.github.io/bioactivity_data_acquisition/pipelines/testitem/">
+      
+      
+        <link rel="prev" href="../documents/">
+      
+      
+        <link rel="next" href="../assay/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
+    
+    
+      
+        <title>Testitem - Bioactivity Data Acquisition</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#s00-spec" class="md-skip">
+          Перейти к содержанию
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Верхний колонтитул">
+    <a href="../.." title="Bioactivity Data Acquisition" class="md-header__button md-logo" aria-label="Bioactivity Data Acquisition" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Bioactivity Data Acquisition
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Testitem
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Поиск" placeholder="Поиск" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Поиск">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Очистить" aria-label="Очистить" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/SatoryKono/bioactivity_data_acquisition" title="Перейти к репозиторию" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SatoryKono/bioactivity_data_acquisition
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Вкладки" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Обзор
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../documents/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Пайплайны
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/configuration/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Конфигурация
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../extraction-contract/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Контракты и правила
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../cli/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  CLI и логирование
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tests/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Тесты и артефакты
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Справочник
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanations/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Объяснения
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  How-to
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Туториалы
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../configuration/sources/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Дополнительно
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../SECURITY_main/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Служебные
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../housekeeping/plan/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Housekeeping
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../archive/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Архив
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Навигация" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Bioactivity Data Acquisition" class="md-nav__button md-logo" aria-label="Bioactivity Data Acquisition" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Bioactivity Data Acquisition
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/SatoryKono/bioactivity_data_acquisition" title="Перейти к репозиторию" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    SatoryKono/bioactivity_data_acquisition
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Обзор
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Пайплайны
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Пайплайны
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Documents
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Testitem
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Testitem
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#s00-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      S00 Spec
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s01-extract" class="md-nav__link">
+    <span class="md-ellipsis">
+      S01 Extract
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s02-raw-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      S02 Raw-Schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s03-normalize" class="md-nav__link">
+    <span class="md-ellipsis">
+      S03 Normalize
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s04-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      S04 Validate
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s05-qc" class="md-nav__link">
+    <span class="md-ellipsis">
+      S05 QC
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s06-persist" class="md-nav__link">
+    <span class="md-ellipsis">
+      S06 Persist
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s07-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      S07 CLI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s08-opsci" class="md-nav__link">
+    <span class="md-ellipsis">
+      S08 Ops/CI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Развернутая документация
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testitem-etl-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testitem ETL Pipeline
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testitem ETL Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Описание
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Архитектура
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Архитектура">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#s01-s10" class="md-nav__link">
+    <span class="md-ellipsis">
+      Этапы конвейера (S01-S10)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Структура проекта
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      Использование
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Использование">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      CLI интерфейс
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      Прямой запуск скрипта
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      Программный интерфейс
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      Входные данные
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Входные данные">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#csv" class="md-nav__link">
+    <span class="md-ellipsis">
+      Формат входного CSV
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      Пример входного файла
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      Выходные данные
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Выходные данные">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      Структура выходных файлов
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      Формат имени файла
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testitem_dim" class="md-nav__link">
+    <span class="md-ellipsis">
+      Схема данных testitem_dim
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Схема данных testitem_dim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      Основные идентификаторы
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      Родительские связи
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      Разработка лекарств
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      Молекулярные свойства
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pubchem" class="md-nav__link">
+    <span class="md-ellipsis">
+      PubChem данные
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      Стандартизированные структуры
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      Техслужебные поля
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      Конфигурация
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Конфигурация">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      Основные параметры
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      Источники данных
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      Детерминизм
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    <span class="md-ellipsis">
+      API ключи
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      Тестирование
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      Логирование
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      Обработка ошибок
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_26" class="md-nav__link">
+    <span class="md-ellipsis">
+      Производительность
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_27" class="md-nav__link">
+    <span class="md-ellipsis">
+      Мониторинг
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_28" class="md-nav__link">
+    <span class="md-ellipsis">
+      Миграционное руководство
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Миграционное руководство">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#10x-11x" class="md-nav__link">
+    <span class="md-ellipsis">
+      Переход с версии 1.0.x на 1.1.x
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Переход с версии 1.0.x на 1.1.x">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Breaking Changes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_29" class="md-nav__link">
+    <span class="md-ellipsis">
+      Шаги миграции
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backward Compatibility
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_30" class="md-nav__link">
+    <span class="md-ellipsis">
+      Поддержка
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../assay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Assay
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../activity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Activity
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../target/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Target
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/configuration/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Конфигурация
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Конфигурация
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sources
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../data_qc/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Контракты и правила
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Контракты и правила
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extraction Contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../normalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Normalization
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../enrichment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Enrichment
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Validation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../persistence/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Persistence & Determinism
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    CLI и логирование
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            CLI и логирование
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CLI
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../logging/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Logging & Metrics
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Тесты и артефакты
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Тесты и артефакты
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tests/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Tests Policy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../output-artifacts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Output Artifacts
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../star-schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Star-Schema
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../non-goals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Non-Goals
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Справочник
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/cli/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    CLI
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            CLI
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Команда pipeline
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/cli/get-document-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Команда get-document-data
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/api/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    API
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            API
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/clients/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Клиенты
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/etl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ETL
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Схемы
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../explanations/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Объяснения
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_8" id="__nav_8_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Объяснения
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanations/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Архитектура
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanations/design-decisions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Решения дизайна
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanations/case-sensitivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Чувствительность к регистру
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../how-to/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    How-to
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_9" id="__nav_9_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            How-to
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Установка
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/operations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Эксплуатация
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/run-quality-checks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Проверки качества
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Разработка
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/update-chembl-uniprot-mapping/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Обновление маппинга ChEMBL↔UniProt
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/contribute/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Контрибьюшн
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/stage11-final-validation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Stage 11
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../tutorials/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Туториалы
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_10" id="__nav_10_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            Туториалы
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Быстрый старт
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/e2e-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Полный пайплайн (E2E)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/e2e-documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Обогащение документов (E2E)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Дополнительно
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Дополнительно
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../configuration/sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Sources
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction-contract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Extraction Contract
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../postprocess/documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Postprocess (documents)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../data_qc/documents_qc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Документы QC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CI/CD
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FAQ
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Глоссарий
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Релизы и изменения
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Служебные
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            Служебные
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../SECURITY_main/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SECURITY Policy
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../STYLE_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STYLE GUIDE
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../GIT_LFS_WORKFLOW/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Git LFS Workflow
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../DOCS_INVENTORY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DOCS INVENTORY
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../inventory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    INVENTORY
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    SECURITY (legacy)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ASSAY_IMPLEMENTATION_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Assay Implementation Report
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CHEMBL_OPTIMIZATION_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ChEMBL Optimization Report
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../LOGGING_FIX_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Logging Fix Report
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CODE_CLEANUP_ACTIONS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code Cleanup Actions
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../CODE_CLEANUP_ANALYSIS/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code Cleanup Analysis
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Housekeeping
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            Housekeeping
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../housekeeping/plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    План
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../housekeeping/root_audit/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Root audit
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_14" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../archive/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    Архив
+    
+  </span>
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_14" id="__nav_14_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_14_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_14">
+            <span class="md-nav__icon md-icon"></span>
+            Архив
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/ASSESSMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ASSESSMENT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/CASE_SENSITIVITY_FIX_SUMMARY/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CASE_SENSITIVITY_FIX_SUMMARY
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CHECKLIST
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/CHECKLIST_postprocess_documents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CHECKLIST postprocess documents
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/CLEANUP_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CLEANUP_REPORT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/DOCS_AUDIT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DOCS_AUDIT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/DOCS_CHECKLIST/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    DOCS_CHECKLIST
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/IMPROVEMENT_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    IMPROVEMENT_PLAN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/LOGGING_AUDIT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LOGGING_AUDIT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/LOGGING_CHANGE_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LOGGING_CHANGE_PLAN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/LOGGING_IMPLEMENTATION_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    LOGGING_IMPLEMENTATION_REPORT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/REFORM_PLAN/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    REFORM_PLAN
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/STAGE11_COMPLETION_REPORT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAGE11_COMPLETION_REPORT
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/STAGE11_README/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    STAGE11_README
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/TEST_OUTPUTS_CLEANUP/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    TEST_OUTPUTS_CLEANUP
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/api-limits/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    API limits (archived)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/data-sources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Data sources (archived)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting started (archived)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../archive/health-checking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Health checking (archived)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Содержание">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#s00-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      S00 Spec
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s01-extract" class="md-nav__link">
+    <span class="md-ellipsis">
+      S01 Extract
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s02-raw-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      S02 Raw-Schema
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s03-normalize" class="md-nav__link">
+    <span class="md-ellipsis">
+      S03 Normalize
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s04-validate" class="md-nav__link">
+    <span class="md-ellipsis">
+      S04 Validate
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s05-qc" class="md-nav__link">
+    <span class="md-ellipsis">
+      S05 QC
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s06-persist" class="md-nav__link">
+    <span class="md-ellipsis">
+      S06 Persist
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s07-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      S07 CLI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#s08-opsci" class="md-nav__link">
+    <span class="md-ellipsis">
+      S08 Ops/CI
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      Развернутая документация
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testitem-etl-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testitem ETL Pipeline
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testitem ETL Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      Описание
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      Архитектура
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Архитектура">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#s01-s10" class="md-nav__link">
+    <span class="md-ellipsis">
+      Этапы конвейера (S01-S10)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      Структура проекта
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      Использование
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Использование">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      CLI интерфейс
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      Прямой запуск скрипта
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_7" class="md-nav__link">
+    <span class="md-ellipsis">
+      Программный интерфейс
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      Входные данные
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Входные данные">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#csv" class="md-nav__link">
+    <span class="md-ellipsis">
+      Формат входного CSV
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
+    <span class="md-ellipsis">
+      Пример входного файла
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_10" class="md-nav__link">
+    <span class="md-ellipsis">
+      Выходные данные
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Выходные данные">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_11" class="md-nav__link">
+    <span class="md-ellipsis">
+      Структура выходных файлов
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_12" class="md-nav__link">
+    <span class="md-ellipsis">
+      Формат имени файла
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#testitem_dim" class="md-nav__link">
+    <span class="md-ellipsis">
+      Схема данных testitem_dim
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Схема данных testitem_dim">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_13" class="md-nav__link">
+    <span class="md-ellipsis">
+      Основные идентификаторы
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_14" class="md-nav__link">
+    <span class="md-ellipsis">
+      Родительские связи
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_15" class="md-nav__link">
+    <span class="md-ellipsis">
+      Разработка лекарств
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_16" class="md-nav__link">
+    <span class="md-ellipsis">
+      Молекулярные свойства
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pubchem" class="md-nav__link">
+    <span class="md-ellipsis">
+      PubChem данные
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_17" class="md-nav__link">
+    <span class="md-ellipsis">
+      Стандартизированные структуры
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_18" class="md-nav__link">
+    <span class="md-ellipsis">
+      Техслужебные поля
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_19" class="md-nav__link">
+    <span class="md-ellipsis">
+      Конфигурация
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Конфигурация">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_20" class="md-nav__link">
+    <span class="md-ellipsis">
+      Основные параметры
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_21" class="md-nav__link">
+    <span class="md-ellipsis">
+      Источники данных
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_22" class="md-nav__link">
+    <span class="md-ellipsis">
+      Детерминизм
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#api" class="md-nav__link">
+    <span class="md-ellipsis">
+      API ключи
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_23" class="md-nav__link">
+    <span class="md-ellipsis">
+      Тестирование
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_24" class="md-nav__link">
+    <span class="md-ellipsis">
+      Логирование
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_25" class="md-nav__link">
+    <span class="md-ellipsis">
+      Обработка ошибок
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_26" class="md-nav__link">
+    <span class="md-ellipsis">
+      Производительность
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_27" class="md-nav__link">
+    <span class="md-ellipsis">
+      Мониторинг
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_28" class="md-nav__link">
+    <span class="md-ellipsis">
+      Миграционное руководство
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Миграционное руководство">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#10x-11x" class="md-nav__link">
+    <span class="md-ellipsis">
+      Переход с версии 1.0.x на 1.1.x
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Переход с версии 1.0.x на 1.1.x">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#breaking-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Breaking Changes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_29" class="md-nav__link">
+    <span class="md-ellipsis">
+      Шаги миграции
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      Backward Compatibility
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_30" class="md-nav__link">
+    <span class="md-ellipsis">
+      Поддержка
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/SatoryKono/bioactivity_data_acquisition/edit/main/docs/pipelines/testitem.md" title="Редактировать страницу" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<!-- Generated from template: docs/_templates/staging_template.md -->
+
+<h2 id="s00-spec">S00 Spec<a class="headerlink" href="#s00-spec" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Цель: извлечение и обогащение молекулярных данных (ChEMBL + PubChem), нормализация и детерминированный экспорт.</li>
+<li>Вход: CSV с идентификаторами молекул (<code>molecule_chembl_id</code> и/или <code>molregno</code>).</li>
+<li>Выход: <code>data/output/testitem/testitems_{date_tag}.csv</code> + QC + meta.</li>
+</ul>
+<h2 id="s01-extract">S01 Extract<a class="headerlink" href="#s01-extract" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Источники: ChEMBL (обязательно), PubChem (опционально) — см. <code>library.testitem.pipeline</code> и конфиг <code>testitem</code>.</li>
+<li>Лимиты/ретраи: через <code>http.global</code> и overrides источников.</li>
+</ul>
+<h2 id="s02-raw-schema">S02 Raw-Schema<a class="headerlink" href="#s02-raw-schema" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Проверки входа: наличие хотя бы одного идентификатора — <code>library.testitem.pipeline._normalise_columns</code>.</li>
+</ul>
+<h2 id="s03-normalize">S03 Normalize<a class="headerlink" href="#s03-normalize" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Правила: нормализация строковых/числовых/булевых/списковых полей; вычисление <code>hash_*</code> — <code>library.testitem.pipeline._normalize_testitem_data</code>.</li>
+</ul>
+<h2 id="s04-validate">S04 Validate<a class="headerlink" href="#s04-validate" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Бизнес-правила: консистентность идентификаторов, диапазоны, длины — <code>library.testitem.pipeline._validate_*</code>.</li>
+</ul>
+<h2 id="s05-qc">S05 QC<a class="headerlink" href="#s05-qc" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Метрики: <code>row_count</code>, счётчики источников, PubChem coverage, ошибки.</li>
+</ul>
+<h2 id="s06-persist">S06 Persist<a class="headerlink" href="#s06-persist" title="Permanent link">&para;</a></h2>
+<ul>
+<li>CSV + YAML meta; детерминизм через <code>library.etl.load.write_deterministic_csv</code>.</li>
+</ul>
+<h2 id="s07-cli">S07 CLI<a class="headerlink" href="#s07-cli" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Команда: <code>bioactivity-data-acquisition testitem-run</code> (см. <code>library.cli:testitem_run</code>).</li>
+<li>Ключевые параметры: <code>--config</code>, <code>--input</code>, <code>--output</code>, <code>--cache-dir</code>, <code>--pubchem-cache-dir</code>, <code>--timeout</code>, <code>--retries</code>, <code>--limit</code>, <code>--disable-pubchem</code>, <code>--dry-run</code>.</li>
+</ul>
+<h2 id="s08-opsci">S08 Ops/CI<a class="headerlink" href="#s08-opsci" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Публикация артефактов в CI, детерминизм и логирование аналогично documents.</li>
+</ul>
+<hr />
+<h2 id="_1">Развернутая документация<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h2>
+<h1 id="testitem-etl-pipeline">Testitem ETL Pipeline<a class="headerlink" href="#testitem-etl-pipeline" title="Permanent link">&para;</a></h1>
+<p>Воспроизводимый, детерминированный конвейер Sxx_testitem для формирования измерения testitem_dim по молекулам из ChEMBL с обогащением из PubChem.</p>
+<h2 id="_2">Описание<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h2>
+<p>Конвейер реализует полный цикл ETL (Extract → Transform → Load) для извлечения и нормализации молекулярных данных:</p>
+<ul>
+<li><strong>Extract</strong>: Извлечение данных из ChEMBL и PubChem APIs</li>
+<li><strong>Normalize</strong>: Нормализация и стандартизация данных</li>
+<li><strong>Validate</strong>: Валидация с использованием Pandera схем</li>
+<li><strong>Persist</strong>: Детерминистическое сохранение в CSV формате</li>
+</ul>
+<h2 id="_3">Архитектура<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
+<h3 id="s01-s10">Этапы конвейера (S01-S10)<a class="headerlink" href="#s01-s10" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>S01</strong>: Получение статуса ChEMBL и версии релиза</li>
+<li><strong>S02</strong>: Извлечение основных данных молекулы</li>
+<li><strong>S03</strong>: Извлечение данных о родительских/дочерних связях</li>
+<li><strong>S04</strong>: Извлечение свойств и классификаций</li>
+<li><strong>S05</strong>: Обогащение данными из PubChem</li>
+<li><strong>S06</strong>: Извлечение синонимов и кросс-ссылок</li>
+<li><strong>S07</strong>: Стандартизация молекулярных структур</li>
+<li><strong>S08</strong>: Нормализация данных</li>
+<li><strong>S09</strong>: Валидация с помощью Pandera</li>
+<li><strong>S10</strong>: Детерминистическое сохранение и метаданные</li>
+</ol>
+<h3 id="_4">Структура проекта<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h3>
+<pre><code>src/library/testitem/
+├── __init__.py          # Публичный интерфейс модуля
+├── config.py            # Pydantic конфигурация (documents-style)
+└── pipeline.py          # Консолидированный ETL конвейер
+
+src/library/schemas/
+└── testitem_schema.py   # Pandera схемы валидации
+
+configs/
+└── config_testitem_full.yaml        # Конфигурационный файл
+
+src/scripts/
+└── get_testitem_data.py # Скрипт запуска
+</code></pre>
+<p><strong>Примечание</strong>: Модули <code>extract.py</code>, <code>normalize.py</code>, <code>validate.py</code>, <code>persist.py</code> были консолидированы в <code>pipeline.py</code> для упрощения архитектуры и соответствия стандартам <code>documents</code> модуля.</p>
+<h2 id="_5">Использование<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<h3 id="cli">CLI интерфейс<a class="headerlink" href="#cli" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash"># Основная команда (--output необязательный, загружается из конфигурации)
+python -m library.cli testitem-run \
+  --config configs/config_testitem_full.yaml \
+  --input data/input/testitem_keys.csv
+
+# С дополнительными параметрами
+python -m library.cli testitem-run \
+  --config configs/config_testitem_full.yaml \
+  --input data/input/testitem_keys.csv \
+  --output data/output/testitem \
+  --cache-dir .cache/chembl \
+  --pubchem-cache-dir .cache/pubchem \
+  --timeout 45 \
+  --retries 7 \
+  --limit 500 \
+  --disable-pubchem false \
+  --verbose
+
+# Валидация конфигурации
+python -m library.cli testitem-validate-config \
+  --config configs/config_testitem_full.yaml
+
+# Информация о конвейере
+python -m library.cli testitem-info
+</code></pre>
+<h3 id="_6">Прямой запуск скрипта<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h3>
+<pre><code class="language-bash"># Автоматически использует команду testitem-run (--output загружается из конфигурации)
+python src/scripts/get_testitem_data.py \
+  --config configs/config_testitem_full.yaml \
+  --input data/input/testitem_keys.csv
+
+# Или явно указать команду
+python src/scripts/get_testitem_data.py testitem-run \
+  --config configs/config_testitem_full.yaml \
+  --input data/input/testitem_keys.csv \
+  --output data/output/testitem
+</code></pre>
+<h3 id="_7">Программный интерфейс<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h3>
+<pre><code class="language-python">from library.testitem.config import load_testitem_config
+from library.testitem.pipeline import run_testitem_etl, write_testitem_outputs
+from pathlib import Path
+
+# Загрузка конфигурации (новый API)
+config = load_testitem_config(&quot;configs/config_testitem_full.yaml&quot;)
+
+# Запуск ETL конвейера с файлом входных данных
+result = run_testitem_etl(config, input_path=Path(&quot;data/input/testitem.csv&quot;))
+
+# Сохранение результатов
+output_paths = write_testitem_outputs(result, Path(&quot;data/output/testitem&quot;), config)
+</code></pre>
+<p><strong>Миграция с старого API</strong>:</p>
+<pre><code class="language-python"># Старый способ (deprecated)
+config = TestitemConfig.from_file(&quot;config.yaml&quot;)
+result = run_testitem_etl(config, input_data=dataframe)
+
+# Новый способ (рекомендуется)
+config = load_testitem_config(&quot;config.yaml&quot;)
+result = run_testitem_etl(config, input_path=Path(&quot;input.csv&quot;))
+</code></pre>
+<h2 id="_8">Входные данные<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h2>
+<h3 id="csv">Формат входного CSV<a class="headerlink" href="#csv" title="Permanent link">&para;</a></h3>
+<p>Обязательные поля (хотя бы одно):
+- <code>molecule_chembl_id</code> - ChEMBL идентификатор молекулы
+- <code>molregno</code> - Регистрационный номер молекулы в ChEMBL</p>
+<p>Опциональные поля:
+- <code>parent_chembl_id</code> - ChEMBL идентификатор родительской молекулы
+- <code>parent_molregno</code> - Регистрационный номер родительской молекулы
+- <code>pubchem_cid</code> - PubChem идентификатор соединения</p>
+<h3 id="_9">Пример входного файла<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h3>
+<pre><code class="language-csv">molecule_chembl_id,molregno,parent_chembl_id,parent_molregno,pubchem_cid
+CHEMBL25,1,CHEMBL25,1,2244
+CHEMBL153,2,CHEMBL153,2,2244
+CHEMBL154,3,CHEMBL154,3,2244
+</code></pre>
+<h2 id="_10">Выходные данные<a class="headerlink" href="#_10" title="Permanent link">&para;</a></h2>
+<h3 id="_11">Структура выходных файлов<a class="headerlink" href="#_11" title="Permanent link">&para;</a></h3>
+<pre><code>data/output/testitem/
+├── testitem__20240101.csv          # Основной датасет
+├── meta.yaml                       # Метаданные
+└── qc/
+    └── testitem_20240101_qc.csv    # QC артефакты
+
+logs/
+└── testitem_20240101_1200.jsonl    # Структурированные логи
+
+.cache/
+├── chembl/                         # HTTP кэш ChEMBL
+└── pubchem/                        # HTTP кэш PubChem
+</code></pre>
+<h3 id="_12">Формат имени файла<a class="headerlink" href="#_12" title="Permanent link">&para;</a></h3>
+<p>Имя CSV файла формируется детерминистически по формуле:</p>
+<pre><code>testitem__{run_date}.csv
+</code></pre>
+<p>Где <code>run_date</code> = YYYYMMDD (UTC) из поля <code>extracted_at</code> на стадии S10.</p>
+<h3 id="testitem_dim">Схема данных testitem_dim<a class="headerlink" href="#testitem_dim" title="Permanent link">&para;</a></h3>
+<p>Выходной CSV содержит следующие группы полей:</p>
+<h4 id="_13">Основные идентификаторы<a class="headerlink" href="#_13" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>molecule_chembl_id</code> - ChEMBL ID молекулы</li>
+<li><code>molregno</code> - Регистрационный номер</li>
+<li><code>pref_name</code> - Предпочтительное название</li>
+<li><code>pref_name_key</code> - Ключ для сортировки</li>
+</ul>
+<h4 id="_14">Родительские связи<a class="headerlink" href="#_14" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>parent_chembl_id</code> - ID родительской молекулы</li>
+<li><code>parent_molregno</code> - Регистрационный номер родительской молекулы</li>
+</ul>
+<h4 id="_15">Разработка лекарств<a class="headerlink" href="#_15" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>max_phase</code> - Максимальная фаза разработки</li>
+<li><code>therapeutic_flag</code> - Флаг терапевтического средства</li>
+<li><code>dosed_ingredient</code> - Флаг дозируемого ингредиента</li>
+<li><code>first_approval</code> - Год первого одобрения</li>
+</ul>
+<h4 id="_16">Молекулярные свойства<a class="headerlink" href="#_16" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>structure_type</code> - Тип структуры</li>
+<li><code>molecule_type</code> - Тип молекулы</li>
+<li><code>mw_freebase</code> - Молекулярная масса</li>
+<li><code>alogp</code> - ALogP</li>
+<li><code>hba</code> - Акцепторы водородных связей</li>
+<li><code>hbd</code> - Доноры водородных связей</li>
+<li><code>psa</code> - Полярная площадь поверхности</li>
+<li><code>rtb</code> - Поворотные связи</li>
+</ul>
+<h4 id="pubchem">PubChem данные<a class="headerlink" href="#pubchem" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>pubchem_cid</code> - PubChem CID</li>
+<li><code>pubchem_molecular_formula</code> - Молекулярная формула</li>
+<li><code>pubchem_molecular_weight</code> - Молекулярная масса</li>
+<li><code>pubchem_canonical_smiles</code> - Канонические SMILES</li>
+<li><code>pubchem_inchi</code> - InChI</li>
+<li><code>pubchem_inchi_key</code> - InChI ключ</li>
+</ul>
+<h4 id="_17">Стандартизированные структуры<a class="headerlink" href="#_17" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>standardized_inchi</code> - Стандартизированный InChI</li>
+<li><code>standardized_inchi_key</code> - Стандартизированный InChI ключ</li>
+<li><code>standardized_smiles</code> - Стандартизированные SMILES</li>
+</ul>
+<h4 id="_18">Техслужебные поля<a class="headerlink" href="#_18" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>source_system</code> - Система-источник</li>
+<li><code>chembl_release</code> - Версия ChEMBL</li>
+<li><code>extracted_at</code> - Время извлечения</li>
+<li><code>hash_row</code> - Хеш строки</li>
+<li><code>hash_business_key</code> - Хеш бизнес-ключа</li>
+</ul>
+<h2 id="_19">Конфигурация<a class="headerlink" href="#_19" title="Permanent link">&para;</a></h2>
+<h3 id="_20">Основные параметры<a class="headerlink" href="#_20" title="Permanent link">&para;</a></h3>
+<pre><code class="language-yaml"># Версия пайплайна
+pipeline_version: 1.1.0
+allow_parent_missing: false
+enable_pubchem: true
+
+# Настройки ввода-вывода
+io:
+  input:
+    testitem_keys_csv: data/input/testitem.csv
+  output:
+    dir: data/output/testitem
+
+# Настройки выполнения
+runtime:
+  workers: 8
+  batch_size: 200
+  retries: 5
+  timeout_sec: 30
+  log_level: INFO
+  cache_dir: .cache/chembl
+  pubchem_cache_dir: .cache/pubchem
+
+# Настройки детерминизма
+determinism:
+  sort:
+    by: [molecule_chembl_id, molregno, pref_name_key]
+    ascending: [true, true, true]
+    na_position: last
+
+# Настройки постобработки
+postprocess:
+  qc:
+    enabled: true
+    enhanced: true
+  correlation:
+    enabled: true
+    enhanced: true
+
+# Настройки логирования
+logging:
+  level: INFO
+</code></pre>
+<h3 id="_21">Источники данных<a class="headerlink" href="#_21" title="Permanent link">&para;</a></h3>
+<pre><code class="language-yaml">sources:
+  chembl:
+    name: chembl
+    enabled: true
+    endpoint: molecule
+    rate_limit:
+      max_calls: 10
+      period: 15.0
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      timeout_sec: 60.0
+      retries:
+        total: 5
+        backoff_multiplier: 2.0
+
+  pubchem:
+    name: pubchem
+    enabled: true
+    endpoint: compound
+    rate_limit:
+      max_calls: 5
+      period: 10.0
+    http:
+      base_url: https://pubchem.ncbi.nlm.nih.gov/rest/pug
+      timeout_sec: 45.0
+      retries:
+        total: 8
+        backoff_multiplier: 2.5
+</code></pre>
+<p><strong>Важные изменения</strong>:
+- <code>rate_limit</code> теперь настраивается на уровне источника, а не глобально
+- Убраны подсекции <code>csv</code>/<code>parquet</code> из <code>io.output</code>
+- Добавлены секции <code>postprocess</code> и <code>logging</code></p>
+<h2 id="_22">Детерминизм<a class="headerlink" href="#_22" title="Permanent link">&para;</a></h2>
+<p>Конвейер обеспечивает полную воспроизводимость результатов:</p>
+<ul>
+<li><strong>Детерминистическая сортировка</strong> по <code>molecule_chembl_id</code>, <code>molregno</code>, <code>pref_name_key</code></li>
+<li><strong>Фиксированный порядок колонок</strong> согласно конфигурации</li>
+<li><strong>Детерминистические хеши</strong> для строк и бизнес-ключей</li>
+<li><strong>Воспроизводимые имена файлов</strong> на основе <code>extracted_at</code> (UTC)</li>
+</ul>
+<p>Повторный запуск на тех же входах, релизах источников и той же дате <code>extracted_at</code> обязан давать байтово идентичный CSV и одинаковые QC-метрики.</p>
+<h2 id="api">API ключи<a class="headerlink" href="#api" title="Permanent link">&para;</a></h2>
+<p>Система работает без API ключей с ограничениями по rate limiting. Для получения API ключей:</p>
+<ul>
+<li><strong>ChEMBL</strong>: https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services</li>
+<li><strong>PubChem</strong>: Работает без ключа</li>
+</ul>
+<p>Установка переменных окружения:</p>
+<pre><code class="language-bash"># Windows (PowerShell)
+$env:CHEMBL_API_TOKEN = &quot;your_chembl_token_here&quot;
+
+# Linux/macOS (bash)
+export CHEMBL_API_TOKEN=&quot;your_chembl_token_here&quot;
+</code></pre>
+<h2 id="_23">Тестирование<a class="headerlink" href="#_23" title="Permanent link">&para;</a></h2>
+<pre><code class="language-bash"># Запуск тестов
+pytest tests/test_testitem_pipeline.py -v
+
+# Запуск с покрытием
+pytest tests/test_testitem_pipeline.py --cov=library.testitem --cov-report=html
+</code></pre>
+<h2 id="_24">Логирование<a class="headerlink" href="#_24" title="Permanent link">&para;</a></h2>
+<p>Конвейер использует структурированное JSON-логирование:</p>
+<pre><code class="language-json">{
+  &quot;timestamp&quot;: &quot;2024-01-01T12:00:00Z&quot;,
+  &quot;level&quot;: &quot;INFO&quot;,
+  &quot;stage&quot;: &quot;S02&quot;,
+  &quot;source&quot;: &quot;ChEMBL&quot;,
+  &quot;endpoint&quot;: &quot;molecule&quot;,
+  &quot;params&quot;: {&quot;molecule_chembl_id&quot;: &quot;CHEMBL25&quot;},
+  &quot;elapsed_ms&quot;: 150,
+  &quot;status_code&quot;: 200,
+  &quot;cache_hit&quot;: false
+}
+</code></pre>
+<h2 id="_25">Обработка ошибок<a class="headerlink" href="#_25" title="Permanent link">&para;</a></h2>
+<p>Конвейер реализует graceful degradation:</p>
+<ul>
+<li>При недоступности ChEMBL API - возвращает пустые записи с информацией об ошибке</li>
+<li>При недоступности PubChem API - продолжает работу без обогащения</li>
+<li>При ошибках валидации - логирует предупреждения и продолжает обработку</li>
+<li>При критических ошибках - останавливает выполнение с соответствующим кодом выхода</li>
+</ul>
+<h2 id="_26">Производительность<a class="headerlink" href="#_26" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Батчевая обработка</strong> для оптимизации API запросов</li>
+<li><strong>HTTP кэширование</strong> для повторных запросов</li>
+<li><strong>Rate limiting</strong> для соблюдения лимитов API</li>
+<li><strong>Retry механизм</strong> с экспоненциальной задержкой</li>
+<li><strong>Параллельная обработка</strong> где возможно</li>
+</ul>
+<h2 id="_27">Мониторинг<a class="headerlink" href="#_27" title="Permanent link">&para;</a></h2>
+<p>Конвейер предоставляет детальную информацию о процессе:</p>
+<ul>
+<li>QC метрики по каждому этапу</li>
+<li>Статистика по источникам данных</li>
+<li>Время выполнения операций</li>
+<li>Успешность обогащения PubChem</li>
+<li>Количество ошибок и предупреждений</li>
+</ul>
+<h2 id="_28">Миграционное руководство<a class="headerlink" href="#_28" title="Permanent link">&para;</a></h2>
+<h3 id="10x-11x">Переход с версии 1.0.x на 1.1.x<a class="headerlink" href="#10x-11x" title="Permanent link">&para;</a></h3>
+<h4 id="breaking-changes">Breaking Changes<a class="headerlink" href="#breaking-changes" title="Permanent link">&para;</a></h4>
+<ol>
+<li><strong>Конфигурация</strong>:</li>
+<li>Замените <code>TestitemConfig.from_file()</code> на <code>load_testitem_config()</code></li>
+<li>Обновите структуру YAML конфигурации (см. раздел "Конфигурация")</li>
+<li>
+<p>Переместите <code>rate_limit</code> из <code>http.global</code> в <code>sources.{source_name}</code></p>
+</li>
+<li>
+<p><strong>API</strong>:</p>
+</li>
+<li><code>run_testitem_etl()</code> теперь принимает <code>input_path</code> вместо <code>input_data</code></li>
+<li>
+<p>Удалены модули <code>extract.py</code>, <code>normalize.py</code>, <code>validate.py</code>, <code>persist.py</code></p>
+</li>
+<li>
+<p><strong>Структура проекта</strong>:</p>
+</li>
+<li>Консолидация ETL логики в <code>pipeline.py</code></li>
+<li>Новые Pydantic модели конфигурации</li>
+</ol>
+<h4 id="_29">Шаги миграции<a class="headerlink" href="#_29" title="Permanent link">&para;</a></h4>
+<ol>
+<li><strong>Обновите импорты</strong>:
+   ```python
+   # Старый способ
+   from library.testitem.config import TestitemConfig</li>
+</ol>
+<p># Новый способ
+   from library.testitem.config import load_testitem_config
+   ```</p>
+<ol>
+<li><strong>Обновите загрузку конфигурации</strong>:
+   ```python
+   # Старый способ
+   config = TestitemConfig.from_file("config.yaml")</li>
+</ol>
+<p># Новый способ
+   config = load_testitem_config("config.yaml")
+   ```</p>
+<ol>
+<li><strong>Обновите вызовы ETL</strong>:
+   ```python
+   # Старый способ
+   result = run_testitem_etl(config, input_data=dataframe)</li>
+</ol>
+<p># Новый способ
+   result = run_testitem_etl(config, input_path=Path("input.csv"))
+   ```</p>
+<ol>
+<li><strong>Обновите конфигурационные файлы</strong>:</li>
+<li>Переместите <code>rate_limit</code> из <code>http.global</code> в <code>sources.{source_name}</code></li>
+<li>Добавьте секции <code>postprocess</code> и <code>logging</code></li>
+<li>Уберите подсекции <code>csv</code>/<code>parquet</code> из <code>io.output</code></li>
+</ol>
+<h4 id="backward-compatibility">Backward Compatibility<a class="headerlink" href="#backward-compatibility" title="Permanent link">&para;</a></h4>
+<p>Старые функции помечены как deprecated, но продолжают работать:
+- <code>TestitemConfig.from_file()</code> → <code>load_testitem_config()</code>
+- <code>run_testitem_etl(config, input_data=...)</code> → <code>run_testitem_etl(config, input_path=...)</code></p>
+<h4 id="_30">Поддержка<a class="headerlink" href="#_30" title="Permanent link">&para;</a></h4>
+<p>При возникновении проблем с миграцией:
+1. Проверьте логи на наличие deprecated warnings
+2. Обновите код согласно новому API
+3. Обратитесь к разделу "Программный интерфейс" для примеров</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.indexes", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>

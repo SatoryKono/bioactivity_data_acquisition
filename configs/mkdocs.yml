@@ -26,7 +26,7 @@ plugins:
       handlers:
         python:
           paths:
-            - src
+            - ../src
           options:
             docstring_style: google
             docstring_section_style: spacy
@@ -48,7 +48,6 @@ plugins:
       ignore_urls:
         - 'https://pandera.readthedocs.io/*'
         - 'https://www.semanticscholar.org/*'
-      anchors: true
 
 markdown_extensions:
   - admonition
@@ -58,6 +57,9 @@ markdown_extensions:
   - def_list
   - attr_list
   - tables
+
+# Point MkDocs to the docs directory located one level up relative to configs/mkdocs.yml
+docs_dir: ../docs
 
 nav:
   - Обзор: index.md
@@ -75,7 +77,7 @@ nav:
       - Normalization: normalization.md
       - Enrichment: enrichment.md
       - Validation: validation.md
-      - Quality (QC): qc.md
+      - Quality (QC): data_qc/README.md
       - Persistence & Determinism: persistence.md
   - CLI и логирование:
       - CLI: cli.md
@@ -101,17 +103,63 @@ nav:
       - Архитектура: explanations/architecture.md
       - Решения дизайна: explanations/design-decisions.md
       - Чувствительность к регистру: explanations/case-sensitivity.md
+  - How-to:
+      - Обзор: how-to/index.md
+      - Установка: how-to/installation.md
+      - Эксплуатация: how-to/operations.md
+      - Проверки качества: how-to/run-quality-checks.md
+      - Разработка: how-to/development.md
+      - Обновление маппинга ChEMBL↔UniProt: how-to/update-chembl-uniprot-mapping.md
+      - Контрибьюшн: how-to/contribute.md
+      - Stage 11: how-to/stage11-final-validation.md
   - Туториалы:
       - Обзор: tutorials/index.md
       - Быстрый старт: tutorials/quickstart.md
       - Полный пайплайн (E2E): tutorials/e2e-pipeline.md
       - Обогащение документов (E2E): tutorials/e2e-documents.md
   - Дополнительно:
-      - Источники данных: data-sources.md
-      - API limits: api-limits.md
+      - Источники данных: configuration/sources.md
+      - API limits: extraction-contract.md
+      - Postprocess (documents): postprocess/documents.md
+      - Документы QC: data_qc/documents_qc.md
       - CI/CD: ci.md
       - FAQ: faq.md
       - Глоссарий: glossary.md
       - Релизы и изменения: changelog.md
-  - Архив: archive/README.md
+  - Служебные:
+      - SECURITY Policy: SECURITY_main.md
+      - STYLE GUIDE: STYLE_GUIDE.md
+      - Git LFS Workflow: GIT_LFS_WORKFLOW.md
+      - DOCS INVENTORY: DOCS_INVENTORY.md
+      - INVENTORY: inventory.md
+      - SECURITY (legacy): security.md
+      - Assay Implementation Report: ASSAY_IMPLEMENTATION_REPORT.md
+      - ChEMBL Optimization Report: CHEMBL_OPTIMIZATION_REPORT.md
+      - Logging Fix Report: LOGGING_FIX_REPORT.md
+      - Code Cleanup Actions: CODE_CLEANUP_ACTIONS.md
+      - Code Cleanup Analysis: CODE_CLEANUP_ANALYSIS.md
+  - Housekeeping:
+      - План: housekeeping/plan.md
+      - Root audit: housekeeping/root_audit.md
+  - Архив:
+      - Обзор: archive/README.md
+      - ASSESSMENT: archive/ASSESSMENT.md
+      - CASE_SENSITIVITY_FIX_SUMMARY: archive/CASE_SENSITIVITY_FIX_SUMMARY.md
+      - CHECKLIST: archive/CHECKLIST.md
+      - CHECKLIST postprocess documents: archive/CHECKLIST_postprocess_documents.md
+      - CLEANUP_REPORT: archive/CLEANUP_REPORT.md
+      - DOCS_AUDIT: archive/DOCS_AUDIT.md
+      - DOCS_CHECKLIST: archive/DOCS_CHECKLIST.md
+      - IMPROVEMENT_PLAN: archive/IMPROVEMENT_PLAN.md
+      - LOGGING_AUDIT: archive/LOGGING_AUDIT.md
+      - LOGGING_CHANGE_PLAN: archive/LOGGING_CHANGE_PLAN.md
+      - LOGGING_IMPLEMENTATION_REPORT: archive/LOGGING_IMPLEMENTATION_REPORT.md
+      - REFORM_PLAN: archive/REFORM_PLAN.md
+      - STAGE11_COMPLETION_REPORT: archive/STAGE11_COMPLETION_REPORT.md
+      - STAGE11_README: archive/STAGE11_README.md
+      - TEST_OUTPUTS_CLEANUP: archive/TEST_OUTPUTS_CLEANUP.md
+      - API limits (archived): archive/api-limits.md
+      - Data sources (archived): archive/data-sources.md
+      - Getting started (archived): archive/getting-started.md
+      - Health checking (archived): archive/health-checking.md
 

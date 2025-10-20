@@ -144,6 +144,5 @@ pip install .[dev]
 ## Связанные темы
 
 - [Быстрый старт](../tutorials/quickstart.md)
-- [Настройка API клиентов](configure-api-clients.md)
 - [Конфигурация](../reference/configuration/index.md)
 - [Разработка](development.md)

@@ -5,27 +5,34 @@
 ## Основные функции
 
 ### Запуск пайплайна
-::: library.etl.run.run_pipeline
+
+`library.etl.run.run_pipeline(config, logger)` — выполняет полный цикл ETL.
 
 ## Модули ETL
 
 ### Извлечение данных
-::: library.etl.extract
+
+`library.etl.extract` — функции для извлечения данных из источников.
 
 ### Трансформация данных
-::: library.etl.transform
+
+`library.etl.transform` — нормализация, валидация и преобразования.
 
 ### Загрузка данных
-::: library.etl.load
+
+`library.etl.load` — запись детерминированных CSV и артефактов.
 
 ### Контроль качества
-::: library.etl.qc
+
+`library.etl.qc` — расчёт QC-метрик и отчётов.
 
 ### Расширенный QC
-::: library.etl.enhanced_qc
+
+`library.etl.enhanced_qc` — дополнительные проверки качества.
 
 ### Корреляционный анализ
-::: library.etl.enhanced_correlation
+
+`library.etl.enhanced_correlation` — корреляции и визуализация.
 
 ## Примеры использования
 

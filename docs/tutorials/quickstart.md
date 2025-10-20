@@ -5,6 +5,7 @@
 ## Что вы изучите
 
 В этом туториале вы изучите:
+
 - Установку и настройку системы
 - Запуск базового ETL-пайплайна
 - Интерпретацию результатов
@@ -13,6 +14,7 @@
 ## Предпосылки
 
 Перед началом убедитесь, что у вас есть:
+
 - Python 3.11+ установлен
 - Базовые знания работы с командной строкой
 - Доступ к интернету для загрузки зависимостей
@@ -29,7 +31,8 @@ pip install .[dev]
 ```
 
 **Ожидаемый результат:**
-```
+
+```text
 Successfully installed bioactivity-data-acquisition-0.1.0
 ```
 
@@ -40,7 +43,8 @@ bioactivity-data-acquisition --help
 ```
 
 **Ожидаемый результат:**
-```
+
+```text
 Usage: bioactivity-data-acquisition [OPTIONS] COMMAND [ARGS]...
 
   Bioactivity Data Acquisition CLI
@@ -61,7 +65,8 @@ bioactivity-data-acquisition pipeline --config configs/config.yaml
 ```
 
 **Ожидаемый результат:**
-```
+
+```text
 INFO: Starting ETL pipeline
 INFO: Extracting data from chembl
 INFO: Transforming data
@@ -73,6 +78,7 @@ INFO: Pipeline completed successfully
 ### Что происходит
 
 Система выполняет полный ETL-цикл:
+
 1. **Extract** — извлекает данные из ChEMBL API
 2. **Transform** — нормализует и валидирует данные
 3. **Load** — сохраняет результаты в CSV файлы
@@ -86,7 +92,8 @@ ls -la data/output/
 ```
 
 **Ожидаемый результат:**
-```
+
+```text
 -rw-r--r-- 1 user user 12345 Jan 17 10:30 bioactivities.csv
 -rw-r--r-- 1 user user  1234 Jan 17 10:30 bioactivities_qc_report.csv
 -rw-r--r-- 1 user user   567 Jan 17 10:30 bioactivities_correlation.csv
@@ -99,7 +106,8 @@ head -5 data/output/bioactivities.csv
 ```
 
 **Ожидаемый результат:**
-```
+
+```text
 molecule_chembl_id,assay_chembl_id,activity_value,activity_units,activity_type
 CHEMBL123,ASSAY456,10.5,IC50,IC50
 CHEMBL789,ASSAY012,8.2,IC50,IC50
@@ -158,7 +166,8 @@ diff run1.csv run2.csv
 ```
 
 **Ожидаемый результат:**
-```
+
+```text
 # Файлы должны быть идентичными (детерминизм)
 ```
 
@@ -168,8 +177,6 @@ diff run1.csv run2.csv
 
 - [Полный пайплайн (E2E)](e2e-pipeline.md) — углубиться в детали ETL
 - [Обогащение документов (E2E)](e2e-documents.md) — изучить работу с документами
-- [Настройка API клиентов](../how-to/configure-api-clients.md) — настроить внешние источники
-- [Отладка пайплайна](../how-to/debug-pipeline.md) — решать проблемы
 
 ## Troubleshooting
 
@@ -177,6 +184,7 @@ diff run1.csv run2.csv
 
 **Решение:**
 Убедитесь, что виртуальное окружение активировано:
+
 ```bash
 source .venv/bin/activate  # Linux/macOS
 .venv\Scripts\activate     # Windows
@@ -186,6 +194,7 @@ source .venv/bin/activate  # Linux/macOS
 
 **Решение:**
 Проверьте права доступа к директории:
+
 ```bash
 chmod 755 data/output/
 ```
@@ -194,6 +203,7 @@ chmod 755 data/output/
 
 **Решение:**
 Проверьте логи и убедитесь, что API доступен:
+
 ```bash
 bioactivity-data-acquisition pipeline --config configs/config.yaml --set logging.level=DEBUG
 ```
@@ -204,3 +214,30 @@ bioactivity-data-acquisition pipeline --config configs/config.yaml --set logging
 - [Конфигурация](../reference/configuration/index.md)
 - [CLI команды](../reference/cli/index.md)
 - [Архитектура](../explanations/architecture.md)
+
+---
+
+## Дополнение (перенос из Getting started)
+
+### Переменные окружения (секреты)
+
+```bash
+# примеры для Linux/macOS
+export CHEMBL_API_TOKEN=...
+export PUBMED_API_KEY=...
+export SEMANTIC_SCHOLAR_API_KEY=...
+
+# глобальные overrides
+export BIOACTIVITY__LOGGING__LEVEL=DEBUG
+export BIOACTIVITY__HTTP__GLOBAL__TIMEOUT_SEC=60
+```
+
+### Быстрый сценарий обогащения документов
+
+```bash
+bioactivity-data-acquisition get-document-data \
+  --config configs/config_documents_full.yaml \
+  --documents-csv data/input/documents.csv \
+  --output-dir data/output/full \
+  --date-tag 20250101 --all --limit 100
+```

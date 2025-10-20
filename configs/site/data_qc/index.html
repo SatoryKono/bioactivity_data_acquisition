@@ -1,0 +1,1923 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="https://satorykono.github.io/bioactivity_data_acquisition/data_qc/" rel="canonical"/>
+<link href="../validation/" rel="prev"/>
+<link href="../persistence/" rel="next"/>
+<link href="../assets/images/favicon.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.6.22" name="generator"/>
+<title>Quality (QC) - Bioactivity Data Acquisition</title>
+<link href="../assets/stylesheets/main.84d31ad4.min.css" rel="stylesheet"/>
+<link href="../assets/stylesheets/palette.06af60db.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../assets/_mkdocstrings.css" rel="stylesheet"/>
+<script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+</head>
+<body data-md-color-accent="indigo" data-md-color-primary="indigo" data-md-color-scheme="default" dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#qc">
+          Перейти к содержанию
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<header class="md-header" data-md-component="header">
+<nav aria-label="Верхний колонтитул" class="md-header__inner md-grid">
+<a aria-label="Bioactivity Data Acquisition" class="md-header__button md-logo" data-md-component="logo" href=".." title="Bioactivity Data Acquisition">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            Bioactivity Data Acquisition
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Quality (QC)
+            
+          </span>
+</div>
+</div>
+</div>
+<form class="md-header__option" data-md-component="palette">
+<input aria-hidden="true" class="md-option" data-md-color-accent="indigo" data-md-color-media="" data-md-color-primary="indigo" data-md-color-scheme="default" id="__palette_0" name="__palette" type="radio"/>
+</form>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Поиск" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Поиск" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Поиск" class="md-search__options">
+<button aria-label="Очистить" class="md-search__icon md-icon" tabindex="-1" title="Очистить" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/SatoryKono/bioactivity_data_acquisition" title="Перейти к репозиторию">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+</div>
+<div class="md-source__repository">
+    SatoryKono/bioactivity_data_acquisition
+  </div>
+</a>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<nav aria-label="Вкладки" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="..">
+        
+  
+  
+    
+  
+  Обзор
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../pipelines/documents/">
+          
+  
+  
+    
+  
+  Пайплайны
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../reference/configuration/">
+          
+  
+  
+    
+  
+  Конфигурация
+
+        </a>
+</li>
+<li class="md-tabs__item md-tabs__item--active">
+<a class="md-tabs__link" href="../extraction-contract/">
+          
+  
+  
+    
+  
+  Контракты и правила
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../cli/">
+          
+  
+  
+    
+  
+  CLI и логирование
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../tests/">
+          
+  
+  
+    
+  
+  Тесты и артефакты
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../reference/">
+          
+  
+  
+    
+  
+  Справочник
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../explanations/">
+          
+  
+  
+    
+  
+  Объяснения
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../how-to/">
+          
+  
+  
+    
+  
+  How-to
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../tutorials/">
+          
+  
+  
+    
+  
+  Туториалы
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../configuration/sources/">
+          
+  
+  
+    
+  
+  Дополнительно
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../SECURITY_main/">
+          
+  
+  
+    
+  
+  Служебные
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../housekeeping/plan/">
+          
+  
+  
+    
+  
+  Housekeeping
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../archive/">
+          
+  
+  
+    
+  
+  Архив
+
+        </a>
+</li>
+</ul>
+</div>
+</nav>
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Навигация" class="md-nav md-nav--primary md-nav--lifted" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="Bioactivity Data Acquisition" class="md-nav__button md-logo" data-md-component="logo" href=".." title="Bioactivity Data Acquisition">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+    Bioactivity Data Acquisition
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/SatoryKono/bioactivity_data_acquisition" title="Перейти к репозиторию">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+</div>
+<div class="md-source__repository">
+    SatoryKono/bioactivity_data_acquisition
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="..">
+<span class="md-ellipsis">
+    Обзор
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+<span class="md-ellipsis">
+    Пайплайны
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_2">
+<span class="md-nav__icon md-icon"></span>
+            Пайплайны
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/documents/">
+<span class="md-ellipsis">
+    Documents
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/testitem/">
+<span class="md-ellipsis">
+    Testitem
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/assay/">
+<span class="md-ellipsis">
+    Assay
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/activity/">
+<span class="md-ellipsis">
+    Activity
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/target/">
+<span class="md-ellipsis">
+    Target
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../reference/configuration/">
+<span class="md-ellipsis">
+    Конфигурация
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_3">
+<span class="md-nav__icon md-icon"></span>
+            Конфигурация
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../configuration/sources/">
+<span class="md-ellipsis">
+    Sources
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_4" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    Контракты и правила
+    
+  </span>
+</a>
+<label class="md-nav__link md-nav__link--active" for="__nav_4" id="__nav_4_label" tabindex="">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="true" aria-labelledby="__nav_4_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_4">
+<span class="md-nav__icon md-icon"></span>
+            Контракты и правила
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../extraction-contract/">
+<span class="md-ellipsis">
+    Extraction Contract
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../normalization/">
+<span class="md-ellipsis">
+    Normalization
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../enrichment/">
+<span class="md-ellipsis">
+    Enrichment
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../validation/">
+<span class="md-ellipsis">
+    Validation
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../persistence/">
+<span class="md-ellipsis">
+    Persistence &amp; Determinism
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+<span class="md-ellipsis">
+    CLI и логирование
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_5">
+<span class="md-nav__icon md-icon"></span>
+            CLI и логирование
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../cli/">
+<span class="md-ellipsis">
+    CLI
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../logging/">
+<span class="md-ellipsis">
+    Logging &amp; Metrics
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_6" type="checkbox"/>
+<label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+<span class="md-ellipsis">
+    Тесты и артефакты
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_6_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_6">
+<span class="md-nav__icon md-icon"></span>
+            Тесты и артефакты
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../tests/">
+<span class="md-ellipsis">
+    Tests Policy
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../output-artifacts/">
+<span class="md-ellipsis">
+    Output Artifacts
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../star-schema/">
+<span class="md-ellipsis">
+    Star-Schema
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../non-goals/">
+<span class="md-ellipsis">
+    Non-Goals
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_7" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../reference/">
+<span class="md-ellipsis">
+    Справочник
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_7_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_7">
+<span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_7_2" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../reference/cli/">
+<span class="md-ellipsis">
+    CLI
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_7_2_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_7_2">
+<span class="md-nav__icon md-icon"></span>
+            CLI
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../reference/cli/pipeline/">
+<span class="md-ellipsis">
+    Команда pipeline
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../reference/cli/get-document-data/">
+<span class="md-ellipsis">
+    Команда get-document-data
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_7_3" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../reference/api/">
+<span class="md-ellipsis">
+    API
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_7_3_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_7_3">
+<span class="md-nav__icon md-icon"></span>
+            API
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../reference/api/clients/">
+<span class="md-ellipsis">
+    Клиенты
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../reference/api/etl/">
+<span class="md-ellipsis">
+    ETL
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../reference/api/schemas/">
+<span class="md-ellipsis">
+    Схемы
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_8" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../explanations/">
+<span class="md-ellipsis">
+    Объяснения
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_8_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_8">
+<span class="md-nav__icon md-icon"></span>
+            Объяснения
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../explanations/architecture/">
+<span class="md-ellipsis">
+    Архитектура
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../explanations/design-decisions/">
+<span class="md-ellipsis">
+    Решения дизайна
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../explanations/case-sensitivity/">
+<span class="md-ellipsis">
+    Чувствительность к регистру
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_9" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../how-to/">
+<span class="md-ellipsis">
+    How-to
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_9_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_9">
+<span class="md-nav__icon md-icon"></span>
+            How-to
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../how-to/installation/">
+<span class="md-ellipsis">
+    Установка
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../how-to/operations/">
+<span class="md-ellipsis">
+    Эксплуатация
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../how-to/run-quality-checks/">
+<span class="md-ellipsis">
+    Проверки качества
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../how-to/development/">
+<span class="md-ellipsis">
+    Разработка
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../how-to/update-chembl-uniprot-mapping/">
+<span class="md-ellipsis">
+    Обновление маппинга ChEMBL↔UniProt
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../how-to/contribute/">
+<span class="md-ellipsis">
+    Контрибьюшн
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../how-to/stage11-final-validation/">
+<span class="md-ellipsis">
+    Stage 11
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_10" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../tutorials/">
+<span class="md-ellipsis">
+    Туториалы
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_10_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_10">
+<span class="md-nav__icon md-icon"></span>
+            Туториалы
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../tutorials/quickstart/">
+<span class="md-ellipsis">
+    Быстрый старт
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../tutorials/e2e-pipeline/">
+<span class="md-ellipsis">
+    Полный пайплайн (E2E)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../tutorials/e2e-documents/">
+<span class="md-ellipsis">
+    Обогащение документов (E2E)
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_11" type="checkbox"/>
+<label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+<span class="md-ellipsis">
+    Дополнительно
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_11_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_11">
+<span class="md-nav__icon md-icon"></span>
+            Дополнительно
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../configuration/sources/">
+<span class="md-ellipsis">
+    Sources
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../extraction-contract/">
+<span class="md-ellipsis">
+    Extraction Contract
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../postprocess/documents/">
+<span class="md-ellipsis">
+    Postprocess (documents)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="documents_qc/">
+<span class="md-ellipsis">
+    Документы QC
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../ci/">
+<span class="md-ellipsis">
+    CI/CD
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../faq/">
+<span class="md-ellipsis">
+    FAQ
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../glossary/">
+<span class="md-ellipsis">
+    Глоссарий
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../changelog/">
+<span class="md-ellipsis">
+    Релизы и изменения
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_12" type="checkbox"/>
+<label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+<span class="md-ellipsis">
+    Служебные
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_12_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_12">
+<span class="md-nav__icon md-icon"></span>
+            Служебные
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../SECURITY_main/">
+<span class="md-ellipsis">
+    SECURITY Policy
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../STYLE_GUIDE/">
+<span class="md-ellipsis">
+    STYLE GUIDE
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../GIT_LFS_WORKFLOW/">
+<span class="md-ellipsis">
+    Git LFS Workflow
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../DOCS_INVENTORY/">
+<span class="md-ellipsis">
+    DOCS INVENTORY
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../inventory/">
+<span class="md-ellipsis">
+    INVENTORY
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../security/">
+<span class="md-ellipsis">
+    SECURITY (legacy)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../ASSAY_IMPLEMENTATION_REPORT/">
+<span class="md-ellipsis">
+    Assay Implementation Report
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../CHEMBL_OPTIMIZATION_REPORT/">
+<span class="md-ellipsis">
+    ChEMBL Optimization Report
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../LOGGING_FIX_REPORT/">
+<span class="md-ellipsis">
+    Logging Fix Report
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../CODE_CLEANUP_ACTIONS/">
+<span class="md-ellipsis">
+    Code Cleanup Actions
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../CODE_CLEANUP_ANALYSIS/">
+<span class="md-ellipsis">
+    Code Cleanup Analysis
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_13" type="checkbox"/>
+<label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="0">
+<span class="md-ellipsis">
+    Housekeeping
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_13_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_13">
+<span class="md-nav__icon md-icon"></span>
+            Housekeeping
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../housekeeping/plan/">
+<span class="md-ellipsis">
+    План
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../housekeeping/root_audit/">
+<span class="md-ellipsis">
+    Root audit
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_14" type="checkbox"/>
+<div class="md-nav__link md-nav__container">
+<a class="md-nav__link" href="../archive/">
+<span class="md-ellipsis">
+    Архив
+    
+  </span>
+</a>
+<label class="md-nav__link" for="__nav_14" id="__nav_14_label" tabindex="0">
+<span class="md-nav__icon md-icon"></span>
+</label>
+</div>
+<nav aria-expanded="false" aria-labelledby="__nav_14_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_14">
+<span class="md-nav__icon md-icon"></span>
+            Архив
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/ASSESSMENT/">
+<span class="md-ellipsis">
+    ASSESSMENT
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/CASE_SENSITIVITY_FIX_SUMMARY/">
+<span class="md-ellipsis">
+    CASE_SENSITIVITY_FIX_SUMMARY
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/CHECKLIST/">
+<span class="md-ellipsis">
+    CHECKLIST
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/CHECKLIST_postprocess_documents/">
+<span class="md-ellipsis">
+    CHECKLIST postprocess documents
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/CLEANUP_REPORT/">
+<span class="md-ellipsis">
+    CLEANUP_REPORT
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/DOCS_AUDIT/">
+<span class="md-ellipsis">
+    DOCS_AUDIT
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/DOCS_CHECKLIST/">
+<span class="md-ellipsis">
+    DOCS_CHECKLIST
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/IMPROVEMENT_PLAN/">
+<span class="md-ellipsis">
+    IMPROVEMENT_PLAN
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/LOGGING_AUDIT/">
+<span class="md-ellipsis">
+    LOGGING_AUDIT
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/LOGGING_CHANGE_PLAN/">
+<span class="md-ellipsis">
+    LOGGING_CHANGE_PLAN
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/LOGGING_IMPLEMENTATION_REPORT/">
+<span class="md-ellipsis">
+    LOGGING_IMPLEMENTATION_REPORT
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/REFORM_PLAN/">
+<span class="md-ellipsis">
+    REFORM_PLAN
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/STAGE11_COMPLETION_REPORT/">
+<span class="md-ellipsis">
+    STAGE11_COMPLETION_REPORT
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/STAGE11_README/">
+<span class="md-ellipsis">
+    STAGE11_README
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/TEST_OUTPUTS_CLEANUP/">
+<span class="md-ellipsis">
+    TEST_OUTPUTS_CLEANUP
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/api-limits/">
+<span class="md-ellipsis">
+    API limits (archived)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/data-sources/">
+<span class="md-ellipsis">
+    Data sources (archived)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/getting-started/">
+<span class="md-ellipsis">
+    Getting started (archived)
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../archive/health-checking/">
+<span class="md-ellipsis">
+    Health checking (archived)
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Содержание" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_1">
+<span class="md-ellipsis">
+      Обзор
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_2">
+<span class="md-ellipsis">
+      Типы проверок качества
+    </span>
+</a>
+<nav aria-label="Типы проверок качества" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1">
+<span class="md-ellipsis">
+      1. Базовые проверки
+    </span>
+</a>
+<nav aria-label="1. Базовые проверки" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#fill-rate">
+<span class="md-ellipsis">
+      Проверки полноты (Fill Rate)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_3">
+<span class="md-ellipsis">
+      Проверки уникальности
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_4">
+<span class="md-ellipsis">
+      Проверки диапазонов
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2">
+<span class="md-ellipsis">
+      2. Расширенные проверки
+    </span>
+</a>
+<nav aria-label="2. Расширенные проверки" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_5">
+<span class="md-ellipsis">
+      Анализ паттернов
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_6">
+<span class="md-ellipsis">
+      Статистический анализ
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3">
+<span class="md-ellipsis">
+      3. Валидация связей
+    </span>
+</a>
+<nav aria-label="3. Валидация связей" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#doi">
+<span class="md-ellipsis">
+      DOI валидация
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_7">
+<span class="md-ellipsis">
+      Связи между источниками
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_1">
+<span class="md-ellipsis">
+      Автоматический отчёт QC
+    </span>
+</a>
+<nav aria-label="Автоматический отчёт QC" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_8">
+<span class="md-ellipsis">
+      Структура отчёта
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_2">
+<span class="md-ellipsis">
+      Типы QC отчётов
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_3">
+<span class="md-ellipsis">
+      Пример QC отчёта
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_4">
+<span class="md-ellipsis">
+      Обработка ошибок QC
+    </span>
+</a>
+<nav aria-label="Обработка ошибок QC" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_9">
+<span class="md-ellipsis">
+      Классификация ошибок
+    </span>
+</a>
+<nav aria-label="Классификация ошибок" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#critical">
+<span class="md-ellipsis">
+      Критические ошибки (Critical)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#warning">
+<span class="md-ellipsis">
+      Предупреждения (Warning)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#info">
+<span class="md-ellipsis">
+      Информационные (Info)
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_10">
+<span class="md-ellipsis">
+      Стратегии обработки
+    </span>
+</a>
+<nav aria-label="Стратегии обработки" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_11">
+<span class="md-ellipsis">
+      Автоматическое исправление
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_12">
+<span class="md-ellipsis">
+      Ручное вмешательство
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_5">
+<span class="md-ellipsis">
+      Конфигурация QC
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_13">
+<span class="md-ellipsis">
+      Мониторинг качества
+    </span>
+</a>
+<nav aria-label="Мониторинг качества" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_6">
+<span class="md-ellipsis">
+      Метрики QC
+    </span>
+</a>
+<nav aria-label="Метрики QC" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_14">
+<span class="md-ellipsis">
+      Основные метрики
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_15">
+<span class="md-ellipsis">
+      Детальные метрики
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_16">
+<span class="md-ellipsis">
+      Дашборды
+    </span>
+</a>
+<nav aria-label="Дашборды" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#grafana">
+<span class="md-ellipsis">
+      Grafana панели
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_17">
+<span class="md-ellipsis">
+      Алерты
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#etl">
+<span class="md-ellipsis">
+      Интеграция с ETL
+    </span>
+</a>
+<nav aria-label="Интеграция с ETL" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_18">
+<span class="md-ellipsis">
+      Точки контроля
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_7">
+<span class="md-ellipsis">
+      QC на каждом этапе
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_19">
+<span class="md-ellipsis">
+      Интеграция с логированием
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_8">
+<span class="md-ellipsis">
+      Расширение QC
+    </span>
+</a>
+<nav aria-label="Расширение QC" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_20">
+<span class="md-ellipsis">
+      Добавление новых проверок
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_21">
+<span class="md-ellipsis">
+      Кастомные валидаторы
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_22">
+<span class="md-ellipsis">
+      Лучшие практики
+    </span>
+</a>
+<nav aria-label="Лучшие практики" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#qc_9">
+<span class="md-ellipsis">
+      Проектирование QC
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_23">
+<span class="md-ellipsis">
+      Оптимизация производительности
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_24">
+<span class="md-ellipsis">
+      Управление качеством
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/SatoryKono/bioactivity_data_acquisition/edit/main/docs/data_qc/README.md" rel="edit" title="Редактировать страницу">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
+</a>
+<h1 id="qc">Контроль качества данных (QC)<a class="headerlink" href="#qc" title="Permanent link">¶</a></h1>
+<h2 id="_1">Обзор<a class="headerlink" href="#_1" title="Permanent link">¶</a></h2>
+<p>Система контроля качества (QC) обеспечивает автоматическую проверку данных на всех этапах ETL пайплайна. QC включает проверки полноты, уникальности, диапазонов значений и связей между полями.</p>
+<h2 id="_2">Типы проверок качества<a class="headerlink" href="#_2" title="Permanent link">¶</a></h2>
+<h3 id="1">1. Базовые проверки<a class="headerlink" href="#1" title="Permanent link">¶</a></h3>
+<p><strong>Расположение</strong>: <code>src/library/etl/qc.py</code></p>
+<h4 id="fill-rate">Проверки полноты (Fill Rate)<a class="headerlink" href="#fill-rate" title="Permanent link">¶</a></h4>
+<pre><code class="language-python">def build_qc_report(df: pd.DataFrame) -&gt; pd.DataFrame:
+    """Генерация QC отчёта с базовыми метриками полноты."""
+
+    # Для данных документов
+    if "document_chembl_id" in df.columns:
+        key_columns = ["document_chembl_id", "doi", "title"]
+        metrics = {
+            "row_count": len(df),
+            "missing_document_chembl_id": int(df["document_chembl_id"].isna().sum()),
+            "missing_doi": int(df["doi"].isna().sum()),
+            "missing_title": int(df["title"].isna().sum()),
+            "duplicates": int(df[available_key_columns].duplicated().sum()),
+        }
+</code></pre>
+<h4 id="_3">Проверки уникальности<a class="headerlink" href="#_3" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Дубликаты по ключевым полям</strong>: <code>document_chembl_id</code>, <code>doi</code></li>
+<li><strong>Дубликаты по составным ключам</strong>: Комбинации полей</li>
+<li><strong>Статистика дубликатов</strong>: Процент дублированных записей</li>
+</ul>
+<h4 id="_4">Проверки диапазонов<a class="headerlink" href="#_4" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Годы публикации</strong>: 1900-2030</li>
+<li><strong>Объёмы журналов</strong>: Положительные числа</li>
+<li><strong>Страницы</strong>: first_page ≤ last_page</li>
+</ul>
+<h3 id="2">2. Расширенные проверки<a class="headerlink" href="#2" title="Permanent link">¶</a></h3>
+<p><strong>Расположение</strong>: <code>src/library/etl/enhanced_qc.py</code></p>
+<h4 id="_5">Анализ паттернов<a class="headerlink" href="#_5" title="Permanent link">¶</a></h4>
+<pre><code class="language-python">def build_enhanced_qc_summary(df: pd.DataFrame) -&gt; pd.DataFrame:
+    """Расширенный QC анализ с паттернами и статистикой."""
+
+    # Анализ паттернов в данных
+    pattern_analysis = {
+        "doi_pattern_coverage": analyze_doi_patterns(df),
+        "journal_name_variations": analyze_journal_variations(df),
+        "author_name_patterns": analyze_author_patterns(df),
+        "year_distribution": analyze_year_distribution(df),
+    }
+</code></pre>
+<h4 id="_6">Статистический анализ<a class="headerlink" href="#_6" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Распределения</strong>: Гистограммы числовых полей</li>
+<li><strong>Топ значения</strong>: Наиболее частые значения категориальных полей</li>
+<li><strong>Выбросы</strong>: Статистические аномалии</li>
+<li><strong>Корреляции</strong>: Связи между полями</li>
+</ul>
+<h3 id="3">3. Валидация связей<a class="headerlink" href="#3" title="Permanent link">¶</a></h3>
+<h4 id="doi">DOI валидация<a class="headerlink" href="#doi" title="Permanent link">¶</a></h4>
+<pre><code class="language-python">def validate_doi_format(doi_series: pd.Series) -&gt; pd.Series:
+    """Валидация формата DOI."""
+    doi_pattern = r'^10\.\d{4,}/.+'
+    return doi_series.str.match(doi_pattern, na=False)
+</code></pre>
+<h4 id="_7">Связи между источниками<a class="headerlink" href="#_7" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>DOI консистентность</strong>: Одинаковые DOI в разных источниках</li>
+<li><strong>Названия журналов</strong>: Сопоставление между источниками</li>
+<li><strong>Авторы</strong>: Сравнение списков авторов</li>
+<li><strong>Временные метки</strong>: Консистентность дат публикации</li>
+</ul>
+<h2 id="qc_1">Автоматический отчёт QC<a class="headerlink" href="#qc_1" title="Permanent link">¶</a></h2>
+<h3 id="_8">Структура отчёта<a class="headerlink" href="#_8" title="Permanent link">¶</a></h3>
+<p><strong>Расположение</strong>: <code>src/library/etl/load.py</code> → <code>write_qc_artifacts</code></p>
+<pre><code class="language-python">def write_qc_artifacts(
+    df: pd.DataFrame,
+    qc_path: Path,
+    corr_path: Path,
+    output: OutputSettings,
+    validation: QCValidationSettings,
+    logger: BoundLogger,
+) -&gt; None:
+    """Запись QC артефактов."""
+
+    # Базовый QC отчёт
+    qc_report = build_qc_report(df)
+    qc_report.to_csv(qc_path, index=False)
+
+    # Расширенный QC (если включён)
+    if output.enhanced_qc:
+        enhanced_qc = build_enhanced_qc_summary(df)
+        enhanced_qc.to_csv(qc_path.with_suffix('_enhanced.csv'), index=False)
+
+    # Корреляционный анализ
+    if output.correlation:
+        correlation_report = build_correlation_report(df)
+        correlation_report.to_csv(corr_path, index=False)
+</code></pre>
+<h3 id="qc_2">Типы QC отчётов<a class="headerlink" href="#qc_2" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Тип отчёта</th>
+<th>Файл</th>
+<th>Описание</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Базовый QC</strong></td>
+<td><code>*_qc_report.csv</code></td>
+<td>Основные метрики полноты и дубликатов</td>
+</tr>
+<tr>
+<td><strong>Расширенный QC</strong></td>
+<td><code>*_qc_report_enhanced.csv</code></td>
+<td>Статистический анализ и паттерны</td>
+</tr>
+<tr>
+<td><strong>Детальный QC</strong></td>
+<td><code>*_qc_report_detailed/</code></td>
+<td>Подробные отчёты по колонкам</td>
+</tr>
+<tr>
+<td><strong>Корреляции</strong></td>
+<td><code>*_correlation_report.csv</code></td>
+<td>Корреляционные матрицы</td>
+</tr>
+<tr>
+<td><strong>Расширенные корреляции</strong></td>
+<td><code>*_correlation_report_enhanced/</code></td>
+<td>Детальный корреляционный анализ</td>
+</tr>
+</tbody>
+</table>
+<h3 id="qc_3">Пример QC отчёта<a class="headerlink" href="#qc_3" title="Permanent link">¶</a></h3>
+<pre><code class="language-csv">metric,value,threshold,status
+row_count,1000,,
+missing_document_chembl_id,0,0,pass
+missing_doi,150,100,warning
+missing_title,5,10,pass
+duplicates,25,50,pass
+fill_rate_doi,0.85,0.80,pass
+fill_rate_title,0.995,0.95,pass
+</code></pre>
+<h2 id="qc_4">Обработка ошибок QC<a class="headerlink" href="#qc_4" title="Permanent link">¶</a></h2>
+<h3 id="_9">Классификация ошибок<a class="headerlink" href="#_9" title="Permanent link">¶</a></h3>
+<h4 id="critical">Критические ошибки (Critical)<a class="headerlink" href="#critical" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Отсутствие обязательных полей</strong>: <code>document_chembl_id</code>, <code>title</code></li>
+<li><strong>Нарушение схемы данных</strong>: Несоответствие Pandera схеме</li>
+<li><strong>Системные ошибки</strong>: Ошибки API, сетевые проблемы</li>
+</ul>
+<h4 id="warning">Предупреждения (Warning)<a class="headerlink" href="#warning" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Низкий fill rate</strong>: Заполненность &lt; порогового значения</li>
+<li><strong>Высокий уровень дубликатов</strong>: &gt; допустимого процента</li>
+<li><strong>Аномальные значения</strong>: Выбросы в числовых полях</li>
+</ul>
+<h4 id="info">Информационные (Info)<a class="headerlink" href="#info" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Статистические аномалии</strong>: Необычные распределения</li>
+<li><strong>Новые паттерны</strong>: Неожиданные комбинации значений</li>
+<li><strong>Метрики производительности</strong>: Время выполнения, throughput</li>
+</ul>
+<h3 id="_10">Стратегии обработки<a class="headerlink" href="#_10" title="Permanent link">¶</a></h3>
+<h4 id="_11">Автоматическое исправление<a class="headerlink" href="#_11" title="Permanent link">¶</a></h4>
+<pre><code class="language-python">def auto_fix_common_issues(df: pd.DataFrame) -&gt; pd.DataFrame:
+    """Автоматическое исправление типичных проблем."""
+
+    # Нормализация DOI
+    df['doi'] = df['doi'].str.strip().str.lower()
+
+    # Исправление годов
+    df['year'] = df['year'].clip(lower=1900, upper=2030)
+
+    # Удаление дубликатов
+    df = df.drop_duplicates(subset=['document_chembl_id'])
+
+    return df
+</code></pre>
+<h4 id="_12">Ручное вмешательство<a class="headerlink" href="#_12" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Алерты</strong>: Уведомления о критических проблемах</li>
+<li><strong>Отчёты</strong>: Детальные отчёты для анализа</li>
+<li><strong>Логи</strong>: Структурированные логи для отладки</li>
+</ul>
+<h3 id="qc_5">Конфигурация QC<a class="headerlink" href="#qc_5" title="Permanent link">¶</a></h3>
+<pre><code class="language-yaml">validation:
+  strict: true
+  qc:
+    max_missing_fraction: 0.05      # Максимальная доля пропусков
+    max_duplicate_fraction: 0.01    # Максимальная доля дубликатов
+    min_fill_rate: 0.80             # Минимальный fill rate
+    enable_enhanced_qc: true        # Расширенный QC
+    enable_correlation: true        # Корреляционный анализ
+</code></pre>
+<h2 id="_13">Мониторинг качества<a class="headerlink" href="#_13" title="Permanent link">¶</a></h2>
+<h3 id="qc_6">Метрики QC<a class="headerlink" href="#qc_6" title="Permanent link">¶</a></h3>
+<h4 id="_14">Основные метрики<a class="headerlink" href="#_14" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Fill Rate</strong>: Процент заполненных полей</li>
+<li><strong>Duplicate Rate</strong>: Процент дублированных записей</li>
+<li><strong>Validation Success Rate</strong>: Процент успешных валидаций</li>
+<li><strong>Data Freshness</strong>: Актуальность данных</li>
+</ul>
+<h4 id="_15">Детальные метрики<a class="headerlink" href="#_15" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Field-level Fill Rate</strong>: Заполненность по каждому полю</li>
+<li><strong>Source Quality</strong>: Качество данных по источникам</li>
+<li><strong>Temporal Trends</strong>: Динамика качества во времени</li>
+<li><strong>Error Patterns</strong>: Паттерны ошибок</li>
+</ul>
+<h3 id="_16">Дашборды<a class="headerlink" href="#_16" title="Permanent link">¶</a></h3>
+<h4 id="grafana">Grafana панели<a class="headerlink" href="#grafana" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>QC Overview</strong>: Общий обзор качества данных</li>
+<li><strong>Field Analysis</strong>: Анализ по полям</li>
+<li><strong>Source Comparison</strong>: Сравнение источников</li>
+<li><strong>Trend Analysis</strong>: Временные тренды</li>
+</ul>
+<h4 id="_17">Алерты<a class="headerlink" href="#_17" title="Permanent link">¶</a></h4>
+<ul>
+<li><strong>Критический уровень ошибок</strong>: &gt; 5% ошибок валидации</li>
+<li><strong>Деградация качества</strong>: Падение fill rate &gt; 10%</li>
+<li><strong>Новые типы ошибок</strong>: Неожиданные проблемы</li>
+<li><strong>API недоступность</strong>: Проблемы с источниками</li>
+</ul>
+<h2 id="etl">Интеграция с ETL<a class="headerlink" href="#etl" title="Permanent link">¶</a></h2>
+<h3 id="_18">Точки контроля<a class="headerlink" href="#_18" title="Permanent link">¶</a></h3>
+<div class="mermaid">flowchart LR
+    A[Extract] --&gt; B[Raw QC]
+    B --&gt; C[Validate]
+    C --&gt; D[Schema QC]
+    D --&gt; E[Transform]
+    E --&gt; F[Transform QC]
+    F --&gt; G[Load]
+    G --&gt; H[Final QC]
+    H --&gt; I[QC Reports]
+</div>
+<h3 id="qc_7">QC на каждом этапе<a class="headerlink" href="#qc_7" title="Permanent link">¶</a></h3>
+<ol>
+<li><strong>Extract QC</strong>: Проверка сырых данных от API</li>
+<li><strong>Schema QC</strong>: Валидация Pandera схем</li>
+<li><strong>Transform QC</strong>: Проверка после трансформации</li>
+<li><strong>Final QC</strong>: Итоговая проверка перед экспортом</li>
+</ol>
+<h3 id="_19">Интеграция с логированием<a class="headerlink" href="#_19" title="Permanent link">¶</a></h3>
+<pre><code class="language-python">def log_qc_metrics(qc_report: pd.DataFrame, logger: BoundLogger) -&gt; None:
+    """Логирование QC метрик."""
+
+    for _, row in qc_report.iterrows():
+        logger.info(
+            "qc_metric",
+            metric=row['metric'],
+            value=row['value'],
+            threshold=row.get('threshold'),
+            status=row.get('status'),
+        )
+</code></pre>
+<h2 id="qc_8">Расширение QC<a class="headerlink" href="#qc_8" title="Permanent link">¶</a></h2>
+<h3 id="_20">Добавление новых проверок<a class="headerlink" href="#_20" title="Permanent link">¶</a></h3>
+<ol>
+<li><strong>Создать функцию проверки</strong>: В <code>src/library/etl/qc.py</code></li>
+<li><strong>Добавить в отчёт</strong>: Интеграция в <code>build_qc_report</code></li>
+<li><strong>Конфигурация</strong>: Добавить параметры в конфиг</li>
+<li><strong>Тесты</strong>: Проверка новой функциональности</li>
+</ol>
+<h3 id="_21">Кастомные валидаторы<a class="headerlink" href="#_21" title="Permanent link">¶</a></h3>
+<pre><code class="language-python">def custom_field_validator(df: pd.DataFrame, field: str, rules: dict) -&gt; dict:
+    """Кастомный валидатор поля."""
+
+    results = {
+        'field': field,
+        'total_records': len(df),
+        'valid_records': 0,
+        'invalid_records': 0,
+        'errors': []
+    }
+
+    # Применение правил валидации
+    for rule_name, rule_func in rules.items():
+        valid_mask = rule_func(df[field])
+        results['valid_records'] += valid_mask.sum()
+        results['invalid_records'] += (~valid_mask).sum()
+
+        if not valid_mask.all():
+            results['errors'].append({
+                'rule': rule_name,
+                'count': (~valid_mask).sum(),
+                'examples': df[~valid_mask][field].head().tolist()
+            })
+
+    return results
+</code></pre>
+<h2 id="_22">Лучшие практики<a class="headerlink" href="#_22" title="Permanent link">¶</a></h2>
+<h3 id="qc_9">Проектирование QC<a class="headerlink" href="#qc_9" title="Permanent link">¶</a></h3>
+<ol>
+<li><strong>Раннее обнаружение</strong>: QC на каждом этапе ETL</li>
+<li><strong>Автоматизация</strong>: Минимизация ручного вмешательства</li>
+<li><strong>Мониторинг</strong>: Непрерывное отслеживание качества</li>
+<li><strong>Документирование</strong>: Чёткие критерии качества</li>
+</ol>
+<h3 id="_23">Оптимизация производительности<a class="headerlink" href="#_23" title="Permanent link">¶</a></h3>
+<ol>
+<li><strong>Ленивая валидация</strong>: Проверка только при необходимости</li>
+<li><strong>Параллелизация</strong>: Параллельные проверки для больших датасетов</li>
+<li><strong>Кэширование</strong>: Кэширование результатов проверок</li>
+<li><strong>Сэмплирование</strong>: Проверка выборок для больших объёмов</li>
+</ol>
+<h3 id="_24">Управление качеством<a class="headerlink" href="#_24" title="Permanent link">¶</a></h3>
+<ol>
+<li><strong>SLA</strong>: Соглашения об уровне качества</li>
+<li><strong>Эскалация</strong>: Процедуры при нарушении SLA</li>
+<li><strong>Отчёты</strong>: Регулярные отчёты о качестве</li>
+<li><strong>Улучшения</strong>: Непрерывное улучшение процессов QC</li>
+</ol>
+</article>
+</div>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.indexes", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+<script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+<script type="module">import mermaid from "https://unpkg.com/mermaid@10.4.0/dist/mermaid.esm.min.mjs";
+mermaid.initialize({});</script></body>
+</html>

@@ -113,7 +113,7 @@ Currently, we do not have a formal bug bounty program. However, we appreciate se
 ### Security Changelog
 
 Security-related changes are documented in:
-- [CHANGELOG.md](docs/changelog.md)
+- [CHANGELOG.md](changelog.md)
 - GitHub Security Advisories
 - Release notes for each version
 

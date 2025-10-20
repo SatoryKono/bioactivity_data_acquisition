@@ -51,3 +51,31 @@ Protein X,not_a_number,nM,chembl,2024-01-01T00:00:00Z,C1=CC=CC=C1
 ```
 
 Ошибки Pandera содержат название поля и ожидаемый тип/инварианты (см. `tests/test_validation.py`).
+
+---
+
+## Документы: схемы и поля (сводка)
+
+Ниже — сводный обзор полей для документационного пайплайна (перенесено из устаревших страниц):
+
+### Входная схема (DocumentInputSchema)
+
+- `document_chembl_id` (str, required)
+- `doi` (str, nullable)
+- `title` (str, required)
+- Прочие опциональные: `journal`, `year`, `document_pubmed_id`, `abstract`, `pubmed_authors`, …
+
+### Выходная схема (DocumentOutputSchema)
+
+- Все поля входной схемы + обогащённые поля из источников:
+  - Crossref: `issued`
+  - OpenAlex: `openalex_id`, `publication_year`
+  - PubMed: `pmid`
+  - Semantic Scholar: `publication_venue`, `publication_types`
+
+### QC метрики для документов (DocumentQCSchema)
+
+- `metric` (str)
+- `value` (int, ge=0)
+
+Примеры метрик: `row_count`, `enabled_sources`, `chembl_records`, `crossref_records`, `openalex_records`, `pubmed_records`, `semantic_scholar_records`.
