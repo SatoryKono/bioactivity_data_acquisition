@@ -25,3 +25,67 @@
 
 ## Примечание
 Окончательные решения об удалении/слиянии будут приняты после завершения кодовой очистки и проверки актуальности ссылок/скриншотов в текстах.
+
+---
+
+# DOCS INVENTORY (refactoring map)
+
+Ниже — целевая структура и маппинг существующих страниц на новую иерархию S00–S08. Переносим устаревшие/дублирующие материалы в `docs/archive/` с пометкой Deprecated.
+
+## Новые разделы и страницы
+- Пайплайны (по шаблону S00–S08):
+  - `docs/pipelines/documents.md`
+  - `docs/pipelines/testitem.md`
+  - `docs/pipelines/assay.md`
+  - `docs/pipelines/activity.md`
+  - `docs/pipelines/target.md`
+- Конфигурация источников: `docs/configuration/sources.md`
+- Контракт извлечения: `docs/extraction-contract.md`
+- Нормализация: `docs/normalization.md`
+- Обогащение: `docs/enrichment.md`
+- Валидация: `docs/validation.md`
+- Качество (QC): `docs/qc.md`
+- Персистентность и детерминизм: `docs/persistence.md`
+- CLI обзор: `docs/cli.md`
+- Логи и метрики: `docs/logging.md`
+- Политика тестов: `docs/tests.md`
+- Star-Schema интеграция: `docs/star-schema.md`
+- Границы/исключения: `docs/non-goals.md`
+- Выходные артефакты: `docs/output-artifacts.md`
+
+## Источники фактов (линки в новых страницах)
+- CLI: `src/library/cli/__init__.py`, `src/library/cli/__main__.py`
+- Конфиги: `configs/config.yaml`, `configs/config_target_full.yaml`, `reports/config_audit.csv`
+- Логирование/детерминизм: `src/library/logging_setup.py`
+- Пайплайны: `src/library/assay/pipeline.py`, `src/library/pipelines/target/iuphar_target.py`, `src/library/pipelines/target/postprocessing.py`, (и аналоги для documents/testitem/activity)
+- Артефакты: `MANIFEST.json`, `POSTPROCESS_MANIFEST.json`, `data/output/**`
+
+## Архивация (перенос в docs/archive/)
+К переносу с шильдиком «Deprecated»:
+- `docs/CLEANUP_REPORT.md`
+- `docs/LOGGING_AUDIT.md`
+- `docs/LOGGING_CHANGE_PLAN.md`
+- `docs/LOGGING_IMPLEMENTATION_REPORT.md`
+- `docs/STAGE11_COMPLETION_REPORT.md`
+- `docs/STAGE11_README.md`
+- `docs/ASSESSMENT.md`
+- `docs/CASE_SENSITIVITY_FIX_SUMMARY.md`
+- `docs/debug/FIXES_SUMMARY.md`
+- `docs/IMPROVEMENT_PLAN.md`
+- `docs/REFORM_PLAN.md`
+- `docs/DOCS_AUDIT.md`
+- `docs/DOCS_CHECKLIST.md`
+- `docs/CHECKLIST_postprocess_documents.md`
+- `docs/CHECKLIST.md`
+- `docs/TEST_OUTPUTS_CLEANUP.md`
+- `docs/README_LOGGING_SECTION.md`
+
+## Маппинг существующих страниц
+- `docs/activity.md`, `docs/activity_usage.md` → будут референсами из `docs/pipelines/activity.md` (S00–S08)
+- `docs/assay.md`, `docs/assay_usage.md` → `docs/pipelines/assay.md`
+- `docs/postprocess/documents.md`, `docs/document_schemas.md`, `docs/data_qc/*` → ссылки в `docs/pipelines/documents.md` и `docs/qc.md`
+- `docs/api-limits.md`, `docs/health-checking.md` → ссылки в `docs/extraction-contract.md`
+- `docs/README_main.md`, `docs/README.md`, `docs/getting-started.md` → остаются как обзоры; добавим ссылки на новые разделы
+
+## Навигация MkDocs
+Навигацию обновить после создания новых страниц: добавить раздел «Пайплайны», «Configuration → Sources», «Persistence & Determinism», «Logging & Metrics», «Tests», «Output Artifacts». Не ссылаться на несуществующие файлы (strict: true).
