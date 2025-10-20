@@ -36,11 +36,41 @@ class RedactSecretsFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter and redact sensitive information from log record."""
-        if hasattr(record, "getMessage"):
-            message = record.getMessage()
-            for pattern, replacement in self.sensitive_patterns:
-                message = pattern.sub(replacement, message)
-            record.msg = message
+        try:
+            if hasattr(record, "getMessage"):
+                message = record.getMessage()
+                for pattern, replacement in self.sensitive_patterns:
+                    message = pattern.sub(replacement, message)
+                record.msg = message
+        except (TypeError, ValueError, AttributeError) as e:
+            # Если есть проблемы с форматированием, используем исходное сообщение
+            # и логируем ошибку в stderr, чтобы избежать рекурсии
+            import sys
+            print(f"Warning: Failed to process log message: {e}", file=sys.stderr)
+            # Попробуем обработать только msg, если args есть
+            if hasattr(record, 'msg') and hasattr(record, 'args') and record.args:
+                try:
+                    # Если msg содержит %s, %d и т.д., но args не подходят, 
+                    # используем msg как есть
+                    if isinstance(record.msg, str) and '%' in record.msg:
+                        # Убираем форматирование, чтобы избежать ошибок
+                        record.msg = record.msg.replace('%', '%%')
+                        record.args = ()
+                except Exception as inner_e:
+                    # Логируем внутреннюю ошибку в stderr
+                    import sys
+                    print(f"Warning: Failed to fix log message formatting: {inner_e}", file=sys.stderr)
+            # Дополнительная защита: если все еще есть проблемы, 
+            # создаем безопасное сообщение
+            try:
+                if hasattr(record, 'msg') and isinstance(record.msg, str):
+                    # Экранируем все символы форматирования
+                    record.msg = record.msg.replace('%', '%%')
+                    record.args = ()
+            except Exception:
+                # В крайнем случае, создаем простое сообщение
+                record.msg = "Log message formatting error"
+                record.args = ()
         return True
 
 
@@ -67,10 +97,10 @@ def _redact_secrets_processor(logger: Any, method_name: str, event_dict: Mutable
     """Remove sensitive information from structlog event dictionary."""
     sensitive_keys = ["authorization", "api_key", "token", "password", "secret", "key", "bearer", "auth", "credential", "access_token", "refresh_token"]
 
-    def redact_dict(d: MutableMapping[str, Any] | None) -> Mapping[str, Any] | None:
+    def redact_dict(d: MutableMapping[str, Any] | None) -> Mapping[str, Any]:
         """Recursively redact sensitive values in a dictionary."""
         if d is None:
-            return None
+            return {}
         result: dict[str, Any] = {}
         for key, value in d.items():
             if isinstance(value, dict):
@@ -213,6 +243,10 @@ def configure_logging(
         cache_logger_on_first_use=True,
     )
 
+    # Configure urllib3 logging to avoid format errors
+    urllib3_logger = logging.getLogger("urllib3.connectionpool")
+    urllib3_logger.setLevel(logging.ERROR)  # Only show errors, not warnings
+    
     _LOGGING_CONFIGURED = True
     return structlog.get_logger()
 
@@ -258,6 +292,10 @@ def _configure_programmatic_logging(
         handlers=handlers,
         format="%(message)s",  # structlog will handle formatting
     )
+    
+    # Configure urllib3 logging to avoid format errors
+    urllib3_logger = logging.getLogger("urllib3.connectionpool")
+    urllib3_logger.setLevel(logging.ERROR)  # Only show errors, not warnings
 
 
 @contextmanager
