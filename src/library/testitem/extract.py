@@ -156,22 +156,78 @@ def extract_pubchem_data(
         logger.debug("PubChem enrichment disabled")
         return molecule_data
     
-    # Try to get PubChem CID from various sources
+    # Try to get PubChem CID from various sources (priority): xref -> InChIKey -> SMILES -> pref_name
     pubchem_cid = None
-    
-    # Check if CID is already provided in input
+
+    # Already provided
     if "pubchem_cid" in molecule_data and molecule_data["pubchem_cid"]:
-        pubchem_cid = str(molecule_data["pubchem_cid"])
-    # Check if we can get CID from molecule name
-    elif "pref_name" in molecule_data and molecule_data["pref_name"]:
+        pubchem_cid = str(molecule_data["pubchem_cid"]) if molecule_data["pubchem_cid"] is not None else None
+
+    # From xref_sources (ChEMBL)
+    if pubchem_cid is None and "xref_sources" in molecule_data and molecule_data["xref_sources"]:
+        try:
+            for xref in molecule_data.get("xref_sources", []) or []:
+                name = (xref.get("xref_name") or "").lower()
+                src = (xref.get("xref_src") or "").lower()
+                xref_id = xref.get("xref_id")
+                if xref_id and ("pubchem" in name or "pubchem" in src):
+                    digits = "".join(ch for ch in str(xref_id) if ch.isdigit())
+                    if digits:
+                        pubchem_cid = digits
+                        break
+        except Exception as e:
+            logger.debug(f"Failed parsing xref_sources for PubChem CID: {e}")
+
+    # By InChIKey
+    if pubchem_cid is None:
+        inchikey = None
+        for key_field in ("pubchem_inchi_key", "standard_inchikey", "inchikey"):
+            if key_field in molecule_data and molecule_data[key_field]:
+                inchikey = str(molecule_data[key_field]).strip()
+                break
+        if inchikey and len(inchikey) == 27:
+            try:
+                cid_data = client.fetch_cids_by_inchikey(inchikey)
+                cids = cid_data.get("pubchem_cids", [])
+                if cids:
+                    pubchem_cid = str(cids[0])
+            except Exception as e:
+                logger.debug(f"Failed PubChem CID by InChIKey {inchikey}: {e}")
+
+    # By SMILES (try multiple candidates)
+    if pubchem_cid is None:
+        candidate_smiles: list[str] = []
+        for smi_field in (
+            "pubchem_canonical_smiles",
+            "pubchem_isomeric_smiles",
+            "standard_smiles",
+            "canonical_smiles",
+            "smiles",
+        ):
+            if smi_field in molecule_data and molecule_data[smi_field]:
+                val = str(molecule_data[smi_field]).strip()
+                if val and val not in candidate_smiles:
+                    candidate_smiles.append(val)
+        for smi in candidate_smiles:
+            try:
+                cid_data = client.fetch_cids_by_smiles(smi)
+                cids = cid_data.get("pubchem_cids", [])
+                if cids:
+                    pubchem_cid = str(cids[0])
+                    break
+            except Exception as e:
+                logger.debug("Failed PubChem CID by SMILES candidate: %s", e)
+
+    # By name
+    if pubchem_cid is None and "pref_name" in molecule_data and molecule_data["pref_name"]:
         try:
             logger.debug(f"S05: Fetching PubChem CID for name: {molecule_data['pref_name']}")
             cid_data = client.fetch_compound_by_name(molecule_data["pref_name"])
             cids = cid_data.get("pubchem_cids", [])
             if cids:
-                pubchem_cid = str(cids[0])  # Take the first CID
+                pubchem_cid = str(cids[0])
         except Exception as e:
-            logger.warning(f"Failed to get PubChem CID for name {molecule_data['pref_name']}: {e}")
+            logger.debug(f"Failed to get PubChem CID for name {molecule_data['pref_name']}: {e}")
     
     if not pubchem_cid:
         logger.debug("No PubChem CID available for enrichment")
@@ -183,6 +239,14 @@ def extract_pubchem_data(
         # Fetch compound properties
         properties_data = client.fetch_compound_properties(pubchem_cid)
         molecule_data.update(properties_data)
+        # If SMILES still missing, try record fallback
+        if (
+            not molecule_data.get("pubchem_canonical_smiles")
+            or not molecule_data.get("pubchem_isomeric_smiles")
+        ):
+            record_smiles = client.fetch_record_smiles(pubchem_cid)
+            if record_smiles:
+                molecule_data.update(record_smiles)
         
         # Fetch cross-references
         xref_data = client.fetch_compound_xrefs(pubchem_cid)
@@ -225,10 +289,19 @@ def extract_batch_data(
             if "molecule_chembl_id" in row and pd.notna(row["molecule_chembl_id"]):
                 molecule_chembl_id = str(row["molecule_chembl_id"]).strip()
             elif "molregno" in row and pd.notna(row["molregno"]):
-                # If we only have molregno, we need to find the molecule_chembl_id
-                # This would require an additional API call to resolve molregno to molecule_chembl_id
-                logger.warning(f"Row {idx} has molregno but no molecule_chembl_id - skipping")
-                continue
+                # Resolve molregno to molecule_chembl_id via ChEMBL
+                try:
+                    resolved = chembl_client.resolve_molregno_to_chembl_id(row["molregno"])  # type: ignore[attr-defined]
+                except AttributeError:
+                    resolved = None
+                except Exception as e:
+                    logger.warning(f"Failed to resolve molregno for row {idx}: {e}")
+                    resolved = None
+                if resolved:
+                    molecule_chembl_id = str(resolved).strip()
+                else:
+                    logger.warning(f"Row {idx} has molregno but could not resolve molecule_chembl_id - skipping")
+                    continue
             
             if not molecule_chembl_id:
                 logger.warning(f"Row {idx} has no valid molecule identifier - skipping")

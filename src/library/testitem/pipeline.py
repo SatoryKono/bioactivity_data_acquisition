@@ -171,7 +171,11 @@ def _create_pubchem_client(config: TestitemConfig) -> PubChemClient:
         rate_limit=rate_limit,
     )
    
-    return PubChemClient(api_config, timeout=timeout)
+    # Pass optional cache directory for PubChem GET requests if provided in runtime
+    cache_dir = None
+    if hasattr(config, 'runtime') and getattr(config.runtime, 'pubchem_cache_dir', None):
+        cache_dir = config.runtime.pubchem_cache_dir
+    return PubChemClient(api_config, timeout=timeout, cache_dir=cache_dir)
 
 
 def _get_chembl_headers() -> dict[str, str]:
@@ -267,11 +271,13 @@ def run_testitem_etl(
     if config.runtime.limit is not None:
         normalised = normalised.head(config.runtime.limit)
 
-    # Check for duplicates
+    # Check for duplicates and drop them deterministically (keep first)
     if "molecule_chembl_id" in normalised.columns:
-        duplicates = normalised["molecule_chembl_id"].duplicated()
-        if bool(duplicates.any()):
-            raise TestitemQCError("Duplicate molecule_chembl_id values detected")
+        duplicates_mask = normalised["molecule_chembl_id"].duplicated()
+        if bool(duplicates_mask.any()):
+            dup_count = int(duplicates_mask.sum())
+            logger.warning(f"Found {dup_count} duplicate molecule_chembl_id values — keeping first occurrences and dropping the rest")
+            normalised = normalised.loc[~duplicates_mask].reset_index(drop=True)
 
     if normalised.empty:
         logger.warning("No testitem data to process")

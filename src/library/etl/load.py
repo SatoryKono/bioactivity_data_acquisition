@@ -125,7 +125,7 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
                 else:
                     df_normalized.loc[idx, column] = normalized_doi
                 
-        elif df_normalized[column].dtype == 'object':  # Обычные строковые данные
+        elif str(df_normalized[column].dtypes) == 'object':  # Обычные строковые данные
             # Заменяем None на NA
             df_normalized[column] = df_normalized[column].replace([None], pd.NA)
             

@@ -44,6 +44,26 @@ class TestitemChEMBLClient(BaseApiClient):
             logger.warning(f"Failed to fetch molecule {molecule_chembl_id}: {e}")
             return self._create_empty_molecule_record(molecule_chembl_id, str(e))
 
+    def resolve_molregno_to_chembl_id(self, molregno: int | str) -> str | None:
+        """Resolve molregno to molecule_chembl_id.
+
+        Returns the first matching ChEMBL ID or None if not found.
+        """
+        try:
+            molregno_str = str(int(molregno))
+        except Exception:
+            return None
+        try:
+            payload = self._request("GET", f"molecule?molregno={molregno_str}&format=json")
+            molecules = payload.get("molecules", [])
+            if not molecules:
+                return None
+            chembl_id = molecules[0].get("molecule_chembl_id")
+            return chembl_id
+        except Exception as e:
+            logger.warning(f"Failed to resolve molregno {molregno} to ChEMBL ID: {e}")
+            return None
+
     def fetch_molecules_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Fetch multiple molecules in a single batch request."""
         try:

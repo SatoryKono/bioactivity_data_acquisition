@@ -36,8 +36,7 @@ class ActivityValidator:
             "activity_chembl_id": Column(
                 pa.String,
                 checks=[
-                    Check.str_matches(r"^\d+$", name="chembl_id_format"),
-                    Check.not_null()
+                    Check.str_matches(r"^\d+$", name="chembl_id_format")
                 ],
                 nullable=False,
                 unique=True,

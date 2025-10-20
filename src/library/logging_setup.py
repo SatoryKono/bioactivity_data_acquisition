@@ -68,8 +68,10 @@ def _redact_secrets_processor(logger: Any, method_name: str, event_dict: Mutable
         "bearer", "auth", "credential", "access_token", "refresh_token"
     ]
     
-    def redact_dict(d: MutableMapping[str, Any]) -> Mapping[str, Any]:
+    def redact_dict(d: MutableMapping[str, Any] | None) -> Mapping[str, Any] | None:
         """Recursively redact sensitive values in a dictionary."""
+        if d is None:
+            return None
         result: dict[str, Any] = {}
         for key, value in d.items():
             if isinstance(value, dict):

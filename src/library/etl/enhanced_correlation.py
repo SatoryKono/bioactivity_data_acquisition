@@ -302,23 +302,97 @@ class EnhancedCorrelationAnalyzer:
 
         correlations['lag_correlations'] = lag_correlations
 
-        # Скользящие корреляции
+        # Скользящие корреляции с оптимизацией памяти
         rolling_correlations = {}
         window_size = min(50, len(df) // 10)  # Окно для скользящих корреляций
         
-        if window_size > 10:
+        if window_size > 10 and len(df) < 10000:  # Ограничиваем для больших датасетов
             for i, col1 in enumerate(numeric_cols):
                 for j, col2 in enumerate(numeric_cols):
                     if i >= j:
                         continue
                     
                     try:
-                        rolling_corr = df[col1].rolling(window=window_size).corr(df[col2])
-                        rolling_correlations[f"{col1}_vs_{col2}"] = rolling_corr.dropna().to_dict()
+                        # Проверяем доступность памяти перед вычислением
+                        try:
+                            import psutil
+                            available_memory = psutil.virtual_memory().available
+                            required_memory = len(df) * 8 * 2  # float64 = 8 bytes, 2 columns
+                            
+                            if available_memory < required_memory * 2:  # Требуем в 2 раза больше свободной памяти
+                                if self.logger:
+                                    self.logger.warning("Недостаточно памяти для скользящих корреляций", 
+                                                      col1=col1, col2=col2, 
+                                                      available_mb=available_memory // (1024*1024),
+                                                      required_mb=required_memory // (1024*1024))
+                                continue
+                        except ImportError:
+                            # Если psutil недоступен, пропускаем проверку памяти
+                            pass
+                        
+                        # Используем более эффективный метод для больших датасетов
+                        if len(df) > 5000:
+                            # Вычисляем скользящие корреляции по частям
+                            chunk_size = 1000
+                            rolling_corr_chunks = []
+                            
+                            for start in range(0, len(df), chunk_size):
+                                end = min(start + chunk_size + window_size, len(df))
+                                chunk_df = df.iloc[start:end]
+                                
+                                if len(chunk_df) >= window_size:
+                                    chunk_corr = chunk_df[col1].rolling(window=window_size).corr(chunk_df[col2])
+                                    rolling_corr_chunks.append(chunk_corr)
+                            
+                            if rolling_corr_chunks:
+                                rolling_corr = pd.concat(rolling_corr_chunks, ignore_index=True)
+                                rolling_correlations[f"{col1}_vs_{col2}"] = rolling_corr.dropna().to_dict()
+                        else:
+                            # Для небольших датасетов используем стандартный метод
+                            rolling_corr = df[col1].rolling(window=window_size).corr(df[col2])
+                            rolling_correlations[f"{col1}_vs_{col2}"] = rolling_corr.dropna().to_dict()
+                            
+                    except MemoryError as e:
+                        if self.logger:
+                            self.logger.warning("Ошибка памяти при вычислении скользящих корреляций", 
+                                              col1=col1, col2=col2, error=str(e))
                     except Exception as e:
                         if self.logger:
                             self.logger.warning("Ошибка при вычислении скользящих корреляций", 
                                               col1=col1, col2=col2, error=str(e))
+        else:
+            if self.logger:
+                self.logger.info("Пропускаем скользящие корреляции из-за размера датасета", 
+                               dataset_size=len(df), window_size=window_size)
+            
+            # Для больших датасетов вычисляем простые корреляции вместо скользящих
+            if len(df) >= 10000:
+                simple_correlations = {}
+                for i, col1 in enumerate(numeric_cols):
+                    for j, col2 in enumerate(numeric_cols):
+                        if i >= j:
+                            continue
+                        try:
+                            # Используем выборку для больших датасетов
+                            sample_size = min(5000, len(df))
+                            sample_df = df.sample(n=sample_size, random_state=42)
+                            corr_val = sample_df[col1].corr(sample_df[col2])
+                            if not np.isnan(corr_val):
+                                simple_correlations[f"{col1}_vs_{col2}"] = {
+                                    'correlation': corr_val,
+                                    'sample_size': sample_size,
+                                    'note': 'computed_on_sample'
+                                }
+                        except Exception as e:
+                            if self.logger:
+                                self.logger.warning("Ошибка при вычислении простых корреляций", 
+                                                  col1=col1, col2=col2, error=str(e))
+                
+                if simple_correlations:
+                    rolling_correlations['simple_correlations'] = simple_correlations
+                    if self.logger:
+                        self.logger.info("Вычислены простые корреляции на выборке", 
+                                       correlations_count=len(simple_correlations))
 
         correlations['rolling_correlations'] = rolling_correlations
 
@@ -338,8 +412,33 @@ class EnhancedCorrelationAnalyzer:
 
         if len(numeric_cols) > 1:
             try:
+                # Проверяем доступность памяти для больших датасетов
+                if len(df) > 10000:
+                    try:
+                        import psutil
+                        available_memory = psutil.virtual_memory().available
+                        required_memory = len(df) * len(numeric_cols) * 8  # float64 = 8 bytes
+                        
+                        if available_memory < required_memory * 2:
+                            if self.logger:
+                                self.logger.warning("Недостаточно памяти для корреляционной матрицы", 
+                                                  available_mb=available_memory // (1024*1024),
+                                                  required_mb=required_memory // (1024*1024))
+                            summary['memory_limit_reached'] = True
+                            return summary
+                    except ImportError:
+                        # Если psutil недоступен, пропускаем проверку памяти
+                        pass
+                
                 numeric_df = df[numeric_cols].dropna()
                 if len(numeric_df) > 0:
+                    # Для очень больших датасетов используем выборку
+                    if len(numeric_df) > 50000:
+                        numeric_df = numeric_df.sample(n=50000, random_state=42)
+                        if self.logger:
+                            self.logger.info("Используем выборку для корреляционной матрицы", 
+                                           original_size=len(df), sample_size=len(numeric_df))
+                    
                     corr_matrix = numeric_df.corr()
                     # Находим сильные корреляции (|r| > 0.7)
                     strong_correlations = []
@@ -356,6 +455,10 @@ class EnhancedCorrelationAnalyzer:
                     summary['strong_numeric_correlations'] = strong_correlations
                     summary['max_correlation'] = corr_matrix.abs().max().max()
                     summary['mean_correlation'] = corr_matrix.abs().mean().mean()
+            except MemoryError as e:
+                if self.logger:
+                    self.logger.warning("Ошибка памяти при анализе сводной статистики корреляций", error=str(e))
+                summary['memory_error'] = True
             except Exception as e:
                 if self.logger:
                     self.logger.warning("Ошибка при анализе сводной статистики корреляций", error=str(e))

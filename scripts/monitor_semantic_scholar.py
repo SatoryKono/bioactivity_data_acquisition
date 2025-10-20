@@ -5,15 +5,23 @@
 и предупреждает о приближении к лимитам.
 """
 
-import sys
+import argparse
 import json
 import os
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import requests
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+from library.logging_setup import get_logger
+
+# Инициализируем логгер на уровне модуля
+logger = get_logger(__name__)
 
 
 class SemanticScholarMonitor:
@@ -229,15 +237,8 @@ class SemanticScholarMonitor:
             logger.info("💡 Получите API ключ для увеличения лимитов: https://www.semanticscholar.org/product/api#api-key-form")
 
 
-import argparse
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from library.logging_setup import get_logger
-
 def main():
     """Основная функция."""
-    logger = get_logger(__name__)
 
     parser = argparse.ArgumentParser(description="Мониторинг Semantic Scholar API")
     parser.add_argument("--single", action="store_true", help="Выполнить одну проверку")

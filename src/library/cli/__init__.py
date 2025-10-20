@@ -41,6 +41,21 @@ from library.logging_setup import configure_logging, generate_run_id, set_run_co
 from library.telemetry import setup_telemetry
 from library.clients.health import create_health_checker_from_config
 from library.utils.graceful_shutdown import ShutdownContext, register_shutdown_handler
+from library.target import (
+    TargetConfig,
+    load_target_config,
+    TargetValidationError,
+    TargetHTTPError,
+    TargetQCError,
+    TargetIOError,
+    read_target_input,
+    run_target_etl,
+    write_target_outputs,
+)
+from library.activity import (
+    ActivityConfig,
+    run_activity_etl,
+)
 
 
 def _setup_api_keys_automatically() -> None:
@@ -151,6 +166,203 @@ def _build_cli_overrides(
 
 
 app = typer.Typer(help="Bioactivity ETL pipeline")
+# Target CLI command
+@app.command("get-target-data")
+def get_target_data(
+    *,
+    config: Path = CONFIG_OPTION,
+    input: Path = typer.Option(
+        ..., "--input", help="CSV containing target_chembl_id column", resolve_path=True
+    ),
+    output_dir: Path | None = typer.Option(None, "--output-dir", help="Output directory"),
+    date_tag: str | None = typer.Option(None, "--date-tag", help="YYYYMMDD date tag"),
+    timeout_sec: float | None = typer.Option(None, "--timeout-sec", help="HTTP timeout in seconds"),
+    retries: int | None = typer.Option(None, "--retries", help="Total retry attempts"),
+    limit: int | None = typer.Option(None, "--limit", help="Limit number of targets"),
+    dev_mode: bool = typer.Option(False, "--dev-mode", help="Allow incomplete sources (dev/test only)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Do not write outputs"),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level"),
+    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
+    log_format: str = typer.Option("text", "--log-format", help="Console format (text/json)"),
+) -> None:
+    """Extract and enrich target data from ChEMBL/UniProt/IUPHAR."""
+
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="target_processing")
+
+    overrides: dict[str, Any] = {}
+    if output_dir is not None:
+        _assign_path(overrides, ["io", "output", "dir"], str(output_dir))
+    if date_tag is not None:
+        _assign_path(overrides, ["runtime", "date_tag"], date_tag)
+    if timeout_sec is not None:
+        _assign_path(overrides, ["http", "global", "timeout_sec"], timeout_sec)
+    if retries is not None:
+        _assign_path(overrides, ["http", "global", "retries", "total"], retries)
+    if limit is not None:
+        _assign_path(overrides, ["runtime", "limit"], limit)
+    if dev_mode:
+        _assign_path(overrides, ["runtime", "dev_mode"], True)
+        _assign_path(overrides, ["runtime", "allow_incomplete_sources"], True)
+    if dry_run:
+        _assign_path(overrides, ["runtime", "dry_run"], True)
+
+    try:
+        cfg = load_target_config(config, overrides=overrides)
+    except Exception as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
+
+    logger = configure_logging(
+        level=log_level,
+        file_enabled=True,
+        console_format=log_format,
+        log_file=log_file,
+        logging_config=cfg.logging.model_dump() if hasattr(cfg, "logging") else None,
+    )
+
+    with bind_stage(logger, "target_processing", run_id=run_id) as logger:
+        logger.info("Target processing started", run_id=run_id)
+
+        try:
+            input_frame = read_target_input(input)
+        except TargetValidationError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
+        except TargetIOError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.IO_ERROR) from exc
+
+        register_shutdown_handler(lambda: logger.info("Target processing shutdown", run_id=run_id))
+
+        try:
+            with ShutdownContext(timeout=60.0):
+                with bind_stage(logger, "target_etl"):
+                    result = run_target_etl(cfg, input_frame=input_frame)
+        except TargetValidationError as exc:
+            logger.error("Target validation failed", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
+        except TargetHTTPError as exc:
+            logger.error("Target HTTP error", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.HTTP_ERROR) from exc
+        except TargetQCError as exc:
+            logger.error("Target QC error", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.QC_ERROR) from exc
+
+        if cfg.runtime.dry_run:
+            logger.info("Dry run completed; no artefacts written.", run_id=run_id)
+            typer.echo("Dry run completed; no artefacts written.")
+            raise typer.Exit(code=ExitCode.OK)
+
+        outputs = write_target_outputs(
+            result,
+            cfg.io.output.dir,
+            cfg.runtime.date_tag or "",
+            cfg,
+        )
+
+        for name, path in outputs.items():
+            typer.echo(f"{name}: {path}")
+
+
+# Activity CLI command
+@app.command("get-activity-data")
+def get_activity_data(
+    *,
+    config: Path = CONFIG_OPTION,
+    input: Path | None = typer.Option(
+        None, "--input", help="CSV containing filter IDs (assay_ids, molecule_ids, target_ids)", resolve_path=True
+    ),
+    output_dir: Path | None = typer.Option(None, "--output-dir", help="Output directory"),
+    date_tag: str | None = typer.Option(None, "--date-tag", help="YYYYMMDD date tag"),
+    timeout_sec: float | None = typer.Option(None, "--timeout-sec", help="HTTP timeout in seconds"),
+    retries: int | None = typer.Option(None, "--retries", help="Total retry attempts"),
+    limit: int | None = typer.Option(None, "--limit", help="Limit number of activities"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Do not write outputs"),
+    log_level: str = typer.Option("INFO", "--log-level", help="Logging level"),
+    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
+    log_format: str = typer.Option("text", "--log-format", help="Console format (text/json)"),
+) -> None:
+    """Extract and enrich activity data from ChEMBL."""
+
+    run_id = generate_run_id()
+    set_run_context(run_id=run_id, stage="activity_processing")
+
+    try:
+        # Load configuration
+        activity_config = ActivityConfig.from_yaml(config)
+        
+        # Override configuration with CLI arguments
+        if output_dir is not None:
+            # aligned with new ActivityConfig fields
+            activity_config.io.output.dir = output_dir
+        if date_tag is not None:
+            # Add date tag to output directory
+            activity_config.runtime.date_tag = date_tag
+        if timeout_sec is not None:
+            activity_config.timeout_sec = timeout_sec
+        if retries is not None:
+            activity_config.max_retries = retries
+        if limit is not None:
+            activity_config.runtime.limit = limit
+        if dry_run:
+            activity_config.dry_run = dry_run
+        
+    except Exception as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
+
+    logger = configure_logging(
+        level=log_level,
+        file_enabled=True,
+        console_format=log_format,
+        log_file=log_file,
+    )
+
+    with bind_stage(logger, "activity_processing", run_id=run_id) as logger:
+        logger.info("Activity processing started", run_id=run_id)
+
+        register_shutdown_handler(lambda: logger.info("Activity processing shutdown", run_id=run_id))
+
+        try:
+            with ShutdownContext(timeout=60.0):
+                with bind_stage(logger, "activity_etl"):
+                    result = run_activity_etl(activity_config, input_csv=input, logger=logger)
+                    
+            logger.info("Activity processing completed", run_id=run_id, records=len(result.activities))
+            
+        except Exception as exc:
+            logger.error("Activity processing failed", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
+
+        if activity_config.dry_run:
+            logger.info("Dry run completed; no artefacts written.", run_id=run_id)
+            typer.echo("Dry run completed; no artefacts written.")
+            raise typer.Exit(code=ExitCode.OK)
+
+        # Write outputs
+        try:
+            from library.activity.writer import write_activity_outputs
+            with bind_stage(logger, "write_outputs"):
+                output_paths = write_activity_outputs(
+                    result=result,
+                    output_dir=output_dir or activity_config.get_output_path(),
+                    date_tag=date_tag or (activity_config.runtime.date_tag or ""),
+                    config=activity_config,
+                )
+                for name, path in output_paths.items():
+                    typer.echo(f"{name}: {path}")
+
+            logger.info("Outputs written successfully", run_id=run_id)
+
+        except Exception as exc:
+            logger.error("Failed to write outputs", error=str(exc), run_id=run_id, exc_info=True)
+            typer.echo(f"Failed to write outputs: {exc}", err=True)
+            raise typer.Exit(code=ExitCode.IO_ERROR) from exc
 
 
 @app.command()

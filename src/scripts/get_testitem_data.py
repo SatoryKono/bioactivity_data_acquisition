@@ -213,10 +213,12 @@ Examples:
             
             # Print summary
             print("\nSummary:")
-            print(f"  Total molecules: {result.meta.get('total_records', 0)}")
+            # Используем фактический размер результирующего датафрейма
+            print(f"  Total molecules: {len(result.testitems)}")
             print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown')}")
             print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
-            print(f"  PubChem enabled: {result.meta.get('pubchem_enrichment', {}).get('enabled', False)}")
+            # Отображаем состояние PubChem по конфигурации запуска
+            print(f"  PubChem enabled: {config.enable_pubchem}")
             print(f"  Date tag: {date_tag}")
             
             # Print source statistics

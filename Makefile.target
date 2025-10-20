@@ -1,0 +1,212 @@
+# Makefile для target пайплайна
+# Предоставляет удобные команды для работы с target данными
+
+# Переменные
+PYTHON := python
+CONFIG_DIR := configs
+DATA_DIR := data
+INPUT_DIR := $(DATA_DIR)/input
+OUTPUT_DIR := $(DATA_DIR)/output/target
+TARGET_CONFIG := $(CONFIG_DIR)/config_target_full.yaml
+TARGET_INPUT := $(INPUT_DIR)/target_ids.csv
+DATE_TAG := $(shell date +%Y%m%d)
+
+# Цвета для вывода
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+BLUE := \033[0;34m
+NC := \033[0m # No Color
+
+.PHONY: help target-example target-dry-run test-target validate-target-config clean-target check-target-deps
+
+# Показать справку
+help:
+	@echo "$(BLUE)Target Pipeline Commands:$(NC)"
+	@echo ""
+	@echo "$(GREEN)Basic Commands:$(NC)"
+	@echo "  target-example        - Run target pipeline with example data"
+	@echo "  target-dry-run        - Run target pipeline in dry-run mode"
+	@echo "  test-target           - Run target pipeline tests"
+	@echo ""
+	@echo "$(GREEN)Configuration:$(NC)"
+	@echo "  validate-target-config - Validate target configuration file"
+	@echo "  check-target-deps     - Check target pipeline dependencies"
+	@echo ""
+	@echo "$(GREEN)Cleanup:$(NC)"
+	@echo "  clean-target          - Clean target output files"
+	@echo ""
+	@echo "$(GREEN)Custom Usage:$(NC)"
+	@echo "  make target-example CONFIG=path/to/config.yaml INPUT=path/to/input.csv"
+	@echo "  make target-dry-run LIMIT=100"
+	@echo ""
+
+# Создать пример входных данных
+create-target-example:
+	@echo "$(BLUE)Creating example target input file...$(NC)"
+	@mkdir -p $(INPUT_DIR)
+	@echo "target_chembl_id" > $(TARGET_INPUT)
+	@echo "CHEMBL240" >> $(TARGET_INPUT)
+	@echo "CHEMBL251" >> $(TARGET_INPUT)
+	@echo "CHEMBL262" >> $(TARGET_INPUT)
+	@echo "CHEMBL273" >> $(TARGET_INPUT)
+	@echo "CHEMBL284" >> $(TARGET_INPUT)
+	@echo "$(GREEN)Example input file created: $(TARGET_INPUT)$(NC)"
+
+# Запустить target пайплайн с примерными данными
+target-example: create-target-example
+	@echo "$(BLUE)Running target pipeline with example data...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) -m library.scripts.get_target_data \
+		--config $(TARGET_CONFIG) \
+		--targets-csv $(TARGET_INPUT) \
+		--output-dir $(OUTPUT_DIR) \
+		--date-tag $(DATE_TAG) \
+		--log-level INFO
+	@echo "$(GREEN)Target pipeline completed successfully!$(NC)"
+	@echo "$(YELLOW)Output files:$(NC)"
+	@ls -la $(OUTPUT_DIR)/target_$(DATE_TAG)* 2>/dev/null || echo "No output files found"
+
+# Запустить target пайплайн в режиме dry-run
+target-dry-run: create-target-example
+	@echo "$(BLUE)Running target pipeline in dry-run mode...$(NC)"
+	$(PYTHON) -m library.scripts.get_target_data \
+		--config $(TARGET_CONFIG) \
+		--targets-csv $(TARGET_INPUT) \
+		--dry-run \
+		--log-level INFO
+	@echo "$(GREEN)Dry-run completed successfully!$(NC)"
+
+# Запустить target пайплайн в dev режиме (позволяет неполные источники)
+target-dev: create-target-example
+	@echo "$(BLUE)Running target pipeline in development mode...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) -m library.scripts.get_target_data \
+		--config $(TARGET_CONFIG) \
+		--targets-csv $(TARGET_INPUT) \
+		--output-dir $(OUTPUT_DIR) \
+		--date-tag $(DATE_TAG) \
+		--dev-mode \
+		--log-level DEBUG
+	@echo "$(GREEN)Target pipeline completed in dev mode!$(NC)"
+
+# Запустить target пайплайн с ограничением
+target-limited: create-target-example
+	@echo "$(BLUE)Running target pipeline with limit...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) -m library.scripts.get_target_data \
+		--config $(TARGET_CONFIG) \
+		--targets-csv $(TARGET_INPUT) \
+		--output-dir $(OUTPUT_DIR) \
+		--date-tag $(DATE_TAG) \
+		--limit $(or $(LIMIT),10) \
+		--log-level INFO
+	@echo "$(GREEN)Target pipeline completed with limit!$(NC)"
+
+# Запустить тесты target пайплайна
+test-target:
+	@echo "$(BLUE)Running target pipeline tests...$(NC)"
+	$(PYTHON) -m pytest tests/test_target_*.py -v
+	@echo "$(GREEN)Target tests completed!$(NC)"
+
+# Валидировать конфигурацию target
+validate-target-config:
+	@echo "$(BLUE)Validating target configuration...$(NC)"
+	$(PYTHON) -c "from library.target import load_target_config; load_target_config('$(TARGET_CONFIG)'); print('Configuration is valid')"
+	@echo "$(GREEN)Target configuration is valid!$(NC)"
+
+# Проверить зависимости target пайплайна
+check-target-deps:
+	@echo "$(BLUE)Checking target pipeline dependencies...$(NC)"
+	$(PYTHON) -c "import library.target; print('Target module imported successfully')"
+	$(PYTHON) -c "import library.schemas.target_schema; print('Target schemas imported successfully')"
+	$(PYTHON) -c "import library.pipelines.target.chembl_target; print('ChEMBL target module imported successfully')"
+	$(PYTHON) -c "import library.pipelines.target.uniprot_target; print('UniProt target module imported successfully')"
+	$(PYTHON) -c "import library.pipelines.target.iuphar_target; print('IUPHAR target module imported successfully')"
+	@echo "$(GREEN)All target dependencies are available!$(NC)"
+
+# Очистить выходные файлы target
+clean-target:
+	@echo "$(BLUE)Cleaning target output files...$(NC)"
+	rm -rf $(OUTPUT_DIR)/target_*
+	rm -rf $(OUTPUT_DIR)/target_correlation_report_*
+	@echo "$(GREEN)Target output files cleaned!$(NC)"
+
+# Показать статистику target данных
+target-stats:
+	@echo "$(BLUE)Target pipeline statistics:$(NC)"
+	@echo "$(YELLOW)Input files:$(NC)"
+	@ls -la $(INPUT_DIR)/target* 2>/dev/null || echo "No target input files found"
+	@echo "$(YELLOW)Output files:$(NC)"
+	@ls -la $(OUTPUT_DIR)/target_* 2>/dev/null || echo "No target output files found"
+	@echo "$(YELLOW)Configuration:$(NC)"
+	@ls -la $(TARGET_CONFIG) 2>/dev/null || echo "Target config not found"
+
+# Запустить target пайплайн через Typer CLI
+target-typer: create-target-example
+	@echo "$(BLUE)Running target pipeline via Typer CLI...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)
+	$(PYTHON) -m library.cli get-target-data \
+		--config $(TARGET_CONFIG) \
+		--targets-csv $(TARGET_INPUT) \
+		--output-dir $(OUTPUT_DIR) \
+		--date-tag $(DATE_TAG) \
+		--log-level INFO
+	@echo "$(GREEN)Target pipeline completed via Typer CLI!$(NC)"
+
+# Показать справку по конфигурации
+target-config-help:
+	@echo "$(BLUE)Target Configuration Help:$(NC)"
+	@echo ""
+	@echo "$(GREEN)Required Sources (all mandatory):$(NC)"
+	@echo "  - ChEMBL: Core target data"
+	@echo "  - UniProt: Protein enrichment"
+	@echo "  - IUPHAR: Pharmacological classification"
+	@echo ""
+	@echo "$(GREEN)Configuration File:$(NC)"
+	@echo "  Location: $(TARGET_CONFIG)"
+	@echo "  Format: YAML"
+	@echo ""
+	@echo "$(GREEN)Key Settings:$(NC)"
+	@echo "  - sources.chembl.enabled: true (required)"
+	@echo "  - sources.uniprot.enabled: true (required)"
+	@echo "  - sources.iuphar.enabled: true (required)"
+	@echo "  - runtime.dev_mode: false (set to true for testing)"
+	@echo "  - runtime.allow_incomplete_sources: false (set to true for testing)"
+	@echo ""
+	@echo "$(GREEN)Environment Variables:$(NC)"
+	@echo "  - CHEMBL_API_TOKEN: Optional ChEMBL API token"
+	@echo ""
+	@echo "$(GREEN)Input Format:$(NC)"
+	@echo "  CSV file with 'target_chembl_id' column"
+	@echo "  Example: CHEMBL240, CHEMBL251, CHEMBL262"
+	@echo ""
+
+# Показать примеры использования
+target-examples:
+	@echo "$(BLUE)Target Pipeline Usage Examples:$(NC)"
+	@echo ""
+	@echo "$(GREEN)1. Basic usage:$(NC)"
+	@echo "  make target-example"
+	@echo ""
+	@echo "$(GREEN)2. Custom config and input:$(NC)"
+	@echo "  make target-example CONFIG=my_config.yaml INPUT=my_targets.csv"
+	@echo ""
+	@echo "$(GREEN)3. Development mode:$(NC)"
+	@echo "  make target-dev"
+	@echo ""
+	@echo "$(GREEN)4. Limited processing:$(NC)"
+	@echo "  make target-limited LIMIT=50"
+	@echo ""
+	@echo "$(GREEN)5. Dry run:$(NC)"
+	@echo "  make target-dry-run"
+	@echo ""
+	@echo "$(GREEN)6. Via Typer CLI:$(NC)"
+	@echo "  make target-typer"
+	@echo ""
+	@echo "$(GREEN)7. Direct Python script:$(NC)"
+	@echo "  python -m library.scripts.get_target_data --config $(TARGET_CONFIG) --targets-csv $(TARGET_INPUT)"
+	@echo ""
+	@echo "$(GREEN)8. With custom options:$(NC)"
+	@echo "  python -m library.scripts.get_target_data --config $(TARGET_CONFIG) --targets-csv $(TARGET_INPUT) --limit 100 --timeout-sec 120 --dev-mode"
+	@echo ""

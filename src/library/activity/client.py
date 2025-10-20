@@ -45,6 +45,7 @@ class ActivityChEMBLClient(BaseApiClient):
         self,
         limit: int = 1000,
         offset: int = 0,
+        activity_ids: list[str] | None = None,
         assay_ids: list[str] | None = None,
         molecule_ids: list[str] | None = None,
         target_ids: list[str] | None = None,
@@ -53,19 +54,44 @@ class ActivityChEMBLClient(BaseApiClient):
         """Fetch activities with pagination and caching."""
         
         # Build query parameters
+        effective_limit = 1000 if limit is None else min(limit, 1000)
         params = {
-            "limit": min(limit, 1000),  # ChEMBL max limit is 1000
+            "limit": effective_limit,  # ChEMBL max limit is 1000
             "offset": offset,
             "format": "json"
         }
         
-        # Add filters if provided
+        # Add filters if provided (limit to avoid HTTP 413 errors)
+        max_filters_per_type = 10  # Limit filters to prevent URL too long
+        
+        if activity_ids:
+            # Limit activity IDs to prevent URL too long
+            limited_activity_ids = activity_ids[:max_filters_per_type]
+            # ChEMBL expects numeric filter via __in with comma-separated list
+            params["activity_id__in"] = ",".join(limited_activity_ids)
+            if len(activity_ids) > max_filters_per_type:
+                logger.warning(f"Limited activity_ids to {max_filters_per_type} to prevent HTTP 413 error")
+        
         if assay_ids:
-            params["assay_chembl_id"] = "|".join(assay_ids)
+            # Limit assay IDs to prevent URL too long
+            limited_assay_ids = assay_ids[:max_filters_per_type]
+            params["assay_chembl_id"] = "|".join(limited_assay_ids)
+            if len(assay_ids) > max_filters_per_type:
+                logger.warning(f"Limited assay_ids to {max_filters_per_type} to prevent HTTP 413 error")
+        
         if molecule_ids:
-            params["molecule_chembl_id"] = "|".join(molecule_ids)
+            # Limit molecule IDs to prevent URL too long
+            limited_molecule_ids = molecule_ids[:max_filters_per_type]
+            params["molecule_chembl_id"] = "|".join(limited_molecule_ids)
+            if len(molecule_ids) > max_filters_per_type:
+                logger.warning(f"Limited molecule_ids to {max_filters_per_type} to prevent HTTP 413 error")
+        
         if target_ids:
-            params["target_chembl_id"] = "|".join(target_ids)
+            # Limit target IDs to prevent URL too long
+            limited_target_ids = target_ids[:max_filters_per_type]
+            params["target_chembl_id"] = "|".join(limited_target_ids)
+            if len(target_ids) > max_filters_per_type:
+                logger.warning(f"Limited target_ids to {max_filters_per_type} to prevent HTTP 413 error")
         
         # Generate cache key
         cache_key = self._generate_cache_key(params)
@@ -78,7 +104,8 @@ class ActivityChEMBLClient(BaseApiClient):
                 with open(cache_file, 'r', encoding='utf-8') as f:
                     cached_data = json.load(f)
                     for activity in cached_data.get("activities", []):
-                        yield activity
+                        # Ensure consistent shape with API path
+                        yield self._parse_activity(activity)
                     return
             except Exception as e:
                 logger.warning(f"Failed to load from cache: {e}")
@@ -105,7 +132,7 @@ class ActivityChEMBLClient(BaseApiClient):
             # Yield activities
             activities = payload.get("activities", [])
             for activity in activities:
-                yield activity
+                yield self._parse_activity(activity)
                 
             # Log pagination info
             page_meta = payload.get("page_meta", {})
@@ -122,6 +149,7 @@ class ActivityChEMBLClient(BaseApiClient):
     def fetch_all_activities(
         self,
         limit: int = 1000,
+        activity_ids: list[str] | None = None,
         assay_ids: list[str] | None = None,
         molecule_ids: list[str] | None = None,
         target_ids: list[str] | None = None,
@@ -130,9 +158,33 @@ class ActivityChEMBLClient(BaseApiClient):
     ) -> Generator[dict[str, Any], None, None]:
         """Fetch all activities with automatic pagination."""
         
+        # If explicit list of activity_ids provided, batch them by 10 to respect URL length
+        if activity_ids:
+            chunk_size = 10
+            yielded = 0
+            page_limit = 1000 if limit is None else min(limit, 1000)
+            for i in range(0, len(activity_ids), chunk_size):
+                chunk = activity_ids[i:i + chunk_size]
+                # For id-filtered queries, pagination is rarely needed, but keep page_limit
+                for activity in self.fetch_activities_paginated(
+                    limit=page_limit,
+                    offset=0,
+                    activity_ids=chunk,
+                    assay_ids=None,
+                    molecule_ids=None,
+                    target_ids=None,
+                    use_cache=use_cache,
+                ):
+                    yield activity
+                    yielded += 1
+                    if limit is not None and yielded >= limit:
+                        return
+            return
+
         offset = 0
         page_count = 0
         total_activities = 0
+        page_limit = 1000 if limit is None else min(limit, 1000)
         
         while True:
             # Check max pages limit
@@ -142,8 +194,9 @@ class ActivityChEMBLClient(BaseApiClient):
             
             # Fetch current page
             page_activities = list(self.fetch_activities_paginated(
-                limit=limit,
+                limit=page_limit,
                 offset=offset,
+                activity_ids=activity_ids,
                 assay_ids=assay_ids,
                 molecule_ids=molecule_ids,
                 target_ids=target_ids,
@@ -160,12 +213,12 @@ class ActivityChEMBLClient(BaseApiClient):
                 total_activities += 1
             
             # Check if we should continue
-            if len(page_activities) < limit:
+            if len(page_activities) < page_limit:
                 logger.info("Reached end of data (partial page)")
                 break
             
             # Move to next page
-            offset += limit
+            offset += page_limit
             page_count += 1
             
             logger.info(f"Completed page {page_count}, total activities: {total_activities}")
@@ -186,7 +239,7 @@ class ActivityChEMBLClient(BaseApiClient):
         """Parse activity data from ChEMBL API response."""
         return {
             # Primary identifiers
-            "activity_chembl_id": activity_data.get("activity_chembl_id"),
+            "activity_chembl_id": str(activity_data.get("activity_id", "")),
             "assay_chembl_id": activity_data.get("assay_chembl_id"),
             "molecule_chembl_id": activity_data.get("molecule_chembl_id"),
             "target_chembl_id": activity_data.get("target_chembl_id"),

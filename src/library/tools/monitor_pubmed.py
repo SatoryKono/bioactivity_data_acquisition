@@ -5,6 +5,7 @@
 и предупреждает о приближении к лимитам.
 """
 
+import argparse
 import json
 import os
 import time
@@ -13,6 +14,11 @@ from pathlib import Path
 from typing import Any
 
 import requests
+
+from library.logging_setup import get_logger
+
+# Инициализируем логгер на уровне модуля
+logger = get_logger(__name__)
 
 
 class PubMedMonitor:
@@ -314,12 +320,8 @@ class PubMedMonitor:
             logger.info("   Лимиты: 3 запроса/сек без ключа, 10 запросов/сек с ключом")
 
 
-import argparse
-from library.logging_setup import get_logger
-
 def main():
     """Основная функция."""
-    logger = get_logger(__name__)
 
     parser = argparse.ArgumentParser(description="Мониторинг PubMed E-utilities API")
     parser.add_argument("--single", action="store_true", help="Выполнить одну проверку")
