@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import requests
+import requests  # type: ignore[import-not-found]
 
 from library.logging_setup import get_logger
 
@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class PubMedMonitor:
     """Монитор для PubMed E-utilities API."""
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or os.environ.get("PUBMED_API_KEY")
         self.base_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
         self.session = requests.Session()

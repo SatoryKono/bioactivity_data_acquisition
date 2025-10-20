@@ -308,7 +308,7 @@ class EnhancedCorrelationAnalyzer:
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         categorical_cols = df.select_dtypes(include=["object", "category"]).columns
 
-        summary = {
+        summary: dict[str, Any] = {
             "total_columns": len(df.columns),
             "numeric_columns": len(numeric_cols),
             "categorical_columns": len(categorical_cols),

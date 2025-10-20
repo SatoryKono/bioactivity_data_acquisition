@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-import requests
+import requests  # type: ignore[import-not-found]
 
 # typer is not used in this module
 from rich.console import Console
@@ -210,7 +210,7 @@ class HealthChecker:
         avg_response_time = sum(response_times) / len(response_times) if response_times else None
 
         # Count circuit breaker states
-        circuit_states: dict[CircuitState, int] = {}
+        circuit_states: dict[str, int] = {}
         for status in statuses:
             if status.circuit_state:
                 circuit_states[status.circuit_state] = circuit_states.get(status.circuit_state, 0) + 1

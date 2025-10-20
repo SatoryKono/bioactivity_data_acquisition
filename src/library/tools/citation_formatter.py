@@ -10,7 +10,7 @@ import pandas as pd
 
 def format_citation(
     journal: Any,
-    year: Any,
+    year: Any | None = None,
     volume: Any,
     issue: Any,
     first_page: Any,
@@ -48,7 +48,7 @@ def format_citation(
     """
     # Обрезаем пробелы у всех полей
     journal = _clean_field(journal)
-    year = _clean_field(year)
+    year = _clean_field(year) if year is not None else ""
     volume = _clean_field(volume)
     issue = _clean_field(issue)
     first_page = _clean_field(first_page)
