@@ -1,3 +1,12 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py linguist-language=Python
+
+# Блокировать случайные бинарники в корне и отключить diff
+*.parquet -diff
+*.zip -diff
+*.tar -diff
+*.gz -diff
 # Git LFS tracking for large binary files
 # These patterns will automatically track files >500KB in Git LFS
 

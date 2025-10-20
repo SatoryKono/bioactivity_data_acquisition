@@ -1,0 +1,120 @@
+name: housekeeping
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  housekeeping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Verify .gitignore required blocks
+        run: |
+          set -euo pipefail
+          REQUIRED=(
+            "__pycache__/" "*.py[cod]" "*$py.class" ".pytest_cache/" ".mypy_cache/" ".ruff_cache/" ".ipynb_checkpoints/" ".cache/"
+            "build/" "dist/" "wheels/" "*.egg-info/" ".egg/" ".eggs/" "pip-wheel-metadata/" ".tox/" ".nox/" ".hypothesis/"
+            ".coverage*" "coverage.xml" "htmlcov/" ".pyre/" ".pytype/"
+            ".venv/" "venv/" "env/" ".env" ".env.*"
+            ".idea/" ".vscode/" ".DS_Store" "Thumbs.db" "*.swp" "*.swo" "*~" "*.bak" "*.tmp" "*.orig"
+            "logs/" "*.log"
+            "data/output/**" "!tests/golden/**"
+          )
+          for pat in "${REQUIRED[@]}"; do
+            grep -F -- "$pat" .gitignore >/dev/null || { echo "Missing in .gitignore: $pat"; exit 1; }
+          done
+
+      - name: Forbidden root junk files
+        run: |
+          set -euo pipefail
+          FAIL=0
+          PATTERNS=(
+            "__pycache__" ".pytest_cache" ".mypy_cache" ".ruff_cache" ".ipynb_checkpoints" ".cache"
+            "build" "dist" "wheels" ".eggs" "*.egg-info" "pip-wheel-metadata"
+            ".tox" ".nox" ".hypothesis"
+            ".venv" "venv" "env" ".env" ".env.*"
+            ".idea" ".vscode" ".DS_Store" "Thumbs.db" "*.swp" "*.swo" "*~" "*.bak" "*.tmp" "*.orig"
+            "logs" "*.log"
+          )
+          for pat in "${PATTERNS[@]}"; do
+            # искать только в корне
+            matches=$(find . -maxdepth 1 -name "$pat" -print | wc -l)
+            if [ "$matches" -gt 0 ]; then
+              echo "Forbidden root item matched: $pat"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: Large files (>1MB) outside tests/golden/**
+        run: |
+          set -euo pipefail
+          offenders=$(find . -type f -size +1M -not -path "./.git/*" -not -path "./tests/golden/*")
+          if [ -n "$offenders" ]; then
+            echo "Large files found outside tests/golden/**:" >&2
+            echo "$offenders" >&2
+            exit 1
+          fi
+
+      - name: Generate root audit (artifact)
+        run: |
+          set -euo pipefail
+          mkdir -p docs/housekeeping
+          python - << 'PY'
+import json, os
+from pathlib import Path
+
+root_items = []
+for p in Path('.').iterdir():
+    if p.name == '.git':
+        continue
+    if p.is_dir():
+        size = 0
+        for f in p.rglob('*'):
+            if f.is_file():
+                try:
+                    size += f.stat().st_size
+                except Exception:
+                    pass
+        root_items.append(dict(path=p.name, size_kb=round(size/1024), type='dir'))
+    else:
+        root_items.append(dict(path=p.name, size_kb=round(p.stat().st_size/1024), type='file'))
+
+top_files = []
+for f in Path('.').rglob('*'):
+    if f.is_file():
+        try:
+            size = f.stat().st_size
+        except Exception:
+            continue
+        top_files.append((size, str(f)))
+top_files.sort(reverse=True)
+top20 = [(round(sz/1024), path) for sz, path in top_files[:20]]
+
+out = Path('docs/housekeeping/root_audit.md')
+out.write_text('\n'.join([
+    '## Root audit (CI snapshot)',
+    '',
+    'Items in repo root:',
+    json.dumps(root_items, ensure_ascii=False, indent=2),
+    '',
+    'Top 20 largest files:',
+    json.dumps(top20, ensure_ascii=False, indent=2)
+]))
+PY
+
+      - name: Upload artifact root_audit.md
+        uses: actions/upload-artifact@v4
+        with:
+          name: root_audit
+          path: docs/housekeeping/root_audit.md
+
+

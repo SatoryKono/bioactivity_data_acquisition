@@ -1,3 +1,61 @@
+## Housekeeping unified ignore
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.cache/
+
+# Build / dist
+build/
+dist/
+wheels/
+*.egg-info/
+.egg/
+.eggs/
+pip-wheel-metadata/
+.tox/
+.nox/
+.hypothesis/
+
+# Coverage / type checkers
+.coverage*
+coverage.xml
+htmlcov/
+.pyre/
+.pytype/
+
+# Environments
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+*.orig
+
+# Logs
+logs/
+*.log
+
+# Data outputs (keep only golden tests)
+data/output/**
+!tests/golden/**
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

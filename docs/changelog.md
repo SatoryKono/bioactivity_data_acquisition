@@ -19,7 +19,7 @@
   - Функция `load_testitem_config()` для загрузки конфигурации
   - Обновленные схемы валидации с полями `error` и `pubchem_error`
   - Миграционное руководство в `README_testitem.md`
-- **Документация очистки репозитория**: Создан `CLEANUP_REPORT.md` с полным описанием проведённой очистки
+- **Документация очистки репозитория**: Создан `archive/CLEANUP_REPORT.md` с полным описанием проведённой очистки
 - **Расширенное руководство по контрибьюшену**: Добавлены детальные инструкции по работе с артефактами, Git LFS и pre-commit хуками
 - **Документация (MkDocs Material)**: API Reference, диаграммы, CI публикации
 - **Git LFS интеграция**: Настроен для `*.parquet`, `*.pkl`, `*.xlsm`, `*.png`, `*.jpg` и других больших форматов
@@ -54,7 +54,7 @@
 ### Documentation
 
 - **Новые документы**:
-  - [`CLEANUP_REPORT.md`](../../CLEANUP_REPORT.md) - Полный отчёт об очистке репозитория
+  - [`CLEANUP_REPORT.md`](archive/CLEANUP_REPORT.md) - Полный отчёт об очистке репозитория
   - [`docs/how-to/contribute.md`](how-to/contribute.md) - Расширенное руководство по контрибьюшену
   - [`docs/GIT_LFS_WORKFLOW.md`](GIT_LFS_WORKFLOW.md) - Рабочий процесс Git LFS
 - **Обновлённые документы**:
