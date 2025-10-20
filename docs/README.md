@@ -163,6 +163,25 @@ python src/library/scripts/monitor_api.py pubmed -i 60 -d 3600 # каждую м
 
 Подробная документация: [docs/API_LIMITS_CHECK.md](docs/API_LIMITS_CHECK.md)
 
+## Навигация по документации
+
+### ⚙️ Пайплайны
+- [Documents](pipelines/documents.md)
+- [Testitem](pipelines/testitem.md)
+- [Assay](pipelines/assay.md)
+- [Activity](pipelines/activity.md)
+- [Target](pipelines/target.md)
+
+### 📚 Разделы
+- [Configuration → Sources](configuration/sources.md)
+- [Extraction Contract](extraction-contract.md)
+- [Normalization](normalization.md) · [Enrichment](enrichment.md)
+- [Validation](validation.md) · [QC](qc.md)
+- [Persistence & Determinism](persistence.md)
+- [CLI usage](cli.md) · [Logging & Metrics](logging.md)
+- [Tests Policy](tests.md) · [Output Artifacts](output-artifacts.md)
+- [Non-Goals](non-goals.md)
+
 ## Outputs
 
 The load stage produces three artefacts:

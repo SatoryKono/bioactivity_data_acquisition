@@ -43,6 +43,12 @@ plugins:
             show_if_no_docstring: false
   - mermaid2
   - table-reader
+  - htmlproofer:
+      raise_error: true
+      ignore_urls:
+        - 'https://pandera.readthedocs.io/*'
+        - 'https://www.semanticscholar.org/*'
+      anchors: true
 
 markdown_extensions:
   - admonition
@@ -55,21 +61,30 @@ markdown_extensions:
 
 nav:
   - Обзор: index.md
-  - Руководство по стилю: STYLE_GUIDE.md
-  - Туториалы:
-      - Обзор: tutorials/index.md
-      - Быстрый старт: tutorials/quickstart.md
-      - Полный пайплайн (E2E): tutorials/e2e-pipeline.md
-      - Обогащение документов (E2E): tutorials/e2e-documents.md
-  - How-to:
-      - Обзор: how-to/index.md
-      - Установка: how-to/installation.md
-      - Запуск ETL локально: how-to/run-etl-locally.md
-      - Настройка API клиентов: how-to/configure-api-clients.md
-      - Отладка пайплайна: how-to/debug-pipeline.md
-      - Проверки качества: how-to/run-quality-checks.md
-      - Контрибьюшн: how-to/contribute.md
-      - Эксплуатация: how-to/operations.md
+  - Пайплайны:
+      - Documents: pipelines/documents.md
+      - Testitem: pipelines/testitem.md
+      - Assay: pipelines/assay.md
+      - Activity: pipelines/activity.md
+      - Target: pipelines/target.md
+  - Конфигурация:
+      - Обзор: reference/configuration/index.md
+      - Sources: configuration/sources.md
+  - Контракты и правила:
+      - Extraction Contract: extraction-contract.md
+      - Normalization: normalization.md
+      - Enrichment: enrichment.md
+      - Validation: validation.md
+      - Quality (QC): qc.md
+      - Persistence & Determinism: persistence.md
+  - CLI и логирование:
+      - CLI: cli.md
+      - Logging & Metrics: logging.md
+  - Тесты и артефакты:
+      - Tests Policy: tests.md
+      - Output Artifacts: output-artifacts.md
+      - Star-Schema: star-schema.md
+      - Non-Goals: non-goals.md
   - Справочник:
       - Обзор: reference/index.md
       - CLI:
@@ -81,28 +96,16 @@ nav:
           - Клиенты: reference/api/clients.md
           - ETL: reference/api/etl.md
           - Схемы: reference/api/schemas.md
-          - Конфигурация: reference/api/config.md
-      - Конфигурация:
-          - Обзор: reference/configuration/index.md
-          - Схема: reference/configuration/schema.md
-          - Примеры: reference/configuration/examples.md
-      - Схемы данных:
-          - Обзор: reference/data-schemas/index.md
-          - Биоактивности: reference/data-schemas/bioactivity.md
-          - Документы: reference/data-schemas/documents.md
-          - Валидация: reference/data-schemas/validation.md
-      - Выходные данные:
-          - Обзор: reference/outputs/index.md
-          - CSV формат: reference/outputs/csv-format.md
-          - QC отчёты: reference/outputs/qc-reports.md
-          - Корреляционные отчёты: reference/outputs/correlation-reports.md
   - Объяснения:
       - Обзор: explanations/index.md
       - Архитектура: explanations/architecture.md
       - Решения дизайна: explanations/design-decisions.md
-      - Поток данных: explanations/data-flow.md
-      - Детерминизм: explanations/determinism.md
       - Чувствительность к регистру: explanations/case-sensitivity.md
+  - Туториалы:
+      - Обзор: tutorials/index.md
+      - Быстрый старт: tutorials/quickstart.md
+      - Полный пайплайн (E2E): tutorials/e2e-pipeline.md
+      - Обогащение документов (E2E): tutorials/e2e-documents.md
   - Дополнительно:
       - Источники данных: data-sources.md
       - API limits: api-limits.md
