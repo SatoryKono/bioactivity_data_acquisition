@@ -206,8 +206,8 @@ class EnhancedCorrelationAnalyzer:
                     if n_groups > 1:
                         # Вычисляем eta-squared
                         overall_mean_val = float(df[num_col].mean())
-                        def calc_ss_between(group):
-                            return (group.mean() - overall_mean_val)**2 * len(group)
+                        def calc_ss_between(group, mean_val=overall_mean_val):
+                            return (group.mean() - mean_val)**2 * len(group)
                         ss_between = grouped.apply(calc_ss_between).sum()
                         ss_total = ((df[num_col] - overall_mean_val)**2).sum()
                         
@@ -406,7 +406,7 @@ class EnhancedCorrelationAnalyzer:
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
         
-        summary = {
+        summary: dict[str, Any] = {
             'total_columns': len(df.columns),
             'numeric_columns': len(numeric_cols),
             'categorical_columns': len(categorical_cols),
@@ -444,7 +444,7 @@ class EnhancedCorrelationAnalyzer:
                     
                     corr_matrix = numeric_df.corr()
                     # Находим сильные корреляции (|r| > 0.7)
-                    strong_correlations = []
+                    strong_correlations: list[dict[str, Any]] = []
                     for i in range(len(corr_matrix.columns)):
                         for j in range(i+1, len(corr_matrix.columns)):
                             corr_val = corr_matrix.iloc[i, j]

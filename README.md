@@ -14,6 +14,9 @@ pip install .[dev]
 
 # Быстрый запуск
 make quick-start
+
+# Новый унифицированный интерфейс
+make run ENTITY=documents CONFIG=configs/config_documents_full.yaml
 ```
 
 ## Статус пайплайнов

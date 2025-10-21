@@ -138,16 +138,17 @@ def write_activity_outputs(
 
     # Save correlation reports and insights if present
     try:
-        if getattr(result, "correlation_reports", None):
+        correlation_reports = getattr(result, "correlation_reports", None)
+        if correlation_reports:
             corr_dir = output_dir / f"activity_correlation_report_{date_tag}"
             corr_dir.mkdir(exist_ok=True)
             report_paths: dict[str, Path] = {}
-            for report_name, report_df in result.correlation_reports.items():
+            for report_name, report_df in correlation_reports.items():
                 report_path = corr_dir / f"{report_name}.csv"
                 if hasattr(report_df, "to_csv"):
                     report_df.to_csv(report_path, index=False)
                     report_paths[report_name] = report_path
-            paths["correlation_reports"] = report_paths
+            paths["correlation_reports"] = report_paths  # type: ignore
 
         if getattr(result, "correlation_insights", None):
             insights_path = (output_dir / f"activity_correlation_report_{date_tag}" / "correlation_insights.json")

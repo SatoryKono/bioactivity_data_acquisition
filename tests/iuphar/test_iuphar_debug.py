@@ -1,7 +1,6 @@
 ﻿#!/usr/bin/env python3
 """РўРµСЃС‚РѕРІС‹Р№ СЃРєСЂРёРїС‚ РґР»СЏ Р·Р°РїСѓСЃРєР° IUPHAR РјР°РїРїРёРЅРіР° СЃ debug Р»РѕРіРёСЂРѕРІР°РЅРёРµРј."""
 
-import pytest
 import sys
 from pathlib import Path
 
@@ -42,7 +41,7 @@ try:
               f"mapping_uniprot_id={row.get('mapping_uniprot_id', 'N/A')}")
               
 except Exception as e:
-    print(f"РћС€РёР±РєР°: {e}")
+    print(f"Ошибка: {e}")
     import traceback
     traceback.print_exc()
 

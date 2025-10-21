@@ -169,6 +169,175 @@ def _build_cli_overrides(
 
 app = typer.Typer(help="Bioactivity ETL pipeline")
 
+# Analysis commands
+@app.command("analyze-iuphar-mapping")
+def analyze_iuphar_mapping(
+    target_csv: Path = typer.Option(
+        ...,
+        "--target-csv",
+        help="Path to target CSV file to analyze",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    iuphar_dict: Path = typer.Option(
+        "configs/dictionary/_target/_IUPHAR/_IUPHAR_target.csv",
+        "--iuphar-dict",
+        help="Path to IUPHAR dictionary CSV file",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    sample_size: int = typer.Option(
+        10,
+        "--sample-size",
+        help="Number of UniProt IDs to sample for validation",
+    ),
+    target_id: int | None = typer.Option(
+        None,
+        "--target-id",
+        help="Specific IUPHAR target ID to analyze (e.g., 1386)",
+    ),
+    output_format: str = typer.Option(
+        "table",
+        "--format",
+        help="Output format: table, json, csv",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Enable verbose output",
+    ),
+) -> None:
+    """Analyze IUPHAR mapping in target data."""
+    
+    import pandas as pd
+    import json
+    from rich.console import Console
+    from rich.table import Table
+    
+    console = Console()
+    
+    try:
+        # Load target data
+        console.print(f"[blue]Loading target data from: {target_csv}[/blue]")
+        target_df = pd.read_csv(target_csv)
+        
+        # Load IUPHAR dictionary
+        console.print(f"[blue]Loading IUPHAR dictionary from: {iuphar_dict}[/blue]")
+        iuphar_target_df = pd.read_csv(iuphar_dict)
+        
+        # Basic statistics
+        console.print("\n[green]=== IUPHAR Mapping Analysis ===[/green]")
+        console.print(f"Total target records: {len(target_df)}")
+        console.print(f"Total IUPHAR dictionary records: {len(iuphar_target_df)}")
+        console.print(f"Unique UniProt IDs in IUPHAR: {iuphar_target_df['swissprot'].nunique()}")
+        
+        # Analyze iuphar_target_id distribution
+        if 'iuphar_target_id' in target_df.columns:
+            iuphar_counts = target_df['iuphar_target_id'].value_counts()
+            console.print(f"\n[blue]IUPHAR Target ID Distribution:[/blue]")
+            console.print(f"Unique IUPHAR target IDs: {len(iuphar_counts)}")
+            
+            if verbose:
+                console.print("Top 10 IUPHAR target IDs:")
+                for target_id_val, count in iuphar_counts.head(10).items():
+                    console.print(f"  {target_id_val}: {count} records")
+        
+        # Validate UniProt ID mapping
+        if 'mapping_uniprot_id' in target_df.columns:
+            uniprot_ids = target_df['mapping_uniprot_id'].dropna()
+            console.print(f"\n[blue]UniProt ID Mapping Validation:[/blue]")
+            console.print(f"Records with UniProt IDs: {len(uniprot_ids)}")
+            
+            # Sample validation
+            sample_ids = uniprot_ids.head(sample_size).tolist()
+            console.print(f"Validating first {len(sample_ids)} UniProt IDs:")
+            
+            validation_results = []
+            for uid in sample_ids:
+                matches = iuphar_target_df[iuphar_target_df['swissprot'] == uid]
+                if len(matches) > 0:
+                    match_info = {
+                        'uniprot_id': uid,
+                        'found': True,
+                        'target_id': matches.iloc[0]['target_id'],
+                        'target_name': matches.iloc[0]['target_name']
+                    }
+                    validation_results.append(match_info)
+                    if verbose:
+                        console.print(f"  [green]✓[/green] {uid} → target_id={match_info['target_id']}, name={match_info['target_name']}")
+                else:
+                    match_info = {
+                        'uniprot_id': uid,
+                        'found': False,
+                        'target_id': None,
+                        'target_name': None
+                    }
+                    validation_results.append(match_info)
+                    if verbose:
+                        console.print(f"  [red]✗[/red] {uid} not found in IUPHAR dictionary")
+            
+            # Summary
+            found_count = sum(1 for r in validation_results if r['found'])
+            console.print(f"\n[blue]Validation Summary:[/blue]")
+            console.print(f"Found in IUPHAR: {found_count}/{len(validation_results)} ({found_count/len(validation_results)*100:.1f}%)")
+        
+        # Analyze specific target ID if provided
+        if target_id is not None:
+            console.print(f"\n[blue]=== Analysis of IUPHAR Target ID {target_id} ===[/blue]")
+            matches = iuphar_target_df[iuphar_target_df['target_id'] == target_id]
+            
+            if len(matches) > 0:
+                console.print(f"Found {len(matches)} records for target_id={target_id}")
+                console.print("UniProt IDs for this target:")
+                uniprot_ids = matches['swissprot'].unique()
+                for uid in uniprot_ids:
+                    console.print(f"  {uid}")
+                
+                # Check if any of these UniProt IDs appear in our target data
+                if 'mapping_uniprot_id' in target_df.columns:
+                    target_matches = target_df[target_df['mapping_uniprot_id'].isin(uniprot_ids)]
+                    console.print(f"\nRecords in target data with these UniProt IDs: {len(target_matches)}")
+                    if len(target_matches) > 0 and verbose:
+                        console.print("Matching records:")
+                        for _, row in target_matches.head(5).iterrows():
+                            console.print(f"  ChEMBL ID: {row.get('target_chembl_id', 'N/A')}, UniProt: {row.get('mapping_uniprot_id', 'N/A')}")
+            else:
+                console.print(f"[red]No records found for target_id={target_id}[/red]")
+        
+        # Output results in requested format
+        if output_format == "json":
+            results = {
+                'target_records': len(target_df),
+                'iuphar_records': len(iuphar_target_df),
+                'unique_uniprot_in_iuphar': iuphar_target_df['swissprot'].nunique(),
+                'validation_results': validation_results if 'validation_results' in locals() else []
+            }
+            console.print("\n[blue]JSON Output:[/blue]")
+            console.print(json.dumps(results, indent=2, ensure_ascii=False))
+        
+        elif output_format == "csv" and 'validation_results' in locals():
+            validation_df = pd.DataFrame(validation_results)
+            output_path = target_csv.parent / f"iuphar_validation_{target_csv.stem}.csv"
+            validation_df.to_csv(output_path, index=False)
+            console.print(f"\n[green]Validation results saved to: {output_path}[/green]")
+        
+        console.print("\n[green]Analysis completed successfully![/green]")
+        
+    except Exception as e:
+        console.print(f"[red]Error during analysis: {e}[/red]")
+        if verbose:
+            import traceback
+            console.print(traceback.format_exc())
+        raise typer.Exit(1) from e
+
+
 # Manifest commands
 @app.command("list-manifests")
 def list_manifests() -> None:

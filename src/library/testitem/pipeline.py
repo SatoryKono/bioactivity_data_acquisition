@@ -314,7 +314,11 @@ def run_testitem_etl(
     logger.info("S02-S10: Extracting, normalizing, and validating data...")
     
     # Extract data from APIs
-    extracted_frame = extract_batch_data(chembl_client, pubchem_client, normalised, config)
+    if pubchem_client is None:
+        logger.warning("PubChem client is None, skipping PubChem data extraction")
+        extracted_frame = pd.DataFrame()
+    else:
+        extracted_frame = extract_batch_data(chembl_client, pubchem_client, normalised, config)
     
     if extracted_frame.empty:
         logger.warning("No data extracted from APIs")
@@ -456,7 +460,7 @@ def write_testitem_outputs(
                 correlation_paths[report_name] = report_path
                 
             logger.info(f"Saved {len(correlation_paths)} correlation reports to {correlation_dir}")
-            result_paths["correlation_reports"] = correlation_paths
+            result_paths["correlation_reports"] = correlation_paths  # type: ignore
             
             # Save correlation insights if available
             if result.correlation_insights:

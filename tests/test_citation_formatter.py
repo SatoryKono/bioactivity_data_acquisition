@@ -3,7 +3,7 @@
 import pandas as pd
 import pytest
 
-from library.tools.citation_formatter import format_citation, add_citation_column
+from library.tools.citation_formatter import add_citation_column, format_citation
 
 
 class TestFormatCitation:
@@ -13,72 +13,79 @@ class TestFormatCitation:
         """Тест базовой ссылки с issue."""
         result = format_citation(
             journal="Nature",
+            year="2022",
             volume="612",
             issue="7940",
             first_page="100",
             last_page="105"
         )
-        assert result == "Nature, 612 (7940). p. 100-105"
+        assert result == "Nature, 2022, 612 (7940). p. 100-105"
 
     def test_basic_citation_without_issue(self):
         """Тест базовой ссылки без issue."""
         result = format_citation(
             journal="Nature",
+            year="2022",
             volume="612",
             issue="",
             first_page="100",
             last_page="100"
         )
-        assert result == "Nature, 612. 100"
+        assert result == "Nature, 2022, 612. 100"
 
     def test_single_page_non_numeric_last_page(self):
         """Тест одной страницы с нечисловым last_page."""
         result = format_citation(
             journal="JAMA",
+            year="2022",
             volume="327",
             issue="12",
             first_page="e221234",
             last_page="e221234"
         )
-        assert result == "JAMA, 327 (12). e221234"
+        assert result == "JAMA, 2022, 327 (12). e221234"
 
     def test_single_page_large_last_page(self):
         """Тест одной страницы с большим last_page."""
         result = format_citation(
             journal="Cell",
+            year="2022",
             volume="",
             issue="",
             first_page="50",
             last_page="200000"
         )
-        assert result == "Cell. 50"
+        assert result == "Cell, 2022. 50"
 
     def test_no_pages(self):
         """Тест без страниц."""
         result = format_citation(
             journal="Science",
+            year="2022",
             volume="380",
             issue="*",
             first_page="",
             last_page=""
         )
-        assert result == "Science, 380 (*)."
+        assert result == "Science, 2022, 380 (*)."
 
     def test_no_volume(self):
         """Тест без volume."""
         result = format_citation(
             journal="PLOS ONE",
+            year="2022",
             volume="",
             issue="",
             first_page="123",
             last_page="456"
         )
-        assert result == "PLOS ONE. p. 123-456"
+        assert result == "PLOS ONE, 2022. p. 123-456"
 
     def test_no_journal(self):
         """Тест без journal."""
         result = format_citation(
             journal="",
+            year="2022",
             volume="123",
             issue="4",
             first_page="10",
@@ -90,122 +97,133 @@ class TestFormatCitation:
         """Тест с NaN значениями."""
         result = format_citation(
             journal="Test Journal",
+            year="2022",
             volume=pd.NA,
             issue=pd.NA,
             first_page=pd.NA,
             last_page=pd.NA
         )
-        assert result == "Test Journal."
+        assert result == "Test Journal, 2022."
 
     def test_whitespace_handling(self):
         """Тест обработки пробелов."""
         result = format_citation(
             journal="  Nature  ",
+            year="2022",
             volume=" 612 ",
             issue=" 7940 ",
             first_page=" 100 ",
             last_page=" 105 "
         )
-        assert result == "Nature, 612 (7940). p. 100-105"
+        assert result == "Nature, 2022, 612 (7940). p. 100-105"
 
     def test_string_numbers(self):
         """Тест со строковыми числами."""
         result = format_citation(
             journal="Journal",
+            year="2022",
             volume="123",
             issue="4",
             first_page="10",
             last_page="20"
         )
-        assert result == "Journal, 123 (4). p. 10-20"
+        assert result == "Journal, 2022, 123 (4). p. 10-20"
 
     def test_first_page_missing_last_page_present(self):
         """Тест когда first_page отсутствует, а last_page есть."""
         result = format_citation(
             journal="Journal",
+            year="2022",
             volume="1",
             issue="",
             first_page="",
             last_page="50"
         )
-        assert result == "Journal, 1. 50"
+        assert result == "Journal, 2022, 1. 50"
 
     def test_both_pages_missing(self):
         """Тест когда обе страницы отсутствуют."""
         result = format_citation(
             journal="Journal",
+            year="2022",
             volume="1",
             issue="",
             first_page="",
             last_page=""
         )
-        assert result == "Journal, 1."
+        assert result == "Journal, 2022, 1."
 
     def test_first_page_non_numeric_last_page_numeric(self):
         """Тест когда first_page нечисловой, а last_page числовой."""
         result = format_citation(
             journal="Journal",
+            year="2022",
             volume="1",
             issue="",
             first_page="abc",
             last_page="50"
         )
-        assert result == "Journal, 1. abc"
+        assert result == "Journal, 2022, 1. abc"
 
     def test_edge_case_equal_pages(self):
         """Тест граничного случая - равные страницы."""
         result = format_citation(
             journal="Journal",
+            year="2022",
             volume="1",
             issue="",
             first_page="100",
             last_page="100"
         )
-        assert result == "Journal, 1. 100"
+        assert result == "Journal, 2022, 1. 100"
 
     def test_edge_case_last_page_99999(self):
         """Тест граничного случая - last_page = 99999."""
         result = format_citation(
             journal="Journal",
+            year="2022",
             volume="1",
             issue="",
             first_page="100",
             last_page="99999"
         )
-        assert result == "Journal, 1. p. 100-99999"
+        assert result == "Journal, 2022, 1. p. 100-99999"
 
     def test_edge_case_last_page_100000(self):
         """Тест граничного случая - last_page = 100000."""
         result = format_citation(
             journal="Journal",
+            year="2022",
             volume="1",
             issue="",
             first_page="100",
             last_page="100000"
         )
-        assert result == "Journal, 1. 100"
+        assert result == "Journal, 2022, 1. 100"
 
     def test_double_spaces_removal(self):
         """Тест удаления двойных пробелов."""
         result = format_citation(
             journal="Journal  Name",
+            year="2022",
             volume="1",
             issue="",
             first_page="100",
             last_page="200"
         )
-        assert result == "Journal Name, 1. p. 100-200"
+        assert result == "Journal Name, 2022, 1. p. 100-200"
 
     def test_trailing_punctuation_removal(self):
         """Тест удаления висячих знаков препинания."""
         result = format_citation(
             journal="Journal.",
+            year="2022",
             volume="1",
             issue="",
             first_page="100",
             last_page="200"
         )
-        assert result == "Journal., 1. p. 100-200"
+        assert result == "Journal., 2022, 1. p. 100-200"
 
 
 class TestAddCitationColumn:
@@ -215,6 +233,7 @@ class TestAddCitationColumn:
         """Тест добавления колонки с цитатами."""
         df = pd.DataFrame({
             'journal': ['Nature', 'Science', 'Cell'],
+            'year': ['2022', '2022', '2022'],
             'volume': ['612', '380', ''],
             'issue': ['7940', '', ''],
             'first_page': ['100', '50', ''],
@@ -224,9 +243,9 @@ class TestAddCitationColumn:
         result = add_citation_column(df)
         
         assert 'document_citation' in result.columns
-        assert result['document_citation'].iloc[0] == "Nature, 612 (7940). p. 100-105"
-        assert result['document_citation'].iloc[1] == "Science, 380. 50"
-        assert result['document_citation'].iloc[2] == "Cell."
+        assert result['document_citation'].iloc[0] == "Nature, 2022, 612 (7940). p. 100-105"
+        assert result['document_citation'].iloc[1] == "Science, 2022, 380. 50"
+        assert result['document_citation'].iloc[2] == "Cell, 2022."
 
     def test_add_citation_column_preserves_original_data(self):
         """Тест что оригинальные данные сохраняются."""

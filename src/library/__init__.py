@@ -61,10 +61,7 @@ from library.telemetry import get_current_trace_id, setup_telemetry, traced_oper
 from library.utils import *  # noqa: F403
 from library.utils import __all__ as _utils_all
 
-try:  # pragma: no cover - optional wiring for partially generated configs
-    from library.config import CLISettings
-except ImportError:  # pragma: no cover - optional wiring for partially generated configs
-    CLISettings = None  # type: ignore[assignment]
+# CLISettings removed as it doesn't exist in library.config
 
 __all__ = [
     "ALLOWED_SOURCES",
@@ -128,6 +125,5 @@ __all__ = [
     "get_current_trace_id",
 ]
 
-if CLISettings is not None:
-    __all__.append("CLISettings")
-__all__ += list(_utils_all)
+# CLISettings removed
+__all__.extend(_utils_all)  # type: ignore

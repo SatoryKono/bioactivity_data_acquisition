@@ -192,7 +192,7 @@ ignore_missing_imports = true
 
 [tool.pyright]
 include = ["src"]
-exclude = ["**/node_modules", "**/__pycache__"]
+exclude = ["**/node_modules", "**/__pycache__", "build", "dist"]
 ignore = []
 defineConstant = { DEBUG = true }
 stubPath = "stubs"
@@ -201,6 +201,11 @@ reportMissingTypeStubs = false
 pythonVersion = "3.13"
 pythonPlatform = "All"
 executionEnvironments = [{ root = "src" }]
+typeCheckingMode = "basic"
+useLibraryCodeForTypes = true
+autoImportCompletions = true
+indexing = true
+reportMissingModuleSource = "none"
 
 [tool.pytest.benchmark]
 save = "benchmark_results.json"

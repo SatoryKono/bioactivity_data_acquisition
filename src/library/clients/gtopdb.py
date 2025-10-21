@@ -29,7 +29,7 @@ class CircuitBreaker:
     holdoff_seconds: int = 300
     _failures: int = 0
     _last_failure_time: float = 0
-    _lock: threading.RLock = None
+    _lock: threading.RLock | None = None
     
     def __post_init__(self) -> None:
         if self._lock is None:
@@ -37,24 +37,29 @@ class CircuitBreaker:
     
     def record_success(self) -> None:
         """Record a successful request."""
-        with self._lock:
-            self._failures = 0
+        if self._lock is not None:
+            with self._lock:
+                self._failures = 0
     
     def record_failure(self) -> bool:
         """Record a failed request and return True if circuit should open."""
-        with self._lock:
-            self._failures += 1
-            self._last_failure_time = time.time()
-            if self._failures >= self.failure_threshold:
-                return True
-            return False
+        if self._lock is not None:
+            with self._lock:
+                self._failures += 1
+                self._last_failure_time = time.time()
+                if self._failures >= self.failure_threshold:
+                    return True
+                return False
+        return False
     
     def is_open(self) -> bool:
         """Check if circuit breaker is open."""
-        with self._lock:
-            if self._failures < self.failure_threshold:
-                return False
-            return time.time() - self._last_failure_time < self.holdoff_seconds
+        if self._lock is not None:
+            with self._lock:
+                if self._failures < self.failure_threshold:
+                    return False
+                return time.time() - self._last_failure_time < self.holdoff_seconds
+        return False
 
 
 @dataclass
@@ -64,7 +69,7 @@ class RateLimiter:
     rps: float = 1.0  # Requests per second
     burst: int = 2
     _last_request_time: float = 0
-    _lock: threading.RLock = None
+    _lock: threading.RLock | None = None
     
     def __post_init__(self) -> None:
         if self._lock is None:
@@ -72,16 +77,17 @@ class RateLimiter:
     
     def acquire(self) -> None:
         """Acquire permission to make a request."""
-        with self._lock:
-            now = time.time()
-            time_since_last = now - self._last_request_time
-            min_interval = 1.0 / self.rps
-            
-            if time_since_last < min_interval:
-                sleep_time = min_interval - time_since_last
-                time.sleep(sleep_time)
-            
-            self._last_request_time = time.time()
+        if self._lock is not None:
+            with self._lock:
+                now = time.time()
+                time_since_last = now - self._last_request_time
+                min_interval = 1.0 / self.rps
+                
+                if time_since_last < min_interval:
+                    sleep_time = min_interval - time_since_last
+                    time.sleep(sleep_time)
+                
+                self._last_request_time = time.time()
 
 
 class GtoPdbClient(BaseApiClient):

@@ -229,6 +229,10 @@ class TestAutoQCCorrelation:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
             data_path = Path(tmp_file.name)
         
+        # Определяем переменные для очистки заранее
+        data_dir = data_path.parent
+        data_stem = data_path.stem
+        
         try:
             # Записываем данные
             write_deterministic_csv(
@@ -237,9 +241,6 @@ class TestAutoQCCorrelation:
                 determinism=None,
                 output=None
             )
-            
-            data_dir = data_path.parent
-            data_stem = data_path.stem
             
             # Проверяем содержимое базового QC отчета
             qc_path = data_dir / f"{data_stem}_quality_report.csv"
@@ -299,6 +300,10 @@ class TestAutoQCCorrelation:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
             data_path = Path(tmp_file.name)
         
+        # Определяем переменные для очистки заранее
+        data_dir = data_path.parent
+        data_stem = data_path.stem
+        
         try:
             # Тест 1: Отключаем QC, но оставляем корреляцию включенной
             postprocess_qc_disabled = PostprocessSettings(
@@ -316,9 +321,6 @@ class TestAutoQCCorrelation:
             
             # Проверяем, что основной файл создался
             assert data_path.exists(), "Основной файл данных должен быть создан"
-            
-            data_dir = data_path.parent
-            data_stem = data_path.stem
             
             # QC отчеты НЕ должны создаться
             qc_path = data_dir / f"{data_stem}_quality_report.csv"

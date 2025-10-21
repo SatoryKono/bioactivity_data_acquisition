@@ -2,7 +2,8 @@
 # Единый интерфейс для всех пайплайнов и операций
 
 .PHONY: help setup-api-keys clean-backups test run-dev install-dev
-.PHONY: pipeline pipeline-test pipeline-clean health
+.PHONY: run run-documents run-targets run-assays run-activities run-testitems
+.PHONY: pipeline pipeline-test pipeline-clean health analyze-iuphar
 .PHONY: fmt lint type-check qa
 .PHONY: docs-serve docs-build docs-lint docs-deploy
 .PHONY: clean
@@ -27,12 +28,16 @@ help:
 	@echo "$(BLUE)Bioactivity Data Acquisition - Unified Interface$(NC)"
 	@echo ""
 	@echo "$(GREEN)Pipeline Commands:$(NC)"
-	@echo "  make pipeline TYPE=<documents|targets|assays|activities|testitems> INPUT=... CONFIG=... [FLAGS=\"...\"]"
+	@echo "  make run ENTITY=<documents|targets|assays|activities|testitems> [STAGE=...] [INPUT=...] [CONFIG=...] [FLAGS=\"...\"]"
+	@echo "  make pipeline TYPE=<documents|targets|assays|activities|testitems> INPUT=... CONFIG=... [FLAGS=\"...\"] (legacy)"
 	@echo "  make pipeline-test TYPE=<...> [MARKERS=\"slow\"]"
 	@echo "  make pipeline-clean TYPE=<...>"
 	@echo ""
 	@echo "$(GREEN)Health & Monitoring:$(NC)"
 	@echo "  make health CONFIG=..."
+	@echo ""
+	@echo "$(GREEN)Analysis:$(NC)"
+	@echo "  make analyze-iuphar TARGET_CSV=... [IUPHAR_DICT=...] [SAMPLE_SIZE=...] [TARGET_ID=...] [OUTPUT_FORMAT=...] [VERBOSE=true]"
 	@echo ""
 	@echo "$(GREEN)Code Quality:$(NC)"
 	@echo "  make fmt          - Format code"
@@ -52,26 +57,41 @@ help:
 	@echo "  make install-dev  - Install in development mode"
 	@echo ""
 	@echo "$(GREEN)Examples:$(NC)"
-	@echo "  make pipeline TYPE=documents CONFIG=configs/config_documents_full.yaml"
-	@echo "  make pipeline TYPE=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml"
+	@echo "  make run ENTITY=documents CONFIG=configs/config_documents_full.yaml"
+	@echo "  make run ENTITY=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml"
+	@echo "  make run ENTITY=activities STAGE=extract CONFIG=configs/config_activity_full.yaml"
 	@echo "  make pipeline-test TYPE=documents MARKERS=\"slow\""
 	@echo "  make health CONFIG=configs/config_documents_full.yaml"
+	@echo "  make analyze-iuphar TARGET_CSV=data/output/target/target_20251021.csv VERBOSE=true"
+
+# =============================================================================
+# UNIFIED RUN COMMAND
+# =============================================================================
+
+# Универсальная команда для запуска любых пайплайнов
+run:
+	@if [ -z "$(ENTITY)" ]; then \
+		echo "$(RED)Error: ENTITY is required. Use: make run ENTITY=<documents|targets|assays|activities|testitems> [STAGE=...]$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Running $(ENTITY) pipeline$(if $(STAGE), stage $(STAGE),)...$(NC)"
+	@$(MAKE) run-$(ENTITY) CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)" STAGE="$(STAGE)"
 
 # =============================================================================
 # PIPELINE COMMANDS
 # =============================================================================
 
-# Универсальная команда для запуска пайплайнов
+# Универсальная команда для запуска пайплайнов (legacy)
 pipeline:
 	@if [ -z "$(TYPE)" ]; then \
 		echo "$(RED)Error: TYPE is required. Use: make pipeline TYPE=<documents|targets|assays|activities|testitems>$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(BLUE)Running $(TYPE) pipeline...$(NC)"
-	@$(MAKE) pipeline-$(TYPE) CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
+	@$(MAKE) run ENTITY=$(TYPE) CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
 
-# Documents pipeline
-pipeline-documents:
+# Run documents pipeline
+run-documents:
 	@echo "$(BLUE)Running documents pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/documents
 	@$(PYTHON) -m library.cli get-document-data \
@@ -81,8 +101,12 @@ pipeline-documents:
 		--log-level INFO
 	@echo "$(GREEN)Documents pipeline completed!$(NC)"
 
-# Targets pipeline
-pipeline-targets:
+# Documents pipeline (legacy)
+pipeline-documents:
+	@$(MAKE) run-documents CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
+
+# Run targets pipeline
+run-targets:
 	@echo "$(BLUE)Running targets pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/target
 	@$(PYTHON) -m library.cli get-target-data \
@@ -92,8 +116,12 @@ pipeline-targets:
 		--log-level INFO
 	@echo "$(GREEN)Targets pipeline completed!$(NC)"
 
-# Assays pipeline
-pipeline-assays:
+# Targets pipeline (legacy)
+pipeline-targets:
+	@$(MAKE) run-targets CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
+
+# Run assays pipeline
+run-assays:
 	@echo "$(BLUE)Running assays pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/assay
 	@$(PYTHON) -m library.cli get-assay-data \
@@ -103,8 +131,12 @@ pipeline-assays:
 		--log-level INFO
 	@echo "$(GREEN)Assays pipeline completed!$(NC)"
 
-# Activities pipeline
-pipeline-activities:
+# Assays pipeline (legacy)
+pipeline-assays:
+	@$(MAKE) run-assays CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
+
+# Run activities pipeline
+run-activities:
 	@echo "$(BLUE)Running activities pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/activity
 	@$(PYTHON) -m library.cli get-activity-data \
@@ -114,16 +146,24 @@ pipeline-activities:
 		--log-level INFO
 	@echo "$(GREEN)Activities pipeline completed!$(NC)"
 
-# Testitems pipeline
-pipeline-testitems:
+# Activities pipeline (legacy)
+pipeline-activities:
+	@$(MAKE) run-activities CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
+
+# Run testitems pipeline
+run-testitems:
 	@echo "$(BLUE)Running testitems pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/testitem
-	@$(PYTHON) -m library.cli get-testitem-data \
+	@$(PYTHON) -m library.cli testitem-run \
 		--config $(or $(CONFIG),$(CONFIG_DIR)/config_testitem_full.yaml) \
 		--input $(or $(INPUT),$(INPUT_DIR)/testitem.csv) \
 		$(if $(FLAGS),$(FLAGS),) \
-		--log-level INFO
+		--verbose
 	@echo "$(GREEN)Testitems pipeline completed!$(NC)"
+
+# Testitems pipeline (legacy)
+pipeline-testitems:
+	@$(MAKE) run-testitems CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
 
 # =============================================================================
 # PIPELINE TESTING
@@ -226,6 +266,22 @@ health:
 	@echo "$(BLUE)Checking API health...$(NC)"
 	@$(PYTHON) -m library.cli health --config $(CONFIG)
 	@echo "$(GREEN)Health check completed!$(NC)"
+
+# Analysis commands
+analyze-iuphar:
+	@if [ -z "$(TARGET_CSV)" ]; then \
+		echo "$(RED)Error: TARGET_CSV is required. Use: make analyze-iuphar TARGET_CSV=path/to/target.csv$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Analyzing IUPHAR mapping...$(NC)"
+	@$(PYTHON) -m library.cli analyze-iuphar-mapping \
+		--target-csv $(TARGET_CSV) \
+		$(if $(IUPHAR_DICT),--iuphar-dict $(IUPHAR_DICT),) \
+		$(if $(SAMPLE_SIZE),--sample-size $(SAMPLE_SIZE),) \
+		$(if $(TARGET_ID),--target-id $(TARGET_ID),) \
+		$(if $(OUTPUT_FORMAT),--format $(OUTPUT_FORMAT),) \
+		$(if $(VERBOSE),--verbose,)
+	@echo "$(GREEN)IUPHAR analysis completed!$(NC)"
 
 # =============================================================================
 # CODE QUALITY

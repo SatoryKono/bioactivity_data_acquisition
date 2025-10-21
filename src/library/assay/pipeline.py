@@ -770,7 +770,7 @@ def write_assay_outputs(
     except OSError as exc:  # pragma: no cover - filesystem permission issues
         raise AssayIOError(f"Failed to write outputs: {exc}") from exc
 
-    result_paths = {
+    result_paths: dict[str, Any] = {
         "csv": csv_path, 
         "qc": qc_path,
         "meta": meta_path

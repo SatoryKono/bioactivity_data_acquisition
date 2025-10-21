@@ -1,7 +1,6 @@
 ﻿#!/usr/bin/env python3
 """Р”РµС‚Р°Р»СЊРЅС‹Р№ С‚РµСЃС‚ API Р·Р°РїСЂРѕСЃРѕРІ Рє IUPHAR."""
 
-import pytest
 import logging
 import requests
 
@@ -38,9 +37,9 @@ for uniprot_id in test_uniprot_ids:
             print(f"   Р РµР·СѓР»СЊС‚Р°С‚РѕРІ: {len(data1)}")
             print(f"   РџРµСЂРІС‹Р№: targetId={data1[0].get('targetId', 'N/A')}, name={data1[0].get('name', 'N/A')}")
         else:
-            print(f"   Р РµР·СѓР»СЊС‚Р°С‚: {data1}")
+            print(f"   Результат: {data1}")
     except Exception as e:
-        print(f"   РћС€РёР±РєР°: {e}")
+        print(f"   Ошибка: {e}")
     
     # РўРµСЃС‚ 2: РќРѕРІС‹Р№ СЃРїРѕСЃРѕР± (accession РїР°СЂР°РјРµС‚СЂ)
     print("2. РќРѕРІС‹Р№ СЃРїРѕСЃРѕР± (accession):")
@@ -55,9 +54,9 @@ for uniprot_id in test_uniprot_ids:
             print(f"   Р РµР·СѓР»СЊС‚Р°С‚РѕРІ: {len(data2)}")
             print(f"   РџРµСЂРІС‹Р№: targetId={data2[0].get('targetId', 'N/A')}, name={data2[0].get('name', 'N/A')}")
         else:
-            print(f"   Р РµР·СѓР»СЊС‚Р°С‚: {data2}")
+            print(f"   Результат: {data2}")
     except Exception as e:
-        print(f"   РћС€РёР±РєР°: {e}")
+        print(f"   Ошибка: {e}")
     
     # РўРµСЃС‚ 3: РџРѕРїСЂРѕР±СѓРµРј РґСЂСѓРіРёРµ РІР°СЂРёР°РЅС‚С‹ РїР°СЂР°РјРµС‚СЂРѕРІ
     print("3. РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹:")
@@ -72,9 +71,9 @@ for uniprot_id in test_uniprot_ids:
             print(f"   Р РµР·СѓР»СЊС‚Р°С‚РѕРІ: {len(data3)}")
             print(f"   РџРµСЂРІС‹Р№: targetId={data3[0].get('targetId', 'N/A')}, name={data3[0].get('name', 'N/A')}")
         else:
-            print(f"   Р РµР·СѓР»СЊС‚Р°С‚: {data3}")
+            print(f"   Результат: {data3}")
     except Exception as e:
-        print(f"   РћС€РёР±РєР°: {e}")
+        print(f"   Ошибка: {e}")
 
-print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== Тест завершен ===")
 

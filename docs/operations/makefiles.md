@@ -20,13 +20,19 @@
 # Показать справку
 make help
 
-# Универсальные команды пайплайнов
+# Новый унифицированный интерфейс (рекомендуется)
+make run ENTITY=<documents|targets|assays|activities|testitems> [STAGE=...] [INPUT=...] [CONFIG=...] [FLAGS="..."]
+
+# Универсальные команды пайплайнов (legacy)
 make pipeline TYPE=<documents|targets|assays|activities|testitems> INPUT=... CONFIG=... [FLAGS="..."]
 make pipeline-test TYPE=<...> [MARKERS="slow"]
 make pipeline-clean TYPE=<...>
 
 # Health & Monitoring
 make health CONFIG=...
+
+# Analysis
+make analyze-iuphar TARGET_CSV=... [IUPHAR_DICT=...] [SAMPLE_SIZE=...] [TARGET_ID=...] [OUTPUT_FORMAT=...] [VERBOSE=true]
 
 # Code Quality
 make fmt          # Format code
@@ -49,7 +55,29 @@ make install-dev    # Install in development mode
 
 ## Pipeline Commands
 
-### Универсальный запуск пайплайнов
+### Новый унифицированный интерфейс (рекомендуется)
+
+```bash
+# Documents pipeline
+make run ENTITY=documents CONFIG=configs/config_documents_full.yaml
+
+# Targets pipeline
+make run ENTITY=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml
+
+# Assays pipeline
+make run ENTITY=assays INPUT=data/input/assay.csv CONFIG=configs/config_assay_full.yaml
+
+# Activities pipeline
+make run ENTITY=activities INPUT=data/input/activity.csv CONFIG=configs/config_activity_full.yaml
+
+# Testitems pipeline
+make run ENTITY=testitems INPUT=data/input/testitem.csv CONFIG=configs/config_testitem_full.yaml
+
+# С поддержкой STAGE (для будущих расширений)
+make run ENTITY=activities STAGE=extract CONFIG=configs/config_activity_full.yaml
+```
+
+### Legacy интерфейс (для обратной совместимости)
 
 ```bash
 # Documents pipeline
@@ -103,6 +131,27 @@ make pipeline-clean TYPE=testitems
 make health CONFIG=configs/config_documents_full.yaml
 make health CONFIG=configs/config_target_full.yaml
 make health CONFIG=configs/config_assay_full.yaml
+```
+
+## Analysis
+
+### IUPHAR mapping analysis
+
+```bash
+# Basic analysis
+make analyze-iuphar TARGET_CSV=data/output/target/target_20251021.csv
+
+# Verbose analysis with custom parameters
+make analyze-iuphar TARGET_CSV=data/output/target/target_20251021.csv \
+  IUPHAR_DICT=configs/dictionary/_target/_IUPHAR/_IUPHAR_target.csv \
+  SAMPLE_SIZE=20 \
+  TARGET_ID=1386 \
+  OUTPUT_FORMAT=json \
+  VERBOSE=true
+
+# Export results to CSV
+make analyze-iuphar TARGET_CSV=data/output/target/target_20251021.csv \
+  OUTPUT_FORMAT=csv
 ```
 
 ## Code Quality
@@ -178,8 +227,8 @@ make full-setup
 make setup-api-keys
 make install-dev
 
-# 2. Run documents pipeline
-make pipeline TYPE=documents CONFIG=configs/config_documents_full.yaml
+# 2. Run documents pipeline (новый интерфейс)
+make run ENTITY=documents CONFIG=configs/config_documents_full.yaml
 
 # 3. Test
 make pipeline-test TYPE=documents
@@ -191,11 +240,15 @@ make pipeline-clean TYPE=documents
 ### Advanced usage
 
 ```bash
-# Custom input and config
-make pipeline TYPE=targets \
+# Custom input and config (новый интерфейс)
+make run ENTITY=targets \
   INPUT=data/input/custom_targets.csv \
   CONFIG=configs/custom_config.yaml \
   FLAGS="--limit 100 --timeout-sec 120"
+
+# С поддержкой STAGE
+make run ENTITY=activities STAGE=extract \
+  CONFIG=configs/config_activity_full.yaml
 
 # Test with specific markers
 make pipeline-test TYPE=assays MARKERS="slow integration"
@@ -213,25 +266,32 @@ make qa
 # 2. Test
 make test
 
-# 3. Run pipeline
-make pipeline TYPE=documents
+# 3. Run pipeline (новый интерфейс)
+make run ENTITY=documents
 
 # 4. Clean
 make clean
 ```
 
-## Migration from old Makefiles
+## Migration to new unified interface
 
-### Old commands → New commands
+### Legacy commands → New commands
 
-| Old Command | New Command |
-|-------------|-------------|
-| `make -f Makefile.assay assay-example` | `make pipeline TYPE=assays` |
-| `make -f Makefile.assay test-assay` | `make pipeline-test TYPE=assays` |
-| `make -f Makefile.assay clean-assay` | `make pipeline-clean TYPE=assays` |
-| `make -f Makefile.target target-example` | `make pipeline TYPE=targets` |
-| `make -f Makefile.target test-target` | `make pipeline-test TYPE=targets` |
-| `make -f Makefile.target clean-target` | `make pipeline-clean TYPE=targets` |
+| Legacy Command | New Command (Recommended) | Legacy Command (Still Supported) |
+|----------------|---------------------------|-----------------------------------|
+| `make pipeline TYPE=documents` | `make run ENTITY=documents` | `make pipeline TYPE=documents` |
+| `make pipeline TYPE=targets` | `make run ENTITY=targets` | `make pipeline TYPE=targets` |
+| `make pipeline TYPE=assays` | `make run ENTITY=assays` | `make pipeline TYPE=assays` |
+| `make pipeline TYPE=activities` | `make run ENTITY=activities` | `make pipeline TYPE=activities` |
+| `make pipeline TYPE=testitems` | `make run ENTITY=testitems` | `make pipeline TYPE=testitems` |
+
+### Benefits of new `run` interface
+
+- **Consistent naming**: `ENTITY` instead of `TYPE` for clarity
+- **Future extensibility**: Support for `STAGE` parameter
+- **Single source of truth**: All pipeline logic in one place
+- **Better error messages**: More descriptive validation
+- **Backward compatibility**: Legacy `pipeline` commands still work
 
 ### Benefits of unified interface
 

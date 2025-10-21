@@ -98,7 +98,8 @@ class ActivityPipeline:
                 # Фоллбэк: оборачиваем стандартный логгер
                 logger = BoundLogger(logging.getLogger(__name__))
         
-        logger.info("Starting activity ETL pipeline", config=str(self.config))
+        if logger:
+            logger.info("Starting activity ETL pipeline", config=str(self.config))
         
         # Ensure directories exist
         self.config.ensure_directories()
@@ -110,7 +111,8 @@ class ActivityPipeline:
         raw_activities = self._extract_activities(filter_ids, logger)
         
         if raw_activities.empty:
-            logger.warning("No activities extracted")
+            if logger:
+                logger.warning("No activities extracted")
             return ActivityETLResult(
                 activities=pd.DataFrame(),
                 meta={
@@ -127,7 +129,8 @@ class ActivityPipeline:
         if "activity_chembl_id" not in activities_df.columns and "activity_id" in activities_df.columns:
             activities_df = activities_df.copy()
             activities_df["activity_chembl_id"] = activities_df["activity_id"].astype(str)
-        logger.info(f"Extracted {len(activities_df)} activities")
+        if logger:
+            logger.info(f"Extracted {len(activities_df)} activities")
         
         # Validate data
         validated_df = self._validate_activities(activities_df, logger)
@@ -175,7 +178,8 @@ class ActivityPipeline:
         except Exception as exc:
             logging.getLogger(__name__).warning(f"Failed to build activity correlation analysis: {exc}")
 
-        logger.info("Activity ETL pipeline completed successfully")
+        if logger:
+            logger.info("Activity ETL pipeline completed successfully")
         
         return ActivityETLResult(
             activities=normalized_df,
@@ -208,7 +212,8 @@ class ActivityPipeline:
         }
         
         if input_csv is None:
-            logger.info("No input CSV provided, using all available activities")
+            if logger:
+                logger.info("No input CSV provided, using all available activities")
             return filter_ids
         
         if not input_csv.exists():
@@ -216,7 +221,8 @@ class ActivityPipeline:
         
         try:
             df = pd.read_csv(input_csv)
-            logger.info(f"Loaded input CSV with {len(df)} rows")
+            if logger:
+                logger.info(f"Loaded input CSV with {len(df)} rows")
             
             # Map column names to filter types
             column_mapping = {
@@ -237,14 +243,17 @@ class ActivityPipeline:
                         numeric_ids = [s for s in (id_.strip() for id_ in ids) if s.isdigit()]
                         invalid = len(ids) - len(numeric_ids)
                         if invalid:
-                            logger.warning(
-                                f"Skipped {invalid} non-numeric activity_chembl_id values; ChEMBL expects numeric activity_id"
-                            )
+                            if logger:
+                                logger.warning(
+                                    f"Skipped {invalid} non-numeric activity_chembl_id values; ChEMBL expects numeric activity_id"
+                                )
                         filter_ids[filter_type] = numeric_ids
-                        logger.info(f"Loaded {len(numeric_ids)} {filter_type} from {col}")
+                        if logger:
+                            logger.info(f"Loaded {len(numeric_ids)} {filter_type} from {col}")
                     else:
                         filter_ids[filter_type] = ids
-                        logger.info(f"Loaded {len(ids)} {filter_type} from {col}")
+                        if logger:
+                            logger.info(f"Loaded {len(ids)} {filter_type} from {col}")
             
         except Exception as e:
             logger.error(f"Failed to load input CSV: {e}")
@@ -464,7 +473,7 @@ class ActivityPipeline:
         
         try:
             # Get ChEMBL status for release info
-            status = self.client.get_chembl_status()
+            status: dict[str, Any] = self.client.get_chembl_status()
             
             meta = {
                 "total_activities": len(activities_df),
@@ -474,7 +483,11 @@ class ActivityPipeline:
                 "config": {
                     "limit": self.config.limit,
                     "workers": getattr(self.config.runtime, "workers", 4),
-                    "qc_enabled": getattr(getattr(self.config, "postprocess", {}), "qc", {}).enabled if hasattr(getattr(self.config, "postprocess", {}), "qc") else True,
+                    "qc_enabled": (
+                        getattr(getattr(self.config, "postprocess", None), "qc", {}).get("enabled", True)
+                        if hasattr(getattr(self.config, "postprocess", None), "qc")
+                        else True
+                    ),
                 }
             }
 

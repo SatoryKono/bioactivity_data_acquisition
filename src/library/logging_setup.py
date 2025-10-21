@@ -90,10 +90,11 @@ def _redact_secrets_processor(logger: Any, method_name: str, event_dict: Mutable
     # Redact any other sensitive fields
     redacted_dict = redact_dict(event_dict)
     
-    return redacted_dict
+    # Ensure we always return a valid dictionary
+    return redacted_dict if redacted_dict is not None else {}
 
 
-def _add_context_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
+def _add_context_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any] | None:
     """Add context variables to structlog event dictionary."""
     event_dict["run_id"] = run_id_var.get() or "unknown"
     event_dict["stage"] = stage_var.get() or "unknown"
