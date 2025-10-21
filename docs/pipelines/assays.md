@@ -265,28 +265,28 @@ determinism:
 
 ```bash
 # Установка зависимостей
-make -f Makefile.assay install-assay
+make install-dev
 
 # Валидация конфигурации
-make -f Makefile.assay validate-assay-config
+make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --dry-run
 
 # Запуск с примером данных
-make -f Makefile.assay assay-example
+make pipeline TYPE=assays INPUT=data/input/assay.csv CONFIG=configs/config_assay_full.yaml
 
 # Извлечение по таргету
-make -f Makefile.assay assay-target
+make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--target CHEMBL231"
 
 # Тестовый запуск без записи
-make -f Makefile.assay assay-dry-run
+make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--dry-run"
 
 # Запуск тестов
-make -f Makefile.assay test-assay
+make pipeline-test TYPE=assays
 
 # Очистка артефактов
-make -f Makefile.assay clean-assay
+make pipeline-clean TYPE=assays
 
 # Справка
-make -f Makefile.assay help
+make help
 ```
 
 ### CLI команды
@@ -424,7 +424,7 @@ filters:
 3. **Ошибка валидации**
    ```bash
    # Решение: Проверить конфигурацию
-   make -f Makefile.assay validate-assay-config
+   make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --dry-run
    ```
 
 4. **Проблемы с фильтрацией**
@@ -436,29 +436,29 @@ filters:
 5. **Ошибки кэширования**
    ```bash
    # Решение: Очистить кэш
-   make -f Makefile.assay clean-assay-cache
+   make pipeline-clean TYPE=assays
    ```
 
 ### Troubleshooting
 
 ```bash
 # Проверка статуса ChEMBL
-make -f Makefile.assay assay-status
+make health CONFIG=configs/config_assay_full.yaml
 
 # Проверка конфигурации
-make -f Makefile.assay validate-assay-config
+make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --dry-run
 
 # Проверка зависимостей
-make -f Makefile.assay check-assay-deps
+make install-dev
 
 # Тестовый запуск
-make -f Makefile.assay assay-dry-run
+make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--dry-run"
 
 # Просмотр справки
-make -f Makefile.assay show-assay-help
+make help
 
 # Просмотр примеров
-make -f Makefile.assay show-assay-examples
+make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --help
 ```
 
 ### Производительность
@@ -474,8 +474,8 @@ make -f Makefile.assay show-assay-examples
 
 ```bash
 # Проверка статуса ChEMBL
-make -f Makefile.assay assay-status
+make health CONFIG=configs/config_assay_full.yaml
 
 # Тестовый запуск
-make -f Makefile.assay assay-dry-run
+make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--dry-run"
 ```

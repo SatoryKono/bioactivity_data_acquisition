@@ -1,519 +1,301 @@
-# Makefiles
+# Unified Makefile
 
-Документация по всем Makefile'ам в проекте и стандартизованному контракту целей.
+Документация по единому Makefile для всех операций в проекте bioactivity-data-acquisition.
 
 ## Философия использования Make
 
 В проекте Make используется для:
 
-- **Стандартизации команд**: Единообразные цели для всех пайплайнов
+- **Унификации интерфейса**: Единый интерфейс для всех пайплайнов
+- **Параметризации**: Гибкие команды с параметрами
 - **Автоматизации**: Упрощение повторяющихся операций
 - **Документации**: Справка по доступным командам
 - **Кроссплатформенности**: Работа на Windows, Linux, macOS
 
-## Главный Makefile
+## Единый интерфейс
 
-### Общие цели
+### Основные команды
 
 ```bash
 # Показать справку
 make help
 
-# Установка и настройка
-make setup-api-keys    # Установить API ключи в переменные окружения
-make install-dev       # Установить в режиме разработки
+# Универсальные команды пайплайнов
+make pipeline TYPE=<documents|targets|assays|activities|testitems> INPUT=... CONFIG=... [FLAGS="..."]
+make pipeline-test TYPE=<...> [MARKERS="slow"]
+make pipeline-clean TYPE=<...>
 
-# Очистка
-make clean-backups     # Очистить backup файлы
-make clean             # Очистить все временные файлы
+# Health & Monitoring
+make health CONFIG=...
 
-# Тестирование и качество
-make test              # Запустить тесты
-make health-check      # Проверить здоровье API
-make format            # Форматировать код
-make lint              # Проверить код линтером
-make type-check        # Проверить типы
-make quality           # Полная проверка качества кода
+# Code Quality
+make fmt          # Format code
+make lint         # Lint code
+make type-check   # Type checking
+make qa           # Full quality check
 
-# Запуск пайплайнов
-make run-dev           # Запустить с тестовыми данными (3 записи)
-make run-full          # Запустить с полными данными (100 записей)
+# Documentation
+make docs-serve   # Serve documentation locally
+make docs-build   # Build documentation
+make docs-lint    # Lint documentation
+make docs-deploy  # Deploy documentation
 
-# Документация
-make docs-serve        # Запустить локальный сервер MkDocs
-make docs-build        # Собрать статическую документацию
-make docs-lint         # Проверить документацию линтерами
-make docs-deploy       # Деплой документации на GitHub Pages
-
-# Комбинированные команды
-make quick-start       # Быстрый старт - установить ключи и запустить тест
-make full-setup        # Полная настройка и запуск
+# Utilities
+make setup-api-keys  # Setup API keys
+make clean          # Clean temporary files
+make test           # Run tests
+make install-dev    # Install in development mode
 ```
 
-### Детальное описание целей
+## Pipeline Commands
 
-#### Установка и настройка
+### Универсальный запуск пайплайнов
 
 ```bash
-# setup-api-keys
-# Устанавливает API ключи в переменные окружения
-# Поддерживает Windows (PowerShell) и Unix-системы
-make setup-api-keys
+# Documents pipeline
+make pipeline TYPE=documents CONFIG=configs/config_documents_full.yaml
 
-# install-dev
-# Устанавливает пакет в режиме разработки с dev зависимостями
-make install-dev
+# Targets pipeline
+make pipeline TYPE=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml
+
+# Assays pipeline
+make pipeline TYPE=assays INPUT=data/input/assay.csv CONFIG=configs/config_assay_full.yaml
+
+# Activities pipeline
+make pipeline TYPE=activities INPUT=data/input/activity.csv CONFIG=configs/config_activity_full.yaml
+
+# Testitems pipeline
+make pipeline TYPE=testitems INPUT=data/input/testitem.csv CONFIG=configs/config_testitem_full.yaml
 ```
 
-#### Очистка
+### Тестирование пайплайнов
 
 ```bash
-# clean-backups
-# Удаляет backup файлы из data/output/full/
-make clean-backups
+# Test all pipeline types
+make pipeline-test TYPE=documents
+make pipeline-test TYPE=targets
+make pipeline-test TYPE=assays
+make pipeline-test TYPE=activities
+make pipeline-test TYPE=testitems
 
-# clean
-# Удаляет все временные файлы: __pycache__, .pytest_cache, .mypy_cache
-make clean
+# Test with specific markers
+make pipeline-test TYPE=documents MARKERS="slow"
+make pipeline-test TYPE=targets MARKERS="integration"
 ```
 
-#### Качество кода
+### Очистка пайплайнов
 
 ```bash
-# format
-# Форматирует код с помощью black и ruff
-make format
+# Clean pipeline outputs
+make pipeline-clean TYPE=documents
+make pipeline-clean TYPE=targets
+make pipeline-clean TYPE=assays
+make pipeline-clean TYPE=activities
+make pipeline-clean TYPE=testitems
+```
 
-# lint
-# Проверяет код с помощью ruff
+## Health & Monitoring
+
+### Health checks
+
+```bash
+# Check API health
+make health CONFIG=configs/config_documents_full.yaml
+make health CONFIG=configs/config_target_full.yaml
+make health CONFIG=configs/config_assay_full.yaml
+```
+
+## Code Quality
+
+### Formatting and linting
+
+```bash
+# Format code
+make fmt
+
+# Lint code
 make lint
 
-# type-check
-# Проверяет типы с помощью mypy
+# Type checking
 make type-check
 
-# quality
-# Выполняет полную проверку: format + lint + type-check
-make quality
+# Full quality check
+make qa
 ```
 
-#### Документация
+## Documentation
+
+### Documentation operations
 
 ```bash
-# docs-serve
-# Запускает локальный сервер MkDocs на http://127.0.0.1:8000
+# Serve documentation locally
 make docs-serve
 
-# docs-build
-# Собирает статическую документацию в директорию site/
+# Build documentation
 make docs-build
 
-# docs-lint
-# Проверяет документацию с помощью markdownlint и pymarkdown
+# Lint documentation
 make docs-lint
 
-# docs-deploy
-# Деплоит документацию на GitHub Pages
+# Deploy documentation
 make docs-deploy
 ```
 
-## Makefile.assay
+## Utilities
 
-### Специфичные цели для assay пайплайна
-
-```bash
-# Установка и настройка
-make -f Makefile.assay install-assay          # Установить зависимости
-make -f Makefile.assay validate-assay-config  # Проверить конфигурацию
-make -f Makefile.assay check-assay-deps       # Проверить зависимости
-
-# Запуск пайплайна
-make -f Makefile.assay assay-example          # Запуск с примером данных
-make -f Makefile.assay assay-target           # Извлечение по таргету CHEMBL231
-make -f Makefile.assay assay-target-binding   # Извлечь только binding ассеи
-make -f Makefile.assay assay-target-functional # Извлечь только functional ассеи
-make -f Makefile.assay assay-high-quality     # Извлечь только высококачественные ассеи
-make -f Makefile.assay assay-dry-run          # Тестовый запуск без сохранения
-
-# Тестирование
-make -f Makefile.assay test-assay             # Запустить тесты
-make -f Makefile.assay test-assay-coverage    # Запустить тесты с покрытием
-make -f Makefile.assay test-assay-unit        # Запустить только unit тесты
-make -f Makefile.assay test-assay-client      # Запустить тесты клиента
-
-# Качество кода
-make -f Makefile.assay lint-assay             # Проверить код
-make -f Makefile.assay format-assay           # Форматировать код
-
-# Очистка
-make -f Makefile.assay clean-assay            # Очистить выходные файлы
-make -f Makefile.assay clean-assay-cache      # Очистить только кэш
-
-# Информация
-make -f Makefile.assay show-assay-config      # Показать конфигурацию
-make -f Makefile.assay show-assay-help        # Показать справку CLI
-make -f Makefile.assay show-assay-examples    # Показать примеры использования
-make -f Makefile.assay assay-info             # Показать информацию о пайплайне
-make -f Makefile.assay assay-status           # Показать статус ChEMBL API
-
-# Комбинированные команды
-make -f Makefile.assay assay-full-test        # Полный тест пайплайна
-make -f Makefile.assay assay-quick-start      # Быстрый старт
-```
-
-### Примеры использования
+### Setup and maintenance
 
 ```bash
-# Быстрый старт
-make -f Makefile.assay assay-quick-start
-
-# Извлечение высококачественных ассев для таргета
-make -f Makefile.assay assay-high-quality
-
-# Тестирование с покрытием кода
-make -f Makefile.assay test-assay-coverage
-
-# Полная очистка и тест
-make -f Makefile.assay clean-assay test-assay assay-dry-run
-```
-
-## Makefile.target
-
-### Специфичные цели для target пайплайна
-
-```bash
-# Создание данных
-make -f Makefile.target create-target-example # Создать пример входных данных
-
-# Запуск пайплайна
-make -f Makefile.target target-example        # Запуск с примерными данными
-make -f Makefile.target target-dry-run        # Запуск в режиме dry-run
-make -f Makefile.target target-dev            # Запуск в dev режиме
-make -f Makefile.target target-limited        # Запуск с ограничением
-make -f Makefile.target target-typer          # Запуск через Typer CLI
-
-# Тестирование
-make -f Makefile.target test-target           # Запустить тесты
-
-# Валидация
-make -f Makefile.target validate-target-config # Валидировать конфигурацию
-make -f Makefile.target check-target-deps     # Проверить зависимости
-
-# Очистка
-make -f Makefile.target clean-target          # Очистить выходные файлы
-
-# Информация
-make -f Makefile.target target-stats          # Показать статистику
-make -f Makefile.target target-config-help    # Показать справку по конфигурации
-make -f Makefile.target target-examples       # Показать примеры использования
-```
-
-### Примеры использования
-
-```bash
-# Создание примера и запуск
-make -f Makefile.target target-example
-
-# Запуск с ограничением
-make -f Makefile.target target-limited LIMIT=50
-
-# Dev режим для тестирования
-make -f Makefile.target target-dev
-
-# Через Typer CLI
-make -f Makefile.target target-typer
-```
-
-## Стандартный контракт целей
-
-### Обязательные цели
-
-Каждый Makefile должен поддерживать следующие цели:
-
-#### install
-```bash
-make install
-# Установка зависимостей для пайплайна
-```
-
-#### validate-config
-```bash
-make validate-config
-# Проверка конфигурации пайплайна
-```
-
-#### example
-```bash
-make example
-# Запуск пайплайна с примером данных
-```
-
-#### dry-run
-```bash
-make dry-run
-# Тестовый запуск без записи файлов
-```
-
-#### test
-```bash
-make test
-# Запуск тестов пайплайна
-```
-
-#### clean
-```bash
-make clean
-# Очистка артефактов пайплайна
-```
-
-#### help
-```bash
-make help
-# Справка по доступным целям
-```
-
-### Рекомендуемые цели
-
-#### check-deps
-```bash
-make check-deps
-# Проверка зависимостей пайплайна
-```
-
-#### info
-```bash
-make info
-# Информация о пайплайне
-```
-
-#### status
-```bash
-make status
-# Статус внешних API
-```
-
-## Таблица всех целей
-
-| Makefile | Цель | Описание | Зависимости |
-|----------|------|----------|-------------|
-| **Makefile** | `help` | Показать справку | - |
-| **Makefile** | `setup-api-keys` | Установить API ключи | scripts/setup_api_keys.* |
-| **Makefile** | `install-dev` | Установить в dev режиме | pyproject.toml |
-| **Makefile** | `test` | Запустить тесты | pytest |
-| **Makefile** | `run-dev` | Запуск с тестовыми данными | bioactivity-data-acquisition |
-| **Makefile** | `run-full` | Запуск с полными данными | bioactivity-data-acquisition |
-| **Makefile** | `health-check` | Проверить здоровье API | bioactivity-data-acquisition |
-| **Makefile** | `format` | Форматировать код | black, ruff |
-| **Makefile** | `lint` | Проверить код линтером | ruff |
-| **Makefile** | `type-check` | Проверить типы | mypy |
-| **Makefile** | `quality` | Полная проверка качества | format, lint, type-check |
-| **Makefile** | `clean` | Очистить временные файлы | - |
-| **Makefile** | `docs-serve` | Запустить MkDocs сервер | mkdocs |
-| **Makefile** | `docs-build` | Собрать документацию | mkdocs |
-| **Makefile** | `docs-lint` | Проверить документацию | markdownlint, pymarkdown |
-| **Makefile** | `docs-deploy` | Деплой документации | mkdocs |
-| **Makefile.assay** | `install-assay` | Установить зависимости assay | requirements.txt |
-| **Makefile.assay** | `assay-example` | Запуск с примером данных | get_assay_data.py |
-| **Makefile.assay** | `assay-target` | Извлечение по таргету | get_assay_data.py |
-| **Makefile.assay** | `assay-dry-run` | Тестовый запуск | get_assay_data.py |
-| **Makefile.assay** | `test-assay` | Запустить тесты assay | pytest |
-| **Makefile.assay** | `clean-assay` | Очистить файлы assay | - |
-| **Makefile.assay** | `validate-assay-config` | Проверить конфигурацию | library.assay |
-| **Makefile.assay** | `check-assay-deps` | Проверить зависимости | library.assay |
-| **Makefile.target** | `create-target-example` | Создать пример данных | - |
-| **Makefile.target** | `target-example` | Запуск с примером | get_target_data.py |
-| **Makefile.target** | `target-dry-run` | Тестовый запуск | get_target_data.py |
-| **Makefile.target** | `target-dev` | Dev режим | get_target_data.py |
-| **Makefile.target** | `test-target` | Запустить тесты target | pytest |
-| **Makefile.target** | `clean-target` | Очистить файлы target | - |
-| **Makefile.target** | `validate-target-config` | Проверить конфигурацию | library.target |
-| **Makefile.target** | `check-target-deps` | Проверить зависимости | library.target |
-
-## Примеры использования
-
-### Быстрый старт проекта
-
-```bash
-# 1. Клонирование и установка
-git clone https://github.com/SatoryKono/bioactivity_data_acquisition.git
-cd bioactivity_data_acquisition
-make install-dev
-
-# 2. Настройка API ключей
+# Setup API keys
 make setup-api-keys
 
-# 3. Быстрый тест
-make quick-start
-```
+# Clean temporary files
+make clean
 
-### Работа с assay пайплайном
-
-```bash
-# 1. Установка зависимостей
-make -f Makefile.assay install-assay
-
-# 2. Проверка конфигурации
-make -f Makefile.assay validate-assay-config
-
-# 3. Запуск с примером
-make -f Makefile.assay assay-example
-
-# 4. Извлечение высококачественных ассев
-make -f Makefile.assay assay-high-quality
-
-# 5. Тестирование
-make -f Makefile.assay test-assay
-```
-
-### Работа с target пайплайном
-
-```bash
-# 1. Создание примера данных
-make -f Makefile.target create-target-example
-
-# 2. Запуск пайплайна
-make -f Makefile.target target-example
-
-# 3. Dev режим для тестирования
-make -f Makefile.target target-dev
-
-# 4. Очистка
-make -f Makefile.target clean-target
-```
-
-### Разработка и тестирование
-
-```bash
-# 1. Полная проверка качества
-make quality
-
-# 2. Запуск тестов
+# Run tests
 make test
 
-# 3. Проверка здоровья API
-make health-check
+# Install in development mode
+make install-dev
+```
 
-# 4. Очистка
+### Quick start commands
+
+```bash
+# Quick start
+make quick-start
+
+# Full setup
+make full-setup
+```
+
+## Examples
+
+### Basic usage
+
+```bash
+# 1. Setup
+make setup-api-keys
+make install-dev
+
+# 2. Run documents pipeline
+make pipeline TYPE=documents CONFIG=configs/config_documents_full.yaml
+
+# 3. Test
+make pipeline-test TYPE=documents
+
+# 4. Clean
+make pipeline-clean TYPE=documents
+```
+
+### Advanced usage
+
+```bash
+# Custom input and config
+make pipeline TYPE=targets \
+  INPUT=data/input/custom_targets.csv \
+  CONFIG=configs/custom_config.yaml \
+  FLAGS="--limit 100 --timeout-sec 120"
+
+# Test with specific markers
+make pipeline-test TYPE=assays MARKERS="slow integration"
+
+# Health check
+make health CONFIG=configs/config_documents_full.yaml
+```
+
+### Development workflow
+
+```bash
+# 1. Code quality
+make qa
+
+# 2. Test
+make test
+
+# 3. Run pipeline
+make pipeline TYPE=documents
+
+# 4. Clean
 make clean
 ```
 
-### Документация
+## Migration from old Makefiles
 
-```bash
-# 1. Локальный просмотр документации
-make docs-serve
+### Old commands → New commands
 
-# 2. Проверка документации
-make docs-lint
+| Old Command | New Command |
+|-------------|-------------|
+| `make -f Makefile.assay assay-example` | `make pipeline TYPE=assays` |
+| `make -f Makefile.assay test-assay` | `make pipeline-test TYPE=assays` |
+| `make -f Makefile.assay clean-assay` | `make pipeline-clean TYPE=assays` |
+| `make -f Makefile.target target-example` | `make pipeline TYPE=targets` |
+| `make -f Makefile.target test-target` | `make pipeline-test TYPE=targets` |
+| `make -f Makefile.target clean-target` | `make pipeline-clean TYPE=targets` |
 
-# 3. Сборка документации
-make docs-build
+### Benefits of unified interface
 
-# 4. Деплой документации
-make docs-deploy
-```
+- **Consistency**: Same syntax for all pipelines
+- **Simplicity**: One Makefile to learn
+- **Flexibility**: Parameterized commands
+- **Maintainability**: Single source of truth
+- **Extensibility**: Easy to add new pipeline types
 
 ## Troubleshooting
 
-### Частые проблемы
+### Common issues
 
-1. **"make: command not found"**
+1. **Missing TYPE parameter**:
    ```bash
-   # Windows: Установите Make через Chocolatey или WSL
-   choco install make
+   # Error: TYPE is required
+   make pipeline
    
-   # Linux: Установите make
-   sudo apt-get install make
+   # Solution: Specify TYPE
+   make pipeline TYPE=documents
+   ```
+
+2. **Missing CONFIG parameter**:
+   ```bash
+   # Error: CONFIG is required for health
+   make health
    
-   # macOS: Установите Xcode Command Line Tools
-   xcode-select --install
+   # Solution: Specify CONFIG
+   make health CONFIG=configs/config_documents_full.yaml
    ```
 
-2. **"No rule to make target"**
+3. **Invalid TYPE**:
    ```bash
-   # Проверьте доступные цели
-   make help
-   make -f Makefile.assay help
-   make -f Makefile.target help
+   # Error: Invalid TYPE
+   make pipeline TYPE=invalid
+   
+   # Solution: Use valid TYPE
+   make pipeline TYPE=documents
    ```
 
-3. **Ошибки в Windows PowerShell**
-   ```bash
-   # Используйте cmd или WSL
-   cmd /c "make help"
-   ```
-
-4. **Проблемы с путями**
-   ```bash
-   # Убедитесь, что находитесь в корне проекта
-   pwd
-   ls -la Makefile*
-   ```
-
-### Отладка
+### Getting help
 
 ```bash
-# Подробный вывод команд
-make -n target-example
+# Show all available commands
+make help
 
-# Проверка переменных
-make -p | grep VARIABLE
-
-# Отладка конкретной цели
-make -d target-example
+# Show specific pipeline help
+make pipeline TYPE=documents  # Will show error with valid types
 ```
 
-## Расширение Makefile'ов
+## Best practices
 
-### Добавление новой цели
+1. **Always specify TYPE**: Required for pipeline commands
+2. **Use CONFIG parameter**: For custom configurations
+3. **Use INPUT parameter**: For custom input files
+4. **Use FLAGS parameter**: For additional CLI options
+5. **Test before running**: Use `pipeline-test` before `pipeline`
+6. **Clean after testing**: Use `pipeline-clean` to remove outputs
 
-```makefile
-# В Makefile.assay
-new-target: ## Описание новой цели
-	@echo "Выполнение новой цели..."
-	$(PYTHON) $(SCRIPT_DIR)/new_script.py \
-		--config $(CONFIG_DIR)/config_assay_full.yaml \
-		--output-dir $(OUTPUT_DIR)
-	@echo "Новая цель завершена"
-```
+## Future extensions
 
-### Создание нового Makefile
+The unified Makefile is designed to be easily extensible:
 
-```makefile
-# Makefile.newpipeline
-.PHONY: help newpipeline-example newpipeline-test
-
-PYTHON := python
-SCRIPT_DIR := src/scripts
-CONFIG_DIR := configs
-OUTPUT_DIR := data/output/newpipeline
-
-help: ## Показать справку
-	@echo "NewPipeline Commands:"
-	@echo "  newpipeline-example  - Запуск с примером данных"
-	@echo "  newpipeline-test     - Запуск тестов"
-
-newpipeline-example: ## Запуск с примером данных
-	@echo "Запуск newpipeline с примером данных..."
-	$(PYTHON) $(SCRIPT_DIR)/get_newpipeline_data.py \
-		--config $(CONFIG_DIR)/config_newpipeline_full.yaml \
-		--output-dir $(OUTPUT_DIR)
-
-newpipeline-test: ## Запуск тестов
-	@echo "Запуск тестов newpipeline..."
-	pytest tests/test_newpipeline_pipeline.py -v
-```
-
-### Интеграция с CI/CD
-
-```yaml
-# .github/workflows/test.yml
-- name: Run tests
-  run: make test
-
-- name: Check code quality
-  run: make quality
-
-- name: Build documentation
-  run: make docs-build
-```
+- Add new pipeline types by adding new `pipeline-<type>` targets
+- Add new test types by adding new `pipeline-test-<type>` targets
+- Add new cleanup types by adding new `pipeline-clean-<type>` targets
+- Add new utility commands as needed

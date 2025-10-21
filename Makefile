@@ -1,118 +1,371 @@
-# Makefile для bioactivity-data-acquisition
+# Unified Makefile для bioactivity-data-acquisition
+# Единый интерфейс для всех пайплайнов и операций
 
 .PHONY: help setup-api-keys clean-backups test run-dev install-dev
+.PHONY: pipeline pipeline-test pipeline-clean health
+.PHONY: fmt lint type-check qa
+.PHONY: docs-serve docs-build docs-lint docs-deploy
+.PHONY: clean
+
+# Переменные по умолчанию
+PYTHON := python
+CONFIG_DIR := configs
+DATA_DIR := data
+INPUT_DIR := $(DATA_DIR)/input
+OUTPUT_DIR := $(DATA_DIR)/output
+DATE_TAG := $(shell date +%Y%m%d)
+
+# Цвета для вывода
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+BLUE := \033[0;34m
+NC := \033[0m # No Color
 
 # Показать справку
 help:
-	@echo "Доступные команды:"
-	@echo "  setup-api-keys    - Установить API ключи в переменные окружения"
-	@echo "  clean-backups     - Очистить backup файлы"
-	@echo "  test             - Запустить тесты"
-	@echo "  run-dev          - Запустить с тестовыми данными (3 записи)"
-	@echo "  run-full         - Запустить с полными данными (100 записей)"
-	@echo "  install-dev      - Установить в режиме разработки"
-	@echo "  health-check     - Проверить здоровье API"
-	@echo "  format           - Форматировать код"
-	@echo "  lint             - Проверить код линтером"
-	@echo "  type-check       - Проверить типы"
+	@echo "$(BLUE)Bioactivity Data Acquisition - Unified Interface$(NC)"
+	@echo ""
+	@echo "$(GREEN)Pipeline Commands:$(NC)"
+	@echo "  make pipeline TYPE=<documents|targets|assays|activities|testitems> INPUT=... CONFIG=... [FLAGS=\"...\"]"
+	@echo "  make pipeline-test TYPE=<...> [MARKERS=\"slow\"]"
+	@echo "  make pipeline-clean TYPE=<...>"
+	@echo ""
+	@echo "$(GREEN)Health & Monitoring:$(NC)"
+	@echo "  make health CONFIG=..."
+	@echo ""
+	@echo "$(GREEN)Code Quality:$(NC)"
+	@echo "  make fmt          - Format code"
+	@echo "  make lint         - Lint code"
+	@echo "  make type-check   - Type checking"
+	@echo "  make qa           - Full quality check"
+	@echo ""
+	@echo "$(GREEN)Documentation:$(NC)"
+	@echo "  make docs-serve   - Serve documentation locally"
+	@echo "  make docs-build   - Build documentation"
+	@echo "  make docs-lint    - Lint documentation"
+	@echo "  make docs-deploy  - Deploy documentation"
+	@echo ""
+	@echo "$(GREEN)Utilities:$(NC)"
+	@echo "  make setup-api-keys - Setup API keys"
+	@echo "  make clean        - Clean temporary files"
+	@echo "  make test         - Run tests"
+	@echo "  make install-dev  - Install in development mode"
+	@echo ""
+	@echo "$(GREEN)Examples:$(NC)"
+	@echo "  make pipeline TYPE=documents CONFIG=configs/config_documents_full.yaml"
+	@echo "  make pipeline TYPE=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml"
+	@echo "  make pipeline-test TYPE=documents MARKERS=\"slow\""
+	@echo "  make health CONFIG=configs/config_documents_full.yaml"
 
-# Установить API ключи
-setup-api-keys:
-	@echo "🔑 Установка API ключей..."
-ifeq ($(OS),Windows_NT)
-	powershell -ExecutionPolicy Bypass -File scripts/setup_api_keys.ps1
-else
-	python scripts/setup_api_keys.py
-endif
+# =============================================================================
+# PIPELINE COMMANDS
+# =============================================================================
 
-# Очистить backup файлы
-clean-backups:
-	@echo "🧹 Очистка backup файлов..."
-ifeq ($(OS),Windows_NT)
-	powershell -Command "Remove-Item 'data\output\full\*.backup' -Force -ErrorAction SilentlyContinue"
-else
-	find data/output/full -name "*.backup" -delete 2>/dev/null || true
-endif
+# Универсальная команда для запуска пайплайнов
+pipeline:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "$(RED)Error: TYPE is required. Use: make pipeline TYPE=<documents|targets|assays|activities|testitems>$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Running $(TYPE) pipeline...$(NC)"
+	@$(MAKE) pipeline-$(TYPE) CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
 
-# Запустить тесты
-test:
-	@echo "🧪 Запуск тестов..."
-	pytest tests/ -v
+# Documents pipeline
+pipeline-documents:
+	@echo "$(BLUE)Running documents pipeline...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)/documents
+	@$(PYTHON) -m library.cli get-document-data \
+		--config $(or $(CONFIG),$(CONFIG_DIR)/config_documents_full.yaml) \
+		$(if $(INPUT),--input $(INPUT),) \
+		$(if $(FLAGS),$(FLAGS),) \
+		--log-level INFO
+	@echo "$(GREEN)Documents pipeline completed!$(NC)"
 
-# Запустить с тестовыми данными
-run-dev:
-	@echo "🚀 Запуск с тестовыми данными (3 записи)..."
-	bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 3
+# Targets pipeline
+pipeline-targets:
+	@echo "$(BLUE)Running targets pipeline...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)/target
+	@$(PYTHON) -m library.cli get-target-data \
+		--config $(or $(CONFIG),$(CONFIG_DIR)/config_target_full.yaml) \
+		--input $(or $(INPUT),$(INPUT_DIR)/target.csv) \
+		$(if $(FLAGS),$(FLAGS),) \
+		--log-level INFO
+	@echo "$(GREEN)Targets pipeline completed!$(NC)"
 
-# Запустить с полными данными
-run-full:
-	@echo "🚀 Запуск с полными данными (100 записей)..."
-	bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 100
+# Assays pipeline
+pipeline-assays:
+	@echo "$(BLUE)Running assays pipeline...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)/assay
+	@$(PYTHON) -m library.cli get-assay-data \
+		--config $(or $(CONFIG),$(CONFIG_DIR)/config_assay_full.yaml) \
+		--input $(or $(INPUT),$(INPUT_DIR)/assay.csv) \
+		$(if $(FLAGS),$(FLAGS),) \
+		--log-level INFO
+	@echo "$(GREEN)Assays pipeline completed!$(NC)"
 
-# Установить в режиме разработки
-install-dev:
-	@echo "📦 Установка в режиме разработки..."
-	pip install -e .[dev]
+# Activities pipeline
+pipeline-activities:
+	@echo "$(BLUE)Running activities pipeline...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)/activity
+	@$(PYTHON) -m library.cli get-activity-data \
+		--config $(or $(CONFIG),$(CONFIG_DIR)/config_activity_full.yaml) \
+		--input $(or $(INPUT),$(INPUT_DIR)/activity.csv) \
+		$(if $(FLAGS),$(FLAGS),) \
+		--log-level INFO
+	@echo "$(GREEN)Activities pipeline completed!$(NC)"
 
-# Проверить здоровье API
-health-check:
-	@echo "🏥 Проверка здоровья API..."
-	bioactivity-data-acquisition health --config configs/config_documents_full.yaml
+# Testitems pipeline
+pipeline-testitems:
+	@echo "$(BLUE)Running testitems pipeline...$(NC)"
+	@mkdir -p $(OUTPUT_DIR)/testitem
+	@$(PYTHON) -m library.cli get-testitem-data \
+		--config $(or $(CONFIG),$(CONFIG_DIR)/config_testitem_full.yaml) \
+		--input $(or $(INPUT),$(INPUT_DIR)/testitem.csv) \
+		$(if $(FLAGS),$(FLAGS),) \
+		--log-level INFO
+	@echo "$(GREEN)Testitems pipeline completed!$(NC)"
 
-# Форматировать код
-format:
-	@echo "🎨 Форматирование кода..."
-	black src/ tests/
-	ruff check src/ tests/ --fix
+# =============================================================================
+# PIPELINE TESTING
+# =============================================================================
 
-# Проверить код линтером
+# Универсальная команда для тестирования пайплайнов
+pipeline-test:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "$(RED)Error: TYPE is required. Use: make pipeline-test TYPE=<documents|targets|assays|activities|testitems>$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Running $(TYPE) pipeline tests...$(NC)"
+	@$(MAKE) pipeline-test-$(TYPE) MARKERS="$(MARKERS)"
+
+# Documents pipeline tests
+pipeline-test-documents:
+	@echo "$(BLUE)Running documents pipeline tests...$(NC)"
+	@pytest tests/test_document_*.py $(if $(MARKERS),-m "$(MARKERS)",) -v
+	@echo "$(GREEN)Documents pipeline tests completed!$(NC)"
+
+# Targets pipeline tests
+pipeline-test-targets:
+	@echo "$(BLUE)Running targets pipeline tests...$(NC)"
+	@pytest tests/test_target_*.py $(if $(MARKERS),-m "$(MARKERS)",) -v
+	@echo "$(GREEN)Targets pipeline tests completed!$(NC)"
+
+# Assays pipeline tests
+pipeline-test-assays:
+	@echo "$(BLUE)Running assays pipeline tests...$(NC)"
+	@pytest tests/test_assay_*.py $(if $(MARKERS),-m "$(MARKERS)",) -v
+	@echo "$(GREEN)Assays pipeline tests completed!$(NC)"
+
+# Activities pipeline tests
+pipeline-test-activities:
+	@echo "$(BLUE)Running activities pipeline tests...$(NC)"
+	@pytest tests/test_activity_*.py $(if $(MARKERS),-m "$(MARKERS)",) -v
+	@echo "$(GREEN)Activities pipeline tests completed!$(NC)"
+
+# Testitems pipeline tests
+pipeline-test-testitems:
+	@echo "$(BLUE)Running testitems pipeline tests...$(NC)"
+	@pytest tests/test_testitem_*.py $(if $(MARKERS),-m "$(MARKERS)",) -v
+	@echo "$(GREEN)Testitems pipeline tests completed!$(NC)"
+
+# =============================================================================
+# PIPELINE CLEANUP
+# =============================================================================
+
+# Универсальная команда для очистки пайплайнов
+pipeline-clean:
+	@if [ -z "$(TYPE)" ]; then \
+		echo "$(RED)Error: TYPE is required. Use: make pipeline-clean TYPE=<documents|targets|assays|activities|testitems>$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Cleaning $(TYPE) pipeline outputs...$(NC)"
+	@$(MAKE) pipeline-clean-$(TYPE)
+
+# Documents pipeline cleanup
+pipeline-clean-documents:
+	@echo "$(YELLOW)Cleaning documents pipeline outputs...$(NC)"
+	@rm -rf $(OUTPUT_DIR)/documents/*
+	@rm -rf $(OUTPUT_DIR)/_documents/*
+	@echo "$(GREEN)Documents pipeline outputs cleaned!$(NC)"
+
+# Targets pipeline cleanup
+pipeline-clean-targets:
+	@echo "$(YELLOW)Cleaning targets pipeline outputs...$(NC)"
+	@rm -rf $(OUTPUT_DIR)/target/*
+	@rm -rf $(OUTPUT_DIR)/target_correlation_report_*
+	@echo "$(GREEN)Targets pipeline outputs cleaned!$(NC)"
+
+# Assays pipeline cleanup
+pipeline-clean-assays:
+	@echo "$(YELLOW)Cleaning assays pipeline outputs...$(NC)"
+	@rm -rf $(OUTPUT_DIR)/assay/*
+	@echo "$(GREEN)Assays pipeline outputs cleaned!$(NC)"
+
+# Activities pipeline cleanup
+pipeline-clean-activities:
+	@echo "$(YELLOW)Cleaning activities pipeline outputs...$(NC)"
+	@rm -rf $(OUTPUT_DIR)/activity/*
+	@echo "$(GREEN)Activities pipeline outputs cleaned!$(NC)"
+
+# Testitems pipeline cleanup
+pipeline-clean-testitems:
+	@echo "$(YELLOW)Cleaning testitems pipeline outputs...$(NC)"
+	@rm -rf $(OUTPUT_DIR)/testitem/*
+	@echo "$(GREEN)Testitems pipeline outputs cleaned!$(NC)"
+
+# =============================================================================
+# HEALTH & MONITORING
+# =============================================================================
+
+# Health check command
+health:
+	@if [ -z "$(CONFIG)" ]; then \
+		echo "$(RED)Error: CONFIG is required. Use: make health CONFIG=path/to/config.yaml$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Checking API health...$(NC)"
+	@$(PYTHON) -m library.cli health --config $(CONFIG)
+	@echo "$(GREEN)Health check completed!$(NC)"
+
+# =============================================================================
+# CODE QUALITY
+# =============================================================================
+
+# Format code
+fmt:
+	@echo "$(BLUE)Formatting code...$(NC)"
+	@black src/ tests/
+	@ruff check src/ tests/ --fix
+	@echo "$(GREEN)Code formatting completed!$(NC)"
+
+# Lint code
 lint:
-	@echo "🔍 Проверка кода линтером..."
-	ruff check src/ tests/
+	@echo "$(BLUE)Linting code...$(NC)"
+	@ruff check src/ tests/
+	@echo "$(GREEN)Code linting completed!$(NC)"
 
-# Проверить типы
+# Type checking
 type-check:
-	@echo "🔍 Проверка типов..."
-	mypy src/
+	@echo "$(BLUE)Type checking...$(NC)"
+	@mypy src/
+	@echo "$(GREEN)Type checking completed!$(NC)"
 
-# Полная проверка качества кода
-quality: format lint type-check
+# Full quality check
+qa: fmt lint type-check
+	@echo "$(GREEN)Full quality check completed!$(NC)"
 
-# Очистить все временные файлы
-clean: clean-backups
-	@echo "🧹 Очистка временных файлов..."
+# =============================================================================
+# DOCUMENTATION
+# =============================================================================
+
+# Serve documentation locally
+docs-serve:
+	@echo "$(BLUE)Serving documentation locally...$(NC)"
+	@mkdocs serve --config-file $(CONFIG_DIR)/mkdocs.yml
+
+# Build documentation
+docs-build:
+	@echo "$(BLUE)Building documentation...$(NC)"
+	@mkdocs build --config-file $(CONFIG_DIR)/mkdocs.yml --strict
+	@echo "$(GREEN)Documentation build completed!$(NC)"
+
+# Lint documentation
+docs-lint:
+	@echo "$(BLUE)Linting documentation...$(NC)"
+	@markdownlint docs/ --config .markdownlint.json
+	@pymarkdown scan docs/
+	@echo "$(GREEN)Documentation linting completed!$(NC)"
+
+# Deploy documentation
+docs-deploy:
+	@echo "$(BLUE)Deploying documentation...$(NC)"
+	@mkdocs gh-deploy --config-file $(CONFIG_DIR)/mkdocs.yml --force
+	@echo "$(GREEN)Documentation deployment completed!$(NC)"
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+
+# Setup API keys
+setup-api-keys:
+	@echo "$(BLUE)Setting up API keys...$(NC)"
 ifeq ($(OS),Windows_NT)
-	powershell -Command "Remove-Item '__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
-	powershell -Command "Remove-Item 'src\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
-	powershell -Command "Remove-Item 'tests\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
-	powershell -Command "Remove-Item '.pytest_cache' -Recurse -Force -ErrorAction SilentlyContinue"
-	powershell -Command "Remove-Item '.mypy_cache' -Recurse -Force -ErrorAction SilentlyContinue"
+	@powershell -ExecutionPolicy Bypass -File scripts/setup_api_keys.ps1
 else
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	@$(PYTHON) scripts/setup_api_keys.py
 endif
+	@echo "$(GREEN)API keys setup completed!$(NC)"
 
-# Быстрый старт - установить ключи и запустить тест
+# Clean backup files
+clean-backups:
+	@echo "$(BLUE)Cleaning backup files...$(NC)"
+ifeq ($(OS),Windows_NT)
+	@powershell -Command "Remove-Item 'data\output\full\*.backup' -Force -ErrorAction SilentlyContinue"
+else
+	@find data/output/full -name "*.backup" -delete 2>/dev/null || true
+endif
+	@echo "$(GREEN)Backup files cleaned!$(NC)"
+
+# Run tests
+test:
+	@echo "$(BLUE)Running tests...$(NC)"
+	@pytest tests/ -v
+	@echo "$(GREEN)Tests completed!$(NC)"
+
+# Run with test data
+run-dev:
+	@echo "$(BLUE)Running with test data (3 records)...$(NC)"
+	@$(PYTHON) -m library.cli get-document-data --config $(CONFIG_DIR)/config_documents_full.yaml --limit 3
+	@echo "$(GREEN)Test run completed!$(NC)"
+
+# Run with full data
+run-full:
+	@echo "$(BLUE)Running with full data (100 records)...$(NC)"
+	@$(PYTHON) -m library.cli get-document-data --config $(CONFIG_DIR)/config_documents_full.yaml --limit 100
+	@echo "$(GREEN)Full run completed!$(NC)"
+
+# Install in development mode
+install-dev:
+	@echo "$(BLUE)Installing in development mode...$(NC)"
+	@pip install -e .[dev]
+	@echo "$(GREEN)Development installation completed!$(NC)"
+
+# Clean all temporary files
+clean: clean-backups
+	@echo "$(BLUE)Cleaning temporary files...$(NC)"
+ifeq ($(OS),Windows_NT)
+	@powershell -Command "Remove-Item '__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
+	@powershell -Command "Remove-Item 'src\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
+	@powershell -Command "Remove-Item 'tests\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
+	@powershell -Command "Remove-Item '.pytest_cache' -Recurse -Force -ErrorAction SilentlyContinue"
+	@powershell -Command "Remove-Item '.mypy_cache' -Recurse -Force -ErrorAction SilentlyContinue"
+else
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+endif
+	@echo "$(GREEN)Temporary files cleaned!$(NC)"
+
+# Quick start
 quick-start: setup-api-keys run-dev
+	@echo "$(GREEN)Quick start completed!$(NC)"
 
-# Полная настройка и запуск
+# Full setup
 full-setup: install-dev setup-api-keys clean-backups run-dev
+	@echo "$(GREEN)Full setup completed!$(NC)"
 
-# Документация
-docs-serve: ## Запустить локальный сервер MkDocs
-	@echo "📚 Запуск локального сервера документации..."
-	mkdocs serve --config-file configs/mkdocs.yml
+# =============================================================================
+# LEGACY COMMANDS (for backward compatibility)
+# =============================================================================
 
-docs-build: ## Собрать статическую документацию
-	@echo "📚 Сборка документации..."
-	mkdocs build --config-file configs/mkdocs.yml --strict
-
-docs-lint: ## Проверить документацию линтерами
-	@echo "📚 Проверка документации линтерами..."
-	markdownlint docs/ --config .markdownlint.json
-	pymarkdown scan docs/
-
-docs-deploy: ## Деплой документации на GitHub Pages (локально)
-	@echo "📚 Деплой документации на GitHub Pages..."
-	mkdocs gh-deploy --config-file configs/mkdocs.yml --force
+# Legacy commands for backward compatibility
+format: fmt
+lint: lint
+type-check: type-check
+quality: qa
+health-check: health
+docs-serve: docs-serve
+docs-build: docs-build
+docs-lint: docs-lint
+docs-deploy: docs-deploy

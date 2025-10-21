@@ -429,9 +429,32 @@ class Config(BaseModel):
     @classmethod
     def _load_schema(cls) -> dict[str, Any]:
         """Load JSON Schema for configuration validation."""
-        schema_path = Path(__file__).parent.parent.parent / "configs" / "schema.json"
-        if not schema_path.exists():
-            raise FileNotFoundError(f"Schema file not found: {schema_path}")
+        # Try multiple possible locations for schema.json
+        possible_paths = [
+            # From current working directory (for development)
+            Path.cwd() / "configs" / "schema.json",
+            # From project root (if running from project directory)
+            Path.cwd().parent / "configs" / "schema.json",
+            # From installed package location (for production)
+            Path(__file__).parent.parent.parent / "configs" / "schema.json",
+            # From environment variable if set
+            Path(os.environ.get("SCHEMA_PATH", "")) if os.environ.get("SCHEMA_PATH") else None,
+        ]
+        
+        # Filter out None values
+        possible_paths = [p for p in possible_paths if p is not None]
+        
+        schema_path = None
+        for path in possible_paths:
+            if path.exists():
+                schema_path = path
+                break
+        
+        if schema_path is None:
+            raise FileNotFoundError(
+                f"Schema file not found in any of the following locations: "
+                f"{[str(p) for p in possible_paths]}"
+            )
         
         with schema_path.open("r", encoding="utf-8") as f:
             return json.load(f)

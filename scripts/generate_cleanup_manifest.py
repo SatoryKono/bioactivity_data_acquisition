@@ -75,10 +75,10 @@ def main() -> None:
         "pycache": pycache,
     }
 
-    with open("CLEANUP_MANIFEST.json", "w", encoding="utf-8") as fp:
+    with open("metadata/manifests/cleanup_manifest.json", "w", encoding="utf-8") as fp:
         json.dump(manifest, fp, ensure_ascii=False, indent=2)
 
-    print("CLEANUP_MANIFEST.json generated with", len(tracked), "tracked files scanned")
+    print("metadata/manifests/cleanup_manifest.json generated with", len(tracked), "tracked files scanned")
 
 
 if __name__ == "__main__":

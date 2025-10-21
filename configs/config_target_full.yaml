@@ -113,6 +113,42 @@ sources:
         # Множитель задержки между попытками
         backoff_multiplier: 1.0
 
+  # GtoPdb - Guide to Pharmacology database enrichment
+  gtopdb:
+    # Уникальное имя источника
+    name: gtopdb
+    # Включен ли источник (возможность отключения обогащения)
+    enabled: true
+    # Параметры для GtoPdb
+    params:
+      # API endpoints
+      base_url: https://www.guidetopharmacology.org
+      api_version: services
+    # Переопределения HTTP настроек
+    http:
+      # Базовый URL API GtoPdb
+      base_url: https://www.guidetopharmacology.org/services
+      # Таймаут для запросов к GtoPdb
+      timeout_sec: 30.0
+      # Настройки повторных попыток для GtoPdb
+      retries:
+        # Общее количество попыток
+        total: 3
+        # Множитель задержки между попытками
+        backoff_multiplier: 1.5
+      # Настройки rate limiting
+      rate_limit:
+        # Запросов в секунду
+        rps: 1.0
+        # Всплеск запросов
+        burst: 2
+    # Настройки circuit breaker
+    circuit_breaker:
+      # Порог количества ошибок для открытия circuit breaker
+      failure_threshold: 5
+      # Время блокировки в секундах (5 минут)
+      holdoff_seconds: 300
+
 # Настройки ввода-вывода данных
 io:
   # Настройки входных данных

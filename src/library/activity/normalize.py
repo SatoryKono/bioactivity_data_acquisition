@@ -47,7 +47,25 @@ class ActivityNormalizer:
         })
 
     def normalize_activities(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Normalize activity data according to business rules."""
+        """Нормализация данных активности согласно бизнес-правилам.
+        
+        Преобразует сырые данные активности в нормализованный формат,
+        добавляя интервальные поля для цензурированных данных, внешние ключи
+        для связей с измерениями и флаги качества.
+        
+        Args:
+            df: DataFrame с валидированными сырыми данными активности
+            
+        Returns:
+            pd.DataFrame: Нормализованный DataFrame с дополнительными полями:
+                - lower_bound, upper_bound, is_censored: интервальное представление
+                - assay_key, target_key, document_key, testitem_key: внешние ключи
+                - quality_flag, quality_reason: оценка качества данных
+                
+        Example:
+            >>> normalizer = ActivityNormalizer(config)
+            >>> normalized_df = normalizer.normalize_activities(validated_df)
+        """
         logger.info(f"Normalizing {len(df)} activity records")
         
         # Create a copy to avoid modifying original

@@ -411,7 +411,24 @@ class ActivityValidator:
         )
 
     def validate_raw_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate raw activity data."""
+        """Валидация сырых данных активности через Pandera схемы.
+        
+        Проверяет соответствие данных активности схеме RawBioactivitySchema,
+        включая типы данных, обязательные поля и бизнес-правила.
+        
+        Args:
+            df: DataFrame с сырыми данными активности из ChEMBL API
+            
+        Returns:
+            pd.DataFrame: Валидированный DataFrame с теми же данными
+            
+        Raises:
+            SchemaError: Если данные не соответствуют схеме в строгом режиме
+            
+        Example:
+            >>> validator = ActivityValidator(config)
+            >>> validated_df = validator.validate_raw_data(raw_df)
+        """
         logger.info(f"Validating {len(df)} raw activity records")
         
         try:

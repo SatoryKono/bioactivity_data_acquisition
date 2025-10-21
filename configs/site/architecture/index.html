@@ -1,0 +1,1266 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="https://satorykono.github.io/bioactivity_data_acquisition/architecture/" rel="canonical"/>
+<link href=".." rel="prev"/>
+<link href="../setup/install/" rel="next"/>
+<link href="../assets/images/favicon.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.6.22" name="generator"/>
+<title>Архитектура - Bioactivity Data Acquisition</title>
+<link href="../assets/stylesheets/main.84d31ad4.min.css" rel="stylesheet"/>
+<link href="../assets/stylesheets/palette.06af60db.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../assets/_mkdocstrings.css" rel="stylesheet"/>
+<script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+</head>
+<body data-md-color-accent="indigo" data-md-color-primary="indigo" data-md-color-scheme="default" dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#_1">
+          Перейти к содержанию
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<header class="md-header" data-md-component="header">
+<nav aria-label="Верхний колонтитул" class="md-header__inner md-grid">
+<a aria-label="Bioactivity Data Acquisition" class="md-header__button md-logo" data-md-component="logo" href=".." title="Bioactivity Data Acquisition">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            Bioactivity Data Acquisition
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Архитектура
+            
+          </span>
+</div>
+</div>
+</div>
+<form class="md-header__option" data-md-component="palette">
+<input aria-hidden="true" class="md-option" data-md-color-accent="indigo" data-md-color-media="" data-md-color-primary="indigo" data-md-color-scheme="default" id="__palette_0" name="__palette" type="radio"/>
+</form>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Поиск" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Поиск" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Поиск" class="md-search__options">
+<button aria-label="Очистить" class="md-search__icon md-icon" tabindex="-1" title="Очистить" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Инициализация поиска
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/SatoryKono/bioactivity_data_acquisition" title="Перейти к репозиторию">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+</div>
+<div class="md-source__repository">
+    SatoryKono/bioactivity_data_acquisition
+  </div>
+</a>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<nav aria-label="Вкладки" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="..">
+        
+  
+  
+    
+  
+  Обзор
+
+      </a>
+</li>
+<li class="md-tabs__item md-tabs__item--active">
+<a class="md-tabs__link" href="./">
+        
+  
+  
+    
+  
+  Архитектура
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../setup/install/">
+          
+  
+  
+    
+  
+  Установка и настройка
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../pipelines/documents/">
+          
+  
+  
+    
+  
+  Пайплайны
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../operations/makefiles/">
+          
+  
+  
+    
+  
+  Операции
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../quality/validation/">
+          
+  
+  
+    
+  
+  Контроль качества
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../reference/api_index/">
+          
+  
+  
+    
+  
+  Справочник
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../guides/howto_add_pipeline/">
+          
+  
+  
+    
+  
+  Руководства
+
+        </a>
+</li>
+</ul>
+</div>
+</nav>
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Навигация" class="md-nav md-nav--primary md-nav--lifted" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="Bioactivity Data Acquisition" class="md-nav__button md-logo" data-md-component="logo" href=".." title="Bioactivity Data Acquisition">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+    Bioactivity Data Acquisition
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/SatoryKono/bioactivity_data_acquisition" title="Перейти к репозиторию">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"></path></svg>
+</div>
+<div class="md-source__repository">
+    SatoryKono/bioactivity_data_acquisition
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="..">
+<span class="md-ellipsis">
+    Обзор
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    Архитектура
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    Архитектура
+    
+  </span>
+</a>
+<nav aria-label="Содержание" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_2">
+<span class="md-ellipsis">
+      Обзор
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_3">
+<span class="md-ellipsis">
+      Архитектурная диаграмма
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_4">
+<span class="md-ellipsis">
+      Звёздная схема данных
+    </span>
+</a>
+<nav aria-label="Звёздная схема данных" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#dimensions">
+<span class="md-ellipsis">
+      Измерения (Dimensions)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#facts">
+<span class="md-ellipsis">
+      Факты (Facts)
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_5">
+<span class="md-ellipsis">
+      Слои архитектуры
+    </span>
+</a>
+<nav aria-label="Слои архитектуры" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-data-sources-layer">
+<span class="md-ellipsis">
+      1. Слой источников данных (Data Sources Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-etl-etl-layer">
+<span class="md-ellipsis">
+      2. Слой ETL (ETL Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-configuration-layer">
+<span class="md-ellipsis">
+      3. Слой конфигурации (Configuration Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-validation-layer">
+<span class="md-ellipsis">
+      4. Слой валидации (Validation Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5-monitoring-layer">
+<span class="md-ellipsis">
+      5. Слой мониторинга (Monitoring Layer)
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_6">
+<span class="md-ellipsis">
+      Принципы дизайна
+    </span>
+</a>
+<nav aria-label="Принципы дизайна" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1">
+<span class="md-ellipsis">
+      1. Модульность
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2">
+<span class="md-ellipsis">
+      2. Детерминизм
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3">
+<span class="md-ellipsis">
+      3. Валидация
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-graceful-degradation">
+<span class="md-ellipsis">
+      4. Graceful Degradation
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5">
+<span class="md-ellipsis">
+      5. Конфигурируемость
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_7">
+<span class="md-ellipsis">
+      Поток данных
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_8">
+<span class="md-ellipsis">
+      Точки расширения
+    </span>
+</a>
+<nav aria-label="Точки расширения" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_9">
+<span class="md-ellipsis">
+      Добавление нового источника данных
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_10">
+<span class="md-ellipsis">
+      Добавление нового пайплайна
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_11">
+<span class="md-ellipsis">
+      Кастомные трансформации
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_12">
+<span class="md-ellipsis">
+      Ограничения и компромиссы
+    </span>
+</a>
+<nav aria-label="Ограничения и компромиссы" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_13">
+<span class="md-ellipsis">
+      Технические ограничения
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_14">
+<span class="md-ellipsis">
+      Архитектурные компромиссы
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_15">
+<span class="md-ellipsis">
+      Мониторинг и алертинг
+    </span>
+</a>
+<nav aria-label="Мониторинг и алертинг" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_16">
+<span class="md-ellipsis">
+      Метрики
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_17">
+<span class="md-ellipsis">
+      Дашборды
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_18">
+<span class="md-ellipsis">
+      Алерты
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+<span class="md-ellipsis">
+    Установка и настройка
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_3">
+<span class="md-nav__icon md-icon"></span>
+            Установка и настройка
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../setup/install/">
+<span class="md-ellipsis">
+    Установка
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../setup/config/">
+<span class="md-ellipsis">
+    Конфигурация
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_4" type="checkbox"/>
+<label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+<span class="md-ellipsis">
+    Пайплайны
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_4_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_4">
+<span class="md-nav__icon md-icon"></span>
+            Пайплайны
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/documents/">
+<span class="md-ellipsis">
+    Documents
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/activities/">
+<span class="md-ellipsis">
+    Activities
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/targets/">
+<span class="md-ellipsis">
+    Targets
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/assays/">
+<span class="md-ellipsis">
+    Assays
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../pipelines/testitems/">
+<span class="md-ellipsis">
+    Testitems
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+<span class="md-ellipsis">
+    Операции
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_5">
+<span class="md-nav__icon md-icon"></span>
+            Операции
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../operations/makefiles/">
+<span class="md-ellipsis">
+    Makefiles
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../operations/docker/">
+<span class="md-ellipsis">
+    Docker
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../operations/ci-cd/">
+<span class="md-ellipsis">
+    CI/CD
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_6" type="checkbox"/>
+<label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+<span class="md-ellipsis">
+    Контроль качества
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_6_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_6">
+<span class="md-nav__icon md-icon"></span>
+            Контроль качества
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../quality/validation/">
+<span class="md-ellipsis">
+    Валидация
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../quality/qc_checklist/">
+<span class="md-ellipsis">
+    QC Чек-листы
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_7" type="checkbox"/>
+<label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+<span class="md-ellipsis">
+    Справочник
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_7_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_7">
+<span class="md-nav__icon md-icon"></span>
+            Справочник
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../reference/api_index/">
+<span class="md-ellipsis">
+    API
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_8" type="checkbox"/>
+<label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+<span class="md-ellipsis">
+    Руководства
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_8_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_8">
+<span class="md-nav__icon md-icon"></span>
+            Руководства
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../guides/howto_add_pipeline/">
+<span class="md-ellipsis">
+    Добавление пайплайна
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../guides/troubleshooting/">
+<span class="md-ellipsis">
+    Устранение неполадок
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Содержание" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Содержание
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_2">
+<span class="md-ellipsis">
+      Обзор
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_3">
+<span class="md-ellipsis">
+      Архитектурная диаграмма
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_4">
+<span class="md-ellipsis">
+      Звёздная схема данных
+    </span>
+</a>
+<nav aria-label="Звёздная схема данных" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#dimensions">
+<span class="md-ellipsis">
+      Измерения (Dimensions)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#facts">
+<span class="md-ellipsis">
+      Факты (Facts)
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_5">
+<span class="md-ellipsis">
+      Слои архитектуры
+    </span>
+</a>
+<nav aria-label="Слои архитектуры" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-data-sources-layer">
+<span class="md-ellipsis">
+      1. Слой источников данных (Data Sources Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-etl-etl-layer">
+<span class="md-ellipsis">
+      2. Слой ETL (ETL Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-configuration-layer">
+<span class="md-ellipsis">
+      3. Слой конфигурации (Configuration Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-validation-layer">
+<span class="md-ellipsis">
+      4. Слой валидации (Validation Layer)
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5-monitoring-layer">
+<span class="md-ellipsis">
+      5. Слой мониторинга (Monitoring Layer)
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_6">
+<span class="md-ellipsis">
+      Принципы дизайна
+    </span>
+</a>
+<nav aria-label="Принципы дизайна" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1">
+<span class="md-ellipsis">
+      1. Модульность
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2">
+<span class="md-ellipsis">
+      2. Детерминизм
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3">
+<span class="md-ellipsis">
+      3. Валидация
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-graceful-degradation">
+<span class="md-ellipsis">
+      4. Graceful Degradation
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5">
+<span class="md-ellipsis">
+      5. Конфигурируемость
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_7">
+<span class="md-ellipsis">
+      Поток данных
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_8">
+<span class="md-ellipsis">
+      Точки расширения
+    </span>
+</a>
+<nav aria-label="Точки расширения" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_9">
+<span class="md-ellipsis">
+      Добавление нового источника данных
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_10">
+<span class="md-ellipsis">
+      Добавление нового пайплайна
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_11">
+<span class="md-ellipsis">
+      Кастомные трансформации
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_12">
+<span class="md-ellipsis">
+      Ограничения и компромиссы
+    </span>
+</a>
+<nav aria-label="Ограничения и компромиссы" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_13">
+<span class="md-ellipsis">
+      Технические ограничения
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_14">
+<span class="md-ellipsis">
+      Архитектурные компромиссы
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_15">
+<span class="md-ellipsis">
+      Мониторинг и алертинг
+    </span>
+</a>
+<nav aria-label="Мониторинг и алертинг" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_16">
+<span class="md-ellipsis">
+      Метрики
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_17">
+<span class="md-ellipsis">
+      Дашборды
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#_18">
+<span class="md-ellipsis">
+      Алерты
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/SatoryKono/bioactivity_data_acquisition/edit/main/docs/architecture.md" rel="edit" title="Редактировать страницу">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
+</a>
+<h1 id="_1">Архитектура системы<a class="headerlink" href="#_1" title="Permanent link">¶</a></h1>
+<h2 id="_2">Обзор<a class="headerlink" href="#_2" title="Permanent link">¶</a></h2>
+<p>Bioactivity Data Acquisition — это модульный ETL-пайплайн для извлечения, валидации, трансформации и загрузки биоактивностных данных из множественных API источников. Система построена по принципам модульности, детерминизма и воспроизводимости.</p>
+<h2 id="_3">Архитектурная диаграмма<a class="headerlink" href="#_3" title="Permanent link">¶</a></h2>
+<div class="mermaid">graph TB
+    subgraph "Входные данные"
+        A[CSV файлы документов] --&gt; B[Конфигурация YAML]
+    end
+
+    subgraph "API Источники"
+        C[ChEMBL API]
+        D[Crossref API]
+        E[OpenAlex API]
+        F[PubMed API]
+        G[Semantic Scholar API]
+        H[UniProt API]
+        I[IUPHAR API]
+        J[PubChem API]
+    end
+
+    subgraph "HTTP Клиенты"
+        K[BaseApiClient]
+        L[ChEMBLClient]
+        M[CrossrefClient]
+        N[OpenAlexClient]
+        O[PubMedClient]
+        P[SemanticScholarClient]
+        Q[UniProtClient]
+        R[IUPHARClient]
+        S[PubChemClient]
+    end
+
+    subgraph "ETL Пайплайны"
+        T[Documents Pipeline]
+        U[Targets Pipeline]
+        V[Assays Pipeline]
+        W[Activities Pipeline]
+        X[Testitems Pipeline]
+    end
+
+    subgraph "Валидация"
+        Y[Pandera Schemas]
+        Z[Pydantic Models]
+    end
+
+    subgraph "Выходные данные"
+        AA[Детерминированные CSV]
+        BB[QC Отчёты]
+        CC[Корреляционные матрицы]
+    end
+
+    A --&gt; T
+    B --&gt; T
+    C --&gt; L
+    D --&gt; M
+    E --&gt; N
+    F --&gt; O
+    G --&gt; P
+    H --&gt; Q
+    I --&gt; R
+    J --&gt; S
+
+    L --&gt; K
+    M --&gt; K
+    N --&gt; K
+    O --&gt; K
+    P --&gt; K
+    Q --&gt; K
+    R --&gt; K
+    S --&gt; K
+
+    K --&gt; T
+    K --&gt; U
+    K --&gt; V
+    K --&gt; W
+    K --&gt; X
+
+    T --&gt; Y
+    U --&gt; Y
+    V --&gt; Y
+    W --&gt; Y
+    X --&gt; Y
+
+    Y --&gt; Z
+    Z --&gt; AA
+    Z --&gt; BB
+    Z --&gt; CC
+</div>
+<h2 id="_4">Звёздная схема данных<a class="headerlink" href="#_4" title="Permanent link">¶</a></h2>
+<p>Система формирует измерения для звёздной схемы:</p>
+<h3 id="dimensions">Измерения (Dimensions)<a class="headerlink" href="#dimensions" title="Permanent link">¶</a></h3>
+<ol>
+<li><strong>document_dim</strong> — документы и публикации</li>
+<li>Источники: Crossref, OpenAlex, PubMed, Semantic Scholar</li>
+<li>
+<p>Поля: document_chembl_id, title, doi, journal, authors, publication_date</p>
+</li>
+<li>
+<p><strong>target_dim</strong> — белковые мишени</p>
+</li>
+<li>Источники: ChEMBL, UniProt, IUPHAR</li>
+<li>
+<p>Поля: target_chembl_id, pref_name, target_type, protein_classifications</p>
+</li>
+<li>
+<p><strong>assay_dim</strong> — биохимические ассеи</p>
+</li>
+<li>Источники: ChEMBL</li>
+<li>
+<p>Поля: assay_chembl_id, assay_type, relationship_type, confidence_score</p>
+</li>
+<li>
+<p><strong>testitem_dim</strong> — молекулярные соединения</p>
+</li>
+<li>Источники: ChEMBL, PubChem</li>
+<li>Поля: molecule_chembl_id, pref_name, max_phase, molecular_properties</li>
+</ol>
+<h3 id="facts">Факты (Facts)<a class="headerlink" href="#facts" title="Permanent link">¶</a></h3>
+<ol>
+<li><strong>activity_fact</strong> — биоактивностные данные</li>
+<li>Источники: ChEMBL</li>
+<li>Поля: activity_id, standard_value, standard_units, activity_type</li>
+<li>Связи: FK к document_dim, target_dim, assay_dim, testitem_dim</li>
+</ol>
+<h2 id="_5">Слои архитектуры<a class="headerlink" href="#_5" title="Permanent link">¶</a></h2>
+<h3 id="1-data-sources-layer">1. Слой источников данных (Data Sources Layer)<a class="headerlink" href="#1-data-sources-layer" title="Permanent link">¶</a></h3>
+<p><strong>Назначение</strong>: Абстракция над внешними API</p>
+<p><strong>Компоненты</strong>:
+- <code>src/library/clients/</code> — HTTP клиенты для каждого API
+- <code>src/library/clients/base.py</code> — базовый функционал (retry, rate limiting, circuit breaker)
+- Специализированные клиенты: ChEMBLClient, CrossrefClient, OpenAlexClient, etc.</p>
+<p><strong>Принципы</strong>:
+- Graceful degradation при недоступности API
+- Rate limiting и retry logic
+- Кэширование ответов
+- Структурированное логирование</p>
+<h3 id="2-etl-etl-layer">2. Слой ETL (ETL Layer)<a class="headerlink" href="#2-etl-etl-layer" title="Permanent link">¶</a></h3>
+<p><strong>Назначение</strong>: Извлечение, трансформация и загрузка данных</p>
+<p><strong>Компоненты</strong>:
+- <code>src/library/etl/</code> — общие ETL утилиты
+- <code>src/library/{documents,targets,assays,activities,testitems}/</code> — специализированные пайплайны
+- <code>src/library/schemas/</code> — Pandera схемы валидации</p>
+<p><strong>Этапы ETL</strong>:
+1. <strong>Extract</strong> — извлечение данных из API
+2. <strong>Normalize</strong> — нормализация и стандартизация
+3. <strong>Validate</strong> — валидация с помощью Pandera
+4. <strong>Postprocess</strong> — создание QC отчётов и корреляций</p>
+<h3 id="3-configuration-layer">3. Слой конфигурации (Configuration Layer)<a class="headerlink" href="#3-configuration-layer" title="Permanent link">¶</a></h3>
+<p><strong>Назначение</strong>: Управление настройками и параметрами</p>
+<p><strong>Компоненты</strong>:
+- <code>configs/*.yaml</code> — конфигурационные файлы для каждого пайплайна
+- <code>src/library/config.py</code> — Pydantic модели конфигурации
+- Переменные окружения для секретов</p>
+<p><strong>Принципы</strong>:
+- Валидация конфигурации через Pydantic
+- Разделение секретов и настроек
+- Версионирование конфигураций</p>
+<h3 id="4-validation-layer">4. Слой валидации (Validation Layer)<a class="headerlink" href="#4-validation-layer" title="Permanent link">¶</a></h3>
+<p><strong>Назначение</strong>: Обеспечение качества и консистентности данных</p>
+<p><strong>Компоненты</strong>:
+- Pandera схемы для валидации DataFrame
+- Pydantic модели для валидации конфигурации
+- Инварианты и бизнес-правила</p>
+<p><strong>Типы валидации</strong>:
+- <strong>Структурная</strong>: типы данных, обязательные поля
+- <strong>Семантическая</strong>: диапазоны значений, форматы
+- <strong>Бизнес-логика</strong>: инварианты, связи между полями</p>
+<h3 id="5-monitoring-layer">5. Слой мониторинга (Monitoring Layer)<a class="headerlink" href="#5-monitoring-layer" title="Permanent link">¶</a></h3>
+<p><strong>Назначение</strong>: Наблюдаемость и диагностика</p>
+<p><strong>Компоненты</strong>:
+- <code>src/library/telemetry.py</code> — OpenTelemetry интеграция
+- <code>src/library/logging_setup.py</code> — структурированное логирование
+- QC отчёты и метрики качества</p>
+<p><strong>Метрики</strong>:
+- Производительность: время выполнения, throughput
+- Качество: fill rate, дубликаты, ошибки валидации
+- Доступность: статус API, успешность запросов</p>
+<h2 id="_6">Принципы дизайна<a class="headerlink" href="#_6" title="Permanent link">¶</a></h2>
+<h3 id="1">1. Модульность<a class="headerlink" href="#1" title="Permanent link">¶</a></h3>
+<ul>
+<li>Каждый пайплайн — независимый модуль</li>
+<li>Общие утилиты вынесены в <code>src/library/etl/</code></li>
+<li>Чёткое разделение ответственности</li>
+</ul>
+<h3 id="2">2. Детерминизм<a class="headerlink" href="#2" title="Permanent link">¶</a></h3>
+<ul>
+<li>Воспроизводимые результаты при одинаковых входах</li>
+<li>Фиксированный порядок колонок и сортировка</li>
+<li>Контролируемое форматирование чисел и дат</li>
+</ul>
+<h3 id="3">3. Валидация<a class="headerlink" href="#3" title="Permanent link">¶</a></h3>
+<ul>
+<li>Строгая валидация на каждом этапе</li>
+<li>Pandera схемы для DataFrame</li>
+<li>Pydantic модели для конфигурации</li>
+</ul>
+<h3 id="4-graceful-degradation">4. Graceful Degradation<a class="headerlink" href="#4-graceful-degradation" title="Permanent link">¶</a></h3>
+<ul>
+<li>Продолжение работы при недоступности части источников</li>
+<li>Логирование ошибок без остановки пайплайна</li>
+<li>Fallback стратегии для критических компонентов</li>
+</ul>
+<h3 id="5">5. Конфигурируемость<a class="headerlink" href="#5" title="Permanent link">¶</a></h3>
+<ul>
+<li>YAML конфигурации для каждого пайплайна</li>
+<li>Переменные окружения для секретов</li>
+<li>Валидация конфигурации</li>
+</ul>
+<h2 id="_7">Поток данных<a class="headerlink" href="#_7" title="Permanent link">¶</a></h2>
+<div class="mermaid">flowchart LR
+    A[Входные CSV] --&gt; B[Конфигурация]
+    B --&gt; C[HTTP Клиенты]
+    C --&gt; D[API Источники]
+    D --&gt; E[Extract]
+    E --&gt; F[Normalize]
+    F --&gt; G[Validate]
+    G --&gt; H[Postprocess]
+    H --&gt; I[CSV Export]
+    H --&gt; J[QC Reports]
+    H --&gt; K[Correlations]
+
+    L[Ошибки] --&gt; M[Логирование]
+    L --&gt; N[Graceful Degradation]
+</div>
+<h2 id="_8">Точки расширения<a class="headerlink" href="#_8" title="Permanent link">¶</a></h2>
+<h3 id="_9">Добавление нового источника данных<a class="headerlink" href="#_9" title="Permanent link">¶</a></h3>
+<ol>
+<li>Создать клиент в <code>src/library/clients/</code></li>
+<li>Наследовать от <code>BaseApiClient</code></li>
+<li>Реализовать специфичную логику API</li>
+<li>Добавить в конфигурацию пайплайна</li>
+</ol>
+<h3 id="_10">Добавление нового пайплайна<a class="headerlink" href="#_10" title="Permanent link">¶</a></h3>
+<ol>
+<li>Создать модуль в <code>src/library/{name}/</code></li>
+<li>Реализовать этапы ETL</li>
+<li>Создать Pandera схемы</li>
+<li>Добавить конфигурацию</li>
+<li>Создать CLI команду</li>
+</ol>
+<h3 id="_11">Кастомные трансформации<a class="headerlink" href="#_11" title="Permanent link">¶</a></h3>
+<ol>
+<li>Добавить функцию в <code>src/library/etl/transform.py</code></li>
+<li>Зарегистрировать в конфигурации</li>
+<li>Создать Pandera схему для результата</li>
+</ol>
+<h2 id="_12">Ограничения и компромиссы<a class="headerlink" href="#_12" title="Permanent link">¶</a></h2>
+<h3 id="_13">Технические ограничения<a class="headerlink" href="#_13" title="Permanent link">¶</a></h3>
+<ul>
+<li><strong>Память</strong>: Загрузка всех данных в память (pandas)</li>
+<li><strong>Потоки</strong>: Синхронные HTTP запросы</li>
+<li><strong>Размер</strong>: Ограничения на размер ответов API</li>
+<li><strong>Сеть</strong>: Зависимость от стабильности внешних API</li>
+</ul>
+<h3 id="_14">Архитектурные компромиссы<a class="headerlink" href="#_14" title="Permanent link">¶</a></h3>
+<ul>
+<li><strong>Простота vs Производительность</strong>: Синхронные запросы для простоты</li>
+<li><strong>Гибкость vs Стабильность</strong>: Модульная архитектура vs сложность</li>
+<li><strong>Полнота vs Скорость</strong>: Валидация всех данных vs производительность</li>
+</ul>
+<h2 id="_15">Мониторинг и алертинг<a class="headerlink" href="#_15" title="Permanent link">¶</a></h2>
+<h3 id="_16">Метрики<a class="headerlink" href="#_16" title="Permanent link">¶</a></h3>
+<ul>
+<li><strong>Производительность</strong>: Время выполнения, throughput</li>
+<li><strong>Ошибки</strong>: Количество и типы ошибок</li>
+<li><strong>API Health</strong>: Доступность внешних сервисов</li>
+<li><strong>Качество данных</strong>: Fill rate, дубликаты</li>
+</ul>
+<h3 id="_17">Дашборды<a class="headerlink" href="#_17" title="Permanent link">¶</a></h3>
+<ul>
+<li><strong>Grafana</strong>: Визуализация метрик</li>
+<li><strong>Jaeger</strong>: Трейсинг запросов</li>
+<li><strong>Prometheus</strong>: Сбор метрик</li>
+</ul>
+<h3 id="_18">Алерты<a class="headerlink" href="#_18" title="Permanent link">¶</a></h3>
+<ul>
+<li><strong>API недоступность</strong>: Уведомления о недоступности источников</li>
+<li><strong>Высокий уровень ошибок</strong>: Превышение пороговых значений</li>
+<li><strong>Деградация качества</strong>: Падение fill rate</li>
+</ul>
+</article>
+</div>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.indexes", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u0431\u0443\u0444\u0435\u0440", "clipboard.copy": "\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0432 \u0431\u0443\u0444\u0435\u0440", "search.result.more.one": "\u0415\u0449\u0451 1 \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.more.other": "\u0415\u0449\u0451 # \u043d\u0430 \u044d\u0442\u043e\u0439 \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0435", "search.result.none": "\u0421\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e", "search.result.one": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e 1 \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0435", "search.result.other": "\u041d\u0430\u0439\u0434\u0435\u043d\u043e \u0441\u043e\u0432\u043f\u0430\u0434\u0435\u043d\u0438\u0439: #", "search.result.placeholder": "\u041d\u0430\u0447\u043d\u0438\u0442\u0435 \u043f\u0435\u0447\u0430\u0442\u0430\u0442\u044c \u0434\u043b\u044f \u043f\u043e\u0438\u0441\u043a\u0430", "search.result.term.missing": "\u041e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0443\u0435\u0442", "select.version": "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044e"}, "version": null}</script>
+<script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+<script type="module">import mermaid from "https://unpkg.com/mermaid@10.4.0/dist/mermaid.esm.min.mjs";
+mermaid.initialize({});</script></body>
+</html>

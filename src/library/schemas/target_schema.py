@@ -28,6 +28,12 @@ class TargetNormalizedSchema(pa.DataFrameModel):
 
     # Business key - only required field
     target_chembl_id: Series[str] = pa.Field(nullable=False)
+    
+    # GtoPdb enrichment fields
+    gtop_synonyms: Series[str] = pa.Field(nullable=True, description="Guide to Pharmacology synonyms")
+    gtop_natural_ligands_n: Series[str] = pa.Field(nullable=True, description="Number of natural ligands")
+    gtop_interactions_n: Series[str] = pa.Field(nullable=True, description="Number of interactions")
+    gtop_function_text_short: Series[str] = pa.Field(nullable=True, description="Short function description")
 
     class Config:
         strict = False  # allow extra columns from enrichments

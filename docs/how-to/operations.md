@@ -25,9 +25,8 @@ python scripts/check_specific_limits.py --source chembl
 ## Мониторинг по расписанию
 
 ```bash
-python scripts/monitor_api.py
-python scripts/monitor_pubmed.py
-python scripts/monitor_semantic_scholar.py
+# Используйте единую команду health для мониторинга всех API
+make health CONFIG=configs/config_documents_full.yaml
 ```
 
 ## Рекомендуемые интервалы

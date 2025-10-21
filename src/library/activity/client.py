@@ -52,7 +52,33 @@ class ActivityChEMBLClient(BaseApiClient):
         target_ids: list[str] | None = None,
         use_cache: bool = True
     ) -> Generator[dict[str, Any], None, None]:
-        """Fetch activities with pagination and caching."""
+        """Извлечение данных активности из ChEMBL API с пагинацией и фильтрацией.
+        
+        Выполняет пагинированные запросы к ChEMBL API для получения данных
+        о биологической активности с возможностью фильтрации по различным
+        идентификаторам. Поддерживает кэширование и обработку ошибок.
+        
+        Args:
+            limit: Количество записей на страницу (максимум 1000)
+            offset: Смещение для пагинации
+            activity_ids: Список ID активностей для фильтрации
+            assay_ids: Список ID ассеев для фильтрации
+            molecule_ids: Список ID молекул для фильтрации
+            target_ids: Список ID мишеней для фильтрации
+            use_cache: Использовать кэширование для ускорения повторных запросов
+            
+        Yields:
+            dict: Словарь с данными активности из ChEMBL API
+            
+        Raises:
+            HTTPError: При ошибках HTTP запросов
+            ValueError: При невалидных параметрах запроса
+            
+        Example:
+            >>> client = ActivityChEMBLClient(config)
+            >>> for activity in client.fetch_activities_paginated(assay_ids=["CHEMBL123"]):
+            ...     print(activity["activity_chembl_id"])
+        """
         
         # Build query parameters
         effective_limit = 1000 if limit is None else min(limit, 1000)

@@ -508,15 +508,34 @@ def run_activity_etl(
     input_csv: Path | None = None,
     logger: BoundLogger | None = None
 ) -> ActivityETLResult:
-    """Convenience function to run activity ETL pipeline.
+    """Запуск ETL пайплайна для извлечения данных о биологической активности.
+    
+    Извлекает данные о биологической активности соединений из ChEMBL API,
+    нормализует их согласно бизнес-правилам, валидирует через Pandera схемы
+    и экспортирует в детерминированном формате.
     
     Args:
-        config: Activity configuration
-        input_csv: Optional input CSV with filter IDs
-        logger: Optional structured logger
+        config: Конфигурация пайплайна с настройками источников, валидации и детерминизма
+        input_csv: Опциональный CSV файл с ID для фильтрации (assay_ids, target_ids, etc.)
+        logger: Опциональный структурированный логгер для отслеживания процесса
         
     Returns:
-        Dictionary with processed data and metadata
+        ActivityETLResult: Результат выполнения ETL содержащий:
+            - activities: DataFrame с нормализованными данными активности
+            - qc: DataFrame с метриками качества данных
+            - meta: Словарь с метаданными процесса обработки
+            - correlations: DataFrame с корреляционным анализом
+        
+    Raises:
+        ActivityValidationError: Если валидация данных не прошла в строгом режиме
+        ActivityHTTPError: Если запросы к ChEMBL API не удались после всех попыток
+        ActivityQCError: Если проверки качества не прошли пороговые значения
+        ActivityIOError: Если операции чтения/записи файлов не удались
+        
+    Example:
+        >>> config = ActivityConfig.from_file("configs/config_activity_full.yaml")
+        >>> result = run_activity_etl(config, input_csv=Path("data/input/assay_ids.csv"))
+        >>> print(f"Обработано {len(result.activities)} записей активности")
     """
     pipeline = ActivityPipeline(config)
     return pipeline.run(input_csv, logger)

@@ -126,10 +126,10 @@ bioactivity-data-acquisition --help
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 3
 
 # Targets
-make -f Makefile.target target-example
+make pipeline TYPE=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml
 
 # Assays
-make -f Makefile.assay assay-example
+make pipeline TYPE=assays INPUT=data/input/assay.csv CONFIG=configs/config_assay_full.yaml
 
 # Activities
 python scripts/get_activity_data.py --config configs/config_activity_full.yaml --limit 10

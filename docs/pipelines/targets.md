@@ -252,25 +252,25 @@ determinism:
 
 ```bash
 # Установка зависимостей
-make -f Makefile.target install-target
+make install-dev
 
 # Валидация конфигурации
-make -f Makefile.target validate-target-config
+make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml --dry-run
 
 # Запуск с примером данных
-make -f Makefile.target target-example
+make pipeline TYPE=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml
 
 # Тестовый запуск без записи
-make -f Makefile.target target-dry-run
+make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--dry-run"
 
 # Запуск тестов
-make -f Makefile.target test-target
+make pipeline-test TYPE=targets
 
 # Очистка артефактов
-make -f Makefile.target clean-target
+make pipeline-clean TYPE=targets
 
 # Справка
-make -f Makefile.target help
+make help
 ```
 
 ### CLI команды
@@ -360,8 +360,8 @@ quality:
 ### Отчёты в reports/
 
 - **IUPHAR_SYNC_REPORT.md**: Отчёт о синхронизации с IUPHAR
-- **QUALITY_MANIFEST.json**: Манифест качества данных
-- **config_audit.csv**: Аудит конфигурации
+- **metadata/manifests/quality_manifest.json**: Манифест качества данных
+- **metadata/reports/config_audit.csv**: Аудит конфигурации
 
 ## 10. Контроль качества
 
@@ -436,14 +436,14 @@ quality:
 
 ```bash
 # Проверка конфигурации
-make -f Makefile.target validate-target-config
+make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml --dry-run
 
 # Проверка зависимостей
-make -f Makefile.target check-target-deps
+make install-dev
 
 # Тестовый запуск
-make -f Makefile.target target-dry-run
+make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--dry-run"
 
 # Просмотр статистики
-make -f Makefile.target target-stats
+make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--stats"
 ```
