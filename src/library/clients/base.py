@@ -263,17 +263,13 @@ class BaseApiClient:
         add_span_attribute("http.expected_status", expected_status)
 
         self.logger.info(
-            "request",
-            method=method,
-            url=url,
-            params=kwargs.get("params"),
-            headers=request_headers or None,
+            f"request method={method} url={url} params={kwargs.get('params')} headers={request_headers or None}"
         )
 
         try:
             response = self._send_with_backoff(method, url, headers=request_headers, **kwargs)
         except requests.exceptions.RequestException as exc:  # pragma: no cover - defensive
-            self.logger.error("transport_error", error=str(exc))
+            self.logger.error(f"transport_error error={str(exc)}")
             add_span_attribute("error", True)
             add_span_attribute("error.type", "transport_error")
             raise ApiClientError(str(exc)) from exc
@@ -289,10 +285,7 @@ class BaseApiClient:
                 response_text = f"HTML error page ({len(response_text)} characters)"
             
             self.logger.warning(
-                "unexpected_status",
-                status_code=response.status_code,
-                text=response_text,
-                expected_status=expected_status,
+                f"unexpected_status status_code={response.status_code} text={response_text} expected_status={expected_status}"
             )
             add_span_attribute("error", True)
             add_span_attribute("error.type", "unexpected_status")
@@ -335,10 +328,7 @@ class BaseApiClient:
             content_type = response.headers.get('content-type', '').lower()
             if 'xml' in content_type:
                 self.logger.info(
-                    "xml_response_received",
-                    content_type=content_type,
-                    url=url,
-                    message="API returned XML, attempting to parse"
+                    f"xml_response_received content_type={content_type} url={url} message=API returned XML, attempting to parse"
                 )
                 # Пытаемся парсить XML
                 try:
@@ -347,13 +337,13 @@ class BaseApiClient:
                     root = safe_fromstring(response.text)
                     payload = self._xml_to_dict(root)
                 except Exception as xml_exc:
-                    self.logger.error("xml_parse_error", error=str(xml_exc))
+                    self.logger.error(f"xml_parse_error error={str(xml_exc)}")
                     raise ApiClientError(f"Failed to parse XML response: {xml_exc}") from xml_exc
             else:
-                self.logger.error("invalid_json", error=str(exc), content_type=content_type)
+                self.logger.error(f"invalid_json error={str(exc)} content_type={content_type}")
                 raise ApiClientError("response was not valid JSON") from exc
 
-        self.logger.info("response", status_code=response.status_code)
+        self.logger.info(f"response status_code={response.status_code}")
         if not isinstance(payload, dict):
             raise ApiClientError("expected JSON object from API")
         return payload

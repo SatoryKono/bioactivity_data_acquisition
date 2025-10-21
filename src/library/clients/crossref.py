@@ -38,7 +38,7 @@ class CrossrefClient(BaseApiClient):
                 )
             
             # If not degrading, try fallback search
-            self.logger.info("fallback_to_search", doi=doi, error=str(exc))
+            self.logger.info(f"fallback_to_search doi={doi} error={str(exc)}")
             try:
                 payload = self._request("GET", "", params={"query.bibliographic": doi})
                 items = payload.get("message", {}).get("items", [])
@@ -76,14 +76,14 @@ class CrossrefClient(BaseApiClient):
                     exc
                 )
             
-            self.logger.info("pmid_lookup_failed", pmid=pmid, error=str(exc))
+            self.logger.info(f"pmid_lookup_failed pmid={pmid} error={str(exc)}")
             payload = {"message": {"items": []}}
         
         items = payload.get("message", {}).get("items", [])
         if items:
             return self._parse_work(items[0])
 
-        self.logger.info("pmid_fallback_to_query", pmid=pmid)
+        self.logger.info(f"pmid_fallback_to_query pmid={pmid}")
         try:
             payload = self._request("GET", "", params={"query": pmid})
             items = payload.get("message", {}).get("items", [])

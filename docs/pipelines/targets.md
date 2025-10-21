@@ -1,0 +1,449 @@
+# Пайплайн Targets
+
+Пайплайн для извлечения и обогащения данных о белковых мишенях (targets) из ChEMBL, UniProt и IUPHAR.
+
+## 1. Назначение и границы
+
+### Что делает пайплайн
+
+Пайплайн Targets формирует измерение `target_dim` для звёздной схемы данных, объединяя информацию о белковых мишенях из трёх основных источников:
+
+- **ChEMBL**: Основные данные о мишенях (идентификаторы, названия, типы)
+- **UniProt**: Обогащение белковыми данными (функции, локализация, домены)
+- **IUPHAR**: Фармакологическая классификация (семейства, подтипы)
+
+### Входы и выходы
+
+**Входы**:
+- CSV файл с ChEMBL идентификаторами мишеней (`target_chembl_id`)
+- Конфигурация `configs/config_target_full.yaml`
+
+**Выходы**:
+- `target_YYYYMMDD.csv` — основные данные мишеней
+- `target_YYYYMMDD_qc.csv` — отчёт о качестве данных
+- `target_YYYYMMDD_meta.yaml` — метаданные пайплайна
+- `target_correlation_report_YYYYMMDD/` — корреляционный анализ
+
+### Место в архитектуре
+
+Пайплайн Targets является одним из пяти основных пайплайнов системы, формируя измерение для звёздной схемы данных. Результаты используются в пайплайне Activities для связывания биоактивностных данных с мишенями.
+
+## 2. Источники данных и маппинги
+
+| Источник | Статус | Endpoint | Основные поля | Обязательность |
+|----------|--------|----------|---------------|----------------|
+| **ChEMBL** | ✅ Обязательный | `/target` | `target_chembl_id`, `pref_name`, `target_type`, `organism` | Да |
+| **UniProt** | ✅ Обязательный | `/uniprot` | `uniprot_id_primary`, `molecular_function`, `cellular_component` | Да |
+| **IUPHAR** | ✅ Обязательный | CSV словари | `iuphar_target_id`, `iuphar_type`, `gtop_function_text_short` | Да |
+
+### Маппинг полей
+
+**ChEMBL → target_dim**:
+- `target_chembl_id` → `target_chembl_id`
+- `pref_name` → `pref_name`
+- `target_type` → `target_type`
+- `organism` → `target_organism`
+
+**UniProt → target_dim**:
+- `uniprot_id` → `uniprot_id_primary`
+- `protein_names` → `protein_names`
+- `gene_names` → `gene_names`
+- `molecular_function` → `molecular_function`
+
+**IUPHAR → target_dim**:
+- `iuphar_target_id` → `iuphar_target_id`
+- `iuphar_type` → `iuphar_type`
+- `family` → `iuphar_family`
+
+## 3. Граф ETL
+
+```mermaid
+graph LR
+    A[Extract] --> B[Normalize]
+    B --> C[Validate]
+    C --> D[Postprocess]
+    
+    subgraph "Extract"
+        A1[ChEMBL API]
+        A2[UniProt API]
+        A3[IUPHAR CSV]
+    end
+    
+    subgraph "Normalize"
+        B1[Объединение данных]
+        B2[Стандартизация полей]
+        B3[Создание ключей]
+    end
+    
+    subgraph "Validate"
+        C1[Pandera схемы]
+        C2[Бизнес-правила]
+        C3[Инварианты]
+    end
+    
+    subgraph "Postprocess"
+        D1[QC отчёты]
+        D2[Корреляции]
+        D3[Метаданные]
+    end
+```
+
+## 4. Схемы данных
+
+### Входная схема
+
+| Поле | Тип | Nullable | Описание |
+|------|-----|----------|----------|
+| `target_chembl_id` | str | No | ChEMBL идентификатор мишени |
+
+### Выходная схема
+
+| Поле | Тип | Nullable | Описание | Источник |
+|------|-----|----------|----------|----------|
+| `target_chembl_id` | str | No | ChEMBL ID мишени | ChEMBL |
+| `pref_name` | str | Yes | Предпочтительное название | ChEMBL |
+| `target_type` | str | Yes | Тип мишени | ChEMBL |
+| `target_organism` | str | Yes | Организм мишени | ChEMBL |
+| `uniprot_id_primary` | str | Yes | Основной UniProt ID | UniProt |
+| `protein_names` | str | Yes | Названия белков | UniProt |
+| `gene_names` | str | Yes | Названия генов | UniProt |
+| `molecular_function` | str | Yes | Молекулярная функция | UniProt |
+| `cellular_component` | str | Yes | Клеточная локализация | UniProt |
+| `iuphar_target_id` | str | Yes | IUPHAR ID мишени | IUPHAR |
+| `iuphar_type` | str | Yes | IUPHAR тип | IUPHAR |
+| `iuphar_family` | str | Yes | IUPHAR семейство | IUPHAR |
+| `source_system` | str | No | Система-источник | Система |
+| `chembl_release` | str | No | Версия ChEMBL | ChEMBL |
+| `extracted_at` | datetime | No | Время извлечения | Система |
+
+### Политика NA
+
+- **ChEMBL поля**: Обязательные, NA не допускается
+- **UniProt поля**: Опциональные, NA разрешено
+- **IUPHAR поля**: Опциональные, NA разрешено
+- **Системные поля**: Обязательные, NA не допускается
+
+## 5. Конфигурация
+
+### Основные настройки
+
+```yaml
+# configs/config_target_full.yaml
+sources:
+  chembl:
+    enabled: true  # Обязательно
+    endpoint: target
+    http:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      timeout_sec: 60.0
+      retries:
+        total: 5
+        backoff_multiplier: 2.0
+  
+  uniprot:
+    enabled: true  # Обязательно
+    endpoint: uniprot
+    http:
+      base_url: https://rest.uniprot.org
+      timeout_sec: 45.0
+  
+  iuphar:
+    enabled: true  # Обязательно
+    csv_path: configs/dictionary/_target/iuphar_targets.csv
+
+runtime:
+  workers: 4
+  limit: null  # Без ограничений
+  dev_mode: false  # true для тестирования
+  allow_incomplete_sources: false  # true для тестирования
+
+validation:
+  strict: true
+  qc:
+    max_missing_fraction: 0.02
+    max_duplicate_fraction: 0.005
+```
+
+### Переменные окружения
+
+```bash
+# Опционально
+CHEMBL_API_TOKEN=your_chembl_token_here
+```
+
+### Настройки кэша
+
+```yaml
+runtime:
+  cache_dir: .cache/chembl
+  cache_ttl: 86400  # 24 часа
+```
+
+## 6. Валидация
+
+### Pandera схемы
+
+```python
+# src/library/schemas/target_schema.py
+class TargetOutputSchema(pa.DataFrameModel):
+    target_chembl_id: Series[str] = pa.Field(description="ChEMBL target identifier")
+    pref_name: Series[str] = pa.Field(nullable=True, description="Preferred name")
+    target_type: Series[str] = pa.Field(nullable=True, description="Target type")
+    # ... остальные поля
+```
+
+### Инварианты
+
+1. **Уникальность**: `target_chembl_id` должен быть уникальным
+2. **Связность**: Все записи должны иметь данные из ChEMBL
+3. **Консистентность**: `uniprot_id_primary` должен быть валидным UniProt ID
+4. **Полнота**: Минимум 80% записей должны иметь данные из UniProt
+
+### Дедупликация
+
+- По `target_chembl_id` (основной ключ)
+- Автоматическое удаление дубликатов
+- Логирование удалённых записей
+
+## 7. Детерминизм
+
+### Сортировка
+
+```yaml
+determinism:
+  sort:
+    by: [target_chembl_id, pref_name]
+    ascending: [true, true]
+    na_position: last
+```
+
+### Формат float
+
+```yaml
+io:
+  output:
+    csv:
+      float_format: "%.3f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+```
+
+### Порядок колонок
+
+```yaml
+determinism:
+  column_order:
+    - target_chembl_id
+    - pref_name
+    - target_type
+    - target_organism
+    - uniprot_id_primary
+    # ... фиксированный порядок
+```
+
+### Локаль и таймзона
+
+- **Локаль**: UTF-8
+- **Таймзона**: UTC для всех временных меток
+- **Формат даты**: ISO 8601
+
+## 8. CLI/Make команды
+
+### Стандартизованные цели
+
+```bash
+# Установка зависимостей
+make -f Makefile.target install-target
+
+# Валидация конфигурации
+make -f Makefile.target validate-target-config
+
+# Запуск с примером данных
+make -f Makefile.target target-example
+
+# Тестовый запуск без записи
+make -f Makefile.target target-dry-run
+
+# Запуск тестов
+make -f Makefile.target test-target
+
+# Очистка артефактов
+make -f Makefile.target clean-target
+
+# Справка
+make -f Makefile.target help
+```
+
+### CLI команды
+
+```bash
+# Через Typer CLI
+python -m library.cli get-target-data \
+  --config configs/config_target_full.yaml \
+  --targets-csv data/input/target_ids.csv \
+  --date-tag 20251020
+
+# Через Python скрипт
+python -m library.scripts.get_target_data \
+  --config configs/config_target_full.yaml \
+  --targets-csv data/input/target_ids.csv \
+  --output-dir data/output/target \
+  --date-tag 20251020
+```
+
+### Параметры командной строки
+
+| Параметр | Описание | Обязательный | По умолчанию |
+|----------|----------|--------------|--------------|
+| `--config` | Путь к конфигурации | Да | - |
+| `--targets-csv` | CSV с target_chembl_id | Да | - |
+| `--output-dir` | Директория вывода | Нет | Из конфига |
+| `--date-tag` | Тег даты | Нет | Текущая дата |
+| `--dev-mode` | Режим разработки | Нет | false |
+| `--limit` | Ограничение записей | Нет | null |
+
+## 9. Артефакты
+
+### Структура выходных файлов
+
+```
+data/output/target/
+├── target_20251020.csv                    # Основные данные
+├── target_20251020_qc.csv                 # QC метрики
+├── target_20251020_meta.yaml              # Метаданные
+└── target_correlation_report_20251020/    # Корреляционный анализ
+    ├── correlation_matrix.csv
+    └── correlation_insights.csv
+```
+
+### Формат имён файлов
+
+- **Основной CSV**: `target_{YYYYMMDD}.csv`
+- **QC отчёт**: `target_{YYYYMMDD}_qc.csv`
+- **Метаданные**: `target_{YYYYMMDD}_meta.yaml`
+- **Корреляции**: `target_correlation_report_{YYYYMMDD}/`
+
+### meta.yaml структура
+
+```yaml
+pipeline:
+  name: targets
+  version: 1.0.0
+  run_date: "2025-10-20T12:00:00Z"
+  
+sources:
+  chembl:
+    enabled: true
+    records_processed: 150
+    records_successful: 148
+    records_failed: 2
+  
+  uniprot:
+    enabled: true
+    records_processed: 148
+    records_successful: 145
+    records_failed: 3
+  
+  iuphar:
+    enabled: true
+    records_processed: 148
+    records_successful: 120
+    records_failed: 28
+
+quality:
+  total_records: 150
+  valid_records: 145
+  invalid_records: 5
+  fill_rate: 0.967
+  duplicate_rate: 0.0
+```
+
+### Отчёты в reports/
+
+- **IUPHAR_SYNC_REPORT.md**: Отчёт о синхронизации с IUPHAR
+- **QUALITY_MANIFEST.json**: Манифест качества данных
+- **config_audit.csv**: Аудит конфигурации
+
+## 10. Контроль качества
+
+### Чек-лист QC
+
+- [ ] Все обязательные источники включены
+- [ ] Fill rate >= 80%
+- [ ] Дубликаты <= 1%
+- [ ] Все ChEMBL записи обработаны
+- [ ] UniProt обогащение >= 70%
+- [ ] IUPHAR классификация >= 60%
+
+### Ожидаемые инварианты
+
+1. **Полнота ChEMBL**: 100% записей должны иметь данные из ChEMBL
+2. **Уникальность**: Нет дубликатов по `target_chembl_id`
+3. **Валидность**: Все `target_chembl_id` соответствуют формату CHEMBL\d+
+4. **Связность**: UniProt ID должны быть валидными
+
+### Метрики качества
+
+- **Fill Rate**: Процент заполненных полей
+- **Source Coverage**: Покрытие по источникам
+- **Validation Success**: Процент успешных валидаций
+- **Processing Time**: Время обработки
+
+## 11. Ограничения и типичные ошибки
+
+### Rate limits API
+
+| Источник | Лимит | Таймаут | Особенности |
+|----------|-------|---------|-------------|
+| **ChEMBL** | Нет лимита | 60s | Требует токен для больших объёмов |
+| **UniProt** | 10/сек | 45s | Политес API |
+| **IUPHAR** | Локальные CSV | - | Нет API лимитов |
+
+### Типовые фейлы и решения
+
+1. **Ошибка "All sources must be enabled"**
+   ```bash
+   # Решение: Используйте dev режим для тестирования
+   python -m library.scripts.get_target_data --dev-mode
+   ```
+
+2. **Ошибка валидации входных данных**
+   ```bash
+   # Решение: Проверьте формат CSV
+   head data/input/target_ids.csv
+   # Должно быть: target_chembl_id
+   # CHEMBL240
+   # CHEMBL251
+   ```
+
+3. **Проблемы с API**
+   - **ChEMBL**: Работает без API ключа с ограничениями
+   - **UniProt**: Работает без API ключа
+   - **IUPHAR**: Использует CSV словари или API fallback
+
+4. **Медленная обработка**
+   ```bash
+   # Решение: Ограничьте количество записей
+   python -m library.scripts.get_target_data --limit 100
+   ```
+
+5. **Ошибки валидации Pandera**
+   ```bash
+   # Решение: Проверьте логи и исправьте данные
+   tail logs/app.log | grep "validation"
+   ```
+
+### Troubleshooting
+
+```bash
+# Проверка конфигурации
+make -f Makefile.target validate-target-config
+
+# Проверка зависимостей
+make -f Makefile.target check-target-deps
+
+# Тестовый запуск
+make -f Makefile.target target-dry-run
+
+# Просмотр статистики
+make -f Makefile.target target-stats
+```

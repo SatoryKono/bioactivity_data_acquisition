@@ -98,3 +98,21 @@ quick-start: setup-api-keys run-dev
 
 # Полная настройка и запуск
 full-setup: install-dev setup-api-keys clean-backups run-dev
+
+# Документация
+docs-serve: ## Запустить локальный сервер MkDocs
+	@echo "📚 Запуск локального сервера документации..."
+	mkdocs serve --config-file configs/mkdocs.yml
+
+docs-build: ## Собрать статическую документацию
+	@echo "📚 Сборка документации..."
+	mkdocs build --config-file configs/mkdocs.yml --strict
+
+docs-lint: ## Проверить документацию линтерами
+	@echo "📚 Проверка документации линтерами..."
+	markdownlint docs/ --config .markdownlint.json
+	pymarkdown scan docs/
+
+docs-deploy: ## Деплой документации на GitHub Pages (локально)
+	@echo "📚 Деплой документации на GitHub Pages..."
+	mkdocs gh-deploy --config-file configs/mkdocs.yml --force

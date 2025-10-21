@@ -66,7 +66,7 @@ class EnhancedCorrelationAnalyzer:
                 correlations['pearson'] = pd.DataFrame()
         except Exception as e:
             if self.logger:
-                self.logger.warning("Ошибка при вычислении корреляции Пирсона", error=str(e))
+                self.logger.warning(f"Ошибка при вычислении корреляции Пирсона error={str(e)}")
             correlations['pearson'] = pd.DataFrame()
 
         # Корреляция Спирмена
@@ -80,7 +80,7 @@ class EnhancedCorrelationAnalyzer:
                 correlations['spearman'] = pd.DataFrame()
         except Exception as e:
             if self.logger:
-                self.logger.warning("Ошибка при вычислении корреляции Спирмена", error=str(e))
+                self.logger.warning(f"Ошибка при вычислении корреляции Спирмена error={str(e)}")
             correlations['spearman'] = pd.DataFrame()
 
         # Ковариационная матрица
@@ -94,7 +94,7 @@ class EnhancedCorrelationAnalyzer:
                 correlations['covariance'] = pd.DataFrame()
         except Exception as e:
             if self.logger:
-                self.logger.warning("Ошибка при вычислении ковариации", error=str(e))
+                self.logger.warning(f"Ошибка при вычислении ковариации error={str(e)}")
             correlations['covariance'] = pd.DataFrame()
 
         return correlations
@@ -460,11 +460,11 @@ class EnhancedCorrelationAnalyzer:
                     summary['mean_correlation'] = corr_matrix.abs().mean().mean()
             except MemoryError as e:
                 if self.logger:
-                    self.logger.warning("Ошибка памяти при анализе сводной статистики корреляций", error=str(e))
+                    self.logger.warning(f"Ошибка памяти при анализе сводной статистики корреляций error={str(e)}")
                 summary['memory_error'] = True
             except Exception as e:
                 if self.logger:
-                    self.logger.warning("Ошибка при анализе сводной статистики корреляций", error=str(e))
+                    self.logger.warning(f"Ошибка при анализе сводной статистики корреляций error={str(e)}")
 
         return summary
 

@@ -2,82 +2,70 @@ name: Documentation
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [ main ]
     paths:
       - 'docs/**'
       - 'configs/mkdocs.yml'
+      - 'pyproject.toml'
       - '.github/workflows/docs.yml'
-  workflow_dispatch: {}
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'configs/mkdocs.yml'
+      - 'pyproject.toml'
+      - '.github/workflows/docs.yml'
+  release:
+    types: [ published ]
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Lint Markdown
-        uses: articulate/actions-markdownlint@v1
-        with:
-          config: .markdownlint.json
-          files: 'docs/**/*.md'
-      - name: Check links
-        uses: lycheeverse/lychee-action@v1.10.0
-        with:
-          args: --no-progress --exclude-mail docs/
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
   build:
     runs-on: ubuntu-latest
-    needs: lint
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+          python-version: '3.10'
+
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install \
-            mkdocs-material \
-            mkdocstrings[python] \
-            mkdocs-mermaid2-plugin \
-            mkdocs-table-reader-plugin
-      - name: Build site
-        run: mkdocs build --strict
+          python -m pip install --upgrade pip
+          pip install .[dev,docs]
+
+      - name: Lint Markdown
+        run: |
+          markdownlint docs/ --config .markdownlint.json
+          pymarkdown scan docs/
+
+      - name: Build documentation
+        run: |
+          mkdocs build --strict
+
       - name: Upload artifact
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: docs-preview
-          path: site/
-          if-no-files-found: warn
-  
+          path: ./site
+
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install \
-            mkdocs-material \
-            mkdocstrings[python] \
-            mkdocs-mermaid2-plugin \
-            mkdocs-table-reader-plugin
       - name: Deploy to GitHub Pages
-        run: mkdocs gh-deploy --force --no-history
-
+        id: deployment
+        uses: actions/deploy-pages@v4
