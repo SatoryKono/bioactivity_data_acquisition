@@ -168,6 +168,123 @@ def _build_cli_overrides(
 
 
 app = typer.Typer(help="Bioactivity ETL pipeline")
+
+# Manifest commands
+@app.command("list-manifests")
+def list_manifests() -> None:
+    """List all available manifests."""
+    console = Console()
+    manifests_dir = Path("metadata/manifests")
+    
+    if not manifests_dir.exists():
+        typer.echo("Manifests directory not found: metadata/manifests", err=True)
+        raise typer.Exit(code=1)
+    
+    table = Table(title="Available Manifests")
+    table.add_column("Name", style="cyan")
+    table.add_column("Type", style="green")
+    table.add_column("Description", style="yellow")
+    
+    manifest_files = list(manifests_dir.glob("*.json"))
+    for manifest_file in sorted(manifest_files):
+        try:
+            import json
+            with open(manifest_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            name = manifest_file.stem
+            manifest_type = data.get('module', 'general')
+            description = data.get('description', 'No description available')
+            
+            table.add_row(name, manifest_type, description)
+        except Exception as e:
+            table.add_row(manifest_file.stem, "error", f"Failed to read: {e}")
+    
+    console.print(table)
+
+@app.command("show-manifest")
+def show_manifest(
+    name: str = typer.Argument(..., help="Manifest name (without .json extension)"),
+    format: str = typer.Option("json", "--format", "-f", help="Output format: json, yaml, table")
+) -> None:
+    """Show manifest contents."""
+    manifest_path = Path(f"metadata/manifests/{name}.json")
+    
+    if not manifest_path.exists():
+        typer.echo(f"Manifest not found: {manifest_path}", err=True)
+        raise typer.Exit(code=1)
+    
+    try:
+        import json
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        if format == "json":
+            typer.echo(json.dumps(data, indent=2, ensure_ascii=False))
+        elif format == "yaml":
+            import yaml
+            typer.echo(yaml.dump(data, default_flow_style=False, allow_unicode=True))
+        elif format == "table":
+            console = Console()
+            table = Table(title=f"Manifest: {name}")
+            table.add_column("Key", style="cyan")
+            table.add_column("Value", style="green")
+            
+            def add_to_table(obj, prefix=""):
+                if isinstance(obj, dict):
+                    for key, value in obj.items():
+                        full_key = f"{prefix}.{key}" if prefix else key
+                        if isinstance(value, (dict, list)):
+                            add_to_table(value, full_key)
+                        else:
+                            table.add_row(full_key, str(value))
+                elif isinstance(obj, list):
+                    for i, item in enumerate(obj):
+                        full_key = f"{prefix}[{i}]" if prefix else f"[{i}]"
+                        if isinstance(item, (dict, list)):
+                            add_to_table(item, full_key)
+                        else:
+                            table.add_row(full_key, str(item))
+            
+            add_to_table(data)
+            console.print(table)
+        else:
+            typer.echo(f"Unknown format: {format}", err=True)
+            raise typer.Exit(code=1)
+            
+    except Exception as e:
+        typer.echo(f"Failed to read manifest: {e}", err=True)
+        raise typer.Exit(code=1)
+
+@app.command("list-reports")
+def list_reports() -> None:
+    """List all available reports."""
+    console = Console()
+    reports_dir = Path("metadata/reports")
+    
+    if not reports_dir.exists():
+        typer.echo("Reports directory not found: metadata/reports", err=True)
+        raise typer.Exit(code=1)
+    
+    table = Table(title="Available Reports")
+    table.add_column("Name", style="cyan")
+    table.add_column("Type", style="green")
+    table.add_column("Size", style="yellow")
+    table.add_column("Modified", style="blue")
+    
+    report_files = list(reports_dir.glob("*"))
+    for report_file in sorted(report_files):
+        if report_file.is_file():
+            size = report_file.stat().st_size
+            modified = datetime.fromtimestamp(report_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            table.add_row(
+                report_file.name,
+                report_file.suffix[1:] if report_file.suffix else "unknown",
+                f"{size:,} bytes",
+                modified
+            )
+    
+    console.print(table)
 # Target CLI command
 @app.command("get-target-data")
 def get_target_data(
