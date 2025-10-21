@@ -8,11 +8,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import (BaseModel, ConfigDict, Field, ValidationError,
-                      field_validator, model_validator)
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from library.config import (DeterminismSettings, LoggingSettings, _assign_path,
-                            _merge_dicts, _parse_scalar)
+from library.config import DeterminismSettings, LoggingSettings, _assign_path, _merge_dicts, _parse_scalar
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl",)
 DATE_TAG_FORMAT = "%Y%m%d"
