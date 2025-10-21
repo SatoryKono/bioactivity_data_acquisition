@@ -19,9 +19,7 @@ def validate_testitem_schema(df: pd.DataFrame) -> pd.DataFrame:
         if "extracted_at" in df.columns:
             df["extracted_at"] = pd.to_datetime(df["extracted_at"])
         
-        # Add chembl_release if not present
-        if "chembl_release" not in df.columns:
-            df["chembl_release"] = "unknown"
+        # Note: chembl_release is now handled at metadata level, not per-record
         
         # Validate using Pandera schema (temporarily disabled)
         # validated_df = TestitemNormalizedSchema.validate(df)

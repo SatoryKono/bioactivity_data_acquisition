@@ -216,6 +216,14 @@ filter_profiles:
     relationship_type: "D"
     confidence_score__range: "5,9"
   
+  # Профиль для вариантных анализов
+  variant_assays:
+    target_organism: "Homo sapiens"
+    target_type: "SINGLE PROTEIN"
+    relationship_type__in: "D,H"  # Включаем оба типа отношений
+    confidence_score__range: "7,9"
+    assay_type__in: "B,F"
+  
   # Профиль для высококачественных ассев
   high_quality:
     confidence_score__range: "7,9"
@@ -235,11 +243,10 @@ cache:
 
 # Настройки для работы с вариантами белков
 variants:
-  fetch:
-    enabled: true
-    batch_size: 200
   filters:
     include_wildtype: true  # Включать ли wildtype (не-варианты)
+  fetch:
+    batch_size: 200  # Размер батча для получения вариантных анализов
 
 # Настройки для работы с изоформами таргетов
 targets:

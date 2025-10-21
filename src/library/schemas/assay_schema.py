@@ -93,7 +93,7 @@ class AssayRawSchema(pa.DataFrameModel):
         nullable=True
     )
     
-    # Variant fields
+    # Variant fields from variant_sequence (extracted from /assay endpoint)
     variant_id: Series[object] = pa.Field(
         description="ChEMBL variant identifier",
         nullable=True
@@ -104,6 +104,26 @@ class AssayRawSchema(pa.DataFrameModel):
     )
     variant_sequence_id: Series[object] = pa.Field(
         description="Variant sequence identifier",
+        nullable=True
+    )
+    isoform: Series[object] = pa.Field(
+        description="Isoform from variant_sequence",
+        nullable=True
+    )
+    mutation: Series[str] = pa.Field(
+        description="Mutation from variant_sequence",
+        nullable=True
+    )
+    sequence: Series[str] = pa.Field(
+        description="Sequence from variant_sequence",
+        nullable=True
+    )
+    variant_accession: Series[str] = pa.Field(
+        description="Accession from variant_sequence",
+        nullable=True
+    )
+    variant_organism: Series[str] = pa.Field(
+        description="Organism from variant_sequence",
         nullable=True
     )
     
@@ -246,7 +266,7 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         nullable=True
     )
     
-    # Variant fields
+    # Variant fields (normalized from variant_sequence)
     variant_id: Series[object] = pa.Field(
         description="ChEMBL variant identifier",
         nullable=True
@@ -263,6 +283,10 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         description="Raw description of variant mutations",
         nullable=True
     )
+    variant_sequence: Series[str] = pa.Field(
+        description="Variant protein sequence",
+        nullable=True
+    )
     variant_text: Series[str] = pa.Field(
         description="Variant description text from assay",
         nullable=True
@@ -276,7 +300,11 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         nullable=True
     )
     target_isoform: Series[object] = pa.Field(
-        description="Target isoform number (extracted from UniProt accession)",
+        description="Target isoform number (from variant_sequence.isoform)",
+        nullable=True
+    )
+    variant_organism: Series[str] = pa.Field(
+        description="Organism from variant_sequence",
         nullable=True
     )
     

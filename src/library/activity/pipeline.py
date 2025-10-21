@@ -118,7 +118,6 @@ class ActivityPipeline:
                 meta={
                     "total_activities": 0,
                     "extraction_timestamp": datetime.utcnow().isoformat() + "Z",
-                    "chembl_release": "unknown",
                 },
                 qc=pd.DataFrame(),
             )
@@ -508,13 +507,24 @@ class ActivityPipeline:
         logger.info("Generating metadata")
         
         try:
-            # Get ChEMBL status for release info
-            status: dict[str, Any] = self.client.get_chembl_status()
+            # Create metadata using new metadata system
+            from library.io.meta import create_dataset_metadata
+            from library.config import APIClientConfig
             
-            meta = {
+            # Create API config for metadata
+            api_config = APIClientConfig(
+                base_url="https://www.ebi.ac.uk/chembl/api/data",
+                timeout=30,
+                retries=3
+            )
+            
+            metadata_handler = create_dataset_metadata("chembl", api_config, logger)
+            meta = metadata_handler.to_dict(api_config)
+            
+            # Add pipeline-specific metadata
+            meta.update({
                 "total_activities": len(activities_df),
                 "extraction_timestamp": datetime.utcnow().isoformat() + "Z",
-                "chembl_release": status.get("chembl_release", "unknown"),
                 "pipeline_version": "1.0.0",
                 "config": {
                     "limit": self.config.limit,
@@ -525,7 +535,7 @@ class ActivityPipeline:
                         else True
                     ),
                 }
-            }
+            })
 
             # Tracking hashes are added earlier in the pipeline
             

@@ -18,6 +18,7 @@ from library.etl.enhanced_correlation import (
     build_enhanced_correlation_reports,
     prepare_data_for_correlation_analysis,
 )
+from library.io.meta import create_dataset_metadata
 from library.testitem.config import TestitemConfig
 from library.testitem.extract import extract_batch_data
 from library.testitem.normalize import normalize_testitem_data
@@ -287,17 +288,17 @@ def run_testitem_etl(
             meta={"pipeline_version": config.pipeline_version, "row_count": 0}
         )
 
-    # S01: Get ChEMBL status and release
-    logger.info("S01: Getting ChEMBL status and release...")
+    # S01: Create ChEMBL client
+    logger.info("S01: Creating ChEMBL client...")
     chembl_client = _create_chembl_client(config)
+    
+    # Get ChEMBL release information
     try:
-        status_info = chembl_client.get_chembl_status()
-        chembl_release = status_info.get("chembl_release", "unknown")
-        if chembl_release is None:
-            chembl_release = "unknown"
+        chembl_status = chembl_client.get_chembl_status()
+        chembl_release = chembl_status.get("chembl_release", "unknown")
         logger.info(f"ChEMBL release: {chembl_release}")
     except Exception as e:
-        logger.warning(f"Failed to get ChEMBL status: {e}")
+        logger.warning(f"Failed to get ChEMBL release information: {e}")
         chembl_release = "unknown"
 
     # Create PubChem client if enabled
@@ -328,8 +329,7 @@ def run_testitem_etl(
             meta={"pipeline_version": config.pipeline_version, "row_count": 0}
         )
 
-    # Add chembl_release to all records
-    extracted_frame["chembl_release"] = chembl_release
+    # Note: chembl_release is now handled at metadata level, not per-record
 
     # Normalize data
     normalized_frame = normalize_testitem_data(extracted_frame)
@@ -361,11 +361,23 @@ def run_testitem_etl(
     
     qc = pd.DataFrame(qc_metrics)
 
-    # Create metadata
-    meta = {
+    # Create metadata using new metadata system
+    
+    # Create API config for metadata
+    api_config = APIClientConfig(
+        base_url="https://www.ebi.ac.uk/chembl/api/data",
+        timeout=30,
+        retries=3
+    )
+    
+    metadata_handler = create_dataset_metadata("chembl", api_config, logger)
+    meta = metadata_handler.to_dict(api_config)
+    
+    # Add pipeline-specific metadata
+    meta.update({
         "pipeline_version": config.pipeline_version,
-        "chembl_release": chembl_release,
         "row_count": len(validated_frame),
+        "chembl_release": chembl_release,
         "extraction_parameters": {
             "total_molecules": len(validated_frame),
             "pubchem_enabled": config.enable_pubchem,
@@ -374,7 +386,7 @@ def run_testitem_etl(
             "retries": getattr(config.runtime, 'retries', 5),
             "timeout_sec": getattr(config.runtime, 'timeout_sec', 30)
         }
-    }
+    })
 
     # Perform correlation analysis if enabled in config
     correlation_analysis = None
@@ -443,7 +455,7 @@ def write_testitem_outputs(
     """Persist ETL artefacts to disk and return the generated paths."""
 
     # Get basic output paths from persist function
-    result_paths = persist_testitem_data(result.testitems, output_dir, config)
+    result_paths = persist_testitem_data(result.testitems, output_dir, config, result.meta.get("chembl_release", "unknown"))
     
     # Save correlation reports if available
     if result.correlation_reports:

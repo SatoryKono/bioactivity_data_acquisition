@@ -205,6 +205,8 @@ class AssayChEMBLClient(BaseApiClient):
         if filters:
             params.update(filters)
         
+        logger.info(f"Fetching variant assays with params: {params}")
+        
         assays = []
         offset = 0
         
@@ -214,7 +216,22 @@ class AssayChEMBLClient(BaseApiClient):
                 response = self._request("GET", "assay", params=params)
                 page_data = response.get("assays", [])
                 
+                logger.info(f"Received {len(page_data)} assays at offset {offset}")
+                
+                # Log response structure for debugging
+                if offset == 0:  # Only log for first page to avoid spam
+                    logger.info(f"Response keys: {list(response.keys())}")
+                    if page_data:
+                        logger.info(f"First assay keys: {list(page_data[0].keys())}")
+                        # Check for variant_sequence in first assay
+                        first_assay = page_data[0]
+                        if "variant_sequence" in first_assay:
+                            logger.info(f"First assay has variant_sequence: {first_assay['variant_sequence']}")
+                        else:
+                            logger.info("First assay has no variant_sequence field")
+                
                 if not page_data:
+                    logger.info(f"No more data at offset {offset}, stopping pagination")
                     break
                     
                 for assay in page_data:
@@ -225,63 +242,16 @@ class AssayChEMBLClient(BaseApiClient):
                 
                 # Check if there are more pages
                 if len(page_data) < batch_size:
+                    logger.info(f"Received fewer items than batch size ({len(page_data)} < {batch_size}), stopping pagination")
                     break
                     
             except Exception as e:
                 logger.error(f"Failed to fetch variant assays page at offset {offset}: {e}")
                 break
         
+        logger.info(f"Total variant assays fetched: {len(assays)}")
         return assays
 
-    def fetch_variant_sequences_batch(
-        self, 
-        variant_ids: list[int], 
-        batch_size: int = 50
-    ) -> dict[int, dict[str, Any]]:
-        """Fetch variant sequences in batches by variant_id."""
-        
-        if not variant_ids:
-            return {}
-        
-        variant_data = {}
-        
-        # Process in batches to avoid URL length limits
-        for i in range(0, len(variant_ids), batch_size):
-            batch = variant_ids[i:i + batch_size]
-            batch_str = ",".join(map(str, batch))
-            
-            try:
-                params = {
-                    "variant_id__in": batch_str,
-                    "format": "json",
-                    "limit": len(batch)
-                }
-                
-                response = self._request("GET", "variant_sequence", params=params)
-                page_data = response.get("variant_sequences", [])
-                
-                for variant in page_data:
-                    variant_id = variant.get("variant_id")
-                    if variant_id:
-                        variant_data[variant_id] = {
-                            "accession": variant.get("accession"),
-                            "sequence": variant.get("sequence"),
-                            "organism": variant.get("organism"),
-                            "mutation": variant.get("mutation")
-                        }
-                        
-            except Exception as e:
-                logger.warning(f"Failed to fetch variant sequences batch {batch}: {e}")
-                # Create empty records for failed variants
-                for variant_id in batch:
-                    variant_data[variant_id] = {
-                        "accession": None,
-                        "sequence": None,
-                        "organism": None,
-                        "mutation": None
-                    }
-        
-        return variant_data
 
     def fetch_target_components_batch(
         self, 
@@ -325,26 +295,6 @@ class AssayChEMBLClient(BaseApiClient):
         
         return components_map
 
-    def fetch_assay_parameters_batch(
-        self, 
-        assay_ids: list[str], 
-        batch_size: int = 50
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Fetch assay parameters in batches by assay_chembl_id.
-        
-        NOTE: This method is temporarily disabled due to 404 errors from ChEMBL API.
-        The /assay_parameter endpoint appears to be unavailable.
-        
-        Args:
-            assay_ids: List of assay ChEMBL IDs to fetch parameters for
-            batch_size: Number of assays to fetch per request (default: 50)
-            
-        Returns:
-            Dictionary mapping assay_chembl_id to list of parameter records.
-            Each parameter record contains: type, relation, value, units, text_value
-        """
-        logger.warning("fetch_assay_parameters_batch is disabled due to 404 errors from ChEMBL API")
-        return {}
 
     def fetch_source_info(self, src_id: int) -> dict[str, Any]:
         """Retrieve source information by source ID."""
@@ -385,7 +335,16 @@ class AssayChEMBLClient(BaseApiClient):
         
         try:
             assay = dict(payload)
-            logger.debug(f"Parsing assay data: {assay.get('assay_chembl_id', 'unknown')}")
+            assay_id = assay.get('assay_chembl_id', 'unknown')
+            logger.debug(f"Parsing assay data: {assay_id}")
+            
+            # Log variant-related fields for debugging
+            variant_seq = assay.get("variant_sequence")
+            if variant_seq:
+                logger.debug(f"Assay {assay_id} has variant_sequence: {variant_seq}")
+            else:
+                logger.debug(f"Assay {assay_id} has no variant_sequence field")
+                
         except Exception as e:
             logger.error(f"Error parsing assay payload: {e}")
             raise
@@ -411,10 +370,17 @@ class AssayChEMBLClient(BaseApiClient):
             "relationship_type": assay.get("relationship_type"),
             "confidence_score": assay.get("confidence_score"),
             
-            # Variant fields
+            # Variant fields from variant_sequence (extracted from /assay endpoint)
             "variant_id": assay.get("variant_id") or assay.get("variant_chembl_id") or assay.get("variant_sequence_id"),
             "variant_text": assay.get("variant_text") or assay.get("variant_description") or assay.get("variant_comment"),
             "variant_sequence_id": assay.get("variant_sequence_id") or assay.get("variant_sequence") or assay.get("variant_seq_id"),
+            
+            # Extract nested variant_sequence fields
+            "isoform": self._extract_variant_sequence_field(assay, "isoform"),
+            "mutation": self._extract_variant_sequence_field(assay, "mutation"),
+            "sequence": self._extract_variant_sequence_field(assay, "sequence"),
+            "variant_accession": self._extract_variant_sequence_field(assay, "accession"),
+            "variant_organism": self._extract_variant_sequence_field(assay, "organism"),
             
             # Биологический контекст
             "assay_organism": assay.get("assay_organism"),
@@ -442,6 +408,13 @@ class AssayChEMBLClient(BaseApiClient):
         record["hash_row"] = self._calculate_row_hash(record)
         
         return record
+
+    def _extract_variant_sequence_field(self, assay: dict[str, Any], field_name: str) -> Any:
+        """Extract field from nested variant_sequence object."""
+        variant_seq = assay.get("variant_sequence")
+        if variant_seq and isinstance(variant_seq, dict):
+            return variant_seq.get(field_name)
+        return None
 
     def _parse_list_field(self, value: Any) -> list[str] | None:
         """Parse list field from ChEMBL response."""
@@ -529,6 +502,11 @@ class AssayChEMBLClient(BaseApiClient):
             "variant_id": None,
             "variant_text": None,
             "variant_sequence_id": None,
+            "isoform": None,
+            "mutation": None,
+            "sequence": None,
+            "variant_accession": None,
+            "variant_organism": None,
             
             # Биологический контекст
             "assay_organism": None,

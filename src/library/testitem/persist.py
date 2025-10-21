@@ -132,7 +132,8 @@ def generate_metadata(
     df: pd.DataFrame,
     config: TestitemConfig,
     run_date: str,
-    file_checksums: dict[str, str]
+    file_checksums: dict[str, str],
+    chembl_release: str = "unknown"
 ) -> dict[str, Any]:
     """Generate metadata for the ETL run."""
     
@@ -156,12 +157,7 @@ def generate_metadata(
     if "error" in df.columns:
         error_count = df["error"].notna().sum()
     
-    # Get ChEMBL release
-    chembl_release = "unknown"
-    if "chembl_release" in df.columns:
-        releases = df["chembl_release"].dropna().unique()
-        if len(releases) > 0:
-            chembl_release = str(releases[0])
+    # Note: ChEMBL release is now handled at metadata level, not per-record
     
     # Generate metadata
     metadata = {
@@ -293,7 +289,8 @@ def generate_qc_artifacts(
 def persist_testitem_data(
     df: pd.DataFrame,
     output_dir: Path,
-    config: TestitemConfig
+    config: TestitemConfig,
+    chembl_release: str = "unknown"
 ) -> dict[str, Path]:
     """Main persistence function for testitem data."""
     
@@ -326,7 +323,7 @@ def persist_testitem_data(
     }
     
     # Generate and persist metadata
-    metadata = generate_metadata(reordered_df, config, run_date, file_checksums)
+    metadata = generate_metadata(reordered_df, config, run_date, file_checksums, chembl_release)
     persist_metadata(metadata, meta_path)
     
     # Generate QC artifacts (всегда создаём QC файл)
@@ -349,11 +346,11 @@ def persist_testitem_data(
         # Update metadata with QC checksum
         if "qc_metrics" in result_paths:
             file_checksums["qc"] = calculate_checksum(result_paths["qc_metrics"])  # type: ignore[index]
-            metadata = generate_metadata(reordered_df, config, run_date, file_checksums)
+            metadata = generate_metadata(reordered_df, config, run_date, file_checksums, chembl_release)
             persist_metadata(metadata, meta_path)
-    except Exception:
+    except Exception as e:
         # Do not fail persistence on checksum issues
-        pass
+        logger.warning(f"Failed to update metadata with QC checksum: {e}")
     
     logger.info("Testitem data persistence completed")
     

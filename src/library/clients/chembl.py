@@ -24,14 +24,14 @@ class TestitemChEMBLClient(BaseApiClient):
         try:
             payload = self._request("GET", "status")
             return {
-                "chembl_release": payload.get("chembl_release", "unknown"),
+                "chembl_release": payload.get("chembl_release"),
                 "status": payload.get("status", "unknown"),
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
             logger.warning(f"Failed to get ChEMBL status: {e}")
             return {
-                "chembl_release": "unknown",
+                "chembl_release": None,
                 "status": "error",
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }

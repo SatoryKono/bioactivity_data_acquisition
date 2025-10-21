@@ -153,16 +153,10 @@ class FilterProfileSettings(BaseModel):
     target_organism: str | None = Field(default=None)
     target_type: str | None = Field(default=None)
     relationship_type: str | None = Field(default=None)
+    relationship_type__in: str | None = Field(default=None)
     confidence_score__range: str | None = Field(default=None)
     assay_type: str | None = Field(default=None)
     assay_type__in: str | None = Field(default=None)
-
-
-class VariantFetchSettings(BaseModel):
-    """Settings for fetching variant data."""
-    
-    enabled: bool = Field(default=True)
-    batch_size: int = Field(default=200, ge=1, le=1000)
 
 
 class VariantFilterSettings(BaseModel):
@@ -171,11 +165,17 @@ class VariantFilterSettings(BaseModel):
     include_wildtype: bool = Field(default=True)
 
 
+class VariantFetchSettings(BaseModel):
+    """Settings for fetching variant data."""
+    
+    batch_size: int = Field(default=200, ge=1, le=1000)
+
+
 class VariantSettings(BaseModel):
     """Configuration for variant data handling."""
     
-    fetch: VariantFetchSettings = Field(default_factory=VariantFetchSettings)
     filters: VariantFilterSettings = Field(default_factory=VariantFilterSettings)
+    fetch: VariantFetchSettings = Field(default_factory=VariantFetchSettings)
 
 
 class TargetIsoformSettings(BaseModel):
@@ -325,7 +325,6 @@ __all__ = [
     "CacheSettings",
     "FilterProfileSettings",
     "VariantSettings",
-    "VariantFetchSettings",
     "VariantFilterSettings",
     "TargetSettings",
     "TargetIsoformSettings",
