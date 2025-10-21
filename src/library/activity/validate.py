@@ -294,12 +294,12 @@ class ActivityValidator:
                 # Business rule: censored records must have exactly one bound
                 Check(
                     lambda df: (
-                        (df['is_censored'] == True) &
+                        df['is_censored'] &
                         (
                             (df['lower_bound'].notna() & df['upper_bound'].isna()) |
                             (df['lower_bound'].isna() & df['upper_bound'].notna())
                         )
-                    ).all() | (df['is_censored'] == False).all(),
+                    ).all() | (~df['is_censored']).all(),
                     name="censored_bounds_consistency"
                 ),
                 

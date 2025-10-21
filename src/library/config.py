@@ -28,7 +28,7 @@ def _validate_secrets(headers: dict[str, Any]) -> None:
     """
     missing_secrets = []
     
-    for key, value in headers.items():
+    for _, value in headers.items():
         if isinstance(value, str):
             placeholders = re.findall(r'\{([^}]+)\}', value)
             for placeholder in placeholders:
@@ -82,7 +82,7 @@ def _parse_scalar(value: str) -> Any:
     return parsed
 
 
-def ensure_output_directories_exist(config: "Config") -> None:
+def ensure_output_directories_exist(config: Config) -> None:
     """Create necessary directories for output files in configuration.
     
     Creates parent directories for all output paths specified in the configuration
