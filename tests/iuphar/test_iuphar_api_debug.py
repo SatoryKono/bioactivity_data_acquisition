@@ -3,8 +3,6 @@
 
 import pytest
 import logging
-import sys
-from pathlib import Path
 import requests
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ

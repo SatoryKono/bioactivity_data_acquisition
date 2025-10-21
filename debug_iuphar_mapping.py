@@ -10,11 +10,11 @@ print("=== Анализ IUPHAR маппинга ===\n")
 
 # Статистика по iuphar_target_id
 print(f"Всего target записей: {len(target_df)}")
-print(f"\nУникальные iuphar_target_id:")
+print("\nУникальные iuphar_target_id:")
 print(target_df['iuphar_target_id'].value_counts())
 
 # Проверяем mapping_uniprot_id
-print(f"\n\nПервые 5 mapping_uniprot_id:")
+print("\n\nПервые 5 mapping_uniprot_id:")
 print(target_df[['target_chembl_id', 'mapping_uniprot_id', 'iuphar_target_id']].head())
 
 # Проверяем наличие mapping_uniprot_id в словаре IUPHAR
@@ -24,7 +24,7 @@ print(f"Уникальные swissprot (UniProt IDs) в IUPHAR: {iuphar_target_d
 
 # Проверяем, есть ли наши UniProt IDs в словаре
 sample_uniprot_ids = target_df['mapping_uniprot_id'].dropna().head(10).tolist()
-print(f"\n\nПроверка первых 10 UniProt IDs из результатов в словаре IUPHAR:")
+print("\n\nПроверка первых 10 UniProt IDs из результатов в словаре IUPHAR:")
 for uid in sample_uniprot_ids:
     matches = iuphar_target_df[iuphar_target_df['swissprot'] == uid]
     if len(matches) > 0:
@@ -33,9 +33,9 @@ for uid in sample_uniprot_ids:
         print(f"[NOT FOUND] {uid} НЕ найден в словаре IUPHAR")
 
 # Проверяем 1386
-print(f"\n\n=== Анализ target_id 1386 ===")
+print("\n\n=== Анализ target_id 1386 ===")
 matches_1386 = iuphar_target_df[iuphar_target_df['target_id'] == 1386]
 print(f"Записей с target_id=1386: {len(matches_1386)}")
-print(f"UniProt IDs для target_id=1386:")
+print("UniProt IDs для target_id=1386:")
 print(matches_1386['swissprot'].unique())
 

@@ -2,7 +2,6 @@
 """РўРµСЃС‚РѕРІС‹Р№ СЃРєСЂРёРїС‚ РґР»СЏ Р·Р°РїСѓСЃРєР° IUPHAR РјР°РїРїРёРЅРіР° СЃ debug Р»РѕРіРёСЂРѕРІР°РЅРёРµРј."""
 
 import pytest
-import logging
 import sys
 from pathlib import Path
 
@@ -35,7 +34,7 @@ print(f"РўРµСЃС‚РёСЂСѓРµРј {len(test_targets)} targets: {test
 try:
     result = run_target_etl(config, target_ids=test_targets)
     
-    print(f"\n=== Р РµР·СѓР»СЊС‚Р°С‚С‹ ===")
+    print("\n=== Р РµР·СѓР»СЊС‚Р°С‚С‹ ===")
     print(f"Р’СЃРµРіРѕ targets: {len(result.targets)}")
     
     for _, row in result.targets.iterrows():
