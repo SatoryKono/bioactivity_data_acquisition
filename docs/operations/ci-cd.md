@@ -165,7 +165,7 @@ jobs:
 
 ### Структура tests/
 
-```
+```text
 tests/
 ├── test_activity_pipeline.py      # Тесты пайплайна активностей
 ├── test_assay_pipeline.py         # Тесты пайплайна ассев
@@ -602,6 +602,7 @@ safety check
 ### Частые проблемы
 
 1. **Pre-commit hooks не работают**
+
    ```bash
    # Переустановка hooks
    pre-commit uninstall
@@ -612,6 +613,7 @@ safety check
    ```
 
 2. **Тесты падают в CI, но работают локально**
+
    ```bash
    # Проверка версий Python
    python --version
@@ -624,6 +626,7 @@ safety check
    ```
 
 3. **Проблемы с покрытием кода**
+
    ```bash
    # Проверка конфигурации coverage
    cat pyproject.toml | grep -A 10 "\[tool.coverage"
@@ -633,6 +636,7 @@ safety check
    ```
 
 4. **Ошибки безопасности**
+
    ```bash
    # Проверка bandit
    bandit -r src/ -v

@@ -324,7 +324,3 @@ class APIConfig(BaseModel):
 - [Git LFS Workflow](GIT_LFS_WORKFLOW.md)
 - [Pre-commit документация](https://pre-commit.com/)
 - [Git LFS документация](https://git-lfs.github.io/)
- 
- 
- 
- 

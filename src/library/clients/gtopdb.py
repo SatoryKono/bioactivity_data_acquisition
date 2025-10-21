@@ -208,7 +208,25 @@ class GtoPdbClient(BaseApiClient):
             # Record success
             self.circuit_breaker.record_success()
             
-            return data if isinstance(data, list) else []
+            # Handle different response formats from GtoPdb API
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                # Check if it's a metadata response (like "No function data")
+                if "GtoPdb Web Services" in data:
+                    self.logger.info(
+                        "gtop_metadata_response",
+                        extra={
+                            "gtop_id": gtop_id,
+                            "endpoint": endpoint,
+                            "message": data.get("GtoPdb Web Services", "")
+                        }
+                    )
+                    return []
+                # If it's a single object, wrap it in a list
+                return [data]
+            else:
+                return []
             
         except requests.RequestException as exc:
             response = getattr(exc, "response", None)

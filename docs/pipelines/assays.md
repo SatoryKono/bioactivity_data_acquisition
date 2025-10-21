@@ -17,11 +17,13 @@
 ### Входы и выходы
 
 **Входы**:
+
 - CSV файл с ChEMBL идентификаторами ассев (`assay_chembl_id`)
 - Или ChEMBL идентификатор таргета (`target_chembl_id`)
 - Конфигурация `configs/config_assay_full.yaml`
 
 **Выходы**:
+
 - `assay_YYYYMMDD.csv` — основные данные ассев
 - `assay_YYYYMMDD_qc.csv` — отчёт о качестве данных
 - `assay_YYYYMMDD_meta.yaml` — метаданные пайплайна
@@ -39,6 +41,7 @@
 ### Маппинг полей
 
 **ChEMBL → assay_dim**:
+
 - `assay_chembl_id` → `assay_chembl_id`
 - `src_id` → `src_id`
 - `src_description` → `src_name`
@@ -327,7 +330,7 @@ python src/scripts/get_assay_data.py \
 
 ### Структура выходных файлов
 
-```
+```text
 data/output/assay/
 ├── assay_20251020.csv          # Основные данные
 ├── assay_20251020_qc.csv       # QC метрики
@@ -410,30 +413,35 @@ filters:
 ### Типовые фейлы и решения
 
 1. **Ошибка "API Error"**
+
    ```bash
    # Решение: Увеличить таймаут
    python src/scripts/get_assay_data.py --target CHEMBL231 --timeout 120
    ```
 
 2. **Медленная работа**
+
    ```bash
    # Решение: Ограничить количество записей
    python src/scripts/get_assay_data.py --target CHEMBL231 --limit 100
    ```
 
 3. **Ошибка валидации**
+
    ```bash
    # Решение: Проверить конфигурацию
    make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --dry-run
    ```
 
 4. **Проблемы с фильтрацией**
+
    ```bash
    # Решение: Проверить доступные профили
    python src/scripts/get_assay_data.py --help | grep -A 20 "Examples:"
    ```
 
 5. **Ошибки кэширования**
+
    ```bash
    # Решение: Очистить кэш
    make pipeline-clean TYPE=assays

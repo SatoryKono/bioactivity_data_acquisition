@@ -186,6 +186,18 @@ ignore_missing_imports = true
 module = "requests"
 ignore_missing_imports = true
 
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules", "**/__pycache__"]
+ignore = []
+defineConstant = { DEBUG = true }
+stubPath = "stubs"
+reportMissingImports = "none"
+reportMissingTypeStubs = false
+pythonVersion = "3.13"
+pythonPlatform = "All"
+executionEnvironments = [{ root = "src" }]
+
 [tool.pytest.benchmark]
 save = "benchmark_results.json"
 save_data = true
