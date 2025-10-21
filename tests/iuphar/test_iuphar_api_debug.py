@@ -26,7 +26,7 @@ for uniprot_id in test_uniprot_ids:
     print(f"\n--- РўРµСЃС‚РёСЂСѓРµРј UniProt ID: {uniprot_id} ---")
     
     # РўРµСЃС‚ 1: РЎС‚Р°СЂС‹Р№ СЃРїРѕСЃРѕР± (search РїР°СЂР°РјРµС‚СЂ)
-    print(f"1. РЎС‚Р°СЂС‹Р№ СЃРїРѕСЃРѕР± (search):")
+    print("1. РЎС‚Р°СЂС‹Р№ СЃРїРѕСЃРѕР± (search):")
     url1 = f"{base_url}/targets"
     params1 = {"search": uniprot_id, "limit": 5}
     try:
@@ -43,7 +43,7 @@ for uniprot_id in test_uniprot_ids:
         print(f"   РћС€РёР±РєР°: {e}")
     
     # РўРµСЃС‚ 2: РќРѕРІС‹Р№ СЃРїРѕСЃРѕР± (accession РїР°СЂР°РјРµС‚СЂ)
-    print(f"2. РќРѕРІС‹Р№ СЃРїРѕСЃРѕР± (accession):")
+    print("2. РќРѕРІС‹Р№ СЃРїРѕСЃРѕР± (accession):")
     url2 = f"{base_url}/targets"
     params2 = {"accession": uniprot_id, "database": "UniProt", "limit": 5}
     try:
@@ -60,7 +60,7 @@ for uniprot_id in test_uniprot_ids:
         print(f"   РћС€РёР±РєР°: {e}")
     
     # РўРµСЃС‚ 3: РџРѕРїСЂРѕР±СѓРµРј РґСЂСѓРіРёРµ РІР°СЂРёР°РЅС‚С‹ РїР°СЂР°РјРµС‚СЂРѕРІ
-    print(f"3. РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹:")
+    print("3. РђР»СЊС‚РµСЂРЅР°С‚РёРІРЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹:")
     url3 = f"{base_url}/targets"
     params3 = {"uniprot": uniprot_id, "limit": 5}
     try:
@@ -76,5 +76,5 @@ for uniprot_id in test_uniprot_ids:
     except Exception as e:
         print(f"   РћС€РёР±РєР°: {e}")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 
