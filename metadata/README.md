@@ -9,6 +9,10 @@ metadata/
 ├── manifests/          # Манифесты пайплайнов и процессов
 │   ├── documents_pipeline.json      # Основной манифест пайплайна документов
 │   ├── documents_postprocess.json   # Манифест постобработки документов
+│   ├── targets_pipeline.json        # Манифест пайплайна целей (targets)
+│   ├── assays_pipeline.json         # Манифест пайплайна анализов (assays)
+│   ├── activities_pipeline.json     # Манифест пайплайна активностей (activities)
+│   ├── testitems_pipeline.json      # Манифест пайплайна тестовых элементов (testitems)
 │   ├── cleanup_manifest.json        # Манифест процесса очистки
 │   └── quality_manifest.json        # Манифест контроля качества
 └── reports/            # Отчёты и аудиты
@@ -43,6 +47,38 @@ metadata/
 - Логи и временные файлы
 - Тестовые выходы
 - Кэш Python (__pycache__)
+
+### targets_pipeline.json
+Манифест пайплайна обработки целей (targets). Содержит:
+- Конфигурацию источников (ChEMBL, UniProt, IUPHAR)
+- Этапы ETL (extract, normalize, validate, enrich, load)
+- Схемы валидации и контроля качества
+- CLI команды для извлечения данных целей
+- Артефакты и выходные файлы
+
+### assays_pipeline.json
+Манифест пайплайна обработки анализов (assays). Содержит:
+- Конфигурацию источника ChEMBL
+- Поля данных анализов (тип, категория, организм, ткань)
+- Схемы валидации и контроля качества
+- CLI команды для извлечения данных анализов
+- Артефакты и выходные файлы
+
+### activities_pipeline.json
+Манифест пайплайна обработки активностей (activities). Содержит:
+- Конфигурацию источника ChEMBL
+- Поля данных активностей (тип, значение, единицы измерения)
+- Схемы валидации и контроля качества
+- CLI команды для извлечения данных активностей
+- Артефакты и выходные файлы
+
+### testitems_pipeline.json
+Манифест пайплайна обработки тестовых элементов (testitems). Содержит:
+- Конфигурацию источников (ChEMBL, PubChem)
+- Поля молекулярных данных (SMILES, InChI, свойства)
+- Схемы валидации структур
+- CLI команды для извлечения данных молекул
+- Артефакты и выходные файлы
 
 ### quality_manifest.json
 Манифест контроля качества. Содержит:
@@ -93,26 +129,39 @@ metadata/
 ## Связь с пайплайнами
 
 ### CLI команды
-Манифесты связаны с CLI командами через поле `cli.command`:
+Манифесты связаны с CLI командами через поле `cli_commands`:
 
 ```bash
 # Основной пайплайн документов
 python -m library.cli get-document-data --config configs/config_documents_full.yaml
 
-# Постобработка документов
-python -m library.cli etl documents postprocess --config configs/config_documents_full.yaml
+# Пайплайн целей (targets)
+python -m library.cli get-target-data --config configs/config_target_full.yaml --input data/input/target.csv
 
-# Очистка данных
-python -m library.cli cleanup --manifest metadata/manifests/cleanup_manifest.json
+# Пайплайн анализов (assays)
+python -m library.cli get-assay-data --config configs/config_assay_full.yaml --input data/input/assay.csv
 
-# Контроль качества
-python -m library.cli quality-check --manifest metadata/manifests/quality_manifest.json
+# Пайплайн активностей (activities)
+python -m library.cli get-activity-data --config configs/config_activity_full.yaml --input data/input/activity.csv
+
+# Пайплайн тестовых элементов (testitems)
+python -m library.cli testitem-run --config configs/config_testitem_full.yaml --input data/input/testitem.csv
+
+# Проверка здоровья API
+python -m library.cli health --config configs/config_documents_full.yaml
+
+# Универсальный пайплайн
+python -m library.cli pipeline --config configs/config.yaml
 ```
 
 ### Конфигурационные файлы
 Манифесты ссылаются на конфигурационные файлы:
 - `configs/config.yaml` - основная конфигурация
 - `configs/config_documents_full.yaml` - полная конфигурация документов
+- `configs/config_target_full.yaml` - полная конфигурация целей
+- `configs/config_assay_full.yaml` - полная конфигурация анализов
+- `configs/config_activity_full.yaml` - полная конфигурация активностей
+- `configs/config_testitem_full.yaml` - полная конфигурация тестовых элементов
 - `configs/schema.json` - JSON схема конфигурации
 
 ### Артефакты

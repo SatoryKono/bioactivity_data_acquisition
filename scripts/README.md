@@ -10,68 +10,53 @@
 - ✅ **Не требует ручной настройки** для базового использования
 - ✅ **Можно переопределить** через переменные окружения
 
+## 📋 Миграция скриптов (v0.1.0+)
+
+**Удалённые скрипты и их замены:**
+
+| Удалённый скрипт | Замена | Описание |
+|------------------|--------|----------|
+| `setup_api_keys.*` | Автоматическая установка | API ключи устанавливаются при запуске CLI |
+| `get_activity_data.py` | `library.cli get-activity-data` | Извлечение данных активностей |
+| `api_health_check.py` | `library.cli health` | Проверка здоровья API |
+| `monitor_api.py` | `library.cli health` | Мониторинг API |
+| `check_api_limits.py` | `library.cli health` | Проверка лимитов API |
+| `quick_api_check.py` | `library.cli health --json` | Быстрая проверка API |
+| `monitor_semantic_scholar.py` | `library.cli health` | Мониторинг Semantic Scholar |
+| `check_semantic_scholar_status.py` | `library.cli health` | Статус Semantic Scholar |
+| `get_semantic_scholar_api_key.py` | Автоматическая установка | Ключ устанавливается автоматически |
+| `monitor_pubmed.py` | `library.cli health` | Мониторинг PubMed |
+| `get_pubmed_api_key.py` | Автоматическая установка | Ключ устанавливается автоматически |
+
 ## 🔑 Установка API ключей
 
-### Python (кроссплатформенный)
+**API ключи устанавливаются автоматически при запуске CLI!**
+
+Для переопределения используйте переменные окружения:
 
 ```bash
-# Установить только Semantic Scholar ключ (по умолчанию)
-python scripts/setup_api_keys.py
+# Установить собственные ключи
+export SEMANTIC_SCHOLAR_API_KEY="your_key"
+export CHEMBL_API_TOKEN="your_token"
+export CROSSREF_API_KEY="your_key"
+export PUBMED_API_KEY="your_key"
 
-# Установить все ключи
-python scripts/setup_api_keys.py --chembl "your_token" --crossref "your_key"
-
-# Установить постоянно
-python scripts/setup_api_keys.py --persistent
-
-# Показать справку
-python scripts/setup_api_keys.py --help
-```
-
-### PowerShell (Windows)
-
-```powershell
-# Установить только Semantic Scholar ключ (по умолчанию)
-.\scripts\setup_api_keys.ps1
-
-# Установить все ключи
-.\scripts\setup_api_keys.ps1 -ChemblToken "your_token" -CrossrefKey "your_key"
-
-# Установить постоянно
-.\scripts\setup_api_keys.ps1 -Persistent
-
-# Показать справку
-.\scripts\setup_api_keys.ps1 -ShowHelp
-```
-
-### Bash (Linux/macOS)
-
-```bash
-# Установить только Semantic Scholar ключ (по умолчанию)
-./scripts/setup_api_keys.sh
-
-# Установить все ключи
-./scripts/setup_api_keys.sh -c "your_token" -r "your_key"
-
-# Установить постоянно
-./scripts/setup_api_keys.sh --persistent
-
-# Показать справку
-./scripts/setup_api_keys.sh --help
+# Запустить CLI (ключи будут использованы автоматически)
+bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml
 ```
 
 ## 🚀 Быстрый старт
 
-### 1. Установить API ключи
-
-```bash
-python scripts/setup_api_keys.py
-```
-
-### 2. Запустить тест
+### 1. Запустить тест (API ключи устанавливаются автоматически)
 
 ```bash
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 3
+```
+
+### 2. Проверить здоровье API
+
+```bash
+bioactivity-data-acquisition health --config configs/config_documents_full.yaml
 ```
 
 ### 3. Проверить результат
@@ -86,9 +71,6 @@ grep "Using Semantic Scholar with API key" logs/app.log
 Если у вас установлен `make`:
 
 ```bash
-# Установить API ключи
-make setup-api-keys
-
 # Очистить backup файлы
 make clean-backups
 
@@ -99,7 +81,7 @@ make run-dev
 make run-full
 
 # Проверить здоровье API
-make health-check
+make health CONFIG=configs/config_documents_full.yaml
 
 # Полная настройка и запуск
 make full-setup
@@ -122,10 +104,14 @@ make help
 
 ### Проблема: "Using conservative rate limiting for semantic_scholar (no API key)"
 
-**Решение:** Запустите скрипт установки API ключей:
+**Решение:** API ключи устанавливаются автоматически. Если проблема сохраняется, проверьте переменные окружения:
 
 ```bash
-python scripts/setup_api_keys.py
+# Проверить установленные ключи
+echo $SEMANTIC_SCHOLAR_API_KEY
+
+# Установить ключ вручную
+export SEMANTIC_SCHOLAR_API_KEY="your_key"
 ```
 
 ### Проблема: "FileExistsError: Cannot create a file when that file already exists"
@@ -138,14 +124,21 @@ Remove-Item "data\output\full\*.backup" -Force
 
 # Linux/macOS
 rm data/output/full/*.backup
+
+# Или используйте Makefile
+make clean-backups
 ```
 
-### Проблема: Ошибки кодировки в Windows
+### Проблема: Ошибки API или сети
 
-**Решение:** Используйте Python скрипт вместо PowerShell:
+**Решение:** Проверьте здоровье API:
 
 ```bash
-python scripts/setup_api_keys.py
+# Проверить статус всех API
+bioactivity-data-acquisition health --config configs/config_documents_full.yaml
+
+# Проверить конкретный API в JSON формате
+bioactivity-data-acquisition health --config configs/config_documents_full.yaml --json
 ```
 
 ## 🧹 Stage 11: Финальная валидация и создание PR
@@ -195,13 +188,17 @@ python scripts/create_cleanup_pr.py --branch feature/cleanup-validation
 
 ```text
 scripts/
-├── setup_api_keys.py         # Python скрипт (кроссплатформенный)
-├── setup_api_keys.ps1        # PowerShell скрипт (Windows)
-├── setup_api_keys.sh         # Bash скрипт (Linux/macOS)
 ├── final_validation.py       # Финальная валидация репозитория
 ├── create_cleanup_pr.py      # Создание PR после очистки
 ├── stage11_complete.py       # Главный скрипт Stage 11
-└── README.md                 # Этот файл
+├── analyze_fixed_results.py  # Анализ результатов исправлений
+├── check_field_fill.py       # Проверка заполнения полей
+├── check_version_consistency.py # Проверка версий
+├── cleanup_logs.py           # Очистка логов
+├── generate_cleanup_manifest.py # Генерация манифеста очистки
+├── replace_print_with_logger.py # Замена print на logger
+├── run_mypy.py              # Запуск mypy
+└── README.md                # Этот файл
 ```
 
 ## 🎯 Примеры использования
@@ -209,29 +206,30 @@ scripts/
 ### Автоматизация в CI/CD
 
 ```bash
-# Установить ключи и запустить тест
-python scripts/setup_api_keys.py && \
+# Запустить тест (ключи устанавливаются автоматически)
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 5
+
+# Проверить здоровье API
+bioactivity-data-acquisition health --config configs/config_documents_full.yaml
 ```
 
 ### Разработка
 
 ```bash
-# Установить ключи для разработки
-python scripts/setup_api_keys.py --persistent
-
-# Запустить тесты
+# Запустить тесты с ограничением
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 3
+
+# Проверить здоровье API в JSON формате
+bioactivity-data-acquisition health --config configs/config_documents_full.yaml --json
 ```
 
 ### Продакшн
 
 ```bash
-# Установить все ключи постоянно
-python scripts/setup_api_keys.py --persistent \
-  --chembl "prod_token" \
-  --crossref "prod_key" \
-  --pubmed "prod_key"
+# Установить все ключи через переменные окружения
+export CHEMBL_API_TOKEN="prod_token"
+export CROSSREF_API_KEY="prod_key"
+export PUBMED_API_KEY="prod_key"
 
 # Запустить полную обработку
 bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --limit 1000
