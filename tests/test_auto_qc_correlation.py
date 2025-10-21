@@ -11,8 +11,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 import pandas as pd
 import pytest
 
+from library.config import CorrelationSettings, PostprocessSettings, QCStepSettings
 from library.etl.load import write_deterministic_csv
-from library.config import PostprocessSettings, QCStepSettings, CorrelationSettings
 
 
 class TestAutoQCCorrelation:

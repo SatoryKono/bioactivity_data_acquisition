@@ -3,7 +3,7 @@ site_url: https://satorykono.github.io/bioactivity_data_acquisition/
 repo_url: https://github.com/SatoryKono/bioactivity_data_acquisition
 repo_name: SatoryKono/bioactivity_data_acquisition
 edit_uri: edit/main/docs/
-docs_dir: ../docs
+docs_dir: docs
 strict: true
 
 theme:
@@ -53,6 +53,15 @@ markdown_extensions:
   - def_list
   - attr_list
   - tables
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
 
 nav:
   - Обзор: index.md
@@ -78,4 +87,3 @@ nav:
   - Руководства:
     - Добавление пайплайна: guides/howto_add_pipeline.md
     - Устранение неполадок: guides/troubleshooting.md
-

@@ -36,8 +36,6 @@
 
 - [Архитектура](explanations/architecture.md) — общий обзор системы
 - [Решения дизайна](explanations/design-decisions.md) — обоснования выбора
-- [Поток данных](explanations/data-flow.md) — как данные проходят систему
-- [Детерминизм](explanations/determinism.md) — воспроизводимость результатов
 - [Чувствительность к регистру](explanations/case-sensitivity.md) — сохранение регистра
 
 ## Быстрый старт
@@ -64,14 +62,13 @@ bioactivity-data-acquisition pipeline --config configs/config.yaml
 ## Схемы и валидация
 
 - [Pandera-схемы](reference/data-schemas/index.md) для сырья и нормализованных данных
-- [Схемы документов](reference/data-schemas/documents.md) и инварианты
+- [Схемы данных](reference/data-schemas/index.md) и инварианты
 - [Валидация](reference/data-schemas/validation.md) и обработка ошибок
 
 ## Выходные артефакты
 
 - Детерминированные CSV/Parquet
-- [QC-отчёты](reference/outputs/qc-reports.md) (базовые/расширенные)
-- [Корреляционные отчёты](reference/outputs/correlation-reports.md)
+- [Выходные данные](reference/outputs/index.md) (базовые/расширенные)
 
 ## Качество кода
 
@@ -89,5 +86,3 @@ bioactivity-data-acquisition pipeline --config configs/config.yaml
 ## Лицензия и вклад
 
 - [Правила контрибьюшенов](how-to/contribute.md)
-- [Изменения](changelog.md)
-- [Глоссарий](glossary.md)

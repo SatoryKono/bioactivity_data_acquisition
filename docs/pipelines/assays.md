@@ -38,6 +38,47 @@
 |----------|--------|----------|---------------|----------------|
 | **ChEMBL** | ✅ Обязательный | `/assay` | `assay_chembl_id`, `assay_type`, `relationship_type`, `confidence_score` | Да |
 
+## 3. Граф ETL
+
+```mermaid
+graph TD
+    A[Extract] --> B[Normalize]
+    B --> C[Validate]
+    C --> D[Postprocess]
+    
+    subgraph "Extract"
+        A1[ChEMBL API<br/>assay_chembl_id]
+    end
+    
+    subgraph "Normalize"
+        B1[Стандартизация<br/>assay_type, confidence_score]
+        B2[Создание связей<br/>target_chembl_id]
+        B3[Обогащение<br/>src_description]
+    end
+    
+    subgraph "Validate"
+        C1[Pandera схемы<br/>AssayOutputSchema]
+        C2[Бизнес-правила<br/>assay_type ∈ {B,F,P,U}]
+        C3[Инварианты<br/>уникальность ID]
+    end
+    
+    subgraph "Postprocess"
+        D1[QC отчёты<br/>fill_rate, duplicates]
+        D2[Корреляции<br/>с targets, documents]
+        D3[Метаданные<br/>статистика обработки]
+    end
+    
+    A1 --> B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> C1
+    C1 --> C2
+    C2 --> C3
+    C3 --> D1
+    D1 --> D2
+    D2 --> D3
+```
+
 ### Маппинг полей
 
 **ChEMBL → assay_dim**:
@@ -487,3 +528,130 @@ make health CONFIG=configs/config_assay_full.yaml
 # Тестовый запуск
 make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--dry-run"
 ```
+
+## 12. Детерминизм
+
+### Сортировка данных
+
+```python
+# Детерминированная сортировка по assay_chembl_id
+df_sorted = df.sort_values(['assay_chembl_id'], na_position='last')
+```
+
+### Формат чисел
+
+```python
+# Стандартизация числовых полей
+df['assay_chembl_id'] = df['assay_chembl_id'].astype('string')
+df['confidence_score'] = df['confidence_score'].astype('float64')
+```
+
+### Порядок колонок
+
+```python
+# Фиксированный порядок колонок в выходном CSV
+column_order = [
+    'assay_chembl_id',
+    'src_id',
+    'src_name',
+    'assay_type',
+    'relationship_type',
+    'confidence_score',
+    'target_chembl_id',
+    'document_chembl_id'
+]
+df_output = df[column_order]
+```
+
+### Временные зоны
+
+```python
+# Все временные метки в UTC
+from datetime import datetime, timezone
+timestamp = datetime.now(timezone.utc).isoformat()
+```
+
+## 13. Запуск
+
+### CLI команды
+
+```bash
+# Полный запуск пайплайна
+make run ENTITY=assays CONFIG=configs/config_assay_full.yaml
+
+# Через CLI напрямую
+bioactivity-data-acquisition pipeline --config configs/config_assay_full.yaml
+
+# Тестовый запуск с ограниченными данными
+make run ENTITY=assays CONFIG=configs/config_test.yaml
+```
+
+### Docker/Compose
+
+```bash
+# Запуск в Docker контейнере
+docker-compose run --rm bioactivity-pipeline assays
+
+# Или через Makefile
+make docker-run ENTITY=assays CONFIG=configs/config_assay_full.yaml
+```
+
+### Ожидаемые артефакты
+
+После успешного выполнения в `data/output/assay_YYYYMMDD/`:
+
+```
+assay_20241201/
+├── assay_20241201.csv                    # Основные данные ассев
+├── assay_20241201_meta.yaml             # Метаданные пайплайна
+├── assay_20241201_qc.csv                # QC отчёт
+└── assay_correlation_report_20241201/   # Корреляционный анализ
+    ├── correlation_matrix.csv
+    ├── source_comparison.csv
+    └── quality_metrics.csv
+```
+
+## 14. QC чек-лист
+
+### Перед запуском
+
+- [ ] Проверить наличие входного файла `data/input/assay.csv`
+- [ ] Убедиться в корректности конфигурации `configs/config_assay_full.yaml`
+- [ ] Проверить доступность ChEMBL API
+- [ ] Убедиться в наличии связанных данных (targets, documents)
+
+### После выполнения
+
+- [ ] Проверить количество записей в выходном файле
+- [ ] Убедиться в отсутствии критических ошибок в QC отчёте
+- [ ] Проверить fill rate для обязательных полей (≥80%)
+- [ ] Убедиться в отсутствии дубликатов по `assay_chembl_id`
+- [ ] Проверить корректность связей с targets и documents
+
+### Специфичные проверки для Assays
+
+- [ ] Все `assay_chembl_id` уникальны
+- [ ] `assay_type` соответствует допустимым значениям (B, F, P, U)
+- [ ] `relationship_type` валиден
+- [ ] `confidence_score` в диапазоне 0-9
+- [ ] Связи с `target_chembl_id` корректны
+
+## 15. Ссылки
+
+### Модули в src/
+
+- **Основной пайплайн**: `src/library/assay/pipeline.py`
+- **API клиенты**: `src/library/clients/chembl.py`
+- **Схемы валидации**: `src/library/schemas/assay_schema.py`
+- **ETL утилиты**: `src/library/etl/`
+
+### Конфигурация
+
+- **Основной конфиг**: `configs/config_assay_full.yaml`
+- **Тестовый конфиг**: `configs/config_test.yaml`
+
+### Тесты
+
+- **Unit тесты**: `tests/test_assay_pipeline.py`
+- **Интеграционные тесты**: `tests/integration/test_assay_pipeline.py`
+- **Тестовые данные**: `tests/fixtures/assay.csv`

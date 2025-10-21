@@ -4,6 +4,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Documentation](https://img.shields.io/badge/docs-latest-green.svg)](https://satorykono.github.io/bioactivity_data_acquisition/)
+[![Build Status](https://github.com/SatoryKono/bioactivity_data_acquisition/workflows/Documentation/badge.svg)](https://github.com/SatoryKono/bioactivity_data_acquisition/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Quickstart
@@ -31,7 +32,7 @@ make run ENTITY=documents CONFIG=configs/config_documents_full.yaml
 
 ## Документация
 
-📚 **[Полная документация](https://satorykono.github.io/bioactivity_data_acquisition/)** — руководства, API референс, архитектура
+📚 **[Полная документация](https://satorykono.github.io/bioactivity_data_acquisition/)** — руководства, API референс, архитектура, туториалы
 
 ## Основные возможности
 

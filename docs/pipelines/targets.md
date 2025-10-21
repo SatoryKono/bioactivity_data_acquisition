@@ -58,34 +58,46 @@
 ## 3. Граф ETL
 
 ```mermaid
-graph LR
+graph TD
     A[Extract] --> B[Normalize]
     B --> C[Validate]
     C --> D[Postprocess]
     
     subgraph "Extract"
-        A1[ChEMBL API]
-        A2[UniProt API]
-        A3[IUPHAR CSV]
+        A1[ChEMBL API<br/>target_chembl_id]
+        A2[UniProt API<br/>uniprot_id]
+        A3[IUPHAR CSV<br/>iuphar_target_id]
     end
     
     subgraph "Normalize"
-        B1[Объединение данных]
-        B2[Стандартизация полей]
-        B3[Создание ключей]
+        B1[Объединение по<br/>target_chembl_id]
+        B2[Стандартизация<br/>названий и типов]
+        B3[Создание<br/>составных ключей]
     end
     
     subgraph "Validate"
-        C1[Pandera схемы]
-        C2[Бизнес-правила]
-        C3[Инварианты]
+        C1[Pandera схемы<br/>TargetOutputSchema]
+        C2[Бизнес-правила<br/>обязательные поля]
+        C3[Инварианты<br/>уникальность ID]
     end
     
     subgraph "Postprocess"
-        D1[QC отчёты]
-        D2[Корреляции]
-        D3[Метаданные]
+        D1[QC отчёты<br/>fill_rate, duplicates]
+        D2[Корреляции<br/>между источниками]
+        D3[Метаданные<br/>статистика обработки]
     end
+    
+    A1 --> B1
+    A2 --> B1
+    A3 --> B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> C1
+    C1 --> C2
+    C2 --> C3
+    C3 --> D1
+    D1 --> D2
+    D2 --> D3
 ```
 
 ## 4. Схемы данных
@@ -447,3 +459,141 @@ make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--dry-r
 # Просмотр статистики
 make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--stats"
 ```
+
+## 12. Детерминизм
+
+### Сортировка данных
+
+```python
+# Детерминированная сортировка по составному ключу
+df_sorted = df.sort_values([
+    'target_chembl_id',
+    'uniprot_id_primary', 
+    'iuphar_target_id'
+], na_position='last')
+```
+
+### Формат чисел
+
+```python
+# Стандартизация числовых полей
+df['target_chembl_id'] = df['target_chembl_id'].astype('string')
+df['uniprot_id_primary'] = df['uniprot_id_primary'].astype('string')
+```
+
+### Порядок колонок
+
+```python
+# Фиксированный порядок колонок в выходном CSV
+column_order = [
+    'target_chembl_id',
+    'pref_name',
+    'target_type',
+    'target_organism',
+    'uniprot_id_primary',
+    'protein_names',
+    'gene_names',
+    'molecular_function',
+    'iuphar_target_id',
+    'iuphar_type',
+    'iuphar_family'
+]
+df_output = df[column_order]
+```
+
+### Временные зоны
+
+```python
+# Все временные метки в UTC
+from datetime import datetime, timezone
+timestamp = datetime.now(timezone.utc).isoformat()
+```
+
+## 13. Запуск
+
+### CLI команды
+
+```bash
+# Полный запуск пайплайна
+make run ENTITY=targets CONFIG=configs/config_target_full.yaml
+
+# Через CLI напрямую
+bioactivity-data-acquisition pipeline --config configs/config_target_full.yaml
+
+# Тестовый запуск с ограниченными данными
+make run ENTITY=targets CONFIG=configs/config_test.yaml
+```
+
+### Docker/Compose
+
+```bash
+# Запуск в Docker контейнере
+docker-compose run --rm bioactivity-pipeline targets
+
+# Или через Makefile
+make docker-run ENTITY=targets CONFIG=configs/config_target_full.yaml
+```
+
+### Ожидаемые артефакты
+
+После успешного выполнения в `data/output/target_YYYYMMDD/`:
+
+```
+target_20241201/
+├── target_20241201.csv                    # Основные данные мишеней
+├── target_20241201_meta.yaml             # Метаданные пайплайна
+├── target_20241201_qc.csv                # QC отчёт
+└── target_correlation_report_20241201/   # Корреляционный анализ
+    ├── correlation_matrix.csv
+    ├── source_comparison.csv
+    └── quality_metrics.csv
+```
+
+## 14. QC чек-лист
+
+### Перед запуском
+
+- [ ] Проверить наличие входного файла `data/input/target.csv`
+- [ ] Убедиться в корректности конфигурации `configs/config_target_full.yaml`
+- [ ] Проверить доступность API (ChEMBL, UniProt)
+- [ ] Убедиться в наличии IUPHAR словарей в `configs/dictionary/`
+
+### После выполнения
+
+- [ ] Проверить количество записей в выходном файле
+- [ ] Убедиться в отсутствии критических ошибок в QC отчёте
+- [ ] Проверить fill rate для обязательных полей (≥80%)
+- [ ] Убедиться в отсутствии дубликатов по `target_chembl_id`
+- [ ] Проверить корректность связей между источниками
+
+### Специфичные проверки для Targets
+
+- [ ] Все `target_chembl_id` уникальны
+- [ ] `pref_name` заполнено для всех записей
+- [ ] `target_type` соответствует допустимым значениям
+- [ ] `uniprot_id_primary` валидны (формат UniProt)
+- [ ] `iuphar_target_id` соответствуют IUPHAR базе
+
+## 15. Ссылки
+
+### Модули в src/
+
+- **Основной пайплайн**: `src/library/target/pipeline.py`
+- **API клиенты**: 
+  - `src/library/clients/chembl.py`
+  - `src/library/clients/uniprot.py`
+  - `src/library/clients/iuphar.py`
+- **Схемы валидации**: `src/library/schemas/target_schema.py`
+- **ETL утилиты**: `src/library/etl/`
+
+### Конфигурация
+
+- **Основной конфиг**: `configs/config_target_full.yaml`
+- **Тестовый конфиг**: `configs/config_test.yaml`
+- **IUPHAR словари**: `configs/dictionary/_target/`
+
+### Тесты
+
+- **Unit тесты**: `tests/test_target_basic.py`
+- **Интеграционные тесты**: `tests/integration/test_target_pipeline.py`
+- **Тестовые данные**: `tests/fixtures/target.csv`

@@ -36,6 +36,49 @@ Activities является центральной фактовой таблиц
 |----------|----------------|--------------|-------------|---------------|
 | **ChEMBL** | Обязательный | `/activity` | 3 req/15s | `activity_chembl_id`, `standard_value`, `standard_type`, `standard_units` |
 
+## 3. Граф ETL
+
+```mermaid
+graph TD
+    A[Extract] --> B[Normalize]
+    B --> C[Validate]
+    C --> D[Postprocess]
+    
+    subgraph "Extract"
+        A1[ChEMBL API<br/>activity endpoint]
+        A2[Фильтры по<br/>assay, target, molecule]
+    end
+    
+    subgraph "Normalize"
+        B1[Стандартизация<br/>standard_value, units]
+        B2[Создание связей<br/>внешние ключи]
+        B3[Обогащение<br/>pchembl_value]
+    end
+    
+    subgraph "Validate"
+        C1[Pandera схемы<br/>ActivityOutputSchema]
+        C2[Бизнес-правила<br/>standard_type валидность]
+        C3[Инварианты<br/>уникальность ID]
+    end
+    
+    subgraph "Postprocess"
+        D1[QC отчёты<br/>fill_rate, outliers]
+        D2[Корреляции<br/>между измерениями]
+        D3[Метаданные<br/>статистика обработки]
+    end
+    
+    A1 --> A2
+    A2 --> B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> C1
+    C1 --> C2
+    C2 --> C3
+    C3 --> D1
+    D1 --> D2
+    D2 --> D3
+```
+
 ### Маппинг полей по источникам
 
 **Обязательные поля (ChEMBL):**
@@ -632,3 +675,141 @@ if not api_key:
 4. **Мониторинг производительности:** время выполнения этапов
 5. **Мониторинг ошибок:** агрегация и анализ ошибок
 6. **Мониторинг профилей качества:** отслеживание распределения по профилям
+
+## 12. Детерминизм
+
+### Сортировка данных
+
+```python
+# Детерминированная сортировка по составному ключу
+df_sorted = df.sort_values([
+    'activity_chembl_id',
+    'assay_chembl_id',
+    'molecule_chembl_id'
+], na_position='last')
+```
+
+### Формат чисел
+
+```python
+# Стандартизация числовых полей
+df['activity_chembl_id'] = df['activity_chembl_id'].astype('string')
+df['standard_value'] = df['standard_value'].astype('float64')
+df['pchembl_value'] = df['pchembl_value'].astype('float64')
+```
+
+### Порядок колонок
+
+```python
+# Фиксированный порядок колонок в выходном CSV
+column_order = [
+    'activity_chembl_id',
+    'assay_chembl_id',
+    'target_chembl_id',
+    'molecule_chembl_id',
+    'document_chembl_id',
+    'standard_value',
+    'standard_type',
+    'standard_units',
+    'standard_relation',
+    'pchembl_value',
+    'is_censored',
+    'lower_bound',
+    'upper_bound'
+]
+df_output = df[column_order]
+```
+
+### Временные зоны
+
+```python
+# Все временные метки в UTC
+from datetime import datetime, timezone
+timestamp = datetime.now(timezone.utc).isoformat()
+```
+
+## 13. Запуск
+
+### CLI команды
+
+```bash
+# Полный запуск пайплайна
+make run ENTITY=activities CONFIG=configs/config_activity_full.yaml
+
+# Через CLI напрямую
+bioactivity-data-acquisition pipeline --config configs/config_activity_full.yaml
+
+# Тестовый запуск с ограниченными данными
+make run ENTITY=activities CONFIG=configs/config_test.yaml
+```
+
+### Docker/Compose
+
+```bash
+# Запуск в Docker контейнере
+docker-compose run --rm bioactivity-pipeline activities
+
+# Или через Makefile
+make docker-run ENTITY=activities CONFIG=configs/config_activity_full.yaml
+```
+
+### Ожидаемые артефакты
+
+После успешного выполнения в `data/output/activity_YYYYMMDD/`:
+
+```
+activity_20241201/
+├── activity_20241201.csv                    # Основные данные активностей
+├── activity_20241201_meta.yaml             # Метаданные пайплайна
+├── activity_20241201_qc.csv                # QC отчёт
+└── activity_correlation_report_20241201/   # Корреляционный анализ
+    ├── correlation_matrix.csv
+    ├── source_comparison.csv
+    └── quality_metrics.csv
+```
+
+## 14. QC чек-лист
+
+### Перед запуском
+
+- [ ] Проверить наличие связанных данных (assays, targets, testitems, documents)
+- [ ] Убедиться в корректности конфигурации `configs/config_activity_full.yaml`
+- [ ] Проверить доступность ChEMBL API
+- [ ] Настроить фильтры по необходимости (assay_ids, target_ids, molecule_ids)
+
+### После выполнения
+
+- [ ] Проверить количество записей в выходном файле
+- [ ] Убедиться в отсутствии критических ошибок в QC отчёте
+- [ ] Проверить fill rate для обязательных полей (≥80%)
+- [ ] Убедиться в отсутствии дубликатов по `activity_chembl_id`
+- [ ] Проверить корректность связей с измерениями
+
+### Специфичные проверки для Activities
+
+- [ ] Все `activity_chembl_id` уникальны
+- [ ] `standard_value` в разумных пределах для каждого `standard_type`
+- [ ] `standard_units` соответствуют `standard_type`
+- [ ] `pchembl_value` рассчитан корректно
+- [ ] Интервальные данные (`is_censored`) консистентны
+- [ ] Связи с assays, targets, testitems, documents корректны
+
+## 15. Ссылки
+
+### Модули в src/
+
+- **Основной пайплайн**: `src/library/activity/pipeline.py`
+- **API клиенты**: `src/library/clients/chembl.py`
+- **Схемы валидации**: `src/library/schemas/input_schema.py`, `src/library/schemas/output_schema.py`
+- **ETL утилиты**: `src/library/etl/`
+
+### Конфигурация
+
+- **Основной конфиг**: `configs/config_activity_full.yaml`
+- **Тестовый конфиг**: `configs/config_test.yaml`
+
+### Тесты
+
+- **Unit тесты**: `tests/test_activity_extraction.py`, `tests/test_activity_pipeline_smoke.py`
+- **Интеграционные тесты**: `tests/integration/test_activity_pipeline.py`
+- **Тестовые данные**: `tests/fixtures/activity.csv`

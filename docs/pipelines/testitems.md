@@ -35,6 +35,49 @@
 | **ChEMBL** | ✅ Обязательный | `/molecule` | `molecule_chembl_id`, `pref_name`, `max_phase`, `molecular_properties` | Да |
 | **PubChem** | ✅ Опциональный | `/compound` | `pubchem_cid`, `molecular_formula`, `canonical_smiles` | Нет |
 
+## 3. Граф ETL
+
+```mermaid
+graph TD
+    A[Extract] --> B[Normalize]
+    B --> C[Validate]
+    C --> D[Postprocess]
+    
+    subgraph "Extract"
+        A1[ChEMBL API<br/>molecule endpoint]
+        A2[PubChem API<br/>compound endpoint]
+    end
+    
+    subgraph "Normalize"
+        B1[Стандартизация<br/>molecular_properties]
+        B2[Обогащение<br/>PubChem данными]
+        B3[Создание ключей<br/>molecule_chembl_id]
+    end
+    
+    subgraph "Validate"
+        C1[Pandera схемы<br/>TestitemOutputSchema]
+        C2[Бизнес-правила<br/>max_phase валидность]
+        C3[Инварианты<br/>уникальность ID]
+    end
+    
+    subgraph "Postprocess"
+        D1[QC отчёты<br/>fill_rate, duplicates]
+        D2[Корреляции<br/>между источниками]
+        D3[Метаданные<br/>статистика обработки]
+    end
+    
+    A1 --> A2
+    A2 --> B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> C1
+    C1 --> C2
+    C2 --> C3
+    C3 --> D1
+    D1 --> D2
+    D2 --> D3
+```
+
 ### Маппинг полей
 
 **ChEMBL → testitem_dim**:
@@ -506,3 +549,144 @@ tail -f logs/app.log | grep "testitem"
 - При недоступности PubChem API - продолжает работу без обогащения
 - При ошибках валидации - логирует предупреждения и продолжает обработку
 - При критических ошибках - останавливает выполнение с соответствующим кодом выхода
+
+## 12. Детерминизм
+
+### Сортировка данных
+
+```python
+# Детерминированная сортировка по molecule_chembl_id
+df_sorted = df.sort_values(['molecule_chembl_id'], na_position='last')
+```
+
+### Формат чисел
+
+```python
+# Стандартизация числовых полей
+df['molecule_chembl_id'] = df['molecule_chembl_id'].astype('string')
+df['molregno'] = df['molregno'].astype('int64')
+df['mw_freebase'] = df['mw_freebase'].astype('float64')
+df['alogp'] = df['alogp'].astype('float64')
+```
+
+### Порядок колонок
+
+```python
+# Фиксированный порядок колонок в выходном CSV
+column_order = [
+    'molecule_chembl_id',
+    'molregno',
+    'pref_name',
+    'max_phase',
+    'therapeutic_flag',
+    'mw_freebase',
+    'alogp',
+    'hba',
+    'hbd',
+    'psa',
+    'rtb',
+    'pubchem_cid',
+    'pubchem_molecular_formula',
+    'canonical_smiles',
+    'inchi',
+    'inchi_key'
+]
+df_output = df[column_order]
+```
+
+### Временные зоны
+
+```python
+# Все временные метки в UTC
+from datetime import datetime, timezone
+timestamp = datetime.now(timezone.utc).isoformat()
+```
+
+## 13. Запуск
+
+### CLI команды
+
+```bash
+# Полный запуск пайплайна
+make run ENTITY=testitems CONFIG=configs/config_testitem_full.yaml
+
+# Через CLI напрямую
+bioactivity-data-acquisition pipeline --config configs/config_testitem_full.yaml
+
+# Тестовый запуск с ограниченными данными
+make run ENTITY=testitems CONFIG=configs/config_test.yaml
+```
+
+### Docker/Compose
+
+```bash
+# Запуск в Docker контейнере
+docker-compose run --rm bioactivity-pipeline testitems
+
+# Или через Makefile
+make docker-run ENTITY=testitems CONFIG=configs/config_testitem_full.yaml
+```
+
+### Ожидаемые артефакты
+
+После успешного выполнения в `data/output/testitem_YYYYMMDD/`:
+
+```
+testitem_20241201/
+├── testitem_20241201.csv                    # Основные данные молекул
+├── testitem_20241201_meta.yaml             # Метаданные пайплайна
+├── testitem_20241201_qc.csv                # QC отчёт
+└── testitem_correlation_report_20241201/   # Корреляционный анализ
+    ├── correlation_matrix.csv
+    ├── source_comparison.csv
+    └── quality_metrics.csv
+```
+
+## 14. QC чек-лист
+
+### Перед запуском
+
+- [ ] Проверить наличие входного файла `data/input/testitem.csv`
+- [ ] Убедиться в корректности конфигурации `configs/config_testitem_full.yaml`
+- [ ] Проверить доступность ChEMBL и PubChem API
+- [ ] Настроить кэширование при необходимости
+
+### После выполнения
+
+- [ ] Проверить количество записей в выходном файле
+- [ ] Убедиться в отсутствии критических ошибок в QC отчёте
+- [ ] Проверить fill rate для обязательных полей (≥80%)
+- [ ] Убедиться в отсутствии дубликатов по `molecule_chembl_id`
+- [ ] Проверить качество PubChem обогащения
+
+### Специфичные проверки для Testitems
+
+- [ ] Все `molecule_chembl_id` уникальны
+- [ ] `max_phase` в диапазоне 0-4
+- [ ] `therapeutic_flag` булево значение
+- [ ] `mw_freebase` в разумных пределах (50-2000 Da)
+- [ ] `alogp` в диапазоне -10 до 10
+- [ ] SMILES и InChI валидны
+- [ ] PubChem обогащение ≥80%
+
+## 15. Ссылки
+
+### Модули в src/
+
+- **Основной пайплайн**: `src/library/testitem/pipeline.py`
+- **API клиенты**: 
+  - `src/library/clients/chembl.py`
+  - `src/library/clients/pubchem.py`
+- **Схемы валидации**: `src/library/schemas/testitem_schema.py`
+- **ETL утилиты**: `src/library/etl/`
+
+### Конфигурация
+
+- **Основной конфиг**: `configs/config_testitem_full.yaml`
+- **Тестовый конфиг**: `configs/config_test.yaml`
+
+### Тесты
+
+- **Unit тесты**: `tests/test_testitem_pipeline.py`
+- **Интеграционные тесты**: `tests/integration/test_testitem_pipeline.py`
+- **Тестовые данные**: `tests/fixtures/testitem.csv`

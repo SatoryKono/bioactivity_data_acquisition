@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from pandera.errors import SchemaError
 
-from library.schemas import RawBioactivitySchema, NormalizedBioactivitySchema
+from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
 
 
 class TestRawBioactivitySchema:
