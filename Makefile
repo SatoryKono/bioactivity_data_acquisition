@@ -47,7 +47,6 @@ help:
 	@echo "  make docs-deploy  - Deploy documentation"
 	@echo ""
 	@echo "$(GREEN)Utilities:$(NC)"
-	@echo "  make setup-api-keys - Setup API keys"
 	@echo "  make clean        - Clean temporary files"
 	@echo "  make test         - Run tests"
 	@echo "  make install-dev  - Install in development mode"
@@ -287,15 +286,6 @@ docs-deploy:
 # UTILITIES
 # =============================================================================
 
-# Setup API keys
-setup-api-keys:
-	@echo "$(BLUE)Setting up API keys...$(NC)"
-ifeq ($(OS),Windows_NT)
-	@powershell -ExecutionPolicy Bypass -File scripts/setup_api_keys.ps1
-else
-	@$(PYTHON) scripts/setup_api_keys.py
-endif
-	@echo "$(GREEN)API keys setup completed!$(NC)"
 
 # Clean backup files
 clean-backups:
@@ -348,11 +338,11 @@ endif
 	@echo "$(GREEN)Temporary files cleaned!$(NC)"
 
 # Quick start
-quick-start: setup-api-keys run-dev
+quick-start: run-dev
 	@echo "$(GREEN)Quick start completed!$(NC)"
 
 # Full setup
-full-setup: install-dev setup-api-keys clean-backups run-dev
+full-setup: install-dev clean-backups run-dev
 	@echo "$(GREEN)Full setup completed!$(NC)"
 
 # =============================================================================
