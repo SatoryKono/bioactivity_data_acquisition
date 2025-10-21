@@ -325,6 +325,27 @@ class AssayChEMBLClient(BaseApiClient):
         
         return components_map
 
+    def fetch_assay_parameters_batch(
+        self, 
+        assay_ids: list[str], 
+        batch_size: int = 50
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Fetch assay parameters in batches by assay_chembl_id.
+        
+        NOTE: This method is temporarily disabled due to 404 errors from ChEMBL API.
+        The /assay_parameter endpoint appears to be unavailable.
+        
+        Args:
+            assay_ids: List of assay ChEMBL IDs to fetch parameters for
+            batch_size: Number of assays to fetch per request (default: 50)
+            
+        Returns:
+            Dictionary mapping assay_chembl_id to list of parameter records.
+            Each parameter record contains: type, relation, value, units, text_value
+        """
+        logger.warning("fetch_assay_parameters_batch is disabled due to 404 errors from ChEMBL API")
+        return {}
+
     def fetch_source_info(self, src_id: int) -> dict[str, Any]:
         """Retrieve source information by source ID."""
         
@@ -374,6 +395,7 @@ class AssayChEMBLClient(BaseApiClient):
             # Ключи и идентификаторы
             "assay_chembl_id": assay.get("assay_chembl_id"),
             "src_id": assay.get("src_id"),
+            "src_name": None,  # Will be enriched later
             "src_assay_id": assay.get("src_assay_id"),
             
             # Классификация ассая
@@ -390,9 +412,9 @@ class AssayChEMBLClient(BaseApiClient):
             "confidence_score": assay.get("confidence_score"),
             
             # Variant fields
-            "variant_id": assay.get("variant_id"),
-            "variant_text": assay.get("variant_text"),
-            "variant_sequence_id": assay.get("variant_sequence_id"),
+            "variant_id": assay.get("variant_id") or assay.get("variant_chembl_id") or assay.get("variant_sequence_id"),
+            "variant_text": assay.get("variant_text") or assay.get("variant_description") or assay.get("variant_comment"),
+            "variant_sequence_id": assay.get("variant_sequence_id") or assay.get("variant_sequence") or assay.get("variant_seq_id"),
             
             # Биологический контекст
             "assay_organism": assay.get("assay_organism"),
@@ -405,6 +427,7 @@ class AssayChEMBLClient(BaseApiClient):
             # Описание и протокол
             "description": assay.get("description"),
             "assay_parameters": self._parse_parameters_field(assay.get("assay_parameters")),
+            "assay_parameters_json": "[]",  # Will be enriched later
             "assay_format": assay.get("assay_format"),
             
             # Техслужебные поля
@@ -486,6 +509,7 @@ class AssayChEMBLClient(BaseApiClient):
             # Ключи и идентификаторы
             "assay_chembl_id": assay_id,
             "src_id": None,
+            "src_name": None,
             "src_assay_id": None,
             
             # Классификация ассая
@@ -517,6 +541,7 @@ class AssayChEMBLClient(BaseApiClient):
             # Описание и протокол
             "description": None,
             "assay_parameters": None,
+            "assay_parameters_json": "[]",
             "assay_format": None,
             
             # Техслужебные поля

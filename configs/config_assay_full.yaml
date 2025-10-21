@@ -169,7 +169,8 @@ determinism:
     - assay_subcellular_fraction  # Субклеточная фракция
     # Описание и протокол
     - description             # Описание ассая
-    - assay_parameters        # Параметры ассая
+    - assay_parameters        # Параметры ассая (legacy)
+    - assay_parameters_json   # Параметры ассая (нормализованный JSON)
     - assay_format            # Формат ассая
     # Техслужебные поля
     - source_system           # Система-источник

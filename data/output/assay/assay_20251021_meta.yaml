@@ -1,14 +1,14 @@
 chembl_release: unknown
 extraction_parameters:
   assay_types:
-    B: 97
-    F: 3
+    B: 939
+    F: 61
   relationship_types:
-    D: 100
-  total_assays: 100
+    D: 1000
+  total_assays: 1000
   unique_sources: 1
 file_checksums:
-  csv: 4c885c7406670a4d784f5075d414a35c62e23b6fa136bee39868a658488ed83b
-  qc: c3443ba3d4df0bd340368d75802d7bd88fda397ac86e0c232dc388417de9e875
+  csv: 436d786f46a6c35ada6432254abdfbc03ef855eb8a6c28e9d9e52f0a9dd673f8
+  qc: 5057dc11f83bebb6684dd1cc6b34469a43a46f43264830146b98765138db93de
 pipeline_version: 1.0.0
-row_count: 100
+row_count: 1000

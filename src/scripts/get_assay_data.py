@@ -108,6 +108,19 @@ Examples:
         help="Filter profile name (e.g., 'human_single_protein')"
     )
     
+    # Variant options
+    parser.add_argument(
+        "--variants-only",
+        action="store_true",
+        help="Fetch only assays with variants (variant_sequence__isnull=false)"
+    )
+    parser.add_argument(
+        "--include-wildtype",
+        action="store_true",
+        default=True,
+        help="Include wildtype (non-variant) assays in the output"
+    )
+    
     # Limitations
     parser.add_argument(
         "--limit",
@@ -253,6 +266,14 @@ Examples:
             else:
                 print(f"Extracting {len(assay_ids)} assays from {args.input}")
             
+            # Apply variant flags
+            if args.variants_only:
+                config.variants.filters.include_wildtype = False
+                print("Variants-only mode: excluding wildtype assays")
+            elif not args.include_wildtype:
+                config.variants.filters.include_wildtype = False
+                print("Excluding wildtype assays")
+            
             result = run_assay_etl(
                 config=config,
                 assay_ids=assay_ids
@@ -264,6 +285,14 @@ Examples:
             print(f"Extracting assays for target: {args.target}")
             if filters:
                 print(f"Using filter profile: {args.filters}")
+            
+            # Apply variant flags
+            if args.variants_only:
+                config.variants.filters.include_wildtype = False
+                print("Variants-only mode: excluding wildtype assays")
+            elif not args.include_wildtype:
+                config.variants.filters.include_wildtype = False
+                print("Excluding wildtype assays")
             
             result = run_assay_etl(
                 config=config,

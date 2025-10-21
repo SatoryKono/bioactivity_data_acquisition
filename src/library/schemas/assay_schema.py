@@ -52,6 +52,10 @@ class AssayRawSchema(pa.DataFrameModel):
         description="Source identifier",
         nullable=True
     )
+    src_name: Series[str] = pa.Field(
+        description="Source name",
+        nullable=True
+    )
     src_assay_id: Series[str] = pa.Field(
         description="Source assay identifier",
         nullable=True
@@ -132,6 +136,14 @@ class AssayRawSchema(pa.DataFrameModel):
     # Description and protocol fields
     description: Series[str] = pa.Field(
         description="Assay description",
+        nullable=True
+    )
+    assay_parameters: Series[object] = pa.Field(
+        description="Assay parameters (dict/str)",
+        nullable=True
+    )
+    assay_parameters_json: Series[str] = pa.Field(
+        description="Assay parameters as normalized deterministic JSON string",
         nullable=True
     )
     assay_format: Series[str] = pa.Field(
@@ -255,6 +267,10 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         description="Variant description text from assay",
         nullable=True
     )
+    variant_sequence_id: Series[object] = pa.Field(
+        description="Variant sequence identifier",
+        nullable=True
+    )
     target_uniprot_accession: Series[str] = pa.Field(
         description="Base UniProt accession of target",
         nullable=True
@@ -296,8 +312,12 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         nullable=True
     )
     assay_parameters: Series[object] = pa.Field(
-        description="Assay parameters (dict/str)",
+        description="Assay parameters (dict/str) - legacy field",
         nullable=True
+    )
+    assay_parameters_json: Series[str] = pa.Field(
+        description="Assay parameters as normalized deterministic JSON string",
+        nullable=False
     )
     assay_format: Series[str] = pa.Field(
         description="Assay format",
