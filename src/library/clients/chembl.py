@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Generator
 from datetime import datetime
 from typing import Any
 
@@ -36,10 +37,14 @@ class TestitemChEMBLClient(BaseApiClient):
             }
 
     def fetch_molecule(self, molecule_chembl_id: str) -> dict[str, Any]:
-        """Fetch molecule data by ChEMBL ID."""
+        """Fetch molecule data by ChEMBL ID using proper API endpoint."""
         try:
-            payload = self._request("GET", f"molecule/{molecule_chembl_id}?format=json")
-            return self._parse_molecule(payload)
+            payload = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1")
+            parsed = self._parse_molecule(payload)
+            if parsed:
+                return parsed
+            else:
+                return self._create_empty_molecule_record(molecule_chembl_id, "No data found")
         except Exception as e:
             logger.warning(f"Failed to fetch molecule {molecule_chembl_id}: {e}")
             return self._create_empty_molecule_record(molecule_chembl_id, str(e))
@@ -65,37 +70,38 @@ class TestitemChEMBLClient(BaseApiClient):
             return None
 
     def fetch_molecules_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
-        """Fetch multiple molecules in a single batch request."""
+        """Fetch multiple molecules using proper ChEMBL API."""
         try:
-            # ChEMBL supports batch requests for up to 50 molecules
-            if len(molecule_chembl_ids) > 50:
-                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds ChEMBL limit of 50, splitting into chunks")
+            # ChEMBL API URL length limit requires smaller batches
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
                 results = {}
-                for i in range(0, len(molecule_chembl_ids), 50):
-                    chunk = molecule_chembl_ids[i:i+50]
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
                     chunk_results = self.fetch_molecules_batch(chunk)
                     results.update(chunk_results)
                 return results
             
-            # Prepare batch request payload
-            batch_payload = {"chembl_ids": molecule_chembl_ids}
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"molecule.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
-            # Make batch request
-            payload = self._request("POST", "molecule/batch", json=batch_payload)
+            # Make request
+            payload = self._request("GET", url)
             
             # Parse results
             results = {}
             molecules = payload.get("molecules", [])
             
             for molecule in molecules:
-                chembl_id = molecule.get("molecule_chembl_id")
-                if chembl_id:
-                    results[chembl_id] = self._parse_molecule({"molecules": [molecule]})
+                parsed = self._parse_molecule({"molecules": [molecule]})
+                if parsed:
+                    results[parsed["molecule_chembl_id"]] = parsed
             
             # Add empty records for missing molecules
             for chembl_id in molecule_chembl_ids:
                 if chembl_id not in results:
-                    results[chembl_id] = self._create_empty_molecule_record(chembl_id, "Not found in batch response")
+                    results[chembl_id] = self._create_empty_molecule_record(chembl_id, "Not found in API response")
             
             return results
             
@@ -106,6 +112,59 @@ class TestitemChEMBLClient(BaseApiClient):
             for chembl_id in molecule_chembl_ids:
                 results[chembl_id] = self.fetch_molecule(chembl_id)
             return results
+
+    def fetch_molecules_batch_streaming(
+        self,
+        molecule_chembl_ids: list[str],
+        batch_size: int = 50
+    ) -> Generator[tuple[list[str], list[dict[str, Any]]], None, None]:
+        """Stream molecules in batches using proper ChEMBL API.
+        
+        Yields tuples: (requested_ids, parsed_molecules).
+        Uses molecule.json endpoint with molecule_chembl_id__in filter.
+        """
+        if not molecule_chembl_ids:
+            return
+
+        # ChEMBL API URL length limit requires smaller batches
+        effective_batch_size = min(batch_size, 25)
+
+        for i in range(0, len(molecule_chembl_ids), effective_batch_size):
+            batch = molecule_chembl_ids[i:i + effective_batch_size]
+            
+            try:
+                # Use proper ChEMBL API endpoint
+                ids_str = ",".join(batch)
+                url = f"molecule.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+                
+                # Make request
+                payload = self._request("GET", url)
+                
+                # Parse results
+                parsed_molecules = []
+                molecules = payload.get("molecules", [])
+                
+                for molecule in molecules:
+                    parsed_molecule = self._parse_molecule({"molecules": [molecule]})
+                    if parsed_molecule:
+                        parsed_molecules.append(parsed_molecule)
+                
+                # Add empty records for missing molecules
+                found_ids = {mol.get("molecule_chembl_id") for mol in parsed_molecules}
+                for chembl_id in batch:
+                    if chembl_id not in found_ids:
+                        empty_record = self._create_empty_molecule_record(chembl_id, "Not found in API response")
+                        parsed_molecules.append(empty_record)
+                
+                yield (batch, parsed_molecules)
+                
+            except Exception as e:
+                logger.warning(f"Failed to fetch molecules batch {batch}: {e}")
+                # Yield empty records for failed batch
+                failed_molecules = []
+                for chembl_id in batch:
+                    failed_molecules.append(self._create_empty_molecule_record(chembl_id, str(e)))
+                yield (batch, failed_molecules)
 
     def fetch_molecule_form(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule form data."""
@@ -177,6 +236,49 @@ class TestitemChEMBLClient(BaseApiClient):
             logger.warning(f"Failed to fetch mechanism for {molecule_chembl_id}: {e}")
             return {}
 
+    def fetch_mechanism_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch mechanism data for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_mechanism_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"mechanism.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url)
+            
+            # Parse results
+            results = {}
+            mechanisms = payload.get("mechanisms", [])
+            
+            for mechanism in mechanisms:
+                chembl_id = mechanism.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_mechanism({"mechanisms": [mechanism]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch mechanism batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_mechanism(chembl_id)
+            return results
+
     def fetch_atc_classification(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch ATC classification data."""
         try:
@@ -185,6 +287,49 @@ class TestitemChEMBLClient(BaseApiClient):
         except Exception as e:
             logger.warning(f"Failed to fetch ATC classification for {molecule_chembl_id}: {e}")
             return {}
+
+    def fetch_atc_classification_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch ATC classification data for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_atc_classification_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"atc_classification.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url)
+            
+            # Parse results
+            results = {}
+            classifications = payload.get("atc_classifications", [])
+            
+            for classification in classifications:
+                chembl_id = classification.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_atc_classification({"atc_classifications": [classification]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch ATC classification batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_atc_classification(chembl_id)
+            return results
 
     def fetch_compound_synonym(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch compound synonyms."""
@@ -204,6 +349,49 @@ class TestitemChEMBLClient(BaseApiClient):
             logger.warning(f"Failed to fetch drug data for {molecule_chembl_id}: {e}")
             return {}
 
+    def fetch_drug_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch drug data for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_drug_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"drug.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url)
+            
+            # Parse results
+            results = {}
+            drugs = payload.get("drugs", [])
+            
+            for drug in drugs:
+                chembl_id = drug.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_drug({"drugs": [drug]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch drug batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_drug(chembl_id)
+            return results
+
     def fetch_drug_warning(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch drug warnings."""
         try:
@@ -212,6 +400,49 @@ class TestitemChEMBLClient(BaseApiClient):
         except Exception as e:
             logger.warning(f"Failed to fetch drug warning for {molecule_chembl_id}: {e}")
             return {}
+
+    def fetch_drug_warning_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch drug warnings for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_drug_warning_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"drug_warning.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url)
+            
+            # Parse results
+            results = {}
+            warnings = payload.get("drug_warnings", [])
+            
+            for warning in warnings:
+                chembl_id = warning.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_drug_warning({"drug_warnings": [warning]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch drug warning batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_drug_warning(chembl_id)
+            return results
 
     def fetch_xref_source(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch cross-reference sources."""
@@ -563,3 +794,39 @@ class ChEMBLClient(BaseApiClient):
                 "extracted_at": datetime.utcnow().isoformat() + "Z",
                 "error": str(e)
             }
+
+    def fetch_documents_batch(
+        self, 
+        document_chembl_ids: list[str],
+        batch_size: int = 50
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch multiple documents in batch.
+        
+        ChEMBL doesn't have a true batch endpoint for documents, so we use
+        parallel requests with controlled concurrency.
+        """
+        if not document_chembl_ids:
+            return {}
+        
+        results = {}
+        
+        # Process in chunks to avoid overwhelming the API
+        for i in range(0, len(document_chembl_ids), batch_size):
+            chunk = document_chembl_ids[i:i + batch_size]
+            
+            # For each document in the chunk, make individual requests
+            # This is still more efficient than the original sequential approach
+            for doc_id in chunk:
+                try:
+                    result = self.fetch_by_doc_id(doc_id)
+                    results[doc_id] = result
+                except Exception as e:
+                    logger.warning(f"Failed to fetch document {doc_id} in batch: {e}")
+                    results[doc_id] = {
+                        "document_chembl_id": doc_id,
+                        "source_system": "ChEMBL",
+                        "extracted_at": datetime.utcnow().isoformat() + "Z",
+                        "error": str(e)
+                    }
+        
+        return results

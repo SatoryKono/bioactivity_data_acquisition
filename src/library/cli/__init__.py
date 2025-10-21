@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -11,13 +12,9 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from library.activity import ActivityConfig, run_activity_etl
+from library.clients.health import create_health_checker_from_config
 from library.config import Config, _assign_path, ensure_output_directories_exist
-
-
-def _generate_date_tag() -> str:
-    """Generate date tag in YYYYMMDD format."""
-    from datetime import datetime
-    return datetime.now().strftime("%Y%m%d")
 from library.documents.config import (
     ALLOWED_SOURCES,
     DEFAULT_ENV_PREFIX,
@@ -33,6 +30,19 @@ from library.documents.pipeline import (
     run_document_etl,
     write_document_outputs,
 )
+from library.etl.run import run_pipeline
+from library.logging_setup import bind_stage, configure_logging, generate_run_id, set_run_context
+from library.target import (
+    TargetHTTPError,
+    TargetIOError,
+    TargetQCError,
+    TargetValidationError,
+    load_target_config,
+    read_target_input,
+    run_target_etl,
+    write_target_outputs,
+)
+from library.telemetry import setup_telemetry
 from library.testitem.config import TestitemConfig
 from library.testitem.pipeline import (
     TestitemHTTPError,
@@ -42,26 +52,12 @@ from library.testitem.pipeline import (
     run_testitem_etl,
     write_testitem_outputs,
 )
-from library.etl.run import run_pipeline
-from library.logging_setup import configure_logging, generate_run_id, set_run_context, bind_stage
-from library.telemetry import setup_telemetry
-from library.clients.health import create_health_checker_from_config
 from library.utils.graceful_shutdown import ShutdownContext, register_shutdown_handler
-from library.target import (
-    TargetConfig,
-    load_target_config,
-    TargetValidationError,
-    TargetHTTPError,
-    TargetQCError,
-    TargetIOError,
-    read_target_input,
-    run_target_etl,
-    write_target_outputs,
-)
-from library.activity import (
-    ActivityConfig,
-    run_activity_etl,
-)
+
+
+def _generate_date_tag() -> str:
+    """Generate date tag in YYYYMMDD format."""
+    return datetime.now().strftime("%Y%m%d")
 
 
 def _setup_api_keys_automatically() -> None:
@@ -739,7 +735,7 @@ def testitem_run(
             import logging
             logging.getLogger().setLevel(logging.DEBUG)
         
-        console.print(f"[green]Configuration loaded successfully[/green]")
+        console.print("[green]Configuration loaded successfully[/green]")
         console.print(f"  Pipeline version: {testitem_config.pipeline_version}")
         console.print(f"  PubChem enabled: {testitem_config.enable_pubchem}")
         console.print(f"  Allow parent missing: {testitem_config.allow_parent_missing}")
@@ -753,14 +749,14 @@ def testitem_run(
             return
         
         # Run ETL pipeline
-        console.print(f"[blue]Starting testitem ETL pipeline...[/blue]")
+        console.print("[blue]Starting testitem ETL pipeline...[/blue]")
         console.print(f"  Input file: {input}")
         console.print(f"  Output directory: {output}")
         
         result = run_testitem_etl(testitem_config, input_path=input)
         
         # Display results summary
-        console.print(f"[green]ETL pipeline completed successfully![/green]")
+        console.print("[green]ETL pipeline completed successfully![/green]")
         console.print(f"  Processed {len(result.testitems)} molecules")
         console.print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
         
@@ -784,30 +780,30 @@ def testitem_run(
         console.print(f"[blue]Writing outputs to: {output}[/blue]")
         output_paths = write_testitem_outputs(result, output, testitem_config)
         
-        console.print(f"[green]Outputs written successfully:[/green]")
+        console.print("[green]Outputs written successfully:[/green]")
         for artifact_type, path in output_paths.items():
             console.print(f"  {artifact_type}: {path}")
         
-        console.print(f"\n[green]Testitem ETL pipeline completed successfully![/green]")
+        console.print("\n[green]Testitem ETL pipeline completed successfully![/green]")
         
     except TestitemValidationError as e:
         console.print(f"[red]Validation Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR)
+        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR) from e
     except TestitemHTTPError as e:
         console.print(f"[red]HTTP Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.HTTP_ERROR)
+        raise typer.Exit(TestitemExitCode.HTTP_ERROR) from e
     except TestitemQCError as e:
         console.print(f"[red]QC Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.QC_ERROR)
+        raise typer.Exit(TestitemExitCode.QC_ERROR) from e
     except TestitemIOError as e:
         console.print(f"[red]I/O Error: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.IO_ERROR)
+        raise typer.Exit(TestitemExitCode.IO_ERROR) from e
     except Exception as e:
         console.print(f"[red]Unexpected Error: {e}[/red]")
         if verbose:
             import traceback
             console.print(traceback.format_exc())
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command("testitem-validate-config")
@@ -830,13 +826,13 @@ def testitem_validate_config(
         console.print(f"[blue]Validating configuration: {config}[/blue]")
         testitem_config = TestitemConfig.from_file(config)
         
-        console.print(f"[green]Configuration is valid![/green]")
+        console.print("[green]Configuration is valid![/green]")
         console.print(f"  Pipeline version: {testitem_config.pipeline_version}")
         console.print(f"  PubChem enabled: {testitem_config.enable_pubchem}")
         console.print(f"  Allow parent missing: {testitem_config.allow_parent_missing}")
         
         # Display source configurations
-        console.print(f"\n[blue]Source Configurations:[/blue]")
+        console.print("\n[blue]Source Configurations:[/blue]")
         for source_name, source_config in testitem_config.sources.items():
             console.print(f"  {source_name}:")
             console.print(f"    Base URL: {source_config.http.base_url}")
@@ -845,7 +841,7 @@ def testitem_validate_config(
         
     except Exception as e:
         console.print(f"[red]Configuration validation failed: {e}[/red]")
-        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR)
+        raise typer.Exit(TestitemExitCode.VALIDATION_ERROR) from e
 
 
 @app.command("testitem-info")

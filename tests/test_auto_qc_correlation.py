@@ -1,6 +1,8 @@
 """Тесты для проверки автоматического сохранения QC и корреляционных отчетов."""
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 # Добавляем путь к библиотеке
@@ -8,9 +10,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 import pandas as pd
 import pytest
-from pathlib import Path
-import tempfile
-import os
 
 from library.etl.load import write_deterministic_csv
 from library.config import PostprocessSettings, QCStepSettings, CorrelationSettings

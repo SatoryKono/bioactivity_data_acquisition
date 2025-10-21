@@ -176,14 +176,14 @@ class ActivityValidator:
                 nullable=False,
                 description="Source system"
             ),
-            "retrieved_at": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", name="iso_datetime")
-                ],
-                nullable=False,
-                description="Retrieval timestamp"
-            )
+            # "retrieved_at": Column(
+            #     pa.String,
+            #     checks=[
+            #         Check.str_matches(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", name="iso_datetime")
+            #     ],
+            #     nullable=False,
+            #     description="Retrieval timestamp"
+            # )
         })
 
     def get_normalized_schema(self) -> DataFrameSchema:
@@ -192,6 +192,13 @@ class ActivityValidator:
         
         # Add normalized fields
         normalized_fields = {
+            # Index column
+            "index": Column(
+                pa.Int64,
+                nullable=False,
+                description="Row index for identification"
+            ),
+            
             # Foreign keys
             "assay_key": Column(
                 pa.String,
@@ -249,20 +256,20 @@ class ActivityValidator:
                 description="Whether the value is censored"
             ),
             
-            # Quality fields
-            "quality_flag": Column(
-                pa.String,
-                checks=[
-                    Check.isin(["good", "warning", "poor", "unknown"], name="valid_quality_flag")
-                ],
-                nullable=False,
-                description="Quality assessment flag"
-            ),
-            "quality_reason": Column(
-                pa.String,
-                nullable=True,
-                description="Reason for quality assessment"
-            )
+            # Quality fields - исключены из вывода
+            # "quality_flag": Column(
+            #     pa.String,
+            #     checks=[
+            #         Check.isin(["good", "warning", "poor", "unknown"], name="valid_quality_flag")
+            #     ],
+            #     nullable=False,
+            #     description="Quality assessment flag"
+            # ),
+            # "quality_reason": Column(
+            #     pa.String,
+            #     nullable=True,
+            #     description="Reason for quality assessment"
+            # )
         }
         
         # Combine base schema with normalized fields
@@ -270,6 +277,7 @@ class ActivityValidator:
         
         return DataFrameSchema(
             columns=all_columns,
+            strict=False,  # Разрешаем дополнительные колонки (например, index)
             checks=[
                 # Business rule: non-censored records must have both bounds and they must match standard_value
                 Check(
@@ -370,6 +378,7 @@ class ActivityValidator:
         
         return DataFrameSchema(
             columns=strict_columns,
+            strict=False,  # Разрешаем дополнительные колонки
             checks=base_schema.checks
         )
 
@@ -397,6 +406,7 @@ class ActivityValidator:
         
         return DataFrameSchema(
             columns=moderate_columns,
+            strict=False,  # Разрешаем дополнительные колонки
             checks=base_schema.checks
         )
 
@@ -535,10 +545,10 @@ class ActivityValidator:
                     "fraction": float(coverage / len(df)) if len(df) > 0 else 0.0
                 }
         
-        # Check quality distribution
-        if 'quality_flag' in df.columns:
-            quality_dist = df['quality_flag'].value_counts().to_dict()
-            report["validation_checks"]["quality_distribution"] = quality_dist
+        # Check quality distribution - исключено из вывода
+        # if 'quality_flag' in df.columns:
+        #     quality_dist = df['quality_flag'].value_counts().to_dict()
+        #     report["validation_checks"]["quality_distribution"] = quality_dist
         
         # Check censoring distribution
         if 'is_censored' in df.columns:

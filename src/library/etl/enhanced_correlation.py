@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import warnings
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy.stats import chi2_contingency, pearsonr
 from sklearn.preprocessing import LabelEncoder
 from structlog.stdlib import BoundLogger
-from typing import Any, Dict, List, Optional
 
 # Подавляем предупреждения о делении на ноль в NumPy
 warnings.filterwarnings('ignore', category=RuntimeWarning, message='invalid value encountered in divide')
@@ -17,15 +18,14 @@ warnings.filterwarnings('ignore', category=RuntimeWarning, message='invalid valu
 class EnhancedCorrelationAnalyzer:
     """Расширенный анализатор корреляций с поддержкой различных типов данных."""
 
-    def __init__(self, logger: Optional[BoundLogger] = None):
+    def __init__(self, logger: BoundLogger | None = None):
         """Инициализация анализатора корреляций."""
         self.logger = logger
 
-    def analyze_correlations(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def analyze_correlations(self, df: pd.DataFrame) -> dict[str, Any]:
         """Комплексный анализ корреляций для DataFrame."""
         if self.logger:
-            self.logger.info("Начинаем расширенный анализ корреляций", 
-                           rows=len(df), columns=len(df.columns))
+            self.logger.info(f"Начинаем расширенный анализ корреляций: {len(df)} строк, {len(df.columns)} колонок")
 
         correlation_analysis = {
             'numeric_correlations': self._analyze_numeric_correlations(df),
@@ -40,7 +40,7 @@ class EnhancedCorrelationAnalyzer:
         
         return correlation_analysis
 
-    def _analyze_numeric_correlations(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    def _analyze_numeric_correlations(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Анализ корреляций между числовыми столбцами."""
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         
@@ -99,7 +99,7 @@ class EnhancedCorrelationAnalyzer:
 
         return correlations
 
-    def _analyze_categorical_correlations(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _analyze_categorical_correlations(self, df: pd.DataFrame) -> dict[str, Any]:
         """Анализ корреляций между категориальными столбцами."""
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
         
@@ -170,7 +170,7 @@ class EnhancedCorrelationAnalyzer:
 
         return correlations
 
-    def _analyze_mixed_correlations(self, df: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+    def _analyze_mixed_correlations(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         """Анализ корреляций между числовыми и категориальными столбцами."""
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
@@ -205,8 +205,11 @@ class EnhancedCorrelationAnalyzer:
                     n_groups = grouped.ngroups
                     if n_groups > 1:
                         # Вычисляем eta-squared
-                        ss_between = grouped.apply(lambda x: (x.mean() - df[num_col].mean())**2 * len(x)).sum()
-                        ss_total = ((df[num_col] - df[num_col].mean())**2).sum()
+                        overall_mean_val = float(df[num_col].mean())
+                        def calc_ss_between(group):
+                            return (group.mean() - overall_mean_val)**2 * len(group)
+                        ss_between = grouped.apply(calc_ss_between).sum()
+                        ss_total = ((df[num_col] - overall_mean_val)**2).sum()
                         
                         # Проверяем деление на ноль для eta-squared
                         if ss_total > 0 and not np.isnan(ss_total):
@@ -254,7 +257,7 @@ class EnhancedCorrelationAnalyzer:
 
         return correlations
 
-    def _analyze_cross_correlations(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _analyze_cross_correlations(self, df: pd.DataFrame) -> dict[str, Any]:
         """Анализ кросс-корреляций и лагов."""
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         
@@ -398,7 +401,7 @@ class EnhancedCorrelationAnalyzer:
 
         return correlations
 
-    def _analyze_correlation_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
+    def _analyze_correlation_summary(self, df: pd.DataFrame) -> dict[str, Any]:
         """Сводная статистика по корреляциям."""
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
@@ -465,7 +468,7 @@ class EnhancedCorrelationAnalyzer:
 
         return summary
 
-    def generate_correlation_reports(self, correlation_analysis: Dict[str, Any]) -> Dict[str, pd.DataFrame]:
+    def generate_correlation_reports(self, correlation_analysis: dict[str, Any]) -> dict[str, pd.DataFrame]:
         """Генерация отчетов по корреляциям."""
         reports = {}
         
@@ -497,7 +500,7 @@ class EnhancedCorrelationAnalyzer:
 
         return reports
 
-    def generate_correlation_insights(self, correlation_analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def generate_correlation_insights(self, correlation_analysis: dict[str, Any]) -> list[dict[str, Any]]:
         """Генерация инсайтов и рекомендаций на основе корреляций."""
         insights = []
         
@@ -541,7 +544,7 @@ class EnhancedCorrelationAnalyzer:
         return insights
 
 
-def _log_info(logger: Optional[BoundLogger], message: str, **kwargs) -> None:
+def _log_info(logger: BoundLogger | None, message: str, **kwargs) -> None:
     """Вспомогательная функция для логирования с поддержкой разных типов логгеров."""
     if logger:
         if hasattr(logger, 'info') and hasattr(logger.info, '__code__') and 'extra' in logger.info.__code__.co_varnames:
@@ -559,7 +562,7 @@ def _log_info(logger: Optional[BoundLogger], message: str, **kwargs) -> None:
 def prepare_data_for_correlation_analysis(
     df: pd.DataFrame, 
     data_type: str = "general",
-    logger: Optional[BoundLogger] = None
+    logger: BoundLogger | None = None
 ) -> pd.DataFrame:
     """
     Подготовка данных для корреляционного анализа.
@@ -686,20 +689,20 @@ def prepare_data_for_correlation_analysis(
     return analysis_df
 
 
-def build_enhanced_correlation_analysis(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> Dict[str, Any]:
+def build_enhanced_correlation_analysis(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, Any]:
     """Создание расширенного анализа корреляций."""
     analyzer = EnhancedCorrelationAnalyzer(logger=logger)
     return analyzer.analyze_correlations(df)
 
 
-def build_enhanced_correlation_reports(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> Dict[str, pd.DataFrame]:
+def build_enhanced_correlation_reports(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, pd.DataFrame]:
     """Создание отчетов по расширенным корреляциям."""
     analyzer = EnhancedCorrelationAnalyzer(logger=logger)
     analysis = analyzer.analyze_correlations(df)
     return analyzer.generate_correlation_reports(analysis)
 
 
-def build_correlation_insights(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> List[Dict[str, Any]]:
+def build_correlation_insights(df: pd.DataFrame, logger: BoundLogger | None = None) -> list[dict[str, Any]]:
     """Создание инсайтов и рекомендаций по корреляциям."""
     analyzer = EnhancedCorrelationAnalyzer(logger=logger)
     analysis = analyzer.analyze_correlations(df)

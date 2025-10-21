@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
-from typing import Any
-import json
 import hashlib
+import json
+import logging
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 from library.clients.base import BaseApiClient
@@ -41,7 +41,7 @@ class PubChemClient(BaseApiClient):
         if not file_path.exists():
             return None
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path) as f:
                 return json.load(f)
         except Exception as exc:  # pragma: no cover
             logger.warning(f"Failed to read PubChem cache: {exc}")
@@ -76,6 +76,53 @@ class PubChemClient(BaseApiClient):
         except Exception as e:
             logger.warning(f"Failed to fetch PubChem properties for CID {cid}: {e}")
             return {}
+
+    def fetch_compounds_properties_batch(
+        self,
+        cids: list[str],
+        batch_size: int = 100
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch properties for multiple CIDs.
+        
+        PubChem supports comma-separated CID lists:
+        compound/cid/1,2,3/property/.../JSON
+        """
+        if not cids:
+            return {}
+        
+        results = {}
+        
+        # Process in batches to avoid URL length limits
+        for i in range(0, len(cids), batch_size):
+            batch = cids[i:i + batch_size]
+            batch_str = ",".join(batch)
+            
+            try:
+                payload = self._get_with_cache(
+                    f"compound/cid/{batch_str}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON"
+                )
+                
+                # Parse batch results
+                if "PropertyTable" in payload and "Properties" in payload["PropertyTable"]:
+                    properties_list = payload["PropertyTable"]["Properties"]
+                    for prop_data in properties_list:
+                        cid = str(prop_data.get("CID", ""))
+                        if cid:
+                            parsed_props = self._parse_compound_properties({"PropertyTable": {"Properties": [prop_data]}})
+                            results[cid] = parsed_props
+                
+                # Add empty records for missing CIDs
+                for cid in batch:
+                    if cid not in results:
+                        results[cid] = {}
+                        
+            except Exception as e:
+                logger.warning(f"Failed to fetch PubChem properties batch {batch}: {e}")
+                # Add empty records for failed batch
+                for cid in batch:
+                    results[cid] = {}
+        
+        return results
 
     def fetch_compound_xrefs(self, cid: str) -> dict[str, Any]:
         """Fetch compound cross-references by PubChem CID."""

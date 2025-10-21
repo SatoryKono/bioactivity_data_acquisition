@@ -10,9 +10,9 @@ import pandas as pd
 from structlog.stdlib import BoundLogger
 
 from library.etl.qc import (
-    build_correlation_matrix, 
-    build_qc_report,
+    build_correlation_matrix,
     build_enhanced_qc_report,
+    build_qc_report,
     build_enhanced_qc_detailed_reports,
     build_enhanced_correlation_analysis_report,
     build_enhanced_correlation_reports_df,
@@ -76,7 +76,7 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
     df_normalized = df.copy()
     
     if logger is not None:
-        logger.info("normalize_start", columns=list(df.columns), rows=len(df))
+        logger.info(f"normalize_start: {len(df.columns)} колонок, {len(df)} строк")
     
     # Определяем DOI-столбцы (case-insensitive), исключая служебные флаги валидации
     lower_names = {col: col.lower() for col in df_normalized.columns}
@@ -96,7 +96,7 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
             doi_columns.append(col)
     
     if logger is not None and doi_columns:
-        logger.info("doi_normalization_detected", doi_columns=doi_columns)
+        logger.info(f"doi_normalization_detected: {doi_columns}")
     
     for column in df_normalized.columns:
         # Пропускаем столбец index - он не должен нормализоваться
@@ -171,7 +171,7 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
             pass
     
     if logger is not None:
-        logger.info("normalize_complete", columns=list(df_normalized.columns))
+        logger.info(f"normalize_complete: {len(df_normalized.columns)} колонок")
     
     return df_normalized
 
@@ -297,15 +297,15 @@ def write_deterministic_csv(
             if 'index' not in df_to_write.columns:
                 df_to_write.insert(0, 'index', range(len(df_to_write)))
                 if logger is not None:
-                    logger.info("index_column_added", columns_before=len(df.columns), columns_after=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
+                    logger.info(f"index_column_added: {len(df.columns)} -> {len(df_to_write.columns)} колонок, первые: {list(df_to_write.columns[:5])}")
             else:
                 if logger is not None:
-                    logger.info("index_column_exists", columns=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
+                    logger.info(f"index_column_exists: {len(df_to_write.columns)} колонок, первые: {list(df_to_write.columns[:5])}")
         
         # Применяем детерминистический порядок колонок после добавления index
         df_to_write = _deterministic_order(df_to_write, determinism)
         if logger is not None:
-            logger.info("deterministic_order_applied", columns_after=len(df_to_write.columns), first_columns=list(df_to_write.columns[:5]))
+            logger.info(f"deterministic_order_applied: {len(df_to_write.columns)} колонок, первые: {list(df_to_write.columns[:5])}")
         
         # Нормализуем данные перед сохранением
         df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)
@@ -325,7 +325,12 @@ def write_deterministic_csv(
             df_to_write.to_csv(temp_path, **options)
 
     if logger is not None:
-        logger.info("load_complete", path=str(destination), rows=len(df_to_write))
+        logger.info(f"load_complete: {str(destination)}, {len(df_to_write)} строк")
+    
+    # Очищаем backup файлы после успешной записи
+    backup_count = cleanup_backups(destination.parent)
+    if backup_count > 0 and logger is not None:
+        logger.info("cleaned_up_backups_after_write", count=backup_count, directory=str(destination.parent))
     
     # Автоматически генерируем и сохраняем QC и корреляционные таблицы
     # Но только для основных данных, не для самих QC отчетов и корреляций
@@ -402,11 +407,11 @@ def _auto_generate_qc_and_correlation_reports(
     
     # Импортируем функции для генерации отчетов
     from .qc import (
-        build_qc_report,
         build_correlation_matrix,
-        build_enhanced_qc_report,
-        build_enhanced_qc_detailed_reports,
         build_enhanced_correlation_analysis_report,
+        build_enhanced_qc_detailed_reports,
+        build_enhanced_qc_report,
+        build_qc_report,
         build_enhanced_correlation_reports_df,
         build_correlation_insights_report
     )

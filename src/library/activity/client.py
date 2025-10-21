@@ -5,9 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Generator
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 from urllib.parse import urlencode
 
 from library.clients.base import BaseApiClient
@@ -101,7 +102,7 @@ class ActivityChEMBLClient(BaseApiClient):
         if use_cache and cache_file.exists():
             logger.info(f"Loading activities from cache: {cache_file}")
             try:
-                with open(cache_file, 'r', encoding='utf-8') as f:
+                with open(cache_file) as f:
                     cached_data = json.load(f)
                     for activity in cached_data.get("activities", []):
                         # Ensure consistent shape with API path
@@ -145,6 +146,37 @@ class ActivityChEMBLClient(BaseApiClient):
         except Exception as e:
             logger.error(f"Failed to fetch activities: {e}")
             raise
+
+    def fetch_activities_batch(
+        self,
+        *,
+        filter_params: dict[str, Any],
+        batch_size: int = 1000,
+        use_cache: bool = True,
+    ) -> Generator[list[dict[str, Any]], None, None]:
+        """Fetch activities in batches using pagination.
+
+        Yields lists (batches) of activity records with size up to batch_size.
+        """
+        offset = 0
+        while True:
+            page = list(
+                self.fetch_activities_paginated(
+                    limit=batch_size,
+                    offset=offset,
+                    activity_ids=filter_params.get("activity_ids"),
+                    assay_ids=filter_params.get("assay_ids"),
+                    molecule_ids=filter_params.get("molecule_ids"),
+                    target_ids=filter_params.get("target_ids"),
+                    use_cache=use_cache,
+                )
+            )
+            if not page:
+                break
+            yield page
+            if len(page) < batch_size:
+                break
+            offset += batch_size
 
     def fetch_all_activities(
         self,

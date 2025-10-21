@@ -10,20 +10,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import yaml
 
 from library.assay.client import AssayChEMBLClient
 from library.assay.config import AssayConfig
 from library.config import APIClientConfig
-from library.etl.load import write_deterministic_csv
 from library.etl.enhanced_correlation import (
     build_enhanced_correlation_analysis,
     build_enhanced_correlation_reports,
     build_correlation_insights,
     prepare_data_for_correlation_analysis,
 )
+from library.etl.load import write_deterministic_csv
 from library.schemas.assay_schema import AssayNormalizedSchema
 
 logger = logging.getLogger(__name__)
@@ -179,7 +178,7 @@ def _extract_assay_data(
     frame: pd.DataFrame, 
     config: AssayConfig
 ) -> pd.DataFrame:
-    """Extract assay data from ChEMBL API using optimized batch requests."""
+    """Extract assay data from ChEMBL API using streaming batch processing."""
     
     # Define default values for all possible columns to ensure they exist
     default_columns = {
@@ -211,47 +210,68 @@ def _extract_assay_data(
         logger.warning("No valid assay IDs found")
         return pd.DataFrame()
     
-    logger.info(f"Fetching {len(valid_assay_ids)} assays using batch requests...")
-    
-    # Use batch requests for better performance
+    logger.info(f"Fetching {len(valid_assay_ids)} assays using streaming batches...")
+
+    # Streaming batches for better memory usage
     try:
-        batch_size = 100  # Оптимальный размер батча для ChEMBL API
-        batch_results = client.fetch_assays_batch(valid_assay_ids, batch_size)
-        
-        # Create a mapping from assay_id to fetched data
-        fetched_data = {}
-        for result in batch_results:
-            assay_id = result.get("assay_chembl_id")
-            if assay_id:
-                fetched_data[assay_id] = result
-        
-        # Build enriched data
-        enriched_data = []
-        for assay_id in valid_assay_ids:
-            row_data = row_mapping[assay_id].copy()
-            
-            # Add missing columns with default values
-            for key, default_value in default_columns.items():
-                if key not in row_data:
-                    row_data[key] = default_value
-            
-            # Update with fetched data if available
-            if assay_id in fetched_data:
-                fetched = fetched_data[assay_id]
-                # Remove source from data to avoid overwriting
+        batch_size = getattr(config.runtime, "batch_size", 100) or 100
+        total_rows = 0
+        batches: list[pd.DataFrame] = []
+        batch_index = 0
+
+        for requested_ids, results_batch in client.fetch_assays_batch_streaming(valid_assay_ids, batch_size):
+            batch_index += 1
+            # Map fetched results by assay_id
+            fetched_data: dict[str, dict[str, Any]] = {}
+            for result in results_batch:
+                assay_id = result.get("assay_chembl_id")
+                if assay_id:
+                    fetched_data[assay_id] = result
+
+            # Build enriched rows for this batch
+            enriched_rows: list[dict[str, Any]] = []
+            # Важно сохранять порядок исходного батча и добавлять строки даже при отсутствии ответа
+            for assay_id in requested_ids:
+                row_data = row_mapping[assay_id].copy()
+
+                # Ensure all expected columns exist
+                for key, default_value in default_columns.items():
+                    if key not in row_data:
+                        row_data[key] = default_value
+
+                fetched = fetched_data.get(assay_id, {})
                 fetched.pop("source", None)
-                # Only update non-None values to preserve existing data
                 for key, value in fetched.items():
                     if value is not None:
                         row_data[key] = value
-            
-            enriched_data.append(row_data)
-        
-        logger.info(f"Successfully processed {len(enriched_data)} assays")
-        return pd.DataFrame(enriched_data)
-        
+
+                enriched_rows.append(row_data)
+
+            batch_df = pd.DataFrame(enriched_rows)
+            total_rows += len(batch_df)
+            logger.info(
+                f"Processed batch {batch_index}: size={len(batch_df)}, total_rows={total_rows}, batch_size={batch_size}"
+            )
+
+            batches.append(batch_df)
+
+            # Respect global limit if provided
+            if getattr(config.runtime, "limit", None) is not None and total_rows >= int(config.runtime.limit):
+                logger.info(f"Reached global limit of {config.runtime.limit} assays; stopping batches")
+                break
+
+        if not batches:
+            logger.info("No assays fetched in streaming mode")
+            return pd.DataFrame()
+
+        result_df = pd.concat(batches, ignore_index=True)
+        if getattr(config.runtime, "limit", None) is not None and len(result_df) > int(config.runtime.limit):
+            result_df = result_df.head(int(config.runtime.limit))
+        logger.info(f"Successfully processed {len(result_df)} assays in {batch_index} batches")
+        return result_df
+
     except Exception as exc:
-        logger.error(f"Error in batch extraction: {exc}")
+        logger.error(f"Error in streaming batch extraction: {exc}")
         # Fallback to individual requests
         logger.info("Falling back to individual requests...")
         return _extract_assay_data_individual(client, frame, config, default_columns)
@@ -263,44 +283,53 @@ def _extract_assay_data_individual(
     config: AssayConfig,
     default_columns: dict[str, Any]
 ) -> pd.DataFrame:
-    """Fallback method for individual assay requests."""
-    enriched_data = []
-    
+    """Fallback method for individual assay requests with small chunking."""
+    enriched_rows_chunk: list[dict[str, Any]] = []
+    chunks: list[pd.DataFrame] = []
+    chunk_size = max(10, min(1000, getattr(config.runtime, "batch_size", 100)))
+
     for idx, (_, row) in enumerate(frame.iterrows()):
         try:
-            # Start with the original row data and ensure all columns exist
             row_data = row.to_dict()
-            # Only add missing columns with default values, don't overwrite existing data
             for key, default_value in default_columns.items():
                 if key not in row_data:
                     row_data[key] = default_value
-            
-            assay_id = str(row["assay_chembl_id"]).strip()
+
+            assay_id = str(row.get("assay_chembl_id", "")).strip()
             if assay_id and assay_id != "nan":
                 data = client.fetch_by_assay_id(assay_id)
-                # Remove source from data to avoid overwriting
                 data.pop("source", None)
-                # Only update non-None values to preserve existing data
                 for key, value in data.items():
                     if value is not None:
                         row_data[key] = value
-                
-                enriched_data.append(row_data)
+
             else:
                 logger.warning(f"Skipping empty assay_chembl_id at row {idx}")
-                enriched_data.append(row_data)
-                    
+
+            enriched_rows_chunk.append(row_data)
+
+            if len(enriched_rows_chunk) >= chunk_size:
+                chunks.append(pd.DataFrame(enriched_rows_chunk))
+                enriched_rows_chunk = []
+
         except Exception as exc:
-            # Log error but continue processing other records
-            assay_id = row.get('assay_chembl_id', 'unknown')
-            logger.error(f"Error extracting assay data for {assay_id}: {exc}")
-            
-            # Ensure error row also has all columns
+            assay_id_dbg = row.get('assay_chembl_id', 'unknown')
+            logger.error(f"Error extracting assay data for {assay_id_dbg}: {exc}")
             error_row = row.to_dict()
             error_row.update(default_columns)
-            enriched_data.append(error_row)
-    
-    return pd.DataFrame(enriched_data)
+            enriched_rows_chunk.append(error_row)
+
+            if len(enriched_rows_chunk) >= chunk_size:
+                chunks.append(pd.DataFrame(enriched_rows_chunk))
+                enriched_rows_chunk = []
+
+    if enriched_rows_chunk:
+        chunks.append(pd.DataFrame(enriched_rows_chunk))
+
+    if not chunks:
+        return pd.DataFrame()
+
+    return pd.concat(chunks, ignore_index=True)
 
 
 def _extract_assay_data_by_target(
@@ -532,6 +561,15 @@ def run_assay_etl(
         if bool(duplicates.any()):
             raise AssayQCError("Duplicate assay_chembl_id values detected")
         
+        # Log streaming batch params
+        try:
+            batch_size = getattr(config.runtime, "batch_size", 100)
+            limit = getattr(config.runtime, "limit", None)
+            total_ids = int(len(input_frame))
+            logger.info(f"Assay extraction: streaming batches enabled (batch_size={batch_size}, limit={limit}, total_ids={total_ids})")
+        except Exception as e:
+            logger.warning(f"Failed to log batch parameters: {e}")
+
         # Extract data
         enriched_frame = _extract_assay_data(client, input_frame, config)
         
@@ -585,6 +623,13 @@ def run_assay_etl(
     ]
     
     qc = pd.DataFrame(qc_metrics)
+    # Унифицируем базовые QC метрики
+    try:
+        from library.etl.qc_common import ensure_common_qc
+        qc = ensure_common_qc(validated_frame, qc, module_name="assay")
+    except Exception as exc:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f"Failed to normalize QC metrics for assay: {exc}")
 
     # Create metadata
     meta = {
@@ -671,8 +716,12 @@ def write_assay_outputs(
         )
         
  
-        # Save QC data
-        result.qc.to_csv(qc_path, index=False)
+        # Save QC data (всегда создаём файл)
+        if isinstance(result.qc, pd.DataFrame) and not result.qc.empty:
+            result.qc.to_csv(qc_path, index=False)
+        else:
+            import pandas as _pd
+            _pd.DataFrame([{"metric": "row_count", "value": int(len(result.assays))}]).to_csv(qc_path, index=False)
         
         # Save metadata
         with open(meta_path, 'w', encoding='utf-8') as f:
@@ -695,9 +744,23 @@ def write_assay_outputs(
             except Exception as exc:
                 logger.warning(f"Failed to save correlation reports: {exc}")
         
+        # Save correlation insights if available
+        try:
+            if result.correlation_insights:
+                insights_dir = output_dir / f"assay_correlation_report_{date_tag}"
+                insights_dir.mkdir(exist_ok=True)
+                insights_path = insights_dir / "correlation_insights.json"
+                import json as _json
+                with insights_path.open("w", encoding="utf-8") as f:
+                    _json.dump(result.correlation_insights, f, ensure_ascii=False, indent=2)
+                correlation_paths["correlation_insights"] = insights_path
+        except Exception:
+            logger.warning("Failed to save correlation insights")
+
         # Add file checksums to metadata
         result.meta["file_checksums"] = {
             "csv": _calculate_checksum(csv_path),
+            "qc": _calculate_checksum(qc_path),
         }
         
         # Update metadata file with checksums

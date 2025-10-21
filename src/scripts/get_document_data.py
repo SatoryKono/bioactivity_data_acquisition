@@ -6,22 +6,32 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from library.documents import DocumentConfig, load_document_config, run_document_etl, write_document_outputs
+from library.documents import load_document_config, run_document_etl, write_document_outputs
 from library.logging_setup import configure_logging
 
 
-def _load_document_data(input_path: Path) -> list[dict[str, Any]]:
-    """Load document data from CSV file."""
+def _load_document_data(input_path: Path, id_column: str | None = None) -> list[dict[str, Any]]:
+    """Load document data from CSV file.
+    
+    Args:
+        input_path: Path to CSV file
+        id_column: Name of column containing document IDs (if None, checks for document_chembl_id, doi, title)
+    """
     import pandas as pd
     
     if input_path.suffix.lower() == '.csv':
         df = pd.read_csv(input_path)
         
-        # Проверяем наличие обязательных колонок
-        required_columns = {'document_chembl_id', 'doi', 'title'}
-        missing_columns = required_columns - set(df.columns)
-        if missing_columns:
-            raise ValueError(f"CSV file must contain columns: {', '.join(missing_columns)}. Found: {list(df.columns)}")
+        # Если указана конкретная колонка, проверяем только её
+        if id_column:
+            if id_column not in df.columns:
+                raise ValueError(f"CSV file must contain '{id_column}' column: {input_path}. Found: {list(df.columns)}")
+        else:
+            # Проверяем наличие обязательных колонок
+            required_columns = {'document_chembl_id', 'doi', 'title'}
+            missing_columns = required_columns - set(df.columns)
+            if missing_columns:
+                raise ValueError(f"CSV file must contain columns: {', '.join(missing_columns)}. Found: {list(df.columns)}")
         
         return df.to_dict('records')
     
@@ -226,7 +236,12 @@ Examples:
             return 2
         
         # Load input data
-        document_data = _load_document_data(args.input)
+        try:
+            id_column = getattr(config.io.input, 'document_id_column', None)
+            document_data = _load_document_data(args.input, id_column=id_column)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 2
         if not document_data:
             print("Error: No document data found in input file.", file=sys.stderr)
             return 2

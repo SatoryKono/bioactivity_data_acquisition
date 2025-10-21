@@ -142,10 +142,10 @@ class ActivityQualityFilter:
         if 'standard_type' in df.columns:
             unknown_type_mask = df['standard_type'].notna() & ~df['standard_type'].isin(self.strict_activity_types)
             if unknown_type_mask.any():
-                # Mark as warning but don't reject
-                df.loc[unknown_type_mask, 'quality_flag'] = 'warning'
-                df.loc[unknown_type_mask, 'quality_reason'] = 'unknown_activity_type'
-                logger.debug(f"Marked {unknown_type_mask.sum()} records with unknown activity type as warning")
+                # Mark as warning but don't reject - quality flags исключены из вывода
+                # df.loc[unknown_type_mask, 'quality_flag'] = 'warning'
+                # df.loc[unknown_type_mask, 'quality_reason'] = 'unknown_activity_type'
+                logger.debug(f"Found {unknown_type_mask.sum()} records with unknown activity type (quality flags excluded from output)")
         
         # Check for allowed data validity warnings
         allowed_warnings = self.moderate_config.get('allowed_data_validity_warnings', [])
@@ -232,10 +232,10 @@ class ActivityQualityFilter:
             'censoring_statistics': {}
         }
         
-        # Quality flag distribution
-        if 'quality_flag' in df.columns:
-            quality_dist = df['quality_flag'].value_counts().to_dict()
-            stats['quality_distribution'] = quality_dist
+        # Quality flag distribution - исключено из вывода
+        # if 'quality_flag' in df.columns:
+        #     quality_dist = df['quality_flag'].value_counts().to_dict()
+        #     stats['quality_distribution'] = quality_dist
         
         # Missing data analysis
         critical_fields = ['activity_chembl_id', 'standard_type', 'standard_value', 

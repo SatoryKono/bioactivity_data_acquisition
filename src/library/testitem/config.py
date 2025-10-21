@@ -6,10 +6,9 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
+from pydantic import BaseModel, Field
 
 from library.config import Config
-from pydantic import BaseModel, Field
 
 
 class ConfigLoadError(RuntimeError):
@@ -24,7 +23,8 @@ class TestitemRuntimeSettings(BaseModel):
     workers: int = Field(default=4, ge=1)
     limit: int | None = Field(default=None, ge=1)
     dry_run: bool = Field(default=False)
-    batch_size: int = Field(default=200, ge=1)
+    batch_size: int = Field(default=50, ge=1, le=200)
+    pubchem_batch_size: int = Field(default=100, ge=1, le=200)
     retries: int = Field(default=5, ge=1)
     timeout_sec: int = Field(default=30, ge=1)
     cache_dir: str = Field(default=".cache/chembl")

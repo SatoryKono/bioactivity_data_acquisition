@@ -10,15 +10,21 @@ from library.assay import AssayConfig, load_assay_config, run_assay_etl, write_a
 from library.logging_setup import configure_logging
 
 
-def _load_assay_ids(input_path: Path) -> list[str]:
-    """Load assay IDs from CSV/JSON file."""
+def _load_assay_ids(input_path: Path, id_column: str | None = None) -> list[str]:
+    """Load assay IDs from CSV/JSON file.
+    
+    Args:
+        input_path: Path to CSV/JSON file
+        id_column: Name of column containing assay IDs (default: 'assay_chembl_id')
+    """
     import pandas as pd
     
     if input_path.suffix.lower() == '.csv':
         df = pd.read_csv(input_path)
-        if 'assay_chembl_id' not in df.columns:
-            raise ValueError(f"CSV file must contain 'assay_chembl_id' column: {input_path}")
-        return df['assay_chembl_id'].dropna().astype(str).tolist()
+        column_name = id_column or 'assay_chembl_id'
+        if column_name not in df.columns:
+            raise ValueError(f"CSV file must contain '{column_name}' column: {input_path}")
+        return df[column_name].dropna().astype(str).tolist()
     
     elif input_path.suffix.lower() == '.json':
         import json
@@ -229,7 +235,12 @@ Examples:
         # Run pipeline
         if args.input:
             # Extract by assay IDs
-            assay_ids = _load_assay_ids(args.input)
+            try:
+                id_column = getattr(config.io.input, 'assay_id_column', None)
+                assay_ids = _load_assay_ids(args.input, id_column=id_column)
+            except ValueError as e:
+                print(f"Error: {e}", file=sys.stderr)
+                return 2
             if not assay_ids:
                 print("Error: No assay IDs found in input file.", file=sys.stderr)
                 return 2

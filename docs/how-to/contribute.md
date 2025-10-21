@@ -1,240 +1,321 @@
-# Руководство по контрибьюшену
+# Руководство по участию в разработке
 
-## Процесс
+Добро пожаловать в проект Bioactivity Data Acquisition! Мы ценим ваш вклад в развитие проекта.
 
-1. Форк/ветка от `main`
-2. Изменения с тестами и обновлением документации
-3. Локальные проверки: pytest, mypy, ruff, black, pre-commit
-4. PR с чек-листом и ссылками на задачи
+## Как внести вклад
 
-## Стиль коммитов (Conventional Commits)
-
-Примеры:
-
-- `feat(cli): add --limit option to get-document-data`
-- `fix(semanticscholar): handle 429 with Retry-After`
-- `docs(ops): add monitoring schedule examples`
-
-## Ветвление и ревью
-
-- Ветки формата `feat/…`, `fix/…`, `docs/…`
-- Минимум один апрув
-- CI зелёный: тесты ≥ 90%, линтеры чистые
-
-## Чек-лист PR
-
-| Пункт | Статус |
-|---|---|
-| Тесты проходят, покрытие ≥ 90% | [ ] |
-| Линтеры чисты (mypy, ruff, black) | [ ] |
-| Docs обновлены (при необходимости) | [ ] |
-| CHANGELOG обновлён | [ ] |
-
-## Локальный предпросмотр документации
+### 1. Подготовка окружения
 
 ```bash
-pip install -r configs/requirements.txt
-mkdocs serve
+# Клонирование репозитория
+git clone https://github.com/your-org/bioactivity-data-acquisition.git
+cd bioactivity-data-acquisition
+
+# Создание виртуального окружения
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# или
+venv\Scripts\activate     # Windows
+
+# Установка зависимостей
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-## Политика артефактов и LFS
-
-### Запрещённые к коммиту файлы
-
-❌ **НИКОГДА не коммитьте следующие типы файлов:**
-
-#### Кэши и временные файлы
-
-- `__pycache__/` - Скомпилированные Python файлы
-- `.mypy_cache/` - Кэш mypy
-- `.pytest_cache/` - Кэш pytest
-- `temp_*.txt` - Временные файлы разработки
-- `CLI_INTEGRATION_SNIPPET.py` - Временные фрагменты кода
-
-#### Логи и отчёты
-
-- `logs/` - Все лог файлы (кроме `.gitkeep`)
-- `*.log` - Лог файлы в любом месте
-- `reports/*.csv` - Сгенерированные отчёты (кроме `config_audit.csv`)
-- `reports/*.json` - JSON отчёты
-
-#### Тестовые выходные данные
-
-- `tests/test_outputs/*` - Результаты тестов (кроме `.gitkeep`)
-- `site/` - Сгенерированная документация MkDocs
-
-#### IDE и OS файлы
-
-- `.vscode/` - Настройки VS Code (кроме разрешённых)
-- `.idea/` - Настройки JetBrains IDEs
-- `.DS_Store` - macOS системные файлы
-- `Thumbs.db` - Windows системные файлы
-- `.cursor/plans/` - Планы Cursor IDE
-
-### Git LFS для больших файлов
-
-✅ **Используйте Git LFS для файлов >500KB:**
-
-#### Автоматически отслеживаемые форматы
-
-- **Данные**: `*.parquet`, `*.pkl`, `*.h5`, `*.hdf5`
-- **Excel**: `*.xlsm`, `*.xlsx`, `*.xls`
-- **Изображения**: `*.png`, `*.jpg`, `*.jpeg`, `*.gif`, `*.bmp`, `*.tiff`, `*.svg`
-- **Видео**: `*.mp4`, `*.avi`, `*.mov`, `*.mkv`
-- **Аудио**: `*.mp3`, `*.wav`, `*.flac`
-- **Архивы**: `*.zip`, `*.tar.gz`, `*.7z`, `*.rar`
-- **Базы данных**: `*.db`, `*.sqlite`, `*.sqlite3`
-- **Модели**: `*.h5`, `*.hdf5`, `*.pkl`, `*.joblib`, `*.model`
-- **Документы**: `*.pdf`
-- **Большие текстовые файлы**: `*.json`, `*.csv`, `*.tsv`, `*.xml`, `*.log`
-
-#### Настройка Git LFS
+### 2. Настройка pre-commit
 
 ```bash
-# Установка Git LFS (выполнить один раз)
-git lfs install
-
-# Проверка статуса
-git lfs status
-git lfs ls-files
-```
-
-#### Ограничения
-
-- **Максимальный размер файла**: 2GB (GitHub)
-- **Бесплатная квота**: 1GB
-- **Производительность**: LFS файлы загружаются по требованию
-
-### Обработка сгенерированных выходных данных
-
-#### Рекомендуемые практики
-
-1. **Используйте .gitignore** для исключения сгенерированных файлов
-2. **Создавайте .gitkeep** для пустых директорий, которые должны существовать
-3. **Документируйте** какие файлы генерируются автоматически
-4. **Используйте CI артефакты** для публикации отчётов
-
-#### Примеры правильной структуры
-
-```text
-logs/
-├── .gitkeep          # ✅ Разрешено
-└── app.log           # ❌ Запрещено (генерируется)
-
-reports/
-├── .gitkeep          # ✅ Разрешено
-├── config_audit.csv  # ✅ Разрешено (исключение)
-└── coverage.json     # ❌ Запрещено (генерируется)
-
-tests/test_outputs/
-├── .gitkeep          # ✅ Разрешено
-└── test_results.csv  # ❌ Запрещено (генерируется)
-```
-
-## Pre-commit хуки
-
-### Установка и настройка
-
-```bash
-# Установка pre-commit
-pip install pre-commit
-
-# Установка хуков в репозиторий
+# Установка pre-commit hooks
 pre-commit install
 
-# Ручной запуск всех хуков
+# Проверка всех файлов
 pre-commit run --all-files
 ```
 
-### Активные проверки
-
-1. **Блокировка больших файлов** (>500KB)
-2. **Блокировка артефактов** в `logs/`, `reports/`, `tests/test_outputs/`
-3. **Проверка секретов** - поиск хардкодированных API ключей и паролей
-4. **Блокировка print statements** в библиотечном коде
-5. **Форматирование кода** (black, ruff)
-6. **Проверка типов** (mypy)
-7. **Линтинг Markdown** (markdownlint)
-
-### Обход проверок (не рекомендуется)
+### 3. Работа с Git LFS
 
 ```bash
-# Временный обход (только для экстренных случаев)
-git commit --no-verify -m "Emergency commit"
-```
-
-## CI артефакты
-
-### Публикуемые артефакты
-
-- **Отчёты покрытия** - HTML и JSON отчёты о покрытии кода тестами
-- **Test outputs** - Результаты тестов и бенчмарков
-- **Security отчёты** - Результаты проверки безопасности
-- **Документация** - Предварительный просмотр документации для PR
-
-### Доступ к артефактам
-
-1. Перейдите в **Actions** → ваш workflow
-2. Выберите нужный билд
-3. Прокрутите вниз до секции **Artifacts**
-4. Скачайте нужный артефакт
-
-## Устранение неполадок
-
-### Проблемы с Git LFS
-
-```bash
-# Переустановка Git LFS
-git lfs uninstall
+# Установка Git LFS
 git lfs install
 
-# Очистка кэша LFS
-git lfs prune
-
-# Принудительная загрузка всех LFS файлов
-git lfs pull --all
-
-# Проверка целостности
-git lfs fsck
+# Проверка статуса LFS файлов
+git lfs status
 ```
 
-### Проблемы с pre-commit
+## Процесс разработки
+
+### Создание ветки
 
 ```bash
-# Обновление хуков
-pre-commit autoupdate
+# Создание новой ветки от main
+git checkout main
+git pull origin main
+git checkout -b feature/your-feature-name
 
-# Очистка кэша
-pre-commit clean
-
-# Запуск конкретного хука
-pre-commit run <hook-id>
-
-# Пропуск хуков для текущего коммита
-git commit --no-verify
+# Или для исправления багов
+git checkout -b fix/your-bug-description
 ```
 
-### Проблемы с большими файлами
+### Стиль кода
+
+Проект использует следующие инструменты для обеспечения качества кода:
+
+- **Ruff**: Линтинг и форматирование Python кода
+- **Black**: Форматирование кода
+- **isort**: Сортировка импортов
+- **mypy**: Проверка типов
 
 ```bash
-# Проверка размера файлов в репозитории
-git rev-list --objects --all | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' | awk '/^blob/ {print substr($0,6)}' | sort --numeric-sort --key=2 | tail -10
+# Проверка стиля кода
+ruff check src/
+black src/
+isort src/
+mypy src/
 
-# Удаление файла из истории (ОСТОРОЖНО!)
-git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch path/to/large/file' --prune-empty --tag-name-filter cat -- --all
+# Автоисправление
+ruff check --fix src/
 ```
 
-### Восстановление после ошибок
+### Структура коммитов
+
+Используйте следующий формат для сообщений коммитов:
+
+```text
+тип(область): краткое описание
+
+Подробное описание изменений (если необходимо)
+
+Closes #issue_number
+```
+
+Типы коммитов:
+
+- `feat`: новая функциональность
+- `fix`: исправление бага
+- `docs`: изменения в документации
+- `style`: форматирование кода
+- `refactor`: рефакторинг кода
+- `test`: добавление или изменение тестов
+- `chore`: изменения в конфигурации
+
+Примеры:
+
+```text
+feat(testitem): add batch processing for molecule extraction
+fix(chembl): resolve API timeout issues
+docs(api): update client documentation
+```
+
+### Тестирование
 
 ```bash
-# Отмена последнего коммита (сохраняя изменения)
-git reset --soft HEAD~1
+# Запуск всех тестов
+pytest
 
-# Отмена последнего коммита (удаляя изменения)
-git reset --hard HEAD~1
+# Запуск с покрытием
+pytest --cov=src/library --cov-report=html
 
-# Очистка рабочей директории
-git clean -fd
+# Запуск конкретных тестов
+pytest tests/test_testitem_pipeline.py -v
+
+# Запуск smoke тестов
+pytest tests/test_*_smoke.py
+```
+
+### Создание Pull Request
+
+1. Убедитесь, что все тесты проходят
+2. Проверьте, что код соответствует стилю проекта
+3. Обновите документацию при необходимости
+4. Создайте Pull Request с подробным описанием изменений
+
+Шаблон описания PR:
+
+```markdown
+## Описание изменений
+
+Краткое описание того, что было изменено.
+
+## Тип изменений
+
+- [ ] Исправление бага
+- [ ] Новая функциональность
+- [ ] Изменения в документации
+- [ ] Рефакторинг
+
+## Чек-лист
+
+- [ ] Код соответствует стилю проекта
+- [ ] Все тесты проходят
+- [ ] Документация обновлена
+- [ ] Добавлены тесты для новой функциональности
+
+## Связанные issues
+
+Closes #issue_number
+```
+
+## Работа с данными
+
+### Большие файлы
+
+Для работы с большими файлами данных используется Git LFS:
+
+```bash
+# Отслеживание новых типов файлов
+git lfs track "*.csv"
+git lfs track "*.json"
+git lfs track "*.parquet"
+
+# Добавление атрибутов в репозиторий
+git add .gitattributes
+git commit -m "Add LFS tracking for data files"
+```
+
+### Тестовые данные
+
+- Тестовые данные должны быть небольшими (< 1MB)
+- Используйте синтетические данные для тестов
+- Не коммитьте реальные данные пользователей
+
+## Документация
+
+### Обновление документации
+
+При добавлении новой функциональности:
+
+1. Обновите docstrings в коде
+2. Добавьте примеры использования
+3. Обновите API документацию
+4. При необходимости добавьте руководства
+
+### Формат docstrings
+
+Используйте Google style docstrings:
+
+```python
+def process_molecules(molecules: List[str], batch_size: int = 50) -> List[dict]:
+    """Обрабатывает список молекул в батчах.
+    
+    Args:
+        molecules: Список идентификаторов молекул
+        batch_size: Размер батча для обработки
+        
+    Returns:
+        Список обработанных данных молекул
+        
+    Raises:
+        ValueError: Если список молекул пуст
+        APIError: При ошибке обращения к API
+    """
+```
+
+## Отладка и профилирование
+
+### Логирование
+
+Используйте структурированное логирование:
+
+```python
+import structlog
+
+logger = structlog.get_logger()
+
+logger.info("Processing batch", batch_size=len(molecules), batch_id=batch_id)
+logger.error("API request failed", error=str(e), retry_count=retry_count)
+```
+
+### Профилирование
+
+Для анализа производительности:
+
+```python
+import cProfile
+import pstats
+
+# Профилирование функции
+cProfile.run('your_function()', 'profile_output.prof')
+
+# Анализ результатов
+p = pstats.Stats('profile_output.prof')
+p.sort_stats('cumulative').print_stats(10)
+```
+
+## Работа с API
+
+### Обработка ошибок
+
+```python
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+def create_session_with_retry():
+    session = requests.Session()
+    
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+    )
+    
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    
+    return session
+```
+
+### Rate Limiting
+
+```python
+import time
+from functools import wraps
+
+def rate_limit(calls_per_second: float):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            time.sleep(1.0 / calls_per_second)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+@rate_limit(10)  # 10 вызовов в секунду
+def api_call():
+    pass
+```
+
+## Конфигурация
+
+### Переменные окружения
+
+Используйте переменные окружения для конфигурации:
+
+```python
+import os
+from typing import Optional
+
+def get_api_key() -> Optional[str]:
+    return os.getenv('CHEMBL_API_KEY')
+
+def get_timeout() -> int:
+    return int(os.getenv('API_TIMEOUT', '60'))
+```
+
+### Валидация конфигурации
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class APIConfig(BaseModel):
+    base_url: str = Field(..., description="Base URL for API")
+    timeout: int = Field(default=60, ge=1, le=300)
+    api_key: Optional[str] = Field(default=None)
+    
+    class Config:
+        env_prefix = "API_"
 ```
 
 ## Дополнительные ресурсы
@@ -243,3 +324,7 @@ git clean -fd
 - [Git LFS Workflow](GIT_LFS_WORKFLOW.md)
 - [Pre-commit документация](https://pre-commit.com/)
 - [Git LFS документация](https://git-lfs.github.io/)
+ 
+ 
+ 
+ 

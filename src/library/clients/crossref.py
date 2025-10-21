@@ -1,11 +1,14 @@
 """Client for the Crossref API."""
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import quote
 
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
+
+logger = logging.getLogger(__name__)
 
 
 class CrossrefClient(BaseApiClient):
@@ -213,3 +216,69 @@ class CrossrefClient(BaseApiClient):
             pass
         
         return None
+
+    def fetch_by_dois_batch(
+        self, 
+        dois: list[str],
+        batch_size: int = 50
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch multiple works by DOIs.
+        
+        Crossref doesn't have a true batch endpoint, so we use
+        individual requests with controlled concurrency.
+        """
+        if not dois:
+            return {}
+        
+        results = {}
+        
+        # Process in chunks to avoid overwhelming the API
+        for i in range(0, len(dois), batch_size):
+            chunk = dois[i:i + batch_size]
+            
+            for doi in chunk:
+                try:
+                    result = self.fetch_by_doi(doi)
+                    results[doi] = result
+                except Exception as e:
+                    logger.warning(f"Failed to fetch DOI {doi} in batch: {e}")
+                    results[doi] = {
+                        "crossref_doi": doi,
+                        "crossref_error": str(e),
+                        "source": "crossref"
+                    }
+        
+        return results
+
+    def fetch_by_pmids_batch(
+        self,
+        pmids: list[str],
+        batch_size: int = 50
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch multiple works by PMIDs.
+        
+        Crossref doesn't have a true batch endpoint, so we use
+        individual requests with controlled concurrency.
+        """
+        if not pmids:
+            return {}
+        
+        results = {}
+        
+        # Process in chunks to avoid overwhelming the API
+        for i in range(0, len(pmids), batch_size):
+            chunk = pmids[i:i + batch_size]
+            
+            for pmid in chunk:
+                try:
+                    result = self.fetch_by_pmid(pmid)
+                    results[pmid] = result
+                except Exception as e:
+                    logger.warning(f"Failed to fetch PMID {pmid} in batch: {e}")
+                    results[pmid] = {
+                        "crossref_pmid": pmid,
+                        "crossref_error": str(e),
+                        "source": "crossref"
+                    }
+        
+        return results

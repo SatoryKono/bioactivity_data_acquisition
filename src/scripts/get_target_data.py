@@ -21,12 +21,11 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from library.target import (
-    TargetConfig,
-    load_target_config,
-    TargetValidationError,
     TargetHTTPError,
-    TargetQCError,
     TargetIOError,
+    TargetQCError,
+    TargetValidationError,
+    load_target_config,
     read_target_input,
     run_target_etl,
     write_target_outputs,
@@ -230,7 +229,7 @@ def main() -> int:
     try:
         # Запускаем ETL пайплайн
         result = run_target_etl(config, input_frame=input_frame)
-        logger.info(f"ETL completed successfully", records=len(result.targets))
+        logger.info("ETL completed successfully", records=len(result.targets))
     except TargetValidationError as exc:
         logger.error(f"ETL validation failed: {exc}")
         print(f"Error: ETL validation failed: {exc}", file=sys.stderr)
@@ -274,7 +273,7 @@ def main() -> int:
     for name, path in outputs.items():
         print(f"  {name}: {path}")
 
-    print(f"\nTarget data extraction completed successfully!")
+    print("\nTarget data extraction completed successfully!")
     print(f"Processed {len(result.targets)} targets")
     print(f"QC metrics: {len(result.qc)} metrics generated")
     if result.correlation_analysis:

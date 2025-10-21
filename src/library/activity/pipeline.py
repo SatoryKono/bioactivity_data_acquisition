@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
-from datetime import datetime
 import hashlib
+import logging
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from structlog import BoundLogger
 from pandera.errors import SchemaError
+from structlog import BoundLogger
 
 from .client import ActivityChEMBLClient
 from .config import ActivityConfig
@@ -47,6 +47,10 @@ class ActivityETLResult:
     activities: pd.DataFrame
     qc: pd.DataFrame
     meta: dict[str, Any]
+    # Корреляции (для единообразия с другими модулями)
+    correlation_analysis: dict[str, Any] | None = None
+    correlation_reports: dict[str, pd.DataFrame] | None = None
+    correlation_insights: list[dict[str, Any]] | None = None
 
 
 class ActivityPipeline:
@@ -105,7 +109,7 @@ class ActivityPipeline:
         # Extract data from ChEMBL
         raw_activities = self._extract_activities(filter_ids, logger)
         
-        if not raw_activities:
+        if raw_activities.empty:
             logger.warning("No activities extracted")
             return ActivityETLResult(
                 activities=pd.DataFrame(),
@@ -117,8 +121,8 @@ class ActivityPipeline:
                 qc=pd.DataFrame(),
             )
         
-        # Convert to DataFrame
-        activities_df = pd.DataFrame(raw_activities)
+        # raw_activities is already a DataFrame
+        activities_df = raw_activities
         # Backward-compat: ensure activity_chembl_id exists
         if "activity_chembl_id" not in activities_df.columns and "activity_id" in activities_df.columns:
             activities_df = activities_df.copy()
@@ -133,15 +137,54 @@ class ActivityPipeline:
         # Add tracking fields similar to assay pipeline
         normalized_df = self._add_tracking_fields(normalized_df, logger)
         
+        # Add index column
+        normalized_df.insert(0, 'index', range(len(normalized_df)))
+        
         # Quality control
         qc_results = self._quality_control(normalized_df, logger)
+
+        # Приводим QC к общему формату (row_count + missing_data всегда присутствуют)
+        try:
+            from library.etl.qc_common import ensure_common_qc
+            qc_results = ensure_common_qc(normalized_df, qc_results, module_name="activity")
+        except Exception as exc:
+            logging.getLogger(__name__).warning(f"Failed to normalize QC metrics for activity: {exc}")
         
         # Get metadata
         meta = self._get_metadata(normalized_df, logger)
         
+        # Опциональный корреляционный анализ (для единообразия)
+        correlation_analysis = None
+        correlation_reports = None
+        correlation_insights = None
+        try:
+            enabled = getattr(getattr(self.config, "postprocess", None), "correlation", None)
+            enabled = getattr(enabled, "enabled", False)
+            if enabled and len(normalized_df) > 1 and len(normalized_df.columns) > 1:
+                from library.etl.enhanced_correlation import (
+                    build_correlation_insights,
+                    build_enhanced_correlation_analysis,
+                    build_enhanced_correlation_reports,
+                    prepare_data_for_correlation_analysis,
+                )
+                analysis_df = prepare_data_for_correlation_analysis(normalized_df, data_type="general", logger=logger)
+                if len(analysis_df.columns) > 1:
+                    correlation_analysis = build_enhanced_correlation_analysis(analysis_df, logger)
+                    correlation_reports = build_enhanced_correlation_reports(analysis_df, logger)
+                    correlation_insights = build_correlation_insights(analysis_df, logger)
+        except Exception as exc:
+            logging.getLogger(__name__).warning(f"Failed to build activity correlation analysis: {exc}")
+
         logger.info("Activity ETL pipeline completed successfully")
         
-        return ActivityETLResult(activities=normalized_df, meta=meta, qc=qc_results)
+        return ActivityETLResult(
+            activities=normalized_df,
+            meta=meta,
+            qc=qc_results,
+            correlation_analysis=correlation_analysis,
+            correlation_reports=correlation_reports,
+            correlation_insights=correlation_insights,
+        )
 
     def _load_filter_ids(
         self, 
@@ -210,58 +253,68 @@ class ActivityPipeline:
         return filter_ids
 
     def _extract_activities(
-        self, 
-        filter_ids: dict[str, list[str]], 
-        logger: BoundLogger
-    ) -> list[dict[str, Any]]:
-        """Extract activities from ChEMBL API.
-        
-        Args:
-            filter_ids: Dictionary with filter IDs
-            logger: Structured logger
-            
-        Returns:
-            List of activity dictionaries
-        """
-        logger.info("Extracting activities from ChEMBL API")
-        
-        activities = []
-        
+        self,
+        filter_ids: dict[str, list[str]],
+        logger: BoundLogger,
+    ) -> pd.DataFrame:
+        """Extract activities from ChEMBL API in batches and process each batch."""
+        logger.info("Extracting activities from ChEMBL API (batch mode)")
+
         try:
             # Get ChEMBL status
             status = self.client.get_chembl_status()
             logger.info("ChEMBL status", status=status)
 
-            # Extract activities
-            # Если присутствуют activity_ids, игнорируем остальные фильтры (требование пользователя)
-            act_ids = filter_ids["activity_ids"] or None
-            assay_ids = None if act_ids else (filter_ids["assay_ids"] or None)
-            molecule_ids = None if act_ids else (filter_ids["molecule_ids"] or None)
-            target_ids = None if act_ids else (filter_ids["target_ids"] or None)
+            # Prepare filter params (activity_ids dominate)
+            act_ids = filter_ids.get("activity_ids") or None
+            filter_params = {
+                "activity_ids": act_ids,
+                "assay_ids": None if act_ids else (filter_ids.get("assay_ids") or None),
+                "molecule_ids": None if act_ids else (filter_ids.get("molecule_ids") or None),
+                "target_ids": None if act_ids else (filter_ids.get("target_ids") or None),
+            }
 
-            for activity in self.client.fetch_all_activities(
-                limit=self.config.limit,
-                activity_ids=act_ids,
-                assay_ids=assay_ids,
-                molecule_ids=molecule_ids,
-                target_ids=target_ids,
-                max_pages=None,  # No limit on pages
-                use_cache=True,
+            batch_size = getattr(self.config.runtime, "batch_size", 1000)
+            total_rows = 0
+            batches: list[pd.DataFrame] = []
+
+            for batch_index, activities_batch in enumerate(
+                self.client.fetch_activities_batch(
+                    filter_params=filter_params,
+                    batch_size=batch_size,
+                    use_cache=True,
+                )
             ):
-                activities.append(activity)
+                batch_df = pd.DataFrame(activities_batch)
+                logger.info(
+                    f"Processing batch {batch_index + 1}: size={len(batch_df)}, batch_size={batch_size}"
+                )
 
-                # Apply limit if specified
-                if self.config.limit and len(activities) >= self.config.limit:
-                    logger.info(f"Reached limit of {self.config.limit} activities")
+                # Validate and normalize per batch
+                validated_batch = self._validate_activities(batch_df, logger)
+                normalized_batch = self._normalize_activities(validated_batch, logger)
+
+                total_rows += len(normalized_batch)
+                batches.append(normalized_batch)
+
+                # Check limit
+                if self.config.limit is not None and total_rows >= self.config.limit:
+                    logger.info(f"Reached global limit of {self.config.limit} activities")
                     break
 
-            logger.info(f"Extracted {len(activities)} activities")
+            if not batches:
+                logger.info("No activities fetched")
+                return pd.DataFrame()
+
+            result_df = pd.concat(batches, ignore_index=True)
+            if self.config.limit is not None and len(result_df) > self.config.limit:
+                result_df = result_df.head(self.config.limit)
+            logger.info(f"Extracted {len(result_df)} activities in {len(batches)} batches")
+            return result_df
 
         except Exception as e:
             logger.error(f"Failed to extract activities: {e}")
             raise ActivityHTTPError(str(e)) from e
-        
-        return activities
 
     def _validate_activities(
         self, 

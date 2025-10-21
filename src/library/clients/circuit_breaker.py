@@ -1,11 +1,11 @@
 """Circuit breaker implementation for API clients."""
 
-import time
 import threading
-from abc import ABC, abstractmethod
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 from library.clients.exceptions import ApiClientError
 from library.logging_setup import get_logger
@@ -40,7 +40,7 @@ class CircuitBreaker:
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._success_count = 0
-        self._last_failure_time: Optional[float] = None
+        self._last_failure_time: float | None = None
         self._lock = threading.Lock()
     
     @property
@@ -48,7 +48,7 @@ class CircuitBreaker:
         """Get current circuit state."""
         return self._state
     
-    def call(self, func: Callable, *args, **kwargs) -> Any:
+    def call(self, func: Callable[..., Any], *args, **kwargs) -> Any:
         """Execute function with circuit breaker protection."""
         with self._lock:
             if self._state == CircuitState.OPEN:
@@ -66,7 +66,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except self.config.expected_exception as e:
+        except self.config.expected_exception:
             self._on_failure()
             raise
     
@@ -131,7 +131,7 @@ class CircuitBreaker:
 class APICircuitBreaker(CircuitBreaker):
     """Specialized circuit breaker for API clients."""
     
-    def __init__(self, api_name: str, config: Optional[CircuitBreakerConfig] = None):
+    def __init__(self, api_name: str, config: CircuitBreakerConfig | None = None):
         if config is None:
             # API-specific configurations
             if "semanticscholar" in api_name.lower():
@@ -153,7 +153,7 @@ class APICircuitBreaker(CircuitBreaker):
         self.api_name = api_name
         self.logger = get_logger(f"{self.__class__.__name__}.{api_name}")
     
-    def call(self, func: Callable, *args, **kwargs) -> Any:
+    def call(self, func: Callable[..., Any], *args, **kwargs) -> Any:
         """Execute function with API-specific circuit breaker protection."""
         try:
             return super().call(func, *args, **kwargs)

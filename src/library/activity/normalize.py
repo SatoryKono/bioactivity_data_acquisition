@@ -58,6 +58,13 @@ class ActivityNormalizer:
         normalized_df = self._add_foreign_keys(normalized_df)
         normalized_df = self._add_quality_flags(normalized_df)
         
+        # Remove foreign key columns, quality flags, and retrieved_at from output
+        key_columns_to_remove = ['assay_key', 'target_key', 'document_key', 'testitem_key']
+        quality_columns_to_remove = ['quality_flag', 'quality_reason']
+        metadata_columns_to_remove = ['retrieved_at']
+        all_columns_to_remove = key_columns_to_remove + quality_columns_to_remove + metadata_columns_to_remove
+        normalized_df = normalized_df.drop(columns=all_columns_to_remove, errors='ignore')
+        
         logger.info(f"Normalization completed. Output: {len(normalized_df)} records")
         return normalized_df
 
@@ -183,15 +190,17 @@ class ActivityNormalizer:
             both_bounds = censored_df['lower_bound'].notna() & censored_df['upper_bound'].notna()
             if both_bounds.any():
                 logger.warning(f"Found {both_bounds.sum()} censored records with both bounds")
-                df.loc[censored_mask & both_bounds, 'quality_flag'] = 'warning'
-                df.loc[censored_mask & both_bounds, 'quality_reason'] = 'censored_with_both_bounds'
+                # Quality flags исключены из вывода
+                # df.loc[censored_mask & both_bounds, 'quality_flag'] = 'warning'
+                # df.loc[censored_mask & both_bounds, 'quality_reason'] = 'censored_with_both_bounds'
             
             # No bounds present (should not happen for censored)
             no_bounds = censored_df['lower_bound'].isna() & censored_df['upper_bound'].isna()
             if no_bounds.any():
                 logger.warning(f"Found {no_bounds.sum()} censored records with no bounds")
-                df.loc[censored_mask & no_bounds, 'quality_flag'] = 'warning'
-                df.loc[censored_mask & no_bounds, 'quality_reason'] = 'censored_with_no_bounds'
+                # Quality flags исключены из вывода
+                # df.loc[censored_mask & no_bounds, 'quality_flag'] = 'warning'
+                # df.loc[censored_mask & no_bounds, 'quality_reason'] = 'censored_with_no_bounds'
         
         # Check non-censored records have both bounds and they match
         non_censored_mask = df['is_censored'] == False
@@ -202,9 +211,10 @@ class ActivityNormalizer:
             missing_lower = non_censored_df['lower_bound'].isna()
             missing_upper = non_censored_df['upper_bound'].isna()
             if missing_lower.any() or missing_upper.any():
-                logger.warning(f"Found non-censored records with missing bounds")
-                df.loc[non_censored_mask & (missing_lower | missing_upper), 'quality_flag'] = 'warning'
-                df.loc[non_censored_mask & (missing_lower | missing_upper), 'quality_reason'] = 'non_censored_missing_bounds'
+                logger.warning("Found non-censored records with missing bounds")
+                # Quality flags исключены из вывода
+                # df.loc[non_censored_mask & (missing_lower | missing_upper), 'quality_flag'] = 'warning'
+                # df.loc[non_censored_mask & (missing_lower | missing_upper), 'quality_reason'] = 'non_censored_missing_bounds'
             
             # Bounds don't match standard_value
             bounds_mismatch = (
@@ -213,7 +223,8 @@ class ActivityNormalizer:
             )
             if bounds_mismatch.any():
                 logger.warning(f"Found {bounds_mismatch.sum()} non-censored records with mismatched bounds")
-                df.loc[non_censored_mask & bounds_mismatch, 'quality_flag'] = 'warning'
-                df.loc[non_censored_mask & bounds_mismatch, 'quality_reason'] = 'bounds_mismatch'
+                # Quality flags исключены из вывода
+                # df.loc[non_censored_mask & bounds_mismatch, 'quality_flag'] = 'warning'
+                # df.loc[non_censored_mask & bounds_mismatch, 'quality_reason'] = 'bounds_mismatch'
         
         return df

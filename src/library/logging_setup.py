@@ -6,10 +6,11 @@ import logging
 import logging.config
 import re
 import uuid
+from collections.abc import Mapping, MutableMapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, MutableMapping, Mapping
+from typing import Any
 
 import structlog
 import yaml

@@ -99,6 +99,8 @@ io:
   input:
     # Путь к CSV файлу с идентификаторами молекул
     testitem_keys_csv: data/input/testitem.csv
+    # Название колонки в CSV для чтения ID молекул (по умолчанию: molecule_chembl_id или molregno)
+    testitem_id_column: molecule_chembl_id  # null = автоматический выбор из доступных колонок
   # Настройки выходных данных
   output:
     # Директория для сохранения результатов
@@ -152,7 +154,7 @@ output:
   # Имя файла метаданных
   meta_filename: "testitem_{run_date}_meta.yaml"
   # Директория для логов
-  logs_dir: logs
+  logs_dir: data\logs
   # Директория для QC артефактов
   qc_dir: data\output\testitem
 
@@ -174,6 +176,7 @@ determinism:
     na_position: last
   # Порядок колонок в выходном файле
   column_order:
+    - index                       # Порядковый номер записи
     # Основные поля молекулы (ключи и идентификаторы)
     - molecule_chembl_id         # ID молекулы в ChEMBL
     - molregno                   # Регистрационный номер молекулы
@@ -301,6 +304,14 @@ pipeline:
 logging:
   # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   level: INFO
+  # Настройки файлового логирования
+  file:
+    enabled: true
+    path: data/logs/testitem.log
+    max_bytes: 10485760  # 10MB
+    backup_count: 10
+    rotation_strategy: size
+    retention_days: 14
 
 # Настройки валидации данных
 validation:

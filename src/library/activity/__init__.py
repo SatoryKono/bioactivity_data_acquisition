@@ -1,7 +1,7 @@
 """Activity data extraction and processing module."""
 
 from .client import ActivityChEMBLClient
-from .config import ActivityConfig, load_activity_config, ConfigLoadError
+from .config import ActivityConfig, ConfigLoadError, load_activity_config
 from .normalize import ActivityNormalizer
 from .pipeline import ActivityPipeline, run_activity_etl
 from .validate import ActivityValidator

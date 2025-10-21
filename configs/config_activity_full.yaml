@@ -68,6 +68,8 @@ io:
     assay_ids_csv: data/input/assay_ids_example.csv
     molecule_ids_csv: data/input/testitem_keys_example.csv
     target_ids_csv: data/input/target_ids_example.csv
+    # Название колонки в CSV для чтения ID активностей (используется для фильтрации)
+    activity_id_column: null  # null = используется текущая логика фильтрации
   # Настройки выходных данных
   output:
     # Директория для сохранения результатов
@@ -93,6 +95,8 @@ io:
 runtime:
   # Количество параллельных воркеров для обработки данных
   workers: 4
+  # Размер батча для извлечения и обработки активностей
+  batch_size: 1000
   # Ограничение на количество обрабатываемых записей (null = без ограничений)
   limit: null
   # Режим тестирования (true = только симуляция, false = реальная обработка)
@@ -107,7 +111,7 @@ logging:
   # Настройки файлового логирования
   file:
     enabled: true
-    path: logs/activity_extraction.log
+    path: data/logs/activity.log
     max_bytes: 10485760  # 10MB
     backup_count: 10
     rotation_strategy: size

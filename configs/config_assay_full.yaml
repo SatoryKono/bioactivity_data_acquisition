@@ -71,6 +71,8 @@ io:
     assay_ids_csv: data/input/assay_ids.csv
     # Путь к CSV файлу с идентификаторами таргетов (альтернативный вход)
     target_ids_csv: data/input/target_ids.csv
+    # Название колонки в CSV для чтения ID ассев (по умолчанию: assay_chembl_id)
+    assay_id_column: assay_chembl_id
   # Настройки выходных данных
   output:
     # Директория для сохранения результатов
@@ -107,6 +109,14 @@ runtime:
 logging:
   # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   level: INFO
+  # Настройки файлового логирования
+  file:
+    enabled: true
+    path: data/logs/assay.log
+    max_bytes: 10485760  # 10MB
+    backup_count: 10
+    rotation_strategy: size
+    retention_days: 14
 
 # Настройки валидации данных
 validation:

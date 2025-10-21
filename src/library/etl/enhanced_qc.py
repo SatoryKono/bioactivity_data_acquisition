@@ -27,7 +27,7 @@ class EnhancedTableQualityProfiler:
     def consume(self, df: pd.DataFrame) -> dict[str, Any]:
         """Анализ DataFrame и генерация расширенных метрик качества."""
         if self.logger:
-            self.logger.info("Начинаем анализ качества данных", rows=len(df), columns=len(df.columns))
+            self.logger.info(f"Начинаем анализ качества данных: {len(df)} строк, {len(df.columns)} колонок")
 
         quality_report = {
             'table_summary': self._analyze_table_summary(df),

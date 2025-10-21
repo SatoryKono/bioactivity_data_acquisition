@@ -65,6 +65,7 @@ class AssayRuntimeSettings(BaseModel):
     )
     workers: int = Field(default=4, ge=1, le=64)
     limit: int | None = Field(default=None, ge=1)
+    batch_size: int = Field(default=100, ge=1, le=1000)
     dry_run: bool = Field(default=False)
 
 

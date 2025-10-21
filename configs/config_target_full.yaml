@@ -96,7 +96,7 @@ sources:
       # Использовать CSV словари (предпочтительно)
       use_csv: true
       # Путь к словарям IUPHAR
-      dictionary_path: "configs/dictionary/_target/"
+      dictionary_path: "configs/dictionary/_target/_IUPHAR/"
       # Файлы словарей
       family_file: "_IUPHAR_family.csv"
       target_file: "_IUPHAR_target.csv"
@@ -119,6 +119,8 @@ io:
   input:
     # Путь к CSV файлу с идентификаторами targets
     target_ids_csv: data/input/target.csv
+    # Название колонки в CSV для чтения ID targets (по умолчанию: target_chembl_id)
+    target_id_column: target_chembl_id
   # Настройки выходных данных
   output:
     # Директория для сохранения результатов
@@ -161,6 +163,14 @@ runtime:
 logging:
   # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   level: INFO
+  # Настройки файлового логирования
+  file:
+    enabled: true
+    path: data/logs/target.log
+    max_bytes: 10485760  # 10MB
+    backup_count: 10
+    rotation_strategy: size
+    retention_days: 14
 
 # Настройки детерминизма для воспроизводимости результатов
 determinism:
@@ -287,6 +297,17 @@ chembl_retry:
   single_timeout_retries: 2
   # Задержка между повторными попытками (секунды)
   single_timeout_delay: 0.5
+
+# UniProt mapping configuration
+uniprot_mapping:
+  # Включить batch маппинг ChEMBL->UniProt
+  enable_batch_mapping: true
+  # Максимальное время ожидания batch job (секунды)
+  batch_job_timeout: 1200
+  # Максимальное количество попыток проверки статуса
+  max_status_polls: 30
+  # Интервал между проверками статуса (секунды)
+  status_poll_interval: 2.0
 
 # =============================================================================
 # ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ДЛЯ API КЛЮЧЕЙ

@@ -170,6 +170,8 @@ io:
   input:
     # Путь к CSV файлу с исходными документами
     documents_csv: data/input/documents.csv
+    # Название колонки в CSV для чтения ID документов (по умолчанию: document_chembl_id, doi, title)
+    document_id_column: null  # null = автоматический выбор из доступных колонок
   # Настройки выходных данных
   output:
     # Директория для сохранения результатов
@@ -201,6 +203,14 @@ runtime:
 logging:
   # Уровень детализации логов (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   level: WARNING
+  # Настройки файлового логирования
+  file:
+    enabled: true
+    path: data/logs/documents.log
+    max_bytes: 10485760  # 10MB
+    backup_count: 10
+    rotation_strategy: size
+    retention_days: 14
 
 # Настройки валидации данных
 validation:
@@ -228,6 +238,9 @@ determinism:
   # Порядок колонок в выходном файле
   column_order:
     - index                   # ID документа 
+    - extracted_at            # Время извлечения данных
+    - hash_business_key       # Хеш бизнес-ключа (document_chembl_id)
+    - hash_row                # Хеш всей строки для дедупликации
     # Основные поля документа (оригинальные из ChEMBL)
     - document_chembl_id      # ID документа в ChEMBL
     - document_pubmed_id      # PubMed идентификатор

@@ -6,6 +6,7 @@ import hashlib
 import logging
 import os
 import re
+from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -324,6 +325,86 @@ def _extract_data_from_source(
     return pd.DataFrame(enriched_data)
 
 
+def _extract_data_from_source_batch(
+    source: str, 
+    client: Any, 
+    frame: pd.DataFrame, 
+    config: DocumentConfig
+) -> pd.DataFrame:
+    """Extract data from a specific source using batch processing where available."""
+    
+    # Collect identifiers for batch processing
+    identifiers = _collect_identifiers(frame, source)
+    
+    if not identifiers:
+        logger.info(f"No identifiers found for {source}, skipping batch processing")
+        return frame
+    
+    # Get batch size for this source
+    batch_size = getattr(config.runtime, f"{source}_batch_size", 50)
+    
+    logger.info(f"Processing {len(identifiers)} identifiers for {source} in batches of {batch_size}")
+    
+    # Group identifiers by type for batch processing
+    doi_identifiers = [id_val for id_type, id_val in identifiers if id_type == "doi"]
+    pmid_identifiers = [id_val for id_type, id_val in identifiers if id_type == "pmid"]
+    doc_identifiers = [id_val for id_type, id_val in identifiers if id_type == "document_chembl_id"]
+    
+    batch_results = {}
+    
+    try:
+        if source == "chembl" and doc_identifiers:
+            # Process ChEMBL documents in batches
+            for batch_ids in _chunk_list(doc_identifiers, batch_size):
+                batch_data = client.fetch_documents_batch(batch_ids, batch_size)
+                batch_results.update(batch_data)
+                
+        elif source == "pubmed" and pmid_identifiers:
+            # Use existing batch method for PubMed
+            for batch_ids in _chunk_list(pmid_identifiers, batch_size):
+                batch_data = client.fetch_by_pmids(batch_ids)
+                batch_results.update(batch_data)
+                
+        elif source == "crossref":
+            # Process DOIs and PMIDs separately
+            if doi_identifiers:
+                for batch_ids in _chunk_list(doi_identifiers, batch_size):
+                    batch_data = client.fetch_by_dois_batch(batch_ids, batch_size)
+                    batch_results.update(batch_data)
+            if pmid_identifiers:
+                for batch_ids in _chunk_list(pmid_identifiers, batch_size):
+                    batch_data = client.fetch_by_pmids_batch(batch_ids, batch_size)
+                    batch_results.update(batch_data)
+                    
+        elif source == "openalex":
+            # Process DOIs and PMIDs separately
+            if doi_identifiers:
+                for batch_ids in _chunk_list(doi_identifiers, batch_size):
+                    batch_data = client.fetch_by_dois_batch(batch_ids, batch_size)
+                    batch_results.update(batch_data)
+            if pmid_identifiers:
+                for batch_ids in _chunk_list(pmid_identifiers, batch_size):
+                    batch_data = client.fetch_by_pmids_batch(batch_ids, batch_size)
+                    batch_results.update(batch_data)
+                    
+        elif source == "semantic_scholar" and pmid_identifiers:
+            # Process Semantic Scholar PMIDs in batches
+            for batch_ids in _chunk_list(pmid_identifiers, batch_size):
+                batch_data = client.fetch_by_pmids_batch(batch_ids, batch_size)
+                batch_results.update(batch_data)
+        
+        logger.info(f"Successfully processed {len(batch_results)} records from {source}")
+        
+    except Exception as e:
+        logger.warning(f"Batch processing failed for {source}: {e}")
+        logger.info(f"Falling back to individual processing for {source}")
+        # Fallback to individual processing
+        return _extract_data_from_source(source, client, frame, config)
+    
+    # Merge batch results with original frame
+    return _merge_batch_results(frame, batch_results, source)
+
+
 def read_document_input(path: Path) -> pd.DataFrame:
     """Load the input CSV containing document identifiers."""
 
@@ -598,6 +679,42 @@ def _calculate_checksum(file_path: Path) -> str:
     return sha256_hash.hexdigest()
 
 
+def _add_tracking_fields(df: pd.DataFrame) -> pd.DataFrame:
+    """Add tracking fields: extracted_at, hash_business_key, hash_row."""
+    import hashlib
+    import json
+    from datetime import datetime
+    
+    logger.info("Adding tracking fields: extracted_at, hash_business_key, hash_row")
+    
+    # Add extracted_at timestamp
+    now_iso = datetime.utcnow().isoformat() + "Z"
+    if "extracted_at" not in df.columns:
+        df["extracted_at"] = now_iso
+    else:
+        df["extracted_at"] = df["extracted_at"].fillna(now_iso)
+    
+    # Add hash_business_key based on document_chembl_id
+    if "document_chembl_id" in df.columns:
+        df["hash_business_key"] = df["document_chembl_id"].apply(
+            lambda x: hashlib.sha256(str(x).encode()).hexdigest()[:16] if pd.notna(x) else "unknown"
+        )
+    else:
+        df["hash_business_key"] = "unknown"
+    
+    # Add hash_row for entire row deduplication
+    df["hash_row"] = df.apply(
+        lambda row: hashlib.sha256(
+            json.dumps({k: v for k, v in row.to_dict().items() if not k.startswith("hash_")}, 
+                      sort_keys=True, default=str).encode()
+        ).hexdigest()[:16], 
+        axis=1
+    )
+    
+    logger.info("Tracking fields added successfully")
+    return df
+
+
 def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETLResult:
     """Execute the document ETL pipeline returning enriched artefacts."""
 
@@ -610,89 +727,123 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     if bool(duplicates.any()):
         raise DocumentQCError("Duplicate document_chembl_id values detected")
 
-    # Initialize all possible columns with default values
-    enriched_frame = _initialize_all_columns(normalised.copy())
+    # Use streaming batch processing
+    batch_size = getattr(config.runtime, "batch_size", 100)
+    total_rows = 0
+    document_batches = []
     enabled_sources = config.enabled_sources()
     
-    for source in enabled_sources:
-        try:
-            logger.info(f"Extracting data from {source}...")
-            client = _create_api_client(source, config)
-            
-            # Для источников с высоким rate limiting добавляем дополнительную задержку
-            if source in ["semantic_scholar", "openalex"]:
-                import os
-                import time
+    logger.info(f"Using streaming batch processing with batch_size={batch_size}")
+    logger.info(f"Processing {len(normalised)} documents in batches")
+    
+    # Split documents into batches for streaming processing
+    for batch_index, batch_frame in enumerate(_batch_dataframe(normalised, batch_size)):
+        logger.info(f"Processing batch {batch_index + 1}: {len(batch_frame)} documents")
+        
+        # Initialize all possible columns with default values for this batch
+        enriched_batch = _initialize_all_columns(batch_frame.copy())
+        
+        # Process each source for this batch
+        for source in enabled_sources:
+            try:
+                logger.info(f"Extracting data from {source} for batch {batch_index + 1}...")
+                client = _create_api_client(source, config)
                 
-                if source == "semantic_scholar":
-                    # Проверяем, есть ли API ключ для Semantic Scholar
-                    api_key = os.environ.get('SEMANTIC_SCHOLAR_API_KEY')
-                    if api_key:
-                        logger.info(f"Using Semantic Scholar with API key: {api_key[:10]}...")
-                        logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
+                # Для источников с высоким rate limiting добавляем дополнительную задержку
+                if source in ["semantic_scholar", "openalex"]:
+                    import os
+                    import time
+                    
+                    if source == "semantic_scholar":
+                        # Проверяем, есть ли API ключ для Semantic Scholar
+                        api_key = os.environ.get('SEMANTIC_SCHOLAR_API_KEY')
+                        if api_key:
+                            logger.info(f"Using Semantic Scholar with API key: {api_key[:10]}...")
+                            logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
+                        else:
+                            logger.info(f"Using conservative rate limiting for {source} (no API key)")
+                            # Semantic Scholar имеет очень строгие ограничения без API ключа
+                            logger.info("=" * 80)
+                            logger.info("SEMANTIC SCHOLAR RATE LIMITING INFO:")
+                            logger.info("Semantic Scholar API has very strict rate limits without an API key.")
+                            logger.info("Current limit: 1 request per minute (controlled by rate limiter)")
+                            logger.info("To get higher limits, apply for an API key at:")
+                            logger.info("https://www.semanticscholar.org/product/api#api-key-form")
+                            logger.info("=" * 80)
+                            # Убираем избыточную задержку - rate limiter уже контролирует это
+                            logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
                     else:
-                        logger.info(f"Using conservative rate limiting for {source} (no API key)")
-                        # Semantic Scholar имеет очень строгие ограничения без API ключа
-                        logger.info("=" * 80)
-                        logger.info("SEMANTIC SCHOLAR RATE LIMITING INFO:")
-                        logger.info("Semantic Scholar API has very strict rate limits without an API key.")
-                        logger.info("Current limit: 1 request per minute (controlled by rate limiter)")
-                        logger.info("To get higher limits, apply for an API key at:")
-                        logger.info("https://www.semanticscholar.org/product/api#api-key-form")
-                        logger.info("=" * 80)
+                        logger.info(f"Using conservative rate limiting for {source}")
+                        time.sleep(2)  # Дополнительная задержка для OpenAlex
+                
+                # Use batch processing where available
+                enriched_batch = _extract_data_from_source_batch(source, client, enriched_batch, config)
+                
+                # Log success statistics for this batch
+                if source == "chembl":
+                    success_count = enriched_batch["chembl_title"].notna().sum()
+                elif source == "crossref":
+                    # Count successful records (either with title or with graceful degradation)
+                    success_count = (enriched_batch["crossref_title"].notna() | 
+                                   enriched_batch["crossref_error"].notna()).sum()
+                elif source == "openalex":
+                    success_count = enriched_batch["openalex_title"].notna().sum()
+                elif source == "pubmed":
+                    success_count = enriched_batch["pubmed_pmid"].notna().sum()
+                elif source == "semantic_scholar":
+                    success_count = enriched_batch["semantic_scholar_pmid"].notna().sum()
+                else:
+                    success_count = 0
+                    
+                logger.info(f"Successfully extracted data from {source} for batch {batch_index + 1}: "
+                           f"{success_count}/{len(enriched_batch)} records")
+                          
+                # Для источников с высоким rate limiting добавляем задержку после завершения
+                if source in ["semantic_scholar", "openalex"]:
+                    logger.info("Rate limiting controlled by configuration...")
+                    import time
+                    if source == "semantic_scholar":
                         # Убираем избыточную задержку - rate limiter уже контролирует это
-                        logger.info("Semantic Scholar: Rate limiting controlled by configuration...")
-                else:
-                    logger.info(f"Using conservative rate limiting for {source}")
-                    time.sleep(2)  # Дополнительная задержка для OpenAlex
-            
-            enriched_frame = _extract_data_from_source(source, client, enriched_frame, config)
-            
-            # Log success statistics
-            if source == "chembl":
-                success_count = enriched_frame["chembl_title"].notna().sum()
-            elif source == "crossref":
-                # Count successful records (either with title or with graceful degradation)
-                success_count = (enriched_frame["crossref_title"].notna() | 
-                               enriched_frame["crossref_error"].notna()).sum()
-            elif source == "openalex":
-                success_count = enriched_frame["openalex_title"].notna().sum()
-            elif source == "pubmed":
-                success_count = enriched_frame["pubmed_pmid"].notna().sum()
-            elif source == "semantic_scholar":
-                success_count = enriched_frame["semantic_scholar_pmid"].notna().sum()
-            else:
-                success_count = 0
+                        logger.info("Semantic Scholar: Rate limiting handled by configuration.")
+                    else:
+                        time.sleep(5)  # Задержка для OpenAlex
+                    
+            except Exception as exc:
+                logger.warning(f"Failed to extract data from {source} for batch {batch_index + 1}: {exc}")
+                logger.warning(f"Error type: {type(exc).__name__}")
                 
-            logger.info(f"Successfully extracted data from {source}: "
-                       f"{success_count}/{len(enriched_frame)} records")
-                  
-            # Для источников с высоким rate limiting добавляем задержку после завершения
-            if source in ["semantic_scholar", "openalex"]:
-                logger.info("Rate limiting controlled by configuration...")
-                import time
+                # Специальная информация для Semantic Scholar
                 if source == "semantic_scholar":
-                    # Убираем избыточную задержку - rate limiter уже контролирует это
-                    logger.info("Semantic Scholar: Rate limiting handled by configuration.")
-                else:
-                    time.sleep(5)  # Задержка для OpenAlex
+                    logger.warning("=" * 80)
+                    logger.warning("SEMANTIC SCHOLAR ERROR - RECOMMENDATIONS:")
+                    logger.warning("1. Consider getting an API key for higher rate limits:")
+                    logger.warning("   https://www.semanticscholar.org/product/api#api-key-form")
+                    logger.warning("2. Or disable Semantic Scholar in your config file:")
+                    logger.warning("   sources.semantic_scholar.enabled: false")
+                    logger.warning("3. The pipeline will continue with other sources.")
+                    logger.warning("=" * 80)
                 
-        except Exception as exc:
-            logger.warning(f"Failed to extract data from {source}: {exc}")
-            logger.warning(f"Error type: {type(exc).__name__}")
-            
-            # Специальная информация для Semantic Scholar
-            if source == "semantic_scholar":
-                logger.warning("=" * 80)
-                logger.warning("SEMANTIC SCHOLAR ERROR - RECOMMENDATIONS:")
-                logger.warning("1. Consider getting an API key for higher rate limits:")
-                logger.warning("   https://www.semanticscholar.org/product/api#api-key-form")
-                logger.warning("2. Or disable Semantic Scholar in your config file:")
-                logger.warning("   sources.semantic_scholar.enabled: false")
-                logger.warning("3. The pipeline will continue with other sources.")
-                logger.warning("=" * 80)
-            
-            # Continue with other sources even if one fails
+                # Continue with other sources even if one fails
+        
+        total_rows += len(enriched_batch)
+        document_batches.append(enriched_batch)
+        
+        logger.info(f"Completed batch {batch_index + 1}: {len(enriched_batch)} documents, total={total_rows}")
+        
+        # Check limit
+        if config.runtime.limit is not None and total_rows >= config.runtime.limit:
+            logger.info(f"Reached global limit of {config.runtime.limit} documents")
+            break
+    
+    if not document_batches:
+        logger.info("No documents processed in streaming mode")
+        enriched_frame = _initialize_all_columns(normalised.copy())
+    else:
+        enriched_frame = pd.concat(document_batches, ignore_index=True)
+        if config.runtime.limit is not None and len(enriched_frame) > config.runtime.limit:
+            enriched_frame = enriched_frame.head(config.runtime.limit)
+    
+    logger.info(f"Successfully processed {len(enriched_frame)} documents in {len(document_batches)} batches")
 
     # Добавляем колонку publication_date на основе полей PubMed
     logger.info("Добавляем колонку publication_date...")
@@ -701,6 +852,10 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     # Добавляем колонку document_sortorder на основе pubmed_issn, publication_date и index
     logger.info("Добавляем колонку document_sortorder...")
     enriched_frame = _add_document_sortorder_column(enriched_frame)
+    
+    # Добавляем технические поля для отслеживания
+    logger.info("Добавляем технические поля отслеживания...")
+    enriched_frame = _add_tracking_fields(enriched_frame)
     
     # Calculate QC metrics
     qc_metrics = [
@@ -737,6 +892,13 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         qc_metrics.append({"metric": f"{source}_records", "value": source_data_count})
     
     qc = pd.DataFrame(qc_metrics)
+    # Унифицируем базовые QC метрики
+    try:
+        from library.etl.qc_common import ensure_common_qc
+        qc = ensure_common_qc(enriched_frame, qc, module_name="documents")
+    except Exception as exc:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f"Failed to normalize QC metrics for documents: {exc}")
 
     # Выполняем корреляционный анализ если включен в конфигурации
     correlation_analysis = None
@@ -927,6 +1089,88 @@ def write_document_outputs(
     return outputs
 
 
+def _collect_identifiers(frame: pd.DataFrame, source: str) -> list[tuple[str, str]]:
+    """Collect identifiers for batch processing.
+    
+    Returns: List of (identifier_type, identifier_value) tuples
+    """
+    identifiers = []
+    
+    for _, row in frame.iterrows():
+        if source == "chembl":
+            if pd.notna(row.get("document_chembl_id")):
+                identifiers.append(("document_chembl_id", str(row["document_chembl_id"]).strip()))
+        elif source == "crossref":
+            if pd.notna(row.get("doi")):
+                identifiers.append(("doi", str(row["doi"]).strip()))
+            elif pd.notna(row.get("document_pubmed_id")):
+                identifiers.append(("pmid", str(row["document_pubmed_id"]).strip()))
+        elif source == "openalex":
+            if pd.notna(row.get("doi")):
+                identifiers.append(("doi", str(row["doi"]).strip()))
+            elif pd.notna(row.get("document_pubmed_id")):
+                identifiers.append(("pmid", str(row["document_pubmed_id"]).strip()))
+        elif source == "pubmed":
+            if pd.notna(row.get("document_pubmed_id")):
+                identifiers.append(("pmid", str(row["document_pubmed_id"]).strip()))
+        elif source == "semantic_scholar":
+            if pd.notna(row.get("document_pubmed_id")):
+                identifiers.append(("pmid", str(row["document_pubmed_id"]).strip()))
+    
+    return identifiers
+
+
+def _chunk_list(items: list, chunk_size: int) -> Generator[list, None, None]:
+    """Split list into chunks."""
+    for i in range(0, len(items), chunk_size):
+        yield items[i:i + chunk_size]
+
+
+def _batch_dataframe(df: pd.DataFrame, batch_size: int) -> Generator[pd.DataFrame, None, None]:
+    """Split DataFrame into batches."""
+    for i in range(0, len(df), batch_size):
+        yield df.iloc[i:i + batch_size].copy()
+
+
+def _merge_batch_results(
+    original_frame: pd.DataFrame,
+    batch_data: dict[str, dict[str, Any]],
+    source: str
+) -> pd.DataFrame:
+    """Merge batch API results with original frame."""
+    enriched_data = []
+    
+    for _, row in original_frame.iterrows():
+        row_data = row.to_dict()
+        
+        # Find matching identifier for this source
+        identifier = None
+        if source == "chembl" and pd.notna(row.get("document_chembl_id")):
+            identifier = str(row["document_chembl_id"]).strip()
+        elif source in ["crossref", "openalex"]:
+            if pd.notna(row.get("doi")):
+                identifier = str(row["doi"]).strip()
+            elif pd.notna(row.get("document_pubmed_id")):
+                identifier = str(row["document_pubmed_id"]).strip()
+        elif source in ["pubmed", "semantic_scholar"]:
+            if pd.notna(row.get("document_pubmed_id")):
+                identifier = str(row["document_pubmed_id"]).strip()
+        
+        # Merge batch data if found
+        if identifier and identifier in batch_data:
+            batch_result = batch_data[identifier]
+            # Remove source field to avoid overwriting
+            batch_result.pop("source", None)
+            # Only update non-None values
+            for key, value in batch_result.items():
+                if value is not None:
+                    row_data[key] = value
+        
+        enriched_data.append(row_data)
+    
+    return pd.DataFrame(enriched_data)
+
+
 __all__ = [
     "DocumentETLResult",
     "DocumentHTTPError",
@@ -936,6 +1180,7 @@ __all__ = [
     "DocumentValidationError",
     "_add_document_sortorder_column",
     "_add_publication_date_column",
+    "_add_tracking_fields",
     "_calculate_checksum",
     "_create_api_client",
     "_determine_document_sortorder",

@@ -5,11 +5,9 @@ This module is deprecated. Use library.logging_setup instead.
 
 from __future__ import annotations
 
-import logging
-from typing import Any, cast
 import warnings
+from typing import Any
 
-import structlog
 from structlog.stdlib import BoundLogger
 
 # Import the new unified logging setup

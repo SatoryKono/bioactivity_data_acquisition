@@ -23,13 +23,13 @@ def fetch_bioactivity_data(
         empty_df = pd.DataFrame(columns=list(schema.columns.keys()))
         validated = schema.validate(empty_df, lazy=True)
         if logger is not None:
-            logger.info("extract_complete", source=client_config.name, rows=0)
+            logger.info(f"extract_complete: {client_config.name}, 0 строк")
         return validated
     frame = pd.DataFrame.from_records(records)
     frame["retrieved_at"] = pd.to_datetime(frame["retrieved_at"], utc=True)
     validated = schema.validate(frame, lazy=True)
     if logger is not None:
-        logger.info("extract_complete", source=client_config.name, rows=len(validated))
+        logger.info(f"extract_complete: {client_config.name}, {len(validated)} строк")
     return validated
 
 

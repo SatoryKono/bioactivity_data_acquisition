@@ -6,23 +6,49 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from library.logging_setup import configure_logging
 from library.testitem.config import TestitemConfig
 from library.testitem.pipeline import run_testitem_etl, write_testitem_outputs
-from library.logging_setup import configure_logging
 
 
-def _load_testitem_data(input_path: Path) -> list[dict[str, Any]]:
-    """Load testitem data from CSV file."""
+def _load_testitem_data(input_path: Path, id_column: str | None = None) -> list[dict[str, Any]]:
+    """Load testitem data from CSV file.
+    
+    Args:
+        input_path: Path to CSV file
+        id_column: Name of column containing molecule IDs (if None, checks for molecule_chembl_id or molregno)
+    """
     import pandas as pd
     
     if input_path.suffix.lower() == '.csv':
         df = pd.read_csv(input_path)
         
-        # Проверяем наличие обязательных колонок (хотя бы одна должна быть)
-        required_columns = {'molecule_chembl_id', 'molregno'}
-        has_required = any(col in df.columns for col in required_columns)
-        if not has_required:
-            raise ValueError(f"CSV file must contain at least one of: {', '.join(required_columns)}. Found: {list(df.columns)}")
+        # Если указана конкретная колонка, проверяем только её
+        if id_column:
+            if id_column not in df.columns:
+                raise ValueError(f"CSV file must contain '{id_column}' column: {input_path}. Found: {list(df.columns)}")
+            # Преобразуем указанную колонку к стандартным именам, ожидаемым пайплайном
+            if id_column.lower() in {"molecule_chembl_id", "chembl_id", "molecule_id"}:
+                df = df.rename(columns={id_column: "molecule_chembl_id"})
+            elif id_column.lower() in {"molregno", "molecule_regno"}:
+                df = df.rename(columns={id_column: "molregno"})
+            else:
+                # Если имя нестандартное, пробуем определить тип значения и отразить в обе колонки
+                # Это позволит _normalise_columns корректно отфильтровать
+                try:
+                    as_int = pd.to_numeric(df[id_column], errors='coerce')
+                    if as_int.notna().any():
+                        df = df.rename(columns={id_column: "molregno"})
+                    else:
+                        df = df.rename(columns={id_column: "molecule_chembl_id"})
+                except Exception:
+                    df = df.rename(columns={id_column: "molecule_chembl_id"})
+        else:
+            # Проверяем наличие обязательных колонок (хотя бы одна должна быть)
+            required_columns = {'molecule_chembl_id', 'molregno'}
+            has_required = any(col in df.columns for col in required_columns)
+            if not has_required:
+                raise ValueError(f"CSV file must contain at least one of: {', '.join(required_columns)}. Found: {list(df.columns)}")
         
         return df.to_dict('records')
     
@@ -195,7 +221,12 @@ Examples:
             return 2
         
         # Load input data
-        molecule_data = _load_testitem_data(args.input)
+        try:
+            id_column = getattr(config.io.input, 'testitem_id_column', None)
+            molecule_data = _load_testitem_data(args.input, id_column=id_column)
+        except ValueError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 2
         if not molecule_data:
             print("Error: No molecule data found in input file.", file=sys.stderr)
             return 2
@@ -207,10 +238,6 @@ Examples:
             print(f"Processing {len(molecule_data)} molecules from {args.input} (limited from {original_count})")
         else:
             print(f"Processing {len(molecule_data)} molecules from {args.input}")
-        
-        # Convert to DataFrame
-        import pandas as pd
-        frame = pd.DataFrame(molecule_data)
         
         # Run pipeline
         result = run_testitem_etl(config=config, input_path=args.input)

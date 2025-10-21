@@ -9,13 +9,13 @@ from typing import Any
 
 import pandas as pd
 
-from library.config import APIClientConfig, RateLimitSettings, RetrySettings
 from library.clients.chembl import TestitemChEMBLClient
 from library.clients.pubchem import PubChemClient
+from library.config import APIClientConfig, RateLimitSettings, RetrySettings
 from library.etl.enhanced_correlation import (
+    build_correlation_insights,
     build_enhanced_correlation_analysis,
     build_enhanced_correlation_reports,
-    build_correlation_insights,
     prepare_data_for_correlation_analysis,
 )
 from library.testitem.config import TestitemConfig
@@ -77,8 +77,8 @@ def _create_chembl_client(config: TestitemConfig) -> TestitemChEMBLClient:
     headers = {**default_headers, **config.http.global_.headers, **chembl_config.http.headers}
     
     # Process secret placeholders in headers
-    import re
     import os
+    import re
     processed_headers = {}
     for key, value in headers.items():
         if isinstance(value, str):

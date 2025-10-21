@@ -103,7 +103,7 @@ def normalize_bioactivity_data(
 
     result = NormalizedBioactivitySchema.validate(normalized, lazy=True)
     if logger is not None:
-        logger.info("transform_complete", rows=len(result))
+        logger.info(f"transform_complete: {len(result)} строк")
     return result
 
 

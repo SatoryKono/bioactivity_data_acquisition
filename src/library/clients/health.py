@@ -2,14 +2,13 @@
 
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Literal
 from enum import Enum
+from typing import Any
 
-import typer
+import requests
 from rich.console import Console
 from rich.table import Table
 
-import requests
 from library.clients.circuit_breaker import CircuitState
 from library.config import APIClientConfig
 from library.logging_setup import get_logger
@@ -59,27 +58,26 @@ class HealthStatus:
     
     name: str
     is_healthy: bool
-    response_time_ms: Optional[float] = None
-    error_message: Optional[str] = None
-    circuit_state: Optional[str] = None
-    last_check: Optional[float] = None
+    response_time_ms: float | None = None
+    error_message: str | None = None
+    circuit_state: str | None = None
+    last_check: float | None = None
 
 
 class HealthChecker:
     """Health checker for API clients."""
     
-    def __init__(self, clients: Dict[str, Any]):
+    def __init__(self, clients: dict[str, Any]):
         self.clients = clients
         self.logger = get_logger(self.__class__.__name__)
         self.console = Console()
     
-    def check_all(self, timeout: float = 10.0) -> List[HealthStatus]:
+    def check_all(self, timeout: float = 10.0) -> list[HealthStatus]:
         """Check health of all registered clients."""
         results = []
         
         for name, client in self.clients.items():
             try:
-                start_time = time.time()
                 status = self._check_client_health(client, name, timeout)
                 status.last_check = time.time()
                 results.append(status)
@@ -199,7 +197,7 @@ class HealthChecker:
                 error_message=str(e)
             )
     
-    def print_health_report(self, statuses: List[HealthStatus]) -> None:
+    def print_health_report(self, statuses: list[HealthStatus]) -> None:
         """Print a formatted health report."""
         table = Table(title="API Health Status")
         table.add_column("API", style="cyan", no_wrap=True)
@@ -253,7 +251,7 @@ class HealthChecker:
             unhealthy_count = total_count - healthy_count
             self.console.print(f"\n[yellow]{unhealthy_count} of {total_count} APIs are unhealthy[/yellow]")
     
-    def get_health_summary(self, statuses: List[HealthStatus]) -> Dict[str, Any]:
+    def get_health_summary(self, statuses: list[HealthStatus]) -> dict[str, Any]:
         """Get a summary of health status."""
         healthy_count = sum(1 for s in statuses if s.is_healthy)
         total_count = len(statuses)
@@ -279,7 +277,7 @@ class HealthChecker:
         }
 
 
-def create_health_checker_from_config(config: Dict[str, APIClientConfig]) -> HealthChecker:
+def create_health_checker_from_config(config: dict[str, APIClientConfig]) -> HealthChecker:
     """Create a health checker from API client configurations."""
     clients = {}
     

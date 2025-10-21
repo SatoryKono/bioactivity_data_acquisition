@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
-from collections.abc import Mapping
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -21,6 +22,8 @@ from library.config import (
     _parse_scalar,
 )
 
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl",)
 DEFAULT_ENV_PREFIX = "BIOACTIVITY__"
@@ -53,6 +56,7 @@ class ActivityIOSettings(BaseModel):
 class ActivityRuntimeSettings(BaseModel):
     date_tag: str | None = Field(default=None, pattern=r"^\d{8}$")
     workers: int = Field(default=4, ge=1, le=64)
+    batch_size: int = Field(default=1000, ge=1)
     limit: int | None = Field(default=None, ge=1)
     dry_run: bool = Field(default=False)
 
@@ -318,8 +322,8 @@ def load_activity_config(
         )
         if legacy_cache and isinstance(legacy_cache, (str, Path)):
             merged.setdefault("io", {})["cache_dir"] = legacy_cache
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to migrate legacy cache setting: {e}")
 
     try:
         return ActivityConfig.model_validate(merged)

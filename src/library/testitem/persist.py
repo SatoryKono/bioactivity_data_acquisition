@@ -270,8 +270,14 @@ def generate_qc_artifacts(
         if missing_data:
             qc_metrics.append({"metric": "missing_data_analysis", "value": missing_data})
         
-        # Save QC metrics
+        # Save QC metrics (добавляем базовые row_count/missing_data для унификации)
         qc_df = pd.DataFrame(qc_metrics)
+        try:
+            from library.etl.qc_common import ensure_common_qc
+            qc_df = ensure_common_qc(df, qc_df, module_name="testitem")
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(f"Failed to normalize QC metrics for testitem: {exc}")
         qc_path = qc_dir / f"testitem_{run_date}_qc.csv"
         qc_df.to_csv(qc_path, index=False)
         qc_artifacts["qc_metrics"] = qc_path
@@ -323,15 +329,31 @@ def persist_testitem_data(
     metadata = generate_metadata(reordered_df, config, run_date, file_checksums)
     persist_metadata(metadata, meta_path)
     
-    # Generate QC artifacts
+    # Generate QC artifacts (всегда создаём QC файл)
     qc_artifacts = generate_qc_artifacts(reordered_df, output_dir, run_date)
+    if "qc_metrics" not in qc_artifacts or qc_artifacts.get("qc_metrics") is None:
+        # Fallback: создать базовый QC, если функция ничего не вернула
+        import pandas as _pd
+        qc_path = output_dir / f"testitem_{run_date}_qc.csv"
+        _pd.DataFrame([{"metric": "row_count", "value": int(len(reordered_df))}]).to_csv(qc_path, index=False)
+        qc_artifacts["qc_metrics"] = qc_path
     
-    # Prepare result paths
+    # Prepare result paths and update checksums
     result_paths = {
         "csv": csv_path,
         "meta": meta_path
     }
     result_paths.update(qc_artifacts)
+
+    try:
+        # Update metadata with QC checksum
+        if "qc_metrics" in result_paths:
+            file_checksums["qc"] = calculate_checksum(result_paths["qc_metrics"])  # type: ignore[index]
+            metadata = generate_metadata(reordered_df, config, run_date, file_checksums)
+            persist_metadata(metadata, meta_path)
+    except Exception:
+        # Do not fail persistence on checksum issues
+        pass
     
     logger.info("Testitem data persistence completed")
     

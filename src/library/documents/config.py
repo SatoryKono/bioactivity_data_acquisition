@@ -46,6 +46,12 @@ class DocumentRuntimeSettings(BaseModel):
     workers: int = Field(default=4, ge=1, le=64)
     limit: int | None = Field(default=None, ge=1)
     dry_run: bool = Field(default=False)
+    batch_size: int = Field(default=100, ge=1, le=500)
+    chembl_batch_size: int = Field(default=50, ge=1, le=200)
+    pubmed_batch_size: int = Field(default=200, ge=1, le=500)
+    crossref_batch_size: int = Field(default=50, ge=1, le=200)
+    openalex_batch_size: int = Field(default=50, ge=1, le=200)
+    semantic_scholar_batch_size: int = Field(default=100, ge=1, le=500)
 
 
 class CitationFormattingSettings(BaseModel):

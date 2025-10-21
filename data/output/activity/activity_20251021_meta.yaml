@@ -1,0 +1,17 @@
+activity_type_distribution:
+  IC50: 2
+  Ki: 8
+chembl_release: unknown
+config:
+  limit: 100
+  qc_enabled: true
+  workers: 4
+extraction_timestamp: '2025-10-21T09:32:08.322406Z'
+file_checksums:
+  csv: 13d5deb55a24b8286fb261f6d3c74dff08360089d25f75c6cc2723ef0d126234
+  qc: 4a8a623f070b039fb82925026b209917a72c87883eb30e3a749f95f3a40eaa9e
+pipeline_version: 1.0.0
+row_count: 10
+total_activities: 10
+unit_distribution:
+  nM: 10

@@ -118,6 +118,75 @@ class TestTestitemPipeline:
             assert len(result.testitems) == 0
             assert result.meta["row_count"] == 0
 
+    def test_index_column_addition(self):
+        """Test that index column is added to the output data."""
+        from library.etl.load import write_deterministic_csv
+        from library.config import DeterminismSettings, CsvFormatSettings, OutputSettings
+        import tempfile
+        
+        # Create test data without index column
+        test_data = pd.DataFrame({
+            "molecule_chembl_id": ["CHEMBL25", "CHEMBL153", "CHEMBL1"],
+            "molregno": [1, 2, 3],
+            "pref_name": ["Aspirin", "Ibuprofen", "Acetaminophen"]
+        })
+        
+        # Create determinism settings with index in column_order
+        from library.config import SortSettings
+        determinism = DeterminismSettings(
+            column_order=["index", "molecule_chembl_id", "molregno", "pref_name"],
+            sort=SortSettings(
+                by=['molecule_chembl_id'],
+                ascending=[True],
+                na_position='last'
+            )
+        )
+        
+        # Write to temporary file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
+            tmp_path = Path(tmp_file.name)
+        
+        # Create output settings
+        output = OutputSettings(
+            format="csv",
+            csv=CsvFormatSettings(),
+            data_path=tmp_path,
+            qc_report_path=tmp_path.parent / "qc.csv",
+            correlation_path=tmp_path.parent / "corr.csv"
+        )
+        
+        try:
+            # Write the data
+            write_deterministic_csv(
+                test_data,
+                tmp_path,
+                determinism=determinism,
+                output=output
+            )
+            
+            # Read back and verify
+            result_data = pd.read_csv(tmp_path)
+            
+            # Check that index column was added
+            assert 'index' in result_data.columns
+            # Index should reflect original row positions (after sorting by molecule_chembl_id)
+            # CHEMBL1 -> index 2, CHEMBL153 -> index 1, CHEMBL25 -> index 0
+            expected_indices = [2, 1, 0]  # Based on sorted molecule_chembl_id
+            assert result_data['index'].tolist() == expected_indices
+            
+            # Check that index is the first column
+            assert result_data.columns[0] == 'index'
+            
+            # Check that other columns are preserved
+            assert 'molecule_chembl_id' in result_data.columns
+            assert 'molregno' in result_data.columns
+            assert 'pref_name' in result_data.columns
+            
+        finally:
+            # Clean up
+            if tmp_path.exists():
+                tmp_path.unlink()
+
 
 class TestTestitemClients:
     """Test testitem API clients."""

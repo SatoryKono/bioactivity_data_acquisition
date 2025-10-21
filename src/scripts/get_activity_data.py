@@ -5,7 +5,8 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from library.activity.config import load_activity_config, ConfigLoadError
+ 
+from library.activity.config import ConfigLoadError, load_activity_config
 from library.activity.pipeline import run_activity_etl
 from library.activity.writer import write_activity_outputs
 from library.logging_setup import configure_logging

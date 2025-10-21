@@ -1,13 +1,9 @@
 """Tests for atomic write utilities."""
 
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import patch
 
 import pandas as pd
 import pytest
-from structlog.testing import LogCapture
 
 from library.io_.atomic_writes import (
     atomic_write_context,
@@ -188,7 +184,7 @@ class TestAtomicDataWrites:
         assert target_path.exists()
         
         # Verify content
-        with open(target_path, 'r') as f:
+        with open(target_path) as f:
             loaded_data = json.load(f)
         assert loaded_data == data
 

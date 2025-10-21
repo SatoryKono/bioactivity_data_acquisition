@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Generator
 
 import pandas as pd
 
@@ -40,7 +40,13 @@ class AssayChEMBLClient(BaseApiClient):
             return self._create_empty_assay_record(assay_id, str(e))
 
     def fetch_assays_batch(self, assay_ids: list[str], batch_size: int = 100) -> list[dict[str, Any]]:
-        """Retrieve multiple assays in batches for better performance."""
+        """Retrieve multiple assays in batches for better performance (deprecated).
+
+        Deprecated: use fetch_assays_batch_streaming for memory-efficient streaming.
+        """
+        logger.warning(
+            "fetch_assays_batch is deprecated; use fetch_assays_batch_streaming for streaming batches"
+        )
         
         headers = {
             "Accept": "application/json",
@@ -81,6 +87,56 @@ class AssayChEMBLClient(BaseApiClient):
                     all_assays.append(empty_record)
         
         return all_assays
+
+    def fetch_assays_batch_streaming(
+        self,
+        assay_ids: list[str],
+        batch_size: int = 100,
+    ) -> Generator[tuple[list[str], list[dict[str, Any]]], None, None]:
+        """Stream assays in batches as a generator.
+
+        Yields tuples: (requested_ids, list of parsed assay records).
+        """
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        if not assay_ids:
+            return
+
+        for i in range(0, len(assay_ids), batch_size):
+            batch = assay_ids[i : i + batch_size]
+            batch_str = ",".join(batch)
+
+            try:
+                params = {
+                    "assay_chembl_id__in": batch_str,
+                    "format": "json",
+                    "limit": len(batch),
+                }
+
+                payload = self._request("GET", "assay", headers=headers, params=params)
+
+                batch_results: list[dict[str, Any]] = []
+                if isinstance(payload, dict) and "assays" in payload:
+                    for assay_data in payload["assays"]:
+                        parsed_assay = self._parse_assay(assay_data)
+                        batch_results.append(parsed_assay)
+                else:
+                    parsed_assay = self._parse_assay(payload)
+                    batch_results.append(parsed_assay)
+
+                yield (batch, batch_results)
+
+            except Exception as e:
+                logger.warning(f"Failed to fetch batch {batch}: {e}")
+                # Yield empty parsed records for each id in the failed batch
+                failed_results: list[dict[str, Any]] = []
+                for assay_id in batch:
+                    failed_results.append(self._create_empty_assay_record(assay_id, str(e)))
+                yield (batch, failed_results)
 
     def fetch_by_target_id(
         self, 

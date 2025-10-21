@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
 from structlog.stdlib import BoundLogger
 
 from library.etl.load import write_deterministic_csv
@@ -75,17 +74,27 @@ def write_activity_outputs(
         safe_det.sort.by = []
         safe_det.sort.ascending = True
 
+    # Исключаем quality_flags и retrieved_at из вывода (дополнительная защита)
+    activities_to_write = result.activities.copy()
+    quality_columns_to_remove = ['quality_flag', 'quality_reason']
+    metadata_columns_to_remove = ['retrieved_at']
+    all_columns_to_remove = quality_columns_to_remove + metadata_columns_to_remove
+    activities_to_write = activities_to_write.drop(columns=all_columns_to_remove, errors='ignore')
+    
     write_deterministic_csv(
-        result.activities,
+        activities_to_write,
         data_path,
         logger=logger,
         determinism=safe_det,
         output=None,
     )
 
-    # Save QC
+    # Save QC (всегда создаём файл для предсказуемости вывода)
     if isinstance(result.qc, pd.DataFrame) and not result.qc.empty:
         result.qc.to_csv(qc_path, index=False)
+    else:
+        import pandas as _pd
+        _pd.DataFrame([{"metric": "row_count", "value": int(len(result.activities))}]).to_csv(qc_path, index=False)
 
     # Save metadata (YAML)
     try:
@@ -97,7 +106,11 @@ def write_activity_outputs(
     meta.setdefault("row_count", int(len(result.activities)))
     meta.setdefault("pipeline_version", "1.0.0")
 
-    meta["file_checksums"] = {"csv": _calculate_checksum(data_path)}
+    # Checksums для CSV и QC
+    meta["file_checksums"] = {
+        "csv": _calculate_checksum(data_path),
+        "qc": _calculate_checksum(qc_path),
+    }
 
     if yaml is not None:
         with meta_path.open("w", encoding="utf-8") as handle:
@@ -120,9 +133,32 @@ def write_activity_outputs(
 
             json.dump(meta, handle, indent=2, ensure_ascii=False, default=default)
 
-    paths: dict[str, Path] = {"csv": data_path, "meta": meta_path}
-    if isinstance(result.qc, pd.DataFrame) and not result.qc.empty:
-        paths["qc"] = qc_path
+    paths: dict[str, Path] = {"csv": data_path, "meta": meta_path, "qc": qc_path}
+
+    # Save correlation reports and insights if present
+    try:
+        if getattr(result, "correlation_reports", None):
+            corr_dir = output_dir / f"activity_correlation_report_{date_tag}"
+            corr_dir.mkdir(exist_ok=True)
+            report_paths: dict[str, Path] = {}
+            for report_name, report_df in result.correlation_reports.items():
+                report_path = corr_dir / f"{report_name}.csv"
+                if hasattr(report_df, "to_csv"):
+                    report_df.to_csv(report_path, index=False)
+                    report_paths[report_name] = report_path
+            paths["correlation_reports"] = report_paths
+
+        if getattr(result, "correlation_insights", None):
+            insights_path = (output_dir / f"activity_correlation_report_{date_tag}" / "correlation_insights.json")
+            insights_path.parent.mkdir(exist_ok=True)
+            import json as _json
+            with insights_path.open("w", encoding="utf-8") as h:
+                _json.dump(result.correlation_insights, h, ensure_ascii=False, indent=2)
+            paths["correlation_insights"] = insights_path
+    except Exception as e:
+        # silently ignore correlation save errors
+        if logger is not None:
+            logger.debug(f"Failed to save correlation insights: {e}")
 
     return paths
 

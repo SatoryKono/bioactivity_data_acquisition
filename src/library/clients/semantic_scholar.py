@@ -260,3 +260,52 @@ class SemanticScholarClient(BaseApiClient):
         if isinstance(pmid, str):
             return pmid.split(":")[-1]
         return None
+
+    def fetch_by_pmids_batch(
+        self,
+        pmids: list[str],
+        batch_size: int = 500
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch multiple papers by PMIDs using batch endpoint.
+        
+        Semantic Scholar supports POST /paper/batch with up to 500 IDs.
+        """
+        if not pmids:
+            return {}
+        
+        results = {}
+        
+        # Process in chunks to respect API limits
+        for i in range(0, len(pmids), batch_size):
+            chunk = pmids[i:i + batch_size]
+            
+            try:
+                # Prepare batch request payload
+                identifiers = [f"PMID:{pmid}" for pmid in chunk]
+                batch_payload = {"ids": identifiers}
+                
+                # Make batch request
+                payload = self._request("POST", "batch", json=batch_payload)
+                
+                # Parse batch results
+                papers = payload.get("results", [])
+                
+                for paper in papers:
+                    if paper:  # Skip None results
+                        parsed_paper = self._parse_paper(paper)
+                        pmid = self._extract_pmid(paper)
+                        if pmid:
+                            results[pmid] = parsed_paper
+                
+                # Add empty records for missing PMIDs
+                for pmid in chunk:
+                    if pmid not in results:
+                        results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to fetch PMIDs batch {chunk}: {e}")
+                # Add empty records for failed batch
+                for pmid in chunk:
+                    results[pmid] = self._create_empty_record(pmid, str(e))
+        
+        return results

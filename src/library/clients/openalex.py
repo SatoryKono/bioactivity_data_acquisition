@@ -223,3 +223,100 @@ class OpenAlexClient(BaseApiClient):
             "openalex_authors": None,
             "openalex_error": error_msg,
         }
+
+    def fetch_by_dois_batch(
+        self,
+        dois: list[str],
+        batch_size: int = 50
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch multiple works by DOIs using filter.
+        
+        OpenAlex supports batch queries using filter with OR operator.
+        """
+        if not dois:
+            return {}
+        
+        results = {}
+        
+        # Process in chunks to avoid URL length limits
+        for i in range(0, len(dois), batch_size):
+            chunk = dois[i:i + batch_size]
+            
+            try:
+                # Create filter string with OR operator
+                filter_parts = [f"doi:{doi}" for doi in chunk]
+                filter_str = "|".join(filter_parts)
+                
+                payload = self._request("GET", "", params={"filter": filter_str})
+                works = payload.get("results", [])
+                
+                # Map results back to DOIs
+                for work in works:
+                    doi_value = work.get("doi")
+                    if doi_value and doi_value.startswith("https://doi.org/"):
+                        doi_value = doi_value.replace("https://doi.org/", "")
+                    
+                    if doi_value in chunk:
+                        results[doi_value] = self._parse_work(work)
+                
+                # Add empty records for missing DOIs
+                for doi in chunk:
+                    if doi not in results:
+                        results[doi] = self._create_empty_record(doi, "Not found in batch response")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to fetch DOIs batch {chunk}: {e}")
+                # Add empty records for failed batch
+                for doi in chunk:
+                    results[doi] = self._create_empty_record(doi, str(e))
+        
+        return results
+
+    def fetch_by_pmids_batch(
+        self,
+        pmids: list[str],
+        batch_size: int = 50
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch multiple works by PMIDs using filter.
+        
+        OpenAlex supports batch queries using filter with OR operator.
+        """
+        if not pmids:
+            return {}
+        
+        results = {}
+        
+        # Process in chunks to avoid URL length limits
+        for i in range(0, len(pmids), batch_size):
+            chunk = pmids[i:i + batch_size]
+            
+            try:
+                # Create filter string with OR operator
+                filter_parts = [f"pmid:{pmid}" for pmid in chunk]
+                filter_str = "|".join(filter_parts)
+                
+                payload = self._request("GET", "", params={"filter": filter_str})
+                works = payload.get("results", [])
+                
+                # Map results back to PMIDs
+                for work in works:
+                    ids = work.get("ids", {})
+                    pmid_value = ids.get("pmid")
+                    if pmid_value and pmid_value.startswith("https://pubmed.ncbi.nlm.nih.gov/"):
+                        pmid_value = pmid_value.replace("https://pubmed.ncbi.nlm.nih.gov/", "")
+                    
+                    if pmid_value in chunk:
+                        results[pmid_value] = self._parse_work(work)
+                
+                # Add empty records for missing PMIDs
+                for pmid in chunk:
+                    if pmid not in results:
+                        results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
+                        
+            except Exception as e:
+                logger.warning(f"Failed to fetch PMIDs batch {chunk}: {e}")
+                # Add empty records for failed batch
+                for pmid in chunk:
+                    results[pmid] = self._create_empty_record(pmid, str(e))
+        
+        return results

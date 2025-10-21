@@ -44,22 +44,26 @@ We take security vulnerabilities seriously. If you discover a security vulnerabi
 When using this project, please follow these security best practices:
 
 #### API Keys and Secrets
+
 - Never commit API keys or secrets to version control
 - Use environment variables for all sensitive configuration
 - Rotate API keys regularly (every 90 days recommended)
 - Use different API keys for different environments (dev/staging/prod)
 
 #### Dependencies
+
 - Keep dependencies up to date using Dependabot
 - Review security advisories for all dependencies
 - Use `safety` and `bandit` tools for security scanning
 
 #### Configuration
+
 - Use the provided `.env.example` as a template
 - Validate all configuration inputs
 - Enable strict validation mode in production
 
 #### Network Security
+
 - Use HTTPS for all API communications
 - Implement proper rate limiting
 - Monitor for unusual API usage patterns
@@ -102,6 +106,7 @@ For security-related questions or to report vulnerabilities:
 ### Security Updates
 
 Security updates will be released as:
+
 - **Patch versions** (e.g., 0.1.1) for security fixes
 - **Security advisories** published on GitHub
 - **Release notes** clearly marking security-related changes
@@ -113,6 +118,7 @@ Currently, we do not have a formal bug bounty program. However, we appreciate se
 ### Security Changelog
 
 Security-related changes are documented in:
+
 - [CHANGELOG.md](docs/changelog.md)
 - GitHub Security Advisories
 - Release notes for each version
