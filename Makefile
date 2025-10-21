@@ -307,8 +307,20 @@ type-check:
 	@echo "$(GREEN)Type checking completed!$(NC)"
 
 # Full quality check
-qa: fmt lint type-check
+qa: fmt lint type-check check-duplicates check-dead-code check-deps
 	@echo "$(GREEN)Full quality check completed!$(NC)"
+
+check-dead-code:
+	@echo "$(BLUE)Checking for dead code...$(NC)"
+	@vulture src/ --min-confidence 80
+
+check-duplicates:
+	@echo "$(BLUE)Checking for code duplicates...$(NC)"
+	@npx jscpd src/ --config .jscpd.json --yes
+
+check-deps:
+	@echo "$(BLUE)Checking dependencies...$(NC)"
+	@deptry src/
 
 # =============================================================================
 # DOCUMENTATION

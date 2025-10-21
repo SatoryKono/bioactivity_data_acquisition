@@ -466,7 +466,7 @@ def analyze_iuphar_mapping(
             if len(matches) > 0:
                 console.print(f"Found {len(matches)} records for target_id={target_id}")
                 console.print("UniProt IDs for this target:")
-                uniprot_ids = matches['swissprot'].unique()
+                uniprot_ids = matches['swissprot'].dropna().unique().tolist()  # type: ignore
                 for uid in uniprot_ids:
                     console.print(f"  {uid}")
                 
@@ -1202,6 +1202,156 @@ def testitem_info() -> None:
     console.print("[bold]Usage:[/bold]")
     console.print("  python -m library.cli testitem-run --config config.yaml --input data.csv --output results/")
     console.print()
+
+
+@app.command("analyze-results")
+def analyze_results_cmd(
+    csv_path: Path = typer.Argument(..., help="Path to CSV file"),
+    output_format: str = typer.Option("table", help="Output format: table/json")
+) -> None:
+    """Analyze pipeline results and generate statistics."""
+    
+    console = Console()
+    
+    try:
+        import pandas as pd
+        
+        console.print(f"[blue]Loading CSV file: {csv_path}[/blue]")
+        df = pd.read_csv(csv_path)
+        
+        total_rows = len(df)
+        total_columns = len(df.columns)
+        
+        console.print(f"[green]=== Pipeline Results Analysis ===[/green]")
+        console.print(f"Total rows: {total_rows}")
+        console.print(f"Total columns: {total_columns}")
+        
+        # Analysis by sources
+        console.print("\n[blue]Analysis by Sources:[/blue]")
+        
+        source_columns = {
+            'ChEMBL': [col for col in df.columns if col.startswith('chembl_')],
+            'Crossref': [col for col in df.columns if col.startswith('crossref_')],
+            'OpenAlex': [col for col in df.columns if col.startswith('openalex_')],
+            'PubMed': [col for col in df.columns if col.startswith('pubmed_')],
+            'Semantic Scholar': [col for col in df.columns if col.startswith('semantic_scholar_')],
+            'Basic': ['document_chembl_id', 'title', 'doi', 'document_pubmed_id', 'journal', 'year', 'volume', 'issue', 'first_page', 'last_page', 'month', 'abstract', 'pubmed_authors']
+        }
+        
+        for source, columns in source_columns.items():
+            if not columns:
+                continue
+                
+            filled_count = 0
+            total_cells = 0
+            for col in columns:
+                if col in df.columns:
+                    filled_count += int(df[col].notna().sum())
+                    total_cells += total_rows
+            
+            if total_cells > 0:
+                fill_percentage = (filled_count / total_cells) * 100
+                console.print(f"{source:<20} {filled_count:4d}/{total_cells:4d} cells ({fill_percentage:5.1f}%)")
+        
+        # Overall statistics
+        console.print("\n[blue]Overall Statistics:[/blue]")
+        
+        total_cells = total_rows * total_columns
+        filled_cells = int(df.notna().sum().sum())
+        overall_fill_percentage = (filled_cells / total_cells) * 100
+        
+        console.print(f"Total cells: {total_cells:,}")
+        console.print(f"Filled cells: {filled_cells:,}")
+        console.print(f"Overall fill percentage: {overall_fill_percentage:.1f}%")
+        
+        # Fully filled rows
+        fully_filled_mask = df.notna().all(axis=1)
+        fully_filled_rows = int(fully_filled_mask.sum())  # type: ignore
+        console.print(f"Fully filled rows: {fully_filled_rows}/{total_rows} ({fully_filled_rows/total_rows*100:.1f}%)")
+        
+        # Fill statistics per row
+        min_fill_per_row = int(df.notna().sum(axis=1).min())
+        max_fill_per_row = int(df.notna().sum(axis=1).max())
+        avg_fill_per_row = float(df.notna().sum(axis=1).mean())
+        
+        console.print(f"Min fill per row: {min_fill_per_row}/{total_columns} ({min_fill_per_row/total_columns*100:.1f}%)")
+        console.print(f"Max fill per row: {max_fill_per_row}/{total_columns} ({max_fill_per_row/total_columns*100:.1f}%)")
+        console.print(f"Avg fill per row: {avg_fill_per_row:.1f}/{total_columns} ({avg_fill_per_row/total_columns*100:.1f}%)")
+        
+        # Output results in requested format
+        if output_format == "json":
+            import json
+            
+            results = {
+                'total_rows': total_rows,
+                'total_columns': total_columns,
+                'total_cells': total_cells,
+                'filled_cells': filled_cells,
+                'overall_fill_percentage': overall_fill_percentage,
+                'fully_filled_rows': fully_filled_rows,
+                'fill_stats_per_row': {
+                    'min': min_fill_per_row,
+                    'max': max_fill_per_row,
+                    'avg': avg_fill_per_row
+                }
+            }
+            console.print("\n[blue]JSON Output:[/blue]")
+            console.print(json.dumps(results, indent=2, ensure_ascii=False))
+        
+        console.print("\n[green]Analysis completed successfully![/green]")
+        
+    except Exception as e:
+        console.print(f"[red]Error during analysis: {e}[/red]")
+        raise typer.Exit(1) from e
+
+
+@app.command("check-fields")
+def check_fields_cmd(
+    csv_path: Path = typer.Argument(..., help="Path to CSV file"),
+    fields: list[str] = typer.Option(None, help="Specific fields to check")
+) -> None:
+    """Check field fill rates in pipeline output."""
+    
+    console = Console()
+    
+    try:
+        import pandas as pd
+        
+        console.print(f"[blue]Loading CSV file: {csv_path}[/blue]")
+        df = pd.read_csv(csv_path)
+        
+        console.print(f"[green]=== Field Fill Rate Analysis ===[/green]")
+        console.print(f"Total rows: {len(df)}")
+        
+        # Fields to check
+        fields_to_check = {
+            'Crossref': ['crossref_title', 'crossref_doc_type', 'crossref_subject', 'doi_key'],
+            'OpenAlex': ['openalex_title', 'openalex_doc_type', 'openalex_year', 'openalex_doi'],
+            'PubMed': ['pubmed_pmid', 'pubmed_doi', 'pubmed_article_title', 'pubmed_abstract', 'pubmed_journal'],
+            'Semantic Scholar': ['semantic_scholar_pmid', 'semantic_scholar_doi', 'semantic_scholar_journal', 'semantic_scholar_doc_type']
+        }
+        
+        # If specific fields are provided, check only those
+        if fields:
+            fields_to_check = {'Custom': fields}
+        
+        for source, field_list in fields_to_check.items():
+            console.print(f"\n[blue]{source.upper()}:[/blue]")
+            
+            for field in field_list:
+                if field in df.columns:
+                    filled = int(df[field].notna().sum())
+                    total = len(df)
+                    percentage = (filled / total) * 100
+                    console.print(f"  {field:<30} {filled:2d}/{total:2d} ({percentage:5.1f}%)")
+                else:
+                    console.print(f"  {field:<30} NOT FOUND")
+        
+        console.print("\n[green]Field analysis completed successfully![/green]")
+        
+    except Exception as e:
+        console.print(f"[red]Error during field analysis: {e}[/red]")
+        raise typer.Exit(1) from e
 
 
 @app.command()

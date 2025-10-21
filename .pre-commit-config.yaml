@@ -161,6 +161,20 @@ if __name__ == '__main__':
         additional_dependencies: [types-PyYAML, pandera]
         args: [--ignore-missing-imports]
 
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.11
+    hooks:
+      - id: vulture
+        args: ['--min-confidence=80', '--exclude=**/test_*.py']
+        fail_fast: true
+
+  - repo: https://github.com/fpgmaas/deptry
+    rev: 0.12.0
+    hooks:
+      - id: deptry
+        args: ['src/']
+        fail_fast: true
+
   - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.39.0
     hooks:

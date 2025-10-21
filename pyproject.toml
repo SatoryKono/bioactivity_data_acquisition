@@ -110,9 +110,11 @@ markers = [
     "slow: mark test as slow running",
     "network: mark test as requiring network access",
     "api: mark test as requiring API access",
+    "iuphar_debug: mark test as IUPHAR debug test (slow, verbose)",
 ]
 filterwarnings = [
-    "ignore::DeprecationWarning",
+    "error::DeprecationWarning",
+    "ignore::DeprecationWarning:library.legacy",
     "ignore::PendingDeprecationWarning",
 ]
 
@@ -206,6 +208,33 @@ useLibraryCodeForTypes = true
 autoImportCompletions = true
 indexing = true
 reportMissingModuleSource = "none"
+
+[tool.vulture]
+min_confidence = 80
+paths = ["src", "tests", "scripts"]
+exclude = [
+    "**/test_*.py",
+    "**/__pycache__",
+    ".venv",
+]
+ignore_names = [
+    "*_test",
+    "test_*",
+    "setUp",
+    "tearDown",
+]
+
+[tool.deptry]
+extend_exclude = [
+    "tests",
+    ".venv",
+    "build",
+]
+
+[tool.deptry.per_rule_ignores]
+# Исключения для dev-зависимостей
+DEP002 = ["pytest", "black", "ruff", "mypy"]
+DEP003 = ["types-PyYAML", "types-requests"]
 
 [tool.pytest.benchmark]
 save = "benchmark_results.json"

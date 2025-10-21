@@ -191,14 +191,41 @@ scripts/
 ├── final_validation.py       # Финальная валидация репозитория
 ├── create_cleanup_pr.py      # Создание PR после очистки
 ├── stage11_complete.py       # Главный скрипт Stage 11
-├── analyze_fixed_results.py  # Анализ результатов исправлений
-├── check_field_fill.py       # Проверка заполнения полей
 ├── check_version_consistency.py # Проверка версий
 ├── cleanup_logs.py           # Очистка логов
 ├── generate_cleanup_manifest.py # Генерация манифеста очистки
 ├── replace_print_with_logger.py # Замена print на logger
 ├── run_mypy.py              # Запуск mypy
 └── README.md                # Этот файл
+```
+
+## 🔄 Миграция в CLI команды
+
+**Анализ результатов** (заменён на CLI):
+```bash
+# Старый способ (удалён в 0.2.0)
+python scripts/analyze_fixed_results.py data/output/documents.csv
+
+# Новый способ
+bioactivity-data-acquisition analyze-results data/output/documents.csv
+```
+
+**Проверка полей** (заменён на CLI):
+```bash
+# Старый способ (удалён в 0.2.0)
+python scripts/check_field_fill.py data/output/target.csv
+
+# Новый способ
+bioactivity-data-acquisition check-fields data/output/target.csv
+```
+
+**Проверка лимитов API** (заменён на CLI):
+```bash
+# Старый способ (удалён в 0.2.0)
+python scripts/check_specific_limits.py
+
+# Новый способ
+bioactivity-data-acquisition health --config configs/config_documents_full.yaml
 ```
 
 ## 🎯 Примеры использования
