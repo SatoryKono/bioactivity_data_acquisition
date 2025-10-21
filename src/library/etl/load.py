@@ -9,18 +9,26 @@ import numpy as np
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from library.etl.qc import (build_correlation_insights_report,
-                            build_correlation_matrix,
-                            build_enhanced_correlation_analysis_report,
-                            build_enhanced_correlation_reports_df,
-                            build_enhanced_qc_detailed_reports,
-                            build_enhanced_qc_report, build_qc_report)
+from library.etl.qc import (
+    build_correlation_insights_report,
+    build_correlation_matrix,
+    build_enhanced_correlation_analysis_report,
+    build_enhanced_correlation_reports_df,
+    build_enhanced_qc_detailed_reports,
+    build_enhanced_qc_report,
+    build_qc_report,
+)
 from library.io_.normalize import normalize_doi_advanced
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers
-    from library.config import (CsvFormatSettings, DeterminismSettings,
-                                OutputSettings, ParquetFormatSettings,
-                                PostprocessSettings, QCValidationSettings)
+    from library.config import (
+        CsvFormatSettings,
+        DeterminismSettings,
+        OutputSettings,
+        ParquetFormatSettings,
+        PostprocessSettings,
+        QCValidationSettings,
+    )
 
 
 def _deterministic_order(

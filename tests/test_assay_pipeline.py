@@ -6,14 +6,14 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import pytest
 
-from library.assay import AssayConfig, AssayChEMBLClient, run_assay_etl, write_assay_outputs
+from library.assay import AssayChEMBLClient, AssayConfig, run_assay_etl, write_assay_outputs
 from library.assay.pipeline import (
     AssayETLResult,
     AssayValidationError,
-    _normalise_columns,
     _extract_assay_data,
+    _normalise_columns,
     _normalize_assay_fields,
-    _normalize_list_field
+    _normalize_list_field,
 )
 from library.schemas.assay_schema import AssayInputSchema, AssayNormalizedSchema
 
