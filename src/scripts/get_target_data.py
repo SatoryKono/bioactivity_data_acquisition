@@ -34,6 +34,12 @@ from library.target import (
 from library.logging_setup import configure_logging
 
 
+def _generate_date_tag() -> str:
+    """Generate date tag in YYYYMMDD format."""
+    from datetime import datetime
+    return datetime.now().strftime("%Y%m%d")
+
+
 def create_argument_parser() -> argparse.ArgumentParser:
     """Создать парсер аргументов командной строки."""
     parser = argparse.ArgumentParser(
@@ -142,9 +148,9 @@ def build_config_overrides(args: argparse.Namespace) -> dict[str, Any]:
         overrides["io"]["output"] = overrides["io"].get("output", {})
         overrides["io"]["output"]["dir"] = str(args.output_dir)
 
-    if args.date_tag is not None:
-        overrides["runtime"] = overrides.get("runtime", {})
-        overrides["runtime"]["date_tag"] = args.date_tag
+    # Устанавливаем date_tag: из аргументов или автоматически генерируем
+    overrides["runtime"] = overrides.get("runtime", {})
+    overrides["runtime"]["date_tag"] = args.date_tag or _generate_date_tag()
 
     if args.timeout_sec is not None:
         overrides["http"] = overrides.get("http", {})
@@ -249,7 +255,7 @@ def main() -> int:
         outputs = write_target_outputs(
             result,
             config.io.output.dir,
-            config.runtime.date_tag or "",
+            config.runtime.date_tag,
             config,
         )
         logger.info("Output files written successfully", outputs=list(outputs.keys()))
