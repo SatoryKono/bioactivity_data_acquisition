@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
 
 from library.documents.config import DocumentConfig, load_document_config
-from library.documents.pipeline import _create_api_client, DocumentValidationError
+from library.documents.pipeline import DocumentValidationError, _create_api_client
 
 
 @pytest.fixture()

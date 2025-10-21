@@ -6,13 +6,13 @@ This module is deprecated. Use library.logging_setup instead.
 from __future__ import annotations
 
 import logging
-from typing import Any
 import warnings
+from typing import Any
 
 # structlog import removed - using new logging_setup
-
 # Import the new unified logging setup
-from .logging_setup import configure_logging as _configure_logging, get_logger as _get_logger
+from .logging_setup import configure_logging as _configure_logging
+from .logging_setup import get_logger as _get_logger
 
 _LOGGING_CONFIGURED = False
 

@@ -1,12 +1,12 @@
 """Performance benchmarks for critical operations."""
 
-import pytest
-import pandas as pd
-import time
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
-from library.clients.base import RateLimiter, RateLimitConfig
+import pandas as pd
+import pytest
+
+from library.clients.base import RateLimitConfig, RateLimiter
 from library.utils.rate_limit import RateLimiter as TokenBucketRateLimiter
 
 
@@ -135,8 +135,8 @@ class TestRateLimiterPerformance:
     @pytest.mark.benchmark(group="rate_limiter")
     def test_rate_limiter_contention(self, benchmark):
         """Benchmark rate limiter under contention."""
-        import threading
         import queue
+        import threading
         
         config = RateLimitConfig(max_calls=100, period=1.0)
         limiter = RateLimiter(config)

@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """Script to replace print() statements with logger calls in tools/ directory."""
 
-import os
 import re
-import sys
 from pathlib import Path
+
 
 def add_logger_import(file_path: Path) -> str:
     """Add logger import to the beginning of the file."""
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, encoding='utf-8') as f:
         content = f.read()
     
     # Check if logger import already exists
@@ -62,7 +61,7 @@ def replace_print_statements(content: str) -> str:
 def process_file(file_path: Path) -> bool:
     """Process a single Python file to replace print() with logger calls."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             original_content = f.read()
         
         # Skip if no print statements
@@ -112,7 +111,7 @@ def main():
         else:
             print(f"  [NO CHANGES] {py_file}")
     
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  Processed files: {processed_files}")
     print(f"  Modified files: {modified_files}")
 

@@ -5,8 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from collections.abc import Generator
 from datetime import datetime
-from typing import Any, Generator
+from typing import Any
 
 import pandas as pd
 
@@ -188,6 +189,142 @@ class AssayChEMBLClient(BaseApiClient):
         
         return assays
 
+    def fetch_assays_with_variants(
+        self, 
+        filters: dict[str, Any] | None = None,
+        batch_size: int = 200
+    ) -> list[dict[str, Any]]:
+        """Retrieve assays with variants using variant_sequence__isnull=false filter."""
+        
+        params = {
+            "variant_sequence__isnull": "false",
+            "format": "json",
+            "limit": batch_size
+        }
+        
+        if filters:
+            params.update(filters)
+        
+        assays = []
+        offset = 0
+        
+        while True:
+            params["offset"] = offset
+            try:
+                response = self._request("GET", "assay", params=params)
+                page_data = response.get("assays", [])
+                
+                if not page_data:
+                    break
+                    
+                for assay in page_data:
+                    assay_data = self._parse_assay(assay)
+                    assays.append(assay_data)
+                
+                offset += batch_size
+                
+                # Check if there are more pages
+                if len(page_data) < batch_size:
+                    break
+                    
+            except Exception as e:
+                logger.error(f"Failed to fetch variant assays page at offset {offset}: {e}")
+                break
+        
+        return assays
+
+    def fetch_variant_sequences_batch(
+        self, 
+        variant_ids: list[int], 
+        batch_size: int = 50
+    ) -> dict[int, dict[str, Any]]:
+        """Fetch variant sequences in batches by variant_id."""
+        
+        if not variant_ids:
+            return {}
+        
+        variant_data = {}
+        
+        # Process in batches to avoid URL length limits
+        for i in range(0, len(variant_ids), batch_size):
+            batch = variant_ids[i:i + batch_size]
+            batch_str = ",".join(map(str, batch))
+            
+            try:
+                params = {
+                    "variant_id__in": batch_str,
+                    "format": "json",
+                    "limit": len(batch)
+                }
+                
+                response = self._request("GET", "variant_sequence", params=params)
+                page_data = response.get("variant_sequences", [])
+                
+                for variant in page_data:
+                    variant_id = variant.get("variant_id")
+                    if variant_id:
+                        variant_data[variant_id] = {
+                            "accession": variant.get("accession"),
+                            "sequence": variant.get("sequence"),
+                            "organism": variant.get("organism"),
+                            "mutation": variant.get("mutation")
+                        }
+                        
+            except Exception as e:
+                logger.warning(f"Failed to fetch variant sequences batch {batch}: {e}")
+                # Create empty records for failed variants
+                for variant_id in batch:
+                    variant_data[variant_id] = {
+                        "accession": None,
+                        "sequence": None,
+                        "organism": None,
+                        "mutation": None
+                    }
+        
+        return variant_data
+
+    def fetch_target_components_batch(
+        self, 
+        target_ids: list[str], 
+        batch_size: int = 50
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Fetch target components in batches by target_chembl_id."""
+        
+        if not target_ids:
+            return {}
+        
+        components_map = {}
+        
+        # Process in batches to avoid URL length limits
+        for i in range(0, len(target_ids), batch_size):
+            batch = target_ids[i:i + batch_size]
+            batch_str = ",".join(batch)
+            
+            try:
+                params = {
+                    "target_chembl_id__in": batch_str,
+                    "format": "json",
+                    "limit": len(batch)
+                }
+                
+                response = self._request("GET", "target_component", params=params)
+                page_data = response.get("target_components", [])
+                
+                for component in page_data:
+                    target_id = component.get("target_chembl_id")
+                    if target_id:
+                        if target_id not in components_map:
+                            components_map[target_id] = []
+                        components_map[target_id].append(component)
+                        
+            except Exception as e:
+                logger.warning(f"Failed to fetch target components batch {batch}: {e}")
+                # Create empty records for failed targets
+                for target_id in batch:
+                    components_map[target_id] = []
+        
+        return components_map
+
     def fetch_source_info(self, src_id: int) -> dict[str, Any]:
         """Retrieve source information by source ID."""
         
@@ -251,6 +388,11 @@ class AssayChEMBLClient(BaseApiClient):
             "target_chembl_id": assay.get("target_chembl_id"),
             "relationship_type": assay.get("relationship_type"),
             "confidence_score": assay.get("confidence_score"),
+            
+            # Variant fields
+            "variant_id": assay.get("variant_id"),
+            "variant_text": assay.get("variant_text"),
+            "variant_sequence_id": assay.get("variant_sequence_id"),
             
             # Биологический контекст
             "assay_organism": assay.get("assay_organism"),
@@ -358,6 +500,11 @@ class AssayChEMBLClient(BaseApiClient):
             "target_chembl_id": None,
             "relationship_type": None,
             "confidence_score": None,
+            
+            # Variant fields
+            "variant_id": None,
+            "variant_text": None,
+            "variant_sequence_id": None,
             
             # Биологический контекст
             "assay_organism": None,

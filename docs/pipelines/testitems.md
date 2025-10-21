@@ -16,10 +16,12 @@
 ### Входы и выходы
 
 **Входы**:
+
 - CSV файл с молекулярными идентификаторами (`molecule_chembl_id`, `molregno`)
 - Конфигурация `configs/config_testitem_full.yaml`
 
 **Выходы**:
+
 - `testitem__YYYYMMDD.csv` — основные данные молекул
 - `meta.yaml` — метаданные пайплайна
 - `qc/testitem_YYYYMMDD_qc.csv` — QC артефакты
@@ -42,30 +44,30 @@ graph TD
     A[Extract] --> B[Normalize]
     B --> C[Validate]
     C --> D[Postprocess]
-    
+
     subgraph "Extract"
         A1[ChEMBL API<br/>molecule endpoint]
         A2[PubChem API<br/>compound endpoint]
     end
-    
+
     subgraph "Normalize"
         B1[Стандартизация<br/>molecular_properties]
         B2[Обогащение<br/>PubChem данными]
         B3[Создание ключей<br/>molecule_chembl_id]
     end
-    
+
     subgraph "Validate"
         C1[Pandera схемы<br/>TestitemOutputSchema]
         C2[Бизнес-правила<br/>max_phase валидность]
         C3[Инварианты<br/>уникальность ID]
     end
-    
+
     subgraph "Postprocess"
         D1[QC отчёты<br/>fill_rate, duplicates]
         D2[Корреляции<br/>между источниками]
         D3[Метаданные<br/>статистика обработки]
     end
-    
+
     A1 --> A2
     A2 --> B1
     B1 --> B2
@@ -81,6 +83,7 @@ graph TD
 ### Маппинг полей
 
 **ChEMBL → testitem_dim**:
+
 - `molecule_chembl_id` → `molecule_chembl_id`
 - `molregno` → `molregno`
 - `pref_name` → `pref_name`
@@ -89,6 +92,7 @@ graph TD
 - `molecular_properties` → `mw_freebase`, `alogp`, `hba`, `hbd`, `psa`, `rtb`
 
 **PubChem → testitem_dim**:
+
 - `pubchem_cid` → `pubchem_cid`
 - `molecular_formula` → `pubchem_molecular_formula`
 - `molecular_weight` → `pubchem_molecular_weight`
@@ -96,14 +100,14 @@ graph TD
 - `inchi` → `pubchem_inchi`
 - `inchi_key` → `pubchem_inchi_key`
 
-## 3. Граф ETL
+## 3. Граф ETL (детализация)
 
 ```mermaid
 graph LR
     A[Extract] --> B[Normalize]
     B --> C[Validate]
     C --> D[Postprocess]
-    
+
     subgraph "Extract (S01-S06)"
         A1[S01: ChEMBL Status]
         A2[S02: Molecule Core]
@@ -112,16 +116,16 @@ graph LR
         A5[S05: PubChem]
         A6[S06: Synonyms]
     end
-    
+
     subgraph "Normalize (S07-S08)"
         B1[S07: Standardize]
         B2[S08: Normalize]
     end
-    
+
     subgraph "Validate (S09)"
         C1[S09: Pandera]
     end
-    
+
     subgraph "Postprocess (S10)"
         D1[S10: Persist]
         D2[QC Reports]
@@ -381,7 +385,7 @@ python src/scripts/get_testitem_data.py \
 
 ### Структура выходных файлов
 
-```
+```text
 data/output/testitem/
 ├── testitem__20240101.csv          # Основной датасет
 ├── meta.yaml                       # Метаданные
@@ -411,14 +415,14 @@ pipeline:
   name: testitems
   version: 1.1.0
   run_date: "2024-01-01T12:00:00Z"
-  
+
 sources:
   chembl:
     enabled: true
     records_processed: 1000
     records_successful: 995
     records_failed: 5
-  
+
   pubchem:
     enabled: true
     records_processed: 995
@@ -479,6 +483,7 @@ quality:
 ### Типовые фейлы и решения
 
 1. **Ошибка "Parent molecule missing"**
+
    ```bash
    # Решение: Включить allow_parent_missing в конфигурации
    pipeline:
@@ -486,24 +491,28 @@ quality:
    ```
 
 2. **Медленная обработка PubChem**
+
    ```bash
    # Решение: Отключить PubChem для тестирования
    python -m library.cli testitem-run --disable-pubchem true
    ```
 
 3. **Ошибки валидации структур**
+
    ```bash
    # Решение: Проверить логи стандартизации
    tail logs/app.log | grep "standardization"
    ```
 
 4. **Проблемы с кэшем**
+
    ```bash
    # Решение: Очистить кэш
    rm -rf .cache/chembl .cache/pubchem
    ```
 
 5. **Ошибки валидации Pandera**
+
    ```bash
    # Решение: Проверить схемы и данные
    python -c "from library.schemas.testitem_schema import TestitemOutputSchema; print('Schema loaded')"
@@ -631,7 +640,7 @@ make docker-run ENTITY=testitems CONFIG=configs/config_testitem_full.yaml
 
 После успешного выполнения в `data/output/testitem_YYYYMMDD/`:
 
-```
+```text
 testitem_20241201/
 ├── testitem_20241201.csv                    # Основные данные молекул
 ├── testitem_20241201_meta.yaml             # Метаданные пайплайна
@@ -674,7 +683,7 @@ testitem_20241201/
 ### Модули в src/
 
 - **Основной пайплайн**: `src/library/testitem/pipeline.py`
-- **API клиенты**: 
+- **API клиенты**:
   - `src/library/clients/chembl.py`
   - `src/library/clients/pubchem.py`
 - **Схемы валидации**: `src/library/schemas/testitem_schema.py`

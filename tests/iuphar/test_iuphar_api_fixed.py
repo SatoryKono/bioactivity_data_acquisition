@@ -1,20 +1,10 @@
 ﻿#!/usr/bin/env python3
 """РўРµСЃС‚ РёСЃРїСЂР°РІР»РµРЅРЅРѕРіРѕ API РїРѕРёСЃРєР° РІ IUPHAR Р°РґР°РїС‚РµСЂРµ."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
-import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import (
-    IupharApiCfg, 
-    _search_iuphar_targets,
-    _create_iuphar_session
-)
+from library.target.iuphar_adapter import IupharApiCfg, _create_iuphar_session, _search_iuphar_targets
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
@@ -47,6 +37,6 @@ for uniprot_id in test_uniprot_ids:
     else:
         print("Р РµР·СѓР»СЊС‚Р°С‚РѕРІ РЅРµС‚")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 print("Р•СЃР»Рё РёСЃРїСЂР°РІР»РµРЅРёРµ СЂР°Р±РѕС‚Р°РµС‚ РїСЂР°РІРёР»СЊРЅРѕ, РєР°Р¶РґС‹Р№ UniProt ID РґРѕР»Р¶РµРЅ РІРѕР·РІСЂР°С‰Р°С‚СЊ СѓРЅРёРєР°Р»СЊРЅС‹Рµ СЂРµР·СѓР»СЊС‚Р°С‚С‹.")
 

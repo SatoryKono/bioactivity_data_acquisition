@@ -3,7 +3,7 @@
 import signal
 import sys
 import threading
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from library.logging_setup import get_logger
 
@@ -58,7 +58,7 @@ class GracefulShutdownManager:
         """Check if shutdown has been requested."""
         return self._shutdown_requested
     
-    def wait_for_shutdown(self, timeout: Optional[float] = None) -> bool:
+    def wait_for_shutdown(self, timeout: float | None = None) -> bool:
         """Wait for shutdown to complete or timeout.
         
         Returns:
@@ -81,7 +81,7 @@ class GracefulShutdownManager:
 
 
 # Global instance for easy access
-_global_shutdown_manager: Optional[GracefulShutdownManager] = None
+_global_shutdown_manager: GracefulShutdownManager | None = None
 
 
 def get_shutdown_manager() -> GracefulShutdownManager:
@@ -110,7 +110,7 @@ def request_shutdown() -> None:
 class ShutdownContext:
     """Context manager for graceful shutdown handling."""
     
-    def __init__(self, timeout: Optional[float] = None):
+    def __init__(self, timeout: float | None = None):
         self.timeout = timeout
         self.shutdown_manager = get_shutdown_manager()
     

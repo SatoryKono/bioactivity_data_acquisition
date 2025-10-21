@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
 logger = logging.getLogger(__name__)
@@ -184,7 +184,7 @@ class ActivityValidator:
             #     nullable=False,
             #     description="Retrieval timestamp"
             # )
-        })
+        }, coerce=True)
 
     def get_normalized_schema(self) -> DataFrameSchema:
         """Schema for normalized activity data."""
@@ -278,6 +278,7 @@ class ActivityValidator:
         return DataFrameSchema(
             columns=all_columns,
             strict=False,  # Разрешаем дополнительные колонки (например, index)
+            coerce=True,  # Автоматическое преобразование типов
             checks=[
                 # Business rule: non-censored records must have both bounds and they must match standard_value
                 Check(
@@ -362,7 +363,7 @@ class ActivityValidator:
                 pa.String,
                 nullable=True,
                 checks=[
-                    Check(lambda x: x.isna().all(), name="no_validity_comments")
+                    Check(lambda x: x.isna().all(), name="no_validity_comments", element_wise=False)
                 ],
                 description="Data validity comment (must be null for strict)"
             ),
@@ -370,7 +371,7 @@ class ActivityValidator:
                 pa.String,
                 nullable=True,
                 checks=[
-                    Check(lambda x: ~x.isin(self.rejected_activity_comments).all(), name="no_rejected_comments")
+                    Check(lambda x: ~x.isin(self.rejected_activity_comments).all(), name="no_rejected_comments", element_wise=False)
                 ],
                 description="Activity comment (no rejected values for strict)"
             )
@@ -379,6 +380,7 @@ class ActivityValidator:
         return DataFrameSchema(
             columns=strict_columns,
             strict=False,  # Разрешаем дополнительные колонки
+            coerce=True,  # Автоматическое преобразование типов
             checks=base_schema.checks
         )
 
@@ -407,6 +409,7 @@ class ActivityValidator:
         return DataFrameSchema(
             columns=moderate_columns,
             strict=False,  # Разрешаем дополнительные колонки
+            coerce=True,  # Автоматическое преобразование типов
             checks=base_schema.checks
         )
 

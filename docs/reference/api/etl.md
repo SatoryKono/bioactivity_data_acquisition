@@ -1,143 +1,244 @@
-# ETL API
+# ETL API Reference
 
-Документация по модулям ETL (Extract, Transform, Load) для обработки данных.
+This document provides detailed API reference for the ETL (Extract, Transform, Load) functionality in the Bioactivity Data Acquisition library.
 
-## Основные модули
+## Overview
 
-### [Извлечение данных](extract.md)
+The ETL module provides a comprehensive framework for extracting, transforming, and loading bioactivity data from various sources including ChEMBL, PubChem, and other biological databases.
 
-Модули для извлечения данных из внешних источников.
+## Core ETL Classes
 
-::: library.etl.extract
+### ETLPipeline
 
-### [Трансформация данных](transform.md)
-
-Модули для трансформации и нормализации данных.
-
-::: library.etl.transform
-
-### [Загрузка данных](load.md)
-
-Модули для загрузки и сохранения обработанных данных.
-
-::: library.etl.load
-
-## Основные функции
-
-### Извлечение данных
-
-- `extract_molecules_batch`: Извлечение данных молекул батчами
-- `extract_targets_batch`: Извлечение данных мишеней батчами
-- `extract_activities_batch`: Извлечение данных активностей батчами
-
-### Трансформация данных
-
-- `normalize_molecules`: Нормализация данных молекул
-- `normalize_targets`: Нормализация данных мишеней
-- `normalize_activities`: Нормализация данных активностей
-
-### Загрузка данных
-
-- `save_dataframe`: Сохранение DataFrame в различных форматах
-- `load_dataframe`: Загрузка DataFrame из файлов
-- `validate_output`: Валидация выходных данных
-
-## Примеры использования
-
-### Извлечение данных
+The main ETL pipeline class that orchestrates the entire data processing workflow.
 
 ```python
-from library.etl.extract import extract_molecules_batch
-from library.clients.chembl import TestitemChEMBLClient
+from library.etl.pipeline import ETLPipeline
 
-client = TestitemChEMBLClient(config)
-molecules = extract_molecules_batch(client, molecule_ids, batch_size=50)
+pipeline = ETLPipeline(config)
+result = pipeline.run()
 ```
 
-### Трансформация данных
+#### Methods
+
+- `run()`: Execute the complete ETL pipeline
+- `extract()`: Extract data from sources
+- `transform()`: Transform extracted data
+- `load()`: Load transformed data to destination
+
+### DataExtractor
+
+Base class for data extraction from various sources.
 
 ```python
-from library.etl.transform import normalize_molecules
+from library.etl.extract import DataExtractor
 
-normalized = normalize_molecules(molecules, config)
+extractor = DataExtractor(config)
+data = extractor.extract()
 ```
 
-### Загрузка данных
+### DataTransformer
+
+Base class for data transformation operations.
 
 ```python
-from library.etl.load import save_dataframe
+from library.etl.transform import DataTransformer
 
-save_dataframe(normalized, "output/molecules.csv", format="csv")
+transformer = DataTransformer(config)
+transformed_data = transformer.transform(data)
 ```
 
-## Конфигурация ETL
+### DataLoader
 
-### Настройки batch обработки
+Base class for loading data to various destinations.
 
 ```python
-from library.config import ETLConfig
+from library.etl.load import DataLoader
 
-config = ETLConfig(
-    batch_size=100,
-    max_workers=4,
-    retry_attempts=3,
-    timeout=60
+loader = DataLoader(config)
+loader.load(data)
+```
+
+## Source-Specific Extractors
+
+### ChEMBLExtractor
+
+Extract data from ChEMBL database.
+
+```python
+from library.etl.extract import ChEMBLExtractor
+
+extractor = ChEMBLExtractor(
+    base_url="https://www.ebi.ac.uk/chembl/api/data",
+    timeout=30
 )
+data = extractor.extract_molecules(molecule_ids)
 ```
 
-### Настройки валидации
+### PubChemExtractor
+
+Extract data from PubChem database.
 
 ```python
-config = ETLConfig(
-    validation_enabled=True,
-    strict_validation=True,
-    skip_invalid_records=False
+from library.etl.extract import PubChemExtractor
+
+extractor = PubChemExtractor(
+    base_url="https://pubchem.ncbi.nlm.nih.gov/rest/pug",
+    timeout=30
 )
+data = extractor.extract_compounds(compound_ids)
 ```
 
-## Обработка ошибок
+### IUPHARExtractor
 
-### Retry механизм
-
-```python
-from library.etl.extract import extract_with_retry
-
-try:
-    data = extract_with_retry(
-        extract_func,
-        max_retries=3,
-        backoff_factor=2
-    )
-except MaxRetriesExceeded:
-    logger.error("Превышено максимальное количество попыток")
-```
-
-### Fallback стратегии
+Extract data from IUPHAR database.
 
 ```python
-from library.etl.extract import extract_with_fallback
+from library.etl.extract import IUPHARExtractor
 
-data = extract_with_fallback(
-    primary_extractor,
-    fallback_extractor,
-    fallback_condition=lambda x: len(x) == 0
+extractor = IUPHARExtractor(
+    base_url="https://www.guidetopharmacology.org/services",
+    timeout=30
 )
+data = extractor.extract_targets(target_ids)
 ```
 
-## Мониторинг и метрики
+## Data Transformation
 
-### Логирование прогресса
+### Normalization
+
+Normalize data to standard formats.
 
 ```python
-from library.etl.monitoring import ProgressTracker
+from library.etl.transform import DataNormalizer
 
-tracker = ProgressTracker(total_items=1000)
-for item in items:
-    process_item(item)
-    tracker.update(1)
+normalizer = DataNormalizer()
+normalized_data = normalizer.normalize(data)
 ```
 
-### Метрики производительности
+### Validation
+
+Validate data against schemas.
+
+```python
+from library.etl.transform import DataValidator
+
+validator = DataValidator(schema)
+is_valid = validator.validate(data)
+```
+
+### Enrichment
+
+Enrich data with additional information.
+
+```python
+from library.etl.transform import DataEnricher
+
+enricher = DataEnricher()
+enriched_data = enricher.enrich(data)
+```
+
+## Data Loading
+
+### CSV Loader
+
+Load data to CSV files.
+
+```python
+from library.etl.load import CSVLoader
+
+loader = CSVLoader(output_dir="data/output")
+loader.load(data, filename="results.csv")
+```
+
+### JSON Loader
+
+Load data to JSON files.
+
+```python
+from library.etl.load import JSONLoader
+
+loader = JSONLoader(output_dir="data/output")
+loader.load(data, filename="results.json")
+```
+
+### Database Loader
+
+Load data to database.
+
+```python
+from library.etl.load import DatabaseLoader
+
+loader = DatabaseLoader(connection_string="sqlite:///data.db")
+loader.load(data, table_name="results")
+```
+
+## Quality Control
+
+### QC Metrics
+
+Calculate quality control metrics.
+
+```python
+from library.etl.qc import QCMetrics
+
+metrics = QCMetrics()
+qc_results = metrics.calculate(data)
+```
+
+### Correlation Analysis
+
+Perform correlation analysis on data.
+
+```python
+from library.etl.qc import CorrelationAnalyzer
+
+analyzer = CorrelationAnalyzer()
+correlations = analyzer.analyze(data)
+```
+
+### Data Profiling
+
+Profile data for quality assessment.
+
+```python
+from library.etl.qc import DataProfiler
+
+profiler = DataProfiler()
+profile = profiler.profile(data)
+```
+
+## Error Handling
+
+### Retry Mechanisms
+
+Built-in retry logic for failed operations.
+
+```python
+from library.etl.utils import retry_with_backoff
+
+@retry_with_backoff(max_retries=3, backoff_factor=2.0)
+def extract_data():
+    # Extraction logic
+    pass
+```
+
+### Circuit Breaker
+
+Circuit breaker pattern for external API calls.
+
+```python
+from library.etl.utils import CircuitBreaker
+
+breaker = CircuitBreaker(failure_threshold=5, timeout=60)
+data = breaker.call(api_function)
+```
+
+## Performance Monitoring
+
+### Metrics Collection
+
+Collect performance metrics during ETL operations.
 
 ```python
 from library.etl.metrics import PerformanceMetrics

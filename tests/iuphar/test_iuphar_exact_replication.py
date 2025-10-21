@@ -1,23 +1,10 @@
 ﻿#!/usr/bin/env python3
 """РўРѕС‡РЅРѕРµ РІРѕСЃРїСЂРѕРёР·РІРµРґРµРЅРёРµ Р»РѕРіРёРєРё iter_iuphar_batches."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
-import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import (
-    _build_iuphar_lookup_index, 
-    _map_via_csv_first, 
-    _map_via_api, 
-    _map_via_simple_fallback,
-    _create_iuphar_session,
-    IupharApiCfg
-)
+from library.target.iuphar_adapter import IupharApiCfg, _build_iuphar_lookup_index, _create_iuphar_session, _map_via_api, _map_via_csv_first, _map_via_simple_fallback
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ РЅР° DEBUG СѓСЂРѕРІРµРЅСЊ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
@@ -80,5 +67,5 @@ if mapped:
 else:
     print("\nРќРёРєР°РєРѕРіРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р° РЅРµ РїРѕР»СѓС‡РµРЅРѕ!")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 

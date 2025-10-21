@@ -1,16 +1,10 @@
 ﻿#!/usr/bin/env python3
 """РџРѕР»РЅС‹Р№ С‚РµСЃС‚ СЃ debug Р»РѕРіРёСЂРѕРІР°РЅРёРµРј РґР»СЏ РїРѕРЅРёРјР°РЅРёСЏ РїСЂРѕР±Р»РµРјС‹."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
-import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import _map_via_csv_first, _build_iuphar_lookup_index, IupharApiCfg
+from library.target.iuphar_adapter import IupharApiCfg, _build_iuphar_lookup_index, _map_via_csv_first
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ РЅР° DEBUG СѓСЂРѕРІРµРЅСЊ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
@@ -43,5 +37,5 @@ if result:
 else:
     print("CSV lookup РЅРµ РЅР°С€РµР» СЃРѕРІРїР°РґРµРЅРёР№")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 

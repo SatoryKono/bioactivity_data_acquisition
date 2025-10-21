@@ -1,9 +1,9 @@
 """HTTP clients for external literature sources."""
 from .base import RateLimitConfig, RateLimiter
-from .exceptions import ApiClientError, RateLimitError
 from .bioactivity import BioactivityClient
 from .chembl import ChEMBLClient
 from .crossref import CrossrefClient
+from .exceptions import ApiClientError, RateLimitError
 from .openalex import OpenAlexClient
 from .pubmed import PubMedClient
 from .semantic_scholar import SemanticScholarClient

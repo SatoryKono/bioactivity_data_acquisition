@@ -36,7 +36,7 @@ try {
 # Test make version command (if available)
 Write-Host "Testing 'make version' command..." -ForegroundColor Yellow
 try {
-    $versionOutput = & make version 2>&1
+    & make version 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ 'make version' executed successfully" -ForegroundColor Green
     } else {

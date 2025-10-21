@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import logging
-import pandas as pd
 
-from library.schemas.testitem_schema import TestitemNormalizedSchema
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 

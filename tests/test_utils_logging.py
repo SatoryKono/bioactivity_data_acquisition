@@ -1,10 +1,9 @@
 """Tests for logging utilities."""
 
-import pytest
 import json
 from unittest.mock import patch
 
-from library.utils.logging import configure_logging, bind_stage
+from library.utils.logging import bind_stage, configure_logging
 
 
 class TestLoggingConfiguration:

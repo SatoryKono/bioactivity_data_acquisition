@@ -276,11 +276,47 @@ class ActivityPipeline:
 
             # Prepare filter params (activity_ids dominate)
             act_ids = filter_ids.get("activity_ids") or None
+            
+            # Special handling for activity_ids: use fetch_all_activities for proper chunking
+            if act_ids:
+                logger.info(f"Processing {len(act_ids)} activity_ids using chunked approach")
+                
+                # Use fetch_all_activities which handles chunking automatically
+                all_activities = []
+                batch_size = getattr(self.config.runtime, "batch_size", 1000)
+                
+                for activity in self.client.fetch_all_activities(
+                    limit=batch_size,
+                    activity_ids=act_ids,
+                    use_cache=True,
+                ):
+                    all_activities.append(activity)
+                    
+                    # Check limit
+                    if self.config.limit is not None and len(all_activities) >= self.config.limit:
+                        logger.info(f"Reached global limit of {self.config.limit} activities")
+                        break
+                
+                if not all_activities:
+                    logger.info("No activities fetched")
+                    return pd.DataFrame()
+                
+                # Convert to DataFrame and process
+                result_df = pd.DataFrame(all_activities)
+                logger.info(f"Fetched {len(result_df)} activities using chunked approach")
+                
+                # Validate and normalize
+                validated_df = self._validate_activities(result_df, logger)
+                normalized_df = self._normalize_activities(validated_df, logger)
+                
+                return normalized_df
+            
+            # For other filter types, use the original batch approach
             filter_params = {
-                "activity_ids": act_ids,
-                "assay_ids": None if act_ids else (filter_ids.get("assay_ids") or None),
-                "molecule_ids": None if act_ids else (filter_ids.get("molecule_ids") or None),
-                "target_ids": None if act_ids else (filter_ids.get("target_ids") or None),
+                "activity_ids": None,
+                "assay_ids": filter_ids.get("assay_ids") or None,
+                "molecule_ids": filter_ids.get("molecule_ids") or None,
+                "target_ids": filter_ids.get("target_ids") or None,
             }
 
             batch_size = getattr(self.config.runtime, "batch_size", 1000)
@@ -484,8 +520,8 @@ class ActivityPipeline:
                     "limit": self.config.limit,
                     "workers": getattr(self.config.runtime, "workers", 4),
                     "qc_enabled": (
-                        getattr(getattr(self.config, "postprocess", None), "qc", {}).get("enabled", True)
-                        if hasattr(getattr(self.config, "postprocess", None), "qc")
+                        self.config.postprocess.qc.enabled
+                        if hasattr(self.config, "postprocess") and hasattr(self.config.postprocess, "qc")
                         else True
                     ),
                 }

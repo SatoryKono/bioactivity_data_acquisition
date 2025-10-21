@@ -1,18 +1,18 @@
 """Tests for health checker functionality."""
 
-import pytest
-import responses
 from unittest.mock import Mock, patch
+
+import responses
 from pydantic import HttpUrl
 
 from library.clients.health import (
     HealthChecker,
-    HealthStatus,
     HealthCheckStrategy,
+    HealthStatus,
     SimpleHealthClient,
     create_health_checker_from_config,
 )
-from library.config import APIClientConfig, RetrySettings
+from library.config import APIClientConfig
 
 
 class TestHealthCheckStrategy:

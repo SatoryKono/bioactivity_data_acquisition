@@ -1,16 +1,10 @@
 ﻿#!/usr/bin/env python3
 """Р”РµС‚Р°Р»СЊРЅС‹Р№ С‚РµСЃС‚ CSV lookup РґР»СЏ РїРѕРЅРёРјР°РЅРёСЏ СЃРѕРІРїР°РґРµРЅРёСЏ."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
-import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import _build_iuphar_lookup_index, IupharApiCfg
+from library.target.iuphar_adapter import IupharApiCfg, _build_iuphar_lookup_index
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
@@ -39,7 +33,7 @@ print(f"gene_symbol: {target_data['gene_symbol']}")
 print(f"mapping_uniprot_id: {target_data['mapping_uniprot_id']}")
 
 # РџСЂРѕРІРµСЂСЏРµРј РєР°Р¶РґС‹Р№ РёРЅРґРµРєСЃ РѕС‚РґРµР»СЊРЅРѕ
-print(f"\n--- РџСЂРѕРІРµСЂРєР° РёРЅРґРµРєСЃРѕРІ ---")
+print("\n--- РџСЂРѕРІРµСЂРєР° РёРЅРґРµРєСЃРѕРІ ---")
 
 # 1. РџРѕРёСЃРє РїРѕ target_id
 target_id = target_data.get("target_id", "")
@@ -78,7 +72,7 @@ else:
     print(f"[NOT FOUND] РќРµ РЅР°Р№РґРµРЅРѕ РїРѕ pref_name: {pref_name}")
 
 # РџСЂРѕРІРµСЂСЏРµРј, РµСЃС‚СЊ Р»Рё РїРѕС…РѕР¶РёРµ Р·Р°РїРёСЃРё РІ РёРЅРґРµРєСЃР°С…
-print(f"\n--- РџРѕРёСЃРє РїРѕС…РѕР¶РёС… Р·Р°РїРёСЃРµР№ ---")
+print("\n--- РџРѕРёСЃРє РїРѕС…РѕР¶РёС… Р·Р°РїРёСЃРµР№ ---")
 
 # РџРѕРёСЃРє РїРѕ С‡Р°СЃС‚РёС‡РЅРѕРјСѓ СЃРѕРІРїР°РґРµРЅРёСЋ gene_symbol
 if gene_symbol:
@@ -98,5 +92,5 @@ if pref_name:
             csv_data = lookup_index["by_name"][similar_name]
             print(f"  {similar_name}: target_id={csv_data.get('target_id', 'N/A')}, name={csv_data.get('target_name', 'N/A')}")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 

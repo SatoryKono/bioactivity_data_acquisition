@@ -1,17 +1,18 @@
 """Tests for GtoPdb enrichment functionality."""
 
-import pytest
-import pandas as pd
 from unittest.mock import Mock, patch
 
-from library.clients.gtopdb import GtoPdbClient, CircuitBreaker, RateLimiter
+import pandas as pd
+import pytest
+
+from library.clients.gtopdb import CircuitBreaker, GtoPdbClient, RateLimiter
+from library.config import APIClientConfig
 from library.target.gtopdb_adapter import (
     GtopdbApiCfg,
-    enrich_targets_with_gtopdb,
     _extract_gtop_id,
     _extract_gtop_synonyms,
+    enrich_targets_with_gtopdb,
 )
-from library.config import APIClientConfig
 
 
 class TestCircuitBreaker:

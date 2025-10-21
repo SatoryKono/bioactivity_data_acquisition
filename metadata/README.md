@@ -4,7 +4,7 @@
 
 ## Структура
 
-```
+```text
 metadata/
 ├── manifests/          # Манифесты пайплайнов и процессов
 │   ├── documents_pipeline.json      # Основной манифест пайплайна документов
@@ -24,7 +24,9 @@ metadata/
 Манифесты содержат метаданные о различных процессах и пайплайнах в формате JSON:
 
 ### documents_pipeline.json
+
 Основной манифест пайплайна обработки документов. Содержит:
+
 - Информацию о репозитории и версиях
 - Конфигурацию CLI и конфигов
 - Этапы ETL (Extract, Validate, Transform, Load)
@@ -33,7 +35,9 @@ metadata/
 - Артефакты
 
 ### documents_postprocess.json
+
 Детальный манифест постобработки документов. Содержит:
+
 - Модуль и исходные таблицы
 - Пошаговые этапы постобработки (P01-P06)
 - Промежуточные и финальные артефакты
@@ -42,14 +46,18 @@ metadata/
 - Настройки логирования
 
 ### cleanup_manifest.json
+
 Манифест процесса очистки данных. Содержит:
+
 - Список больших файлов с размерами
 - Логи и временные файлы
 - Тестовые выходы
 - Кэш Python (__pycache__)
 
 ### targets_pipeline.json
+
 Манифест пайплайна обработки целей (targets). Содержит:
+
 - Конфигурацию источников (ChEMBL, UniProt, IUPHAR)
 - Этапы ETL (extract, normalize, validate, enrich, load)
 - Схемы валидации и контроля качества
@@ -57,7 +65,9 @@ metadata/
 - Артефакты и выходные файлы
 
 ### assays_pipeline.json
+
 Манифест пайплайна обработки анализов (assays). Содержит:
+
 - Конфигурацию источника ChEMBL
 - Поля данных анализов (тип, категория, организм, ткань)
 - Схемы валидации и контроля качества
@@ -65,7 +75,9 @@ metadata/
 - Артефакты и выходные файлы
 
 ### activities_pipeline.json
+
 Манифест пайплайна обработки активностей (activities). Содержит:
+
 - Конфигурацию источника ChEMBL
 - Поля данных активностей (тип, значение, единицы измерения)
 - Схемы валидации и контроля качества
@@ -73,7 +85,9 @@ metadata/
 - Артефакты и выходные файлы
 
 ### testitems_pipeline.json
+
 Манифест пайплайна обработки тестовых элементов (testitems). Содержит:
+
 - Конфигурацию источников (ChEMBL, PubChem)
 - Поля молекулярных данных (SMILES, InChI, свойства)
 - Схемы валидации структур
@@ -81,7 +95,9 @@ metadata/
 - Артефакты и выходные файлы
 
 ### quality_manifest.json
+
 Манифест контроля качества. Содержит:
+
 - Анализ версий Python и пакетных менеджеров
 - CLI фреймворк и команды
 - Конфигурационные файлы и форматы
@@ -100,7 +116,9 @@ metadata/
 Отчёты содержат результаты аудитов и анализа в формате CSV/TSV:
 
 ### config_audit.csv
+
 Аудит конфигурационных параметров с колонками:
+
 - `parameter` - имя параметра
 - `value` - значение
 - `source` - источник (файл, переменная окружения)
@@ -110,18 +128,22 @@ metadata/
 ## Схема именования
 
 ### Манифесты
+
 Формат: `<pipeline>_<process>.json`
 
 Примеры:
+
 - `documents_pipeline.json` - основной манифест пайплайна документов
 - `documents_postprocess.json` - манифест постобработки документов
 - `cleanup_manifest.json` - манифест очистки
 - `quality_manifest.json` - манифест качества
 
 ### Отчёты
+
 Формат: `<type>_<pipeline>/<filename>`
 
 Примеры:
+
 - `config_audit.csv` - аудит конфигурации
 - `quality_documents/validation_report.csv` - отчёт валидации документов
 - `performance_assays/benchmark_results.csv` - результаты бенчмарков
@@ -129,6 +151,7 @@ metadata/
 ## Связь с пайплайнами
 
 ### CLI команды
+
 Манифесты связаны с CLI командами через поле `cli_commands`:
 
 ```bash
@@ -155,7 +178,9 @@ python -m library.cli pipeline --config configs/config.yaml
 ```
 
 ### Конфигурационные файлы
+
 Манифесты ссылаются на конфигурационные файлы:
+
 - `configs/config.yaml` - основная конфигурация
 - `configs/config_documents_full.yaml` - полная конфигурация документов
 - `configs/config_target_full.yaml` - полная конфигурация целей
@@ -165,16 +190,18 @@ python -m library.cli pipeline --config configs/config.yaml
 - `configs/schema.json` - JSON схема конфигурации
 
 ### Артефакты
+
 Манифесты определяют входные и выходные артефакты:
-- **Входные**: `data/input/*.csv` (documents.csv, target.csv, assay.csv, activity.csv, testitem.csv)
-- **Выходные по сущностям**:
-  - **Documents**: `data/output/documents/*.csv`, `data/output/_documents/*.csv`
-  - **Targets**: `data/output/target/*.csv`, `data/output/target/*.yaml`
-  - **Assays**: `data/output/assay/*.csv`, `data/output/assay/*.yaml`
-  - **Activities**: `data/output/activity/*.csv`, `data/output/activity/*.yaml`
-  - **Testitems**: `data/output/testitem/*.csv`, `data/output/testitem/*.yaml`
-- **Отчёты QC**: `data/output/*/qc_report_*.csv`
-- **Метаданные**: `data/output/*/metadata_*.yaml`
+
+- __Входные__: `data/input/*.csv` (documents.csv, target.csv, assay.csv, activity.csv, testitem.csv)
+- __Выходные по сущностям__:
+  - __Documents__: `data/output/documents/*.csv`, `data/output/_documents/*.csv`
+  - __Targets__: `data/output/target/*.csv`, `data/output/target/*.yaml`
+  - __Assays__: `data/output/assay/*.csv`, `data/output/assay/*.yaml`
+  - __Activities__: `data/output/activity/*.csv`, `data/output/activity/*.yaml`
+  - __Testitems__: `data/output/testitem/*.csv`, `data/output/testitem/*.yaml`
+- __Отчёты QC__: `data/output/*/qc_report_*.csv`
+- __Метаданные__: `data/output/*/metadata_*.yaml`
 
 ## Формат JSON
 
@@ -222,6 +249,7 @@ reports = [
 ```
 
 Дополнительная интеграция:
+
 - Зависимости в секции `[project.dependencies]`
 - CLI entry points в секции `[project.scripts]`
 - Конфигурация инструментов в секции `[tool.*]`
@@ -229,8 +257,11 @@ reports = [
 ## Мониторинг и аудит
 
 Манифесты используются для:
+
 - Автоматической генерации отчётов
 - Валидации конфигураций
 - Мониторинга качества данных
 - Аудита производительности
 - Отслеживания изменений в пайплайнах
+ 
+ 

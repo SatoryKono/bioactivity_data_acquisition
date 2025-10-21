@@ -264,7 +264,7 @@ class PRCreator:
             return False
         
         # 4. Создать PR
-        pr_title = f"Stage 11: Final validation and cleanup completion"
+        pr_title = "Stage 11: Final validation and cleanup completion"
         pr_description = self.generate_pr_description()
         
         if not self.create_pr(current_branch, pr_title, pr_description):

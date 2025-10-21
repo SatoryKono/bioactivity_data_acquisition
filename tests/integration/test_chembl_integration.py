@@ -1,8 +1,8 @@
 """Integration tests for ChEMBL API client."""
 
-import pytest
 import os
-from unittest.mock import patch
+
+import pytest
 
 from library.clients.chembl import ChEMBLClient
 from library.clients.exceptions import ApiClientError

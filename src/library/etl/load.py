@@ -248,7 +248,11 @@ def _apply_qc_thresholds(
             }
         ]
     )
-    return pd.concat([qc_with_thresholds, summary], ignore_index=True)
+    # Filter out empty DataFrames to avoid FutureWarning
+    dataframes_to_concat = [df for df in [qc_with_thresholds, summary] if not df.empty]
+    if not dataframes_to_concat:
+        return pd.DataFrame()
+    return pd.concat(dataframes_to_concat, ignore_index=True)
 
 
 def write_deterministic_csv(
@@ -405,12 +409,15 @@ def _auto_generate_qc_and_correlation_reports(
     from library.config import ParquetFormatSettings as _ParquetFormatSettings
     from library.config import QCValidationSettings as _QCValidationSettings
 
-    from .qc import (build_correlation_insights_report,
-                     build_correlation_matrix,
-                     build_enhanced_correlation_analysis_report,
-                     build_enhanced_correlation_reports_df,
-                     build_enhanced_qc_detailed_reports,
-                     build_enhanced_qc_report, build_qc_report)
+    from .qc import (
+        build_correlation_insights_report,
+        build_correlation_matrix,
+        build_enhanced_correlation_analysis_report,
+        build_enhanced_correlation_reports_df,
+        build_enhanced_qc_detailed_reports,
+        build_enhanced_qc_report,
+        build_qc_report,
+    )
     
     csv_settings: CsvFormatSettings
     parquet_settings: ParquetFormatSettings

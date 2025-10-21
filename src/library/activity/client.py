@@ -290,7 +290,7 @@ class ActivityChEMBLClient(BaseApiClient):
         param_string = json.dumps(sorted_params, sort_keys=True)
         
         # Create hash
-        hash_obj = hashlib.md5(param_string.encode('utf-8'))
+        hash_obj = hashlib.sha256(param_string.encode('utf-8'))
         return hash_obj.hexdigest()
 
     def _parse_activity(self, activity_data: dict[str, Any]) -> dict[str, Any]:

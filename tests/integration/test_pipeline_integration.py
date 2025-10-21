@@ -1,14 +1,11 @@
 """Integration tests for the complete ETL pipeline."""
 
-import pytest
-import pandas as pd
-from pathlib import Path
-import tempfile
-import os
 
-from library.documents.pipeline import run_document_etl
-from library.documents.config import load_document_config
+import pandas as pd
+import pytest
+
 from library.config import Config
+from library.documents.pipeline import run_document_etl
 
 
 @pytest.mark.integration

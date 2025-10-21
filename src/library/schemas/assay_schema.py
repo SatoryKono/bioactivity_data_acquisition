@@ -89,6 +89,20 @@ class AssayRawSchema(pa.DataFrameModel):
         nullable=True
     )
     
+    # Variant fields
+    variant_id: Series[object] = pa.Field(
+        description="ChEMBL variant identifier",
+        nullable=True
+    )
+    variant_text: Series[str] = pa.Field(
+        description="Variant description text",
+        nullable=True
+    )
+    variant_sequence_id: Series[object] = pa.Field(
+        description="Variant sequence identifier",
+        nullable=True
+    )
+    
     # Biological context fields
     assay_organism: Series[str] = pa.Field(
         description="Assay organism",
@@ -217,6 +231,36 @@ class AssayNormalizedSchema(pa.DataFrameModel):
     )
     confidence_score: Series[object] = pa.Field(
         description="Confidence score (0-9)",
+        nullable=True
+    )
+    
+    # Variant fields
+    variant_id: Series[object] = pa.Field(
+        description="ChEMBL variant identifier",
+        nullable=True
+    )
+    is_variant: Series[bool] = pa.Field(
+        description="Flag indicating if assay has variant data",
+        nullable=False
+    )
+    variant_accession: Series[str] = pa.Field(
+        description="UniProt accession of variant",
+        nullable=True
+    )
+    variant_mutations: Series[str] = pa.Field(
+        description="Raw description of variant mutations",
+        nullable=True
+    )
+    variant_text: Series[str] = pa.Field(
+        description="Variant description text from assay",
+        nullable=True
+    )
+    target_uniprot_accession: Series[str] = pa.Field(
+        description="Base UniProt accession of target",
+        nullable=True
+    )
+    target_isoform: Series[object] = pa.Field(
+        description="Target isoform number (extracted from UniProt accession)",
         nullable=True
     )
     

@@ -1,13 +1,14 @@
 """Tests for testitem ETL pipeline."""
 
-import pytest
-import pandas as pd
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pandas as pd
+import pytest
+
+from library.testitem.clients import PubChemClient, TestitemChEMBLClient
 from library.testitem.config import TestitemConfig
-from library.testitem.pipeline import run_testitem_etl, TestitemValidationError
-from library.testitem.clients import TestitemChEMBLClient, PubChemClient
+from library.testitem.pipeline import TestitemValidationError, run_testitem_etl
 
 
 class TestTestitemConfig:
@@ -120,9 +121,10 @@ class TestTestitemPipeline:
 
     def test_index_column_addition(self):
         """Test that index column is added to the output data."""
-        from library.etl.load import write_deterministic_csv
-        from library.config import DeterminismSettings, CsvFormatSettings, OutputSettings
         import tempfile
+
+        from library.config import CsvFormatSettings, DeterminismSettings, OutputSettings
+        from library.etl.load import write_deterministic_csv
         
         # Create test data without index column
         test_data = pd.DataFrame({

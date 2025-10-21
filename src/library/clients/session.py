@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import threading
-from urllib3.util.retry import Retry
 
 import requests
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 _SESSION: requests.Session | None = None
 _LOCK = threading.Lock()

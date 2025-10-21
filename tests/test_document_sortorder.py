@@ -1,9 +1,8 @@
 """Тесты для функции определения document_sortorder."""
 
 import pandas as pd
-import pytest
 
-from library.documents.pipeline import _determine_document_sortorder, _add_document_sortorder_column
+from library.documents.pipeline import _add_document_sortorder_column, _determine_document_sortorder
 
 
 class TestDocumentSortorder:

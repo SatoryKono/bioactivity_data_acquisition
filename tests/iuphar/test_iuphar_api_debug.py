@@ -1,11 +1,9 @@
 ﻿#!/usr/bin/env python3
 """Р”РµС‚Р°Р»СЊРЅС‹Р№ С‚РµСЃС‚ API Р·Р°РїСЂРѕСЃРѕРІ Рє IUPHAR."""
 
-import logging
 import requests
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
 
 print("=== Р”РµС‚Р°Р»СЊРЅС‹Р№ С‚РµСЃС‚ API Р·Р°РїСЂРѕСЃРѕРІ Рє IUPHAR ===")
 
@@ -30,14 +28,14 @@ for uniprot_id in test_uniprot_ids:
     params1 = {"search": uniprot_id, "limit": 5}
     try:
         response1 = session.get(url1, params=params1, timeout=30)
-        print(f"   URL: {response1.url}")
-        print(f"   Status: {response1.status_code}")
+        print("   URL:", response1.url)
+        print("   Status:", response1.status_code)
         data1 = response1.json()
         if isinstance(data1, list) and data1:
             print(f"   Р РµР·СѓР»СЊС‚Р°С‚РѕРІ: {len(data1)}")
             print(f"   РџРµСЂРІС‹Р№: targetId={data1[0].get('targetId', 'N/A')}, name={data1[0].get('name', 'N/A')}")
         else:
-            print(f"   Результат: {data1}")
+            print("   Результат:", data1)
     except Exception as e:
         print(f"   Ошибка: {e}")
     
@@ -47,14 +45,14 @@ for uniprot_id in test_uniprot_ids:
     params2 = {"accession": uniprot_id, "database": "UniProt", "limit": 5}
     try:
         response2 = session.get(url2, params=params2, timeout=30)
-        print(f"   URL: {response2.url}")
-        print(f"   Status: {response2.status_code}")
+        print("   URL:", response2.url)
+        print("   Status:", response2.status_code)
         data2 = response2.json()
         if isinstance(data2, list) and data2:
             print(f"   Р РµР·СѓР»СЊС‚Р°С‚РѕРІ: {len(data2)}")
             print(f"   РџРµСЂРІС‹Р№: targetId={data2[0].get('targetId', 'N/A')}, name={data2[0].get('name', 'N/A')}")
         else:
-            print(f"   Результат: {data2}")
+            print("   Результат:", data2)
     except Exception as e:
         print(f"   Ошибка: {e}")
     
@@ -64,14 +62,14 @@ for uniprot_id in test_uniprot_ids:
     params3 = {"uniprot": uniprot_id, "limit": 5}
     try:
         response3 = session.get(url3, params=params3, timeout=30)
-        print(f"   URL: {response3.url}")
-        print(f"   Status: {response3.status_code}")
+        print("   URL:", response3.url)
+        print("   Status:", response3.status_code)
         data3 = response3.json()
         if isinstance(data3, list) and data3:
             print(f"   Р РµР·СѓР»СЊС‚Р°С‚РѕРІ: {len(data3)}")
             print(f"   РџРµСЂРІС‹Р№: targetId={data3[0].get('targetId', 'N/A')}, name={data3[0].get('name', 'N/A')}")
         else:
-            print(f"   Результат: {data3}")
+            print("   Результат:", data3)
     except Exception as e:
         print(f"   Ошибка: {e}")
 

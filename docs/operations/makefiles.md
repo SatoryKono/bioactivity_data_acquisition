@@ -306,6 +306,7 @@ make clean
 ### Common issues
 
 1. **Missing TYPE parameter**:
+
    ```bash
    # Error: TYPE is required
    make pipeline
@@ -315,6 +316,7 @@ make clean
    ```
 
 2. **Missing CONFIG parameter**:
+
    ```bash
    # Error: CONFIG is required for health
    make health
@@ -324,6 +326,7 @@ make clean
    ```
 
 3. **Invalid TYPE**:
+
    ```bash
    # Error: Invalid TYPE
    make pipeline TYPE=invalid

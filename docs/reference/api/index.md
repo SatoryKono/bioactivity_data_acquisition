@@ -1,151 +1,326 @@
 # API Reference
 
-Автогенерированная документация по всем модулям и функциям библиотеки Bioactivity Data Acquisition.
+This document provides comprehensive API reference for the Bioactivity Data Acquisition library.
 
-## Модули
+## Core Modules
 
-### [Конфигурация](config.md)
+### Activity Module
 
-Управление конфигурацией ETL-пайплайна.
+The activity module provides functionality for extracting and processing bioactivity data from ChEMBL.
 
-::: library.config
+#### ActivityConfig
 
-### [HTTP клиенты](clients.md)
-
-Клиенты для работы с внешними API источниками.
-
-::: library.clients
-
-### [ETL пайплайн](etl.md)
-
-Основные компоненты ETL-процесса.
-
-::: library.etl
-
-### [Схемы данных](schemas.md)
-
-Pandera схемы для валидации данных.
-
-::: library.schemas
-
-## Как использовать API
-
-### Импорт модулей
+Configuration class for activity data processing.
 
 ```python
-from library.config import Config
-from library.clients.chembl import TestitemChEMBLClient
-from library.testitem.pipeline import run_testitem_etl
+from library.activity import ActivityConfig
+
+config = ActivityConfig.from_yaml("config.yaml")
 ```
 
-### Базовый пример использования
+#### ActivityPipeline
+
+Main pipeline class for activity data processing.
 
 ```python
-from library.testitem.config import TestitemConfig
-from library.testitem.pipeline import run_testitem_etl
+from library.activity import ActivityPipeline
 
-# Загрузка конфигурации
-config = TestitemConfig.from_file("configs/config.yaml")
-
-# Запуск пайплайна
-result = run_testitem_etl(config, input_path="data/input/testitem.csv")
+pipeline = ActivityPipeline(config)
+result = pipeline.run()
 ```
 
-## Основные классы
+### Target Module
 
-### Конфигурация
+The target module handles target data extraction and enrichment.
 
-- `Config`: Базовый класс конфигурации
-- `TestitemConfig`: Конфигурация для testitem пайплайна
-- `TargetConfig`: Конфигурация для target пайплайна
-- `ActivityConfig`: Конфигурация для activity пайплайна
+#### TargetConfig
 
-### Клиенты
-
-- `TestitemChEMBLClient`: Клиент для ChEMBL API
-- `PubChemClient`: Клиент для PubChem API
-- `UniProtClient`: Клиент для UniProt API
-
-### Пайплайны
-
-- `run_testitem_etl`: ETL пайплайн для testitem
-- `run_target_etl`: ETL пайплайн для target
-- `run_activity_etl`: ETL пайплайн для activity
-
-## Схемы данных
-
-### Входные схемы
-
-- `TestitemInputSchema`: Схема входных данных для testitem
-- `TargetInputSchema`: Схема входных данных для target
-- `ActivityInputSchema`: Схема входных данных для activity
-
-### Выходные схемы
-
-- `TestitemOutputSchema`: Схема выходных данных для testitem
-- `TargetOutputSchema`: Схема выходных данных для target
-- `ActivityOutputSchema`: Схема выходных данных для activity
-
-## Обработка ошибок
-
-### Типы исключений
-
-- `ConfigError`: Ошибки конфигурации
-- `APIError`: Ошибки API клиентов
-- `ValidationError`: Ошибки валидации данных
-
-### Пример обработки ошибок
+Configuration for target data processing.
 
 ```python
-from library.exceptions import ConfigError, APIError
+from library.target import TargetConfig
 
-try:
-    config = TestitemConfig.from_file("config.yaml")
-    result = run_testitem_etl(config, input_path="input.csv")
-except ConfigError as e:
-    print(f"Ошибка конфигурации: {e}")
-except APIError as e:
-    print(f"Ошибка API: {e}")
+config = TargetConfig.from_yaml("config.yaml")
 ```
 
-## Логирование
+#### TargetPipeline
 
-### Настройка логирования
+Pipeline for target data processing.
 
 ```python
-import structlog
+from library.target import TargetPipeline
 
-logger = structlog.get_logger()
-
-logger.info("Запуск пайплайна", pipeline="testitem", input_file="input.csv")
+pipeline = TargetPipeline(config)
+result = pipeline.run()
 ```
 
-### Уровни логирования
+### Assay Module
 
-- `DEBUG`: Детальная отладочная информация
-- `INFO`: Общая информация о работе
-- `WARNING`: Предупреждения
-- `ERROR`: Ошибки
-- `CRITICAL`: Критические ошибки
+The assay module provides assay data processing capabilities.
 
-## Производительность
+#### AssayConfig
 
-### Batch обработка
-
-Все пайплайны поддерживают batch обработку для улучшения производительности:
+Configuration for assay data processing.
 
 ```python
-config = TestitemConfig(
-    runtime=TestitemRuntimeSettings(
-        batch_size=100,
-        max_workers=4
-    )
+from library.assay import AssayConfig
+
+config = AssayConfig.from_yaml("config.yaml")
+```
+
+#### AssayPipeline
+
+Pipeline for assay data processing.
+
+```python
+from library.assay import AssayPipeline
+
+pipeline = AssayPipeline(config)
+result = pipeline.run()
+```
+
+### Testitem Module
+
+The testitem module handles molecular data processing.
+
+#### TestitemConfig
+
+Configuration for testitem data processing.
+
+```python
+from library.testitem import TestitemConfig
+
+config = TestitemConfig.from_yaml("config.yaml")
+```
+
+#### TestitemPipeline
+
+Pipeline for testitem data processing.
+
+```python
+from library.testitem import TestitemPipeline
+
+pipeline = TestitemPipeline(config)
+result = pipeline.run()
+```
+
+## Configuration Classes
+
+### Runtime Settings
+
+Common runtime settings for all pipelines.
+
+```python
+from library.config import RuntimeSettings
+
+runtime = RuntimeSettings(
+    workers=4,
+    timeout_sec=60,
+    retries=3
 )
 ```
 
-### Кэширование
+### Cache Settings
 
-Клиенты поддерживают кэширование для уменьшения количества API запросов:
+Configuration for caching mechanisms.
+
+```python
+from library.config import CacheSettings
+
+cache = CacheSettings(
+    enabled=True,
+    ttl=3600,
+    max_size=1000
+)
+```
+
+### HTTP Settings
+
+HTTP client configuration.
+
+```python
+from library.config import HTTPSettings
+
+http = HTTPSettings(
+    timeout_sec=30,
+    retries=3,
+    backoff_factor=1.0
+)
+```
+
+## Data Models
+
+### Activity Data
+
+Activity data model with validation.
+
+```python
+from library.schemas.activity_schema import ActivitySchema
+
+activity = ActivitySchema(
+    molecule_chembl_id="CHEMBL123",
+    target_chembl_id="CHEMBL456",
+    activity_value=10.5,
+    activity_unit="nM"
+)
+```
+
+### Target Data
+
+Target data model.
+
+```python
+from library.schemas.target_schema import TargetSchema
+
+target = TargetSchema(
+    target_chembl_id="CHEMBL456",
+    target_name="Example Target",
+    target_type="SINGLE PROTEIN"
+)
+```
+
+### Assay Data
+
+Assay data model.
+
+```python
+from library.schemas.assay_schema import AssaySchema
+
+assay = AssaySchema(
+    assay_chembl_id="CHEMBL789",
+    assay_type="B",
+    assay_description="Example assay"
+)
+```
+
+## Utility Functions
+
+### Data Validation
+
+Validate data against schemas.
+
+```python
+from library.utils.validation import validate_data
+
+is_valid = validate_data(data, schema)
+```
+
+### Data Transformation
+
+Transform data between formats.
+
+```python
+from library.utils.transform import transform_data
+
+transformed = transform_data(data, source_format="csv", target_format="json")
+```
+
+### Caching
+
+Cache management utilities.
+
+```python
+from library.utils.cache import CacheManager
+
+cache = CacheManager(ttl=3600)
+cached_data = cache.get_or_set("key", fetch_function)
+```
+
+## Error Handling
+
+### Custom Exceptions
+
+The library defines custom exceptions for different error types.
+
+```python
+from library.exceptions import (
+    APIError,
+    ValidationError,
+    ConfigurationError
+)
+
+try:
+    # API call
+    pass
+except APIError as e:
+    print(f"API error: {e}")
+```
+
+### Retry Logic
+
+Built-in retry mechanisms for API calls.
+
+```python
+from library.utils.retry import retry_with_backoff
+
+@retry_with_backoff(max_retries=3, backoff_factor=2.0)
+def api_call():
+    # API call implementation
+    pass
+```
+
+## Logging
+
+### Structured Logging
+
+The library uses structured logging for better observability.
+
+```python
+from library.logging_setup import configure_logging
+
+logger = configure_logging(
+    level="INFO",
+    file_enabled=True,
+    console_format="json"
+)
+
+logger.info("Processing started", batch_size=100)
+```
+
+### Log Context
+
+Add context to log messages.
+
+```python
+from library.logging_setup import bind_stage
+
+with bind_stage(logger, "data_processing"):
+    logger.info("Processing batch", batch_id=123)
+```
+
+## Performance Optimization
+
+### Batch Processing
+
+Process data in batches for better performance.
+
+```python
+from library.utils.batch import process_batches
+
+results = process_batches(
+    data,
+    batch_size=100,
+    processor_function=process_batch
+)
+```
+
+### Parallel Processing
+
+Use parallel processing for CPU-intensive tasks.
+
+```python
+from library.utils.parallel import parallel_map
+
+results = parallel_map(
+    data,
+    processor_function,
+    max_workers=4
+)
+```
+
+## Configuration Examples
+
+### Basic Configuration
 
 ```python
 config = TestitemConfig(

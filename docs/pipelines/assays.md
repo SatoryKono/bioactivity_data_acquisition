@@ -114,7 +114,7 @@ filter_profiles:
     assay_type__in: "B,F"
 ```
 
-## 3. Граф ETL
+## 3. Граф ETL (детализация)
 
 ```mermaid
 graph LR
@@ -600,7 +600,7 @@ make docker-run ENTITY=assays CONFIG=configs/config_assay_full.yaml
 
 После успешного выполнения в `data/output/assay_YYYYMMDD/`:
 
-```
+```text
 assay_20241201/
 ├── assay_20241201.csv                    # Основные данные ассев
 ├── assay_20241201_meta.yaml             # Метаданные пайплайна

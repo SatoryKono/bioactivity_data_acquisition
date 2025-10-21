@@ -1,9 +1,9 @@
 """Tests for configuration schema validation."""
 
-import pytest
 import tempfile
 from pathlib import Path
-import yaml
+
+import pytest
 
 from library.config import Config
 

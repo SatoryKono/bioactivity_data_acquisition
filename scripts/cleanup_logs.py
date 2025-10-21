@@ -3,13 +3,13 @@
 
 import argparse
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from library.logging_setup import cleanup_old_logs, configure_logging, generate_run_id, set_run_context
+from library.logging_setup import configure_logging, generate_run_id, set_run_context
 
 
 def main() -> None:

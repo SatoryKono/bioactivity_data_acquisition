@@ -1,20 +1,10 @@
 ﻿#!/usr/bin/env python3
 """РўРµСЃС‚ API РїРѕРёСЃРєР° РґР»СЏ РЅРµСЃРєРѕР»СЊРєРёС… UniProt ID."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
-import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import (
-    IupharApiCfg, 
-    _search_iuphar_targets,
-    _create_iuphar_session
-)
+from library.target.iuphar_adapter import IupharApiCfg, _create_iuphar_session, _search_iuphar_targets
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')

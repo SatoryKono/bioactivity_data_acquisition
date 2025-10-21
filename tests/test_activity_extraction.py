@@ -1,20 +1,10 @@
 """Tests for activity data extraction functionality."""
 
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
 
-from library.activity import (
-    ActivityChEMBLClient,
-    ActivityConfig,
-    ActivityNormalizer,
-    ActivityValidator,
-    ActivityQualityFilter
-)
+from library.activity import ActivityChEMBLClient, ActivityConfig, ActivityNormalizer, ActivityQualityFilter, ActivityValidator
 
 
 class TestActivityConfig:

@@ -1,10 +1,8 @@
 ﻿#!/usr/bin/env python3
 """РџСЂРѕСЃС‚РѕР№ С‚РµСЃС‚ РїРѕРёСЃРєР° РїРѕ РЅР°Р·РІР°РЅРёСЋ РјРёС€РµРЅРё РІ IUPHAR API."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
+
 import requests
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
@@ -88,5 +86,5 @@ for target_name in test_target_names:
     except Exception as e:
         print(f"РћС€РёР±РєР°: {e}")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 

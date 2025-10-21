@@ -1,20 +1,19 @@
 """Tests for telemetry functionality."""
 
-import pytest
-import os
 from unittest.mock import Mock, patch
-from contextlib import contextmanager
+
+import pytest
 
 from library.telemetry import (
-    setup_telemetry,
-    traced_operation,
-    get_current_trace_id,
-    get_current_span_id,
+    TraceContextManager,
     add_span_attribute,
     add_span_event,
-    TraceContextManager,
-    instrument_etl_stage,
+    get_current_span_id,
+    get_current_trace_id,
     instrument_api_client,
+    instrument_etl_stage,
+    setup_telemetry,
+    traced_operation,
 )
 
 

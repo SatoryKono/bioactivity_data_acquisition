@@ -1,13 +1,12 @@
 """Integration tests for API rate limiting and error handling."""
 
-import pytest
 import time
-import threading
 from concurrent.futures import ThreadPoolExecutor
+
+import pytest
 
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient
-from library.clients.pubmed import PubMedClient
 from library.clients.exceptions import ApiClientError, RateLimitError
 
 

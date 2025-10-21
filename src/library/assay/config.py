@@ -158,6 +158,39 @@ class FilterProfileSettings(BaseModel):
     assay_type__in: str | None = Field(default=None)
 
 
+class VariantFetchSettings(BaseModel):
+    """Settings for fetching variant data."""
+    
+    enabled: bool = Field(default=True)
+    batch_size: int = Field(default=200, ge=1, le=1000)
+
+
+class VariantFilterSettings(BaseModel):
+    """Settings for filtering variant data."""
+    
+    include_wildtype: bool = Field(default=True)
+
+
+class VariantSettings(BaseModel):
+    """Configuration for variant data handling."""
+    
+    fetch: VariantFetchSettings = Field(default_factory=VariantFetchSettings)
+    filters: VariantFilterSettings = Field(default_factory=VariantFilterSettings)
+
+
+class TargetIsoformSettings(BaseModel):
+    """Settings for target isoform data."""
+    
+    enabled: bool = Field(default=True)
+    batch_size: int = Field(default=50, ge=1, le=200)
+
+
+class TargetSettings(BaseModel):
+    """Configuration for target data handling."""
+    
+    join_isoforms: TargetIsoformSettings = Field(default_factory=TargetIsoformSettings)
+
+
 def _default_sources() -> dict[str, AssaySourceSettings]:
     return {name: AssaySourceSettings(name=name) for name in ALLOWED_SOURCES}
 
@@ -174,6 +207,8 @@ class AssayConfig(BaseModel):
     logging: LoggingSettings = Field(default_factory=LoggingSettings)
     cache: CacheSettings = Field(default_factory=CacheSettings)
     filter_profiles: dict[str, FilterProfileSettings] = Field(default_factory=dict)
+    variants: VariantSettings = Field(default_factory=VariantSettings)
+    targets: TargetSettings = Field(default_factory=TargetSettings)
 
     model_config = ConfigDict(extra="ignore")
 
@@ -289,5 +324,10 @@ __all__ = [
     "SourceToggle",
     "CacheSettings",
     "FilterProfileSettings",
+    "VariantSettings",
+    "VariantFetchSettings",
+    "VariantFilterSettings",
+    "TargetSettings",
+    "TargetIsoformSettings",
     "load_assay_config",
 ]

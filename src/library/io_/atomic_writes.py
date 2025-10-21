@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import os
 import tempfile
-from pathlib import Path
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Any, TypeVar
 
 import pandas as pd
 from structlog.stdlib import BoundLogger

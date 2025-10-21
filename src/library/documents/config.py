@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
-from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings, LoggingSettings
+from library.config import DeterminismSettings, LoggingSettings, _assign_path, _merge_dicts, _parse_scalar
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "crossref", "openalex", "pubmed", "semantic_scholar")
 DATE_TAG_FORMAT = "%Y%m%d"

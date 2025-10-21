@@ -1,21 +1,21 @@
 """Базовые тесты для target пайплайна."""
 
-import pytest
-import pandas as pd
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
+import pandas as pd
+import pytest
+
+from library.schemas.target_schema import TargetInputSchema, TargetNormalizedSchema
 from library.target import (
     TargetConfig,
-    load_target_config,
-    TargetValidationError,
+    TargetETLResult,
     TargetIOError,
+    TargetValidationError,
+    load_target_config,
     read_target_input,
     run_target_etl,
     write_target_outputs,
-    TargetETLResult,
 )
-from library.schemas.target_schema import TargetInputSchema, TargetNormalizedSchema
 
 
 class TestTargetConfig:

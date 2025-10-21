@@ -1,17 +1,17 @@
 activity_type_distribution:
-  IC50: 2
-  Ki: 8
+  IC50: 256
+  Ki: 744
 chembl_release: unknown
 config:
-  limit: 100
+  limit: null
   qc_enabled: true
   workers: 4
-extraction_timestamp: '2025-10-21T12:46:07.888267Z'
+extraction_timestamp: '2025-10-21T15:48:29.840399Z'
 file_checksums:
-  csv: 957af71b6fa3b093e04efdb96e2c87b45daa7e5d8acc4d24269faad0955c143c
-  qc: 4a8a623f070b039fb82925026b209917a72c87883eb30e3a749f95f3a40eaa9e
+  csv: 9967b33f4dc065ef356cf68f6ae08a9afe6598a6760540bc0a15d58fa784d1aa
+  qc: 49d743bea198c59d4e47bd9c008006ae556a0440aa12ca8d5cacee63d9217f31
 pipeline_version: 1.0.0
-row_count: 10
-total_activities: 10
+row_count: 1000
+total_activities: 1000
 unit_distribution:
-  nM: 10
+  nM: 1000

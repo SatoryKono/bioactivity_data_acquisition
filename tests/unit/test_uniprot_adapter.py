@@ -1,6 +1,5 @@
 """Unit tests for UniProt adapter functionality."""
 
-import pytest
 from src.library.target.uniprot_adapter import _collect_ec_numbers, _parse_uniprot_entry
 
 

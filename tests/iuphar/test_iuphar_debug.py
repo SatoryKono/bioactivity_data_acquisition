@@ -1,14 +1,12 @@
 ﻿#!/usr/bin/env python3
 """РўРµСЃС‚РѕРІС‹Р№ СЃРєСЂРёРїС‚ РґР»СЏ Р·Р°РїСѓСЃРєР° IUPHAR РјР°РїРїРёРЅРіР° СЃ debug Р»РѕРіРёСЂРѕРІР°РЅРёРµРј."""
 
-import sys
-from pathlib import Path
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
 
 
-from library.target import load_target_config, run_target_etl
 from library.logging_setup import configure_logging
+from library.target import load_target_config, run_target_etl
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј debug Р»РѕРіРёСЂРѕРІР°РЅРёРµ
 configure_logging(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from structlog.stdlib import BoundLogger
 class EnhancedTableQualityProfiler:
     """Расширенный профайлер качества данных с детальными метриками."""
 
-    def __init__(self, logger: Optional[BoundLogger] = None):
+    def __init__(self, logger: BoundLogger | None = None):
         """Инициализация профайлера качества данных."""
         self.logger = logger
         self._patterns = {
@@ -318,20 +318,20 @@ class EnhancedTableQualityProfiler:
         return reports
 
 
-def build_enhanced_qc_report(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> dict[str, Any]:
+def build_enhanced_qc_report(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, Any]:
     """Создание расширенного отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
     return profiler.consume(df)
 
 
-def build_enhanced_qc_summary(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> pd.DataFrame:
+def build_enhanced_qc_summary(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
     """Создание сводного отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
     quality_report = profiler.consume(df)
     return profiler.generate_summary_report(quality_report)
 
 
-def build_enhanced_qc_detailed(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> dict[str, pd.DataFrame]:
+def build_enhanced_qc_detailed(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, pd.DataFrame]:
     """Создание детального отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
     quality_report = profiler.consume(df)

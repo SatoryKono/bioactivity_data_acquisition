@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Тесты для проверки сохранения метаданных в пайплайне документов."""
 
+
 import pandas as pd
-import pytest
 import yaml
-from pathlib import Path
+
 from library.documents.config import DocumentConfig
 from library.documents.pipeline import run_document_etl, write_document_outputs
 
@@ -169,7 +169,7 @@ class TestDocumentMetadata:
         assert outputs["meta"].exists(), "Файл метаданных должен существовать"
         
         # Проверяем содержимое файла метаданных
-        with open(outputs["meta"], 'r', encoding='utf-8') as f:
+        with open(outputs["meta"], encoding='utf-8') as f:
             saved_meta = yaml.safe_load(f)
         
         assert 'file_checksums' in saved_meta, "Сохраненные метаданные должны содержать контрольные суммы"

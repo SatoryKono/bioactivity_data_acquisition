@@ -91,6 +91,212 @@ CONFIG_OPTION = typer.Option(
     resolve_path=True,
 )
 
+# Константы для часто используемых опций
+DEFAULT_TIMEOUT_OPTION = typer.Option(None, "--timeout-sec", help="HTTP timeout in seconds")
+DEFAULT_RETRIES_OPTION = typer.Option(None, "--retries", help="Total retry attempts")
+DEFAULT_LIMIT_OPTION = typer.Option(None, "--limit", help="Limit number of records")
+DEFAULT_DRY_RUN_OPTION = typer.Option(False, "--dry-run", help="Do not write outputs")
+DEFAULT_LOG_LEVEL_OPTION = typer.Option("INFO", "--log-level", help="Logging level")
+DEFAULT_LOG_FILE_OPTION = typer.Option(None, "--log-file", help="Path to log file")
+DEFAULT_LOG_FORMAT_OPTION = typer.Option("text", "--log-format", help="Console format (text/json)")
+DEFAULT_NO_FILE_LOG_OPTION = typer.Option(False, "--no-file-log", help="Disable file logging")
+
+# Дополнительные опции для различных команд
+TARGET_INPUT_OPTION = typer.Option(
+    ..., "--input", help="CSV containing target_chembl_id column", resolve_path=True
+)
+TARGET_OUTPUT_DIR_OPTION = typer.Option(None, "--output-dir", help="Output directory")
+TARGET_DATE_TAG_OPTION = typer.Option(None, "--date-tag", help="YYYYMMDD date tag")
+TARGET_DEV_MODE_OPTION = typer.Option(False, "--dev-mode", help="Allow incomplete sources (dev/test only)")
+
+# Опции для analyze-iuphar-mapping команды
+ANALYZE_TARGET_CSV_OPTION = typer.Option(
+    ...,
+    "--target-csv",
+    help="Path to target CSV file to analyze",
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    resolve_path=True,
+)
+ANALYZE_IUPHAR_DICT_OPTION = typer.Option(
+    "configs/dictionary/_target/_IUPHAR/_IUPHAR_target.csv",
+    "--iuphar-dict",
+    help="Path to IUPHAR dictionary CSV file",
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    resolve_path=True,
+)
+ANALYZE_SAMPLE_SIZE_OPTION = typer.Option(
+    10,
+    "--sample-size",
+    help="Number of UniProt IDs to sample for validation",
+)
+ANALYZE_TARGET_ID_OPTION = typer.Option(
+    None,
+    "--target-id",
+    help="Specific IUPHAR target ID to analyze (e.g., 1386)",
+)
+ANALYZE_OUTPUT_FORMAT_OPTION = typer.Option(
+    "table",
+    "--format",
+    help="Output format: table, json, csv",
+)
+ANALYZE_VERBOSE_OPTION = typer.Option(
+    False,
+    "--verbose",
+    "-v",
+    help="Enable verbose output",
+)
+
+# Опции для show-manifest команды
+SHOW_MANIFEST_FORMAT_OPTION = typer.Option("json", "--format", "-f", help="Output format: json, yaml, table")
+
+# Опции для get-activity-data команды
+ACTIVITY_INPUT_OPTION = typer.Option(
+    None, "--input", help="CSV containing filter IDs (assay_ids, molecule_ids, target_ids)", resolve_path=True
+)
+
+# Опции для pipeline команды
+PIPELINE_OVERRIDES_OPTION = typer.Option([], "--set", "-s", help="Override configuration values using dotted paths (KEY=VALUE)")
+
+# Опции для get-document-data команды
+DOCUMENT_CONFIG_OPTION = typer.Option(
+    None,
+    "--config",
+    "-c",
+    help="Path to the YAML configuration file.",
+    dir_okay=False,
+    resolve_path=True,
+)
+DOCUMENT_CSV_OPTION = typer.Option(
+    None,
+    "--documents-csv",
+    help="CSV containing document identifiers to enrich.",
+    file_okay=True,
+    dir_okay=False,
+    resolve_path=True,
+)
+DOCUMENT_OUTPUT_DIR_OPTION = typer.Option(
+    None,
+    "--output-dir",
+    help="Destination directory for generated artefacts.",
+    file_okay=False,
+    dir_okay=True,
+    resolve_path=True,
+)
+DOCUMENT_DATE_TAG_OPTION = typer.Option(
+    None,
+    "--date-tag",
+    help="Date tag (YYYYMMDD) embedded in output filenames.",
+)
+DOCUMENT_WORKERS_OPTION = typer.Option(
+    None,
+    "--workers",
+    help="Number of worker threads for HTTP fetching.",
+)
+DOCUMENT_SOURCES_OPTION = typer.Option(
+    [],
+    "--source",
+    help="Enable only the listed sources (repeat for multiple).",
+)
+DOCUMENT_ALL_SOURCES_OPTION = typer.Option(
+    False,
+    "--all",
+    help="Enable all available sources (chembl, crossref, openalex, pubmed, semantic_scholar).",
+)
+DOCUMENT_DRY_RUN_OPTION = typer.Option(
+    None,
+    "--dry-run/--no-dry-run",
+    help="Execute without writing artefacts to disk.",
+)
+
+# Опции для testitem команд
+TESTITEM_CONFIG_OPTION = typer.Option(
+    ...,
+    "--config",
+    "-c",
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    resolve_path=True,
+    help="Path to testitem configuration YAML file",
+)
+TESTITEM_INPUT_OPTION = typer.Option(
+    ...,
+    "--input",
+    "-i",
+    exists=True,
+    file_okay=True,
+    dir_okay=False,
+    readable=True,
+    resolve_path=True,
+    help="Path to input CSV file with molecule identifiers",
+)
+TESTITEM_OUTPUT_OPTION = typer.Option(
+    None,
+    "--output",
+    "-o",
+    resolve_path=True,
+    help="Output directory for results (defaults to config io.output.dir)",
+)
+TESTITEM_CACHE_DIR_OPTION = typer.Option(
+    None,
+    "--cache-dir",
+    resolve_path=True,
+    help="Directory for ChEMBL HTTP cache",
+)
+TESTITEM_PUBCHEM_CACHE_DIR_OPTION = typer.Option(
+    None,
+    "--pubchem-cache-dir",
+    resolve_path=True,
+    help="Directory for PubChem HTTP cache",
+)
+TESTITEM_TIMEOUT_OPTION = typer.Option(
+    None,
+    "--timeout",
+    help="HTTP timeout in seconds",
+)
+TESTITEM_RETRIES_OPTION = typer.Option(
+    None,
+    "--retries",
+    help="Number of HTTP retries",
+)
+TESTITEM_LIMIT_OPTION = typer.Option(
+    None,
+    "--limit",
+    help="Limit number of records to process",
+)
+TESTITEM_DISABLE_PUBCHEM_OPTION = typer.Option(
+    False,
+    "--disable-pubchem",
+    help="Disable PubChem enrichment",
+)
+TESTITEM_DRY_RUN_OPTION = typer.Option(
+    False,
+    "--dry-run",
+    help="Run in dry-run mode (no actual processing)",
+)
+TESTITEM_VERBOSE_OPTION = typer.Option(
+    False,
+    "--verbose",
+    "-v",
+    help="Enable verbose logging",
+)
+TESTITEM_DATE_TAG_OPTION = typer.Option(
+    None,
+    "--date-tag",
+    help="Date tag (YYYYMMDD) embedded in output filenames",
+)
+
+# Опции для health команды
+HEALTH_TIMEOUT_OPTION = typer.Option(10.0, "--timeout", "-t", help="Timeout for health checks in seconds")
+HEALTH_JSON_OUTPUT_OPTION = typer.Option(False, "--json", help="Output results in JSON format")
+
 def _parse_override_args(values: list[str]) -> dict[str, str]:
     assignments: dict[str, str] = {}
     for item in values:
@@ -172,54 +378,18 @@ app = typer.Typer(help="Bioactivity ETL pipeline")
 # Analysis commands
 @app.command("analyze-iuphar-mapping")
 def analyze_iuphar_mapping(
-    target_csv: Path = typer.Option(
-        ...,
-        "--target-csv",
-        help="Path to target CSV file to analyze",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-    ),
-    iuphar_dict: Path = typer.Option(
-        "configs/dictionary/_target/_IUPHAR/_IUPHAR_target.csv",
-        "--iuphar-dict",
-        help="Path to IUPHAR dictionary CSV file",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-    ),
-    sample_size: int = typer.Option(
-        10,
-        "--sample-size",
-        help="Number of UniProt IDs to sample for validation",
-    ),
-    target_id: int | None = typer.Option(
-        None,
-        "--target-id",
-        help="Specific IUPHAR target ID to analyze (e.g., 1386)",
-    ),
-    output_format: str = typer.Option(
-        "table",
-        "--format",
-        help="Output format: table, json, csv",
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Enable verbose output",
-    ),
+    target_csv: Path = ANALYZE_TARGET_CSV_OPTION,
+    iuphar_dict: Path = ANALYZE_IUPHAR_DICT_OPTION,
+    sample_size: int = ANALYZE_SAMPLE_SIZE_OPTION,
+    target_id: int | None = ANALYZE_TARGET_ID_OPTION,
+    output_format: str = ANALYZE_OUTPUT_FORMAT_OPTION,
+    verbose: bool = ANALYZE_VERBOSE_OPTION,
 ) -> None:
     """Analyze IUPHAR mapping in target data."""
     
-    import pandas as pd
     import json
-    from rich.console import Console
-    from rich.table import Table
+    
+    import pandas as pd
     
     console = Console()
     
@@ -241,7 +411,7 @@ def analyze_iuphar_mapping(
         # Analyze iuphar_target_id distribution
         if 'iuphar_target_id' in target_df.columns:
             iuphar_counts = target_df['iuphar_target_id'].value_counts()
-            console.print(f"\n[blue]IUPHAR Target ID Distribution:[/blue]")
+            console.print("\n[blue]IUPHAR Target ID Distribution:[/blue]")
             console.print(f"Unique IUPHAR target IDs: {len(iuphar_counts)}")
             
             if verbose:
@@ -252,7 +422,7 @@ def analyze_iuphar_mapping(
         # Validate UniProt ID mapping
         if 'mapping_uniprot_id' in target_df.columns:
             uniprot_ids = target_df['mapping_uniprot_id'].dropna()
-            console.print(f"\n[blue]UniProt ID Mapping Validation:[/blue]")
+            console.print("\n[blue]UniProt ID Mapping Validation:[/blue]")
             console.print(f"Records with UniProt IDs: {len(uniprot_ids)}")
             
             # Sample validation
@@ -285,7 +455,7 @@ def analyze_iuphar_mapping(
             
             # Summary
             found_count = sum(1 for r in validation_results if r['found'])
-            console.print(f"\n[blue]Validation Summary:[/blue]")
+            console.print("\n[blue]Validation Summary:[/blue]")
             console.print(f"Found in IUPHAR: {found_count}/{len(validation_results)} ({found_count/len(validation_results)*100:.1f}%)")
         
         # Analyze specific target ID if provided
@@ -358,7 +528,7 @@ def list_manifests() -> None:
     for manifest_file in sorted(manifest_files):
         try:
             import json
-            with open(manifest_file, 'r', encoding='utf-8') as f:
+            with open(manifest_file, encoding='utf-8') as f:
                 data = json.load(f)
             
             name = manifest_file.stem
@@ -374,7 +544,7 @@ def list_manifests() -> None:
 @app.command("show-manifest")
 def show_manifest(
     name: str = typer.Argument(..., help="Manifest name (without .json extension)"),
-    format: str = typer.Option("json", "--format", "-f", help="Output format: json, yaml, table")
+    format: str = SHOW_MANIFEST_FORMAT_OPTION
 ) -> None:
     """Show manifest contents."""
     manifest_path = Path(f"metadata/manifests/{name}.json")
@@ -385,7 +555,7 @@ def show_manifest(
     
     try:
         import json
-        with open(manifest_path, 'r', encoding='utf-8') as f:
+        with open(manifest_path, encoding='utf-8') as f:
             data = json.load(f)
         
         if format == "json":
@@ -423,7 +593,7 @@ def show_manifest(
             
     except Exception as e:
         typer.echo(f"Failed to read manifest: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 @app.command("list-reports")
 def list_reports() -> None:
@@ -455,23 +625,22 @@ def list_reports() -> None:
     
     console.print(table)
 # Target CLI command
+
 @app.command("get-target-data")
 def get_target_data(
     *,
     config: Path = CONFIG_OPTION,
-    input: Path = typer.Option(
-        ..., "--input", help="CSV containing target_chembl_id column", resolve_path=True
-    ),
-    output_dir: Path | None = typer.Option(None, "--output-dir", help="Output directory"),
-    date_tag: str | None = typer.Option(None, "--date-tag", help="YYYYMMDD date tag"),
-    timeout_sec: float | None = typer.Option(None, "--timeout-sec", help="HTTP timeout in seconds"),
-    retries: int | None = typer.Option(None, "--retries", help="Total retry attempts"),
-    limit: int | None = typer.Option(None, "--limit", help="Limit number of targets"),
-    dev_mode: bool = typer.Option(False, "--dev-mode", help="Allow incomplete sources (dev/test only)"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Do not write outputs"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    log_format: str = typer.Option("text", "--log-format", help="Console format (text/json)"),
+    input: Path = TARGET_INPUT_OPTION,
+    output_dir: Path | None = TARGET_OUTPUT_DIR_OPTION,
+    date_tag: str | None = TARGET_DATE_TAG_OPTION,
+    timeout_sec: float | None = DEFAULT_TIMEOUT_OPTION,
+    retries: int | None = DEFAULT_RETRIES_OPTION,
+    limit: int | None = DEFAULT_LIMIT_OPTION,
+    dev_mode: bool = TARGET_DEV_MODE_OPTION,
+    dry_run: bool = DEFAULT_DRY_RUN_OPTION,
+    log_level: str = DEFAULT_LOG_LEVEL_OPTION,
+    log_file: Path | None = DEFAULT_LOG_FILE_OPTION,
+    log_format: str = DEFAULT_LOG_FORMAT_OPTION,
 ) -> None:
     """Extract and enrich target data from ChEMBL/UniProt/IUPHAR."""
 
@@ -561,18 +730,16 @@ def get_target_data(
 def get_activity_data(
     *,
     config: Path = CONFIG_OPTION,
-    input: Path | None = typer.Option(
-        None, "--input", help="CSV containing filter IDs (assay_ids, molecule_ids, target_ids)", resolve_path=True
-    ),
-    output_dir: Path | None = typer.Option(None, "--output-dir", help="Output directory"),
-    date_tag: str | None = typer.Option(None, "--date-tag", help="YYYYMMDD date tag"),
-    timeout_sec: float | None = typer.Option(None, "--timeout-sec", help="HTTP timeout in seconds"),
-    retries: int | None = typer.Option(None, "--retries", help="Total retry attempts"),
-    limit: int | None = typer.Option(None, "--limit", help="Limit number of activities"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Do not write outputs"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    log_format: str = typer.Option("text", "--log-format", help="Console format (text/json)"),
+    input: Path | None = ACTIVITY_INPUT_OPTION,
+    output_dir: Path | None = TARGET_OUTPUT_DIR_OPTION,
+    date_tag: str | None = TARGET_DATE_TAG_OPTION,
+    timeout_sec: float | None = DEFAULT_TIMEOUT_OPTION,
+    retries: int | None = DEFAULT_RETRIES_OPTION,
+    limit: int | None = DEFAULT_LIMIT_OPTION,
+    dry_run: bool = DEFAULT_DRY_RUN_OPTION,
+    log_level: str = DEFAULT_LOG_LEVEL_OPTION,
+    log_file: Path | None = DEFAULT_LOG_FILE_OPTION,
+    log_format: str = DEFAULT_LOG_FORMAT_OPTION,
 ) -> None:
     """Extract and enrich activity data from ChEMBL."""
 
@@ -656,11 +823,11 @@ def get_activity_data(
 @app.command()
 def pipeline(
     config: Path = CONFIG_OPTION,
-    overrides: list[str] = typer.Option([], "--set", "-s", help="Override configuration values using dotted paths (KEY=VALUE)"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    log_format: str = typer.Option("text", "--log-format", help="Console format (text or json)"),
-    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
+    overrides: list[str] = PIPELINE_OVERRIDES_OPTION,
+    log_level: str = DEFAULT_LOG_LEVEL_OPTION,
+    log_file: Path | None = DEFAULT_LOG_FILE_OPTION,
+    log_format: str = DEFAULT_LOG_FORMAT_OPTION,
+    no_file_log: bool = DEFAULT_NO_FILE_LOG_OPTION,
 ) -> None:
     """Execute the ETL pipeline using a configuration file."""
 
@@ -706,74 +873,21 @@ def pipeline(
 @app.command("get-document-data")
 def get_document_data(
     *,
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="Path to the YAML configuration file.",
-        dir_okay=False,
-        resolve_path=True,
-    ),
-    documents_csv: Path | None = typer.Option(
-        None,
-        "--documents-csv",
-        help="CSV containing document identifiers to enrich.",
-        file_okay=True,
-        dir_okay=False,
-        resolve_path=True,
-    ),
-    output_dir: Path | None = typer.Option(
-        None,
-        "--output-dir",
-        help="Destination directory for generated artefacts.",
-        file_okay=False,
-        dir_okay=True,
-        resolve_path=True,
-    ),
-    date_tag: str | None = typer.Option(
-        None,
-        "--date-tag",
-        help="Date tag (YYYYMMDD) embedded in output filenames.",
-    ),
-    timeout_sec: float | None = typer.Option(
-        None,
-        "--timeout-sec",
-        help="HTTP timeout in seconds applied to all sources.",
-    ),
-    retries: int | None = typer.Option(
-        None,
-        "--retries",
-        help="Total retry attempts for HTTP requests.",
-    ),
-    workers: int | None = typer.Option(
-        None,
-        "--workers",
-        help="Number of worker threads for HTTP fetching.",
-    ),
-    limit: int | None = typer.Option(
-        None,
-        "--limit",
-        help="Limit the number of documents processed.",
-    ),
-    sources: list[str] = typer.Option(
-        [],
-        "--source",
-        help="Enable only the listed sources (repeat for multiple).",
-    ),
-    all_sources: bool = typer.Option(
-        False,
-        "--all",
-        help="Enable all available sources (chembl, crossref, openalex, pubmed, semantic_scholar).",
-    ),
-    dry_run: bool | None = typer.Option(
-        None,
-        "--dry-run/--no-dry-run",
-        help="Execute without writing artefacts to disk.",
-    ),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    log_format: str = typer.Option("text", "--log-format", help="Console format (text or json)"),
-    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
+    config: Path | None = DOCUMENT_CONFIG_OPTION,
+    documents_csv: Path | None = DOCUMENT_CSV_OPTION,
+    output_dir: Path | None = DOCUMENT_OUTPUT_DIR_OPTION,
+    date_tag: str | None = DOCUMENT_DATE_TAG_OPTION,
+    timeout_sec: float | None = DEFAULT_TIMEOUT_OPTION,
+    retries: int | None = DEFAULT_RETRIES_OPTION,
+    workers: int | None = DOCUMENT_WORKERS_OPTION,
+    limit: int | None = DEFAULT_LIMIT_OPTION,
+    sources: list[str] = DOCUMENT_SOURCES_OPTION,
+    all_sources: bool = DOCUMENT_ALL_SOURCES_OPTION,
+    dry_run: bool | None = DOCUMENT_DRY_RUN_OPTION,
+    log_level: str = DEFAULT_LOG_LEVEL_OPTION,
+    log_file: Path | None = DEFAULT_LOG_FILE_OPTION,
+    log_format: str = DEFAULT_LOG_FORMAT_OPTION,
+    no_file_log: bool = DEFAULT_NO_FILE_LOG_OPTION,
 ) -> None:
     """Collect and enrich document metadata from configured sources."""
 
@@ -907,83 +1021,18 @@ class TestitemExitCode(int):
 
 @app.command("testitem-run")
 def testitem_run(
-    config: Path = typer.Option(
-        ...,
-        "--config",
-        "-c",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="Path to testitem configuration YAML file",
-    ),
-    input: Path = typer.Option(
-        ...,
-        "--input",
-        "-i",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="Path to input CSV file with molecule identifiers",
-    ),
-    output: Path = typer.Option(
-        None,
-        "--output",
-        "-o",
-        resolve_path=True,
-        help="Output directory for results (defaults to config io.output.dir)",
-    ),
-    cache_dir: Path = typer.Option(
-        None,
-        "--cache-dir",
-        resolve_path=True,
-        help="Directory for ChEMBL HTTP cache",
-    ),
-    pubchem_cache_dir: Path = typer.Option(
-        None,
-        "--pubchem-cache-dir",
-        resolve_path=True,
-        help="Directory for PubChem HTTP cache",
-    ),
-    timeout: int = typer.Option(
-        None,
-        "--timeout",
-        help="HTTP timeout in seconds",
-    ),
-    retries: int = typer.Option(
-        None,
-        "--retries",
-        help="Number of HTTP retries",
-    ),
-    limit: int = typer.Option(
-        None,
-        "--limit",
-        help="Limit number of records to process",
-    ),
-    disable_pubchem: bool = typer.Option(
-        False,
-        "--disable-pubchem",
-        help="Disable PubChem enrichment",
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="Run in dry-run mode (no actual processing)",
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "--verbose",
-        "-v",
-        help="Enable verbose logging",
-    ),
-    date_tag: str = typer.Option(
-        None,
-        "--date-tag",
-        help="Date tag (YYYYMMDD) embedded in output filenames",
-    ),
+    config: Path = TESTITEM_CONFIG_OPTION,
+    input: Path = TESTITEM_INPUT_OPTION,
+    output: Path = TESTITEM_OUTPUT_OPTION,
+    cache_dir: Path = TESTITEM_CACHE_DIR_OPTION,
+    pubchem_cache_dir: Path = TESTITEM_PUBCHEM_CACHE_DIR_OPTION,
+    timeout: int = TESTITEM_TIMEOUT_OPTION,
+    retries: int = TESTITEM_RETRIES_OPTION,
+    limit: int = TESTITEM_LIMIT_OPTION,
+    disable_pubchem: bool = TESTITEM_DISABLE_PUBCHEM_OPTION,
+    dry_run: bool = TESTITEM_DRY_RUN_OPTION,
+    verbose: bool = TESTITEM_VERBOSE_OPTION,
+    date_tag: str = TESTITEM_DATE_TAG_OPTION,
 ) -> None:
     """Run the testitem ETL pipeline."""
     
@@ -1094,17 +1143,7 @@ def testitem_run(
 
 @app.command("testitem-validate-config")
 def testitem_validate_config(
-    config: Path = typer.Option(
-        ...,
-        "--config",
-        "-c",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        readable=True,
-        resolve_path=True,
-        help="Path to testitem configuration YAML file",
-    ),
+    config: Path = TESTITEM_CONFIG_OPTION,
 ) -> None:
     """Validate testitem configuration file."""
     
@@ -1168,11 +1207,11 @@ def testitem_info() -> None:
 @app.command()
 def health(
     config: Path = CONFIG_OPTION,
-    timeout: float = typer.Option(10.0, "--timeout", "-t", help="Timeout for health checks in seconds"),
-    json_output: bool = typer.Option(False, "--json", help="Output results in JSON format"),
-    log_level: str = typer.Option("INFO", "--log-level", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
-    log_file: Path | None = typer.Option(None, "--log-file", help="Path to log file"),
-    no_file_log: bool = typer.Option(False, "--no-file-log", help="Disable file logging"),
+    timeout: float = HEALTH_TIMEOUT_OPTION,
+    json_output: bool = HEALTH_JSON_OUTPUT_OPTION,
+    log_level: str = DEFAULT_LOG_LEVEL_OPTION,
+    log_file: Path | None = DEFAULT_LOG_FILE_OPTION,
+    no_file_log: bool = DEFAULT_NO_FILE_LOG_OPTION,
 ) -> None:
     """Check health status of all configured API clients."""
     
@@ -1293,12 +1332,15 @@ def install_completion(
     
     try:
         # Generate completion script
-        result = subprocess.run([
+        # Security: executable is validated above, script_name is validated, shell is from allowed list
+        # All parameters are controlled and validated to prevent command injection
+        cmd = [
             executable, "-m", "typer", "library.cli:app", 
             f"--name={script_name}", 
-            f"{shell}",
+            shell,
             "--output-file", "-"
-        ], capture_output=True, text=True, check=True)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)  # noqa: S603
         
         completion_script = result.stdout
         

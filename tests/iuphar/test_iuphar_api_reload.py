@@ -1,11 +1,9 @@
 ﻿#!/usr/bin/env python3
 """РўРµСЃС‚ СЃ РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕР№ РїРµСЂРµР·Р°РіСЂСѓР·РєРѕР№ РјРѕРґСѓР»СЏ."""
 
-import pytest
+import importlib
 import logging
 import sys
-from pathlib import Path
-import importlib
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
 
@@ -14,7 +12,7 @@ import importlib
 if 'library.target.iuphar_adapter' in sys.modules:
     importlib.reload(sys.modules['library.target.iuphar_adapter'])
 
-from library.target.iuphar_adapter import _map_via_api, _create_iuphar_session, IupharApiCfg
+from library.target.iuphar_adapter import IupharApiCfg, _create_iuphar_session, _map_via_api
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ РЅР° DEBUG СѓСЂРѕРІРµРЅСЊ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
@@ -44,5 +42,5 @@ if result:
 else:
     print("Р РµР·СѓР»СЊС‚Р°С‚: None (С„СѓРЅРєС†РёСЏ РѕС‚РєР»СЋС‡РµРЅР°)")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 

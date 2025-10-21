@@ -1,19 +1,19 @@
 """Тесты для расширенной системы оценки качества данных."""
 
+import sys
+from datetime import datetime
+from pathlib import Path
+
 import pandas as pd
 import pytest
-from datetime import datetime
-
-import sys
-from pathlib import Path
 
 # Добавляем путь к библиотеке
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from library.etl.enhanced_qc import (
     EnhancedTableQualityProfiler,
-    build_enhanced_qc_summary,
     build_enhanced_qc_detailed,
+    build_enhanced_qc_summary,
 )
 
 

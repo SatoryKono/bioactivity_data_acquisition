@@ -4,7 +4,6 @@ import pytest
 import responses
 
 from library.clients import (
-    ApiClientError,
     ChEMBLClient,
     CrossrefClient,
     OpenAlexClient,

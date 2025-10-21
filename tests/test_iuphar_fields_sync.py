@@ -1,18 +1,13 @@
 """Тесты для проверки синхронизации IUPHAR полей с референсным проектом."""
 
+
 import pytest
-import pandas as pd
-from pathlib import Path
-from typing import Any
 
 from src.library.target.iuphar_adapter import (
     IupharApiCfg,
+    _derive_chain_from_family,
     _parse_iuphar_target_from_csv,
     _target_to_type,
-    _derive_chain_from_family,
-    _build_family_chain,
-    _try_load_family_df,
-    _try_load_target_df,
 )
 
 

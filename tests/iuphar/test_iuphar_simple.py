@@ -1,8 +1,8 @@
 ﻿#!/usr/bin/env python3
 """Простой тест IUPHAR адаптера."""
 
-import pytest
 import logging
+
 import pandas as pd
 
 from library.target.iuphar_adapter import IupharApiCfg, enrich_targets_with_iuphar

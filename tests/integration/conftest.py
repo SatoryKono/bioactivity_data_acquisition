@@ -1,13 +1,13 @@
 """Configuration for integration tests."""
 
-import pytest
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
+
+import pytest
 
 from library.config import Config
-from library.documents.config import load_document_config
 
 
 @pytest.fixture

@@ -1,16 +1,10 @@
 ﻿#!/usr/bin/env python3
 """РўРµСЃС‚ С„СѓРЅРєС†РёРё iter_iuphar_batches РґР»СЏ РїРѕРЅРёРјР°РЅРёСЏ РїСЂРѕР±Р»РµРјС‹."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
-import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import iter_iuphar_batches, IupharApiCfg
+from library.target.iuphar_adapter import IupharApiCfg, iter_iuphar_batches
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
@@ -54,5 +48,5 @@ except Exception as e:
     import traceback
     traceback.print_exc()
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 

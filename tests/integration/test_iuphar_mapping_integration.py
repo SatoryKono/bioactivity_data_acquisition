@@ -1,11 +1,9 @@
 """Integration tests for IUPHAR mapping functionality."""
 
-import pytest
-import pandas as pd
 from pathlib import Path
-from typing import Any
 
-from library.cli import analyze_iuphar_mapping
+import pandas as pd
+import pytest
 
 
 class TestIUPHARMappingIntegration:

@@ -1,16 +1,13 @@
 ﻿#!/usr/bin/env python3
 """Р¤РёРЅР°Р»СЊРЅР°СЏ РІР°Р»РёРґР°С†РёСЏ РёСЃРїСЂР°РІР»РµРЅРёСЏ IUPHAR РјР°РїРїРёРЅРіР°."""
 
-import pytest
 import logging
-import sys
 from pathlib import Path
+
 import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import enrich_targets_with_iuphar, IupharApiCfg
+from library.target.iuphar_adapter import IupharApiCfg, enrich_targets_with_iuphar
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
 logging.basicConfig(level=logging.INFO, format='%(levelname)s %(name)s: %(message)s')
@@ -31,7 +28,7 @@ if Path(input_file).exists():
     # РЎРѕР·РґР°РµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ
     cfg = IupharApiCfg()
     
-    print(f"\n--- Р—Р°РїСѓСЃРє IUPHAR РѕР±РѕРіР°С‰РµРЅРёСЏ ---")
+    print("\n--- Р—Р°РїСѓСЃРє IUPHAR РѕР±РѕРіР°С‰РµРЅРёСЏ ---")
     try:
         # Р—Р°РїСѓСЃРєР°РµРј РѕР±РѕРіР°С‰РµРЅРёРµ
         result_df = enrich_targets_with_iuphar(test_df, cfg)
@@ -39,10 +36,10 @@ if Path(input_file).exists():
         print(f"Р РµР·СѓР»СЊС‚Р°С‚: {len(result_df)} Р·Р°РїРёСЃРµР№")
         
         # РђРЅР°Р»РёР·РёСЂСѓРµРј СЂРµР·СѓР»СЊС‚Р°С‚С‹
-        print(f"\n--- РђРЅР°Р»РёР· СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ ---")
+        print("\n--- РђРЅР°Р»РёР· СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ ---")
         iuphar_ids = result_df['iuphar_target_id'].value_counts()
         print(f"РЈРЅРёРєР°Р»СЊРЅС‹С… iuphar_target_id: {len(iuphar_ids)}")
-        print(f"Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ iuphar_target_id:")
+        print("Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ iuphar_target_id:")
         for iuphar_id, count in iuphar_ids.head(10).items():
             print(f"  {iuphar_id}: {count} Р·Р°РїРёСЃРµР№")
         
@@ -53,10 +50,10 @@ if Path(input_file).exists():
             percentage = (count_1386 / total) * 100
             print(f"\n[РџР РћР‘Р›Р•РњРђ] Р’СЃРµ РµС‰Рµ РµСЃС‚СЊ {count_1386} Р·Р°РїРёСЃРµР№ СЃ iuphar_target_id=1386 ({percentage:.1f}%)")
         else:
-            print(f"\n[РЈРЎРџР•РҐ] РџСЂРѕР±Р»РµРјР° СЃ iuphar_target_id=1386 РїРѕР»РЅРѕСЃС‚СЊСЋ СЂРµС€РµРЅР°!")
+            print("\n[РЈРЎРџР•РҐ] РџСЂРѕР±Р»РµРјР° СЃ iuphar_target_id=1386 РїРѕР»РЅРѕСЃС‚СЊСЋ СЂРµС€РµРЅР°!")
         
         # РџРѕРєР°Р·С‹РІР°РµРј РїСЂРёРјРµСЂС‹ Р·Р°РїРёСЃРµР№
-        print(f"\n--- РџСЂРёРјРµСЂС‹ Р·Р°РїРёСЃРµР№ ---")
+        print("\n--- РџСЂРёРјРµСЂС‹ Р·Р°РїРёСЃРµР№ ---")
         for _, row in result_df.head(5).iterrows():
             chembl_id = row['target_chembl_id']
             iuphar_id = row['iuphar_target_id']
@@ -101,5 +98,5 @@ else:
     test_df = pd.DataFrame(test_data)
     print(f"РЎРѕР·РґР°РЅРѕ {len(test_df)} С‚РµСЃС‚РѕРІС‹С… Р·Р°РїРёСЃРµР№")
 
-print(f"\n=== Р’Р°Р»РёРґР°С†РёСЏ Р·Р°РІРµСЂС€РµРЅР° ===")
+print("\n=== Р’Р°Р»РёРґР°С†РёСЏ Р·Р°РІРµСЂС€РµРЅР° ===")
 

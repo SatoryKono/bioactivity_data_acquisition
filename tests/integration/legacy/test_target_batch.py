@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Тест улучшенной обработки ошибок batch-processing для targets."""
 
-import pytest
 import pandas as pd
+import pytest
 
-from library.target.pipeline import run_target_etl
 from library.target.config import load_target_config
+from library.target.pipeline import run_target_etl
 
 
 def test_improved_batch_handling():

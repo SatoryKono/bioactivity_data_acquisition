@@ -10,8 +10,10 @@ from typing import Any
 
 from structlog.stdlib import BoundLogger
 
+from library.logging_setup import bind_stage as _bind_stage
+
 # Import the new unified logging setup
-from library.logging_setup import configure_logging as _configure_logging, bind_stage as _bind_stage
+from library.logging_setup import configure_logging as _configure_logging
 
 
 def configure_logging(level: str = "INFO") -> BoundLogger:

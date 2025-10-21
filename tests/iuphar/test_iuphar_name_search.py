@@ -1,21 +1,10 @@
 ﻿#!/usr/bin/env python3
 """РўРµСЃС‚ СѓР»СѓС‡С€РµРЅРЅРѕРіРѕ РїРѕРёСЃРєР° РїРѕ РЅР°Р·РІР°РЅРёСЋ РјРёС€РµРЅРё РІ IUPHAR API."""
 
-import pytest
 import logging
-import sys
-from pathlib import Path
-import pandas as pd
 
 # Р”РѕР±Р°РІР»СЏРµРј РєРѕСЂРЅРµРІСѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ РїСЂРѕРµРєС‚Р° РІ РїСѓС‚СЊ РґР»СЏ РёРјРїРѕСЂС‚РѕРІ
-
-
-from library.target.iuphar_adapter import (
-    IupharApiCfg, 
-    _search_iuphar_targets,
-    _find_best_target_match,
-    _create_iuphar_session
-)
+from library.target.iuphar_adapter import IupharApiCfg, _create_iuphar_session, _find_best_target_match, _search_iuphar_targets
 
 # РќР°СЃС‚СЂР°РёРІР°РµРј Р»РѕРіРёСЂРѕРІР°РЅРёРµ
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
@@ -61,6 +50,6 @@ for target_name in test_target_names:
     else:
         print("Р РµР·СѓР»СЊС‚Р°С‚РѕРІ РЅРµС‚")
 
-print(f"\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
+print("\n=== РўРµСЃС‚ Р·Р°РІРµСЂС€РµРЅ ===")
 print("Р•СЃР»Рё РёСЃРїСЂР°РІР»РµРЅРёРµ СЂР°Р±РѕС‚Р°РµС‚ РїСЂР°РІРёР»СЊРЅРѕ, РєР°Р¶РґС‹Р№ target name РґРѕР»Р¶РµРЅ РЅР°С…РѕРґРёС‚СЊ СѓРЅРёРєР°Р»СЊРЅС‹Рµ СЂРµР·СѓР»СЊС‚Р°С‚С‹.")
 

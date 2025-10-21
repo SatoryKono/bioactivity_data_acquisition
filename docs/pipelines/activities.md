@@ -23,8 +23,9 @@
 ### Место в общей архитектуре
 
 Activities является центральной фактовой таблицей в star-schema архитектуре, связывающей измерения:
+
 - `assay_dim` (через `assay_chembl_id`)
-- `target_dim` (через `target_chembl_id`) 
+- `target_dim` (через `target_chembl_id`)
 - `testitem_dim` (через `molecule_chembl_id`)
 - `document_dim` (через `document_chembl_id`)
 
@@ -43,30 +44,30 @@ graph TD
     A[Extract] --> B[Normalize]
     B --> C[Validate]
     C --> D[Postprocess]
-    
+
     subgraph "Extract"
         A1[ChEMBL API<br/>activity endpoint]
         A2[Фильтры по<br/>assay, target, molecule]
     end
-    
+
     subgraph "Normalize"
         B1[Стандартизация<br/>standard_value, units]
         B2[Создание связей<br/>внешние ключи]
         B3[Обогащение<br/>pchembl_value]
     end
-    
+
     subgraph "Validate"
         C1[Pandera схемы<br/>ActivityOutputSchema]
         C2[Бизнес-правила<br/>standard_type валидность]
         C3[Инварианты<br/>уникальность ID]
     end
-    
+
     subgraph "Postprocess"
         D1[QC отчёты<br/>fill_rate, outliers]
         D2[Корреляции<br/>между измерениями]
         D3[Метаданные<br/>статистика обработки]
     end
-    
+
     A1 --> A2
     A2 --> B1
     B1 --> B2
@@ -82,6 +83,7 @@ graph TD
 ### Маппинг полей по источникам
 
 **Обязательные поля (ChEMBL):**
+
 - `activity_chembl_id` → первичный ключ
 - `standard_value` → значение активности (IC50, Ki, etc.)
 - `standard_type` → тип активности
@@ -89,12 +91,14 @@ graph TD
 - `standard_relation` → отношение (=, <, >, etc.)
 
 **Внешние ключи:**
+
 - `assay_chembl_id` → связь с assay_dim
 - `target_chembl_id` → связь с target_dim
 - `molecule_chembl_id` → связь с testitem_dim
 - `document_chembl_id` → связь с document_dim
 
 **Дополнительные поля:**
+
 - `published_*` → оригинальные опубликованные значения
 - `pchembl_value` → логарифмическое значение активности
 - `data_validity_comment` → комментарии о валидности данных
@@ -105,7 +109,7 @@ graph TD
 
 При недоступности ChEMBL API система логирует ошибки и предоставляет fallback данные с информацией об ошибках.
 
-## 3. Граф ETL
+## 3. Граф ETL (детализация)
 
 ```mermaid
 graph LR
@@ -114,12 +118,12 @@ graph LR
     C --> D[Transform<br/>Interval Fields]
     D --> E[Quality<br/>Assessment]
     E --> F[Export<br/>CSV/Parquet]
-    
+
     A --> A1[Filter by Assay]
     A --> A2[Filter by Target]
     A --> A3[Filter by Molecule]
     A --> A4[Filter by Document]
-    
+
     F --> G[activity.csv]
     F --> H[QC Report]
     F --> I[Correlation Report]
@@ -282,7 +286,7 @@ quality_profiles:
       - "="
     required_data_validity_comment: null
     rejected_activity_comments: "rejected_activity_comments"
-  
+
   moderate:
     enabled: true
     required_fields:
@@ -346,9 +350,11 @@ moderate_validated = validator.validate_moderate_quality(df)
 ### Дедупликация
 
 **Ключи дедупликации:**
+
 1. `activity_chembl_id` (первичный ключ)
 
 **Проверки дублей:**
+
 - Дублирующиеся `activity_chembl_id`
 - Одинаковые комбинации assay + molecule + target + document
 
@@ -458,7 +464,7 @@ python scripts/get_activity_data.py \
 
 ### Куда пишем файлы
 
-```
+```text
 data/output/activity/
 ├── activity_20250121.csv                    # Основной файл с данными
 ├── activity_20250121.parquet                # Эталонный формат
@@ -537,23 +543,27 @@ profiles:
 ### Чек-лист QC
 
 **Обязательные проверки:**
+
 - [ ] Все тесты проходят
 - [ ] Линтеры не выдают ошибок
 - [ ] Документация обновлена
 - [ ] meta.yaml корректен
 
 **Проверки качества данных:**
+
 - [ ] Fill rate >= 98%
 - [ ] Дубликаты <= 0.1%
 - [ ] Внешние ключи покрытие >= 95%
 - [ ] Валидация схемы прошла успешно
 
 **Детерминизм:**
+
 - [ ] Повторный запуск даёт тот же CSV (байтово)
 - [ ] Имена файлов стабильны
 - [ ] Порядок колонок фиксирован
 
 **Отчётность:**
+
 - [ ] QC отчёты сгенерированы
 - [ ] Корреляционные отчёты присутствуют
 - [ ] Логи структурированы
@@ -607,14 +617,16 @@ qc_metrics = {
 
 ### Типовые фейлы и решения
 
-**1. HTTP 429 (Too Many Requests)**
+#### 1. HTTP 429 (Too Many Requests)
+
 ```python
 # Решение: экспоненциальная задержка
 backoff_multiplier = 3.0
 total_retries = 5
 ```
 
-**2. HTTP 500 (Internal Server Error)**
+#### 2. HTTP 500 (Internal Server Error)
+
 ```python
 # Решение: graceful degradation
 if chembl_error:
@@ -622,7 +634,8 @@ if chembl_error:
     use_cached_data()
 ```
 
-**3. Валидация схемы Pandera**
+#### 3. Валидация схемы Pandera
+
 ```python
 # Решение: детальное логирование ошибок
 try:
@@ -635,23 +648,25 @@ except pa.errors.SchemaError as e:
         continue_with_warnings()
 ```
 
-**4. Проблемы с интервальными полями**
+#### 4. Проблемы с интервальными полями
+
 ```python
 # Решение: валидация консистентности
 def validate_interval_consistency(df):
     censored = df['is_censored'] == True
     non_censored = df['is_censored'] == False
-    
+
     # Цензурированные должны иметь ровно одну границу
-    assert censored.sum() == (df[censored]['lower_bound'].notna() ^ 
+    assert censored.sum() == (df[censored]['lower_bound'].notna() ^
                              df[censored]['upper_bound'].notna()).sum()
-    
+
     # Нецензурированные должны иметь обе границы
-    assert (df[non_censored]['lower_bound'].notna() & 
+    assert (df[non_censored]['lower_bound'].notna() &
             df[non_censored]['upper_bound'].notna()).all()
 ```
 
-**5. Проблемы с памятью**
+#### 5. Проблемы с памятью
+
 ```python
 # Решение: пакетная обработка
 batch_size = 1000
@@ -659,7 +674,8 @@ for batch in pd.read_csv(file, chunksize=batch_size):
     process_batch(batch)
 ```
 
-**6. Недоступность API ключей**
+#### 6. Недоступность API ключей
+
 ```python
 # Решение: работа без ключей с ограничениями
 if not api_key:
@@ -757,7 +773,7 @@ make docker-run ENTITY=activities CONFIG=configs/config_activity_full.yaml
 
 После успешного выполнения в `data/output/activity_YYYYMMDD/`:
 
-```
+```text
 activity_20241201/
 ├── activity_20241201.csv                    # Основные данные активностей
 ├── activity_20241201_meta.yaml             # Метаданные пайплайна
