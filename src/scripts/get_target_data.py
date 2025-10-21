@@ -187,11 +187,11 @@ def main() -> int:
     # Проверяем существование файлов
     if not args.config.exists():
         print(f"Error: Configuration file not found: {args.config}", file=sys.stderr)
-        return 1
+        return 2
 
     if not args.input.exists():
         print(f"Error: Input CSV file not found: {args.input}", file=sys.stderr)
-        return 1
+        return 2
 
     # Строим переопределения конфигурации
     overrides = build_config_overrides(args)
@@ -201,7 +201,7 @@ def main() -> int:
         config = load_target_config(args.config, overrides=overrides)
     except Exception as exc:
         print(f"Error loading configuration: {exc}", file=sys.stderr)
-        return 1
+        return 2
 
     # Настраиваем логирование
     logger = configure_logging(
@@ -221,11 +221,11 @@ def main() -> int:
     except TargetValidationError as exc:
         logger.error(f"Input validation failed: {exc}")
         print(f"Error: Input validation failed: {exc}", file=sys.stderr)
-        return 1
+        return 2
     except TargetIOError as exc:
         logger.error(f"Input I/O error: {exc}")
         print(f"Error: Input I/O error: {exc}", file=sys.stderr)
-        return 1
+        return 3
 
     try:
         # Запускаем ETL пайплайн
@@ -234,15 +234,15 @@ def main() -> int:
     except TargetValidationError as exc:
         logger.error(f"ETL validation failed: {exc}")
         print(f"Error: ETL validation failed: {exc}", file=sys.stderr)
-        return 1
+        return 2
     except TargetHTTPError as exc:
         logger.error(f"ETL HTTP error: {exc}")
         print(f"Error: ETL HTTP error: {exc}", file=sys.stderr)
-        return 1
+        return 3
     except TargetQCError as exc:
         logger.error(f"ETL QC error: {exc}")
         print(f"Error: ETL QC error: {exc}", file=sys.stderr)
-        return 1
+        return 2
 
     # Проверяем режим dry run
     if config.runtime.dry_run:
@@ -262,7 +262,12 @@ def main() -> int:
     except TargetIOError as exc:
         logger.error(f"Output I/O error: {exc}")
         print(f"Error: Output I/O error: {exc}", file=sys.stderr)
-        return 1
+        return 3
+
+    except Exception as exc:
+        logger.error(f"Unexpected error: {exc}")
+        print(f"Error: {exc}", file=sys.stderr)
+        return 3
 
     # Выводим информацию о созданных файлах
     print("\nGenerated files:")

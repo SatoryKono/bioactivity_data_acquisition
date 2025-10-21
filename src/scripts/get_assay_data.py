@@ -169,6 +169,17 @@ Examples:
         default="INFO",
         help="Logging level"
     )
+    parser.add_argument(
+        "--log-file",
+        type=Path,
+        help="Path to log file (default: stdout)"
+    )
+    parser.add_argument(
+        "--log-format",
+        choices=["text", "json"],
+        default="text",
+        help="Console log format (default: text)"
+    )
     
     # Dry run
     parser.add_argument(
@@ -181,7 +192,12 @@ Examples:
     
     try:
         # Setup logging
-        configure_logging(level=args.log_level)
+        configure_logging(
+            level=args.log_level,
+            file_enabled=args.log_file is not None,
+            console_format=args.log_format,
+            log_file=args.log_file,
+        )
         
         # Load configuration
         config = load_assay_config(args.config)

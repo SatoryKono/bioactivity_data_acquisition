@@ -118,7 +118,7 @@ io:
   # Настройки входных данных
   input:
     # Путь к CSV файлу с идентификаторами targets
-    target_ids_csv: data/input/target_ids.csv
+    target_ids_csv: data/input/target.csv
   # Настройки выходных данных
   output:
     # Директория для сохранения результатов

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from library.activity.config import load_activity_config
+from library.activity.config import load_activity_config, ConfigLoadError
 from library.activity.pipeline import run_activity_etl
 from library.activity.writer import write_activity_outputs
 from library.logging_setup import configure_logging
@@ -27,7 +27,7 @@ Examples:
         """,
     )
 
-    parser.add_argument("--input", type=Path, help="Path to CSV with filter IDs", required=False)
+    parser.add_argument("--input", type=Path, help="Path to CSV with filter IDs", required=True)
     parser.add_argument("--limit", type=int, help="Maximum number of activities", required=False)
     parser.add_argument("--timeout", type=float, default=60.0, help="Request timeout in seconds")
     parser.add_argument("--retries", type=int, default=5, help="Number of retry attempts")
@@ -37,13 +37,21 @@ Examples:
     parser.add_argument("--output-dir", type=Path, help="Output directory (overrides config)")
     parser.add_argument("--date-tag", type=str, help="Date tag for outputs (YYYYMMDD)")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], default="INFO")
+    parser.add_argument("--log-file", type=Path, help="Path to log file (default: stdout)")
+    parser.add_argument("--log-format", choices=["text", "json"], default="text", help="Console log format (default: text)")
     parser.add_argument("--dry-run", action="store_true", help="Simulate execution without writing files")
 
     args = parser.parse_args()
 
     try:
-        configure_logging(level=args.log_level)
         cfg = load_activity_config(args.config)
+        configure_logging(
+            level=args.log_level,
+            file_enabled=args.log_file is not None,
+            console_format=args.log_format,
+            log_file=args.log_file,
+            logging_config=cfg.logging.model_dump() if hasattr(cfg, "logging") else None,
+        )
 
         # Overrides
         if args.timeout:
@@ -88,6 +96,9 @@ Examples:
 
         return 0
 
+    except ConfigLoadError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 2
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.", file=sys.stderr)
         return 1
