@@ -9,8 +9,8 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
 import jsonschema
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 

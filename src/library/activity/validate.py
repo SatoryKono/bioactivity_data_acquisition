@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 import pandera as pa
-from pandera import Column, DataFrameSchema, Check
+from pandera import Check, Column, DataFrameSchema
 
 logger = logging.getLogger(__name__)
 
@@ -282,12 +282,12 @@ class ActivityValidator:
                 # Business rule: non-censored records must have both bounds and they must match standard_value
                 Check(
                     lambda df: (
-                        (df['is_censored'] == False) & 
+                        (~df['is_censored']) & 
                         (df['lower_bound'].notna()) & 
                         (df['upper_bound'].notna()) &
                         (df['lower_bound'] == df['standard_value']) &
                         (df['upper_bound'] == df['standard_value'])
-                    ).all() | (df['is_censored'] == True).all(),
+                    ).all() | df['is_censored'].all(),
                     name="non_censored_bounds_consistency"
                 ),
                 

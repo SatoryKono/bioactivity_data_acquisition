@@ -9,26 +9,18 @@ import numpy as np
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from library.etl.qc import (
-    build_correlation_matrix,
-    build_enhanced_qc_report,
-    build_qc_report,
-    build_enhanced_qc_detailed_reports,
-    build_enhanced_correlation_analysis_report,
-    build_enhanced_correlation_reports_df,
-    build_correlation_insights_report
-)
+from library.etl.qc import (build_correlation_insights_report,
+                            build_correlation_matrix,
+                            build_enhanced_correlation_analysis_report,
+                            build_enhanced_correlation_reports_df,
+                            build_enhanced_qc_detailed_reports,
+                            build_enhanced_qc_report, build_qc_report)
 from library.io_.normalize import normalize_doi_advanced
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers
-    from library.config import (
-        CsvFormatSettings,
-        DeterminismSettings,
-        OutputSettings,
-        ParquetFormatSettings,
-        PostprocessSettings,
-        QCValidationSettings,
-    )
+    from library.config import (CsvFormatSettings, DeterminismSettings,
+                                OutputSettings, ParquetFormatSettings,
+                                PostprocessSettings, QCValidationSettings)
 
 
 def _deterministic_order(
@@ -262,15 +254,9 @@ def write_deterministic_csv(
 ) -> Path:
     """Persist data to disk in a deterministic order using atomic writes."""
 
-    from library.config import (
-        CsvFormatSettings as _CsvFormatSettings,
-    )
-    from library.config import (
-        DeterminismSettings as _DeterminismSettings,
-    )
-    from library.config import (
-        ParquetFormatSettings as _ParquetFormatSettings,
-    )
+    from library.config import CsvFormatSettings as _CsvFormatSettings
+    from library.config import DeterminismSettings as _DeterminismSettings
+    from library.config import ParquetFormatSettings as _ParquetFormatSettings
     from library.io_.atomic_writes import atomic_write_context
 
     determinism = determinism or _DeterminismSettings()
@@ -406,22 +392,17 @@ def _auto_generate_qc_and_correlation_reports(
         return
     
     # Импортируем функции для генерации отчетов
-    from .qc import (
-        build_correlation_matrix,
-        build_enhanced_correlation_analysis_report,
-        build_enhanced_qc_detailed_reports,
-        build_enhanced_qc_report,
-        build_qc_report,
-        build_enhanced_correlation_reports_df,
-        build_correlation_insights_report
-    )
-    
     # Настройки по умолчанию
-    from library.config import (
-        CsvFormatSettings as _CsvFormatSettings,
-        ParquetFormatSettings as _ParquetFormatSettings,
-        QCValidationSettings as _QCValidationSettings,
-    )
+    from library.config import CsvFormatSettings as _CsvFormatSettings
+    from library.config import ParquetFormatSettings as _ParquetFormatSettings
+    from library.config import QCValidationSettings as _QCValidationSettings
+
+    from .qc import (build_correlation_insights_report,
+                     build_correlation_matrix,
+                     build_enhanced_correlation_analysis_report,
+                     build_enhanced_correlation_reports_df,
+                     build_enhanced_qc_detailed_reports,
+                     build_enhanced_qc_report, build_qc_report)
     
     csv_settings: CsvFormatSettings
     parquet_settings: ParquetFormatSettings
@@ -593,18 +574,10 @@ def write_qc_artifacts(
 ) -> None:
     """Write QC and correlation reports according to configuration."""
 
-    from library.config import (
-        CsvFormatSettings as _CsvFormatSettings,
-    )
-    from library.config import (
-        ParquetFormatSettings as _ParquetFormatSettings,
-    )
-    from library.config import (
-        PostprocessSettings as _PostprocessSettings,
-    )
-    from library.config import (
-        QCValidationSettings as _QCValidationSettings,
-    )
+    from library.config import CsvFormatSettings as _CsvFormatSettings
+    from library.config import ParquetFormatSettings as _ParquetFormatSettings
+    from library.config import PostprocessSettings as _PostprocessSettings
+    from library.config import QCValidationSettings as _QCValidationSettings
 
     csv_settings: CsvFormatSettings
     parquet_settings: ParquetFormatSettings

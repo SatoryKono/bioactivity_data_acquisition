@@ -20,17 +20,11 @@ from typing import Any
 # Добавляем корневую директорию проекта в путь для импортов
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from library.target import (
-    TargetHTTPError,
-    TargetIOError,
-    TargetQCError,
-    TargetValidationError,
-    load_target_config,
-    read_target_input,
-    run_target_etl,
-    write_target_outputs,
-)
 from library.logging_setup import configure_logging
+from library.target import (TargetHTTPError, TargetIOError, TargetQCError,
+                            TargetValidationError, load_target_config,
+                            read_target_input, run_target_etl,
+                            write_target_outputs)
 
 
 def _generate_date_tag() -> str:

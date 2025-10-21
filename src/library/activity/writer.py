@@ -10,6 +10,7 @@ import pandas as pd
 from structlog.stdlib import BoundLogger
 
 from library.etl.load import write_deterministic_csv
+
 from .config import ActivityConfig
 from .pipeline import ActivityETLResult
 
