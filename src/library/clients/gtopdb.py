@@ -135,7 +135,7 @@ class GtoPdbClient(BaseApiClient):
             Complete URL for the API request
         """
         base_url = str(self.config.base_url).rstrip('/')
-        return f"{base_url}/{endpoint}/{gtop_id}"
+        return f"{base_url}/targets/{gtop_id}/{endpoint}"
     
     def _fetch_endpoint(self, gtop_id: str, endpoint: str) -> list[dict[str, Any]] | None:
         """Fetch data from a specific GtoPdb endpoint.

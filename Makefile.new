@@ -1,0 +1,30 @@
+# Unified Makefile для bioactivity-data-acquisition
+# Единый интерфейс для всех пайплайнов с параметрами ENTITY и STAGE
+
+# Параметры по умолчанию
+ENTITY ?= assays        # assays|targets|documents|activities|testitems
+STAGE  ?= all           # extract|normalize|validate|postprocess|all
+
+.PHONY: run help
+
+# Основная команда запуска
+run:
+	python -m src.pipelines.$(ENTITY).cli $(STAGE)
+
+# Справка
+help:
+	@echo "Unified Makefile для bioactivity-data-acquisition"
+	@echo ""
+	@echo "Использование:"
+	@echo "  make run ENTITY=<entity> STAGE=<stage>"
+	@echo ""
+	@echo "Параметры:"
+	@echo "  ENTITY - тип сущности (assays|targets|documents|activities|testitems)"
+	@echo "  STAGE  - этап обработки (extract|normalize|validate|postprocess|all)"
+	@echo ""
+	@echo "Примеры:"
+	@echo "  make run ENTITY=assays STAGE=extract"
+	@echo "  make run ENTITY=targets STAGE=all"
+	@echo "  make run ENTITY=documents STAGE=validate"
+	@echo "  make run ENTITY=activities STAGE=normalize"
+	@echo "  make run ENTITY=testitems STAGE=postprocess"

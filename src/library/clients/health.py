@@ -264,7 +264,12 @@ class HealthChecker:
         circuit_states: dict[CircuitState, int] = {}
         for status in statuses:
             if status.circuit_state:
-                circuit_states[status.circuit_state] = circuit_states.get(status.circuit_state, 0) + 1
+                try:
+                    circuit_state = CircuitState(status.circuit_state)
+                    circuit_states[circuit_state] = circuit_states.get(circuit_state, 0) + 1
+                except ValueError:
+                    # Skip invalid circuit state values
+                    continue
         
         return {
             "total_apis": total_count,
