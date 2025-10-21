@@ -166,10 +166,15 @@ python -m library.cli pipeline --config configs/config.yaml
 
 ### Артефакты
 Манифесты определяют входные и выходные артефакты:
-- **Входные**: `data/input/*.csv`
-- **Промежуточные**: `data/output/post/*.parquet`
-- **Финальные**: `data/output/out/*.csv`, `data/output/out/*.parquet`
-- **Отчёты**: `data/output/out/*_report.csv`
+- **Входные**: `data/input/*.csv` (documents.csv, target.csv, assay.csv, activity.csv, testitem.csv)
+- **Выходные по сущностям**:
+  - **Documents**: `data/output/documents/*.csv`, `data/output/_documents/*.csv`
+  - **Targets**: `data/output/target/*.csv`, `data/output/target/*.yaml`
+  - **Assays**: `data/output/assay/*.csv`, `data/output/assay/*.yaml`
+  - **Activities**: `data/output/activity/*.csv`, `data/output/activity/*.yaml`
+  - **Testitems**: `data/output/testitem/*.csv`, `data/output/testitem/*.yaml`
+- **Отчёты QC**: `data/output/*/qc_report_*.csv`
+- **Метаданные**: `data/output/*/metadata_*.yaml`
 
 ## Формат JSON
 
@@ -196,7 +201,27 @@ python -m library.cli pipeline --config configs/config.yaml
 
 ## Интеграция с pyproject.toml
 
-Манифесты интегрированы с `pyproject.toml` через:
+Манифесты интегрированы с `pyproject.toml` через секцию `[project.metadata]`:
+
+```toml
+[project.metadata]
+# Метаданные манифестов и отчётов
+manifests = [
+    "metadata/manifests/documents_pipeline.json",
+    "metadata/manifests/documents_postprocess.json", 
+    "metadata/manifests/cleanup_manifest.json",
+    "metadata/manifests/quality_manifest.json",
+    "metadata/manifests/targets_pipeline.json",
+    "metadata/manifests/assays_pipeline.json",
+    "metadata/manifests/activities_pipeline.json",
+    "metadata/manifests/testitems_pipeline.json"
+]
+reports = [
+    "metadata/reports/config_audit.csv"
+]
+```
+
+Дополнительная интеграция:
 - Зависимости в секции `[project.dependencies]`
 - CLI entry points в секции `[project.scripts]`
 - Конфигурация инструментов в секции `[tool.*]`
