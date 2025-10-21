@@ -171,11 +171,27 @@ class VariantFetchSettings(BaseModel):
     batch_size: int = Field(default=200, ge=1, le=1000)
 
 
+class VariantMutationSettings(BaseModel):
+    """Settings for variant mutation processing."""
+    
+    format: str = Field(default="compact", pattern="^(compact|extended)$")
+    include_position: bool = Field(default=True)
+
+
+class VariantInterfaceSettings(BaseModel):
+    """Settings for variant interface/derived columns."""
+    
+    extract_sequence_accession: bool = Field(default=True)
+    extract_sequence_mutation: bool = Field(default=True)
+    mutation: VariantMutationSettings = Field(default_factory=VariantMutationSettings)
+
+
 class VariantSettings(BaseModel):
     """Configuration for variant data handling."""
     
     filters: VariantFilterSettings = Field(default_factory=VariantFilterSettings)
     fetch: VariantFetchSettings = Field(default_factory=VariantFetchSettings)
+    interface: VariantInterfaceSettings = Field(default_factory=VariantInterfaceSettings)
 
 
 class TargetIsoformSettings(BaseModel):
@@ -326,6 +342,8 @@ __all__ = [
     "FilterProfileSettings",
     "VariantSettings",
     "VariantFilterSettings",
+    "VariantInterfaceSettings",
+    "VariantMutationSettings",
     "TargetSettings",
     "TargetIsoformSettings",
     "load_assay_config",

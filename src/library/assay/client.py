@@ -380,6 +380,8 @@ class AssayChEMBLClient(BaseApiClient):
             "mutation": self._extract_variant_sequence_field(assay, "mutation"),
             "sequence": self._extract_variant_sequence_field(assay, "sequence"),
             "variant_accession": self._extract_variant_sequence_field(assay, "accession"),
+            "variant_sequence_accession": self._extract_variant_sequence_field(assay, "accession"),
+            "variant_sequence_mutation": self._extract_variant_sequence_field(assay, "mutation"),
             "variant_organism": self._extract_variant_sequence_field(assay, "organism"),
             
             # Биологический контекст

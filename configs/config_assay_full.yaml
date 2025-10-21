@@ -143,7 +143,6 @@ determinism:
     na_position: last
   # Порядок колонок в выходном файле
   column_order:
-    - index                   # Порядковый номер записи
     # Основные поля ассая (ключи и идентификаторы)
     - assay_chembl_id         # ID ассая в ChEMBL
     - src_id                  # ID источника
@@ -160,6 +159,20 @@ determinism:
     - target_chembl_id        # ID таргета в ChEMBL
     - relationship_type       # Тип связи с таргетом
     - confidence_score        # Уровень уверенности
+    # Вариантные данные
+    - variant_id              # ID варианта
+    - is_variant              # Флаг наличия вариантных данных
+    - variant_accession       # Accession варианта
+    - variant_sequence_accession  # Accession последовательности варианта
+    - variant_sequence_mutation   # Мутация в последовательности варианта
+    - variant_mutations       # Описание мутаций варианта
+    - variant_sequence        # Последовательность варианта
+    - variant_text            # Текстовое описание варианта
+    - variant_sequence_id     # ID последовательности варианта
+    - variant_organism        # Организм варианта
+    # Таргет и изоформы
+    - target_uniprot_accession # UniProt accession таргета
+    - target_isoform          # Изоформа таргета
     # Биологический контекст
     - assay_organism          # Организм ассая
     - assay_tax_id            # Таксономический ID организма
@@ -247,6 +260,18 @@ variants:
     include_wildtype: true  # Включать ли wildtype (не-варианты)
   fetch:
     batch_size: 200  # Размер батча для получения вариантных анализов
+  # Настройки для производных колонок интерфейса/сервисов
+  interface:
+    # Включить извлечение variant_sequence_accession
+    extract_sequence_accession: true
+    # Включить извлечение variant_sequence_mutation  
+    extract_sequence_mutation: true
+    # Настройки для обработки мутаций
+    mutation:
+      # Формат для представления мутаций (compact/extended)
+      format: "compact"
+      # Включать ли информацию о позиции мутации
+      include_position: true
 
 # Настройки для работы с изоформами таргетов
 targets:

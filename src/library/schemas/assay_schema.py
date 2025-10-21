@@ -122,6 +122,14 @@ class AssayRawSchema(pa.DataFrameModel):
         description="Accession from variant_sequence",
         nullable=True
     )
+    variant_sequence_accession: Series[str] = pa.Field(
+        description="Sequence accession from variant_sequence",
+        nullable=True
+    )
+    variant_sequence_mutation: Series[str] = pa.Field(
+        description="Sequence mutation from variant_sequence",
+        nullable=True
+    )
     variant_organism: Series[str] = pa.Field(
         description="Organism from variant_sequence",
         nullable=True
@@ -277,6 +285,14 @@ class AssayNormalizedSchema(pa.DataFrameModel):
     )
     variant_accession: Series[str] = pa.Field(
         description="UniProt accession of variant",
+        nullable=True
+    )
+    variant_sequence_accession: Series[str] = pa.Field(
+        description="Sequence accession from variant_sequence",
+        nullable=True
+    )
+    variant_sequence_mutation: Series[str] = pa.Field(
+        description="Sequence mutation from variant_sequence",
         nullable=True
     )
     variant_mutations: Series[str] = pa.Field(
