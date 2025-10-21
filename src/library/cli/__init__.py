@@ -12,6 +12,12 @@ from rich.console import Console
 from rich.table import Table
 
 from library.config import Config, _assign_path, ensure_output_directories_exist
+
+
+def _generate_date_tag() -> str:
+    """Generate date tag in YYYYMMDD format."""
+    from datetime import datetime
+    return datetime.now().strftime("%Y%m%d")
 from library.documents.config import (
     ALLOWED_SOURCES,
     DEFAULT_ENV_PREFIX,
@@ -193,8 +199,8 @@ def get_target_data(
     overrides: dict[str, Any] = {}
     if output_dir is not None:
         _assign_path(overrides, ["io", "output", "dir"], str(output_dir))
-    if date_tag is not None:
-        _assign_path(overrides, ["runtime", "date_tag"], date_tag)
+    # Устанавливаем date_tag: из аргументов или автоматически генерируем
+    _assign_path(overrides, ["runtime", "date_tag"], date_tag or _generate_date_tag())
     if timeout_sec is not None:
         _assign_path(overrides, ["http", "global", "timeout_sec"], timeout_sec)
     if retries is not None:
@@ -260,7 +266,7 @@ def get_target_data(
         outputs = write_target_outputs(
             result,
             cfg.io.output.dir,
-            cfg.runtime.date_tag or "",
+            cfg.runtime.date_tag,
             cfg,
         )
 
