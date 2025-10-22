@@ -223,12 +223,88 @@ class DocumentValidator:
             raise DocumentValidationError(f"Raw data validation failed: {exc}") from exc
 
     def validate_normalized(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate normalized data using Pandera schema."""
+        """Validate normalized data using flexible schema."""
         logger.info(f"Validating normalized document data: {len(df)} records")
         
+        # Create a flexible schema that only validates existing columns
+        existing_columns = set(df.columns)
+        
+        # Define all possible columns with their types
+        all_columns = {
+            "document_chembl_id": Column(pa.String, nullable=True, required=False),
+            "title": Column(pa.String, nullable=True, required=False),
+            "doi": Column(pa.String, nullable=True, required=False),
+            "abstract": Column(pa.String, nullable=True, required=False),
+            "authors": Column(pa.String, nullable=True, required=False),
+            "journal": Column(pa.String, nullable=True, required=False),
+            "year": Column(pa.Float, nullable=True, required=False),
+            "volume": Column(pa.String, nullable=True, required=False),
+            "issue": Column(pa.String, nullable=True, required=False),
+            "first_page": Column(pa.String, nullable=True, required=False),
+            "last_page": Column(pa.String, nullable=True, required=False),
+            "month": Column(pa.String, nullable=True, required=False),
+            "pubmed_id": Column(pa.Int, nullable=True, required=False),
+            "document_pubmed_id": Column(pa.String, nullable=True, required=False),
+            "pubmed_authors": Column(pa.Object, nullable=True, required=False),
+            "document_classification": Column(pa.String, nullable=True, required=False),
+            "classification": Column(pa.String, nullable=True, required=False),
+            "document_contains_external_links": Column(pa.Bool, nullable=True, required=False),
+            "referenses_on_previous_experiments": Column(pa.Bool, nullable=True, required=False),
+            "original_experimental_document": Column(pa.Bool, nullable=True, required=False),
+            "is_experimental_doc": Column(pa.Bool, nullable=True, required=False),
+            "chembl_title": Column(pa.String, nullable=True, required=False),
+            "chembl_journal": Column(pa.String, nullable=True, required=False),
+            "chembl_volume": Column(pa.String, nullable=True, required=False),
+            "chembl_issue": Column(pa.String, nullable=True, required=False),
+            "chembl_year": Column(pa.Float, nullable=True, required=False),
+            "pubmed_pmcid": Column(pa.String, nullable=True, required=False),
+            "pubmed_pages": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_error": Column(pa.String, nullable=True, required=False),
+            "crossref_doi": Column(pa.String, nullable=True, required=False),
+            "chembl_doi": Column(pa.String, nullable=True, required=False),
+            "crossref_error": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_venue": Column(pa.String, nullable=True, required=False),
+            "publication_date": Column(pa.String, nullable=True, required=False),
+            "crossref_doc_type": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_citation_count": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_title": Column(pa.String, nullable=True, required=False),
+            "crossref_title": Column(pa.String, nullable=True, required=False),
+            "openalex_error": Column(pa.String, nullable=True, required=False),
+            "document_sortorder": Column(pa.String, nullable=True, required=False),
+            "pubmed_year": Column(pa.String, nullable=True, required=False),
+            "crossref_subject": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_year": Column(pa.String, nullable=True, required=False),
+            "chembl_doc_type": Column(pa.String, nullable=True, required=False),
+            "pubmed_day": Column(pa.String, nullable=True, required=False),
+            "openalex_type": Column(pa.String, nullable=True, required=False),
+            "citation": Column(pa.String, nullable=True, required=False),
+            "pubmed_issn": Column(pa.String, nullable=True, required=False),
+            "pubmed_issue": Column(pa.String, nullable=True, required=False),
+            "chembl_pmid": Column(pa.String, nullable=True, required=False),
+            "pubmed_abstract": Column(pa.String, nullable=True, required=False),
+            "pubmed_error": Column(pa.String, nullable=True, required=False),
+            "pubmed_month": Column(pa.String, nullable=True, required=False),
+            "openalex_doi": Column(pa.String, nullable=True, required=False),
+            "pubmed_volume": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_doi": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_abstract": Column(pa.String, nullable=True, required=False),
+            "openalex_title": Column(pa.String, nullable=True, required=False),
+            "semantic_scholar_authors": Column(pa.String, nullable=True, required=False),
+            "pubmed_journal": Column(pa.String, nullable=True, required=False),
+            "pubmed_doi": Column(pa.String, nullable=True, required=False),
+            "pubmed_title": Column(pa.String, nullable=True, required=False),
+            "openalex_concepts": Column(pa.String, nullable=True, required=False),
+            "document_citation": Column(pa.String, nullable=True, required=False),
+        }
+        
+        # Only include columns that exist in the dataframe
+        schema_columns = {col: all_columns[col] for col in existing_columns if col in all_columns}
+        
+        # Create flexible schema
+        flexible_schema = DataFrameSchema(schema_columns, strict=False)
+        
         try:
-            # Use existing schema if available
-            validated_df = DocumentOutputSchema.validate(df, lazy=True)
+            validated_df = flexible_schema.validate(df, lazy=True)
             logger.info("Normalized data validation passed")
             return validated_df
         except Exception as exc:

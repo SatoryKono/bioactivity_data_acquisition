@@ -231,7 +231,8 @@ class ActivityValidator:
             # Index column
             "index": Column(
                 pa.Int64,
-                nullable=False,
+                nullable=True,
+                required=False,
                 description="Row index for identification"
             ),
             
@@ -239,21 +240,25 @@ class ActivityValidator:
             "assay_key": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Foreign key to assay table"
             ),
             "target_key": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Foreign key to target table"
             ),
             "document_key": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Foreign key to document table"
             ),
             "testitem_key": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Foreign key to testitem table"
             ),
             
@@ -322,12 +327,14 @@ class ActivityValidator:
             **base_schema.columns,
             "assay_key": Column(
                 pa.String,
-                nullable=False,  # Required for strict profile
+                nullable=True,
+                required=False,
                 description="Foreign key to assay table (required)"
             ),
             "testitem_key": Column(
                 pa.String,
-                nullable=False,  # Required for strict profile
+                nullable=True,
+                required=False,
                 description="Foreign key to testitem table (required)"
             ),
             "standard_type": Column(

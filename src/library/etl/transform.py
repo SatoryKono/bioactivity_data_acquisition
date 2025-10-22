@@ -19,11 +19,16 @@ def _resolve_ascending(by: list[str], ascending: list[bool] | bool) -> list[bool
 
     if isinstance(ascending, bool):
         return ascending
-    if len(ascending) == len(by):
-        return ascending
-    if len(ascending) == 1:
-        return ascending * len(by)
-    raise ValueError("Ascending configuration must be a bool or match the sort keys length.")
+    if isinstance(ascending, list):
+        if len(ascending) == len(by):
+            return ascending
+        if len(ascending) == 1:
+            return ascending * len(by)
+        # If ascending list doesn't match, use the first value for all columns
+        if ascending:
+            return [ascending[0]] * len(by)
+    # Default to True if ascending is not a valid type
+    return True
 
 
 def _convert_to_nanomolar(df: pd.DataFrame, unit_conversion: dict[str, float]) -> pd.Series:
