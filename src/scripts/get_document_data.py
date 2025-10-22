@@ -277,21 +277,22 @@ Examples:
             
             # Print summary
             print("\nSummary:")
-            print(f"  Total documents: {result.meta.get('row_count', 0)}")
-            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown')}")
-            print(f"  Enabled sources: {', '.join(result.meta.get('enabled_sources', []))}")
+            print(f"  Total documents: {len(result.data)}")
+            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown') if result.meta else 'unknown'}")
+            print(f"  Enabled sources: {', '.join(result.meta.get('enabled_sources', []) if result.meta else [])}")
             print(f"  Date tag: {date_tag}")
             
             # Print source statistics
-            extraction_params = result.meta.get('extraction_parameters', {})
-            print("\nSource statistics:")
-            for source in result.meta.get('enabled_sources', []):
-                records_key = f"{source}_records"
-                if records_key in extraction_params:
-                    print(f"  {source}: {extraction_params[records_key]} records")
+            if result.meta:
+                extraction_params = result.meta.get('extraction_parameters', {})
+                print("\nSource statistics:")
+                for source in result.meta.get('enabled_sources', []):
+                    records_key = f"{source}_records"
+                    if records_key in extraction_params:
+                        print(f"  {source}: {extraction_params[records_key]} records")
             
             # Print correlation analysis info
-            if extraction_params.get('correlation_analysis_enabled', False):
+            if result.meta and extraction_params.get('correlation_analysis_enabled', False):
                 insights_count = extraction_params.get('correlation_insights_count', 0)
                 print(f"  Correlation analysis: {insights_count} insights found")
         else:
