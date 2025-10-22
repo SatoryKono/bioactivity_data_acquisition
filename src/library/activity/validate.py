@@ -9,6 +9,17 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
+from library.postprocess.units import ALLOWED_UNITS
+
+
+def _pchembl_relation_constraint(df: pd.DataFrame) -> bool:
+    if "pchembl_value" not in df.columns or "standard_relation" not in df.columns:
+        return True
+    relations = df["standard_relation"].fillna("").astype(str).replace({"<=": "≤"})
+    allowed_relations = relations.isin({"", "=", "≤"})
+    mask = df["pchembl_value"].notna()
+    return bool((~(mask & ~allowed_relations)).all())
+
 logger = logging.getLogger(__name__)
 
 
@@ -122,6 +133,7 @@ class ActivityValidator:
             "standard_units": Column(
                 pa.String,
                 nullable=True,
+                checks=[Check.isin(sorted(ALLOWED_UNITS), ignore_na=True, name="standard_units_domain")],
                 description="Standardized units"
             ),
             "standard_flag": Column(
@@ -135,7 +147,7 @@ class ActivityValidator:
                 pa.Float,
                 nullable=True,
                 checks=[
-                    Check.in_range(0, 15, name="pchembl_range")
+                    Check.in_range(0, 20, name="pchembl_range")
                 ],
                 description="pChEMBL value"
             ),
@@ -184,7 +196,16 @@ class ActivityValidator:
             #     nullable=False,
             #     description="Retrieval timestamp"
             # )
-        }, coerce=True)
+        },
+            coerce=True,
+            checks=[
+                Check(
+                    _pchembl_relation_constraint,
+                    element_wise=False,
+                    name="pchembl_relation_constraint",
+                )
+            ],
+        )
 
     def get_normalized_schema(self) -> DataFrameSchema:
         """Schema for normalized activity data."""

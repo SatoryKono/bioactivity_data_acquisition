@@ -18,6 +18,13 @@ from .config import ActivityConfig
 from .normalize import ActivityNormalizer
 from .quality import ActivityQualityFilter
 from .validate import ActivityValidator
+from library.postprocess.units import (
+    PChEMBLComputationError,
+    UnitNormalizationError,
+    normalize_unit,
+    pchembl_from_value,
+    to_nM,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +54,7 @@ class ActivityETLResult:
     activities: pd.DataFrame
     qc: pd.DataFrame
     meta: dict[str, Any]
+    failures: list[dict[str, Any]] | None = None
     # Корреляции (для единообразия с другими модулями)
     correlation_analysis: dict[str, Any] | None = None
     correlation_reports: dict[str, pd.DataFrame] | None = None
@@ -136,6 +144,7 @@ class ActivityPipeline:
         
         # Normalize data
         normalized_df = self._normalize_activities(validated_df, logger)
+        normalized_df, failures = self._apply_units_and_pchembl(normalized_df, logger)
         # Add tracking fields similar to assay pipeline
         normalized_df = self._add_tracking_fields(normalized_df, logger)
         
@@ -153,7 +162,7 @@ class ActivityPipeline:
             logging.getLogger(__name__).warning(f"Failed to normalize QC metrics for activity: {exc}")
         
         # Get metadata
-        meta = self._get_metadata(normalized_df, logger)
+        meta = self._get_metadata(normalized_df, logger, failures)
         
         # Опциональный корреляционный анализ (для единообразия)
         correlation_analysis = None
@@ -184,6 +193,7 @@ class ActivityPipeline:
             activities=normalized_df,
             meta=meta,
             qc=qc_results,
+            failures=failures,
             correlation_analysis=correlation_analysis,
             correlation_reports=correlation_reports,
             correlation_insights=correlation_insights,
@@ -411,6 +421,104 @@ class ActivityPipeline:
             logger.error(f"Activity normalization failed: {e}")
             raise ActivityPipelineError(str(e)) from e
 
+    def _apply_units_and_pchembl(
+        self,
+        activities_df: pd.DataFrame,
+        logger: BoundLogger,
+    ) -> tuple[pd.DataFrame, list[dict[str, Any]]]:
+        if activities_df.empty:
+            return activities_df, []
+
+        df = activities_df.copy()
+        failures: list[dict[str, Any]] = []
+        valid_mask = pd.Series(True, index=df.index, dtype=bool)
+
+        if "standard_value_nM" not in df.columns:
+            df["standard_value_nM"] = pd.Series([pd.NA] * len(df), dtype="Float64")
+        else:
+            df["standard_value_nM"] = pd.Series([pd.NA] * len(df), index=df.index, dtype="Float64")
+
+        if "pchembl_value" not in df.columns:
+            df["pchembl_value"] = pd.Series([pd.NA] * len(df), dtype="Float64")
+        else:
+            df["pchembl_value"] = pd.Series([pd.NA] * len(df), index=df.index, dtype="Float64")
+
+        for idx in df.index:
+            unit = df.at[idx, "standard_units"] if "standard_units" in df.columns else None
+            activity_id = df.at[idx, "activity_chembl_id"] if "activity_chembl_id" in df.columns else None
+
+            if unit is None or pd.isna(unit):
+                df.at[idx, "standard_units"] = pd.NA
+                df.at[idx, "standard_value_nM"] = pd.NA
+                df.at[idx, "pchembl_value"] = pd.NA
+                continue
+
+            try:
+                normalized_unit = normalize_unit(str(unit))
+            except UnitNormalizationError as exc:
+                valid_mask.at[idx] = False
+                failures.append({
+                    "code": exc.code,
+                    "activity_chembl_id": str(activity_id) if activity_id is not None else None,
+                    "unit": str(unit),
+                })
+                continue
+
+            df.at[idx, "standard_units"] = normalized_unit
+
+            value = df.at[idx, "standard_value"] if "standard_value" in df.columns else None
+            if value is None or pd.isna(value):
+                df.at[idx, "standard_value_nM"] = pd.NA
+                df.at[idx, "pchembl_value"] = pd.NA
+                continue
+
+            try:
+                value_nM = to_nM(float(value), normalized_unit)
+            except UnitNormalizationError as exc:
+                valid_mask.at[idx] = False
+                failures.append({
+                    "code": exc.code,
+                    "activity_chembl_id": str(activity_id) if activity_id is not None else None,
+                    "unit": normalized_unit,
+                })
+                continue
+
+            df.at[idx, "standard_value_nM"] = value_nM
+
+            relation_raw = df.at[idx, "standard_relation"] if "standard_relation" in df.columns else None
+            relation = relation_raw.strip() if isinstance(relation_raw, str) else relation_raw
+            if relation == "<=":
+                relation = "≤"
+
+            if relation in {"=", "≤"}:
+                try:
+                    df.at[idx, "pchembl_value"] = pchembl_from_value(value_nM)
+                except PChEMBLComputationError as exc:
+                    failures.append({
+                        "code": exc.code,
+                        "activity_chembl_id": str(activity_id) if activity_id is not None else None,
+                        "value_nM": value_nM,
+                    })
+                    df.at[idx, "pchembl_value"] = pd.NA
+            else:
+                df.at[idx, "pchembl_value"] = pd.NA
+
+        if not valid_mask.all():
+            dropped = int((~valid_mask).sum())
+            df = df.loc[valid_mask].reset_index(drop=True)
+            if logger:
+                logger.warning("activity_units_filtered", dropped=dropped)
+        else:
+            df = df.reset_index(drop=True)
+
+        df["standard_value_nM"] = df["standard_value_nM"].astype("Float64")
+        df["pchembl_value"] = df["pchembl_value"].astype("Float64")
+
+        if logger and failures:
+            logger.info("activity_unit_failures", count=len(failures))
+
+        return df, failures
+
     def _add_tracking_fields(
         self,
         activities_df: pd.DataFrame,
@@ -491,9 +599,10 @@ class ActivityPipeline:
             raise ActivityQCError(str(e)) from e
 
     def _get_metadata(
-        self, 
-        activities_df: pd.DataFrame, 
-        logger: BoundLogger
+        self,
+        activities_df: pd.DataFrame,
+        logger: BoundLogger,
+        failures: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Generate metadata for the processed data.
         
@@ -520,12 +629,16 @@ class ActivityPipeline:
             
             metadata_handler = create_dataset_metadata("chembl", api_config, logger)
             meta = metadata_handler.to_dict(api_config)
-            
+
+            failure_list = failures or []
+
             # Add pipeline-specific metadata
             meta.update({
                 "total_activities": len(activities_df),
                 "extraction_timestamp": datetime.utcnow().isoformat() + "Z",
                 "pipeline_version": "1.0.0",
+                "failure_count": len(failure_list),
+                "failures": failure_list,
                 "config": {
                     "limit": self.config.limit,
                     "workers": getattr(self.config.runtime, "workers", 4),
@@ -549,16 +662,21 @@ class ActivityPipeline:
                 unit_counts = activities_df["standard_units"].value_counts().to_dict()
                 meta["unit_distribution"] = unit_counts
             
-            logger.info("Metadata generated successfully")
+            logger.info(
+                "Metadata generated successfully",
+                failure_count=len(failure_list),
+            )
             return meta
-            
+
         except Exception as e:
             logger.error(f"Failed to generate metadata: {e}")
             return {
                 "total_activities": len(activities_df),
                 "extraction_timestamp": datetime.utcnow().isoformat() + "Z",
                 "chembl_release": "unknown",
-                "pipeline_version": "1.0.0"
+                "pipeline_version": "1.0.0",
+                "failure_count": len(failures or []),
+                "failures": failures or [],
             }
 
 

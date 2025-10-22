@@ -1,0 +1,9 @@
+unit_unknown:
+  description: Unrecognized or unsupported unit encountered during normalization.
+  severity: major
+pchembl_out_of_range:
+  description: Derived pChEMBL value falls outside the allowed range [0, 20].
+  severity: major
+chembl_release_unknown:
+  description: CHEMBL_RELEASE environment variable is missing or set to "unknown".
+  severity: blocker

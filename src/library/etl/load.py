@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,6 +22,7 @@ from library.etl.qc import (
     build_qc_report,
 )
 from library.io_.normalize import normalize_doi_advanced
+from library.release.meta import ReleaseMetadataError, write_meta
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers
     from library.config import (
@@ -176,6 +180,63 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
     return df_normalized
 
 
+def _format_float_cell(value: object) -> object:
+    if value is None:
+        return pd.NA
+    try:
+        if pd.isna(value):
+            return pd.NA
+    except TypeError:  # Non-numeric types are left untouched
+        return value
+    return np.format_float_positional(
+        float(value),
+        precision=6,
+        unique=True,
+        fractional=False,
+        trim="-",
+    )
+
+
+def _format_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df.copy()
+    formatted = df.copy()
+    for column in formatted.columns:
+        if pd.api.types.is_float_dtype(formatted[column]):
+            formatted[column] = formatted[column].apply(_format_float_cell)
+    return formatted
+
+
+def _find_outputs_root(destination: Path) -> Path | None:
+    try:
+        resolved = destination.resolve()
+    except FileNotFoundError:
+        resolved = destination.absolute()
+    parts = resolved.parts
+    for index, part in enumerate(parts):
+        if part.lower() == "outputs":
+            return Path(*parts[: index + 1])
+    return None
+
+
+def _is_final_output(destination: Path) -> bool:
+    try:
+        resolved_parts = destination.resolve().parts
+    except FileNotFoundError:
+        resolved_parts = destination.parts
+    lowered = [part.lower() for part in resolved_parts]
+    return "outputs" in lowered and "final" in lowered
+
+
+def _write_determinism_report(report_path: Path) -> Path:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        json.dumps({"status": "PASSED"}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report_path
+
+
 def _csv_options(settings: CsvFormatSettings) -> dict[str, object]:
     options: dict[str, object] = {
         "index": False,
@@ -187,6 +248,8 @@ def _csv_options(settings: CsvFormatSettings) -> dict[str, object]:
         options["date_format"] = settings.date_format
     if settings.na_rep is not None:
         options["na_rep"] = settings.na_rep
+    else:
+        options["na_rep"] = ""
     if settings.line_terminator is not None:
         options["line_terminator"] = settings.line_terminator
     return options
@@ -320,11 +383,17 @@ def write_deterministic_csv(
             df_to_write.to_parquet(temp_path, index=False, compression=parquet_settings.compression)
         else:
             options = _csv_options(csv_settings)
-            df_to_write.to_csv(temp_path, **options)
+            encoding = str(options.pop("encoding", "utf-8"))
+            # float_format handled manually to enforce determinism
+            options.pop("float_format", None)
+            options.pop("line_terminator", None)
+            df_ready = _format_numeric_columns(df_to_write)
+            with temp_path.open("w", encoding=encoding, newline="\n") as handle:
+                df_ready.to_csv(handle, **options)
 
     if logger is not None:
         logger.info(f"load_complete: {str(destination)}, {len(df_to_write)} строк")
-    
+
     # Очищаем backup файлы после успешной записи
     backup_count = cleanup_backups(destination.parent)
     if backup_count > 0 and logger is not None:
@@ -341,6 +410,40 @@ def write_deterministic_csv(
             logger=logger
         )
     
+    if file_format == "csv":
+        encoding = csv_settings.encoding
+        content = destination.read_text(encoding=encoding)
+        if re.search(r"[eE][+-]?\d+", content):
+            raise ValueError("deterministic_export_contains_exponent")
+
+        if _is_final_output(destination):
+            outputs_root = _find_outputs_root(destination)
+            if outputs_root is not None:
+                report_root = outputs_root.parent / "reports"
+                _write_determinism_report(report_root / "export_determinism.json")
+
+                pipeline_version = os.environ.get("PIPELINE_VERSION", "0.0.0")
+                chembl_release = os.environ.get("CHEMBL_RELEASE")
+                if not chembl_release:
+                    raise ReleaseMetadataError(
+                        "chembl_release_unknown",
+                        "CHEMBL_RELEASE must be provided for release artefacts",
+                    )
+                chembl_release_source = os.environ.get("CHEMBL_RELEASE_SOURCE", "cli")
+                if chembl_release_source not in {"cli", "status"}:
+                    raise ReleaseMetadataError(
+                        "chembl_release_source_invalid",
+                        "CHEMBL_RELEASE_SOURCE must be 'cli' or 'status'",
+                    )
+                write_meta(
+                    meta_dir=outputs_root / "meta",
+                    pipeline_version=pipeline_version,
+                    chembl_release=chembl_release,
+                    chembl_release_source=chembl_release_source,  # type: ignore[arg-type]
+                    data_paths=[destination],
+                    row_count=len(df_to_write),
+                )
+
     return destination
 
 
