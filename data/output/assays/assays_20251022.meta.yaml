@@ -130,9 +130,9 @@ config:
         format: compact
         include_position: true
 entity_type: assays
-extraction_timestamp: '2025-10-22T22:17:19.916357'
+extraction_timestamp: '2025-10-22T22:51:52.396134'
 file_checksums:
-  csv: 7bfa439c817ec3ef8e4e15c00ee596017d20b597cc789f48635339035bf8f18e
+  csv: 52f2f38cd101115b4da3f25a09b8e6cf2f85aff3803c80fc57cd0c194d844698
   qc: 431a31e7c5ec030f835120c32aa00f80354963f3ca7787bd0df22c1eb3cbb36a
 pipeline_name: assays
 pipeline_version: 2.0.0
