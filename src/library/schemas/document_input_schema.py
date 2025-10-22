@@ -20,23 +20,20 @@ class DocumentInputSchema(pa.DataFrameModel):
     document_chembl_id: Series[str] = pa.Field(description="ChEMBL document identifier")
     title: Series[str] = pa.Field(description="Document title")
     
-    # Optional fields
+    # Optional fields (matching actual CSV columns)
     doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
-    document_pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed identifier")
-    chembl_doc_type: Series[str] = pa.Field(nullable=True, description="Document type from ChEMBL")
+    pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed identifier")
     journal: Series[str] = pa.Field(nullable=True, description="Journal name")
-    year: Series[int] = pa.Field(nullable=True, description="Publication year")
+    year: Series[float] = pa.Field(nullable=True, description="Publication year")
     
-    # Legacy fields (keeping for backward compatibility)
+    # Legacy fields (matching actual CSV columns)
     abstract: Series[str] = pa.Field(nullable=True, description="Document abstract")
-    pubmed_authors: Series[str] = pa.Field(
-        nullable=True, description="Document authors from PubMed"
-    )
-    document_classification: Series[float] = pa.Field(nullable=True, description="Document classification")
-    referenses_on_previous_experiments: Series[bool] = pa.Field(nullable=True, description="Contains external links")
+    authors: Series[str] = pa.Field(nullable=True, description="Document authors")
+    classification: Series[float] = pa.Field(nullable=True, description="Document classification")
+    document_contains_external_links: Series[bool] = pa.Field(nullable=True, description="Contains external links")
     first_page: Series[int] = pa.Field(nullable=True, description="First page number")
-    original_experimental_document: Series[bool] = pa.Field(nullable=True, description="Is experimental document")
-    issue: Series[int] = pa.Field(nullable=True, description="Journal issue number")
+    is_experimental_doc: Series[bool] = pa.Field(nullable=True, description="Is experimental document")
+    issue: Series[float] = pa.Field(nullable=True, description="Journal issue number")
     last_page: Series[float] = pa.Field(nullable=True, description="Last page number")
     month: Series[int] = pa.Field(nullable=True, description="Publication month")
     volume: Series[float] = pa.Field(nullable=True, description="Journal volume")

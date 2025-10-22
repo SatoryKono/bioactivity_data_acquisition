@@ -1,21 +1,6 @@
-enabled_sources:
-- chembl
-- crossref
-- openalex
-- pubmed
-- semantic_scholar
-extraction_parameters:
-  chembl_records: 10
-  correlation_analysis_enabled: false
-  correlation_insights_count: 0
-  crossref_records: 10
-  openalex_records: 10
-  pubmed_records: 10
-  semantic_scholar_records: 10
-  sources_processed: 5
-  total_documents: 10
-file_checksums:
-  csv: 09117d0c596e3ec1815e6002a9bbd0286668068ff7faa56a3ccbab8a92eaf537
-  qc: 1b92dc772a46cbf411785a18675ec4e2685f266429296208a6a970d9ed7e00ca
-pipeline_version: 1.0.0
-row_count: 10
+chembl_db_version: null
+chembl_release_date: null
+chembl_status: error
+dataset: documents
+generated_at: '2025-10-22T11:21:25.371113Z'
+run_id: cc91f3b1-0a30-4dec-a1a4-33796c4323d4

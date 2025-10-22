@@ -94,26 +94,6 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     if 'postcodes' in normalised.columns:
         normalised = normalised.drop(columns=['postcodes'])
     
-    # Map column names to expected schema names
-    column_mapping = {
-        'pubmed_id': 'document_pubmed_id',
-        'authors': 'pubmed_authors',
-        'classification': 'document_classification',
-        'document_contains_external_links': 'referenses_on_previous_experiments',
-        'is_experimental_doc': 'original_experimental_document',
-        # Map original ChEMBL fields to chembl_* fields
-        'title': 'chembl_title',
-        'journal': 'chembl_journal',
-        'volume': 'chembl_volume',
-        'issue': 'chembl_issue',
-        'year': 'chembl_year'
-    }
-    
-    # Rename columns to match schema
-    for old_name, new_name in column_mapping.items():
-        if old_name in normalised.columns:
-            normalised[new_name] = normalised[old_name]
-    
     # Check for required columns
     present = {column for column in normalised.columns}
     missing = _REQUIRED_COLUMNS - present
@@ -131,7 +111,7 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
 def _create_api_client(source: str, config: DocumentConfig) -> Any:
     """Create an API client for the specified source."""
     from library.config import RateLimitSettings, RetrySettings
-
+    
     # Get source-specific configuration
     source_config = config.sources.get(source)
     if not source_config:
@@ -288,7 +268,7 @@ def _extract_data_from_source_batch(
             # Extract data based on source
             if source == "chembl":
                 if pd.notna(row.get("document_chembl_id")):
-                    data = client.fetch_by_doc_id(str(row["document_chembl_id"]).strip())
+                    data = client.fetch_by_document_id(str(row["document_chembl_id"]).strip())
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
@@ -468,7 +448,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     
     # Step 7: Post-processing
     # Add citation column
-    if config.postprocess.citation_formatting.enabled:
+    if config.postprocess.citation.enabled:
         accepted_df = add_citation_column(accepted_df)
     
     # Normalize journal columns
@@ -476,12 +456,11 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         accepted_df = normalize_journal_columns(accepted_df)
     
     # Step 8: Build metadata
-    metadata_obj = create_dataset_metadata(
+    meta = create_dataset_metadata(
         dataset_name="documents",
-        config=config,
+        config=config.api if hasattr(config, 'api') else None,
         logger=logger
-    )
-    meta = metadata_obj.to_dict(config)
+    ).to_dict()
     
     # Step 9: Correlation analysis (if enabled)
     correlation_analysis = None
@@ -539,8 +518,7 @@ def write_document_outputs(
     write_deterministic_csv(
         result.documents,
         data_path,
-        logger=logger,
-        determinism=config.determinism
+        config.determinism
     )
     outputs["data"] = data_path
     

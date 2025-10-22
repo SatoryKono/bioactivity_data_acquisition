@@ -9,11 +9,7 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
-from library.schemas.testitem_schema import (
-    TestitemInputSchema,
-    TestitemNormalizedSchema,
-    TestitemRawSchema,
-)
+from library.schemas.testitem_schema import TestitemNormalizedSchema, TestitemRawSchema
 
 logger = logging.getLogger(__name__)
 
@@ -297,19 +293,6 @@ class TestitemValidator:
                 description="Rotatable bonds"
             ),
         })
-
-    def validate_input(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate input CSV data using input schema."""
-        logger.info(f"Validating input testitem data: {len(df)} records")
-        
-        try:
-            # Use input schema for CSV data
-            validated_df = TestitemInputSchema.validate(df, lazy=True)
-            logger.info("Input data validation passed")
-            return validated_df
-        except Exception as exc:
-            logger.error(f"Input data validation failed: {exc}")
-            raise TestitemValidationError(f"Input data validation failed: {exc}") from exc
 
     def validate_raw(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate raw input data using Pandera schema."""

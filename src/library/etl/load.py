@@ -108,7 +108,7 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
         # Специальная обработка DOI-столбцов
         if column in doi_columns:
             if logger is not None:
-                logger.info("normalizing_doi_column", column=column)
+                logger.info(f"normalizing_doi_column: {column}")
             
             # Применяем продвинутую нормализацию DOI
             for idx in df_normalized.index:
@@ -308,7 +308,7 @@ def write_deterministic_csv(
     from library.io_.atomic_writes import cleanup_backups
     backup_count = cleanup_backups(destination.parent)
     if backup_count > 0 and logger is not None:
-        logger.info("cleaned_up_backups", count=backup_count, directory=str(destination.parent))
+        logger.info(f"cleaned_up_backups: {backup_count} files in {destination.parent}")
 
     # Use atomic writes for safe file operations
     with atomic_write_context(destination, logger=logger) as temp_path:
@@ -324,7 +324,7 @@ def write_deterministic_csv(
     # Очищаем backup файлы после успешной записи
     backup_count = cleanup_backups(destination.parent)
     if backup_count > 0 and logger is not None:
-        logger.info("cleaned_up_backups_after_write", count=backup_count, directory=str(destination.parent))
+        logger.info(f"cleaned_up_backups_after_write: {backup_count} files in {destination.parent}")
     
     # Автоматически генерируем и сохраняем QC и корреляционные таблицы
     # Но только для основных данных, не для самих QC отчетов и корреляций
@@ -384,7 +384,7 @@ def _auto_generate_qc_and_correlation_reports(
     # Не генерируем отчеты для самих QC отчетов и корреляций
     if _is_qc_report(df) or _is_report_file(data_path):
         if logger is not None:
-            logger.info("skip_report_generation", reason="input_is_report", path=str(data_path))
+            logger.info(f"skip_report_generation: input_is_report, path={data_path}")
         return
     
     # Проверяем настройки постобработки
@@ -394,9 +394,7 @@ def _auto_generate_qc_and_correlation_reports(
     # Если ни QC, ни корреляция не включены, пропускаем генерацию отчетов
     if not postprocess.qc.enabled and not postprocess.correlation.enabled:
         if logger is not None:
-            logger.info("skip_report_generation", reason="postprocess_disabled", 
-                       qc_enabled=postprocess.qc.enabled, 
-                       correlation_enabled=postprocess.correlation.enabled)
+            logger.info(f"skip_report_generation: postprocess_disabled, qc_enabled={postprocess.qc.enabled}, correlation_enabled={postprocess.correlation.enabled}")
         return
     
     # Импортируем функции для генерации отчетов
@@ -438,10 +436,7 @@ def _auto_generate_qc_and_correlation_reports(
     corr_path = data_dir / f"{data_stem}_correlation_report.csv"
     
     if logger is not None:
-        logger.info("auto_qc_corr_start", 
-                   qc_path=str(qc_path), 
-                   corr_path=str(corr_path),
-                   data_rows=len(df))
+        logger.info(f"auto_qc_corr_start: qc_path={qc_path}, corr_path={corr_path}, data_rows={len(df)}")
     
     try:
         # 1. Генерируем базовый QC отчет (только если включен)
@@ -456,7 +451,7 @@ def _auto_generate_qc_and_correlation_reports(
                 qc_report.to_csv(qc_path, **_csv_options(csv_settings))
             
             if logger is not None:
-                logger.info("auto_qc_basic_saved", path=str(qc_path))
+                logger.info(f"auto_qc_basic_saved: {qc_path}")
         
         # 2. Генерируем базовую корреляционную матрицу (только если включена)
         if postprocess.correlation.enabled:
@@ -469,7 +464,7 @@ def _auto_generate_qc_and_correlation_reports(
                 correlation.to_csv(corr_path, **_csv_options(csv_settings))
             
             if logger is not None:
-                logger.info("auto_corr_basic_saved", path=str(corr_path))
+                logger.info(f"auto_corr_basic_saved: {corr_path}")
         
         # 3. Генерируем расширенные QC отчеты (только если включены)
         if postprocess.qc.enabled and hasattr(postprocess.qc, 'enhanced') and postprocess.qc.enhanced:
@@ -565,11 +560,11 @@ def _auto_generate_qc_and_correlation_reports(
                 if hasattr(postprocess.correlation, 'enhanced') and postprocess.correlation.enhanced:
                     created_files.extend([str(enhanced_corr_path), str(detailed_corr_path)])
             
-            logger.info("auto_qc_corr_complete", created_files=created_files)
+            logger.info(f"auto_qc_corr_complete: created_files={created_files}")
     
     except Exception as e:
         if logger is not None:
-            logger.error("auto_qc_corr_error", error=str(e), error_type=type(e).__name__)
+            logger.error(f"auto_qc_corr_error: {str(e)} (type: {type(e).__name__})")
         # Не прерываем основной процесс, только логируем ошибку
 
 

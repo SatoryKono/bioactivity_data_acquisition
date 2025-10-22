@@ -22,8 +22,8 @@ from library.io.meta import create_dataset_metadata
 from library.testitem.config import TestitemConfig
 from library.testitem.extract import extract_batch_data
 from library.testitem.normalize import TestitemNormalizer
-from library.testitem.quality import TestitemQualityFilter
 from library.testitem.validate import TestitemValidator
+from library.testitem.quality import TestitemQualityFilter
 from library.testitem.writer import TestitemWriter
 
 logger = logging.getLogger(__name__)
@@ -102,20 +102,20 @@ def _create_chembl_client(config: TestitemConfig) -> TestitemChEMBLClient:
     
     # Use source-specific retry settings or fallback to global
     retry_settings = RetrySettings(
-        total=chembl_config.http.retries.total if chembl_config.http.retries else config.http.global_.retries.total,
-        backoff_multiplier=chembl_config.http.retries.backoff_multiplier if chembl_config.http.retries else config.http.global_.retries.backoff_multiplier
+        total=chembl_config.http.retries.get('total', config.http.global_.retries.total),
+        backoff_multiplier=chembl_config.http.retries.get('backoff_multiplier', config.http.global_.retries.backoff_multiplier)
     )
     
     # Create rate limit settings if configured
     rate_limit = None
-    if chembl_config.http.rate_limit:
+    if chembl_config.rate_limit:
         # Convert various rate limit formats to max_calls/period
-        max_calls = chembl_config.http.rate_limit.get('max_calls')
-        period = chembl_config.http.rate_limit.get('period')
+        max_calls = chembl_config.rate_limit.get('max_calls')
+        period = chembl_config.rate_limit.get('period')
         
         # If not in max_calls/period format, try to convert from other formats
         if max_calls is None or period is None:
-            requests_per_second = chembl_config.http.rate_limit.get('requests_per_second')
+            requests_per_second = chembl_config.rate_limit.get('requests_per_second')
             if requests_per_second is not None:
                 max_calls = 1
                 period = 1.0 / requests_per_second
@@ -162,18 +162,18 @@ def _create_pubchem_client(config: TestitemConfig) -> PubChemClient:
     
     # Use source-specific retry settings or fallback to global
     retry_settings = RetrySettings(
-        total=pubchem_config.http.retries.total if pubchem_config.http.retries else config.http.global_.retries.total,
-        backoff_multiplier=pubchem_config.http.retries.backoff_multiplier if pubchem_config.http.retries else config.http.global_.retries.backoff_multiplier
+        total=pubchem_config.http.retries.get('total', config.http.global_.retries.total),
+        backoff_multiplier=pubchem_config.http.retries.get('backoff_multiplier', config.http.global_.retries.backoff_multiplier)
     )
     
     # Create rate limit settings if configured
     rate_limit = None
-    if pubchem_config.http.rate_limit:
-        max_calls = pubchem_config.http.rate_limit.get('max_calls')
-        period = pubchem_config.http.rate_limit.get('period')
+    if pubchem_config.rate_limit:
+        max_calls = pubchem_config.rate_limit.get('max_calls')
+        period = pubchem_config.rate_limit.get('period')
         
         if max_calls is None or period is None:
-            requests_per_second = pubchem_config.http.rate_limit.get('requests_per_second')
+            requests_per_second = pubchem_config.rate_limit.get('requests_per_second')
             if requests_per_second is not None:
                 max_calls = 1
                 period = 1.0 / requests_per_second
@@ -238,9 +238,9 @@ def run_testitem_etl(
     else:
         raise TestitemValidationError("Either input_data or input_path must be provided")
     
-    # Step 2: Validate input data using input schema
+    # Step 2: Validate raw input data
     validator = TestitemValidator(config.model_dump() if hasattr(config, 'model_dump') else {})
-    validated_input = validator.validate_input(frame)
+    validated_raw = validator.validate_raw(frame)
     
     # Step 3: Extract data from APIs
     logger.info("Starting data extraction from APIs...")
@@ -249,9 +249,16 @@ def run_testitem_etl(
     chembl_client = _create_chembl_client(config)
     pubchem_client = _create_pubchem_client(config)
     
-    # Extract data from both ChEMBL and PubChem
-    logger.info("Extracting data from ChEMBL and PubChem...")
-    enriched_frame = extract_batch_data(chembl_client, pubchem_client, validated_input, config)
+    # Extract data from ChEMBL
+    logger.info("Extracting data from ChEMBL...")
+    chembl_data = extract_batch_data(chembl_client, validated_raw, config)
+    
+    # Extract data from PubChem
+    logger.info("Extracting data from PubChem...")
+    pubchem_data = extract_batch_data(pubchem_client, validated_raw, config)
+    
+    # Combine data from all sources
+    enriched_frame = pd.concat([chembl_data, pubchem_data], ignore_index=True)
     
     logger.info(f"Data extraction completed. Total records: {len(enriched_frame)}")
     
@@ -280,14 +287,11 @@ def run_testitem_etl(
         raise TestitemQCError("QC thresholds not met")
     
     # Step 8: Build metadata
-    metadata_obj = create_dataset_metadata(
-        dataset_name="testitems",
+    meta = create_dataset_metadata(
+        data=accepted_df,
         config=config,
-        logger=logger
+        pipeline_version="1.0.0"
     )
-    meta = metadata_obj.to_dict(config)
-    meta["pipeline_version"] = "1.0.0"
-    meta["row_count"] = len(accepted_df)
     
     # Step 9: Correlation analysis (if enabled)
     correlation_analysis = None

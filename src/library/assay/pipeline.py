@@ -12,6 +12,8 @@ from typing import Any
 
 import pandas as pd
 import yaml
+from structlog import BoundLogger
+
 from library.assay.client import AssayChEMBLClient
 from library.assay.config import AssayConfig
 from library.config import APIClientConfig, RetrySettings
@@ -30,7 +32,6 @@ from library.utils.empty_value_handler import (
     normalize_numeric_field,
     normalize_string_field,
 )
-from structlog import BoundLogger
 
 logger = logging.getLogger(__name__)
 

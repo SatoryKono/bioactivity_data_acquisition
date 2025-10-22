@@ -1,23 +1,23 @@
 activity_type_distribution:
-  IC50: 28
-  Ki: 72
+  IC50: 57
+  Ki: 143
 chembl_db_version: ChEMBL_36
 chembl_release_date: null
 chembl_status: UP
-chembl_status_timestamp: '2025-10-22T07:35:23.884510Z'
+chembl_status_timestamp: '2025-10-22T12:38:14.563800Z'
 config:
-  limit: 100
+  limit: 200
   qc_enabled: true
   workers: 4
 dataset: chembl
-extraction_timestamp: '2025-10-22T07:35:23.886125Z'
+extraction_timestamp: '2025-10-22T12:38:14.564644Z'
 file_checksums:
-  csv: ce8342b18b50c8724b9a058d0e7680c14fc3b2523fae271bf7f0d241e57e6a31
-  qc: 2762c533885d988833dff7286620e5f70bce3a8e9c7ed80738431a4ad8eca3ed
-generated_at: '2025-10-22T07:35:10.729527Z'
+  csv: 1a7a3ba2a8ee9b0787774a1ab9c7348911eceb505b8e7b446908c117da541e17
+  qc: 716d0bb3c5039bc9b58082d05d8f72fd682181f956440c632c97e2e26ad68465
+generated_at: '2025-10-22T12:37:52.632158Z'
 pipeline_version: 1.0.0
-row_count: 100
-run_id: 60f44273-4977-46f4-8a35-ebae26778072
-total_activities: 100
+row_count: 200
+run_id: 263e2459-e459-4adf-90e7-a9cccf4e289f
+total_activities: 200
 unit_distribution:
-  nM: 100
+  nM: 200

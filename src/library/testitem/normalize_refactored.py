@@ -49,37 +49,17 @@ class TestitemNormalizer:
         # Create a copy to avoid modifying original
         normalized_df = df.copy()
         
-        # Step 1: Add missing columns
-        normalized_df = self._add_missing_columns(normalized_df)
-        
-        # Step 2: Normalize field types and values
+        # Step 1: Normalize field types and values
         normalized_df = self._normalize_molecule_data(normalized_df)
         
-        # Step 3: Standardize molecular structures
+        # Step 2: Standardize molecular structures
         normalized_df = self._standardize_structures(normalized_df)
         
-        # Step 4: Add hash fields
+        # Step 3: Add hash fields
         normalized_df = self._add_hash_fields(normalized_df)
         
         logger.info(f"Normalization completed. Output: {len(normalized_df)} records")
         return normalized_df
-
-    def _add_missing_columns(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add missing columns that are expected by the schema but not present in the data."""
-        
-        # Define all columns that should be present in the normalized schema
-        required_columns = {
-            "chembl_release", "parent_chembl_id", "parent_molregno", 
-            "mechanism_of_action", "direct_interaction", "molecular_mechanism",
-            "pubchem_registry_id", "pubchem_rn"
-        }
-        
-        # Add missing columns with default values
-        for column in required_columns:
-            if column not in df.columns:
-                df[column] = pd.NA
-        
-        return df
 
     def _normalize_molecule_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """Normalize molecule data after extraction."""

@@ -16,17 +16,27 @@ else:  # pragma: no cover - import side effect
 class TestitemInputSchema(pa.DataFrameModel):
     """Schema for input testitem data from CSV files."""
 
-    # Required fields - at least one must be present
+    # Core molecule fields from CSV
     molecule_chembl_id: Series[str] = pa.Field(nullable=True, description="ChEMBL molecule identifier")
-    molregno: Series[object] = pa.Field(nullable=True, description="ChEMBL molecule registry number")
-    
-    # Optional fields
-    parent_chembl_id: Series[str] = pa.Field(nullable=True, description="Parent ChEMBL molecule identifier")
-    parent_molregno: Series[object] = pa.Field(nullable=True, description="Parent ChEMBL molecule registry number")
-    pubchem_cid: Series[object] = pa.Field(nullable=True, description="PubChem compound identifier")
+    all_names: Series[str] = pa.Field(nullable=True, description="All molecule names")
+    canonical_smiles: Series[str] = pa.Field(nullable=True, description="Canonical SMILES")
+    chirality: Series[object] = pa.Field(nullable=True, description="Chirality")
+    inchi_key_from_mol: Series[str] = pa.Field(nullable=True, description="InChI key from molecule")
+    inchi_key_from_smiles: Series[str] = pa.Field(nullable=True, description="InChI key from SMILES")
+    is_radical: Series[object] = pa.Field(nullable=True, description="Is radical flag")
+    molecule_type: Series[str] = pa.Field(nullable=True, description="Molecule type")
+    mw_less_100_or_greater_1000: Series[object] = pa.Field(nullable=True, description="MW <100 or >1000 flag", alias="mw_<100_or_>1000")
+    mw_freebase: Series[object] = pa.Field(nullable=True, description="Molecular weight freebase")
+    n_stereocenters: Series[object] = pa.Field(nullable=True, description="Number of stereocenters")
+    nstereo: Series[object] = pa.Field(nullable=True, description="Number of stereo")
+    num_ro5_violations: Series[object] = pa.Field(nullable=True, description="Number of Ro5 violations")
+    salt_chembl_id: Series[str] = pa.Field(nullable=True, description="Salt ChEMBL ID")
+    standard_inchi_key: Series[str] = pa.Field(nullable=True, description="Standard InChI key")
+    standard_inchi_skeleton: Series[str] = pa.Field(nullable=True, description="Standard InChI skeleton")
+    standard_inchi_stereo: Series[str] = pa.Field(nullable=True, description="Standard InChI stereo")
 
     class Config:
-        strict = True
+        strict = False  # Allow additional columns
         coerce = True
 
 
@@ -60,15 +70,15 @@ class TestitemRawSchema(pa.DataFrameModel):
         nullable=True
     )
     
-    # Parent/child relationship fields
-    parent_chembl_id: Series[str] = pa.Field(
-        description="Parent ChEMBL molecule identifier",
-        nullable=True
-    )
-    parent_molregno: Series[object] = pa.Field(
-        description="Parent ChEMBL molecule registry number",
-        nullable=True
-    )
+    # Parent/child relationship fields - not currently extracted from APIs
+    # parent_chembl_id: Series[str] = pa.Field(
+    #     description="Parent ChEMBL molecule identifier",
+    #     nullable=True
+    # )
+    # parent_molregno: Series[object] = pa.Field(
+    #     description="Parent ChEMBL molecule registry number",
+    #     nullable=True
+    # )
     
     # Drug development fields
     max_phase: Series[object] = pa.Field(
@@ -271,10 +281,6 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         description="Timestamp when data was retrieved from API",
         nullable=True
     )
-    chembl_release: Series[str] = pa.Field(
-        description="ChEMBL release version",
-        nullable=True
-    )
     
     # Core molecule fields - nullable=True for missing data
     molecule_chembl_id: Series[str] = pa.Field(
@@ -294,7 +300,13 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         nullable=True
     )
     
-    # Parent/child relationship fields
+    # ChEMBL metadata fields
+    chembl_release: Series[str] = pa.Field(
+        description="ChEMBL database release version",
+        nullable=True
+    )
+    
+    # Parent/child relationship fields - not currently extracted from APIs
     parent_chembl_id: Series[str] = pa.Field(
         description="Parent ChEMBL molecule identifier",
         nullable=True
@@ -521,56 +533,56 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         description="Molecular mechanism flag",
         nullable=True
     )
-    mechanism_comment: Series[str] = pa.Field(
-        description="Mechanism comment",
-        nullable=True
-    )
-    target_chembl_id: Series[str] = pa.Field(
-        description="Target ChEMBL identifier",
-        nullable=True
-    )
+    # mechanism_comment: Series[str] = pa.Field(
+    #     description="Mechanism comment",
+    #     nullable=True
+    # )
+    # target_chembl_id: Series[str] = pa.Field(
+    #     description="Target ChEMBL identifier",
+    #     nullable=True
+    # )
     
-    # ATC classification fields
-    atc_level1: Series[str] = pa.Field(
-        description="ATC level 1",
-        nullable=True
-    )
-    atc_level1_description: Series[str] = pa.Field(
-        description="ATC level 1 description",
-        nullable=True
-    )
-    atc_level2: Series[str] = pa.Field(
-        description="ATC level 2",
-        nullable=True
-    )
-    atc_level2_description: Series[str] = pa.Field(
-        description="ATC level 2 description",
-        nullable=True
-    )
-    atc_level3: Series[str] = pa.Field(
-        description="ATC level 3",
-        nullable=True
-    )
-    atc_level3_description: Series[str] = pa.Field(
-        description="ATC level 3 description",
-        nullable=True
-    )
-    atc_level4: Series[str] = pa.Field(
-        description="ATC level 4",
-        nullable=True
-    )
-    atc_level4_description: Series[str] = pa.Field(
-        description="ATC level 4 description",
-        nullable=True
-    )
-    atc_level5: Series[str] = pa.Field(
-        description="ATC level 5",
-        nullable=True
-    )
-    atc_level5_description: Series[str] = pa.Field(
-        description="ATC level 5 description",
-        nullable=True
-    )
+    # ATC classification fields - not currently extracted from APIs (404 errors)
+    # atc_level1: Series[str] = pa.Field(
+    #     description="ATC level 1",
+    #     nullable=True
+    # )
+    # atc_level1_description: Series[str] = pa.Field(
+    #     description="ATC level 1 description",
+    #     nullable=True
+    # )
+    # atc_level2: Series[str] = pa.Field(
+    #     description="ATC level 2",
+    #     nullable=True
+    # )
+    # atc_level2_description: Series[str] = pa.Field(
+    #     description="ATC level 2 description",
+    #     nullable=True
+    # )
+    # atc_level3: Series[str] = pa.Field(
+    #     description="ATC level 3",
+    #     nullable=True
+    # )
+    # atc_level3_description: Series[str] = pa.Field(
+    #     description="ATC level 3 description",
+    #     nullable=True
+    # )
+    # atc_level4: Series[str] = pa.Field(
+    #     description="ATC level 4",
+    #     nullable=True
+    # )
+    # atc_level4_description: Series[str] = pa.Field(
+    #     description="ATC level 4 description",
+    #     nullable=True
+    # )
+    # atc_level5: Series[str] = pa.Field(
+    #     description="ATC level 5",
+    #     nullable=True
+    # )
+    # atc_level5_description: Series[str] = pa.Field(
+    #     description="ATC level 5 description",
+    #     nullable=True
+    # )
     
     # Drug fields
     drug_chembl_id: Series[str] = pa.Field(
@@ -659,10 +671,10 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         description="PubChem RN",
         nullable=True
     )
-    pubchem_synonyms: Series[object] = pa.Field(
-        description="PubChem synonyms (list)",
-        nullable=True
-    )
+    # pubchem_synonyms: Series[object] = pa.Field(
+    #     description="PubChem synonyms (list)",
+    #     nullable=True
+    # )
     synonyms: Series[object] = pa.Field(
         description="ChEMBL molecule synonyms (list)",
         nullable=True
@@ -691,14 +703,14 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         description="Business key hash",
         nullable=True
     )
-    molecule_form_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL molecule form identifier",
-        nullable=True
-    )
-    xref_sources: Series[object] = pa.Field(
-        description="Cross-reference sources",
-        nullable=True
-    )
+    # molecule_form_chembl_id: Series[str] = pa.Field(
+    #     description="ChEMBL molecule form identifier",
+    #     nullable=True
+    # )
+    # xref_sources: Series[object] = pa.Field(
+    #     description="Cross-reference sources",
+    #     nullable=True
+    # )
 
     class Config:
         strict = False  # Allow additional columns not defined in schema

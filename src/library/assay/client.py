@@ -10,10 +10,12 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
-# Унифицированная логика обработки пустых значений доступна через library.utils.empty_value_handler
 
 from library.clients.base import BaseApiClient
 from library.config import APIClientConfig
+
+# Унифицированная логика обработки пустых значений доступна через library.utils.empty_value_handler
+
 
 logger = logging.getLogger(__name__)
 

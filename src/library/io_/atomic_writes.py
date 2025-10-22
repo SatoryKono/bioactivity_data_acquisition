@@ -76,7 +76,7 @@ def atomic_write_context(
         if backup and target_path.exists():
             backup_path = target_path.with_suffix(f"{target_path.suffix}.backup")
             if logger:
-                logger.debug("creating_backup", backup=str(backup_path))
+                logger.debug(f"creating_backup: {backup_path}")
             target_path.rename(backup_path)
         
         # Atomically move temp file to target
@@ -85,18 +85,18 @@ def atomic_write_context(
             target_path.unlink()
         
         if logger:
-            logger.debug("atomic_move", from_path=str(temp_path), to_path=str(target_path))
+            logger.debug(f"atomic_move: {temp_path} -> {target_path}")
         temp_path.rename(target_path)
         
         if logger:
-            logger.info("atomic_write_complete", path=str(target_path))
+            logger.info(f"atomic_write_complete: {target_path}")
             
     except Exception as e:
         # Clean up temporary file on error
         if temp_path.exists():
             temp_path.unlink()
         if logger:
-            logger.error("atomic_write_failed", error=str(e), target=str(target_path))
+            logger.error(f"atomic_write_failed: {str(e)}, target={target_path}")
         raise
     finally:
         # Ensure temp file is cleaned up
@@ -234,8 +234,6 @@ def safe_file_operation(
     # Create a wrapper that writes to a temporary location
     def wrapped_operation():
         with atomic_write_context(target_path, backup=backup, logger=logger) as temp_path:
-            # Temporarily replace the target path with temp path for the operation
-            original_path = target_path
             # This is a bit of a hack - we need to modify the operation to write to temp_path
             # For now, we'll just execute the operation and then move the result
             result = operation()

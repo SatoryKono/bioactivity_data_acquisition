@@ -15,10 +15,12 @@
 ### Входы и выходы
 
 **Входы**:
+
 - CSV файл с ChEMBL идентификаторами мишеней (`target_chembl_id`)
 - Конфигурация `configs/config_target_full.yaml`
 
 **Выходы**:
+
 - `target_YYYYMMDD.csv` — основные данные мишеней
 - `target_YYYYMMDD_qc.csv` — отчёт о качестве данных
 - `target_YYYYMMDD_meta.yaml` — метаданные пайплайна
@@ -39,18 +41,21 @@
 ### Маппинг полей
 
 **ChEMBL → target_dim**:
+
 - `target_chembl_id` → `target_chembl_id`
 - `pref_name` → `pref_name`
 - `target_type` → `target_type`
 - `organism` → `target_organism`
 
 **UniProt → target_dim**:
+
 - `uniprot_id` → `uniprot_id_primary`
 - `protein_names` → `protein_names`
 - `gene_names` → `gene_names`
 - `molecular_function` → `molecular_function`
 
 **IUPHAR → target_dim**:
+
 - `iuphar_target_id` → `iuphar_target_id`
 - `iuphar_type` → `iuphar_type`
 - `family` → `iuphar_family`
@@ -354,7 +359,7 @@ python -m library.scripts.get_target_data \
 
 ### Структура выходных файлов
 
-```
+```text
 data/output/target/
 ├── target_20251020.csv                    # Основные данные
 ├── target_20251020_qc.csv                 # QC метрики
@@ -450,12 +455,14 @@ quality:
 ### Типовые фейлы и решения
 
 1. **Ошибка "All sources must be enabled"**
+
    ```bash
    # Решение: Используйте dev режим для тестирования
    python -m library.scripts.get_target_data --dev-mode
    ```
 
 2. **Ошибка валидации входных данных**
+
    ```bash
    # Решение: Проверьте формат CSV
    head data/input/target_ids.csv
@@ -470,12 +477,14 @@ quality:
    - **IUPHAR**: Использует CSV словари или API fallback
 
 4. **Медленная обработка**
+
    ```bash
    # Решение: Ограничьте количество записей
    python -m library.scripts.get_target_data --limit 100
    ```
 
 5. **Ошибки валидации Pandera**
+
    ```bash
    # Решение: Проверьте логи и исправьте данные
    tail logs/app.log | grep "validation"
@@ -584,7 +593,7 @@ make docker-run ENTITY=targets CONFIG=configs/config_target_full.yaml
 
 После успешного выполнения в `data/output/target_YYYYMMDD/`:
 
-```
+```text
 target_20241201/
 ├── target_20241201.csv                    # Основные данные мишеней
 ├── target_20241201_meta.yaml             # Метаданные пайплайна
@@ -625,7 +634,7 @@ target_20241201/
 ### Модули в src/
 
 - **Основной пайплайн**: `src/library/target/pipeline.py`
-- **API клиенты**: 
+- **API клиенты**:
   - `src/library/clients/chembl.py`
   - `src/library/clients/uniprot.py`
   - `src/library/clients/iuphar.py`
