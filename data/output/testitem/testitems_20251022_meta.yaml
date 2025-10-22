@@ -2,7 +2,7 @@ chembl_db_version: null
 chembl_release_date: null
 chembl_status: error
 dataset: testitems
-generated_at: '2025-10-22T12:42:24.997145Z'
+generated_at: '2025-10-22T13:18:21.304550Z'
 pipeline_version: 1.0.0
-row_count: 20
-run_id: 895ebd82-21da-4929-ad2a-00daa5bbf88a
+row_count: 2
+run_id: 84876586-a9bf-4952-beb1-aa4ed92f87e2

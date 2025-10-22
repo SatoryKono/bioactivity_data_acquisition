@@ -41,8 +41,12 @@ def _deterministic_order(
     
     # Сохраняем только колонки, указанные в column_order
     desired_order = [col for col in determinism.column_order if col in df.columns]
-    # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
-    ordered = df[desired_order]
+    # Если нет совпадающих колонок, используем все колонки
+    if not desired_order:
+        ordered = df
+    else:
+        # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
+        ordered = df[desired_order]
     
     # Фильтруем колонки для сортировки, оставляя только существующие
     sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]

@@ -170,6 +170,8 @@ class DocumentOutputSchema(pa.DataFrameModel):
     chembl_volume: Series[str] = pa.Field(nullable=True, description="Volume from ChemBL")
     chembl_issue: Series[str] = pa.Field(nullable=True, description="Issue from ChemBL")
     chembl_abstract: Series[str] = pa.Field(nullable=True, description="Abstract from ChemBL")
+    chembl_authors: Series[str] = pa.Field(nullable=True, description="Authors from ChemBL")
+    chembl_first_page: Series[str] = pa.Field(nullable=True, description="First page from ChemBL")
     # ChEMBL fields that are not created by the client are removed
     
     # Citation field - removed as it's not created by the pipeline
