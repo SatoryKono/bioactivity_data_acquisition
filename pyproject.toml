@@ -74,6 +74,7 @@ docs = [
     "mkdocstrings[python]>=0.24,<1.0",
     "mkdocs-mermaid2-plugin>=1.1,<2.0",
     "mkdocs-table-reader-plugin>=2.0,<3.0",
+    "mkdocs-redirects>=1.2,<2.0",
 ]
 
 [project.scripts]

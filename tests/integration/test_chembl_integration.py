@@ -8,6 +8,22 @@ from library.clients.chembl import ChEMBLClient
 from library.clients.exceptions import ApiClientError
 
 
+def _check_network_access():
+    """Check if network access is available."""
+    try:
+        import requests
+        response = requests.get("https://www.ebi.ac.uk/chembl/api/data/status", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def _check_api_keys():
+    """Check if required API keys are available."""
+    required_keys = ['CHEMBL_API_TOKEN', 'PUBMED_API_KEY', 'SEMANTIC_SCHOLAR_API_KEY']
+    return all(os.getenv(key) for key in required_keys)
+
+
 @pytest.mark.integration
 class TestChEMBLIntegration:
     """Integration tests for ChEMBL API client with real API calls."""
@@ -23,7 +39,8 @@ class TestChEMBLIntegration:
         
         return ChEMBLClient(integration_config.sources["chembl"].to_client_config(integration_config.http.global_))
 
-    def test_chembl_api_status(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_chembl_api_status(self, chembl_client):
         """Test that ChEMBL API is accessible."""
         # This is a simple health check
         try:
@@ -35,7 +52,8 @@ class TestChEMBLIntegration:
             assert e.status_code is not None
             assert e.status_code >= 400  # API responded with an error code
 
-    def test_chembl_compound_search(self, chembl_client, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_chembl_compound_search(self, chembl_client):
         """Test compound search functionality."""
         # Search for a well-known compound (aspirin)
         compounds = chembl_client.search_compounds("aspirin", limit=5)
@@ -46,7 +64,8 @@ class TestChEMBLIntegration:
             assert "compound_id" in compound
             assert "pref_name" in compound or "molecule_chembl_id" in compound
 
-    def test_chembl_activity_search(self, chembl_client, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_chembl_activity_search(self, chembl_client):
         """Test activity search functionality."""
         # Search for activities related to aspirin
         activities = chembl_client.search_activities("CHEMBL25", limit=3)
@@ -57,7 +76,8 @@ class TestChEMBLIntegration:
             assert "activity_id" in activity
             assert "standard_value" in activity or "pchembl_value" in activity
 
-    def test_chembl_rate_limiting(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_chembl_rate_limiting(self, chembl_client):
         """Test that rate limiting is enforced."""
         import time
         
@@ -85,7 +105,8 @@ class TestChEMBLIntegration:
         assert requests_made <= 5
         assert elapsed_time >= 0.5  # At least some time should have passed
 
-    def test_chembl_error_handling(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_chembl_error_handling(self, chembl_client):
         """Test error handling for invalid requests."""
         # Try to access a non-existent endpoint
         with pytest.raises(ApiClientError) as exc_info:
@@ -95,7 +116,8 @@ class TestChEMBLIntegration:
         assert error.status_code is not None
         assert error.status_code >= 400
 
-    def test_chembl_timeout_handling(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_chembl_timeout_handling(self, chembl_client):
         """Test timeout handling."""
         # Create a client with very short timeout
         from library.config import APIClientConfig
@@ -125,7 +147,8 @@ class TestChEMBLIntegration:
         assert "timeout" in str(error).lower() or "timeout" in error.__class__.__name__.lower()
 
     @pytest.mark.slow
-    def test_chembl_large_dataset(self, chembl_client, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_chembl_large_dataset(self, chembl_client):
         """Test handling of larger datasets (marked as slow)."""
         # Search for a common compound to get more results
         compounds = chembl_client.search_compounds("benzene", limit=50)
@@ -139,7 +162,8 @@ class TestChEMBLIntegration:
             assert len(compound_ids) > 0
             assert all(isinstance(cid, str) for cid in compound_ids)
 
-    def test_chembl_pagination(self, chembl_client, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_chembl_pagination(self, chembl_client):
         """Test pagination functionality."""
         # Test that pagination parameters are correctly applied
         compounds_page1 = chembl_client.search_compounds("aspirin", limit=2, offset=0)

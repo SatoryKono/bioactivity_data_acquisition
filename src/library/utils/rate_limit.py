@@ -105,7 +105,7 @@ class RateLimiter(AbstractContextManager["RateLimiter"]):
         self.acquire()
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:  # pragma: no cover - trivial
+    def __exit__(self, exc_type, exc, _tb) -> bool:  # pragma: no cover - trivial
         return False
 
     async def __aenter__(self) -> RateLimiter:

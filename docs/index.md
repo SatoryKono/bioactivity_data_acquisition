@@ -50,13 +50,17 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install .[dev]
 
-# Базовый запуск
-bioactivity-data-acquisition pipeline --config configs/config.yaml
+# Базовый запуск (v2 конфигурации)
+make run ENTITY=documents CONFIG=configs/config_documents_v2.yaml
+make run ENTITY=targets CONFIG=configs/config_targets_v2.yaml
+make run ENTITY=assays CONFIG=configs/config_assays_v2.yaml
+make run ENTITY=activities CONFIG=configs/config_activities_v2.yaml
+make run ENTITY=testitems CONFIG=configs/config_testitems_v2.yaml
 ```
 
 ## Основные возможности
 
-- **Множественные API источники**: ChEMBL, Crossref, OpenAlex, PubMed, Semantic Scholar
+- **Множественные API источники**: ChEMBL, UniProt, IUPHAR, Crossref, PubMed, OpenAlex, Semantic Scholar, PubChem
 - **Валидация данных**: Pandera схемы для сырых и нормализованных данных
 - **Детерминированный экспорт**: Воспроизводимые CSV с контролем качества
 - **Автоматические отчёты**: QC-метрики и корреляционные матрицы

@@ -1,0 +1,203 @@
+# Конфигурация v2 для testitems pipeline
+# Основана на унифицированном шаблоне config.template.yaml
+
+# Метаданные пайплайна
+pipeline:
+  name: "testitems"
+  version: "2.0.0"
+  entity_type: "testitems"
+  description: "ETL pipeline for testitem data from ChEMBL and PubChem"
+
+# HTTP настройки
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioactivity-data-acquisition/0.1.0"
+    verify_ssl: true
+    follow_redirects: true
+
+# Источники данных
+sources:
+  chembl:
+    enabled: true
+    http:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      timeout_sec: 60.0
+      retries:
+        total: 3
+        backoff_multiplier: 1.5
+    batch_size: 1000
+    max_compounds: null
+    
+  pubchem:
+    enabled: true
+    http:
+      base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+      timeout_sec: 30.0
+      retries:
+        total: 3
+        backoff_multiplier: 2.0
+    batch_size: 100
+    max_requests_per_second: 5
+
+# Ввод-вывод
+io:
+  input:
+    path: "data/input/testitems.csv"
+    encoding: "utf-8"
+    required_columns: ["molecule_chembl_id"]
+    
+  output:
+    dir: "data/output/testitems"
+    format: "csv"
+    csv:
+      encoding: "utf-8"
+      float_format: "%.6f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+      na_rep: ""
+      line_terminator: "\n"
+
+# Runtime настройки
+runtime:
+  workers: 4
+  limit: null
+  offset: 0
+  dry_run: false
+  date_tag: null
+  dev_mode: false
+  allow_incomplete_sources: false
+
+# Логирование
+logging:
+  level: "INFO"
+  file:
+    enabled: true
+    path: "data/logs/testitems.log"
+    max_size: "10MB"
+    backup_count: 5
+  console:
+    enabled: true
+    format: "text"
+  structured: true
+
+# Детерминизм
+determinism:
+  sort:
+    by: ["molecule_chembl_id"]
+    ascending: [true]
+    na_position: "last"
+  column_order:
+    - "molecule_chembl_id"
+    - "molecule_name"
+    - "molecule_type"
+    - "molecule_synonyms"
+    - "molecule_properties"
+    - "molecule_structures"
+    - "molecule_identifiers"
+    - "pubchem_cid"
+    - "pubchem_sid"
+    - "inchi"
+    - "inchi_key"
+    - "smiles"
+    - "canonical_smiles"
+    - "molecular_formula"
+    - "molecular_weight"
+    - "hbd_count"
+    - "hba_count"
+    - "psa"
+    - "logp"
+    - "ro5_violations"
+    - "extracted_at"
+
+# Валидация
+validation:
+  enabled: true
+  strict: false
+  schema_validation: true
+  data_quality_checks: true
+
+# Постобработка
+postprocess:
+  qc:
+    enabled: true
+    fail_on: ["missing_molecule_chembl_id", "duplicate_primary_keys"]
+    thresholds:
+      missing_molecule_chembl_id: 0.0
+      duplicate_primary_keys: 0.0
+      missing_molecular_weight: 0.1
+    detailed_report: true
+    
+  correlation:
+    enabled: true
+    methods: ["pearson", "spearman"]
+    min_correlation: 0.5
+    
+  steps:
+    - type: "id_merge"
+      description: "Merge identifiers from multiple sources"
+      priority: ["chembl", "pubchem"]
+      merge_rules:
+        - prefer_canonical: true
+        - merge_synonyms: true
+    - type: "prefer_canonical"
+      description: "Prefer canonical identifiers and structures"
+      canonical_fields:
+        - "inchi_key"
+        - "canonical_smiles"
+        - "molecular_formula"
+    - type: "validate_structures"
+      description: "Validate molecular structures"
+      rules:
+        - valid_smiles: true
+        - valid_inchi: true
+        - valid_molecular_formula: true
+    - type: "deduplicate"
+      description: "Remove duplicate testitem entries"
+      keys: ["molecule_chembl_id"]
+
+# Нормализация
+normalization:
+  enabled: true
+  structure_format: "canonical"
+  identifier_format: "standard"
+  property_format: "standard"
+
+# Качество данных
+quality:
+  profiles:
+    default:
+      enabled: true
+      rules:
+        - name: "valid_chembl_id"
+          pattern: "^CHEMBL\\d+$"
+        - name: "valid_pubchem_cid"
+          pattern: "^\\d+$"
+        - name: "valid_inchi_key"
+          pattern: "^[A-Z]{14}-[A-Z]{10}-[A-Z]$"
+        - name: "valid_molecular_weight"
+          min_value: 50.0
+          max_value: 2000.0
+
+# Кэширование
+cache:
+  enabled: true
+  dir: "data/cache/testitems"
+  ttl: 86400
+  max_size: "1GB"
+
+# Мониторинг и телеметрия
+telemetry:
+  enabled: false
+  endpoint: null
+  api_key: null
+  batch_size: 100
+  flush_interval: 30.0

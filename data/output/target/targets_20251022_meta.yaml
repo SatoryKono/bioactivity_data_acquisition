@@ -1,0 +1,10 @@
+chembl_db_version: ChEMBL_36
+chembl_release_date: null
+chembl_status: UP
+chembl_status_timestamp: '2025-10-22T16:51:56.933101Z'
+dataset: targets
+file_checksums:
+  csv: ba0e9118ff0b8f81719ba4cb6db90d0a5db1af8b93fe1c80aa116279f01a2c84
+  qc: 54ac17c2cc9b9069c156162ea0b12a67589c872c2dea57a25acfb56a842c8fd6
+generated_at: '2025-10-22T16:51:38.414661Z'
+run_id: 8dcd5933-cec8-4208-918e-4bde0ca68d02

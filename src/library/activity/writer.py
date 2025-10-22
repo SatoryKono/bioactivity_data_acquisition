@@ -12,7 +12,7 @@ from structlog.stdlib import BoundLogger
 from library.etl.load import write_deterministic_csv
 
 from .config import ActivityConfig
-from .pipeline import ActivityETLResult
+from library.common.pipeline_base import ETLResult
 
 
 def _calculate_checksum(file_path: Path) -> str:
@@ -25,7 +25,7 @@ def _calculate_checksum(file_path: Path) -> str:
 
 def write_activity_outputs(
     *,
-    result: ActivityETLResult,
+    result: ETLResult,
     output_dir: Path,
     date_tag: str,
     config: ActivityConfig,
@@ -35,16 +35,16 @@ def write_activity_outputs(
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    data_path = output_dir / (f"activity_{date_tag}.csv" if date_tag else "activity.csv")
-    qc_path = output_dir / (f"activity_{date_tag}_qc.csv" if date_tag else "activity_qc.csv")
-    meta_path = output_dir / (f"activity_{date_tag}_meta.yaml" if date_tag else "activity_meta.yaml")
+    data_path = output_dir / (f"activities_{date_tag}.csv" if date_tag else "activities.csv")
+    qc_path = output_dir / (f"activities_{date_tag}_qc_summary.csv" if date_tag else "activities_qc_summary.csv")
+    meta_path = output_dir / (f"activities_{date_tag}.meta.yaml" if date_tag else "activities.meta.yaml")
 
     # Save main data deterministically
     # Защита от несоответствия длины ascending и ключей сортировки: безопасный детерминизм
     from library.config import DeterminismSettings as _DeterminismSettings
     safe_det = _DeterminismSettings()
     # Полный порядок колонок: сначала заданные в конфиге (если существуют), затем все прочие, чтобы ничего не терять
-    df_cols = list(result.activities.columns)
+    df_cols = list(result.data.columns)
     base_order = [col for col in config.determinism.column_order if col in df_cols]
     # Гарантируем наличие служебных полей в выводе
     for extra in ["extracted_at", "hash_business_key", "hash_row"]:
@@ -59,7 +59,7 @@ def write_activity_outputs(
     if isinstance(asc, list):
         if len(asc) == len(config.determinism.sort.by):
             # Отфильтруем по фактическим колонкам
-            keep_indexes = [i for i, col in enumerate(config.determinism.sort.by) if col in result.activities.columns]
+            keep_indexes = [i for i, col in enumerate(config.determinism.sort.by) if col in result.data.columns]
             safe_det.sort.ascending = [asc[i] for i in keep_indexes]
         else:
             safe_det.sort.ascending = True
@@ -76,7 +76,7 @@ def write_activity_outputs(
         safe_det.sort.ascending = True
 
     # Исключаем quality_flags и retrieved_at из вывода (дополнительная защита)
-    activities_to_write = result.activities.copy()
+    activities_to_write = result.data.copy()
     quality_columns_to_remove = ['quality_flag', 'quality_reason']
     metadata_columns_to_remove = ['retrieved_at']
     all_columns_to_remove = quality_columns_to_remove + metadata_columns_to_remove
@@ -91,11 +91,11 @@ def write_activity_outputs(
     )
 
     # Save QC (всегда создаём файл для предсказуемости вывода)
-    if isinstance(result.qc, pd.DataFrame) and not result.qc.empty:
-        result.qc.to_csv(qc_path, index=False)
+    if isinstance(result.qc_summary, pd.DataFrame) and not result.qc_summary.empty:
+        result.qc_summary.to_csv(qc_path, index=False)
     else:
         import pandas as _pd
-        _pd.DataFrame([{"metric": "row_count", "value": int(len(result.activities))}]).to_csv(qc_path, index=False)
+        _pd.DataFrame([{"metric": "row_count", "value": int(len(result.data))}]).to_csv(qc_path, index=False)
 
     # Save metadata (YAML)
     try:
@@ -103,8 +103,8 @@ def write_activity_outputs(
     except Exception:  # pragma: no cover - fallback if yaml unavailable
         yaml = None
 
-    meta: dict[str, Any] = dict(result.meta)
-    meta.setdefault("row_count", int(len(result.activities)))
+    meta: dict[str, Any] = dict(result.meta) if result.meta is not None else {}
+    meta.setdefault("row_count", int(len(result.data)))
     meta.setdefault("pipeline_version", "1.0.0")
 
     # Checksums для CSV и QC

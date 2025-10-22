@@ -1,5 +1,6 @@
 """Integration tests for API rate limiting and error handling."""
 
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -8,6 +9,22 @@ import pytest
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient
 from library.clients.exceptions import ApiClientError, RateLimitError
+
+
+def _check_network_access():
+    """Check if network access is available."""
+    try:
+        import requests
+        response = requests.get("https://www.ebi.ac.uk/chembl/api/data/status", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def _check_api_keys():
+    """Check if required API keys are available."""
+    required_keys = ['CHEMBL_API_TOKEN', 'PUBMED_API_KEY', 'SEMANTIC_SCHOLAR_API_KEY']
+    return all(os.getenv(key) for key in required_keys)
 
 
 @pytest.mark.integration
@@ -23,7 +40,8 @@ class TestAPILimitsIntegration:
         
         return ChEMBLClient(integration_config.sources["chembl"].to_client_config(integration_config.http.global_))
 
-    def test_rate_limit_enforcement(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_rate_limit_enforcement(self, chembl_client):
         """Test that rate limiting is properly enforced."""
         # Configure very strict rate limiting
         from library.config import APIClientConfig
@@ -71,7 +89,8 @@ class TestAPILimitsIntegration:
         else:
             assert elapsed_time < 1.0, f"Rate limiting failed: {elapsed_time:.2f}s"
 
-    def test_concurrent_rate_limiting(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_concurrent_rate_limiting(self, chembl_client):
         """Test rate limiting with concurrent requests."""
         # Create multiple clients with rate limiting
         from library.config import APIClientConfig
@@ -121,7 +140,8 @@ class TestAPILimitsIntegration:
         rate_limit_errors = [e for e in errors if "rate limit" in e.lower()]
         # This is acceptable - rate limiting is working
 
-    def test_api_error_handling(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_api_error_handling(self, chembl_client):
         """Test handling of various API errors."""
         # Test 404 error
         with pytest.raises(ApiClientError) as exc_info:
@@ -137,7 +157,8 @@ class TestAPILimitsIntegration:
         error = exc_info.value
         assert error.status_code == 405  # Method Not Allowed
 
-    def test_timeout_handling(self, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_timeout_handling(self):
         """Test timeout handling with real network conditions."""
         from library.config import APIClientConfig
         
@@ -171,7 +192,8 @@ class TestAPILimitsIntegration:
         assert elapsed_time < 1.0, f"Timeout took too long: {elapsed_time:.2f}s"
         assert "timeout" in str(error).lower() or "timeout" in error.__class__.__name__.lower()
 
-    def test_retry_mechanism(self, chembl_client, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_retry_mechanism(self, chembl_client):
         """Test retry mechanism with intermittent failures."""
         # This test is harder to implement reliably without mocking
         # We'll test that the retry configuration is properly set up
@@ -182,7 +204,8 @@ class TestAPILimitsIntegration:
         # Test that backoff is configured
         assert chembl_client.config.retries.backoff_factor > 0
 
-    def test_different_api_endpoints(self, integration_config, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_different_api_endpoints(self, integration_config):
         """Test different API endpoints and their rate limits."""
         # Test ChEMBL
         chembl_client = ChEMBLClient(integration_config.sources["chembl"].to_client_config(integration_config.http.global_))
@@ -219,7 +242,8 @@ class TestAPILimitsIntegration:
             # Crossref might not be available or have different rate limits
             pass
 
-    def test_api_response_size_limits(self, chembl_client, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_api_response_size_limits(self, chembl_client):
         """Test handling of large API responses."""
         # Request a larger dataset to test response size handling
         try:
@@ -243,7 +267,8 @@ class TestAPILimitsIntegration:
                 raise
 
     @pytest.mark.slow
-    def test_sustained_api_usage(self, chembl_client, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_sustained_api_usage(self, chembl_client):
         """Test sustained API usage over time."""
         import time
         

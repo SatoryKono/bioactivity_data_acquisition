@@ -86,16 +86,19 @@ class ActivityValidator:
             "published_type": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Published activity type"
             ),
             "published_relation": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Published relation"
             ),
             "published_value": Column(
                 pa.Float,
                 nullable=True,
+                required=False,
                 checks=[
                     Check.greater_than(0, name="positive_value")
                 ],
@@ -104,6 +107,7 @@ class ActivityValidator:
             "published_units": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Published units"
             ),
             
@@ -116,6 +120,7 @@ class ActivityValidator:
             "standard_relation": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Standardized relation"
             ),
             "standard_value": Column(
@@ -129,11 +134,13 @@ class ActivityValidator:
             "standard_units": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Standardized units"
             ),
             "standard_flag": Column(
                 pa.Bool,
                 nullable=True,
+                required=False,
                 description="Standardization flag"
             ),
             
@@ -141,6 +148,7 @@ class ActivityValidator:
             "pchembl_value": Column(
                 pa.Float,
                 nullable=True,
+                required=False,
                 checks=[
                     Check.in_range(0, 15, name="pchembl_range")
                 ],
@@ -149,11 +157,13 @@ class ActivityValidator:
             "data_validity_comment": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Data validity comment"
             ),
             "activity_comment": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Activity comment"
             ),
             

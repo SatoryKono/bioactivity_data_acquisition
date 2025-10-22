@@ -157,7 +157,7 @@ class TraceContextManager:
         trace.set_span_in_context(self.span)
         return self.span
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, _exc_tb):
         if self.span:
             if exc_type:
                 self.span.record_exception(exc_val)

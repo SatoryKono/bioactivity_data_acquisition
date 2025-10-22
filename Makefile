@@ -307,8 +307,8 @@ type-check:
 	@echo "$(GREEN)Type checking completed!$(NC)"
 
 # Full quality check
-qa: fmt lint type-check
-	@echo "$(GREEN)Full quality check completed!$(NC)"
+qa: fmt lint type-check tidy-root
+	@echo "$(GREEN)Full quality check with root cleanup completed!$(NC)"
 
 # =============================================================================
 # DOCUMENTATION
@@ -337,6 +337,24 @@ docs-deploy:
 	@echo "$(BLUE)Deploying documentation...$(NC)"
 	@mkdocs gh-deploy --config-file $(CONFIG_DIR)/mkdocs.yml --force
 	@echo "$(GREEN)Documentation deployment completed!$(NC)"
+
+# =============================================================================
+# ROOT CLEANUP & QUALITY
+# =============================================================================
+
+# Check root directory cleanliness
+tidy-root:
+	@echo "$(BLUE)Running root cleanup checks...$(NC)"
+	@mkdir -p metadata/reports
+	@echo "$(YELLOW)1. Checking root directory structure...$(NC)"
+	@python -c "import sys; from pathlib import Path; allowed_files={'README.md','Makefile','pyproject.toml','mkdocs.yml','Dockerfile','docker-compose.yml','pyrightconfig.json','.pre-commit-config.yaml','.gitignore','.markdownlint.json','.python-version','LICENSE','CHANGELOG.md','.bandit','.banditignore','.coverage','.dockerignore','.env.example','.gitattributes','.markdown-link-check.json','.pre-commit-hooks.yaml','.pymarkdown.json','.safety_policy.yaml'}; allowed_dirs={'src','tests','configs','scripts','docs','data','metadata','logs','.git','.github','.vscode','.idea','venv','.venv','env','node_modules','__pycache__','build','dist','site','.pytest_cache','.mypy_cache','.ruff_cache','.cursor'}; root=Path('.'); violations=[]; [violations.append(f'Unwanted: {item.name}') for item in root.iterdir() if (item.is_file() and item.name not in allowed_files) or (item.is_dir() and item.name not in allowed_dirs and not item.name.startswith('.'))]; sys.exit(1) if violations and any(print(v) for v in violations) else print('✅ Root is clean')"
+	@echo "$(YELLOW)2. Running Vulture (dead code detection)...$(NC)"
+	@vulture src tests --min-confidence 80 --exclude=*/__pycache__/*,*/site/*,*/.venv/* > metadata/reports/vulture_report.txt 2>&1 || (cat metadata/reports/vulture_report.txt && exit 1)
+	@echo "$(YELLOW)3. Running jscpd (code duplication detection)...$(NC)"
+	@npx jscpd --min-tokens 50 --threshold 3 --ignore "**/node_modules/**,**/.venv/**,**/site/**,**/build/**,**/__pycache__/**,**/data/**" --pattern "**/*.{py,yaml,yml,md}" --reporters console,markdown --output metadata/reports || echo "⚠️  Code duplication detected - check metadata/reports/jscpd-report.md"
+	@echo "$(YELLOW)4. Running Deptry (dependency management)...$(NC)"
+	@deptry . --ignore DEP002,DEP003 > metadata/reports/deptry_report.txt 2>&1 || (cat metadata/reports/deptry_report.txt && echo "⚠️  Dependency issues detected")
+	@echo "$(GREEN)Root cleanup checks completed! Reports saved to metadata/reports/$(NC)"
 
 # =============================================================================
 # UTILITIES

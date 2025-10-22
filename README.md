@@ -16,19 +16,34 @@ pip install .[dev]
 # Быстрый запуск
 make quick-start
 
-# Новый унифицированный интерфейс
-make run ENTITY=documents CONFIG=configs/config_documents_full.yaml
+# Новый унифицированный интерфейс (v2 конфигурации)
+make run ENTITY=documents CONFIG=configs/config_documents_v2.yaml
+make run ENTITY=targets CONFIG=configs/config_targets_v2.yaml
+make run ENTITY=assays CONFIG=configs/config_assays_v2.yaml
+make run ENTITY=activities CONFIG=configs/config_activities_v2.yaml
+make run ENTITY=testitems CONFIG=configs/config_testitems_v2.yaml
 ```
 
 ## Статус пайплайнов
 
-| Пайплайн | Статус | Источники | Конфигурация |
-|----------|--------|-----------|--------------|
-| **Documents** | ✅ Стабильно | Crossref, OpenAlex, PubMed, Semantic Scholar | `configs/config_documents_full.yaml` |
-| **Targets** | ✅ Стабильно | ChEMBL, UniProt, IUPHAR | `configs/config_target_full.yaml` |
-| **Assays** | ✅ Стабильно | ChEMBL | `configs/config_assay_full.yaml` |
-| **Activities** | ✅ Стабильно | ChEMBL | `configs/config_activity_full.yaml` |
-| **Testitems** | ✅ Стабильно | ChEMBL, PubChem | `configs/config_testitem_full.yaml` |
+| Пайплайн | Статус | Источники | Конфигурация v2 | Конфигурация v1 (deprecated) |
+|----------|--------|-----------|-----------------|------------------------------|
+| **Documents** | ✅ Стабильно | Crossref, OpenAlex, PubMed, Semantic Scholar | `configs/config_documents_v2.yaml` | `configs/config_documents_full.yaml` |
+| **Targets** | ✅ Стабильно | ChEMBL, UniProt, IUPHAR | `configs/config_targets_v2.yaml` | `configs/config_target_full.yaml` |
+| **Assays** | ✅ Стабильно | ChEMBL | `configs/config_assays_v2.yaml` | `configs/config_assay_full.yaml` |
+| **Activities** | ✅ Стабильно | ChEMBL | `configs/config_activities_v2.yaml` | `configs/config_activity_full.yaml` |
+| **Testitems** | ✅ Стабильно | ChEMBL, PubChem | `configs/config_testitems_v2.yaml` | `configs/config_testitem_full.yaml` |
+
+### Миграция на v2 конфигурации
+
+**Рекомендуется использовать новые v2 конфигурации** для лучшей стандартизации и функциональности:
+
+- **Унифицированная структура**: Все конфигурации следуют единому шаблону
+- **Улучшенная валидация**: Расширенные проверки качества данных
+- **Стандартизированные артефакты**: Единообразные имена выходных файлов
+- **Унифицированные CLI флаги**: Согласованные опции для всех команд
+
+Старые конфигурации v1 помечены как deprecated, но продолжают работать для обратной совместимости.
 
 ## Документация
 

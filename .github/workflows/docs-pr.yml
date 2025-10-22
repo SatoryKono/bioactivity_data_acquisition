@@ -1,0 +1,37 @@
+name: Documentation PR checks
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'README.md'
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev,docs]
+      
+      - name: Build docs (strict)
+        run: mkdocs build --strict
+      
+      - name: Check links
+        uses: lycheeverse/lychee-action@v1.10.0
+        with:
+          args: --no-progress --exclude-mail --follow-remake docs
+          fail: true

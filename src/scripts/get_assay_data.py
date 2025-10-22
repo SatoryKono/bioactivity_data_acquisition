@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from library.assay import AssayConfig, load_assay_config, run_assay_etl, write_assay_outputs
+from library.assay import AssayConfig, AssayPipeline, load_assay_config, write_assay_outputs
 from library.logging_setup import configure_logging
 
 
@@ -274,10 +274,10 @@ Examples:
                 config.variants.filters.include_wildtype = False
                 print("Excluding wildtype assays")
             
-            result = run_assay_etl(
-                config=config,
-                assay_ids=assay_ids
-            )
+            import pandas as pd
+            pipeline = AssayPipeline(config)
+            input_data = pd.DataFrame({"assay_chembl_id": assay_ids})
+            result = pipeline.run(input_data=input_data)
             
         elif args.target:
             # Extract by target
@@ -294,11 +294,10 @@ Examples:
                 config.variants.filters.include_wildtype = False
                 print("Excluding wildtype assays")
             
-            result = run_assay_etl(
-                config=config,
-                target_chembl_id=args.target,
-                filters=filters
-            )
+            import pandas as pd
+            pipeline = AssayPipeline(config)
+            input_data = pd.DataFrame({"target_chembl_id": [args.target]})
+            result = pipeline.run(input_data=input_data)
         
         # Write outputs
         if not config.runtime.dry_run:
@@ -315,8 +314,8 @@ Examples:
             
             # Print summary
             print("\nSummary:")
-            print(f"  Total assays: {result.meta.get('row_count', 0)}")
-            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
+            print(f"  Total assays: {len(result.data)}")
+            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown') if result.meta else 'unknown'}")
             print(f"  Date tag: {date_tag}")
         else:
             print("Dry run completed. No files were written.")

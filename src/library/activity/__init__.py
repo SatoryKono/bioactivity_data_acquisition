@@ -3,7 +3,7 @@
 from .client import ActivityChEMBLClient
 from .config import ActivityConfig, ConfigLoadError, load_activity_config
 from .normalize import ActivityNormalizer
-from .pipeline import ActivityPipeline, run_activity_etl
+from .pipeline import ActivityPipeline
 from .validate import ActivityValidator
 
 __all__ = [
@@ -14,5 +14,4 @@ __all__ = [
     "ActivityNormalizer",
     "ActivityPipeline",
     "ActivityValidator",
-    "run_activity_etl",
 ]

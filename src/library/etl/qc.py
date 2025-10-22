@@ -65,14 +65,14 @@ def build_qc_report(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_enhanced_qc_report(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
     """Generate an enhanced QC report with detailed quality metrics."""
-    return build_enhanced_qc_summary(df, logger=logger)
+    return build_enhanced_qc_summary(df)
 
 
 def build_enhanced_qc_detailed_reports(
     df: pd.DataFrame, logger: BoundLogger | None = None
 ) -> dict[str, pd.DataFrame]:
     """Generate detailed QC reports including summary, top values, and pattern coverage."""
-    return build_enhanced_qc_detailed(df, logger=logger)
+    return build_enhanced_qc_detailed(df)
 
 
 def build_enhanced_correlation_analysis_report(

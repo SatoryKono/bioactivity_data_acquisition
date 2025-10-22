@@ -1,18 +1,36 @@
 """Integration tests for the complete ETL pipeline."""
 
+import os
 
 import pandas as pd
 import pytest
 
 from library.config import Config
-from library.documents.pipeline import run_document_etl
+from library.documents.pipeline import DocumentPipeline
+
+
+def _check_network_access():
+    """Check if network access is available."""
+    try:
+        import requests
+        response = requests.get("https://www.ebi.ac.uk/chembl/api/data/status", timeout=5)
+        return response.status_code == 200
+    except Exception:
+        return False
+
+
+def _check_api_keys():
+    """Check if required API keys are available."""
+    required_keys = ['CHEMBL_API_TOKEN', 'PUBMED_API_KEY', 'SEMANTIC_SCHOLAR_API_KEY']
+    return all(os.getenv(key) for key in required_keys)
 
 
 @pytest.mark.integration
 class TestPipelineIntegration:
     """Integration tests for the complete document processing pipeline."""
 
-    def test_minimal_pipeline_run(self, integration_config, temp_output_dir, test_documents_csv, skip_if_no_network):
+    @pytest.mark.skipif(not _check_network_access(), reason="no network access")
+    def test_minimal_pipeline_run(self, integration_config, temp_output_dir, test_documents_csv):
         """Test running the pipeline with minimal configuration."""
         # Update config to use test files
         integration_config.io.input.documents_csv = str(test_documents_csv)
@@ -21,20 +39,20 @@ class TestPipelineIntegration:
         integration_config.io.output.correlation_path = temp_output_dir / "correlation.csv"
         
         # Run the pipeline
-        result = run_document_etl(integration_config)
+        pipeline = DocumentPipeline(integration_config)
+        result = pipeline.run(input_data=pd.read_csv(test_documents_csv))
         
         # Verify basic results
         assert result is not None
-        assert result.total_documents >= 0
-        assert result.successful_documents >= 0
-        assert result.failed_documents >= 0
+        assert len(result.data) >= 0
         
         # Check that output files were created (even if empty)
         assert integration_config.io.output.data_path.exists()
         assert integration_config.io.output.qc_report_path.exists()
         assert integration_config.io.output.correlation_path.exists()
 
-    def test_pipeline_with_real_data(self, integration_config, temp_output_dir, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_pipeline_with_real_data(self, integration_config, temp_output_dir):
         """Test pipeline with real document data."""
         # Create a more realistic test dataset
         test_data = pd.DataFrame({
@@ -60,14 +78,14 @@ class TestPipelineIntegration:
         
         try:
             # Run the pipeline
-            result = run_document_etl(integration_config)
+            pipeline = DocumentPipeline(integration_config)
+            result = pipeline.run(input_data=pd.read_csv(csv_path))
             
             # Verify results
-            assert result.total_documents >= 0
-            assert result.successful_documents >= 0
+            assert len(result.data) >= 0
             
             # Check output files
-            if result.successful_documents > 0:
+            if len(result.data) > 0:
                 assert integration_config.io.output.data_path.exists()
                 assert integration_config.io.output.data_path.stat().st_size > 0
                 
@@ -103,11 +121,12 @@ class TestPipelineIntegration:
         
         try:
             # Run the pipeline - should handle errors gracefully
-            result = run_document_etl(integration_config)
+            pipeline = DocumentPipeline(integration_config)
+            result = pipeline.run(input_data=pd.read_csv(csv_path))
             
             # Should complete without crashing
             assert result is not None
-            assert result.total_documents >= 0
+            assert len(result.data) >= 0
             # May have all failed documents, which is expected
             
             # Output files should still be created
@@ -168,7 +187,8 @@ class TestPipelineIntegration:
         with pytest.raises(Exception):  # Could be ValidationError or ValueError
             Config.model_validate(invalid_config_data)
 
-    def test_pipeline_with_different_sources(self, integration_config, temp_output_dir, test_documents_csv, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_pipeline_with_different_sources(self, integration_config, temp_output_dir, test_documents_csv):
         """Test pipeline with different API sources enabled."""
         # Enable multiple sources for testing
         integration_config.sources.update({
@@ -211,11 +231,12 @@ class TestPipelineIntegration:
         integration_config.io.output.correlation_path = temp_output_dir / "multi_source_correlation.csv"
         
         # Run the pipeline
-        result = run_document_etl(integration_config)
+        pipeline = DocumentPipeline(integration_config)
+        result = pipeline.run(input_data=pd.read_csv(test_documents_csv))
         
         # Should complete successfully
         assert result is not None
-        assert result.total_documents >= 0
+        assert len(result.data) >= 0
         
         # Check output files
         assert integration_config.io.output.data_path.exists()
@@ -223,7 +244,8 @@ class TestPipelineIntegration:
         assert integration_config.io.output.correlation_path.exists()
 
     @pytest.mark.slow
-    def test_pipeline_performance(self, integration_config, temp_output_dir, skip_if_no_network, skip_if_no_api_key):
+    @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")
+    def test_pipeline_performance(self, integration_config, temp_output_dir):
         """Test pipeline performance with larger dataset."""
         import time
         
@@ -252,19 +274,20 @@ class TestPipelineIntegration:
             start_time = time.time()
             
             # Run the pipeline
-            result = run_document_etl(integration_config)
+            pipeline = DocumentPipeline(integration_config)
+            result = pipeline.run(input_data=pd.read_csv(csv_path))
             
             elapsed_time = time.time() - start_time
             
             # Verify results
             assert result is not None
-            assert result.total_documents == 20
+            assert len(result.data) == 20
             
             # Performance check - should complete within reasonable time
             assert elapsed_time < 300, f"Pipeline took too long: {elapsed_time:.2f} seconds"
             
             # Check that we got some results
-            if result.successful_documents > 0:
+            if len(result.data) > 0:
                 output_df = pd.read_csv(integration_config.io.output.data_path)
                 assert len(output_df) > 0
                 

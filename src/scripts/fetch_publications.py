@@ -60,12 +60,12 @@ def write_publications(publications: pd.DataFrame, output_path: Path, config: An
 # Placeholder schemas
 class InputSchema:
     @staticmethod
-    def validate(df: pd.DataFrame, lazy: bool = True) -> pd.DataFrame:
+    def validate(df: pd.DataFrame, _lazy: bool = True) -> pd.DataFrame:
         return df
 
 class OutputSchema:
     @staticmethod
-    def validate(df: pd.DataFrame, lazy: bool = True) -> pd.DataFrame:
+    def validate(df: pd.DataFrame, _lazy: bool = True) -> pd.DataFrame:
         return df
 
 app = typer.Typer(help="Fetch and normalize publication metadata from multiple public APIs.")
@@ -220,7 +220,7 @@ def _execute_pipeline(config_path: Path, input_path: Path, output: Path | None) 
 
     queries = read_queries(input_path)
     try:
-        validated_queries = InputSchema.validate(queries, lazy=config.etl.strict_validation)
+        validated_queries = InputSchema.validate(queries, _lazy=config.etl.strict_validation)
     except Exception as exc:  # noqa: BLE001
         raise PipelineValidationError(f"Input validation failed: {exc}") from exc
 
@@ -230,7 +230,7 @@ def _execute_pipeline(config_path: Path, input_path: Path, output: Path | None) 
     try:
         validated_publications = OutputSchema.validate(
             publications,
-            lazy=config.etl.strict_validation,
+            _lazy=config.etl.strict_validation,
         )
     except Exception as exc:  # noqa: BLE001
         raise PipelineValidationError(f"Output validation failed: {exc}") from exc

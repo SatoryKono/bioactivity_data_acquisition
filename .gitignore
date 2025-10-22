@@ -243,7 +243,11 @@ CLI_INTEGRATION_SNIPPET.py
 # Build artifacts (additional to Python template)
 build/
 dist/
+bdist/
 *.egg-info/
+
+# MkDocs build output
+site/
 
 # Documentation caches
 docs/_build/
@@ -260,7 +264,13 @@ logs/
 *.log
 
 # Cursor IDE
-.cursor/plans/
+.cursor/
+.agent-tools/
+
+# Ruff and other tool caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
 
 # =============================================================================
 # Ensure important directories remain tracked

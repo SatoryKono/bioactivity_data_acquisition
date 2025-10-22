@@ -320,7 +320,7 @@ class APIConfig(BaseModel):
 
 ## Дополнительные ресурсы
 
-- [Отчёт об очистке репозитория](../../CLEANUP_REPORT.md)
-- [Git LFS Workflow](GIT_LFS_WORKFLOW.md)
+- Отчёт об очистке репозитория (архивный документ)
+- Git LFS Workflow (архивный документ)
 - [Pre-commit документация](https://pre-commit.com/)
 - [Git LFS документация](https://git-lfs.github.io/)

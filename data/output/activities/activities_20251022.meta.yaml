@@ -1,0 +1,23 @@
+activity_type_distribution:
+  IC50: 1
+  Ki: 1
+chembl_db_version: ChEMBL_36
+chembl_release_date: null
+chembl_status: UP
+chembl_status_timestamp: '2025-10-22T18:52:49.561298Z'
+config:
+  limit: 2
+  qc_enabled: true
+  workers: 4
+dataset: chembl
+extraction_timestamp: '2025-10-22T18:52:49.561918Z'
+file_checksums:
+  csv: 77d613788c0d6ab863939b1edf943864716fd7e8689281b3a31c074adef94ec6
+  qc: 264e243d855d821b199a4af3f897a8e4248ebe3c3ac37d2d6f434c2ddc7c6bc2
+generated_at: '2025-10-22T18:52:30.390096Z'
+pipeline_version: 1.0.0
+row_count: 2
+run_id: 71abbb67-b6bb-4eaf-aa3a-7d7724af2d02
+total_activities: 2
+unit_distribution:
+  nM: 2

@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
  
 from library.activity.config import ConfigLoadError, load_activity_config
-from library.activity.pipeline import run_activity_etl
+from library.activity.pipeline import ActivityPipeline
 from library.activity.writer import write_activity_outputs
 from library.logging_setup import configure_logging
 
@@ -75,7 +75,10 @@ Examples:
             print(f"Error: Invalid date tag format '{date_tag}'. Expected YYYYMMDD.", file=sys.stderr)
             return 2
 
-        result = run_activity_etl(cfg, input_csv=args.input)
+        import pandas as pd
+        pipeline = ActivityPipeline(cfg)
+        input_data = pd.read_csv(args.input)
+        result = pipeline.run(input_data=input_data)
 
         if not cfg.runtime.dry_run:
             outputs = write_activity_outputs(
@@ -89,8 +92,8 @@ Examples:
                 print(f"  {name}: {path}")
 
             print("\nSummary:")
-            print(f"  Total activities: {result.meta.get('total_activities', len(result.activities))}")
-            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
+            print(f"  Total activities: {len(result.data)}")
+            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown') if result.meta else 'unknown'}")
             print(f"  Date tag: {date_tag}")
         else:
             print("Dry run completed. No files were written.")

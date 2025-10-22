@@ -32,7 +32,7 @@ def _build_missing_data_summary(df: pd.DataFrame) -> dict[str, dict[str, float |
     return summary
 
 
-def ensure_common_qc(data_frame: pd.DataFrame, qc_frame: pd.DataFrame | None, module_name: str) -> pd.DataFrame:
+def ensure_common_qc(data_frame: pd.DataFrame, qc_frame: pd.DataFrame | None, _module_name: str) -> pd.DataFrame:
     """Return QC DataFrame in a unified two-column format.
 
     Args:

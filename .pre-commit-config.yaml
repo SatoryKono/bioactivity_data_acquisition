@@ -141,6 +141,89 @@ if __name__ == '__main__':
         files: ^(src/|configs/|scripts/).*\.(py|yaml|yml|json|env|ini|cfg)$
         pass_filenames: true
         always_run: false
+      
+      # Vulture - dead code detection
+      - id: vulture
+        name: Detect dead code with Vulture
+        entry: vulture src tests --min-confidence 80 --exclude=*/__pycache__/*,*/site/*
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+      
+      # Deptry - dependency management
+      - id: deptry
+        name: Check dependency issues with Deptry
+        entry: deptry . --ignore DEP002,DEP003
+        language: system
+        pass_filenames: false
+        always_run: false
+      
+      # jscpd - copy-paste detector
+      - id: jscpd
+        name: Detect code duplication with jscpd
+        entry: npx jscpd --min-tokens 50 --threshold 3 --ignore "**/node_modules/**,**/.venv/**,**/site/**,**/build/**,**/__pycache__/**,**/data/**" --pattern "**/*.{py,yaml,yml,md}" --reporters console --exitOnError
+        language: node
+        pass_filenames: false
+        always_run: false
+      
+      # Root cleanliness check
+      - id: check-root-files
+        name: Check for unwanted files in root
+        entry: python -c "
+import sys
+import os
+from pathlib import Path
+
+ALLOWED_ROOT_FILES = {
+    'README.md', 'Makefile', 'pyproject.toml', 'mkdocs.yml',
+    'Dockerfile', 'docker-compose.yml', 'pyrightconfig.json',
+    '.pre-commit-config.yaml', '.gitignore', '.markdownlint.json',
+    '.python-version', 'LICENSE', 'CHANGELOG.md', '.bandit',
+    '.banditignore', '.coverage', '.dockerignore', '.env.example',
+    '.gitattributes', '.markdown-link-check.json', '.pre-commit-hooks.yaml',
+    '.pymarkdown.json', '.safety_policy.yaml'
+}
+
+ALLOWED_ROOT_DIRS = {
+    'src', 'tests', 'configs', 'scripts', 'docs', 'data', 
+    'metadata', 'logs', '.git', '.github', '.vscode', '.idea',
+    'venv', '.venv', 'env', 'node_modules', '__pycache__',
+    'build', 'dist', 'site', '.pytest_cache', '.mypy_cache',
+    '.ruff_cache', '.cursor'
+}
+
+def main():
+    root = Path('.')
+    violations = []
+    
+    for item in root.iterdir():
+        if item.name.startswith('.'):
+            # Skip dotfiles not explicitly allowed
+            if item.is_file() and item.name not in ALLOWED_ROOT_FILES:
+                continue
+        
+        if item.is_file() and item.name not in ALLOWED_ROOT_FILES:
+            violations.append(f'Unwanted file: {item.name}')
+        elif item.is_dir() and item.name not in ALLOWED_ROOT_DIRS:
+            violations.append(f'Unwanted directory: {item.name}')
+    
+    if violations:
+        print('❌ ROOT CLEANLINESS VIOLATIONS:')
+        for v in violations:
+            print(f'   - {v}')
+        print()
+        print('💡 Keep root clean! Move files to appropriate directories.')
+        sys.exit(1)
+    
+    print('✅ Root directory is clean')
+
+if __name__ == '__main__':
+    main()
+"
+        language: system
+        pass_filenames: false
+        always_run: true
 
   - repo: https://github.com/psf/black
     rev: 24.4.2

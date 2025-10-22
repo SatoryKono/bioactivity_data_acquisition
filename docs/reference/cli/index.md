@@ -1,136 +1,397 @@
-# CLI
+# CLI Reference
 
-CLI основан на Typer. Ниже — частые команды и рецепты.
+## Обзор
 
-## Базовые команды
+CLI (Command Line Interface) предоставляет удобный способ запуска пайплайнов и управления системой через командную строку. Основан на библиотеке Typer и поддерживает автодополнение.
+
+## Основные команды
+
+### Главная команда
 
 ```bash
-# помощь
-bioactivity-data-acquisition --help
+python -m library.cli [OPTIONS] COMMAND [ARGS]...
+```
 
-# запуск пайплайна
-bioactivity-data-acquisition pipeline --config configs/config.yaml \
-  --set http.global.timeout_sec=10
+**Опции:**
 
-# установка автодополнения для shell
-bioactivity-data-acquisition install-completion bash
-bioactivity-data-acquisition install-completion zsh
-bioactivity-data-acquisition install-completion fish
-bioactivity-data-acquisition install-completion powershell
+- `--install-completion` — установить автодополнение для текущей оболочки
+- `--show-completion` — показать автодополнение для копирования или настройки
+- `--help` — показать справку
+
+### Команды
+
+| Команда | Описание |
+|---------|----------|
+| `pipeline` | Выполнить ETL пайплайн с использованием конфигурационного файла |
+| `get-document-data` | Собрать и обогатить метаданные документов из настроенных источников |
+| `get-target-data` | Извлечь и обогатить данные мишеней из ChEMBL/UniProt/IUPHAR |
+| `get-activity-data` | Извлечь и обогатить данные активностей из ChEMBL |
+| `testitem-run` | Запустить ETL пайплайн для молекул |
+| `testitem-validate-config` | Валидировать конфигурационный файл для молекул |
+| `testitem-info` | Показать информацию о ETL пайплайне для молекул |
+| `analyze-iuphar-mapping` | Анализировать маппинг IUPHAR в данных мишеней |
+| `list-manifests` | Показать все доступные манифесты |
+| `show-manifest` | Показать содержимое манифеста |
+| `list-reports` | Показать все доступные отчёты |
+| `health` | Проверить состояние всех настроенных API клиентов |
+| `version` | Показать версию пакета |
+| `install-completion` | Установить автодополнение оболочки для CLI |
+
+## Детальная документация команд
+
+### pipeline
+
+Выполнить ETL пайплайн с использованием конфигурационного файла.
+
+```bash
+python -m library.cli pipeline [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `-s, --set TEXT` — переопределить значения конфигурации через точечную нотацию (KEY=VALUE)
+- `--log-level TEXT` — уровень логирования [по умолчанию: INFO]
+- `--log-file PATH` — путь к файлу логов
+- `--log-format TEXT` — формат консоли (text/json) [по умолчанию: text]
+- `--no-file-log` — отключить файловое логирование
+- `--help` — показать справку
+
+**Примеры:**
+
+```bash
+# Базовый запуск
+python -m library.cli pipeline -c configs/config_documents_v2.yaml
+
+# С переопределением параметров
+python -m library.cli pipeline -c configs/config_targets_v2.yaml --set sources.chembl.rate_limit=3
+
+# С подробным логированием
+python -m library.cli pipeline -c configs/config_assays_v2.yaml --log-level DEBUG
+
+# С JSON логированием
+python -m library.cli pipeline -c configs/config_activities_v2.yaml --log-format json
+```
+
+### get-document-data
+
+Собрать и обогатить метаданные документов из настроенных источников.
+
+```bash
+python -m library.cli get-document-data [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `-s, --set TEXT` — переопределить значения конфигурации через точечную нотацию (KEY=VALUE)
+- `--log-level TEXT` — уровень логирования [по умолчанию: INFO]
+- `--log-file PATH` — путь к файлу логов
+- `--log-format TEXT` — формат консоли (text/json) [по умолчанию: text]
+- `--no-file-log` — отключить файловое логирование
+- `--help` — показать справку
+
+**Примеры:**
+
+```bash
+# Обогащение документов
+python -m library.cli get-document-data -c configs/config_documents_v2.yaml
+
+# С ограничением источников
+python -m library.cli get-document-data -c configs/config_documents_v2.yaml --set sources.pubmed.enabled=false
+```
+
+### get-target-data
+
+Извлечь и обогатить данные мишеней из ChEMBL/UniProt/IUPHAR.
+
+```bash
+python -m library.cli get-target-data [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `-s, --set TEXT` — переопределить значения конфигурации через точечную нотацию (KEY=VALUE)
+- `--log-level TEXT` — уровень логирования [по умолчанию: INFO]
+- `--log-file PATH` — путь к файлу логов
+- `--log-format TEXT` — формат консоли (text/json) [по умолчанию: text]
+- `--no-file-log` — отключить файловое логирование
+- `--help` — показать справку
+
+### get-activity-data
+
+Извлечь и обогатить данные активностей из ChEMBL.
+
+```bash
+python -m library.cli get-activity-data [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `-s, --set TEXT` — переопределить значения конфигурации через точечную нотацию (KEY=VALUE)
+- `--log-level TEXT` — уровень логирования [по умолчанию: INFO]
+- `--log-file PATH` — путь к файлу логов
+- `--log-format TEXT` — формат консоли (text/json) [по умолчанию: text]
+- `--no-file-log` — отключить файловое логирование
+- `--help` — показать справку
+
+### testitem-run
+
+Запустить ETL пайплайн для молекул.
+
+```bash
+python -m library.cli testitem-run [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `-s, --set TEXT` — переопределить значения конфигурации через точечную нотацию (KEY=VALUE)
+- `--log-level TEXT` — уровень логирования [по умолчанию: INFO]
+- `--log-file PATH` — путь к файлу логов
+- `--log-format TEXT` — формат консоли (text/json) [по умолчанию: text]
+- `--no-file-log` — отключить файловое логирование
+- `--help` — показать справку
+
+### testitem-validate-config
+
+Валидировать конфигурационный файл для молекул.
+
+```bash
+python -m library.cli testitem-validate-config [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `--help` — показать справку
+
+### testitem-info
+
+Показать информацию о ETL пайплайне для молекул.
+
+```bash
+python -m library.cli testitem-info [OPTIONS]
+```
+
+**Опции:**
+
+- `--help` — показать справку
+
+### analyze-iuphar-mapping
+
+Анализировать маппинг IUPHAR в данных мишеней.
+
+```bash
+python -m library.cli analyze-iuphar-mapping [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `--help` — показать справку
+
+### list-manifests
+
+Показать все доступные манифесты.
+
+```bash
+python -m library.cli list-manifests [OPTIONS]
+```
+
+**Опции:**
+
+- `--help` — показать справку
+
+### show-manifest
+
+Показать содержимое манифеста.
+
+```bash
+python -m library.cli show-manifest [OPTIONS]
+```
+
+**Опции:**
+
+- `--help` — показать справку
+
+### list-reports
+
+Показать все доступные отчёты.
+
+```bash
+python -m library.cli list-reports [OPTIONS]
+```
+
+**Опции:**
+
+- `--help` — показать справку
+
+### health
+
+Проверить состояние всех настроенных API клиентов.
+
+```bash
+python -m library.cli health [OPTIONS]
+```
+
+**Опции:**
+
+- `-c, --config FILE` — путь к конфигурационному файлу (обязательно)
+- `--help` — показать справку
+
+**Примеры:**
+
+```bash
+# Проверка состояния API
+python -m library.cli health -c configs/config_documents_v2.yaml
+```
+
+### version
+
+Показать версию пакета.
+
+```bash
+python -m library.cli version [OPTIONS]
+```
+
+**Опции:**
+
+- `--help` — показать справку
+
+### install-completion
+
+Установить автодополнение оболочки для CLI.
+
+```bash
+python -m library.cli install-completion [OPTIONS]
+```
+
+**Опции:**
+
+- `--help` — показать справку
+
+## Переопределение конфигурации
+
+### Синтаксис --set
+
+Используйте точечную нотацию для переопределения значений конфигурации:
+
+```bash
+# Переопределение лимитов API
+--set sources.chembl.rate_limit=3
+--set sources.pubmed.budget=25000
+
+# Переопределение путей
+--set io.input_dir=/custom/input
+--set io.output_dir=/custom/output
+
+# Переопределение логирования
+--set logging.level=DEBUG
+--set logging.file=/custom/logs/app.log
+```
+
+### Примеры переопределения
+
+```bash
+# Ограничение источников
+python -m library.cli pipeline -c configs/config_documents_v2.yaml \
+  --set sources.pubmed.enabled=false \
+  --set sources.crossref.enabled=false
+
+# Изменение лимитов
+python -m library.cli pipeline -c configs/config_targets_v2.yaml \
+  --set sources.chembl.rate_limit=2 \
+  --set sources.uniprot.budget=15000
+
+# Настройка логирования
+python -m library.cli pipeline -c configs/config_assays_v2.yaml \
+  --set logging.level=DEBUG \
+  --set logging.format=json
 ```
 
 ## Автодополнение
 
-CLI поддерживает автодополнение для популярных shell:
-
-### Bash
+### Установка автодополнения
 
 ```bash
-# Установка
-bioactivity-data-acquisition install-completion bash
+# Установить для текущей оболочки
+python -m library.cli --install-completion
 
-# Активация (добавить в ~/.bashrc)
-source ~/.local/share/bash-completion/completions/bioactivity-data-acquisition
+# Показать код для ручной установки
+python -m library.cli --show-completion
 ```
 
-### Zsh
+### Поддерживаемые оболочки
+
+- Bash
+- Zsh
+- Fish
+- PowerShell
+
+## Логирование
+
+### Уровни логирования
+
+- `DEBUG` — подробная отладочная информация
+- `INFO` — общая информация о работе (по умолчанию)
+- `WARNING` — предупреждения
+- `ERROR` — ошибки
+- `CRITICAL` — критические ошибки
+
+### Форматы логирования
+
+- `text` — человекочитаемый формат (по умолчанию)
+- `json` — структурированный JSON формат
+
+### Примеры логирования
 
 ```bash
-# Установка
-bioactivity-data-acquisition install-completion zsh
+# Подробное логирование в файл
+python -m library.cli pipeline -c configs/config_documents_v2.yaml \
+  --log-level DEBUG \
+  --log-file logs/pipeline.log
 
-# Активация (добавить в ~/.zshrc)
-fpath=(~/.zsh/completions $fpath)
-autoload -U compinit && compinit
+# JSON логирование
+python -m library.cli pipeline -c configs/config_targets_v2.yaml \
+  --log-format json
+
+# Отключение файлового логирования
+python -m library.cli pipeline -c configs/config_assays_v2.yaml \
+  --no-file-log
 ```
 
-### Fish
+## Обработка ошибок
+
+### Коды возврата
+
+- `0` — успешное выполнение
+- `1` — общая ошибка
+- `2` — ошибка конфигурации
+- `3` — ошибка валидации данных
+- `4` — ошибка API
+- `5` — ошибка файловой системы
+
+### Отладка
 
 ```bash
-# Установка
-bioactivity-data-acquisition install-completion fish
+# Включить отладочное логирование
+python -m library.cli pipeline -c configs/config_documents_v2.yaml --log-level DEBUG
 
-# Автоматически активируется после перезапуска shell
+# Проверить конфигурацию
+python -m library.cli testitem-validate-config -c configs/config_testitems_v2.yaml
+
+# Проверить состояние API
+python -m library.cli health -c configs/config_documents_v2.yaml
 ```
 
-### PowerShell
+## Связанные документы
 
-```powershell
-# Установка
-bioactivity-data-acquisition install-completion powershell
-
-# Активация (добавить в профиль PowerShell)
-. ~/Documents/PowerShell/Modules/bioactivity-data-acquisition.ps1
-```
-
-### Опции команды `pipeline`
-
-- `--config, -c PATH` — путь к YAML-конфигу
-- `--set KEY=VALUE` (повторяемый) — переопределение значений по «точечным» путям. Пример:
-  - `--set logging.level=DEBUG`
-  - `--set sources.chembl.pagination.max_pages=1`
-
-## Работа с документами (обогащение)
-
-```bash
-# минимальный запуск (пути берутся из конфига если указаны)
-bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
-  --documents-csv data/input/documents.csv \
-  --output-dir data/output/full \
-  --date-tag 20251016
-
-# включить все источники
-bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml --all
-
-# включить только перечисленные источники
-bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
-  --source chembl --source crossref
-
-# ограничить количество документов и включить dry-run
-bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
-  --limit 50 --dry-run
-
-# настроить HTTP таймауты/ретраи через CLI-оверрайды конфигурации
-bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
-  --timeout-sec 10 --retries 3
-```
-
-### Опции команды `get-document-data`
-
-- `--config, -c PATH` — путь к YAML-конфигу
-- `--documents-csv PATH` — входной CSV со списком идентификаторов документов
-- `--output-dir PATH` — директория для артефактов
-- `--date-tag YYYYMMDD` — тег даты в именах файлов
-- `--timeout-sec N` — таймаут HTTP (попадает в `http.global.timeout_sec`)
-- `--retries N` — число ретраев (попадает в `http.global.retries.total`)
-- `--workers N` — число потоков (попадает в `runtime.workers`)
-- `--limit N` — ограничение количества документов (`runtime.limit`)
-- `--all` — включить все источники
-- `--source NAME` — включить только указанные источники (можно повторять)
-- `--dry-run/--no-dry-run` — выполнить без записи артефактов
-
-Взаимоисключение: `--all` и `--source` нельзя использовать одновременно.
-
-## Версия
-
-```bash
-bioactivity-data-acquisition version
-```
-
-## Рецепты
-
-```bash
-# Переопределение лимитов/таймаутов через --set
-bioactivity-data-acquisition pipeline --config configs/config.yaml \
-  --set http.global.timeout_sec=45 \
-  --set sources.chembl.pagination.max_pages=1
-
-# Rate limit на источник через YAML (пример ключей в конфиге)
-# sources.<name>.http.rate_limit.max_calls / period
-
-# Dry-run (если поддерживается профилем документов)
-bioactivity-data-acquisition get-document-data --config configs/config_documents_full.yaml \
-  --dry-run
-```
-
-Подробная справка по флагам доступна через `--help` на подкомандах.
+- [Конфигурация](../configuration/index.md)
+- [Пайплайны](../../pipelines/documents.md)
+- [FAQ](../../faq.md)
+- [How-To руководства](../../how-to/index.md)
+ 
+ 

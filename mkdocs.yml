@@ -44,6 +44,15 @@ plugins:
             show_if_no_docstring: false
   - mermaid2
   - table-reader
+  - redirects:
+      redirect_maps:
+        'architecture.md': 'explanations/architecture.md'
+        'setup/install.md': 'how-to/installation.md'
+        'setup/config.md': 'reference/configuration/index.md'
+        'guides/howto_add_pipeline.md': 'how-to/development.md'
+        'guides/troubleshooting.md': 'how-to/debug-pipeline.md'
+        'api/index.md': 'reference/api/index.md'
+        'reference/api_index.md': 'reference/api/index.md'
 
 markdown_extensions:
   - admonition
@@ -64,26 +73,55 @@ markdown_extensions:
       generic: true
 
 nav:
-  - Обзор: index.md
-  - Архитектура: architecture.md
-  - Установка и настройка:
-    - Установка: setup/install.md
-    - Конфигурация: setup/config.md
+  - Главная: index.md
+  - Туториалы:
+    - Обзор: tutorials/index.md
+    - Быстрый старт: tutorials/quickstart.md
+    - E2E пайплайн: tutorials/e2e-pipeline.md
+    - E2E документы: tutorials/e2e-documents.md
+  - How-To руководства:
+    - Обзор: how-to/index.md
+    - Установка: how-to/installation.md
+    - Запуск локально: how-to/run-etl-locally.md
+    - Настройка API: how-to/configure-api-clients.md
+    - Отладка: how-to/debug-pipeline.md
+    - QC проверки: how-to/run-quality-checks.md
+    - Эксплуатация: how-to/operations.md
+    - Разработка: how-to/development.md
+    - Контрибьюшн: how-to/contribute.md
+    - Финальная валидация: how-to/stage11-final-validation.md
+  - Справочник:
+    - Обзор: reference/index.md
+    - CLI: reference/cli/index.md
+    - API: reference/api/index.md
+    - Конфигурация: reference/configuration/index.md
+    - Схемы данных: reference/data-schemas/index.md
+    - Выходные данные: reference/outputs/index.md
+    - API клиенты: reference/api/clients.md
+    - API конфигурация: reference/api/config.md
+    - API ETL: reference/api/etl.md
+    - API схемы: reference/api/schemas.md
+    - CLI документы: reference/cli/get-document-data.md
+    - CLI пайплайн: reference/cli/pipeline.md
+    - Валидация схем: reference/data-schemas/validation.md
+  - Объяснения:
+    - Обзор: explanations/index.md
+    - Архитектура: explanations/architecture.md
+    - Решения дизайна: explanations/design-decisions.md
+    - Чувствительность к регистру: explanations/case-sensitivity.md
   - Пайплайны:
     - Documents: pipelines/documents.md
     - Activities: pipelines/activities.md
     - Targets: pipelines/targets.md
     - Assays: pipelines/assays.md
     - Testitems: pipelines/testitems.md
+  - Источники данных: data-sources.md
   - Операции:
     - Makefiles: operations/makefiles.md
     - Docker: operations/docker.md
     - CI/CD: operations/ci-cd.md
-  - Контроль качества:
+  - Качество:
     - Валидация: quality/validation.md
-    - QC Чек-листы: quality/qc_checklist.md
-  - Справочник:
-    - API: reference/api_index.md
-  - Руководства:
-    - Добавление пайплайна: guides/howto_add_pipeline.md
-    - Устранение неполадок: guides/troubleshooting.md
+    - QC чек-листы: quality/qc_checklist.md
+  - FAQ: faq.md
+  - Changelog: changelog.md

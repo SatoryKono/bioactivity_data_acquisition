@@ -1,0 +1,186 @@
+# Конфигурация v2 для assays pipeline
+# Основана на унифицированном шаблоне config.template.yaml
+
+# Метаданные пайплайна
+pipeline:
+  name: "assays"
+  version: "2.0.0"
+  entity_type: "assays"
+  description: "ETL pipeline for assay data from ChEMBL"
+
+# HTTP настройки
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioactivity-data-acquisition/0.1.0"
+    verify_ssl: true
+    follow_redirects: true
+
+# Источники данных
+sources:
+  chembl:
+    enabled: true
+    http:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      timeout_sec: 60.0
+      retries:
+        total: 3
+        backoff_multiplier: 1.5
+    batch_size: 1000
+    max_compounds: null
+    bao_enabled: true
+
+# Ввод-вывод
+io:
+  input:
+    path: "data/input/assays.csv"
+    encoding: "utf-8"
+    required_columns: ["assay_chembl_id"]
+    
+  output:
+    dir: "data/output/assays"
+    format: "csv"
+    csv:
+      encoding: "utf-8"
+      float_format: "%.6f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+      na_rep: ""
+      line_terminator: "\n"
+
+# Runtime настройки
+runtime:
+  workers: 4
+  limit: null
+  offset: 0
+  dry_run: false
+  date_tag: null
+  dev_mode: false
+  allow_incomplete_sources: false
+
+# Логирование
+logging:
+  level: "INFO"
+  file:
+    enabled: true
+    path: "data/logs/assays.log"
+    max_size: "10MB"
+    backup_count: 5
+  console:
+    enabled: true
+    format: "text"
+  structured: true
+
+# Детерминизм
+determinism:
+  sort:
+    by: ["assay_chembl_id"]
+    ascending: [true]
+    na_position: "last"
+  column_order:
+    - "assay_chembl_id"
+    - "assay_type"
+    - "assay_category"
+    - "assay_organism"
+    - "assay_tax_id"
+    - "assay_strain"
+    - "assay_tissue"
+    - "assay_cell_type"
+    - "assay_subcellular_fraction"
+    - "target_chembl_id"
+    - "target_organism"
+    - "target_tax_id"
+    - "bao_format"
+    - "bao_label"
+    - "bao_endpoint"
+    - "bao_assay_format"
+    - "bao_assay_type"
+    - "bao_assay_type_label"
+    - "bao_assay_type_uri"
+    - "bao_assay_format_uri"
+    - "bao_assay_format_label"
+    - "bao_endpoint_uri"
+    - "bao_endpoint_label"
+    - "extracted_at"
+
+# Валидация
+validation:
+  enabled: true
+  strict: false
+  schema_validation: true
+  data_quality_checks: true
+
+# Постобработка
+postprocess:
+  qc:
+    enabled: true
+    fail_on: ["missing_assay_chembl_id", "duplicate_primary_keys"]
+    thresholds:
+      missing_assay_chembl_id: 0.0
+      duplicate_primary_keys: 0.0
+      missing_bao_format: 0.1
+    detailed_report: true
+    
+  correlation:
+    enabled: true
+    methods: ["pearson", "spearman"]
+    min_correlation: 0.5
+    
+  steps:
+    - type: "apply_bao_flags"
+      description: "Apply BioAssay Ontology (BAO) flags and classifications"
+      bao_version: "2.0"
+    - type: "validate_assay_type"
+      description: "Validate and normalize assay types"
+    - type: "filter_assays"
+      description: "Apply quality filters to assays"
+      rules:
+        - min_activities: 10
+        - valid_organism: true
+        - valid_target: true
+    - type: "deduplicate"
+      description: "Remove duplicate assay entries"
+      keys: ["assay_chembl_id"]
+
+# Нормализация
+normalization:
+  enabled: true
+  assay_type_format: "standard"
+  organism_format: "scientific_name"
+  bao_format: "standard"
+
+# Качество данных
+quality:
+  profiles:
+    default:
+      enabled: true
+      rules:
+        - name: "valid_chembl_id"
+          pattern: "^CHEMBL\\d+$"
+        - name: "valid_assay_type"
+          allowed_values: ["B", "F", "A", "P", "T", "U"]
+        - name: "valid_bao_format"
+          pattern: "^BAO_\\d+$"
+
+# Кэширование
+cache:
+  enabled: true
+  dir: "data/cache/assays"
+  ttl: 86400
+  max_size: "1GB"
+
+# Мониторинг и телеметрия
+telemetry:
+  enabled: false
+  endpoint: null
+  api_key: null
+  batch_size: 100
+  flush_interval: 30.0

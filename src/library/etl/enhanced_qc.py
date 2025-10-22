@@ -42,6 +42,34 @@ class EnhancedTableQualityProfiler:
         
         return quality_report
 
+    def consume_with_pipeline_specific_metrics(self, df: pd.DataFrame, pipeline_type: str) -> dict[str, Any]:
+        """Анализ DataFrame с учетом специфичных метрик для конкретного пайплайна."""
+        if self.logger:
+            self.logger.info(f"Начинаем анализ качества данных для пайплайна {pipeline_type}: {len(df)} строк, {len(df.columns)} колонок")
+
+        # Базовые метрики
+        quality_report = self.consume(df)
+        
+        # Добавляем специфичные метрики для пайплайна
+        pipeline_specific_metrics = self._get_pipeline_specific_metrics(df, pipeline_type)
+        quality_report['pipeline_specific'] = pipeline_specific_metrics
+
+        if self.logger:
+            self.logger.info(f"Анализ качества данных для пайплайна {pipeline_type} завершен")
+        
+        return quality_report
+
+    def _get_pipeline_specific_metrics(self, df: pd.DataFrame, pipeline_type: str) -> dict[str, Any]:
+        """Получает специфичные метрики для конкретного пайплайна."""
+        if pipeline_type == "documents":
+            return self._get_documents_metrics(df)
+        elif pipeline_type == "testitem":
+            return self._get_testitem_metrics(df)
+        elif pipeline_type == "target":
+            return self._get_target_metrics(df)
+        else:
+            return {}
+
     def _analyze_table_summary(self, df: pd.DataFrame) -> dict[str, Any]:
         """Анализ общей информации о таблице."""
         return {
@@ -317,25 +345,199 @@ class EnhancedTableQualityProfiler:
         
         return reports
 
+    def _get_documents_metrics(self, df: pd.DataFrame) -> dict[str, Any]:
+        """Специфичные метрики для пайплайна документов."""
+        metrics = {}
+        
+        # DOI валидация
+        if 'doi' in df.columns:
+            doi_valid = df['doi'].apply(lambda x: bool(self._patterns['doi'].match(str(x))) if pd.notna(x) else False)
+            metrics['doi_validity_rate'] = doi_valid.sum() / len(df) if len(df) > 0 else 0
+            metrics['doi_coverage'] = df['doi'].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # PubMed ID валидация
+        if 'document_pubmed_id' in df.columns:
+            pmid_valid = df['document_pubmed_id'].apply(lambda x: str(x).isdigit() if pd.notna(x) else False)
+            metrics['pmid_validity_rate'] = pmid_valid.sum() / len(df) if len(df) > 0 else 0
+            metrics['pmid_coverage'] = df['document_pubmed_id'].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # Журнальная информация
+        if 'journal' in df.columns:
+            metrics['journal_coverage'] = df['journal'].notna().sum() / len(df) if len(df) > 0 else 0
+            metrics['unique_journals'] = df['journal'].nunique()
+        
+        # Год публикации
+        if 'year' in df.columns:
+            current_year = pd.Timestamp.now().year
+            valid_years = df['year'].between(1800, current_year + 1)
+            metrics['year_validity_rate'] = valid_years.sum() / len(df) if len(df) > 0 else 0
+            metrics['year_coverage'] = df['year'].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # Мульти-источниковые данные
+        source_columns = ['chembl_title', 'crossref_title', 'openalex_title', 'pubmed_title', 'semantic_scholar_title']
+        available_sources = [col for col in source_columns if col in df.columns]
+        if available_sources:
+            multi_source_count = 0
+            for _, row in df.iterrows():
+                source_count = sum(1 for col in available_sources if pd.notna(row.get(col)))
+                if source_count >= 2:
+                    multi_source_count += 1
+            metrics['multi_source_coverage'] = multi_source_count / len(df) if len(df) > 0 else 0
+        
+        return metrics
+
+    def _get_testitem_metrics(self, df: pd.DataFrame) -> dict[str, Any]:
+        """Специфичные метрики для пайплайна testitem."""
+        metrics = {}
+        
+        # ChEMBL ID валидация
+        if 'molecule_chembl_id' in df.columns:
+            chembl_valid = df['molecule_chembl_id'].apply(lambda x: str(x).startswith('CHEMBL') if pd.notna(x) else False)
+            metrics['chembl_id_validity_rate'] = chembl_valid.sum() / len(df) if len(df) > 0 else 0
+            metrics['chembl_id_coverage'] = df['molecule_chembl_id'].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # Молекулярные свойства
+        molecular_props = ['mw_freebase', 'alogp', 'hba', 'hbd', 'psa']
+        for prop in molecular_props:
+            if prop in df.columns:
+                prop_valid = df[prop].apply(lambda x: isinstance(x, (int, float)) and x > 0 if pd.notna(x) else False)
+                metrics[f'{prop}_validity_rate'] = prop_valid.sum() / len(df) if len(df) > 0 else 0
+                metrics[f'{prop}_coverage'] = df[prop].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # SMILES валидация
+        if 'standardized_smiles' in df.columns:
+            smiles_coverage = df['standardized_smiles'].notna().sum() / len(df) if len(df) > 0 else 0
+            metrics['smiles_coverage'] = smiles_coverage
+        
+        # InChI валидация
+        if 'standardized_inchi' in df.columns:
+            inchi_coverage = df['standardized_inchi'].notna().sum() / len(df) if len(df) > 0 else 0
+            metrics['inchi_coverage'] = inchi_coverage
+        
+        # Lipinski's Rule of Five
+        if all(col in df.columns for col in ['mw_freebase', 'alogp', 'hba', 'hbd']):
+            lipinski_violations = 0
+            for _, row in df.iterrows():
+                violations = 0
+                if pd.notna(row['mw_freebase']) and row['mw_freebase'] > 500:
+                    violations += 1
+                if pd.notna(row['alogp']) and row['alogp'] > 5:
+                    violations += 1
+                if pd.notna(row['hba']) and row['hba'] > 10:
+                    violations += 1
+                if pd.notna(row['hbd']) and row['hbd'] > 5:
+                    violations += 1
+                if violations > 1:
+                    lipinski_violations += 1
+            metrics['lipinski_rule_violations'] = lipinski_violations / len(df) if len(df) > 0 else 0
+        
+        return metrics
+
+    def _get_target_metrics(self, df: pd.DataFrame) -> dict[str, Any]:
+        """Специфичные метрики для пайплайна target."""
+        metrics = {}
+        
+        # ChEMBL ID валидация
+        if 'target_chembl_id' in df.columns:
+            chembl_valid = df['target_chembl_id'].apply(lambda x: str(x).startswith('CHEMBL') if pd.notna(x) else False)
+            metrics['chembl_id_validity_rate'] = chembl_valid.sum() / len(df) if len(df) > 0 else 0
+            metrics['chembl_id_coverage'] = df['target_chembl_id'].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # UniProt ID валидация
+        if 'uniprot_id' in df.columns:
+            uniprot_pattern = re.compile(r'^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$')
+            uniprot_valid = df['uniprot_id'].apply(lambda x: bool(uniprot_pattern.match(str(x))) if pd.notna(x) else False)
+            metrics['uniprot_id_validity_rate'] = uniprot_valid.sum() / len(df) if len(df) > 0 else 0
+            metrics['uniprot_id_coverage'] = df['uniprot_id'].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # Организм и таксономия
+        if 'unified_organism' in df.columns:
+            metrics['organism_coverage'] = df['unified_organism'].notna().sum() / len(df) if len(df) > 0 else 0
+            metrics['unique_organisms'] = df['unified_organism'].nunique()
+        
+        if 'unified_tax_id' in df.columns:
+            tax_valid = df['unified_tax_id'].apply(lambda x: isinstance(x, (int, float)) and x > 0 if pd.notna(x) else False)
+            metrics['tax_id_validity_rate'] = tax_valid.sum() / len(df) if len(df) > 0 else 0
+            metrics['tax_id_coverage'] = df['unified_tax_id'].notna().sum() / len(df) if len(df) > 0 else 0
+        
+        # Тип мишени
+        if 'unified_target_type' in df.columns:
+            valid_target_types = {'SINGLE PROTEIN', 'PROTEIN COMPLEX', 'PROTEIN FAMILY', 'PROTEIN-PROTEIN INTERACTION', 'NUCLEIC ACID', 'UNKNOWN'}
+            target_type_valid = df['unified_target_type'].apply(lambda x: x in valid_target_types if pd.notna(x) else False)
+            metrics['target_type_validity_rate'] = target_type_valid.sum() / len(df) if len(df) > 0 else 0
+            metrics['target_type_coverage'] = df['unified_target_type'].notna().sum() / len(df) if len(df) > 0 else 0
+            metrics['unique_target_types'] = df['unified_target_type'].nunique()
+        
+        # Мульти-источниковые данные
+        source_columns = ['has_chembl_data', 'has_uniprot_data', 'has_iuphar_data', 'has_gtopdb_data']
+        available_sources = [col for col in source_columns if col in df.columns]
+        if available_sources:
+            for col in available_sources:
+                metrics[f'{col}_rate'] = df[col].sum() / len(df) if len(df) > 0 else 0
+            
+            # Мульти-источниковая валидация
+            if 'multi_source_validated' in df.columns:
+                metrics['multi_source_validation_rate'] = df['multi_source_validated'].sum() / len(df) if len(df) > 0 else 0
+        
+        return metrics
+
+
+def build_enhanced_qc_summary(df: pd.DataFrame, pipeline_type: str = "generic") -> pd.DataFrame:
+    """Строит краткий QC отчет с базовыми метриками."""
+    profiler = EnhancedTableQualityProfiler()
+    
+    if pipeline_type in ["documents", "testitem", "target"]:
+        quality_report = profiler.consume_with_pipeline_specific_metrics(df, pipeline_type)
+    else:
+        quality_report = profiler.consume(df)
+    
+    # Извлекаем основные метрики
+    summary_metrics = []
+    
+    # Базовые метрики
+    table_summary = quality_report.get('table_summary', {})
+    summary_metrics.extend([
+        {"metric": "total_rows", "value": table_summary.get('total_rows', 0)},
+        {"metric": "total_columns", "value": table_summary.get('total_columns', 0)},
+        {"metric": "memory_usage_mb", "value": round(table_summary.get('memory_usage_bytes', 0) / 1024 / 1024, 2)},
+    ])
+    
+    # Метрики полноты данных
+    column_analysis = quality_report.get('column_analysis', {})
+    for col_name, col_info in column_analysis.items():
+        # Вычисляем completeness как процент непустых значений
+        completeness = (100 - col_info.get('empty_pct', 100)) / 100
+        summary_metrics.extend([
+            {"metric": f"{col_name}_completeness", "value": round(completeness, 3)},
+            {"metric": f"{col_name}_unique_values", "value": col_info.get('unique_cnt', 0)},
+        ])
+    
+    # Специфичные метрики пайплайна
+    pipeline_specific = quality_report.get('pipeline_specific', {})
+    for metric_name, metric_value in pipeline_specific.items():
+        if isinstance(metric_value, (int, float)):
+            summary_metrics.append({
+                "metric": f"pipeline_{metric_name}",
+                "value": round(metric_value, 3) if isinstance(metric_value, float) else metric_value
+            })
+    
+    return pd.DataFrame(summary_metrics)
+
+
+def build_enhanced_qc_detailed(df: pd.DataFrame, pipeline_type: str = "generic") -> dict[str, Any]:
+    """Строит детальный QC отчет со всеми метриками."""
+    profiler = EnhancedTableQualityProfiler()
+    
+    if pipeline_type in ["documents", "testitem", "target"]:
+        return profiler.consume_with_pipeline_specific_metrics(df, pipeline_type)
+    else:
+        return profiler.consume(df)
+
 
 def build_enhanced_qc_report(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, Any]:
     """Создание расширенного отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
     return profiler.consume(df)
-
-
-def build_enhanced_qc_summary(df: pd.DataFrame, logger: BoundLogger | None = None) -> pd.DataFrame:
-    """Создание сводного отчета о качестве данных."""
-    profiler = EnhancedTableQualityProfiler(logger=logger)
-    quality_report = profiler.consume(df)
-    return profiler.generate_summary_report(quality_report)
-
-
-def build_enhanced_qc_detailed(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, pd.DataFrame]:
-    """Создание детального отчета о качестве данных."""
-    profiler = EnhancedTableQualityProfiler(logger=logger)
-    quality_report = profiler.consume(df)
-    return profiler.generate_detailed_report(quality_report)
 
 
 __all__ = [

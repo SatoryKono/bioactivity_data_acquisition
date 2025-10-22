@@ -117,7 +117,7 @@ class ShutdownContext:
     def __enter__(self):
         return self.shutdown_manager
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, _exc_tb):
         if self.shutdown_manager.is_shutdown_requested():
             self.shutdown_manager.wait_for_shutdown(self.timeout)
 

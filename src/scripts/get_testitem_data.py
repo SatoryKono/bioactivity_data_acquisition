@@ -8,7 +8,8 @@ from typing import Any
 
 from library.logging_setup import configure_logging
 from library.testitem.config import TestitemConfig
-from library.testitem.pipeline import run_testitem_etl, write_testitem_outputs
+from library.testitem.pipeline import TestitemPipeline
+from library.testitem.writer import write_testitem_outputs
 
 
 def _load_testitem_data(input_path: Path, id_column: str | None = None) -> list[dict[str, Any]]:
@@ -240,13 +241,17 @@ Examples:
             print(f"Processing {len(molecule_data)} molecules from {args.input}")
         
         # Run pipeline
-        result = run_testitem_etl(config=config, input_path=args.input)
+        import pandas as pd
+        pipeline = TestitemPipeline(config)
+        input_data = pd.DataFrame(molecule_data)
+        result = pipeline.run(input_data=input_data)
         
         # Write outputs
         if not config.runtime.dry_run:
             output_paths = write_testitem_outputs(
                 result=result,
                 output_dir=Path(config.io.output.data_path).parent,
+                date_tag=date_tag,
                 config=config
             )
             
@@ -257,34 +262,35 @@ Examples:
             # Print summary
             print("\nSummary:")
             # Используем фактический размер результирующего датафрейма
-            print(f"  Total molecules: {len(result.testitems)}")
-            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown')}")
-            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
+            print(f"  Total molecules: {len(result.data)}")
+            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown') if result.meta else 'unknown'}")
+            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown') if result.meta else 'unknown'}")
             # Отображаем состояние PubChem по конфигурации запуска
             print(f"  PubChem enabled: {config.enable_pubchem}")
             print(f"  Date tag: {date_tag}")
             
             # Print source statistics
-            source_counts = result.meta.get('source_counts', {})
-            print("\nSource statistics:")
-            for source, count in source_counts.items():
-                print(f"  {source}: {count} records")
-            
-            # Print PubChem enrichment statistics
-            pubchem_stats = result.meta.get('pubchem_enrichment', {})
-            if pubchem_stats.get('enabled', False):
-                enrichment_rate = pubchem_stats.get('enrichment_rate', 0)
-                records_with_pubchem = pubchem_stats.get('records_with_pubchem_data', 0)
-                print(f"  PubChem enrichment rate: {enrichment_rate:.1%}")
-                print(f"  Records with PubChem data: {records_with_pubchem}")
-            
-            # Print data quality metrics
-            data_quality = result.meta.get('data_quality', {})
-            if data_quality:
-                error_rate = data_quality.get('error_rate', 0)
-                records_with_errors = data_quality.get('records_with_errors', 0)
-                print(f"  Data quality - Error rate: {error_rate:.1%}")
-                print(f"  Data quality - Records with errors: {records_with_errors}")
+            if result.meta:
+                source_counts = result.meta.get('source_counts', {})
+                print("\nSource statistics:")
+                for source, count in source_counts.items():
+                    print(f"  {source}: {count} records")
+                
+                # Print PubChem enrichment statistics
+                pubchem_stats = result.meta.get('pubchem_enrichment', {})
+                if pubchem_stats.get('enabled', False):
+                    enrichment_rate = pubchem_stats.get('enrichment_rate', 0)
+                    records_with_pubchem = pubchem_stats.get('records_with_pubchem_data', 0)
+                    print(f"  PubChem enrichment rate: {enrichment_rate:.1%}")
+                    print(f"  Records with PubChem data: {records_with_pubchem}")
+                
+                # Print data quality metrics
+                data_quality = result.meta.get('data_quality', {})
+                if data_quality:
+                    error_rate = data_quality.get('error_rate', 0)
+                    records_with_errors = data_quality.get('records_with_errors', 0)
+                    print(f"  Data quality - Error rate: {error_rate:.1%}")
+                    print(f"  Data quality - Records with errors: {records_with_errors}")
         else:
             print("Dry run completed. No files were written.")
         

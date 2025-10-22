@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from library.documents import load_document_config, run_document_etl, write_document_outputs
+from library.documents import load_document_config, DocumentPipeline, write_document_outputs
 from library.logging_setup import configure_logging
 
 
@@ -259,7 +259,8 @@ Examples:
         frame = pd.DataFrame(document_data)
         
         # Run pipeline
-        result = run_document_etl(config=config, frame=frame)
+        pipeline = DocumentPipeline(config)
+        result = pipeline.run(input_data=frame)
         
         # Write outputs
         if not config.runtime.dry_run:

@@ -35,7 +35,7 @@ def _csv_options(settings: CsvFormatSettings) -> dict[str, object]:
     if settings.na_rep is not None:
         options["na_rep"] = settings.na_rep
     if settings.line_terminator is not None:
-        options["line_terminator"] = settings.line_terminator
+        options["lineterminator"] = settings.line_terminator
     return options
 
 

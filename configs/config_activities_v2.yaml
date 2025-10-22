@@ -1,0 +1,202 @@
+# Конфигурация v2 для activities pipeline
+# Основана на унифицированном шаблоне config.template.yaml
+
+# Метаданные пайплайна
+pipeline:
+  name: "activities"
+  version: "2.0.0"
+  entity_type: "activities"
+  description: "ETL pipeline for activity data from ChEMBL"
+
+# HTTP настройки
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioactivity-data-acquisition/0.1.0"
+    verify_ssl: true
+    follow_redirects: true
+
+# Источники данных
+sources:
+  chembl:
+    enabled: true
+    http:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      timeout_sec: 60.0
+      retries:
+        total: 3
+        backoff_multiplier: 1.5
+    batch_size: 1000
+    max_compounds: null
+    activity_types: ["IC50", "EC50", "Ki", "Kd", "AC50"]
+
+# Ввод-вывод
+io:
+  input:
+    path: "data/input/activities.csv"
+    encoding: "utf-8"
+    required_columns: ["assay_chembl_id", "molecule_chembl_id"]
+    
+  output:
+    dir: "data/output/activities"
+    format: "csv"
+    csv:
+      encoding: "utf-8"
+      float_format: "%.6f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+      na_rep: ""
+      line_terminator: "\n"
+
+# Runtime настройки
+runtime:
+  workers: 4
+  limit: null
+  offset: 0
+  dry_run: false
+  date_tag: null
+  dev_mode: false
+  allow_incomplete_sources: false
+
+# Логирование
+logging:
+  level: "INFO"
+  file:
+    enabled: true
+    path: "data/logs/activities.log"
+    max_size: "10MB"
+    backup_count: 5
+  console:
+    enabled: true
+    format: "text"
+  structured: true
+
+# Детерминизм
+determinism:
+  sort:
+    by:  ["activity_chembl_id", "assay_chembl_id", "document_chembl_id", "molecule_chembl_id", "target_chembl_id"]
+    ascending: [true, true, true, true, true]
+    na_position: "last"
+  column_order:
+    - "index"
+    - "activity_chembl_id"
+    - "assay_chembl_id"
+    - "document_chembl_id"
+    - "target_chembl_id"
+    - "molecule_chembl_id"
+    - "activity_type"
+    - "activity_value"
+    - "activity_unit"
+    - "pchembl_value"
+    - "data_validity_comment"
+    - "activity_comment"
+    - "lower_bound"
+    - "upper_bound"
+    - "is_censored"
+    - "published_type"
+    - "published_relation"
+    - "published_value"
+    - "published_units"
+    - "standard_type"
+    - "standard_relation"
+    - "standard_value"
+    - "standard_units"
+    - "standard_flag"
+    - "bao_endpoint"
+    - "bao_format"
+    - "bao_label"
+   
+    - "retrieved_at"
+    - "quality_flag"
+    - "quality_reason"
+
+# Валидация
+validation:
+  enabled: true
+  strict: false
+  schema_validation: true
+  data_quality_checks: true
+
+# Постобработка
+postprocess:
+  qc:
+    enabled: true
+    fail_on: ["missing_standard_value", "invalid_standard_units"]
+    thresholds:
+      missing_standard_value: 0.1
+      invalid_standard_units: 0.05
+      missing_pchembl_value: 0.2
+    detailed_report: true
+    
+  correlation:
+    enabled: true
+    methods: ["pearson", "spearman"]
+    min_correlation: 0.5
+    
+  steps:
+    - type: "normalize_units"
+      description: "Normalize activity units to standard format"
+      unit_mapping:
+        "nM": 1e-9
+        "uM": 1e-6
+        "mM": 1e-3
+        "M": 1.0
+    - type: "compute_pchembl"
+      description: "Calculate pChEMBL values from standard values"
+      formula: "-log10(standard_value * unit_conversion_factor)"
+    - type: "filter_activities"
+      description: "Apply quality filters to activities"
+      rules:
+        - min_standard_value: 1e-12
+        - max_standard_value: 1e-3
+        - valid_standard_type: true
+    - type: "deduplicate"
+      description: "Remove duplicate activity entries"
+      keys: ["assay_chembl_id", "molecule_chembl_id", "standard_type"]
+
+# Нормализация
+normalization:
+  enabled: true
+  unit_conversion: true
+  pchembl_calculation: true
+  activity_type_mapping: true
+
+# Качество данных
+quality:
+  profiles:
+    default:
+      enabled: true
+      rules:
+        - name: "valid_chembl_id"
+          pattern: "^CHEMBL\\d+$"
+        - name: "valid_standard_value"
+          min_value: 1e-12
+          max_value: 1e-3
+        - name: "valid_standard_units"
+          allowed_values: ["nM", "uM", "mM", "M", "ng/ml", "ug/ml", "mg/ml", "g/ml"]
+        - name: "valid_pchembl_value"
+          min_value: 3.0
+          max_value: 12.0
+
+# Кэширование
+cache:
+  enabled: true
+  dir: "data/cache/activities"
+  ttl: 86400
+  max_size: "1GB"
+
+# Мониторинг и телеметрия
+telemetry:
+  enabled: false
+  endpoint: null
+  api_key: null
+  batch_size: 100
+  flush_interval: 30.0

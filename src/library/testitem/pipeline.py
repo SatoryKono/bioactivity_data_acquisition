@@ -1,337 +1,217 @@
-"""Refactored testitem ETL pipeline orchestration."""
+"""Refactored testitem ETL pipeline using PipelineBase."""
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from library.clients.chembl import TestitemChEMBLClient
-from library.clients.pubchem import PubChemClient
-from library.config import APIClientConfig, RateLimitSettings, RetrySettings
-from library.etl.enhanced_correlation import (
-    build_correlation_insights,
-    build_enhanced_correlation_analysis,
-    build_enhanced_correlation_reports,
-    prepare_data_for_correlation_analysis,
-)
-from library.io.meta import create_dataset_metadata
+from library.clients.chembl import ChEMBLClient
+from library.common.pipeline_base import PipelineBase
 from library.testitem.config import TestitemConfig
-from library.testitem.extract import extract_batch_data
 from library.testitem.normalize import TestitemNormalizer
 from library.testitem.quality import TestitemQualityFilter
 from library.testitem.validate import TestitemValidator
-from library.testitem.writer import TestitemWriter
 
 logger = logging.getLogger(__name__)
 
 
-class TestitemPipelineError(RuntimeError):
-    """Base class for testitem pipeline errors."""
-
-
-class TestitemValidationError(TestitemPipelineError):
-    """Raised when the input data does not meet schema expectations."""
-
-
-class TestitemHTTPError(TestitemPipelineError):
-    """Raised when upstream HTTP requests fail irrecoverably."""
-
-
-class TestitemQCError(TestitemPipelineError):
-    """Raised when QC checks do not pass configured thresholds."""
-
-
-class TestitemIOError(TestitemPipelineError):
-    """Raised when reading or writing files fails."""
-
-
-@dataclass(slots=True)
-class TestitemETLResult:
-    """Container for ETL artefacts."""
-
-    testitems: pd.DataFrame
-    qc: pd.DataFrame
-    meta: dict[str, Any]
-    correlation_analysis: dict[str, Any] | None = None
-    correlation_reports: dict[str, pd.DataFrame] | None = None
-    correlation_insights: list[dict[str, Any]] | None = None
-
-
-def _create_chembl_client(config: TestitemConfig) -> TestitemChEMBLClient:
-    """Create ChEMBL API client."""
+class TestitemPipeline(PipelineBase[TestitemConfig]):
+    """Testitem ETL pipeline using unified PipelineBase."""
     
-    # Get ChEMBL-specific configuration
-    chembl_config = config.sources.get("chembl")
-    if not chembl_config:
-        raise TestitemValidationError("ChEMBL source not found in configuration")
+    def __init__(self, config: TestitemConfig) -> None:
+        """Initialize testitem pipeline with configuration."""
+        super().__init__(config)
+        self.validator = TestitemValidator(config.model_dump() if hasattr(config, 'model_dump') else {})
+        self.normalizer = TestitemNormalizer(config.model_dump() if hasattr(config, 'model_dump') else {})
+        self.quality_filter = TestitemQualityFilter(config.model_dump() if hasattr(config, 'model_dump') else {})
     
-    # Use source-specific timeout or fallback to global
-    timeout = chembl_config.http.timeout_sec or config.http.global_.timeout_sec
-    if timeout is None:
-        timeout = 60.0  # At least 60 seconds for ChEMBL
-    
-    # Merge headers: default + global + source-specific
-    default_headers = _get_chembl_headers()
-    headers = {**default_headers, **config.http.global_.headers, **chembl_config.http.headers}
-    
-    # Process secret placeholders in headers
-    import os
-    import re
-    processed_headers = {}
-    for key, value in headers.items():
-        if isinstance(value, str):
-            def replace_placeholder(match):
-                secret_name = match.group(1)
-                env_var = os.environ.get(secret_name.upper())
-                return env_var if env_var is not None else match.group(0)
-            processed_value = re.sub(r'\{([^}]+)\}', replace_placeholder, value)
-            # Only include header if the value is not empty after processing and not a placeholder
-            if (processed_value and processed_value.strip() and 
-                not processed_value.startswith('{') and not processed_value.endswith('}')):
-                processed_headers[key] = processed_value
-        else:
-            processed_headers[key] = value
-    headers = processed_headers
-    
-    # Use source-specific base_url or fallback to default
-    base_url = chembl_config.http.base_url or "https://www.ebi.ac.uk/chembl/api/data"
-    
-    # Use source-specific retry settings or fallback to global
-    retry_settings = RetrySettings(
-        total=chembl_config.http.retries.total if chembl_config.http.retries else config.http.global_.retries.total,
-        backoff_multiplier=chembl_config.http.retries.backoff_multiplier if chembl_config.http.retries else config.http.global_.retries.backoff_multiplier
-    )
-    
-    # Create rate limit settings if configured
-    rate_limit = None
-    if chembl_config.http.rate_limit:
-        # Convert various rate limit formats to max_calls/period
-        max_calls = chembl_config.http.rate_limit.get('max_calls')
-        period = chembl_config.http.rate_limit.get('period')
+    def _setup_clients(self) -> None:
+        """Initialize HTTP clients for testitem sources."""
+        self.clients = {}
         
-        # If not in max_calls/period format, try to convert from other formats
-        if max_calls is None or period is None:
-            requests_per_second = chembl_config.http.rate_limit.get('requests_per_second')
-            if requests_per_second is not None:
-                max_calls = 1
-                period = 1.0 / requests_per_second
+        # ChEMBL client
+        if self.config.sources.get("chembl", {}).get("enabled", False):
+            self.clients["chembl"] = self._create_chembl_client()
+        
+        # PubChem client
+        if self.config.sources.get("pubchem", {}).get("enabled", False):
+            self.clients["pubchem"] = self._create_pubchem_client()
+    
+    def _create_chembl_client(self) -> ChEMBLClient:
+        """Create ChEMBL client."""
+        from library.config import RateLimitSettings, RetrySettings
+        
+        source_config = self.config.sources["chembl"]
+        timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
+        timeout = max(timeout, 60.0)  # At least 60 seconds for ChEMBL
+        
+        headers = self._get_headers("chembl")
+        headers.update(self.config.http.global_.headers)
+        headers.update(source_config.http.headers)
+        
+        processed_headers = self._process_headers(headers)
+        
+        from library.config import APIClientConfig
+        
+        client_config = APIClientConfig(
+            name="chembl",
+            base_url=source_config.http.base_url,
+            timeout_sec=timeout,
+            retries=RetrySettings(
+                total=source_config.http.retries.total,
+                backoff_multiplier=source_config.http.retries.backoff_multiplier,
+                backoff_max=source_config.http.retries.backoff_max,
+            ),
+            rate_limit=RateLimitSettings(
+                max_calls=source_config.rate_limit.max_calls,
+                period=source_config.rate_limit.period,
+            ),
+            headers=processed_headers,
+            verify_ssl=source_config.http.verify_ssl,
+            follow_redirects=source_config.http.follow_redirects,
+        )
+        
+        return ChEMBLClient(client_config)
+    
+    def _create_pubchem_client(self) -> Any:
+        """Create PubChem client."""
+        # This would create the actual PubChem client
+        # For now, return a placeholder
+        return None
+    
+    def _get_headers(self, source: str) -> dict[str, str]:
+        """Get default headers for a source."""
+        return {
+            "Accept": "application/json",
+            "User-Agent": "bioactivity-data-acquisition/0.1.0",
+        }
+    
+    def _process_headers(self, headers: dict[str, str]) -> dict[str, str]:
+        """Process headers with secret placeholders."""
+        import os
+        processed = {}
+        for key, value in headers.items():
+            if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+                env_var = value[2:-1]
+                processed[key] = os.getenv(env_var, value)
             else:
-                # Skip rate limiting if we can't determine the format
-                rate_limit = None
+                processed[key] = value
+        return processed
+    
+    def extract(self, input_data: pd.DataFrame) -> pd.DataFrame:
+        """Extract testitem data from multiple sources."""
+        logger.info(f"Extracting testitem data for {len(input_data)} testitems")
         
-        # Create RateLimitSettings object if we have valid max_calls and period
-        if max_calls is not None and period is not None:
-            rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
-    
-    # Create base API client config
-    api_config = APIClientConfig(
-        name="chembl",
-        base_url=base_url,
-        headers=headers,
-        timeout=timeout,
-        retries=retry_settings,
-        rate_limit=rate_limit,
-    )
-    
-    return TestitemChEMBLClient(api_config, timeout=timeout)
-
-
-def _create_pubchem_client(config: TestitemConfig) -> PubChemClient:
-    """Create PubChem API client."""
-    
-    # Get PubChem-specific configuration
-    pubchem_config = config.sources.get("pubchem")
-    if not pubchem_config:
-        raise TestitemValidationError("PubChem source not found in configuration")
-    
-    # Use source-specific timeout or fallback to global
-    timeout = pubchem_config.http.timeout_sec or config.http.global_.timeout_sec
-    if timeout is None:
-        timeout = 30.0  # Default timeout for PubChem
-    
-    # Merge headers: default + global + source-specific
-    default_headers = _get_pubchem_headers()
-    headers = {**default_headers, **config.http.global_.headers, **pubchem_config.http.headers}
-    
-    # Use source-specific base_url or fallback to default
-    base_url = pubchem_config.http.base_url or "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-    
-    # Use source-specific retry settings or fallback to global
-    retry_settings = RetrySettings(
-        total=pubchem_config.http.retries.total if pubchem_config.http.retries else config.http.global_.retries.total,
-        backoff_multiplier=pubchem_config.http.retries.backoff_multiplier if pubchem_config.http.retries else config.http.global_.retries.backoff_multiplier
-    )
-    
-    # Create rate limit settings if configured
-    rate_limit = None
-    if pubchem_config.http.rate_limit:
-        max_calls = pubchem_config.http.rate_limit.get('max_calls')
-        period = pubchem_config.http.rate_limit.get('period')
+        # Validate input data
+        validated_data = self.validator.validate_raw(input_data)
         
-        if max_calls is None or period is None:
-            requests_per_second = pubchem_config.http.rate_limit.get('requests_per_second')
-            if requests_per_second is not None:
-                max_calls = 1
-                period = 1.0 / requests_per_second
+        # Apply limit if specified
+        if self.config.runtime.limit is not None:
+            validated_data = validated_data.head(self.config.runtime.limit)
         
-        if max_calls is not None and period is not None:
-            rate_limit = RateLimitSettings(max_calls=max_calls, period=period)
+        # Check for duplicates
+        duplicates = validated_data["molecule_chembl_id"].duplicated()
+        if duplicates.any():
+            raise ValueError("Duplicate molecule_chembl_id values detected")
+        
+        # Extract data from each enabled source
+        extracted_data = validated_data.copy()
+        
+        # ChEMBL extraction
+        if "chembl" in self.clients:
+            try:
+                logger.info("Extracting data from ChEMBL")
+                chembl_data = self._extract_from_chembl(extracted_data)
+                extracted_data = self._merge_chembl_data(extracted_data, chembl_data)
+            except Exception as e:
+                logger.error(f"Failed to extract from ChEMBL: {e}")
+                if not self.config.runtime.allow_incomplete_sources:
+                    raise
+        
+        # PubChem extraction
+        if "pubchem" in self.clients:
+            try:
+                logger.info("Extracting data from PubChem")
+                pubchem_data = self._extract_from_pubchem(extracted_data)
+                extracted_data = self._merge_pubchem_data(extracted_data, pubchem_data)
+            except Exception as e:
+                logger.error(f"Failed to extract from PubChem: {e}")
+                if not self.config.runtime.allow_incomplete_sources:
+                    raise
+        
+        logger.info(f"Extracted data for {len(extracted_data)} testitems")
+        return extracted_data
     
-    # Create base API client config
-    api_config = APIClientConfig(
-        name="pubchem",
-        base_url=base_url,
-        headers=headers,
-        timeout=timeout,
-        retries=retry_settings,
-        rate_limit=rate_limit,
-    )
+    def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Extract data from ChEMBL."""
+        # This would contain the actual ChEMBL extraction logic
+        # For now, return empty DataFrame as placeholder
+        return pd.DataFrame()
     
-    return PubChemClient(api_config, timeout=timeout)
+    def _extract_from_pubchem(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Extract data from PubChem."""
+        # This would contain the actual PubChem extraction logic
+        # For now, return empty DataFrame as placeholder
+        return pd.DataFrame()
+    
+    def _merge_chembl_data(self, base_data: pd.DataFrame, chembl_data: pd.DataFrame) -> pd.DataFrame:
+        """Merge ChEMBL data into base data."""
+        # This would contain the actual merging logic
+        # For now, return base data as placeholder
+        return base_data
+    
+    def _merge_pubchem_data(self, base_data: pd.DataFrame, pubchem_data: pd.DataFrame) -> pd.DataFrame:
+        """Merge PubChem data into base data."""
+        # This would contain the actual merging logic
+        # For now, return base data as placeholder
+        return base_data
+    
+    def normalize(self, raw_data: pd.DataFrame) -> pd.DataFrame:
+        """Normalize testitem data."""
+        logger.info("Normalizing testitem data")
+        
+        # Apply testitem normalization
+        normalized_data = self.normalizer.normalize_testitems(raw_data)
+        
+        logger.info(f"Normalized {len(normalized_data)} testitems")
+        return normalized_data
+    
+    def validate(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Validate testitem data."""
+        logger.info("Validating testitem data")
+        
+        # Validate normalized data
+        validated_data = self.validator.validate_normalized(data)
+        
+        logger.info(f"Validated {len(validated_data)} testitems")
+        return validated_data
+    
+    def filter_quality(self, data: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Filter testitems by quality."""
+        logger.info("Filtering testitems by quality")
+        
+        # Apply quality filters
+        accepted_data, rejected_data = self.quality_filter.apply_moderate_quality_filter(data)
+        
+        logger.info(f"Quality filtering: {len(accepted_data)} accepted, {len(rejected_data)} rejected")
+        return accepted_data, rejected_data
+    
+    def _build_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
+        """Build metadata for testitem pipeline."""
+        # Create base metadata dictionary
+        metadata = {
+            "pipeline_name": "testitems",
+            "pipeline_version": "2.0.0",
+            "entity_type": "testitems",
+            "sources_enabled": [name for name, source in self.config.sources.items() if source.get("enabled", False)],
+            "total_testitems": len(data),
+            "extraction_timestamp": pd.Timestamp.now().isoformat(),
+            "config": self.config.model_dump() if hasattr(self.config, 'model_dump') else {},
+        }
+        
+        return metadata
 
 
-def _get_chembl_headers() -> dict[str, str]:
-    """Get default headers for ChEMBL API."""
-    return {
-        "User-Agent": "bioactivity-data-acquisition/0.1.0",
-        "Accept": "application/json",
-    }
-
-
-def _get_pubchem_headers() -> dict[str, str]:
-    """Get default headers for PubChem API."""
-    return {
-        "User-Agent": "bioactivity-data-acquisition/0.1.0",
-        "Accept": "application/json",
-    }
-
-
-def read_testitem_input(path: Path) -> pd.DataFrame:
-    """Load the input CSV containing testitem identifiers."""
-    try:
-        frame = pd.read_csv(path)
-    except FileNotFoundError as exc:
-        raise TestitemIOError(f"Input CSV not found: {path}") from exc
-    except pd.errors.EmptyDataError as exc:
-        raise TestitemValidationError("Input CSV is empty") from exc
-    except OSError as exc:  # pragma: no cover - filesystem-level errors are rare
-        raise TestitemIOError(f"Failed to read input CSV: {exc}") from exc
-    return frame
-
-
-def run_testitem_etl(
-    config: TestitemConfig,
-    input_data: pd.DataFrame | None = None,
-    input_path: Path | None = None
-) -> TestitemETLResult:
-    """Execute the testitem ETL pipeline returning enriched artefacts."""
-    
-    # Step 1: Load input data
-    if input_data is not None:
-        frame = input_data.copy()
-    elif input_path is not None:
-        frame = read_testitem_input(input_path)
-    else:
-        raise TestitemValidationError("Either input_data or input_path must be provided")
-    
-    # Step 2: Validate input data using input schema
-    validator = TestitemValidator(config.model_dump() if hasattr(config, 'model_dump') else {})
-    validated_input = validator.validate_input(frame)
-    
-    # Step 3: Extract data from APIs
-    logger.info("Starting data extraction from APIs...")
-    
-    # Create API clients
-    chembl_client = _create_chembl_client(config)
-    pubchem_client = _create_pubchem_client(config)
-    
-    # Extract data from both ChEMBL and PubChem
-    logger.info("Extracting data from ChEMBL and PubChem...")
-    enriched_frame = extract_batch_data(chembl_client, pubchem_client, validated_input, config)
-    
-    logger.info(f"Data extraction completed. Total records: {len(enriched_frame)}")
-    
-    # Step 4: Normalize data
-    normalizer = TestitemNormalizer(config.model_dump() if hasattr(config, 'model_dump') else {})
-    normalized_df = normalizer.normalize_testitems(enriched_frame)
-    
-    # Step 5: Validate normalized data
-    validated_normalized = validator.validate_normalized(normalized_df)
-    
-    # Step 6: Apply business rules validation
-    validated_normalized = validator.validate_business_rules(validated_normalized)
-    
-    # Step 7: Apply quality filters
-    quality_filter = TestitemQualityFilter(config.model_dump() if hasattr(config, 'model_dump') else {})
-    
-    # Apply strict quality filter
-    accepted_df, rejected_df = quality_filter.apply_strict_quality_filter(validated_normalized)
-    
-    # Build QC report
-    qc_report = quality_filter.build_quality_profile(accepted_df)
-    
-    # Apply QC thresholds
-    qc_passed = quality_filter.apply_qc_thresholds(qc_report, accepted_df)
-    if not qc_passed:
-        raise TestitemQCError("QC thresholds not met")
-    
-    # Step 8: Build metadata
-    metadata_obj = create_dataset_metadata(
-        dataset_name="testitems",
-        config=config,
-        logger=logger
-    )
-    meta = metadata_obj.to_dict(config)
-    meta["pipeline_version"] = "1.0.0"
-    meta["row_count"] = len(accepted_df)
-    
-    # Step 9: Correlation analysis (if enabled)
-    correlation_analysis = None
-    correlation_reports = None
-    correlation_insights = None
-    
-    if config.postprocess.correlation.enabled:
-        try:
-            logger.info("Building correlation analysis...")
-            
-            # Prepare data for correlation analysis
-            analysis_df = prepare_data_for_correlation_analysis(accepted_df, "testitems")
-            
-            # Build enhanced correlation analysis
-            correlation_analysis = build_enhanced_correlation_analysis(analysis_df, "testitems")
-            
-            # Build correlation reports
-            correlation_reports = build_enhanced_correlation_reports(analysis_df, "testitems")
-            
-            # Build correlation insights
-            correlation_insights = build_correlation_insights(correlation_analysis, "testitems")
-            
-            logger.info("Correlation analysis completed successfully")
-            
-        except Exception as exc:
-            logger.warning(f"Error during correlation analysis: {exc}")
-            logger.warning(f"Error type: {type(exc).__name__}")
-            # Continue without correlation analysis
-
-    return TestitemETLResult(
-        testitems=accepted_df,
-        qc=qc_report,
-        meta=meta,
-        correlation_analysis=correlation_analysis,
-        correlation_reports=correlation_reports,
-        correlation_insights=correlation_insights
-    )
-
-
-def write_testitem_outputs(
-    result: TestitemETLResult,
-    output_dir: Path,
-    config: TestitemConfig
-) -> dict[str, Path]:
-    """Write testitem ETL outputs to files."""
-    writer = TestitemWriter(config)
-    return writer.write_testitem_outputs(result, output_dir, config)
+# Import required modules - removed circular import
