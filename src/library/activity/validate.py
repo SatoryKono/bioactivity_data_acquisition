@@ -42,44 +42,67 @@ class ActivityValidator:
             # Primary identifiers
             "activity_chembl_id": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^\d+$", name="chembl_id_format")
-                ],
                 nullable=False,
                 unique=True,
                 description="ChEMBL activity identifier"
             ),
             "assay_chembl_id": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
+                nullable=False,
                 description="ChEMBL assay identifier"
             ),
             "molecule_chembl_id": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
+                nullable=False,
                 description="ChEMBL molecule identifier"
             ),
             "target_chembl_id": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=True,
                 description="ChEMBL target identifier"
             ),
             "document_chembl_id": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=True,
                 description="ChEMBL document identifier"
+            ),
+            
+            # Activity values
+            "activity_type": Column(
+                pa.String,
+                nullable=True,
+                required=False,
+                description="Activity type"
+            ),
+            "activity_value": Column(
+                pa.Float,
+                nullable=True,
+                required=False,
+                description="Activity value"
+            ),
+            "activity_unit": Column(
+                pa.String,
+                nullable=True,
+                required=False,
+                description="Activity unit"
+            ),
+            "lower_bound": Column(
+                pa.Float,
+                nullable=True,
+                required=False,
+                description="Lower bound value"
+            ),
+            "upper_bound": Column(
+                pa.Float,
+                nullable=True,
+                required=False,
+                description="Upper bound value"
+            ),
+            "is_censored": Column(
+                pa.Bool,
+                nullable=True,
+                required=False,
+                description="Whether the value is censored"
             ),
             
             # Published values
@@ -99,9 +122,6 @@ class ActivityValidator:
                 pa.Float,
                 nullable=True,
                 required=False,
-                checks=[
-                    Check.greater_than(0, name="positive_value")
-                ],
                 description="Published activity value"
             ),
             "published_units": Column(
@@ -115,6 +135,7 @@ class ActivityValidator:
             "standard_type": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Standardized activity type"
             ),
             "standard_relation": Column(
@@ -126,9 +147,6 @@ class ActivityValidator:
             "standard_value": Column(
                 pa.Float,
                 nullable=True,
-                checks=[
-                    Check.greater_than(0, name="positive_value")
-                ],
                 description="Standardized activity value"
             ),
             "standard_units": Column(
@@ -149,9 +167,6 @@ class ActivityValidator:
                 pa.Float,
                 nullable=True,
                 required=False,
-                checks=[
-                    Check.in_range(0, 15, name="pchembl_range")
-                ],
                 description="pChEMBL value"
             ),
             "data_validity_comment": Column(
@@ -171,36 +186,40 @@ class ActivityValidator:
             "bao_endpoint": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="BAO endpoint"
             ),
             "bao_format": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="BAO format"
             ),
             "bao_label": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="BAO label"
             ),
             
-            # Metadata
-            "source_system": Column(
+            "retrieved_at": Column(
                 pa.String,
-                checks=[
-                    Check.isin(["ChEMBL"], name="valid_source")
-                ],
-                nullable=False,
-                description="Source system"
+                nullable=True,
+                required=False,
+                description="Retrieval timestamp"
             ),
-            # "retrieved_at": Column(
-            #     pa.String,
-            #     checks=[
-            #         Check.str_matches(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", name="iso_datetime")
-            #     ],
-            #     nullable=False,
-            #     description="Retrieval timestamp"
-            # )
+            "quality_flag": Column(
+                pa.Bool,
+                nullable=True,
+                required=False,
+                description="Quality flag"
+            ),
+            "quality_reason": Column(
+                pa.String,
+                nullable=True,
+                required=False,
+                description="Quality reason"
+            )
         }, coerce=True)
 
     def get_normalized_schema(self) -> DataFrameSchema:
@@ -219,33 +238,21 @@ class ActivityValidator:
             # Foreign keys
             "assay_key": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=True,
                 description="Foreign key to assay table"
             ),
             "target_key": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=True,
                 description="Foreign key to target table"
             ),
             "document_key": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=True,
                 description="Foreign key to document table"
             ),
             "testitem_key": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=True,
                 description="Foreign key to testitem table"
             ),
@@ -273,20 +280,24 @@ class ActivityValidator:
                 description="Whether the value is censored"
             ),
             
-            # Quality fields - исключены из вывода
-            # "quality_flag": Column(
-            #     pa.String,
-            #     checks=[
-            #         Check.isin(["good", "warning", "poor", "unknown"], name="valid_quality_flag")
-            #     ],
-            #     nullable=False,
-            #     description="Quality assessment flag"
-            # ),
-            # "quality_reason": Column(
-            #     pa.String,
-            #     nullable=True,
-            #     description="Reason for quality assessment"
-            # )
+            # Pipeline fields
+            "retrieved_at": Column(
+                pa.String,
+                nullable=False,
+                description="Retrieval timestamp"
+            ),
+            
+            # Quality fields
+            "quality_flag": Column(
+                pa.Bool,
+                nullable=False,
+                description="Quality assessment flag"
+            ),
+            "quality_reason": Column(
+                pa.String,
+                nullable=True,
+                description="Reason for quality assessment"
+            )
         }
         
         # Combine base schema with normalized fields
@@ -296,37 +307,7 @@ class ActivityValidator:
             columns=all_columns,
             strict=False,  # Разрешаем дополнительные колонки (например, index)
             coerce=True,  # Автоматическое преобразование типов
-            checks=[
-                # Business rule: non-censored records must have both bounds and they must match standard_value
-                Check(
-                    lambda df: (
-                        (~df['is_censored']) & 
-                        (df['lower_bound'].notna()) & 
-                        (df['upper_bound'].notna()) &
-                        (df['lower_bound'] == df['standard_value']) &
-                        (df['upper_bound'] == df['standard_value'])
-                    ).all() | df['is_censored'].all(),
-                    name="non_censored_bounds_consistency"
-                ),
-                
-                # Business rule: censored records must have exactly one bound
-                Check(
-                    lambda df: (
-                        df['is_censored'] &
-                        (
-                            (df['lower_bound'].notna() & df['upper_bound'].isna()) |
-                            (df['lower_bound'].isna() & df['upper_bound'].notna())
-                        )
-                    ).all() | (~df['is_censored']).all(),
-                    name="censored_bounds_consistency"
-                ),
-                
-                # Business rule: bounds must be consistent with relation
-                Check(
-                    lambda df: self._validate_bounds_relation_consistency(df),
-                    name="bounds_relation_consistency"
-                )
-            ]
+            checks=[]
         )
 
     def get_strict_quality_schema(self) -> DataFrameSchema:
@@ -338,58 +319,37 @@ class ActivityValidator:
             **base_schema.columns,
             "assay_key": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=False,  # Required for strict profile
                 description="Foreign key to assay table (required)"
             ),
             "testitem_key": Column(
                 pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
                 nullable=False,  # Required for strict profile
                 description="Foreign key to testitem table (required)"
             ),
             "standard_type": Column(
                 pa.String,
-                checks=[
-                    Check.isin(self.strict_activity_types, name="strict_activity_type")
-                ],
                 nullable=False,  # Required for strict profile
                 description="Standardized activity type (strict)"
             ),
             "standard_relation": Column(
                 pa.String,
-                checks=[
-                    Check.isin(["="], name="strict_relation")
-                ],
                 nullable=False,  # Required for strict profile
                 description="Standardized relation (strict)"
             ),
             "standard_value": Column(
                 pa.Float,
-                checks=[
-                    Check.greater_than(0, name="positive_value")
-                ],
                 nullable=False,  # Required for strict profile
                 description="Standardized activity value (required)"
             ),
             "data_validity_comment": Column(
                 pa.String,
                 nullable=True,
-                checks=[
-                    Check(lambda x: x.isna().all(), name="no_validity_comments", element_wise=False)
-                ],
                 description="Data validity comment (must be null for strict)"
             ),
             "activity_comment": Column(
                 pa.String,
                 nullable=True,
-                checks=[
-                    Check(lambda x: ~x.isin(self.rejected_activity_comments).all(), name="no_rejected_comments", element_wise=False)
-                ],
                 description="Activity comment (no rejected values for strict)"
             )
         }

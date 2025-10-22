@@ -100,9 +100,9 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
             validated_data = validated_data.head(self.config.runtime.limit)
         
         # Check for duplicates
-        duplicates = validated_data["activity_id"].duplicated()
+        duplicates = validated_data["activity_chembl_id"].duplicated()
         if duplicates.any():
-            raise ValueError("Duplicate activity_id values detected")
+            raise ValueError("Duplicate activity_chembl_id values detected")
         
         # Extract data from ChEMBL
         if "chembl" in self.clients:

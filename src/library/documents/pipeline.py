@@ -39,23 +39,23 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         self.clients = {}
         
         # ChEMBL client
-        if self.config.sources.get("chembl", {}).get("enabled", False):
+        if "chembl" in self.config.sources and self.config.sources["chembl"].enabled:
             self.clients["chembl"] = self._create_chembl_client()
         
         # Crossref client
-        if self.config.sources.get("crossref", {}).get("enabled", False):
+        if "crossref" in self.config.sources and self.config.sources["crossref"].enabled:
             self.clients["crossref"] = self._create_crossref_client()
         
         # OpenAlex client
-        if self.config.sources.get("openalex", {}).get("enabled", False):
+        if "openalex" in self.config.sources and self.config.sources["openalex"].enabled:
             self.clients["openalex"] = self._create_openalex_client()
         
         # PubMed client
-        if self.config.sources.get("pubmed", {}).get("enabled", False):
+        if "pubmed" in self.config.sources and self.config.sources["pubmed"].enabled:
             self.clients["pubmed"] = self._create_pubmed_client()
         
         # Semantic Scholar client
-        if self.config.sources.get("semanticscholar", {}).get("enabled", False):
+        if "semanticscholar" in self.config.sources and self.config.sources["semanticscholar"].enabled:
             self.clients["semanticscholar"] = self._create_semantic_scholar_client()
     
     def _create_chembl_client(self) -> ChEMBLClient:
@@ -63,19 +63,19 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         from library.config import APIClientConfig, RateLimitSettings, RetrySettings
         
         source_config = self.config.sources["chembl"]
-        timeout = source_config.http["timeout_sec"] or self.config.http.global_["timeout_sec"]
+        timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
         timeout = max(timeout, 60.0)  # At least 60 seconds for ChEMBL
         
         headers = self._get_headers("chembl")
-        headers.update(self.config.http.global_["headers"])
-        headers.update(source_config.http["headers"])
+        headers.update(self.config.http.global_.headers)
+        headers.update(source_config.http.headers)
         
         # Process secret placeholders
         processed_headers = self._process_headers(headers)
         
         client_config = APIClientConfig(
             name="chembl",
-            base_url=source_config.http["base_url"],
+            base_url=source_config.http.base_url,
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries["total"],
@@ -87,8 +87,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit["period"],
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http["verify_ssl"],
-            follow_redirects=source_config.http["follow_redirects"],
+            verify_ssl=source_config.http.verify_ssl,
+            follow_redirects=source_config.http.follow_redirects,
         )
         
         return ChEMBLClient(client_config)
@@ -98,17 +98,17 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         from library.config import APIClientConfig, RateLimitSettings, RetrySettings
         
         source_config = self.config.sources["crossref"]
-        timeout = source_config.http["timeout_sec"] or self.config.http.global_["timeout_sec"]
+        timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
         
         headers = self._get_headers("crossref")
-        headers.update(self.config.http.global_["headers"])
-        headers.update(source_config.http["headers"])
+        headers.update(self.config.http.global_.headers)
+        headers.update(source_config.http.headers)
         
         processed_headers = self._process_headers(headers)
         
         client_config = APIClientConfig(
             name="crossref",
-            base_url=source_config.http["base_url"],
+            base_url=source_config.http.base_url,
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries["total"],
@@ -120,8 +120,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit["period"],
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http["verify_ssl"],
-            follow_redirects=source_config.http["follow_redirects"],
+            verify_ssl=source_config.http.verify_ssl,
+            follow_redirects=source_config.http.follow_redirects,
         )
         
         return CrossrefClient(client_config)
@@ -131,17 +131,17 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         from library.config import APIClientConfig, RateLimitSettings, RetrySettings
         
         source_config = self.config.sources["openalex"]
-        timeout = source_config.http["timeout_sec"] or self.config.http.global_["timeout_sec"]
+        timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
         
         headers = self._get_headers("openalex")
-        headers.update(self.config.http.global_["headers"])
-        headers.update(source_config.http["headers"])
+        headers.update(self.config.http.global_.headers)
+        headers.update(source_config.http.headers)
         
         processed_headers = self._process_headers(headers)
         
         client_config = APIClientConfig(
             name="openalex",
-            base_url=source_config.http["base_url"],
+            base_url=source_config.http.base_url,
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries["total"],
@@ -153,8 +153,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit["period"],
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http["verify_ssl"],
-            follow_redirects=source_config.http["follow_redirects"],
+            verify_ssl=source_config.http.verify_ssl,
+            follow_redirects=source_config.http.follow_redirects,
         )
         
         return OpenAlexClient(client_config)
@@ -164,17 +164,17 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         from library.config import APIClientConfig, RateLimitSettings, RetrySettings
         
         source_config = self.config.sources["pubmed"]
-        timeout = source_config.http["timeout_sec"] or self.config.http.global_["timeout_sec"]
+        timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
         
         headers = self._get_headers("pubmed")
-        headers.update(self.config.http.global_["headers"])
-        headers.update(source_config.http["headers"])
+        headers.update(self.config.http.global_.headers)
+        headers.update(source_config.http.headers)
         
         processed_headers = self._process_headers(headers)
         
         client_config = APIClientConfig(
             name="pubmed",
-            base_url=source_config.http["base_url"],
+            base_url=source_config.http.base_url,
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries["total"],
@@ -186,8 +186,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit["period"],
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http["verify_ssl"],
-            follow_redirects=source_config.http["follow_redirects"],
+            verify_ssl=source_config.http.verify_ssl,
+            follow_redirects=source_config.http.follow_redirects,
         )
         
         return PubMedClient(client_config)
@@ -197,17 +197,17 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         from library.config import APIClientConfig, RateLimitSettings, RetrySettings
         
         source_config = self.config.sources["semanticscholar"]
-        timeout = source_config.http["timeout_sec"] or self.config.http.global_["timeout_sec"]
+        timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
         
         headers = self._get_headers("semanticscholar")
-        headers.update(self.config.http.global_["headers"])
-        headers.update(source_config.http["headers"])
+        headers.update(self.config.http.global_.headers)
+        headers.update(source_config.http.headers)
         
         processed_headers = self._process_headers(headers)
         
         client_config = APIClientConfig(
             name="semanticscholar",
-            base_url=source_config.http["base_url"],
+            base_url=source_config.http.base_url,
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries["total"],
@@ -219,8 +219,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit["period"],
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http["verify_ssl"],
-            follow_redirects=source_config.http["follow_redirects"],
+            verify_ssl=source_config.http.verify_ssl,
+            follow_redirects=source_config.http.follow_redirects,
         )
         
         return SemanticScholarClient(client_config)
@@ -379,7 +379,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
             "pipeline_name": "documents",
             "pipeline_version": "2.0.0",
             "entity_type": "documents",
-            "sources_enabled": [name for name, source in self.config.sources.items() if source.get("enabled", False)],
+            "sources_enabled": [name for name, source in self.config.sources.items() if source.enabled],
             "total_documents": len(data),
             "extraction_timestamp": pd.Timestamp.now().isoformat(),
             "config": self.config.model_dump() if hasattr(self.config, 'model_dump') else {},
