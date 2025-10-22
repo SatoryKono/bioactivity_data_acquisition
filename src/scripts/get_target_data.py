@@ -228,7 +228,7 @@ def main() -> int:
 
     try:
         # Запускаем ETL пайплайн
-        result = run_target_etl(config, input_frame=input_frame)
+        result = run_target_etl(config, input_data=input_frame)
         logger.info("ETL completed successfully", records=len(result.targets))
     except TargetValidationError as exc:
         logger.error(f"ETL validation failed: {exc}")
@@ -254,7 +254,6 @@ def main() -> int:
         outputs = write_target_outputs(
             result,
             config.io.output.dir,
-            config.runtime.date_tag,
             config,
         )
         logger.info("Output files written successfully", outputs=list(outputs.keys()))

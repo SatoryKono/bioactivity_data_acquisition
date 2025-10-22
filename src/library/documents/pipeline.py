@@ -482,6 +482,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
         logger=logger
     )
     meta = metadata_obj.to_dict(config)
+    meta["row_count"] = len(accepted_df)
     
     # Step 9: Correlation analysis (if enabled)
     correlation_analysis = None

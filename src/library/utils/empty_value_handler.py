@@ -282,3 +282,118 @@ def fill_required_fields(df: pd.DataFrame, required_fields: dict[str, Any], logg
                 df_filled[field] = df_filled[field].fillna(default_value)
     
     return df_filled
+
+
+def normalize_date_field(value: Any) -> str | None:
+    """Нормализует поле с датой.
+    
+    Args:
+        value: Значение для нормализации (может быть строкой, datetime, timestamp)
+        
+    Returns:
+        str | None: Нормализованная дата в формате YYYY-MM-DD или None если значение пустое
+    """
+    if is_empty_value(value):
+        return None
+    
+    try:
+        # Если это уже строка в правильном формате
+        if isinstance(value, str):
+            # Проверяем формат YYYY-MM-DD
+            import re
+            if re.match(r'^\d{4}-\d{2}-\d{2}$', value.strip()):
+                return value.strip()
+            # Пытаемся распарсить как дату
+            from datetime import datetime
+            parsed_date = pd.to_datetime(value)
+            return parsed_date.strftime('%Y-%m-%d')
+        
+        # Если это pandas Timestamp или datetime
+        if hasattr(value, 'strftime'):
+            return value.strftime('%Y-%m-%d')
+        
+        # Если это число (timestamp)
+        if isinstance(value, (int, float)):
+            from datetime import datetime
+            if value > 1e10:  # Unix timestamp в миллисекундах
+                value = value / 1000
+            return datetime.fromtimestamp(value).strftime('%Y-%m-%d')
+        
+        return None
+    except (ValueError, TypeError, OSError):
+        return None
+
+
+def normalize_json_field(value: Any) -> str | None:
+    """Нормализует поле с JSON данными.
+    
+    Args:
+        value: Значение для нормализации (может быть dict, list, строкой JSON)
+        
+    Returns:
+        str | None: Нормализованный JSON в виде строки или None если значение пустое
+    """
+    if is_empty_value(value):
+        return None
+    
+    try:
+        import json
+        
+        # Если это уже строка
+        if isinstance(value, str):
+            # Проверяем, является ли это валидным JSON
+            try:
+                json.loads(value)
+                return value.strip()
+            except json.JSONDecodeError:
+                return None
+        
+        # Если это dict или list, сериализуем в JSON
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+        
+        return None
+    except (TypeError, ValueError):
+        return None
+
+
+def normalize_url_field(value: Any) -> str | None:
+    """Нормализует поле с URL.
+    
+    Args:
+        value: Значение для нормализации
+        
+    Returns:
+        str | None: Нормализованный URL или None если значение пустое
+    """
+    if is_empty_value(value):
+        return None
+    
+    try:
+        url_str = str(value).strip()
+        
+        # Проверяем базовый формат URL
+        if not url_str:
+            return None
+        
+        # Добавляем протокол если его нет
+        if not url_str.startswith(('http://', 'https://', 'ftp://')):
+            url_str = 'https://' + url_str
+        
+        # Базовая валидация URL
+        import re
+        url_pattern = re.compile(
+            r'^https?://'  # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
+            r'localhost|'  # localhost...
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+            r'(?::\d+)?'  # optional port
+            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+        
+        if url_pattern.match(url_str):
+            return url_str
+        else:
+            return None
+            
+    except (ValueError, TypeError):
+        return None
