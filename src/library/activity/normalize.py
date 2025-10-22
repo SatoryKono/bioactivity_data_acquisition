@@ -102,6 +102,30 @@ class ActivityNormalizer:
         df['upper_bound'] = None
         df['is_censored'] = False
         
+        # Create missing standard fields if they don't exist (these should come from ChEMBL)
+        if 'standard_relation' not in df.columns:
+            # If standard_relation is missing, try to derive from published_relation
+            if 'published_relation' in df.columns:
+                df['standard_relation'] = df['published_relation']
+            else:
+                df['standard_relation'] = '='  # Default relation
+        if 'standard_value' not in df.columns:
+            # If standard_value is missing, try to derive from published_value or activity_value
+            if 'published_value' in df.columns:
+                df['standard_value'] = df['published_value']
+            elif 'activity_value' in df.columns:
+                df['standard_value'] = df['activity_value']
+            else:
+                df['standard_value'] = None
+        if 'standard_type' not in df.columns:
+            # If standard_type is missing, try to derive from published_type or activity_type
+            if 'published_type' in df.columns:
+                df['standard_type'] = df['published_type']
+            elif 'activity_type' in df.columns:
+                df['standard_type'] = df['activity_type']
+            else:
+                df['standard_type'] = None
+        
         # Process each relation type
         for relation, mapping in self.relation_mapping.items():
             mask = df['standard_relation'] == relation
@@ -178,16 +202,20 @@ class ActivityNormalizer:
             df.loc[critical_missing, 'quality_reason'] = ';'.join(reasons)
         
         # Check for data validity issues
-        validity_issues = df['data_validity_comment'].notna()
-        if validity_issues.any():
-            df.loc[validity_issues, 'quality_flag'] = 'warning'
-            df.loc[validity_issues, 'quality_reason'] = 'data_validity_comment'
+        validity_issues = pd.Series([False] * len(df), index=df.index)
+        if 'data_validity_comment' in df.columns:
+            validity_issues = df['data_validity_comment'].notna()
+            if validity_issues.any():
+                df.loc[validity_issues, 'quality_flag'] = 'warning'
+                df.loc[validity_issues, 'quality_reason'] = 'data_validity_comment'
         
         # Check for activity comment issues
-        activity_issues = df['activity_comment'].isin(['inconclusive', 'undetermined', 'unevaluated'])
-        if activity_issues.any():
-            df.loc[activity_issues, 'quality_flag'] = 'warning'
-            df.loc[activity_issues, 'quality_reason'] = 'problematic_activity_comment'
+        activity_issues = pd.Series([False] * len(df), index=df.index)
+        if 'activity_comment' in df.columns:
+            activity_issues = df['activity_comment'].isin(['inconclusive', 'undetermined', 'unevaluated'])
+            if activity_issues.any():
+                df.loc[activity_issues, 'quality_flag'] = 'warning'
+                df.loc[activity_issues, 'quality_reason'] = 'problematic_activity_comment'
         
         # Mark good quality records
         good_quality = (

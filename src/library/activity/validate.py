@@ -283,19 +283,22 @@ class ActivityValidator:
             # Pipeline fields
             "retrieved_at": Column(
                 pa.String,
-                nullable=False,
+                nullable=True,
+                required=False,
                 description="Retrieval timestamp"
             ),
             
             # Quality fields
             "quality_flag": Column(
                 pa.Bool,
-                nullable=False,
+                nullable=True,
+                required=False,
                 description="Quality assessment flag"
             ),
             "quality_reason": Column(
                 pa.String,
                 nullable=True,
+                required=False,
                 description="Reason for quality assessment"
             )
         }

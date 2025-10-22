@@ -75,7 +75,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         client_config = APIClientConfig(
             name="chembl",
-            base_url=source_config.http.base_url,
+            base_url=source_config.http.base_url or 'https://www.ebi.ac.uk/chembl/api/data',
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries.get("total", 3),
@@ -87,8 +87,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit.get("period", 1.0),
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http.verify_ssl,
-            follow_redirects=source_config.http.follow_redirects,
+            verify_ssl=getattr(source_config.http, 'verify_ssl', None) or True,
+            follow_redirects=getattr(source_config.http, 'follow_redirects', None) or True,
         )
         
         return ChEMBLClient(client_config)
@@ -120,8 +120,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit.get("period", 1.0),
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http.verify_ssl,
-            follow_redirects=source_config.http.follow_redirects,
+            verify_ssl=getattr(source_config.http, 'verify_ssl', None) or True,
+            follow_redirects=getattr(source_config.http, 'follow_redirects', None) or True,
         )
         
         return CrossrefClient(client_config)
@@ -153,8 +153,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit.get("period", 1.0),
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http.verify_ssl,
-            follow_redirects=source_config.http.follow_redirects,
+            verify_ssl=getattr(source_config.http, 'verify_ssl', None) or True,
+            follow_redirects=getattr(source_config.http, 'follow_redirects', None) or True,
         )
         
         return OpenAlexClient(client_config)
@@ -186,8 +186,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit.get("period", 1.0),
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http.verify_ssl,
-            follow_redirects=source_config.http.follow_redirects,
+            verify_ssl=getattr(source_config.http, 'verify_ssl', None) or True,
+            follow_redirects=getattr(source_config.http, 'follow_redirects', None) or True,
         )
         
         return PubMedClient(client_config)
@@ -219,8 +219,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 period=source_config.rate_limit.get("period", 1.0),
             ),
             headers=processed_headers,
-            verify_ssl=source_config.http.verify_ssl,
-            follow_redirects=source_config.http.follow_redirects,
+            verify_ssl=getattr(source_config.http, 'verify_ssl', None) or True,
+            follow_redirects=getattr(source_config.http, 'follow_redirects', None) or True,
         )
         
         return SemanticScholarClient(client_config)
