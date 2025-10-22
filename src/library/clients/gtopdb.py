@@ -9,13 +9,13 @@ constraints gracefully.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from dataclasses import dataclass
 from typing import Any
 
 import requests
-from structlog import BoundLogger
 
 from library.clients.base import BaseApiClient
 from library.config import APIClientConfig
@@ -96,7 +96,7 @@ class GtoPdbClient(BaseApiClient):
     def __init__(
         self,
         config: APIClientConfig,
-        logger: BoundLogger | None = None,
+        logger: logging.Logger | None = None,
         circuit_breaker_config: dict[str, Any] | None = None,
         rate_limit_config: dict[str, Any] | None = None,
         **kwargs: Any
@@ -105,7 +105,7 @@ class GtoPdbClient(BaseApiClient):
         
         Args:
             config: API client configuration
-            logger: Structured logger instance
+            logger: Logger instance
             circuit_breaker_config: Circuit breaker configuration
             rate_limit_config: Rate limiting configuration
             **kwargs: Additional arguments passed to base client
@@ -156,12 +156,7 @@ class GtoPdbClient(BaseApiClient):
         # Check circuit breaker
         if self.circuit_breaker.is_open():
             self.logger.warning(
-                "gtop_circuit_open",
-                extra={
-                    "gtop_id": gtop_id,
-                    "endpoint": endpoint,
-                    "failures": self.circuit_breaker._failures
-                }
+                f"gtop_circuit_open gtop_id={gtop_id} endpoint={endpoint} failures={self.circuit_breaker._failures}"
             )
             return None
         
@@ -169,10 +164,7 @@ class GtoPdbClient(BaseApiClient):
         cache_key = f"{gtop_id}:{endpoint}"
         with self._cache_lock:
             if cache_key in self._failed_cache:
-                self.logger.debug(
-                    "gtop_cached_failure",
-                    extra={"gtop_id": gtop_id, "endpoint": endpoint}
-                )
+                self.logger.debug(f"gtop_cached_failure gtop_id={gtop_id} endpoint={endpoint}")
                 return None
         
         # Apply rate limiting
@@ -187,12 +179,7 @@ class GtoPdbClient(BaseApiClient):
             content_type = response.headers.get("Content-Type", "")
             if response.headers.get("Content-Length") == "0" or not response.text.strip():
                 self.logger.info(
-                    "gtop_empty_response",
-                    extra={
-                        "gtop_id": gtop_id,
-                        "endpoint": endpoint,
-                        "content_type": content_type
-                    }
+                    f"gtop_empty_response gtop_id={gtop_id} endpoint={endpoint} content_type={content_type}"
                 )
                 self.circuit_breaker.record_success()
                 return []
@@ -200,12 +187,7 @@ class GtoPdbClient(BaseApiClient):
             # Validate JSON response
             if "application/json" not in content_type.lower():
                 self.logger.warning(
-                    "gtop_non_json_response",
-                    extra={
-                        "gtop_id": gtop_id,
-                        "endpoint": endpoint,
-                        "content_type": content_type
-                    }
+                    f"gtop_non_json_response gtop_id={gtop_id} endpoint={endpoint} content_type={content_type}"
                 )
             
             response.raise_for_status()
@@ -221,12 +203,7 @@ class GtoPdbClient(BaseApiClient):
                 # Check if it's a metadata response (like "No function data")
                 if "GtoPdb Web Services" in data:
                     self.logger.info(
-                        "gtop_metadata_response",
-                        extra={
-                            "gtop_id": gtop_id,
-                            "endpoint": endpoint,
-                            "message": data.get("GtoPdb Web Services", "")
-                        }
+                        f"gtop_metadata_response gtop_id={gtop_id} endpoint={endpoint} message={data.get('GtoPdb Web Services', '')}"
                     )
                     return []
                 # If it's a single object, wrap it in a list
@@ -241,12 +218,7 @@ class GtoPdbClient(BaseApiClient):
             # Handle 404 as expected (no data available)
             if status_code == 404:
                 self.logger.info(
-                    "gtop_endpoint_missing",
-                    extra={
-                        "gtop_id": gtop_id,
-                        "endpoint": endpoint,
-                        "status_code": status_code
-                    }
+                    f"gtop_endpoint_missing gtop_id={gtop_id} endpoint={endpoint} status_code={status_code}"
                 )
                 self.circuit_breaker.record_success()
                 with self._cache_lock:
@@ -255,13 +227,7 @@ class GtoPdbClient(BaseApiClient):
             
             # Log error and record failure
             self.logger.warning(
-                "gtop_request_failed",
-                extra={
-                    "gtop_id": gtop_id,
-                    "endpoint": endpoint,
-                    "error": str(exc),
-                    "status_code": status_code
-                }
+                f"gtop_request_failed gtop_id={gtop_id} endpoint={endpoint} error={str(exc)} status_code={status_code}"
             )
             
             # Record failure in circuit breaker
@@ -269,13 +235,9 @@ class GtoPdbClient(BaseApiClient):
                 circuit_opened = self.circuit_breaker.record_failure()
                 if circuit_opened:
                     self.logger.warning(
-                        "gtop_circuit_opened",
-                        extra={
-                            "gtop_id": gtop_id,
-                            "endpoint": endpoint,
-                            "holdoff_seconds": self.circuit_breaker.holdoff_seconds,
-                            "failure_threshold": self.circuit_breaker.failure_threshold
-                        }
+                        f"gtop_circuit_opened gtop_id={gtop_id} endpoint={endpoint} "
+                        f"holdoff_seconds={self.circuit_breaker.holdoff_seconds} "
+                        f"failure_threshold={self.circuit_breaker.failure_threshold}"
                     )
             
             # Cache the failure
@@ -286,12 +248,7 @@ class GtoPdbClient(BaseApiClient):
         
         except (json.JSONDecodeError, ValueError) as exc:
             self.logger.warning(
-                "gtop_json_decode_failed",
-                extra={
-                    "gtop_id": gtop_id,
-                    "endpoint": endpoint,
-                    "error": str(exc)
-                }
+                f"gtop_json_decode_failed gtop_id={gtop_id} endpoint={endpoint} error={str(exc)}"
             )
             self.circuit_breaker.record_failure()
             with self._cache_lock:

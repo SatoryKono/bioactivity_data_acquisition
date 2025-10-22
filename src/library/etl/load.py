@@ -73,7 +73,9 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
     if df.empty:
         return df.copy()
     
-    df_normalized = df.copy()
+    # Используем унифицированную логику обработки пустых значений
+    from library.utils.empty_value_handler import normalize_dataframe_empty_values
+    df_normalized = normalize_dataframe_empty_values(df, logger)
     
     if logger is not None:
         logger.info(f"normalize_start: {len(df.columns)} колонок, {len(df)} строк")
@@ -108,9 +110,6 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
             if logger is not None:
                 logger.info("normalizing_doi_column", column=column)
             
-            # Заменяем None на NA
-            df_normalized[column] = df_normalized[column].replace([None], pd.NA)
-            
             # Применяем продвинутую нормализацию DOI
             for idx in df_normalized.index:
                 value = df_normalized.loc[idx, column]
@@ -126,9 +125,6 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
                     df_normalized.loc[idx, column] = normalized_doi
                 
         elif str(df_normalized[column].dtypes) == 'object':  # Обычные строковые данные
-            # Заменяем None на NA
-            df_normalized[column] = df_normalized[column].replace([None], pd.NA)
-            
             # Определяем, нужно ли приводить эту колонку к нижнему регистру
             should_lowercase = (
                 determinism is not None and 

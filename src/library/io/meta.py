@@ -36,10 +36,12 @@ class DatasetMetadata:
         if self._chembl_status is None:
             if config is None:
                 # Create default config if none provided
+                from library.config import RetrySettings
                 config = APIClientConfig(
+                    name="chembl",
                     base_url="https://www.ebi.ac.uk/chembl/api/data",
                     timeout=30,
-                    retries=3
+                    retries=RetrySettings(total=3)
                 )
             
             try:

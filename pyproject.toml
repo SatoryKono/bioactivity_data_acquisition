@@ -79,22 +79,6 @@ docs = [
 [project.scripts]
 bioactivity-data-acquisition = "library.cli:main"
 
-[project.metadata]
-# Метаданные манифестов и отчётов
-manifests = [
-    "metadata/manifests/documents_pipeline.json",
-    "metadata/manifests/documents_postprocess.json", 
-    "metadata/manifests/cleanup_manifest.json",
-    "metadata/manifests/quality_manifest.json",
-    "metadata/manifests/targets_pipeline.json",
-    "metadata/manifests/assays_pipeline.json",
-    "metadata/manifests/activities_pipeline.json",
-    "metadata/manifests/testitems_pipeline.json"
-]
-reports = [
-    "metadata/reports/config_audit.csv"
-]
-
 [tool.setuptools]
 package-dir = {"" = "src"}
 

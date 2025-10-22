@@ -113,6 +113,9 @@ graph TD
 | Поле | Тип | Nullable | Описание | Источник |
 |------|-----|----------|----------|----------|
 | `target_chembl_id` | str | No | ChEMBL ID мишени | ChEMBL |
+| `hgnc_id` | str | Yes | HGNC идентификатор | ChEMBL cross-references |
+| `hgnc_name` | str | Yes | HGNC название гена | ChEMBL cross-references |
+| `gene_symbol` | str | Yes | Основной символ гена | UniProt API |
 | `pref_name` | str | Yes | Предпочтительное название | ChEMBL |
 | `target_type` | str | Yes | Тип мишени | ChEMBL |
 | `target_organism` | str | Yes | Организм мишени | ChEMBL |
@@ -124,6 +127,10 @@ graph TD
 | `iuphar_target_id` | str | Yes | IUPHAR ID мишени | IUPHAR |
 | `iuphar_type` | str | Yes | IUPHAR тип | IUPHAR |
 | `iuphar_family` | str | Yes | IUPHAR семейство | IUPHAR |
+| `gtop_synonyms` | str | Yes | Синонимы GtoPdb | GtoPdb |
+| `gtop_natural_ligands_n` | str | Yes | Количество природных лигандов | GtoPdb |
+| `gtop_interactions_n` | str | Yes | Количество взаимодействий | GtoPdb |
+| `gtop_function_text_short` | str | Yes | Краткое описание функции | GtoPdb |
 | `source_system` | str | No | Система-источник | Система |
 | `chembl_release` | str | No | Версия ChEMBL | ChEMBL |
 | `extracted_at` | datetime | No | Время извлечения | Система |
@@ -131,9 +138,36 @@ graph TD
 ### Политика NA
 
 - **ChEMBL поля**: Обязательные, NA не допускается
+- **HGNC поля**: Опциональные, NA разрешено (извлекаются из ChEMBL cross-references)
 - **UniProt поля**: Опциональные, NA разрешено
 - **IUPHAR поля**: Опциональные, NA разрешено
+- **GtoPdb поля**: Опциональные, NA разрешено
 - **Системные поля**: Обязательные, NA не допускается
+
+### Описание новых полей
+
+#### HGNC поля (из ChEMBL cross-references)
+
+- **hgnc_id** (str, nullable): HGNC идентификатор, извлеченный из ChEMBL cross-references
+  - Источник: ChEMBL API (`target_component_xrefs`)
+  - Пример: `"663"` для ARG1
+  - Пустая строка если недоступно
+  - Извлекается из поля `xref_id` с удалением префикса "HGNC:"
+
+- **hgnc_name** (str, nullable): HGNC название гена
+  - Источник: ChEMBL API (`target_component_xrefs`)
+  - Пример: `"ARG1"`
+  - Пустая строка если недоступно
+  - Извлекается из поля `xref_name`
+
+#### Gene Symbol поле (из UniProt API)
+
+- **gene_symbol** (str, nullable): Основной символ гена из UniProt
+  - Источник: UniProt API (`genes[].geneName.value`)
+  - Пример: `"LRRK2"`
+  - None если недоступно или UniProt fetch не удался
+  - Более авторитетный источник для текущей номенклатуры генов чем HGNC
+  - Извлекается из первого гена в списке `genes`
 
 ## 5. Конфигурация
 
@@ -245,6 +279,9 @@ io:
 determinism:
   column_order:
     - target_chembl_id
+    - hgnc_id
+    - hgnc_name
+    - gene_symbol
     - pref_name
     - target_type
     - target_organism
@@ -468,6 +505,8 @@ make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--stats
 # Детерминированная сортировка по составному ключу
 df_sorted = df.sort_values([
     'target_chembl_id',
+    'hgnc_id',
+    'gene_symbol',
     'uniprot_id_primary', 
     'iuphar_target_id'
 ], na_position='last')
@@ -487,6 +526,9 @@ df['uniprot_id_primary'] = df['uniprot_id_primary'].astype('string')
 # Фиксированный порядок колонок в выходном CSV
 column_order = [
     'target_chembl_id',
+    'hgnc_id',
+    'hgnc_name',
+    'gene_symbol',
     'pref_name',
     'target_type',
     'target_organism',
@@ -496,7 +538,11 @@ column_order = [
     'molecular_function',
     'iuphar_target_id',
     'iuphar_type',
-    'iuphar_family'
+    'iuphar_family',
+    'gtop_synonyms',
+    'gtop_natural_ligands_n',
+    'gtop_interactions_n',
+    'gtop_function_text_short'
 ]
 df_output = df[column_order]
 ```

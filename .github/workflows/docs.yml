@@ -44,14 +44,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install .[dev,docs]
 
-      # - name: Lint Markdown
-      #   run: |
-      #     markdownlint docs/ --config .markdownlint.json
-      #     pymarkdown scan docs/
+      - name: Check external links
+        run: |
+          npm install -g markdown-link-check
+          find docs -name "*.md" -exec markdown-link-check --config .markdown-link-check.json {} \;
 
       - name: Build documentation
         run: |
-          mkdocs build
+          mkdocs build --strict
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

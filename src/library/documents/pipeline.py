@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+# Унифицированная логика обработки пустых значений доступна через library.utils.empty_value_handler
 
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient

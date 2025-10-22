@@ -364,10 +364,12 @@ def run_testitem_etl(
     # Create metadata using new metadata system
     
     # Create API config for metadata
+    from library.config import RetrySettings
     api_config = APIClientConfig(
+        name="chembl",
         base_url="https://www.ebi.ac.uk/chembl/api/data",
         timeout=30,
-        retries=3
+        retries=RetrySettings(total=3)
     )
     
     metadata_handler = create_dataset_metadata("chembl", api_config, logger)

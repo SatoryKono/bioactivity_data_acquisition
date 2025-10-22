@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
+# Унифицированная логика обработки пустых значений доступна через library.utils.empty_value_handler
 
 from library.clients.base import BaseApiClient
 from library.config import APIClientConfig
@@ -354,7 +355,7 @@ class AssayChEMBLClient(BaseApiClient):
             # Ключи и идентификаторы
             "assay_chembl_id": assay.get("assay_chembl_id"),
             "src_id": assay.get("src_id"),
-            "src_name": None,  # Will be enriched later
+            "src_name": pd.NA,  # Will be enriched later
             "src_assay_id": assay.get("src_assay_id"),
             
             # Классификация ассая
@@ -401,8 +402,8 @@ class AssayChEMBLClient(BaseApiClient):
             # Техслужебные поля
             "source_system": "ChEMBL",
             "extracted_at": datetime.utcnow().isoformat(),
-            "hash_row": None,  # Will be calculated later
-            "hash_business_key": None,  # Will be calculated later
+            "hash_row": pd.NA,  # Will be calculated later
+            "hash_business_key": pd.NA,  # Will be calculated later
         }
         
         # Calculate hashes
@@ -416,21 +417,21 @@ class AssayChEMBLClient(BaseApiClient):
         variant_seq = assay.get("variant_sequence")
         if variant_seq and isinstance(variant_seq, dict):
             return variant_seq.get(field_name)
-        return None
+        return pd.NA
 
     def _parse_list_field(self, value: Any) -> list[str] | None:
         """Parse list field from ChEMBL response."""
         if value is None or (hasattr(value, '__len__') and len(value) == 0) or (not hasattr(value, '__len__') and pd.isna(value)):
-            return None
+            return pd.NA
         
         if isinstance(value, list):
             # Дедупликация и сортировка для детерминизма
             try:
                 unique_items = list(set(str(item).strip() for item in value if str(item).strip()))
-                return sorted(unique_items) if len(unique_items) > 0 else None
+                return sorted(unique_items) if len(unique_items) > 0 else pd.NA
             except Exception as e:
                 logger.warning(f"Error parsing list field {value}: {e}")
-                return None
+                return pd.NA
         
         if isinstance(value, str):
             # Парсинг строки как JSON или разделение по разделителям
@@ -438,21 +439,21 @@ class AssayChEMBLClient(BaseApiClient):
                 parsed = json.loads(value)
                 if isinstance(parsed, list):
                     unique_items = list(set(str(item).strip() for item in parsed if str(item).strip()))
-                    return sorted(unique_items) if len(unique_items) > 0 else None
+                    return sorted(unique_items) if len(unique_items) > 0 else pd.NA
             except (json.JSONDecodeError, TypeError):
                 pass
             
             # Разделение по запятым или точкам с запятой
             items = [item.strip() for item in value.replace(";", ",").split(",") if item.strip()]
             unique_items = list(set(items))
-            return sorted(unique_items) if len(unique_items) > 0 else None
+            return sorted(unique_items) if len(unique_items) > 0 else pd.NA
         
-        return None
+        return pd.NA
 
     def _parse_parameters_field(self, value: Any) -> dict[str, Any] | str | None:
         """Parse assay parameters field."""
         if value is None or (hasattr(value, '__len__') and len(value) == 0) or (not hasattr(value, '__len__') and pd.isna(value)):
-            return None
+            return pd.NA
         
         if isinstance(value, dict):
             return value
@@ -464,7 +465,7 @@ class AssayChEMBLClient(BaseApiClient):
                 # Если не JSON, возвращаем как строку
                 return value
         
-        return str(value) if value is not None else None
+        return str(value) if value is not None else pd.NA
 
     def _calculate_business_key_hash(self, record: dict[str, Any]) -> str:
         """Calculate hash for business key (assay_chembl_id)."""
@@ -483,50 +484,50 @@ class AssayChEMBLClient(BaseApiClient):
         return {
             # Ключи и идентификаторы
             "assay_chembl_id": assay_id,
-            "src_id": None,
-            "src_name": None,
-            "src_assay_id": None,
+            "src_id": pd.NA,
+            "src_name": pd.NA,
+            "src_assay_id": pd.NA,
             
             # Классификация ассая
-            "assay_type": None,
-            "assay_type_description": None,
-            "bao_format": None,
-            "bao_label": None,
-            "assay_category": None,
-            "assay_classifications": None,
+            "assay_type": pd.NA,
+            "assay_type_description": pd.NA,
+            "bao_format": pd.NA,
+            "bao_label": pd.NA,
+            "assay_category": pd.NA,
+            "assay_classifications": pd.NA,
             
             # Связь с таргетом
-            "target_chembl_id": None,
-            "relationship_type": None,
-            "confidence_score": None,
+            "target_chembl_id": pd.NA,
+            "relationship_type": pd.NA,
+            "confidence_score": pd.NA,
             
             # Variant fields
-            "variant_id": None,
-            "variant_text": None,
-            "variant_sequence_id": None,
-            "isoform": None,
-            "mutation": None,
-            "sequence": None,
-            "variant_accession": None,
-            "variant_organism": None,
+            "variant_id": pd.NA,
+            "variant_text": pd.NA,
+            "variant_sequence_id": pd.NA,
+            "isoform": pd.NA,
+            "mutation": pd.NA,
+            "sequence": pd.NA,
+            "variant_accession": pd.NA,
+            "variant_organism": pd.NA,
             
             # Биологический контекст
-            "assay_organism": None,
-            "assay_tax_id": None,
-            "assay_cell_type": None,
-            "assay_tissue": None,
-            "assay_strain": None,
-            "assay_subcellular_fraction": None,
+            "assay_organism": pd.NA,
+            "assay_tax_id": pd.NA,
+            "assay_cell_type": pd.NA,
+            "assay_tissue": pd.NA,
+            "assay_strain": pd.NA,
+            "assay_subcellular_fraction": pd.NA,
             
             # Описание и протокол
-            "description": None,
-            "assay_parameters": None,
+            "description": pd.NA,
+            "assay_parameters": pd.NA,
             "assay_parameters_json": "[]",
-            "assay_format": None,
+            "assay_format": pd.NA,
             
             # Техслужебные поля
             "source_system": "ChEMBL",
             "extracted_at": datetime.utcnow().isoformat(),
-            "hash_row": None,
-            "hash_business_key": None,
+            "hash_row": pd.NA,
+            "hash_business_key": pd.NA,
         }

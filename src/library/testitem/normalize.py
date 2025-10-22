@@ -7,101 +7,17 @@ import logging
 from typing import Any
 
 import pandas as pd
+from library.utils.empty_value_handler import (
+    normalize_string_field,
+    normalize_numeric_field,
+    normalize_boolean_field,
+    normalize_list_field
+)
 
 logger = logging.getLogger(__name__)
 
 
-def normalize_string_field(value: Any) -> str | None:
-    """Normalize string field - strip whitespace and handle empty values."""
-    if value is None:
-        return None
-    try:
-        if pd.isna(value):
-            return None
-    except (ValueError, TypeError):
-        # Handle arrays and other non-scalar values
-        pass
-    
-    str_value = str(value).strip()
-    return str_value if str_value else None
-
-
-def normalize_numeric_field(value: Any) -> float | None:
-    """Normalize numeric field - convert to float and handle invalid values."""
-    if value is None:
-        return None
-    try:
-        if pd.isna(value):
-            return None
-    except (ValueError, TypeError):
-        # Handle arrays and other non-scalar values
-        pass
-    
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
-
-
-def normalize_boolean_field(value: Any) -> bool | None:
-    """Normalize boolean field - convert to boolean and handle invalid values."""
-    if value is None:
-        return None
-    try:
-        if pd.isna(value):
-            return None
-    except (ValueError, TypeError):
-        # Handle arrays and other non-scalar values
-        pass
-    
-    if isinstance(value, bool):
-        return value
-    
-    str_value = str(value).lower().strip()
-    if str_value in ("true", "1", "yes", "y", "t"):
-        return True
-    elif str_value in ("false", "0", "no", "n", "f"):
-        return False
-    
-    return None
-
-
-def normalize_list_field(value: Any) -> list[str] | None:
-    """Normalize list field - convert to list of strings."""
-    if value is None:
-        return None
-    try:
-        if pd.isna(value):
-            return None
-    except (ValueError, TypeError):
-        # Handle arrays and other non-scalar values
-        pass
-    
-    if isinstance(value, list):
-        # Filter out empty values and normalize strings
-        normalized_items = []
-        for item in value:
-            if item is not None and not pd.isna(item):
-                str_item = str(item).strip()
-                if str_item:
-                    normalized_items.append(str_item)
-        return normalized_items if normalized_items else None
-    
-    if isinstance(value, str):
-        # Try to parse as JSON list or split by delimiters
-        try:
-            import json
-            parsed = json.loads(value)
-            if isinstance(parsed, list):
-                return normalize_list_field(parsed)
-        except (json.JSONDecodeError, TypeError):
-            pass
-        
-        # Split by common delimiters
-        items = [item.strip() for item in value.replace(";", ",").split(",") if item.strip()]
-        return items if items else None
-    
-    return None
+# Функции нормализации теперь импортируются из library.utils.empty_value_handler
 
 
 def normalize_molecule_data(df: pd.DataFrame) -> pd.DataFrame:

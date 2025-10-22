@@ -1,0 +1,20 @@
+chembl_db_version: ChEMBL_36
+chembl_release_date: null
+chembl_status: UP
+chembl_status_timestamp: '2025-10-22T08:21:52.873185Z'
+dataset: chembl
+extraction_parameters:
+  assay_types:
+    B: 4564
+    F: 436
+  relationship_types:
+    D: 5000
+  total_assays: 5000
+  unique_sources: 1
+file_checksums:
+  csv: d8eb0c02a3a0790b3209e598ca42d6f479078365e08e43758ea69560d0129b4c
+  qc: 0468207d4f6de58a02fc118e851783d5fa0d33cbd3784535dfbc99e95c774a4f
+generated_at: '2025-10-22T08:21:34.195778Z'
+pipeline_version: 1.0.0
+row_count: 5000
+run_id: d411c443-f8cf-4d9e-83be-ddb2bd0d06c9

@@ -29,6 +29,22 @@ class TargetNormalizedSchema(pa.DataFrameModel):
     # Business key - only required field
     target_chembl_id: Series[str] = pa.Field(nullable=False)
     
+    # HGNC enrichment fields (из ChEMBL cross-references)
+    hgnc_id: Series[str] = pa.Field(
+        nullable=True, 
+        description="HGNC identifier from ChEMBL cross-references"
+    )
+    hgnc_name: Series[str] = pa.Field(
+        nullable=True, 
+        description="HGNC gene name from ChEMBL cross-references"
+    )
+    
+    # Gene symbol (из UniProt API)
+    gene_symbol: Series[str] = pa.Field(
+        nullable=True, 
+        description="Primary gene symbol from UniProt"
+    )
+    
     # GtoPdb enrichment fields
     gtop_synonyms: Series[str] = pa.Field(nullable=True, description="Guide to Pharmacology synonyms")
     gtop_natural_ligands_n: Series[str] = pa.Field(nullable=True, description="Number of natural ligands")
