@@ -6,7 +6,7 @@ import datetime
 import logging
 from typing import Any
 
-from .base import safe_normalize, register_normalizer, is_empty_value
+from .base import is_empty_value, register_normalizer, safe_normalize
 
 logger = logging.getLogger(__name__)
 

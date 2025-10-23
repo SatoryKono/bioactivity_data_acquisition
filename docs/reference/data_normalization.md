@@ -34,29 +34,35 @@
 #### Числовые данные (int, float)
 
 **Обязательные преобразования:**
+
 - `normalize_int()` / `normalize_float()` - приведение к правильному типу
 - Проверка на NaN и бесконечности
 - `normalize_int_positive()` - проверка положительных значений
 
 **Опциональные преобразования:**
+
 - `normalize_int_range()` - проверка диапазона значений
 - `normalize_float_precision()` - округление до заданной точности
 
 #### Временные данные (datetime)
 
 **Обязательные преобразования:**
+
 - `normalize_datetime_iso8601()` - преобразование к ISO 8601 UTC
 - `normalize_datetime_validate()` - проверка валидности
 
 **Опциональные преобразования:**
+
 - `normalize_datetime_precision()` - обрезка до нужной точности
 
 #### Булевы данные (boolean)
 
 **Обязательные преобразования:**
+
 - `normalize_boolean()` - маппинг строк/чисел к булевым значениям
 
 **Опциональные преобразования:**
+
 - `normalize_boolean_strict()` - строгая проверка значений
 
 ### Специфические типы
@@ -66,6 +72,7 @@
 **Функция:** `normalize_doi()`
 
 **Преобразования:**
+
 - Удаление префиксов: `doi:`, `urn:doi:`, `info:doi/`
 - Удаление URL оболочек: `https://doi.org/`, `http://dx.doi.org/`
 - Декодирование percent-encoding
@@ -75,10 +82,10 @@
 
 **Примеры:**
 
-```
+```text
 https://doi.org/10.1021/acs.jmedchem.0c01234 → 10.1021/acs.jmedchem.0c01234
 DOI:10.1021/acs.jmedchem.0c01234 → 10.1021/acs.jmedchem.0c01234
-```
+```text
 
 #### ChEMBL ID
 
@@ -91,10 +98,10 @@ DOI:10.1021/acs.jmedchem.0c01234 → 10.1021/acs.jmedchem.0c01234
 
 **Примеры:**
 
-```
+```text
 chembl25 → CHEMBL25
 25 → CHEMBL25
-```
+```text
 
 #### UniProt Accession
 
@@ -106,9 +113,9 @@ chembl25 → CHEMBL25
 
 **Примеры:**
 
-```
+```text
 p12345 → P12345
-```
+```text
 
 #### IUPHAR ID
 
@@ -120,7 +127,7 @@ p12345 → P12345
 
 **Примеры:**
 
-```
+```text
 GTOPDB:1234 → 1234
 ```
 
@@ -129,11 +136,13 @@ GTOPDB:1234 → 1234
 **Функция:** `normalize_pubchem_cid()`
 
 **Преобразования:**
+
 - Удаление префиксов: `CID:`, URL части
 - Проверка положительного целого числа
 
 **Примеры:**
-```
+
+```text
 CID:2244 → 2244
 ```
 
@@ -142,13 +151,15 @@ CID:2244 → 2244
 **Функция:** `normalize_smiles()`
 
 **Преобразования:**
+
 - Удаление пробелов
 - Базовая валидация структуры
 - Проверка баланса скобок
 - Канонизация (в будущем с RDKit)
 
 **Примеры:**
-```
+
+```text
 C[C@H](O)Cl → C[C@H](O)Cl
 ```
 
@@ -157,11 +168,13 @@ C[C@H](O)Cl → C[C@H](O)Cl
 **Функция:** `normalize_inchi()`
 
 **Преобразования:**
+
 - Проверка префикса: `InChI=` или `InChI=1S/`
 - Валидация структуры
 
 **Примеры:**
-```
+
+```text
 InChI=1S/CH4/h1H4 → InChI=1S/CH4/h1H4
 ```
 
@@ -170,11 +183,13 @@ InChI=1S/CH4/h1H4 → InChI=1S/CH4/h1H4
 **Функция:** `normalize_inchi_key()`
 
 **Преобразования:**
+
 - Приведение к верхнему регистру
 - Валидация формата: `^[A-Z]{14}-[A-Z]{10}-[A-Z]$`
 
 **Примеры:**
-```
+
+```text
 bsynrymutxbxsq-uhfffaoysa-n → BSYNRYMUTXBXSQ-UHFFFAOYSA-N
 ```
 
@@ -183,12 +198,14 @@ bsynrymutxbxsq-uhfffaoysa-n → BSYNRYMUTXBXSQ-UHFFFAOYSA-N
 **Функция:** `normalize_bao_id()` / `normalize_bao_label()`
 
 **Преобразования:**
+
 - Приведение к верхнему регистру (для ID)
 - Приведение к title case (для label)
 - Валидация формата: `^BAO_\d+$`
 
 **Примеры:**
-```
+
+```text
 bao:0000357 → BAO_0000357
 ```
 
@@ -197,12 +214,14 @@ bao:0000357 → BAO_0000357
 **Функция:** `normalize_pchembl()`
 
 **Преобразования:**
+
 - Приведение к float64
 - Проверка диапазона [0-14]
 - Округление до 3 знаков
 
 **Примеры:**
-```
+
+```text
 7.1234 → 7.123
 ```
 
@@ -215,10 +234,10 @@ bao:0000357 → BAO_0000357
 - Маппинг на стандартизованные единицы
 
 **Примеры:**
-```
+```text
 um → μm
 nanomolar → nm
-```
+```text
 
 ## Нормализация по пайплайнам
 
@@ -288,7 +307,7 @@ nanomolar → nm
 
 ### Программное использование
 
-```python
+```textpython
 from library.normalizers import get_normalizer
 
 # Получение функции нормализации
@@ -297,11 +316,11 @@ doi_normalizer = get_normalizer("normalize_doi")
 # Применение нормализации
 normalized_doi = doi_normalizer("https://doi.org/10.1021/acs.jmedchem.0c01234")
 # Результат: "10.1021/acs.jmedchem.0c01234"
-```
+```text
 
 ### Интеграция в пайплайны
 
-```python
+```textpython
 # В модулях normalize.py
 def _apply_schema_normalizations(self, df: pd.DataFrame) -> pd.DataFrame:
     schema = DocumentNormalizedSchema.get_schema()
@@ -314,7 +333,7 @@ def _apply_schema_normalizations(self, df: pd.DataFrame) -> pd.DataFrame:
                 df[column_name] = df[column_name].apply(func)
     
     return df
-```
+```text
 
 ## Отчетность по нормализации
 

@@ -5,7 +5,7 @@
 import re
 from typing import Any
 
-from .base import safe_normalize, register_normalizer, is_empty_value, ensure_string
+from .base import ensure_string, is_empty_value, register_normalizer, safe_normalize
 
 
 @safe_normalize
@@ -222,7 +222,7 @@ def normalize_iuphar_id(value: Any) -> str | None:
 
 
 @safe_normalize
-def normalize_pubchem_cid(value: Any) -> str | None:
+def normalize_pubchem_cid(value: Any) -> int | None:
     """Нормализует PubChem CID.
     
     - strip(): удаление пробелов
@@ -268,7 +268,7 @@ def normalize_pubchem_cid(value: Any) -> str | None:
     try:
         cid_num = int(text)
         if cid_num > 0:
-            return str(cid_num)
+            return cid_num
     except (ValueError, TypeError):
         pass
     
@@ -276,7 +276,7 @@ def normalize_pubchem_cid(value: Any) -> str | None:
 
 
 @safe_normalize
-def normalize_pmid(value: Any) -> str | None:
+def normalize_pmid(value: Any) -> int | None:
     """Нормализует PubMed ID.
     
     - strip(): удаление пробелов
@@ -304,7 +304,7 @@ def normalize_pmid(value: Any) -> str | None:
     try:
         pmid_num = int(text)
         if pmid_num > 0:
-            return str(pmid_num)
+            return pmid_num
     except (ValueError, TypeError):
         pass
     

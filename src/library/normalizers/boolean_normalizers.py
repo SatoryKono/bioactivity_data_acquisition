@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from .base import safe_normalize, register_normalizer, is_empty_value
+from .base import is_empty_value, register_normalizer, safe_normalize
 
 
 @safe_normalize

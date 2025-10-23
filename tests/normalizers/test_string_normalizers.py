@@ -3,13 +3,13 @@
 """
 
 from src.library.normalizers.string_normalizers import (
-    normalize_string_strip,
-    normalize_string_upper,
-    normalize_string_lower,
-    normalize_string_titlecase,
-    normalize_string_nfc,
-    normalize_string_whitespace,
     normalize_empty_to_null,
+    normalize_string_lower,
+    normalize_string_nfc,
+    normalize_string_strip,
+    normalize_string_titlecase,
+    normalize_string_upper,
+    normalize_string_whitespace,
 )
 
 

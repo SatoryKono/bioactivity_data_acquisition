@@ -127,6 +127,31 @@ def normalize_float_precision(value: Any, precision: int = 6) -> float | None:
     return round(result, precision)
 
 
+@safe_normalize
+def normalize_float_range(value: Any, min_val: float | None = None, max_val: float | None = None) -> float | None:
+    """Приводит значение к числу с плавающей точкой в заданном диапазоне.
+    
+    Args:
+        value: Значение для нормализации
+        min_val: Минимальное значение
+        max_val: Максимальное значение
+        
+    Returns:
+        Число с плавающей точкой в диапазоне или None
+    """
+    result = normalize_float(value)
+    if result is None:
+        return None
+    
+    if min_val is not None and result < min_val:
+        return None
+    
+    if max_val is not None and result > max_val:
+        return None
+    
+    return result
+
+
 # Специализированные функции для диапазонов
 @safe_normalize
 def normalize_year(value: Any) -> int | None:
@@ -215,6 +240,7 @@ register_normalizer("normalize_float", normalize_float)
 register_normalizer("normalize_int_positive", normalize_int_positive)
 register_normalizer("normalize_int_range", normalize_int_range)
 register_normalizer("normalize_float_precision", normalize_float_precision)
+register_normalizer("normalize_float_range", normalize_float_range)
 register_normalizer("normalize_year", normalize_year)
 register_normalizer("normalize_month", normalize_month)
 register_normalizer("normalize_day", normalize_day)
