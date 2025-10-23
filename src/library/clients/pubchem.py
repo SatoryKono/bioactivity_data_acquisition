@@ -32,7 +32,7 @@ class PubChemClient(BaseApiClient):
     # --- simple GET JSON cache helpers ----------------------------------------------------
     def _cache_key(self, path: str) -> str:
         key_source = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
-        return hashlib.sha1(key_source.encode("utf-8")).hexdigest()
+        return hashlib.sha256(key_source.encode("utf-8")).hexdigest()
 
     def _cache_read(self, path: str) -> dict[str, Any] | None:
         if self._cache_dir is None:
