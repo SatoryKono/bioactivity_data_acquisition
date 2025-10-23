@@ -304,7 +304,8 @@ class TestitemValidator:
         
         try:
             # Use input schema for CSV data
-            validated_df = TestitemInputSchema.validate(df, lazy=True)
+            schema = TestitemInputSchema.get_schema()
+            validated_df = schema.validate(df, lazy=True)
             logger.info("Input data validation passed")
             return validated_df
         except Exception as exc:
@@ -317,7 +318,8 @@ class TestitemValidator:
         
         try:
             # Use existing schema if available
-            validated_df = TestitemRawSchema.validate(df, lazy=True)
+            schema = TestitemRawSchema.get_schema()
+            validated_df = schema.validate(df, lazy=True)
             logger.info("Raw data validation passed")
             return validated_df
         except Exception as exc:
@@ -330,7 +332,8 @@ class TestitemValidator:
         
         try:
             # Use existing schema if available
-            validated_df = TestitemNormalizedSchema.validate(df, lazy=True)
+            schema = TestitemNormalizedSchema.get_schema()
+            validated_df = schema.validate(df, lazy=True)
             logger.info("Normalized data validation passed")
             return validated_df
         except Exception as exc:

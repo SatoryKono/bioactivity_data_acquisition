@@ -13,7 +13,8 @@ from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
-from library.common.pipeline_base import ETLResult, PipelineBase
+from library.common.pipeline_base import PipelineBase
+from library.common.writer_base import ETLResult
 from library.documents.config import DocumentConfig
 from library.documents.normalize import DocumentNormalizer
 from library.documents.quality import DocumentQualityFilter
@@ -371,6 +372,33 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         logger.info(f"Quality filtering: {len(accepted_data)} accepted, {len(rejected_data)} rejected")
         return accepted_data, rejected_data
+    
+    def _get_entity_type(self) -> str:
+        """Получить тип сущности для пайплайна."""
+        return "documents"
+    
+    def _create_qc_validator(self) -> Any:
+        """Создать QC валидатор для пайплайна."""
+        from library.common.qc_profiles import DocumentQCValidator, QCProfile
+        
+        # Создаем базовый QC профиль для документов
+        qc_profile = QCProfile(
+            name="document_qc",
+            description="Quality control profile for documents",
+            rules=[]
+        )
+        
+        return DocumentQCValidator(qc_profile)
+    
+    def _create_postprocessor(self) -> Any:
+        """Создать постпроцессор для пайплайна."""
+        from library.common.postprocess_base import DocumentPostprocessor
+        return DocumentPostprocessor(self.config)
+    
+    def _create_etl_writer(self) -> Any:
+        """Создать ETL writer для пайплайна."""
+        from library.common.writer_base import create_etl_writer
+        return create_etl_writer(self.config, "documents")
     
     def _build_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
         """Build metadata for document pipeline."""

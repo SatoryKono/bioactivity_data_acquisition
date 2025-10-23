@@ -84,8 +84,11 @@ class TestPipelineCompatibility:
     
     def test_metadata_builder_compatibility(self):
         """Тест совместимости MetadataBuilder."""
-        class MockConfig:
+        from library.config import Config
+        
+        class MockConfig(Config):
             def __init__(self):
+                super().__init__()
                 self.pipeline = {"name": "test", "version": "1.0.0"}
         
         config = MockConfig()
@@ -97,10 +100,8 @@ class TestPipelineCompatibility:
             df=test_data,
             accepted_df=test_data,
             rejected_df=None,
-            qc_summary=None,
-            error_tracker=None,
             output_files=None,
-            custom_metadata={"test": "value"}
+            additional_metadata={"test": "value"}
         )
         
         # Проверяем метаданные
@@ -149,7 +150,7 @@ class TestPipelineCompatibility:
         assert isinstance(POSTPROCESS_STEPS_REGISTRY, dict)
         
         # Проверяем, что можно добавить шаг
-        def test_step(df: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
+        def test_step(df: pd.DataFrame, config: Any, **kwargs: Any) -> pd.DataFrame:
             return df.copy()
         
         POSTPROCESS_STEPS_REGISTRY["test_step"] = test_step
@@ -157,8 +158,11 @@ class TestPipelineCompatibility:
     
     def test_etl_writer_interface(self):
         """Тест интерфейса ETLWriter."""
-        class MockConfig:
+        from library.config import Config
+        
+        class MockConfig(Config):
             def __init__(self):
+                super().__init__()
                 self.determinism = type('obj', (object,), {
                     'sort': type('obj', (object,), {'ascending': True})()
                 })()
@@ -194,7 +198,7 @@ class TestPipelineCompatibility:
                 class MockQCValidator(QCValidator):
                     def validate(self, df: pd.DataFrame) -> dict[str, Any]:
                         return {}
-                return MockQCValidator(config, QCProfile(name="test", description="test"))
+                return MockQCValidator(QCProfile(name="test", description="test"))
             
             def _create_postprocessor(self) -> BasePostprocessor:
                 class MockPostprocessor(BasePostprocessor):
@@ -241,7 +245,8 @@ class TestPipelineCompatibility:
                 return {}
         
         # Проверяем, что можно создать экземпляр
-        config = type('obj', (object,), {})()
+        from library.config import Config
+        config = Config()
         pipeline = TestPipeline(config)
         
         # Проверяем, что все абстрактные методы реализованы

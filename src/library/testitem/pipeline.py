@@ -198,6 +198,33 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         logger.info(f"Quality filtering: {len(accepted_data)} accepted, {len(rejected_data)} rejected")
         return accepted_data, rejected_data
     
+    def _get_entity_type(self) -> str:
+        """Получить тип сущности для пайплайна."""
+        return "testitems"
+    
+    def _create_qc_validator(self) -> Any:
+        """Создать QC валидатор для пайплайна."""
+        from library.common.qc_profiles import TestitemQCValidator, QCProfile
+        
+        # Создаем базовый QC профиль для теститемов
+        qc_profile = QCProfile(
+            name="testitem_qc",
+            description="Quality control profile for testitems",
+            rules=[]
+        )
+        
+        return TestitemQCValidator(qc_profile)
+    
+    def _create_postprocessor(self) -> Any:
+        """Создать постпроцессор для пайплайна."""
+        from library.common.postprocess_base import TestitemPostprocessor
+        return TestitemPostprocessor(self.config)
+    
+    def _create_etl_writer(self) -> Any:
+        """Создать ETL writer для пайплайна."""
+        from library.common.writer_base import create_etl_writer
+        return create_etl_writer(self.config, "testitems")
+    
     def _build_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
         """Build metadata for testitem pipeline."""
         # Create base metadata dictionary

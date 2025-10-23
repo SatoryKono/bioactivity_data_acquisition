@@ -16,50 +16,21 @@ from library.etl.enhanced_correlation import (
     prepare_data_for_correlation_analysis,
 )
 from library.etl.enhanced_qc import build_enhanced_qc_detailed, build_enhanced_qc_summary
+from library.config import Config
 
 # Импорты новых унифицированных модулей
 from .error_tracking import ErrorTracker, ErrorType, ErrorSeverity
 from .metadata import MetadataBuilder
 from .qc_profiles import QCValidator, QCProfile
 from .postprocess_base import BasePostprocessor
-from .writer_base import ETLResult as NewETLResult, ETLWriter
+from .writer_base import ETLResult, ETLWriter
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')  # Тип конфигурации
+T = TypeVar('T', bound=Config)  # Тип конфигурации
 
 
-@dataclass(slots=True)
-class ETLResult:
-    """Контейнер результатов ETL.
-    
-    Стандартизированная структура для всех пайплайнов,
-    обеспечивающая единообразие выходных данных.
-    """
-    
-    data: pd.DataFrame
-    """Основные данные (принятые записи)."""
-    
-    qc_summary: pd.DataFrame
-    """Сводный QC отчет."""
-    
-    qc_detailed: pd.DataFrame | None = None
-    """Детальный QC отчет (опционально)."""
-    
-    rejected: pd.DataFrame | None = None
-    """Отклоненные записи (опционально)."""
-    
-    meta: dict[str, Any] | None = None
-    """Метаданные пайплайна."""
-    
-    correlation_analysis: dict[str, Any] | None = None
-    """Корреляционный анализ (опционально)."""
-    
-    correlation_reports: dict[str, pd.DataFrame] | None = None
-    """Корреляционные отчеты (опционально)."""
-    
-    correlation_insights: list[dict[str, Any]] | None = None
-    """Корреляционные инсайты (опционально)."""
+# ETLResult теперь импортируется из writer_base
 
 
 class PipelineBase(ABC, Generic[T]):
@@ -252,7 +223,7 @@ class PipelineBase(ABC, Generic[T]):
         except AttributeError:
             return False
     
-    def _build_correlation(self, data: pd.DataFrame) -> tuple[dict[str, Any], dict[str, pd.DataFrame] | None, list[dict[str, Any]] | None]:
+    def _build_correlation(self, data: pd.DataFrame) -> tuple[dict[str, Any] | None, dict[str, pd.DataFrame] | None, list[dict[str, Any]] | None]:
         """Построение корреляционного анализа.
         
         Использует общие утилиты из library.etl.enhanced_correlation.
@@ -390,7 +361,7 @@ class PipelineBase(ABC, Generic[T]):
             Обработанные данные
         """
         if self.postprocessor is not None:
-            return self.postprocessor.apply_steps(data)
+            return self.postprocessor.process(data)
         return data
     
     def run(self, input_data: pd.DataFrame) -> ETLResult:
@@ -467,11 +438,12 @@ class PipelineBase(ABC, Generic[T]):
                 data=accepted_data,
                 qc_summary=qc_summary,
                 qc_detailed=qc_detailed,
-                rejected=rejected_data if not rejected_data.empty else None,
-                meta=metadata,
+                rejected_data=rejected_data if rejected_data is not None and not rejected_data.empty else None,
+                metadata=metadata,
                 correlation_analysis=correlation_analysis,
                 correlation_reports=correlation_reports,
                 correlation_insights=correlation_insights,
+                error_tracker=self.error_tracker,
             )
         
         except Exception as e:
@@ -479,7 +451,7 @@ class PipelineBase(ABC, Generic[T]):
             self._track_load_error("pipeline", f"Pipeline execution failed: {str(e)}", {"exception": str(e)})
             raise
     
-    def run_unified(self, input_data: pd.DataFrame) -> NewETLResult:
+    def run_unified(self, input_data: pd.DataFrame) -> ETLResult:
         """Запуск пайплайна с использованием новых унифицированных компонентов.
         
         Args:
@@ -541,19 +513,18 @@ class PipelineBase(ABC, Generic[T]):
                     df=accepted_data,
                     accepted_df=accepted_data,
                     rejected_df=rejected_data if not rejected_data.empty else None,
-                    qc_summary=qc_summary,
-                    error_tracker=self.error_tracker,
-                    custom_metadata=quality_results
+                    validation_results=quality_results,
+                    additional_metadata={"qc_summary": qc_summary}
                 )
             else:
                 metadata = None
             
             logger.info("Unified ETL pipeline completed successfully")
             
-            return NewETLResult(
+            return ETLResult(
                 data=accepted_data,
                 accepted_data=accepted_data,
-                rejected_data=rejected_data if not rejected_data.empty else None,
+                rejected_data=rejected_data if rejected_data is not None and not rejected_data.empty else None,
                 qc_summary=qc_summary,
                 qc_detailed=qc_detailed,
                 correlation_analysis=correlation_analysis,

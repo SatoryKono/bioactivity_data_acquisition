@@ -15,10 +15,13 @@ from library.common.postprocess_base import BasePostprocessor
 from library.common.writer_base import ETLWriter, ETLResult
 
 
-class MockConfig:
+from library.config import Config
+
+class MockConfig(Config):
     """Мок конфигурации для тестирования."""
     
     def __init__(self, entity_type: str):
+        super().__init__()
         self.entity_type = entity_type
         self.pipeline = {"name": entity_type, "version": "2.0.0"}
         self.quality = {

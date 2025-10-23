@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from library.common.writer_base import DocumentETLWriter, ETLResult
+
 from .config import DocumentConfig
-from library.common.pipeline_base import ETLResult
-from library.common.writer_base import DocumentETLWriter
 
 
 def write_document_outputs(

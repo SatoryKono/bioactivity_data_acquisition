@@ -7,11 +7,13 @@
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TypeVar
 import yaml
 from pydantic import BaseModel, Field
 
 from library.config import Config
+
+T = TypeVar('T', bound=Config)
 
 
 class SourceInfo(BaseModel):
@@ -88,7 +90,7 @@ class PipelineMetadata(BaseModel):
 class MetadataBuilder:
     """Построитель метаданных для ETL пайплайнов."""
     
-    def __init__(self, config: Config, entity_type: str):
+    def __init__(self, config: T, entity_type: str):
         self.config = config
         self.entity_type = entity_type
         self.start_time = datetime.now()

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from library.common.pipeline_base import ETLResult
-from library.common.writer_base import AssayETLWriter
+from library.common.writer_base import AssayETLWriter, ETLResult
 
 from .config import AssayConfig
 

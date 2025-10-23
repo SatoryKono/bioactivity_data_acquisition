@@ -174,9 +174,9 @@ class ETLWriter(ABC):
         metadata_path: Path | None = None,
         correlation_files: dict[str, Path] | None = None,
         correlation_insights_path: Path | None = None
-    ) -> dict[str, str | Path]:
+    ) -> dict[str, Any]:
         """Построить словарь выходных файлов."""
-        files = {
+        files: dict[str, Any] = {
             "main_data": main_data_path,
         }
         

@@ -8,7 +8,8 @@ from typing import Any
 import pandas as pd
 
 from library.clients.chembl import ChEMBLClient
-from library.common.pipeline_base import ETLResult, PipelineBase
+from library.common.pipeline_base import PipelineBase
+from library.common.writer_base import ETLResult
 from library.activity.config import ActivityConfig
 from library.activity.normalize import ActivityNormalizer
 from library.activity.quality import ActivityQualityFilter
@@ -161,6 +162,33 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
         
         logger.info(f"Quality filtering: {len(accepted_data)} accepted, {len(rejected_data)} rejected")
         return accepted_data, rejected_data
+    
+    def _get_entity_type(self) -> str:
+        """Получить тип сущности для пайплайна."""
+        return "activities"
+    
+    def _create_qc_validator(self) -> Any:
+        """Создать QC валидатор для пайплайна."""
+        from library.common.qc_profiles import ActivityQCValidator, QCProfile
+        
+        # Создаем базовый QC профиль для активностей
+        qc_profile = QCProfile(
+            name="activity_qc",
+            description="Quality control profile for activities",
+            rules=[]
+        )
+        
+        return ActivityQCValidator(qc_profile)
+    
+    def _create_postprocessor(self) -> Any:
+        """Создать постпроцессор для пайплайна."""
+        from library.common.postprocess_base import ActivityPostprocessor
+        return ActivityPostprocessor(self.config)
+    
+    def _create_etl_writer(self) -> Any:
+        """Создать ETL writer для пайплайна."""
+        from library.common.writer_base import create_etl_writer
+        return create_etl_writer(self.config, "activities")
     
     def _build_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
         """Build metadata for activity pipeline."""

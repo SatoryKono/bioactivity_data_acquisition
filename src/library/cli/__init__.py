@@ -1106,18 +1106,21 @@ def testitem_run(
         console.print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown') if result.meta else 'unknown'}")
 
         # Display QC metrics
-        if isinstance(result.qc_summary, pd.DataFrame) and not result.qc_summary.empty:
+        if result.qc_summary is not None and isinstance(result.qc_summary, pd.DataFrame) and not result.qc_summary.empty:
             console.print("\n[blue]Quality Control Metrics:[/blue]")
             qc_table = Table(show_header=True, header_style="bold magenta")
             qc_table.add_column("Metric", style="cyan")
             qc_table.add_column("Value", style="green")
 
-            for _, row in result.qc_summary.iterrows():
-                metric = row["metric"]
-                value = row["value"]
-                if isinstance(value, dict):
-                    value = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
-                qc_table.add_row(metric, str(value))
+            if result.qc_summary is not None:
+                for _, row in result.qc_summary.iterrows():
+                    metric = row["metric"]
+                    value = row["value"]
+                    if isinstance(value, dict):
+                        value = str(value)[:100] + "..." if len(str(value)) > 100 else str(value)
+                    qc_table.add_row(metric, str(value))
+            else:
+                qc_table.add_row("No QC data", "QC summary not available")
 
             console.print(qc_table)
 

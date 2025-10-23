@@ -6,13 +6,6 @@ import logging
 from typing import Any
 
 import pandas as pd
-from library.utils.empty_value_handler import (
-    normalize_string_field,
-    normalize_numeric_field,
-    normalize_boolean_field,
-    normalize_list_field,
-    normalize_dict_field,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +228,7 @@ class ActivityNormalizer:
         logger.debug("Validating interval consistency")
         
         # Check censored records have exactly one bound
-        censored_mask = df['is_censored'] == True
+        censored_mask = df['is_censored']
         if censored_mask.any():
             censored_df = df[censored_mask]
             
