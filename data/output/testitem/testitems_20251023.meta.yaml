@@ -202,18 +202,8 @@ pipeline:
       - extracted_at
       - hash_row
       - hash_business_key
-      - all_names
-      - canonical_smiles
-      - inchi_key_from_mol
-      - inchi_key_from_smiles
-      - is_radical
-      - mw_<100_or_>1000
-      - n_stereocenters
       - nstereo
       - salt_chembl_id
-      - standard_inchi_key
-      - standard_inchi_skeleton
-      - standard_inchi_stereo
       - atc_classifications
       - biotherapeutic
       - chemical_probe
@@ -228,6 +218,13 @@ pipeline:
       - standard_inchi
       - chirality_chembl
       - molecule_type_chembl
+      - index
+      - pipeline_version
+      - source_system
+      - chembl_release
+      - extracted_at
+      - hash_row
+      - hash_business_key
       lowercase_columns: []
     transforms:
       unit_conversion:
@@ -287,9 +284,9 @@ pipeline:
       AAAAAAAA8D8=
     records_with_pubchem_data: 2
 execution:
-  run_id: testitem_run_20251023_204424
-  started_at: '2025-10-23T20:44:24.124741'
-  completed_at: '2025-10-23T20:44:24.124741'
+  run_id: testitem_run_20251023_220449
+  started_at: '2025-10-23T22:04:49.876007'
+  completed_at: '2025-10-23T22:04:49.876007'
   duration_sec: 0.0
   memory_peak_mb: null
 data:

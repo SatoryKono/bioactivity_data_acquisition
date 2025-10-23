@@ -222,3 +222,82 @@ def test_selective_lowercase_normalization(tmp_path: Path) -> None:
     
     # Проверяем, что source был приведен к нижнему регистру
     assert result_df["source"].tolist() == ["chembl", "pubchem"]
+
+
+def test_assay_column_order_determinism(tmp_path: Path) -> None:
+    """Тест детерминированного порядка колонок для assay."""
+    from library.common.writer_base import AssayETLWriter
+    from library.assay.config import AssayConfig
+    
+    # Создаем тестовые данные assay
+    frame = pd.DataFrame({
+        "assay_chembl_id": ["CHEMBL123", "CHEMBL456"],
+        "assay_type": ["B", "F"],
+        "target_chembl_id": ["CHEMBL789", "CHEMBL012"],
+        "description": ["Test assay 1", "Test assay 2"],
+        "bao_format": ["BAO_0000001", "BAO_0000002"],
+        "assay_organism": ["Homo sapiens", "Mus musculus"],
+        "index": [0, 1],
+        "source_system": ["ChEMBL", "ChEMBL"],
+        "extracted_at": pd.to_datetime(["2023-01-01", "2023-01-02"]),
+        "hash_row": ["hash1", "hash2"],
+        "hash_business_key": ["key1", "key2"]
+    })
+    
+    # Создаем конфигурацию с column_order
+    config_data = {
+        "determinism": {
+            "column_order": [
+                "assay_chembl_id",
+                "assay_type", 
+                "target_chembl_id",
+                "description",
+                "bao_format",
+                "assay_organism",
+                "index",
+                "source_system",
+                "extracted_at",
+                "hash_row",
+                "hash_business_key"
+            ]
+        }
+    }
+    config = AssayConfig(**config_data)
+    
+    # Создаем writer и записываем данные
+    writer = AssayETLWriter(config, "assays")
+    destination = tmp_path / "assay_test.csv"
+    
+    # Используем _write_deterministic_csv напрямую для тестирования
+    writer._write_deterministic_csv(
+        frame,
+        destination,
+        sort_columns=writer.get_sort_columns(),
+        ascending=[True],
+        column_order=writer.get_column_order(),
+        exclude_columns=writer.get_exclude_columns()
+    )
+    
+    # Читаем результат и проверяем порядок колонок
+    result_df = pd.read_csv(destination)
+    
+    # Проверяем, что порядок колонок соответствует конфигурации
+    expected_columns = [
+        "assay_chembl_id",
+        "assay_type", 
+        "target_chembl_id",
+        "description",
+        "bao_format",
+        "assay_organism",
+        "index",
+        "source_system",
+        "extracted_at",
+        "hash_row",
+        "hash_business_key"
+    ]
+    
+    assert list(result_df.columns) == expected_columns, f"Expected {expected_columns}, got {list(result_df.columns)}"
+    
+    # Проверяем, что данные сохранились корректно
+    assert result_df["assay_chembl_id"].tolist() == ["CHEMBL123", "CHEMBL456"]
+    assert result_df["assay_type"].tolist() == ["B", "F"]
