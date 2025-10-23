@@ -164,7 +164,7 @@ postprocess:
         - valid_standard_type: true    # Валидный тип активности
     - type: "deduplicate"              # Дедупликация
       description: "Remove duplicate activity entries"
-      keys: ["assay_chembl_id", "molecule_chembl_id", "standard_type"]  # Ключи дедупликации
+      keys: ["activity_chembl_id"]  # Ключи дедупликации
 
 # Нормализация - настройки нормализации данных
 normalization:
@@ -178,19 +178,156 @@ quality:
   profiles:
     default:                          # Профиль по умолчанию
       enabled: true                    # Включен ли профиль
+      description: "Стандартный профиль QC для активностей"
+      fail_on_criteria: ["missing_chembl_id", "missing_standard_value", "invalid_chembl_id"]
+      thresholds:                      # Пороговые значения
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_standard_value_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_standard_value_rate"
+          operator: ">"
+          value: 0.2
+          severity: "WARNING"
       rules:                          # Правила валидации
         - name: "valid_chembl_id"      # Валидация ChEMBL ID
-          pattern: "^CHEMBL\\d+$"      # Регулярное выражение
+          description: "Проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
         - name: "valid_standard_value" # Валидация стандартного значения
-          min_value: 1e-12             # Минимальное значение
-          max_value: 1e-3              # Максимальное значение
+          description: "Проверка корректности стандартного значения"
+          enabled: true
+          parameters:
+            min_value: 1e-12
+            max_value: 1e-3
         - name: "valid_standard_units" # Валидация единиц
-          allowed_values: ["nM", "uM", "mM", "M", "ng/ml", "ug/ml", "mg/ml", "g/ml"]
+          description: "Проверка единиц измерения"
+          enabled: true
+          parameters:
+            allowed_values: ["nM", "uM", "mM", "M", "ng/ml", "ug/ml", "mg/ml", "g/ml"]
         - name: "valid_activity_types" # Валидация типов
-          allowed_values: ["IC50", "Ki"] 
+          description: "Проверка типов активности"
+          enabled: true
+          parameters:
+            allowed_values: ["IC50", "Ki"]
         - name: "valid_pchembl_value"  # Валидация pChEMBL
-          min_value: 3.0               # Минимальное значение pChEMBL
-          max_value: 12.0              # Максимальное значение pChEMBL
+          description: "Проверка корректности pChEMBL значения"
+          enabled: true
+          parameters:
+            min_value: 3.0
+            max_value: 12.0
+        - name: "valid_assay_chembl_id"  # Валидация assay ChEMBL ID
+          description: "Проверка формата assay ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_molecule_chembl_id"  # Валидация molecule ChEMBL ID
+          description: "Проверка формата molecule ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+    
+    strict:                           # Строгий профиль
+      enabled: false                   # Отключен по умолчанию
+      description: "Строгий профиль QC для активностей"
+      fail_on_criteria: ["missing_chembl_id", "missing_standard_value", "invalid_chembl_id", "invalid_standard_value"]
+      thresholds:
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_standard_value_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.02
+          severity: "ERROR"
+        - metric: "invalid_standard_value_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+      rules:
+        - name: "valid_chembl_id"
+          description: "Строгая проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_standard_value"
+          description: "Строгая проверка стандартного значения"
+          enabled: true
+          parameters:
+            min_value: 1e-12
+            max_value: 1e-3
+        - name: "valid_standard_units"
+          description: "Строгая проверка единиц измерения"
+          enabled: true
+          parameters:
+            allowed_values: ["nM", "uM", "mM", "M", "ng/ml", "ug/ml", "mg/ml", "g/ml"]
+        - name: "valid_activity_types"
+          description: "Строгая проверка типов активности"
+          enabled: true
+          parameters:
+            allowed_values: ["IC50", "Ki"]
+        - name: "valid_pchembl_value"
+          description: "Строгая проверка pChEMBL значения"
+          enabled: true
+          parameters:
+            min_value: 3.0
+            max_value: 12.0
+        - name: "valid_assay_chembl_id"
+          description: "Строгая проверка assay ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_molecule_chembl_id"
+          description: "Строгая проверка molecule ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+
+# Отслеживание ошибок - настройки error tracking
+error_tracking:
+  enabled: true                        # Включить отслеживание ошибок
+  log_level: "INFO"                    # Уровень логирования ошибок
+  max_errors_per_source: 1000          # Максимум ошибок на источник
+  error_categories:                    # Категории ошибок
+    extraction:                        # Ошибки извлечения
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+    validation:                        # Ошибки валидации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: false
+    transformation:                    # Ошибки трансформации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: true
+    load:                             # Ошибки загрузки
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+  error_aggregation:                   # Агрегация ошибок
+    enabled: true
+    group_by_source: true
+    group_by_type: true
+    group_by_severity: true
+  error_reporting:                     # Отчетность по ошибкам
+    enabled: true
+    include_in_metadata: true
+    separate_error_file: true
+    error_file_format: "csv"
 
 # Кэширование - настройки кэширования данных
 cache:

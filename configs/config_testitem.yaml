@@ -260,16 +260,144 @@ quality:
   profiles:
     default:                        # Профиль по умолчанию
       enabled: true                  # Включен ли профиль
+      description: "Стандартный профиль QC для теститемов"
+      fail_on_criteria: ["missing_chembl_id", "missing_molecular_weight", "invalid_chembl_id"]
+      thresholds:                    # Пороговые значения
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_molecular_weight_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_molecular_weight_rate"
+          operator: ">"
+          value: 0.2
+          severity: "WARNING"
       rules:                        # Правила валидации
         - name: "valid_chembl_id"    # Валидация ChEMBL ID
-          pattern: "^CHEMBL\\d+$"    # Регулярное выражение
+          description: "Проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
         - name: "valid_pubchem_cid"  # Валидация PubChem CID
-          pattern: "^\\d+$"         # Регулярное выражение
+          description: "Проверка формата PubChem CID"
+          enabled: true
+          parameters:
+            pattern: "^\\d+$"
         - name: "valid_inchi_key"    # Валидация InChI Key
-          pattern: "^[A-Z]{14}-[A-Z]{10}-[A-Z]$"  # Формат InChI Key
+          description: "Проверка формата InChI Key"
+          enabled: true
+          parameters:
+            pattern: "^[A-Z]{14}-[A-Z]{10}-[A-Z]$"
         - name: "valid_molecular_weight"  # Валидация молекулярной массы
-          min_value: 50.0            # Минимальное значение
-          max_value: 2000.0          # Максимальное значение
+          description: "Проверка корректности молекулярной массы"
+          enabled: true
+          parameters:
+            min_value: 50.0
+            max_value: 2000.0
+        - name: "valid_smiles"       # Валидация SMILES
+          description: "Проверка формата SMILES"
+          enabled: true
+          parameters:
+            min_length: 5
+        - name: "valid_inchi"        # Валидация InChI
+          description: "Проверка формата InChI"
+          enabled: true
+          parameters:
+            min_length: 10
+    
+    strict:                         # Строгий профиль
+      enabled: false                 # Отключен по умолчанию
+      description: "Строгий профиль QC для теститемов"
+      fail_on_criteria: ["missing_chembl_id", "missing_molecular_weight", "invalid_chembl_id", "invalid_molecular_weight"]
+      thresholds:
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_molecular_weight_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.02
+          severity: "ERROR"
+        - metric: "invalid_molecular_weight_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+      rules:
+        - name: "valid_chembl_id"
+          description: "Строгая проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_pubchem_cid"
+          description: "Строгая проверка формата PubChem CID"
+          enabled: true
+          parameters:
+            pattern: "^\\d+$"
+        - name: "valid_inchi_key"
+          description: "Строгая проверка формата InChI Key"
+          enabled: true
+          parameters:
+            pattern: "^[A-Z]{14}-[A-Z]{10}-[A-Z]$"
+        - name: "valid_molecular_weight"
+          description: "Строгая проверка молекулярной массы"
+          enabled: true
+          parameters:
+            min_value: 50.0
+            max_value: 2000.0
+        - name: "valid_smiles"
+          description: "Строгая проверка формата SMILES"
+          enabled: true
+          parameters:
+            min_length: 10
+        - name: "valid_inchi"
+          description: "Строгая проверка формата InChI"
+          enabled: true
+          parameters:
+            min_length: 20
+
+# Отслеживание ошибок - настройки error tracking
+error_tracking:
+  enabled: true                      # Включить отслеживание ошибок
+  log_level: "INFO"                  # Уровень логирования ошибок
+  max_errors_per_source: 1000        # Максимум ошибок на источник
+  error_categories:                  # Категории ошибок
+    extraction:                      # Ошибки извлечения
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+    validation:                      # Ошибки валидации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: false
+    transformation:                  # Ошибки трансформации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: true
+    load:                           # Ошибки загрузки
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+  error_aggregation:                 # Агрегация ошибок
+    enabled: true
+    group_by_source: true
+    group_by_type: true
+    group_by_severity: true
+  error_reporting:                   # Отчетность по ошибкам
+    enabled: true
+    include_in_metadata: true
+    separate_error_file: true
+    error_file_format: "csv"
 
 # Кэширование - настройки кэширования данных
 cache:

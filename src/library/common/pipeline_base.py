@@ -17,6 +17,13 @@ from library.etl.enhanced_correlation import (
 )
 from library.etl.enhanced_qc import build_enhanced_qc_detailed, build_enhanced_qc_summary
 
+# Импорты новых унифицированных модулей
+from .error_tracking import ErrorTracker, ErrorType, ErrorSeverity
+from .metadata import MetadataBuilder
+from .qc_profiles import QCValidator, QCProfile
+from .postprocess_base import BasePostprocessor
+from .writer_base import ETLResult as NewETLResult, ETLWriter
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar('T')  # Тип конфигурации
@@ -79,6 +86,13 @@ class PipelineBase(ABC, Generic[T]):
         """
         self.config = config
         self._setup_clients()
+        
+        # Инициализация новых унифицированных компонентов
+        self.error_tracker = ErrorTracker(self._get_entity_type())
+        self.metadata_builder = MetadataBuilder(config, self._get_entity_type())
+        self.qc_validator = self._create_qc_validator()
+        self.postprocessor = self._create_postprocessor()
+        self.etl_writer = self._create_etl_writer()
     
     @abstractmethod
     def _setup_clients(self) -> None:
@@ -86,6 +100,42 @@ class PipelineBase(ABC, Generic[T]):
         
         Должен быть реализован в каждом пайплайне для настройки
         специфичных для домена API клиентов.
+        """
+        pass
+    
+    @abstractmethod
+    def _get_entity_type(self) -> str:
+        """Получить тип сущности для пайплайна.
+        
+        Returns:
+            Тип сущности (например, 'documents', 'targets', 'assays')
+        """
+        pass
+    
+    @abstractmethod
+    def _create_qc_validator(self) -> QCValidator:
+        """Создать QC валидатор для пайплайна.
+        
+        Returns:
+            Настроенный QC валидатор
+        """
+        pass
+    
+    @abstractmethod
+    def _create_postprocessor(self) -> BasePostprocessor:
+        """Создать постпроцессор для пайплайна.
+        
+        Returns:
+            Настроенный постпроцессор
+        """
+        pass
+    
+    @abstractmethod
+    def _create_etl_writer(self) -> ETLWriter:
+        """Создать ETL writer для пайплайна.
+        
+        Returns:
+            Настроенный ETL writer
         """
         pass
     
@@ -235,6 +285,94 @@ class PipelineBase(ABC, Generic[T]):
         """
         pass
     
+    def _track_extraction_error(self, source: str, message: str, details: dict[str, Any] | None = None) -> None:
+        """Отследить ошибку извлечения.
+        
+        Args:
+            source: Источник ошибки
+            message: Сообщение об ошибке
+            details: Дополнительные детали
+        """
+        self.error_tracker.add_error(
+            error_type=ErrorType.EXTRACTION,
+            source=source,
+            message=message,
+            severity=ErrorSeverity.HIGH,
+            details=details
+        )
+    
+    def _track_validation_error(self, source: str, message: str, record_id: str | None = None, details: dict[str, Any] | None = None) -> None:
+        """Отследить ошибку валидации.
+        
+        Args:
+            source: Источник ошибки
+            message: Сообщение об ошибке
+            record_id: ID записи
+            details: Дополнительные детали
+        """
+        self.error_tracker.add_error(
+            error_type=ErrorType.VALIDATION,
+            source=source,
+            message=message,
+            severity=ErrorSeverity.MEDIUM,
+            record_id=record_id,
+            details=details
+        )
+    
+    def _track_transformation_error(self, source: str, message: str, details: dict[str, Any] | None = None) -> None:
+        """Отследить ошибку трансформации.
+        
+        Args:
+            source: Источник ошибки
+            message: Сообщение об ошибке
+            details: Дополнительные детали
+        """
+        self.error_tracker.add_error(
+            error_type=ErrorType.TRANSFORMATION,
+            source=source,
+            message=message,
+            severity=ErrorSeverity.MEDIUM,
+            details=details
+        )
+    
+    def _track_load_error(self, source: str, message: str, details: dict[str, Any] | None = None) -> None:
+        """Отследить ошибку загрузки.
+        
+        Args:
+            source: Источник ошибки
+            message: Сообщение об ошибке
+            details: Дополнительные детали
+        """
+        self.error_tracker.add_error(
+            error_type=ErrorType.LOAD,
+            source=source,
+            message=message,
+            severity=ErrorSeverity.HIGH,
+            details=details
+        )
+    
+    def _validate_data_quality(self, data: pd.DataFrame) -> dict[str, Any]:
+        """Выполнить валидацию качества данных.
+        
+        Args:
+            data: Данные для валидации
+            
+        Returns:
+            Результаты валидации
+        """
+        return self.qc_validator.validate(data)
+    
+    def _apply_postprocessing(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Применить постобработку данных.
+        
+        Args:
+            data: Данные для постобработки
+            
+        Returns:
+            Обработанные данные
+        """
+        return self.postprocessor.apply_steps(data)
+    
     def run(self, input_data: pd.DataFrame) -> ETLResult:
         """Основной метод запуска пайплайна.
         
@@ -255,52 +393,155 @@ class PipelineBase(ABC, Generic[T]):
         """
         logger.info(f"Starting ETL pipeline with {len(input_data)} input records")
         
-        # 1. Извлечение данных
-        logger.info("Extracting data from APIs")
-        raw_data = self.extract(input_data)
-        logger.info(f"Extracted {len(raw_data)} raw records")
+        try:
+            # 1. Извлечение данных
+            logger.info("Extracting data from APIs")
+            raw_data = self.extract(input_data)
+            logger.info(f"Extracted {len(raw_data)} raw records")
+            
+            # 2. Нормализация
+            logger.info("Normalizing data")
+            normalized_data = self.normalize(raw_data)
+            logger.info(f"Normalized {len(normalized_data)} records")
+            
+            # 3. Валидация
+            logger.info("Validating data")
+            validated_data = self.validate(normalized_data)
+            logger.info(f"Validated {len(validated_data)} records")
+            
+            # 4. Постобработка
+            logger.info("Applying postprocessing")
+            processed_data = self._apply_postprocessing(validated_data)
+            logger.info(f"Postprocessed {len(processed_data)} records")
+            
+            # 5. Валидация качества данных
+            logger.info("Validating data quality")
+            quality_results = self._validate_data_quality(processed_data)
+            logger.info(f"Quality validation completed: {quality_results}")
+            
+            # 6. Фильтрация по качеству
+            logger.info("Filtering by quality")
+            accepted_data, rejected_data = self.filter_quality(processed_data)
+            logger.info(f"Accepted {len(accepted_data)} records, rejected {len(rejected_data)} records")
+            
+            # 7. Генерация QC отчетов
+            logger.info("Building QC reports")
+            qc_summary, qc_detailed = self.build_qc_report(accepted_data)
+            
+            # 8. Построение метаданных
+            logger.info("Building metadata")
+            metadata = self._build_metadata(accepted_data)
+            
+            # 9. Корреляционный анализ (опционально)
+            correlation_analysis = None
+            correlation_reports = None
+            correlation_insights = None
+            
+            if self._should_build_correlation():
+                logger.info("Building correlation analysis")
+                correlation_analysis, correlation_reports, correlation_insights = self._build_correlation(accepted_data)
+            
+            logger.info("ETL pipeline completed successfully")
+            
+            return ETLResult(
+                data=accepted_data,
+                qc_summary=qc_summary,
+                qc_detailed=qc_detailed,
+                rejected=rejected_data if not rejected_data.empty else None,
+                meta=metadata,
+                correlation_analysis=correlation_analysis,
+                correlation_reports=correlation_reports,
+                correlation_insights=correlation_insights,
+            )
         
-        # 2. Нормализация
-        logger.info("Normalizing data")
-        normalized_data = self.normalize(raw_data)
-        logger.info(f"Normalized {len(normalized_data)} records")
+        except Exception as e:
+            logger.error(f"ETL pipeline failed: {e}")
+            self._track_load_error("pipeline", f"Pipeline execution failed: {str(e)}", {"exception": str(e)})
+            raise
+    
+    def run_unified(self, input_data: pd.DataFrame) -> NewETLResult:
+        """Запуск пайплайна с использованием новых унифицированных компонентов.
         
-        # 3. Валидация
-        logger.info("Validating data")
-        validated_data = self.validate(normalized_data)
-        logger.info(f"Validated {len(validated_data)} records")
+        Args:
+            input_data: Входные данные
+            
+        Returns:
+            Унифицированный результат ETL
+        """
+        logger.info(f"Starting unified ETL pipeline with {len(input_data)} input records")
         
-        # 4. Фильтрация по качеству
-        logger.info("Filtering by quality")
-        accepted_data, rejected_data = self.filter_quality(validated_data)
-        logger.info(f"Accepted {len(accepted_data)} records, rejected {len(rejected_data)} records")
+        try:
+            # 1. Извлечение данных
+            logger.info("Extracting data from APIs")
+            raw_data = self.extract(input_data)
+            logger.info(f"Extracted {len(raw_data)} raw records")
+            
+            # 2. Нормализация
+            logger.info("Normalizing data")
+            normalized_data = self.normalize(raw_data)
+            logger.info(f"Normalized {len(normalized_data)} records")
+            
+            # 3. Валидация
+            logger.info("Validating data")
+            validated_data = self.validate(normalized_data)
+            logger.info(f"Validated {len(validated_data)} records")
+            
+            # 4. Постобработка
+            logger.info("Applying postprocessing")
+            processed_data = self._apply_postprocessing(validated_data)
+            logger.info(f"Postprocessed {len(processed_data)} records")
+            
+            # 5. Валидация качества данных
+            logger.info("Validating data quality")
+            quality_results = self._validate_data_quality(processed_data)
+            logger.info(f"Quality validation completed: {quality_results}")
+            
+            # 6. Фильтрация по качеству
+            logger.info("Filtering by quality")
+            accepted_data, rejected_data = self.filter_quality(processed_data)
+            logger.info(f"Accepted {len(accepted_data)} records, rejected {len(rejected_data)} records")
+            
+            # 7. Генерация QC отчетов
+            logger.info("Building QC reports")
+            qc_summary, qc_detailed = self.build_qc_report(accepted_data)
+            
+            # 8. Корреляционный анализ (опционально)
+            correlation_analysis = None
+            correlation_reports = None
+            correlation_insights = None
+            
+            if self._should_build_correlation():
+                logger.info("Building correlation analysis")
+                correlation_analysis, correlation_reports, correlation_insights = self._build_correlation(accepted_data)
+            
+            # 9. Построение метаданных
+            logger.info("Building metadata")
+            metadata = self.metadata_builder.build_metadata(
+                df=accepted_data,
+                accepted_df=accepted_data,
+                rejected_df=rejected_data if not rejected_data.empty else None,
+                qc_summary=qc_summary,
+                error_tracker=self.error_tracker,
+                custom_metadata=quality_results
+            )
+            
+            logger.info("Unified ETL pipeline completed successfully")
+            
+            return NewETLResult(
+                data=accepted_data,
+                accepted_data=accepted_data,
+                rejected_data=rejected_data if not rejected_data.empty else None,
+                qc_summary=qc_summary,
+                qc_detailed=qc_detailed,
+                correlation_analysis=correlation_analysis,
+                correlation_reports=correlation_reports,
+                correlation_insights=correlation_insights,
+                metadata=metadata,
+                error_tracker=self.error_tracker,
+                additional_data=quality_results
+            )
         
-        # 5. Генерация QC отчетов
-        logger.info("Building QC reports")
-        qc_summary, qc_detailed = self.build_qc_report(accepted_data)
-        
-        # 6. Построение метаданных
-        logger.info("Building metadata")
-        metadata = self._build_metadata(accepted_data)
-        
-        # 7. Корреляционный анализ (опционально)
-        correlation_analysis = None
-        correlation_reports = None
-        correlation_insights = None
-        
-        if self._should_build_correlation():
-            logger.info("Building correlation analysis")
-            correlation_analysis, correlation_reports, correlation_insights = self._build_correlation(accepted_data)
-        
-        logger.info("ETL pipeline completed successfully")
-        
-        return ETLResult(
-            data=accepted_data,
-            qc_summary=qc_summary,
-            qc_detailed=qc_detailed,
-            rejected=rejected_data if not rejected_data.empty else None,
-            meta=metadata,
-            correlation_analysis=correlation_analysis,
-            correlation_reports=correlation_reports,
-            correlation_insights=correlation_insights,
-        )
+        except Exception as e:
+            logger.error(f"Unified ETL pipeline failed: {e}")
+            self._track_load_error("pipeline", f"Unified pipeline execution failed: {str(e)}", {"exception": str(e)})
+            raise

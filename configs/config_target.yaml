@@ -254,13 +254,132 @@ quality:
   profiles:
     default:                        # Профиль по умолчанию
       enabled: true                  # Включен ли профиль
+      description: "Стандартный профиль QC для таргетов"
+      fail_on_criteria: ["missing_chembl_id", "missing_target_type", "invalid_chembl_id"]
+      thresholds:                    # Пороговые значения
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_target_type_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "missing_uniprot_id_rate"
+          operator: ">"
+          value: 0.3
+          severity: "WARNING"
       rules:                        # Правила валидации
         - name: "valid_chembl_id"    # Валидация ChEMBL ID
-          pattern: "^CHEMBL\\d+$"    # Регулярное выражение
+          description: "Проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
         - name: "valid_uniprot_id"   # Валидация UniProt ID
-          pattern: "^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$"  # Формат UniProt accession
+          description: "Проверка формата UniProt ID"
+          enabled: true
+          parameters:
+            pattern: "^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$"
         - name: "valid_taxonomy_id"  # Валидация таксономического ID
-          min_value: 1               # Минимальное значение
+          description: "Проверка корректности таксономического ID"
+          enabled: true
+          parameters:
+            min_value: 1
+        - name: "valid_target_type"  # Валидация типа таргета
+          description: "Проверка наличия типа таргета"
+          enabled: true
+          parameters:
+            allowed_values: ["SINGLE PROTEIN", "PROTEIN COMPLEX", "PROTEIN FAMILY", "PROTEIN-PROTEIN INTERACTION"]
+        - name: "valid_organism"     # Валидация организма
+          description: "Проверка наличия организма"
+          enabled: true
+          parameters:
+            min_length: 3
+    
+    strict:                         # Строгий профиль
+      enabled: false                 # Отключен по умолчанию
+      description: "Строгий профиль QC для таргетов"
+      fail_on_criteria: ["missing_chembl_id", "missing_target_type", "invalid_chembl_id", "missing_uniprot_id"]
+      thresholds:
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_target_type_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.02
+          severity: "ERROR"
+        - metric: "missing_uniprot_id_rate"
+          operator: ">"
+          value: 0.2
+          severity: "ERROR"
+      rules:
+        - name: "valid_chembl_id"
+          description: "Строгая проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_uniprot_id"
+          description: "Строгая проверка формата UniProt ID"
+          enabled: true
+          parameters:
+            pattern: "^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$"
+        - name: "valid_taxonomy_id"
+          description: "Строгая проверка таксономического ID"
+          enabled: true
+          parameters:
+            min_value: 1
+        - name: "valid_target_type"
+          description: "Строгая проверка типа таргета"
+          enabled: true
+          parameters:
+            allowed_values: ["SINGLE PROTEIN", "PROTEIN COMPLEX", "PROTEIN FAMILY", "PROTEIN-PROTEIN INTERACTION"]
+        - name: "valid_organism"
+          description: "Строгая проверка организма"
+          enabled: true
+          parameters:
+            min_length: 5
+
+# Отслеживание ошибок - настройки error tracking
+error_tracking:
+  enabled: true                      # Включить отслеживание ошибок
+  log_level: "INFO"                  # Уровень логирования ошибок
+  max_errors_per_source: 1000        # Максимум ошибок на источник
+  error_categories:                  # Категории ошибок
+    extraction:                      # Ошибки извлечения
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+    validation:                      # Ошибки валидации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: false
+    transformation:                  # Ошибки трансформации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: true
+    load:                           # Ошибки загрузки
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+  error_aggregation:                 # Агрегация ошибок
+    enabled: true
+    group_by_source: true
+    group_by_type: true
+    group_by_severity: true
+  error_reporting:                   # Отчетность по ошибкам
+    enabled: true
+    include_in_metadata: true
+    separate_error_file: true
+    error_file_format: "csv"
 
 # Кэширование - настройки кэширования данных
 cache:
