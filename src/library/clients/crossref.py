@@ -22,7 +22,8 @@ class CrossrefClient(BaseApiClient):
 
         encoded = quote(doi, safe="")
         try:
-            payload = self._request("GET", encoded)
+            # Crossref API requires /works/ prefix for DOI lookups
+            payload = self._request("GET", f"works/{encoded}")
             message = payload.get("message", payload)
             return self._parse_work(message)
         except ApiClientError as exc:
@@ -40,7 +41,8 @@ class CrossrefClient(BaseApiClient):
             # If not degrading, try fallback search
             self.logger.info(f"fallback_to_search doi={doi} error={str(exc)}")
             try:
-                payload = self._request("GET", "", params={"query.bibliographic": doi})
+                # Crossref search endpoint requires /works prefix
+                payload = self._request("GET", "works", params={"query.bibliographic": doi})
                 items = payload.get("message", {}).get("items", [])
                 if not items:
                     raise
@@ -144,6 +146,27 @@ class CrossrefClient(BaseApiClient):
         if isinstance(title, list) and title:
             title = title[0]
         
+        # Извлекаем дополнительные библиографические данные
+        published = work.get("published-print") or work.get("published-online")
+        crossref_year = None
+        if published and "date-parts" in published:
+            date_parts = published["date-parts"]
+            if date_parts and len(date_parts) > 0 and len(date_parts[0]) > 0:
+                year = date_parts[0][0]
+                crossref_year = int(year) if year else None
+
+        # Извлекаем volume, issue, page
+        page = work.get("page")
+        crossref_first_page = None
+        crossref_last_page = None
+        if page:
+            if "-" in page:
+                pages = page.split("-")
+                crossref_first_page = pages[0] if pages[0] else None
+                crossref_last_page = pages[1] if len(pages) > 1 and pages[1] else None
+            else:
+                crossref_first_page = page
+
         record: dict[str, Any | None] = {
             "source": "crossref",
             "doi_key": work.get("DOI"),
@@ -155,6 +178,11 @@ class CrossrefClient(BaseApiClient):
             "crossref_abstract": work.get("abstract"),
             "crossref_issn": self._extract_issn(work),
             "crossref_authors": self._extract_authors(work),
+            "crossref_year": crossref_year,
+            "crossref_volume": work.get("volume"),
+            "crossref_issue": work.get("issue"),
+            "crossref_first_page": crossref_first_page,
+            "crossref_last_page": crossref_last_page,
             "crossref_error": None,  # Will be set if there's an error
         }
         # Return all fields, including None values, to maintain schema consistency

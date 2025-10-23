@@ -36,7 +36,7 @@ class AssayChEMBLClient(BaseApiClient):
         }
         
         try:
-            payload = self._request("GET", f"assay/{assay_id}?format=json", headers=headers)
+            payload = self._request("GET", f"assay/{assay_id}.json", headers=headers)
             return self._parse_assay(payload)
         except Exception as e:
             # В случае ошибки возвращаем пустую запись с информацией об ошибке

@@ -7,23 +7,23 @@
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, TypeVar
+from typing import Any
+
 import yaml
 from pydantic import BaseModel, Field
 
 from library.config import Config
 
-T = TypeVar('T', bound=Config)
 
 
 class SourceInfo(BaseModel):
     """Информация об источнике данных."""
     
     name: str = Field(..., description="Имя источника")
-    version: Optional[str] = Field(None, description="Версия источника")
+    version: str | None = Field(None, description="Версия источника")
     records_fetched: int = Field(0, description="Количество полученных записей")
     errors: int = Field(0, description="Количество ошибок")
-    last_updated: Optional[str] = Field(None, description="Время последнего обновления")
+    last_updated: str | None = Field(None, description="Время последнего обновления")
 
 
 class ValidationInfo(BaseModel):
@@ -40,7 +40,7 @@ class FileInfo(BaseModel):
     
     filename: str = Field(..., description="Имя файла")
     size_bytes: int = Field(0, description="Размер файла в байтах")
-    checksum: Optional[str] = Field(None, description="SHA256 хеш файла")
+    checksum: str | None = Field(None, description="SHA256 хеш файла")
 
 
 class ExecutionInfo(BaseModel):
@@ -50,7 +50,7 @@ class ExecutionInfo(BaseModel):
     started_at: str = Field(..., description="Время начала выполнения ISO 8601")
     completed_at: str = Field(..., description="Время завершения выполнения ISO 8601")
     duration_sec: float = Field(0.0, description="Длительность выполнения в секундах")
-    memory_peak_mb: Optional[float] = Field(None, description="Пиковое использование памяти в МБ")
+    memory_peak_mb: float | None = Field(None, description="Пиковое использование памяти в МБ")
 
 
 class DataInfo(BaseModel):
@@ -66,7 +66,7 @@ class PipelineMetadata(BaseModel):
     """Стандартизированные метаданные пайплайна."""
     
     # Информация о пайплайне
-    pipeline: Dict[str, Any] = Field(default_factory=dict, description="Информация о пайплайне")
+    pipeline: dict[str, Any] = Field(default_factory=dict, description="Информация о пайплайне")
     
     # Информация о выполнении
     execution: ExecutionInfo = Field(..., description="Информация о выполнении")
@@ -75,22 +75,22 @@ class PipelineMetadata(BaseModel):
     data: DataInfo = Field(..., description="Информация о данных")
     
     # Информация об источниках
-    sources: List[SourceInfo] = Field(default_factory=list, description="Информация об источниках")
+    sources: list[SourceInfo] = Field(default_factory=list, description="Информация об источниках")
     
     # Информация о валидации
     validation: ValidationInfo = Field(..., description="Информация о валидации")
     
     # Информация о файлах
-    files: Dict[str, Union[str, FileInfo]] = Field(default_factory=dict, description="Информация о файлах")
+    files: dict[str, str | FileInfo] = Field(default_factory=dict, description="Информация о файлах")
     
     # Дополнительные метаданные
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Дополнительные метаданные")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Дополнительные метаданные")
 
 
 class MetadataBuilder:
     """Построитель метаданных для ETL пайплайнов."""
     
-    def __init__(self, config: T, entity_type: str):
+    def __init__(self, config: Config, entity_type: str):
         self.config = config
         self.entity_type = entity_type
         self.start_time = datetime.now()
@@ -126,7 +126,7 @@ class MetadataBuilder:
             checksum=checksum
         )
     
-    def build_pipeline_info(self) -> Dict[str, Any]:
+    def build_pipeline_info(self) -> dict[str, Any]:
         """Построить информацию о пайплайне."""
         pipeline_info = {
             "name": self.entity_type,
@@ -151,7 +151,7 @@ class MetadataBuilder:
         
         return pipeline_info
     
-    def build_execution_info(self, end_time: Optional[datetime] = None) -> ExecutionInfo:
+    def build_execution_info(self, end_time: datetime | None = None) -> ExecutionInfo:
         """Построить информацию о выполнении."""
         if end_time is None:
             end_time = datetime.now()
@@ -165,7 +165,7 @@ class MetadataBuilder:
             duration_sec=duration
         )
     
-    def build_data_info(self, df: Any, accepted_df: Optional[Any] = None, rejected_df: Optional[Any] = None) -> DataInfo:
+    def build_data_info(self, df: Any, accepted_df: Any | None = None, rejected_df: Any | None = None) -> DataInfo:
         """Построить информацию о данных."""
         row_count = len(df) if hasattr(df, '__len__') else 0
         row_count_accepted = len(accepted_df) if accepted_df is not None and hasattr(accepted_df, '__len__') else row_count
@@ -179,7 +179,7 @@ class MetadataBuilder:
             columns_count=columns_count
         )
     
-    def build_sources_info(self, extraction_results: Optional[Dict[str, Any]] = None) -> List[SourceInfo]:
+    def build_sources_info(self, extraction_results: dict[str, Any] | None = None) -> list[SourceInfo]:
         """Построить информацию об источниках."""
         sources = []
         
@@ -206,7 +206,7 @@ class MetadataBuilder:
         
         return sources
     
-    def build_validation_info(self, validation_results: Optional[Dict[str, Any]] = None) -> ValidationInfo:
+    def build_validation_info(self, validation_results: dict[str, Any] | None = None) -> ValidationInfo:
         """Построить информацию о валидации."""
         if not validation_results:
             return ValidationInfo()
@@ -218,7 +218,7 @@ class MetadataBuilder:
             errors=validation_results.get('errors', 0)
         )
     
-    def build_files_info(self, output_files: Dict[str, Path]) -> Dict[str, Union[str, FileInfo]]:
+    def build_files_info(self, output_files: dict[str, Path]) -> dict[str, str | FileInfo]:
         """Построить информацию о файлах."""
         files_info = {}
         
@@ -243,13 +243,13 @@ class MetadataBuilder:
     def build_metadata(
         self,
         df: Any,
-        accepted_df: Optional[Any] = None,
-        rejected_df: Optional[Any] = None,
-        extraction_results: Optional[Dict[str, Any]] = None,
-        validation_results: Optional[Dict[str, Any]] = None,
-        output_files: Optional[Dict[str, Path]] = None,
-        end_time: Optional[datetime] = None,
-        additional_metadata: Optional[Dict[str, Any]] = None
+        accepted_df: Any | None = None,
+        rejected_df: Any | None = None,
+        extraction_results: dict[str, Any] | None = None,
+        validation_results: dict[str, Any] | None = None,
+        output_files: dict[str, Path] | None = None,
+        end_time: datetime | None = None,
+        additional_metadata: dict[str, Any] | None = None
     ) -> PipelineMetadata:
         """Построить полные метаданные пайплайна."""
         
@@ -279,10 +279,13 @@ class MetadataBuilder:
             metadata=metadata
         )
     
-    def save_metadata(self, metadata: PipelineMetadata, output_path: Path) -> None:
+    def save_metadata(self, metadata: PipelineMetadata | dict, output_path: Path) -> None:
         """Сохранить метаданные в YAML файл."""
         # Конвертировать в словарь для сериализации
-        metadata_dict = metadata.model_dump()
+        if isinstance(metadata, dict):
+            metadata_dict = metadata
+        else:
+            metadata_dict = metadata.model_dump()
         
         # Сохранить в YAML
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -305,12 +308,12 @@ def build_standard_metadata(
     config: Config,
     entity_type: str,
     df: Any,
-    accepted_df: Optional[Any] = None,
-    rejected_df: Optional[Any] = None,
-    extraction_results: Optional[Dict[str, Any]] = None,
-    validation_results: Optional[Dict[str, Any]] = None,
-    output_files: Optional[Dict[str, Path]] = None,
-    additional_metadata: Optional[Dict[str, Any]] = None
+    accepted_df: Any | None = None,
+    rejected_df: Any | None = None,
+    extraction_results: dict[str, Any] | None = None,
+    validation_results: dict[str, Any] | None = None,
+    output_files: dict[str, Path] | None = None,
+    additional_metadata: dict[str, Any] | None = None
 ) -> PipelineMetadata:
     """Построить стандартные метаданные для пайплайна."""
     builder = create_metadata_builder(config, entity_type)

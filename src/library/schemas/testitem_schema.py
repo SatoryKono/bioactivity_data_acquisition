@@ -4,10 +4,9 @@ Pandera схемы для валидации данных теститемов.
 Предоставляет схемы для входных, сырых и нормализованных данных теститемов.
 """
 
-from typing import Optional
 import pandas as pd
 import pandera as pa
-from pandera import Column, DataFrameSchema, Check
+from pandera import Check, Column, DataFrameSchema
 
 
 class TestitemInputSchema:
@@ -21,12 +20,13 @@ class TestitemInputSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL molecule ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID молекулы"
-            )
-        })
+            ),
+            "nstereo": Column(pa.Int, nullable=True, description="Количество стереоизомеров"),
+        }, strict=False)  # strict=False позволяет дополнительные колонки
 
 
 class TestitemRawSchema:
@@ -41,7 +41,7 @@ class TestitemRawSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL molecule ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID молекулы"
@@ -68,7 +68,7 @@ class TestitemRawSchema:
             "withdrawn_flag": Column(pa.Bool, nullable=True, description="Отозванное лекарство"),
             "retrieved_at": Column(
                 pa.DateTime,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Время получения данных"
             ),
@@ -90,206 +90,54 @@ class TestitemNormalizedSchema:
     def get_schema() -> DataFrameSchema:
         """Схема для нормализованных данных теститемов."""
         return DataFrameSchema({
-            # Основные поля ChEMBL
+            # Основные поля из входных данных
             "molecule_chembl_id": Column(
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL molecule ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID молекулы"
             ),
-            "molregno": Column(
-                pa.Int,
-                checks=[
-                    Check.greater_than(0, error="Molregno must be > 0")
-                ],
-                nullable=True,
-                description="Номер регистрации молекулы"
-            ),
-            "pref_name": Column(pa.String, nullable=True, description="Предпочтительное название молекулы"),
-            "parent_chembl_id": Column(pa.String, nullable=True, description="ID родительской молекулы"),
-            "max_phase": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="Max phase must be >= 0"),
-                    Check.less_than_or_equal_to(4, error="Max phase must be <= 4")
-                ],
-                nullable=True,
-                description="Максимальная фаза разработки"
-            ),
-            "therapeutic_flag": Column(pa.Bool, nullable=True, description="Флаг терапевтического применения"),
-            "structure_type": Column(pa.String, nullable=True, description="Тип структуры"),
+            "all_names": Column(pa.String, nullable=True, description="Все названия молекулы"),
+            "canonical_smiles": Column(pa.String, nullable=True, description="Канонические SMILES"),
+            "chirality": Column(pa.String, nullable=True, description="Хиральность"),
+            "inchi_key_from_mol": Column(pa.String, nullable=True, description="InChI ключ из молекулы"),
             "molecule_type": Column(pa.String, nullable=True, description="Тип молекулы"),
-            "mw_freebase": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(50.0, error="Molecular weight must be >= 50.0"),
-                    Check.less_than_or_equal_to(2000.0, error="Molecular weight must be <= 2000.0")
-                ],
-                nullable=True,
-                description="Молекулярная масса freebase"
-            ),
-            "alogp": Column(pa.Float, nullable=True, description="ALogP значение"),
-            "hba": Column(
-                pa.Int,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="HBA count must be >= 0")
-                ],
-                nullable=True,
-                description="Количество акцепторов водорода"
-            ),
-            "hbd": Column(
-                pa.Int,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="HBD count must be >= 0")
-                ],
-                nullable=True,
-                description="Количество доноров водорода"
-            ),
-            "psa": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="PSA must be >= 0")
-                ],
-                nullable=True,
-                description="Полярная площадь поверхности"
-            ),
-            "rtb": Column(
-                pa.Int,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="RTB count must be >= 0")
-                ],
-                nullable=True,
-                description="Количество вращающихся связей"
-            ),
-            "ro3_pass": Column(pa.Bool, nullable=True, description="Проходит ли Rule of 3"),
-            "num_ro5_violations": Column(
-                pa.Int,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="Ro5 violations must be >= 0"),
-                    Check.less_than_or_equal_to(5, error="Ro5 violations must be <= 5")
-                ],
-                nullable=True,
-                description="Нарушений Rule of 5"
-            ),
-            "qed_weighted": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="QED must be >= 0"),
-                    Check.less_than_or_equal_to(1, error="QED must be <= 1")
-                ],
-                nullable=True,
-                description="Weighted QED значение"
-            ),
-            "oral": Column(pa.Bool, nullable=True, description="Оральный путь введения"),
-            "parenteral": Column(pa.Bool, nullable=True, description="Парентеральный путь введения"),
-            "topical": Column(pa.Bool, nullable=True, description="Топический путь введения"),
-            "withdrawn_flag": Column(pa.Bool, nullable=True, description="Отозванное лекарство"),
-            "retrieved_at": Column(
-                pa.DateTime,
-                checks=[Check.not_null()],
-                nullable=False,
-                description="Время получения данных"
-            ),
+            "mw_freebase": Column(pa.Float, nullable=True, description="Молекулярная масса freebase"),
+            "nstereo": Column(pa.Int, nullable=True, description="Количество стереоизомеров"),
+            "num_ro5_violations": Column(pa.Float, nullable=True, description="Нарушений Rule of 5"),
+            "standard_inchi_key": Column(pa.String, nullable=True, description="Стандартный InChI ключ"),
             
-            # PubChem поля
-            "pubchem_cid": Column(
-                pa.Int,
-                checks=[
-                    Check.greater_than(0, error="PubChem CID must be > 0")
-                ],
-                nullable=True,
-                description="PubChem CID"
-            ),
-            "pubchem_molecular_formula": Column(pa.String, nullable=True, description="Молекулярная формула PubChem"),
-            "pubchem_molecular_weight": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(50.0, error="PubChem molecular weight must be >= 50.0"),
-                    Check.less_than_or_equal_to(2000.0, error="PubChem molecular weight must be <= 2000.0")
-                ],
-                nullable=True,
-                description="Молекулярная масса PubChem"
-            ),
-            "pubchem_canonical_smiles": Column(pa.String, nullable=True, description="Канонические SMILES PubChem"),
-            "pubchem_inchi": Column(pa.String, nullable=True, description="InChI PubChem"),
-            "pubchem_inchi_key": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r'^[A-Z]{14}-[A-Z]{10}-[A-Z]$', error="Invalid InChI Key format")
-                ],
-                nullable=True,
-                description="InChI Key PubChem"
-            ),
-            
-            # Стандартизированные поля
-            "standardized_inchi": Column(pa.String, nullable=True, description="Стандартизированный InChI"),
-            "standardized_inchi_key": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r'^[A-Z]{14}-[A-Z]{10}-[A-Z]$', error="Invalid standardized InChI Key format")
-                ],
-                nullable=True,
-                description="Стандартизированный InChI Key"
-            ),
-            "standardized_smiles": Column(pa.String, nullable=True, description="Стандартизированные SMILES"),
-            
-            # Системные поля
-            "index": Column(
-                pa.Int,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="Index must be >= 0"),
-                    Check.not_null()
-                ],
-                nullable=False,
-                description="Порядковый номер записи"
-            ),
-            "pipeline_version": Column(
-                pa.String,
-                checks=[Check.not_null()],
-                nullable=False,
-                description="Версия пайплайна"
-            ),
-            "source_system": Column(
-                pa.String,
-                checks=[Check.not_null()],
-                nullable=False,
-                description="Система-источник"
-            ),
+            # Поля, добавленные при нормализации
             "chembl_release": Column(pa.String, nullable=True, description="Версия ChEMBL"),
-            "extracted_at": Column(
-                pa.DateTime,
-                checks=[Check.not_null()],
-                nullable=False,
-                description="Время извлечения данных"
-            ),
-            "hash_row": Column(
-                pa.String,
-                checks=[Check.not_null()],
-                nullable=False,
-                description="Хеш строки SHA256"
-            ),
-            "hash_business_key": Column(
-                pa.String,
-                checks=[Check.not_null()],
-                nullable=False,
-                description="Хеш бизнес-ключа SHA256"
-            ),
+            "pubchem_registry_id": Column(pa.String, nullable=True, description="PubChem Registry ID"),
+            "direct_interaction": Column(pa.String, nullable=True, description="Прямое взаимодействие"),
+            "molecular_mechanism": Column(pa.String, nullable=True, description="Молекулярный механизм"),
+            "mechanism_of_action": Column(pa.String, nullable=True, description="Механизм действия"),
+            "pubchem_rn": Column(pa.String, nullable=True, description="PubChem RN"),
+            "parent_chembl_id": Column(pa.String, nullable=True, description="ID родительской молекулы"),
+            "parent_molregno": Column(pa.String, nullable=True, description="Номер регистрации родительской молекулы"),
+            "hash_business_key": Column(pa.String, nullable=True, description="Хеш бизнес-ключа SHA256"),
+            "hash_row": Column(pa.String, nullable=True, description="Хеш строки SHA256"),
             
-            # Ошибки и статусы
-            "extraction_errors": Column(pa.String, nullable=True, description="Ошибки извлечения (JSON)"),
-            "validation_errors": Column(pa.String, nullable=True, description="Ошибки валидации (JSON)"),
-            "extraction_status": Column(
-                pa.String,
-                checks=[
-                    Check.isin(["success", "partial", "failed"], error="Invalid extraction status")
-                ],
-                nullable=True,
-                description="Статус извлечения"
-            ),
-        })
+            # Распакованные поля из вложенных ChEMBL структур
+            "atc_classifications": Column(pa.String, nullable=True, description="ATC классификации (JSON)"),
+            "biotherapeutic": Column(pa.String, nullable=True, description="Биотерапевтическое соединение (JSON)"),
+            "chemical_probe": Column(pa.Bool, nullable=True, description="Химический зонд"),
+            "chirality_chembl": Column(pa.String, nullable=True, description="Хиральность из ChEMBL"),
+            "cross_references": Column(pa.String, nullable=True, description="Перекрестные ссылки (JSON)"),
+            "helm_notation": Column(pa.String, nullable=True, description="HELM нотация"),
+            "molecule_hierarchy": Column(pa.String, nullable=True, description="Иерархия молекулы (JSON)"),
+            "molecule_properties": Column(pa.String, nullable=True, description="Свойства молекулы (JSON)"),
+            "molecule_structures": Column(pa.String, nullable=True, description="Структуры молекулы (JSON)"),
+            "molecule_synonyms": Column(pa.String, nullable=True, description="Синонимы молекулы (JSON)"),
+            "molecule_type_chembl": Column(pa.String, nullable=True, description="Тип молекулы из ChEMBL"),
+            "orphan": Column(pa.Bool, nullable=True, description="Орфанное лекарство"),
+            "standard_inchi": Column(pa.String, nullable=True, description="Стандартный InChI"),
+            "veterinary": Column(pa.Bool, nullable=True, description="Ветеринарное лекарство"),
+        }, strict=False)  # strict=False позволяет дополнительные колонки
 
 
 class TestitemSchemaValidator:

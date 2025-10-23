@@ -1,13 +1,14 @@
 """Тесты совместимости унифицированных компонентов с существующими пайплайнами."""
 
-import pytest
-import pandas as pd
 from pathlib import Path
 from typing import Any
 
-from library.common.pipeline_base import PipelineBase
-from library.common.error_tracking import ErrorTracker, ErrorType, ErrorSeverity
+import pandas as pd
+import pytest
+
+from library.common.error_tracking import ErrorSeverity, ErrorTracker, ErrorType
 from library.common.metadata import MetadataBuilder
+from library.common.pipeline_base import PipelineBase
 from library.common.qc_profiles import QCValidator, QCProfile
 from library.common.postprocess_base import BasePostprocessor
 from library.common.writer_base import ETLWriter, ETLResult

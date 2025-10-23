@@ -27,9 +27,20 @@ def _load_document_data(input_path: Path, id_column: str | None = None) -> list[
             if id_column not in df.columns:
                 raise ValueError(f"CSV file must contain '{id_column}' column: {input_path}. Found: {list(df.columns)}")
         else:
-            # Проверяем наличие обязательных колонок
-            required_columns = {'document_chembl_id', 'doi', 'title'}
+            # Проверяем наличие обязательных колонок (проверяем как doi, так и DOI)
+            required_columns = {'document_chembl_id'}
             missing_columns = required_columns - set(df.columns)
+            
+            # Проверяем наличие колонки DOI (в любом регистре)
+            doi_column = None
+            for col in df.columns:
+                if col.lower() == 'doi':
+                    doi_column = col
+                    break
+            
+            if not doi_column:
+                missing_columns.add('doi')
+            
             if missing_columns:
                 raise ValueError(f"CSV file must contain columns: {', '.join(missing_columns)}. Found: {list(df.columns)}")
         
@@ -71,7 +82,7 @@ Examples:
         "--input", 
         type=Path,
         required=True,
-        help="Path to CSV file with document data (must contain document_chembl_id, doi, title columns)"
+        help="Path to CSV file with document data (must contain document_chembl_id, doi columns)"
     )
     
     # Sources
@@ -278,23 +289,21 @@ Examples:
             # Print summary
             print("\nSummary:")
             print(f"  Total documents: {len(result.data)}")
-            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown') if result.meta else 'unknown'}")
-            print(f"  Enabled sources: {', '.join(result.meta.get('enabled_sources', []) if result.meta else [])}")
+            if result.metadata:
+                pipeline_info = result.metadata.pipeline
+                print(f"  Pipeline version: {pipeline_info.get('version', 'unknown')}")
+                enabled_sources = [source.name for source in result.metadata.sources]
+                print(f"  Enabled sources: {', '.join(enabled_sources) if enabled_sources else 'none'}")
+            else:
+                print("  Pipeline version: unknown")
+                print("  Enabled sources: unknown")
             print(f"  Date tag: {date_tag}")
             
             # Print source statistics
-            if result.meta:
-                extraction_params = result.meta.get('extraction_parameters', {})
+            if result.metadata:
                 print("\nSource statistics:")
-                for source in result.meta.get('enabled_sources', []):
-                    records_key = f"{source}_records"
-                    if records_key in extraction_params:
-                        print(f"  {source}: {extraction_params[records_key]} records")
-            
-            # Print correlation analysis info
-            if result.meta and extraction_params.get('correlation_analysis_enabled', False):
-                insights_count = extraction_params.get('correlation_insights_count', 0)
-                print(f"  Correlation analysis: {insights_count} insights found")
+                for source in result.metadata.sources:
+                    print(f"  {source.name}: {source.records_fetched} records")
         else:
             print("Dry run completed. No files were written.")
         

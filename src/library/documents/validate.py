@@ -11,7 +11,6 @@ import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
 from library.schemas.document_input_schema import DocumentInputSchema
-from library.schemas.document_output_schema import DocumentOutputSchema
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,27 @@
+pipeline:
+  name: documents
+  entity_type: documents
+  version: 2.0.0
+  source_system: chembl
+execution:
+  run_id: documents_20251023_181922_51206242
+  started_at: '2025-10-23T18:19:22.387655'
+  completed_at: '2025-10-23T18:19:22.387674'
+  duration_sec: 1.9e-05
+  memory_peak_mb: null
+data:
+  row_count: 2
+  row_count_accepted: 2
+  row_count_rejected: 0
+  columns_count: 87
+sources: []
+validation:
+  schema_passed: true
+  qc_passed: true
+  warnings: 0
+  errors: 0
+files: {}
+metadata:
+  generated_at: '2025-10-23T18:19:22.387745'
+  generator: MetadataBuilder
+  generator_version: 1.0.0

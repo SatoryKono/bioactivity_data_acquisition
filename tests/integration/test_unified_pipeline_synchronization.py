@@ -4,11 +4,12 @@
 """
 
 import pytest
-import pandas as pd
 from typing import Any
 
+import pandas as pd
+
 from library.common.pipeline_base import PipelineBase
-from library.common.error_tracking import ErrorTracker, ErrorType
+from library.common.error_tracking import ErrorTracker
 from library.common.metadata import MetadataBuilder
 from library.common.qc_profiles import QCValidator, QCProfile
 from library.common.postprocess_base import BasePostprocessor
@@ -295,19 +296,19 @@ class TestUnifiedPipelineSynchronization:
     def test_error_handling_in_pipeline(self):
         """Тест обработки ошибок в пайплайне."""
         config = MockConfig("test_entity")
-        pipeline = MockPipeline(config)
+        # pipeline = MockPipeline(config)
         
         # Создаем пайплайн, который будет падать
         class FailingPipeline(MockPipeline):
             def extract(self, input_data: pd.DataFrame) -> pd.DataFrame:
                 raise Exception("Test extraction error")
         
-        failing_pipeline = FailingPipeline(config)
         
         # Создаем входные данные
         input_data = pd.DataFrame({"id": ["TEST001"]})
         
         # Проверяем, что ошибка обрабатывается
+        failing_pipeline = FailingPipeline(config)
         with pytest.raises(Exception, match="Test extraction error"):
             failing_pipeline.run_unified(input_data)
         

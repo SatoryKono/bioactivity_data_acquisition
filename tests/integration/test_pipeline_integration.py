@@ -184,7 +184,7 @@ class TestPipelineIntegration:
         }
         
         # Should raise validation error
-        with pytest.raises(Exception):  # Could be ValidationError or ValueError
+        with pytest.raises((ValueError, TypeError)):  # More specific exception types
             Config.model_validate(invalid_config_data)
 
     @pytest.mark.skipif(not _check_network_access() or not _check_api_keys(), reason="no network access or missing API keys")

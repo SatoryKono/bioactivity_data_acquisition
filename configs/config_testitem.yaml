@@ -28,6 +28,7 @@ http:
 # Источники данных - конфигурация источников для извлечения данных
 sources:
   chembl:                             # ChEMBL API как основной источник
+    name: "chembl"                    # Имя источника (обязательное поле)
     enabled: true                     # Включен ли источник
     http:                             # HTTP настройки для ChEMBL
       base_url: "https://www.ebi.ac.uk/chembl/api/data"  # Базовый URL API
@@ -39,6 +40,7 @@ sources:
     max_compounds: null               # Максимум соединений (null = без ограничений)
     
   pubchem:                            # PubChem PUG-REST API для химических данных
+    name: "pubchem"                   # Имя источника (обязательное поле)
     enabled: true                     # Включен ли источник
     http:                             # HTTP настройки для PubChem
       base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"  # Базовый URL PUG-REST API
@@ -48,6 +50,11 @@ sources:
         backoff_multiplier: 2.0       # Множитель задержки
     batch_size: 100                   # Размер батча для запросов
     max_requests_per_second: 5        # Максимум запросов в секунду
+    allow_polymer: false              # Разрешить полимеры
+    prefer_local_smiles: false        # Предпочитать локальные SMILES
+    prefer_local_values: false        # Предпочитать локальные значения
+    cid_cache_path: "data/cache/pubchem_cid_cache.json"  # Путь к кэшу CID
+    cache_ttl_hours: 720              # Время жизни кэша в часах (30 дней)
 
 # Ввод-вывод
 io:
@@ -57,7 +64,9 @@ io:
     required_columns: ["molecule_chembl_id"]
     
   output:
-    dir: "data/output/testitems"
+    data_path: "data/output/testitem/testitem.csv"
+    qc_report_path: "data/output/testitem/qc_report.csv"
+    correlation_path: "data/output/testitem/correlation.csv"
     format: "csv"
     csv:
       encoding: "utf-8"
@@ -201,6 +210,36 @@ determinism:
     - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
     - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
     - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    
+    # Входные данные из input файла
+    - "all_names"                     # STRING: Все названия молекулы, источник: input, тип: STRING, валидация: nullable
+    - "canonical_smiles"              # STRING: Канонические SMILES из входных данных, источник: input, тип: STRING, валидация: nullable
+    - "inchi_key_from_mol"            # STRING: InChI ключ из молекулы, источник: input, тип: STRING, валидация: nullable
+    - "inchi_key_from_smiles"         # STRING: InChI ключ из SMILES, источник: input, тип: STRING, валидация: nullable
+    - "is_radical"                    # BOOL: Флаг радикала, источник: input, тип: BOOL, валидация: boolean
+    - "mw_<100_or_>1000"             # BOOL: Молекулярная масса <100 или >1000, источник: input, тип: BOOL, валидация: boolean
+    - "n_stereocenters"               # INT: Количество стереоцентров, источник: input, тип: INT, валидация: nullable, >= 0
+    - "nstereo"                       # INT: Количество стереоизомеров, источник: input, тип: INT, валидация: nullable, >= 0
+    - "salt_chembl_id"                # STRING: ChEMBL ID соли, источник: input, тип: STRING, валидация: nullable
+    - "standard_inchi_key"            # STRING: Стандартный InChI ключ, источник: input, тип: STRING, валидация: nullable
+    - "standard_inchi_skeleton"       # STRING: Стандартный InChI скелет, источник: input, тип: STRING, валидация: nullable
+    - "standard_inchi_stereo"         # STRING: Стандартный InChI стерео, источник: input, тип: STRING, валидация: nullable
+    
+    # Вложенные структуры ChEMBL (JSON/распакованные)
+    - "atc_classifications"           # STRING: ATC классификации (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "biotherapeutic"                # STRING: Биотерапевтическое соединение (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "chemical_probe"                # BOOL: Химический зонд, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "cross_references"              # STRING: Перекрестные ссылки (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "helm_notation"                 # STRING: HELM нотация, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_hierarchy"            # STRING: Иерархия молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_properties"           # STRING: Свойства молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_structures"           # STRING: Структуры молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_synonyms"             # STRING: Синонимы молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "orphan"                        # BOOL: Орфанное лекарство, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "veterinary"                    # BOOL: Ветеринарное лекарство, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "standard_inchi"                # STRING: Стандартный InChI, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "chirality_chembl"              # STRING: Хиральность из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_type_chembl"          # STRING: Тип молекулы из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
 
 # Валидация - настройки проверки данных
 validation:

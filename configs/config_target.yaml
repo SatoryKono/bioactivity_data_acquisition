@@ -117,38 +117,70 @@ determinism:
     ascending: [true]
     na_position: "last"
   column_order:
-    # Основные идентификаторы и названия
+    # 1. Primary key
     - "target_chembl_id"               # STRING: PK таргета из ChEMBL API /target, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
+    
+    # 2. Basic identifiers  
     - "pref_name"                      # STRING: Предпочтительное название таргета, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "component_description"          # STRING: Описание компонента, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "component_id"                   # INT: ID компонента, источник: ChEMBL, тип: INT, валидация: nullable
+    - "relationship"                   # STRING: Отношение компонента, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "gene"                           # STRING: Символ гена, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "uniprot_id"                     # STRING: UniProt ID из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "mapping_uniprot_id"             # STRING: Маппинг UniProt ID, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "chembl_alternative_name"        # STRING: Альтернативное название ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "ec_code"                        # STRING: EC код фермента, источник: ChEMBL, тип: STRING, валидация: nullable
     - "hgnc_name"                      # STRING: Название по HGNC, источник: HGNC, тип: STRING, валидация: nullable
     - "hgnc_id"                        # STRING: HGNC идентификатор, источник: HGNC, тип: STRING, валидация: nullable, pattern ^HGNC:\d+$
     - "target_type"                    # STRING: Тип таргета, источник: ChEMBL, тип: STRING, валидация: nullable
     - "tax_id"                         # INT: Таксономический ID, источник: ChEMBL, тип: INT, валидация: nullable, > 0
     - "species_group_flag"             # BOOL: Флаг группировки по видам, источник: ChEMBL, тип: BOOL, валидация: boolean
+    
+    # 3. ChEMBL structured data
     - "target_components"              # TEXT: Компоненты таргета, источник: ChEMBL, тип: TEXT, валидация: nullable
     - "protein_classifications"        # TEXT: Классификация белка, источник: ChEMBL, тип: TEXT, валидация: nullable
     - "cross_references"               # TEXT: Перекрестные ссылки, источник: ChEMBL, тип: TEXT, валидация: nullable
     - "reaction_ec_numbers"            # TEXT: EC номера реакций, источник: ChEMBL, тип: TEXT, валидация: nullable
     
-    # UniProt данные
+    # 4. UniProt primary data
     - "uniprot_id_primary"             # STRING: Первичный UniProt ID, источник: UniProt REST API, тип: STRING, валидация: nullable, UNIQUE
+    - "uniprot_ids_all"                # TEXT: Все UniProt ID, источник: UniProt, тип: TEXT, валидация: nullable
     - "uniProtkbId"                    # STRING: UniProtKB ID, источник: UniProt, тип: STRING, валидация: nullable
     - "secondaryAccessions"            # TEXT: Вторичные accession номера, источник: UniProt, тип: TEXT, валидация: nullable
     - "secondaryAccessionNames"        # TEXT: Названия вторичных accession, источник: UniProt, тип: TEXT, валидация: nullable
     - "recommendedName"                # STRING: Рекомендуемое название, источник: UniProt, тип: STRING, валидация: nullable
-    - "protein_name_alt"               # STRING: Альтернативное название белка, источник: UniProt, тип: STRING, валидация: nullable
     - "geneName"                       # STRING: Название гена, источник: UniProt, тип: STRING, валидация: nullable
-    - "gene_symbol_list"               # TEXT: Список символов генов, источник: UniProt, тип: TEXT, валидация: nullable
-    - "organism"                       # STRING: Организм, источник: UniProt, тип: STRING, валидация: nullable
+    
+    # 5. Isoform data
+    - "isoform_ids"                    # TEXT: ID изоформ, источник: UniProt, тип: TEXT, валидация: nullable
+    - "isoform_names"                  # TEXT: Названия изоформ, источник: UniProt, тип: TEXT, валидация: nullable
+    - "isoform_synonyms"               # TEXT: Синонимы изоформ, источник: UniProt, тип: TEXT, валидация: nullable
+    
+    # 6. Protein names
+    - "protein_name_canonical"         # STRING: Каноническое название белка, источник: UniProt, тип: STRING, валидация: nullable
+    - "protein_name_alt"               # STRING: Альтернативное название белка, источник: UniProt, тип: STRING, валидация: nullable
+    
+    # 7. Taxonomy
     - "taxon_id"                       # INT: Таксономический ID, источник: UniProt, тип: INT, валидация: nullable, > 0
     - "lineage_superkingdom"           # STRING: Суперцарство в линии, источник: UniProt, тип: STRING, валидация: nullable
     - "lineage_phylum"                 # STRING: Тип в линии, источник: UniProt, тип: STRING, валидация: nullable
     - "lineage_class"                  # STRING: Класс в линии, источник: UniProt, тип: STRING, валидация: nullable
+    
+    # 8. Sequence info
     - "sequence_length"                # INT: Длина последовательности, источник: UniProt, тип: INT, валидация: nullable, > 0
+    
+    # 9. Features
+    - "features_signal_peptide"        # BOOL: Сигнальный пептид (features), источник: UniProt, тип: BOOL, валидация: boolean
+    - "features_transmembrane"         # BOOL: Трансмембранный (features), источник: UniProt, тип: BOOL, валидация: boolean
+    - "features_topology"              # TEXT: Топология (features), источник: UniProt, тип: TEXT, валидация: nullable
+    
+    # 10. Functional annotations
     - "molecular_function"             # TEXT: Молекулярная функция, источник: UniProt, тип: TEXT, валидация: nullable
     - "cellular_component"             # TEXT: Клеточный компонент, источник: UniProt, тип: TEXT, валидация: nullable
     - "subcellular_location"           # TEXT: Субклеточная локализация, источник: UniProt, тип: TEXT, валидация: nullable
     - "topology"                       # TEXT: Топология, источник: UniProt, тип: TEXT, валидация: nullable
+    
+    # 11. PTM features (boolean flags)
     - "transmembrane"                  # BOOL: Трансмембранный, источник: UniProt, тип: BOOL, валидация: boolean
     - "intramembrane"                  # BOOL: Внутримембранный, источник: UniProt, тип: BOOL, валидация: boolean
     - "glycosylation"                  # BOOL: Гликозилирование, источник: UniProt, тип: BOOL, валидация: boolean
@@ -160,9 +192,23 @@ determinism:
     - "ubiquitination"                 # BOOL: Убиквитинирование, источник: UniProt, тип: BOOL, валидация: boolean
     - "signal_peptide"                 # BOOL: Сигнальный пептид, источник: UniProt, тип: BOOL, валидация: boolean
     - "propeptide"                     # BOOL: Пропептид, источник: UniProt, тип: BOOL, валидация: boolean
+    
+    # 12. PTM features (text fields)
+    - "ptm_glycosylation"              # TEXT: Гликозилирование (текст), источник: UniProt, тип: TEXT, валидация: nullable
+    - "ptm_lipidation"                 # TEXT: Липидирование (текст), источник: UniProt, тип: TEXT, валидация: nullable
+    - "ptm_disulfide_bond"             # TEXT: Дисульфидная связь (текст), источник: UniProt, тип: TEXT, валидация: nullable
+    - "ptm_modified_residue"           # TEXT: Модифицированный остаток (текст), источник: UniProt, тип: TEXT, валидация: nullable
+    
+    # 13. Cross-references
+    - "xref_chembl"                    # TEXT: Ссылки на ChEMBL, источник: UniProt, тип: TEXT, валидация: nullable
+    - "xref_uniprot"                   # TEXT: Ссылки на UniProt, источник: UniProt, тип: TEXT, валидация: nullable
     - "xref_ensembl"                   # TEXT: Ссылки на Ensembl, источник: UniProt, тип: TEXT, валидация: nullable
+    - "xref_iuphar"                    # TEXT: Ссылки на IUPHAR, источник: UniProt, тип: TEXT, валидация: nullable
     - "xref_pdb"                       # TEXT: Ссылки на PDB, источник: UniProt, тип: TEXT, валидация: nullable
     - "xref_alphafold"                 # TEXT: Ссылки на AlphaFold, источник: UniProt, тип: TEXT, валидация: nullable
+    
+    # 14. Database families
+    - "GuidetoPHARMACOLOGY"            # TEXT: Guide to Pharmacology классификация, источник: UniProt, тип: TEXT, валидация: nullable
     - "family"                         # TEXT: Семейство, источник: UniProt, тип: TEXT, валидация: nullable
     - "SUPFAM"                         # TEXT: SUPFAM классификация, источник: UniProt, тип: TEXT, валидация: nullable
     - "PROSITE"                        # TEXT: PROSITE классификация, источник: UniProt, тип: TEXT, валидация: nullable
@@ -170,39 +216,87 @@ determinism:
     - "Pfam"                           # TEXT: Pfam классификация, источник: UniProt, тип: TEXT, валидация: nullable
     - "PRINTS"                         # TEXT: PRINTS классификация, источник: UniProt, тип: TEXT, валидация: nullable
     - "TCDB"                           # TEXT: TCDB классификация, источник: UniProt, тип: TEXT, валидация: nullable
-    - "GuidetoPHARMACOLOGY"            # TEXT: Guide to Pharmacology классификация, источник: UniProt, тип: TEXT, валидация: nullable
+    - "pfam"                           # TEXT: Pfam классификация (lowercase), источник: UniProt, тип: TEXT, валидация: nullable
+    - "interpro"                       # TEXT: InterPro классификация (lowercase), источник: UniProt, тип: TEXT, валидация: nullable
+    
+    # 15. Reactions
     - "reactions"                      # TEXT: Реакции, источник: UniProt, тип: TEXT, валидация: nullable
-    - "reaction_ec_numbers"            # TEXT: EC номера реакций, источник: UniProt, тип: TEXT, валидация: nullable
-    - "isoform_ids"                    # TEXT: ID изоформ, источник: UniProt, тип: TEXT, валидация: nullable
-    - "isoform_names"                  # TEXT: Названия изоформ, источник: UniProt, тип: TEXT, валидация: nullable
-    - "isoform_synonyms"               # TEXT: Синонимы изоформ, источник: UniProt, тип: TEXT, валидация: nullable
+    - "reaction_ec_numbers_uniprot"    # TEXT: EC номера реакций UniProt, источник: UniProt, тип: TEXT, валидация: nullable
+    
+    # 16. UniProt metadata
     - "uniprot_last_update"            # STRING: Последнее обновление UniProt, источник: UniProt, тип: DATE, валидация: nullable, ISO 8601
     - "uniprot_version"                # INT: Версия UniProt, источник: UniProt, тип: INT, валидация: nullable, > 0
+    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL
+    - "timestamp_utc"                  # STRING: Временная метка UTC, источник: система, тип: TIMESTAMP, валидация: nullable, ISO 8601
     
-    # IUPHAR/GtoP данные
+    # 17. Gene symbols
+    - "gene_symbol"                    # STRING: Символ гена, источник: UniProt, тип: STRING, валидация: nullable
+    - "gene_symbol_list"               # TEXT: Список символов генов, источник: UniProt, тип: TEXT, валидация: nullable
+    - "organism"                       # STRING: Организм, источник: UniProt, тип: STRING, валидация: nullable
+    
+    # 18. IUPHAR data
     - "iuphar_target_id"               # INT: IUPHAR ID таргета, источник: IUPHAR API, тип: INT, валидация: nullable, UNIQUE
+    - "iuphar_name"                    # STRING: Название по IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
     - "iuphar_family_id"               # INT: IUPHAR ID семейства, источник: IUPHAR API, тип: INT, валидация: nullable
+    - "iuphar_full_id_path"            # TEXT: Полный путь ID по IUPHAR, источник: IUPHAR API, тип: TEXT, валидация: nullable
+    - "iuphar_full_name_path"          # TEXT: Полный путь названий по IUPHAR, источник: IUPHAR API, тип: TEXT, валидация: nullable
     - "iuphar_type"                    # STRING: Тип по IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
     - "iuphar_class"                   # STRING: Класс по IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
     - "iuphar_subclass"                # STRING: Подкласс по IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
     - "iuphar_chain"                   # STRING: Цепь по IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
-    - "iuphar_name"                    # STRING: Название по IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
-    - "iuphar_full_id_path"            # TEXT: Полный путь ID по IUPHAR, источник: IUPHAR API, тип: TEXT, валидация: nullable
-    - "iuphar_full_name_path"          # TEXT: Полный путь названий по IUPHAR, источник: IUPHAR API, тип: TEXT, валидация: nullable
+    - "iuphar_gene_symbol"             # STRING: Символ гена IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
+    - "iuphar_hgnc_id"                 # STRING: HGNC ID IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
+    - "iuphar_hgnc_name"               # STRING: HGNC название IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
+    - "iuphar_uniprot_id_primary"      # STRING: Первичный UniProt ID IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
+    - "iuphar_uniprot_name"            # STRING: UniProt название IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
+    - "iuphar_organism"                # STRING: Организм IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
+    - "iuphar_taxon_id"                # INT: Таксономический ID IUPHAR, источник: IUPHAR API, тип: INT, валидация: nullable
+    - "iuphar_description"             # TEXT: Описание IUPHAR, источник: IUPHAR API, тип: TEXT, валидация: nullable
+    - "iuphar_abbreviation"            # STRING: Аббревиатура IUPHAR, источник: IUPHAR API, тип: STRING, валидация: nullable
+    
+    # 19. GtoPdb data
     - "gtop_target_id"                 # INT: GtoP ID таргета, источник: GtoP API, тип: INT, валидация: nullable
     - "gtop_synonyms"                  # TEXT: Синонимы по GtoP, источник: GtoP API, тип: TEXT, валидация: nullable
     - "gtop_natural_ligands_n"         # INT: Количество природных лигандов, источник: GtoP API, тип: INT, валидация: nullable, >= 0
     - "gtop_interactions_n"            # INT: Количество взаимодействий, источник: GtoP API, тип: INT, валидация: nullable, >= 0
     - "gtop_function_text_short"       # TEXT: Краткое описание функции, источник: GtoP API, тип: TEXT, валидация: nullable
     
-   # Метаданные
-    - "index"     
-    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                        # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
-    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
-    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
-    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    # 20. Unified fields
+    - "unified_name"                   # STRING: Унифицированное название, источник: вычисляемое, тип: STRING, валидация: nullable
+    - "unified_organism"               # STRING: Унифицированный организм, источник: вычисляемое, тип: STRING, валидация: nullable
+    - "unified_tax_id"                 # INT: Унифицированный таксономический ID, источник: вычисляемое, тип: INT, валидация: nullable
+    - "unified_target_type"            # STRING: Унифицированный тип таргета, источник: вычисляемое, тип: STRING, валидация: nullable
+    
+    # 21. Data quality flags
+    - "has_chembl_data"                # BOOL: Есть данные ChEMBL, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "has_uniprot_data"               # BOOL: Есть данные UniProt, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "has_iuphar_data"                # BOOL: Есть данные IUPHAR, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "has_gtopdb_data"                # BOOL: Есть данные GtoPdb, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "has_name"                       # BOOL: Есть название, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "has_organism"                   # BOOL: Есть организм, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "has_tax_id"                     # BOOL: Есть таксономический ID, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "has_target_type"                # BOOL: Есть тип таргета, источник: вычисляемое, тип: BOOL, валидация: boolean
+    - "multi_source_validated"         # BOOL: Валидировано несколькими источниками, источник: вычисляемое, тип: BOOL, валидация: boolean
+    
+    # 22. Protein class predictions
+    - "protein_class_pred_L1"          # STRING: Предсказание класса белка L1, источник: вычисляемое, тип: STRING, валидация: nullable
+    
+    # 23. System metadata
+    - "index"                          # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "extraction_status"              # STRING: Статус извлечения, источник: система, тип: STRING, валидация: NOT NULL
+    - "protein_class_pred_rule_id"     # STRING: ID правила предсказания класса, источник: вычисляемое, тип: STRING, валидация: nullable
+    - "source_system"                  # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "protein_class_pred_L3"          # STRING: Предсказание класса белка L3, источник: вычисляемое, тип: STRING, валидация: nullable
+    - "hash_business_key"              # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "validation_errors"              # TEXT: Ошибки валидации, источник: система, тип: TEXT, валидация: nullable
+    - "extraction_errors"              # TEXT: Ошибки извлечения, источник: система, тип: TEXT, валидация: nullable
+    - "extracted_at"                   # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "protein_class_pred_L2"          # STRING: Предсказание класса белка L2, источник: вычисляемое, тип: STRING, валидация: nullable
+    - "protein_synonym_list"           # TEXT: Список синонимов белка, источник: вычисляемое, тип: TEXT, валидация: nullable
+    - "chembl_release"                 # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "protein_class_pred_confidence"  # FLOAT: Уверенность предсказания класса, источник: вычисляемое, тип: FLOAT, валидация: nullable
+    - "protein_class_pred_evidence"    # TEXT: Доказательства предсказания класса, источник: вычисляемое, тип: TEXT, валидация: nullable
+    - "hash_row"                       # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
 
 # Валидация - настройки проверки данных
 validation:
@@ -395,3 +489,167 @@ telemetry:
   api_key: null                      # API ключ для аутентификации
   batch_size: 100                    # Размер батча для отправки
   flush_interval: 30.0               # Интервал отправки в секундах
+
+# Нормализация данных - настройки нормализации полей
+normalization:
+  enabled: true                      # Включить нормализацию
+  version: "1.0.0"                   # Версия системы нормализации
+  responsible: "Data Engineering Team" # Ответственная команда
+  last_updated: "2025-01-23"         # Дата последнего обновления
+  
+  # Функции нормализации для полей targets
+  functions:
+    # Основные идентификаторы
+    target_chembl_id:
+      - normalize_string_strip
+      - normalize_string_upper
+      - normalize_chembl_id
+    
+    pref_name:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    hgnc_name:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    hgnc_id:
+      - normalize_string_strip
+      - normalize_hgnc_id
+    
+    target_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    # UniProt поля
+    uniprot_id_primary:
+      - normalize_string_strip
+      - normalize_string_upper
+      - normalize_uniprot_id
+    
+    uniProtkbId:
+      - normalize_string_strip
+      - normalize_string_upper
+      - normalize_uniprot_id
+    
+    # Числовые поля
+    tax_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    taxon_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    sequence_length:
+      - normalize_int
+      - normalize_int_positive
+    
+    # Булевые поля PTM
+    transmembrane:
+      - normalize_boolean
+    
+    intramembrane:
+      - normalize_boolean
+    
+    glycosylation:
+      - normalize_boolean
+    
+    lipidation:
+      - normalize_boolean
+    
+    disulfide_bond:
+      - normalize_boolean
+    
+    modified_residue:
+      - normalize_boolean
+    
+    phosphorylation:
+      - normalize_boolean
+    
+    acetylation:
+      - normalize_boolean
+    
+    ubiquitination:
+      - normalize_boolean
+    
+    signal_peptide:
+      - normalize_boolean
+    
+    propeptide:
+      - normalize_boolean
+    
+    species_group_flag:
+      - normalize_boolean
+    
+    # IUPHAR поля
+    iuphar_target_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    iuphar_family_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    iuphar_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    iuphar_class:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    iuphar_subclass:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    iuphar_chain:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    iuphar_name:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # GtoPdb поля
+    gtop_target_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    gtop_natural_ligands_n:
+      - normalize_int
+      - normalize_int_positive
+    
+    gtop_interactions_n:
+      - normalize_int
+      - normalize_int_positive
+    
+    # Системные поля
+    index:
+      - normalize_int
+      - normalize_int_positive
+    
+    pipeline_version:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    source_system:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    chembl_release:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    extracted_at:
+      - normalize_datetime_iso8601
+    
+    hash_row:
+      - normalize_string_strip
+      - normalize_string_lower
+    
+    hash_business_key:
+      - normalize_string_strip
+      - normalize_string_lower

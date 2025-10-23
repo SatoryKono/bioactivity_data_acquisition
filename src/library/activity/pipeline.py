@@ -7,13 +7,12 @@ from typing import Any
 
 import pandas as pd
 
-from library.clients.chembl import ChEMBLClient
-from library.common.pipeline_base import PipelineBase
-from library.common.writer_base import ETLResult
 from library.activity.config import ActivityConfig
 from library.activity.normalize import ActivityNormalizer
 from library.activity.quality import ActivityQualityFilter
 from library.activity.validate import ActivityValidator
+from library.clients.chembl import ChEMBLClient
+from library.common.pipeline_base import PipelineBase
 
 logger = logging.getLogger(__name__)
 
@@ -123,15 +122,54 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
     
     def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
         """Extract data from ChEMBL."""
-        # This would contain the actual ChEMBL extraction logic
-        # For now, return empty DataFrame as placeholder
-        return pd.DataFrame()
+        from library.activity.client import ActivityChEMBLClient
+        
+        client = ActivityChEMBLClient(self.clients["chembl"].config)
+        
+        # Extract activity IDs from input data
+        activity_ids = data["activity_chembl_id"].tolist()
+        
+        # Fetch activities from ChEMBL
+        activities = []
+        for activity in client.fetch_all_activities(activity_ids=activity_ids):
+            activities.append(activity)
+        
+        # Convert to DataFrame
+        if activities:
+            return pd.DataFrame(activities)
+        else:
+            return pd.DataFrame()
     
     def _merge_chembl_data(self, base_data: pd.DataFrame, chembl_data: pd.DataFrame) -> pd.DataFrame:
         """Merge ChEMBL data into base data."""
-        # This would contain the actual merging logic
-        # For now, return base data as placeholder
-        return base_data
+        if chembl_data.empty:
+            return base_data
+        
+        # Merge on activity_chembl_id
+        merged = base_data.merge(
+            chembl_data, 
+            on="activity_chembl_id", 
+            how="left", 
+            suffixes=("", "_chembl")
+        )
+        
+        # For fields that exist in both, prefer ChEMBL data
+        chembl_fields = [
+            "assay_chembl_id", "molecule_chembl_id", "target_chembl_id", "document_chembl_id",
+            "published_type", "published_relation", "published_value", "published_units",
+            "standard_type", "standard_relation", "standard_value", "standard_units", "standard_flag",
+            "pchembl_value", "data_validity_comment", "activity_comment",
+            "bao_endpoint", "bao_format", "bao_label"
+        ]
+        
+        for field in chembl_fields:
+            chembl_field = f"{field}_chembl"
+            if chembl_field in merged.columns:
+                # Use ChEMBL data where available, fallback to base data
+                merged[field] = merged[chembl_field].fillna(merged[field])
+                merged = merged.drop(columns=[chembl_field])
+        
+        return merged
     
     def normalize(self, raw_data: pd.DataFrame) -> pd.DataFrame:
         """Normalize activity data."""
@@ -190,17 +228,34 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
         from library.common.writer_base import create_etl_writer
         return create_etl_writer(self.config, "activities")
     
-    def _build_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
+    def _build_metadata(
+        self, 
+        data: pd.DataFrame, 
+        accepted_data: pd.DataFrame | None = None, 
+        rejected_data: pd.DataFrame | None = None,
+        correlation_analysis: dict[str, Any] | None = None,
+        correlation_insights: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Build metadata for activity pipeline."""
-        # Create base metadata dictionary
-        metadata = {
-            "pipeline_name": "activities",
-            "pipeline_version": "2.0.0",
-            "entity_type": "activities",
-            "sources_enabled": [name for name, source in self.config.sources.items() if source.enabled],
-            "total_activities": len(data),
-            "extraction_timestamp": pd.Timestamp.now().isoformat(),
-            "config": self.config.model_dump() if hasattr(self.config, 'model_dump') else {},
-        }
+        # Use MetadataBuilder to create proper PipelineMetadata
+        from library.common.metadata import MetadataBuilder
+        
+        metadata_builder = MetadataBuilder(self.config, "activities")
+        
+        # Prepare additional metadata
+        additional_metadata = {}
+        if correlation_analysis is not None:
+            additional_metadata["correlation_analysis"] = correlation_analysis
+        if correlation_insights is not None:
+            additional_metadata["correlation_insights"] = correlation_insights
+        
+        # Build proper metadata using MetadataBuilder
+        metadata = metadata_builder.build_metadata(
+            df=data,
+            accepted_df=accepted_data if accepted_data is not None else data,
+            rejected_df=rejected_data if rejected_data is not None else pd.DataFrame(),
+            output_files={},  # Will be filled by writer
+            additional_metadata=additional_metadata if additional_metadata else None
+        )
         
         return metadata

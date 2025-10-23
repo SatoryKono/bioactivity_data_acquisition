@@ -4,10 +4,9 @@ Pandera схемы для валидации данных активностей
 Предоставляет схемы для входных, сырых и нормализованных данных активностей.
 """
 
-from typing import Optional
 import pandas as pd
 import pandera as pa
-from pandera import Column, DataFrameSchema, Check
+from pandera import Check, Column, DataFrameSchema
 
 
 class ActivityInputSchema:
@@ -21,7 +20,7 @@ class ActivityInputSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL activity ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID активности"
@@ -30,7 +29,7 @@ class ActivityInputSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL assay ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID ассая"
@@ -39,7 +38,7 @@ class ActivityInputSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL document ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID документа"
@@ -48,7 +47,7 @@ class ActivityInputSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL molecule ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID молекулы"
@@ -57,7 +56,7 @@ class ActivityInputSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL target ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID таргета"
@@ -77,7 +76,7 @@ class ActivityRawSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL activity ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID активности"
@@ -86,7 +85,7 @@ class ActivityRawSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL assay ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID ассая"
@@ -95,7 +94,7 @@ class ActivityRawSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL document ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID документа"
@@ -104,7 +103,7 @@ class ActivityRawSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL target ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID таргета"
@@ -113,14 +112,14 @@ class ActivityRawSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL molecule ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID молекулы"
             ),
             "retrieved_at": Column(
                 pa.DateTime,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Время получения данных"
             ),
@@ -161,7 +160,7 @@ class ActivityNormalizedSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL activity ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID активности"
@@ -170,7 +169,7 @@ class ActivityNormalizedSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL assay ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID ассая"
@@ -179,7 +178,7 @@ class ActivityNormalizedSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL document ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID документа"
@@ -188,7 +187,7 @@ class ActivityNormalizedSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL target ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID таргета"
@@ -197,14 +196,14 @@ class ActivityNormalizedSchema:
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL molecule ID format"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="ChEMBL ID молекулы"
             ),
             "retrieved_at": Column(
                 pa.DateTime,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Время получения данных"
             ),
@@ -282,7 +281,7 @@ class ActivityNormalizedSchema:
             "published_units": Column(pa.String, nullable=True, description="Оригинальные единицы"),
             "standard_type": Column(
                 pa.String,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Стандартизованный тип активности"
             ),
@@ -299,7 +298,7 @@ class ActivityNormalizedSchema:
                 checks=[
                     Check.greater_than_or_equal_to(1e-12, error="Standard value must be >= 1e-12"),
                     Check.less_than_or_equal_to(1e-3, error="Standard value must be <= 1e-3"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="Стандартизованное значение"
@@ -308,7 +307,7 @@ class ActivityNormalizedSchema:
                 pa.String,
                 checks=[
                     Check.isin(["nM", "uM", "mM", "M", "%"], error="Invalid standard units"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="Стандартизованные единицы"
@@ -323,39 +322,39 @@ class ActivityNormalizedSchema:
                 pa.Int,
                 checks=[
                     Check.greater_than_or_equal_to(0, error="Index must be >= 0"),
-                    Check.not_null()
+                    Check(lambda x: x.notna())
                 ],
                 nullable=False,
                 description="Порядковый номер записи"
             ),
             "pipeline_version": Column(
                 pa.String,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Версия пайплайна"
             ),
             "source_system": Column(
                 pa.String,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Система-источник"
             ),
             "chembl_release": Column(pa.String, nullable=True, description="Версия ChEMBL"),
             "extracted_at": Column(
                 pa.DateTime,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Время извлечения данных"
             ),
             "hash_row": Column(
                 pa.String,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Хеш строки SHA256"
             ),
             "hash_business_key": Column(
                 pa.String,
-                checks=[Check.not_null()],
+                checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Хеш бизнес-ключа SHA256"
             ),

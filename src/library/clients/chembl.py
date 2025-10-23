@@ -766,8 +766,8 @@ class ChEMBLClient(BaseApiClient):
             # Extract relevant document fields
             return {
                 "document_chembl_id": document_chembl_id,
-                "document_pubmed_id": payload.get("pubmed_id"),
-                "document_classification": payload.get("doc_type"),
+                "chembl_pmid": payload.get("pubmed_id"),
+                "chembl_doc_type": payload.get("doc_type"),
                 "referenses_on_previous_experiments": payload.get("refs"),
                 "original_experimental_document": payload.get("original_experimental_document"),
                 "chembl_title": payload.get("title"),

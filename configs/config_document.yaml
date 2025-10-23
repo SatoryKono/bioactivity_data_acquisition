@@ -74,9 +74,9 @@ sources:
 # Ввод-вывод
 io:
   input:
-    path: "data/input/documents.csv"
+    path: "data/input/document.csv"
     encoding: "utf-8"
-    required_columns: ["document_chembl_id","doi", "pmid", "title"]
+    required_columns: ["document_chembl_id","doi", "pubmed_id"]
     
   output:
     dir: "data/output/documents"
@@ -125,7 +125,6 @@ determinism:
     - referenses_on_previous_experiments  # BOOL: Содержит ли документ внешние ссылки, источник: ChEMBL, тип: BOOL, валидация: boolean
     - original_experimental_document     # BOOL: Является ли документ экспериментальным, источник: ChEMBL, тип: BOOL, валидация: boolean
     - document_citation       # TEXT: Форматированная литературная ссылка, источник: система, тип: TEXT, валидация: nullable
-    - retrieved_at            # STRING: Время получения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
 
     - pubmed_mesh_descriptors # TEXT: MeSH дескрипторы из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     - pubmed_mesh_qualifiers  # TEXT: MeSH квалификаторы из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
@@ -243,15 +242,7 @@ determinism:
     - invalid_journal         # BOOL: Флаг невалидности журнала, источник: система, тип: BOOL, валидация: boolean
     - invalid_year            # BOOL: Флаг невалидности года, источник: система, тип: BOOL, валидация: boolean
     - invalid_volume          # BOOL: Флаг невалидности тома, источник: система, тип: BOOL, валидация: boolean
-    - invalid_issue           # BOOL: Флаг невалидности номера выпуска, источник: система, тип: BOOL, валидация: boolean    
-   # Метаданные
-    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                        # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
-    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
-    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
-    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - invalid_issue           # BOOL: Флаг невалидности номера выпуска, источник: система, тип: BOOL, валидация: boolean
 
 
 # Валидация - настройки проверки данных
@@ -445,3 +436,389 @@ telemetry:
   api_key: null                        # API ключ для аутентификации
   batch_size: 100                      # Размер батча для отправки
   flush_interval: 30.0                 # Интервал отправки в секундах
+
+# Нормализация данных - настройки нормализации полей
+normalization:
+  enabled: true                        # Включить нормализацию
+  version: "1.0.0"                     # Версия системы нормализации
+  responsible: "Data Engineering Team" # Ответственная команда
+  last_updated: "2025-01-23"           # Дата последнего обновления
+  
+  # Функции нормализации для полей документов
+  functions:
+    # Основные идентификаторы
+    document_chembl_id:
+      - normalize_string_strip
+      - normalize_string_upper
+      - normalize_chembl_id
+    
+    document_pubmed_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    document_classification:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    document_citation:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_mesh_descriptors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_mesh_qualifiers:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_chemical_list:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    crossref_subject:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # DOI поля
+    chembl_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    crossref_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    openalex_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    pubmed_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    semantic_scholar_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    
+    # PMID поля
+    chembl_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    crossref_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    openalex_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    pubmed_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    semantic_scholar_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    # Текстовые поля
+    chembl_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    crossref_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    openalex_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_article_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    semantic_scholar_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # Аннотации
+    chembl_abstract:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    crossref_abstract:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    openalex_abstract:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_abstract:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # Авторы
+    chembl_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    crossref_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    openalex_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    semantic_scholar_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # Типы документов
+    chembl_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    crossref_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    openalex_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    openalex_crossref_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    pubmed_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    semantic_scholar_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    # ISSN поля
+    chembl_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    crossref_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    openalex_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    pubmed_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    semantic_scholar_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    # Журналы
+    chembl_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    crossref_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    openalex_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    pubmed_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    semantic_scholar_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    # Годы
+    chembl_year:
+      - normalize_int
+      - normalize_year
+    
+    crossref_year:
+      - normalize_int
+      - normalize_year
+    
+    openalex_year:
+      - normalize_int
+      - normalize_year
+    
+    pubmed_year:
+      - normalize_int
+      - normalize_year
+    
+    # Тома
+    chembl_volume:
+      - normalize_string_strip
+    
+    crossref_volume:
+      - normalize_string_strip
+    
+    openalex_volume:
+      - normalize_string_strip
+    
+    pubmed_volume:
+      - normalize_string_strip
+    
+    # Выпуски
+    chembl_issue:
+      - normalize_string_strip
+    
+    crossref_issue:
+      - normalize_string_strip
+    
+    openalex_issue:
+      - normalize_string_strip
+    
+    pubmed_issue:
+      - normalize_string_strip
+    
+    # Страницы
+    crossref_first_page:
+      - normalize_string_strip
+    
+    openalex_first_page:
+      - normalize_string_strip
+    
+    pubmed_first_page:
+      - normalize_string_strip
+    
+    crossref_last_page:
+      - normalize_string_strip
+    
+    openalex_last_page:
+      - normalize_string_strip
+    
+    pubmed_last_page:
+      - normalize_string_strip
+    
+    # Ошибки
+    chembl_error:
+      - normalize_string_strip
+    
+    crossref_error:
+      - normalize_string_strip
+    
+    openalex_error:
+      - normalize_string_strip
+    
+    pubmed_error:
+      - normalize_string_strip
+    
+    semantic_scholar_error:
+      - normalize_string_strip
+    
+    # Дополнительные поля PubMed
+    pubmed_year_completed:
+      - normalize_int
+      - normalize_year
+    
+    pubmed_month_completed:
+      - normalize_int
+      - normalize_month
+    
+    pubmed_day_completed:
+      - normalize_int
+      - normalize_day
+    
+    pubmed_year_revised:
+      - normalize_int
+      - normalize_year
+    
+    pubmed_month_revised:
+      - normalize_int
+      - normalize_month
+    
+    pubmed_day_revised:
+      - normalize_int
+      - normalize_day
+    
+    # Системные поля
+    document_sortorder:
+      - normalize_int
+      - normalize_int_positive
+    
+    
+    # Булевые поля
+    referenses_on_previous_experiments:
+      - normalize_boolean
+    
+    original_experimental_document:
+      - normalize_boolean
+    
+    valid_doi:
+      - normalize_boolean
+    
+    valid_journal:
+      - normalize_boolean
+    
+    valid_year:
+      - normalize_boolean
+    
+    valid_volume:
+      - normalize_boolean
+    
+    valid_issue:
+      - normalize_boolean
+    
+    invalid_doi:
+      - normalize_boolean
+    
+    invalid_journal:
+      - normalize_boolean
+    
+    invalid_year:
+      - normalize_boolean
+    
+    invalid_volume:
+      - normalize_boolean
+    
+    invalid_issue:
+      - normalize_boolean
+    
+    # Временные поля
+    publication_date:
+      - normalize_datetime_iso8601

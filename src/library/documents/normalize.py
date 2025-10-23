@@ -7,6 +7,8 @@ from typing import Any
 
 import pandas as pd
 
+from library.normalizers import get_normalizer
+from library.schemas.document_schema_normalized import DocumentNormalizedSchema
 from library.utils.empty_value_handler import (
     is_empty_value,
     normalize_dict_field,
@@ -48,6 +50,9 @@ class DocumentNormalizer:
         
         # Create a copy to avoid modifying original
         normalized_df = df.copy()
+        
+        # Apply schema-based normalization first
+        normalized_df = self._apply_schema_normalizations(normalized_df)
         
         # Step 1: Initialize all possible columns with default values
         normalized_df = self._initialize_all_columns(normalized_df)
@@ -297,3 +302,79 @@ class DocumentNormalizer:
         # Формируем строку сортировки
         sortorder_parts = [issn_str, date_str, index_padded]
         return ":".join(sortorder_parts)
+    
+    def _apply_schema_normalizations(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Применяет функции нормализации из схемы к DataFrame.
+        
+        Args:
+            df: DataFrame для нормализации
+            
+        Returns:
+            DataFrame с примененными нормализациями
+        """
+        logger.info("Applying schema-based normalizations")
+        
+        # Получаем схему
+        schema = DocumentNormalizedSchema.get_schema()
+        
+        # Применяем нормализацию к каждой колонке
+        for column_name, column_schema in schema.columns.items():
+            if column_name in df.columns:
+                norm_funcs = column_schema.metadata.get("normalization_functions", [])
+                if norm_funcs:
+                    logger.debug(f"Normalizing column '{column_name}' with functions: {norm_funcs}")
+                    
+                    # Применяем функции нормализации в порядке
+                    for func_name in norm_funcs:
+                        try:
+                            func = get_normalizer(func_name)
+                            df[column_name] = df[column_name].apply(func)
+                        except Exception as e:
+                            logger.warning(f"Failed to apply normalizer '{func_name}' to column '{column_name}': {e}")
+        
+        # Добавляем системные метаданные
+        df = self._add_system_metadata(df)
+        
+        return df
+    
+    def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Добавить системные метаданные к DataFrame."""
+        import hashlib
+        from datetime import datetime
+        
+        logger.info("Adding system metadata to document records")
+        
+        # Index - порядковый номер записи
+        df['index'] = range(len(df))
+        
+        # Pipeline version - из конфига
+        df['pipeline_version'] = self.config.get('pipeline', {}).get('version', '2.0.0')
+        
+        # Source system
+        df['source_system'] = 'ChEMBL'
+        
+        # ChEMBL release - из retrieved_at или текущее время
+        df['chembl_release'] = None  # Будет заполнено из API если доступно
+        
+        # Extracted at - текущее время
+        df['extracted_at'] = datetime.utcnow().isoformat() + 'Z'
+        
+        # Hash row - SHA256 хеш всей строки
+        df['hash_row'] = df.apply(lambda row: self._calculate_row_hash(row), axis=1)
+        
+        # Hash business key - SHA256 хеш бизнес-ключа
+        df['hash_business_key'] = df['document_chembl_id'].apply(
+            lambda x: hashlib.sha256(str(x).encode('utf-8')).hexdigest() if pd.notna(x) else None
+        )
+        
+        return df
+    
+    def _calculate_row_hash(self, row: pd.Series) -> str:
+        """Calculate SHA256 hash of a DataFrame row."""
+        import hashlib
+        
+        # Создать строку из всех значений строки
+        row_string = '|'.join([str(val) if pd.notna(val) else '' for val in row.values])
+        
+        # Вычислить SHA256 хеш
+        return hashlib.sha256(row_string.encode('utf-8')).hexdigest()

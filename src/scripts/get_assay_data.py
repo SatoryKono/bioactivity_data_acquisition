@@ -315,7 +315,7 @@ Examples:
             # Print summary
             print("\nSummary:")
             print(f"  Total assays: {len(result.data)}")
-            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown') if result.meta else 'unknown'}")
+            print(f"  ChEMBL release: {getattr(result.metadata, 'chembl_release', 'unknown') if result.metadata else 'unknown'}")
             print(f"  Date tag: {date_tag}")
         else:
             print("Dry run completed. No files were written.")

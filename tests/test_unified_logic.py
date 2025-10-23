@@ -4,7 +4,7 @@ import pytest
 
 from library.common.exit_codes import ExitCode
 from library.common.pipeline_base import ETLResult, PipelineBase
-from library.common.writer_base import BaseWriter
+from library.common.writer_base import ETLWriter
 
 
 class TestUnifiedLogic:
@@ -81,18 +81,18 @@ class TestUnifiedLogic:
             assert expected_correlation.endswith(f"{entity}_{date_tag}_correlation.csv")
     
     def test_base_writer_interface(self):
-        """Test BaseWriter interface and methods."""
-        # Test that BaseWriter has required static methods
-        assert hasattr(BaseWriter, 'write_outputs')
-        assert hasattr(BaseWriter, '_write_csv_atomic')
-        assert hasattr(BaseWriter, '_write_yaml_atomic')
-        assert hasattr(BaseWriter, '_apply_determinism')
-        assert hasattr(BaseWriter, '_get_csv_options')
+        """Test ETLWriter interface and methods."""
+        # Test that ETLWriter has required static methods
+        assert hasattr(ETLWriter, 'write_outputs')
+        assert hasattr(ETLWriter, '_write_csv_atomic')
+        assert hasattr(ETLWriter, '_write_yaml_atomic')
+        assert hasattr(ETLWriter, '_apply_determinism')
+        assert hasattr(ETLWriter, '_get_csv_options')
         
         # Test that methods are static
-        assert isinstance(BaseWriter.write_outputs, staticmethod)
-        assert isinstance(BaseWriter._write_csv_atomic, staticmethod)
-        assert isinstance(BaseWriter._write_yaml_atomic, staticmethod)
+        assert isinstance(ETLWriter.write_outputs, staticmethod)
+        assert isinstance(ETLWriter._write_csv_atomic, staticmethod)
+        assert isinstance(ETLWriter._write_yaml_atomic, staticmethod)
     
     def test_pipeline_base_interface(self):
         """Test PipelineBase abstract interface."""

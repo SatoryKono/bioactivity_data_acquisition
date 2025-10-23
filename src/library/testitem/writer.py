@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from library.common.writer_base import TestitemETLWriter, ETLResult
+from library.common.writer_base import ETLResult, TestitemETLWriter
 
 from .config import TestitemConfig
 

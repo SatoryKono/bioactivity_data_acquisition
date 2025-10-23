@@ -7,6 +7,9 @@ from typing import Any
 
 import pandas as pd
 
+from library.normalizers import get_normalizer
+from library.schemas.activity_schema_normalized import ActivityNormalizedSchema
+
 logger = logging.getLogger(__name__)
 
 
@@ -71,10 +74,16 @@ class ActivityNormalizer:
         # Create a copy to avoid modifying original
         normalized_df = df.copy()
         
+        # Apply schema-based normalization first
+        normalized_df = self._apply_schema_normalizations(normalized_df)
+        
         # Add computed fields
         normalized_df = self._add_interval_fields(normalized_df)
         normalized_df = self._add_foreign_keys(normalized_df)
         normalized_df = self._add_quality_flags(normalized_df)
+        normalized_df = self._add_activity_aliases(normalized_df)
+        normalized_df = self._calculate_pchembl_value(normalized_df)
+        normalized_df = self._add_metadata_fields(normalized_df)
         
         # Remove foreign key columns, quality flags, and retrieved_at from output
         key_columns_to_remove = ['assay_key', 'target_key', 'document_key', 'testitem_key']
@@ -249,7 +258,7 @@ class ActivityNormalizer:
                 # df.loc[censored_mask & no_bounds, 'quality_reason'] = 'censored_with_no_bounds'
         
         # Check non-censored records have both bounds and they match
-        non_censored_mask = df['is_censored'] == False
+        non_censored_mask = ~df['is_censored']
         if non_censored_mask.any():
             non_censored_df = df[non_censored_mask]
             
@@ -272,5 +281,123 @@ class ActivityNormalizer:
                 # Quality flags исключены из вывода
                 # df.loc[non_censored_mask & bounds_mismatch, 'quality_flag'] = 'warning'
                 # df.loc[non_censored_mask & bounds_mismatch, 'quality_reason'] = 'bounds_mismatch'
+        
+        return df
+    
+    def _add_activity_aliases(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add activity_type, activity_value, activity_unit as aliases for published fields."""
+        # activity_type = published_type
+        if 'published_type' in df.columns:
+            df['activity_type'] = df['published_type']
+        
+        # activity_value = published_value  
+        if 'published_value' in df.columns:
+            df['activity_value'] = df['published_value']
+        
+        # activity_unit = published_units
+        if 'published_units' in df.columns:
+            df['activity_unit'] = df['published_units']
+        
+        return df
+    
+    def _calculate_pchembl_value(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate pChEMBL values from standard_value."""
+        import numpy as np
+        
+        if 'standard_value' in df.columns and 'standard_units' in df.columns:
+            df['pchembl_value'] = None
+            
+            # Конвертация в моли
+            unit_to_molar = {
+                'nM': 1e-9,
+                'uM': 1e-6,
+                'mM': 1e-3,
+                'M': 1.0
+            }
+            
+            for unit, factor in unit_to_molar.items():
+                mask = (df['standard_units'] == unit) & df['standard_value'].notna()
+                if mask.any():
+                    # Конвертировать в числовой формат
+                    try:
+                        numeric_values = pd.to_numeric(df.loc[mask, 'standard_value'], errors='coerce')
+                        molar_values = numeric_values * factor
+                        # Защита от log(0) и отрицательных значений
+                        valid_mask = molar_values > 0
+                        if valid_mask.any():
+                            df.loc[mask & valid_mask, 'pchembl_value'] = -np.log10(molar_values[valid_mask])
+                    except Exception as e:
+                        logger.warning(f"Failed to calculate pchembl_value for unit {unit}: {e}")
+        
+        return df
+    
+    def _add_metadata_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add metadata fields to the DataFrame."""
+        import hashlib
+        from datetime import datetime
+        
+        # Index - порядковый номер записи
+        df['index'] = range(len(df))
+        
+        # Pipeline version - из конфига
+        df['pipeline_version'] = self.config.get('pipeline', {}).get('version', '2.0.0')
+        
+        # Source system
+        df['source_system'] = 'ChEMBL'
+        
+        # ChEMBL release - из retrieved_at или текущее время
+        df['chembl_release'] = None  # Будет заполнено из API если доступно
+        
+        # Extracted at - текущее время
+        df['extracted_at'] = datetime.utcnow().isoformat() + 'Z'
+        
+        # Hash row - SHA256 хеш всей строки
+        df['hash_row'] = df.apply(lambda row: self._calculate_row_hash(row), axis=1)
+        
+        # Hash business key - SHA256 хеш бизнес-ключа
+        df['hash_business_key'] = df['activity_chembl_id'].apply(
+            lambda x: hashlib.sha256(str(x).encode('utf-8')).hexdigest() if pd.notna(x) else None
+        )
+        
+        return df
+    
+    def _calculate_row_hash(self, row: pd.Series) -> str:
+        """Calculate SHA256 hash of a DataFrame row."""
+        import hashlib
+        
+        # Создать строку из всех значений строки
+        row_string = '|'.join([str(val) if pd.notna(val) else '' for val in row.values])
+        
+        # Вычислить хеш
+        return hashlib.sha256(row_string.encode('utf-8')).hexdigest()
+    
+    def _apply_schema_normalizations(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Применяет функции нормализации из схемы к DataFrame.
+        
+        Args:
+            df: DataFrame для нормализации
+            
+        Returns:
+            DataFrame с примененными нормализациями
+        """
+        logger.info("Applying schema-based normalizations")
+        
+        # Получаем схему
+        schema = ActivityNormalizedSchema.get_schema()
+        
+        # Применяем нормализацию к каждой колонке
+        for column_name, column_schema in schema.columns.items():
+            if column_name in df.columns:
+                norm_funcs = column_schema.metadata.get("normalization_functions", [])
+                if norm_funcs:
+                    logger.debug(f"Normalizing column '{column_name}' with functions: {norm_funcs}")
+                    
+                    # Применяем функции нормализации в порядке
+                    for func_name in norm_funcs:
+                        try:
+                            func = get_normalizer(func_name)
+                            df[column_name] = df[column_name].apply(func)
+                        except Exception as e:
+                            logger.warning(f"Failed to apply normalizer '{func_name}' to column '{column_name}': {e}")
         
         return df

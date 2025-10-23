@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
+import importlib.util
 import logging
 from typing import Any
 
-import importlib.util
 import pandas as pd
-from pandera.typing import Series
 
 _PANDERA_PANDAS_SPEC = importlib.util.find_spec("pandera.pandas")
 if _PANDERA_PANDAS_SPEC is not None:  # pragma: no cover - import side effect
@@ -147,6 +146,7 @@ class ActivityValidator:
             "standard_value": Column(
                 pa.Float,
                 nullable=True,
+                required=False,
                 description="Standardized activity value"
             ),
             "standard_units": Column(

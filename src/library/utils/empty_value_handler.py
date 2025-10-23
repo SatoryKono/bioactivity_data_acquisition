@@ -71,12 +71,14 @@ def normalize_numeric_field(value: Any) -> float | None:
     Returns:
         float | None: Нормализованное число или None если значение пустое
     """
+    import numpy as np
+    
     if is_empty_value(value):
-        return pd.NA
+        return np.nan
     
     try:
         if pd.isna(value):
-            return pd.NA
+            return np.nan
     except (ValueError, TypeError):
         # Handle arrays and other non-scalar values
         pass
@@ -84,7 +86,7 @@ def normalize_numeric_field(value: Any) -> float | None:
     try:
         return float(value)
     except (ValueError, TypeError):
-        return pd.NA
+        return np.nan
 
 
 def normalize_boolean_field(value: Any) -> bool | None:

@@ -215,6 +215,12 @@ class PubMedClient(BaseApiClient):
             "doi": doi_value,
             "pubmed_authors": formatted_authors,
         }
+        
+        # Debug logging для проверки MeSH данных
+        pmid = record.get("pmid", "unknown")
+        self.logger.debug(f"PubMed record for {pmid}: mesh_descriptors={mesh_descriptors}, "
+                         f"mesh_qualifiers={mesh_qualifiers}, chemical_list={chemical_list}")
+        
         # Return all fields, including None values, to maintain schema consistency
         return parsed
 

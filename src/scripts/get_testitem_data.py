@@ -263,21 +263,28 @@ Examples:
             print("\nSummary:")
             # Используем фактический размер результирующего датафрейма
             print(f"  Total molecules: {len(result.data)}")
-            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown') if result.meta else 'unknown'}")
-            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown') if result.meta else 'unknown'}")
+            
+            # Check if metadata exists
+            if result.metadata and hasattr(result.metadata, 'pipeline'):
+                print(f"  Pipeline version: {result.metadata.pipeline.get('pipeline_version', 'unknown')}")
+                print(f"  ChEMBL release: {result.metadata.pipeline.get('config', {}).get('sources', {}).get('chembl', {}).get('release', 'unknown')}")
+            else:
+                print(f"  Pipeline version: unknown")
+                print(f"  ChEMBL release: unknown")
+            
             # Отображаем состояние PubChem по конфигурации запуска
             print(f"  PubChem enabled: {config.enable_pubchem}")
             print(f"  Date tag: {date_tag}")
             
             # Print source statistics
-            if result.meta:
-                source_counts = result.meta.get('source_counts', {})
+            if result.metadata and hasattr(result.metadata, 'pipeline'):
+                source_counts = result.metadata.pipeline.get('source_counts', {})
                 print("\nSource statistics:")
                 for source, count in source_counts.items():
                     print(f"  {source}: {count} records")
                 
                 # Print PubChem enrichment statistics
-                pubchem_stats = result.meta.get('pubchem_enrichment', {})
+                pubchem_stats = result.metadata.pipeline.get('pubchem_enrichment', {})
                 if pubchem_stats.get('enabled', False):
                     enrichment_rate = pubchem_stats.get('enrichment_rate', 0)
                     records_with_pubchem = pubchem_stats.get('records_with_pubchem_data', 0)
@@ -285,7 +292,7 @@ Examples:
                     print(f"  Records with PubChem data: {records_with_pubchem}")
                 
                 # Print data quality metrics
-                data_quality = result.meta.get('data_quality', {})
+                data_quality = result.metadata.pipeline.get('data_quality', {})
                 if data_quality:
                     error_rate = data_quality.get('error_rate', 0)
                     records_with_errors = data_quality.get('records_with_errors', 0)

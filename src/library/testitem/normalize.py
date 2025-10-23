@@ -8,12 +8,12 @@ from typing import Any
 
 import pandas as pd
 
-from library.utils.empty_value_handler import (
-    normalize_boolean_field,
-    normalize_list_field,
-    normalize_numeric_field,
-    normalize_string_field,
-)
+from library.normalizers import get_normalizer
+from library.schemas.testitem_schema_normalized import TestitemNormalizedSchema
+from library.utils.empty_value_handler import (normalize_boolean_field,
+                                               normalize_list_field,
+                                               normalize_numeric_field,
+                                               normalize_string_field)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,9 @@ class TestitemNormalizer:
         # Create a copy to avoid modifying original
         normalized_df = df.copy()
         
+        # Apply schema-based normalization first
+        normalized_df = self._apply_schema_normalizations(normalized_df)
+        
         # Step 1: Add missing columns
         normalized_df = self._add_missing_columns(normalized_df)
         
@@ -58,7 +61,10 @@ class TestitemNormalizer:
         # Step 3: Standardize molecular structures
         normalized_df = self._standardize_structures(normalized_df)
         
-        # Step 4: Add hash fields
+        # Step 4: Add system metadata columns
+        normalized_df = self._add_system_metadata(normalized_df)
+        
+        # Step 5: Add hash fields
         normalized_df = self._add_hash_fields(normalized_df)
         
         logger.info(f"Normalization completed. Output: {len(normalized_df)} records")
@@ -71,7 +77,11 @@ class TestitemNormalizer:
         required_columns = {
             "chembl_release", "parent_chembl_id", "parent_molregno", 
             "mechanism_of_action", "direct_interaction", "molecular_mechanism",
-            "pubchem_registry_id", "pubchem_rn"
+            "pubchem_registry_id", "pubchem_rn",
+            # Распакованные поля из вложенных ChEMBL структур
+            "atc_classifications", "biotherapeutic", "chemical_probe", 
+            "chirality_chembl", "cross_references", "helm_notation",
+            "molecule_type_chembl", "orphan", "veterinary"
         }
         
         # Add missing columns with default values
@@ -98,7 +108,10 @@ class TestitemNormalizer:
             "pubchem_molecular_formula", "pubchem_canonical_smiles", 
             "pubchem_isomeric_smiles", "pubchem_inchi", "pubchem_inchi_key",
             "pubchem_registry_id", "pubchem_rn",
-            "standardized_inchi", "standardized_inchi_key", "standardized_smiles"
+            "standardized_inchi", "standardized_inchi_key", "standardized_smiles",
+            # Распакованные поля из вложенных ChEMBL структур
+            "atc_classifications", "biotherapeutic", "chirality_chembl", 
+            "cross_references", "helm_notation", "molecule_type_chembl"
         ]
         
         for field in string_fields:
@@ -128,7 +141,9 @@ class TestitemNormalizer:
             "molecular_mechanism", "drug_substance_flag", "drug_indication_flag",
             "drug_antibacterial_flag", "drug_antiviral_flag", "drug_antifungal_flag",
             "drug_antiparasitic_flag", "drug_antineoplastic_flag",
-            "drug_immunosuppressant_flag", "drug_antiinflammatory_flag"
+            "drug_immunosuppressant_flag", "drug_antiinflammatory_flag",
+            # Распакованные булевы поля из вложенных ChEMBL структур
+            "chemical_probe", "orphan", "veterinary"
         ]
         
         for field in boolean_fields:
@@ -189,6 +204,34 @@ class TestitemNormalizer:
         
         return df_standardized
 
+    def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add system metadata columns."""
+        from datetime import datetime
+        
+        logger.info("Adding system metadata columns...")
+        
+        df_with_metadata = df.copy()
+        
+        # Index - порядковый номер записи
+        df_with_metadata['index'] = range(len(df))
+        
+        # Pipeline version
+        df_with_metadata['pipeline_version'] = self.config.get('pipeline', {}).get('version', '2.0.0')
+        
+        # Source system
+        df_with_metadata['source_system'] = 'ChEMBL'
+        
+        # ChEMBL release - из конфига или None
+        chembl_release = self.config.get('sources', {}).get('chembl', {}).get('release', None)
+        df_with_metadata['chembl_release'] = chembl_release
+        
+        # Extracted at - current UTC time
+        df_with_metadata['extracted_at'] = datetime.utcnow().isoformat() + 'Z'
+        
+        logger.info("System metadata columns added successfully")
+        
+        return df_with_metadata
+
     def _add_hash_fields(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add hash fields for deduplication and integrity checking."""
         
@@ -230,3 +273,34 @@ class TestitemNormalizer:
         row_str = str(sorted_items)
         
         return hashlib.sha256(row_str.encode()).hexdigest()
+    
+    def _apply_schema_normalizations(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Применяет функции нормализации из схемы к DataFrame.
+        
+        Args:
+            df: DataFrame для нормализации
+            
+        Returns:
+            DataFrame с примененными нормализациями
+        """
+        logger.info("Applying schema-based normalizations")
+        
+        # Получаем схему
+        schema = TestitemNormalizedSchema.get_schema()
+        
+        # Применяем нормализацию к каждой колонке
+        for column_name, column_schema in schema.columns.items():
+            if column_name in df.columns:
+                norm_funcs = column_schema.metadata.get("normalization_functions", [])
+                if norm_funcs:
+                    logger.debug(f"Normalizing column '{column_name}' with functions: {norm_funcs}")
+                    
+                    # Применяем функции нормализации в порядке
+                    for func_name in norm_funcs:
+                        try:
+                            func = get_normalizer(func_name)
+                            df[column_name] = df[column_name].apply(func)
+                        except Exception as e:
+                            logger.warning(f"Failed to apply normalizer '{func_name}' to column '{column_name}': {e}")
+        
+        return df

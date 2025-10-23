@@ -8,12 +8,14 @@ import hashlib
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
+
 import pandas as pd
 from pydantic import BaseModel, Field
 
 from library.config import Config
-from .metadata import MetadataBuilder, PipelineMetadata
+
 from .error_tracking import ErrorTracker
+from .metadata import MetadataBuilder, PipelineMetadata
 
 
 class ETLResult(BaseModel):
@@ -91,11 +93,16 @@ class ETLWriter(ABC):
         
         # Упорядочить колонки
         if column_order:
-            # Оставить только существующие колонки
+            # Строгий режим: только колонки из column_order
             existing_columns = [col for col in column_order if col in df_copy.columns]
-            # Добавить оставшиеся колонки
-            remaining_columns = [col for col in df_copy.columns if col not in existing_columns]
-            df_copy = df_copy[existing_columns + remaining_columns]
+            df_copy = df_copy[existing_columns]
+            
+            # Логирование для отладки
+            missing_in_data = [col for col in column_order if col not in df_copy.columns]
+            if missing_in_data:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Columns in column_order but missing in data: {missing_in_data}")
         
         # Сортировка
         if sort_columns:
@@ -311,11 +318,17 @@ class DocumentETLWriter(ETLWriter):
     
     def get_column_order(self) -> list[str] | None:
         """Порядок колонок для документов."""
-        return None  # Использовать порядок по умолчанию
+        if hasattr(self.config, 'determinism') and hasattr(self.config.determinism, 'column_order'):
+            return self.config.determinism.column_order
+        return None
     
     def get_exclude_columns(self) -> list[str]:
         """Колонки для исключения из вывода документов."""
-        return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
+        return [
+            "quality_flag", "quality_reason", "retrieved_at", "_row_id",
+            # Технические/служебные колонки
+            "index", "hash_row", "hash_business_key"
+        ]
 
 
 class TargetETLWriter(ETLWriter):
@@ -327,6 +340,8 @@ class TargetETLWriter(ETLWriter):
     
     def get_column_order(self) -> list[str] | None:
         """Порядок колонок для таргетов."""
+        if hasattr(self.config, 'determinism') and hasattr(self.config.determinism, 'column_order'):
+            return self.config.determinism.column_order
         return None
     
     def get_exclude_columns(self) -> list[str]:
@@ -365,6 +380,8 @@ class ActivityETLWriter(ETLWriter):
     
     def get_column_order(self) -> list[str] | None:
         """Порядок колонок для активностей."""
+        if hasattr(self.config, 'determinism') and hasattr(self.config.determinism, 'column_order'):
+            return self.config.determinism.column_order
         return None
     
     def get_exclude_columns(self) -> list[str]:
@@ -381,6 +398,8 @@ class TestitemETLWriter(ETLWriter):
     
     def get_column_order(self) -> list[str] | None:
         """Порядок колонок для теститемов."""
+        if hasattr(self.config, 'determinism') and hasattr(self.config.determinism, 'column_order'):
+            return self.config.determinism.column_order
         return None
     
     def get_exclude_columns(self) -> list[str]:

@@ -119,6 +119,19 @@ class OpenAlexClient(BaseApiClient):
                     if source and "type_crossref" in source:
                         type_crossref = source["type_crossref"]
         
+        # Извлекаем библиографические данные из biblio
+        biblio = work.get("biblio", {})
+        openalex_volume = None
+        openalex_issue = None
+        openalex_first_page = None
+        openalex_last_page = None
+        
+        if biblio:
+            openalex_volume = biblio.get("volume")
+            openalex_issue = biblio.get("issue")
+            openalex_first_page = biblio.get("first_page")
+            openalex_last_page = biblio.get("last_page")
+
         record: dict[str, Any | None] = {
             "source": "openalex",
             "openalex_doi": doi_value,
@@ -130,6 +143,10 @@ class OpenAlexClient(BaseApiClient):
             "openalex_abstract": work.get("abstract"),
             "openalex_issn": self._extract_issn(work),
             "openalex_authors": self._extract_authors(work),
+            "openalex_volume": openalex_volume,
+            "openalex_issue": openalex_issue,
+            "openalex_first_page": openalex_first_page,
+            "openalex_last_page": openalex_last_page,
             "openalex_error": None,  # Will be set if there's an error
         }
         

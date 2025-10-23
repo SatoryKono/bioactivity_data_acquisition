@@ -6,6 +6,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
+
 import pandas as pd
 from pydantic import BaseModel, Field
 
@@ -112,7 +113,7 @@ class TargetPostprocessor(BasePostprocessor):
     def merge_sources(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """Объединить данные из источников таргетов."""
         # Приоритет источников: chembl > uniprot > iuphar > gtopdb
-        priority_sources = ["chembl", "uniprot", "iuphar", "gtopdb"]
+        # priority_sources = ["chembl", "uniprot", "iuphar", "gtopdb"]
         
         # Для таргетов основная логика уже в normalize.py
         return df

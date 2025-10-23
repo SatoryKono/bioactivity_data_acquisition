@@ -13,7 +13,7 @@ def write_document_outputs(
     result: ETLResult,
     output_dir: Path,
     date_tag: str,
-    config: DocumentConfig
+    config: DocumentConfig | dict
 ) -> dict[str, Path]:
     """Write document ETL outputs to files with standardized naming.
     
@@ -25,6 +25,11 @@ def write_document_outputs(
     - documents_<date_tag>_rejected.csv     # Rejected records (optional)
     - documents_<date_tag>_correlation.csv  # Correlation analysis (optional)
     """
+    
+    # Convert dict config to DocumentConfig if needed
+    if isinstance(config, dict):
+        from .config import DocumentConfig
+        config = DocumentConfig(**config)
     
     # Use the new unified ETL writer
     writer = DocumentETLWriter(config, "documents")

@@ -14,7 +14,6 @@ from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
 from library.common.pipeline_base import PipelineBase
-from library.common.writer_base import ETLResult
 from library.documents.config import DocumentConfig
 from library.documents.normalize import DocumentNormalizer
 from library.documents.quality import DocumentQualityFilter
@@ -31,9 +30,9 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
     def __init__(self, config: DocumentConfig) -> None:
         """Initialize document pipeline with configuration."""
         super().__init__(config)
-        self.validator = DocumentValidator(config.model_dump() if hasattr(config, 'model_dump') else {})
-        self.normalizer = DocumentNormalizer(config.model_dump() if hasattr(config, 'model_dump') else {})
-        self.quality_filter = DocumentQualityFilter(config.model_dump() if hasattr(config, 'model_dump') else {})
+        self.validator = DocumentValidator(config.model_dump() if hasattr(config, 'model_dump') else config if isinstance(config, dict) else {})
+        self.normalizer = DocumentNormalizer(config.model_dump() if hasattr(config, 'model_dump') else config if isinstance(config, dict) else {})
+        self.quality_filter = DocumentQualityFilter(config.model_dump() if hasattr(config, 'model_dump') else config if isinstance(config, dict) else {})
     
     def _setup_clients(self) -> None:
         """Initialize HTTP clients for document sources."""
@@ -56,8 +55,8 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
             self.clients["pubmed"] = self._create_pubmed_client()
         
         # Semantic Scholar client
-        if "semanticscholar" in self.config.sources and self.config.sources["semanticscholar"].enabled:
-            self.clients["semanticscholar"] = self._create_semantic_scholar_client()
+        if "semantic_scholar" in self.config.sources and self.config.sources["semantic_scholar"].enabled:
+            self.clients["semantic_scholar"] = self._create_semantic_scholar_client()
     
     def _create_chembl_client(self) -> ChEMBLClient:
         """Create ChEMBL client."""
@@ -197,17 +196,17 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         """Create Semantic Scholar client."""
         from library.config import APIClientConfig, RateLimitSettings, RetrySettings
         
-        source_config = self.config.sources["semanticscholar"]
+        source_config = self.config.sources["semantic_scholar"]
         timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
         
-        headers = self._get_headers("semanticscholar")
+        headers = self._get_headers("semantic_scholar")
         headers.update(self.config.http.global_.headers)
         headers.update(source_config.http.headers)
         
         processed_headers = self._process_headers(headers)
         
         client_config = APIClientConfig(
-            name="semanticscholar",
+            name="semantic_scholar",
             base_url=source_config.http.base_url,
             timeout_sec=timeout,
             retries=RetrySettings(
@@ -276,8 +275,28 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 logger.info(f"Extracting data from {source_name}")
                 source_data = self._extract_from_source(client, source_name, normalized_data)
                 extracted_data = self._merge_source_data(extracted_data, source_data, source_name)
+                
+                # Логируем статистику извлечения
+                if not source_data.empty:
+                    logger.info(f"Successfully extracted {len(source_data)} records from {source_name}")
+                else:
+                    logger.warning(f"No data extracted from {source_name}")
+                    
             except Exception as e:
-                logger.error(f"Failed to extract from {source_name}: {e}")
+                logger.error(f"Failed to extract from {source_name}: {e}", exc_info=True)
+                
+                # Создаем DataFrame с ошибками для graceful degradation
+                error_data = self._create_error_dataframe(normalized_data, source_name, str(e))
+                
+                # Простое объединение без сложной логики для ошибок
+                try:
+                    extracted_data = self._merge_source_data(extracted_data, error_data, source_name)
+                except Exception as merge_error:
+                    logger.error(f"Failed to merge error data from {source_name}: {merge_error}")
+                    # Добавляем колонки с ошибками напрямую
+                    error_column = f"{source_name}_error"
+                    extracted_data[error_column] = str(e)
+                
                 if not self.config.runtime.allow_incomplete_sources:
                     raise
         
@@ -294,6 +313,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         # Map column names to expected schema names
         column_mapping = {
+            'DOI': 'doi',  # Map DOI to doi
             'pubmed_id': 'document_pubmed_id',
             'authors': 'pubmed_authors',
             'classification': 'document_classification',
@@ -306,13 +326,27 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
             'year': 'chembl_year'
         }
         
-        # Rename columns
+        # Rename columns and remove old ones
+        columns_to_drop = []
         for old_name, new_name in column_mapping.items():
             if old_name in normalized.columns:
                 normalized[new_name] = normalized[old_name]
+                columns_to_drop.append(old_name)
+        
+        # Drop old column names to avoid confusion
+        normalized = normalized.drop(columns=columns_to_drop, errors='ignore')
+        
+        # Add diagnostic logging
+        logger.info(f"Normalized columns: {list(normalized.columns)}")
+        if 'document_pubmed_id' in normalized.columns:
+            pmid_count = normalized['document_pubmed_id'].notna().sum()
+            logger.info(f"Records with PMID: {pmid_count}/{len(normalized)}")
+        if 'doi' in normalized.columns:
+            doi_count = normalized['doi'].notna().sum()
+            logger.info(f"Records with DOI: {doi_count}/{len(normalized)}")
         
         # Check required columns
-        required_columns = {"document_chembl_id", "doi", "title"}
+        required_columns = {"document_chembl_id", "doi"}
         present = set(normalized.columns)
         missing = required_columns - present
         if missing:
@@ -327,18 +361,151 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
     
     def _extract_from_source(self, client: Any, source_name: str, data: pd.DataFrame) -> pd.DataFrame:
         """Extract data from a specific source."""
-        # This would contain the actual extraction logic for each source
-        # For now, return empty DataFrame as placeholder
-        return pd.DataFrame()
+        from library.documents.extract import (
+            extract_from_chembl,
+            extract_from_crossref,
+            extract_from_openalex,
+            extract_from_pubmed,
+            extract_from_semantic_scholar,
+        )
+        
+        if source_name == "pubmed":
+            # Извлекаем PMID из данных
+            pmids = []
+            if "document_pubmed_id" in data.columns:
+                pmids = data["document_pubmed_id"].dropna().astype(str).unique().tolist()
+            elif "pubmed_id" in data.columns:
+                pmids = data["pubmed_id"].dropna().astype(str).unique().tolist()
+            
+            if pmids:
+                batch_size = getattr(self.config.sources.get("pubmed", {}), "batch_size", 200)
+                return extract_from_pubmed(client, pmids, batch_size)
+            else:
+                logger.warning("No PMIDs found for PubMed extraction")
+                return pd.DataFrame()
+        
+        elif source_name == "crossref":
+            # Извлекаем DOI из данных
+            dois = []
+            if "doi" in data.columns:
+                dois = data["doi"].dropna().astype(str).unique().tolist()
+            elif "DOI" in data.columns:
+                dois = data["DOI"].dropna().astype(str).unique().tolist()
+            
+            if dois:
+                batch_size = getattr(self.config.sources.get("crossref", {}), "batch_size", 100)
+                return extract_from_crossref(client, dois, batch_size)
+            else:
+                logger.warning("No DOIs found for Crossref extraction")
+                return pd.DataFrame()
+        
+        elif source_name == "openalex":
+            # Извлекаем PMID для OpenAlex
+            pmids = []
+            if "document_pubmed_id" in data.columns:
+                pmids = data["document_pubmed_id"].dropna().astype(str).unique().tolist()
+            elif "pubmed_id" in data.columns:
+                pmids = data["pubmed_id"].dropna().astype(str).unique().tolist()
+            
+            if pmids:
+                batch_size = getattr(self.config.sources.get("openalex", {}), "batch_size", 50)
+                return extract_from_openalex(client, pmids, batch_size)
+            else:
+                logger.warning("No PMIDs found for OpenAlex extraction")
+                return pd.DataFrame()
+        
+        elif source_name == "semantic_scholar":
+            # Извлекаем PMID для Semantic Scholar
+            pmids = []
+            if "document_pubmed_id" in data.columns:
+                pmids = data["document_pubmed_id"].dropna().astype(str).unique().tolist()
+            elif "pubmed_id" in data.columns:
+                pmids = data["pubmed_id"].dropna().astype(str).unique().tolist()
+            
+            if pmids:
+                batch_size = getattr(self.config.sources.get("semantic_scholar", {}), "batch_size", 100)
+                return extract_from_semantic_scholar(client, pmids, batch_size)
+            else:
+                logger.warning("No PMIDs found for Semantic Scholar extraction")
+                return pd.DataFrame()
+        
+        elif source_name == "chembl":
+            # Извлекаем ChEMBL ID
+            chembl_ids = []
+            if "document_chembl_id" in data.columns:
+                chembl_ids = data["document_chembl_id"].dropna().astype(str).unique().tolist()
+            
+            if chembl_ids:
+                batch_size = getattr(self.config.sources.get("chembl", {}), "batch_size", 100)
+                return extract_from_chembl(client, chembl_ids, batch_size)
+            else:
+                logger.warning("No ChEMBL IDs found for ChEMBL extraction")
+                return pd.DataFrame()
+        
+        else:
+            logger.warning(f"Unknown source: {source_name}")
+            return pd.DataFrame()
     
     def _merge_source_data(self, base_data: pd.DataFrame, source_data: pd.DataFrame, source_name: str) -> pd.DataFrame:
         """Merge data from a source into base data."""
-        # This would contain the actual merging logic
-        # For now, return base data as placeholder
-        return base_data
+        from library.documents.merge import merge_source_data
+        
+        if source_data.empty:
+            logger.warning(f"No data to merge from {source_name}")
+            return base_data
+        
+        # Определить ключ объединения
+        if source_name in ["pubmed", "openalex", "semantic_scholar"]:
+            join_key = "document_pubmed_id"
+        elif source_name == "crossref":
+            join_key = "doi"
+        elif source_name == "chembl":
+            join_key = "document_chembl_id"
+        else:
+            logger.warning(f"Unknown source {source_name}")
+            return base_data
+        
+        # Объединить данные
+        merged = merge_source_data(
+            base_df=base_data,
+            source_df=source_data,
+            source_name=source_name,
+            join_key=join_key
+        )
+        
+        logger.info(f"Merged {len(source_data)} records from {source_name}")
+        return merged
+    
+    def _create_error_dataframe(self, base_data: pd.DataFrame, source_name: str, error_message: str) -> pd.DataFrame:
+        """Создать DataFrame с ошибками для graceful degradation."""
+        error_column = f"{source_name}_error"
+        
+        # Создаем DataFrame с ошибками для всех записей
+        error_data = base_data[["document_chembl_id"]].copy()
+        error_data[error_column] = error_message
+        
+        # Добавляем пустые поля для источника
+        source_fields = {
+            "pubmed": ["PubMed.PMID", "PubMed.Error"],
+            "crossref": ["crossref.DOI", "crossref.Error"],
+            "openalex": ["OpenAlex.PMID", "OpenAlex.Error"],
+            "semantic_scholar": ["scholar.PMID", "scholar.Error"],
+            "chembl": ["ChEMBL.document_chembl_id", "ChEMBL.Error"]
+        }
+        
+        if source_name in source_fields:
+            for field in source_fields[source_name]:
+                if field.endswith("Error"):
+                    error_data[field] = error_message
+                else:
+                    error_data[field] = ""
+        
+        return error_data
     
     def normalize(self, raw_data: pd.DataFrame) -> pd.DataFrame:
         """Normalize document data."""
+        from library.documents.merge import add_document_sortorder, compute_publication_date, convert_data_types
+        
         logger.info("Normalizing document data")
         
         # Apply document normalization
@@ -349,6 +516,15 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         # Add citation formatting
         normalized_data = add_citation_column(normalized_data)
+        
+        # Compute publication date from all sources
+        normalized_data = compute_publication_date(normalized_data)
+        
+        # Add document sort order
+        normalized_data = add_document_sortorder(normalized_data)
+        
+        # Convert data types to match schema
+        normalized_data = convert_data_types(normalized_data)
         
         logger.info(f"Normalized {len(normalized_data)} documents")
         return normalized_data
@@ -400,17 +576,3 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         from library.common.writer_base import create_etl_writer
         return create_etl_writer(self.config, "documents")
     
-    def _build_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
-        """Build metadata for document pipeline."""
-        # Create base metadata dictionary
-        metadata = {
-            "pipeline_name": "documents",
-            "pipeline_version": "2.0.0",
-            "entity_type": "documents",
-            "sources_enabled": [name for name, source in self.config.sources.items() if source.enabled],
-            "total_documents": len(data),
-            "extraction_timestamp": pd.Timestamp.now().isoformat(),
-            "config": self.config.model_dump() if hasattr(self.config, 'model_dump') else {},
-        }
-        
-        return metadata

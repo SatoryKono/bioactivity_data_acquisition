@@ -10,6 +10,9 @@ import pandas as pd
 from library.assay.config import AssayConfig
 from library.assay.client import AssayChEMBLClient
 from library.common.pipeline_base import PipelineBase
+from library.common.writer_base import ETLWriter, create_etl_writer
+from library.common.postprocess_base import AssayPostprocessor
+from library.common.qc_profiles import QCValidator, get_qc_validator, get_qc_profile
 
 logger = logging.getLogger(__name__)
 
@@ -187,17 +190,51 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         logger.info(f"Quality filtering: {len(accepted_data)} accepted, {len(rejected_data)} rejected")
         return accepted_data, rejected_data
     
-    def _build_metadata(self, data: pd.DataFrame) -> dict[str, Any]:
+    def _get_entity_type(self) -> str:
+        """Get entity type for assay pipeline."""
+        return "assays"
+    
+    def _create_qc_validator(self) -> QCValidator:
+        """Create QC validator for assay pipeline."""
+        profile = get_qc_profile("assays", "strict")
+        return get_qc_validator("assays", profile)
+    
+    def _create_postprocessor(self) -> AssayPostprocessor:
+        """Create postprocessor for assay pipeline."""
+        return AssayPostprocessor(self.config)
+    
+    def _create_etl_writer(self) -> ETLWriter:
+        """Create ETL writer for assay pipeline."""
+        return create_etl_writer(self.config, "assays")
+    
+    def _build_metadata(
+        self, 
+        data: pd.DataFrame, 
+        accepted_data: pd.DataFrame | None = None, 
+        rejected_data: pd.DataFrame | None = None,
+        correlation_analysis: dict[str, Any] | None = None,
+        correlation_insights: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Build metadata for assay pipeline."""
-        # Create base metadata dictionary
-        metadata = {
-            "pipeline_name": "assays",
-            "pipeline_version": "2.0.0",
-            "entity_type": "assays",
-            "sources_enabled": [name for name, source in self.config.sources.items() if source.enabled],
-            "total_assays": len(data),
-            "extraction_timestamp": pd.Timestamp.now().isoformat(),
-            "config": self.config.model_dump() if hasattr(self.config, 'model_dump') else {},
-        }
+        # Use MetadataBuilder to create proper PipelineMetadata
+        from library.common.metadata import MetadataBuilder
+        
+        metadata_builder = MetadataBuilder(self.config, "assays")
+        
+        # Prepare additional metadata
+        additional_metadata = {}
+        if correlation_analysis is not None:
+            additional_metadata["correlation_analysis"] = correlation_analysis
+        if correlation_insights is not None:
+            additional_metadata["correlation_insights"] = correlation_insights
+        
+        # Build proper metadata using MetadataBuilder
+        metadata = metadata_builder.build_metadata(
+            df=data,
+            accepted_df=accepted_data if accepted_data is not None else data,
+            rejected_df=rejected_data if rejected_data is not None else pd.DataFrame(),
+            output_files={},  # Will be filled by writer
+            additional_metadata=additional_metadata if additional_metadata else None
+        )
         
         return metadata

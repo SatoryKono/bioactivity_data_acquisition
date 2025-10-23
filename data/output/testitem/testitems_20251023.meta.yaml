@@ -1,0 +1,307 @@
+pipeline:
+  pipeline_version: 2.0.0
+  config:
+    http:
+      global_:
+        timeout_sec: 60.0
+        headers:
+          Accept: application/json
+          User-Agent: bioactivity-data-acquisition/0.1.0
+        retries:
+          total: 10
+          backoff_multiplier: 2.0
+        rate_limit:
+          max_calls: 5
+          period: 15.0
+    sources:
+      chembl:
+        name: chembl
+        enabled: true
+        endpoint: ''
+        params: {}
+        pagination:
+          page_param: null
+          size_param: null
+          size: null
+          max_pages: null
+        http:
+          base_url: !!python/object:pydantic.networks.HttpUrl
+            _url: !!python/object/new:pydantic_core._pydantic_core.Url
+            - https://www.ebi.ac.uk/chembl/api/data
+          timeout_sec: 60.0
+          retries:
+            total: 3
+            backoff_multiplier: 1.5
+          headers: {}
+          rate_limit: null
+          health_endpoint: null
+      pubchem:
+        name: pubchem
+        enabled: true
+        endpoint: ''
+        params: {}
+        pagination:
+          page_param: null
+          size_param: null
+          size: null
+          max_pages: null
+        http:
+          base_url: !!python/object:pydantic.networks.HttpUrl
+            _url: !!python/object/new:pydantic_core._pydantic_core.Url
+            - https://pubchem.ncbi.nlm.nih.gov/rest/pug
+          timeout_sec: 30.0
+          retries:
+            total: 3
+            backoff_multiplier: 2.0
+          headers: {}
+          rate_limit: null
+          health_endpoint: null
+    io:
+      input:
+        documents_csv: null
+      output:
+        data_path: !!python/object/apply:pathlib._local.WindowsPath
+        - data/output/testitem/testitem.csv
+        qc_report_path: !!python/object/apply:pathlib._local.WindowsPath
+        - data/output/testitem/qc_report.csv
+        correlation_path: !!python/object/apply:pathlib._local.WindowsPath
+        - data/output/testitem/correlation.csv
+        format: csv
+        csv:
+          encoding: utf-8
+          float_format: '%.6f'
+          date_format: '%Y-%m-%dT%H:%M:%SZ'
+          line_terminator: '
+
+            '
+          na_rep: ''
+        parquet:
+          compression: snappy
+    runtime:
+      date_tag: null
+      workers: 4
+      limit: 2
+      dry_run: false
+      batch_size: 50
+      pubchem_batch_size: 100
+      retries: 5
+      timeout_sec: 30
+      cache_dir: .cache/chembl
+      pubchem_cache_dir: .cache/pubchem
+    logging:
+      level: INFO
+      file:
+        enabled: true
+        path: !!python/object/apply:pathlib._local.WindowsPath
+        - data/logs/testitems.log
+        max_bytes: 10485760
+        backup_count: 5
+        rotation_strategy: size
+        retention_days: 14
+        cleanup_on_start: false
+      console:
+        format: text
+    validation:
+      strict: false
+      qc:
+        max_missing_fraction: 1.0
+        max_duplicate_fraction: 1.0
+    determinism:
+      sort:
+        by:
+        - molecule_chembl_id
+        ascending:
+        - true
+        na_position: last
+      column_order:
+      - molecule_chembl_id
+      - molregno
+      - pref_name
+      - pref_name_key
+      - parent_chembl_id
+      - parent_molregno
+      - max_phase
+      - therapeutic_flag
+      - dosed_ingredient
+      - first_approval
+      - structure_type
+      - molecule_type
+      - mw_freebase
+      - alogp
+      - hba
+      - hbd
+      - psa
+      - rtb
+      - ro3_pass
+      - num_ro5_violations
+      - acd_most_apka
+      - acd_most_bpka
+      - acd_logp
+      - acd_logd
+      - molecular_species
+      - full_mwt
+      - aromatic_rings
+      - heavy_atoms
+      - qed_weighted
+      - mw_monoisotopic
+      - full_molformula
+      - hba_lipinski
+      - hbd_lipinski
+      - num_lipinski_ro5_violations
+      - oral
+      - parenteral
+      - topical
+      - black_box_warning
+      - natural_product
+      - first_in_class
+      - chirality
+      - prodrug
+      - inorganic_flag
+      - polymer_flag
+      - usan_year
+      - availability_type
+      - usan_stem
+      - usan_substem
+      - usan_stem_definition
+      - indication_class
+      - withdrawn_flag
+      - withdrawn_year
+      - withdrawn_country
+      - withdrawn_reason
+      - mechanism_of_action
+      - direct_interaction
+      - molecular_mechanism
+      - drug_chembl_id
+      - drug_name
+      - drug_type
+      - drug_substance_flag
+      - drug_indication_flag
+      - drug_antibacterial_flag
+      - drug_antiviral_flag
+      - drug_antifungal_flag
+      - drug_antiparasitic_flag
+      - drug_antineoplastic_flag
+      - drug_immunosuppressant_flag
+      - drug_antiinflammatory_flag
+      - pubchem_cid
+      - pubchem_molecular_formula
+      - pubchem_molecular_weight
+      - pubchem_canonical_smiles
+      - pubchem_isomeric_smiles
+      - pubchem_inchi
+      - pubchem_inchi_key
+      - pubchem_registry_id
+      - pubchem_rn
+      - standardized_inchi
+      - standardized_inchi_key
+      - standardized_smiles
+      - index
+      - pipeline_version
+      - source_system
+      - chembl_release
+      - extracted_at
+      - hash_row
+      - hash_business_key
+      - all_names
+      - canonical_smiles
+      - inchi_key_from_mol
+      - inchi_key_from_smiles
+      - is_radical
+      - mw_<100_or_>1000
+      - n_stereocenters
+      - nstereo
+      - salt_chembl_id
+      - standard_inchi_key
+      - standard_inchi_skeleton
+      - standard_inchi_stereo
+      - atc_classifications
+      - biotherapeutic
+      - chemical_probe
+      - cross_references
+      - helm_notation
+      - molecule_hierarchy
+      - molecule_properties
+      - molecule_structures
+      - molecule_synonyms
+      - orphan
+      - veterinary
+      - standard_inchi
+      - chirality_chembl
+      - molecule_type_chembl
+      lowercase_columns: []
+    transforms:
+      unit_conversion:
+        nM: 1.0
+        uM: 1000.0
+        pM: 0.001
+    postprocess:
+      qc:
+        enabled: true
+        enhanced: false
+      correlation:
+        enabled: true
+        enhanced: false
+    pipeline_version: 1.1.0
+    allow_parent_missing: false
+    enable_pubchem: true
+  source_counts:
+    chembl: !!python/object/apply:numpy._core.multiarray.scalar
+    - &id001 !!python/object/apply:numpy.dtype
+      args:
+      - i8
+      - false
+      - true
+      state: !!python/tuple
+      - 3
+      - <
+      - null
+      - null
+      - null
+      - -1
+      - -1
+      - 0
+    - !!binary |
+      AgAAAAAAAAA=
+    pubchem: !!python/object/apply:numpy._core.multiarray.scalar
+    - *id001
+    - !!binary |
+      AgAAAAAAAAA=
+  pubchem_enrichment:
+    enabled: true
+    enrichment_rate: !!python/object/apply:numpy._core.multiarray.scalar
+    - !!python/object/apply:numpy.dtype
+      args:
+      - f8
+      - false
+      - true
+      state: !!python/tuple
+      - 3
+      - <
+      - null
+      - null
+      - null
+      - -1
+      - -1
+      - 0
+    - !!binary |
+      AAAAAAAA8D8=
+    records_with_pubchem_data: 2
+execution:
+  run_id: testitem_run_20251023_181907
+  started_at: '2025-10-23T18:19:07.986727'
+  completed_at: '2025-10-23T18:19:07.986727'
+  duration_sec: 0.0
+  memory_peak_mb: null
+data:
+  row_count: 0
+  row_count_accepted: 0
+  row_count_rejected: 0
+  columns_count: 0
+sources: []
+validation:
+  schema_passed: true
+  qc_passed: true
+  warnings: 0
+  errors: 0
+files: {}
+metadata: {}

@@ -6,10 +6,10 @@
 
 from abc import ABC, abstractmethod
 from typing import Any
+
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from library.config import Config
 
 
 class QualityRule(BaseModel):

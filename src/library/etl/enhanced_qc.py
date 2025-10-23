@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Dict, List, Optional
+from collections import defaultdict
 
 import numpy as np
 import pandas as pd
@@ -496,20 +497,41 @@ def build_enhanced_qc_summary(df: pd.DataFrame, pipeline_type: str = "generic") 
     
     # Базовые метрики
     table_summary = quality_report.get('table_summary', {})
+    
+    # Конвертируем numpy типы в Python типы
+    total_rows = table_summary.get('total_rows', 0)
+    if hasattr(total_rows, 'item'):
+        total_rows = total_rows.item()
+    
+    total_columns = table_summary.get('total_columns', 0)
+    if hasattr(total_columns, 'item'):
+        total_columns = total_columns.item()
+    
+    memory_usage_bytes = table_summary.get('memory_usage_bytes', 0)
+    if hasattr(memory_usage_bytes, 'item'):
+        memory_usage_bytes = memory_usage_bytes.item()
+    
     summary_metrics.extend([
-        {"metric": "total_rows", "value": table_summary.get('total_rows', 0)},
-        {"metric": "total_columns", "value": table_summary.get('total_columns', 0)},
-        {"metric": "memory_usage_mb", "value": round(table_summary.get('memory_usage_bytes', 0) / 1024 / 1024, 2)},
+        {"metric": "total_rows", "value": total_rows},
+        {"metric": "total_columns", "value": total_columns},
+        {"metric": "memory_usage_mb", "value": round(memory_usage_bytes / 1024 / 1024, 2)},
     ])
     
     # Метрики полноты данных
     column_analysis = quality_report.get('column_analysis', {})
     for col_name, col_info in column_analysis.items():
         # Вычисляем completeness как процент непустых значений
-        completeness = (100 - col_info.get('empty_pct', 100)) / 100
+        empty_pct = col_info.get('empty_pct', 100)
+        if hasattr(empty_pct, 'item'):  # numpy scalar
+            empty_pct = empty_pct.item()
+        completeness = (100 - empty_pct) / 100
+        unique_cnt = col_info.get('unique_cnt', 0)
+        if hasattr(unique_cnt, 'item'):
+            unique_cnt = unique_cnt.item()
+        
         summary_metrics.extend([
             {"metric": f"{col_name}_completeness", "value": round(completeness, 3)},
-            {"metric": f"{col_name}_unique_values", "value": col_info.get('unique_cnt', 0)},
+            {"metric": f"{col_name}_unique_values", "value": unique_cnt},
         ])
     
     # Специфичные метрики пайплайна
@@ -540,8 +562,181 @@ def build_enhanced_qc_report(df: pd.DataFrame, logger: BoundLogger | None = None
     return profiler.consume(df)
 
 
+class NormalizationReporter:
+    """Репортер для отслеживания и агрегации изменений данных при нормализации."""
+    
+    def __init__(self, logger: BoundLogger | None = None):
+        """Инициализация репортера нормализации."""
+        self.logger = logger
+        self.changes: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        self.field_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {
+            'total_records': 0,
+            'changed_count': 0,
+            'discarded_count': 0,
+            'success_count': 0
+        })
+    
+    def track_normalization(self, field: str, original_value: Any, normalized_value: Any, 
+                          normalizer_name: str = None) -> None:
+        """Отслеживает изменение значения при нормализации.
+        
+        Args:
+            field: Название поля
+            original_value: Исходное значение
+            normalized_value: Нормализованное значение
+            normalizer_name: Название примененного нормализатора
+        """
+        # Обновляем статистику поля
+        stats = self.field_stats[field]
+        stats['total_records'] += 1
+        
+        # Определяем тип изменения
+        if normalized_value is None and original_value is not None:
+            stats['discarded_count'] += 1
+            change_type = 'discarded'
+        elif original_value != normalized_value:
+            stats['changed_count'] += 1
+            change_type = 'changed'
+        else:
+            stats['success_count'] += 1
+            change_type = 'unchanged'
+        
+        # Сохраняем детали изменения (только для измененных значений)
+        if change_type in ['changed', 'discarded']:
+            self.changes[field].append({
+                'original_value': str(original_value) if original_value is not None else None,
+                'normalized_value': str(normalized_value) if normalized_value is not None else None,
+                'change_type': change_type,
+                'normalizer_name': normalizer_name
+            })
+    
+    def aggregate_changes(self) -> Dict[str, Dict[str, Any]]:
+        """Агрегирует изменения по полям.
+        
+        Returns:
+            Словарь с агрегированной статистикой по каждому полю
+        """
+        aggregated = {}
+        
+        for field, stats in self.field_stats.items():
+            total = stats['total_records']
+            if total == 0:
+                continue
+                
+            success_rate = (stats['success_count'] / total) * 100 if total > 0 else 0
+            
+            # Получаем примеры изменений
+            examples = self.changes[field][:5] if field in self.changes else []
+            
+            aggregated[field] = {
+                'total_records': total,
+                'changed_count': stats['changed_count'],
+                'discarded_count': stats['discarded_count'],
+                'success_count': stats['success_count'],
+                'success_rate': round(success_rate, 2),
+                'examples': examples
+            }
+        
+        return aggregated
+    
+    def generate_normalization_report(self) -> pd.DataFrame:
+        """Генерирует детальный отчет о нормализации в формате DataFrame.
+        
+        Returns:
+            DataFrame с отчетом по каждому полю
+        """
+        aggregated = self.aggregate_changes()
+        
+        if not aggregated:
+            return pd.DataFrame()
+        
+        report_data = []
+        for field, stats in aggregated.items():
+            # Получаем примеры изменений
+            examples = stats['examples']
+            example_before = examples[0]['original_value'] if examples else None
+            example_after = examples[0]['normalized_value'] if examples else None
+            
+            report_data.append({
+                'field_name': field,
+                'total_records': stats['total_records'],
+                'changed_count': stats['changed_count'],
+                'discarded_count': stats['discarded_count'],
+                'success_rate': stats['success_rate'],
+                'example_before': example_before,
+                'example_after': example_after
+            })
+        
+        df = pd.DataFrame(report_data)
+        
+        # Сортируем по количеству изменений (по убыванию)
+        df = df.sort_values('changed_count', ascending=False)
+        
+        if self.logger:
+            self.logger.info(f"Сгенерирован отчет нормализации: {len(df)} полей")
+        
+        return df
+    
+    def save_report_to_csv(self, filepath: str) -> None:
+        """Сохраняет отчет нормализации в CSV файл.
+        
+        Args:
+            filepath: Путь к файлу для сохранения
+        """
+        report_df = self.generate_normalization_report()
+        if not report_df.empty:
+            report_df.to_csv(filepath, index=False)
+            if self.logger:
+                self.logger.info(f"Отчет нормализации сохранен в {filepath}")
+        else:
+            if self.logger:
+                self.logger.warning("Нет данных для сохранения отчета нормализации")
+    
+    def get_summary_stats(self) -> Dict[str, Any]:
+        """Получает сводную статистику по всем полям.
+        
+        Returns:
+            Словарь со сводной статистикой
+        """
+        aggregated = self.aggregate_changes()
+        
+        if not aggregated:
+            return {
+                'total_fields': 0,
+                'total_records': 0,
+                'total_changed': 0,
+                'total_discarded': 0,
+                'overall_success_rate': 0.0
+            }
+        
+        total_fields = len(aggregated)
+        total_records = sum(stats['total_records'] for stats in aggregated.values())
+        total_changed = sum(stats['changed_count'] for stats in aggregated.values())
+        total_discarded = sum(stats['discarded_count'] for stats in aggregated.values())
+        total_success = sum(stats['success_count'] for stats in aggregated.values())
+        
+        overall_success_rate = (total_success / total_records) * 100 if total_records > 0 else 0
+        
+        return {
+            'total_fields': total_fields,
+            'total_records': total_records,
+            'total_changed': total_changed,
+            'total_discarded': total_discarded,
+            'total_success': total_success,
+            'overall_success_rate': round(overall_success_rate, 2)
+        }
+    
+    def reset(self) -> None:
+        """Сбрасывает все накопленные данные."""
+        self.changes.clear()
+        self.field_stats.clear()
+        if self.logger:
+            self.logger.info("Данные репортера нормализации сброшены")
+
+
 __all__ = [
     'EnhancedTableQualityProfiler',
+    'NormalizationReporter',
     'build_enhanced_qc_report',
     'build_enhanced_qc_summary',
     'build_enhanced_qc_detailed',

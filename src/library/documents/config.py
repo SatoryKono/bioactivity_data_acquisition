@@ -21,7 +21,7 @@ DEFAULT_ENV_PREFIX = "BIOACTIVITY__"
 class DocumentInputSettings(BaseModel):
     """Input configuration for the document pipeline."""
 
-    documents_csv: Path = Field(default=Path("data/input/documents.csv"))
+    documents_csv: Path = Field(default=Path("data/input/document.csv"))
 
 
 class DocumentOutputSettings(BaseModel):
@@ -52,6 +52,7 @@ class DocumentRuntimeSettings(BaseModel):
     crossref_batch_size: int = Field(default=50, ge=1, le=200)
     openalex_batch_size: int = Field(default=50, ge=1, le=200)
     semantic_scholar_batch_size: int = Field(default=100, ge=1, le=500)
+    allow_incomplete_sources: bool = Field(default=True)
 
 
 class CitationFormattingSettings(BaseModel):

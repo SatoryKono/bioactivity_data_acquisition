@@ -365,8 +365,7 @@ class EnhancedCorrelationAnalyzer:
                                               col1=col1, col2=col2, error=str(e))
         else:
             if self.logger:
-                self.logger.info("Пропускаем скользящие корреляции из-за размера датасета", 
-                               dataset_size=len(df), window_size=window_size)
+                self.logger.info(f"Пропускаем скользящие корреляции из-за размера датасета: {len(df)} строк, окно: {window_size}")
             
             # Для больших датасетов вычисляем простые корреляции вместо скользящих
             if len(df) >= 10000:
