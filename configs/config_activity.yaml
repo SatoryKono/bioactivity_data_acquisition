@@ -91,7 +91,6 @@ determinism:
     - "document_chembl_id"               # STRING: FK к document_dim, источник: ChEMBL API /document, тип: STRING, валидация: NOT NULL, FK
     - "target_chembl_id"                 # STRING: FK к target_dim, источник: ChEMBL API /target, тип: STRING, валидация: NOT NULL, FK
     - "molecule_chembl_id"               # STRING: FK к testitem_dim, источник: ChEMBL API /molecule, тип: STRING, валидация: NOT NULL, FK
-    - "saltform_id"                      # STRING: FK к saltform (из input), тип: STRING, валидация: nullable
     - "activity_type"                    # STRING: Тип активности (IC50, EC50, Ki, Kd), источник: ChEMBL, тип: STRING, валидация: enum ["IC50", "EC50", "Ki", "Kd", "AC50"]
     - "activity_value"                   # DECIMAL: Значение активности, источник: ChEMBL, тип: DECIMAL, валидация: >= 0
     - "activity_unit"                    # STRING: Единицы измерения, источник: ChEMBL, тип: STRING, валидация: enum ["nM", "uM", "mM", "M", "%", "mg/ml", "ug/ml"]
