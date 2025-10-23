@@ -5,6 +5,7 @@ import pandas as pd
 
 from src.library.activity.pipeline import ActivityPipeline
 
+
 def test_correlation_in_metadata():
     """Тест проверяет, что корреляционный анализ сохраняется в метаданные."""
     

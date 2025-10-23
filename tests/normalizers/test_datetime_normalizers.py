@@ -3,11 +3,12 @@
 """
 
 import datetime
+
 from src.library.normalizers.datetime_normalizers import (
-    normalize_datetime_iso8601,
-    normalize_datetime_validate,
-    normalize_datetime_precision,
     normalize_date_only,
+    normalize_datetime_iso8601,
+    normalize_datetime_precision,
+    normalize_datetime_validate,
 )
 
 

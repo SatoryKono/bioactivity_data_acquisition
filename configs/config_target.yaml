@@ -148,18 +148,19 @@ determinism:
     - "uniProtkbId"                    # STRING: UniProtKB ID, источник: UniProt, тип: STRING, валидация: nullable
     - "secondaryAccessions"            # TEXT: Вторичные accession номера, источник: UniProt, тип: TEXT, валидация: nullable
     - "secondaryAccessionNames"        # TEXT: Названия вторичных accession, источник: UniProt, тип: TEXT, валидация: nullable
-    - "recommendedName"                # STRING: Рекомендуемое название, источник: UniProt, тип: STRING, валидация: nullable
-    - "geneName"                       # STRING: Название гена, источник: UniProt, тип: STRING, валидация: nullable
-    
+     
     # 5. Isoform data
     - "isoform_ids"                    # TEXT: ID изоформ, источник: UniProt, тип: TEXT, валидация: nullable
     - "isoform_names"                  # TEXT: Названия изоформ, источник: UniProt, тип: TEXT, валидация: nullable
     - "isoform_synonyms"               # TEXT: Синонимы изоформ, источник: UniProt, тип: TEXT, валидация: nullable
     
     # 6. Protein names
+    - "recommendedName"                # STRING: Рекомендуемое название, источник: UniProt, тип: STRING, валидация: nullable
+    - "geneName"                       # STRING: Название гена, источник: UniProt, тип: STRING, валидация: nullable
     - "protein_name_canonical"         # STRING: Каноническое название белка, источник: UniProt, тип: STRING, валидация: nullable
     - "protein_name_alt"               # STRING: Альтернативное название белка, источник: UniProt, тип: STRING, валидация: nullable
-    
+    - "protein_synonym_list"           # TEXT: Список синонимов белка, источник: вычисляемое, тип: TEXT, валидация: nullable    
+
     # 7. Taxonomy
     - "taxon_id"                       # INT: Таксономический ID, источник: UniProt, тип: INT, валидация: nullable, > 0
     - "lineage_superkingdom"           # STRING: Суперцарство в линии, источник: UniProt, тип: STRING, валидация: nullable
@@ -192,13 +193,7 @@ determinism:
     - "ubiquitination"                 # BOOL: Убиквитинирование, источник: UniProt, тип: BOOL, валидация: boolean
     - "signal_peptide"                 # BOOL: Сигнальный пептид, источник: UniProt, тип: BOOL, валидация: boolean
     - "propeptide"                     # BOOL: Пропептид, источник: UniProt, тип: BOOL, валидация: boolean
-    
-    # 12. PTM features (text fields)
-    - "ptm_glycosylation"              # TEXT: Гликозилирование (текст), источник: UniProt, тип: TEXT, валидация: nullable
-    - "ptm_lipidation"                 # TEXT: Липидирование (текст), источник: UniProt, тип: TEXT, валидация: nullable
-    - "ptm_disulfide_bond"             # TEXT: Дисульфидная связь (текст), источник: UniProt, тип: TEXT, валидация: nullable
-    - "ptm_modified_residue"           # TEXT: Модифицированный остаток (текст), источник: UniProt, тип: TEXT, валидация: nullable
-    
+        
     # 13. Cross-references
     - "xref_chembl"                    # TEXT: Ссылки на ChEMBL, источник: UniProt, тип: TEXT, валидация: nullable
     - "xref_uniprot"                   # TEXT: Ссылки на UniProt, источник: UniProt, тип: TEXT, валидация: nullable
@@ -280,23 +275,24 @@ determinism:
     
     # 22. Protein class predictions
     - "protein_class_pred_L1"          # STRING: Предсказание класса белка L1, источник: вычисляемое, тип: STRING, валидация: nullable
-    
-    # 23. System metadata
-    - "index"                          # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "extraction_status"              # STRING: Статус извлечения, источник: система, тип: STRING, валидация: NOT NULL
-    - "protein_class_pred_rule_id"     # STRING: ID правила предсказания класса, источник: вычисляемое, тип: STRING, валидация: nullable
-    - "source_system"                  # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
-    - "protein_class_pred_L3"          # STRING: Предсказание класса белка L3, источник: вычисляемое, тип: STRING, валидация: nullable
-    - "hash_business_key"              # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-    - "validation_errors"              # TEXT: Ошибки валидации, источник: система, тип: TEXT, валидация: nullable
-    - "extraction_errors"              # TEXT: Ошибки извлечения, источник: система, тип: TEXT, валидация: nullable
-    - "extracted_at"                   # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
     - "protein_class_pred_L2"          # STRING: Предсказание класса белка L2, источник: вычисляемое, тип: STRING, валидация: nullable
-    - "protein_synonym_list"           # TEXT: Список синонимов белка, источник: вычисляемое, тип: TEXT, валидация: nullable
-    - "chembl_release"                 # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "protein_class_pred_L3"          # STRING: Предсказание класса белка L3, источник: вычисляемое, тип: STRING, валидация: nullable   
     - "protein_class_pred_confidence"  # FLOAT: Уверенность предсказания класса, источник: вычисляемое, тип: FLOAT, валидация: nullable
     - "protein_class_pred_evidence"    # TEXT: Доказательства предсказания класса, источник: вычисляемое, тип: TEXT, валидация: nullable
-    - "hash_row"                       # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "protein_class_pred_rule_id"     # STRING: ID правила предсказания класса, источник: вычисляемое, тип: STRING, валидация: nullable
+  
+    # 23. System metadata
+    
+    - "validation_errors"              # TEXT: Ошибки валидации, источник: система, тип: TEXT, валидация: nullable
+    - "extraction_errors"              # TEXT: Ошибки извлечения, источник: система, тип: TEXT, валидация: nullable
+    # Метаданные
+    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                        # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
 
 # Валидация - настройки проверки данных
 validation:

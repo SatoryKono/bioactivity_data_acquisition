@@ -2,13 +2,11 @@
 
 from unittest.mock import Mock
 
-from library.documents.extract import (
-    extract_from_pubmed,
-    extract_from_crossref,
-    extract_from_openalex,
-    extract_from_semantic_scholar,
-    extract_from_chembl
-)
+from library.documents.extract import extract_from_chembl
+from library.documents.extract import extract_from_crossref
+from library.documents.extract import extract_from_openalex
+from library.documents.extract import extract_from_pubmed
+from library.documents.extract import extract_from_semantic_scholar
 
 
 class TestExtractFromPubMed:

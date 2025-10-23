@@ -2,7 +2,8 @@
 
 from .exit_codes import ExitCode
 from .pipeline_base import PipelineBase
-from .writer_base import ETLWriter, ETLResult
+from .writer_base import ETLResult
+from .writer_base import ETLWriter
 
 __all__ = [
     "ExitCode",

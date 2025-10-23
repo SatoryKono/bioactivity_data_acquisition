@@ -4,8 +4,10 @@
 """
 
 import pandas as pd
+
 from src.library.testitem.normalize import TestitemNormalizer
 from src.library.utils.empty_value_handler import normalize_numeric_field
+
 
 def debug_normalize():
     """Отладка нормализации."""

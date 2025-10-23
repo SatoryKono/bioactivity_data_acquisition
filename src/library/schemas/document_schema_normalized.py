@@ -446,7 +446,7 @@ class DocumentNormalizedSchema:
     def get_schema() -> DataFrameSchema:
         """Схема для нормализованных данных документов."""
         return DataFrameSchema({
-            # Основные поля
+            # Основные поля документа (оригинальные из ChEMBL)
             "document_chembl_id": add_normalization_metadata(
                 Column(
                     pa.String,
@@ -475,14 +475,333 @@ class DocumentNormalizedSchema:
                 Column(pa.Bool, nullable=True, description="Оригинальный экспериментальный документ"),
                 ["normalize_boolean"]
             ),
-            "retrieved_at": add_normalization_metadata(
-                Column(
-                    pa.DateTime,
-                    checks=[Check(lambda x: x.notna())],
-                    nullable=False,
-                    description="Время получения данных"
-                ),
-                ["normalize_datetime_iso8601"]
+            "document_citation": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Форматированная литературная ссылка"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            
+            # PubMed специфичные поля
+            "pubmed_mesh_descriptors": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="MeSH дескрипторы из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "pubmed_mesh_qualifiers": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="MeSH квалификаторы из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "pubmed_chemical_list": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Список химических веществ из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "crossref_subject": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Предметная область из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            
+            # Группа полей PMID из всех источников
+            "chembl_pmid": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="PMID из ChEMBL"),
+                ["normalize_string_strip", "normalize_pmid"]
+            ),
+            "crossref_pmid": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="PMID из Crossref"),
+                ["normalize_string_strip", "normalize_pmid"]
+            ),
+            "openalex_pmid": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="PMID из OpenAlex"),
+                ["normalize_string_strip", "normalize_pmid"]
+            ),
+            "pubmed_pmid": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="PMID из PubMed"),
+                ["normalize_string_strip", "normalize_pmid"]
+            ),
+            "semantic_scholar_pmid": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="PMID из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_pmid"]
+            ),
+            
+            # Группа полей названий статей из всех источников
+            "chembl_title": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название статьи из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "crossref_title": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название статьи из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "openalex_title": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название статьи из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "pubmed_article_title": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название статьи из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "semantic_scholar_title": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название статьи из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            
+            # Группа полей аннотаций из всех источников
+            "chembl_abstract": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Аннотация из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "crossref_abstract": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Аннотация из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "openalex_abstract": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Аннотация из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "pubmed_abstract": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Аннотация из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            
+            # Группа полей авторов из всех источников
+            "chembl_authors": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Авторы из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "crossref_authors": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Авторы из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "openalex_authors": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Авторы из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "pubmed_authors": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Авторы из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "semantic_scholar_authors": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Авторы из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            
+            # Группа полей DOI из всех источников
+            "chembl_doi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="DOI из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
+            ),
+            "crossref_doi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="DOI из Crossref"),
+                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
+            ),
+            "openalex_doi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="DOI из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
+            ),
+            "pubmed_doi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="DOI из PubMed"),
+                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
+            ),
+            "semantic_scholar_doi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="DOI из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
+            ),
+            
+            # Группа полей типов публикации из всех источников
+            "chembl_doc_type": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Тип документа из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "crossref_doc_type": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Тип документа из Crossref"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "openalex_doc_type": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Тип документа из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "openalex_crossref_doc_type": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Тип документа из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "pubmed_doc_type": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Тип публикации из PubMed"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "semantic_scholar_doc_type": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Типы публикации из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            
+            # Группа полей ISSN из всех источников
+            "chembl_issn": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="ISSN из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "crossref_issn": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="ISSN из Crossref"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "openalex_issn": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="ISSN из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "pubmed_issn": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="ISSN из PubMed"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "semantic_scholar_issn": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="ISSN из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            
+            # Группа полей названий журналов из всех источников
+            "chembl_journal": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название журнала из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_titlecase"]
+            ),
+            "crossref_journal": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название журнала из Crossref"),
+                ["normalize_string_strip", "normalize_string_titlecase"]
+            ),
+            "openalex_journal": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название журнала из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_titlecase"]
+            ),
+            "pubmed_journal": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название журнала из PubMed"),
+                ["normalize_string_strip", "normalize_string_titlecase"]
+            ),
+            "semantic_scholar_journal": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Название журнала из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_string_titlecase"]
+            ),
+            
+            # Группа полей годов издания из всех источников
+            "chembl_year": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Год из ChEMBL"),
+                ["normalize_int", "normalize_year"]
+            ),
+            "crossref_year": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Год из Crossref"),
+                ["normalize_int", "normalize_year"]
+            ),
+            "openalex_year": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Год из OpenAlex"),
+                ["normalize_int", "normalize_year"]
+            ),
+            "pubmed_year": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Год из PubMed"),
+                ["normalize_int", "normalize_year"]
+            ),
+            
+            # Группа полей томов из всех источников
+            "chembl_volume": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Том из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "crossref_volume": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Том из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "openalex_volume": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Том из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "pubmed_volume": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Том из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            
+            # Группа полей выпусков из всех источников
+            "chembl_issue": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Номер выпуска из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "crossref_issue": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Номер выпуска из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "openalex_issue": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Номер выпуска из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "pubmed_issue": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Номер выпуска из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            
+            # Группа полей первых страниц из всех источников
+            "crossref_first_page": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Первая страница из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "openalex_first_page": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Первая страница из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "pubmed_first_page": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Начальная страница из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            
+            # Группа полей последних страниц из всех источников
+            "crossref_last_page": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Последняя страница из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "openalex_last_page": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Последняя страница из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "pubmed_last_page": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Конечная страница из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            
+            # Группа полей ошибок из всех источников
+            "chembl_error": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Ошибка из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "crossref_error": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Ошибка из Crossref"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "openalex_error": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Ошибка из OpenAlex"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "pubmed_error": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Ошибка из PubMed"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "semantic_scholar_error": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Ошибка из Semantic Scholar"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            
+            # Поля из PubMed (расширенные)
+            "pubmed_year_completed": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Год завершения из PubMed"),
+                ["normalize_int", "normalize_year"]
+            ),
+            "pubmed_month_completed": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Месяц завершения из PubMed"),
+                ["normalize_int", "normalize_month"]
+            ),
+            "pubmed_day_completed": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="День завершения из PubMed"),
+                ["normalize_int", "normalize_day"]
+            ),
+            "pubmed_year_revised": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Год пересмотра из PubMed"),
+                ["normalize_int", "normalize_year"]
+            ),
+            "pubmed_month_revised": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Месяц пересмотра из PubMed"),
+                ["normalize_int", "normalize_month"]
+            ),
+            "pubmed_day_revised": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="День пересмотра из PubMed"),
+                ["normalize_int", "normalize_day"]
             ),
             
             # Вычисляемые поля
@@ -535,50 +854,5 @@ class DocumentNormalizedSchema:
             "invalid_issue": add_normalization_metadata(
                 Column(pa.Bool, nullable=True, description="Невалидный номер выпуска"),
                 ["normalize_boolean"]
-            ),
-            
-            # Системные поля
-            "index": add_normalization_metadata(
-                Column(pa.Int64, nullable=False, description="Индекс записи"),
-                ["normalize_int", "normalize_int_positive"]
-            ),
-            "pipeline_version": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Версия пайплайна"),
-                ["normalize_string_strip", "normalize_string_upper"]
-            ),
-            "source_system": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Исходная система"),
-                ["normalize_string_strip", "normalize_string_upper"]
-            ),
-            "chembl_release": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Релиз ChEMBL"),
-                ["normalize_string_strip", "normalize_string_upper"]
-            ),
-            "extracted_at": add_normalization_metadata(
-                Column(
-                    pa.DateTime,
-                    checks=[Check(lambda x: x.notna())],
-                    nullable=False,
-                    description="Время извлечения данных"
-                ),
-                ["normalize_datetime_iso8601"]
-            ),
-            "hash_row": add_normalization_metadata(
-                Column(
-                    pa.String,
-                    checks=[Check(lambda x: x.notna())],
-                    nullable=False,
-                    description="SHA256 хеш строки"
-                ),
-                ["normalize_string_strip", "normalize_string_lower"]
-            ),
-            "hash_business_key": add_normalization_metadata(
-                Column(
-                    pa.String,
-                    checks=[Check(lambda x: x.notna())],
-                    nullable=False,
-                    description="SHA256 хеш бизнес-ключа"
-                ),
-                ["normalize_string_strip", "normalize_string_lower"]
             ),
         })

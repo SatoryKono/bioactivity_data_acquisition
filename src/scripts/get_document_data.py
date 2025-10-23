@@ -2,11 +2,13 @@
 """CLI для извлечения данных документов из различных источников."""
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 from typing import Any
 
-from library.documents import load_document_config, DocumentPipeline, write_document_outputs
+from library.documents import DocumentPipeline
+from library.documents import load_document_config
+from library.documents import write_document_outputs
 from library.logging_setup import configure_logging
 
 

@@ -11,9 +11,10 @@ import pandas as pd
 
 # Импортируем обновленные компоненты
 from src.library.common.writer_base import DocumentETLWriter
-from src.library.schemas.document_schema import DocumentNormalizedSchema
-from src.library.documents.normalize import DocumentNormalizer
 from src.library.config import Config
+from src.library.documents.normalize import DocumentNormalizer
+from src.library.schemas.document_schema import DocumentNormalizedSchema
+
 
 def test_document_etl_writer():
     """Тест DocumentETLWriter - проверяем что он использует column_order из конфига."""

@@ -1,11 +1,13 @@
 """Интеграционные тесты для пайплайна документов."""
 
+from unittest.mock import Mock
+from unittest.mock import patch
+
 import pandas as pd
 import pytest
-from unittest.mock import Mock, patch
 
-from library.documents.pipeline import DocumentPipeline
 from library.documents.config import DocumentConfig
+from library.documents.pipeline import DocumentPipeline
 
 
 class TestDocumentPipelineIntegration:

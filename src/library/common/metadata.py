@@ -4,16 +4,16 @@
 Предоставляет единую структуру метаданных для всех пайплайнов.
 """
 
-import hashlib
 from datetime import datetime
+import hashlib
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel
+from pydantic import Field
 import yaml
-from pydantic import BaseModel, Field
 
 from library.config import Config
-
 
 
 class SourceInfo(BaseModel):

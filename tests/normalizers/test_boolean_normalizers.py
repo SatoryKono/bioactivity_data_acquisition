@@ -3,11 +3,12 @@
 """
 
 import pytest
+
 from src.library.normalizers.boolean_normalizers import (
     normalize_boolean,
-    normalize_boolean_strict,
     normalize_boolean_from_numeric,
     normalize_boolean_preserve_none,
+    normalize_boolean_strict,
 )
 
 

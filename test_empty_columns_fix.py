@@ -10,7 +10,10 @@ from src.library.clients.crossref import CrossrefClient
 from src.library.clients.openalex import OpenAlexClient
 from src.library.clients.pubmed import PubMedClient
 from src.library.clients.semantic_scholar import SemanticScholarClient
-from src.library.config import APIClientConfig, RateLimitSettings, RetrySettings
+from src.library.config import APIClientConfig
+from src.library.config import RateLimitSettings
+from src.library.config import RetrySettings
+
 
 def test_crossref_client():
     """Тест CrossrefClient - проверяем извлечение новых полей."""

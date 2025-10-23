@@ -5,11 +5,14 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-from library.documents.extract import extract_from_openalex, extract_from_semantic_scholar, extract_from_crossref
+from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.semantic_scholar import SemanticScholarClient
-from library.clients.crossref import CrossrefClient
 from library.config import APIClientConfig
+from library.documents.extract import extract_from_crossref
+from library.documents.extract import extract_from_openalex
+from library.documents.extract import extract_from_semantic_scholar
+
 
 def test_extraction():
     """Тест извлечения данных."""

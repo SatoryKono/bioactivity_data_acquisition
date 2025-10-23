@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 import re
 from typing import Any
-from collections import defaultdict
 
 import numpy as np
 import pandas as pd

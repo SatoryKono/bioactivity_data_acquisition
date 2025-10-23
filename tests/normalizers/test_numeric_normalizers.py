@@ -3,18 +3,17 @@
 """
 
 import pytest
-from src.library.normalizers.numeric_normalizers import (
-    normalize_int,
-    normalize_float,
-    normalize_int_positive,
-    normalize_int_range,
-    normalize_float_precision,
-    normalize_year,
-    normalize_month,
-    normalize_day,
-    normalize_molecular_weight,
-    normalize_pchembl_range,
-)
+
+from src.library.normalizers.numeric_normalizers import normalize_day
+from src.library.normalizers.numeric_normalizers import normalize_float
+from src.library.normalizers.numeric_normalizers import normalize_float_precision
+from src.library.normalizers.numeric_normalizers import normalize_int
+from src.library.normalizers.numeric_normalizers import normalize_int_positive
+from src.library.normalizers.numeric_normalizers import normalize_int_range
+from src.library.normalizers.numeric_normalizers import normalize_molecular_weight
+from src.library.normalizers.numeric_normalizers import normalize_month
+from src.library.normalizers.numeric_normalizers import normalize_pchembl_range
+from src.library.normalizers.numeric_normalizers import normalize_year
 
 
 class TestNumericNormalizers:

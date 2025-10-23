@@ -3,20 +3,21 @@
 Проверяет, что все пайплайны используют единообразные компоненты и интерфейсы.
 """
 
-import pytest
 from typing import Any
 
 import pandas as pd
+import pytest
 
-from library.common.pipeline_base import PipelineBase
 from library.common.error_tracking import ErrorTracker
 from library.common.metadata import MetadataBuilder
-from library.common.qc_profiles import QCValidator, QCProfile
+from library.common.pipeline_base import PipelineBase
 from library.common.postprocess_base import BasePostprocessor
-from library.common.writer_base import ETLWriter, ETLResult
-
-
+from library.common.qc_profiles import QCProfile
+from library.common.qc_profiles import QCValidator
+from library.common.writer_base import ETLResult
+from library.common.writer_base import ETLWriter
 from library.config import Config
+
 
 class MockConfig(Config):
     """Мок конфигурации для тестирования."""

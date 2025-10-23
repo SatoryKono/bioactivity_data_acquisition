@@ -4,7 +4,9 @@
 """
 
 import pandas as pd
+
 from src.library.testitem.pipeline import TestitemPipeline
+
 
 def debug_merge():
     """Отладка merge логики."""

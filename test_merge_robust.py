@@ -3,9 +3,11 @@
 Тест для проверки исправленной логики merge с различными типами данных.
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from src.library.testitem.pipeline import TestitemPipeline
+
 
 def test_merge_robust():
     """Тест исправленной логики merge с различными типами данных."""

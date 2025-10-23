@@ -3,13 +3,14 @@
 """
 
 import pytest
+
 from src.library.normalizers.identifier_normalizers import (
-    normalize_doi,
     normalize_chembl_id,
-    normalize_uniprot_id,
+    normalize_doi,
     normalize_iuphar_id,
-    normalize_pubchem_cid,
     normalize_pmid,
+    normalize_pubchem_cid,
+    normalize_uniprot_id,
 )
 
 

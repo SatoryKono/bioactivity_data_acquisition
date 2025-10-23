@@ -6,12 +6,16 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from library.common.error_tracking import ErrorSeverity, ErrorTracker, ErrorType
+from library.common.error_tracking import ErrorSeverity
+from library.common.error_tracking import ErrorTracker
+from library.common.error_tracking import ErrorType
 from library.common.metadata import MetadataBuilder
 from library.common.pipeline_base import PipelineBase
-from library.common.qc_profiles import QCValidator, QCProfile
 from library.common.postprocess_base import BasePostprocessor
-from library.common.writer_base import ETLWriter, ETLResult
+from library.common.qc_profiles import QCProfile
+from library.common.qc_profiles import QCValidator
+from library.common.writer_base import ETLResult
+from library.common.writer_base import ETLWriter
 
 
 class TestPipelineCompatibility:
@@ -20,7 +24,7 @@ class TestPipelineCompatibility:
     def test_legacy_etl_result_compatibility(self):
         """Тест совместимости с legacy ETLResult."""
         from library.common.pipeline_base import ETLResult as LegacyETLResult
-        
+
         # Создаем legacy результат
         legacy_result = LegacyETLResult(
             data=pd.DataFrame({"id": ["TEST001"], "name": ["Test"]}),
@@ -146,7 +150,7 @@ class TestPipelineCompatibility:
     def test_postprocessor_step_registry(self):
         """Тест реестра шагов постобработки."""
         from library.common.postprocess_base import POSTPROCESS_STEPS_REGISTRY
-        
+
         # Проверяем, что реестр существует
         assert isinstance(POSTPROCESS_STEPS_REGISTRY, dict)
         

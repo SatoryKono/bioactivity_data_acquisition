@@ -3,13 +3,12 @@
 """
 
 import pytest
-from src.library.normalizers.units_normalizers import (
-    normalize_units,
-    normalize_pchembl,
-    normalize_activity_value,
-    normalize_concentration,
-    normalize_percentage,
-)
+
+from src.library.normalizers.units_normalizers import normalize_activity_value
+from src.library.normalizers.units_normalizers import normalize_concentration
+from src.library.normalizers.units_normalizers import normalize_pchembl
+from src.library.normalizers.units_normalizers import normalize_percentage
+from src.library.normalizers.units_normalizers import normalize_units
 
 
 class TestUnitsNormalizers:

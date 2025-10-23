@@ -2,14 +2,12 @@
 
 import pandas as pd
 
-from library.documents.merge import (
-    normalize_doi,
-    resolve_conflicts,
-    merge_metadata_records,
-    merge_source_data,
-    compute_publication_date,
-    add_document_sortorder
-)
+from library.documents.merge import add_document_sortorder
+from library.documents.merge import compute_publication_date
+from library.documents.merge import merge_metadata_records
+from library.documents.merge import merge_source_data
+from library.documents.merge import normalize_doi
+from library.documents.merge import resolve_conflicts
 
 
 class TestNormalizeDOI:

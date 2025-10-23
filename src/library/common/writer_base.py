@@ -325,9 +325,8 @@ class DocumentETLWriter(ETLWriter):
     def get_exclude_columns(self) -> list[str]:
         """Колонки для исключения из вывода документов."""
         return [
-            "quality_flag", "quality_reason", "retrieved_at", "_row_id",
-            # Технические/служебные колонки
-            "index", "hash_row", "hash_business_key"
+            "quality_flag", "quality_reason", "retrieved_at", "_row_id"
+            # Удалено: "index", "hash_row", "hash_business_key"
         ]
 
 
@@ -358,6 +357,8 @@ class AssayETLWriter(ETLWriter):
     
     def get_column_order(self) -> list[str] | None:
         """Порядок колонок для ассаев."""
+        if hasattr(self.config, 'determinism') and hasattr(self.config.determinism, 'column_order'):
+            return self.config.determinism.column_order
         return None
     
     def get_exclude_columns(self) -> list[str]:

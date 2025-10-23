@@ -37,7 +37,7 @@ class TestitemNormalizedSchema:
     def get_schema() -> DataFrameSchema:
         """Схема для нормализованных данных testitems."""
         return DataFrameSchema({
-            # Основные поля
+            # Основные идентификаторы и метаданные
             "molecule_chembl_id": add_normalization_metadata(
                 Column(
                     pa.String,
@@ -51,11 +51,11 @@ class TestitemNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_upper", "normalize_chembl_id"]
             ),
             "molregno": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="ChEMBL числовой ID"),
+                Column(pa.Int64, nullable=True, description="Номер регистрации молекулы"),
                 ["normalize_int", "normalize_int_positive"]
             ),
             "pref_name": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Предпочтительное название"),
+                Column(pa.String, nullable=True, description="Предпочтительное название молекулы"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
             "pref_name_key": add_normalization_metadata(
@@ -63,33 +63,29 @@ class TestitemNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             "parent_chembl_id": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="ChEMBL ID родительской молекулы"),
+                Column(pa.String, nullable=True, description="ID родительской молекулы"),
                 ["normalize_string_strip", "normalize_string_upper", "normalize_chembl_id"]
             ),
             "parent_molregno": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="ChEMBL числовой ID родительской молекулы"),
+                Column(pa.Int64, nullable=True, description="Номер регистрации родительской молекулы"),
                 ["normalize_int", "normalize_int_positive"]
             ),
-            
-            # Фазы разработки
             "max_phase": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="Максимальная фаза"),
+                Column(pa.Int64, nullable=True, description="Максимальная фаза разработки"),
                 ["normalize_int", "normalize_int_range"]
             ),
             "therapeutic_flag": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Флаг терапевтического препарата"),
+                Column(pa.Bool, nullable=True, description="Флаг терапевтического применения"),
                 ["normalize_boolean"]
             ),
             "dosed_ingredient": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Дозируемый ингредиент"),
+                Column(pa.Bool, nullable=True, description="Флаг дозируемого ингредиента"),
                 ["normalize_boolean"]
             ),
             "first_approval": add_normalization_metadata(
                 Column(pa.Int64, nullable=True, description="Год первого одобрения"),
                 ["normalize_int", "normalize_year"]
             ),
-            
-            # Структурные данные
             "structure_type": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Тип структуры"),
                 ["normalize_string_strip", "normalize_string_upper"]
@@ -99,9 +95,9 @@ class TestitemNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             
-            # Физико-химические свойства
+            # Физико-химические свойства ChEMBL
             "mw_freebase": add_normalization_metadata(
-                Column(pa.Float64, nullable=True, description="Молекулярная масса свободного основания"),
+                Column(pa.Float64, nullable=True, description="Молекулярная масса freebase"),
                 ["normalize_float", "normalize_molecular_weight"]
             ),
             "alogp": add_normalization_metadata(
@@ -132,8 +128,6 @@ class TestitemNormalizedSchema:
                 Column(pa.Int64, nullable=True, description="Количество нарушений правила 5"),
                 ["normalize_int", "normalize_int_positive"]
             ),
-            
-            # ACD свойства
             "acd_most_apka": add_normalization_metadata(
                 Column(pa.Float64, nullable=True, description="ACD наиболее кислый pKa"),
                 ["normalize_float", "normalize_float_precision"]
@@ -150,8 +144,6 @@ class TestitemNormalizedSchema:
                 Column(pa.Float64, nullable=True, description="ACD log D"),
                 ["normalize_float", "normalize_float_precision"]
             ),
-            
-            # Дополнительные свойства
             "molecular_species": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Молекулярный вид"),
                 ["normalize_string_strip", "normalize_string_upper"]
@@ -180,8 +172,6 @@ class TestitemNormalizedSchema:
                 Column(pa.String, nullable=True, description="Полная молекулярная формула"),
                 ["normalize_string_strip", "normalize_string_upper", "normalize_molecular_formula"]
             ),
-            
-            # Lipinski свойства
             "hba_lipinski": add_normalization_metadata(
                 Column(pa.Int64, nullable=True, description="HBA Lipinski"),
                 ["normalize_int", "normalize_int_positive"]
@@ -195,23 +185,21 @@ class TestitemNormalizedSchema:
                 ["normalize_int", "normalize_int_positive"]
             ),
             
-            # Административные маршруты
+            # Пути введения и флаги
             "oral": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Пероральный"),
+                Column(pa.Bool, nullable=True, description="Оральный путь введения"),
                 ["normalize_boolean"]
             ),
             "parenteral": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Парентеральный"),
+                Column(pa.Bool, nullable=True, description="Парентеральный путь введения"),
                 ["normalize_boolean"]
             ),
             "topical": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Топический"),
+                Column(pa.Bool, nullable=True, description="Топический путь введения"),
                 ["normalize_boolean"]
             ),
-            
-            # Флаги безопасности
             "black_box_warning": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Черный ящик предупреждения"),
+                Column(pa.Bool, nullable=True, description="Предупреждение черного ящика"),
                 ["normalize_boolean"]
             ),
             "natural_product": add_normalization_metadata(
@@ -227,21 +215,21 @@ class TestitemNormalizedSchema:
                 ["normalize_boolean"]
             ),
             "prodrug": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Продруг"),
+                Column(pa.Bool, nullable=True, description="Пролекарство"),
                 ["normalize_boolean"]
             ),
             "inorganic_flag": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Флаг неорганического"),
+                Column(pa.Bool, nullable=True, description="Неорганическое соединение"),
                 ["normalize_boolean"]
             ),
             "polymer_flag": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Флаг полимера"),
+                Column(pa.Bool, nullable=True, description="Полимер"),
                 ["normalize_boolean"]
             ),
             
-            # USAN данные
+            # Регистрация и отзыв
             "usan_year": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="Год USAN"),
+                Column(pa.Int64, nullable=True, description="Год USAN регистрации"),
                 ["normalize_int", "normalize_year"]
             ),
             "availability_type": add_normalization_metadata(
@@ -249,25 +237,23 @@ class TestitemNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             "usan_stem": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="USAN основа"),
+                Column(pa.String, nullable=True, description="USAN stem"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             "usan_substem": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="USAN подоснова"),
+                Column(pa.String, nullable=True, description="USAN substem"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             "usan_stem_definition": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Определение USAN основы"),
+                Column(pa.String, nullable=True, description="Определение USAN stem"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
             "indication_class": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Класс показаний"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
-            
-            # Отзыв данных
             "withdrawn_flag": add_normalization_metadata(
-                Column(pa.Bool, nullable=True, description="Флаг отзыва"),
+                Column(pa.Bool, nullable=True, description="Отозванное лекарство"),
                 ["normalize_boolean"]
             ),
             "withdrawn_year": add_normalization_metadata(
@@ -318,8 +304,6 @@ class TestitemNormalizedSchema:
                 Column(pa.Bool, nullable=True, description="Флаг показаний препарата"),
                 ["normalize_boolean"]
             ),
-            
-            # Флаги терапевтических областей
             "drug_antibacterial_flag": add_normalization_metadata(
                 Column(pa.Bool, nullable=True, description="Флаг антибактериального"),
                 ["normalize_boolean"]
@@ -347,6 +331,58 @@ class TestitemNormalizedSchema:
             "drug_antiinflammatory_flag": add_normalization_metadata(
                 Column(pa.Bool, nullable=True, description="Флаг противовоспалительного"),
                 ["normalize_boolean"]
+            ),
+            
+            # PubChem данные
+            "pubchem_cid": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="PubChem CID"),
+                ["normalize_int", "normalize_int_positive", "normalize_pubchem_cid"]
+            ),
+            "pubchem_molecular_formula": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Молекулярная формула PubChem"),
+                ["normalize_string_strip", "normalize_string_upper", "normalize_molecular_formula"]
+            ),
+            "pubchem_molecular_weight": add_normalization_metadata(
+                Column(pa.Float64, nullable=True, description="Молекулярная масса PubChem"),
+                ["normalize_float", "normalize_molecular_weight"]
+            ),
+            "pubchem_canonical_smiles": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Канонические SMILES PubChem"),
+                ["normalize_string_strip", "normalize_smiles", "normalize_smiles_canonical"]
+            ),
+            "pubchem_isomeric_smiles": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Изомерные SMILES PubChem"),
+                ["normalize_string_strip", "normalize_smiles"]
+            ),
+            "pubchem_inchi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="InChI PubChem"),
+                ["normalize_string_strip", "normalize_inchi"]
+            ),
+            "pubchem_inchi_key": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="InChI Key PubChem"),
+                ["normalize_string_strip", "normalize_inchi_key"]
+            ),
+            "pubchem_registry_id": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Registry ID PubChem"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "pubchem_rn": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="RN PubChem"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            
+            # Стандартизированные структуры
+            "standardized_inchi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Стандартизированный InChI"),
+                ["normalize_string_strip", "normalize_inchi"]
+            ),
+            "standardized_inchi_key": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Стандартизированный InChI Key"),
+                ["normalize_string_strip", "normalize_inchi_key"]
+            ),
+            "standardized_smiles": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Стандартизированные SMILES"),
+                ["normalize_string_strip", "normalize_smiles", "normalize_smiles_canonical"]
             ),
             
             # PubChem данные
@@ -444,5 +480,113 @@ class TestitemNormalizedSchema:
                     description="SHA256 хеш бизнес-ключа"
                 ),
                 ["normalize_string_strip", "normalize_string_lower"]
+            ),
+            
+            # Входные данные из input файла
+            "all_names": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Все названия молекулы"),
+                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
+            ),
+            "canonical_smiles": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Канонические SMILES из входных данных"),
+                ["normalize_string_strip", "normalize_smiles", "normalize_smiles_canonical"]
+            ),
+            "inchi_key_from_mol": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="InChI ключ из молекулы"),
+                ["normalize_string_strip", "normalize_inchi_key"]
+            ),
+            "inchi_key_from_smiles": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="InChI ключ из SMILES"),
+                ["normalize_string_strip", "normalize_inchi_key"]
+            ),
+            "is_radical": add_normalization_metadata(
+                Column(pa.Bool, nullable=True, description="Флаг радикала"),
+                ["normalize_boolean"]
+            ),
+            "mw_<100_or_>1000": add_normalization_metadata(
+                Column(pa.Bool, nullable=True, description="Молекулярная масса <100 или >1000"),
+                ["normalize_boolean"]
+            ),
+            "n_stereocenters": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Количество стереоцентров"),
+                ["normalize_int", "normalize_int_positive"]
+            ),
+            "nstereo": add_normalization_metadata(
+                Column(pa.Int64, nullable=True, description="Количество стереоизомеров"),
+                ["normalize_int", "normalize_int_positive"]
+            ),
+            "salt_chembl_id": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="ChEMBL ID соли"),
+                ["normalize_string_strip", "normalize_string_upper", "normalize_chembl_id"]
+            ),
+            "standard_inchi_key": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Стандартный InChI ключ"),
+                ["normalize_string_strip", "normalize_inchi_key"]
+            ),
+            "standard_inchi_skeleton": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Стандартный InChI скелет"),
+                ["normalize_string_strip", "normalize_inchi"]
+            ),
+            "standard_inchi_stereo": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Стандартный InChI стерео"),
+                ["normalize_string_strip", "normalize_inchi"]
+            ),
+            
+            # Вложенные структуры ChEMBL (JSON/распакованные)
+            "atc_classifications": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="ATC классификации (JSON)"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "biotherapeutic": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Биотерапевтическое соединение (JSON)"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "chemical_probe": add_normalization_metadata(
+                Column(pa.Bool, nullable=True, description="Химический зонд"),
+                ["normalize_boolean"]
+            ),
+            "cross_references": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Перекрестные ссылки (JSON)"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "helm_notation": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="HELM нотация"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "molecule_hierarchy": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Иерархия молекулы (JSON)"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "molecule_properties": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Свойства молекулы (JSON)"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "molecule_structures": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Структуры молекулы (JSON)"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "molecule_synonyms": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Синонимы молекулы (JSON)"),
+                ["normalize_string_strip", "normalize_string_nfc"]
+            ),
+            "orphan": add_normalization_metadata(
+                Column(pa.Bool, nullable=True, description="Орфанное лекарство"),
+                ["normalize_boolean"]
+            ),
+            "veterinary": add_normalization_metadata(
+                Column(pa.Bool, nullable=True, description="Ветеринарное лекарство"),
+                ["normalize_boolean"]
+            ),
+            "standard_inchi": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Стандартный InChI"),
+                ["normalize_string_strip", "normalize_inchi"]
+            ),
+            "chirality_chembl": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Хиральность из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "molecule_type_chembl": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Тип молекулы из ChEMBL"),
+                ["normalize_string_strip", "normalize_string_upper"]
             ),
         })

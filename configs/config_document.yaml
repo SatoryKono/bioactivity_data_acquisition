@@ -120,10 +120,11 @@ determinism:
   column_order:
      # Основные поля документа (оригинальные из ChEMBL)
     - document_chembl_id      # STRING: PK документа из ChEMBL API /document, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
-    - document_pubmed_id      # STRING: PubMed идентификатор, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^\d+$
-    - document_classification # STRING: Классификация документа, источник: ChEMBL, тип: STRING, валидация: nullable
-    - referenses_on_previous_experiments  # BOOL: Содержит ли документ внешние ссылки, источник: ChEMBL, тип: BOOL, валидация: boolean
-    - original_experimental_document     # BOOL: Является ли документ экспериментальным, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - pubmed_id               # STRING: PubMed идентификатор, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^\d+$
+    - doi
+    - classification  # STRING: Классификация документа, источник: ChEMBL, тип: STRING, валидация: nullable
+    - document_contains_external_links  # BOOL: Содержит ли документ внешние ссылки, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - is_experimental_doc     # BOOL: Является ли документ экспериментальным, источник: ChEMBL, тип: BOOL, валидация: boolean
     - document_citation       # TEXT: Форматированная литературная ссылка, источник: система, тип: TEXT, валидация: nullable
 
     - pubmed_mesh_descriptors # TEXT: MeSH дескрипторы из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
@@ -231,18 +232,27 @@ determinism:
     - pubmed_day_revised      # INT: День пересмотра из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1-31
     - publication_date        # STRING: Дата публикации, источник: вычисляется, тип: DATE, валидация: nullable, ISO 8601
     - document_sortorder      # INT: Порядок сортировки документов, источник: вычисляется, тип: INT, валидация: NOT NULL, >= 0
+   # Метаданные
+    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                        # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+
 
     # Поля валидации данных из различных источников
-    - valid_doi               # BOOL: Валидное значение DOI, источник: система, тип: BOOL, валидация: boolean
-    - valid_journal           # BOOL: Валидное значение журнала, источник: система, тип: BOOL, валидация: boolean
-    - valid_year              # BOOL: Валидное значение года, источник: система, тип: BOOL, валидация: boolean
-    - valid_volume            # BOOL: Валидное значение тома, источник: система, тип: BOOL, валидация: boolean
-    - valid_issue             # BOOL: Валидное значение номера выпуска, источник: система, тип: BOOL, валидация: boolean
-    - invalid_doi             # BOOL: Флаг невалидности DOI, источник: система, тип: BOOL, валидация: boolean
-    - invalid_journal         # BOOL: Флаг невалидности журнала, источник: система, тип: BOOL, валидация: boolean
-    - invalid_year            # BOOL: Флаг невалидности года, источник: система, тип: BOOL, валидация: boolean
-    - invalid_volume          # BOOL: Флаг невалидности тома, источник: система, тип: BOOL, валидация: boolean
-    - invalid_issue           # BOOL: Флаг невалидности номера выпуска, источник: система, тип: BOOL, валидация: boolean
+    #- valid_doi               # BOOL: Валидное значение DOI, источник: система, тип: BOOL, валидация: boolean
+    #- valid_journal           # BOOL: Валидное значение журнала, источник: система, тип: BOOL, валидация: boolean
+    #- valid_year              # BOOL: Валидное значение года, источник: система, тип: BOOL, валидация: boolean
+    #- valid_volume            # BOOL: Валидное значение тома, источник: система, тип: BOOL, валидация: boolean
+    #- valid_issue             # BOOL: Валидное значение номера выпуска, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_doi             # BOOL: Флаг невалидности DOI, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_journal         # BOOL: Флаг невалидности журнала, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_year            # BOOL: Флаг невалидности года, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_volume          # BOOL: Флаг невалидности тома, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_issue           # BOOL: Флаг невалидности номера выпуска, источник: система, тип: BOOL, валидация: boolean
 
 
 # Валидация - настройки проверки данных

@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Тест для проверки работы API клиентов."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
+from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.semantic_scholar import SemanticScholarClient
-from library.clients.crossref import CrossrefClient
 from library.config import APIClientConfig
+
 
 def test_openalex():
     """Тест OpenAlex клиента."""

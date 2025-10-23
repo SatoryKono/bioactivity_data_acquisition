@@ -7,12 +7,15 @@ from typing import Any
 
 import pandas as pd
 
-from library.assay.config import AssayConfig
 from library.assay.client import AssayChEMBLClient
+from library.assay.config import AssayConfig
 from library.common.pipeline_base import PipelineBase
-from library.common.writer_base import ETLWriter, create_etl_writer
 from library.common.postprocess_base import AssayPostprocessor
-from library.common.qc_profiles import QCValidator, get_qc_validator, get_qc_profile
+from library.common.qc_profiles import QCValidator
+from library.common.qc_profiles import get_qc_profile
+from library.common.qc_profiles import get_qc_validator
+from library.common.writer_base import ETLWriter
+from library.common.writer_base import create_etl_writer
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +37,9 @@ class AssayPipeline(PipelineBase[AssayConfig]):
     
     def _create_chembl_client(self) -> AssayChEMBLClient:
         """Create ChEMBL client."""
-        from library.config import APIClientConfig, RateLimitSettings, RetrySettings
+        from library.config import APIClientConfig
+        from library.config import RateLimitSettings
+        from library.config import RetrySettings
         
         source_config = self.config.sources["chembl"]
         timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec

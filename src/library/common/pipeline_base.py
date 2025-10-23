@@ -2,26 +2,34 @@
 
 from __future__ import annotations
 
-import logging
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from datetime import datetime
-from typing import Any, Generic, TypeVar
+import logging
+from typing import Any
+from typing import Generic
+from typing import TypeVar
 
 import pandas as pd
 
 from library.config import Config
-from library.etl.enhanced_correlation import (
-    build_correlation_insights, build_enhanced_correlation_analysis,
-    build_enhanced_correlation_reports, prepare_data_for_correlation_analysis)
-from library.etl.enhanced_qc import (build_enhanced_qc_detailed,
-                                     build_enhanced_qc_summary)
+from library.etl.enhanced_correlation import build_correlation_insights
+from library.etl.enhanced_correlation import build_enhanced_correlation_analysis
+from library.etl.enhanced_correlation import build_enhanced_correlation_reports
+from library.etl.enhanced_correlation import prepare_data_for_correlation_analysis
+from library.etl.enhanced_qc import build_enhanced_qc_detailed
+from library.etl.enhanced_qc import build_enhanced_qc_summary
 
 # Импорты новых унифицированных модулей
-from .error_tracking import ErrorSeverity, ErrorTracker, ErrorType
-from .metadata import MetadataBuilder, PipelineMetadata
+from .error_tracking import ErrorSeverity
+from .error_tracking import ErrorTracker
+from .error_tracking import ErrorType
+from .metadata import MetadataBuilder
+from .metadata import PipelineMetadata
 from .postprocess_base import BasePostprocessor
 from .qc_profiles import QCValidator
-from .writer_base import ETLResult, ETLWriter
+from .writer_base import ETLResult
+from .writer_base import ETLWriter
 
 logger = logging.getLogger(__name__)
 

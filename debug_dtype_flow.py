@@ -3,10 +3,12 @@
 Отладочный скрипт для отслеживания изменения типов данных в pipeline.
 """
 
-import pandas as pd
 import numpy as np
-from src.library.testitem.pipeline import TestitemPipeline
+import pandas as pd
+
 from src.library.testitem.normalize import TestitemNormalizer
+from src.library.testitem.pipeline import TestitemPipeline
+
 
 def debug_dtype_flow():
     """Отладка изменения типов данных."""

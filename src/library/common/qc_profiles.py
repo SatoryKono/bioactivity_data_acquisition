@@ -4,12 +4,13 @@
 Предоставляет унифицированные критерии качества и профили для всех ETL пайплайнов.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from typing import Any
 
 import pandas as pd
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel
+from pydantic import Field
 
 
 class QualityRule(BaseModel):

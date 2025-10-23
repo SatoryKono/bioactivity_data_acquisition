@@ -10,10 +10,10 @@ import pandas as pd
 
 from library.normalizers import get_normalizer
 from library.schemas.testitem_schema_normalized import TestitemNormalizedSchema
-from library.utils.empty_value_handler import (normalize_boolean_field,
-                                               normalize_list_field,
-                                               normalize_numeric_field,
-                                               normalize_string_field)
+from library.utils.empty_value_handler import normalize_boolean_field
+from library.utils.empty_value_handler import normalize_list_field
+from library.utils.empty_value_handler import normalize_numeric_field
+from library.utils.empty_value_handler import normalize_string_field
 
 logger = logging.getLogger(__name__)
 

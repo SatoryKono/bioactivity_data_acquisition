@@ -3,13 +3,12 @@
 """
 
 import pytest
-from src.library.normalizers.ontology_normalizers import (
-    normalize_bao_id,
-    normalize_bao_label,
-    normalize_go_id,
-    normalize_ec_number,
-    normalize_hgnc_id,
-)
+
+from src.library.normalizers.ontology_normalizers import normalize_bao_id
+from src.library.normalizers.ontology_normalizers import normalize_bao_label
+from src.library.normalizers.ontology_normalizers import normalize_ec_number
+from src.library.normalizers.ontology_normalizers import normalize_go_id
+from src.library.normalizers.ontology_normalizers import normalize_hgnc_id
 
 
 class TestOntologyNormalizers:

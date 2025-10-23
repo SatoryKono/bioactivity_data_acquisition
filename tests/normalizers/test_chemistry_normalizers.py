@@ -3,11 +3,12 @@
 """
 
 import pytest
+
 from src.library.normalizers.chemistry_normalizers import (
-    normalize_smiles,
     normalize_inchi,
     normalize_inchi_key,
     normalize_molecular_formula,
+    normalize_smiles,
     normalize_smiles_canonical,
 )
 
