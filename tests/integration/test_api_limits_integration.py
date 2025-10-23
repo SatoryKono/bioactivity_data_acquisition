@@ -9,6 +9,7 @@ import pytest
 from library.clients.chembl import ChEMBLClient
 from library.clients.crossref import CrossrefClient
 from library.clients.exceptions import ApiClientError, RateLimitError
+from library.config import APIClientConfig
 
 
 def _check_network_access():
@@ -44,8 +45,6 @@ class TestAPILimitsIntegration:
     def test_rate_limit_enforcement(self, chembl_client):
         """Test that rate limiting is properly enforced."""
         # Configure very strict rate limiting
-        from library.config import APIClientConfig
-        
         strict_config = APIClientConfig(
             name="chembl",
             base_url="https://www.ebi.ac.uk/chembl/api/data",
