@@ -134,6 +134,56 @@ class AssayPostprocessor(BasePostprocessor):
     def deduplicate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """Удалить дубликаты ассаев."""
         return df.drop_duplicates(subset=["assay_chembl_id"], keep="first")
+    
+    def apply_bao_flags(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """Применить BAO (BioAssay Ontology) флаги и классификации."""
+        if df.empty:
+            return df
+        
+        # Добавляем недостающие BAO поля
+        bao_fields = {
+            'bao_assay_format': None,
+            'bao_assay_format_label': None,
+            'bao_assay_format_uri': None,
+            'bao_assay_type': None,
+            'bao_assay_type_label': None,
+            'bao_assay_type_uri': None,
+            'bao_endpoint': None,
+            'bao_endpoint_label': None,
+            'bao_endpoint_uri': None,
+            'is_variant': False,
+            'target_isoform': None,
+            'target_organism': None,
+            'target_tax_id': None,
+            'target_uniprot_accession': None,
+            'variant_mutations': None,
+            'variant_sequence': None,
+            'chembl_release': None,
+            'index': None,
+            'pipeline_version': None
+        }
+        
+        # Добавляем поля, если их нет
+        for field, default_value in bao_fields.items():
+            if field not in df.columns:
+                df[field] = default_value
+        
+        # Заполняем системные поля
+        if 'index' in df.columns:
+            df['index'] = range(len(df))
+        
+        if 'pipeline_version' in df.columns:
+            df['pipeline_version'] = self.config.pipeline.version
+        
+        if 'chembl_release' in df.columns:
+            df['chembl_release'] = "ChEMBL_33"  # Текущая версия ChEMBL
+        
+        # Определяем is_variant на основе наличия variant полей
+        if 'is_variant' in df.columns:
+            variant_indicators = ['variant_id', 'variant_text', 'variant_sequence_id']
+            df['is_variant'] = df[variant_indicators].notna().any(axis=1)
+        
+        return df
 
 
 class ActivityPostprocessor(BasePostprocessor):
@@ -267,6 +317,28 @@ def deduplicate_step(df: pd.DataFrame, config: Config, **kwargs) -> pd.DataFrame
     return processor.deduplicate(df, **kwargs)
 
 
+def apply_bao_flags_step(df: pd.DataFrame, config: Config, **kwargs) -> pd.DataFrame:
+    """Стандартный шаг применения BAO флагов."""
+    # Определить тип постпроцессора по конфигурации
+    if hasattr(config, 'pipeline') and hasattr(config.pipeline, 'entity_type'):
+        entity_type = config.pipeline.entity_type
+    else:
+        class_name = config.__class__.__name__.lower()
+        if 'assay' in class_name:
+            entity_type = 'assays'
+        else:
+            raise ValueError(f"apply_bao_flags поддерживается только для assays, получен: {config.__class__.__name__}")
+    
+    # Создать соответствующий постпроцессор
+    if entity_type == 'assays':
+        processor = AssayPostprocessor(config)
+    else:
+        raise ValueError(f"apply_bao_flags поддерживается только для assays, получен: {entity_type}")
+    
+    return processor.apply_bao_flags(df, **kwargs)
+
+
 # Регистрация стандартных шагов
 register_postprocess_step("merge_sources", merge_sources_step)
 register_postprocess_step("deduplicate", deduplicate_step)
+register_postprocess_step("apply_bao_flags", apply_bao_flags_step)

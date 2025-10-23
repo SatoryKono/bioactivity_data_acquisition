@@ -162,19 +162,29 @@ postprocess:
     min_correlation: 0.5             # Минимальная корреляция
     
   steps:                            # Этапы постобработки
-    - type: "apply_bao_flags"        # Применение BAO классификаций
+    - name: "apply_bao_flags"        # Применение BAO классификаций
+      enabled: true
       description: "Apply BioAssay Ontology (BAO) flags and classifications"
-      bao_version: "2.0"             # Версия BAO онтологии
-    - type: "validate_assay_type"    # Валидация типов ассаев
+      parameters:
+        bao_version: "2.0"           # Версия BAO онтологии
+      priority: 1
+    - name: "validate_assay_type"    # Валидация типов ассаев
+      enabled: false
       description: "Validate and normalize assay types"
-    - type: "filter_assays"          # Фильтрация ассаев
+      priority: 2
+    - name: "filter_assays"          # Фильтрация ассаев
+      enabled: false
       description: "Apply quality filters to assays"
-      rules:                         # Правила фильтрации
-        - min_activities: 10         # Минимальное количество активностей
-        - valid_organism: true       # Валидный организм
-        - valid_target: true         # Валидная мишень
-    - type: "deduplicate"            # Дедупликация
+      parameters:
+        rules:                       # Правила фильтрации
+          - min_activities: 10       # Минимальное количество активностей
+          - valid_organism: true     # Валидный организм
+          - valid_target: true       # Валидная мишень
+      priority: 3
+    - name: "deduplicate"            # Дедупликация
+      enabled: true
       description: "Remove duplicate assay entries"
+      priority: 4
       keys: ["assay_chembl_id"]      # Ключи дедупликации
 
 # Нормализация - настройки нормализации данных
