@@ -88,8 +88,20 @@ class PipelineBase(ABC, Generic[T]):
         self._setup_clients()
         
         # Инициализация новых унифицированных компонентов
+        # Эти компоненты будут инициализированы в дочерних классах
+        self.error_tracker: ErrorTracker | None = None
+        self.metadata_builder: MetadataBuilder | None = None
+        self.qc_validator: QCValidator | None = None
+        self.postprocessor: BasePostprocessor | None = None
+        self.etl_writer: ETLWriter | None = None
+    
+    def _initialize_unified_components(self) -> None:
+        """Инициализация унифицированных компонентов.
+        
+        Должен быть вызван в дочерних классах после реализации абстрактных методов.
+        """
         self.error_tracker = ErrorTracker(self._get_entity_type())
-        self.metadata_builder = MetadataBuilder(config, self._get_entity_type())
+        self.metadata_builder = MetadataBuilder(self.config, self._get_entity_type())
         self.qc_validator = self._create_qc_validator()
         self.postprocessor = self._create_postprocessor()
         self.etl_writer = self._create_etl_writer()
@@ -293,13 +305,14 @@ class PipelineBase(ABC, Generic[T]):
             message: Сообщение об ошибке
             details: Дополнительные детали
         """
-        self.error_tracker.add_error(
-            error_type=ErrorType.EXTRACTION,
-            source=source,
-            message=message,
-            severity=ErrorSeverity.HIGH,
-            details=details
-        )
+        if self.error_tracker is not None:
+            self.error_tracker.add_error(
+                error_type=ErrorType.EXTRACTION,
+                source=source,
+                message=message,
+                severity=ErrorSeverity.HIGH,
+                details=details
+            )
     
     def _track_validation_error(self, source: str, message: str, record_id: str | None = None, details: dict[str, Any] | None = None) -> None:
         """Отследить ошибку валидации.
@@ -310,14 +323,15 @@ class PipelineBase(ABC, Generic[T]):
             record_id: ID записи
             details: Дополнительные детали
         """
-        self.error_tracker.add_error(
-            error_type=ErrorType.VALIDATION,
-            source=source,
-            message=message,
-            severity=ErrorSeverity.MEDIUM,
-            record_id=record_id,
-            details=details
-        )
+        if self.error_tracker is not None:
+            self.error_tracker.add_error(
+                error_type=ErrorType.VALIDATION,
+                source=source,
+                message=message,
+                severity=ErrorSeverity.MEDIUM,
+                record_id=record_id,
+                details=details
+            )
     
     def _track_transformation_error(self, source: str, message: str, details: dict[str, Any] | None = None) -> None:
         """Отследить ошибку трансформации.
@@ -327,13 +341,14 @@ class PipelineBase(ABC, Generic[T]):
             message: Сообщение об ошибке
             details: Дополнительные детали
         """
-        self.error_tracker.add_error(
-            error_type=ErrorType.TRANSFORMATION,
-            source=source,
-            message=message,
-            severity=ErrorSeverity.MEDIUM,
-            details=details
-        )
+        if self.error_tracker is not None:
+            self.error_tracker.add_error(
+                error_type=ErrorType.TRANSFORMATION,
+                source=source,
+                message=message,
+                severity=ErrorSeverity.MEDIUM,
+                details=details
+            )
     
     def _track_load_error(self, source: str, message: str, details: dict[str, Any] | None = None) -> None:
         """Отследить ошибку загрузки.
@@ -343,13 +358,14 @@ class PipelineBase(ABC, Generic[T]):
             message: Сообщение об ошибке
             details: Дополнительные детали
         """
-        self.error_tracker.add_error(
-            error_type=ErrorType.LOAD,
-            source=source,
-            message=message,
-            severity=ErrorSeverity.HIGH,
-            details=details
-        )
+        if self.error_tracker is not None:
+            self.error_tracker.add_error(
+                error_type=ErrorType.LOAD,
+                source=source,
+                message=message,
+                severity=ErrorSeverity.HIGH,
+                details=details
+            )
     
     def _validate_data_quality(self, data: pd.DataFrame) -> dict[str, Any]:
         """Выполнить валидацию качества данных.
@@ -360,7 +376,9 @@ class PipelineBase(ABC, Generic[T]):
         Returns:
             Результаты валидации
         """
-        return self.qc_validator.validate(data)
+        if self.qc_validator is not None:
+            return self.qc_validator.validate(data)
+        return {}
     
     def _apply_postprocessing(self, data: pd.DataFrame) -> pd.DataFrame:
         """Применить постобработку данных.
@@ -371,7 +389,9 @@ class PipelineBase(ABC, Generic[T]):
         Returns:
             Обработанные данные
         """
-        return self.postprocessor.apply_steps(data)
+        if self.postprocessor is not None:
+            return self.postprocessor.apply_steps(data)
+        return data
     
     def run(self, input_data: pd.DataFrame) -> ETLResult:
         """Основной метод запуска пайплайна.
@@ -516,14 +536,17 @@ class PipelineBase(ABC, Generic[T]):
             
             # 9. Построение метаданных
             logger.info("Building metadata")
-            metadata = self.metadata_builder.build_metadata(
-                df=accepted_data,
-                accepted_df=accepted_data,
-                rejected_df=rejected_data if not rejected_data.empty else None,
-                qc_summary=qc_summary,
-                error_tracker=self.error_tracker,
-                custom_metadata=quality_results
-            )
+            if self.metadata_builder is not None:
+                metadata = self.metadata_builder.build_metadata(
+                    df=accepted_data,
+                    accepted_df=accepted_data,
+                    rejected_df=rejected_data if not rejected_data.empty else None,
+                    qc_summary=qc_summary,
+                    error_tracker=self.error_tracker,
+                    custom_metadata=quality_results
+                )
+            else:
+                metadata = None
             
             logger.info("Unified ETL pipeline completed successfully")
             

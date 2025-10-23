@@ -69,6 +69,7 @@ class MockPipeline(PipelineBase):
     def __init__(self, config: MockConfig):
         self.config = config
         super().__init__(config)
+        self._initialize_unified_components()
     
     def _setup_clients(self) -> None:
         """Мок настройки клиентов."""
@@ -134,6 +135,9 @@ class MockPipeline(PipelineBase):
 
 class MockQCValidator(QCValidator):
     """Мок QC валидатора."""
+    
+    def __init__(self, config: MockConfig, profile: QCProfile):
+        super().__init__(config, profile)
     
     def validate(self, df: pd.DataFrame) -> dict[str, Any]:
         """Мок валидации качества."""
@@ -205,6 +209,7 @@ class TestUnifiedPipelineSynchronization:
         pipeline._track_validation_error("test_source", "Validation error", "TEST001")
         
         # Проверяем, что ошибки добавлены
+        assert pipeline.error_tracker is not None
         assert len(pipeline.error_tracker.errors) == 2
         assert pipeline.error_tracker.errors[0].error_type == "extraction"
         assert pipeline.error_tracker.errors[1].error_type == "validation"
@@ -305,6 +310,7 @@ class TestUnifiedPipelineSynchronization:
             failing_pipeline.run_unified(input_data)
         
         # Проверяем, что ошибка отслежена
+        assert failing_pipeline.error_tracker is not None
         assert len(failing_pipeline.error_tracker.errors) > 0
         assert failing_pipeline.error_tracker.errors[-1].error_type == "load"
     
@@ -318,7 +324,9 @@ class TestUnifiedPipelineSynchronization:
             
             # Проверяем, что тип сущности установлен правильно
             assert pipeline._get_entity_type() == entity_type
+            assert pipeline.error_tracker is not None
             assert pipeline.error_tracker.entity_type == entity_type
+            assert pipeline.metadata_builder is not None
             assert pipeline.metadata_builder.entity_type == entity_type
             
             # Проверяем, что пайплайн может быть запущен
