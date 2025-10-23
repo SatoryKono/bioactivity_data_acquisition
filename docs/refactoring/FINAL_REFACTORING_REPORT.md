@@ -91,11 +91,11 @@
 #### 3.2. Создание новых v2 конфигураций
 
 - **Созданы новые конфигурации:**
-  - `configs/config_documents_v2.yaml`
-  - `configs/config_targets_v2.yaml`
-  - `configs/config_assays_v2.yaml`
-  - `configs/config_activities_v2.yaml`
-  - `configs/config_testitems_v2.yaml`
+  - `configs/config_document.yaml`
+  - `configs/config_target.yaml`
+  - `configs/config_assay.yaml`
+  - `configs/config_activity.yaml`
+  - `configs/config_testitem.yaml`
 
 #### 3.3. Помечение старых конфигураций как deprecated
 
@@ -140,11 +140,11 @@
 - `src/library/activity/pipeline_v2.py`
 - `src/library/testitem/pipeline_v2.py`
 - `configs/config.template.yaml`
-- `configs/config_documents_v2.yaml`
-- `configs/config_targets_v2.yaml`
-- `configs/config_assays_v2.yaml`
-- `configs/config_activities_v2.yaml`
-- `configs/config_testitems_v2.yaml`
+- `configs/config_document.yaml`
+- `configs/config_target.yaml`
+- `configs/config_assay.yaml`
+- `configs/config_activity.yaml`
+- `configs/config_testitem.yaml`
 - `test_unified_logic.py`
 - `REFACTORING_REPORT.md`
 - `FINAL_REFACTORING_REPORT.md`

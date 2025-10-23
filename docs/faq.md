@@ -41,19 +41,19 @@ pip install .[dev]
 
 ```bash
 # Документы
-make run ENTITY=documents CONFIG=configs/config_documents_v2.yaml
+make run ENTITY=documents CONFIG=configs/config_document.yaml
 
 # Мишени
-make run ENTITY=targets CONFIG=configs/config_targets_v2.yaml
+make run ENTITY=targets CONFIG=configs/config_target.yaml
 
 # Эксперименты
-make run ENTITY=assays CONFIG=configs/config_assays_v2.yaml
+make run ENTITY=assays CONFIG=configs/config_assay.yaml
 
 # Активности
-make run ENTITY=activities CONFIG=configs/config_activities_v2.yaml
+make run ENTITY=activities CONFIG=configs/config_activity.yaml
 
 # Молекулы
-make run ENTITY=testitems CONFIG=configs/config_testitems_v2.yaml
+make run ENTITY=testitems CONFIG=configs/config_testitem.yaml
 ```
 
 ### Как запустить быстрый старт?
@@ -161,7 +161,7 @@ sources:
 
 ```bash
 # Запуск QC проверок
-make run ENTITY=documents CONFIG=configs/config_documents_v2.yaml
+make run ENTITY=documents CONFIG=configs/config_document.yaml
 
 # Просмотр отчётов
 cat outputs/qa/documents_quality_report_table.csv

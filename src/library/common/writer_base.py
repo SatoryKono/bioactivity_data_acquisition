@@ -1,311 +1,414 @@
-"""Base writer for standardized artifact generation."""
+"""
+Базовый модуль для записи выходных данных ETL пайплайнов.
 
-from __future__ import annotations
+Предоставляет единую логику записи выходных файлов для всех пайплайнов.
+"""
 
-import logging
+import hashlib
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
-
 import pandas as pd
-import yaml
+from pydantic import BaseModel, Field
 
-from library.io_.atomic_writes import atomic_write_context
+from ..config.base import BaseConfig
+from .metadata import MetadataBuilder, PipelineMetadata
+from .error_tracking import ErrorTracker
 
-logger = logging.getLogger(__name__)
 
-
-class BaseWriter:
-    """Базовый writer для всех пайплайнов.
+class ETLResult(BaseModel):
+    """Результат выполнения ETL пайплайна."""
     
-    Обеспечивает единообразное именование и запись артефактов
-    для всех ETL пайплайнов согласно стандарту:
+    # Основные данные
+    data: pd.DataFrame = Field(..., description="Основные данные")
+    accepted_data: pd.DataFrame | None = Field(None, description="Принятые данные")
+    rejected_data: pd.DataFrame | None = Field(None, description="Отклоненные данные")
     
-    - <stem>_<date_tag>.csv              # Основной результат
-    - <stem>_<date_tag>.meta.yaml        # Метаданные
-    - <stem>_<date_tag>_qc_summary.csv   # QC summary
-    - <stem>_<date_tag>_qc_detailed.csv  # QC detailed (опционально)
-    - <stem>_<date_tag>_rejected.csv     # Отклоненные записи (опционально)
-    - <stem>_<date_tag>_correlation.csv  # Корреляционный анализ (опционально)
-    """
+    # QC данные
+    qc_summary: pd.DataFrame | None = Field(None, description="QC сводка")
+    qc_detailed: pd.DataFrame | None = Field(None, description="QC детальный отчет")
     
-    @staticmethod
-    def write_outputs(
-        result: Any,  # ETLResult from pipeline_base
-        output_dir: Path,
-        stem: str,
-        date_tag: str,
-        config: Any,
-    ) -> dict[str, Path]:
-        """Запись всех артефактов пайплайна.
-        
-        Args:
-            result: Результат ETL процесса (ETLResult)
-            output_dir: Директория для записи
-            stem: Базовое имя файлов (documents, targets, assays, activities, testitems)
-            date_tag: Тег даты (YYYYMMDD)
-            config: Конфигурация пайплайна
-            
-        Returns:
-            Словарь с именами артефактов и путями к файлам
-        """
-        output_dir = Path(output_dir)
+    # Корреляционные данные
+    correlation_analysis: dict[str, Any] | None = Field(None, description="Корреляционный анализ")
+    correlation_reports: dict[str, pd.DataFrame] | None = Field(None, description="Корреляционные отчеты")
+    correlation_insights: dict[str, Any] | None = Field(None, description="Корреляционные инсайты")
+    
+    # Метаданные
+    metadata: PipelineMetadata | None = Field(None, description="Метаданные пайплайна")
+    
+    # Ошибки
+    error_tracker: ErrorTracker | None = Field(None, description="Трекер ошибок")
+    
+    # Дополнительные данные
+    additional_data: dict[str, Any] = Field(default_factory=dict, description="Дополнительные данные")
+
+
+class ETLWriter(ABC):
+    """Базовый класс для записи выходных данных ETL пайплайнов."""
+    
+    def __init__(self, config: BaseConfig, entity_type: str):
+        self.config = config
+        self.entity_type = entity_type
+        self.metadata_builder = MetadataBuilder(config, entity_type)
+    
+    def _ensure_output_directory(self, output_dir: Path) -> None:
+        """Создать выходную директорию если не существует."""
         output_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"Writing outputs to {output_dir} with stem '{stem}' and date_tag '{date_tag}'")
-        
-        outputs = {}
-        
-        # Основной CSV
-        main_path = output_dir / f"{stem}_{date_tag}.csv"
-        BaseWriter._write_csv_atomic(
-            result.data,
-            main_path,
-            config,
-            description="main data"
-        )
-        outputs['main'] = main_path
-        logger.info(f"Written main data: {main_path}")
-        
-        # QC summary
-        qc_summary_path = output_dir / f"{stem}_{date_tag}_qc_summary.csv"
-        BaseWriter._write_csv_atomic(
-            result.qc_summary,
-            qc_summary_path,
-            config,
-            description="QC summary"
-        )
-        outputs['qc_summary'] = qc_summary_path
-        logger.info(f"Written QC summary: {qc_summary_path}")
-        
-        # QC detailed (опционально)
-        if result.qc_detailed is not None and not result.qc_detailed.empty:
-            qc_detailed_path = output_dir / f"{stem}_{date_tag}_qc_detailed.csv"
-            BaseWriter._write_csv_atomic(
-                result.qc_detailed,
-                qc_detailed_path,
-                config,
-                description="QC detailed"
-            )
-            outputs['qc_detailed'] = qc_detailed_path
-            logger.info(f"Written QC detailed: {qc_detailed_path}")
-        
-        # Rejected (опционально)
-        if result.rejected is not None and not result.rejected.empty:
-            rejected_path = output_dir / f"{stem}_{date_tag}_rejected.csv"
-            BaseWriter._write_csv_atomic(
-                result.rejected,
-                rejected_path,
-                config,
-                description="rejected data"
-            )
-            outputs['rejected'] = rejected_path
-            logger.info(f"Written rejected data: {rejected_path}")
-        
-        # Metadata YAML
-        meta_path = output_dir / f"{stem}_{date_tag}.meta.yaml"
-        BaseWriter._write_yaml_atomic(
-            result.meta,
-            meta_path,
-            description="metadata"
-        )
-        outputs['metadata'] = meta_path
-        logger.info(f"Written metadata: {meta_path}")
-        
-        # Correlation (опционально)
-        if result.correlation_analysis is not None:
-            corr_path = output_dir / f"{stem}_{date_tag}_correlation.csv"
-            BaseWriter._write_correlation_analysis(
-                result.correlation_analysis,
-                result.correlation_reports,
-                corr_path,
-                config
-            )
-            outputs['correlation'] = corr_path
-            logger.info(f"Written correlation analysis: {corr_path}")
-        
-        logger.info(f"Successfully wrote {len(outputs)} artifacts")
-        return outputs
     
-    @staticmethod
-    def _write_csv_atomic(
+    def _calculate_file_checksum(self, file_path: Path) -> str:
+        """Вычислить SHA256 хеш файла."""
+        if not file_path.exists():
+            return ""
+        
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(chunk)
+        return f"sha256:{sha256_hash.hexdigest()}"
+    
+    def _write_deterministic_csv(
+        self,
         df: pd.DataFrame,
-        path: Path,
-        config: Any,
-        description: str = "data"
+        output_path: Path,
+        sort_columns: list[str] | None = None,
+        ascending: list[bool] | None = None,
+        column_order: list[str] | None = None,
+        exclude_columns: list[str] | None = None
     ) -> None:
-        """Атомарная запись CSV файла с применением настроек детерминизма.
+        """Записать DataFrame в CSV с детерминированным порядком."""
+        # Создать копию данных
+        df_copy = df.copy()
         
-        Args:
-            df: DataFrame для записи
-            path: Путь к файлу
-            config: Конфигурация с настройками детерминизма
-            description: Описание данных для логирования
-        """
-        if df.empty:
-            logger.warning(f"Writing empty DataFrame to {path}")
+        # Исключить служебные колонки
+        if exclude_columns is None:
+            exclude_columns = ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
         
-        # Применяем настройки детерминизма если доступны
-        if hasattr(config, 'determinism') and config.determinism is not None:
-            df = BaseWriter._apply_determinism(df, config.determinism)
+        for col in exclude_columns:
+            if col in df_copy.columns:
+                df_copy = df_copy.drop(columns=[col])
         
-        # Настройки CSV из конфигурации
-        csv_options = BaseWriter._get_csv_options(config)
+        # Упорядочить колонки
+        if column_order:
+            # Оставить только существующие колонки
+            existing_columns = [col for col in column_order if col in df_copy.columns]
+            # Добавить оставшиеся колонки
+            remaining_columns = [col for col in df_copy.columns if col not in existing_columns]
+            df_copy = df_copy[existing_columns + remaining_columns]
         
-        with atomic_write_context(path) as temp_path:
-            df.to_csv(temp_path, index=False, **csv_options)
-    
-    @staticmethod
-    def _write_yaml_atomic(
-        data: dict[str, Any],
-        path: Path,
-        description: str = "metadata"
-    ) -> None:
-        """Атомарная запись YAML файла.
-        
-        Args:
-            data: Данные для записи
-            path: Путь к файлу
-            description: Описание данных для логирования
-        """
-        with atomic_write_context(path) as temp_path:
-            with open(temp_path, 'w', encoding='utf-8') as f:
-                yaml.dump(data, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
-    
-    @staticmethod
-    def _write_correlation_analysis(
-        correlation_analysis: dict[str, Any],
-        correlation_reports: dict[str, pd.DataFrame] | None,
-        path: Path,
-        config: Any
-    ) -> None:
-        """Запись корреляционного анализа.
-        
-        Args:
-            correlation_analysis: Результаты корреляционного анализа
-            correlation_reports: Корреляционные отчеты
-            path: Путь к файлу
-            config: Конфигурация
-        """
-        # Объединяем все корреляционные данные в один DataFrame
-        correlation_data = []
-        
-        # Добавляем метрики корреляционного анализа
-        if correlation_analysis:
-            for metric, value in correlation_analysis.items():
-                correlation_data.append({
-                    'metric': metric,
-                    'value': value,
-                    'type': 'analysis'
-                })
-        
-        # Добавляем данные из отчетов
-        if correlation_reports:
-            for report_name, report_df in correlation_reports.items():
-                if not report_df.empty:
-                    # Добавляем информацию о типе отчета
-                    report_df_copy = report_df.copy()
-                    report_df_copy['report_type'] = report_name
-                    correlation_data.append(report_df_copy)
-        
-        if correlation_data:
-            # Объединяем все данные
-            if len(correlation_data) == 1 and isinstance(correlation_data[0], pd.DataFrame):
-                combined_df = correlation_data[0]
-            else:
-                # Создаем DataFrame из словарей и объединяем с DataFrame'ами
-                dict_data = [item for item in correlation_data if isinstance(item, dict)]
-                df_data = [item for item in correlation_data if isinstance(item, pd.DataFrame)]
+        # Сортировка
+        if sort_columns:
+            # Проверить что все колонки для сортировки существуют
+            valid_sort_columns = [col for col in sort_columns if col in df_copy.columns]
+            
+            if valid_sort_columns:
+                # Защита от несоответствия длины ascending и sort_columns
+                if ascending is not None and len(ascending) != len(valid_sort_columns):
+                    # Если длины не совпадают, использовать True для всех колонок
+                    ascending = [True] * len(valid_sort_columns)
                 
-                if dict_data:
-                    dict_df = pd.DataFrame(dict_data)
-                    if df_data:
-                        combined_df = pd.concat([dict_df] + df_data, ignore_index=True)
-                    else:
-                        combined_df = dict_df
-                elif df_data:
-                    combined_df = pd.concat(df_data, ignore_index=True)
-                else:
-                    combined_df = pd.DataFrame()
-            
-            BaseWriter._write_csv_atomic(combined_df, path, config, "correlation analysis")
-        else:
-            # Создаем пустой файл
-            BaseWriter._write_csv_atomic(pd.DataFrame(), path, config, "correlation analysis")
+                df_copy = df_copy.sort_values(by=valid_sort_columns, ascending=ascending)
+        
+        # Записать в CSV
+        df_copy.to_csv(output_path, index=False, encoding='utf-8')
     
-    @staticmethod
-    def _apply_determinism(df: pd.DataFrame, determinism_config: Any) -> pd.DataFrame:
-        """Применение настроек детерминизма к DataFrame.
+    def _write_correlation_reports(
+        self,
+        correlation_reports: dict[str, pd.DataFrame],
+        output_dir: Path,
+        date_tag: str
+    ) -> dict[str, Path]:
+        """Записать корреляционные отчеты."""
+        correlation_dir = output_dir / f"{self.entity_type}_correlation_report_{date_tag}"
+        correlation_dir.mkdir(exist_ok=True)
         
-        Args:
-            df: DataFrame для обработки
-            determinism_config: Конфигурация детерминизма
+        written_files = {}
+        
+        # Записать консолидированный отчет
+        if correlation_reports:
+            consolidated_data = []
+            for report_name, report_df in correlation_reports.items():
+                report_df_copy = report_df.copy()
+                report_df_copy['report_name'] = report_name
+                consolidated_data.append(report_df_copy)
             
-        Returns:
-            Обработанный DataFrame
-        """
-        if df.empty:
-            return df
+            if consolidated_data:
+                consolidated_df = pd.concat(consolidated_data, ignore_index=True)
+                consolidated_path = correlation_dir / f"{self.entity_type}_correlation_consolidated.csv"
+                consolidated_df.to_csv(consolidated_path, index=False, encoding='utf-8')
+                written_files["correlation_consolidated"] = consolidated_path
         
-        result_df = df.copy()
+        # Записать индивидуальные отчеты
+        individual_dir = correlation_dir / "individual_reports"
+        individual_dir.mkdir(exist_ok=True)
         
-        # Применяем сортировку
-        if hasattr(determinism_config, 'sort') and determinism_config.sort:
-            sort_config = determinism_config.sort
-            
-            if hasattr(sort_config, 'by') and sort_config.by:
-                sort_columns = [col for col in sort_config.by if col in result_df.columns]
-                if sort_columns:
-                    ascending = getattr(sort_config, 'ascending', [True] * len(sort_columns))
-                    if len(ascending) != len(sort_columns):
-                        ascending = [True] * len(sort_columns)
-                    
-                    na_position = getattr(sort_config, 'na_position', 'last')
-                    result_df = result_df.sort_values(
-                        sort_columns,
+        for report_name, report_df in correlation_reports.items():
+            report_path = individual_dir / f"{report_name}.csv"
+            report_df.to_csv(report_path, index=False, encoding='utf-8')
+            written_files[f"correlation_{report_name}"] = report_path
+        
+        return written_files
+    
+    def _write_correlation_insights(
+        self,
+        correlation_insights: dict[str, Any],
+        output_dir: Path,
+        date_tag: str
+    ) -> Path:
+        """Записать корреляционные инсайты."""
+        correlation_dir = output_dir / f"{self.entity_type}_correlation_report_{date_tag}"
+        correlation_dir.mkdir(exist_ok=True)
+        
+        insights_path = correlation_dir / "correlation_insights.json"
+        with open(insights_path, 'w', encoding='utf-8') as f:
+            import json
+            json.dump(correlation_insights, f, indent=2, ensure_ascii=False)
+        
+        return insights_path
+    
+    def _build_output_files_dict(
+        self,
+        main_data_path: Path,
+        qc_summary_path: Path | None = None,
+        metadata_path: Path | None = None,
+        correlation_files: dict[str, Path] | None = None,
+        correlation_insights_path: Path | None = None
+    ) -> dict[str, str | Path]:
+        """Построить словарь выходных файлов."""
+        files = {
+            "main_data": main_data_path,
+        }
+        
+        if qc_summary_path:
+            files["qc_summary"] = qc_summary_path
+        
+        if metadata_path:
+            files["metadata"] = metadata_path
+        
+        if correlation_files:
+            files.update(correlation_files)
+        
+        if correlation_insights_path:
+            files["correlation_insights"] = correlation_insights_path
+        
+        # Добавить checksums
+        checksums: dict[str, str] = {}
+        for file_type, file_path in files.items():
+            if isinstance(file_path, Path) and file_path.exists():
+                checksums[file_type] = self._calculate_file_checksum(file_path)
+        
+        if checksums:
+            files["checksums"] = checksums
+        
+        return files
+    
+    @abstractmethod
+    def get_sort_columns(self) -> list[str]:
+        """Получить колонки для сортировки."""
+        pass
+    
+    @abstractmethod
+    def get_column_order(self) -> list[str] | None:
+        """Получить порядок колонок."""
+        pass
+    
+    @abstractmethod
+    def get_exclude_columns(self) -> list[str]:
+        """Получить колонки для исключения из вывода."""
+        pass
+    
+    def write_outputs(
+        self,
+        result: ETLResult,
+        output_dir: Path,
+        date_tag: str
+    ) -> dict[str, Path]:
+        """Записать все выходные файлы."""
+        # Создать выходную директорию
+        self._ensure_output_directory(output_dir)
+        
+        # Получить параметры сортировки и колонок
+        sort_columns = self.get_sort_columns()
+        column_order = self.get_column_order()
+        exclude_columns = self.get_exclude_columns()
+        
+        # Определить ascending для сортировки
+        ascending = [True] * len(sort_columns) if sort_columns else None
+        
+        written_files = {}
+        
+        # 1. Записать основные данные
+        main_data_path = output_dir / f"{self.entity_type}_{date_tag}.csv"
+        self._write_deterministic_csv(
+            result.data,
+            main_data_path,
+            sort_columns=sort_columns,
                         ascending=ascending,
-                        na_position=na_position
-                    ).reset_index(drop=True)
+            column_order=column_order,
+            exclude_columns=exclude_columns
+        )
+        written_files["main_data"] = main_data_path
         
-        # Применяем порядок колонок
-        if hasattr(determinism_config, 'column_order') and determinism_config.column_order:
-            available_columns = [col for col in determinism_config.column_order if col in result_df.columns]
-            if available_columns:
-                # Добавляем колонки, которых нет в column_order, но есть в DataFrame
-                missing_columns = [col for col in result_df.columns if col not in available_columns]
-                final_columns = available_columns + missing_columns
-                result_df = result_df[final_columns]
+        # 2. Записать QC сводку (всегда)
+        if result.qc_summary is not None:
+            qc_summary_path = output_dir / f"{self.entity_type}_{date_tag}_qc_summary.csv"
+            result.qc_summary.to_csv(qc_summary_path, index=False, encoding='utf-8')
+            written_files["qc_summary"] = qc_summary_path
         
-        return result_df
+        # 3. Записать корреляционные отчеты (если есть)
+        correlation_files = {}
+        if result.correlation_reports:
+            correlation_files = self._write_correlation_reports(
+                result.correlation_reports,
+                output_dir,
+                date_tag
+            )
+            written_files.update(correlation_files)
+        
+        # 4. Записать корреляционные инсайты (если есть)
+        if result.correlation_insights:
+            correlation_insights_path = self._write_correlation_insights(
+                result.correlation_insights,
+                output_dir,
+                date_tag
+            )
+            written_files["correlation_insights"] = correlation_insights_path
+        
+        # 5. Построить и записать метаданные
+        if result.metadata is None:
+            # Построить метаданные если не предоставлены
+            output_files_dict = self._build_output_files_dict(
+                main_data_path,
+                written_files.get("qc_summary"),
+                None,  # metadata_path будет создан ниже
+                correlation_files,
+                written_files.get("correlation_insights")
+            )
+            
+            result.metadata = self.metadata_builder.build_metadata(
+                df=result.data,
+                accepted_df=result.accepted_data,
+                rejected_df=result.rejected_data,
+                output_files=output_files_dict
+            )
+        
+        # Записать метаданные
+        metadata_path = output_dir / f"{self.entity_type}_{date_tag}.meta.yaml"
+        if result.metadata is not None:
+            self.metadata_builder.save_metadata(result.metadata, metadata_path)
+        written_files["metadata"] = metadata_path
+        
+        return written_files
+
+
+class DocumentETLWriter(ETLWriter):
+    """ETL Writer для документов."""
     
-    @staticmethod
-    def _get_csv_options(config: Any) -> dict[str, Any]:
-        """Получение настроек CSV из конфигурации.
-        
-        Args:
-            config: Конфигурация пайплайна
-            
-        Returns:
-            Словарь с настройками для pandas.to_csv()
-        """
-        options = {}
-        
-        # Настройки из io.output.csv
-        if hasattr(config, 'io') and hasattr(config.io, 'output') and hasattr(config.io.output, 'csv'):
-            csv_config = config.io.output.csv
-            
-            if hasattr(csv_config, 'encoding'):
-                options['encoding'] = csv_config.encoding
-            
-            if hasattr(csv_config, 'float_format'):
-                options['float_format'] = csv_config.float_format
-            
-            if hasattr(csv_config, 'date_format'):
-                options['date_format'] = csv_config.date_format
-            
-            if hasattr(csv_config, 'na_rep'):
-                options['na_rep'] = csv_config.na_rep
-            
-            if hasattr(csv_config, 'line_terminator'):
-                options['lineterminator'] = csv_config.line_terminator
-        
-        return options
+    def get_sort_columns(self) -> list[str]:
+        """Колонки для сортировки документов."""
+        return ["document_chembl_id", "doi", "pmid"]
+    
+    def get_column_order(self) -> list[str] | None:
+        """Порядок колонок для документов."""
+        return None  # Использовать порядок по умолчанию
+    
+    def get_exclude_columns(self) -> list[str]:
+        """Колонки для исключения из вывода документов."""
+        return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
+
+
+class TargetETLWriter(ETLWriter):
+    """ETL Writer для таргетов."""
+    
+    def get_sort_columns(self) -> list[str]:
+        """Колонки для сортировки таргетов."""
+        return ["target_chembl_id"]
+    
+    def get_column_order(self) -> list[str] | None:
+        """Порядок колонок для таргетов."""
+        return None
+    
+    def get_exclude_columns(self) -> list[str]:
+        """Колонки для исключения из вывода таргетов."""
+        return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
+
+
+class AssayETLWriter(ETLWriter):
+    """ETL Writer для ассаев."""
+    
+    def get_sort_columns(self) -> list[str]:
+        """Колонки для сортировки ассаев."""
+        return ["assay_chembl_id"]
+    
+    def get_column_order(self) -> list[str] | None:
+        """Порядок колонок для ассаев."""
+        return None
+    
+    def get_exclude_columns(self) -> list[str]:
+        """Колонки для исключения из вывода ассаев."""
+        return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
+
+
+class ActivityETLWriter(ETLWriter):
+    """ETL Writer для активностей."""
+    
+    def get_sort_columns(self) -> list[str]:
+        """Колонки для сортировки активностей."""
+        return [
+            "activity_chembl_id",
+            "assay_chembl_id", 
+            "document_chembl_id",
+            "molecule_chembl_id",
+            "target_chembl_id"
+        ]
+    
+    def get_column_order(self) -> list[str] | None:
+        """Порядок колонок для активностей."""
+        return None
+    
+    def get_exclude_columns(self) -> list[str]:
+        """Колонки для исключения из вывода активностей."""
+        return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
+
+
+class TestitemETLWriter(ETLWriter):
+    """ETL Writer для теститемов."""
+    
+    def get_sort_columns(self) -> list[str]:
+        """Колонки для сортировки теститемов."""
+        return ["molecule_chembl_id"]
+    
+    def get_column_order(self) -> list[str] | None:
+        """Порядок колонок для теститемов."""
+        return None
+    
+    def get_exclude_columns(self) -> list[str]:
+        """Колонки для исключения из вывода теститемов."""
+        return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
+
+
+def create_etl_writer(config: BaseConfig, entity_type: str) -> ETLWriter:
+    """Создать ETL Writer для типа сущности."""
+    if entity_type == "documents":
+        return DocumentETLWriter(config, entity_type)
+    elif entity_type == "targets":
+        return TargetETLWriter(config, entity_type)
+    elif entity_type == "assays":
+        return AssayETLWriter(config, entity_type)
+    elif entity_type == "activities":
+        return ActivityETLWriter(config, entity_type)
+    elif entity_type == "testitems":
+        return TestitemETLWriter(config, entity_type)
+    else:
+        raise ValueError(f"Неподдерживаемый тип сущности: {entity_type}")
+
+
+def write_etl_outputs(
+    result: ETLResult,
+    output_dir: Path,
+    date_tag: str,
+    config: BaseConfig,
+    entity_type: str
+) -> dict[str, Path]:
+    """Записать выходные файлы ETL пайплайна."""
+    writer = create_etl_writer(config, entity_type)
+    return writer.write_outputs(result, output_dir, date_tag)

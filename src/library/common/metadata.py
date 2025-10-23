@@ -1,0 +1,323 @@
+"""
+Модуль для построения стандартизированных метаданных ETL пайплайнов.
+
+Предоставляет единую структуру метаданных для всех пайплайнов.
+"""
+
+import hashlib
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+import yaml
+from pydantic import BaseModel, Field
+
+from ..config.base import BaseConfig
+
+
+class SourceInfo(BaseModel):
+    """Информация об источнике данных."""
+    
+    name: str = Field(..., description="Имя источника")
+    version: Optional[str] = Field(None, description="Версия источника")
+    records_fetched: int = Field(0, description="Количество полученных записей")
+    errors: int = Field(0, description="Количество ошибок")
+    last_updated: Optional[str] = Field(None, description="Время последнего обновления")
+
+
+class ValidationInfo(BaseModel):
+    """Информация о валидации."""
+    
+    schema_passed: bool = Field(True, description="Пройдена ли схема валидации")
+    qc_passed: bool = Field(True, description="Пройден ли контроль качества")
+    warnings: int = Field(0, description="Количество предупреждений")
+    errors: int = Field(0, description="Количество ошибок")
+
+
+class FileInfo(BaseModel):
+    """Информация о файле."""
+    
+    filename: str = Field(..., description="Имя файла")
+    size_bytes: int = Field(0, description="Размер файла в байтах")
+    checksum: Optional[str] = Field(None, description="SHA256 хеш файла")
+
+
+class ExecutionInfo(BaseModel):
+    """Информация о выполнении пайплайна."""
+    
+    run_id: str = Field(..., description="Уникальный ID запуска")
+    started_at: str = Field(..., description="Время начала выполнения ISO 8601")
+    completed_at: str = Field(..., description="Время завершения выполнения ISO 8601")
+    duration_sec: float = Field(0.0, description="Длительность выполнения в секундах")
+    memory_peak_mb: Optional[float] = Field(None, description="Пиковое использование памяти в МБ")
+
+
+class DataInfo(BaseModel):
+    """Информация о данных."""
+    
+    row_count: int = Field(0, description="Общее количество строк")
+    row_count_accepted: int = Field(0, description="Количество принятых строк")
+    row_count_rejected: int = Field(0, description="Количество отклоненных строк")
+    columns_count: int = Field(0, description="Количество колонок")
+
+
+class PipelineMetadata(BaseModel):
+    """Стандартизированные метаданные пайплайна."""
+    
+    # Информация о пайплайне
+    pipeline: Dict[str, Any] = Field(default_factory=dict, description="Информация о пайплайне")
+    
+    # Информация о выполнении
+    execution: ExecutionInfo = Field(..., description="Информация о выполнении")
+    
+    # Информация о данных
+    data: DataInfo = Field(..., description="Информация о данных")
+    
+    # Информация об источниках
+    sources: List[SourceInfo] = Field(default_factory=list, description="Информация об источниках")
+    
+    # Информация о валидации
+    validation: ValidationInfo = Field(..., description="Информация о валидации")
+    
+    # Информация о файлах
+    files: Dict[str, Union[str, FileInfo]] = Field(default_factory=dict, description="Информация о файлах")
+    
+    # Дополнительные метаданные
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Дополнительные метаданные")
+
+
+class MetadataBuilder:
+    """Построитель метаданных для ETL пайплайнов."""
+    
+    def __init__(self, config: BaseConfig, entity_type: str):
+        self.config = config
+        self.entity_type = entity_type
+        self.start_time = datetime.now()
+        self.run_id = self._generate_run_id()
+    
+    def _generate_run_id(self) -> str:
+        """Сгенерировать уникальный ID запуска."""
+        timestamp = self.start_time.strftime("%Y%m%d_%H%M%S")
+        return f"{self.entity_type}_{timestamp}_{hash(str(self.start_time)) % 100000000:08d}"
+    
+    def _calculate_file_checksum(self, file_path: Path) -> str:
+        """Вычислить SHA256 хеш файла."""
+        if not file_path.exists():
+            return ""
+        
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(chunk)
+        return f"sha256:{sha256_hash.hexdigest()}"
+    
+    def _get_file_info(self, file_path: Path) -> FileInfo:
+        """Получить информацию о файле."""
+        if not file_path.exists():
+            return FileInfo(filename=file_path.name, size_bytes=0)
+        
+        stat = file_path.stat()
+        checksum = self._calculate_file_checksum(file_path)
+        
+        return FileInfo(
+            filename=file_path.name,
+            size_bytes=stat.st_size,
+            checksum=checksum
+        )
+    
+    def build_pipeline_info(self) -> Dict[str, Any]:
+        """Построить информацию о пайплайне."""
+        pipeline_info = {
+            "name": self.entity_type,
+            "entity_type": self.entity_type,
+        }
+        
+        # Получить версию из конфигурации
+        if hasattr(self.config, 'pipeline') and hasattr(self.config.pipeline, 'version'):
+            pipeline_info["version"] = self.config.pipeline.version
+        else:
+            pipeline_info["version"] = "2.0.0"  # Default version
+        
+        # Получить source_system из конфигурации
+        if hasattr(self.config, 'pipeline') and hasattr(self.config.pipeline, 'source_system'):
+            pipeline_info["source_system"] = self.config.pipeline.source_system
+        else:
+            pipeline_info["source_system"] = "chembl"
+        
+        # Получить chembl_release из конфигурации
+        if hasattr(self.config, 'pipeline') and hasattr(self.config.pipeline, 'chembl_release'):
+            pipeline_info["chembl_release"] = self.config.pipeline.chembl_release
+        
+        return pipeline_info
+    
+    def build_execution_info(self, end_time: Optional[datetime] = None) -> ExecutionInfo:
+        """Построить информацию о выполнении."""
+        if end_time is None:
+            end_time = datetime.now()
+        
+        duration = (end_time - self.start_time).total_seconds()
+        
+        return ExecutionInfo(
+            run_id=self.run_id,
+            started_at=self.start_time.isoformat(),
+            completed_at=end_time.isoformat(),
+            duration_sec=duration
+        )
+    
+    def build_data_info(self, df: Any, accepted_df: Optional[Any] = None, rejected_df: Optional[Any] = None) -> DataInfo:
+        """Построить информацию о данных."""
+        row_count = len(df) if hasattr(df, '__len__') else 0
+        row_count_accepted = len(accepted_df) if accepted_df is not None and hasattr(accepted_df, '__len__') else row_count
+        row_count_rejected = len(rejected_df) if rejected_df is not None and hasattr(rejected_df, '__len__') else 0
+        columns_count = len(df.columns) if hasattr(df, 'columns') else 0
+        
+        return DataInfo(
+            row_count=row_count,
+            row_count_accepted=row_count_accepted,
+            row_count_rejected=row_count_rejected,
+            columns_count=columns_count
+        )
+    
+    def build_sources_info(self, extraction_results: Optional[Dict[str, Any]] = None) -> List[SourceInfo]:
+        """Построить информацию об источниках."""
+        sources = []
+        
+        if extraction_results:
+            for source_name, source_data in extraction_results.items():
+                if isinstance(source_data, dict):
+                    records_fetched = source_data.get('records_fetched', 0)
+                    errors = source_data.get('errors', 0)
+                    version = source_data.get('version')
+                    last_updated = source_data.get('last_updated')
+                else:
+                    records_fetched = len(source_data) if hasattr(source_data, '__len__') else 0
+                    errors = 0
+                    version = None
+                    last_updated = None
+                
+                sources.append(SourceInfo(
+                    name=source_name,
+                    version=version,
+                    records_fetched=records_fetched,
+                    errors=errors,
+                    last_updated=last_updated
+                ))
+        
+        return sources
+    
+    def build_validation_info(self, validation_results: Optional[Dict[str, Any]] = None) -> ValidationInfo:
+        """Построить информацию о валидации."""
+        if not validation_results:
+            return ValidationInfo()
+        
+        return ValidationInfo(
+            schema_passed=validation_results.get('schema_passed', True),
+            qc_passed=validation_results.get('qc_passed', True),
+            warnings=validation_results.get('warnings', 0),
+            errors=validation_results.get('errors', 0)
+        )
+    
+    def build_files_info(self, output_files: Dict[str, Path]) -> Dict[str, Union[str, FileInfo]]:
+        """Построить информацию о файлах."""
+        files_info = {}
+        
+        for file_type, file_path in output_files.items():
+            if file_type == "checksums":
+                # Специальная обработка для checksums
+                files_info[file_type] = {}
+                if isinstance(file_path, dict):
+                    for checksum_type, path in file_path.items():
+                        if isinstance(path, Path):
+                            files_info[file_type][checksum_type] = self._calculate_file_checksum(path)
+                        else:
+                            files_info[file_type][checksum_type] = str(path)
+            else:
+                if isinstance(file_path, Path):
+                    files_info[file_type] = self._get_file_info(file_path)
+                else:
+                    files_info[file_type] = str(file_path)
+        
+        return files_info
+    
+    def build_metadata(
+        self,
+        df: Any,
+        accepted_df: Optional[Any] = None,
+        rejected_df: Optional[Any] = None,
+        extraction_results: Optional[Dict[str, Any]] = None,
+        validation_results: Optional[Dict[str, Any]] = None,
+        output_files: Optional[Dict[str, Path]] = None,
+        end_time: Optional[datetime] = None,
+        additional_metadata: Optional[Dict[str, Any]] = None
+    ) -> PipelineMetadata:
+        """Построить полные метаданные пайплайна."""
+        
+        # Построить основные компоненты
+        pipeline_info = self.build_pipeline_info()
+        execution_info = self.build_execution_info(end_time)
+        data_info = self.build_data_info(df, accepted_df, rejected_df)
+        sources_info = self.build_sources_info(extraction_results)
+        validation_info = self.build_validation_info(validation_results)
+        files_info = self.build_files_info(output_files or {})
+        
+        # Дополнительные метаданные
+        metadata = additional_metadata or {}
+        metadata.update({
+            "generated_at": datetime.now().isoformat(),
+            "generator": "MetadataBuilder",
+            "generator_version": "1.0.0"
+        })
+        
+        return PipelineMetadata(
+            pipeline=pipeline_info,
+            execution=execution_info,
+            data=data_info,
+            sources=sources_info,
+            validation=validation_info,
+            files=files_info,
+            metadata=metadata
+        )
+    
+    def save_metadata(self, metadata: PipelineMetadata, output_path: Path) -> None:
+        """Сохранить метаданные в YAML файл."""
+        # Конвертировать в словарь для сериализации
+        metadata_dict = metadata.model_dump()
+        
+        # Сохранить в YAML
+        with open(output_path, 'w', encoding='utf-8') as f:
+            yaml.dump(metadata_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    
+    def load_metadata(self, metadata_path: Path) -> PipelineMetadata:
+        """Загрузить метаданные из YAML файла."""
+        with open(metadata_path, encoding='utf-8') as f:
+            metadata_dict = yaml.safe_load(f)
+        
+        return PipelineMetadata(**metadata_dict)
+
+
+def create_metadata_builder(config: BaseConfig, entity_type: str) -> MetadataBuilder:
+    """Создать построитель метаданных для типа сущности."""
+    return MetadataBuilder(config, entity_type)
+
+
+def build_standard_metadata(
+    config: BaseConfig,
+    entity_type: str,
+    df: Any,
+    accepted_df: Optional[Any] = None,
+    rejected_df: Optional[Any] = None,
+    extraction_results: Optional[Dict[str, Any]] = None,
+    validation_results: Optional[Dict[str, Any]] = None,
+    output_files: Optional[Dict[str, Path]] = None,
+    additional_metadata: Optional[Dict[str, Any]] = None
+) -> PipelineMetadata:
+    """Построить стандартные метаданные для пайплайна."""
+    builder = create_metadata_builder(config, entity_type)
+    return builder.build_metadata(
+        df=df,
+        accepted_df=accepted_df,
+        rejected_df=rejected_df,
+        extraction_results=extraction_results,
+        validation_results=validation_results,
+        output_files=output_files,
+        additional_metadata=additional_metadata
+    )

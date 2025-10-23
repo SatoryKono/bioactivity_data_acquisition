@@ -61,16 +61,16 @@ python -m library.cli pipeline [OPTIONS]
 
 ```bash
 # Базовый запуск
-python -m library.cli pipeline -c configs/config_documents_v2.yaml
+python -m library.cli pipeline -c configs/config_document.yaml
 
 # С переопределением параметров
-python -m library.cli pipeline -c configs/config_targets_v2.yaml --set sources.chembl.rate_limit=3
+python -m library.cli pipeline -c configs/config_target.yaml --set sources.chembl.rate_limit=3
 
 # С подробным логированием
-python -m library.cli pipeline -c configs/config_assays_v2.yaml --log-level DEBUG
+python -m library.cli pipeline -c configs/config_assay.yaml --log-level DEBUG
 
 # С JSON логированием
-python -m library.cli pipeline -c configs/config_activities_v2.yaml --log-format json
+python -m library.cli pipeline -c configs/config_activity.yaml --log-format json
 ```
 
 ### get-document-data
@@ -95,10 +95,10 @@ python -m library.cli get-document-data [OPTIONS]
 
 ```bash
 # Обогащение документов
-python -m library.cli get-document-data -c configs/config_documents_v2.yaml
+python -m library.cli get-document-data -c configs/config_document.yaml
 
 # С ограничением источников
-python -m library.cli get-document-data -c configs/config_documents_v2.yaml --set sources.pubmed.enabled=false
+python -m library.cli get-document-data -c configs/config_document.yaml --set sources.pubmed.enabled=false
 ```
 
 ### get-target-data
@@ -246,7 +246,7 @@ python -m library.cli health [OPTIONS]
 
 ```bash
 # Проверка состояния API
-python -m library.cli health -c configs/config_documents_v2.yaml
+python -m library.cli health -c configs/config_document.yaml
 ```
 
 ### version
@@ -297,17 +297,17 @@ python -m library.cli install-completion [OPTIONS]
 
 ```bash
 # Ограничение источников
-python -m library.cli pipeline -c configs/config_documents_v2.yaml \
+python -m library.cli pipeline -c configs/config_document.yaml \
   --set sources.pubmed.enabled=false \
   --set sources.crossref.enabled=false
 
 # Изменение лимитов
-python -m library.cli pipeline -c configs/config_targets_v2.yaml \
+python -m library.cli pipeline -c configs/config_target.yaml \
   --set sources.chembl.rate_limit=2 \
   --set sources.uniprot.budget=15000
 
 # Настройка логирования
-python -m library.cli pipeline -c configs/config_assays_v2.yaml \
+python -m library.cli pipeline -c configs/config_assay.yaml \
   --set logging.level=DEBUG \
   --set logging.format=json
 ```
@@ -350,16 +350,16 @@ python -m library.cli --show-completion
 
 ```bash
 # Подробное логирование в файл
-python -m library.cli pipeline -c configs/config_documents_v2.yaml \
+python -m library.cli pipeline -c configs/config_document.yaml \
   --log-level DEBUG \
   --log-file logs/pipeline.log
 
 # JSON логирование
-python -m library.cli pipeline -c configs/config_targets_v2.yaml \
+python -m library.cli pipeline -c configs/config_target.yaml \
   --log-format json
 
 # Отключение файлового логирования
-python -m library.cli pipeline -c configs/config_assays_v2.yaml \
+python -m library.cli pipeline -c configs/config_assay.yaml \
   --no-file-log
 ```
 
@@ -378,13 +378,13 @@ python -m library.cli pipeline -c configs/config_assays_v2.yaml \
 
 ```bash
 # Включить отладочное логирование
-python -m library.cli pipeline -c configs/config_documents_v2.yaml --log-level DEBUG
+python -m library.cli pipeline -c configs/config_document.yaml --log-level DEBUG
 
 # Проверить конфигурацию
-python -m library.cli testitem-validate-config -c configs/config_testitems_v2.yaml
+python -m library.cli testitem-validate-config -c configs/config_testitem.yaml
 
 # Проверить состояние API
-python -m library.cli health -c configs/config_documents_v2.yaml
+python -m library.cli health -c configs/config_document.yaml
 ```
 
 ## Связанные документы

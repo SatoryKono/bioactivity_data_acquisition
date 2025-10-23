@@ -17,22 +17,22 @@ pip install .[dev]
 make quick-start
 
 # Новый унифицированный интерфейс (v2 конфигурации)
-make run ENTITY=documents CONFIG=configs/config_documents_v2.yaml
-make run ENTITY=targets CONFIG=configs/config_targets_v2.yaml
-make run ENTITY=assays CONFIG=configs/config_assays_v2.yaml
-make run ENTITY=activities CONFIG=configs/config_activities_v2.yaml
-make run ENTITY=testitems CONFIG=configs/config_testitems_v2.yaml
+make run ENTITY=documents CONFIG=configs/config_document.yaml
+make run ENTITY=targets CONFIG=configs/config_target.yaml
+make run ENTITY=assays CONFIG=configs/config_assay.yaml
+make run ENTITY=activities CONFIG=configs/config_activity.yaml
+make run ENTITY=testitems CONFIG=configs/config_testitem.yaml
 ```
 
 ## Статус пайплайнов
 
 | Пайплайн | Статус | Источники | Конфигурация v2 | Конфигурация v1 (deprecated) |
 |----------|--------|-----------|-----------------|------------------------------|
-| **Documents** | ✅ Стабильно | Crossref, OpenAlex, PubMed, Semantic Scholar | `configs/config_documents_v2.yaml` | `configs/config_documents_full.yaml` |
-| **Targets** | ✅ Стабильно | ChEMBL, UniProt, IUPHAR | `configs/config_targets_v2.yaml` | `configs/config_target_full.yaml` |
-| **Assays** | ✅ Стабильно | ChEMBL | `configs/config_assays_v2.yaml` | `configs/config_assay_full.yaml` |
-| **Activities** | ✅ Стабильно | ChEMBL | `configs/config_activities_v2.yaml` | `configs/config_activity_full.yaml` |
-| **Testitems** | ✅ Стабильно | ChEMBL, PubChem | `configs/config_testitems_v2.yaml` | `configs/config_testitem_full.yaml` |
+| **Documents** | ✅ Стабильно | Crossref, OpenAlex, PubMed, Semantic Scholar | `configs/config_document.yaml` | `configs/config_documents_full.yaml` |
+| **Targets** | ✅ Стабильно | ChEMBL, UniProt, IUPHAR | `configs/config_target.yaml` | `configs/config_target_full.yaml` |
+| **Assays** | ✅ Стабильно | ChEMBL | `configs/config_assay.yaml` | `configs/config_assay_full.yaml` |
+| **Activities** | ✅ Стабильно | ChEMBL | `configs/config_activity.yaml` | `configs/config_activity_full.yaml` |
+| **Testitems** | ✅ Стабильно | ChEMBL, PubChem | `configs/config_testitem.yaml` | `configs/config_testitem_full.yaml` |
 
 ### Миграция на v2 конфигурации
 

@@ -51,11 +51,11 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install .[dev]
 
 # Базовый запуск (v2 конфигурации)
-make run ENTITY=documents CONFIG=configs/config_documents_v2.yaml
-make run ENTITY=targets CONFIG=configs/config_targets_v2.yaml
-make run ENTITY=assays CONFIG=configs/config_assays_v2.yaml
-make run ENTITY=activities CONFIG=configs/config_activities_v2.yaml
-make run ENTITY=testitems CONFIG=configs/config_testitems_v2.yaml
+make run ENTITY=documents CONFIG=configs/config_document.yaml
+make run ENTITY=targets CONFIG=configs/config_target.yaml
+make run ENTITY=assays CONFIG=configs/config_assay.yaml
+make run ENTITY=activities CONFIG=configs/config_activity.yaml
+make run ENTITY=testitems CONFIG=configs/config_testitem.yaml
 ```
 
 ## Основные возможности

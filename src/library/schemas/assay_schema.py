@@ -377,6 +377,30 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         description="Business key hash",
         nullable=False
     )
+    
+    # System fields
+    index: Series[int] = pa.Field(
+        description="Row index for deterministic ordering",
+        nullable=False
+    )
+    pipeline_version: Series[str] = pa.Field(
+        description="ETL pipeline version",
+        nullable=False
+    )
+    
+    # Error tracking fields
+    extraction_errors: Series[str] = pa.Field(
+        description="Extraction errors (JSON)",
+        nullable=True
+    )
+    validation_errors: Series[str] = pa.Field(
+        description="Validation errors (JSON)",
+        nullable=True
+    )
+    extraction_status: Series[str] = pa.Field(
+        description="Extraction status (success/partial/failed)",
+        nullable=True
+    )
 
     class Config:
         strict = True  # STRICT MODE: No additional columns allowed
