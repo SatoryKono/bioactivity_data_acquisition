@@ -265,7 +265,7 @@ class OpenAlexClient(BaseApiClient):
                         results[doi] = self._create_empty_record(doi, "Not found in batch response")
                         
             except Exception as e:
-                logger.warning(f"Failed to fetch DOIs batch {chunk}: {e}")
+                self.logger.warning(f"Failed to fetch DOIs batch {chunk}: {e}")
                 # Add empty records for failed batch
                 for doi in chunk:
                     results[doi] = self._create_empty_record(doi, str(e))
@@ -314,7 +314,7 @@ class OpenAlexClient(BaseApiClient):
                         results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
                         
             except Exception as e:
-                logger.warning(f"Failed to fetch PMIDs batch {chunk}: {e}")
+                self.logger.warning(f"Failed to fetch PMIDs batch {chunk}: {e}")
                 # Add empty records for failed batch
                 for pmid in chunk:
                     results[pmid] = self._create_empty_record(pmid, str(e))
