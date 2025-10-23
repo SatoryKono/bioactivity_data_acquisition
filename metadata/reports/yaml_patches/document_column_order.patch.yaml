@@ -1,0 +1,37 @@
+# YAML-патч для document
+# Сгенерировано: 2025-10-23 22:49:58
+
+# Добавить в секцию determinism.column_order:
+determinism:
+  column_order:
+    # Missing columns (есть в YAML, но отсутствуют в выходе):
+
+    - "chembl_error"  # TODO: Проверить, почему отсутствует в выходе
+    - "chembl_issn"  # TODO: Проверить, почему отсутствует в выходе
+    - "classification"  # TODO: Проверить, почему отсутствует в выходе
+    - "crossref_abstract"  # TODO: Проверить, почему отсутствует в выходе
+    - "crossref_issn"  # TODO: Проверить, почему отсутствует в выходе
+    - "crossref_journal"  # TODO: Проверить, почему отсутствует в выходе
+    - "crossref_pmid"  # TODO: Проверить, почему отсутствует в выходе
+    - "document_contains_external_links"  # TODO: Проверить, почему отсутствует в выходе
+    - "is_experimental_doc"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_abstract"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_authors"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_crossref_doc_type"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_doc_type"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_first_page"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_issn"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_issue"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_journal"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_last_page"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_pmid"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_volume"  # TODO: Проверить, почему отсутствует в выходе
+    - "openalex_year"  # TODO: Проверить, почему отсутствует в выходе
+    - "pubmed_article_title"  # TODO: Проверить, почему отсутствует в выходе
+    - "pubmed_chemical_list"  # TODO: Проверить, почему отсутствует в выходе
+    - "pubmed_id"  # TODO: Проверить, почему отсутствует в выходе
+    - "pubmed_mesh_descriptors"  # TODO: Проверить, почему отсутствует в выходе
+    - "pubmed_mesh_qualifiers"  # TODO: Проверить, почему отсутствует в выходе
+    - "semantic_scholar_doc_type"  # TODO: Проверить, почему отсутствует в выходе
+    - "semantic_scholar_issn"  # TODO: Проверить, почему отсутствует в выходе
+    - "semantic_scholar_journal"  # TODO: Проверить, почему отсутствует в выходе

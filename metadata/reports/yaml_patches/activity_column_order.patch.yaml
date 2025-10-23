@@ -1,0 +1,9 @@
+# YAML-патч для activity
+# Сгенерировано: 2025-10-23 22:49:58
+
+# Добавить в секцию determinism.column_order:
+determinism:
+  column_order:
+    # Extra columns (есть в выходе, но отсутствуют в YAML):
+
+    - "saltform_id"  # TODO: Добавить описание и валидацию

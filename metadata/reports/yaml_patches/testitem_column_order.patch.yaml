@@ -1,0 +1,37 @@
+# YAML-патч для testitem
+# Сгенерировано: 2025-10-23 22:49:58
+
+# Добавить в секцию determinism.column_order:
+determinism:
+  column_order:
+    # Missing columns (есть в YAML, но отсутствуют в выходе):
+
+    - "drug_antibacterial_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_antifungal_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_antiinflammatory_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_antineoplastic_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_antiparasitic_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_antiviral_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_chembl_id"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_immunosuppressant_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_indication_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_name"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_substance_flag"  # TODO: Проверить, почему отсутствует в выходе
+    - "drug_type"  # TODO: Проверить, почему отсутствует в выходе
+    - "indication_class"  # TODO: Проверить, почему отсутствует в выходе
+    - "molregno"  # TODO: Проверить, почему отсутствует в выходе
+    - "pubchem_isomeric_smiles"  # TODO: Проверить, почему отсутствует в выходе
+    - "salt_chembl_id"  # TODO: Проверить, почему отсутствует в выходе
+    - "withdrawn_country"  # TODO: Проверить, почему отсутствует в выходе
+    - "withdrawn_reason"  # TODO: Проверить, почему отсутствует в выходе
+    - "withdrawn_year"  # TODO: Проверить, почему отсутствует в выходе
+
+    # Extra columns (есть в выходе, но отсутствуют в YAML):
+
+    - "chembl_release.1"  # TODO: Добавить описание и валидацию
+    - "extracted_at.1"  # TODO: Добавить описание и валидацию
+    - "hash_business_key.1"  # TODO: Добавить описание и валидацию
+    - "hash_row.1"  # TODO: Добавить описание и валидацию
+    - "index.1"  # TODO: Добавить описание и валидацию
+    - "pipeline_version.1"  # TODO: Добавить описание и валидацию
+    - "source_system.1"  # TODO: Добавить описание и валидацию
