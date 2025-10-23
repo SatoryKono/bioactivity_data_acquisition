@@ -16,6 +16,13 @@ from pydantic import BaseModel, Field
 class ErrorType(str, Enum):
     """Типы ошибок."""
     
+    # Основные типы ошибок (используются в pipeline_base.py)
+    EXTRACTION = "extraction"
+    VALIDATION = "validation"
+    TRANSFORMATION = "transformation"
+    LOAD = "load"
+    
+    # Детализированные типы ошибок (используются в error_tracking.py)
     EXTRACTION_ERROR = "extraction_error"
     VALIDATION_ERROR = "validation_error"
     TRANSFORMATION_ERROR = "transformation_error"
@@ -145,6 +152,26 @@ class ErrorTracker:
             "error_counts": self.error_counts,
             "summary": self.get_error_summary()
         }, indent=2, ensure_ascii=False)
+    
+    @classmethod
+    def from_json(cls, entity_type: str, json_str: str) -> "ErrorTracker":
+        """Создать ErrorTracker из JSON."""
+        data = json.loads(json_str)
+        tracker = cls(entity_type)
+        
+        # Восстановить ошибки
+        for error_data in data.get("errors", []):
+            error = ErrorInfo(**error_data)
+            tracker.errors.append(error)
+        
+        # Восстановить статусы извлечения
+        for source, status_value in data.get("extraction_status", {}).items():
+            tracker.extraction_status[source] = ExtractionStatus(status_value)
+        
+        # Восстановить счетчики ошибок
+        tracker.error_counts = data.get("error_counts", {})
+        
+        return tracker
     
     def clear_errors(self) -> None:
         """Очистить все ошибки."""

@@ -11,13 +11,15 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from ..config.base import BaseConfig
+from library.config import Config
 from .metadata import MetadataBuilder, PipelineMetadata
 from .error_tracking import ErrorTracker
 
 
 class ETLResult(BaseModel):
     """Результат выполнения ETL пайплайна."""
+    
+    model_config = {"arbitrary_types_allowed": True}
     
     # Основные данные
     data: pd.DataFrame = Field(..., description="Основные данные")
@@ -46,7 +48,7 @@ class ETLResult(BaseModel):
 class ETLWriter(ABC):
     """Базовый класс для записи выходных данных ETL пайплайнов."""
     
-    def __init__(self, config: BaseConfig, entity_type: str):
+    def __init__(self, config: Config, entity_type: str):
         self.config = config
         self.entity_type = entity_type
         self.metadata_builder = MetadataBuilder(config, entity_type)
@@ -386,7 +388,7 @@ class TestitemETLWriter(ETLWriter):
         return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
 
 
-def create_etl_writer(config: BaseConfig, entity_type: str) -> ETLWriter:
+def create_etl_writer(config: Config, entity_type: str) -> ETLWriter:
     """Создать ETL Writer для типа сущности."""
     if entity_type == "documents":
         return DocumentETLWriter(config, entity_type)
@@ -406,7 +408,7 @@ def write_etl_outputs(
     result: ETLResult,
     output_dir: Path,
     date_tag: str,
-    config: BaseConfig,
+    config: Config,
     entity_type: str
 ) -> dict[str, Path]:
     """Записать выходные файлы ETL пайплайна."""

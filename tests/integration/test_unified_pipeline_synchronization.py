@@ -24,15 +24,14 @@ class MockConfig:
         self.quality = {
             "profiles": {
                 "default": {
-                    "enabled": True,
+                    "name": "default",
                     "description": f"Test profile for {entity_type}",
                     "fail_on_criteria": ["missing_id"],
                     "thresholds": [
                         {
                             "metric": "missing_id_rate",
-                            "operator": ">",
-                            "value": 0.1,
-                            "severity": "ERROR"
+                            "threshold": 0.1,
+                            "fail_on_exceed": True
                         }
                     ],
                     "rules": [
@@ -137,7 +136,7 @@ class MockQCValidator(QCValidator):
     """Мок QC валидатора."""
     
     def __init__(self, config: MockConfig, profile: QCProfile):
-        super().__init__(config, profile)
+        super().__init__(profile)
     
     def validate(self, df: pd.DataFrame) -> dict[str, Any]:
         """Мок валидации качества."""

@@ -9,13 +9,13 @@ from typing import Any, Protocol
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from ..config.base import BaseConfig
+from library.config import Config
 
 
 class PostprocessStep(Protocol):
     """Протокол для шагов постобработки."""
     
-    def __call__(self, df: pd.DataFrame, config: BaseConfig, **kwargs) -> pd.DataFrame:
+    def __call__(self, df: pd.DataFrame, config: Config, **kwargs) -> pd.DataFrame:
         """Выполнить шаг постобработки."""
         ...
 
@@ -32,7 +32,7 @@ class PostprocessStepConfig(BaseModel):
 class BasePostprocessor(ABC):
     """Базовый класс для постобработки данных."""
     
-    def __init__(self, config: BaseConfig):
+    def __init__(self, config: Config):
         self.config = config
         self.steps: list[PostprocessStepConfig] = []
         self._load_steps()
@@ -191,7 +191,7 @@ def get_postprocess_step(name: str) -> PostprocessStep | None:
 
 
 # Стандартные шаги постобработки
-def merge_sources_step(df: pd.DataFrame, config: BaseConfig, **kwargs) -> pd.DataFrame:
+def merge_sources_step(df: pd.DataFrame, config: Config, **kwargs) -> pd.DataFrame:
     """Стандартный шаг объединения источников."""
     # Определить тип постпроцессора по конфигурации
     if hasattr(config, 'pipeline') and hasattr(config.pipeline, 'entity_type'):
@@ -229,7 +229,7 @@ def merge_sources_step(df: pd.DataFrame, config: BaseConfig, **kwargs) -> pd.Dat
     return processor.merge_sources(df, **kwargs)
 
 
-def deduplicate_step(df: pd.DataFrame, config: BaseConfig, **kwargs) -> pd.DataFrame:
+def deduplicate_step(df: pd.DataFrame, config: Config, **kwargs) -> pd.DataFrame:
     """Стандартный шаг дедупликации."""
     # Определить тип постпроцессора по конфигурации
     if hasattr(config, 'pipeline') and hasattr(config.pipeline, 'entity_type'):

@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from ..config.base import BaseConfig
+from library.config import Config
 
 
 class QualityRule(BaseModel):

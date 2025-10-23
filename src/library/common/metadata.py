@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 import yaml
 from pydantic import BaseModel, Field
 
-from ..config.base import BaseConfig
+from library.config import Config
 
 
 class SourceInfo(BaseModel):
@@ -88,7 +88,7 @@ class PipelineMetadata(BaseModel):
 class MetadataBuilder:
     """Построитель метаданных для ETL пайплайнов."""
     
-    def __init__(self, config: BaseConfig, entity_type: str):
+    def __init__(self, config: Config, entity_type: str):
         self.config = config
         self.entity_type = entity_type
         self.start_time = datetime.now()
@@ -294,13 +294,13 @@ class MetadataBuilder:
         return PipelineMetadata(**metadata_dict)
 
 
-def create_metadata_builder(config: BaseConfig, entity_type: str) -> MetadataBuilder:
+def create_metadata_builder(config: Config, entity_type: str) -> MetadataBuilder:
     """Создать построитель метаданных для типа сущности."""
     return MetadataBuilder(config, entity_type)
 
 
 def build_standard_metadata(
-    config: BaseConfig,
+    config: Config,
     entity_type: str,
     df: Any,
     accepted_df: Optional[Any] = None,
