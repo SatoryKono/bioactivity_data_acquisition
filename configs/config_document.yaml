@@ -278,17 +278,32 @@ postprocess:
     min_correlation: 0.5               # Минимальная корреляция
     
   steps:                              # Этапы постобработки
-    - type: "merge_sources"            # Объединение источников
+    - name: "add_missing_document_fields"  # Добавление недостающих полей
+      enabled: true
+      description: "Add missing document fields"
+      priority: 1
+    - name: "merge_sources"            # Объединение источников
+      enabled: true
       description: "Merge data from multiple sources"
-      priority: ["crossref", "openalex", "pubmed", "semantic_scholar"]  # Приоритет источников
-    - type: "doi_fallback"             # Fallback по DOI
+      priority: 2
+      parameters:
+        priority: ["crossref", "openalex", "pubmed", "semantic_scholar"]  # Приоритет источников
+    - name: "doi_fallback"             # Fallback по DOI
+      enabled: false
       description: "Use DOI as fallback identifier"
-    - type: "author_normalization"     # Нормализация авторов
+      priority: 3
+    - name: "author_normalization"     # Нормализация авторов
+      enabled: false
       description: "Normalize author names and affiliations"
-    - type: "journal_normalization"    # Нормализация журналов
+      priority: 4
+    - name: "journal_normalization"    # Нормализация журналов
+      enabled: false
       description: "Normalize journal names"
-    - type: "citation_formatting"      # Форматирование цитирования
+      priority: 5
+    - name: "citation_formatting"      # Форматирование цитирования
+      enabled: false
       description: "Format citation data"
+      priority: 6
 
 # Нормализация - настройки нормализации данных
 normalization:
