@@ -4,7 +4,7 @@
 
 from typing import Any
 
-from .base import safe_normalize, register_normalizer, is_empty_value, ensure_numeric
+from .base import is_empty_value, register_normalizer, safe_normalize
 
 
 @safe_normalize
@@ -190,7 +190,7 @@ def normalize_molecular_weight(value: Any) -> float | None:
 
 
 @safe_normalize
-def normalize_pchembl_range(value: Any) -> Optional[float]:
+def normalize_pchembl_range(value: Any) -> float | None:
     """Нормализует pChEMBL значение (диапазон 0-14).
     
     Args:

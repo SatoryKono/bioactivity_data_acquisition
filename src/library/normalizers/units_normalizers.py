@@ -2,7 +2,7 @@
 Нормализаторы для единиц измерения.
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from .base import safe_normalize, register_normalizer, is_empty_value, ensure_string
 

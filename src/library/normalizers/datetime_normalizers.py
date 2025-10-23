@@ -9,7 +9,7 @@ from .base import safe_normalize, register_normalizer, is_empty_value
 
 
 @safe_normalize
-def normalize_datetime_iso8601(value: Any) -> Optional[str]:
+def normalize_datetime_iso8601(value: Any) -> str | None:
     """Преобразует значение к ISO 8601 формату в UTC.
     
     Args:
@@ -49,7 +49,7 @@ def normalize_datetime_iso8601(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_datetime_validate(value: Any) -> Optional[str]:
+def normalize_datetime_validate(value: Any) -> str | None:
     """Проверяет валидность даты и возвращает в ISO 8601 формате.
     
     Args:
@@ -138,7 +138,7 @@ def normalize_datetime_precision(value: Any, precision: str = 'seconds') -> str 
 
 
 @safe_normalize
-def normalize_date_only(value: Any) -> Optional[str]:
+def normalize_date_only(value: Any) -> str | None:
     """Нормализует только дату (без времени).
     
     Args:

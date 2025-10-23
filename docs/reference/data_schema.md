@@ -9,7 +9,7 @@
 
 ### Архитектура данных
 
-```
+```text
 activity_fact (центральная таблица)
 ├── FK → document_dim (документы/публикации)
 ├── FK → target_dim (биологические мишени)
@@ -24,6 +24,7 @@ activity_fact (центральная таблица)
 **Назначение**: Метаданные научных публикаций и патентов
 
 **Источники данных**:
+
 - **ChEMBL**: `GET https://www.ebi.ac.uk/chembl/api/data/document/{document_chembl_id}` - единичные документы
 - **Crossref**: `GET https://api.crossref.org/works/{DOI}` - DOI метаданные
 - **OpenAlex**: `GET https://api.openalex.org/works/https://doi.org/{DOI}` - научные публикации
@@ -47,6 +48,7 @@ activity_fact (центральная таблица)
 **Назначение**: Биологические мишени (белки, ферменты, рецепторы)
 
 **Источники данных**:
+
 - **ChEMBL**: `GET https://www.ebi.ac.uk/chembl/api/data/target/{target_chembl_id}` - основная информация о мишенях
 - **UniProt**: `GET https://rest.uniprot.org/uniprotkb/{UniProtAccession}.json` - белковые данные
 - **IUPHAR/BPS GtoP**: `GET https://www.guidetopharmacology.org/targets/{iuphar_id}` - фармакологические данные
@@ -66,6 +68,7 @@ activity_fact (центральная таблица)
 **Назначение**: Экспериментальные методы измерения биоактивности
 
 **Источники данных**:
+
 - **ChEMBL**: `GET https://www.ebi.ac.uk/chembl/api/data/assay/{assay_chembl_id}` - методы экспериментов
 
 **Извлекаемые поля**:
@@ -243,10 +246,10 @@ activity_fact (центральная таблица)
 
 ## Связи между таблицами
 
-```
+```text
 activity_fact
 ├── assay_chembl_id → assay_dim.assay_chembl_id
-├── molecule_chembl_id → testitem_dim.molecule_chembl_id  
+├── molecule_chembl_id → testitem_dim.molecule_chembl_id
 ├── target_chembl_id → target_dim.target_chembl_id
 └── document_chembl_id → document_dim.document_chembl_id
 

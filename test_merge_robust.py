@@ -11,8 +11,11 @@ def test_merge_robust():
     """Тест исправленной логики merge с различными типами данных."""
     
     # Создаем mock config
-    class MockConfig:
+    from src.library.testitem.config import TestitemConfig
+    
+    class MockConfig(TestitemConfig):
         def __init__(self):
+            super().__init__()
             self.sources = {}
     
     pipeline = TestitemPipeline(MockConfig())
@@ -70,8 +73,11 @@ def test_merge_robust():
 def test_is_valid_value():
     """Тест метода _is_valid_value."""
     
-    class MockConfig:
+    from src.library.testitem.config import TestitemConfig
+    
+    class MockConfig(TestitemConfig):
         def __init__(self):
+            super().__init__()
             self.sources = {}
     
     pipeline = TestitemPipeline(MockConfig())

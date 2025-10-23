@@ -5,7 +5,6 @@ Pandera схемы для валидации данных документов �
 с атрибутами нормализации для каждой колонки.
 """
 
-import pandas as pd
 import pandera as pa
 from pandera import Check, Column, DataFrameSchema
 

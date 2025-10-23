@@ -4,8 +4,6 @@
 Проверяет что после обновления клиентов API колонки заполняются данными.
 """
 
-import pandas as pd
-from pathlib import Path
 
 # Импортируем обновленные клиенты
 from src.library.clients.crossref import CrossrefClient

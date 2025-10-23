@@ -1,7 +1,6 @@
 """Unit тесты для модуля объединения данных документов."""
 
 import pandas as pd
-import pytest
 
 from library.documents.merge import (
     normalize_doi,

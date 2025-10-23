@@ -8,7 +8,6 @@
 """
 
 import pandas as pd
-from pathlib import Path
 
 # Импортируем обновленные компоненты
 from src.library.common.writer_base import DocumentETLWriter
@@ -23,8 +22,9 @@ def test_document_etl_writer():
     print("=" * 80)
     
     # Создаем мок конфиг с column_order
-    class MockConfig:
+    class MockConfig(Config):
         def __init__(self):
+            super().__init__()
             self.determinism = MockDeterminism()
     
     class MockDeterminism:

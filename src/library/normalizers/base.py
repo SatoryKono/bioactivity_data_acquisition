@@ -2,7 +2,7 @@
 Базовые классы и утилиты для системы нормализации данных.
 """
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ class NormalizationError(Exception):
 
 
 # Реестр всех доступных нормализаторов
-_NORMALIZER_REGISTRY: Dict[str, Callable[[Any], Any]] = {}
+_NORMALIZER_REGISTRY: dict[str, Callable[[Any], Any]] = {}
 
 
 def register_normalizer(name: str, func: Callable[[Any], Any]) -> None:
@@ -93,7 +93,7 @@ def is_empty_value(value: Any) -> bool:
     return False
 
 
-def ensure_string(value: Any) -> Optional[str]:
+def ensure_string(value: Any) -> str | None:
     """Приводит значение к строке, если это возможно.
     
     Args:
@@ -117,7 +117,7 @@ def ensure_string(value: Any) -> Optional[str]:
     return str(value)
 
 
-def ensure_numeric(value: Any) -> Optional[float]:
+def ensure_numeric(value: Any) -> float | None:
     """Приводит значение к числу, если это возможно.
     
     Args:

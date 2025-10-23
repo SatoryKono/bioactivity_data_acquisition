@@ -8,7 +8,7 @@ from .base import safe_normalize, register_normalizer, is_empty_value
 
 
 @safe_normalize
-def normalize_boolean(value: Any) -> Optional[bool]:
+def normalize_boolean(value: Any) -> bool | None:
     """Преобразует значение в булево с маппингом строк/чисел.
     
     Args:
@@ -44,7 +44,7 @@ def normalize_boolean(value: Any) -> Optional[bool]:
 
 
 @safe_normalize
-def normalize_boolean_strict(value: Any) -> Optional[bool]:
+def normalize_boolean_strict(value: Any) -> bool | None:
     """Строгая проверка булевых значений.
     
     Args:
@@ -113,7 +113,7 @@ def normalize_boolean_from_numeric(value: Any, threshold: float = 0) -> bool | N
 
 
 @safe_normalize
-def normalize_boolean_preserve_none(value: Any) -> Optional[bool]:
+def normalize_boolean_preserve_none(value: Any) -> bool | None:
     """Преобразует значение в булево, сохраняя None как None.
     
     Args:

@@ -9,7 +9,7 @@ from .base import safe_normalize, register_normalizer, is_empty_value, ensure_st
 
 
 @safe_normalize
-def normalize_smiles(value: Any) -> Optional[str]:
+def normalize_smiles(value: Any) -> str | None:
     """Нормализует SMILES строку.
     
     - strip(): удаление пробелов
@@ -60,7 +60,7 @@ def normalize_smiles(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_inchi(value: Any) -> Optional[str]:
+def normalize_inchi(value: Any) -> str | None:
     """Нормализует InChI строку.
     
     - strip(): удаление пробелов
@@ -103,7 +103,7 @@ def normalize_inchi(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_inchi_key(value: Any) -> Optional[str]:
+def normalize_inchi_key(value: Any) -> str | None:
     """Нормализует InChI Key.
     
     - strip(): удаление пробелов
@@ -142,7 +142,7 @@ def normalize_inchi_key(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_molecular_formula(value: Any) -> Optional[str]:
+def normalize_molecular_formula(value: Any) -> str | None:
     """Нормализует молекулярную формулу.
     
     - strip(): удаление пробелов
@@ -183,7 +183,7 @@ def normalize_molecular_formula(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_smiles_canonical(value: Any) -> Optional[str]:
+def normalize_smiles_canonical(value: Any) -> str | None:
     """Канонизирует SMILES строку (расширенная версия).
     
     Args:

@@ -94,7 +94,7 @@ def normalize_chembl_id(value: Any) -> str | None:
     - strip(): удаление пробелов
     - uppercase(): приведение к верхнему регистру
     - ensure_prefix_chembl(): обеспечение префикса CHEMBL
-    - validate_pattern(): проверка формата ^CHEMBL\d+$
+    - validate_pattern(): проверка формата ^CHEMBL\\d+$
     
     Args:
         value: Значение для нормализации

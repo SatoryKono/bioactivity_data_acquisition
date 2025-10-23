@@ -14,7 +14,7 @@ def normalize_bao_id(value: Any) -> str | None:
     
     - strip(): удаление пробелов
     - uppercase(): приведение к верхнему регистру
-    - validate_bao_pattern(): проверка формата ^BAO_\d+$
+    - validate_bao_pattern(): проверка формата ^BAO_\\d+$
     
     Args:
         value: Значение для нормализации
@@ -96,7 +96,7 @@ def normalize_go_id(value: Any) -> str | None:
     
     - strip(): удаление пробелов
     - uppercase(): приведение к верхнему регистру
-    - validate_go_pattern(): проверка формата ^GO:\d{7}$
+    - validate_go_pattern(): проверка формата ^GO:\\d{7}$
     
     Args:
         value: Значение для нормализации
@@ -186,7 +186,7 @@ def normalize_hgnc_id(value: Any) -> str | None:
     
     - strip(): удаление пробелов
     - uppercase(): приведение к верхнему регистру
-    - validate_hgnc_pattern(): проверка формата ^HGNC:\d+$
+    - validate_hgnc_pattern(): проверка формата ^HGNC:\\d+$
     
     Args:
         value: Значение для нормализации

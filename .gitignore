@@ -290,3 +290,5 @@ logs/
 !docs/
 !docs/**
 !docs/_build/
+/data/output
+data/output/activities/activities_20251023.meta.yaml

@@ -4,7 +4,6 @@
 """
 
 import pandas as pd
-import numpy as np
 from src.library.utils.empty_value_handler import normalize_numeric_field
 
 def test_dtype_fix():

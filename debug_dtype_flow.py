@@ -12,8 +12,11 @@ def debug_dtype_flow():
     """Отладка изменения типов данных."""
     
     # Создаем mock config
-    class MockConfig:
+    from src.library.testitem.config import TestitemConfig
+    
+    class MockConfig(TestitemConfig):
         def __init__(self):
+            super().__init__()
             self.sources = {}
             self.pipeline = {'version': '2.0.0'}
     
@@ -43,7 +46,11 @@ def debug_dtype_flow():
     print(f"num_ro5_violations type: {type(merged['num_ro5_violations'].iloc[0])}")
     
     # Тестируем нормализатор
-    normalizer = TestitemNormalizer(MockConfig())
+    config = MockConfig()
+    normalizer = TestitemNormalizer({
+        'sources': config.sources,
+        'pipeline': config.pipeline
+    })
     
     # Добавляем недостающие колонки
     merged = normalizer._add_missing_columns(merged)

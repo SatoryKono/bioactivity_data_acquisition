@@ -7,8 +7,6 @@
 3. Фактические колонки в выходном файле documents_20251023.csv
 """
 
-import pandas as pd
-from pathlib import Path
 
 # Колонки из фактического вывода (из documents_20251023.csv)
 actual_output_columns = [

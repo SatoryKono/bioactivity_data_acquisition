@@ -2,7 +2,6 @@
 Тесты для нормализаторов данных даты и времени.
 """
 
-import pytest
 import datetime
 from src.library.normalizers.datetime_normalizers import (
     normalize_datetime_iso8601,

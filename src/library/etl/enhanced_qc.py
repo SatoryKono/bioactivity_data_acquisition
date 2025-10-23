@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 from collections import defaultdict
 
 import numpy as np
@@ -568,8 +568,8 @@ class NormalizationReporter:
     def __init__(self, logger: BoundLogger | None = None):
         """Инициализация репортера нормализации."""
         self.logger = logger
-        self.changes: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        self.field_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {
+        self.changes: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self.field_stats: dict[str, dict[str, int]] = defaultdict(lambda: {
             'total_records': 0,
             'changed_count': 0,
             'discarded_count': 0,
@@ -577,7 +577,7 @@ class NormalizationReporter:
         })
     
     def track_normalization(self, field: str, original_value: Any, normalized_value: Any, 
-                          normalizer_name: str = None) -> None:
+                          normalizer_name: str | None = None) -> None:
         """Отслеживает изменение значения при нормализации.
         
         Args:
@@ -610,7 +610,7 @@ class NormalizationReporter:
                 'normalizer_name': normalizer_name
             })
     
-    def aggregate_changes(self) -> Dict[str, Dict[str, Any]]:
+    def aggregate_changes(self) -> dict[str, dict[str, Any]]:
         """Агрегирует изменения по полям.
         
         Returns:
@@ -692,7 +692,7 @@ class NormalizationReporter:
             if self.logger:
                 self.logger.warning("Нет данных для сохранения отчета нормализации")
     
-    def get_summary_stats(self) -> Dict[str, Any]:
+    def get_summary_stats(self) -> dict[str, Any]:
         """Получает сводную статистику по всем полям.
         
         Returns:

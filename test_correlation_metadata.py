@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Тест для проверки сохранения корреляционного анализа в метаданные."""
 
-from src.library.activity.pipeline import ActivityPipeline
-from src.library.config import Config
 import pandas as pd
+
+from src.library.activity.pipeline import ActivityPipeline
 
 def test_correlation_in_metadata():
     """Тест проверяет, что корреляционный анализ сохраняется в метаданные."""

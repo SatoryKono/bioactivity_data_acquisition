@@ -10,7 +10,7 @@ from .base import safe_normalize, register_normalizer, is_empty_value, ensure_st
 
 
 @safe_normalize
-def normalize_string_strip(value: Any) -> Optional[str]:
+def normalize_string_strip(value: Any) -> str | None:
     """Удаляет ведущие и завершающие пробелы.
     
     Args:
@@ -31,7 +31,7 @@ def normalize_string_strip(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_string_upper(value: Any) -> Optional[str]:
+def normalize_string_upper(value: Any) -> str | None:
     """Приводит строку к верхнему регистру.
     
     Args:
@@ -51,7 +51,7 @@ def normalize_string_upper(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_string_lower(value: Any) -> Optional[str]:
+def normalize_string_lower(value: Any) -> str | None:
     """Приводит строку к нижнему регистру.
     
     Args:
@@ -71,7 +71,7 @@ def normalize_string_lower(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_string_titlecase(value: Any) -> Optional[str]:
+def normalize_string_titlecase(value: Any) -> str | None:
     """Приводит строку к title case.
     
     Args:
@@ -91,7 +91,7 @@ def normalize_string_titlecase(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_string_nfc(value: Any) -> Optional[str]:
+def normalize_string_nfc(value: Any) -> str | None:
     """Приводит строку к Unicode NFC нормализации.
     
     Args:
@@ -111,7 +111,7 @@ def normalize_string_nfc(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_string_whitespace(value: Any) -> Optional[str]:
+def normalize_string_whitespace(value: Any) -> str | None:
     """Нормализует внутренние пробелы (заменяет множественные пробелы на один).
     
     Args:
@@ -133,7 +133,7 @@ def normalize_string_whitespace(value: Any) -> Optional[str]:
 
 
 @safe_normalize
-def normalize_empty_to_null(value: Any) -> Optional[str]:
+def normalize_empty_to_null(value: Any) -> str | None:
     """Преобразует пустые строки в None.
     
     Args:

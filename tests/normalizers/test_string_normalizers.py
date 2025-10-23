@@ -2,7 +2,6 @@
 Тесты для нормализаторов строковых данных.
 """
 
-import pytest
 from src.library.normalizers.string_normalizers import (
     normalize_string_strip,
     normalize_string_upper,

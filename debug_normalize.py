@@ -16,7 +16,11 @@ def debug_normalize():
             self.sources = {}
             self.pipeline = {'version': '2.0.0'}
     
-    normalizer = TestitemNormalizer(MockConfig())
+    config = MockConfig()
+    normalizer = TestitemNormalizer({
+        'sources': config.sources,
+        'pipeline': config.pipeline
+    })
     
     # Тестовые данные
     test_data = pd.DataFrame({

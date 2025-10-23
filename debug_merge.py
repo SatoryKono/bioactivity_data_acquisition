@@ -11,8 +11,11 @@ def debug_merge():
     """Отладка merge логики."""
     
     # Создаем mock config
-    class MockConfig:
+    from src.library.testitem.config import TestitemConfig
+    
+    class MockConfig(TestitemConfig):
         def __init__(self):
+            super().__init__()
             self.sources = {}
     
     pipeline = TestitemPipeline(MockConfig())
