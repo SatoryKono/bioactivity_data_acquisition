@@ -83,20 +83,20 @@ def test_is_valid_value():
     pipeline = TestitemPipeline(MockConfig())
     
     # Тестируем различные значения
-    assert pipeline._is_valid_value("valid_string") == True
-    assert pipeline._is_valid_value(123) == True
-    assert pipeline._is_valid_value(0.5) == True
-    assert pipeline._is_valid_value(True) == True
-    assert pipeline._is_valid_value([1, 2, 3]) == True
-    assert pipeline._is_valid_value(np.array([1, 2, 3])) == True
+    assert pipeline._is_valid_value("valid_string")
+    assert pipeline._is_valid_value(123)
+    assert pipeline._is_valid_value(0.5)
+    assert pipeline._is_valid_value(True)
+    assert pipeline._is_valid_value([1, 2, 3])
+    assert pipeline._is_valid_value(np.array([1, 2, 3]))
     
     # Тестируем невалидные значения
-    assert pipeline._is_valid_value(None) == False
-    assert pipeline._is_valid_value("") == False
-    assert pipeline._is_valid_value("   ") == False
-    assert pipeline._is_valid_value([]) == False
-    assert pipeline._is_valid_value(np.array([])) == False
-    assert pipeline._is_valid_value(pd.NA) == False
+    assert not pipeline._is_valid_value(None)
+    assert not pipeline._is_valid_value("")
+    assert not pipeline._is_valid_value("   ")
+    assert not pipeline._is_valid_value([])
+    assert not pipeline._is_valid_value(np.array([]))
+    assert not pipeline._is_valid_value(pd.NA)
     
     print("✅ Тест метода _is_valid_value прошел успешно!")
 

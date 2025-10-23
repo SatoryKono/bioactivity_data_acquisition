@@ -2,7 +2,7 @@
 Нормализаторы для единиц измерения.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from .base import safe_normalize, register_normalizer, is_empty_value, ensure_string
 
@@ -234,7 +234,7 @@ def normalize_concentration(value: Any, unit: str | None = None) -> float | None
 
 
 @safe_normalize
-def normalize_percentage(value: Any) -> Optional[float]:
+def normalize_percentage(value: Any) -> float | None:
     """Нормализует процентное значение.
     
     Args:

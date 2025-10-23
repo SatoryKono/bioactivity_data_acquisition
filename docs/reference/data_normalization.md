@@ -19,11 +19,13 @@
 #### Строковые данные (string)
 
 **Обязательные преобразования:**
+
 - `strip()` - удаление ведущих и завершающих пробелов
 - `normalize_empty_to_null()` - преобразование пустых строк в NULL
 - `normalize_string_whitespace()` - нормализация внутренних пробелов
 
 **Опциональные преобразования:**
+
 - `normalize_string_nfc()` - Unicode NFC нормализация
 - `normalize_string_upper()` - приведение к верхнему регистру
 - `normalize_string_lower()` - приведение к нижнему регистру
@@ -72,10 +74,11 @@
 - Валидация формата: `^10\.\d{4,9}/[-._;()/:A-Z0-9]+$`
 
 **Примеры:**
-`	ext
+
+```
 https://doi.org/10.1021/acs.jmedchem.0c01234 → 10.1021/acs.jmedchem.0c01234
 DOI:10.1021/acs.jmedchem.0c01234 → 10.1021/acs.jmedchem.0c01234
-`	ext
+```
 
 #### ChEMBL ID
 
@@ -87,10 +90,11 @@ DOI:10.1021/acs.jmedchem.0c01234 → 10.1021/acs.jmedchem.0c01234
 - Валидация формата: `^CHEMBL\d+$`
 
 **Примеры:**
-`	ext
+
+```
 chembl25 → CHEMBL25
 25 → CHEMBL25
-`	ext
+```
 
 #### UniProt Accession
 
@@ -101,9 +105,10 @@ chembl25 → CHEMBL25
 - Валидация формата: `^[OPQ][0-9][A-Z0-9]{3}[0-9]$` или старые формы
 
 **Примеры:**
-`	ext
+
+```
 p12345 → P12345
-`	ext
+```
 
 #### IUPHAR ID
 
@@ -114,9 +119,10 @@ p12345 → P12345
 - Проверка положительного целого числа
 
 **Примеры:**
-`	ext
+
+```
 GTOPDB:1234 → 1234
-`	ext
+```
 
 #### PubChem CID
 
@@ -127,9 +133,9 @@ GTOPDB:1234 → 1234
 - Проверка положительного целого числа
 
 **Примеры:**
-`	ext
+```
 CID:2244 → 2244
-`	ext
+```
 
 #### SMILES
 
@@ -142,9 +148,9 @@ CID:2244 → 2244
 - Канонизация (в будущем с RDKit)
 
 **Примеры:**
-`	ext
+```
 C[C@H](O)Cl → C[C@H](O)Cl
-`	ext
+```
 
 #### InChI
 
@@ -155,9 +161,9 @@ C[C@H](O)Cl → C[C@H](O)Cl
 - Валидация структуры
 
 **Примеры:**
-`	ext
+```
 InChI=1S/CH4/h1H4 → InChI=1S/CH4/h1H4
-`	ext
+```
 
 #### InChI Key
 
@@ -168,9 +174,9 @@ InChI=1S/CH4/h1H4 → InChI=1S/CH4/h1H4
 - Валидация формата: `^[A-Z]{14}-[A-Z]{10}-[A-Z]$`
 
 **Примеры:**
-`	ext
+```
 bsynrymutxbxsq-uhfffaoysa-n → BSYNRYMUTXBXSQ-UHFFFAOYSA-N
-`	ext
+```
 
 #### BAO Format / Label
 
@@ -182,9 +188,9 @@ bsynrymutxbxsq-uhfffaoysa-n → BSYNRYMUTXBXSQ-UHFFFAOYSA-N
 - Валидация формата: `^BAO_\d+$`
 
 **Примеры:**
-`	ext
+```
 bao:0000357 → BAO_0000357
-`	ext
+```
 
 #### pChEMBL
 
@@ -196,9 +202,9 @@ bao:0000357 → BAO_0000357
 - Округление до 3 знаков
 
 **Примеры:**
-`	ext
+```
 7.1234 → 7.123
-`	ext
+```
 
 #### Единицы измерения
 
@@ -209,10 +215,10 @@ bao:0000357 → BAO_0000357
 - Маппинг на стандартизованные единицы
 
 **Примеры:**
-`	ext
+```
 um → μm
 nanomolar → nm
-`	ext
+```
 
 ## Нормализация по пайплайнам
 
@@ -291,7 +297,7 @@ doi_normalizer = get_normalizer("normalize_doi")
 # Применение нормализации
 normalized_doi = doi_normalizer("https://doi.org/10.1021/acs.jmedchem.0c01234")
 # Результат: "10.1021/acs.jmedchem.0c01234"
-`	ext
+```
 
 ### Интеграция в пайплайны
 
@@ -308,7 +314,7 @@ def _apply_schema_normalizations(self, df: pd.DataFrame) -> pd.DataFrame:
                 df[column_name] = df[column_name].apply(func)
     
     return df
-`	ext
+```
 
 ## Отчетность по нормализации
 

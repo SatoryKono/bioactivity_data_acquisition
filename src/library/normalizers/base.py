@@ -2,7 +2,8 @@
 Базовые классы и утилиты для системы нормализации данных.
 """
 
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 import logging
 
 logger = logging.getLogger(__name__)

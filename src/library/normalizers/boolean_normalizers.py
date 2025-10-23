@@ -2,7 +2,7 @@
 Нормализаторы для булевых данных.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from .base import safe_normalize, register_normalizer, is_empty_value
 

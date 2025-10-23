@@ -90,6 +90,7 @@ activity_fact (центральная таблица)
 **Назначение**: Химические соединения и молекулы
 
 **Источники данных**:
+
 - **ChEMBL**: `GET https://www.ebi.ac.uk/chembl/api/data/molecule/{molecule_chembl_id}` - химические данные
 - **PubChem**: PUG-REST API - дополнительные химические свойства
 
@@ -107,6 +108,7 @@ activity_fact (центральная таблица)
 **Назначение**: Измерения биоактивности соединений против мишеней
 
 **Источники данных**:
+
 - **ChEMBL**: `GET https://www.ebi.ac.uk/chembl/api/data/activity` - данные активностей с пагинацией
 
 **Извлекаемые поля**:
@@ -149,6 +151,7 @@ activity_fact (центральная таблица)
 | citation_count | INT | Количество цитирований | OpenAlex/Semantic Scholar | nullable, >= 0 | - |
 
 **Справочники**:
+
 - publication_type: article, patent, review, conference
 - is_oa: true/false
 - license: CC-BY, CC-BY-SA, etc.
@@ -172,6 +175,7 @@ activity_fact (центральная таблица)
 | sequence_length | INT | Длина последовательности | UniProt | nullable, > 0 | аминокислоты |
 
 **Справочники**:
+
 - target_type: SINGLE PROTEIN, PROTEIN FAMILY, PROTEIN COMPLEX
 - organism: научные названия видов
 - target_family: GPCR, Ion Channel, Enzyme, etc.
@@ -194,6 +198,7 @@ activity_fact (центральная таблица)
 | bao_label | STRING | BAO классификация | ChEMBL | nullable | - |
 
 **Справочники**:
+
 - assay_type: B (Binding), F (Functional), A (ADMET), P (Physicochemical), T (Toxicity), U (Unclassified)
 - relationship_type: functional, binding, inhibitory
 - confidence_score: 0.0-1.0
@@ -216,6 +221,7 @@ activity_fact (центральная таблица)
 | iupac_name | STRING | IUPAC название | PubChem | nullable | - |
 
 **Справочники**:
+
 - molecular_weight: 50-2000 г/моль (разумный диапазон для лекарственных соединений)
 - LogP: безразмерный (логарифм коэффициента распределения)
 - HBA/HBD: количество атомов
@@ -239,6 +245,7 @@ activity_fact (центральная таблица)
 | bao_label | STRING | BAO классификация | ChEMBL | nullable | - |
 
 **Справочники**:
+
 - standard_type: IC50, EC50, Ki, Kd, AC50
 - standard_relation: =, >, <, >=, <=
 - standard_units: nM, uM, mM, M, %
@@ -263,7 +270,7 @@ assay_dim
 
 1. **Первичные ключи**: Все PK должны быть уникальными и не NULL
 2. **Внешние ключи**: Все FK должны ссылаться на существующие записи
-3. **Диапазоны значений**: 
+3. **Диапазоны значений**:
    - Годы: 1900-текущий год
    - Молекулярная масса: 50-2000 г/моль
    - pChEMBL: 3.0-12.0
