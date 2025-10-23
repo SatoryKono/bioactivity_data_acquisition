@@ -49,7 +49,7 @@ def _deterministic_order(
         ordered = df[desired_order]
     
     # Фильтруем колонки для сортировки, оставляя только существующие
-    sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
+    sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in ordered.columns]
     
     # Если нет колонок для сортировки, возвращаем DataFrame как есть
     if not sort_by:
