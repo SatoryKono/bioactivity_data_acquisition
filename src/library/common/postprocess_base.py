@@ -105,6 +105,51 @@ class DocumentPostprocessor(BasePostprocessor):
     def deduplicate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """Удалить дубликаты документов."""
         return df.drop_duplicates(subset=["document_chembl_id"], keep="first")
+    
+    def add_missing_document_fields(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """Добавить недостающие поля документов."""
+        if df.empty:
+            return df
+        
+        # Добавляем недостающие поля документов
+        missing_fields = {
+            'chembl_error': None,
+            'chembl_issn': None,
+            'classification': None,
+            'crossref_abstract': None,
+            'crossref_issn': None,
+            'crossref_journal': None,
+            'crossref_pmid': None,
+            'document_contains_external_links': False,
+            'is_experimental_doc': False,
+            'openalex_abstract': None,
+            'openalex_authors': None,
+            'openalex_crossref_doc_type': None,
+            'openalex_doc_type': None,
+            'openalex_first_page': None,
+            'openalex_issn': None,
+            'openalex_issue': None,
+            'openalex_journal': None,
+            'openalex_last_page': None,
+            'openalex_pmid': None,
+            'openalex_volume': None,
+            'openalex_year': None,
+            'pubmed_article_title': None,
+            'pubmed_chemical_list': None,
+            'pubmed_id': None,
+            'pubmed_mesh_descriptors': None,
+            'pubmed_mesh_qualifiers': None,
+            'semantic_scholar_doc_type': None,
+            'semantic_scholar_issn': None,
+            'semantic_scholar_journal': None
+        }
+        
+        # Добавляем поля, если их нет
+        for field, default_value in missing_fields.items():
+            if field not in df.columns:
+                df[field] = default_value
+        
+        return df
 
 
 class TargetPostprocessor(BasePostprocessor):
@@ -225,6 +270,41 @@ class TestitemPostprocessor(BasePostprocessor):
     def deduplicate(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """Удалить дубликаты теститемов."""
         return df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
+    
+    def add_missing_testitem_fields(self, df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+        """Добавить недостающие поля теститемов."""
+        if df.empty:
+            return df
+        
+        # Добавляем недостающие поля теститемов
+        missing_fields = {
+            'drug_antibacterial_flag': False,
+            'drug_antifungal_flag': False,
+            'drug_antiinflammatory_flag': False,
+            'drug_antineoplastic_flag': False,
+            'drug_antiparasitic_flag': False,
+            'drug_antiviral_flag': False,
+            'drug_chembl_id': None,
+            'drug_immunosuppressant_flag': False,
+            'drug_indication_flag': False,
+            'drug_name': None,
+            'drug_substance_flag': False,
+            'drug_type': None,
+            'indication_class': None,
+            'molregno': None,
+            'pubchem_isomeric_smiles': None,
+            'salt_chembl_id': None,
+            'withdrawn_country': None,
+            'withdrawn_reason': None,
+            'withdrawn_year': None
+        }
+        
+        # Добавляем поля, если их нет
+        for field, default_value in missing_fields.items():
+            if field not in df.columns:
+                df[field] = default_value
+        
+        return df
 
 
 # Registry для шагов постобработки
@@ -336,6 +416,48 @@ def apply_bao_flags_step(df: pd.DataFrame, config: Config, **kwargs) -> pd.DataF
         raise ValueError(f"apply_bao_flags поддерживается только для assays, получен: {entity_type}")
     
     return processor.apply_bao_flags(df, **kwargs)
+
+
+def add_missing_document_fields_step(df: pd.DataFrame, config: Config, **kwargs) -> pd.DataFrame:
+    """Стандартный шаг добавления недостающих полей документов."""
+    # Определить тип постпроцессора по конфигурации
+    if hasattr(config, 'pipeline') and hasattr(config.pipeline, 'entity_type'):
+        entity_type = config.pipeline.entity_type
+    else:
+        class_name = config.__class__.__name__.lower()
+        if 'document' in class_name:
+            entity_type = 'documents'
+        else:
+            raise ValueError(f"add_missing_document_fields поддерживается только для documents, получен: {config.__class__.__name__}")
+    
+    # Создать соответствующий постпроцессор
+    if entity_type == 'documents':
+        processor = DocumentPostprocessor(config)
+    else:
+        raise ValueError(f"add_missing_document_fields поддерживается только для documents, получен: {entity_type}")
+    
+    return processor.add_missing_document_fields(df, **kwargs)
+
+
+def add_missing_testitem_fields_step(df: pd.DataFrame, config: Config, **kwargs) -> pd.DataFrame:
+    """Стандартный шаг добавления недостающих полей теститемов."""
+    # Определить тип постпроцессора по конфигурации
+    if hasattr(config, 'pipeline') and hasattr(config.pipeline, 'entity_type'):
+        entity_type = config.pipeline.entity_type
+    else:
+        class_name = config.__class__.__name__.lower()
+        if 'testitem' in class_name:
+            entity_type = 'testitems'
+        else:
+            raise ValueError(f"add_missing_testitem_fields поддерживается только для testitems, получен: {config.__class__.__name__}")
+    
+    # Создать соответствующий постпроцессор
+    if entity_type == 'testitems':
+        processor = TestitemPostprocessor(config)
+    else:
+        raise ValueError(f"add_missing_testitem_fields поддерживается только для testitems, получен: {entity_type}")
+    
+    return processor.add_missing_testitem_fields(df, **kwargs)
 
 
 # Регистрация стандартных шагов
