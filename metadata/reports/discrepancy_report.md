@@ -1,0 +1,1227 @@
+# Отчет по несоответствиям схем
+
+Сгенерировано: 2025-10-23 22:44:24
+
+## Сводка по типам несоответствий
+
+| Entity | Discrepancy Type | Count |
+|--------|------------------|-------|
+| activity | EXTRA | 1 |
+| activity | MISSING_PANDERA | 33 |
+| assay | EXTRA | 10 |
+| assay | MISSING | 19 |
+| assay | MISSING_PANDERA | 27 |
+| document | MISSING | 29 |
+| document | MISSING_PANDERA | 60 |
+| target | EXTRA | 5 |
+| target | MISSING_PANDERA | 130 |
+| testitem | EXTRA | 7 |
+| testitem | MISSING | 19 |
+| testitem | MISSING_PANDERA | 85 |
+
+## Activity - Детали несоответствий
+
+### MISSING_PANDERA (33 колонок)
+
+- **activity_chembl_id**
+  - Типы: Output: object
+- **activity_comment**
+  - Типы: Output: object
+  - Порядок: YAML=11.0, Output=12.0
+- **activity_type**
+  - Типы: Output: object
+  - Порядок: YAML=6.0, Output=7.0
+- **activity_unit**
+  - Типы: Output: object
+  - Порядок: YAML=8.0, Output=9.0
+- **activity_value**
+  - Типы: Output: object
+  - Порядок: YAML=7.0, Output=8.0
+- **assay_chembl_id**
+  - Типы: Output: object
+- **bao_endpoint**
+  - Типы: Output: object
+  - Порядок: YAML=24.0, Output=25.0
+- **bao_format**
+  - Типы: Output: object
+  - Порядок: YAML=25.0, Output=26.0
+- **bao_label**
+  - Типы: Output: object
+  - Порядок: YAML=26.0, Output=27.0
+- **chembl_release**
+  - Типы: Output: object
+  - Порядок: YAML=30.0, Output=31.0
+- **data_validity_comment**
+  - Типы: Output: object
+  - Порядок: YAML=10.0, Output=11.0
+- **document_chembl_id**
+  - Типы: Output: object
+- **extracted_at**
+  - Типы: Output: object
+  - Порядок: YAML=31.0, Output=32.0
+- **hash_business_key**
+  - Типы: Output: object
+  - Порядок: YAML=33.0, Output=34.0
+- **hash_row**
+  - Типы: Output: object
+  - Порядок: YAML=32.0, Output=33.0
+- **index**
+  - Типы: Output: object
+  - Порядок: YAML=27.0, Output=28.0
+- **is_censored**
+  - Типы: Output: object
+  - Порядок: YAML=14.0, Output=15.0
+- **lower_bound**
+  - Типы: Output: object
+  - Порядок: YAML=12.0, Output=13.0
+- **molecule_chembl_id**
+  - Типы: Output: object
+- **pchembl_value**
+  - Типы: Output: object
+  - Порядок: YAML=9.0, Output=10.0
+- **pipeline_version**
+  - Типы: Output: object
+  - Порядок: YAML=28.0, Output=29.0
+- **published_relation**
+  - Типы: Output: object
+  - Порядок: YAML=16.0, Output=17.0
+- **published_type**
+  - Типы: Output: object
+  - Порядок: YAML=15.0, Output=16.0
+- **published_units**
+  - Типы: Output: object
+  - Порядок: YAML=18.0, Output=19.0
+- **published_value**
+  - Типы: Output: object
+  - Порядок: YAML=17.0, Output=18.0
+- **source_system**
+  - Типы: Output: object
+  - Порядок: YAML=29.0, Output=30.0
+- **standard_flag**
+  - Типы: Output: object
+  - Порядок: YAML=23.0, Output=24.0
+- **standard_relation**
+  - Типы: Output: object
+  - Порядок: YAML=20.0, Output=21.0
+- **standard_type**
+  - Типы: Output: object
+  - Порядок: YAML=19.0, Output=20.0
+- **standard_units**
+  - Типы: Output: object
+  - Порядок: YAML=22.0, Output=23.0
+- **standard_value**
+  - Типы: Output: object
+  - Порядок: YAML=21.0, Output=22.0
+- **target_chembl_id**
+  - Типы: Output: object
+- **upper_bound**
+  - Типы: Output: object
+  - Порядок: YAML=13.0, Output=14.0
+### EXTRA (1 колонок)
+
+- **saltform_id**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=6.0
+
+## Assay - Детали несоответствий
+
+### MISSING_PANDERA (27 колонок)
+
+- **assay_category**
+  - Типы: Output: object
+  - Порядок: YAML=3.0, Output=9.0
+- **assay_cell_type**
+  - Типы: Output: object
+  - Порядок: YAML=34.0, Output=26.0
+- **assay_chembl_id**
+  - Типы: Output: object
+- **assay_format**
+  - Типы: Output: object
+  - Порядок: YAML=39.0, Output=33.0
+- **assay_organism**
+  - Типы: Output: object
+  - Порядок: YAML=30.0, Output=24.0
+- **assay_parameters**
+  - Типы: Output: object
+  - Порядок: YAML=37.0, Output=31.0
+- **assay_parameters_json**
+  - Типы: Output: object
+  - Порядок: YAML=38.0, Output=32.0
+- **assay_strain**
+  - Типы: Output: object
+  - Порядок: YAML=32.0, Output=28.0
+- **assay_subcellular_fraction**
+  - Типы: Output: object
+  - Порядок: YAML=35.0, Output=29.0
+- **assay_tax_id**
+  - Типы: Output: object
+  - Порядок: YAML=31.0, Output=25.0
+- **assay_tissue**
+  - Типы: Output: object
+  - Порядок: YAML=33.0, Output=27.0
+- **assay_type**
+  - Типы: Output: object
+  - Порядок: YAML=2.0, Output=5.0
+- **bao_format**
+  - Типы: Output: object
+- **bao_label**
+  - Типы: Output: object
+- **description**
+  - Типы: Output: object
+  - Порядок: YAML=36.0, Output=30.0
+- **extracted_at**
+  - Типы: Output: object
+  - Порядок: YAML=44.0, Output=35.0
+- **hash_business_key**
+  - Типы: Output: object
+  - Порядок: YAML=46.0, Output=37.0
+- **hash_row**
+  - Типы: Output: object
+  - Порядок: YAML=45.0, Output=36.0
+- **source_system**
+  - Типы: Output: object
+  - Порядок: YAML=42.0, Output=34.0
+- **target_chembl_id**
+  - Типы: Output: object
+  - Порядок: YAML=4.0, Output=11.0
+- **variant_accession**
+  - Типы: Output: object
+- **variant_id**
+  - Типы: Output: object
+  - Порядок: YAML=18.0, Output=14.0
+- **variant_organism**
+  - Типы: Output: object
+  - Порядок: YAML=27.0, Output=23.0
+- **variant_sequence_accession**
+  - Типы: Output: object
+- **variant_sequence_id**
+  - Типы: Output: object
+  - Порядок: YAML=26.0, Output=16.0
+- **variant_sequence_mutation**
+  - Типы: Output: object
+- **variant_text**
+  - Типы: Output: object
+  - Порядок: YAML=25.0, Output=15.0
+### EXTRA (10 колонок)
+
+- **assay_classifications**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=10.0
+- **assay_type_description**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=6.0
+- **confidence_score**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=13.0
+- **isoform**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=17.0
+- **mutation**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=18.0
+- **relationship_type**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=12.0
+- **sequence**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=19.0
+- **src_assay_id**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=4.0
+- **src_id**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=2.0
+- **src_name**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=3.0
+### MISSING (19 колонок)
+
+- **bao_assay_format**
+  - Порядок: YAML=10.0, Output=nan
+- **bao_assay_format_label**
+  - Порядок: YAML=15.0, Output=nan
+- **bao_assay_format_uri**
+  - Порядок: YAML=14.0, Output=nan
+- **bao_assay_type**
+  - Порядок: YAML=11.0, Output=nan
+- **bao_assay_type_label**
+  - Порядок: YAML=12.0, Output=nan
+- **bao_assay_type_uri**
+  - Порядок: YAML=13.0, Output=nan
+- **bao_endpoint**
+  - Порядок: YAML=9.0, Output=nan
+- **bao_endpoint_label**
+  - Порядок: YAML=17.0, Output=nan
+- **bao_endpoint_uri**
+  - Порядок: YAML=16.0, Output=nan
+- **chembl_release**
+  - Порядок: YAML=43.0, Output=nan
+- **index**
+  - Порядок: YAML=40.0, Output=nan
+- **is_variant**
+  - Порядок: YAML=19.0, Output=nan
+- **pipeline_version**
+  - Порядок: YAML=41.0, Output=nan
+- **target_isoform**
+  - Порядок: YAML=29.0, Output=nan
+- **target_organism**
+  - Порядок: YAML=5.0, Output=nan
+- **target_tax_id**
+  - Порядок: YAML=6.0, Output=nan
+- **target_uniprot_accession**
+  - Порядок: YAML=28.0, Output=nan
+- **variant_mutations**
+  - Порядок: YAML=23.0, Output=nan
+- **variant_sequence**
+  - Порядок: YAML=24.0, Output=nan
+
+## Document - Детали несоответствий
+
+### MISSING_PANDERA (60 колонок)
+
+- **chembl_abstract**
+  - Типы: Output: object
+  - Порядок: YAML=22.0, Output=12.0
+- **chembl_authors**
+  - Типы: Output: object
+  - Порядок: YAML=26.0, Output=14.0
+- **chembl_doc_type**
+  - Типы: Output: object
+  - Порядок: YAML=36.0, Output=23.0
+- **chembl_doi**
+  - Типы: Output: object
+  - Порядок: YAML=31.0, Output=18.0
+- **chembl_issue**
+  - Типы: Output: object
+  - Порядок: YAML=60.0, Output=35.0
+- **chembl_journal**
+  - Типы: Output: object
+  - Порядок: YAML=47.0, Output=27.0
+- **chembl_pmid**
+  - Типы: Output: object
+  - Порядок: YAML=12.0, Output=5.0
+- **chembl_release**
+  - Типы: Output: object
+  - Порядок: YAML=86.0, Output=57.0
+- **chembl_title**
+  - Типы: Output: object
+  - Порядок: YAML=17.0, Output=8.0
+- **chembl_volume**
+  - Типы: Output: object
+  - Порядок: YAML=56.0, Output=32.0
+- **chembl_year**
+  - Типы: Output: object
+  - Порядок: YAML=52.0, Output=29.0
+- **crossref_authors**
+  - Типы: Output: object
+  - Порядок: YAML=27.0, Output=15.0
+- **crossref_doc_type**
+  - Типы: Output: object
+  - Порядок: YAML=37.0, Output=24.0
+- **crossref_doi**
+  - Типы: Output: object
+  - Порядок: YAML=32.0, Output=19.0
+- **crossref_error**
+  - Типы: Output: object
+  - Порядок: YAML=71.0, Output=42.0
+- **crossref_first_page**
+  - Типы: Output: object
+  - Порядок: YAML=64.0, Output=38.0
+- **crossref_issue**
+  - Типы: Output: object
+  - Порядок: YAML=61.0, Output=36.0
+- **crossref_last_page**
+  - Типы: Output: object
+  - Порядок: YAML=67.0, Output=40.0
+- **crossref_subject**
+  - Типы: Output: object
+  - Порядок: YAML=11.0, Output=4.0
+- **crossref_title**
+  - Типы: Output: object
+  - Порядок: YAML=18.0, Output=9.0
+- **crossref_volume**
+  - Типы: Output: object
+  - Порядок: YAML=57.0, Output=33.0
+- **crossref_year**
+  - Типы: Output: object
+  - Порядок: YAML=53.0, Output=30.0
+- **document_chembl_id**
+  - Типы: Output: object
+- **document_citation**
+  - Типы: Output: object
+  - Порядок: YAML=7.0, Output=3.0
+- **document_sortorder**
+  - Типы: Output: object
+  - Порядок: YAML=82.0, Output=53.0
+- **doi**
+  - Типы: Output: object
+  - Порядок: YAML=3.0, Output=2.0
+- **extracted_at**
+  - Типы: Output: object
+  - Порядок: YAML=87.0, Output=58.0
+- **hash_business_key**
+  - Типы: Output: object
+  - Порядок: YAML=89.0, Output=60.0
+- **hash_row**
+  - Типы: Output: object
+  - Порядок: YAML=88.0, Output=59.0
+- **index**
+  - Типы: Output: object
+  - Порядок: YAML=83.0, Output=54.0
+- **openalex_doi**
+  - Типы: Output: object
+  - Порядок: YAML=33.0, Output=20.0
+- **openalex_error**
+  - Типы: Output: object
+  - Порядок: YAML=72.0, Output=43.0
+- **openalex_title**
+  - Типы: Output: object
+  - Порядок: YAML=19.0, Output=10.0
+- **pipeline_version**
+  - Типы: Output: object
+  - Порядок: YAML=84.0, Output=55.0
+- **publication_date**
+  - Типы: Output: object
+  - Порядок: YAML=81.0, Output=52.0
+- **pubmed_abstract**
+  - Типы: Output: object
+  - Порядок: YAML=25.0, Output=13.0
+- **pubmed_authors**
+  - Типы: Output: object
+  - Порядок: YAML=29.0, Output=16.0
+- **pubmed_day_completed**
+  - Типы: Output: object
+  - Порядок: YAML=77.0, Output=48.0
+- **pubmed_day_revised**
+  - Типы: Output: object
+  - Порядок: YAML=80.0, Output=51.0
+- **pubmed_doc_type**
+  - Типы: Output: object
+  - Порядок: YAML=40.0, Output=25.0
+- **pubmed_doi**
+  - Типы: Output: object
+  - Порядок: YAML=34.0, Output=21.0
+- **pubmed_error**
+  - Типы: Output: object
+  - Порядок: YAML=73.0, Output=44.0
+- **pubmed_first_page**
+  - Типы: Output: object
+  - Порядок: YAML=66.0, Output=39.0
+- **pubmed_issn**
+  - Типы: Output: object
+  - Порядок: YAML=45.0, Output=26.0
+- **pubmed_issue**
+  - Типы: Output: object
+  - Порядок: YAML=63.0, Output=37.0
+- **pubmed_journal**
+  - Типы: Output: object
+  - Порядок: YAML=50.0, Output=28.0
+- **pubmed_last_page**
+  - Типы: Output: object
+  - Порядок: YAML=69.0, Output=41.0
+- **pubmed_month_completed**
+  - Типы: Output: object
+  - Порядок: YAML=76.0, Output=47.0
+- **pubmed_month_revised**
+  - Типы: Output: object
+  - Порядок: YAML=79.0, Output=50.0
+- **pubmed_pmid**
+  - Типы: Output: object
+  - Порядок: YAML=15.0, Output=6.0
+- **pubmed_volume**
+  - Типы: Output: object
+  - Порядок: YAML=59.0, Output=34.0
+- **pubmed_year**
+  - Типы: Output: object
+  - Порядок: YAML=55.0, Output=31.0
+- **pubmed_year_completed**
+  - Типы: Output: object
+  - Порядок: YAML=75.0, Output=46.0
+- **pubmed_year_revised**
+  - Типы: Output: object
+  - Порядок: YAML=78.0, Output=49.0
+- **semantic_scholar_authors**
+  - Типы: Output: object
+  - Порядок: YAML=30.0, Output=17.0
+- **semantic_scholar_doi**
+  - Типы: Output: object
+  - Порядок: YAML=35.0, Output=22.0
+- **semantic_scholar_error**
+  - Типы: Output: object
+  - Порядок: YAML=74.0, Output=45.0
+- **semantic_scholar_pmid**
+  - Типы: Output: object
+  - Порядок: YAML=16.0, Output=7.0
+- **semantic_scholar_title**
+  - Типы: Output: object
+  - Порядок: YAML=21.0, Output=11.0
+- **source_system**
+  - Типы: Output: object
+  - Порядок: YAML=85.0, Output=56.0
+### MISSING (29 колонок)
+
+- **chembl_error**
+  - Порядок: YAML=70.0, Output=nan
+- **chembl_issn**
+  - Порядок: YAML=42.0, Output=nan
+- **classification**
+  - Порядок: YAML=4.0, Output=nan
+- **crossref_abstract**
+  - Порядок: YAML=23.0, Output=nan
+- **crossref_issn**
+  - Порядок: YAML=43.0, Output=nan
+- **crossref_journal**
+  - Порядок: YAML=48.0, Output=nan
+- **crossref_pmid**
+  - Порядок: YAML=13.0, Output=nan
+- **document_contains_external_links**
+  - Порядок: YAML=5.0, Output=nan
+- **is_experimental_doc**
+  - Порядок: YAML=6.0, Output=nan
+- **openalex_abstract**
+  - Порядок: YAML=24.0, Output=nan
+- **openalex_authors**
+  - Порядок: YAML=28.0, Output=nan
+- **openalex_crossref_doc_type**
+  - Порядок: YAML=39.0, Output=nan
+- **openalex_doc_type**
+  - Порядок: YAML=38.0, Output=nan
+- **openalex_first_page**
+  - Порядок: YAML=65.0, Output=nan
+- **openalex_issn**
+  - Порядок: YAML=44.0, Output=nan
+- **openalex_issue**
+  - Порядок: YAML=62.0, Output=nan
+- **openalex_journal**
+  - Порядок: YAML=49.0, Output=nan
+- **openalex_last_page**
+  - Порядок: YAML=68.0, Output=nan
+- **openalex_pmid**
+  - Порядок: YAML=14.0, Output=nan
+- **openalex_volume**
+  - Порядок: YAML=58.0, Output=nan
+- **openalex_year**
+  - Порядок: YAML=54.0, Output=nan
+- **pubmed_article_title**
+  - Порядок: YAML=20.0, Output=nan
+- **pubmed_chemical_list**
+  - Порядок: YAML=10.0, Output=nan
+- **pubmed_id**
+  - Порядок: YAML=2.0, Output=nan
+- **pubmed_mesh_descriptors**
+  - Порядок: YAML=8.0, Output=nan
+- **pubmed_mesh_qualifiers**
+  - Порядок: YAML=9.0, Output=nan
+- **semantic_scholar_doc_type**
+  - Порядок: YAML=41.0, Output=nan
+- **semantic_scholar_issn**
+  - Порядок: YAML=46.0, Output=nan
+- **semantic_scholar_journal**
+  - Порядок: YAML=51.0, Output=nan
+
+## Target - Детали несоответствий
+
+### MISSING_PANDERA (130 колонок)
+
+- **GuidetoPHARMACOLOGY**
+  - Типы: Output: object
+  - Порядок: YAML=62.0, Output=65.0
+- **InterPro**
+  - Типы: Output: object
+  - Порядок: YAML=66.0, Output=69.0
+- **PRINTS**
+  - Типы: Output: object
+  - Порядок: YAML=68.0, Output=71.0
+- **PROSITE**
+  - Типы: Output: object
+  - Порядок: YAML=65.0, Output=68.0
+- **Pfam**
+  - Типы: Output: object
+  - Порядок: YAML=67.0, Output=70.0
+- **SUPFAM**
+  - Типы: Output: object
+  - Порядок: YAML=64.0, Output=67.0
+- **TCDB**
+  - Типы: Output: object
+  - Порядок: YAML=69.0, Output=72.0
+- **acetylation**
+  - Типы: Output: object
+  - Порядок: YAML=52.0, Output=51.0
+- **cellular_component**
+  - Типы: Output: object
+  - Порядок: YAML=42.0, Output=41.0
+- **chembl_alternative_name**
+  - Типы: Output: object
+- **chembl_release**
+  - Типы: Output: object
+  - Порядок: YAML=128.0, Output=132.0
+- **component_description**
+  - Типы: Output: object
+- **component_id**
+  - Типы: Output: object
+- **cross_references**
+  - Типы: Output: object
+- **disulfide_bond**
+  - Типы: Output: object
+  - Порядок: YAML=49.0, Output=48.0
+- **ec_code**
+  - Типы: Output: object
+- **extracted_at**
+  - Типы: Output: object
+- **extraction_errors**
+  - Типы: Output: object
+  - Порядок: YAML=124.0, Output=128.0
+- **family**
+  - Типы: Output: object
+  - Порядок: YAML=63.0, Output=66.0
+- **features_signal_peptide**
+  - Типы: Output: object
+  - Порядок: YAML=38.0, Output=37.0
+- **features_topology**
+  - Типы: Output: object
+  - Порядок: YAML=40.0, Output=39.0
+- **features_transmembrane**
+  - Типы: Output: object
+  - Порядок: YAML=39.0, Output=38.0
+- **gene**
+  - Типы: Output: object
+- **geneName**
+  - Типы: Output: object
+  - Порядок: YAML=29.0, Output=26.0
+- **gene_symbol**
+  - Типы: Output: object
+  - Порядок: YAML=78.0, Output=81.0
+- **gene_symbol_list**
+  - Типы: Output: object
+  - Порядок: YAML=79.0, Output=82.0
+- **glycosylation**
+  - Типы: Output: object
+  - Порядок: YAML=47.0, Output=46.0
+- **gtop_function_text_short**
+  - Типы: Output: object
+  - Порядок: YAML=103.0, Output=106.0
+- **gtop_interactions_n**
+  - Типы: Output: object
+  - Порядок: YAML=102.0, Output=105.0
+- **gtop_natural_ligands_n**
+  - Типы: Output: object
+  - Порядок: YAML=101.0, Output=104.0
+- **gtop_synonyms**
+  - Типы: Output: object
+  - Порядок: YAML=100.0, Output=103.0
+- **gtop_target_id**
+  - Типы: Output: object
+  - Порядок: YAML=99.0, Output=102.0
+- **has_chembl_data**
+  - Типы: Output: object
+  - Порядок: YAML=108.0, Output=111.0
+- **has_gtopdb_data**
+  - Типы: Output: object
+  - Порядок: YAML=111.0, Output=114.0
+- **has_iuphar_data**
+  - Типы: Output: object
+  - Порядок: YAML=110.0, Output=113.0
+- **has_name**
+  - Типы: Output: object
+  - Порядок: YAML=112.0, Output=115.0
+- **has_organism**
+  - Типы: Output: object
+  - Порядок: YAML=113.0, Output=116.0
+- **has_target_type**
+  - Типы: Output: object
+  - Порядок: YAML=115.0, Output=118.0
+- **has_tax_id**
+  - Типы: Output: object
+  - Порядок: YAML=114.0, Output=117.0
+- **has_uniprot_data**
+  - Типы: Output: object
+  - Порядок: YAML=109.0, Output=112.0
+- **hash_business_key**
+  - Типы: Output: object
+  - Порядок: YAML=131.0, Output=126.0
+- **hash_row**
+  - Типы: Output: object
+  - Порядок: YAML=130.0, Output=135.0
+- **hgnc_id**
+  - Типы: Output: object
+- **hgnc_name**
+  - Типы: Output: object
+- **index**
+  - Типы: Output: object
+  - Порядок: YAML=125.0, Output=121.0
+- **interpro**
+  - Типы: Output: object
+  - Порядок: YAML=71.0, Output=74.0
+- **intramembrane**
+  - Типы: Output: object
+  - Порядок: YAML=46.0, Output=45.0
+- **isoform_ids**
+  - Типы: Output: object
+  - Порядок: YAML=25.0, Output=27.0
+- **isoform_names**
+  - Типы: Output: object
+  - Порядок: YAML=26.0, Output=28.0
+- **isoform_synonyms**
+  - Типы: Output: object
+  - Порядок: YAML=27.0, Output=29.0
+- **iuphar_abbreviation**
+  - Типы: Output: object
+  - Порядок: YAML=98.0, Output=101.0
+- **iuphar_chain**
+  - Типы: Output: object
+  - Порядок: YAML=89.0, Output=92.0
+- **iuphar_class**
+  - Типы: Output: object
+  - Порядок: YAML=87.0, Output=90.0
+- **iuphar_description**
+  - Типы: Output: object
+  - Порядок: YAML=97.0, Output=100.0
+- **iuphar_family_id**
+  - Типы: Output: object
+  - Порядок: YAML=83.0, Output=86.0
+- **iuphar_full_id_path**
+  - Типы: Output: object
+  - Порядок: YAML=84.0, Output=87.0
+- **iuphar_full_name_path**
+  - Типы: Output: object
+  - Порядок: YAML=85.0, Output=88.0
+- **iuphar_gene_symbol**
+  - Типы: Output: object
+  - Порядок: YAML=90.0, Output=93.0
+- **iuphar_hgnc_id**
+  - Типы: Output: object
+  - Порядок: YAML=91.0, Output=94.0
+- **iuphar_hgnc_name**
+  - Типы: Output: object
+  - Порядок: YAML=92.0, Output=95.0
+- **iuphar_name**
+  - Типы: Output: object
+  - Порядок: YAML=82.0, Output=85.0
+- **iuphar_organism**
+  - Типы: Output: object
+  - Порядок: YAML=95.0, Output=98.0
+- **iuphar_subclass**
+  - Типы: Output: object
+  - Порядок: YAML=88.0, Output=91.0
+- **iuphar_target_id**
+  - Типы: Output: object
+  - Порядок: YAML=81.0, Output=84.0
+- **iuphar_taxon_id**
+  - Типы: Output: object
+  - Порядок: YAML=96.0, Output=99.0
+- **iuphar_type**
+  - Типы: Output: object
+  - Порядок: YAML=86.0, Output=89.0
+- **iuphar_uniprot_id_primary**
+  - Типы: Output: object
+  - Порядок: YAML=93.0, Output=96.0
+- **iuphar_uniprot_name**
+  - Типы: Output: object
+  - Порядок: YAML=94.0, Output=97.0
+- **lineage_class**
+  - Типы: Output: object
+  - Порядок: YAML=36.0, Output=35.0
+- **lineage_phylum**
+  - Типы: Output: object
+  - Порядок: YAML=35.0, Output=34.0
+- **lineage_superkingdom**
+  - Типы: Output: object
+  - Порядок: YAML=34.0, Output=33.0
+- **lipidation**
+  - Типы: Output: object
+  - Порядок: YAML=48.0, Output=47.0
+- **mapping_uniprot_id**
+  - Типы: Output: object
+- **modified_residue**
+  - Типы: Output: object
+  - Порядок: YAML=50.0, Output=49.0
+- **molecular_function**
+  - Типы: Output: object
+  - Порядок: YAML=41.0, Output=40.0
+- **multi_source_validated**
+  - Типы: Output: object
+  - Порядок: YAML=116.0, Output=119.0
+- **organism**
+  - Типы: Output: object
+  - Порядок: YAML=80.0, Output=83.0
+- **pfam**
+  - Типы: Output: object
+  - Порядок: YAML=70.0, Output=73.0
+- **phosphorylation**
+  - Типы: Output: object
+  - Порядок: YAML=51.0, Output=50.0
+- **pipeline_version**
+  - Типы: Output: object
+  - Порядок: YAML=126.0, Output=79.0
+- **pref_name**
+  - Типы: Output: object
+- **propeptide**
+  - Типы: Output: object
+  - Порядок: YAML=55.0, Output=54.0
+- **protein_class_pred_L1**
+  - Типы: Output: object
+  - Порядок: YAML=117.0, Output=120.0
+- **protein_class_pred_L2**
+  - Типы: Output: object
+  - Порядок: YAML=118.0, Output=130.0
+- **protein_class_pred_L3**
+  - Типы: Output: object
+  - Порядок: YAML=119.0, Output=125.0
+- **protein_class_pred_confidence**
+  - Типы: Output: object
+  - Порядок: YAML=120.0, Output=133.0
+- **protein_class_pred_evidence**
+  - Типы: Output: object
+  - Порядок: YAML=121.0, Output=134.0
+- **protein_class_pred_rule_id**
+  - Типы: Output: object
+  - Порядок: YAML=122.0, Output=123.0
+- **protein_classifications**
+  - Типы: Output: object
+- **protein_name_alt**
+  - Типы: Output: object
+- **protein_name_canonical**
+  - Типы: Output: object
+- **protein_synonym_list**
+  - Типы: Output: object
+  - Порядок: YAML=32.0, Output=131.0
+- **reaction_ec_numbers**
+  - Типы: Output: object
+- **reaction_ec_numbers_uniprot**
+  - Типы: Output: object
+  - Порядок: YAML=73.0, Output=76.0
+- **reactions**
+  - Типы: Output: object
+  - Порядок: YAML=72.0, Output=75.0
+- **recommendedName**
+  - Типы: Output: object
+  - Порядок: YAML=28.0, Output=25.0
+- **relationship**
+  - Типы: Output: object
+- **secondaryAccessionNames**
+  - Типы: Output: object
+- **secondaryAccessions**
+  - Типы: Output: object
+- **sequence_length**
+  - Типы: Output: object
+  - Порядок: YAML=37.0, Output=36.0
+- **signal_peptide**
+  - Типы: Output: object
+  - Порядок: YAML=54.0, Output=53.0
+- **source_system**
+  - Типы: Output: object
+  - Порядок: YAML=127.0, Output=124.0
+- **species_group_flag**
+  - Типы: Output: object
+- **subcellular_location**
+  - Типы: Output: object
+  - Порядок: YAML=43.0, Output=42.0
+- **target_chembl_id**
+  - Типы: Output: object
+- **target_components**
+  - Типы: Output: object
+- **target_type**
+  - Типы: Output: object
+- **tax_id**
+  - Типы: Output: object
+- **taxon_id**
+  - Типы: Output: object
+  - Порядок: YAML=33.0, Output=32.0
+- **timestamp_utc**
+  - Типы: Output: object
+  - Порядок: YAML=77.0, Output=80.0
+- **topology**
+  - Типы: Output: object
+  - Порядок: YAML=44.0, Output=43.0
+- **transmembrane**
+  - Типы: Output: object
+  - Порядок: YAML=45.0, Output=44.0
+- **ubiquitination**
+  - Типы: Output: object
+  - Порядок: YAML=53.0, Output=52.0
+- **uniProtkbId**
+  - Типы: Output: object
+- **unified_name**
+  - Типы: Output: object
+  - Порядок: YAML=104.0, Output=107.0
+- **unified_organism**
+  - Типы: Output: object
+  - Порядок: YAML=105.0, Output=108.0
+- **unified_target_type**
+  - Типы: Output: object
+  - Порядок: YAML=107.0, Output=110.0
+- **unified_tax_id**
+  - Типы: Output: object
+  - Порядок: YAML=106.0, Output=109.0
+- **uniprot_id**
+  - Типы: Output: object
+- **uniprot_id_primary**
+  - Типы: Output: object
+- **uniprot_ids_all**
+  - Типы: Output: object
+- **uniprot_last_update**
+  - Типы: Output: object
+  - Порядок: YAML=74.0, Output=77.0
+- **uniprot_version**
+  - Типы: Output: object
+  - Порядок: YAML=75.0, Output=78.0
+- **validation_errors**
+  - Типы: Output: object
+  - Порядок: YAML=123.0, Output=127.0
+- **xref_alphafold**
+  - Типы: Output: object
+  - Порядок: YAML=61.0, Output=64.0
+- **xref_chembl**
+  - Типы: Output: object
+  - Порядок: YAML=56.0, Output=59.0
+- **xref_ensembl**
+  - Типы: Output: object
+  - Порядок: YAML=58.0, Output=61.0
+- **xref_iuphar**
+  - Типы: Output: object
+  - Порядок: YAML=59.0, Output=62.0
+- **xref_pdb**
+  - Типы: Output: object
+  - Порядок: YAML=60.0, Output=63.0
+- **xref_uniprot**
+  - Типы: Output: object
+  - Порядок: YAML=57.0, Output=60.0
+### EXTRA (5 колонок)
+
+- **extraction_status**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=122.0
+- **ptm_disulfide_bond**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=57.0
+- **ptm_glycosylation**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=55.0
+- **ptm_lipidation**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=56.0
+- **ptm_modified_residue**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=58.0
+
+## Testitem - Детали несоответствий
+
+### MISSING_PANDERA (85 колонок)
+
+- **acd_logd**
+  - Типы: Output: object
+  - Порядок: YAML=24.0, Output=23.0
+- **acd_logp**
+  - Типы: Output: object
+  - Порядок: YAML=23.0, Output=22.0
+- **acd_most_apka**
+  - Типы: Output: object
+  - Порядок: YAML=21.0, Output=20.0
+- **acd_most_bpka**
+  - Типы: Output: object
+  - Порядок: YAML=22.0, Output=21.0
+- **alogp**
+  - Типы: Output: object
+  - Порядок: YAML=14.0, Output=13.0
+- **aromatic_rings**
+  - Типы: Output: object
+  - Порядок: YAML=27.0, Output=26.0
+- **atc_classifications**
+  - Типы: Output: object
+  - Порядок: YAML=91.0, Output=72.0
+- **availability_type**
+  - Типы: Output: object
+  - Порядок: YAML=46.0, Output=45.0
+- **biotherapeutic**
+  - Типы: Output: object
+  - Порядок: YAML=92.0, Output=73.0
+- **black_box_warning**
+  - Типы: Output: object
+  - Порядок: YAML=38.0, Output=37.0
+- **chembl_release**
+  - Типы: Output: object
+  - Порядок: YAML=108.0, Output=67.0
+- **chemical_probe**
+  - Типы: Output: object
+  - Порядок: YAML=93.0, Output=74.0
+- **chirality**
+  - Типы: Output: object
+  - Порядок: YAML=41.0, Output=40.0
+- **chirality_chembl**
+  - Типы: Output: object
+  - Порядок: YAML=103.0, Output=84.0
+- **cross_references**
+  - Типы: Output: object
+  - Порядок: YAML=94.0, Output=75.0
+- **direct_interaction**
+  - Типы: Output: object
+  - Порядок: YAML=56.0, Output=51.0
+- **dosed_ingredient**
+  - Типы: Output: object
+  - Порядок: YAML=9.0, Output=8.0
+- **extracted_at**
+  - Типы: Output: object
+  - Порядок: YAML=109.0, Output=68.0
+- **first_approval**
+  - Типы: Output: object
+  - Порядок: YAML=10.0, Output=9.0
+- **first_in_class**
+  - Типы: Output: object
+  - Порядок: YAML=40.0, Output=39.0
+- **full_molformula**
+  - Типы: Output: object
+  - Порядок: YAML=31.0, Output=30.0
+- **full_mwt**
+  - Типы: Output: object
+  - Порядок: YAML=26.0, Output=25.0
+- **hash_business_key**
+  - Типы: Output: object
+  - Порядок: YAML=111.0, Output=70.0
+- **hash_row**
+  - Типы: Output: object
+  - Порядок: YAML=110.0, Output=69.0
+- **hba**
+  - Типы: Output: object
+  - Порядок: YAML=15.0, Output=14.0
+- **hba_lipinski**
+  - Типы: Output: object
+  - Порядок: YAML=32.0, Output=31.0
+- **hbd**
+  - Типы: Output: object
+  - Порядок: YAML=16.0, Output=15.0
+- **hbd_lipinski**
+  - Типы: Output: object
+  - Порядок: YAML=33.0, Output=32.0
+- **heavy_atoms**
+  - Типы: Output: object
+  - Порядок: YAML=28.0, Output=27.0
+- **helm_notation**
+  - Типы: Output: object
+  - Порядок: YAML=95.0, Output=76.0
+- **index**
+  - Типы: Output: object
+  - Порядок: YAML=105.0, Output=64.0
+- **inorganic_flag**
+  - Типы: Output: object
+  - Порядок: YAML=43.0, Output=42.0
+- **max_phase**
+  - Типы: Output: object
+  - Порядок: YAML=7.0, Output=6.0
+- **mechanism_of_action**
+  - Типы: Output: object
+  - Порядок: YAML=55.0, Output=50.0
+- **molecular_mechanism**
+  - Типы: Output: object
+  - Порядок: YAML=57.0, Output=52.0
+- **molecular_species**
+  - Типы: Output: object
+  - Порядок: YAML=25.0, Output=24.0
+- **molecule_chembl_id**
+  - Типы: Output: object
+- **molecule_hierarchy**
+  - Типы: Output: object
+  - Порядок: YAML=96.0, Output=77.0
+- **molecule_properties**
+  - Типы: Output: object
+  - Порядок: YAML=97.0, Output=78.0
+- **molecule_structures**
+  - Типы: Output: object
+  - Порядок: YAML=98.0, Output=79.0
+- **molecule_synonyms**
+  - Типы: Output: object
+  - Порядок: YAML=99.0, Output=80.0
+- **molecule_type**
+  - Типы: Output: object
+  - Порядок: YAML=12.0, Output=11.0
+- **molecule_type_chembl**
+  - Типы: Output: object
+  - Порядок: YAML=104.0, Output=85.0
+- **mw_freebase**
+  - Типы: Output: object
+  - Порядок: YAML=13.0, Output=12.0
+- **mw_monoisotopic**
+  - Типы: Output: object
+  - Порядок: YAML=30.0, Output=29.0
+- **natural_product**
+  - Типы: Output: object
+  - Порядок: YAML=39.0, Output=38.0
+- **nstereo**
+  - Типы: Output: object
+  - Порядок: YAML=89.0, Output=71.0
+- **num_lipinski_ro5_violations**
+  - Типы: Output: object
+  - Порядок: YAML=34.0, Output=33.0
+- **num_ro5_violations**
+  - Типы: Output: object
+  - Порядок: YAML=20.0, Output=19.0
+- **oral**
+  - Типы: Output: object
+  - Порядок: YAML=35.0, Output=34.0
+- **orphan**
+  - Типы: Output: object
+  - Порядок: YAML=100.0, Output=81.0
+- **parent_chembl_id**
+  - Типы: Output: object
+  - Порядок: YAML=5.0, Output=4.0
+- **parent_molregno**
+  - Типы: Output: object
+  - Порядок: YAML=6.0, Output=5.0
+- **parenteral**
+  - Типы: Output: object
+  - Порядок: YAML=36.0, Output=35.0
+- **pipeline_version**
+  - Типы: Output: object
+  - Порядок: YAML=106.0, Output=65.0
+- **polymer_flag**
+  - Типы: Output: object
+  - Порядок: YAML=44.0, Output=43.0
+- **pref_name**
+  - Типы: Output: object
+  - Порядок: YAML=3.0, Output=2.0
+- **pref_name_key**
+  - Типы: Output: object
+  - Порядок: YAML=4.0, Output=3.0
+- **prodrug**
+  - Типы: Output: object
+  - Порядок: YAML=42.0, Output=41.0
+- **psa**
+  - Типы: Output: object
+  - Порядок: YAML=17.0, Output=16.0
+- **pubchem_canonical_smiles**
+  - Типы: Output: object
+  - Порядок: YAML=73.0, Output=56.0
+- **pubchem_cid**
+  - Типы: Output: object
+  - Порядок: YAML=70.0, Output=53.0
+- **pubchem_inchi**
+  - Типы: Output: object
+  - Порядок: YAML=75.0, Output=57.0
+- **pubchem_inchi_key**
+  - Типы: Output: object
+  - Порядок: YAML=76.0, Output=58.0
+- **pubchem_molecular_formula**
+  - Типы: Output: object
+  - Порядок: YAML=71.0, Output=54.0
+- **pubchem_molecular_weight**
+  - Типы: Output: object
+  - Порядок: YAML=72.0, Output=55.0
+- **pubchem_registry_id**
+  - Типы: Output: object
+  - Порядок: YAML=77.0, Output=59.0
+- **pubchem_rn**
+  - Типы: Output: object
+  - Порядок: YAML=78.0, Output=60.0
+- **qed_weighted**
+  - Типы: Output: object
+  - Порядок: YAML=29.0, Output=28.0
+- **ro3_pass**
+  - Типы: Output: object
+  - Порядок: YAML=19.0, Output=18.0
+- **rtb**
+  - Типы: Output: object
+  - Порядок: YAML=18.0, Output=17.0
+- **source_system**
+  - Типы: Output: object
+  - Порядок: YAML=107.0, Output=66.0
+- **standard_inchi**
+  - Типы: Output: object
+  - Порядок: YAML=102.0, Output=83.0
+- **standardized_inchi**
+  - Типы: Output: object
+  - Порядок: YAML=79.0, Output=61.0
+- **standardized_inchi_key**
+  - Типы: Output: object
+  - Порядок: YAML=80.0, Output=62.0
+- **standardized_smiles**
+  - Типы: Output: object
+  - Порядок: YAML=81.0, Output=63.0
+- **structure_type**
+  - Типы: Output: object
+  - Порядок: YAML=11.0, Output=10.0
+- **therapeutic_flag**
+  - Типы: Output: object
+  - Порядок: YAML=8.0, Output=7.0
+- **topical**
+  - Типы: Output: object
+  - Порядок: YAML=37.0, Output=36.0
+- **usan_stem**
+  - Типы: Output: object
+  - Порядок: YAML=47.0, Output=46.0
+- **usan_stem_definition**
+  - Типы: Output: object
+  - Порядок: YAML=49.0, Output=48.0
+- **usan_substem**
+  - Типы: Output: object
+  - Порядок: YAML=48.0, Output=47.0
+- **usan_year**
+  - Типы: Output: object
+  - Порядок: YAML=45.0, Output=44.0
+- **veterinary**
+  - Типы: Output: object
+  - Порядок: YAML=101.0, Output=82.0
+- **withdrawn_flag**
+  - Типы: Output: object
+  - Порядок: YAML=51.0, Output=49.0
+### EXTRA (7 колонок)
+
+- **chembl_release.1**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=89.0
+- **extracted_at.1**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=90.0
+- **hash_business_key.1**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=92.0
+- **hash_row.1**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=91.0
+- **index.1**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=86.0
+- **pipeline_version.1**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=87.0
+- **source_system.1**
+  - Типы: Output: object
+  - Порядок: YAML=nan, Output=88.0
+### MISSING (19 колонок)
+
+- **drug_antibacterial_flag**
+  - Порядок: YAML=63.0, Output=nan
+- **drug_antifungal_flag**
+  - Порядок: YAML=65.0, Output=nan
+- **drug_antiinflammatory_flag**
+  - Порядок: YAML=69.0, Output=nan
+- **drug_antineoplastic_flag**
+  - Порядок: YAML=67.0, Output=nan
+- **drug_antiparasitic_flag**
+  - Порядок: YAML=66.0, Output=nan
+- **drug_antiviral_flag**
+  - Порядок: YAML=64.0, Output=nan
+- **drug_chembl_id**
+  - Порядок: YAML=58.0, Output=nan
+- **drug_immunosuppressant_flag**
+  - Порядок: YAML=68.0, Output=nan
+- **drug_indication_flag**
+  - Порядок: YAML=62.0, Output=nan
+- **drug_name**
+  - Порядок: YAML=59.0, Output=nan
+- **drug_substance_flag**
+  - Порядок: YAML=61.0, Output=nan
+- **drug_type**
+  - Порядок: YAML=60.0, Output=nan
+- **indication_class**
+  - Порядок: YAML=50.0, Output=nan
+- **molregno**
+  - Порядок: YAML=2.0, Output=nan
+- **pubchem_isomeric_smiles**
+  - Порядок: YAML=74.0, Output=nan
+- **salt_chembl_id**
+  - Порядок: YAML=90.0, Output=nan
+- **withdrawn_country**
+  - Порядок: YAML=53.0, Output=nan
+- **withdrawn_reason**
+  - Порядок: YAML=54.0, Output=nan
+- **withdrawn_year**
+  - Порядок: YAML=52.0, Output=nan
