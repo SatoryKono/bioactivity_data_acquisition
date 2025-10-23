@@ -4,7 +4,6 @@
 """
 
 import pandas as pd
-import numpy as np
 from src.library.testitem.pipeline import TestitemPipeline
 
 def debug_merge():

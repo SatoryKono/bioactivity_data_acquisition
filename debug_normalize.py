@@ -17,7 +17,7 @@ def debug_normalize():
             self.pipeline = {'version': '2.0.0'}
     
     config = MockConfig()
-    normalizer = TestitemNormalizer({
+    TestitemNormalizer({
         'sources': config.sources,
         'pipeline': config.pipeline
     })

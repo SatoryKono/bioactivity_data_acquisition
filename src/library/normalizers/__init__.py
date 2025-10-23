@@ -7,14 +7,14 @@
 """
 
 # Импортируем все модули для регистрации нормализаторов
-from . import string_normalizers
-from . import numeric_normalizers
-from . import datetime_normalizers
-from . import boolean_normalizers
-from . import identifier_normalizers
-from . import chemistry_normalizers
-from . import ontology_normalizers
-from . import units_normalizers
+from . import string_normalizers  # noqa: F401
+from . import numeric_normalizers  # noqa: F401
+from . import datetime_normalizers  # noqa: F401
+from . import boolean_normalizers  # noqa: F401
+from . import identifier_normalizers  # noqa: F401
+from . import chemistry_normalizers  # noqa: F401
+from . import ontology_normalizers  # noqa: F401
+from . import units_normalizers  # noqa: F401
 
 from .base import get_normalizer, NormalizationError
 from .string_normalizers import (

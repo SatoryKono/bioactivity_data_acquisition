@@ -269,8 +269,8 @@ Examples:
                 print(f"  Pipeline version: {result.metadata.pipeline.get('pipeline_version', 'unknown')}")
                 print(f"  ChEMBL release: {result.metadata.pipeline.get('config', {}).get('sources', {}).get('chembl', {}).get('release', 'unknown')}")
             else:
-                print(f"  Pipeline version: unknown")
-                print(f"  ChEMBL release: unknown")
+                print("  Pipeline version: unknown")
+                print("  ChEMBL release: unknown")
             
             # Отображаем состояние PubChem по конфигурации запуска
             print(f"  PubChem enabled: {config.enable_pubchem}")

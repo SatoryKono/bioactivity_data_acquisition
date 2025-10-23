@@ -3,9 +3,12 @@
 """
 
 import datetime
-from typing import Any, Optional
+import logging
+from typing import Any
 
 from .base import safe_normalize, register_normalizer, is_empty_value
+
+logger = logging.getLogger(__name__)
 
 
 @safe_normalize
@@ -95,8 +98,8 @@ def normalize_datetime_validate(value: Any) -> str | None:
         if isinstance(value, datetime.date):
             return normalize_datetime_iso8601(value)
         
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to normalize datetime: {e}")
     
     return None
 
@@ -168,8 +171,8 @@ def normalize_date_only(value: Any) -> str | None:
         if isinstance(value, datetime.date):
             return value.strftime('%Y-%m-%d')
         
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to normalize datetime: {e}")
     
     return None
 
