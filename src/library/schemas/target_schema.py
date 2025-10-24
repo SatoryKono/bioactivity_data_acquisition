@@ -5,6 +5,7 @@ Pandera схемы для валидации данных таргетов.
 """
 
 import json
+
 import pandas as pd
 import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
