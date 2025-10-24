@@ -39,7 +39,7 @@ class CrossrefClient(BaseApiClient):
                 )
             
             # If not degrading, try fallback search
-            self.logger.info(f"fallback_to_search doi={doi} error={str(exc)}")
+            self.logger.info("fallback_to_search doi=%s error=%s", doi, str(exc))
             try:
                 # Crossref search endpoint requires /works prefix
                 payload = self._request("GET", "works", params={"query.bibliographic": doi})
@@ -78,14 +78,14 @@ class CrossrefClient(BaseApiClient):
                     exc
                 )
             
-            self.logger.info(f"pmid_lookup_failed pmid={pmid} error={str(exc)}")
+            self.logger.info("pmid_lookup_failed pmid=%s error=%s", pmid, str(exc))
             payload = {"message": {"items": []}}
         
         items = payload.get("message", {}).get("items", [])
         if items:
             return self._parse_work(items[0])
 
-        self.logger.info(f"pmid_fallback_to_query pmid={pmid}")
+        self.logger.info("pmid_fallback_to_query pmid=%s", pmid)
         try:
             payload = self._request("GET", "", params={"query": pmid})
             items = payload.get("message", {}).get("items", [])
@@ -269,7 +269,7 @@ class CrossrefClient(BaseApiClient):
                     result = self.fetch_by_doi(doi)
                     results[doi] = result
                 except Exception as e:
-                    logger.warning(f"Failed to fetch DOI {doi} in batch: {e}")
+                    logger.warning("Failed to fetch DOI %s in batch: %s", doi, e)
                     results[doi] = {
                         "crossref_doi": doi,
                         "crossref_error": str(e),
@@ -302,7 +302,7 @@ class CrossrefClient(BaseApiClient):
                     result = self.fetch_by_pmid(pmid)
                     results[pmid] = result
                 except Exception as e:
-                    logger.warning(f"Failed to fetch PMID {pmid} in batch: {e}")
+                    logger.warning("Failed to fetch PMID %s in batch: %s", pmid, e)
                     results[pmid] = {
                         "crossref_pmid": pmid,
                         "crossref_error": str(e),

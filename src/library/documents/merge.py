@@ -110,6 +110,10 @@ def merge_source_data(base_df: pd.DataFrame, source_df: pd.DataFrame, source_nam
     
     logger.info(f"Merging {len(source_df)} records from {source_name} using key '{join_key}'")
     
+    # Диагностическое логирование
+    logger.debug(f"Merging {source_name}: base_df columns={list(base_df.columns)}, source_df columns={list(source_df.columns)}")
+    logger.debug(f"Join key '{join_key}' present in base: {join_key in base_df.columns}, in source: {join_key in source_df.columns}")
+    
     try:
         # Сбрасываем индексы для избежания проблем с дублированными метками
         base_df = base_df.reset_index(drop=True)
@@ -150,7 +154,12 @@ def merge_source_data(base_df: pd.DataFrame, source_df: pd.DataFrame, source_nam
             if not source_row.empty:
                 for col in source_df.columns:
                     if col != join_key:
-                        result_df.loc[idx, col] = source_row.iloc[0][col]
+                        value = source_row.iloc[0][col]
+                        # Обрабатываем NaN значения для boolean колонок
+                        if pd.isna(value) and result_df[col].dtype == 'bool':
+                            result_df.loc[idx, col] = False
+                        else:
+                            result_df.loc[idx, col] = value
         
         logger.info(f"Successfully merged {len(result_df)} records from {source_name}")
         return result_df

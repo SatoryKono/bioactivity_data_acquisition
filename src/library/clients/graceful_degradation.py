@@ -51,19 +51,35 @@ class ChEMBLDegradationStrategy(DegradationStrategy):
         if error.status_code in [429, 500, 502, 503, 504]:
             return True
         # Degrade for connection errors
-        if "connection" in str(error).lower():
+        error_str = str(error).lower()
+        if "connection" in error_str:
+            return True
+        # Degrade for DNS resolution errors
+        if "name resolution" in error_str or "getaddrinfo failed" in error_str:
             return True
         return False
     
     def get_fallback_data(self, original_request: dict[str, Any], error: ApiClientError) -> dict[str, Any]:
         """Get fallback data for ChEMBL."""
+        error_str = str(error).lower()
+        if "name resolution" in error_str or "getaddrinfo failed" in error_str:
+            fallback_reason = "dns_resolution_failed"
+            error_message = "DNS resolution failed for ChEMBL API"
+        elif "connection" in error_str:
+            fallback_reason = "connection_failed"
+            error_message = "Connection failed to ChEMBL API"
+        else:
+            fallback_reason = "chembl_unavailable"
+            error_message = str(error)
+        
         return {
             "source": "fallback",
             "api": "chembl",
-            "error": str(error),
-            "fallback_reason": "chembl_unavailable",
+            "error": error_message,
+            "fallback_reason": fallback_reason,
             "request_data": original_request,
-            "degraded": True
+            "degraded": True,
+            "network_error": "connection" in error_str or "name resolution" in error_str
         }
     
     def get_degraded_response(self, partial_data: list[dict[str, Any]], error: ApiClientError) -> list[dict[str, Any]]:
@@ -185,7 +201,7 @@ class GracefulDegradationManager:
         self.strategies[api_name] = strategy
         # Экранируем символы % в сообщениях для безопасного логирования
         api_name_msg = str(api_name).replace("%", "%%")
-        self.logger.info(f"Registered degradation strategy for {api_name_msg}")
+        self.logger.info("Registered degradation strategy for %s", api_name_msg)
     
     def should_degrade(self, api_name: str, error: ApiClientError) -> bool:
         """Check if we should degrade for this API and error."""

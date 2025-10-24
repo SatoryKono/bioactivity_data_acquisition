@@ -26,7 +26,7 @@ class PubChemClient(BaseApiClient):
             try:
                 self._cache_dir.mkdir(parents=True, exist_ok=True)
             except Exception as exc:  # pragma: no cover
-                logger.warning(f"Failed to create PubChem cache dir {self._cache_dir}: {exc}")
+                logger.warning("Failed to create PubChem cache dir %s: %s", self._cache_dir, exc)
                 self._cache_dir = None
 
     # --- simple GET JSON cache helpers ----------------------------------------------------
@@ -44,7 +44,7 @@ class PubChemClient(BaseApiClient):
             with open(file_path) as f:
                 return json.load(f)
         except Exception as exc:  # pragma: no cover
-            logger.warning(f"Failed to read PubChem cache: {exc}")
+            logger.warning("Failed to read PubChem cache: %s", exc)
             return None
 
     def _cache_write(self, path: str, payload: dict[str, Any]) -> None:
@@ -55,7 +55,7 @@ class PubChemClient(BaseApiClient):
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(payload, f, ensure_ascii=False)
         except Exception as exc:  # pragma: no cover
-            logger.warning(f"Failed to write PubChem cache: {exc}")
+            logger.warning("Failed to write PubChem cache: %s", exc)
 
     def _get_with_cache(self, path: str) -> dict[str, Any]:
         cached = self._cache_read(path)
@@ -74,7 +74,7 @@ class PubChemClient(BaseApiClient):
             )
             return self._parse_compound_properties(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch PubChem properties for CID {cid}: {e}")
+            logger.warning("Failed to fetch PubChem properties for CID %s: %s", cid, e)
             return {}
 
     def fetch_compounds_properties_batch(
@@ -117,7 +117,7 @@ class PubChemClient(BaseApiClient):
                         results[cid] = {}
                         
             except Exception as e:
-                logger.warning(f"Failed to fetch PubChem properties batch {batch}: {e}")
+                logger.warning("Failed to fetch PubChem properties batch %s: %s", batch, e)
                 # Add empty records for failed batch
                 for cid in batch:
                     results[cid] = {}
@@ -130,7 +130,7 @@ class PubChemClient(BaseApiClient):
             payload = self._get_with_cache(f"compound/cid/{cid}/xrefs/RegistryID,RN/JSON")
             return self._parse_compound_xrefs(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch PubChem xrefs for CID {cid}: {e}")
+            logger.warning("Failed to fetch PubChem xrefs for CID %s: %s", cid, e)
             return {}
 
     def fetch_compound_synonyms(self, cid: str) -> dict[str, Any]:
@@ -139,7 +139,7 @@ class PubChemClient(BaseApiClient):
             payload = self._get_with_cache(f"compound/cid/{cid}/synonyms/JSON")
             return self._parse_compound_synonyms(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch PubChem synonyms for CID {cid}: {e}")
+            logger.warning("Failed to fetch PubChem synonyms for CID %s: %s", cid, e)
             return {}
 
     def fetch_compound_by_name(self, name: str) -> dict[str, Any]:
@@ -149,7 +149,7 @@ class PubChemClient(BaseApiClient):
             payload = self._get_with_cache(f"compound/name/{encoded}/cids/JSON")
             return self._parse_compound_cids(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch PubChem CIDs for name {name}: {e}")
+            logger.warning("Failed to fetch PubChem CIDs for name %s: %s", name, e)
             return {}
 
     def fetch_cids_by_inchikey(self, inchikey: str) -> dict[str, Any]:
@@ -159,7 +159,7 @@ class PubChemClient(BaseApiClient):
             payload = self._get_with_cache(f"compound/inchikey/{key}/cids/JSON")
             return self._parse_compound_cids(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch PubChem CIDs for InChIKey {inchikey}: {e}")
+            logger.warning("Failed to fetch PubChem CIDs for InChIKey %s: %s", inchikey, e)
             return {}
 
     def fetch_cids_by_smiles(self, smiles: str) -> dict[str, Any]:
@@ -169,7 +169,7 @@ class PubChemClient(BaseApiClient):
             payload = self._get_with_cache(f"compound/smiles/{encoded}/cids/JSON")
             return self._parse_compound_cids(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch PubChem CIDs for SMILES: {e}")
+            logger.warning("Failed to fetch PubChem CIDs for SMILES: %s", e)
             return {}
 
     def fetch_record_smiles(self, cid: str) -> dict[str, Any]:
@@ -180,7 +180,7 @@ class PubChemClient(BaseApiClient):
         try:
             payload = self._get_with_cache(f"compound/cid/{cid}/JSON")
         except Exception as e:
-            logger.warning(f"Failed to fetch PubChem record for CID {cid}: {e}")
+            logger.warning("Failed to fetch PubChem record for CID %s: %s", cid, e)
             return {}
 
         try:
@@ -212,7 +212,7 @@ class PubChemClient(BaseApiClient):
                 result["pubchem_isomeric_smiles"] = iso
             return result
         except Exception as e:  # pragma: no cover
-            logger.debug(f"Failed to parse record SMILES for CID {cid}: {e}")
+            logger.debug("Failed to parse record SMILES for CID %s: %s", cid, e)
             return {}
 
     def _parse_compound_properties(self, payload: dict[str, Any]) -> dict[str, Any]:

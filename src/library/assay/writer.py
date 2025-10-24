@@ -17,6 +17,7 @@ def write_assay_outputs(
 ) -> dict[str, Path]:
     """Persist ETL artefacts to disk and return the generated paths."""
     
+    
     # Use the new unified ETL writer
     writer = AssayETLWriter(config, "assays")
     return writer.write_outputs(result, output_dir, date_tag)

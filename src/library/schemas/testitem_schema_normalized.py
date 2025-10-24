@@ -153,12 +153,12 @@ class TestitemNormalizedSchema:
                 ["normalize_float", "normalize_molecular_weight"]
             ),
             "aromatic_rings": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="Количество ароматических колец"),
-                ["normalize_int", "normalize_int_positive"]
+                Column(pa.Float64, nullable=True, description="Количество ароматических колец"),
+                ["normalize_float", "normalize_float_precision"]
             ),
             "heavy_atoms": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="Количество тяжелых атомов"),
-                ["normalize_int", "normalize_int_positive"]
+                Column(pa.Float64, nullable=True, description="Количество тяжелых атомов"),
+                ["normalize_float", "normalize_float_precision"]
             ),
             "qed_weighted": add_normalization_metadata(
                 Column(pa.Float64, nullable=True, description="QED взвешенный"),

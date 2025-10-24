@@ -202,19 +202,6 @@ determinism:
     - "standardized_inchi_key"        # STRING: Стандартизированный InChI Key, источник: система, тип: STRING, валидация: nullable, pattern InChIKey
     - "standardized_smiles"           # STRING: Стандартизированные SMILES, источник: система, тип: STRING, валидация: nullable
     
-    # Метаданные
-    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                     
-    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
-    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
-    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
-    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-    
-    # Входные данные из input файла
-    - "nstereo"                       # INT: Количество стереоизомеров, источник: input, тип: INT, валидация: nullable, >= 0
-    - "salt_chembl_id"                # STRING: ChEMBL ID соли, источник: input, тип: STRING, валидация: nullable
-    
     # Вложенные структуры ChEMBL (JSON/распакованные)
     - "atc_classifications"           # STRING: ATC классификации (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
     - "biotherapeutic"                # STRING: Биотерапевтическое соединение (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
@@ -230,15 +217,22 @@ determinism:
     - "standard_inchi"                # STRING: Стандартный InChI, источник: ChEMBL, тип: STRING, валидация: nullable
     - "chirality_chembl"              # STRING: Хиральность из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
     - "molecule_type_chembl"          # STRING: Тип молекулы из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
-  # Метаданные
+    # Входные данные из input файла
+    - "nstereo"                       # INT: Количество стереоизомеров, источник: input, тип: INT, валидация: nullable, >= 0
+    - "salt_chembl_id"                # STRING: ChEMBL ID соли, источник: input, тип: STRING, валидация: nullable
+ 
+
+    # Метаданные
     - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                        # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                     
     - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
     - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
     - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
     - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
     - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-
+    
+   
+ 
 # Валидация - настройки проверки данных
 validation:
   enabled: true                      # Включить валидацию

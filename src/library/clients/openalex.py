@@ -32,7 +32,7 @@ class OpenAlexClient(BaseApiClient):
                 )
                 return self._create_empty_record(doi, f"Rate limited: {str(exc)}")
             
-            self.logger.info(f"openalex_doi_fallback doi={doi} error={str(exc)}")
+            self.logger.info("openalex_doi_fallback doi=%s error=%s", doi, str(exc))
             try:
                 # Fallback to OpenAlex search API
                 payload = self._request("GET", "", params={"filter": f"doi:{doi}"})
@@ -54,7 +54,7 @@ class OpenAlexClient(BaseApiClient):
             if results:
                 return self._parse_work(results[0])
 
-            self.logger.info(f"openalex_pmid_fallback pmid={pmid}")
+            self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
             payload = self._request("GET", "", params={"search": pmid})
             results = payload.get("results", [])
             if not results:
@@ -282,7 +282,7 @@ class OpenAlexClient(BaseApiClient):
                         results[doi] = self._create_empty_record(doi, "Not found in batch response")
                         
             except Exception as e:
-                self.logger.warning(f"Failed to fetch DOIs batch {chunk}: {e}")
+                self.logger.warning("Failed to fetch DOIs batch %s: %s", chunk, e)
                 # Add empty records for failed batch
                 for doi in chunk:
                     results[doi] = self._create_empty_record(doi, str(e))
@@ -331,7 +331,7 @@ class OpenAlexClient(BaseApiClient):
                         results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
                         
             except Exception as e:
-                self.logger.warning(f"Failed to fetch PMIDs batch {chunk}: {e}")
+                self.logger.warning("Failed to fetch PMIDs batch %s: %s", chunk, e)
                 # Add empty records for failed batch
                 for pmid in chunk:
                     results[pmid] = self._create_empty_record(pmid, str(e))

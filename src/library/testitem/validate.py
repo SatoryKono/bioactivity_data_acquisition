@@ -300,7 +300,7 @@ class TestitemValidator:
 
     def validate_input(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate input CSV data using input schema."""
-        logger.info(f"Validating input testitem data: {len(df)} records")
+        logger.info("Validating input testitem data: %d records", len(df))
         
         try:
             # Use input schema for CSV data
@@ -309,12 +309,12 @@ class TestitemValidator:
             logger.info("Input data validation passed")
             return validated_df
         except Exception as exc:
-            logger.error(f"Input data validation failed: {exc}")
+            logger.error("Input data validation failed: %s", exc)
             raise TestitemValidationError(f"Input data validation failed: {exc}") from exc
 
     def validate_raw(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate raw input data using Pandera schema."""
-        logger.info(f"Validating raw testitem data: {len(df)} records")
+        logger.info("Validating raw testitem data: %d records", len(df))
         
         try:
             # Use existing schema if available
@@ -323,12 +323,12 @@ class TestitemValidator:
             logger.info("Raw data validation passed")
             return validated_df
         except Exception as exc:
-            logger.error(f"Raw data validation failed: {exc}")
+            logger.error("Raw data validation failed: %s", exc)
             raise TestitemValidationError(f"Raw data validation failed: {exc}") from exc
 
     def validate_normalized(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate normalized data using Pandera schema."""
-        logger.info(f"Validating normalized testitem data: {len(df)} records")
+        logger.info("Validating normalized testitem data: %d records", len(df))
         
         try:
             # Use existing schema if available
@@ -337,7 +337,9 @@ class TestitemValidator:
             logger.info("Normalized data validation passed")
             return validated_df
         except Exception as exc:
-            logger.error(f"Normalized data validation failed: {exc}")
+            # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+            safe_exc = str(exc).replace('%', '%%')
+            logger.error("Normalized data validation failed: %s", safe_exc)
             raise TestitemValidationError(f"Normalized data validation failed: {exc}") from exc
 
     def validate_business_rules(self, df: pd.DataFrame) -> pd.DataFrame:

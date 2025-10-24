@@ -69,6 +69,20 @@ class CircuitBreaker:
         except self.config.expected_exception:
             self._on_failure()
             raise
+        except Exception as e:
+            # Обрабатываем DNS ошибки как критические
+            error_str = str(e).lower()
+            if "name resolution" in error_str or "getaddrinfo failed" in error_str:
+                self.logger.error(f"DNS resolution failed: {e}")
+                self._on_failure()
+                raise ApiClientError(f"DNS resolution failed: {e}") from e
+            # Для других исключений используем стандартную обработку
+            if isinstance(e, self.config.expected_exception):
+                self._on_failure()
+                raise
+            else:
+                # Неожиданные исключения не влияют на circuit breaker
+                raise
     
     def _should_attempt_reset(self) -> bool:
         """Check if we should attempt to reset the circuit."""
@@ -157,10 +171,9 @@ class APICircuitBreaker(CircuitBreaker):
         """Execute function with API-specific circuit breaker protection."""
         try:
             return super().call(func, *args, **kwargs)
-        except ApiClientError as e:
-            # Add API context to error
-            e.api_name = self.api_name
-            e.circuit_state = self._state.value
+        except ApiClientError:
+            # Log API context instead of modifying error object
+            self.logger.debug("API %s circuit state: %s", self.api_name, self._state.value)
             raise
 
 

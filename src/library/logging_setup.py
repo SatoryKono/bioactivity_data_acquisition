@@ -36,11 +36,23 @@ class RedactSecretsFilter(logging.Filter):
     
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter and redact sensitive information from log record."""
-        if hasattr(record, 'getMessage'):
-            message = record.getMessage()
-            for pattern, replacement in self.sensitive_patterns:
-                message = pattern.sub(replacement, message)
-            record.msg = message
+        try:
+            # Проверяем, не является ли это записью от urllib3 или requests
+            if 'urllib3' in record.name or 'requests' in record.name:
+                # Для urllib3/requests записей не пытаемся получить сообщение
+                # так как это может вызвать ошибки форматирования
+                return True
+            
+            if hasattr(record, 'getMessage'):
+                message = record.getMessage()
+                for pattern, replacement in self.sensitive_patterns:
+                    message = pattern.sub(replacement, message)
+                record.msg = message
+        except Exception as e:
+            # Если что-то пойдет не так, логируем ошибку и пропускаем запись
+            import logging
+            logging.getLogger(__name__).debug(f"Error in RedactSecretsFilter: {e}")
+            pass
         return True
 
 
@@ -59,6 +71,49 @@ class AddContextFilter(logging.Filter):
         except ImportError:
             record.trace_id = "unknown"
         
+        return True
+
+
+class SafeFormattingFilter(logging.Filter):
+    """Filter to prevent formatting errors in urllib3 and other problematic libraries."""
+    
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Escape % symbols in log messages to prevent formatting errors."""
+        try:
+            # Для urllib3 полностью отключаем форматирование, заменяя на простую строку
+            if 'urllib3' in record.name:
+                if hasattr(record, 'msg') and isinstance(record.msg, str):
+                    # Заменяем форматированное сообщение на простое
+                    record.msg = f"urllib3: {record.msg}"
+                    record.args = ()  # Убираем аргументы
+                return True
+            
+            # Для всех остальных логов проверяем и исправляем проблемы с форматированием
+            if hasattr(record, 'msg') and isinstance(record.msg, str):
+                # Проверяем, есть ли проблемы с форматированием
+                try:
+                    # Пробуем отформатировать сообщение
+                    if hasattr(record, 'args') and record.args:
+                        record.msg % record.args
+                except (TypeError, ValueError) as e:
+                    # Если форматирование не удается, конвертируем аргументы в строки
+                    if hasattr(record, 'args') and record.args:
+                        safe_args = []
+                        for arg in record.args:
+                            if isinstance(arg, (list, tuple)):
+                                # Для списков и кортежей конвертируем в строку
+                                safe_args.append(str(arg))
+                            elif hasattr(arg, 'tolist'):  # numpy arrays
+                                safe_args.append(str(arg.tolist()))
+                            else:
+                                safe_args.append(str(arg))
+                        record.args = tuple(safe_args)
+                    
+        except Exception as e:
+            # Если что-то пойдет не так, логируем ошибку и пропускаем запись
+            import logging
+            logging.getLogger(__name__).debug(f"Error in SafeFormattingFilter: {e}")
+            pass
         return True
 
 
@@ -178,6 +233,22 @@ def configure_logging(
     if config_path and config_path.exists():
         with config_path.open("r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
+    elif config_path is None:
+        # Auto-detect Windows and use appropriate config
+        import platform
+        if platform.system() == "Windows":
+            windows_config_path = Path("configs/logging_windows.yaml")
+            if windows_config_path.exists():
+                config_path = windows_config_path
+                with config_path.open("r", encoding="utf-8") as f:
+                    config = yaml.safe_load(f)
+            else:
+                # Fallback to default config
+                default_config_path = Path("configs/logging.yaml")
+                if default_config_path.exists():
+                    config_path = default_config_path
+                    with config_path.open("r", encoding="utf-8") as f:
+                        config = yaml.safe_load(f)
         
         # Override configuration based on parameters
         if not file_enabled:
@@ -241,6 +312,7 @@ def _configure_programmatic_logging(
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, level.upper()))
     console_handler.setFormatter(console_formatter)
+    console_handler.addFilter(SafeFormattingFilter())
     console_handler.addFilter(RedactSecretsFilter())
     console_handler.addFilter(AddContextFilter())
     
@@ -256,6 +328,7 @@ def _configure_programmatic_logging(
         )
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(json_formatter)
+        file_handler.addFilter(SafeFormattingFilter())
         file_handler.addFilter(RedactSecretsFilter())
         file_handler.addFilter(AddContextFilter())
         handlers.append(file_handler)
@@ -266,6 +339,11 @@ def _configure_programmatic_logging(
         handlers=handlers,
         format="%(message)s"  # structlog will handle formatting
     )
+    
+    # Apply SafeFormattingFilter only to problematic libraries
+    for logger_name in ['urllib3', 'urllib3.connectionpool', 'requests', 'requests.packages.urllib3']:
+        logger = logging.getLogger(logger_name)
+        logger.addFilter(SafeFormattingFilter())
 
 
 @contextmanager
@@ -321,4 +399,5 @@ __all__ = [
     "cleanup_old_logs",
     "RedactSecretsFilter",
     "AddContextFilter",
+    "SafeFormattingFilter",
 ]

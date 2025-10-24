@@ -164,7 +164,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                 chembl_data = self._extract_from_chembl(extracted_data)
                 extracted_data = self._merge_chembl_data(extracted_data, chembl_data)
             except Exception as e:
-                logger.error(f"Failed to extract from ChEMBL: {e}")
+                logger.error("Failed to extract from ChEMBL: %s", e)
                 if not getattr(self.config.runtime, 'allow_incomplete_sources', False):
                     raise
         
@@ -175,7 +175,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                 pubchem_data = self._extract_from_pubchem(extracted_data)
                 extracted_data = self._merge_pubchem_data(extracted_data, pubchem_data)
             except Exception as e:
-                logger.error(f"Failed to extract from PubChem: {e}")
+                logger.error("Failed to extract from PubChem: %s", e)
                 if not getattr(self.config.runtime, 'allow_incomplete_sources', False):
                     raise
         
@@ -271,12 +271,12 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             # Make request using ChEMBL client's _request method
             response = client._request("GET", f"molecule.json?{query_string}")
             if not response:
-                logger.warning(f"No response from ChEMBL for batch: {molecule_ids}")
+                logger.warning("No response from ChEMBL for batch: %s", molecule_ids)
                 return pd.DataFrame()
             
             # response is already parsed data from ChEMBL client
             if "molecules" not in response:
-                logger.warning(f"No molecules found in ChEMBL response for batch: {molecule_ids}")
+                logger.warning("No molecules found in ChEMBL response for batch: %s", molecule_ids)
                 return pd.DataFrame()
             
             # Convert to DataFrame and flatten nested structures
@@ -350,7 +350,8 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             structures = molecule["molecule_structures"]
             flattened["canonical_smiles"] = structures.get("canonical_smiles")
             flattened["standard_inchi"] = structures.get("standard_inchi")
-            flattened["standard_inchi_key"] = structures.get("standard_inchi_key")
+            # ChEMBL API may not always return standard_inchi_key
+            flattened["standard_inchi_key"] = structures.get("standard_inchi_key") if structures.get("standard_inchi_key") else None
         
         # Extract from molecule_synonyms
         if "molecule_synonyms" in molecule and molecule["molecule_synonyms"]:
@@ -460,6 +461,11 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             return pd.DataFrame()
         
         # Get InChI Keys for PubChem lookup
+        # Check if standard_inchi_key column exists
+        if "standard_inchi_key" not in data.columns:
+            logger.warning("No standard_inchi_key column found for PubChem extraction")
+            return pd.DataFrame()
+            
         inchi_keys = data["standard_inchi_key"].dropna().unique().tolist()
         if not inchi_keys:
             logger.warning("No InChI Keys found for PubChem extraction")
@@ -517,7 +523,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             
             data = response.json()
             if "PropertyTable" not in data or "Properties" not in data["PropertyTable"]:
-                logger.warning(f"No properties found in PubChem response for InChI Key: {inchi_key}")
+                logger.warning("No properties found in PubChem response for InChI Key: %s", inchi_key)
                 return pd.DataFrame()
             
             properties = data["PropertyTable"]["Properties"]
@@ -612,9 +618,9 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                             merged_data.at[idx, col] = str(value)
         
         # Debug: log what columns we have after merge
-        logger.debug(f"Columns after ChEMBL merge: {list(merged_data.columns)}")
+        logger.debug("Columns after ChEMBL merge: %s", str(list(merged_data.columns)))
         if "parent_chembl_id" in merged_data.columns:
-            logger.debug(f"parent_chembl_id values: {merged_data['parent_chembl_id'].tolist()}")
+            logger.debug("parent_chembl_id values: %s", str(merged_data['parent_chembl_id'].tolist()))
         else:
             logger.debug("parent_chembl_id column not found after merge")
         
@@ -652,7 +658,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                     # If conversion fails, keep as is
                     pass
         
-        logger.info(f"ChEMBL data merge completed: {enriched_count}/{total_count} records enriched ({enrichment_rate:.1%})")
+        logger.info("ChEMBL data merge completed: %d/%d records enriched (%.1f%%)", int(enriched_count), int(total_count), float(enrichment_rate * 100))
         
         return merged_data
     
@@ -679,7 +685,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         total_count = len(merged_data)
         enrichment_rate = enriched_count / total_count if total_count > 0 else 0
         
-        logger.info(f"PubChem data merge completed: {enriched_count}/{total_count} records enriched ({enrichment_rate:.1%})")
+        logger.info("PubChem data merge completed: %d/%d records enriched (%.1f%%)", int(enriched_count), int(total_count), float(enrichment_rate * 100))
         
         return merged_data
     

@@ -40,7 +40,7 @@ class AssayChEMBLClient(BaseApiClient):
             return self._parse_assay(payload)
         except Exception as e:
             # В случае ошибки возвращаем пустую запись с информацией об ошибке
-            logger.warning(f"Failed to fetch assay {assay_id}: {e}")
+            logger.warning("Failed to fetch assay %s: %s", assay_id, e)
             return self._create_empty_assay_record(assay_id, str(e))
 
     def fetch_assays_batch(self, assay_ids: list[str], batch_size: int = 100) -> list[dict[str, Any]]:
@@ -84,7 +84,7 @@ class AssayChEMBLClient(BaseApiClient):
                     all_assays.append(parsed_assay)
                     
             except Exception as e:
-                logger.warning(f"Failed to fetch batch {batch}: {e}")
+                logger.warning("Failed to fetch batch %s: %s", batch, e)
                 # Создаем пустые записи для неудачных ассев
                 for assay_id in batch:
                     empty_record = self._create_empty_assay_record(assay_id, str(e))
@@ -135,7 +135,7 @@ class AssayChEMBLClient(BaseApiClient):
                 yield (batch, batch_results)
 
             except Exception as e:
-                logger.warning(f"Failed to fetch batch {batch}: {e}")
+                logger.warning("Failed to fetch batch %s: %s", batch, e)
                 # Yield empty parsed records for each id in the failed batch
                 failed_results: list[dict[str, Any]] = []
                 for assay_id in batch:
@@ -187,7 +187,7 @@ class AssayChEMBLClient(BaseApiClient):
                     break
                     
             except Exception as e:
-                logger.error(f"Failed to fetch assays page at offset {offset}: {e}")
+                logger.error("Failed to fetch assays page at offset %s: %s", offset, e)
                 break
         
         return assays
@@ -208,7 +208,7 @@ class AssayChEMBLClient(BaseApiClient):
         if filters:
             params.update(filters)
         
-        logger.info(f"Fetching variant assays with params: {params}")
+        logger.info("Fetching variant assays with params: %s", params)
         
         assays = []
         offset = 0
@@ -219,22 +219,22 @@ class AssayChEMBLClient(BaseApiClient):
                 response = self._request("GET", "assay", params=params)
                 page_data = response.get("assays", [])
                 
-                logger.info(f"Received {len(page_data)} assays at offset {offset}")
+                logger.info("Received %s assays at offset %s", len(page_data), offset)
                 
                 # Log response structure for debugging
                 if offset == 0:  # Only log for first page to avoid spam
-                    logger.info(f"Response keys: {list(response.keys())}")
+                    logger.info("Response keys: %s", list(response.keys()))
                     if page_data:
-                        logger.info(f"First assay keys: {list(page_data[0].keys())}")
+                        logger.info("First assay keys: %s", list(page_data[0].keys()))
                         # Check for variant_sequence in first assay
                         first_assay = page_data[0]
                         if "variant_sequence" in first_assay:
-                            logger.info(f"First assay has variant_sequence: {first_assay['variant_sequence']}")
+                            logger.info("First assay has variant_sequence: %s", first_assay['variant_sequence'])
                         else:
                             logger.info("First assay has no variant_sequence field")
                 
                 if not page_data:
-                    logger.info(f"No more data at offset {offset}, stopping pagination")
+                    logger.info("No more data at offset %s, stopping pagination", offset)
                     break
                     
                 for assay in page_data:
@@ -245,14 +245,14 @@ class AssayChEMBLClient(BaseApiClient):
                 
                 # Check if there are more pages
                 if len(page_data) < batch_size:
-                    logger.info(f"Received fewer items than batch size ({len(page_data)} < {batch_size}), stopping pagination")
+                    logger.info("Received fewer items than batch size (%s < %s), stopping pagination", len(page_data), batch_size)
                     break
                     
             except Exception as e:
-                logger.error(f"Failed to fetch variant assays page at offset {offset}: {e}")
+                logger.error("Failed to fetch variant assays page at offset %s: %s", offset, e)
                 break
         
-        logger.info(f"Total variant assays fetched: {len(assays)}")
+        logger.info("Total variant assays fetched: %s", len(assays))
         return assays
 
 
@@ -291,7 +291,7 @@ class AssayChEMBLClient(BaseApiClient):
                         components_map[target_id].append(component)
                         
             except Exception as e:
-                logger.warning(f"Failed to fetch target components batch {batch}: {e}")
+                logger.warning("Failed to fetch target components batch %s: %s", batch, e)
                 # Create empty records for failed targets
                 for target_id in batch:
                     components_map[target_id] = []
@@ -311,7 +311,7 @@ class AssayChEMBLClient(BaseApiClient):
                 "src_url": response.get("src_url")
             }
         except Exception as e:
-            logger.warning(f"Failed to fetch source {src_id}: {e}")
+            logger.warning("Failed to fetch source %s: %s", src_id, e)
             return {
                 "src_id": src_id,
                 "src_name": None,
@@ -330,7 +330,7 @@ class AssayChEMBLClient(BaseApiClient):
                 "timestamp": datetime.utcnow().isoformat()
             }
         except Exception as e:
-            logger.error(f"Failed to get ChEMBL status: {e}")
+            logger.error("Failed to get ChEMBL status: %s", e)
             raise
 
     def _parse_assay(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -339,17 +339,17 @@ class AssayChEMBLClient(BaseApiClient):
         try:
             assay = dict(payload)
             assay_id = assay.get('assay_chembl_id', 'unknown')
-            logger.debug(f"Parsing assay data: {assay_id}")
+            logger.debug("Parsing assay data: %s", assay_id)
             
             # Log variant-related fields for debugging
             variant_seq = assay.get("variant_sequence")
             if variant_seq:
-                logger.debug(f"Assay {assay_id} has variant_sequence: {variant_seq}")
+                logger.debug("Assay %s has variant_sequence: %s", assay_id, variant_seq)
             else:
-                logger.debug(f"Assay {assay_id} has no variant_sequence field")
+                logger.debug("Assay %s has no variant_sequence field", assay_id)
                 
         except Exception as e:
-            logger.error(f"Error parsing assay payload: {e}")
+            logger.error("Error parsing assay payload: %s", e)
             raise
         
         # Ensure all required fields are present with proper defaults
@@ -370,6 +370,8 @@ class AssayChEMBLClient(BaseApiClient):
             
             # Связь с таргетом
             "target_chembl_id": assay.get("target_chembl_id"),
+            "target_organism": self._extract_target_field(assay, "organism"),
+            "target_tax_id": self._extract_target_field(assay, "tax_id"),
             "relationship_type": assay.get("relationship_type"),
             "confidence_score": assay.get("confidence_score"),
             
@@ -421,6 +423,13 @@ class AssayChEMBLClient(BaseApiClient):
             return variant_seq.get(field_name)
         return pd.NA
 
+    def _extract_target_field(self, assay: dict[str, Any], field_name: str) -> Any:
+        """Extract field from nested target object."""
+        target = assay.get("target")
+        if target and isinstance(target, dict):
+            return target.get(field_name)
+        return pd.NA
+
     def _parse_list_field(self, value: Any) -> list[str] | None:
         """Parse list field from ChEMBL response."""
         if value is None or (hasattr(value, '__len__') and len(value) == 0) or (not hasattr(value, '__len__') and pd.isna(value)):
@@ -432,7 +441,7 @@ class AssayChEMBLClient(BaseApiClient):
                 unique_items = list(set(str(item).strip() for item in value if str(item).strip()))
                 return sorted(unique_items) if len(unique_items) > 0 else pd.NA
             except Exception as e:
-                logger.warning(f"Error parsing list field {value}: {e}")
+                logger.warning("Error parsing list field %s: %s", value, e)
                 return pd.NA
         
         if isinstance(value, str):
@@ -500,6 +509,8 @@ class AssayChEMBLClient(BaseApiClient):
             
             # Связь с таргетом
             "target_chembl_id": pd.NA,
+            "target_organism": pd.NA,
+            "target_tax_id": pd.NA,
             "relationship_type": pd.NA,
             "confidence_score": pd.NA,
             

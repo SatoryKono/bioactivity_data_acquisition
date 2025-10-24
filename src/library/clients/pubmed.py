@@ -53,7 +53,7 @@ class PubMedClient(BaseApiClient):
             return enhanced_record
         except Exception as e:
             # Если efetch не работает, возвращаем базовую запись
-            self.logger.warning(f"efetch_failed pmid={pmid} error={str(e)}")
+            self.logger.warning("efetch_failed pmid=%s error=%s", pmid, str(e))
             return record
 
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
@@ -87,7 +87,7 @@ class PubMedClient(BaseApiClient):
         # Проверяем наличие ошибок в ответе
         if "error" in payload:
             error_msg = payload.get("error", "Unknown error")
-            self.logger.warning(f"pubmed_api_error pmid={pmid} error={error_msg}")
+            self.logger.warning("pubmed_api_error pmid=%s error=%s", pmid, error_msg)
             return None
             
         # NCBI E-utilities возвращает данные в формате {"result": {"uids": [...], "pmid": {...}}}
@@ -97,7 +97,7 @@ class PubMedClient(BaseApiClient):
             # Проверяем, есть ли запрашиваемый PMID в списке UIDs
             uids = result.get("uids", [])
             if str(pmid) not in uids:
-                self.logger.warning(f"pmid_not_found pmid={pmid} available_uids={uids}")
+                self.logger.warning("pmid_not_found pmid=%s available_uids=%s", pmid, uids)
                 return None
                 
             # Получаем данные для конкретного PMID
@@ -105,7 +105,7 @@ class PubMedClient(BaseApiClient):
             if data is not None:
                 return self._normalise_record(data)
             else:
-                self.logger.warning(f"no_data_for_pmid pmid={pmid}")
+                self.logger.warning("no_data_for_pmid pmid=%s", pmid)
                 return None
 
         # Fallback для других форматов (если API изменится)
@@ -117,7 +117,7 @@ class PubMedClient(BaseApiClient):
         if payload.get("pmid") and str(payload.get("pmid")) == str(pmid):
             return self._normalise_record(payload)
             
-        self.logger.warning(f"unexpected_payload_format pmid={pmid} payload_keys={list(payload.keys())}")
+        self.logger.warning("unexpected_payload_format pmid=%s payload_keys=%s", pmid, list(payload.keys()))
         return None
 
     def _normalise_record(self, record: dict[str, Any]) -> dict[str, Any]:
@@ -218,8 +218,9 @@ class PubMedClient(BaseApiClient):
         
         # Debug logging для проверки MeSH данных
         pmid = record.get("pmid", "unknown")
-        self.logger.debug(f"PubMed record for {pmid}: mesh_descriptors={mesh_descriptors}, "
-                         f"mesh_qualifiers={mesh_qualifiers}, chemical_list={chemical_list}")
+        self.logger.debug("PubMed record for %s: mesh_descriptors=%s, "
+                         "mesh_qualifiers=%s, chemical_list=%s", pmid, mesh_descriptors, 
+                         mesh_qualifiers, chemical_list)
         
         # Return all fields, including None values, to maintain schema consistency
         return parsed
@@ -367,7 +368,7 @@ class PubMedClient(BaseApiClient):
             return record
             
         except Exception as e:
-            self.logger.warning(f"efetch_parsing_failed pmid={pmid} error={str(e)}")
+            self.logger.warning("efetch_parsing_failed pmid=%s error=%s", pmid, str(e))
             return record
 
     def _format_author(self, author: Any) -> str:

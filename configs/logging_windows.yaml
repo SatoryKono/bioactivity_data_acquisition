@@ -34,6 +34,9 @@ handlers:
     interval: 1
     backupCount: 7
     encoding: utf-8
+    # Windows-specific settings to avoid file locking issues
+    delay: true
+    utc: false
 
 loggers:
   "":

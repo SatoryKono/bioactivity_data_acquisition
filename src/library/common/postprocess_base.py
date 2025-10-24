@@ -134,14 +134,23 @@ class DocumentPostprocessor(BasePostprocessor):
             'openalex_pmid': None,
             'openalex_volume': None,
             'openalex_year': None,
+            'openalex_doi': None,
             'pubmed_article_title': None,
             'pubmed_chemical_list': None,
             'pubmed_id': None,
             'pubmed_mesh_descriptors': None,
             'pubmed_mesh_qualifiers': None,
+            'pubmed_doi': None,
+            'pubmed_year_completed': None,
+            'pubmed_month_completed': None,
+            'pubmed_day_completed': None,
+            'pubmed_year_revised': None,
+            'pubmed_month_revised': None,
+            'pubmed_day_revised': None,
             'semantic_scholar_doc_type': None,
             'semantic_scholar_issn': None,
-            'semantic_scholar_journal': None
+            'semantic_scholar_journal': None,
+            'semantic_scholar_doi': None
         }
         
         # Добавляем поля, если их нет
@@ -218,7 +227,14 @@ class AssayPostprocessor(BasePostprocessor):
             df['index'] = range(len(df))
         
         if 'pipeline_version' in df.columns:
-            df['pipeline_version'] = self.config.pipeline.version
+            # Получаем версию из конфигурации или используем значение по умолчанию
+            try:
+                if hasattr(self.config, 'pipeline') and hasattr(self.config.pipeline, 'version'):
+                    df['pipeline_version'] = self.config.pipeline.version
+                else:
+                    df['pipeline_version'] = "2.0.0"  # Версия по умолчанию
+            except AttributeError:
+                df['pipeline_version'] = "2.0.0"  # Версия по умолчанию
         
         if 'chembl_release' in df.columns:
             df['chembl_release'] = "ChEMBL_33"  # Текущая версия ChEMBL
@@ -226,7 +242,12 @@ class AssayPostprocessor(BasePostprocessor):
         # Определяем is_variant на основе наличия variant полей
         if 'is_variant' in df.columns:
             variant_indicators = ['variant_id', 'variant_text', 'variant_sequence_id']
-            df['is_variant'] = df[variant_indicators].notna().any(axis=1)
+            # Проверяем, какие из variant полей есть в DataFrame
+            existing_variant_indicators = [col for col in variant_indicators if col in df.columns]
+            if existing_variant_indicators:
+                df['is_variant'] = df[existing_variant_indicators].notna().any(axis=1)
+            else:
+                df['is_variant'] = False
         
         return df
 
@@ -276,27 +297,123 @@ class TestitemPostprocessor(BasePostprocessor):
         if df.empty:
             return df
         
-        # Добавляем недостающие поля теститемов
+        # Добавляем недостающие поля теститемов согласно column_order из конфига
         missing_fields = {
-            'drug_antibacterial_flag': False,
-            'drug_antifungal_flag': False,
-            'drug_antiinflammatory_flag': False,
-            'drug_antineoplastic_flag': False,
-            'drug_antiparasitic_flag': False,
-            'drug_antiviral_flag': False,
-            'drug_chembl_id': None,
-            'drug_immunosuppressant_flag': False,
-            'drug_indication_flag': False,
-            'drug_name': None,
-            'drug_substance_flag': False,
-            'drug_type': None,
-            'indication_class': None,
+            # Основные идентификаторы и метаданные
             'molregno': None,
-            'pubchem_isomeric_smiles': None,
-            'salt_chembl_id': None,
+            'pref_name': None,
+            'pref_name_key': None,
+            'parent_chembl_id': None,
+            'parent_molregno': None,
+            'max_phase': None,
+            'therapeutic_flag': False,
+            'dosed_ingredient': False,
+            'first_approval': None,
+            'structure_type': None,
+            'molecule_type': None,
+            
+            # Физико-химические свойства ChEMBL
+            'mw_freebase': None,
+            'alogp': None,
+            'hba': None,
+            'hbd': None,
+            'psa': None,
+            'rtb': None,
+            'ro3_pass': False,
+            'num_ro5_violations': None,
+            'acd_most_apka': None,
+            'acd_most_bpka': None,
+            'acd_logp': None,
+            'acd_logd': None,
+            'molecular_species': None,
+            'full_mwt': None,
+            'aromatic_rings': None,
+            'heavy_atoms': None,
+            'qed_weighted': None,
+            'mw_monoisotopic': None,
+            'full_molformula': None,
+            'hba_lipinski': None,
+            'hbd_lipinski': None,
+            'num_lipinski_ro5_violations': None,
+            
+            # Пути введения и флаги
+            'oral': False,
+            'parenteral': False,
+            'topical': False,
+            'black_box_warning': False,
+            'natural_product': False,
+            'first_in_class': False,
+            'chirality': None,
+            'prodrug': False,
+            'inorganic_flag': False,
+            'polymer_flag': False,
+            
+            # Регистрация и отзыв
+            'usan_year': None,
+            'availability_type': None,
+            'usan_stem': None,
+            'usan_substem': None,
+            'usan_stem_definition': None,
+            'indication_class': None,
+            'withdrawn_flag': False,
+            'withdrawn_year': None,
             'withdrawn_country': None,
             'withdrawn_reason': None,
-            'withdrawn_year': None
+            
+            # Механизм действия
+            'mechanism_of_action': None,
+            'direct_interaction': False,
+            'molecular_mechanism': None,
+            
+            # Drug данные
+            'drug_chembl_id': None,
+            'drug_name': None,
+            'drug_type': None,
+            'drug_substance_flag': False,
+            'drug_indication_flag': False,
+            'drug_antibacterial_flag': False,
+            'drug_antiviral_flag': False,
+            'drug_antifungal_flag': False,
+            'drug_antiparasitic_flag': False,
+            'drug_antineoplastic_flag': False,
+            'drug_immunosuppressant_flag': False,
+            'drug_antiinflammatory_flag': False,
+            
+            # PubChem данные
+            'pubchem_cid': None,
+            'pubchem_molecular_formula': None,
+            'pubchem_molecular_weight': None,
+            'pubchem_canonical_smiles': None,
+            'pubchem_isomeric_smiles': None,
+            'pubchem_inchi': None,
+            'pubchem_inchi_key': None,
+            'pubchem_registry_id': None,
+            'pubchem_rn': None,
+            
+            # Стандартизированные структуры
+            'standardized_inchi': None,
+            'standardized_inchi_key': None,
+            'standardized_smiles': None,
+            
+            # Вложенные структуры ChEMBL (JSON/распакованные)
+            'atc_classifications': None,
+            'biotherapeutic': None,
+            'chemical_probe': False,
+            'cross_references': None,
+            'helm_notation': None,
+            'molecule_hierarchy': None,
+            'molecule_properties': None,
+            'molecule_structures': None,
+            'molecule_synonyms': None,
+            'orphan': False,
+            'veterinary': False,
+            'standard_inchi': None,
+            'chirality_chembl': None,
+            'molecule_type_chembl': None,
+            
+            # Входные данные из input файла
+            'nstereo': None,
+            'salt_chembl_id': None,
         }
         
         # Добавляем поля, если их нет

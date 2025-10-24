@@ -10,10 +10,12 @@ import pandas as pd
 
 from library.normalizers import get_normalizer
 from library.schemas.testitem_schema_normalized import TestitemNormalizedSchema
-from library.utils.empty_value_handler import normalize_boolean_field
-from library.utils.empty_value_handler import normalize_list_field
-from library.utils.empty_value_handler import normalize_numeric_field
-from library.utils.empty_value_handler import normalize_string_field
+from library.utils.empty_value_handler import (
+    normalize_boolean_field,
+    normalize_list_field,
+    normalize_numeric_field,
+    normalize_string_field,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ class TestitemNormalizer:
             >>> normalizer = TestitemNormalizer(config)
             >>> normalized_df = normalizer.normalize_testitems(validated_df)
         """
-        logger.info(f"Normalizing {len(df)} testitem records")
+        logger.info("Normalizing %d testitem records", len(df))
         
         # Create a copy to avoid modifying original
         normalized_df = df.copy()
@@ -67,27 +69,96 @@ class TestitemNormalizer:
         # Step 5: Add hash fields
         normalized_df = self._add_hash_fields(normalized_df)
         
-        logger.info(f"Normalization completed. Output: {len(normalized_df)} records")
+        logger.info("Normalization completed. Output: %d records", len(normalized_df))
         return normalized_df
 
     def _add_missing_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add missing columns that are expected by the schema but not present in the data."""
         
         # Define all columns that should be present in the normalized schema
+        # Based on column_order from config_testitem.yaml
         required_columns = {
-            "chembl_release", "parent_chembl_id", "parent_molregno", 
+            # Основные идентификаторы и метаданные
+            "molregno", "pref_name", "pref_name_key", "parent_chembl_id", "parent_molregno",
+            "max_phase", "therapeutic_flag", "dosed_ingredient", "first_approval", 
+            "structure_type", "molecule_type",
+            
+            # Физико-химические свойства ChEMBL
+            "mw_freebase", "alogp", "hba", "hbd", "psa", "rtb", "ro3_pass", 
+            "num_ro5_violations", "acd_most_apka", "acd_most_bpka", "acd_logp", 
+            "acd_logd", "molecular_species", "full_mwt", "aromatic_rings", 
+            "heavy_atoms", "qed_weighted", "mw_monoisotopic", "full_molformula",
+            "hba_lipinski", "hbd_lipinski", "num_lipinski_ro5_violations",
+            
+            # Пути введения и флаги
+            "oral", "parenteral", "topical", "black_box_warning", "natural_product",
+            "first_in_class", "chirality", "prodrug", "inorganic_flag", "polymer_flag",
+            
+            # Регистрация и отзыв
+            "usan_year", "availability_type", "usan_stem", "usan_substem", 
+            "usan_stem_definition", "indication_class", "withdrawn_flag", 
+            "withdrawn_year", "withdrawn_country", "withdrawn_reason",
+            
+            # Механизм действия
             "mechanism_of_action", "direct_interaction", "molecular_mechanism",
-            "pubchem_registry_id", "pubchem_rn",
-            # Распакованные поля из вложенных ChEMBL структур
+            
+            # Drug данные
+            "drug_chembl_id", "drug_name", "drug_type", "drug_substance_flag",
+            "drug_indication_flag", "drug_antibacterial_flag", "drug_antiviral_flag",
+            "drug_antifungal_flag", "drug_antiparasitic_flag", "drug_antineoplastic_flag",
+            "drug_immunosuppressant_flag", "drug_antiinflammatory_flag",
+            
+            # PubChem данные
+            "pubchem_cid", "pubchem_molecular_formula", "pubchem_molecular_weight",
+            "pubchem_canonical_smiles", "pubchem_isomeric_smiles", "pubchem_inchi",
+            "pubchem_inchi_key", "pubchem_registry_id", "pubchem_rn",
+            
+            # Стандартизированные структуры
+            "standardized_inchi", "standardized_inchi_key", "standardized_smiles",
+            
+            # Вложенные структуры ChEMBL (JSON/распакованные)
             "atc_classifications", "biotherapeutic", "chemical_probe", 
-            "chirality_chembl", "cross_references", "helm_notation",
-            "molecule_type_chembl", "orphan", "veterinary"
+            "cross_references", "helm_notation", "molecule_hierarchy", 
+            "molecule_properties", "molecule_structures", "molecule_synonyms",
+            "orphan", "veterinary", "standard_inchi", "chirality_chembl", 
+            "molecule_type_chembl",
+            
+            # Входные данные из input файла
+            "nstereo", "salt_chembl_id",
+            
+            # Метаданные (будут добавлены в _add_system_metadata)
+            "index", "pipeline_version", "source_system", "chembl_release", 
+            "extracted_at", "hash_row", "hash_business_key"
         }
         
         # Add missing columns with default values
         for column in required_columns:
             if column not in df.columns:
-                df[column] = pd.NA
+                # Для булевых полей используем False с правильным типом
+                if column in ["therapeutic_flag", "dosed_ingredient", "oral", "parenteral", 
+                             "topical", "black_box_warning", "natural_product", "first_in_class",
+                             "prodrug", "inorganic_flag", "polymer_flag", "withdrawn_flag",
+                             "direct_interaction", "drug_substance_flag", "drug_indication_flag",
+                             "drug_antibacterial_flag", "drug_antiviral_flag", "drug_antifungal_flag",
+                             "drug_antiparasitic_flag", "drug_antineoplastic_flag",
+                             "drug_immunosuppressant_flag", "drug_antiinflammatory_flag",
+                             "chemical_probe", "orphan", "veterinary", "ro3_pass"]:
+                    df[column] = pd.Series(dtype='bool')
+                # Для целочисленных полей используем Int64
+                elif column in ["molregno", "parent_molregno", "hba", "hbd", "rtb", 
+                               "num_ro5_violations", "hba_lipinski", "hbd_lipinski", 
+                               "num_lipinski_ro5_violations", "chirality", "usan_year",
+                               "withdrawn_year", "pubchem_cid", "nstereo"]:
+                    df[column] = pd.Series(dtype='Int64')
+                # Для float полей используем Float64
+                elif column in ["max_phase", "mw_freebase", "alogp", "psa", 
+                               "acd_most_apka", "acd_most_bpka", "acd_logp", "acd_logd",
+                               "full_mwt", "aromatic_rings", "heavy_atoms", "qed_weighted",
+                               "mw_monoisotopic", "pubchem_molecular_weight"]:
+                    df[column] = pd.Series(dtype='Float64')
+                # Для строковых полей используем pd.NA с правильным типом
+                else:
+                    df[column] = pd.Series(dtype='string')
         
         return df
 
@@ -104,7 +175,8 @@ class TestitemNormalizer:
             "parent_chembl_id", "mechanism_of_action", "mechanism_comment",
             "target_chembl_id", "drug_chembl_id", "drug_name", "drug_type",
             "usan_stem", "usan_substem", "usan_stem_definition", "indication_class",
-            "withdrawn_country", "withdrawn_reason",
+            "withdrawn_country", "withdrawn_reason", 
+            "molecular_mechanism",
             "pubchem_molecular_formula", "pubchem_canonical_smiles", 
             "pubchem_isomeric_smiles", "pubchem_inchi", "pubchem_inchi_key",
             "pubchem_registry_id", "pubchem_rn",
@@ -118,30 +190,53 @@ class TestitemNormalizer:
             if field in normalized_df.columns:
                 normalized_df[field] = normalized_df[field].apply(normalize_string_field)
         
-        # Numeric fields
-        numeric_fields = [
-            "molregno", "parent_molregno", "max_phase", "mw_freebase", "alogp",
-            "hba", "hbd", "psa", "rtb", "ro3_pass", "num_ro5_violations",
-            "acd_most_apka", "acd_most_bpka", "acd_logp", "acd_logd",
-            "full_mwt", "aromatic_rings", "heavy_atoms", "qed_weighted",
-            "mw_monoisotopic", "hba_lipinski", "hbd_lipinski", 
-            "num_lipinski_ro5_violations", "first_approval", "usan_year",
-            "withdrawn_year", "pubchem_molecular_weight", "pubchem_cid"
+        # Integer fields (should be Int64)
+        integer_fields = [
+            "molregno", "parent_molregno", "hba", "hbd", "rtb", 
+            "num_ro5_violations", "hba_lipinski", "hbd_lipinski", 
+            "num_lipinski_ro5_violations", "first_approval", "usan_year", 
+            "withdrawn_year", "pubchem_cid", "chirality"
         ]
         
-        for field in numeric_fields:
+        for field in integer_fields:
             if field in normalized_df.columns:
                 normalized_df[field] = normalized_df[field].apply(normalize_numeric_field)
+                # Конвертируем в Int64, сохраняя NaN значения
+                normalized_df[field] = normalized_df[field].astype('Int64')
+        
+        # Float fields that should be float64 (not Int64)
+        float_fields_special = [
+            "max_phase", "aromatic_rings", "heavy_atoms"
+        ]
+        
+        for field in float_fields_special:
+            if field in normalized_df.columns:
+                normalized_df[field] = normalized_df[field].apply(normalize_numeric_field)
+                # Конвертируем в float64
+                normalized_df[field] = normalized_df[field].astype('float64')
+        
+        # Float fields (should be Float64)
+        float_fields = [
+            "mw_freebase", "alogp", "psa", "acd_most_apka", "acd_most_bpka", 
+            "acd_logp", "acd_logd", "full_mwt", "qed_weighted", 
+            "mw_monoisotopic", "pubchem_molecular_weight"
+        ]
+        
+        for field in float_fields:
+            if field in normalized_df.columns:
+                normalized_df[field] = normalized_df[field].apply(normalize_numeric_field)
+                # Конвертируем в Float64
+                normalized_df[field] = normalized_df[field].astype('Float64')
         
         # Boolean fields
         boolean_fields = [
             "therapeutic_flag", "dosed_ingredient", "oral", "parenteral", "topical",
             "black_box_warning", "natural_product", "first_in_class", "prodrug",
             "inorganic_flag", "polymer_flag", "withdrawn_flag", "direct_interaction",
-            "molecular_mechanism", "drug_substance_flag", "drug_indication_flag",
-            "drug_antibacterial_flag", "drug_antiviral_flag", "drug_antifungal_flag",
-            "drug_antiparasitic_flag", "drug_antineoplastic_flag",
-            "drug_immunosuppressant_flag", "drug_antiinflammatory_flag",
+            "drug_substance_flag", "drug_indication_flag", "drug_antibacterial_flag", 
+            "drug_antiviral_flag", "drug_antifungal_flag", "drug_antiparasitic_flag", 
+            "drug_antineoplastic_flag", "drug_immunosuppressant_flag", 
+            "drug_antiinflammatory_flag", "ro3_pass",
             # Распакованные булевы поля из вложенных ChEMBL структур
             "chemical_probe", "orphan", "veterinary"
         ]
@@ -149,6 +244,8 @@ class TestitemNormalizer:
         for field in boolean_fields:
             if field in normalized_df.columns:
                 normalized_df[field] = normalized_df[field].apply(normalize_boolean_field)
+                # Конвертируем в bool тип (не boolean) - заменяем NaN на False
+                normalized_df[field] = normalized_df[field].fillna(False).astype('bool')
         
         # List fields
         list_fields = [
@@ -159,16 +256,12 @@ class TestitemNormalizer:
             if field in normalized_df.columns:
                 normalized_df[field] = normalized_df[field].apply(normalize_list_field)
         
-        # Special handling for chirality
-        if "chirality" in normalized_df.columns:
-            normalized_df["chirality"] = normalized_df["chirality"].apply(
-                lambda x: normalize_string_field(x) if x is not None else None
-            )
+        # chirality уже обработано в integer_fields выше
         
-        # Special handling for availability_type
+        # Special handling for availability_type - должно быть строкой
         if "availability_type" in normalized_df.columns:
             normalized_df["availability_type"] = normalized_df["availability_type"].apply(
-                lambda x: normalize_numeric_field(x) if x is not None else None
+                lambda x: str(x) if x is not None and not pd.isna(x) else None
             )
         
         # Create pref_name_key for sorting
@@ -211,6 +304,12 @@ class TestitemNormalizer:
         logger.info("Adding system metadata columns...")
         
         df_with_metadata = df.copy()
+        
+        # Удаляем существующие метаданные колонки, если они есть, чтобы избежать дубликатов
+        metadata_columns = ['index', 'pipeline_version', 'source_system', 'chembl_release', 'extracted_at']
+        for col in metadata_columns:
+            if col in df_with_metadata.columns:
+                df_with_metadata = df_with_metadata.drop(columns=[col])
         
         # Index - порядковый номер записи
         df_with_metadata['index'] = range(len(df))
@@ -293,7 +392,7 @@ class TestitemNormalizer:
             if column_name in df.columns:
                 norm_funcs = column_schema.metadata.get("normalization_functions", [])
                 if norm_funcs:
-                    logger.debug(f"Normalizing column '{column_name}' with functions: {norm_funcs}")
+                    logger.debug("Normalizing column '%s' with functions: %s", column_name, norm_funcs)
                     
                     # Применяем функции нормализации в порядке
                     for func_name in norm_funcs:
@@ -301,6 +400,6 @@ class TestitemNormalizer:
                             func = get_normalizer(func_name)
                             df[column_name] = df[column_name].apply(func)
                         except Exception as e:
-                            logger.warning(f"Failed to apply normalizer '{func_name}' to column '{column_name}': {e}")
+                            logger.warning("Failed to apply normalizer '%s' to column '%s': %s", func_name, column_name, e)
         
         return df

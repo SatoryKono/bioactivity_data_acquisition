@@ -164,7 +164,7 @@ class GtoPdbClient(BaseApiClient):
         cache_key = f"{gtop_id}:{endpoint}"
         with self._cache_lock:
             if cache_key in self._failed_cache:
-                self.logger.debug(f"gtop_cached_failure gtop_id={gtop_id} endpoint={endpoint}")
+                self.logger.debug("gtop_cached_failure gtop_id=%s endpoint=%s", gtop_id, endpoint)
                 return None
         
         # Apply rate limiting

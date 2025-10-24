@@ -94,15 +94,20 @@ class ETLWriter(ABC):
         # Упорядочить колонки
         if column_order:
             # Строгий режим: только колонки из column_order
-            existing_columns = [col for col in column_order if col in df_copy.columns]
-            df_copy = df_copy[existing_columns]
+            # 1. Добавить отсутствующие колонки из column_order с пустыми значениями
+            for col in column_order:
+                if col not in df_copy.columns:
+                    df_copy[col] = ""  # Пустая строка для всех типов
+            
+            # 2. Отфильтровать только колонки из column_order (строгий режим)
+            df_copy = df_copy[column_order]
             
             # Логирование для отладки
-            missing_in_data = [col for col in column_order if col not in df_copy.columns]
-            if missing_in_data:
+            added_columns = [col for col in column_order if col not in df.columns]
+            if added_columns:
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.warning(f"Columns in column_order but missing in data: {missing_in_data}")
+                logger.debug(f"Added empty columns from column_order: {added_columns}")
         
         # Сортировка
         if sort_columns:
@@ -350,6 +355,9 @@ class TargetETLWriter(ETLWriter):
 
 class AssayETLWriter(ETLWriter):
     """ETL Writer для ассаев."""
+    
+    def __init__(self, config: Config, entity_type: str):
+        super().__init__(config, entity_type)
     
     def get_sort_columns(self) -> list[str]:
         """Колонки для сортировки ассаев."""

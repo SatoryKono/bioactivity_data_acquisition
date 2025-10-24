@@ -1,125 +1,107 @@
 #!/usr/bin/env python3
-"""Script to clean up old log files."""
+"""Cleanup script for log files to resolve Windows file locking issues."""
 
-import argparse
+import os
 import sys
-from datetime import datetime, timedelta
+import time
+import shutil
 from pathlib import Path
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from library.logging_setup import configure_logging, generate_run_id, set_run_context
+from typing import List
 
 
-def main() -> None:
-    """Main entry point for log cleanup script."""
-    parser = argparse.ArgumentParser(description="Clean up old log files")
-    parser.add_argument(
-        "--older-than",
-        type=int,
-        default=14,
-        help="Remove logs older than this many days (default: 14)"
-    )
-    parser.add_argument(
-        "--logs-dir",
-        type=Path,
-        default=Path("logs"),
-        help="Directory to clean (default: logs/)"
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be deleted without actually deleting"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Verbose output"
-    )
+def cleanup_logs(logs_dir: Path = Path("logs"), force: bool = False) -> None:
+    """Clean up log files to resolve Windows file locking issues.
+    
+    Args:
+        logs_dir: Directory containing log files
+        force: Force cleanup even if files are in use
+    """
+    if not logs_dir.exists():
+        print(f"Logs directory {logs_dir} does not exist")
+        return
+    
+    print(f"Cleaning up logs in {logs_dir}")
+    
+    # List of log files to clean up
+    log_files = [
+        "app.log",
+        "app.log.1", 
+        "app.log.2",
+        "app.log.3",
+        "app.log.4",
+        "app.log.5",
+        "app.log.6",
+        "app.log.7",
+        "app.log.8",
+        "app.log.9",
+        "app.log.10"
+    ]
+    
+    # Add dated log files
+    for i in range(1, 8):  # Last 7 days
+        log_files.append(f"app.log.{i:04d}-01-01")  # Example date format
+    
+    cleaned_count = 0
+    failed_count = 0
+    
+    for log_file in log_files:
+        file_path = logs_dir / log_file
+        if file_path.exists():
+            try:
+                if force:
+                    # Try to remove immediately
+                    file_path.unlink()
+                    print(f"Removed: {file_path}")
+                    cleaned_count += 1
+                else:
+                    # Try to rename first (safer approach)
+                    backup_name = f"{log_file}.backup.{int(time.time())}"
+                    backup_path = logs_dir / backup_name
+                    
+                    try:
+                        shutil.move(str(file_path), str(backup_path))
+                        print(f"Moved {file_path} to {backup_path}")
+                        cleaned_count += 1
+                    except (OSError, PermissionError) as e:
+                        print(f"Failed to move {file_path}: {e}")
+                        failed_count += 1
+                        
+            except (OSError, PermissionError) as e:
+                print(f"Failed to remove {file_path}: {e}")
+                failed_count += 1
+    
+    print(f"\nCleanup completed:")
+    print(f"  - Files cleaned: {cleaned_count}")
+    print(f"  - Files failed: {failed_count}")
+    
+    if failed_count > 0:
+        print("\nSome files could not be cleaned up. This might be because:")
+        print("  - Files are currently in use by the application")
+        print("  - Files are locked by another process")
+        print("  - Insufficient permissions")
+        print("\nTry running the script with --force flag or restart the application first.")
+
+
+def main():
+    """Main function for the cleanup script."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Clean up log files to resolve Windows file locking issues")
+    parser.add_argument("--logs-dir", type=Path, default=Path("logs"), 
+                      help="Directory containing log files (default: logs)")
+    parser.add_argument("--force", action="store_true", 
+                      help="Force cleanup even if files are in use")
     
     args = parser.parse_args()
     
-    # Set up logging for the cleanup script
-    run_id = generate_run_id()
-    set_run_context(run_id=run_id, stage="log_cleanup")
-    
-    logger = configure_logging(
-        level="DEBUG" if args.verbose else "INFO",
-        file_enabled=False,  # Don't create logs for cleanup script
-    )
-    logger = logger.bind(run_id=run_id, stage="log_cleanup")
-    
-    logger.info(
-        "Starting log cleanup",
-        older_than_days=args.older_than,
-        logs_dir=str(args.logs_dir),
-        dry_run=args.dry_run
-    )
-    
-    if not args.logs_dir.exists():
-        logger.warning("Logs directory does not exist", logs_dir=str(args.logs_dir))
-        return
-    
-    # Find old log files
-    cutoff_date = datetime.now() - timedelta(days=args.older_than)
-    old_files = []
-    
-    for log_file in args.logs_dir.rglob("*.log*"):
-        file_mtime = datetime.fromtimestamp(log_file.stat().st_mtime)
-        if file_mtime < cutoff_date:
-            old_files.append((log_file, file_mtime))
-    
-    if not old_files:
-        logger.info("No old log files found to clean up")
-        return
-    
-    # Sort by modification time (oldest first)
-    old_files.sort(key=lambda x: x[1])
-    
-    logger.info(f"Found {len(old_files)} old log files to clean up")
-    
-    if args.dry_run:
-        logger.info("DRY RUN - Files that would be deleted:")
-        for log_file, file_mtime in old_files:
-            logger.info(
-                "Would delete",
-                file=str(log_file),
-                modified=file_mtime.isoformat(),
-                age_days=(datetime.now() - file_mtime).days
-            )
-    else:
-        # Actually delete the files
-        deleted_count = 0
-        failed_count = 0
-        
-        for log_file, file_mtime in old_files:
-            try:
-                log_file.unlink()
-                deleted_count += 1
-                logger.info(
-                    "Deleted log file",
-                    file=str(log_file),
-                    modified=file_mtime.isoformat(),
-                    age_days=(datetime.now() - file_mtime).days
-                )
-            except OSError as e:
-                failed_count += 1
-                logger.error(
-                    "Failed to delete log file",
-                    file=str(log_file),
-                    error=str(e)
-                )
-        
-        logger.info(
-            "Log cleanup completed",
-            deleted=deleted_count,
-            failed=failed_count,
-            total=len(old_files)
-        )
-        
-        if failed_count > 0:
-            sys.exit(1)
+    try:
+        cleanup_logs(args.logs_dir, args.force)
+    except KeyboardInterrupt:
+        print("\nCleanup interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

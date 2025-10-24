@@ -85,7 +85,7 @@ class HealthChecker:
                 # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                 name_msg = str(name).replace("%", "%%")
                 error_msg = str(e).replace("%", "%%")
-                self.logger.error(f"Health check failed for {name_msg}: {error_msg}")
+                self.logger.error("Health check failed for %s: %s", name_msg, error_msg)
                 results.append(HealthStatus(
                     name=name,
                     is_healthy=False,
@@ -294,7 +294,7 @@ def create_health_checker_from_config(config: dict[str, APIClientConfig]) -> Hea
         except Exception as e:
             # Log error but continue with other clients
             logger = get_logger("HealthChecker")
-            logger.warning(f"Failed to create health checker for {name}: {e}")
+            logger.warning("Failed to create health checker for %s: %s", name, e)
     
     return HealthChecker(clients)
 

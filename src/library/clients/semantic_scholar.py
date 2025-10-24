@@ -123,7 +123,7 @@ class SemanticScholarClient(BaseApiClient):
         except Exception as exc:
             # Экранируем символы % в сообщениях об ошибках для безопасного логирования
             error_msg = str(exc).replace("%", "%%")
-            self.logger.error(f"Batch request failed: {error_msg}")
+            self.logger.error("Batch request failed: %s", error_msg)
             # Возвращаем пустые записи для всех PMID
             result: dict[str, dict[str, Any]] = {}
             for pmid in pmids:
@@ -303,7 +303,7 @@ class SemanticScholarClient(BaseApiClient):
                         results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
                         
             except Exception as e:
-                self.logger.warning(f"Failed to fetch PMIDs batch {chunk}: {e}")
+                self.logger.warning("Failed to fetch PMIDs batch %s: %s", chunk, e)
                 # Add empty records for failed batch
                 for pmid in chunk:
                     results[pmid] = self._create_empty_record(pmid, str(e))

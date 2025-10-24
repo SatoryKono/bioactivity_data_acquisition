@@ -62,7 +62,7 @@ class RateLimitFallbackStrategy(FallbackStrategy):
             )
             
             if self.config.jitter:
-                # Add random jitter (±25%)
+                # Add random jitter (±25%) - not for cryptographic purposes
                 import random  # noqa: S311
                 jitter_factor = random.uniform(0.75, 1.25)
                 delay *= jitter_factor
@@ -110,7 +110,7 @@ class SemanticScholarFallbackStrategy(FallbackStrategy):
         
         if self.config.jitter:
             import random  # noqa: S311
-            jitter_factor = random.uniform(0.8, 1.2)  # Больше вариативности
+            jitter_factor = random.uniform(0.8, 1.2)  # Больше вариативности - не для криптографии
             delay *= jitter_factor
         
         return delay
@@ -124,6 +124,55 @@ class SemanticScholarFallbackStrategy(FallbackStrategy):
             "fallback_reason": f"Semantic Scholar API error: {error.status_code}",
             "retry_count": 1
         }
+
+
+class NetworkErrorFallbackStrategy(FallbackStrategy):
+    """Fallback strategy specifically for network errors like DNS resolution failures."""
+    
+    def should_retry(self, error: ApiClientError, attempt: int) -> bool:
+        """Don't retry for network errors - they're usually persistent."""
+        error_str = str(error).lower()
+        if "name resolution" in error_str or "getaddrinfo failed" in error_str:
+            return False  # DNS errors are usually persistent
+        if "connection" in error_str and "timeout" not in error_str:
+            return attempt < 2  # Limited retries for connection errors
+        return attempt < self.config.max_retries
+    
+    def get_delay(self, error: ApiClientError, attempt: int) -> float:
+        """Longer delays for network errors."""
+        error_str = str(error).lower()
+        if "name resolution" in error_str or "getaddrinfo failed" in error_str:
+            return 0  # No delay for DNS errors
+        if "connection" in error_str:
+            return min(30.0 + (attempt * 15.0), 120.0)  # 30-120 seconds
+        return self.config.base_delay
+    
+    def get_fallback_data(self, error: ApiClientError) -> dict[str, Any]:
+        """Return fallback data for network errors."""
+        error_str = str(error).lower()
+        if "name resolution" in error_str or "getaddrinfo failed" in error_str:
+            return {
+                "source": "fallback",
+                "error": "DNS resolution failed - network connectivity issue",
+                "network_error": True,
+                "dns_failure": True,
+                "fallback_reason": "dns_resolution_failed"
+            }
+        elif "connection" in error_str:
+            return {
+                "source": "fallback",
+                "error": "Connection failed - network issue",
+                "network_error": True,
+                "connection_failure": True,
+                "fallback_reason": "connection_failed"
+            }
+        else:
+            return {
+                "source": "fallback",
+                "error": str(error),
+                "network_error": True,
+                "fallback_reason": "unknown_network_error"
+            }
 
 
 class AdaptiveFallbackStrategy(FallbackStrategy):
@@ -168,7 +217,7 @@ class AdaptiveFallbackStrategy(FallbackStrategy):
         
         if self.config.jitter:
             import random  # noqa: S311
-            jitter_factor = random.uniform(0.8, 1.2)
+            jitter_factor = random.uniform(0.8, 1.2)  # Не для криптографии
             delay *= jitter_factor
         
         return delay
@@ -213,7 +262,7 @@ class FallbackManager:
             try:
                 result = func(*args, **kwargs)
                 if attempt > 0:
-                    self.logger.info(f"Success after {attempt} retries")
+                    self.logger.info("Success after %d retries", attempt)
                 return result
             except ApiClientError as e:
                 last_error = e
@@ -225,14 +274,18 @@ class FallbackManager:
                     break
                 
                 delay = self.strategy.get_delay(e, attempt)
-                self.logger.info(f"Retry {attempt + 1}/{self.strategy.config.max_retries} after {delay:.2f}s delay")
+                self.logger.info("Retry %d/%d after %.2f seconds delay", attempt + 1, self.strategy.config.max_retries, delay)
                 time.sleep(delay)
         
         # All retries exhausted, return fallback data
         self.logger.warning(
             f"Using fallback data after {self.strategy.config.max_retries} failed attempts"
         )
-        return self.strategy.get_fallback_data(last_error)
+        if last_error is not None:
+            return self.strategy.get_fallback_data(last_error)
+        else:
+            # Fallback to empty data if no error was captured
+            return {}
 
 
 __all__ = [
@@ -240,6 +293,7 @@ __all__ = [
     "FallbackStrategy", 
     "RateLimitFallbackStrategy",
     "SemanticScholarFallbackStrategy",
+    "NetworkErrorFallbackStrategy",
     "AdaptiveFallbackStrategy",
     "FallbackManager"
 ]

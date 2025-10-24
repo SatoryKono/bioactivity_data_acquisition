@@ -136,7 +136,7 @@ class AssayPipeline(PipelineBase[AssayConfig]):
                 if assay_data:
                     extracted_records.append(assay_data)
             except Exception as e:
-                logger.warning(f"Failed to fetch assay {assay_id}: {e}")
+                logger.warning("Failed to fetch assay %s: %s", assay_id, e)
                 continue
         
         if extracted_records:

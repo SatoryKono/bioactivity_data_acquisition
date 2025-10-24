@@ -18,7 +18,7 @@ from requests import Response
 
 from library.clients.circuit_breaker import APICircuitBreaker
 from library.clients.exceptions import ApiClientError, RateLimitError
-from library.clients.fallback import AdaptiveFallbackStrategy, FallbackConfig, FallbackManager
+from library.clients.fallback import FallbackConfig, FallbackManager, NetworkErrorFallbackStrategy
 from library.clients.graceful_degradation import get_degradation_manager
 from library.clients.session import get_shared_session
 from library.config import APIClientConfig
@@ -109,7 +109,8 @@ class BaseApiClient:
                 backoff_multiplier=2.0,
                 jitter=True
             )
-            fallback_strategy = AdaptiveFallbackStrategy(fallback_config)
+            # Используем NetworkErrorFallbackStrategy для лучшей обработки DNS ошибок
+            fallback_strategy = NetworkErrorFallbackStrategy(fallback_config)
             self.fallback_manager = FallbackManager(fallback_strategy)
         else:
             self.fallback_manager = fallback_manager
@@ -155,8 +156,17 @@ class BaseApiClient:
                     return True
                 return True
             elif isinstance(exc, requests.exceptions.ConnectionError):
-                # Для ошибок соединения продолжаем попытки
-                return False
+                # Проверяем тип ошибки соединения
+                error_str = str(exc).lower()
+                if "name resolution" in error_str or "getaddrinfo failed" in error_str:
+                    # DNS ошибки - прекращаем попытки после нескольких попыток
+                    return True
+                elif "timeout" in error_str:
+                    # Таймауты соединения - продолжаем попытки
+                    return False
+                else:
+                    # Другие ошибки соединения - продолжаем попытки
+                    return False
             elif isinstance(exc, requests.exceptions.Timeout):
                 # Для таймаутов продолжаем попытки
                 return False
@@ -175,7 +185,7 @@ class BaseApiClient:
                     # If rate limited, wait and retry
                     # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                     error_msg = str(e).replace("%", "%%")
-                    self.logger.warning(f"Rate limit hit: {error_msg}")
+                    self.logger.warning("Rate limit hit: {}", error_msg)
                     # Use config-based delay instead of hardcoded delay
                     if hasattr(self.config, 'rate_limit') and self.config.rate_limit:
                         delay = self.config.rate_limit.period + random.uniform(0, 1)  # noqa: S311
@@ -187,11 +197,31 @@ class BaseApiClient:
             return _call()
 
         wait_gen = partial(backoff.expo, factor=self.config.retries.backoff_multiplier)
+        
+        # Создаем безопасный обработчик для backoff
+        def _safe_backoff_handler(details):
+            """Безопасный обработчик для backoff без проблем с форматированием."""
+            try:
+                # Экранируем символы % в сообщениях
+                safe_msg = str(details.get('message', '')).replace('%', '%%')
+                
+                # Логируем без использования форматирования
+                self.logger.warning(
+                    "Backing off %s(...) for %.1fs (%s)",
+                    details.get('target', 'unknown'),
+                    details.get('wait', 0),
+                    safe_msg
+                )
+            except Exception as e:
+                # Если что-то пошло не так с логированием, просто пропускаем
+                self.logger.debug("Backoff handler error: %s", str(e))
+        
         sender = backoff.on_exception(
             wait_gen,
             requests.exceptions.RequestException,
             max_tries=self.max_retries,
             giveup=_giveup,
+            on_backoff=_safe_backoff_handler,
         )(_call_with_rate_limit)
         
         # Use circuit breaker to protect the request
@@ -262,14 +292,20 @@ class BaseApiClient:
         add_span_attribute("api.client", self.config.name)
         add_span_attribute("http.expected_status", expected_status)
 
+        # Экранируем символы % в параметрах для безопасного логирования
+        safe_params = str(kwargs.get('params', '')).replace('%', '%%')
+        safe_headers = str(request_headers or '').replace('%', '%%')
+        safe_url = str(url).replace('%', '%%')
+        
         self.logger.info(
-            f"request method={method} url={url} params={kwargs.get('params')} headers={request_headers or None}"
+            "request method=%s url=%s params=%s headers=%s base_url=%s", 
+            method, safe_url, safe_params, safe_headers, self.base_url
         )
 
         try:
             response = self._send_with_backoff(method, url, headers=request_headers, **kwargs)
         except requests.exceptions.RequestException as exc:  # pragma: no cover - defensive
-            self.logger.error(f"transport_error error={str(exc)}")
+            self.logger.error("transport_error error={}", str(exc))
             add_span_attribute("error", True)
             add_span_attribute("error.type", "transport_error")
             raise ApiClientError(str(exc)) from exc
@@ -299,12 +335,12 @@ class BaseApiClient:
                         # Используем время из заголовка Retry-After, но ограничиваем максимум
                         max_wait = 60  # Максимум 1 минута
                         wait_time = min(wait_time, max_wait)
-                        self.logger.info(f"Rate limited. Waiting {wait_time} seconds before retry.")
+                        self.logger.info("Rate limited. Waiting %d seconds before retry.", wait_time)
                         time.sleep(wait_time)
                     except (ValueError, TypeError):
                         # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                         retry_after_msg = str(retry_after).replace("%", "%%")
-                        self.logger.warning(f"Invalid Retry-After header: {retry_after_msg}")
+                        self.logger.warning("Invalid Retry-After header: {}", retry_after_msg)
                         # Используем консервативную задержку 30 секунд
                         self.logger.info("Using conservative 30-second delay")
                         time.sleep(30)
@@ -322,7 +358,7 @@ class BaseApiClient:
 
         try:
             payload = response.json()
-            self.logger.debug(f"JSON response received: {type(payload)}")
+            self.logger.debug("JSON response received: {}", type(payload))
         except json.JSONDecodeError as exc:
             # Проверяем, не является ли ответ XML (например, от ChEMBL API)
             content_type = response.headers.get('content-type', '').lower()
@@ -337,13 +373,13 @@ class BaseApiClient:
                     root = safe_fromstring(response.text)
                     payload = self._xml_to_dict(root)
                 except Exception as xml_exc:
-                    self.logger.error(f"xml_parse_error error={str(xml_exc)}")
+                    self.logger.error("xml_parse_error error={}", str(xml_exc))
                     raise ApiClientError(f"Failed to parse XML response: {xml_exc}") from xml_exc
             else:
-                self.logger.error(f"invalid_json error={str(exc)} content_type={content_type}")
+                self.logger.error("invalid_json error={} content_type={}", str(exc), content_type)
                 raise ApiClientError("response was not valid JSON") from exc
 
-        self.logger.info(f"response status_code={response.status_code}")
+        self.logger.info("response status_code=%d", response.status_code)
         if not isinstance(payload, dict):
             raise ApiClientError("expected JSON object from API")
         return payload

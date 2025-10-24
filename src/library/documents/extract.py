@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from library.documents.column_mapping import apply_field_mapping
+# from library.documents.column_mapping import apply_field_mapping  # Удалено: клиенты уже возвращают данные с правильными префиксами
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +58,17 @@ def extract_from_pubmed(client: Any, pmids: list[str], batch_size: int = 200) ->
         record_list = []
         for pmid, record in records.items():
             if isinstance(record, dict):
-                # Применяем маппинг полей
-                mapped_record = apply_field_mapping(record, "pubmed")
+                # Клиент уже возвращает данные с правильными префиксами
+                mapped_record = record
                 
                 # Добавляем join key для объединения
                 mapped_record["document_pubmed_id"] = pmid
+                
+                # Диагностическое логирование
+                logger.debug(f"Mapped PubMed record columns: {list(mapped_record.keys())}")
+                logger.debug(f"Sample values - doi: {mapped_record.get('pubmed_doi')}, "
+                            f"pmid: {mapped_record.get('pubmed_pmid')}, "
+                            f"year_completed: {mapped_record.get('pubmed_year_completed')}")
                 
                 record_list.append(mapped_record)
         
@@ -133,11 +139,15 @@ def extract_from_crossref(client: Any, dois: list[str], batch_size: int = 100) -
         record_list = []
         for doi, record in records.items():
             if isinstance(record, dict):
-                # Применяем маппинг полей
-                mapped_record = apply_field_mapping(record, "crossref")
+                # Клиент уже возвращает данные с правильными префиксами
+                mapped_record = record
                 
                 # Добавляем join key для объединения
                 mapped_record["doi"] = doi
+                
+                # Диагностическое логирование
+                logger.debug(f"Mapped Crossref record columns: {list(mapped_record.keys())}")
+                logger.debug(f"Sample values - doi: {mapped_record.get('crossref_doi')}, title: {mapped_record.get('crossref_title')}")
                 
                 record_list.append(mapped_record)
         
@@ -208,11 +218,15 @@ def extract_from_openalex(client: Any, pmids: list[str], batch_size: int = 50) -
         record_list = []
         for pmid, record in records.items():
             if isinstance(record, dict):
-                # Применяем маппинг полей
-                mapped_record = apply_field_mapping(record, "openalex")
+                # Клиент уже возвращает данные с правильными префиксами
+                mapped_record = record
                 
                 # Добавляем join key для объединения
                 mapped_record["document_pubmed_id"] = pmid
+                
+                # Диагностическое логирование
+                logger.debug(f"Mapped OpenAlex record columns: {list(mapped_record.keys())}")
+                logger.debug(f"Sample values - doi: {mapped_record.get('openalex_doi')}, pmid: {mapped_record.get('openalex_pmid')}")
                 
                 record_list.append(mapped_record)
         
@@ -283,11 +297,15 @@ def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int
         record_list = []
         for pmid, record in records.items():
             if isinstance(record, dict):
-                # Применяем маппинг полей
-                mapped_record = apply_field_mapping(record, "semantic_scholar")
+                # Клиент уже возвращает данные с правильными префиксами
+                mapped_record = record
                 
                 # Добавляем join key для объединения
                 mapped_record["document_pubmed_id"] = pmid
+                
+                # Диагностическое логирование
+                logger.debug(f"Mapped Semantic Scholar record columns: {list(mapped_record.keys())}")
+                logger.debug(f"Sample values - doi: {mapped_record.get('semantic_scholar_doi')}, pmid: {mapped_record.get('semantic_scholar_pmid')}")
                 
                 record_list.append(mapped_record)
         
@@ -358,8 +376,8 @@ def extract_from_chembl(client: Any, chembl_ids: list[str], batch_size: int = 10
         record_list = []
         for chembl_id, record in records.items():
             if isinstance(record, dict):
-                # Применяем маппинг полей
-                mapped_record = apply_field_mapping(record, "chembl")
+                # Клиент уже возвращает данные с правильными префиксами
+                mapped_record = record
                 
                 # Добавляем join key для объединения
                 mapped_record["document_chembl_id"] = chembl_id

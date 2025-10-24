@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from library.clients.base import BaseApiClient
+from library.clients.chembl import ChEMBLClient, TestitemChEMBLClient
 from library.config import APIClientConfig
 
 logger = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class ChEMBLStatusClient(BaseApiClient):
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
-            logger.warning(f"Failed to get ChEMBL status: {e}")
+            logger.warning("Failed to get ChEMBL status: %s", e)
             return {
                 "chembl_db_version": None,
                 "chembl_release_date": None,
@@ -63,6 +64,5 @@ class ChEMBLStatusClient(BaseApiClient):
 
 
 # Re-export existing classes for backward compatibility
-from library.clients.chembl import TestitemChEMBLClient, ChEMBLClient
 
 __all__ = ["ChEMBLStatusClient", "TestitemChEMBLClient", "ChEMBLClient"]

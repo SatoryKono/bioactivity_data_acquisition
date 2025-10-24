@@ -29,7 +29,7 @@ class TestitemChEMBLClient(BaseApiClient):
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
-            logger.warning(f"Failed to get ChEMBL status: {e}")
+            logger.warning("Failed to get ChEMBL status: %s", e)
             return {
                 "chembl_release": None,
                 "status": "error",
@@ -46,7 +46,7 @@ class TestitemChEMBLClient(BaseApiClient):
             else:
                 return self._create_empty_molecule_record(molecule_chembl_id, "No data found")
         except Exception as e:
-            logger.warning(f"Failed to fetch molecule {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch molecule %s: %s", molecule_chembl_id, e)
             return self._create_empty_molecule_record(molecule_chembl_id, str(e))
 
     def resolve_molregno_to_chembl_id(self, molregno: int | str) -> str | None:
@@ -66,7 +66,7 @@ class TestitemChEMBLClient(BaseApiClient):
             chembl_id = molecules[0].get("molecule_chembl_id")
             return chembl_id
         except Exception as e:
-            logger.warning(f"Failed to resolve molregno {molregno} to ChEMBL ID: {e}")
+            logger.warning("Failed to resolve molregno %s to ChEMBL ID: %s", molregno, e)
             return None
 
     def fetch_molecules_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -74,7 +74,7 @@ class TestitemChEMBLClient(BaseApiClient):
         try:
             # ChEMBL API URL length limit requires smaller batches
             if len(molecule_chembl_ids) > 25:
-                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                logger.warning("Batch size %d exceeds URL limit of 25, splitting into chunks", len(molecule_chembl_ids))
                 results = {}
                 for i in range(0, len(molecule_chembl_ids), 25):
                     chunk = molecule_chembl_ids[i:i+25]
@@ -106,7 +106,7 @@ class TestitemChEMBLClient(BaseApiClient):
             return results
             
         except Exception as e:
-            logger.warning(f"Failed to fetch molecules batch: {e}")
+            logger.warning("Failed to fetch molecules batch: %s", e)
             # Fallback to individual requests
             results = {}
             for chembl_id in molecule_chembl_ids:
@@ -159,7 +159,7 @@ class TestitemChEMBLClient(BaseApiClient):
                 yield (batch, parsed_molecules)
                 
             except Exception as e:
-                logger.warning(f"Failed to fetch molecules batch {batch}: {e}")
+                logger.warning("Failed to fetch molecules batch %s: %s", batch, e)
                 # Yield empty records for failed batch
                 failed_molecules = []
                 for chembl_id in batch:
@@ -172,7 +172,7 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_molecule_form(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch molecule form for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch molecule form for %s: %s", molecule_chembl_id, e)
             return {}
 
     def fetch_molecule_properties(self, molecule_chembl_id: str) -> dict[str, Any]:
@@ -181,7 +181,7 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"molecule_properties?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_molecule_properties(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch molecule properties for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch molecule properties for %s: %s", molecule_chembl_id, e)
             return {}
 
     def fetch_molecule_properties_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -189,7 +189,7 @@ class TestitemChEMBLClient(BaseApiClient):
         try:
             # ChEMBL supports batch requests for properties
             if len(molecule_chembl_ids) > 50:
-                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds ChEMBL limit of 50, splitting into chunks")
+                logger.warning("Batch size %d exceeds ChEMBL limit of 50, splitting into chunks", len(molecule_chembl_ids))
                 results = {}
                 for i in range(0, len(molecule_chembl_ids), 50):
                     chunk = molecule_chembl_ids[i:i+50]
@@ -220,7 +220,7 @@ class TestitemChEMBLClient(BaseApiClient):
             return results
             
         except Exception as e:
-            logger.warning(f"Failed to fetch molecule properties batch: {e}")
+            logger.warning("Failed to fetch molecule properties batch: %s", e)
             # Fallback to individual requests
             results = {}
             for chembl_id in molecule_chembl_ids:
@@ -233,14 +233,14 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_mechanism(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch mechanism for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch mechanism for %s: %s", molecule_chembl_id, e)
             return {}
 
     def fetch_mechanism_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Fetch mechanism data for multiple molecules using proper ChEMBL API."""
         try:
             if len(molecule_chembl_ids) > 25:
-                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                logger.warning("Batch size %d exceeds URL limit of 25, splitting into chunks", len(molecule_chembl_ids))
                 results = {}
                 for i in range(0, len(molecule_chembl_ids), 25):
                     chunk = molecule_chembl_ids[i:i+25]
@@ -272,7 +272,7 @@ class TestitemChEMBLClient(BaseApiClient):
             return results
             
         except Exception as e:
-            logger.warning(f"Failed to fetch mechanism batch: {e}")
+            logger.warning("Failed to fetch mechanism batch: %s", e)
             # Fallback to individual requests
             results = {}
             for chembl_id in molecule_chembl_ids:
@@ -285,14 +285,14 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_atc_classification(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch ATC classification for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch ATC classification for %s: %s", molecule_chembl_id, e)
             return {}
 
     def fetch_atc_classification_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Fetch ATC classification data for multiple molecules using proper ChEMBL API."""
         try:
             if len(molecule_chembl_ids) > 25:
-                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                logger.warning("Batch size %d exceeds URL limit of 25, splitting into chunks", len(molecule_chembl_ids))
                 results = {}
                 for i in range(0, len(molecule_chembl_ids), 25):
                     chunk = molecule_chembl_ids[i:i+25]
@@ -324,7 +324,7 @@ class TestitemChEMBLClient(BaseApiClient):
             return results
             
         except Exception as e:
-            logger.warning(f"Failed to fetch ATC classification batch: {e}")
+            logger.warning("Failed to fetch ATC classification batch: %s", e)
             # Fallback to individual requests
             results = {}
             for chembl_id in molecule_chembl_ids:
@@ -337,7 +337,7 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"compound_synonym?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_compound_synonym(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch compound synonym for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch compound synonym for %s: %s", molecule_chembl_id, e)
             return {}
 
     def fetch_drug(self, molecule_chembl_id: str) -> dict[str, Any]:
@@ -346,14 +346,14 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_drug(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch drug data for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch drug data for %s: %s", molecule_chembl_id, e)
             return {}
 
     def fetch_drug_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Fetch drug data for multiple molecules using proper ChEMBL API."""
         try:
             if len(molecule_chembl_ids) > 25:
-                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                logger.warning("Batch size %d exceeds URL limit of 25, splitting into chunks", len(molecule_chembl_ids))
                 results = {}
                 for i in range(0, len(molecule_chembl_ids), 25):
                     chunk = molecule_chembl_ids[i:i+25]
@@ -385,7 +385,7 @@ class TestitemChEMBLClient(BaseApiClient):
             return results
             
         except Exception as e:
-            logger.warning(f"Failed to fetch drug batch: {e}")
+            logger.warning("Failed to fetch drug batch: %s", e)
             # Fallback to individual requests
             results = {}
             for chembl_id in molecule_chembl_ids:
@@ -398,14 +398,14 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_drug_warning(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch drug warning for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch drug warning for %s: %s", molecule_chembl_id, e)
             return {}
 
     def fetch_drug_warning_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
         """Fetch drug warnings for multiple molecules using proper ChEMBL API."""
         try:
             if len(molecule_chembl_ids) > 25:
-                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                logger.warning("Batch size %d exceeds URL limit of 25, splitting into chunks", len(molecule_chembl_ids))
                 results = {}
                 for i in range(0, len(molecule_chembl_ids), 25):
                     chunk = molecule_chembl_ids[i:i+25]
@@ -437,7 +437,7 @@ class TestitemChEMBLClient(BaseApiClient):
             return results
             
         except Exception as e:
-            logger.warning(f"Failed to fetch drug warning batch: {e}")
+            logger.warning("Failed to fetch drug warning batch: %s", e)
             # Fallback to individual requests
             results = {}
             for chembl_id in molecule_chembl_ids:
@@ -450,7 +450,7 @@ class TestitemChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_xref_source(payload)
         except Exception as e:
-            logger.warning(f"Failed to fetch xref source for {molecule_chembl_id}: {e}")
+            logger.warning("Failed to fetch xref source for %s: %s", molecule_chembl_id, e)
             return {}
 
     def _parse_molecule(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -787,7 +787,7 @@ class ChEMBLClient(BaseApiClient):
                 "extracted_at": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
-            logger.warning(f"Failed to fetch document {document_chembl_id}: {e}")
+            logger.warning("Failed to fetch document %s: %s", document_chembl_id, e)
             return {
                 "document_chembl_id": document_chembl_id,
                 "source_system": "ChEMBL",
@@ -821,7 +821,7 @@ class ChEMBLClient(BaseApiClient):
                     result = self.fetch_by_doc_id(doc_id)
                     results[doc_id] = result
                 except Exception as e:
-                    logger.warning(f"Failed to fetch document {doc_id} in batch: {e}")
+                    logger.warning("Failed to fetch document %s in batch: %s", doc_id, e)
                     results[doc_id] = {
                         "document_chembl_id": doc_id,
                         "source_system": "ChEMBL",

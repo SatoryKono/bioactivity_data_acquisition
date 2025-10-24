@@ -210,12 +210,13 @@ Examples:
     args = parser.parse_args()
     
     try:
-        # Setup logging
+        # Setup logging with automatic Windows detection
         configure_logging(
             level=args.log_level,
             file_enabled=args.log_file is not None,
             console_format=args.log_format,
             log_file=args.log_file,
+            config_path=None,  # Let it auto-detect Windows config
         )
         
         # Load configuration
