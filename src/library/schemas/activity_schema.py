@@ -155,167 +155,371 @@ class ActivityNormalizedSchema:
     def get_schema() -> DataFrameSchema:
         """Схема для нормализованных данных активностей."""
         return DataFrameSchema({
-            # Основные поля
-            "activity_chembl_id": Column(
-                pa.String,
+            # ACTIVITIES - основные поля
+            "activity_id": Column(
+                pa.Int,
                 checks=[
-                    Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL activity ID format"),
+                    Check.greater_than_or_equal_to(1, error="Activity ID must be >= 1"),
                     Check(lambda x: x.notna())
                 ],
                 nullable=False,
-                description="ChEMBL ID активности"
+                description="Уникальный ID активности (PK)"
             ),
-            "assay_chembl_id": Column(
-                pa.String,
+            "assay_id": Column(
+                pa.Int,
                 checks=[
-                    Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL assay ID format"),
+                    Check.greater_than_or_equal_to(1, error="Assay ID must be >= 1"),
                     Check(lambda x: x.notna())
                 ],
                 nullable=False,
-                description="ChEMBL ID ассая"
+                description="FK на ASSAYS"
             ),
-            "document_chembl_id": Column(
-                pa.String,
+            "doc_id": Column(
+                pa.Int,
                 checks=[
-                    Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL document ID format"),
+                    Check.greater_than_or_equal_to(1, error="Document ID must be >= 1"),
                     Check(lambda x: x.notna())
                 ],
                 nullable=False,
-                description="ChEMBL ID документа"
+                description="FK на DOCS"
             ),
-            "target_chembl_id": Column(
-                pa.String,
+            "record_id": Column(
+                pa.Int,
                 checks=[
-                    Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL target ID format"),
+                    Check.greater_than_or_equal_to(1, error="Record ID must be >= 1"),
                     Check(lambda x: x.notna())
                 ],
                 nullable=False,
-                description="ChEMBL ID таргета"
+                description="FK на COMPOUND_RECORDS"
             ),
-            "molecule_chembl_id": Column(
-                pa.String,
+            "molregno": Column(
+                pa.Int,
                 checks=[
-                    Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL molecule ID format"),
+                    Check.greater_than_or_equal_to(1, error="Molregno must be >= 1"),
                     Check(lambda x: x.notna())
                 ],
                 nullable=False,
-                description="ChEMBL ID молекулы"
-            ),
-            "retrieved_at": Column(
-                pa.DateTime,
-                checks=[Check(lambda x: x.notna())],
-                nullable=False,
-                description="Время получения данных"
+                description="FK на MOLECULE_DICTIONARY"
             ),
             
-            # Поля активности
-            "activity_type": Column(
+            # ACTIVITIES - данные активности
+            "type": Column(
                 pa.String,
                 checks=[
-                    Check.isin(["IC50", "EC50", "Ki", "Kd", "AC50"], error="Invalid activity type")
+                    Check.str_length(max=250, error="Type must be <= 250 characters")
                 ],
                 nullable=True,
-                description="Тип активности"
+                description="Исходный тип (Ki, IC50, %)"
             ),
-            "activity_value": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="Activity value must be >= 0")
-                ],
-                nullable=True,
-                description="Значение активности"
-            ),
-            "activity_unit": Column(
+            "relation": Column(
                 pa.String,
                 checks=[
-                    Check.isin(["nM", "uM", "mM", "M", "%", "mg/ml", "ug/ml"], error="Invalid activity unit")
-                ],
-                nullable=True,
-                description="Единицы активности"
-            ),
-            "pchembl_value": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(3.0, error="pChEMBL value must be >= 3.0"),
-                    Check.less_than_or_equal_to(12.0, error="pChEMBL value must be <= 12.0")
-                ],
-                nullable=True,
-                description="-log10(стандартизованное значение)"
-            ),
-            "data_validity_comment": Column(pa.String, nullable=True, description="Комментарий о валидности данных"),
-            "activity_comment": Column(pa.String, nullable=True, description="Комментарий к активности"),
-            "lower_bound": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="Lower bound must be >= 0")
-                ],
-                nullable=True,
-                description="Нижняя граница для цензурированных данных"
-            ),
-            "upper_bound": Column(
-                pa.Float,
-                checks=[
-                    Check.greater_than_or_equal_to(0, error="Upper bound must be >= 0")
-                ],
-                nullable=True,
-                description="Верхняя граница для цензурированных данных"
-            ),
-            "is_censored": Column(pa.Bool, nullable=True, description="Флаг цензурированных данных"),
-            "published_type": Column(pa.String, nullable=True, description="Оригинальный тип опубликованной активности"),
-            "published_relation": Column(
-                pa.String,
-                checks=[
-                    Check.isin(["=", ">", "<", ">=", "<="], error="Invalid published relation")
+                    Check.isin(["=", ">", ">=", "<", "<=", "~"], error="Invalid relation"),
+                    Check.str_length(max=50, error="Relation must be <= 50 characters")
                 ],
                 nullable=True,
                 description="Отношение"
             ),
-            "published_value": Column(
+            "value": Column(
                 pa.Float,
                 checks=[
-                    Check.greater_than_or_equal_to(0, error="Published value must be >= 0")
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="Value must be a valid number or NaN")
                 ],
                 nullable=True,
-                description="Оригинальное опубликованное значение"
+                description="Исходное значение"
             ),
-            "published_units": Column(pa.String, nullable=True, description="Оригинальные единицы"),
+            "units": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=100, error="Units must be <= 100 characters")
+                ],
+                nullable=True,
+                description="Единицы (raw)"
+            ),
+            "text_value": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=1000, error="Text value must be <= 1000 characters")
+                ],
+                nullable=True,
+                description="Текстовое значение"
+            ),
+            "upper_value": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="Upper value must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Верхняя граница диапазона"
+            ),
+            
+            # ACTIVITIES - стандартизованные данные
             "standard_type": Column(
                 pa.String,
-                checks=[Check(lambda x: x.notna())],
-                nullable=False,
-                description="Стандартизованный тип активности"
+                checks=[
+                    Check.str_length(max=250, error="Standard type must be <= 250 characters")
+                ],
+                nullable=True,
+                description="Нормализованный тип"
             ),
             "standard_relation": Column(
                 pa.String,
                 checks=[
-                    Check.isin(["=", ">", "<", ">=", "<="], error="Invalid standard relation")
+                    Check.isin(["=", ">", ">=", "<", "<=", "~"], error="Invalid standard relation")
                 ],
                 nullable=True,
-                description="Стандартизованное отношение"
+                description="Нормализованное отношение"
             ),
             "standard_value": Column(
                 pa.Float,
                 checks=[
-                    Check.greater_than_or_equal_to(1e-12, error="Standard value must be >= 1e-12"),
-                    Check.less_than_or_equal_to(1e-3, error="Standard value must be <= 1e-3"),
-                    Check(lambda x: x.notna())
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="Standard value must be a valid number or NaN")
                 ],
-                nullable=False,
-                description="Стандартизованное значение"
+                nullable=True,
+                description="Нормализованное значение"
             ),
             "standard_units": Column(
                 pa.String,
                 checks=[
-                    Check.isin(["nM", "uM", "mM", "M", "%"], error="Invalid standard units"),
-                    Check(lambda x: x.notna())
+                    Check.str_length(max=100, error="Standard units must be <= 100 characters")
                 ],
-                nullable=False,
-                description="Стандартизованные единицы"
+                nullable=True,
+                description="Нормализованные ед."
             ),
-            "standard_flag": Column(pa.Bool, nullable=True, description="Флаг стандартизации"),
-            "bao_endpoint": Column(pa.String, nullable=True, description="BAO endpoint классификация"),
-            "bao_format": Column(pa.String, nullable=True, description="BAO format классификация"),
-            "bao_label": Column(pa.String, nullable=True, description="BAO label классификация"),
+            "standard_flag": Column(
+                pa.Int,
+                checks=[
+                    Check.isin([0, 1], error="Standard flag must be 0 or 1")
+                ],
+                nullable=True,
+                description="Признак стандартизации (1/0)"
+            ),
+            "standard_text_value": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=1000, error="Standard text value must be <= 1000 characters")
+                ],
+                nullable=True,
+                description="Нормализованный текст"
+            ),
+            "standard_upper_value": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="Standard upper value must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Верхняя граница (std)"
+            ),
+            
+            # ACTIVITIES - комментарии и метаданные
+            "activity_comment": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=4000, error="Activity comment must be <= 4000 characters")
+                ],
+                nullable=True,
+                description="Комментарий активности"
+            ),
+            "data_validity_comment": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=1000, error="Data validity comment must be <= 1000 characters")
+                ],
+                nullable=True,
+                description="Комментарий валидности"
+            ),
+            "potential_duplicate": Column(
+                pa.Int,
+                checks=[
+                    Check.isin([0, 1], error="Potential duplicate must be 0 or 1")
+                ],
+                nullable=True,
+                description="Возможный дубликат"
+            ),
+            "pchembl_value": Column(
+                pa.Float,
+                checks=[
+                    Check.greater_than_or_equal_to(0, error="pChEMBL value must be >= 0"),
+                    Check.less_than_or_equal_to(14, error="pChEMBL value must be <= 14")
+                ],
+                nullable=True,
+                description="pChEMBL (сравнение потентности)"
+            ),
+            
+            # ACTIVITIES - онтологии
+            "bao_endpoint": Column(
+                pa.String,
+                checks=[
+                    Check.str_matches(r'^BAO_\d{7}$', error="Invalid BAO endpoint format"),
+                    Check.str_length(max=50, error="BAO endpoint must be <= 50 characters")
+                ],
+                nullable=True,
+                description="BAO endpoint ID"
+            ),
+            "uo_units": Column(
+                pa.String,
+                checks=[
+                    Check.str_matches(r'^UO_\d{7}$|^$', error="Invalid UO units format")
+                ],
+                nullable=True,
+                description="Unit Ontology"
+            ),
+            "qudt_units": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=500, error="QUDT units must be <= 500 characters")
+                ],
+                nullable=True,
+                description="QUDT URI"
+            ),
+            "src_id": Column(
+                pa.Int,
+                checks=[
+                    Check.greater_than_or_equal_to(1, error="Source ID must be >= 1")
+                ],
+                nullable=True,
+                description="Источник"
+            ),
+            "action_type": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=100, error="Action type must be <= 100 characters")
+                ],
+                nullable=True,
+                description="Тип действия лиганда"
+            ),
+            
+            # ACTIVITY_PROPERTIES (развернутые)
+            "activity_prop_type": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=250, error="Activity property type must be <= 250 characters")
+                ],
+                nullable=True,
+                description="Имя свойства/параметра"
+            ),
+            "activity_prop_relation": Column(
+                pa.String,
+                checks=[
+                    Check.isin(["=", ">", ">=", "<", "<=", "~"], error="Invalid activity property relation")
+                ],
+                nullable=True,
+                description="Отношение"
+            ),
+            "activity_prop_value": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="Activity property value must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Значение"
+            ),
+            "activity_prop_units": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=100, error="Activity property units must be <= 100 characters")
+                ],
+                nullable=True,
+                description="Единицы"
+            ),
+            "activity_prop_text_value": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=2000, error="Activity property text value must be <= 2000 characters")
+                ],
+                nullable=True,
+                description="Текстовое значение"
+            ),
+            "activity_prop_standard_type": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=250, error="Activity property standard type must be <= 250 characters")
+                ],
+                nullable=True,
+                description="Нормализованный тип"
+            ),
+            "activity_prop_standard_relation": Column(
+                pa.String,
+                checks=[
+                    Check.isin(["=", ">", ">=", "<", "<=", "~"], error="Invalid activity property standard relation")
+                ],
+                nullable=True,
+                description="Нормализованное отношение"
+            ),
+            "activity_prop_standard_value": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="Activity property standard value must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Нормализованное значение"
+            ),
+            "activity_prop_standard_units": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=100, error="Activity property standard units must be <= 100 characters")
+                ],
+                nullable=True,
+                description="Нормализованные ед."
+            ),
+            "activity_prop_standard_text_value": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=2000, error="Activity property standard text value must be <= 2000 characters")
+                ],
+                nullable=True,
+                description="Нормализованный текст"
+            ),
+            "activity_prop_comments": Column(
+                pa.String,
+                checks=[
+                    Check.str_length(max=2000, error="Activity property comments must be <= 2000 characters")
+                ],
+                nullable=True,
+                description="Комментарий к свойству"
+            ),
+            "activity_prop_result_flag": Column(
+                pa.Int,
+                checks=[
+                    Check.isin([0, 1], error="Activity property result flag must be 0 or 1")
+                ],
+                nullable=True,
+                description="1 если это результат"
+            ),
+            
+            # LIGAND_EFF
+            "bei": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="BEI must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Binding Efficiency Index"
+            ),
+            "sei": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="SEI must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Surface Efficiency Index"
+            ),
+            "le": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="LE must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Ligand Efficiency"
+            ),
+            "lle": Column(
+                pa.Float,
+                checks=[
+                    Check(lambda x: x.notna() | (x.isna() & x.isna()), error="LLE must be a valid number or NaN")
+                ],
+                nullable=True,
+                description="Lipophilic Ligand Efficiency"
+            ),
             
             # Системные поля
             "index": Column(
@@ -357,18 +561,6 @@ class ActivityNormalizedSchema:
                 checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Хеш бизнес-ключа SHA256"
-            ),
-            
-            # Ошибки и статусы
-            "extraction_errors": Column(pa.String, nullable=True, description="Ошибки извлечения (JSON)"),
-            "validation_errors": Column(pa.String, nullable=True, description="Ошибки валидации (JSON)"),
-            "extraction_status": Column(
-                pa.String,
-                checks=[
-                    Check.isin(["success", "partial", "failed"], error="Invalid extraction status")
-                ],
-                nullable=True,
-                description="Статус извлечения"
             ),
         })
 

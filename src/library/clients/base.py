@@ -216,12 +216,31 @@ class BaseApiClient:
                 # Если что-то пошло не так с логированием, просто пропускаем
                 self.logger.debug("Backoff handler error: %s", str(e))
         
+        def _safe_giveup_handler(details):
+            """Безопасный обработчик для giveup без проблем с форматированием."""
+            try:
+                # Экранируем символы % в сообщениях
+                safe_msg = str(details.get('message', '')).replace('%', '%%')
+                
+                # Логируем без использования форматирования
+                self.logger.warning(
+                    "Giving up %s(...) after %s tries (%s)",
+                    details.get('target', 'unknown'),
+                    details.get('tries', 0),
+                    safe_msg
+                )
+            except Exception as e:
+                # Если что-то пошло не так с логированием, просто пропускаем
+                self.logger.debug("Giveup handler error: %s", str(e))
+        
         sender = backoff.on_exception(
             wait_gen,
             requests.exceptions.RequestException,
             max_tries=self.max_retries,
             giveup=_giveup,
             on_backoff=_safe_backoff_handler,
+            on_giveup=_safe_giveup_handler,  # Используем наш безопасный обработчик
+            logger=None,  # Отключаем встроенное логирование backoff
         )(_call_with_rate_limit)
         
         # Use circuit breaker to protect the request

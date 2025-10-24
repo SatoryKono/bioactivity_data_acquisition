@@ -269,8 +269,9 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         nullable=False
     )
     chembl_release: Series[str] = pa.Field(
-        description="ChEMBL release version",
-        nullable=True
+        description="ChEMBL release version (e.g., CHEMBL_36)",
+        nullable=True,
+        str_matches=r"^CHEMBL_\d+$"
     )
     
     # Core assay fields - nullable=True for missing data

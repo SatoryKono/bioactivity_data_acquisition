@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Any
 
 import pandas as pd
@@ -64,7 +65,14 @@ class AssayPipeline(PipelineBase[AssayConfig]):
             follow_redirects=True,
         )
         
-        return ChEMBLClient(client_config)
+        # Create client with caching and fallback options
+        return ChEMBLClient(
+            client_config,
+            cache_dir="data/cache/chembl",
+            cache_ttl=3600,  # 1 hour
+            use_fallback=True,
+            fallback_on_errors=True
+        )
     
     def _get_headers(self, source: str) -> dict[str, str]:
         """Get default headers for a source."""
@@ -127,56 +135,112 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         # Track missing fields across all assays
         missing_fields = set()
         empty_fields = set()
+        error_count = 0
+        success_count = 0
+        fallback_count = 0
         
         # Collect unique target IDs and assay class IDs for enrichment
         target_ids = set()
         assay_class_ids = set()
         
-        for _, row in data.iterrows():
-            assay_id = row["assay_chembl_id"]
+        # Get batch size from config (default to 25 for ChEMBL API limit)
+        batch_size = 25  # TODO: Get from config when batch_size field is added to AssaySourceSettings
+        
+        # Extract assay IDs
+        assay_ids = data["assay_chembl_id"].tolist()
+        logger.info(f"Processing {len(assay_ids)} assays in batches of {batch_size}")
+        
+        # Process in batches
+        all_assay_data = {}
+        for i in range(0, len(assay_ids), batch_size):
+            batch_ids = assay_ids[i:i + batch_size]
+            logger.info(f"Processing batch {i//batch_size + 1}: {len(batch_ids)} assays")
+            
             try:
-                assay_data = chembl_client.fetch_by_assay_id(assay_id)
-                if assay_data:
-                    # Expand assay parameters
-                    assay_data = self._expand_assay_parameters(assay_data)
-                    
-                    # Expand variant sequence
-                    assay_data = self._expand_variant_sequence(assay_data)
-                    
-                    extracted_records.append(assay_data)
-                    
-                    # Collect target_chembl_id for enrichment
-                    target_chembl_id = assay_data.get("target_chembl_id")
-                    if target_chembl_id:
-                        target_ids.add(target_chembl_id)
-                    
-                    # Collect assay_class_ids from assay_classifications
-                    classifications = assay_data.get("assay_classifications")
-                    if classifications:
-                        try:
-                            import json
-                            class_data = json.loads(classifications)
-                            if isinstance(class_data, list):
-                                for class_item in class_data:
-                                    if isinstance(class_item, dict) and "assay_class_id" in class_item:
-                                        assay_class_ids.add(class_item["assay_class_id"])
-                        except (json.JSONDecodeError, TypeError) as e:
-                            logger.debug(f"Failed to parse assay_classifications for {assay_id}: {e}")
-                    
-                    # Track which fields are missing or empty
-                    for field, value in assay_data.items():
-                        if field not in missing_fields and field not in empty_fields:
-                            if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
-                                empty_fields.add(field)
-                else:
-                    logger.warning(f"No data returned for assay {assay_id}")
+                batch_data = chembl_client.fetch_assays_batch(batch_ids)
+                all_assay_data.update(batch_data)
+                logger.info(f"Successfully fetched {len(batch_data)} assays from batch")
             except Exception as e:
-                logger.warning("Failed to fetch assay %s: %s", assay_id, e)
+                logger.error(f"Failed to fetch batch {i//batch_size + 1}: {e}")
+                # Continue with next batch
                 continue
+        
+        # Process fetched data
+        for assay_id in assay_ids:
+            assay_data = all_assay_data.get(assay_id)
+            if assay_data and "error" not in assay_data:
+                # Check if this is fallback data
+                if assay_data.get("source_system") == "ChEMBL_FALLBACK":
+                    fallback_count += 1
+                    logger.debug(f"Using fallback data for assay {assay_id}")
+                else:
+                    success_count += 1
+                
+                # Expand assay parameters
+                assay_data = self._expand_assay_parameters(assay_data)
+                
+                # Expand variant sequence
+                assay_data = self._expand_variant_sequence(assay_data)
+                
+                extracted_records.append(assay_data)
+                
+                # Collect target_chembl_id for enrichment
+                target_chembl_id = assay_data.get("target_chembl_id")
+                if target_chembl_id:
+                    target_ids.add(target_chembl_id)
+                
+                # Collect assay_class_ids from assay_classifications
+                classifications = assay_data.get("assay_classifications")
+                if classifications:
+                    try:
+                        import json
+                        class_data = json.loads(classifications)
+                        if isinstance(class_data, list):
+                            for class_item in class_data:
+                                if isinstance(class_item, dict) and "assay_class_id" in class_item:
+                                    assay_class_ids.add(class_item["assay_class_id"])
+                    except (json.JSONDecodeError, TypeError) as e:
+                        logger.debug(f"Failed to parse assay_classifications for {assay_id}: {e}")
+                
+                # Track which fields are missing or empty
+                for field, value in assay_data.items():
+                    if field not in missing_fields and field not in empty_fields:
+                        if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
+                            empty_fields.add(field)
+            else:
+                error_count += 1
+                error_msg = assay_data.get("error", "No data returned") if assay_data else "Not found in batch"
+                logger.warning(f"Failed to fetch assay {assay_id}: {error_msg}")
+                # Add error record
+                extracted_records.append({
+                    "assay_chembl_id": assay_id,
+                    "source_system": "ChEMBL",
+                    "extracted_at": datetime.utcnow().isoformat() + "Z",
+                    "error": error_msg
+                })
         
         if extracted_records:
             extracted_df = pd.DataFrame(extracted_records)
+            
+            # Log extraction statistics
+            total_assays = len(assay_ids)
+            logger.info("Assay extraction summary:")
+            logger.info(f"  Total assays: {total_assays}")
+            logger.info(f"  Successfully extracted: {success_count}")
+            logger.info(f"  Using fallback data: {fallback_count}")
+            logger.info(f"  Errors: {error_count}")
+            logger.info(f"  Success rate: {(success_count + fallback_count) / total_assays * 100:.1f}%")
+            
+            if fallback_count > 0:
+                logger.warning(f"Used fallback data for {fallback_count} assays due to API issues")
+            
+            if error_count > 0:
+                logger.warning(f"Failed to extract {error_count} assays")
+            
             logger.info(f"Successfully extracted {len(extracted_df)} assay records from ChEMBL")
+            
+            # Ensure all expected fields are present
+            extracted_df = self._ensure_all_fields_present(extracted_df)
             
             # Enrich with target data
             if target_ids:
@@ -219,6 +283,9 @@ class AssayPipeline(PipelineBase[AssayConfig]):
             ]
             logger.info(f"Fields unavailable in ChEMBL API: {unavailable_fields}")
             logger.info("These fields are documented as unavailable in ChEMBL API v33+")
+            
+            # Final check: ensure all fields are present after all enrichments
+            extracted_df = self._ensure_all_fields_present(extracted_df)
             
             return extracted_df
         else:
@@ -291,37 +358,97 @@ class AssayPipeline(PipelineBase[AssayConfig]):
                 logger.warning(f"Failed to fetch assay_class {class_id}: {e}")
         return pd.DataFrame(class_records) if class_records else pd.DataFrame()
     
+    def _ensure_all_fields_present(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure all expected fields are present in DataFrame with None defaults."""
+        expected_fields = {
+            # ASSAY_PARAMETERS
+            'assay_param_type': None,
+            'assay_param_relation': None,
+            'assay_param_value': None,
+            'assay_param_units': None,
+            'assay_param_text_value': None,
+            'assay_param_standard_type': None,
+            'assay_param_standard_value': None,
+            'assay_param_standard_units': None,
+            # ASSAY_CLASS
+            'assay_class_id': None,
+            'assay_class_bao_id': None,
+            'assay_class_type': None,
+            'assay_class_l1': None,
+            'assay_class_l2': None,
+            'assay_class_l3': None,
+            'assay_class_description': None,
+            # VARIANT_SEQUENCES
+            'variant_id': None,
+            'variant_base_accession': None,
+            'variant_mutation': None,
+            'variant_sequence': None,
+            'variant_accession_reported': None,
+        }
+        
+        missing_fields = []
+        for field, default_value in expected_fields.items():
+            if field not in df.columns:
+                df[field] = default_value
+                missing_fields.append(field)
+        
+        if missing_fields:
+            logger.debug(f"Initialized {len(missing_fields)} missing fields: {missing_fields}")
+        
+        return df
+    
     def _merge_assay_class_data(self, assay_df: pd.DataFrame, class_df: pd.DataFrame) -> pd.DataFrame:
-        """Merge assay class data into assay DataFrame."""
+        """Merge assay class data into assay DataFrame using vectorized operations."""
+        import json
+        
+        # Инициализировать все assay_class колонки как None
+        class_columns = ['assay_class_id', 'assay_class_bao_id', 'assay_class_type',
+                         'assay_class_l1', 'assay_class_l2', 'assay_class_l3', 
+                         'assay_class_description']
+        
+        for col in class_columns:
+            if col not in assay_df.columns:
+                assay_df[col] = None
+        
         if class_df.empty:
             return assay_df
         
-        # Create a mapping from assay_class_id to class data
-        class_dict = class_df.set_index('assay_class_id').to_dict('index')
+        # Извлечь assay_class_id из assay_classifications для каждого ассея
+        def extract_first_class_id(classifications_json):
+            """Extract first assay_class_id from classifications JSON."""
+            if not classifications_json:
+                return None
+            try:
+                class_data = json.loads(classifications_json)
+                if isinstance(class_data, list) and len(class_data) > 0:
+                    first_class = class_data[0]
+                    if isinstance(first_class, dict):
+                        return first_class.get("assay_class_id")
+            except (json.JSONDecodeError, TypeError, KeyError):
+                return None
+            return None
         
-        # For each assay, find the first assay_class_id from classifications and merge its data
-        for idx, row in assay_df.iterrows():
-            classifications = row.get("assay_classifications")
-            if classifications:
-                try:
-                    import json
-                    class_data = json.loads(classifications)
-                    if isinstance(class_data, list) and len(class_data) > 0:
-                        # Take the first classification
-                        first_class = class_data[0]
-                        if isinstance(first_class, dict) and "assay_class_id" in first_class:
-                            class_id = first_class["assay_class_id"]
-                            if class_id in class_dict:
-                                # Merge class data into this row
-                                class_info = class_dict[class_id]
-                                for key, value in class_info.items():
-                                    if key != 'assay_class_id':  # Don't overwrite the ID
-                                        assay_df.at[idx, key] = value
-                except (json.JSONDecodeError, TypeError, KeyError) as e:
-                    logger.debug(f"Failed to merge assay class data for row {idx}: {e}")
-                    continue
+        # Создать временную колонку с assay_class_id для JOIN
+        assay_df['_temp_class_id'] = assay_df['assay_classifications'].apply(extract_first_class_id)
         
-        return assay_df
+        # Merge с class_df
+        result = assay_df.merge(
+            class_df,
+            left_on='_temp_class_id',
+            right_on='assay_class_id',
+            how='left',
+            suffixes=('', '_from_class')
+        )
+        
+        # Удалить временную колонку и дубликаты
+        result = result.drop(columns=['_temp_class_id'], errors='ignore')
+        
+        # Если есть дубликаты колонок с суффиксом _from_class, удалить их
+        for col in result.columns:
+            if col.endswith('_from_class'):
+                result = result.drop(columns=[col])
+        
+        return result
     
     def _merge_chembl_data(self, base_data: pd.DataFrame, chembl_data: pd.DataFrame) -> pd.DataFrame:
         """Merge ChEMBL data into base data."""

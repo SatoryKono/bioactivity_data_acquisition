@@ -6,7 +6,6 @@
 """
 
 import re
-from typing import Union, Optional, Any
 
 import pandas as pd
 
@@ -19,7 +18,7 @@ class AssayNormalizer(BaseNormalizer):
     """Normalizer for assay-specific fields."""
     
     @staticmethod
-    def normalize_assay_description(value: Union[str, None]) -> Optional[str]:
+    def normalize_assay_description(value: str | None) -> str | None:
         """Strip HTML, trim, max 4000 chars."""
         if not value:
             return None
@@ -29,7 +28,7 @@ class AssayNormalizer(BaseNormalizer):
         return value[:4000] if len(value) > 4000 else value
     
     @staticmethod
-    def normalize_bao_id(value: Union[str, None]) -> Optional[str]:
+    def normalize_bao_id(value: str | None) -> str | None:
         """Uppercase, validate BAO_\\d{7} format."""
         if not value:
             return None
@@ -39,7 +38,7 @@ class AssayNormalizer(BaseNormalizer):
         return None
     
     @staticmethod
-    def normalize_relation(value: Union[str, None]) -> Optional[str]:
+    def normalize_relation(value: str | None) -> str | None:
         """Normalize relation to standard set."""
         if not value:
             return None
@@ -55,7 +54,7 @@ class AssayNormalizer(BaseNormalizer):
         return normalized
     
     @staticmethod
-    def normalize_uniprot_accession(value: Union[str, None]) -> Optional[str]:
+    def normalize_uniprot_accession(value: str | None) -> str | None:
         """Validate UniProt accession format."""
         if not value:
             return None
@@ -66,7 +65,7 @@ class AssayNormalizer(BaseNormalizer):
         return None
     
     @staticmethod
-    def normalize_protein_sequence(value: Union[str, None]) -> Optional[str]:
+    def normalize_protein_sequence(value: str | None) -> str | None:
         """Validate protein sequence (A-Z and *)."""
         if not value:
             return None
@@ -76,7 +75,7 @@ class AssayNormalizer(BaseNormalizer):
         return None
     
     @staticmethod
-    def normalize_assay_param_type(value: Union[str, None]) -> Optional[str]:
+    def normalize_assay_param_type(value: str | None) -> str | None:
         """Normalize assay parameter type."""
         if not value:
             return None
@@ -91,39 +90,50 @@ class AssayNormalizer(BaseNormalizer):
         return value  # Return as-is if not in known types
     
     @staticmethod
-    def normalize_assay_param_units(value: Union[str, None]) -> Optional[str]:
+    def normalize_assay_param_units(value: str | None) -> str | None:
         """Normalize assay parameter units to lowercase."""
         if not value:
             return None
         return str(value).strip().lower()
     
     @staticmethod
-    def normalize_assay_class_type(value: Union[str, None]) -> Optional[str]:
+    def normalize_assay_class_type(value: str | None) -> str | None:
         """Normalize assay class type to lowercase."""
         if not value:
             return None
         return str(value).strip().lower()
     
     @staticmethod
-    def normalize_assay_class_hierarchy(value: Union[str, None]) -> Optional[str]:
+    def normalize_assay_class_hierarchy(value: str | None) -> str | None:
         """Normalize assay class hierarchy levels (l1, l2, l3) to lowercase."""
         if not value:
             return None
         return str(value).strip().lower()
     
     @staticmethod
-    def normalize_variant_mutation(value: Union[str, None]) -> Optional[str]:
+    def normalize_variant_mutation(value: str | None) -> str | None:
         """Normalize variant mutation to uppercase."""
         if not value:
             return None
         return str(value).strip().upper()
     
     @staticmethod
-    def normalize_variant_accession_reported(value: Union[str, None]) -> Optional[str]:
+    def normalize_variant_accession_reported(value: str | None) -> str | None:
         """Normalize variant accession reported to uppercase."""
         if not value:
             return None
         return str(value).strip().upper()
+    
+    @staticmethod
+    def normalize_chembl_release(value: str | None) -> str | None:
+        """Normalize ChEMBL release to uppercase and validate format."""
+        if not value:
+            return None
+        value = str(value).strip().upper()
+        # Validate CHEMBL_XX format
+        if re.match(r'^CHEMBL_\d+$', value):
+            return value
+        return None
 
 
 def normalize_assay_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -189,6 +199,12 @@ def normalize_assay_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     if 'variant_accession_reported' in df.columns:
         df['variant_accession_reported'] = df['variant_accession_reported'].apply(
             normalizer.normalize_variant_accession_reported
+        )
+    
+    # Normalize ChEMBL release
+    if 'chembl_release' in df.columns:
+        df['chembl_release'] = df['chembl_release'].apply(
+            normalizer.normalize_chembl_release
         )
     
     return df

@@ -86,41 +86,71 @@ determinism:
     ascending: [true, true, true, true, true]  # Направление сортировки
     na_position: "last"                # Позиция NULL значений
   column_order:
-    - "activity_chembl_id"               # STRING: PK активности из ChEMBL API /activity, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
-    - "assay_chembl_id"                  # STRING: FK к assay_dim, источник: ChEMBL API /assay, тип: STRING, валидация: NOT NULL, FK
-    - "document_chembl_id"               # STRING: FK к document_dim, источник: ChEMBL API /document, тип: STRING, валидация: NOT NULL, FK
-    - "target_chembl_id"                 # STRING: FK к target_dim, источник: ChEMBL API /target, тип: STRING, валидация: NOT NULL, FK
-    - "molecule_chembl_id"               # STRING: FK к testitem_dim, источник: ChEMBL API /molecule, тип: STRING, валидация: NOT NULL, FK
-    - "activity_type"                    # STRING: Тип активности (IC50, EC50, Ki, Kd), источник: ChEMBL, тип: STRING, валидация: enum ["IC50", "EC50", "Ki", "Kd", "AC50"]
-    - "activity_value"                   # DECIMAL: Значение активности, источник: ChEMBL, тип: DECIMAL, валидация: >= 0
-    - "activity_unit"                    # STRING: Единицы измерения, источник: ChEMBL, тип: STRING, валидация: enum ["nM", "uM", "mM", "M", "%", "mg/ml", "ug/ml"]
-    - "pchembl_value"                    # DECIMAL: -log10(стандартизованное значение), источник: вычисляется, тип: DECIMAL, валидация: 3.0-12.0
-    - "data_validity_comment"            # TEXT: Комментарий о валидности данных, источник: ChEMBL, тип: TEXT, валидация: nullable
-    - "activity_comment"                 # TEXT: Комментарий к активности, источник: ChEMBL, тип: TEXT, валидация: nullable
-    - "lower_bound"                      # DECIMAL: Нижняя граница для цензурированных данных, источник: ChEMBL, тип: DECIMAL, валидация: nullable, >= 0
-    - "upper_bound"                      # DECIMAL: Верхняя граница для цензурированных данных, источник: ChEMBL, тип: DECIMAL, валидация: nullable, >= 0
-    - "is_censored"                      # BOOL: Флаг цензурированных данных, источник: ChEMBL, тип: BOOL, валидация: boolean
-    - "published_type"                   # STRING: Оригинальный тип опубликованной активности, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "published_relation"               # STRING: Оригинальное отношение (=, >, <, >=, <=), источник: ChEMBL, тип: STRING, валидация: enum ["=", ">", "<", ">=", "<="]
-    - "published_value"                  # DECIMAL: Оригинальное опубликованное значение, источник: ChEMBL, тип: DECIMAL, валидация: nullable, >= 0
-    - "published_units"                  # STRING: Оригинальные единицы, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "standard_type"                    # STRING: Стандартизованный тип активности, источник: ChEMBL, тип: STRING, валидация: NOT NULL
-    - "standard_relation"                # STRING: Стандартизованное отношение, источник: ChEMBL, тип: STRING, валидация: enum ["=", ">", "<", ">=", "<="]
-    - "standard_value"                   # DECIMAL: Стандартизованное значение, источник: ChEMBL, тип: DECIMAL, валидация: NOT NULL, >= 1e-12, <= 1e-3
-    - "standard_units"                   # STRING: Стандартизованные единицы, источник: ChEMBL, тип: STRING, валидация: NOT NULL, enum ["nM", "uM", "mM", "M", "%"]
-    - "standard_flag"                    # BOOL: Флаг стандартизации, источник: ChEMBL, тип: BOOL, валидация: boolean
-    - "bao_endpoint"                     # STRING: BAO endpoint классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_format"                       # STRING: BAO format классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_label"                        # STRING: BAO label классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-   
-      # Метаданные
-    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL
-    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
-    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
-    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
-    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    # ACTIVITIES - основные поля
+    - "activity_id"                     # INT: Уникальный ID активности (PK), источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, >= 1
+    - "assay_id"                        # INT: FK на ASSAYS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "doc_id"                          # INT: FK на DOCS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "record_id"                       # INT: FK на COMPOUND_RECORDS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "molregno"                        # INT: FK на MOLECULE_DICTIONARY, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    
+    # ACTIVITIES - данные активности
+    - "type"                            # STRING: Исходный тип (Ki, IC50, %), источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "relation"                        # STRING: Отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~], <= 50
+    - "value"                           # FLOAT: Исходное значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "units"                           # STRING: Единицы (raw), источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "text_value"                      # STRING: Текстовое значение, источник: ChEMBL, тип: STRING, валидация: nullable, <= 1000
+    - "upper_value"                     # FLOAT: Верхняя граница диапазона, источник: ChEMBL, тип: FLOAT, валидация: nullable
+    
+    # ACTIVITIES - стандартизованные данные
+    - "standard_type"                   # STRING: Нормализованный тип, источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "standard_relation"               # STRING: Нормализованное отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~]
+    - "standard_value"                  # FLOAT: Нормализованное значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "standard_units"                  # STRING: Нормализованные ед., источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "standard_flag"                   # INT: Признак стандартизации (1/0), источник: ChEMBL, тип: INT, валидация: 0 или 1
+    - "standard_text_value"             # STRING: Нормализованный текст, источник: ChEMBL, тип: STRING, валидация: nullable, <= 1000
+    - "standard_upper_value"            # FLOAT: Верхняя граница (std), источник: ChEMBL, тип: FLOAT, валидация: nullable
+    
+    # ACTIVITIES - комментарии и метаданные
+    - "activity_comment"                # STRING: Комментарий активности, источник: ChEMBL, тип: STRING, валидация: nullable, <= 4000
+    - "data_validity_comment"           # STRING: Комментарий валидности, источник: ChEMBL, тип: STRING, валидация: nullable, <= 1000
+    - "potential_duplicate"             # INT: Возможный дубликат, источник: ChEMBL, тип: INT, валидация: 0 или 1
+    - "pchembl_value"                   # FLOAT: pChEMBL (сравнение потентности), источник: ChEMBL, тип: FLOAT, валидация: 0-14
+    
+    # ACTIVITIES - онтологии
+    - "bao_endpoint"                    # STRING: BAO endpoint ID, источник: ChEMBL, тип: STRING, валидация: nullable, regex ^BAO_\d{7}$
+    - "uo_units"                        # STRING: Unit Ontology, источник: ChEMBL, тип: STRING, валидация: nullable, regex ^UO_\d{7}$ или пусто
+    - "qudt_units"                      # STRING: QUDT URI, источник: ChEMBL, тип: STRING, валидация: nullable, валидная URI или пусто
+    - "src_id"                          # INT: Источник, источник: ChEMBL, тип: INT, валидация: nullable, FK к SOURCE
+    - "action_type"                     # STRING: Тип действия лиганда, источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    
+    # ACTIVITY_PROPERTIES (развернутые)
+    - "activity_prop_type"              # STRING: Имя свойства/параметра, источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "activity_prop_relation"          # STRING: Отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~]
+    - "activity_prop_value"             # FLOAT: Значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "activity_prop_units"             # STRING: Единицы, источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "activity_prop_text_value"        # STRING: Текстовое значение, источник: ChEMBL, тип: STRING, валидация: nullable, <= 2000
+    - "activity_prop_standard_type"     # STRING: Нормализованный тип, источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "activity_prop_standard_relation" # STRING: Нормализованное отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~]
+    - "activity_prop_standard_value"    # FLOAT: Нормализованное значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "activity_prop_standard_units"    # STRING: Нормализованные ед., источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "activity_prop_standard_text_value" # STRING: Нормализованный текст, источник: ChEMBL, тип: STRING, валидация: nullable, <= 2000
+    - "activity_prop_comments"          # STRING: Комментарий к свойству, источник: ChEMBL, тип: STRING, валидация: nullable, <= 2000
+    - "activity_prop_result_flag"       # INT: 1 если это результат, источник: ChEMBL, тип: INT, валидация: 0 или 1
+    
+    # LIGAND_EFF
+    - "bei"                             # FLOAT: Binding Efficiency Index, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "sei"                             # FLOAT: Surface Efficiency Index, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "le"                              # FLOAT: Ligand Efficiency, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "lle"                             # FLOAT: Lipophilic Ligand Efficiency, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    
+    # Системные поля
+    - "index"                           # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"                # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL
+    - "source_system"                   # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                  # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                    # DATETIME: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                        # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"               # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
 
 # Валидация - настройки проверки данных
 validation:

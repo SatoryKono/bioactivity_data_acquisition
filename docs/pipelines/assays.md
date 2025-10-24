@@ -258,7 +258,7 @@ graph LR
 | `variant_sequence` | str | Yes | Аминокислотная последовательность варианта | ChEMBL |
 | `variant_accession_reported` | str | Yes | Сообщённая акцессия варианта | ChEMBL |
 | `source_system` | str | No | Система-источник | Система |
-| `chembl_release` | str | Yes | Версия ChEMBL | ChEMBL |
+| `chembl_release` | str | Yes | Версия ChEMBL (формат: CHEMBL_XX) | ChEMBL API |
 | `extracted_at` | datetime | No | Время извлечения | Система |
 
 ### Политика NA
@@ -266,6 +266,32 @@ graph LR
 - **ChEMBL поля**: Обязательные, NA не допускается
 - **Системные поля**: Обязательные, NA не допускается
 - **Опциональные поля**: NA разрешено для `src_id`, `src_name`, `description`
+
+### Нормализация и валидация полей
+
+#### Системные поля
+
+| Поле | Нормализация | Валидация | Описание |
+|------|--------------|-----------|----------|
+| `chembl_release` | `upper` | `^CHEMBL_\d+$` | Версия ChEMBL в формате CHEMBL_XX |
+| `source_system` | - | - | Система-источник данных |
+| `extracted_at` | - | ISO 8601 | Время извлечения в UTC |
+
+#### ChEMBL поля
+
+| Поле | Нормализация | Валидация | Описание |
+|------|--------------|-----------|----------|
+| `assay_chembl_id` | - | `^CHEMBL\d+$` | Идентификатор ассея |
+| `assay_description` | HTML strip, trim | max 4000 chars | Описание ассея |
+| `bao_endpoint` | `upper` | `^BAO_\d{7}$` | BAO endpoint ID |
+| `assay_param_relation` | normalize | `[=,>,>=,<,<=,~]` | Отношение параметра |
+| `assay_param_type` | `upper` | - | Тип параметра ассея |
+| `assay_param_units` | `lower` | - | Единицы измерения |
+| `assay_class_type` | `lower` | - | Тип классификации |
+| `assay_class_l1/l2/l3` | `lower` | - | Уровни классификации |
+| `variant_mutation` | `upper` | - | Мутация варианта |
+| `variant_base_accession` | `upper` | UniProt format | UniProt акцессия |
+| `variant_sequence` | `upper` | `^[A-Z\*]+$` | Аминокислотная последовательность |
 
 ## 5. Конфигурация
 

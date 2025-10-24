@@ -10,7 +10,7 @@ from typing import Any
 import pandas as pd
 
 from library.clients.chembl import ChEMBLClient
-from library.config import APIClientConfig
+from library.config import APIClientConfig, RateLimitSettings, RetrySettings
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +129,18 @@ def _calculate_row_hash(row: pd.Series, exclude_hash_fields: bool = True) -> str
     for col, value in row.items():
         if col not in exclude_fields:
             # Приводим к строке и нормализуем
-            str_value = str(value) if pd.notna(value) else ''
+            # Обрабатываем пустые массивы и NaN значения
+            try:
+                if hasattr(value, 'size') and value.size == 0:
+                    # Пустой массив (numpy array, pandas Series, etc.)
+                    str_value = ''
+                elif pd.isna(value):
+                    str_value = ''
+                else:
+                    str_value = str(value)
+            except (ValueError, TypeError):
+                # Fallback для проблемных типов данных
+                str_value = str(value) if value is not None else ''
             hash_data.append(f"{col}:{str_value}")
     
     # Сортируем для детерминизма
@@ -205,12 +216,23 @@ def create_chembl_client_from_config(config: dict[str, Any]) -> ChEMBLClient | N
             return None
         
         # Создаем APIClientConfig из конфигурации
+        retries_config = chembl_config.get('http', {}).get('retries', {})
         api_config = APIClientConfig(
             name="chembl",
             base_url=chembl_config.get('http', {}).get('base_url', 'https://www.ebi.ac.uk/chembl/api/data'),
             timeout_sec=chembl_config.get('http', {}).get('timeout_sec', 60.0),
-            retries=chembl_config.get('http', {}).get('retries', {}).get('total', 3),
-            backoff_multiplier=chembl_config.get('http', {}).get('retries', {}).get('backoff_multiplier', 1.5),
+            retries=RetrySettings(
+                total=retries_config.get('total', 3),
+                backoff_multiplier=retries_config.get('backoff_multiplier', 1.5),
+                backoff_max=retries_config.get('backoff_max', 10.0)
+            ),
+            rate_limit=RateLimitSettings(
+                max_calls=chembl_config.get('http', {}).get('rate_limit', {}).get('max_calls', 5),
+                period=chembl_config.get('http', {}).get('rate_limit', {}).get('period', 15.0)
+            ),
+            headers=chembl_config.get('http', {}).get('headers', {}),
+            verify_ssl=chembl_config.get('http', {}).get('verify_ssl', True),
+            follow_redirects=chembl_config.get('http', {}).get('follow_redirects', True)
         )
         
         return ChEMBLClient(api_config)

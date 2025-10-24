@@ -7,8 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from library.normalizers import get_normalizer
-from library.schemas.activity_schema_normalized import ActivityNormalizedSchema
+# Removed unused imports
 
 logger = logging.getLogger(__name__)
 
@@ -390,22 +389,81 @@ class ActivityNormalizer:
         """
         logger.info("Applying schema-based normalizations")
         
-        # Получаем схему
-        schema = ActivityNormalizedSchema.get_schema()
+        # Применяем нормализации согласно спецификации
+        df = self._normalize_relation_fields(df)
+        df = self._normalize_text_fields(df)
+        df = self._normalize_ontology_fields(df)
+        df = self._normalize_units_fields(df)
+        df = self._normalize_comment_fields(df)
         
-        # Применяем нормализацию к каждой колонке
-        for column_name, column_schema in schema.columns.items():
-            if column_name in df.columns:
-                norm_funcs = column_schema.metadata.get("normalization_functions", [])
-                if norm_funcs:
-                    logger.debug(f"Normalizing column '{column_name}' with functions: {norm_funcs}")
-                    
-                    # Применяем функции нормализации в порядке
-                    for func_name in norm_funcs:
-                        try:
-                            func = get_normalizer(func_name)
-                            df[column_name] = df[column_name].apply(func)
-                        except Exception as e:
-                            logger.warning(f"Failed to apply normalizer '{func_name}' to column '{column_name}': {e}")
+        return df
+
+    def _normalize_relation_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Нормализация полей relation."""
+        logger.debug("Normalizing relation fields")
+        
+        relation_fields = ['relation', 'standard_relation', 'activity_prop_relation', 'activity_prop_standard_relation']
+        valid_relations = ['=', '>', '>=', '<', '<=', '~']
+        
+        for field in relation_fields:
+            if field in df.columns:
+                # Нормализация к допустимым значениям
+                df[field] = df[field].apply(lambda x: x if x in valid_relations else None if pd.isna(x) else '=')
+        
+        return df
+
+    def _normalize_text_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Нормализация текстовых полей (trim)."""
+        logger.debug("Normalizing text fields")
+        
+        text_fields = [
+            'type', 'standard_type', 'activity_comment', 'text_value', 'standard_text_value',
+            'activity_prop_type', 'activity_prop_standard_type', 'activity_prop_text_value',
+            'activity_prop_standard_text_value', 'activity_prop_comments', 'action_type'
+        ]
+        
+        for field in text_fields:
+            if field in df.columns:
+                df[field] = df[field].astype(str).str.strip().replace('nan', None)
+        
+        return df
+
+    def _normalize_ontology_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Нормализация полей онтологий (upper)."""
+        logger.debug("Normalizing ontology fields")
+        
+        ontology_fields = ['bao_endpoint', 'uo_units']
+        
+        for field in ontology_fields:
+            if field in df.columns:
+                df[field] = df[field].astype(str).str.upper().replace('NAN', None)
+        
+        return df
+
+    def _normalize_units_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Нормализация полей единиц (trim + lower)."""
+        logger.debug("Normalizing units fields")
+        
+        units_fields = ['units', 'standard_units', 'activity_prop_units', 'activity_prop_standard_units']
+        
+        for field in units_fields:
+            if field in df.columns:
+                df[field] = df[field].astype(str).str.strip().str.lower().replace('nan', None)
+        
+        return df
+
+    def _normalize_comment_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Нормализация полей комментариев (capitalize + trim)."""
+        logger.debug("Normalizing comment fields")
+        
+        comment_fields = ['data_validity_comment']
+        
+        for field in comment_fields:
+            if field in df.columns:
+                df[field] = df[field].astype(str).str.strip().str.capitalize().replace('Nan', None)
+        
+        # QUDT units - только trim
+        if 'qudt_units' in df.columns:
+            df['qudt_units'] = df['qudt_units'].astype(str).str.strip().replace('nan', None)
         
         return df
