@@ -60,7 +60,87 @@
 - `iuphar_type` → `iuphar_type`
 - `family` → `iuphar_family`
 
-## 3. Граф ETL
+## 3. Нормализация и валидация
+
+### TARGET_DICTIONARY поля
+
+Основные поля таргетов нормализуются согласно спецификации:
+
+| Поле | Нормализация | Валидация | internal_name |
+|------|-------------|-----------|---------------|
+| `target_chembl_id` | uppercase, trim | regex `^CHEMBL[0-9]+$` | `CHEMBL.TARGETS.target_chembl_id` |
+| `pref_name` | trim, collapse spaces | длина ≤ 255 | `CHEMBL.TARGETS.pref_name` |
+| `target_type` | uppercase | в списке допустимых типов API | `CHEMBL.TARGETS.target_type` |
+| `organism` | title case | не пусто, сопоставимо с tax_id | `CHEMBL.TARGETS.organism` |
+| `tax_id` | cast to int | положительное целое > 0 | `CHEMBL.TARGETS.tax_id` |
+| `species_group_flag` | cast to int | ∈ {0,1} | `CHEMBL.TARGETS.species_group_flag` |
+
+### TARGET_COMPONENTS поля (JSON структура)
+
+Компоненты таргетов нормализуются в JSON структуре:
+
+| Поле | Нормализация | Валидация | internal_name |
+|------|-------------|-----------|---------------|
+| `component_id` | cast to int | > 0 | `CHEMBL.TARGET_COMPONENTS.component_id` |
+| `accession` | uppercase | regex UniProt `^[A-NR-Z][0-9][A-Z0-9]{3}[0-9]$` | `CHEMBL.TARGET_COMPONENTS.accession` |
+| `component_type` | uppercase | в списке типов API | `CHEMBL.TARGET_COMPONENTS.component_type` |
+| `relationship` | uppercase | в справочнике схемы | `CHEMBL.TARGET_COMPONENTS.relationship` |
+| `start_position` | cast to int | ≥ 0 или null | `CHEMBL.TARGET_COMPONENTS.start_position` |
+| `end_position` | cast to int | ≥ start_position | `CHEMBL.TARGET_COMPONENTS.end_position` |
+| `component_synonyms` | lowercase array | каждый элемент ≤ 255 | `CHEMBL.TARGET_COMPONENTS.component_synonyms` |
+
+### TARGET_RELATIONS поля (JSON структура)
+
+Связи между таргетами нормализуются в JSON структуре:
+
+| Поле | Нормализация | Валидация | internal_name |
+|------|-------------|-----------|---------------|
+| `target_relation_id` | cast to int | > 0 | `CHEMBL.TARGET_RELATIONS.target_relation_id` |
+| `target_chembl_id` | uppercase | валидный CHEMBL ID | `CHEMBL.TARGET_RELATIONS.target_chembl_id` |
+| `related_target_chembl_id` | uppercase | валидный CHEMBL ID | `CHEMBL.TARGET_RELATIONS.related_target_chembl_id` |
+| `relationship` | uppercase | в списке типов API | `CHEMBL.TARGET_RELATIONS.relationship` |
+
+### PROTEIN_CLASSIFICATION поля (JSON структура)
+
+Классификация белков нормализуется в JSON структуре:
+
+| Поле | Нормализация | Валидация | internal_name |
+|------|-------------|-----------|---------------|
+| `protein_class_id` | cast to int | > 0 | `CHEMBL.PROTEIN_CLASSIFICATION.protein_class_id` |
+| `class_level` | cast to int | ≥ 0 | `CHEMBL.PROTEIN_CLASSIFICATION.class_level` |
+| `pref_name` | trim | не пусто | `CHEMBL.PROTEIN_CLASSIFICATION.pref_name` |
+| `parent_id` | cast to int/null | ≥ 0 | `CHEMBL.PROTEIN_CLASSIFICATION.parent_id` |
+
+### Допустимые значения
+
+**Типы таргетов:**
+- `SINGLE PROTEIN`
+- `PROTEIN COMPLEX`
+- `PROTEIN FAMILY`
+- `PROTEIN-PROTEIN INTERACTION`
+- `NUCLEIC-ACID`
+- `ORGANISM`
+
+**Типы компонентов:**
+- `PROTEIN`
+- `DNA`
+- `RNA`
+- `COMPLEX`
+- `ORGANISM`
+
+**Типы отношений:**
+- `SUBUNIT`
+- `COMPONENT`
+- `PART_OF`
+- `INTERACTS_WITH`
+
+**Типы связей таргетов:**
+- `SUBSET`
+- `SUPERSET`
+- `EQUIVALENT`
+- `OVERLAPS`
+
+## 4. Граф ETL
 
 ```mermaid
 graph TD
