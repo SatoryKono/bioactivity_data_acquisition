@@ -121,13 +121,13 @@ determinism:
     na_position: "last"
   column_order:
     # 1. Primary key
-    - "target_chembl_id"               # STRING: PK таргета из ChEMBL API /target, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
+    - "target_chembl_id"               # STRING: PK таргета из ChEMBL API /target, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$ | internal_name: CHEMBL.TARGETS.target_chembl_id
     
     # 2. Basic identifiers  
-    - "pref_name"                      # STRING: Предпочтительное название таргета, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "pref_name"                      # STRING: Предпочтительное название таргета, источник: ChEMBL, тип: STRING, валидация: nullable | internal_name: CHEMBL.TARGETS.pref_name
     - "component_description"          # STRING: Описание компонента, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "component_id"                   # INT: ID компонента, источник: ChEMBL, тип: INT, валидация: nullable
-    - "relationship"                   # STRING: Отношение компонента, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "component_id"                   # INT: ID компонента, источник: ChEMBL, тип: INT, валидация: nullable | internal_name: CHEMBL.TARGET_COMPONENTS.component_id
+    - "relationship"                   # STRING: Отношение компонента, источник: ChEMBL, тип: STRING, валидация: nullable | internal_name: CHEMBL.TARGET_COMPONENTS.relationship
     - "gene"                           # STRING: Символ гена, источник: ChEMBL, тип: STRING, валидация: nullable
     - "uniprot_id"                     # STRING: UniProt ID из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
     - "mapping_uniprot_id"             # STRING: Маппинг UniProt ID, источник: ChEMBL, тип: STRING, валидация: nullable
@@ -135,13 +135,13 @@ determinism:
     - "ec_code"                        # STRING: EC код фермента, источник: ChEMBL, тип: STRING, валидация: nullable
     - "hgnc_name"                      # STRING: Название по HGNC, источник: HGNC, тип: STRING, валидация: nullable
     - "hgnc_id"                        # STRING: HGNC идентификатор, источник: HGNC, тип: STRING, валидация: nullable, pattern ^HGNC:\d+$
-    - "target_type"                    # STRING: Тип таргета, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "tax_id"                         # INT: Таксономический ID, источник: ChEMBL, тип: INT, валидация: nullable, > 0
-    - "species_group_flag"             # BOOL: Флаг группировки по видам, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "target_type"                    # STRING: Тип таргета, источник: ChEMBL, тип: STRING, валидация: nullable | internal_name: CHEMBL.TARGETS.target_type
+    - "tax_id"                         # INT: Таксономический ID, источник: ChEMBL, тип: INT, валидация: nullable, > 0 | internal_name: CHEMBL.TARGETS.tax_id
+    - "species_group_flag"             # BOOL: Флаг группировки по видам, источник: ChEMBL, тип: BOOL, валидация: boolean | internal_name: CHEMBL.TARGETS.species_group_flag
     
     # 3. ChEMBL structured data
-    - "target_components"              # TEXT: Компоненты таргета, источник: ChEMBL, тип: TEXT, валидация: nullable
-    - "protein_classifications"        # TEXT: Классификация белка, источник: ChEMBL, тип: TEXT, валидация: nullable
+    - "target_components"              # TEXT: Компоненты таргета, источник: ChEMBL, тип: TEXT, валидация: nullable | internal_name: CHEMBL.TARGETS.target_components
+    - "protein_classifications"        # TEXT: Классификация белка, источник: ChEMBL, тип: TEXT, валидация: nullable | internal_name: CHEMBL.PROTEIN_CLASSIFICATION.*
     - "cross_references"               # TEXT: Перекрестные ссылки, источник: ChEMBL, тип: TEXT, валидация: nullable
     - "reaction_ec_numbers"            # TEXT: EC номера реакций, источник: ChEMBL, тип: TEXT, валидация: nullable
     
@@ -149,7 +149,7 @@ determinism:
     - "uniprot_id_primary"             # STRING: Первичный UniProt ID, источник: UniProt REST API, тип: STRING, валидация: nullable, UNIQUE
     - "uniprot_ids_all"                # TEXT: Все UniProt ID, источник: UniProt, тип: TEXT, валидация: nullable
     - "uniProtkbId"                    # STRING: UniProtKB ID, источник: UniProt, тип: STRING, валидация: nullable
-    - "secondaryAccessions"            # TEXT: Вторичные accession номера, источник: UniProt, тип: TEXT, валидация: nullable
+    - "secondaryAccessions"            # TEXT: Вторичные accession номера, источник: UniProt, тип: TEXT, валидация: nullable | internal_name: CHEMBL.TARGET_COMPONENTS.accession
     - "secondaryAccessionNames"        # TEXT: Названия вторичных accession, источник: UniProt, тип: TEXT, валидация: nullable
      
     # 5. Isoform data

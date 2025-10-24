@@ -181,8 +181,16 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
             return base_data
         
         # Ensure activity_chembl_id has the same type in both DataFrames
+        base_data = base_data.copy()  # Avoid SettingWithCopyWarning
         base_data["activity_chembl_id"] = base_data["activity_chembl_id"].astype(str)
-        chembl_data["activity_chembl_id"] = chembl_data["activity_chembl_id"].astype(str)
+        
+        # Map activity_id from ChEMBL to activity_chembl_id for merging
+        if "activity_id" in chembl_data.columns and "activity_chembl_id" not in chembl_data.columns:
+            chembl_data = chembl_data.copy()
+            chembl_data["activity_chembl_id"] = chembl_data["activity_id"].astype(str)
+        elif "activity_chembl_id" in chembl_data.columns:
+            chembl_data = chembl_data.copy()
+            chembl_data["activity_chembl_id"] = chembl_data["activity_chembl_id"].astype(str)
         
         # Merge on activity_chembl_id
         merged = base_data.merge(

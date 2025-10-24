@@ -4,9 +4,73 @@ Pandera схемы для валидации данных таргетов.
 Предоставляет схемы для входных, сырых и нормализованных данных таргетов.
 """
 
+import json
 import pandas as pd
 import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
+
+
+def validate_target_components_json(value: str | None) -> bool:
+    """Validate target_components JSON structure."""
+    if not value or value == "":
+        return True
+    try:
+        components = json.loads(value)
+        if not isinstance(components, list):
+            return False
+        for component in components:
+            if not isinstance(component, dict):
+                return False
+            # Check required fields
+            if 'component_id' in component and not isinstance(component['component_id'], int):
+                return False
+            if 'accession' in component and not isinstance(component['accession'], str):
+                return False
+        return True
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+
+def validate_target_relations_json(value: str | None) -> bool:
+    """Validate target_relations JSON structure."""
+    if not value or value == "":
+        return True
+    try:
+        relations = json.loads(value)
+        if not isinstance(relations, list):
+            return False
+        for relation in relations:
+            if not isinstance(relation, dict):
+                return False
+            # Check required fields
+            if 'target_relation_id' in relation and not isinstance(relation['target_relation_id'], int):
+                return False
+            if 'target_chembl_id' in relation and not isinstance(relation['target_chembl_id'], str):
+                return False
+        return True
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+
+def validate_protein_classifications_json(value: str | None) -> bool:
+    """Validate protein_classifications JSON structure."""
+    if not value or value == "":
+        return True
+    try:
+        classifications = json.loads(value)
+        if not isinstance(classifications, list):
+            return False
+        for classification in classifications:
+            if not isinstance(classification, dict):
+                return False
+            # Check required fields
+            if 'protein_class_id' in classification and not isinstance(classification['protein_class_id'], int):
+                return False
+            if 'class_level' in classification and not isinstance(classification['class_level'], int):
+                return False
+        return True
+    except (json.JSONDecodeError, TypeError):
+        return False
 
 
 class TargetInputSchema:
@@ -205,7 +269,14 @@ class TargetNormalizedSchema:
                 nullable=False,
                 description="ChEMBL ID таргета"
             ),
-            "pref_name": Column(pa.String, nullable=True, description="Предпочтительное название"),
+            "pref_name": Column(
+                pa.String, 
+                checks=[
+                    Check(lambda x: x.isna() | (x.str.len() <= 255), error="pref_name must be ≤ 255 characters")
+                ],
+                nullable=True, 
+                description="Предпочтительное название"
+            ),
             "hgnc_name": Column(pa.String, nullable=True, description="Название по HGNC"),
             "hgnc_id": Column(
                 pa.String,
@@ -215,7 +286,17 @@ class TargetNormalizedSchema:
                 nullable=True,
                 description="HGNC ID"
             ),
-            "target_type": Column(pa.String, nullable=True, description="Тип таргета"),
+            "target_type": Column(
+                pa.String, 
+                checks=[
+                    Check(lambda x: x.isna() | x.isin([
+                        "SINGLE PROTEIN", "PROTEIN COMPLEX", "PROTEIN FAMILY", 
+                        "PROTEIN-PROTEIN INTERACTION", "NUCLEIC-ACID", "ORGANISM"
+                    ], na=False), error="Invalid target_type")
+                ],
+                nullable=True, 
+                description="Тип таргета"
+            ),
             "tax_id": Column(
                 pa.Int,
                 checks=[
@@ -224,9 +305,30 @@ class TargetNormalizedSchema:
                 nullable=True, 
                 description="Таксономический ID"
             ),
-            "species_group_flag": Column(pa.Bool, nullable=True, description="Флаг группировки по видам"),
-            "target_components": Column(pa.String, nullable=True, description="Компоненты таргета"),
-            "protein_classifications": Column(pa.String, nullable=True, description="Классификация белка"),
+            "species_group_flag": Column(
+                pa.Int,
+                checks=[
+                    Check(lambda x: x.isna() | x.isin([0, 1]), error="species_group_flag must be 0 or 1")
+                ],
+                nullable=True, 
+                description="Флаг группировки по видам"
+            ),
+            "target_components": Column(
+                pa.String, 
+                checks=[
+                    Check(lambda x: x.apply(validate_target_components_json), error="Invalid target_components JSON structure")
+                ],
+                nullable=True, 
+                description="Компоненты таргета"
+            ),
+            "protein_classifications": Column(
+                pa.String, 
+                checks=[
+                    Check(lambda x: x.apply(validate_protein_classifications_json), error="Invalid protein_classifications JSON structure")
+                ],
+                nullable=True, 
+                description="Классификация белка"
+            ),
             "cross_references": Column(pa.String, nullable=True, description="Перекрестные ссылки"),
             "reaction_ec_numbers": Column(pa.String, nullable=True, description="EC номера реакций"),
             

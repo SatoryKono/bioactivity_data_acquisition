@@ -797,7 +797,7 @@ class ChEMBLClient(BaseApiClient):
                 logger.info(f"Batch {batch_num}: Found {len(activities)} activities in API response")
                 
                 for activity in activities:
-                    parsed_activity = self._parse_activity(activity)
+                    parsed_activity = self._parse_activity({"activities": [activity]})
                     if parsed_activity:
                         total_found += 1
                         yield parsed_activity
