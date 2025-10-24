@@ -173,6 +173,9 @@ class CrossrefClient(BaseApiClient):
             else:
                 crossref_first_page = page
 
+        # Извлекаем journal из container-title
+        journal_name = self._extract_journal(work)
+        
         record: dict[str, Any | None] = {
             "source": "crossref",
             "doi_key": work.get("DOI"),
@@ -183,6 +186,7 @@ class CrossrefClient(BaseApiClient):
             "crossref_pmid": self._extract_pmid(work),
             "crossref_abstract": work.get("abstract"),
             "crossref_issn": convert_issn_list(self._extract_issn(work)),
+            "crossref_journal": journal_name,
             "crossref_authors": convert_authors_list(self._extract_authors(work)),
             "crossref_year": crossref_year,
             "crossref_volume": work.get("volume"),
@@ -248,6 +252,24 @@ class CrossrefClient(BaseApiClient):
             # В Crossref ISSN может быть в метаданных контейнера
             # Но обычно он находится в отдельном поле issn
             pass
+        
+        return None
+    
+    def _extract_journal(self, work: dict[str, Any]) -> str | None:
+        """Извлекает название журнала из Crossref work."""
+        # Извлекаем из container-title
+        container_title = work.get("container-title", [])
+        if isinstance(container_title, list) and container_title:
+            journal = container_title[0]
+            if journal:
+                return str(journal)
+        
+        # Fallback на short-container-title
+        short_container = work.get("short-container-title", [])
+        if isinstance(short_container, list) and short_container:
+            journal = short_container[0]
+            if journal:
+                return str(journal)
         
         return None
 

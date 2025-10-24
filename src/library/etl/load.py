@@ -287,18 +287,29 @@ def write_deterministic_csv(
     if df.empty:
         df_to_write = df.copy()
     else:
-        # Добавляем столбец index с порядковыми номерами строк (начиная с 0)
-        # Но только если это не QC отчет (который уже имеет структуру metric/value)
+        # Проверяем наличие системных метаданных полей
         df_to_write = df.copy()
         if not _is_qc_report(df_to_write):
-            # Проверяем, существует ли уже колонка index
-            if 'index' not in df_to_write.columns:
-                df_to_write.insert(0, 'index', range(len(df_to_write)))
+            # Проверяем, существуют ли системные метаданные поля
+            missing_metadata_fields = []
+            required_metadata_fields = ['index', 'pipeline_version', 'chembl_release']
+            
+            for field in required_metadata_fields:
+                if field not in df_to_write.columns:
+                    missing_metadata_fields.append(field)
+            
+            if missing_metadata_fields:
                 if logger is not None:
-                    logger.info(f"index_column_added: {len(df.columns)} -> {len(df_to_write.columns)} колонок, первые: {list(df_to_write.columns[:5])}")
+                    logger.warning(f"missing_metadata_fields: {missing_metadata_fields} - эти поля должны добавляться в нормализаторах")
+                
+                # Fallback: добавляем только index если его нет (для обратной совместимости)
+                if 'index' not in df_to_write.columns:
+                    df_to_write.insert(0, 'index', range(len(df_to_write)))
+                    if logger is not None:
+                        logger.info(f"index_column_added_fallback: {len(df.columns)} -> {len(df_to_write.columns)} колонок")
             else:
                 if logger is not None:
-                    logger.info(f"index_column_exists: {len(df_to_write.columns)} колонок, первые: {list(df_to_write.columns[:5])}")
+                    logger.info("metadata_fields_present: все системные метаданные поля присутствуют")
         
         # Применяем детерминистический порядок колонок после добавления index
         df_to_write = _deterministic_order(df_to_write, determinism)

@@ -138,6 +138,12 @@ class OpenAlexClient(BaseApiClient):
             openalex_first_page = biblio.get("first_page")
             openalex_last_page = biblio.get("last_page")
 
+        # Реконструируем abstract из inverted index
+        abstract = self._reconstruct_abstract(work.get("abstract_inverted_index"))
+        
+        # Извлекаем journal из host_venue
+        journal = self._extract_journal(work)
+        
         record: dict[str, Any | None] = {
             "source": "openalex",
             "openalex_doi": doi_value,
@@ -146,8 +152,9 @@ class OpenAlexClient(BaseApiClient):
             "openalex_crossref_doc_type": type_crossref,
             "openalex_year": pub_year,
             "openalex_pmid": self._extract_pmid(work),
-            "openalex_abstract": work.get("abstract"),
+            "openalex_abstract": abstract,
             "openalex_issn": convert_issn_list(self._extract_issn(work)),
+            "openalex_journal": journal,
             "openalex_authors": convert_authors_list(self._extract_authors(work)),
             "openalex_volume": openalex_volume,
             "openalex_issue": openalex_issue,
@@ -197,6 +204,59 @@ class OpenAlexClient(BaseApiClient):
                         if display_name:
                             author_names.append(display_name)
             return author_names if author_names else None
+        
+        return None
+    
+    def _reconstruct_abstract(self, inverted_index: dict[str, list[int]] | None) -> str | None:
+        """Реконструирует абстракт из inverted index формата OpenAlex.
+        
+        OpenAlex хранит абстракты в формате inverted index:
+        {"word1": [0, 5], "word2": [1, 6], ...}
+        где числа - позиции слов в тексте.
+        """
+        if not inverted_index or not isinstance(inverted_index, dict):
+            return None
+        
+        try:
+            # Создаем список (позиция, слово)
+            word_positions = []
+            for word, positions in inverted_index.items():
+                if isinstance(positions, list):
+                    for pos in positions:
+                        if isinstance(pos, int):
+                            word_positions.append((pos, word))
+            
+            if not word_positions:
+                return None
+            
+            # Сортируем по позиции
+            word_positions.sort(key=lambda x: x[0])
+            
+            # Собираем текст
+            abstract = " ".join(word for _, word in word_positions)
+            return abstract if abstract else None
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to reconstruct abstract: {e}")
+            return None
+    
+    def _extract_journal(self, work: dict[str, Any]) -> str | None:
+        """Извлекает название журнала из OpenAlex work."""
+        # Проверяем primary_location -> source -> display_name
+        primary_location = work.get("primary_location")
+        if isinstance(primary_location, dict):
+            source = primary_location.get("source")
+            if isinstance(source, dict):
+                display_name = source.get("display_name")
+                if display_name:
+                    return str(display_name)
+        
+        # Fallback на host_venue (старый формат API)
+        host_venue = work.get("host_venue")
+        if isinstance(host_venue, dict):
+            display_name = host_venue.get("display_name")
+            if display_name:
+                return str(display_name)
         
         return None
 

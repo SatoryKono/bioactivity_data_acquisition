@@ -356,36 +356,16 @@ class DocumentNormalizer:
         return df
     
     def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Добавить системные метаданные к DataFrame."""
-        import hashlib
-        from datetime import datetime
+        """Добавить системные метаданные к DataFrame используя унифицированную утилиту."""
+        from library.common.metadata_fields import add_system_metadata_fields, create_chembl_client_from_config
         
         logger.info("Adding system metadata to document records")
         
-        # Index - порядковый номер записи
-        df['index'] = range(len(df))
+        # Создаем ChEMBL клиент для получения версии
+        chembl_client = create_chembl_client_from_config(self.config)
         
-        # Pipeline version - из конфига
-        df['pipeline_version'] = self.config.get('pipeline', {}).get('version', '2.0.0')
-        
-        # Source system
-        df['source_system'] = 'ChEMBL'
-        
-        # ChEMBL release - из retrieved_at или текущее время
-        df['chembl_release'] = None  # Будет заполнено из API если доступно
-        
-        # Extracted at - текущее время
-        df['extracted_at'] = datetime.utcnow().isoformat() + 'Z'
-        
-        # Hash row - SHA256 хеш всей строки
-        df['hash_row'] = df.apply(lambda row: self._calculate_row_hash(row), axis=1)
-        
-        # Hash business key - SHA256 хеш бизнес-ключа
-        df['hash_business_key'] = df['document_chembl_id'].apply(
-            lambda x: hashlib.sha256(str(x).encode('utf-8')).hexdigest() if pd.notna(x) else None
-        )
-        
-        return df
+        # Используем унифицированную утилиту
+        return add_system_metadata_fields(df, self.config, chembl_client)
     
     def _calculate_row_hash(self, row: pd.Series) -> str:
         """Calculate SHA256 hash of a DataFrame row."""

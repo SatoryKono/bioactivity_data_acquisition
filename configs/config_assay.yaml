@@ -88,35 +88,36 @@ determinism:
   column_order:
     - "assay_chembl_id"                # STRING: PK ассая из ChEMBL API /assay, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
     - "assay_type"                     # STRING: Тип ассая (B, F, A, P, T, U), источник: ChEMBL, тип: STRING, валидация: enum ["B", "F", "A", "P", "T", "U"]
-    - "assay_category"                 # STRING: Категория ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_category"                 # STRING: Категория ассая, источник: ChEMBL, тип: STRING, валидация: nullable (часто null в API)
     - "target_chembl_id"               # STRING: FK к target_dim, источник: ChEMBL API /target, тип: STRING, валидация: NOT NULL, FK
-    - "target_organism"                # STRING: Организм мишени, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "target_tax_id"                  # INT: Таксономический ID мишени, источник: ChEMBL, тип: INT, валидация: nullable, > 0
+    - "target_organism"                # STRING: Организм мишени, источник: ChEMBL /target endpoint, тип: STRING, валидация: nullable
+    - "target_tax_id"                  # INT: Таксономический ID мишени, источник: ChEMBL /target endpoint, тип: INT, валидация: nullable, > 0
     - "bao_format"                     # STRING: BAO format классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable, pattern ^BAO_\d+$
     - "bao_label"                      # STRING: BAO label классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_endpoint"                   # STRING: BAO endpoint классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_assay_format"               # STRING: BAO assay format, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_assay_type"                 # STRING: BAO assay type, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_assay_type_label"           # STRING: BAO assay type label, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_assay_type_uri"             # STRING: BAO assay type URI, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_assay_format_uri"           # STRING: BAO assay format URI, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_assay_format_label"         # STRING: BAO assay format label, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_endpoint_uri"               # STRING: BAO endpoint URI, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    - "bao_endpoint_label"             # STRING: BAO endpoint label, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    # Вариантные данные
-    - "variant_id"                     # ID варианта
-    - "is_variant"                     # Флаг наличия вариантных данных
-    - "variant_accession"              # Accession варианта
-    - "variant_sequence_accession"     # Accession последовательности варианта
-    - "variant_sequence_mutation"      # Мутация в последовательности варианта
-    - "variant_mutations"              # Описание мутаций варианта
-    - "variant_sequence"               # Последовательность варианта
-    - "variant_text"                   # Текстовое описание варианта
-    - "variant_sequence_id"            # ID последовательности варианта
-    - "variant_organism"               # Организм варианта    
-    # Таргет и изоформы
-    - "target_uniprot_accession"       # UniProt accession таргета
-    - "target_isoform"                 # Изоформа таргета    
+    # BAO расширенные поля - НЕ ДОСТУПНЫ в ChEMBL API v33+
+    - "bao_endpoint"                   # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_assay_format"               # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_assay_type"                 # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_assay_type_label"           # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_assay_type_uri"             # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_assay_format_uri"           # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_assay_format_label"         # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_endpoint_uri"               # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "bao_endpoint_label"             # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    # Вариантные данные - НЕ ДОСТУПНЫ в ChEMBL API
+    - "variant_id"                     # NOT AVAILABLE: ChEMBL API не возвращает, тип: INT, валидация: nullable
+    - "is_variant"                     # NOT AVAILABLE: ChEMBL API не возвращает, тип: BOOLEAN, валидация: nullable
+    - "variant_accession"              # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "variant_sequence_accession"     # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "variant_sequence_mutation"      # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "variant_mutations"              # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "variant_sequence"               # STRING: Последовательность варианта, источник: ChEMBL, тип: STRING, валидация: nullable (часто null)
+    - "variant_text"                   # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "variant_sequence_id"            # NOT AVAILABLE: ChEMBL API не возвращает, тип: INT, валидация: nullable
+    - "variant_organism"               # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    # Таргет и изоформы - обогащаются через /target endpoint
+    - "target_uniprot_accession"       # STRING: UniProt accession таргета, источник: ChEMBL /target endpoint, тип: STRING, валидация: nullable
+    - "target_isoform"                 # STRING: Изоформа таргета, источник: ChEMBL /target endpoint, тип: STRING, валидация: nullable
     # Биологический контекст
     - "assay_organism"                 # STRING: Организм для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
     - "assay_tax_id"                   # INT: Таксономический ID организма, источник: ChEMBL, тип: INT, валидация: nullable, > 0
@@ -125,10 +126,10 @@ determinism:
     - "assay_cell_type"                # STRING: Тип клеток для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
     - "assay_subcellular_fraction"     # STRING: Субклеточная фракция, источник: ChEMBL, тип: STRING, валидация: nullable
     # Описание и протокол
-    - "description"                    # Описание ассая
-    - "assay_parameters"               # Параметры ассая (legacy)
-    - "assay_parameters_json"          # Параметры ассая (нормализованный JSON)
-    - "assay_format"                   # Формат ассая
+    - "description"                    # STRING: Описание ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_parameters"               # STRING: Параметры ассая (legacy), источник: ChEMBL, тип: STRING, валидация: nullable (часто null)
+    - "assay_parameters_json"          # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "assay_format"                   # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
     # Метаданные
     - "index"                          # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
     - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL

@@ -1,15 +1,20 @@
-"""Tests for document pipeline configuration usage."""
+"""Tests for document pipeline configuration usage and validation."""
 
 from __future__ import annotations
 
+import subprocess
+import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
+import pandas as pd
 import pytest
 import yaml
 
 from library.documents.config import DocumentConfig, load_document_config
 from library.documents.pipeline import DocumentValidationError, _create_api_client
+from tests.schemas.test_column_order_validation import validate_column_order, validate_determinism, validate_pandera_schema
 
 
 @pytest.fixture()
@@ -315,3 +320,383 @@ def test_create_api_client_requests_per_second_rate_limit_openalex() -> None:
         assert api_config.rate_limit is not None
         assert api_config.rate_limit.max_calls == 1
         assert api_config.rate_limit.period == 1.0  # 1.0 / 1.0 = 1.0
+
+
+class TestDocumentPipelineValidation:
+    """E2E тесты валидации Document пайплайна."""
+
+    @pytest.fixture
+    def document_config(self) -> dict[str, Any]:
+        """Конфигурация Document пайплайна."""
+        config_path = Path("configs/config_document.yaml")
+        if not config_path.exists():
+            pytest.skip("Document config file not found")
+        
+        with open(config_path, encoding="utf-8") as f:
+            return yaml.safe_load(f)
+
+    @pytest.fixture
+    def document_input_data(self) -> pd.DataFrame:
+        """Входные данные для Document пайплайна."""
+        input_path = Path("data/input/document.csv")
+        if not input_path.exists():
+            pytest.skip("Document input data not found")
+        
+        return pd.read_csv(input_path)
+
+    @pytest.fixture
+    def temp_output_dir(self) -> Path:
+        """Временная директория для выходных файлов."""
+        return Path(tempfile.mkdtemp())
+
+    def test_document_pipeline_smoke_test(self, document_config: dict[str, Any], document_input_data: pd.DataFrame, temp_output_dir: Path) -> None:
+        """Smoke test Document пайплайна с --limit 2."""
+        pytest.mark.integration
+        
+        # Ограничиваем входные данные
+        limited_data = document_input_data.head(2)
+        
+        # Создаем временный входной файл
+        input_file = temp_output_dir / "test_document_input.csv"
+        limited_data.to_csv(input_file, index=False)
+        
+        # Запускаем пайплайн через CLI
+        cmd = [
+            "bioactivity-data-acquisition", "get-document-data",
+            "--config", "configs/config_document.yaml",
+            "--documents-csv", str(input_file),
+            "--output-dir", str(temp_output_dir),
+            "--limit", "2",
+            "--dry-run"
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            assert result.returncode == 0, f"Pipeline failed: {result.stderr}"
+        except subprocess.TimeoutExpired:
+            pytest.fail("Pipeline timed out after 5 minutes")
+        except FileNotFoundError:
+            pytest.skip("bioactivity-data-acquisition CLI not found")
+
+    def test_document_pipeline_validation_test(self, document_config: dict[str, Any], document_input_data: pd.DataFrame, temp_output_dir: Path) -> None:
+        """Validation test Document пайплайна с --limit 10."""
+        pytest.mark.integration
+        
+        # Ограничиваем входные данные
+        limited_data = document_input_data.head(10)
+        
+        # Создаем временный входной файл
+        input_file = temp_output_dir / "test_document_input.csv"
+        limited_data.to_csv(input_file, index=False)
+        
+        # Запускаем пайплайн через CLI
+        cmd = [
+            "bioactivity-data-acquisition", "get-document-data",
+            "--config", "configs/config_document.yaml",
+            "--documents-csv", str(input_file),
+            "--output-dir", str(temp_output_dir),
+            "--limit", "10"
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            assert result.returncode == 0, f"Pipeline failed: {result.stderr}"
+            
+            # Проверяем что выходные файлы созданы
+            output_files = list(temp_output_dir.glob("*.csv"))
+            assert len(output_files) > 0, "No output files created"
+            
+            # Проверяем основной выходной файл
+            main_output = temp_output_dir / "documents.csv"
+            if main_output.exists():
+                self._validate_document_output(main_output, document_config)
+            
+        except subprocess.TimeoutExpired:
+            pytest.fail("Pipeline timed out after 10 minutes")
+        except FileNotFoundError:
+            pytest.skip("bioactivity-data-acquisition CLI not found")
+
+    def _validate_document_output(self, output_file: Path, config: dict[str, Any]) -> None:
+        """Валидация выходного файла Document пайплайна."""
+        # Читаем выходные данные
+        output_data = pd.read_csv(output_file)
+        
+        # Проверяем что данные не пустые
+        assert len(output_data) > 0, "Output data is empty"
+        
+        # Проверяем column_order
+        column_order = config["determinism"]["column_order"]
+        validate_column_order(output_data, column_order)
+        
+        # Проверяем Pandera схему
+        from library.schemas.document_schema import DocumentInputSchema
+        try:
+            validated_data = validate_pandera_schema(output_data, DocumentInputSchema)
+            assert len(validated_data) == len(output_data)
+        except Exception as e:
+            pytest.fail(f"Document schema validation failed: {e}")
+        
+        # Проверяем обязательные поля
+        required_fields = ["document_chembl_id"]
+        for field in required_fields:
+            assert field in output_data.columns, f"Required field {field} missing"
+            assert not output_data[field].isna().any(), f"Required field {field} contains NULL values"
+        
+        # Проверяем детерминизм
+        validate_determinism(output_file)
+
+    def test_document_pipeline_column_order_consistency(self, document_config: dict[str, Any], document_input_data: pd.DataFrame, temp_output_dir: Path) -> None:
+        """Тест консистентности column_order в Document пайплайне."""
+        pytest.mark.integration
+        
+        # Ограничиваем входные данные
+        limited_data = document_input_data.head(5)
+        
+        # Создаем временный входной файл
+        input_file = temp_output_dir / "test_document_input.csv"
+        limited_data.to_csv(input_file, index=False)
+        
+        # Запускаем пайплайн
+        cmd = [
+            "bioactivity-data-acquisition", "get-document-data",
+            "--config", "configs/config_document.yaml",
+            "--documents-csv", str(input_file),
+            "--output-dir", str(temp_output_dir),
+            "--limit", "5"
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            assert result.returncode == 0, f"Pipeline failed: {result.stderr}"
+            
+            # Проверяем выходной файл
+            output_file = temp_output_dir / "documents.csv"
+            if output_file.exists():
+                output_data = pd.read_csv(output_file)
+                
+                # Проверяем что порядок колонок соответствует конфигурации
+                column_order = document_config["determinism"]["column_order"]
+                validate_column_order(output_data, column_order)
+                
+                # Проверяем что все колонки из конфигурации присутствуют
+                expected_columns = []
+                for col in column_order:
+                    if isinstance(col, str):
+                        col_name = col.split('#')[0].strip().strip('"').strip("'")
+                        if col_name and col_name != 'index':
+                            expected_columns.append(col_name)
+                
+                missing_columns = set(expected_columns) - set(output_data.columns)
+                assert len(missing_columns) == 0, f"Missing columns: {missing_columns}"
+                
+        except subprocess.TimeoutExpired:
+            pytest.fail("Pipeline timed out")
+        except FileNotFoundError:
+            pytest.skip("CLI not found")
+
+    def test_document_pipeline_schema_validation(self, document_input_data: pd.DataFrame, temp_output_dir: Path) -> None:
+        """Тест валидации схемы Document пайплайна."""
+        pytest.mark.integration
+        
+        # Ограничиваем входные данные
+        limited_data = document_input_data.head(3)
+        
+        # Создаем временный входной файл
+        input_file = temp_output_dir / "test_document_input.csv"
+        limited_data.to_csv(input_file, index=False)
+        
+        # Запускаем пайплайн
+        cmd = [
+            "bioactivity-data-acquisition", "get-document-data",
+            "--config", "configs/config_document.yaml",
+            "--documents-csv", str(input_file),
+            "--output-dir", str(temp_output_dir),
+            "--limit", "3"
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            assert result.returncode == 0, f"Pipeline failed: {result.stderr}"
+            
+            # Проверяем выходной файл
+            output_file = temp_output_dir / "documents.csv"
+            if output_file.exists():
+                output_data = pd.read_csv(output_file)
+                
+                # Валидируем по Pandera схеме
+                from library.schemas.document_schema import DocumentInputSchema
+                try:
+                    validated_data = validate_pandera_schema(output_data, DocumentInputSchema)
+                    assert len(validated_data) == len(output_data)
+                    
+                    # Проверяем типы данных
+                    self._validate_document_data_types(validated_data)
+                    
+                    # Проверяем диапазоны значений
+                    self._validate_document_value_ranges(validated_data)
+                    
+                except Exception as e:
+                    pytest.fail(f"Document schema validation failed: {e}")
+                
+        except subprocess.TimeoutExpired:
+            pytest.fail("Pipeline timed out")
+        except FileNotFoundError:
+            pytest.skip("CLI not found")
+
+    def _validate_document_data_types(self, data: pd.DataFrame) -> None:
+        """Валидация типов данных в Document."""
+        # STRING поля
+        string_fields = ["document_chembl_id", "pubmed_id", "doi", "classification"]
+        for field in string_fields:
+            if field in data.columns:
+                assert data[field].dtype == 'object', f"Field {field} should be string type"
+        
+        # BOOL поля
+        bool_fields = ["document_contains_external_links", "is_experimental_doc"]
+        for field in bool_fields:
+            if field in data.columns:
+                assert pd.api.types.is_bool_dtype(data[field]), f"Field {field} should be boolean type"
+
+    def _validate_document_value_ranges(self, data: pd.DataFrame) -> None:
+        """Валидация диапазонов значений в Document."""
+        # Проверяем DOI паттерн
+        if "doi" in data.columns:
+            import re
+            doi_pattern = re.compile(r'^10\.\d+/[^\s]+$')
+            for value in data["doi"].dropna():
+                assert doi_pattern.match(str(value)), f"Invalid DOI pattern: {value}"
+        
+        # Проверяем PMID паттерн
+        if "pubmed_id" in data.columns:
+            import re
+            pmid_pattern = re.compile(r'^\d+$')
+            for value in data["pubmed_id"].dropna():
+                assert pmid_pattern.match(str(value)), f"Invalid PMID pattern: {value}"
+        
+        # Проверяем ChEMBL ID паттерн
+        if "document_chembl_id" in data.columns:
+            import re
+            chembl_pattern = re.compile(r'^CHEMBL\d+$')
+            for value in data["document_chembl_id"].dropna():
+                assert chembl_pattern.match(str(value)), f"Invalid ChEMBL ID pattern: {value}"
+
+    def test_document_pipeline_determinism(self, document_input_data: pd.DataFrame, temp_output_dir: Path) -> None:
+        """Тест детерминизма Document пайплайна."""
+        pytest.mark.integration
+        
+        # Ограничиваем входные данные
+        limited_data = document_input_data.head(3)
+        
+        # Создаем временный входной файл
+        input_file = temp_output_dir / "test_document_input.csv"
+        limited_data.to_csv(input_file, index=False)
+        
+        # Запускаем пайплайн дважды
+        for run in [1, 2]:
+            run_dir = temp_output_dir / f"run_{run}"
+            run_dir.mkdir()
+            
+            cmd = [
+                "bioactivity-data-acquisition", "get-document-data",
+                "--config", "configs/config_document.yaml",
+                "--documents-csv", str(input_file),
+                "--output-dir", str(run_dir),
+                "--limit", "3"
+            ]
+            
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                assert result.returncode == 0, f"Pipeline run {run} failed: {result.stderr}"
+            except subprocess.TimeoutExpired:
+                pytest.fail(f"Pipeline run {run} timed out")
+            except FileNotFoundError:
+                pytest.skip("CLI not found")
+        
+        # Сравниваем результаты
+        run1_output = temp_output_dir / "run_1" / "documents.csv"
+        run2_output = temp_output_dir / "run_2" / "documents.csv"
+        
+        if run1_output.exists() and run2_output.exists():
+            df1 = pd.read_csv(run1_output)
+            df2 = pd.read_csv(run2_output)
+            
+            # Проверяем что результаты идентичны
+            pd.testing.assert_frame_equal(df1, df2, check_dtype=False)
+
+    def test_document_pipeline_meta_files(self, document_input_data: pd.DataFrame, temp_output_dir: Path) -> None:
+        """Тест создания meta файлов Document пайплайна."""
+        pytest.mark.integration
+        
+        # Ограничиваем входные данные
+        limited_data = document_input_data.head(5)
+        
+        # Создаем временный входной файл
+        input_file = temp_output_dir / "test_document_input.csv"
+        limited_data.to_csv(input_file, index=False)
+        
+        # Запускаем пайплайн
+        cmd = [
+            "bioactivity-data-acquisition", "get-document-data",
+            "--config", "configs/config_document.yaml",
+            "--documents-csv", str(input_file),
+            "--output-dir", str(temp_output_dir),
+            "--limit", "5"
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            assert result.returncode == 0, f"Pipeline failed: {result.stderr}"
+            
+            # Проверяем meta файлы
+            meta_files = list(temp_output_dir.glob("*.yaml")) + list(temp_output_dir.glob("*.json"))
+            assert len(meta_files) > 0, "No meta files created"
+            
+            # Проверяем содержимое meta файла
+            for meta_file in meta_files:
+                if meta_file.suffix == '.yaml':
+                    with open(meta_file, encoding="utf-8") as f:
+                        meta_data = yaml.safe_load(f)
+                    
+                    # Проверяем обязательные поля
+                    assert "pipeline_version" in meta_data, "pipeline_version missing from meta"
+                    assert "chembl_release" in meta_data, "chembl_release missing from meta"
+                    assert "row_count" in meta_data, "row_count missing from meta"
+                    assert "checksums" in meta_data, "checksums missing from meta"
+                    
+        except subprocess.TimeoutExpired:
+            pytest.fail("Pipeline timed out")
+        except FileNotFoundError:
+            pytest.skip("CLI not found")
+
+    def test_document_pipeline_error_handling(self, temp_output_dir: Path) -> None:
+        """Тест обработки ошибок Document пайплайна."""
+        pytest.mark.integration
+        
+        # Создаем невалидный входной файл
+        invalid_data = pd.DataFrame({
+            "invalid_column": ["value1", "value2"]
+        })
+        
+        input_file = temp_output_dir / "invalid_input.csv"
+        invalid_data.to_csv(input_file, index=False)
+        
+        # Запускаем пайплайн с невалидными данными
+        cmd = [
+            "bioactivity-data-acquisition", "get-document-data",
+            "--config", "configs/config_document.yaml",
+            "--documents-csv", str(input_file),
+            "--output-dir", str(temp_output_dir),
+            "--limit", "2"
+        ]
+        
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            # Пайплайн должен завершиться с ошибкой
+            assert result.returncode != 0, "Pipeline should fail with invalid input"
+            assert "error" in result.stderr.lower() or "validation" in result.stderr.lower(), \
+                "Pipeline should report validation error"
+                
+        except subprocess.TimeoutExpired:
+            pytest.fail("Pipeline timed out")
+        except FileNotFoundError:
+            pytest.skip("CLI not found")

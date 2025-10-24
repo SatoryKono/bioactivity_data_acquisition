@@ -118,7 +118,7 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         return extracted_data
     
     def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
-        """Extract data from ChEMBL."""
+        """Extract data from ChEMBL with target enrichment."""
         logger.info(f"Extracting assay data from ChEMBL for {len(data)} assays")
         
         extracted_records = []
@@ -128,12 +128,20 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         missing_fields = set()
         empty_fields = set()
         
+        # Collect unique target IDs for enrichment
+        target_ids = set()
+        
         for _, row in data.iterrows():
             assay_id = row["assay_chembl_id"]
             try:
                 assay_data = chembl_client.fetch_by_assay_id(assay_id)
                 if assay_data:
                     extracted_records.append(assay_data)
+                    
+                    # Collect target_chembl_id for enrichment
+                    target_chembl_id = assay_data.get("target_chembl_id")
+                    if target_chembl_id:
+                        target_ids.add(target_chembl_id)
                     
                     # Track which fields are missing or empty
                     for field, value in assay_data.items():
@@ -150,24 +158,59 @@ class AssayPipeline(PipelineBase[AssayConfig]):
             extracted_df = pd.DataFrame(extracted_records)
             logger.info(f"Successfully extracted {len(extracted_df)} assay records from ChEMBL")
             
+            # Enrich with target data
+            if target_ids:
+                logger.info(f"Enriching {len(target_ids)} unique targets from /target endpoint")
+                target_data = self._enrich_with_target_data(chembl_client, list(target_ids))
+                if not target_data.empty:
+                    # Merge target data into assay data
+                    extracted_df = extracted_df.merge(
+                        target_data,
+                        on="target_chembl_id",
+                        how="left",
+                        suffixes=("", "_target")
+                    )
+                    logger.info("Enriched assay data with target information")
+            
             # Log field analysis
             if empty_fields:
                 logger.warning(f"Empty/missing fields in assay data: {sorted(empty_fields)}")
                 logger.info("This may indicate incomplete data in ChEMBL or limited API response.")
             
-            # Check for expected fields that are missing
-            expected_fields = [
-                "assay_type", "assay_category", "bao_format", "bao_label", "bao_endpoint",
-                "variant_id", "is_variant", "variant_accession", "target_uniprot_accession"
+            # Log information about unavailable fields
+            unavailable_fields = [
+                "bao_endpoint", "bao_assay_format", "bao_assay_type", "bao_assay_type_label",
+                "bao_assay_type_uri", "bao_assay_format_uri", "bao_assay_format_label",
+                "bao_endpoint_uri", "bao_endpoint_label", "variant_id", "is_variant",
+                "variant_accession", "variant_sequence_accession", "variant_sequence_mutation",
+                "variant_mutations", "variant_text", "variant_sequence_id", "variant_organism",
+                "assay_parameters_json", "assay_format"
             ]
-            missing_expected = [field for field in expected_fields if field not in extracted_df.columns]
-            if missing_expected:
-                logger.warning(f"Expected fields missing from API response: {missing_expected}")
-                logger.info("Consider investigating alternative ChEMBL endpoints for complete assay data.")
+            logger.info(f"Fields unavailable in ChEMBL API: {unavailable_fields}")
+            logger.info("These fields are documented as unavailable in ChEMBL API v33+")
             
             return extracted_df
         else:
             logger.warning("No assay data extracted from ChEMBL")
+            return pd.DataFrame()
+    
+    def _enrich_with_target_data(self, chembl_client, target_ids: list[str]) -> pd.DataFrame:
+        """Enrich assay data with target information."""
+        target_records = []
+        
+        for target_id in target_ids:
+            try:
+                target_data = chembl_client.fetch_by_target_id(target_id)
+                if target_data and "error" not in target_data:
+                    target_records.append(target_data)
+            except Exception as e:
+                logger.warning("Failed to fetch target %s: %s", target_id, e)
+                continue
+        
+        if target_records:
+            return pd.DataFrame(target_records)
+        else:
+            logger.warning("No target data extracted for enrichment")
             return pd.DataFrame()
     
     def _merge_chembl_data(self, base_data: pd.DataFrame, chembl_data: pd.DataFrame) -> pd.DataFrame:
@@ -193,6 +236,16 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         
         # Apply assay normalization (placeholder)
         normalized_data = raw_data
+        
+        # Add system metadata fields
+        from library.common.metadata_fields import add_system_metadata_fields, create_chembl_client_from_config
+        
+        # Создаем ChEMBL клиент для получения версии
+        config_dict = self.config.model_dump() if hasattr(self.config, 'model_dump') else {}
+        chembl_client = create_chembl_client_from_config(config_dict)
+        
+        # Добавляем системные метаданные
+        normalized_data = add_system_metadata_fields(normalized_data, config_dict, chembl_client)
         
         logger.info(f"Normalized {len(normalized_data)} assays")
         return normalized_data

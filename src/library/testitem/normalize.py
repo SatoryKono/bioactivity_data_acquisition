@@ -298,38 +298,16 @@ class TestitemNormalizer:
         return df_standardized
 
     def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add system metadata columns."""
-        from datetime import datetime
+        """Add system metadata columns using unified utility."""
+        from library.common.metadata_fields import add_system_metadata_fields, create_chembl_client_from_config
         
         logger.info("Adding system metadata columns...")
         
-        df_with_metadata = df.copy()
+        # Создаем ChEMBL клиент для получения версии
+        chembl_client = create_chembl_client_from_config(self.config)
         
-        # Удаляем существующие метаданные колонки, если они есть, чтобы избежать дубликатов
-        metadata_columns = ['index', 'pipeline_version', 'source_system', 'chembl_release', 'extracted_at']
-        for col in metadata_columns:
-            if col in df_with_metadata.columns:
-                df_with_metadata = df_with_metadata.drop(columns=[col])
-        
-        # Index - порядковый номер записи
-        df_with_metadata['index'] = range(len(df))
-        
-        # Pipeline version
-        df_with_metadata['pipeline_version'] = self.config.get('pipeline', {}).get('version', '2.0.0')
-        
-        # Source system
-        df_with_metadata['source_system'] = 'ChEMBL'
-        
-        # ChEMBL release - из конфига или None
-        chembl_release = self.config.get('sources', {}).get('chembl', {}).get('release', None)
-        df_with_metadata['chembl_release'] = chembl_release
-        
-        # Extracted at - current UTC time
-        df_with_metadata['extracted_at'] = datetime.utcnow().isoformat() + 'Z'
-        
-        logger.info("System metadata columns added successfully")
-        
-        return df_with_metadata
+        # Используем унифицированную утилиту
+        return add_system_metadata_fields(df, self.config, chembl_client)
 
     def _add_hash_fields(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add hash fields for deduplication and integrity checking."""

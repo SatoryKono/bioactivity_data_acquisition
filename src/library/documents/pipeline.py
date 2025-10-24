@@ -110,7 +110,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         client_config = APIClientConfig(
             name="crossref",
-            base_url=source_config.http.base_url,
+            base_url=source_config.http.base_url or 'https://api.crossref.org',
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries.get("total", 3),
@@ -143,7 +143,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         client_config = APIClientConfig(
             name="openalex",
-            base_url=source_config.http.base_url,
+            base_url=source_config.http.base_url or 'https://api.openalex.org',
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries.get("total", 3),
@@ -176,7 +176,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         client_config = APIClientConfig(
             name="pubmed",
-            base_url=source_config.http.base_url,
+            base_url=source_config.http.base_url or 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils',
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries.get("total", 3),
@@ -209,7 +209,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         client_config = APIClientConfig(
             name="semantic_scholar",
-            base_url=source_config.http.base_url,
+            base_url=source_config.http.base_url or 'https://api.semanticscholar.org',
             timeout_sec=timeout,
             retries=RetrySettings(
                 total=source_config.http.retries.get("total", 3),

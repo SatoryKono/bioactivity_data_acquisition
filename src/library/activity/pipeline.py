@@ -195,6 +195,7 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
         # For fields that exist in both, prefer ChEMBL data
         chembl_fields = [
             "assay_chembl_id", "molecule_chembl_id", "target_chembl_id", "document_chembl_id",
+            "activity_type", "activity_value", "activity_unit",  # Добавлены activity_* поля
             "published_type", "published_relation", "published_value", "published_units",
             "standard_type", "standard_relation", "standard_value", "standard_units", "standard_flag",
             "pchembl_value", "data_validity_comment", "activity_comment",
@@ -205,8 +206,14 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
             chembl_field = f"{field}_chembl"
             if chembl_field in merged.columns:
                 # Use ChEMBL data where available, fallback to base data
+                before_count = merged[field].notna().sum() if field in merged.columns else 0
                 merged[field] = merged[chembl_field].fillna(merged[field])
+                after_count = merged[field].notna().sum()
                 merged = merged.drop(columns=[chembl_field])
+                
+                # Логируем изменения для activity_* полей
+                if field in ["activity_type", "activity_value", "activity_unit"]:
+                    logger.debug(f"Field {field}: {before_count} -> {after_count} non-null values after merge")
         
         return merged
     

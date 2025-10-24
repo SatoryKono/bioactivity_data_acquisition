@@ -222,22 +222,8 @@ class AssayPostprocessor(BasePostprocessor):
             if field not in df.columns:
                 df[field] = default_value
         
-        # Заполняем системные поля
-        if 'index' in df.columns:
-            df['index'] = range(len(df))
-        
-        if 'pipeline_version' in df.columns:
-            # Получаем версию из конфигурации или используем значение по умолчанию
-            try:
-                if hasattr(self.config, 'pipeline') and hasattr(self.config.pipeline, 'version'):
-                    df['pipeline_version'] = self.config.pipeline.version
-                else:
-                    df['pipeline_version'] = "2.0.0"  # Версия по умолчанию
-            except AttributeError:
-                df['pipeline_version'] = "2.0.0"  # Версия по умолчанию
-        
-        if 'chembl_release' in df.columns:
-            df['chembl_release'] = "ChEMBL_33"  # Текущая версия ChEMBL
+        # Системные поля (index, pipeline_version, chembl_release) теперь добавляются
+        # в нормализаторах через унифицированную утилиту add_system_metadata_fields()
         
         # Определяем is_variant на основе наличия variant полей
         if 'is_variant' in df.columns:

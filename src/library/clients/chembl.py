@@ -849,6 +849,49 @@ class ChEMBLClient(BaseApiClient):
             "error": error_msg
         }
 
+    def fetch_by_target_id(self, target_chembl_id: str) -> dict[str, Any]:
+        """Fetch target data by ChEMBL target ID to enrich assay data."""
+        try:
+            payload = self._request("GET", f"target/{target_chembl_id}")
+            
+            # Extract target organism and tax_id
+            target_organism = payload.get("organism")
+            target_tax_id = payload.get("tax_id")
+            
+            # Extract UniProt accession and isoform from target_components
+            target_uniprot_accession = None
+            target_isoform = None
+            
+            target_components = payload.get("target_components", [])
+            if target_components:
+                # Get the first protein component
+                for component in target_components:
+                    if component.get("component_type") == "PROTEIN":
+                        target_uniprot_accession = component.get("accession")
+                        # Check for isoform information in component description or synonyms
+                        component_desc = component.get("component_description", "")
+                        if "isoform" in component_desc.lower():
+                            target_isoform = component_desc
+                        break
+            
+            return {
+                "target_chembl_id": target_chembl_id,
+                "target_organism": target_organism,
+                "target_tax_id": target_tax_id,
+                "target_uniprot_accession": target_uniprot_accession,
+                "target_isoform": target_isoform,
+                "source_system": "ChEMBL",
+                "extracted_at": datetime.utcnow().isoformat() + "Z"
+            }
+        except Exception as e:
+            logger.warning("Failed to fetch target %s: %s", target_chembl_id, e)
+            return {
+                "target_chembl_id": target_chembl_id,
+                "source_system": "ChEMBL",
+                "extracted_at": datetime.utcnow().isoformat() + "Z",
+                "error": str(e)
+            }
+
     def fetch_by_assay_id(self, assay_chembl_id: str) -> dict[str, Any]:
         """Fetch assay data by ChEMBL assay ID."""
         try:
@@ -860,31 +903,33 @@ class ChEMBLClient(BaseApiClient):
                 "assay_type": payload.get("assay_type"),
                 "assay_category": payload.get("assay_category"),
                 "target_chembl_id": payload.get("target_chembl_id"),
-                "target_organism": payload.get("target_organism"),
-                "target_tax_id": payload.get("target_tax_id"),
+                # Note: target_organism, target_tax_id, target_uniprot_accession, target_isoform
+                # are not available in /assay endpoint - will be enriched via /target endpoint
                 "bao_format": payload.get("bao_format"),
                 "bao_label": payload.get("bao_label"),
-                "bao_endpoint": payload.get("bao_endpoint"),
-                "bao_assay_format": payload.get("bao_assay_format"),
-                "bao_assay_type": payload.get("bao_assay_type"),
-                "bao_assay_type_label": payload.get("bao_assay_type_label"),
-                "bao_assay_type_uri": payload.get("bao_assay_type_uri"),
-                "bao_assay_format_uri": payload.get("bao_assay_format_uri"),
-                "bao_assay_format_label": payload.get("bao_assay_format_label"),
-                "bao_endpoint_uri": payload.get("bao_endpoint_uri"),
-                "bao_endpoint_label": payload.get("bao_endpoint_label"),
-                "variant_id": payload.get("variant_id"),
-                "is_variant": payload.get("is_variant"),
-                "variant_accession": payload.get("variant_accession"),
-                "variant_sequence_accession": payload.get("variant_sequence_accession"),
-                "variant_sequence_mutation": payload.get("variant_sequence_mutation"),
-                "variant_mutations": payload.get("variant_mutations"),
-                "variant_sequence": payload.get("variant_sequence"),
-                "variant_text": payload.get("variant_text"),
-                "variant_sequence_id": payload.get("variant_sequence_id"),
-                "variant_organism": payload.get("variant_organism"),
-                "target_uniprot_accession": payload.get("target_uniprot_accession"),
-                "target_isoform": payload.get("target_isoform"),
+                # Note: Extended BAO fields are not available in ChEMBL API v33+
+                "bao_endpoint": None,  # Not available in API
+                "bao_assay_format": None,  # Not available in API
+                "bao_assay_type": None,  # Not available in API
+                "bao_assay_type_label": None,  # Not available in API
+                "bao_assay_type_uri": None,  # Not available in API
+                "bao_assay_format_uri": None,  # Not available in API
+                "bao_assay_format_label": None,  # Not available in API
+                "bao_endpoint_uri": None,  # Not available in API
+                "bao_endpoint_label": None,  # Not available in API
+                # Note: Variant fields are not available in ChEMBL API
+                "variant_id": None,  # Not available in API
+                "is_variant": None,  # Not available in API
+                "variant_accession": None,  # Not available in API
+                "variant_sequence_accession": None,  # Not available in API
+                "variant_sequence_mutation": None,  # Not available in API
+                "variant_mutations": None,  # Not available in API
+                "variant_sequence": payload.get("variant_sequence"),  # Available but often null
+                "variant_text": None,  # Not available in API
+                "variant_sequence_id": None,  # Not available in API
+                "variant_organism": None,  # Not available in API
+                "target_uniprot_accession": None,  # Will be enriched via /target endpoint
+                "target_isoform": None,  # Will be enriched via /target endpoint
                 "assay_organism": payload.get("assay_organism"),
                 "assay_tax_id": payload.get("assay_tax_id"),
                 "assay_strain": payload.get("assay_strain"),
@@ -892,9 +937,9 @@ class ChEMBLClient(BaseApiClient):
                 "assay_cell_type": payload.get("assay_cell_type"),
                 "assay_subcellular_fraction": payload.get("assay_subcellular_fraction"),
                 "description": payload.get("description"),
-                "assay_parameters": payload.get("assay_parameters"),
-                "assay_parameters_json": payload.get("assay_parameters_json"),
-                "assay_format": payload.get("assay_format"),
+                "assay_parameters": payload.get("assay_parameters"),  # Available but often null
+                "assay_parameters_json": None,  # Not available in API
+                "assay_format": None,  # Not available in API
                 "confidence_score": payload.get("confidence_score"),
                 "curated_by": payload.get("curated_by"),
                 "src_id": payload.get("src_id"),

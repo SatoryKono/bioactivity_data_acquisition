@@ -385,20 +385,39 @@ class PubMedClient(BaseApiClient):
                         if clean_abstract:
                             record["pubmed_abstract"] = clean_abstract
                 
-                # Извлекаем MeSH descriptors
-                mesh_descriptors = re.findall(r'<MeshHeadingList[^>]*>.*?<DescriptorName[^>]*>([^<]+)</DescriptorName>.*?</MeshHeadingList>', xml_content, re.DOTALL)
-                if mesh_descriptors:
-                    record["pubmed_mesh_descriptors"] = "; ".join(mesh_descriptors)
+                # Извлекаем MeSH descriptors и qualifiers с улучшенным парсингом
+                mesh_descriptors = []
+                mesh_qualifiers = []
                 
-                # Извлекаем MeSH qualifiers
-                mesh_qualifiers = re.findall(r'<QualifierName[^>]*>([^<]+)</QualifierName>', xml_content)
-                if mesh_qualifiers:
-                    record["pubmed_mesh_qualifiers"] = "; ".join(mesh_qualifiers)
+                # Ищем все MeshHeading блоки
+                mesh_heading_matches = re.findall(r'<MeshHeading[^>]*>(.*?)</MeshHeading>', xml_content, re.DOTALL)
+                for mesh_heading in mesh_heading_matches:
+                    # Извлекаем DescriptorName
+                    descriptor_match = re.search(r'<DescriptorName[^>]*>([^<]+)</DescriptorName>', mesh_heading)
+                    if descriptor_match:
+                        mesh_descriptors.append(descriptor_match.group(1).strip())
+                    
+                    # Извлекаем все QualifierName в этом MeshHeading
+                    qualifier_matches = re.findall(r'<QualifierName[^>]*>([^<]+)</QualifierName>', mesh_heading)
+                    for qualifier in qualifier_matches:
+                        mesh_qualifiers.append(qualifier.strip())
                 
-                # Извлекаем Chemical List
-                chemical_list = re.findall(r'<ChemicalList[^>]*>.*?<NameOfSubstance[^>]*>([^<]+)</NameOfSubstance>.*?</ChemicalList>', xml_content, re.DOTALL)
-                if chemical_list:
-                    record["pubmed_chemical_list"] = "; ".join(chemical_list)
+                # Устанавливаем значения с fallback
+                record["pubmed_mesh_descriptors"] = "; ".join(mesh_descriptors) if mesh_descriptors else "unknown"
+                record["pubmed_mesh_qualifiers"] = "; ".join(mesh_qualifiers) if mesh_qualifiers else "unknown"
+                
+                # Извлекаем Chemical List с улучшенным парсингом
+                chemical_list = []
+                # Ищем все Chemical блоки
+                chemical_matches = re.findall(r'<Chemical[^>]*>(.*?)</Chemical>', xml_content, re.DOTALL)
+                for chemical in chemical_matches:
+                    # Извлекаем NameOfSubstance
+                    substance_match = re.search(r'<NameOfSubstance[^>]*>([^<]+)</NameOfSubstance>', chemical)
+                    if substance_match:
+                        chemical_list.append(substance_match.group(1).strip())
+                
+                # Устанавливаем значение с fallback
+                record["pubmed_chemical_list"] = "; ".join(chemical_list) if chemical_list else "unknown"
             
             return record
             

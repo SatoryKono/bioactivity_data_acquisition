@@ -286,17 +286,45 @@ class ActivityNormalizer:
     
     def _add_activity_aliases(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add activity_type, activity_value, activity_unit as aliases for published fields."""
-        # activity_type = published_type
-        if 'published_type' in df.columns:
-            df['activity_type'] = df['published_type']
+        logger.debug("Adding activity aliases from published fields")
         
-        # activity_value = published_value  
-        if 'published_value' in df.columns:
-            df['activity_value'] = df['published_value']
+        # activity_type = published_type (только если activity_type пустой)
+        if 'published_type' in df.columns and 'activity_type' in df.columns:
+            # Заполняем только пустые значения activity_type
+            mask = df['activity_type'].isna() & df['published_type'].notna()
+            filled_count = mask.sum()
+            if filled_count > 0:
+                df.loc[mask, 'activity_type'] = df.loc[mask, 'published_type']
+                logger.debug(f"Filled {filled_count} empty activity_type values from published_type")
         
-        # activity_unit = published_units
-        if 'published_units' in df.columns:
-            df['activity_unit'] = df['published_units']
+        # activity_value = published_value (только если activity_value пустой)
+        if 'published_value' in df.columns and 'activity_value' in df.columns:
+            # Заполняем только пустые значения activity_value
+            mask = df['activity_value'].isna() & df['published_value'].notna()
+            filled_count = mask.sum()
+            if filled_count > 0:
+                df.loc[mask, 'activity_value'] = df.loc[mask, 'published_value']
+                logger.debug(f"Filled {filled_count} empty activity_value values from published_value")
+        
+        # activity_unit = published_units (только если activity_unit пустой)
+        if 'published_units' in df.columns and 'activity_unit' in df.columns:
+            # Заполняем только пустые значения activity_unit
+            mask = df['activity_unit'].isna() & df['published_units'].notna()
+            filled_count = mask.sum()
+            if filled_count > 0:
+                df.loc[mask, 'activity_unit'] = df.loc[mask, 'published_units']
+                logger.debug(f"Filled {filled_count} empty activity_unit values from published_units")
+        
+        # Логируем статистику по activity_* полям
+        if 'activity_type' in df.columns:
+            empty_activity_type = df['activity_type'].isna().sum()
+            logger.debug(f"Activity aliases summary: {empty_activity_type} empty activity_type values")
+        if 'activity_value' in df.columns:
+            empty_activity_value = df['activity_value'].isna().sum()
+            logger.debug(f"Activity aliases summary: {empty_activity_value} empty activity_value values")
+        if 'activity_unit' in df.columns:
+            empty_activity_unit = df['activity_unit'].isna().sum()
+            logger.debug(f"Activity aliases summary: {empty_activity_unit} empty activity_unit values")
         
         return df
     
@@ -332,34 +360,14 @@ class ActivityNormalizer:
         return df
     
     def _add_metadata_fields(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Add metadata fields to the DataFrame."""
-        import hashlib
-        from datetime import datetime
+        """Add metadata fields to the DataFrame using unified utility."""
+        from library.common.metadata_fields import add_system_metadata_fields, create_chembl_client_from_config
         
-        # Index - порядковый номер записи
-        df['index'] = range(len(df))
+        # Создаем ChEMBL клиент для получения версии
+        chembl_client = create_chembl_client_from_config(self.config)
         
-        # Pipeline version - из конфига
-        df['pipeline_version'] = self.config.get('pipeline', {}).get('version', '2.0.0')
-        
-        # Source system
-        df['source_system'] = 'ChEMBL'
-        
-        # ChEMBL release - из retrieved_at или текущее время
-        df['chembl_release'] = None  # Будет заполнено из API если доступно
-        
-        # Extracted at - текущее время
-        df['extracted_at'] = datetime.utcnow().isoformat() + 'Z'
-        
-        # Hash row - SHA256 хеш всей строки
-        df['hash_row'] = df.apply(lambda row: self._calculate_row_hash(row), axis=1)
-        
-        # Hash business key - SHA256 хеш бизнес-ключа
-        df['hash_business_key'] = df['activity_chembl_id'].apply(
-            lambda x: hashlib.sha256(str(x).encode('utf-8')).hexdigest() if pd.notna(x) else None
-        )
-        
-        return df
+        # Используем унифицированную утилиту
+        return add_system_metadata_fields(df, self.config, chembl_client)
     
     def _calculate_row_hash(self, row: pd.Series) -> str:
         """Calculate SHA256 hash of a DataFrame row."""

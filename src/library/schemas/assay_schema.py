@@ -93,45 +93,46 @@ class AssayRawSchema(pa.DataFrameModel):
         nullable=True
     )
     
-    # Variant fields from variant_sequence (extracted from /assay endpoint)
+    # Variant fields - NOT AVAILABLE in ChEMBL API v33+
+    # These fields are documented as unavailable in ChEMBL API
     variant_id: Series[object] = pa.Field(
-        description="ChEMBL variant identifier",
+        description="ChEMBL variant identifier - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_text: Series[str] = pa.Field(
-        description="Variant description text",
+        description="Variant description text - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_sequence_id: Series[object] = pa.Field(
-        description="Variant sequence identifier",
+        description="Variant sequence identifier - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     isoform: Series[object] = pa.Field(
-        description="Isoform from variant_sequence",
+        description="Isoform from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     mutation: Series[str] = pa.Field(
-        description="Mutation from variant_sequence",
+        description="Mutation from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     sequence: Series[str] = pa.Field(
-        description="Sequence from variant_sequence",
+        description="Sequence from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_accession: Series[str] = pa.Field(
-        description="Accession from variant_sequence",
+        description="Accession from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_sequence_accession: Series[str] = pa.Field(
-        description="Sequence accession from variant_sequence",
+        description="Sequence accession from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_sequence_mutation: Series[str] = pa.Field(
-        description="Sequence mutation from variant_sequence",
+        description="Sequence mutation from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_organism: Series[str] = pa.Field(
-        description="Organism from variant_sequence",
+        description="Organism from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     
@@ -274,53 +275,54 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         nullable=True
     )
     
-    # Variant fields (normalized from variant_sequence)
+    # Variant fields - NOT AVAILABLE in ChEMBL API v33+
+    # These fields are documented as unavailable in ChEMBL API
     variant_id: Series[object] = pa.Field(
-        description="ChEMBL variant identifier",
+        description="ChEMBL variant identifier - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     is_variant: Series[bool] = pa.Field(
-        description="Flag indicating if assay has variant data",
-        nullable=False
+        description="Flag indicating if assay has variant data - NOT AVAILABLE in ChEMBL API",
+        nullable=True  # Changed to nullable since field is not available
     )
     variant_accession: Series[str] = pa.Field(
-        description="UniProt accession of variant",
+        description="UniProt accession of variant - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_sequence_accession: Series[str] = pa.Field(
-        description="Sequence accession from variant_sequence",
+        description="Sequence accession from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_sequence_mutation: Series[str] = pa.Field(
-        description="Sequence mutation from variant_sequence",
+        description="Sequence mutation from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_mutations: Series[str] = pa.Field(
-        description="Raw description of variant mutations",
+        description="Raw description of variant mutations - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_sequence: Series[str] = pa.Field(
-        description="Variant protein sequence",
+        description="Variant protein sequence - Available but often null in ChEMBL API",
         nullable=True
     )
     variant_text: Series[str] = pa.Field(
-        description="Variant description text from assay",
+        description="Variant description text from assay - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     variant_sequence_id: Series[object] = pa.Field(
-        description="Variant sequence identifier",
+        description="Variant sequence identifier - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     target_uniprot_accession: Series[str] = pa.Field(
-        description="Base UniProt accession of target",
+        description="Base UniProt accession of target - Enriched via /target endpoint",
         nullable=True
     )
     target_isoform: Series[object] = pa.Field(
-        description="Target isoform number (from variant_sequence.isoform)",
+        description="Target isoform number - Enriched via /target endpoint",
         nullable=True
     )
     variant_organism: Series[str] = pa.Field(
-        description="Organism from variant_sequence",
+        description="Organism from variant_sequence - NOT AVAILABLE in ChEMBL API",
         nullable=True
     )
     
