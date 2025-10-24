@@ -58,6 +58,7 @@ class ActivityRuntimeSettings(BaseModel):
     batch_size: int = Field(default=1000, ge=1)
     limit: int | None = Field(default=None, ge=1)
     dry_run: bool = Field(default=False)
+    allow_incomplete_sources: bool = Field(default=True)
 
 
 class ActivityHTTPRetrySettings(BaseModel):

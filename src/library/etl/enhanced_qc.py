@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 import re
+from collections import defaultdict
 from typing import Any
 
 import numpy as np
@@ -86,10 +86,15 @@ class EnhancedTableQualityProfiler:
         
         for col in df.columns:
             series = df[col]
+            # Безопасное вычисление non_empty без использования оператора - для numpy boolean
+            non_null_count = series.notna().sum()
+            empty_string_count = (series.astype(str).str.strip() == '').sum()
+            non_empty_count = non_null_count - empty_string_count
+            
             analysis = {
-                'non_null': int(series.notna().sum()),
-                'non_empty': int(series.notna().sum() - (series.astype(str).str.strip() == '').sum()),
-                'empty_pct': float((series.isna().sum() + (series.astype(str).str.strip() == '').sum()) / len(series) * 100),
+                'non_null': int(non_null_count),
+                'non_empty': int(non_empty_count),
+                'empty_pct': float((series.isna().sum() + empty_string_count) / len(series) * 100),
                 'unique_cnt': int(series.nunique()),
                 'unique_pct_of_non_empty': float(series.nunique() / series.notna().sum() * 100) if series.notna().sum() > 0 else 0.0,
                 'dtype': str(series.dtype),

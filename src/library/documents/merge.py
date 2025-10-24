@@ -154,8 +154,42 @@ def merge_source_data(base_df: pd.DataFrame, source_df: pd.DataFrame, source_nam
         # Заполняем данные по индексу
         for idx in result_df.index:
             key_value = result_df.loc[idx, join_key]
-            source_row = source_df[source_df[join_key] == key_value]
-            if not source_row.empty:
+            # Преобразуем key_value в строку для безопасного сравнения
+            if pd.isna(key_value):
+                key_value = ""
+            else:
+                key_value = str(key_value).strip()
+            
+            # Безопасное сравнение с обработкой NaN значений
+            if key_value:
+                try:
+                    # Нормализуем join_key в source_df для безопасного сравнения
+                    source_df_normalized = source_df.copy()
+                    if join_key in source_df_normalized.columns:
+                        source_df_normalized[join_key] = source_df_normalized[join_key].astype(str).str.strip()
+                        
+                        # Безопасное сравнение - используем .query для избежания проблем с boolean indexing
+                        try:
+                            # Фильтруем строки с совпадающим ключом
+                            matching_rows = source_df_normalized[source_df_normalized[join_key] == key_value]
+                            if len(matching_rows) > 0:
+                                source_row = source_df.loc[matching_rows.index]
+                            else:
+                                source_row = pd.DataFrame()
+                        except Exception as mask_error:
+                            logger.warning(f"Error in mask comparison for key '{key_value}': {mask_error}")
+                            source_row = pd.DataFrame()
+                    else:
+                        logger.warning(f"Join key '{join_key}' not found in source data")
+                        source_row = pd.DataFrame()
+                except Exception as e:
+                    logger.warning(f"Error during merge for key '{key_value}': {e}")
+                    source_row = pd.DataFrame()
+            else:
+                source_row = pd.DataFrame()
+            
+            # Проверяем количество найденных строк
+            if len(source_row) > 0:
                 for col in source_df.columns:
                     if col != join_key:
                         value = source_row.iloc[0][col]

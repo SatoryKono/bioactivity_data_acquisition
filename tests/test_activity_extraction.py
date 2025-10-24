@@ -4,7 +4,9 @@
 import pandas as pd
 import pytest
 
-from library.activity import ActivityChEMBLClient, ActivityConfig, ActivityNormalizer, ActivityQualityFilter, ActivityValidator
+from library.activity import ActivityConfig, ActivityNormalizer, ActivityValidator
+from library.activity.quality import ActivityQualityFilter
+from library.clients.chembl import ChEMBLClient
 
 
 class TestActivityConfig:
@@ -233,8 +235,8 @@ class TestActivityQualityFilter:
         assert stats['total_records'] == 3
 
 
-class TestActivityChEMBLClient:
-    """Test ActivityChEMBLClient class."""
+class TestChEMBLClient:
+    """Test ChEMBLClient class."""
     
     def setup_method(self):
         """Setup test client."""
@@ -248,7 +250,7 @@ class TestActivityChEMBLClient:
             retries={'total': 3, 'backoff_multiplier': 2.0}
         )
         
-        self.client = ActivityChEMBLClient(config)
+        self.client = ChEMBLClient(config)
     
     def test_parse_activity(self):
         """Test activity data parsing."""
@@ -258,10 +260,10 @@ class TestActivityChEMBLClient:
             'molecule_chembl_id': 'CHEMBL456',
             'target_chembl_id': 'CHEMBL789',
             'document_chembl_id': 'CHEMBL101',
-            'type': 'IC50',
-            'relation': '=',
-            'value': 10.5,
-            'units': 'nM',
+            'published_type': 'IC50',
+            'published_relation': '=',
+            'published_value': 10.5,
+            'published_units': 'nM',
             'standard_type': 'IC50',
             'standard_relation': '=',
             'standard_value': 10.5,
@@ -282,7 +284,7 @@ class TestActivityChEMBLClient:
             'activity_chembl_id', 'assay_chembl_id', 'molecule_chembl_id',
             'published_type', 'published_relation', 'published_value',
             'standard_type', 'standard_relation', 'standard_value',
-            'source_system', 'retrieved_at'
+            'source_system', 'extracted_at'
         ]
         
         for field in expected_fields:

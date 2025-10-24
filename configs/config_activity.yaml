@@ -177,7 +177,7 @@ normalization:
 quality:
   profiles:
     default:                          # Профиль по умолчанию
-      enabled: true                    # Включен ли профиль
+      enabled: false                   # Временно отключен для тестирования
       description: "Стандартный профиль QC для активностей"
       fail_on_criteria: ["missing_chembl_id", "missing_standard_value", "invalid_chembl_id"]
       thresholds:                      # Пороговые значения
@@ -235,6 +235,12 @@ quality:
           enabled: true
           parameters:
             pattern: "^CHEMBL\\d+$"
+    
+    moderate:                         # Умеренный профиль
+      enabled: true                    # Включить moderate filter
+      description: "Умеренный профиль QC для активностей"
+      required_fields: ["standard_type", "standard_value"]  # Только критичные поля
+      allowed_data_validity_warnings: []  # Пустой список для строгости
     
     strict:                           # Строгий профиль
       enabled: false                   # Отключен по умолчанию

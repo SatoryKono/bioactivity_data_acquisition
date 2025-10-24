@@ -618,9 +618,9 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                             merged_data.at[idx, col] = str(value)
         
         # Debug: log what columns we have after merge
-        logger.debug("Columns after ChEMBL merge: %s", str(list(merged_data.columns)))
+        logger.debug("Columns after ChEMBL merge: %s", list(merged_data.columns))
         if "parent_chembl_id" in merged_data.columns:
-            logger.debug("parent_chembl_id values: %s", str(merged_data['parent_chembl_id'].tolist()))
+            logger.debug("parent_chembl_id values: %s", merged_data['parent_chembl_id'].tolist())
         else:
             logger.debug("parent_chembl_id column not found after merge")
         

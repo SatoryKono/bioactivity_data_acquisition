@@ -7,15 +7,12 @@ from typing import Any
 
 import pandas as pd
 
-from library.clients.chembl import ChEMBLClient
 from library.assay.config import AssayConfig
+from library.clients.chembl import ChEMBLClient
 from library.common.pipeline_base import PipelineBase
 from library.common.postprocess_base import AssayPostprocessor
-from library.common.qc_profiles import QCValidator
-from library.common.qc_profiles import get_qc_profile
-from library.common.qc_profiles import get_qc_validator
-from library.common.writer_base import ETLWriter
-from library.common.writer_base import create_etl_writer
+from library.common.qc_profiles import QCValidator, get_qc_profile, get_qc_validator
+from library.common.writer_base import ETLWriter, create_etl_writer
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +34,7 @@ class AssayPipeline(PipelineBase[AssayConfig]):
     
     def _create_chembl_client(self) -> ChEMBLClient:
         """Create ChEMBL client."""
-        from library.config import APIClientConfig
-        from library.config import RateLimitSettings
-        from library.config import RetrySettings
+        from library.config import APIClientConfig, RateLimitSettings, RetrySettings
         
         source_config = self.config.sources["chembl"]
         timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
@@ -129,12 +124,24 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         extracted_records = []
         chembl_client = self.clients["chembl"]
         
+        # Track missing fields across all assays
+        missing_fields = set()
+        empty_fields = set()
+        
         for _, row in data.iterrows():
             assay_id = row["assay_chembl_id"]
             try:
                 assay_data = chembl_client.fetch_by_assay_id(assay_id)
                 if assay_data:
                     extracted_records.append(assay_data)
+                    
+                    # Track which fields are missing or empty
+                    for field, value in assay_data.items():
+                        if field not in missing_fields and field not in empty_fields:
+                            if value is None or value == "" or (isinstance(value, str) and value.strip() == ""):
+                                empty_fields.add(field)
+                else:
+                    logger.warning(f"No data returned for assay {assay_id}")
             except Exception as e:
                 logger.warning("Failed to fetch assay %s: %s", assay_id, e)
                 continue
@@ -142,6 +149,22 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         if extracted_records:
             extracted_df = pd.DataFrame(extracted_records)
             logger.info(f"Successfully extracted {len(extracted_df)} assay records from ChEMBL")
+            
+            # Log field analysis
+            if empty_fields:
+                logger.warning(f"Empty/missing fields in assay data: {sorted(empty_fields)}")
+                logger.info("This may indicate incomplete data in ChEMBL or limited API response.")
+            
+            # Check for expected fields that are missing
+            expected_fields = [
+                "assay_type", "assay_category", "bao_format", "bao_label", "bao_endpoint",
+                "variant_id", "is_variant", "variant_accession", "target_uniprot_accession"
+            ]
+            missing_expected = [field for field in expected_fields if field not in extracted_df.columns]
+            if missing_expected:
+                logger.warning(f"Expected fields missing from API response: {missing_expected}")
+                logger.info("Consider investigating alternative ChEMBL endpoints for complete assay data.")
+            
             return extracted_df
         else:
             logger.warning("No assay data extracted from ChEMBL")

@@ -5,6 +5,7 @@ from typing import Any
 
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
+from library.utils.list_converter import convert_authors_list, convert_issn_list
 
 
 class OpenAlexClient(BaseApiClient):
@@ -146,8 +147,8 @@ class OpenAlexClient(BaseApiClient):
             "openalex_year": pub_year,
             "openalex_pmid": self._extract_pmid(work),
             "openalex_abstract": work.get("abstract"),
-            "openalex_issn": self._extract_issn(work),
-            "openalex_authors": self._extract_authors(work),
+            "openalex_issn": convert_issn_list(self._extract_issn(work)),
+            "openalex_authors": convert_authors_list(self._extract_authors(work)),
             "openalex_volume": openalex_volume,
             "openalex_issue": openalex_issue,
             "openalex_first_page": openalex_first_page,
@@ -243,6 +244,10 @@ class OpenAlexClient(BaseApiClient):
             "openalex_abstract": None,
             "openalex_issn": None,
             "openalex_authors": None,
+            "openalex_volume": None,
+            "openalex_issue": None,
+            "openalex_first_page": None,
+            "openalex_last_page": None,
             "openalex_error": error_msg,
         }
 

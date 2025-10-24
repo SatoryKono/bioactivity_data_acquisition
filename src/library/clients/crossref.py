@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
+from library.utils.list_converter import convert_authors_list, convert_issn_list, convert_subject_list
 
 logger = logging.getLogger(__name__)
 
@@ -178,11 +179,11 @@ class CrossrefClient(BaseApiClient):
             "crossref_doi": work.get("DOI"),
             "crossref_title": title,
             "crossref_doc_type": work.get("type"),
-            "crossref_subject": subject,
+            "crossref_subject": convert_subject_list(subject),
             "crossref_pmid": self._extract_pmid(work),
             "crossref_abstract": work.get("abstract"),
-            "crossref_issn": self._extract_issn(work),
-            "crossref_authors": self._extract_authors(work),
+            "crossref_issn": convert_issn_list(self._extract_issn(work)),
+            "crossref_authors": convert_authors_list(self._extract_authors(work)),
             "crossref_year": crossref_year,
             "crossref_volume": work.get("volume"),
             "crossref_issue": work.get("issue"),
@@ -250,12 +251,32 @@ class CrossrefClient(BaseApiClient):
         
         return None
 
+    def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:
+        """Создает пустую запись для случая ошибки."""
+        return {
+            "source": "crossref",
+            "crossref_doi": identifier if identifier.startswith("10.") else None,
+            "crossref_pmid": identifier if not identifier.startswith("10.") else None,
+            "crossref_title": None,
+            "crossref_doc_type": None,
+            "crossref_subject": None,
+            "crossref_abstract": None,
+            "crossref_issn": None,
+            "crossref_authors": None,
+            "crossref_year": None,
+            "crossref_volume": None,
+            "crossref_issue": None,
+            "crossref_first_page": None,
+            "crossref_last_page": None,
+            "crossref_error": error_msg,
+        }
+
     def fetch_by_dois_batch(
         self, 
         dois: list[str],
         batch_size: int = 50
     ) -> dict[str, dict[str, Any]]:
-        """Fetch multiple works by DOIs.
+        """Fetch multiple DOIs in batches.
         
         Crossref doesn't have a true batch endpoint, so we use
         individual requests with controlled concurrency.
@@ -263,30 +284,22 @@ class CrossrefClient(BaseApiClient):
         if not dois:
             return {}
         
-        results = {}
-        success_count = 0
-        error_count = 0
+        result: dict[str, dict[str, Any]] = {}
         
-        # Process in chunks to avoid overwhelming the API
+        # Обрабатываем DOI батчами
         for i in range(0, len(dois), batch_size):
-            chunk = dois[i:i + batch_size]
-            
-            for doi in chunk:
-                try:
-                    result = self.fetch_by_doi(doi)
-                    results[doi] = result
-                    success_count += 1
-                except Exception as e:
-                    logger.warning("Failed to fetch DOI %s in batch: %s", doi, e)
-                    results[doi] = {
-                        "crossref_doi": doi,
-                        "crossref_error": str(e),
-                        "source": "crossref"
-                    }
-                    error_count += 1
+            batch = dois[i:i + batch_size]
+            try:
+                self.logger.debug(f"Processing Crossref batch {i//batch_size + 1} with {len(batch)} DOIs")
+                batch_result = self.fetch_by_dois(batch)
+                result.update(batch_result)
+            except Exception as e:
+                self.logger.error(f"Failed to process Crossref batch {i//batch_size + 1}: {e}")
+                # Добавляем ошибки для всех DOI в батче
+                for doi in batch:
+                    result[doi] = self._create_empty_record(doi, f"Batch processing failed: {str(e)}")
         
-        logger.info(f"Crossref batch completed: {success_count} successful, {error_count} errors out of {len(dois)} DOIs")
-        return results
+        return result
 
     def fetch_by_pmids_batch(
         self,
@@ -320,3 +333,18 @@ class CrossrefClient(BaseApiClient):
                     }
         
         return results
+
+
+    def fetch_by_dois(self, dois: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch multiple DOIs using individual requests."""
+        result: dict[str, dict[str, Any]] = {}
+        
+        for doi in dois:
+            try:
+                record = self.fetch_by_doi(doi)
+                result[doi] = record
+            except Exception as e:
+                self.logger.warning(f"Failed to fetch Crossref data for DOI {doi}: {e}")
+                result[doi] = self._create_empty_record(doi, str(e))
+        
+        return result

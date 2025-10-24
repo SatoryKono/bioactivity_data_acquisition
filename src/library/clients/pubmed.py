@@ -6,6 +6,7 @@ from typing import Any
 
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
+from library.utils.list_converter import convert_authors_list, safe_str_convert
 
 
 class PubMedClient(BaseApiClient):
@@ -57,6 +58,7 @@ class PubMedClient(BaseApiClient):
             return record
 
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
+        """Fetch multiple PMIDs in batch using esummary.fcgi."""
         pmid_list = list(pmids)
         if not pmid_list:
             return {}
@@ -74,13 +76,46 @@ class PubMedClient(BaseApiClient):
         if api_key:
             params["api_key"] = api_key
             
-        payload = self._request("GET", "esummary.fcgi", params=params)
+        try:
+            payload = self._request("GET", "esummary.fcgi", params=params)
+        except Exception as e:
+            self.logger.error("pubmed_batch_request_failed pmids=%s error=%s", pmid_list, str(e))
+            # Возвращаем пустые записи с ошибками для всех PMID
+            result = {}
+            for pmid in pmid_list:
+                result[str(pmid)] = self._create_empty_record(pmid, f"Batch request failed: {str(e)}")
+            return result
         
         result: dict[str, dict[str, Any]] = {}
         for pmid in pmid_list:
             record = self._extract_record(payload, pmid)
             if record is not None:
                 result[str(pmid)] = record
+            else:
+                # Создаем пустую запись с ошибкой если не удалось извлечь
+                result[str(pmid)] = self._create_empty_record(pmid, "No data found")
+        return result
+
+    def fetch_by_pmids_batch(self, pmids: list[str], batch_size: int = 200) -> dict[str, dict[str, Any]]:
+        """Fetch multiple PMIDs in batches to avoid rate limits."""
+        if not pmids:
+            return {}
+        
+        result: dict[str, dict[str, Any]] = {}
+        
+        # Обрабатываем PMID батчами
+        for i in range(0, len(pmids), batch_size):
+            batch = pmids[i:i + batch_size]
+            try:
+                self.logger.debug(f"Processing PubMed batch {i//batch_size + 1} with {len(batch)} PMIDs")
+                batch_result = self.fetch_by_pmids(batch)
+                result.update(batch_result)
+            except Exception as e:
+                self.logger.error(f"Failed to process PubMed batch {i//batch_size + 1}: {e}")
+                # Добавляем ошибки для всех PMID в батче
+                for pmid in batch:
+                    result[str(pmid)] = self._create_empty_record(pmid, f"Batch processing failed: {str(e)}")
+        
         return result
 
     def _extract_record(self, payload: dict[str, Any], pmid: str) -> dict[str, Any] | None:
@@ -213,7 +248,7 @@ class PubMedClient(BaseApiClient):
             "title": record.get("title") or record.get("articleTitle"),
             "abstract": record.get("abstract"),
             "doi": doi_value,
-            "pubmed_authors": formatted_authors,
+            "pubmed_authors": convert_authors_list(formatted_authors),
         }
         
         # Debug logging для проверки MeSH данных

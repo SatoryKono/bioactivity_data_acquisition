@@ -32,6 +32,13 @@ def extract_molecules_batch(
         
         # Note: Properties are now included in main endpoint, no need for separate batch request
         
+        # Statistics for additional endpoints
+        mechanism_success = 0
+        atc_success = 0
+        drug_success = 0
+        warning_success = 0
+        form_success = 0
+        
         # Process each molecule
         for molecule_chembl_id in molecule_chembl_ids:
             result = {
@@ -50,33 +57,63 @@ def extract_molecules_batch(
             try:
                 # S03: Fetch parent/child relationship data
                 molecule_form_data = client.fetch_molecule_form(molecule_chembl_id)
-                result.update(molecule_form_data)
+                if molecule_form_data and any(v for v in molecule_form_data.values() if v is not None):
+                    result.update(molecule_form_data)
+                    form_success += 1
                 
                 # Fetch mechanism data
                 mechanism_data = client.fetch_mechanism(molecule_chembl_id)
-                result.update(mechanism_data)
+                if mechanism_data and any(v for v in mechanism_data.values() if v is not None):
+                    result.update(mechanism_data)
+                    mechanism_success += 1
                 
                 # Fetch ATC classification data
                 atc_data = client.fetch_atc_classification(molecule_chembl_id)
-                result.update(atc_data)
+                if atc_data and any(v for v in atc_data.values() if v is not None):
+                    result.update(atc_data)
+                    atc_success += 1
                 
                 # Note: Synonyms, properties, structures, and cross-references are now included in main endpoint
                 # No need for separate requests for these
                 
                 # Fetch drug data
                 drug_data = client.fetch_drug(molecule_chembl_id)
-                result.update(drug_data)
+                if drug_data and any(v for v in drug_data.values() if v is not None):
+                    result.update(drug_data)
+                    drug_success += 1
                 
                 # Fetch drug warnings
                 warning_data = client.fetch_drug_warning(molecule_chembl_id)
-                result.update(warning_data)
+                if warning_data and any(v for v in warning_data.values() if v is not None):
+                    result.update(warning_data)
+                    warning_success += 1
                 
             except Exception as e:
                 logger.warning(f"Failed to fetch additional data for {molecule_chembl_id}: {e}")
             
             results.append(result)
         
+        # Log detailed statistics for additional endpoints
+        total_molecules = len(molecule_chembl_ids)
         logger.info(f"Successfully extracted data for {len(results)} molecules")
+        logger.info("Additional endpoint statistics:")
+        logger.info(f"  Molecule form data: {form_success}/{total_molecules} ({form_success/total_molecules*100:.1f}%)")
+        logger.info(f"  Mechanism data: {mechanism_success}/{total_molecules} ({mechanism_success/total_molecules*100:.1f}%)")
+        logger.info(f"  ATC classification: {atc_success}/{total_molecules} ({atc_success/total_molecules*100:.1f}%)")
+        logger.info(f"  Drug data: {drug_success}/{total_molecules} ({drug_success/total_molecules*100:.1f}%)")
+        logger.info(f"  Drug warnings: {warning_success}/{total_molecules} ({warning_success/total_molecules*100:.1f}%)")
+        
+        # Warn if all additional endpoints return no data
+        if mechanism_success == 0 and atc_success == 0 and drug_success == 0:
+            logger.warning("No additional data found for any molecules. Consider testing with known drugs (e.g., CHEMBL25, CHEMBL267)")
+        
+        if mechanism_success == 0:
+            logger.warning("No mechanism data found for any molecules. This may indicate missing data in ChEMBL.")
+        if atc_success == 0:
+            logger.warning("No ATC classification data found for any molecules. This may indicate missing data in ChEMBL.")
+        if drug_success == 0:
+            logger.warning("No drug data found for any molecules. This may indicate missing data in ChEMBL.")
+        
         return results
         
     except Exception as e:

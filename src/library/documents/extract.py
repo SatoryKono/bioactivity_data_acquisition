@@ -36,21 +36,28 @@ def extract_from_pubmed(client: Any, pmids: list[str], batch_size: int = 200) ->
     
     try:
         # Используем батч-метод если доступен
-        if hasattr(client, 'fetch_by_pmids'):
-            # Обрабатываем батчами для соблюдения rate limits
-            records = {}
-            for i in range(0, len(pmids), batch_size):
-                batch = pmids[i:i + batch_size]
-                try:
-                    logger.debug(f"Fetching PubMed batch {i//batch_size + 1} with {len(batch)} PMIDs")
-                    batch_records = client.fetch_by_pmids(batch)
-                    logger.info(f"Successfully fetched {len(batch_records)} records from PubMed batch {i//batch_size + 1}")
-                    records.update(batch_records)
-                except Exception as e:
-                    logger.warning(f"Failed to fetch PubMed batch {i//batch_size + 1}: {e}")
-                    # Создаем записи с ошибками для этого батча
-                    for pmid in batch:
-                        records[pmid] = {"pmid": pmid, "error": str(e)}
+        if hasattr(client, 'fetch_by_pmids_batch'):
+            # Используем новый batch метод
+            try:
+                logger.debug(f"Fetching PubMed data for {len(pmids)} PMIDs using batch method")
+                records = client.fetch_by_pmids_batch(pmids, batch_size)
+                logger.info(f"Successfully fetched {len(records)} records from PubMed using batch method")
+            except Exception as e:
+                logger.error(f"Failed to fetch PubMed data using batch method: {e}")
+                records = {}
+                for pmid in pmids:
+                    records[pmid] = {"pmid": pmid, "error": str(e)}
+        elif hasattr(client, 'fetch_by_pmids'):
+            # Fallback к старому методу
+            try:
+                logger.debug(f"Fetching PubMed data for {len(pmids)} PMIDs using individual requests")
+                records = client.fetch_by_pmids(pmids)
+                logger.info(f"Successfully fetched {len(records)} records from PubMed using individual requests")
+            except Exception as e:
+                logger.error(f"Failed to fetch PubMed data using individual requests: {e}")
+                records = {}
+                for pmid in pmids:
+                    records[pmid] = {"pmid": pmid, "error": str(e)}
         else:
             # Fallback к одиночным запросам
             records = {}
@@ -140,20 +147,27 @@ def extract_from_crossref(client: Any, dois: list[str], batch_size: int = 100) -
     try:
         # Используем батч-метод если доступен
         if hasattr(client, 'fetch_by_dois_batch'):
-            # Обрабатываем батчами для соблюдения rate limits
-            records = {}
-            for i in range(0, len(dois), batch_size):
-                batch = dois[i:i + batch_size]
-                try:
-                    logger.debug(f"Fetching Crossref batch {i//batch_size + 1} with {len(batch)} DOIs")
-                    batch_records = client.fetch_by_dois_batch(batch, batch_size)
-                    logger.info(f"Successfully fetched {len(batch_records)} records from Crossref batch {i//batch_size + 1}")
-                    records.update(batch_records)
-                except Exception as e:
-                    logger.warning(f"Failed to fetch Crossref batch {i//batch_size + 1}: {e}")
-                    # Создаем записи с ошибками для этого батча
-                    for doi in batch:
-                        records[doi] = {"doi": doi, "error": str(e)}
+            # Используем новый batch метод
+            try:
+                logger.debug(f"Fetching Crossref data for {len(dois)} DOIs using batch method")
+                records = client.fetch_by_dois_batch(dois, batch_size)
+                logger.info(f"Successfully fetched {len(records)} records from Crossref using batch method")
+            except Exception as e:
+                logger.error(f"Failed to fetch Crossref data using batch method: {e}")
+                records = {}
+                for doi in dois:
+                    records[doi] = {"doi": doi, "error": str(e)}
+        elif hasattr(client, 'fetch_by_dois'):
+            # Fallback к методу для нескольких DOI
+            try:
+                logger.debug(f"Fetching Crossref data for {len(dois)} DOIs using individual requests")
+                records = client.fetch_by_dois(dois)
+                logger.info(f"Successfully fetched {len(records)} records from Crossref using examine requests")
+            except Exception as e:
+                logger.error(f"Failed to fetch Crossref data using individual requests: {e}")
+                records = {}
+                for doi in dois:
+                    records[doi] = {"doi": doi, "error": str(e)}
         else:
             # Fallback к одиночным запросам
             records = {}
@@ -221,20 +235,16 @@ def extract_from_openalex(client: Any, pmids: list[str], batch_size: int = 50) -
     try:
         # Используем батч-метод если доступен
         if hasattr(client, 'fetch_by_pmids_batch'):
-            # Обрабатываем батчами для соблюдения rate limits
-            records = {}
-            for i in range(0, len(pmids), batch_size):
-                batch = pmids[i:i + batch_size]
-                try:
-                    logger.debug(f"Fetching OpenAlex batch {i//batch_size + 1} with {len(batch)} PMIDs")
-                    batch_records = client.fetch_by_pmids_batch(batch)
-                    logger.info(f"Successfully fetched {len(batch_records)} records from OpenAlex batch {i//batch_size + 1}")
-                    records.update(batch_records)
-                except Exception as e:
-                    logger.warning(f"Failed to fetch OpenAlex batch {i//batch_size + 1}: {e}")
-                    # Создаем записи с ошибками для этого батча
-                    for pmid in batch:
-                        records[pmid] = {"pmid": pmid, "error": str(e)}
+            # Используем новый batch метод
+            try:
+                logger.debug(f"Fetching OpenAlex data for {len(pmids)} PMIDs using batch method")
+                records = client.fetch_by_pmids_batch(pmids, batch_size)
+                logger.info(f"Successfully fetched {len(records)} records from OpenAlex using batch method")
+            except Exception as e:
+                logger.error(f"Failed to fetch OpenAlex data using batch method: {e}")
+                records = {}
+                for pmid in pmids:
+                    records[pmid] = {"pmid": pmid, "error": str(e)}
         else:
             # Fallback к одиночным запросам
             records = {}
@@ -302,20 +312,16 @@ def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int
     try:
         # Используем батч-метод если доступен
         if hasattr(client, 'fetch_by_pmids_batch'):
-            # Обрабатываем батчами для соблюдения rate limits
-            records = {}
-            for i in range(0, len(pmids), batch_size):
-                batch = pmids[i:i + batch_size]
-                try:
-                    logger.debug(f"Fetching Semantic Scholar batch {i//batch_size + 1} with {len(batch)} PMIDs")
-                    batch_records = client.fetch_by_pmids_batch(batch)
-                    logger.info(f"Successfully fetched {len(batch_records)} records from Semantic Scholar batch {i//batch_size + 1}")
-                    records.update(batch_records)
-                except Exception as e:
-                    logger.warning(f"Failed to fetch Semantic Scholar batch {i//batch_size + 1}: {e}")
-                    # Создаем записи с ошибками для этого батча
-                    for pmid in batch:
-                        records[pmid] = {"pmid": pmid, "error": str(e)}
+            # Используем новый batch метод
+            try:
+                logger.debug(f"Fetching Semantic Scholar data for {len(pmids)} PMIDs using batch method")
+                records = client.fetch_by_pmids_batch(pmids, batch_size)
+                logger.info(f"Successfully fetched {len(records)} records from Semantic Scholar using batch method")
+            except Exception as e:
+                logger.error(f"Failed to fetch Semantic Scholar data using batch method: {e}")
+                records = {}
+                for pmid in pmids:
+                    records[pmid] = {"pmid": pmid, "error": str(e)}
         else:
             # Fallback к одиночным запросам
             records = {}

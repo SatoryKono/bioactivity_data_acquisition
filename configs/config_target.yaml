@@ -58,10 +58,13 @@ sources:
         total: 3                      # Количество попыток
         backoff_multiplier: 2.0       # Множитель задержки
     batch_size: 50                    # Размер батча для запросов
-    dictionary_path: "configs/dictionary/_target/_IUPHAR/_IUPHAR_target.csv"  # Путь к словарю IUPHAR
+    use_csv: true                     # Использовать CSV словари
+    dictionary_path: "configs/dictionary/_target/_IUPHAR/"  # Путь к директории словарей IUPHAR
+    family_file: "_IUPHAR_family.csv"  # Файл семейств
+    target_file: "_IUPHAR_target.csv"  # Файл таргетов
     
   gtopdb:                             # Guide to Pharmacology Database
-    enabled: true                     # Включен ли источник
+    enabled: true                     # Включен для полной функциональности
     http:                             # HTTP настройки для GtoP
       base_url: "https://www.guidetopharmacology.org"  # Базовый URL API
       timeout_sec: 30.0               # Таймаут для GtoP запросов

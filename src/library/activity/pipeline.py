@@ -88,12 +88,49 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
                 processed[key] = value
         return processed
     
+    def _validate_activity_ids(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Validate and normalize activity_chembl_id format."""
+        
+        logger.info("Validating activity_chembl_id format")
+        
+        # Check current format of activity IDs
+        sample_ids = data["activity_chembl_id"].head(5).tolist()
+        logger.info(f"Sample activity IDs: {sample_ids}")
+        
+        # Count different ID formats - ChEMBL API accepts numeric IDs directly
+        numeric_ids = 0
+        chembl_format_ids = 0
+        other_format_ids = 0
+        
+        for idx, row in data.iterrows():
+            activity_id = str(row["activity_chembl_id"]).strip()
+            
+            if activity_id.isdigit():
+                numeric_ids += 1
+                # ChEMBL API accepts numeric IDs directly - no conversion needed
+                logger.debug(f"Found numeric activity ID: {activity_id} (row {idx}) - API accepts this format")
+            elif activity_id.startswith("CHEMBL"):
+                chembl_format_ids += 1
+            else:
+                other_format_ids += 1
+                logger.warning(f"Unknown activity ID format: {activity_id} (row {idx})")
+        
+        logger.info(f"Activity ID format analysis: {numeric_ids} numeric, {chembl_format_ids} CHEMBL format, {other_format_ids} other")
+        
+        if numeric_ids > 0:
+            logger.info(f"Found {numeric_ids} numeric activity IDs. ChEMBL API accepts numeric IDs directly.")
+        
+        return data
+    
     def extract(self, input_data: pd.DataFrame) -> pd.DataFrame:
         """Extract activity data from ChEMBL."""
         logger.info(f"Extracting activity data for {len(input_data)} activities")
         
         # Validate input data
         validated_data = self.validator.validate_raw_data(input_data)
+        
+        # Validate and normalize activity_chembl_id format
+        validated_data = self._validate_activity_ids(validated_data)
         
         # Apply limit if specified
         if self.config.runtime.limit is not None:
@@ -142,6 +179,10 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
         """Merge ChEMBL data into base data."""
         if chembl_data.empty:
             return base_data
+        
+        # Ensure activity_chembl_id has the same type in both DataFrames
+        base_data["activity_chembl_id"] = base_data["activity_chembl_id"].astype(str)
+        chembl_data["activity_chembl_id"] = chembl_data["activity_chembl_id"].astype(str)
         
         # Merge on activity_chembl_id
         merged = base_data.merge(

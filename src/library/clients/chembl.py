@@ -714,6 +714,204 @@ class ChEMBLClient(BaseApiClient):
             "xref_sources": xref_list
         }
 
+    def fetch_all_activities(self, activity_ids: list[str]) -> Generator[dict[str, Any], None, None]:
+        """Fetch activity data for multiple activity IDs from ChEMBL API.
+        
+        Args:
+            activity_ids: List of ChEMBL activity IDs to fetch
+            
+        Yields:
+            Dictionary containing activity data for each ID
+        """
+        if not activity_ids:
+            logger.warning("No activity IDs provided to fetch_all_activities")
+            return
+            
+        logger.info(f"Fetching activity data for {len(activity_ids)} activity IDs")
+        logger.debug(f"Sample activity IDs: {activity_ids[:5]}")
+        
+        # ChEMBL API supports batch requests for activities
+        # Process in batches to avoid URL length limits
+        batch_size = 25  # ChEMBL API limit
+        
+        total_found = 0
+        total_missing = 0
+        total_errors = 0
+        
+        for i in range(0, len(activity_ids), batch_size):
+            batch = activity_ids[i:i + batch_size]
+            batch_num = i // batch_size + 1
+            
+            try:
+                # Use ChEMBL activity endpoint with activity_id__in filter
+                ids_str = ",".join(batch)
+                url = f"activity.json?activity_id__in={ids_str}&format=json&limit=1000"
+                
+                logger.debug(f"Fetching batch {batch_num} with {len(batch)} activity IDs")
+                logger.debug(f"Request URL: {url}")
+                
+                # Make request
+                payload = self._request("GET", url)
+                
+                # Parse results
+                activities = payload.get("activities", [])
+                logger.info(f"Batch {batch_num}: Found {len(activities)} activities in API response")
+                
+                for activity in activities:
+                    parsed_activity = self._parse_activity(activity)
+                    if parsed_activity:
+                        total_found += 1
+                        yield parsed_activity
+                
+                # Add empty records for missing activities
+                found_ids = {str(act.get("activity_id")) for act in activities}
+                missing_in_batch = 0
+                for activity_id in batch:
+                    if activity_id not in found_ids:
+                        missing_in_batch += 1
+                        total_missing += 1
+                        empty_record = self._create_empty_activity_record(activity_id, "Not found in API response")
+                        yield empty_record
+                
+                if missing_in_batch > 0:
+                    logger.warning(f"Batch {batch_num}: {missing_in_batch} activities not found in API response")
+                        
+            except Exception as e:
+                total_errors += len(batch)
+                logger.warning("Failed to fetch activities batch %s: %s", batch, e)
+                # Yield empty records for failed batch
+                for activity_id in batch:
+                    empty_record = self._create_empty_activity_record(activity_id, str(e))
+                    yield empty_record
+        
+        logger.info(f"Activity fetch summary: {total_found} found, {total_missing} missing, {total_errors} errors")
+        if total_missing > 0:
+            logger.warning(f"High number of missing activities ({total_missing}). Check activity ID format and availability in ChEMBL.")
+
+    def _parse_activity(self, activity: dict[str, Any]) -> dict[str, Any]:
+        """Parse activity data from ChEMBL API response."""
+        return {
+            "activity_chembl_id": activity.get("activity_id"),
+            "assay_chembl_id": activity.get("assay_chembl_id"),
+            "molecule_chembl_id": activity.get("molecule_chembl_id"),
+            "target_chembl_id": activity.get("target_chembl_id"),
+            "document_chembl_id": activity.get("document_chembl_id"),
+            "activity_type": activity.get("type"),
+            "activity_value": activity.get("value"),
+            "activity_unit": activity.get("units"),
+            "lower_bound": activity.get("lower_value"),
+            "upper_bound": activity.get("upper_value"),
+            "is_censored": activity.get("potential_duplicate"),
+            "published_type": activity.get("published_type"),
+            "published_relation": activity.get("published_relation"),
+            "published_value": activity.get("published_value"),
+            "published_units": activity.get("published_units"),
+            "standard_type": activity.get("standard_type"),
+            "standard_relation": activity.get("standard_relation"),
+            "standard_value": activity.get("standard_value"),
+            "standard_units": activity.get("standard_units"),
+            "standard_flag": activity.get("standard_flag"),
+            "pchembl_value": activity.get("pchembl_value"),
+            "data_validity_comment": activity.get("data_validity_comment"),
+            "activity_comment": activity.get("activity_comment"),
+            "bao_endpoint": activity.get("bao_endpoint"),
+            "bao_format": activity.get("bao_format"),
+            "bao_label": activity.get("bao_label"),
+            "source_system": "ChEMBL",
+            "extracted_at": datetime.utcnow().isoformat() + "Z"
+        }
+
+    def _create_empty_activity_record(self, activity_chembl_id: str, error_msg: str) -> dict[str, Any]:
+        """Create empty activity record with error information."""
+        return {
+            "activity_chembl_id": activity_chembl_id,
+            "assay_chembl_id": None,
+            "molecule_chembl_id": None,
+            "target_chembl_id": None,
+            "document_chembl_id": None,
+            "published_type": None,
+            "published_relation": None,
+            "published_value": None,
+            "published_units": None,
+            "standard_type": None,
+            "standard_relation": None,
+            "standard_value": None,
+            "standard_units": None,
+            "standard_flag": None,
+            "pchembl_value": None,
+            "data_validity_comment": None,
+            "activity_comment": None,
+            "bao_endpoint": None,
+            "bao_format": None,
+            "bao_label": None,
+            "source_system": "ChEMBL",
+            "extracted_at": datetime.utcnow().isoformat() + "Z",
+            "error": error_msg
+        }
+
+    def fetch_by_assay_id(self, assay_chembl_id: str) -> dict[str, Any]:
+        """Fetch assay data by ChEMBL assay ID."""
+        try:
+            payload = self._request("GET", f"assay/{assay_chembl_id}")
+            
+            # Extract relevant assay fields
+            return {
+                "assay_chembl_id": assay_chembl_id,
+                "assay_type": payload.get("assay_type"),
+                "assay_category": payload.get("assay_category"),
+                "target_chembl_id": payload.get("target_chembl_id"),
+                "target_organism": payload.get("target_organism"),
+                "target_tax_id": payload.get("target_tax_id"),
+                "bao_format": payload.get("bao_format"),
+                "bao_label": payload.get("bao_label"),
+                "bao_endpoint": payload.get("bao_endpoint"),
+                "bao_assay_format": payload.get("bao_assay_format"),
+                "bao_assay_type": payload.get("bao_assay_type"),
+                "bao_assay_type_label": payload.get("bao_assay_type_label"),
+                "bao_assay_type_uri": payload.get("bao_assay_type_uri"),
+                "bao_assay_format_uri": payload.get("bao_assay_format_uri"),
+                "bao_assay_format_label": payload.get("bao_assay_format_label"),
+                "bao_endpoint_uri": payload.get("bao_endpoint_uri"),
+                "bao_endpoint_label": payload.get("bao_endpoint_label"),
+                "variant_id": payload.get("variant_id"),
+                "is_variant": payload.get("is_variant"),
+                "variant_accession": payload.get("variant_accession"),
+                "variant_sequence_accession": payload.get("variant_sequence_accession"),
+                "variant_sequence_mutation": payload.get("variant_sequence_mutation"),
+                "variant_mutations": payload.get("variant_mutations"),
+                "variant_sequence": payload.get("variant_sequence"),
+                "variant_text": payload.get("variant_text"),
+                "variant_sequence_id": payload.get("variant_sequence_id"),
+                "variant_organism": payload.get("variant_organism"),
+                "target_uniprot_accession": payload.get("target_uniprot_accession"),
+                "target_isoform": payload.get("target_isoform"),
+                "assay_organism": payload.get("assay_organism"),
+                "assay_tax_id": payload.get("assay_tax_id"),
+                "assay_strain": payload.get("assay_strain"),
+                "assay_tissue": payload.get("assay_tissue"),
+                "assay_cell_type": payload.get("assay_cell_type"),
+                "assay_subcellular_fraction": payload.get("assay_subcellular_fraction"),
+                "description": payload.get("description"),
+                "assay_parameters": payload.get("assay_parameters"),
+                "assay_parameters_json": payload.get("assay_parameters_json"),
+                "assay_format": payload.get("assay_format"),
+                "confidence_score": payload.get("confidence_score"),
+                "curated_by": payload.get("curated_by"),
+                "src_id": payload.get("src_id"),
+                "src_name": payload.get("src_name"),
+                "src_assay_id": payload.get("src_assay_id"),
+                "source_system": "ChEMBL",
+                "extracted_at": datetime.utcnow().isoformat() + "Z"
+            }
+        except Exception as e:
+            logger.warning("Failed to fetch assay %s: %s", assay_chembl_id, e)
+            return {
+                "assay_chembl_id": assay_chembl_id,
+                "source_system": "ChEMBL",
+                "extracted_at": datetime.utcnow().isoformat() + "Z",
+                "error": str(e)
+            }
+
     def _create_empty_molecule_record(self, molecule_chembl_id: str, error_msg: str) -> dict[str, Any]:
         """Create empty molecule record with error information."""
         return {
@@ -750,56 +948,6 @@ class ChEMBLClient(BaseApiClient):
             "extracted_at": datetime.utcnow().isoformat() + "Z",
             "error": error_msg
         }
-
-
-class ChEMBLDocumentClient(BaseApiClient):
-    """HTTP client for ChEMBL document endpoints."""
-
-    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
-        super().__init__(config, **kwargs)
-
-    def get_chembl_status(self) -> dict[str, Any]:
-        """Get ChEMBL status and release information from /status endpoint.
-        
-        Returns:
-            Dictionary with ChEMBL version and release information:
-            - chembl_db_version: ChEMBL database version (e.g., "ChEMBL_33")
-            - chembl_release_date: Release date in ISO format (YYYY-MM-DD)
-            - status: API status
-            - timestamp: When the status was retrieved
-        """
-        try:
-            payload = self._request("GET", "status")
-            
-            # Extract version information from ChEMBL status response
-            chembl_release = payload.get("chembl_release", "")
-            chembl_db_version = payload.get("chembl_db_version", "")
-            
-            # Parse release date if available
-            chembl_release_date = None
-            if chembl_release:
-                # Try to extract date from release string
-                # ChEMBL release format is typically "ChEMBL_XX (YYYY-MM-DD)"
-                import re
-                date_match = re.search(r'\((\d{4}-\d{2}-\d{2})\)', chembl_release)
-                if date_match:
-                    chembl_release_date = date_match.group(1)
-            
-            return {
-                "chembl_db_version": chembl_db_version or chembl_release,
-                "chembl_release_date": chembl_release_date,
-                "status": payload.get("status", "unknown"),
-                "timestamp": datetime.utcnow().isoformat() + "Z"
-            }
-        except Exception as e:
-            logger.warning("Failed to get ChEMBL status: %s", e)
-            return {
-                "chembl_db_version": None,
-                "chembl_release_date": None,
-                "status": "error",
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-                "error": str(e)
-            }
 
     def fetch_by_doc_id(self, document_chembl_id: str) -> dict[str, Any]:
         """Fetch document data by ChEMBL document ID."""

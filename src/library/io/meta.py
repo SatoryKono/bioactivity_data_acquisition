@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 from structlog.stdlib import BoundLogger
 
-from library.clients.chembl_client import ChEMBLStatusClient
+from library.clients.chembl import ChEMBLClient
 from library.config import APIClientConfig
 
 
@@ -45,19 +45,18 @@ class DatasetMetadata:
                 )
             
             try:
-                client = ChEMBLStatusClient(config)
+                client = ChEMBLClient(config)
                 self._chembl_status = client.get_chembl_status()
                 
                 if self.logger:
                     self.logger.info(
-                        f"Retrieved ChEMBL status: db_version={self._chembl_status.get('chembl_db_version')}, release_date={self._chembl_status.get('chembl_release_date')}"
+                        f"Retrieved ChEMBL status: release={self._chembl_status.get('chembl_release')}, status={self._chembl_status.get('status')}"
                     )
             except Exception as e:
                 if self.logger:
                     self.logger.warning(f"Failed to get ChEMBL status: {e}")
                 self._chembl_status = {
-                    "chembl_db_version": None,
-                    "chembl_release_date": None,
+                    "chembl_release": None,
                     "status": "error",
                     "error": str(e)
                 }
@@ -79,8 +78,7 @@ class DatasetMetadata:
             "dataset": self.dataset,
             "run_id": self._run_id,
             "generated_at": self._generated_at,
-            "chembl_db_version": chembl_status.get("chembl_db_version"),
-            "chembl_release_date": chembl_status.get("chembl_release_date"),
+            "chembl_release": chembl_status.get("chembl_release"),
         }
         
         # Add additional metadata if available

@@ -7,6 +7,7 @@ from typing import Any
 
 from library.clients.base import BaseApiClient
 from library.config import APIClientConfig
+from library.utils.list_converter import convert_authors_list
 
 
 class SemanticScholarClient(BaseApiClient):
@@ -136,6 +137,7 @@ class SemanticScholarClient(BaseApiClient):
         
         return result
 
+
     def _parse_paper(self, payload: dict[str, Any]) -> dict[str, Any]:
         external_ids = payload.get("externalIds") or {}
         authors = payload.get("authors")
@@ -163,13 +165,14 @@ class SemanticScholarClient(BaseApiClient):
             ),
             
             "semantic_scholar_issn": self._extract_issn(payload),
-            "semantic_scholar_authors": author_names,
+            "semantic_scholar_authors": convert_authors_list(author_names),
+            "semantic_scholar_year": payload.get("year"),
             "semantic_scholar_error": None,  # Will be set if there's an error
             # Legacy fields for backward compatibility
             "title": payload.get("title"),
             
             "year": payload.get("year"),
-            "pubmed_authors": author_names,
+            "pubmed_authors": convert_authors_list(author_names),
         }
         # Return all fields, including None values, to maintain schema consistency
         return record
@@ -235,6 +238,7 @@ class SemanticScholarClient(BaseApiClient):
             "semantic_scholar_external_ids": None,
             "semantic_scholar_issn": None,
             "semantic_scholar_authors": None,
+            "semantic_scholar_year": None,
             "semantic_scholar_error": error_msg,
             # Legacy fields
             "title": None,
@@ -254,14 +258,28 @@ class SemanticScholarClient(BaseApiClient):
     def fetch_by_pmids_batch(
         self,
         pmids: list[str],
-        batch_size: int = 500
+        batch_size: int = 100
     ) -> dict[str, dict[str, Any]]:
-        """Fetch multiple papers by PMIDs using individual requests.
+        """Fetch multiple PMIDs in batches.
         
         Semantic Scholar API doesn't have a working batch endpoint, so we use individual requests.
         """
         if not pmids:
             return {}
         
-        # Use the individual fetch method for each PMID
-        return self.fetch_by_pmids(pmids)
+        result: dict[str, dict[str, Any]] = {}
+        
+        # Обрабатываем PMID батчами
+        for i in range(0, len(pmids), batch_size):
+            batch = pmids[i:i + batch_size]
+            try:
+                self.logger.debug(f"Processing Semantic Scholar batch {i//batch_size + 1} with {len(batch)} PMIDs")
+                batch_result = self.fetch_by_pmids(batch)
+                result.update(batch_result)
+            except Exception as e:
+                self.logger.error(f"Failed to process Semantic Scholar batch {i//batch_size + 1}: {e}")
+                # Добавляем ошибки для всех PMID в батче
+                for pmid in batch:
+                    result[pmid] = self._create_empty_record(pmid, f"Batch processing failed: {str(e)}")
+        
+        return result
