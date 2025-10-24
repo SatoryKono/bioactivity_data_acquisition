@@ -586,7 +586,7 @@ make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--dry-r
 make pipeline TYPE=targets CONFIG=configs/config_target_full.yaml FLAGS="--stats"
 ```
 
-## 12. Детерминизм
+## 13. Детерминизм
 
 ### Сортировка данных
 
@@ -644,7 +644,7 @@ from datetime import datetime, timezone
 timestamp = datetime.now(timezone.utc).isoformat()
 ```
 
-## 13. Запуск
+## 14. Запуск
 
 ### CLI команды
 
