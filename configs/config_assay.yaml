@@ -86,58 +86,71 @@ determinism:
     ascending: [true]                # Направление сортировки
     na_position: "last"              # Позиция NULL значений
   column_order:
+    # Основные поля
     - "assay_chembl_id"                # STRING: PK ассая из ChEMBL API /assay, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
     - "assay_type"                     # STRING: Тип ассая (B, F, A, P, T, U), источник: ChEMBL, тип: STRING, валидация: enum ["B", "F", "A", "P", "T", "U"]
     - "assay_category"                 # STRING: Категория ассая, источник: ChEMBL, тип: STRING, валидация: nullable (часто null в API)
-    - "target_chembl_id"               # STRING: FK к target_dim, источник: ChEMBL API /target, тип: STRING, валидация: NOT NULL, FK
-    - "target_organism"                # STRING: Организм мишени, источник: ChEMBL /target endpoint, тип: STRING, валидация: nullable
-    - "target_tax_id"                  # INT: Таксономический ID мишени, источник: ChEMBL /target endpoint, тип: INT, валидация: nullable, > 0
-    - "bao_format"                     # STRING: BAO format классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable, pattern ^BAO_\d+$
-    - "bao_label"                      # STRING: BAO label классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
-    # BAO расширенные поля - НЕ ДОСТУПНЫ в ChEMBL API v33+
-    - "bao_endpoint"                   # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_assay_format"               # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_assay_type"                 # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_assay_type_label"           # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_assay_type_uri"             # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_assay_format_uri"           # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_assay_format_label"         # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_endpoint_uri"               # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "bao_endpoint_label"             # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    # Вариантные данные - НЕ ДОСТУПНЫ в ChEMBL API
-    - "variant_id"                     # NOT AVAILABLE: ChEMBL API не возвращает, тип: INT, валидация: nullable
-    - "is_variant"                     # NOT AVAILABLE: ChEMBL API не возвращает, тип: BOOLEAN, валидация: nullable
-    - "variant_accession"              # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "variant_sequence_accession"     # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "variant_sequence_mutation"      # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "variant_mutations"              # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "variant_sequence"               # STRING: Последовательность варианта, источник: ChEMBL, тип: STRING, валидация: nullable (часто null)
-    - "variant_text"                   # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "variant_sequence_id"            # NOT AVAILABLE: ChEMBL API не возвращает, тип: INT, валидация: nullable
-    - "variant_organism"               # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    # Таргет и изоформы - обогащаются через /target endpoint
-    - "target_uniprot_accession"       # STRING: UniProt accession таргета, источник: ChEMBL /target endpoint, тип: STRING, валидация: nullable
-    - "target_isoform"                 # STRING: Изоформа таргета, источник: ChEMBL /target endpoint, тип: STRING, валидация: nullable
-    # Биологический контекст
-    - "assay_organism"                 # STRING: Организм для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "assay_tax_id"                   # INT: Таксономический ID организма, источник: ChEMBL, тип: INT, валидация: nullable, > 0
-    - "assay_strain"                   # STRING: Штамм организма, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "assay_tissue"                   # STRING: Ткань для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
     - "assay_cell_type"                # STRING: Тип клеток для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "assay_subcellular_fraction"     # STRING: Субклеточная фракция, источник: ChEMBL, тип: STRING, валидация: nullable
-    # Описание и протокол
-    - "description"                    # STRING: Описание ассая, источник: ChEMBL, тип: STRING, валидация: nullable
-    - "assay_parameters"               # STRING: Параметры ассая (legacy), источник: ChEMBL, тип: STRING, валидация: nullable (часто null)
-    - "assay_parameters_json"          # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
-    - "assay_format"                   # NOT AVAILABLE: ChEMBL API не возвращает, тип: STRING, валидация: nullable
+    - "assay_classifications"         # STRING: Классификации ассая (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_group"                   # STRING: Группа ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_organism"                # STRING: Организм для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_parameters_json"         # STRING: Параметры ассая (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_strain"                  # STRING: Штамм организма, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_subcellular_fraction"    # STRING: Субклеточная фракция, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_tax_id"                  # INT: Таксономический ID организма, источник: ChEMBL, тип: INT, валидация: nullable, > 0
+    - "assay_test_type"               # STRING: Тип теста ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_tissue"                  # STRING: Ткань для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_type_description"        # STRING: Описание типа ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "bao_format"                    # STRING: BAO format классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable, pattern ^BAO_\d+$
+    - "bao_label"                     # STRING: BAO label классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
+    - "cell_chembl_id"                # STRING: ChEMBL ID клетки, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "confidence_description"        # STRING: Описание уверенности, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "confidence_score"              # INT: Уровень уверенности (0-9), источник: ChEMBL, тип: INT, валидация: nullable, >= 0, <= 9
+    - "assay_description"             # STRING: Описание ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "bao_endpoint"                  # STRING: BAO endpoint, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^BAO_\d{7}$
+    - "document_chembl_id"           # STRING: ChEMBL ID документа, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "relationship_description"     # STRING: Описание связи, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "relationship_type"          # STRING: Тип связи с таргетом, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "src_assay_id"                  # STRING: ID ассая в источнике, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "src_id"                        # INT: ID источника, источник: ChEMBL, тип: INT, валидация: nullable
+    - "target_chembl_id"              # STRING: FK к target_dim, источник: ChEMBL API /target, тип: STRING, валидация: NOT NULL, FK
+    - "tissue_chembl_id"              # STRING: ChEMBL ID ткани, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "variant_sequence_json"         # STRING: Последовательность варианта (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # ASSAY_PARAMETERS (развернутые из JSON)
+    - "assay_param_type"              # STRING: Тип параметра ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_relation"          # STRING: Отношение параметра, источник: ChEMBL, тип: STRING, валидация: nullable, enum [=,>,>=,<,<=,~]
+    - "assay_param_value"             # FLOAT: Значение параметра, источник: ChEMBL, тип: FLOAT, валидация: nullable
+    - "assay_param_units"             # STRING: Единицы параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_text_value"        # STRING: Текстовое значение параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_standard_type"     # STRING: Стандартизованный тип параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_standard_value"    # FLOAT: Стандартизованное значение параметра, источник: ChEMBL, тип: FLOAT, валидация: nullable
+    - "assay_param_standard_units"    # STRING: Единицы стандартизованного параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # ASSAY_CLASS (из /assay_class endpoint)
+    - "assay_class_id"                # INT: Идентификатор класса ассея, источник: ChEMBL, тип: INT, валидация: nullable
+    - "assay_class_bao_id"            # STRING: BAO ID класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^BAO_\d{7}$
+    - "assay_class_type"              # STRING: Тип класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_l1"                # STRING: Иерархия 1 класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_l2"                # STRING: Иерархия 2 класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_l3"                # STRING: Иерархия 3 класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_description"       # STRING: Описание класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # VARIANT_SEQUENCES (развернутые из JSON)
+    - "variant_id"                    # INT: Идентификатор варианта, источник: ChEMBL, тип: INT, валидация: nullable
+    - "variant_base_accession"        # STRING: UniProt акцессия базовой последовательности, источник: ChEMBL, тип: STRING, валидация: nullable, pattern UniProt
+    - "variant_mutation"              # STRING: Мутация варианта, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "variant_sequence"              # STRING: Аминокислотная последовательность варианта, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^[A-Z\*]+$
+    - "variant_accession_reported"    # STRING: Сообщённая акцессия варианта, источник: ChEMBL, тип: STRING, валидация: nullable
+    
     # Метаданные
-    - "index"                          # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL
-    - "source_system"                  # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
-    - "chembl_release"                 # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
-    - "extracted_at"                   # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
-    - "hash_row"                       # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
-    - "hash_business_key"              # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"              # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL
+    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
 
 # Валидация - настройки проверки данных
 validation:

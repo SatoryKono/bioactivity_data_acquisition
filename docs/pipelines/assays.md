@@ -20,13 +20,13 @@
 
 - CSV файл с ChEMBL идентификаторами ассев (`assay_chembl_id`)
 - Или ChEMBL идентификатор таргета (`target_chembl_id`)
-- Конфигурация `configs/config_assay_full.yaml`
+- Конфигурация `configs/config_assay.yaml` (v2)
 
 **Выходы**:
 
-- `assay_YYYYMMDD.csv` — основные данные ассев
-- `assay_YYYYMMDD_qc.csv` — отчёт о качестве данных
-- `assay_YYYYMMDD_meta.yaml` — метаданные пайплайна
+- `assays_YYYYMMDD.csv` — основные данные ассев
+- `assays_YYYYMMDD_qc.csv` — отчёт о качестве данных
+- `assays_YYYYMMDD_meta.yaml` — метаданные пайплайна
 
 ### Место в архитектуре
 
@@ -84,13 +84,62 @@ graph TD
 **ChEMBL → assay_dim**:
 
 - `assay_chembl_id` → `assay_chembl_id`
-- `src_id` → `src_id`
-- `src_description` → `src_name`
 - `assay_type` → `assay_type`
-- `relationship_type` → `relationship_type`
-- `confidence_score` → `confidence_score`
+- `assay_category` → `assay_category`
+- `assay_cell_type` → `assay_cell_type`
+- `assay_classifications` → `assay_classifications` (JSON)
+- `assay_group` → `assay_group`
 - `assay_organism` → `assay_organism`
-- `description` → `description`
+- `assay_parameters` → `assay_parameters_json` (JSON)
+- `assay_strain` → `assay_strain`
+- `assay_subcellular_fraction` → `assay_subcellular_fraction`
+- `assay_tax_id` → `assay_tax_id`
+- `assay_test_type` → `assay_test_type`
+- `assay_tissue` → `assay_tissue`
+- `assay_type_description` → `assay_type_description`
+- `bao_format` → `bao_format`
+- `bao_label` → `bao_label`
+- `cell_chembl_id` → `cell_chembl_id`
+- `confidence_description` → `confidence_description`
+- `confidence_score` → `confidence_score`
+- `description` → `assay_description`
+- `bao_endpoint` → `bao_endpoint`
+- `document_chembl_id` → `document_chembl_id`
+- `relationship_description` → `relationship_description`
+- `relationship_type` → `relationship_type`
+- `src_assay_id` → `src_assay_id`
+- `src_id` → `src_id`
+- `target_chembl_id` → `target_chembl_id`
+- `tissue_chembl_id` → `tissue_chembl_id`
+- `variant_sequence` → `variant_sequence_json` (JSON)
+
+### Расширенный маппинг полей
+
+**ASSAY_PARAMETERS** (развернуто из массива, берется первый элемент):
+- `assay_parameters[0].type` → `assay_param_type`
+- `assay_parameters[0].relation` → `assay_param_relation`
+- `assay_parameters[0].value` → `assay_param_value`
+- `assay_parameters[0].units` → `assay_param_units`
+- `assay_parameters[0].text_value` → `assay_param_text_value`
+- `assay_parameters[0].standard_type` → `assay_param_standard_type`
+- `assay_parameters[0].standard_value` → `assay_param_standard_value`
+- `assay_parameters[0].standard_units` → `assay_param_standard_units`
+
+**ASSAY_CLASS** (JOIN по assay_classifications → /assay_class endpoint):
+- `assay_class.assay_class_id` → `assay_class_id`
+- `assay_class.bao_id` → `assay_class_bao_id`
+- `assay_class.class_type` → `assay_class_type`
+- `assay_class.l1` → `assay_class_l1`
+- `assay_class.l2` → `assay_class_l2`
+- `assay_class.l3` → `assay_class_l3`
+- `assay_class.description` → `assay_class_description`
+
+**VARIANT_SEQUENCES** (развернуто из объекта):
+- `variant_sequence.variant_id` → `variant_id`
+- `variant_sequence.accession` → `variant_base_accession`
+- `variant_sequence.mutation` → `variant_mutation`
+- `variant_sequence.sequence` → `variant_sequence`
+- `variant_sequence.accession` → `variant_accession_reported`
 
 ### Профили фильтрации
 
@@ -160,15 +209,56 @@ graph LR
 | Поле | Тип | Nullable | Описание | Источник |
 |------|-----|----------|----------|----------|
 | `assay_chembl_id` | str | No | ChEMBL ID ассая | ChEMBL |
-| `src_id` | int | Yes | ID источника | ChEMBL |
-| `src_name` | str | Yes | Название источника | ChEMBL |
 | `assay_type` | str | Yes | Тип ассая (B/F/P/U) | ChEMBL |
-| `relationship_type` | str | Yes | Тип связи с таргетом | ChEMBL |
-| `confidence_score` | int | Yes | Уровень уверенности (0-9) | ChEMBL |
+| `assay_category` | str | Yes | Категория ассая | ChEMBL |
+| `assay_cell_type` | str | Yes | Тип клеток | ChEMBL |
+| `assay_classifications` | str | Yes | Классификации ассая (JSON) | ChEMBL |
+| `assay_group` | str | Yes | Группа ассая | ChEMBL |
 | `assay_organism` | str | Yes | Организм ассая | ChEMBL |
-| `description` | str | Yes | Описание ассая | ChEMBL |
+| `assay_parameters_json` | str | Yes | Параметры ассая (JSON) | ChEMBL |
+| `assay_strain` | str | Yes | Штамм организма | ChEMBL |
+| `assay_subcellular_fraction` | str | Yes | Субклеточная фракция | ChEMBL |
+| `assay_tax_id` | int | Yes | Таксономический ID организма | ChEMBL |
+| `assay_test_type` | str | Yes | Тип теста ассая | ChEMBL |
+| `assay_tissue` | str | Yes | Ткань ассая | ChEMBL |
+| `assay_type_description` | str | Yes | Описание типа ассая | ChEMBL |
+| `bao_format` | str | Yes | BAO формат | ChEMBL |
+| `bao_label` | str | Yes | BAO метка | ChEMBL |
+| `cell_chembl_id` | str | Yes | ChEMBL ID клетки | ChEMBL |
+| `confidence_description` | str | Yes | Описание уверенности | ChEMBL |
+| `confidence_score` | int | Yes | Уровень уверенности (0-9) | ChEMBL |
+| `assay_description` | str | Yes | Описание ассая | ChEMBL |
+| `bao_endpoint` | str | Yes | BAO endpoint | ChEMBL |
+| `document_chembl_id` | str | Yes | ChEMBL ID документа | ChEMBL |
+| `relationship_description` | str | Yes | Описание связи | ChEMBL |
+| `relationship_type` | str | Yes | Тип связи с таргетом | ChEMBL |
+| `src_assay_id` | str | Yes | ID ассая в источнике | ChEMBL |
+| `src_id` | int | Yes | ID источника | ChEMBL |
+| `target_chembl_id` | str | Yes | ChEMBL ID таргета | ChEMBL |
+| `tissue_chembl_id` | str | Yes | ChEMBL ID ткани | ChEMBL |
+| `variant_sequence_json` | str | Yes | Последовательность варианта (JSON) | ChEMBL |
+| `assay_param_type` | str | Yes | Тип параметра ассея | ChEMBL |
+| `assay_param_relation` | str | Yes | Отношение параметра | ChEMBL |
+| `assay_param_value` | float | Yes | Значение параметра | ChEMBL |
+| `assay_param_units` | str | Yes | Единицы параметра | ChEMBL |
+| `assay_param_text_value` | str | Yes | Текстовое значение параметра | ChEMBL |
+| `assay_param_standard_type` | str | Yes | Стандартизованный тип параметра | ChEMBL |
+| `assay_param_standard_value` | float | Yes | Стандартизованное значение параметра | ChEMBL |
+| `assay_param_standard_units` | str | Yes | Единицы стандартизованного параметра | ChEMBL |
+| `assay_class_id` | int | Yes | Идентификатор класса ассея | ChEMBL |
+| `assay_class_bao_id` | str | Yes | BAO ID класса ассея | ChEMBL |
+| `assay_class_type` | str | Yes | Тип класса ассея | ChEMBL |
+| `assay_class_l1` | str | Yes | Иерархия 1 класса ассея | ChEMBL |
+| `assay_class_l2` | str | Yes | Иерархия 2 класса ассея | ChEMBL |
+| `assay_class_l3` | str | Yes | Иерархия 3 класса ассея | ChEMBL |
+| `assay_class_description` | str | Yes | Описание класса ассея | ChEMBL |
+| `variant_id` | int | Yes | Идентификатор варианта | ChEMBL |
+| `variant_base_accession` | str | Yes | UniProt акцессия базовой последовательности | ChEMBL |
+| `variant_mutation` | str | Yes | Мутация варианта | ChEMBL |
+| `variant_sequence` | str | Yes | Аминокислотная последовательность варианта | ChEMBL |
+| `variant_accession_reported` | str | Yes | Сообщённая акцессия варианта | ChEMBL |
 | `source_system` | str | No | Система-источник | Система |
-| `chembl_release` | str | No | Версия ChEMBL | ChEMBL |
+| `chembl_release` | str | Yes | Версия ChEMBL | ChEMBL |
 | `extracted_at` | datetime | No | Время извлечения | Система |
 
 ### Политика NA
@@ -182,7 +272,7 @@ graph LR
 ### Основные настройки
 
 ```yaml
-# configs/config_assay_full.yaml
+# configs/config_assay.yaml
 http:
   global:
     timeout_sec: 60.0
@@ -209,7 +299,7 @@ io:
     assay_ids_csv: data/input/assay_ids.csv
     target_ids_csv: data/input/target_ids.csv
   output:
-    dir: data/output/assay
+    dir: data/output/assays
     format: csv
 
 validation:
@@ -305,29 +395,29 @@ determinism:
 
 ## 8. CLI/Make команды
 
-### Стандартизованные цели
+### Унифицированный интерфейс
 
 ```bash
 # Установка зависимостей
 make install-dev
 
 # Валидация конфигурации
-make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --dry-run
+make run ENTITY=assays CONFIG=configs/config_assay.yaml --dry-run
 
 # Запуск с примером данных
-make pipeline TYPE=assays INPUT=data/input/assay.csv CONFIG=configs/config_assay_full.yaml
+make run ENTITY=assays CONFIG=configs/config_assay.yaml INPUT=data/input/assay.csv
 
 # Извлечение по таргету
-make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--target CHEMBL231"
+make run ENTITY=assays CONFIG=configs/config_assay.yaml FLAGS="--target CHEMBL231"
 
 # Тестовый запуск без записи
-make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--dry-run"
+make run ENTITY=assays CONFIG=configs/config_assay.yaml FLAGS="--dry-run"
 
 # Запуск тестов
-make pipeline-test TYPE=assays
+make test ENTITY=assays
 
 # Очистка артефактов
-make pipeline-clean TYPE=assays
+make clean ENTITY=assays
 
 # Справка
 make help
@@ -339,18 +429,18 @@ make help
 # Извлечение по идентификаторам ассев
 python src/scripts/get_assay_data.py \
   --input data/input/assay_ids.csv \
-  --config configs/config_assay_full.yaml
+  --config configs/config_assay.yaml
 
 # Извлечение по таргету
 python src/scripts/get_assay_data.py \
   --target CHEMBL231 \
-  --config configs/config_assay_full.yaml
+  --config configs/config_assay.yaml
 
 # Использование профилей фильтрации
 python src/scripts/get_assay_data.py \
   --target CHEMBL231 \
   --filters human_single_protein \
-  --config configs/config_assay_full.yaml
+  --config configs/config_assay.yaml
 ```
 
 ### Параметры командной строки
@@ -471,7 +561,7 @@ filters:
 
    ```bash
    # Решение: Проверить конфигурацию
-   make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --dry-run
+   make run ENTITY=assays CONFIG=configs/config_assay.yaml --dry-run
    ```
 
 4. **Проблемы с фильтрацией**
@@ -485,29 +575,29 @@ filters:
 
    ```bash
    # Решение: Очистить кэш
-   make pipeline-clean TYPE=assays
+   make clean ENTITY=assays
    ```
 
 ### Troubleshooting
 
 ```bash
 # Проверка статуса ChEMBL
-make health CONFIG=configs/config_assay_full.yaml
+make health CONFIG=configs/config_assay.yaml
 
 # Проверка конфигурации
-make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --dry-run
+make run ENTITY=assays CONFIG=configs/config_assay.yaml --dry-run
 
 # Проверка зависимостей
 make install-dev
 
 # Тестовый запуск
-make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--dry-run"
+make run ENTITY=assays CONFIG=configs/config_assay.yaml FLAGS="--dry-run"
 
 # Просмотр справки
 make help
 
 # Просмотр примеров
-make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --help
+make run ENTITY=assays CONFIG=configs/config_assay.yaml --help
 ```
 
 ### Производительность
@@ -523,10 +613,10 @@ make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml --help
 
 ```bash
 # Проверка статуса ChEMBL
-make health CONFIG=configs/config_assay_full.yaml
+make health CONFIG=configs/config_assay.yaml
 
 # Тестовый запуск
-make pipeline TYPE=assays CONFIG=configs/config_assay_full.yaml FLAGS="--dry-run"
+make run ENTITY=assays CONFIG=configs/config_assay.yaml FLAGS="--dry-run"
 ```
 
 ## 12. Детерминизм
@@ -577,10 +667,10 @@ timestamp = datetime.now(timezone.utc).isoformat()
 
 ```bash
 # Полный запуск пайплайна
-make run ENTITY=assays CONFIG=configs/config_assay_full.yaml
+make run ENTITY=assays CONFIG=configs/config_assay.yaml
 
 # Через CLI напрямую
-bioactivity-data-acquisition pipeline --config configs/config_assay_full.yaml
+bioactivity-data-acquisition pipeline --config configs/config_assay.yaml
 
 # Тестовый запуск с ограниченными данными
 make run ENTITY=assays CONFIG=configs/config_test.yaml
@@ -593,19 +683,19 @@ make run ENTITY=assays CONFIG=configs/config_test.yaml
 docker-compose run --rm bioactivity-pipeline assays
 
 # Или через Makefile
-make docker-run ENTITY=assays CONFIG=configs/config_assay_full.yaml
+make docker-run ENTITY=assays CONFIG=configs/config_assay.yaml
 ```
 
 ### Ожидаемые артефакты
 
-После успешного выполнения в `data/output/assay_YYYYMMDD/`:
+После успешного выполнения в `data/output/assays_YYYYMMDD/`:
 
 ```text
-assay_20241201/
-├── assay_20241201.csv                    # Основные данные ассев
-├── assay_20241201_meta.yaml             # Метаданные пайплайна
-├── assay_20241201_qc.csv                # QC отчёт
-└── assay_correlation_report_20241201/   # Корреляционный анализ
+assays_20241201/
+├── assays_20241201.csv                    # Основные данные ассев
+├── assays_20241201_meta.yaml             # Метаданные пайплайна
+├── assays_20241201_qc.csv                # QC отчёт
+└── assays_correlation_report_20241201/   # Корреляционный анализ
     ├── correlation_matrix.csv
     ├── source_comparison.csv
     └── quality_metrics.csv
@@ -616,7 +706,7 @@ assay_20241201/
 ### Перед запуском
 
 - [ ] Проверить наличие входного файла `data/input/assay.csv`
-- [ ] Убедиться в корректности конфигурации `configs/config_assay_full.yaml`
+- [ ] Убедиться в корректности конфигурации `configs/config_assay.yaml`
 - [ ] Проверить доступность ChEMBL API
 - [ ] Убедиться в наличии связанных данных (targets, documents)
 
@@ -647,7 +737,7 @@ assay_20241201/
 
 ### Конфигурация
 
-- **Основной конфиг**: `configs/config_assay_full.yaml`
+- **Основной конфиг**: `configs/config_assay.yaml`
 - **Тестовый конфиг**: `configs/config_test.yaml`
 
 ### Тесты

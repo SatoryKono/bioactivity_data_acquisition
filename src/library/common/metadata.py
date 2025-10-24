@@ -95,6 +95,8 @@ class MetadataBuilder:
         self.entity_type = entity_type
         self.start_time = datetime.now()
         self.run_id = self._generate_run_id()
+        self._files: dict[str, str] = {}
+        self._checksums: dict[str, str] = {}
     
     def _generate_run_id(self) -> str:
         """Сгенерировать уникальный ID запуска."""
@@ -250,8 +252,8 @@ class MetadataBuilder:
         output_files: dict[str, Path] | None = None,
         end_time: datetime | None = None,
         additional_metadata: dict[str, Any] | None = None
-    ) -> PipelineMetadata:
-        """Построить полные метаданные пайплайна."""
+    ) -> dict[str, Any]:
+        """Построить упрощённые метаданные пайплайна."""
         
         # Построить основные компоненты
         pipeline_info = self.build_pipeline_info()
@@ -261,35 +263,63 @@ class MetadataBuilder:
         validation_info = self.build_validation_info(validation_results)
         files_info = self.build_files_info(output_files or {})
         
-        # Дополнительные метаданные
-        metadata = additional_metadata or {}
-        metadata.update({
-            "generated_at": datetime.now().isoformat(),
-            "generator": "MetadataBuilder",
-            "generator_version": "1.0.0"
-        })
+        # Вычислить checksums для файлов
+        checksums = {}
+        for file_type, file_path in files_info.items():
+            if isinstance(file_path, (str, Path)):
+                path_obj = Path(file_path)
+                if path_obj.exists():
+                    with open(path_obj, 'rb') as f:
+                        content = f.read()
+                        md5_hash = hashlib.md5(content).hexdigest()
+                        sha256_hash = hashlib.sha256(content).hexdigest()
+                        filename = path_obj.name
+                        checksums[f"{filename}_md5"] = md5_hash
+                        checksums[f"{filename}_sha256"] = sha256_hash
         
-        return PipelineMetadata(
-            pipeline=pipeline_info,
-            execution=execution_info,
-            data=data_info,
-            sources=sources_info,
-            validation=validation_info,
-            files=files_info,
-            metadata=metadata
-        )
+        # Построить упрощённую структуру
+        return {
+            "pipeline": {
+                "name": self.entity_type,
+                "version": "2.0.0",
+                "entity_type": self.entity_type,
+                "source_system": "chembl"
+            },
+            "execution": {
+                "run_id": execution_info.run_id,
+                "started_at": execution_info.started_at,
+                "completed_at": execution_info.completed_at,
+                "duration_sec": execution_info.duration_sec
+            },
+            "data": {
+                "row_count": data_info.row_count,
+                "row_count_accepted": data_info.row_count_accepted,
+                "row_count_rejected": data_info.row_count_rejected,
+                "columns_count": data_info.columns_count
+            },
+            "sources": [
+                {
+                    "name": source.name,
+                    "version": source.version,
+                    "records": source.records_fetched
+                }
+                for source in sources_info
+            ],
+            "validation": {
+                "schema_passed": validation_info.schema_passed,
+                "qc_passed": validation_info.qc_passed,
+                "warnings": validation_info.warnings,
+                "errors": validation_info.errors
+            },
+            "files": files_info,
+            "checksums": checksums
+        }
     
-    def save_metadata(self, metadata: PipelineMetadata | dict, output_path: Path) -> None:
-        """Сохранить метаданные в YAML файл."""
-        # Конвертировать в словарь для сериализации
-        if isinstance(metadata, dict):
-            metadata_dict = metadata
-        else:
-            metadata_dict = metadata.model_dump()
-        
-        # Сохранить в YAML
+    def save_metadata(self, metadata: dict, output_path: Path) -> None:
+        """Сохранить упрощённые метаданные в YAML файл."""
+        # Сохранить в YAML без pickle объектов
         with open(output_path, 'w', encoding='utf-8') as f:
-            yaml.dump(metadata_dict, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            yaml.dump(metadata, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
     
     def load_metadata(self, metadata_path: Path) -> PipelineMetadata:
         """Загрузить метаданные из YAML файла."""

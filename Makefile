@@ -332,6 +332,32 @@ tidy-root:
 	@deptry . --ignore DEP002,DEP003 > metadata/reports/analysis/deptry_report.txt 2>&1 || (cat metadata/reports/analysis/deptry_report.txt && echo "⚠️  Dependency issues detected")
 	@echo "$(GREEN)Root cleanup checks completed! Reports saved to metadata/reports/$(NC)"
 
+# Full audit (vulture + jscpd + deptry)
+audit:
+	@echo "$(BLUE)Running full code audit...$(NC)"
+	@mkdir -p metadata/reports/analysis
+	@echo "$(YELLOW)1. Dead code detection (vulture)...$(NC)"
+	@vulture src tests --min-confidence 80 > metadata/reports/analysis/vulture_report.txt || echo "⚠️  Dead code detected"
+	@echo "$(YELLOW)2. Code duplication (jscpd)...$(NC)"
+	@npx jscpd --min-tokens 50 --threshold 3 --pattern "**/*.{py,yaml,yml}" --ignore "**/node_modules/**,**/.venv/**,**/site/**,**/__pycache__/**,**/data/**" --reporters console,markdown --output metadata/reports/analysis || echo "⚠️  Duplicates detected"
+	@echo "$(YELLOW)3. Dependency check (deptry)...$(NC)"
+	@deptry . --ignore DEP002,DEP003 > metadata/reports/analysis/deptry_report.txt || echo "⚠️  Dependency issues detected"
+	@echo "$(GREEN)Audit completed! Reports in metadata/reports/analysis/$(NC)"
+
+# Install development tools
+install-tools:
+	@echo "$(BLUE)Installing development tools...$(NC)"
+	@pip install vulture deptry
+	@npm install -g jscpd
+	@echo "$(GREEN)Tools installed!$(NC)"
+
+# Check dependencies
+check-deps:
+	@echo "$(BLUE)Checking dependencies...$(NC)"
+	@pip check
+	@deptry .
+	@echo "$(GREEN)Dependencies OK!$(NC)"
+
 # =============================================================================
 # UTILITIES
 # =============================================================================
@@ -393,15 +419,14 @@ install-dev:
 clean: clean-backups
 	@echo "$(BLUE)Cleaning temporary files...$(NC)"
 ifeq ($(OS),Windows_NT)
-	@powershell -Command "Remove-Item '__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
-	@powershell -Command "Remove-Item 'src\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
-	@powershell -Command "Remove-Item 'tests\**\__pycache__' -Recurse -Force -ErrorAction SilentlyContinue"
-	@powershell -Command "Remove-Item '.pytest_cache' -Recurse -Force -ErrorAction SilentlyContinue"
-	@powershell -Command "Remove-Item '.mypy_cache' -Recurse -Force -ErrorAction SilentlyContinue"
+	@powershell -Command "Get-ChildItem -Recurse -Include __pycache__,*.pyc,*.pyo,.pytest_cache,.mypy_cache,.ruff_cache | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
 else
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	@find . -type f -name "*.pyo" -delete 2>/dev/null || true
 	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
 endif
 	@echo "$(GREEN)Temporary files cleaned!$(NC)"
 

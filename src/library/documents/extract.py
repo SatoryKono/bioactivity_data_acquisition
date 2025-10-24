@@ -293,13 +293,14 @@ def extract_from_openalex(client: Any, pmids: list[str], batch_size: int = 50) -
         return pd.DataFrame(error_records)
 
 
-def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int = 100) -> pd.DataFrame:
-    """Извлечь данные из Semantic Scholar по списку PMID.
+def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int = 100, titles: dict[str, str] = None) -> pd.DataFrame:
+    """Извлечь данные из Semantic Scholar по списку PMID с fallback поиском по заголовку.
     
     Args:
         client: SemanticScholarClient для запросов к API
         pmids: Список PubMed идентификаторов
         batch_size: Размер батча для запросов
+        titles: Словарь маппинга PMID -> заголовок для fallback поиска
         
     Returns:
         DataFrame с данными из Semantic Scholar
@@ -323,11 +324,13 @@ def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int
                 for pmid in pmids:
                     records[pmid] = {"pmid": pmid, "error": str(e)}
         else:
-            # Fallback к одиночным запросам
+            # Fallback к одиночным запросам с поддержкой поиска по заголовку
             records = {}
             for pmid in pmids:
                 try:
-                    record = client.fetch_by_pmid(pmid)
+                    # Получаем заголовок для fallback поиска
+                    title = titles.get(pmid) if titles else None
+                    record = client.fetch_by_pmid(pmid, title)
                     records[pmid] = record
                 except Exception as e:
                     logger.warning(f"Failed to fetch Semantic Scholar data for PMID {pmid}: {e}")

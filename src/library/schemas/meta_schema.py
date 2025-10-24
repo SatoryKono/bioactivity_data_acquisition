@@ -15,40 +15,29 @@ class DatasetMetadataSchema(pa.DataFrameModel):
     It ensures that required fields are present and have correct types.
     """
     
-    # Required fields for meta.yaml
-    dataset: Series[str] = pa.Field(description="Dataset name (e.g., 'chembl')")
+    # Pipeline information
+    pipeline_name: Series[str] = pa.Field(description="Pipeline name")
+    pipeline_version: Series[str] = pa.Field(description="Pipeline version")
+    entity_type: Series[str] = pa.Field(description="Entity type (documents, targets, etc.)")
+    source_system: Series[str] = pa.Field(description="Source system (chembl, etc.)")
+    
+    # Execution information
     run_id: Series[str] = pa.Field(description="Unique run identifier (UUID)")
-    generated_at: Series[str] = pa.Field(description="ISO timestamp when metadata was generated")
+    started_at: Series[str] = pa.Field(description="ISO timestamp when execution started")
+    completed_at: Series[str] = pa.Field(description="ISO timestamp when execution completed")
+    duration_sec: Series[float] = pa.Field(description="Execution duration in seconds")
     
-    # ChEMBL version information (required for ChEMBL datasets)
-    chembl_db_version: Series[str] = pa.Field(
-        nullable=True,
-        description="ChEMBL database version (e.g., 'ChEMBL_33')"
-    )
-    chembl_release_date: Series[str] = pa.Field(
-        nullable=True,
-        description="ChEMBL release date in ISO format (YYYY-MM-DD)"
-    )
+    # Data statistics
+    row_count: Series[int] = pa.Field(description="Total number of rows")
+    row_count_accepted: Series[int] = pa.Field(description="Number of accepted rows")
+    row_count_rejected: Series[int] = pa.Field(description="Number of rejected rows")
+    columns_count: Series[int] = pa.Field(description="Number of columns")
     
-    # Optional fields
-    chembl_status: Series[str] = pa.Field(
-        nullable=True,
-        description="ChEMBL API status"
-    )
-    chembl_status_timestamp: Series[str] = pa.Field(
-        nullable=True,
-        description="Timestamp when ChEMBL status was retrieved"
-    )
-    
-    # Pipeline-specific fields
-    pipeline_version: Series[str] = pa.Field(
-        nullable=True,
-        description="Version of the ETL pipeline"
-    )
-    row_count: Series[int] = pa.Field(
-        nullable=True,
-        description="Number of rows in the dataset"
-    )
+    # Validation results
+    schema_passed: Series[bool] = pa.Field(description="Whether schema validation passed")
+    qc_passed: Series[bool] = pa.Field(description="Whether QC validation passed")
+    warnings: Series[int] = pa.Field(description="Number of warnings")
+    errors: Series[int] = pa.Field(description="Number of errors")
     
     class Config:
         """Pandera configuration."""
@@ -68,11 +57,44 @@ def validate_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     Raises:
         pa.errors.SchemaError: If validation fails
     """
-    # Convert single metadata dict to DataFrame for validation
-    import pandas as pd
+    # Flatten nested structure for validation
+    flattened = {}
     
-    # Create a single-row DataFrame from the metadata
-    df = pd.DataFrame([metadata])
+    # Extract pipeline info
+    if "pipeline" in metadata:
+        pipeline = metadata["pipeline"]
+        flattened["pipeline_name"] = pipeline.get("name")
+        flattened["pipeline_version"] = pipeline.get("version")
+        flattened["entity_type"] = pipeline.get("entity_type")
+        flattened["source_system"] = pipeline.get("source_system")
+    
+    # Extract execution info
+    if "execution" in metadata:
+        execution = metadata["execution"]
+        flattened["run_id"] = execution.get("run_id")
+        flattened["started_at"] = execution.get("started_at")
+        flattened["completed_at"] = execution.get("completed_at")
+        flattened["duration_sec"] = execution.get("duration_sec")
+    
+    # Extract data info
+    if "data" in metadata:
+        data = metadata["data"]
+        flattened["row_count"] = data.get("row_count")
+        flattened["row_count_accepted"] = data.get("row_count_accepted")
+        flattened["row_count_rejected"] = data.get("row_count_rejected")
+        flattened["columns_count"] = data.get("columns_count")
+    
+    # Extract validation info
+    if "validation" in metadata:
+        validation = metadata["validation"]
+        flattened["schema_passed"] = validation.get("schema_passed")
+        flattened["qc_passed"] = validation.get("qc_passed")
+        flattened["warnings"] = validation.get("warnings")
+        flattened["errors"] = validation.get("errors")
+    
+    # Convert to DataFrame for validation
+    import pandas as pd
+    df = pd.DataFrame([flattened])
     
     # Validate using the schema
     validated_df = DatasetMetadataSchema.validate(df)

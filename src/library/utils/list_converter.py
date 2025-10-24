@@ -82,29 +82,29 @@ def convert_authors_list(authors: Any) -> str | None:
     return None
 
 
-def convert_issn_list(issn: Any) -> str | None:
+def convert_issn_list(issn: Any) -> str:
     """Специальная функция для конвертации ISSN.
     
     Args:
         issn: ISSN значение (может быть list или string)
         
     Returns:
-        Первый ISSN из списка или строка ISSN
+        Первый ISSN из списка или строка ISSN, пустая строка если не найдено
     """
     if issn is None:
-        return None
+        return ""
     
     if isinstance(issn, list):
         if not issn:
-            return None
+            return ""
         # Берем первый ISSN из списка
         first_issn = issn[0]
-        return str(first_issn).strip() if first_issn else None
+        return str(first_issn).strip() if first_issn else ""
     
     if isinstance(issn, str):
-        return issn.strip() if issn.strip() else None
+        return issn.strip() if issn.strip() else ""
     
-    return str(issn).strip() if issn else None
+    return str(issn).strip() if issn else ""
 
 
 def convert_subject_list(subject: Any) -> str | None:

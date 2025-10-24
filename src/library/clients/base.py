@@ -185,7 +185,7 @@ class BaseApiClient:
                     # If rate limited, wait and retry
                     # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                     error_msg = str(e).replace("%", "%%")
-                    self.logger.warning("Rate limit hit: {}", error_msg)
+                    self.logger.warning("Rate limit hit: %s", error_msg)
                     # Use config-based delay instead of hardcoded delay
                     if hasattr(self.config, 'rate_limit') and self.config.rate_limit:
                         delay = self.config.rate_limit.period + random.uniform(0, 1)  # noqa: S311
@@ -305,7 +305,7 @@ class BaseApiClient:
         try:
             response = self._send_with_backoff(method, url, headers=request_headers, **kwargs)
         except requests.exceptions.RequestException as exc:  # pragma: no cover - defensive
-            self.logger.error("transport_error error={}", str(exc))
+            self.logger.error("transport_error error=%s", str(exc))
             add_span_attribute("error", True)
             add_span_attribute("error.type", "transport_error")
             raise ApiClientError(str(exc)) from exc
@@ -340,7 +340,7 @@ class BaseApiClient:
                     except (ValueError, TypeError):
                         # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                         retry_after_msg = str(retry_after).replace("%", "%%")
-                        self.logger.warning("Invalid Retry-After header: {}", retry_after_msg)
+                        self.logger.warning("Invalid Retry-After header: %s", retry_after_msg)
                         # Используем консервативную задержку 30 секунд
                         self.logger.info("Using conservative 30-second delay")
                         time.sleep(30)
@@ -358,7 +358,7 @@ class BaseApiClient:
 
         try:
             payload = response.json()
-            self.logger.debug("JSON response received: {}", type(payload))
+            self.logger.debug("JSON response received: %s", type(payload))
         except json.JSONDecodeError as exc:
             # Проверяем, не является ли ответ XML (например, от ChEMBL API)
             content_type = response.headers.get('content-type', '').lower()
@@ -373,10 +373,10 @@ class BaseApiClient:
                     root = safe_fromstring(response.text)
                     payload = self._xml_to_dict(root)
                 except Exception as xml_exc:
-                    self.logger.error("xml_parse_error error={}", str(xml_exc))
+                    self.logger.error("xml_parse_error error=%s", str(xml_exc))
                     raise ApiClientError(f"Failed to parse XML response: {xml_exc}") from xml_exc
             else:
-                self.logger.error("invalid_json error={} content_type={}", str(exc), content_type)
+                self.logger.error("invalid_json error=%s content_type=%s", str(exc), content_type)
                 raise ApiClientError("response was not valid JSON") from exc
 
         self.logger.info("response status_code=%d", response.status_code)

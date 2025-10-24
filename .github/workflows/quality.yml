@@ -1,0 +1,38 @@
+name: Code Quality
+
+on: [push, pull_request]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install dependencies
+      run: |
+        pip install -e .[dev]
+        npm install -g jscpd
+    
+    - name: Run audit
+      run: make audit
+      
+    - name: Fail on violations
+      run: |
+        if grep -q "unused code" metadata/reports/analysis/vulture_report.txt; then
+          echo "Dead code detected!"
+          exit 1
+        fi
+        if grep -q "duplicate" metadata/reports/analysis/jscpd-report.md; then
+          echo "Code duplication detected!"
+          exit 1
+        fi
+        if grep -q "error" metadata/reports/analysis/deptry_report.txt; then
+          echo "Dependency issues detected!"
+          exit 1
+        fi

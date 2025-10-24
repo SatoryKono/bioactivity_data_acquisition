@@ -240,6 +240,9 @@ temp_*.txt
 *.tmp
 CLI_INTEGRATION_SNIPPET.py
 
+# Временные файлы для удаления
+~tmp.*
+
 # Build artifacts (additional to Python template)
 build/
 dist/

@@ -52,20 +52,13 @@ class OpenAlexClient(BaseApiClient):
                 raise
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
-        """Fetch a work by PMID with fallback search."""
+        """Fetch a work by PMID using direct URL like in reference project."""
 
         try:
-            payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
-            results = payload.get("results", [])
-            if results:
-                return self._parse_work(results[0])
-
-            self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
-            payload = self._request("GET", "", params={"search": pmid})
-            results = payload.get("results", [])
-            if not results:
-                raise ApiClientError(f"No OpenAlex work found for PMID {pmid}")
-            return self._parse_work(results[0])
+            # Используем прямой URL как в референсном проекте: /works/pmid:{pmid}
+            path = f"works/pmid:{pmid}"
+            payload = self._request("GET", path)
+            return self._parse_work(payload)
         except ApiClientError as exc:
             # Специальная обработка для ошибок 429 от OpenAlex
             if exc.status_code == 429:
@@ -76,7 +69,19 @@ class OpenAlexClient(BaseApiClient):
                     message="OpenAlex API rate limit exceeded. Consider getting an API key."
                 )
                 return self._create_empty_record(pmid, f"Rate limited: {str(exc)}")
-            raise
+            
+            # Fallback к поиску если прямой запрос не сработал
+            self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
+            try:
+                payload = self._request("GET", "", params={"search": pmid})
+                results = payload.get("results", [])
+                if not results:
+                    raise ApiClientError(f"No OpenAlex work found for PMID {pmid}")
+                return self._parse_work(results[0])
+            except ApiClientError as fallback_exc:
+                if fallback_exc.status_code == 429:
+                    return self._create_empty_record(pmid, f"Rate limited: {str(fallback_exc)}")
+                raise
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         ids = work.get("ids") or {}
@@ -144,23 +149,23 @@ class OpenAlexClient(BaseApiClient):
         # Извлекаем journal из host_venue
         journal = self._extract_journal(work)
         
-        record: dict[str, Any | None] = {
+        record: dict[str, Any] = {
             "source": "openalex",
-            "openalex_doi": doi_value,
-            "openalex_title": title,
-            "openalex_doc_type": work.get("type"),
-            "openalex_crossref_doc_type": type_crossref,
-            "openalex_year": pub_year,
-            "openalex_pmid": self._extract_pmid(work),
-            "openalex_abstract": abstract,
-            "openalex_issn": convert_issn_list(self._extract_issn(work)),
-            "openalex_journal": journal,
-            "openalex_authors": convert_authors_list(self._extract_authors(work)),
-            "openalex_volume": openalex_volume,
-            "openalex_issue": openalex_issue,
-            "openalex_first_page": openalex_first_page,
-            "openalex_last_page": openalex_last_page,
-            "openalex_error": None,  # Will be set if there's an error
+            "openalex_doi": doi_value or "",
+            "openalex_title": title or "",
+            "openalex_doc_type": work.get("type") or "",
+            "openalex_crossref_doc_type": type_crossref or "",
+            "openalex_year": pub_year or "",
+            "openalex_pmid": self._extract_pmid(work) or "",
+            "openalex_abstract": abstract or "",
+            "openalex_issn": convert_issn_list(self._extract_issn(work)) or "",
+            "openalex_journal": journal or "",
+            "openalex_authors": convert_authors_list(self._extract_authors(work)) or "",
+            "openalex_volume": openalex_volume or "",
+            "openalex_issue": openalex_issue or "",
+            "openalex_first_page": openalex_first_page or "",
+            "openalex_last_page": openalex_last_page or "",
+            "openalex_error": "",  # Will be set if there's an error
         }
         
         # Debug logging for the final record
@@ -292,22 +297,22 @@ class OpenAlexClient(BaseApiClient):
         return None
 
     def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:
-        """Создает пустую запись для случая ошибки."""
+        """Создает пустую запись для случая ошибки с пустыми строками как в референсном проекте."""
         return {
             "source": "openalex",
-            "openalex_doi": None,
-            "openalex_title": None,
-            "openalex_doc_type": None,
-            "openalex_crossref_doc_type": None,
-            "openalex_year": None,
-            "openalex_pmid": None,
-            "openalex_abstract": None,
-            "openalex_issn": None,
-            "openalex_authors": None,
-            "openalex_volume": None,
-            "openalex_issue": None,
-            "openalex_first_page": None,
-            "openalex_last_page": None,
+            "openalex_doi": "",
+            "openalex_title": "",
+            "openalex_doc_type": "",
+            "openalex_crossref_doc_type": "",
+            "openalex_year": "",
+            "openalex_pmid": "",
+            "openalex_abstract": "",
+            "openalex_issn": "",
+            "openalex_authors": "",
+            "openalex_volume": "",
+            "openalex_issue": "",
+            "openalex_first_page": "",
+            "openalex_last_page": "",
             "openalex_error": error_msg,
         }
 
@@ -370,46 +375,49 @@ class OpenAlexClient(BaseApiClient):
         pmids: list[str],
         batch_size: int = 50
     ) -> dict[str, dict[str, Any]]:
-        """Fetch multiple works by PMIDs using filter.
+        """Fetch multiple works by PMIDs using individual requests with fallback.
         
-        OpenAlex supports batch queries using filter with OR operator.
+        OpenAlex batch queries may not find all documents, so we use individual requests
+        with the same fallback logic as fetch_by_pmid.
         """
         if not pmids:
             return {}
         
         results = {}
         
-        # Process in chunks to avoid URL length limits
-        for i in range(0, len(pmids), batch_size):
-            chunk = pmids[i:i + batch_size]
-            
+        # Use individual requests with fallback logic like fetch_by_pmid
+        for pmid in pmids:
             try:
-                # Create filter string with OR operator
-                filter_parts = [f"pmid:{pmid}" for pmid in chunk]
-                filter_str = "|".join(filter_parts)
-                
-                payload = self._request("GET", "", params={"filter": filter_str})
-                works = payload.get("results", [])
-                
-                # Map results back to PMIDs
-                for work in works:
-                    ids = work.get("ids", {})
-                    pmid_value = ids.get("pmid")
-                    if pmid_value and pmid_value.startswith("https://pubmed.ncbi.nlm.nih.gov/"):
-                        pmid_value = pmid_value.replace("https://pubmed.ncbi.nlm.nih.gov/", "")
-                    
-                    if pmid_value in chunk:
-                        results[pmid_value] = self._parse_work(work)
-                
-                # Add empty records for missing PMIDs
-                for pmid in chunk:
-                    if pmid not in results:
-                        results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
-                        
+                # Try direct URL first (like in reference project)
+                path = f"works/pmid:{pmid}"
+                payload = self._request("GET", path)
+                results[pmid] = self._parse_work(payload)
+            except ApiClientError as exc:
+                if exc.status_code == 429:
+                    self.logger.warning(
+                        "openalex_rate_limited",
+                        pmid=pmid,
+                        error=str(exc),
+                        message="OpenAlex API rate limit exceeded. Consider getting an API key."
+                    )
+                    results[pmid] = self._create_empty_record(pmid, f"Rate limited: {str(exc)}")
+                else:
+                    # Fallback to search if direct request fails
+                    self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
+                    try:
+                        payload = self._request("GET", "", params={"search": pmid})
+                        search_results = payload.get("results", [])
+                        if search_results:
+                            results[pmid] = self._parse_work(search_results[0])
+                        else:
+                            results[pmid] = self._create_empty_record(pmid, "Not found in OpenAlex database")
+                    except ApiClientError as fallback_exc:
+                        if fallback_exc.status_code == 429:
+                            results[pmid] = self._create_empty_record(pmid, f"Rate limited: {str(fallback_exc)}")
+                        else:
+                            results[pmid] = self._create_empty_record(pmid, f"Not found: {str(fallback_exc)}")
             except Exception as e:
-                self.logger.warning("Failed to fetch PMIDs batch %s: %s", chunk, e)
-                # Add empty records for failed batch
-                for pmid in chunk:
-                    results[pmid] = self._create_empty_record(pmid, str(e))
+                self.logger.warning("Failed to fetch PMID %s: %s", pmid, e)
+                results[pmid] = self._create_empty_record(pmid, str(e))
         
         return results

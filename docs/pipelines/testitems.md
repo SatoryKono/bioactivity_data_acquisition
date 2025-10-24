@@ -18,13 +18,13 @@
 **Входы**:
 
 - CSV файл с молекулярными идентификаторами (`molecule_chembl_id`, `molregno`)
-- Конфигурация `configs/config_testitem_full.yaml`
+- Конфигурация `configs/config_testitem.yaml` (v2)
 
 **Выходы**:
 
-- `testitem__YYYYMMDD.csv` — основные данные молекул
-- `meta.yaml` — метаданные пайплайна
-- `qc/testitem_YYYYMMDD_qc.csv` — QC артефакты
+- `testitems_YYYYMMDD.csv` — основные данные молекул
+- `testitems_YYYYMMDD_meta.yaml` — метаданные пайплайна
+- `testitems_YYYYMMDD_qc.csv` — QC артефакты
 
 ### Место в архитектуре
 

@@ -128,20 +128,40 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         missing_fields = set()
         empty_fields = set()
         
-        # Collect unique target IDs for enrichment
+        # Collect unique target IDs and assay class IDs for enrichment
         target_ids = set()
+        assay_class_ids = set()
         
         for _, row in data.iterrows():
             assay_id = row["assay_chembl_id"]
             try:
                 assay_data = chembl_client.fetch_by_assay_id(assay_id)
                 if assay_data:
+                    # Expand assay parameters
+                    assay_data = self._expand_assay_parameters(assay_data)
+                    
+                    # Expand variant sequence
+                    assay_data = self._expand_variant_sequence(assay_data)
+                    
                     extracted_records.append(assay_data)
                     
                     # Collect target_chembl_id for enrichment
                     target_chembl_id = assay_data.get("target_chembl_id")
                     if target_chembl_id:
                         target_ids.add(target_chembl_id)
+                    
+                    # Collect assay_class_ids from assay_classifications
+                    classifications = assay_data.get("assay_classifications")
+                    if classifications:
+                        try:
+                            import json
+                            class_data = json.loads(classifications)
+                            if isinstance(class_data, list):
+                                for class_item in class_data:
+                                    if isinstance(class_item, dict) and "assay_class_id" in class_item:
+                                        assay_class_ids.add(class_item["assay_class_id"])
+                        except (json.JSONDecodeError, TypeError) as e:
+                            logger.debug(f"Failed to parse assay_classifications for {assay_id}: {e}")
                     
                     # Track which fields are missing or empty
                     for field, value in assay_data.items():
@@ -171,6 +191,17 @@ class AssayPipeline(PipelineBase[AssayConfig]):
                         suffixes=("", "_target")
                     )
                     logger.info("Enriched assay data with target information")
+            
+            # Enrich with assay class data
+            if assay_class_ids:
+                logger.info(f"Enriching {len(assay_class_ids)} unique assay classes from /assay_class endpoint")
+                class_data = self._enrich_with_assay_classes(chembl_client, list(assay_class_ids))
+                if not class_data.empty:
+                    # Merge class data into assay data
+                    # Note: We need to handle the many-to-many relationship between assays and classes
+                    # For now, we'll merge on the first assay_class_id found in classifications
+                    extracted_df = self._merge_assay_class_data(extracted_df, class_data)
+                    logger.info("Enriched assay data with assay class information")
             
             # Log field analysis
             if empty_fields:
@@ -213,6 +244,85 @@ class AssayPipeline(PipelineBase[AssayConfig]):
             logger.warning("No target data extracted for enrichment")
             return pd.DataFrame()
     
+    def _expand_assay_parameters(self, assay_data: dict[str, Any]) -> dict[str, Any]:
+        """Expand first assay_parameter to flat fields with assay_param_ prefix."""
+        params = assay_data.get("assay_parameters")
+        if params and isinstance(params, list) and len(params) > 0:
+            first_param = params[0]
+            assay_data["assay_param_type"] = first_param.get("type")
+            assay_data["assay_param_relation"] = first_param.get("relation")
+            assay_data["assay_param_value"] = first_param.get("value")
+            assay_data["assay_param_units"] = first_param.get("units")
+            assay_data["assay_param_text_value"] = first_param.get("text_value")
+            assay_data["assay_param_standard_type"] = first_param.get("standard_type")
+            assay_data["assay_param_standard_value"] = first_param.get("standard_value")
+            assay_data["assay_param_standard_units"] = first_param.get("standard_units")
+        else:
+            # Set NULL for all fields
+            for field in ["type", "relation", "value", "units", "text_value", 
+                          "standard_type", "standard_value", "standard_units"]:
+                assay_data[f"assay_param_{field}"] = None
+        return assay_data
+    
+    def _expand_variant_sequence(self, assay_data: dict[str, Any]) -> dict[str, Any]:
+        """Expand variant_sequence object to flat fields with variant_ prefix."""
+        variant = assay_data.get("variant_sequence")
+        if variant and isinstance(variant, dict):
+            assay_data["variant_id"] = variant.get("variant_id")
+            assay_data["variant_base_accession"] = variant.get("accession") or variant.get("base_accession")
+            assay_data["variant_mutation"] = variant.get("mutation")
+            assay_data["variant_sequence"] = variant.get("sequence")
+            assay_data["variant_accession_reported"] = variant.get("accession")
+        else:
+            for field in ["variant_id", "variant_base_accession", "variant_mutation", 
+                          "variant_sequence", "variant_accession_reported"]:
+                assay_data[field] = None
+        return assay_data
+    
+    def _enrich_with_assay_classes(self, chembl_client, assay_class_ids: list[int]) -> pd.DataFrame:
+        """Fetch assay class data for given IDs."""
+        class_records = []
+        for class_id in assay_class_ids:
+            try:
+                class_data = chembl_client.fetch_assay_class(class_id)
+                if class_data and "error" not in class_data:
+                    class_records.append(class_data)
+            except Exception as e:
+                logger.warning(f"Failed to fetch assay_class {class_id}: {e}")
+        return pd.DataFrame(class_records) if class_records else pd.DataFrame()
+    
+    def _merge_assay_class_data(self, assay_df: pd.DataFrame, class_df: pd.DataFrame) -> pd.DataFrame:
+        """Merge assay class data into assay DataFrame."""
+        if class_df.empty:
+            return assay_df
+        
+        # Create a mapping from assay_class_id to class data
+        class_dict = class_df.set_index('assay_class_id').to_dict('index')
+        
+        # For each assay, find the first assay_class_id from classifications and merge its data
+        for idx, row in assay_df.iterrows():
+            classifications = row.get("assay_classifications")
+            if classifications:
+                try:
+                    import json
+                    class_data = json.loads(classifications)
+                    if isinstance(class_data, list) and len(class_data) > 0:
+                        # Take the first classification
+                        first_class = class_data[0]
+                        if isinstance(first_class, dict) and "assay_class_id" in first_class:
+                            class_id = first_class["assay_class_id"]
+                            if class_id in class_dict:
+                                # Merge class data into this row
+                                class_info = class_dict[class_id]
+                                for key, value in class_info.items():
+                                    if key != 'assay_class_id':  # Don't overwrite the ID
+                                        assay_df.at[idx, key] = value
+                except (json.JSONDecodeError, TypeError, KeyError) as e:
+                    logger.debug(f"Failed to merge assay class data for row {idx}: {e}")
+                    continue
+        
+        return assay_df
+    
     def _merge_chembl_data(self, base_data: pd.DataFrame, chembl_data: pd.DataFrame) -> pd.DataFrame:
         """Merge ChEMBL data into base data."""
         if chembl_data.empty:
@@ -234,8 +344,9 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         """Normalize assay data."""
         logger.info("Normalizing assay data")
         
-        # Apply assay normalization (placeholder)
-        normalized_data = raw_data
+        # Apply assay-specific normalization
+        from library.normalize.assay import normalize_assay_dataframe
+        normalized_data = normalize_assay_dataframe(raw_data)
         
         # Add system metadata fields
         from library.common.metadata_fields import add_system_metadata_fields, create_chembl_client_from_config

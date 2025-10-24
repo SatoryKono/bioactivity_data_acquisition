@@ -14,13 +14,15 @@ class SemanticScholarClient(BaseApiClient):
     """HTTP client for Semantic Scholar."""
 
     # Минимальный набор полей для оптимизации производительности
+    # Соответствует референсному проекту ChEMBL_data_acquisition6
     _DEFAULT_FIELDS = [
-        "title",      
-        "externalIds",
-        "year",
-        "authors",
-        "publicationVenue",  # Для получения ISSN и названия журнала
         "publicationTypes",  # Для получения типа документа
+        "externalIds",      # Для получения DOI и других ID
+        "paperId",          # Semantic Scholar ID (как в референсе)
+        "venue",            # Для получения данных о журнале (как в референсе)
+        "title",            # Дополнительно для полноты
+        "year",             # Дополнительно для полноты
+        "authors",          # Дополнительно для полноты
     ]
     
     # Альтернативный минимальный набор для максимальной производительности
@@ -55,7 +57,7 @@ class SemanticScholarClient(BaseApiClient):
         
         super().__init__(enhanced, fallback_manager=fallback_manager, **kwargs)
 
-    def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
+    def fetch_by_pmid(self, pmid: str, title: str = None) -> dict[str, Any]:
         # Semantic Scholar API endpoint for papers by PMID
         identifier = f"paper/PMID:{pmid}"
         
@@ -76,6 +78,10 @@ class SemanticScholarClient(BaseApiClient):
                     error=error_msg,
                     fallback_reason=fallback_reason_msg
                 )
+                # Fallback к поиску по заголовку если есть
+                if title:
+                    self.logger.info("semantic_scholar_title_fallback", pmid=pmid, title=title)
+                    return self._search_by_title(title, pmid)
                 return self._create_empty_record(pmid, str(payload.get("error", "Unknown error")).replace('%', '%%'))
                 
             return self._parse_paper(payload)
@@ -101,6 +107,11 @@ class SemanticScholarClient(BaseApiClient):
                     f"Consider getting an API key for higher limits."
                 )
             else:
+                # Fallback к поиску по заголовку если есть
+                if title:
+                    self.logger.info("semantic_scholar_pmid_fallback", pmid=pmid, title=title)
+                    return self._search_by_title(title, pmid)
+                
                 # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                 error_msg = str(exc).replace("%", "%%")
                 self.logger.error(
@@ -111,6 +122,75 @@ class SemanticScholarClient(BaseApiClient):
                 )
                 exc_msg = str(exc).replace('%', '%%')
                 return self._create_empty_record(pmid, f"Request failed: {exc_msg}")
+
+    def _search_by_title(self, title: str, pmid: str) -> dict[str, Any]:
+        """Search for paper by title as fallback when PMID lookup fails."""
+        try:
+            # Очищаем заголовок от HTML тегов и лишних символов
+            clean_title = self._clean_title_for_search(title)
+            if not clean_title:
+                return self._create_empty_record(pmid, "Empty title for search")
+            
+            # Используем поиск по заголовку
+            search_params = {
+                "query": clean_title,
+                "fields": ",".join(self._DEFAULT_FIELDS),
+                "limit": 5  # Ограничиваем результаты
+            }
+            
+            payload = self._request_with_fallback(
+                "GET", "paper/search", params=search_params
+            )
+            
+            # Проверяем результаты поиска
+            if isinstance(payload, dict) and "data" in payload:
+                papers = payload.get("data", [])
+                if papers:
+                    # Берем первый результат (наиболее релевантный)
+                    best_match = papers[0]
+                    self.logger.info(
+                        "semantic_scholar_title_search_success",
+                        pmid=pmid,
+                        title=clean_title,
+                        found_paper_id=best_match.get("paperId", "unknown")
+                    )
+                    return self._parse_paper(best_match)
+            
+            # Если поиск не дал результатов
+            self.logger.warning(
+                "semantic_scholar_title_search_no_results",
+                pmid=pmid,
+                title=clean_title
+            )
+            return self._create_empty_record(pmid, f"Not found by title search: {clean_title}")
+            
+        except Exception as exc:
+            self.logger.error(
+                "semantic_scholar_title_search_failed",
+                pmid=pmid,
+                title=title,
+                error=str(exc)
+            )
+            return self._create_empty_record(pmid, f"Title search failed: {str(exc)}")
+
+    def _clean_title_for_search(self, title: str) -> str:
+        """Clean title for search by removing HTML tags and special characters."""
+        if not title:
+            return ""
+        
+        import re
+        
+        # Удаляем HTML теги
+        clean = re.sub(r'<[^>]+>', '', title)
+        
+        # Удаляем лишние пробелы
+        clean = re.sub(r'\s+', ' ', clean).strip()
+        
+        # Ограничиваем длину для поиска (Semantic Scholar имеет лимиты)
+        if len(clean) > 200:
+            clean = clean[:200]
+        
+        return clean
 
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
         """Fetch multiple papers by PMIDs using individual requests.
@@ -152,34 +232,41 @@ class SemanticScholarClient(BaseApiClient):
         else:
             author_names = None
 
-        record: dict[str, Any | None] = {
+        record: dict[str, Any] = {
             "source": "semantic_scholar",
-            "semantic_scholar_pmid": self._extract_pmid(payload),
-            "semantic_scholar_doi": external_ids.get("DOI"),
-            "semantic_scholar_semantic_scholar_id": payload.get("paperId"),
-            "semantic_scholar_title": payload.get("title"),
-            "semantic_scholar_doc_type": self._extract_doc_type(payload),
-            "semantic_scholar_journal": self._extract_journal(payload),
+            "semantic_scholar_pmid": self._extract_pmid(payload) or "",
+            "semantic_scholar_doi": external_ids.get("DOI") or "",
+            "semantic_scholar_semantic_scholar_id": payload.get("paperId") or "",
+            "semantic_scholar_title": payload.get("title") or "",
+            "semantic_scholar_doc_type": self._extract_doc_type(payload) or "",
+            "semantic_scholar_journal": self._extract_journal(payload) or "",
             "semantic_scholar_external_ids": (
-                json.dumps(external_ids) if external_ids else None
+                json.dumps(external_ids) if external_ids else ""
             ),
             
-            "semantic_scholar_issn": self._extract_issn(payload),
-            "semantic_scholar_authors": convert_authors_list(author_names),
-            "semantic_scholar_year": payload.get("year"),
-            "semantic_scholar_error": None,  # Will be set if there's an error
+            "semantic_scholar_issn": self._extract_issn(payload) or "",
+            "semantic_scholar_authors": convert_authors_list(author_names) or "",
+            "semantic_scholar_year": payload.get("year") or "",
+            "semantic_scholar_error": "",  # Will be set if there's an error
             # Legacy fields for backward compatibility
-            "title": payload.get("title"),
+            "title": payload.get("title") or "",
             
-            "year": payload.get("year"),
-            "pubmed_authors": convert_authors_list(author_names),
+            "year": payload.get("year") or "",
+            "pubmed_authors": convert_authors_list(author_names) or "",
         }
         # Return all fields, including None values, to maintain schema consistency
         return record
 
     def _extract_issn(self, payload: dict[str, Any]) -> str | None:
         """Извлекает ISSN из Semantic Scholar payload."""
-        # Сначала проверяем в publicationVenue
+        # Сначала проверяем в venue (как в референсе)
+        venue = payload.get("venue", {})
+        if isinstance(venue, dict):
+            issn = venue.get("issn")
+            if issn:
+                return str(issn)
+        
+        # Fallback к publicationVenue
         publication_venue = payload.get("publicationVenue", {})
         if isinstance(publication_venue, dict):
             issn = publication_venue.get("issn")
@@ -196,7 +283,19 @@ class SemanticScholarClient(BaseApiClient):
 
     def _extract_journal(self, payload: dict[str, Any]) -> str | None:
         """Извлекает название журнала из Semantic Scholar payload."""
-        # Проверяем в publicationVenue
+        # Сначала проверяем в venue (как в референсе)
+        venue = payload.get("venue", {})
+        if isinstance(venue, dict):
+            # Пробуем разные поля для названия журнала
+            journal = (
+                venue.get("name") or 
+                venue.get("alternateName") or
+                venue.get("displayName")
+            )
+            if journal:
+                return str(journal)
+        
+        # Fallback к publicationVenue
         publication_venue = payload.get("publicationVenue", {})
         if isinstance(publication_venue, dict):
             # Пробуем разные поля для названия журнала
@@ -226,24 +325,24 @@ class SemanticScholarClient(BaseApiClient):
         return None
 
     def _create_empty_record(self, pmid: str, error_msg: str) -> dict[str, Any]:
-        """Создает пустую запись для случая ошибки."""
+        """Создает пустую запись для случая ошибки с пустыми строками как в референсном проекте."""
         return {
             "source": "semantic_scholar",
-            "semantic_scholar_pmid": pmid if pmid else None,
-            "semantic_scholar_doi": None,
-            "semantic_scholar_semantic_scholar_id": None,
-            "semantic_scholar_title": None,
-            "semantic_scholar_doc_type": None,
-            "semantic_scholar_journal": None,
-            "semantic_scholar_external_ids": None,
-            "semantic_scholar_issn": None,
-            "semantic_scholar_authors": None,
-            "semantic_scholar_year": None,
+            "semantic_scholar_pmid": pmid if pmid else "",
+            "semantic_scholar_doi": "",
+            "semantic_scholar_semantic_scholar_id": "",
+            "semantic_scholar_title": "",
+            "semantic_scholar_doc_type": "",
+            "semantic_scholar_journal": "",
+            "semantic_scholar_external_ids": "",
+            "semantic_scholar_issn": "",
+            "semantic_scholar_authors": "",
+            "semantic_scholar_year": "",
             "semantic_scholar_error": error_msg,
             # Legacy fields
-            "title": None,
-            "year": None,
-            "pubmed_authors": None,
+            "title": "",
+            "year": "",
+            "pubmed_authors": "",
         }
 
     def _extract_pmid(self, payload: dict[str, Any]) -> str | None:

@@ -48,22 +48,52 @@ class AssayRawSchema(pa.DataFrameModel):
         description="ChEMBL assay identifier",
         nullable=True
     )
-    src_id: Series[object] = pa.Field(
-        description="Source identifier",
-        nullable=True
-    )
-    src_name: Series[str] = pa.Field(
-        description="Source name",
-        nullable=True
-    )
-    src_assay_id: Series[str] = pa.Field(
-        description="Source assay identifier",
-        nullable=True
-    )
-    
-    # Classification fields
     assay_type: Series[str] = pa.Field(
         description="Assay type (B/F/P/U)",
+        nullable=True
+    )
+    assay_category: Series[str] = pa.Field(
+        description="Assay category",
+        nullable=True
+    )
+    assay_cell_type: Series[str] = pa.Field(
+        description="Cell type",
+        nullable=True
+    )
+    assay_classifications: Series[str] = pa.Field(
+        description="Assay classifications (JSON)",
+        nullable=True
+    )
+    assay_group: Series[str] = pa.Field(
+        description="Assay group",
+        nullable=True
+    )
+    assay_organism: Series[str] = pa.Field(
+        description="Assay organism",
+        nullable=True
+    )
+    assay_parameters_json: Series[str] = pa.Field(
+        description="Assay parameters as JSON string",
+        nullable=True
+    )
+    assay_strain: Series[str] = pa.Field(
+        description="Strain",
+        nullable=True
+    )
+    assay_subcellular_fraction: Series[str] = pa.Field(
+        description="Subcellular fraction",
+        nullable=True
+    )
+    assay_tax_id: Series[object] = pa.Field(
+        description="Organism taxonomic ID",
+        nullable=True
+    )
+    assay_test_type: Series[str] = pa.Field(
+        description="Assay test type",
+        nullable=True
+    )
+    assay_tissue: Series[str] = pa.Field(
+        description="Tissue type",
         nullable=True
     )
     assay_type_description: Series[str] = pa.Field(
@@ -78,115 +108,142 @@ class AssayRawSchema(pa.DataFrameModel):
         description="BAO label",
         nullable=True
     )
-    
-    # Target relationship fields
-    target_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL target identifier",
+    cell_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL cell identifier",
         nullable=True
     )
-    relationship_type: Series[str] = pa.Field(
-        description="Relationship type to target",
+    confidence_description: Series[str] = pa.Field(
+        description="Confidence description",
         nullable=True
     )
     confidence_score: Series[object] = pa.Field(
         description="Confidence score (0-9)",
         nullable=True
     )
-    
-    # Variant fields - NOT AVAILABLE in ChEMBL API v33+
-    # These fields are documented as unavailable in ChEMBL API
-    variant_id: Series[object] = pa.Field(
-        description="ChEMBL variant identifier - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_text: Series[str] = pa.Field(
-        description="Variant description text - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_sequence_id: Series[object] = pa.Field(
-        description="Variant sequence identifier - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    isoform: Series[object] = pa.Field(
-        description="Isoform from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    mutation: Series[str] = pa.Field(
-        description="Mutation from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    sequence: Series[str] = pa.Field(
-        description="Sequence from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_accession: Series[str] = pa.Field(
-        description="Accession from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_sequence_accession: Series[str] = pa.Field(
-        description="Sequence accession from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_sequence_mutation: Series[str] = pa.Field(
-        description="Sequence mutation from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_organism: Series[str] = pa.Field(
-        description="Organism from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    
-    # Biological context fields
-    assay_organism: Series[str] = pa.Field(
-        description="Assay organism",
-        nullable=True
-    )
-    assay_tax_id: Series[object] = pa.Field(
-        description="Organism taxonomic ID",
-        nullable=True
-    )
-    assay_cell_type: Series[str] = pa.Field(
-        description="Cell type",
-        nullable=True
-    )
-    assay_tissue: Series[str] = pa.Field(
-        description="Tissue type",
-        nullable=True
-    )
-    assay_strain: Series[str] = pa.Field(
-        description="Strain",
-        nullable=True
-    )
-    assay_subcellular_fraction: Series[str] = pa.Field(
-        description="Subcellular fraction",
-        nullable=True
-    )
-    
-    # Description and protocol fields
-    description: Series[str] = pa.Field(
+    assay_description: Series[str] = pa.Field(
         description="Assay description",
         nullable=True
     )
-    assay_parameters: Series[object] = pa.Field(
-        description="Assay parameters (dict/str)",
+    bao_endpoint: Series[str] = pa.Field(
+        description="BAO endpoint",
         nullable=True
     )
-    assay_parameters_json: Series[str] = pa.Field(
-        description="Assay parameters as normalized deterministic JSON string",
+    document_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL document identifier",
         nullable=True
     )
-    assay_format: Series[str] = pa.Field(
-        description="Assay format",
+    relationship_description: Series[str] = pa.Field(
+        description="Relationship description",
+        nullable=True
+    )
+    relationship_type: Series[str] = pa.Field(
+        description="Relationship type to target",
+        nullable=True
+    )
+    src_assay_id: Series[str] = pa.Field(
+        description="Source assay identifier",
+        nullable=True
+    )
+    src_id: Series[object] = pa.Field(
+        description="Source identifier",
+        nullable=True
+    )
+    target_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL target identifier",
+        nullable=True
+    )
+    tissue_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL tissue identifier",
+        nullable=True
+    )
+    variant_sequence_json: Series[str] = pa.Field(
+        description="Variant sequence as JSON string",
         nullable=True
     )
     
-    # Hash fields for deduplication
-    hash_row: Series[str] = pa.Field(
-        description="Row hash for deduplication",
+    # ASSAY_PARAMETERS (expanded from JSON)
+    assay_param_type: Series[str] = pa.Field(
+        description="Assay parameter type",
         nullable=True
     )
-    hash_business_key: Series[str] = pa.Field(
-        description="Business key hash",
+    assay_param_relation: Series[str] = pa.Field(
+        description="Assay parameter relation",
+        nullable=True
+    )
+    assay_param_value: Series[float] = pa.Field(
+        description="Assay parameter value",
+        nullable=True
+    )
+    assay_param_units: Series[str] = pa.Field(
+        description="Assay parameter units",
+        nullable=True
+    )
+    assay_param_text_value: Series[str] = pa.Field(
+        description="Assay parameter text value",
+        nullable=True
+    )
+    assay_param_standard_type: Series[str] = pa.Field(
+        description="Assay parameter standard type",
+        nullable=True
+    )
+    assay_param_standard_value: Series[float] = pa.Field(
+        description="Assay parameter standard value",
+        nullable=True
+    )
+    assay_param_standard_units: Series[str] = pa.Field(
+        description="Assay parameter standard units",
+        nullable=True
+    )
+    
+    # ASSAY_CLASS (from /assay_class endpoint)
+    assay_class_id: Series[int] = pa.Field(
+        description="Assay class identifier",
+        nullable=True
+    )
+    assay_class_bao_id: Series[str] = pa.Field(
+        description="Assay class BAO ID",
+        nullable=True
+    )
+    assay_class_type: Series[str] = pa.Field(
+        description="Assay class type",
+        nullable=True
+    )
+    assay_class_l1: Series[str] = pa.Field(
+        description="Assay class hierarchy level 1",
+        nullable=True
+    )
+    assay_class_l2: Series[str] = pa.Field(
+        description="Assay class hierarchy level 2",
+        nullable=True
+    )
+    assay_class_l3: Series[str] = pa.Field(
+        description="Assay class hierarchy level 3",
+        nullable=True
+    )
+    assay_class_description: Series[str] = pa.Field(
+        description="Assay class description",
+        nullable=True
+    )
+    
+    # VARIANT_SEQUENCES (expanded from JSON)
+    variant_id: Series[int] = pa.Field(
+        description="Variant identifier",
+        nullable=True
+    )
+    variant_base_accession: Series[str] = pa.Field(
+        description="Variant base accession",
+        nullable=True
+    )
+    variant_mutation: Series[str] = pa.Field(
+        description="Variant mutation",
+        nullable=True
+    )
+    variant_sequence: Series[str] = pa.Field(
+        description="Variant sequence",
+        nullable=True
+    )
+    variant_accession_reported: Series[str] = pa.Field(
+        description="Variant accession reported",
         nullable=True
     )
 
@@ -213,7 +270,7 @@ class AssayNormalizedSchema(pa.DataFrameModel):
     )
     chembl_release: Series[str] = pa.Field(
         description="ChEMBL release version",
-        nullable=False
+        nullable=True
     )
     
     # Core assay fields - nullable=True for missing data
@@ -222,22 +279,52 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         nullable=False,
         unique=True
     )
-    src_id: Series[object] = pa.Field(
-        description="Source identifier",
-        nullable=True
-    )
-    src_name: Series[str] = pa.Field(
-        description="Source name",
-        nullable=True
-    )
-    src_assay_id: Series[str] = pa.Field(
-        description="Source assay identifier",
-        nullable=True
-    )
-    
-    # Classification fields
     assay_type: Series[str] = pa.Field(
         description="Assay type (B/F/P/U)",
+        nullable=True
+    )
+    assay_category: Series[str] = pa.Field(
+        description="Assay category",
+        nullable=True
+    )
+    assay_cell_type: Series[str] = pa.Field(
+        description="Cell type",
+        nullable=True
+    )
+    assay_classifications: Series[str] = pa.Field(
+        description="Assay classifications (JSON)",
+        nullable=True
+    )
+    assay_group: Series[str] = pa.Field(
+        description="Assay group",
+        nullable=True
+    )
+    assay_organism: Series[str] = pa.Field(
+        description="Assay organism",
+        nullable=True
+    )
+    assay_parameters_json: Series[str] = pa.Field(
+        description="Assay parameters as JSON string",
+        nullable=True
+    )
+    assay_strain: Series[str] = pa.Field(
+        description="Strain",
+        nullable=True
+    )
+    assay_subcellular_fraction: Series[str] = pa.Field(
+        description="Subcellular fraction",
+        nullable=True
+    )
+    assay_tax_id: Series[object] = pa.Field(
+        description="Organism taxonomic ID",
+        nullable=True
+    )
+    assay_test_type: Series[str] = pa.Field(
+        description="Assay test type",
+        nullable=True
+    )
+    assay_tissue: Series[str] = pa.Field(
+        description="Tissue type",
         nullable=True
     )
     assay_type_description: Series[str] = pa.Field(
@@ -252,121 +339,146 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         description="BAO label",
         nullable=True
     )
-    assay_category: Series[object] = pa.Field(
-        description="Assay category (list)",
+    cell_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL cell identifier",
         nullable=True
     )
-    assay_classifications: Series[object] = pa.Field(
-        description="Assay classifications (list)",
-        nullable=True
-    )
-    
-    # Target relationship fields
-    target_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL target identifier",
-        nullable=True
-    )
-    relationship_type: Series[str] = pa.Field(
-        description="Relationship type to target",
+    confidence_description: Series[str] = pa.Field(
+        description="Confidence description",
         nullable=True
     )
     confidence_score: Series[object] = pa.Field(
         description="Confidence score (0-9)",
         nullable=True
     )
-    
-    # Variant fields - NOT AVAILABLE in ChEMBL API v33+
-    # These fields are documented as unavailable in ChEMBL API
-    variant_id: Series[object] = pa.Field(
-        description="ChEMBL variant identifier - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    is_variant: Series[bool] = pa.Field(
-        description="Flag indicating if assay has variant data - NOT AVAILABLE in ChEMBL API",
-        nullable=True  # Changed to nullable since field is not available
-    )
-    variant_accession: Series[str] = pa.Field(
-        description="UniProt accession of variant - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_sequence_accession: Series[str] = pa.Field(
-        description="Sequence accession from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_sequence_mutation: Series[str] = pa.Field(
-        description="Sequence mutation from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_mutations: Series[str] = pa.Field(
-        description="Raw description of variant mutations - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_sequence: Series[str] = pa.Field(
-        description="Variant protein sequence - Available but often null in ChEMBL API",
-        nullable=True
-    )
-    variant_text: Series[str] = pa.Field(
-        description="Variant description text from assay - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    variant_sequence_id: Series[object] = pa.Field(
-        description="Variant sequence identifier - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    target_uniprot_accession: Series[str] = pa.Field(
-        description="Base UniProt accession of target - Enriched via /target endpoint",
-        nullable=True
-    )
-    target_isoform: Series[object] = pa.Field(
-        description="Target isoform number - Enriched via /target endpoint",
-        nullable=True
-    )
-    variant_organism: Series[str] = pa.Field(
-        description="Organism from variant_sequence - NOT AVAILABLE in ChEMBL API",
-        nullable=True
-    )
-    
-    # Biological context fields
-    assay_organism: Series[str] = pa.Field(
-        description="Assay organism",
-        nullable=True
-    )
-    assay_tax_id: Series[object] = pa.Field(
-        description="Organism taxonomic ID",
-        nullable=True
-    )
-    assay_cell_type: Series[str] = pa.Field(
-        description="Cell type",
-        nullable=True
-    )
-    assay_tissue: Series[str] = pa.Field(
-        description="Tissue type",
-        nullable=True
-    )
-    assay_strain: Series[str] = pa.Field(
-        description="Strain",
-        nullable=True
-    )
-    assay_subcellular_fraction: Series[str] = pa.Field(
-        description="Subcellular fraction",
-        nullable=True
-    )
-    
-    # Description and protocol fields
-    description: Series[str] = pa.Field(
+    assay_description: Series[str] = pa.Field(
         description="Assay description",
         nullable=True
     )
-    assay_parameters: Series[object] = pa.Field(
-        description="Assay parameters (dict/str) - legacy field",
+    bao_endpoint: Series[str] = pa.Field(
+        description="BAO endpoint",
         nullable=True
     )
-    assay_parameters_json: Series[str] = pa.Field(
-        description="Assay parameters as normalized deterministic JSON string",
-        nullable=False
+    document_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL document identifier",
+        nullable=True
     )
-    assay_format: Series[str] = pa.Field(
-        description="Assay format",
+    relationship_description: Series[str] = pa.Field(
+        description="Relationship description",
+        nullable=True
+    )
+    relationship_type: Series[str] = pa.Field(
+        description="Relationship type to target",
+        nullable=True
+    )
+    src_assay_id: Series[str] = pa.Field(
+        description="Source assay identifier",
+        nullable=True
+    )
+    src_id: Series[object] = pa.Field(
+        description="Source identifier",
+        nullable=True
+    )
+    target_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL target identifier",
+        nullable=True
+    )
+    tissue_chembl_id: Series[str] = pa.Field(
+        description="ChEMBL tissue identifier",
+        nullable=True
+    )
+    variant_sequence_json: Series[str] = pa.Field(
+        description="Variant sequence as JSON string",
+        nullable=True
+    )
+    
+    # ASSAY_PARAMETERS (expanded from JSON)
+    assay_param_type: Series[str] = pa.Field(
+        description="Assay parameter type",
+        nullable=True
+    )
+    assay_param_relation: Series[str] = pa.Field(
+        description="Assay parameter relation",
+        nullable=True,
+        isin=['=', '>', '>=', '<', '<=', '~']
+    )
+    assay_param_value: Series[float] = pa.Field(
+        description="Assay parameter value",
+        nullable=True
+    )
+    assay_param_units: Series[str] = pa.Field(
+        description="Assay parameter units",
+        nullable=True
+    )
+    assay_param_text_value: Series[str] = pa.Field(
+        description="Assay parameter text value",
+        nullable=True
+    )
+    assay_param_standard_type: Series[str] = pa.Field(
+        description="Assay parameter standard type",
+        nullable=True
+    )
+    assay_param_standard_value: Series[float] = pa.Field(
+        description="Assay parameter standard value",
+        nullable=True
+    )
+    assay_param_standard_units: Series[str] = pa.Field(
+        description="Assay parameter standard units",
+        nullable=True
+    )
+    
+    # ASSAY_CLASS (from /assay_class endpoint)
+    assay_class_id: Series[int] = pa.Field(
+        description="Assay class identifier",
+        nullable=True
+    )
+    assay_class_bao_id: Series[str] = pa.Field(
+        description="Assay class BAO ID",
+        nullable=True,
+        str_matches=r'^BAO_\d{7}$'
+    )
+    assay_class_type: Series[str] = pa.Field(
+        description="Assay class type",
+        nullable=True
+    )
+    assay_class_l1: Series[str] = pa.Field(
+        description="Assay class hierarchy level 1",
+        nullable=True
+    )
+    assay_class_l2: Series[str] = pa.Field(
+        description="Assay class hierarchy level 2",
+        nullable=True
+    )
+    assay_class_l3: Series[str] = pa.Field(
+        description="Assay class hierarchy level 3",
+        nullable=True
+    )
+    assay_class_description: Series[str] = pa.Field(
+        description="Assay class description",
+        nullable=True
+    )
+    
+    # VARIANT_SEQUENCES (expanded from JSON)
+    variant_id: Series[int] = pa.Field(
+        description="Variant identifier",
+        nullable=True
+    )
+    variant_base_accession: Series[str] = pa.Field(
+        description="Variant base accession",
+        nullable=True,
+        str_matches=r'^[OPQ][0-9][A-Z0-9]{3}[0-9](-\d+)?$'
+    )
+    variant_mutation: Series[str] = pa.Field(
+        description="Variant mutation",
+        nullable=True
+    )
+    variant_sequence: Series[str] = pa.Field(
+        description="Variant sequence",
+        nullable=True,
+        str_matches=r'^[A-Z\*]+$'
+    )
+    variant_accession_reported: Series[str] = pa.Field(
+        description="Variant accession reported",
         nullable=True
     )
     
@@ -388,20 +500,6 @@ class AssayNormalizedSchema(pa.DataFrameModel):
     pipeline_version: Series[str] = pa.Field(
         description="ETL pipeline version",
         nullable=False
-    )
-    
-    # Error tracking fields
-    extraction_errors: Series[str] = pa.Field(
-        description="Extraction errors (JSON)",
-        nullable=True
-    )
-    validation_errors: Series[str] = pa.Field(
-        description="Validation errors (JSON)",
-        nullable=True
-    )
-    extraction_status: Series[str] = pa.Field(
-        description="Extraction status (success/partial/failed)",
-        nullable=True
     )
 
     class Config:

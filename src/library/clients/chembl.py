@@ -46,7 +46,7 @@ class ChEMBLClient(BaseApiClient):
             else:
                 return self._create_empty_molecule_record(molecule_chembl_id, "No data found")
         except Exception as e:
-            logger.warning("Failed to fetch molecule %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch molecule %s: %s", molecule_chembl_id, str(e))
             return self._create_empty_molecule_record(molecule_chembl_id, str(e))
 
     def resolve_molregno_to_chembl_id(self, molregno: int | str) -> str | None:
@@ -66,7 +66,7 @@ class ChEMBLClient(BaseApiClient):
             chembl_id = molecules[0].get("molecule_chembl_id")
             return chembl_id
         except Exception as e:
-            logger.warning("Failed to resolve molregno %s to ChEMBL ID: %s", molregno, e)
+            logger.warning("Failed to resolve molregno %s to ChEMBL ID: %s", molregno, str(e))
             return None
 
     def fetch_molecules_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -159,7 +159,7 @@ class ChEMBLClient(BaseApiClient):
                 yield (batch, parsed_molecules)
                 
             except Exception as e:
-                logger.warning("Failed to fetch molecules batch %s: %s", batch, e)
+                logger.warning("Failed to fetch molecules batch %s: %s", batch, str(e))
                 # Yield empty records for failed batch
                 failed_molecules = []
                 for chembl_id in batch:
@@ -172,7 +172,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_molecule_form(payload)
         except Exception as e:
-            logger.warning("Failed to fetch molecule form for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch molecule form for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def fetch_molecule_properties(self, molecule_chembl_id: str) -> dict[str, Any]:
@@ -181,7 +181,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"molecule_properties?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_molecule_properties(payload)
         except Exception as e:
-            logger.warning("Failed to fetch molecule properties for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch molecule properties for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def fetch_molecule_properties_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -233,7 +233,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_mechanism(payload)
         except Exception as e:
-            logger.warning("Failed to fetch mechanism for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch mechanism for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def fetch_mechanism_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -285,7 +285,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_atc_classification(payload)
         except Exception as e:
-            logger.warning("Failed to fetch ATC classification for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch ATC classification for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def fetch_atc_classification_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -337,7 +337,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"compound_synonym?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_compound_synonym(payload)
         except Exception as e:
-            logger.warning("Failed to fetch compound synonym for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch compound synonym for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def fetch_drug(self, molecule_chembl_id: str) -> dict[str, Any]:
@@ -346,7 +346,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_drug(payload)
         except Exception as e:
-            logger.warning("Failed to fetch drug data for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch drug data for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def fetch_drug_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -398,7 +398,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_drug_warning(payload)
         except Exception as e:
-            logger.warning("Failed to fetch drug warning for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch drug warning for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def fetch_drug_warning_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -450,7 +450,7 @@ class ChEMBLClient(BaseApiClient):
             payload = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json")
             return self._parse_xref_source(payload)
         except Exception as e:
-            logger.warning("Failed to fetch xref source for %s: %s", molecule_chembl_id, e)
+            logger.warning("Failed to fetch xref source for %s: %s", molecule_chembl_id, str(e))
             return {}
 
     def _parse_molecule(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -778,7 +778,7 @@ class ChEMBLClient(BaseApiClient):
                         
             except Exception as e:
                 total_errors += len(batch)
-                logger.warning("Failed to fetch activities batch %s: %s", batch, e)
+                logger.warning("Failed to fetch activities batch %s: %s", batch, str(e))
                 # Yield empty records for failed batch
                 for activity_id in batch:
                     empty_record = self._create_empty_activity_record(activity_id, str(e))
@@ -884,7 +884,7 @@ class ChEMBLClient(BaseApiClient):
                 "extracted_at": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
-            logger.warning("Failed to fetch target %s: %s", target_chembl_id, e)
+            logger.warning("Failed to fetch target %s: %s", target_chembl_id, str(e))
             return {
                 "target_chembl_id": target_chembl_id,
                 "source_system": "ChEMBL",
@@ -897,59 +897,53 @@ class ChEMBLClient(BaseApiClient):
         try:
             payload = self._request("GET", f"assay/{assay_chembl_id}")
             
+            # Helper function to convert to JSON string if needed
+            def to_json_string(value):
+                if value is None:
+                    return None
+                if isinstance(value, (dict, list)):
+                    import json
+                    return json.dumps(value)
+                return str(value) if value else None
+            
             # Extract relevant assay fields
             return {
                 "assay_chembl_id": assay_chembl_id,
                 "assay_type": payload.get("assay_type"),
                 "assay_category": payload.get("assay_category"),
-                "target_chembl_id": payload.get("target_chembl_id"),
-                # Note: target_organism, target_tax_id, target_uniprot_accession, target_isoform
-                # are not available in /assay endpoint - will be enriched via /target endpoint
+                "assay_cell_type": payload.get("assay_cell_type"),
+                "assay_classifications": to_json_string(payload.get("assay_classifications")),
+                "assay_group": payload.get("assay_group"),
+                "assay_organism": payload.get("assay_organism"),
+                "assay_parameters": payload.get("assay_parameters"),  # Keep as object for expansion
+                "assay_parameters_json": to_json_string(payload.get("assay_parameters")),  # Keep for compatibility
+                "assay_strain": payload.get("assay_strain"),
+                "assay_subcellular_fraction": payload.get("assay_subcellular_fraction"),
+                "assay_tax_id": payload.get("assay_tax_id"),
+                "assay_test_type": payload.get("assay_test_type"),
+                "assay_tissue": payload.get("assay_tissue"),
+                "assay_type_description": payload.get("assay_type_description"),
                 "bao_format": payload.get("bao_format"),
                 "bao_label": payload.get("bao_label"),
-                # Note: Extended BAO fields are not available in ChEMBL API v33+
-                "bao_endpoint": None,  # Not available in API
-                "bao_assay_format": None,  # Not available in API
-                "bao_assay_type": None,  # Not available in API
-                "bao_assay_type_label": None,  # Not available in API
-                "bao_assay_type_uri": None,  # Not available in API
-                "bao_assay_format_uri": None,  # Not available in API
-                "bao_assay_format_label": None,  # Not available in API
-                "bao_endpoint_uri": None,  # Not available in API
-                "bao_endpoint_label": None,  # Not available in API
-                # Note: Variant fields are not available in ChEMBL API
-                "variant_id": None,  # Not available in API
-                "is_variant": None,  # Not available in API
-                "variant_accession": None,  # Not available in API
-                "variant_sequence_accession": None,  # Not available in API
-                "variant_sequence_mutation": None,  # Not available in API
-                "variant_mutations": None,  # Not available in API
-                "variant_sequence": payload.get("variant_sequence"),  # Available but often null
-                "variant_text": None,  # Not available in API
-                "variant_sequence_id": None,  # Not available in API
-                "variant_organism": None,  # Not available in API
-                "target_uniprot_accession": None,  # Will be enriched via /target endpoint
-                "target_isoform": None,  # Will be enriched via /target endpoint
-                "assay_organism": payload.get("assay_organism"),
-                "assay_tax_id": payload.get("assay_tax_id"),
-                "assay_strain": payload.get("assay_strain"),
-                "assay_tissue": payload.get("assay_tissue"),
-                "assay_cell_type": payload.get("assay_cell_type"),
-                "assay_subcellular_fraction": payload.get("assay_subcellular_fraction"),
-                "description": payload.get("description"),
-                "assay_parameters": payload.get("assay_parameters"),  # Available but often null
-                "assay_parameters_json": None,  # Not available in API
-                "assay_format": None,  # Not available in API
+                "bao_endpoint": payload.get("bao_endpoint"),  # New field
+                "cell_chembl_id": payload.get("cell_chembl_id"),
+                "confidence_description": payload.get("confidence_description"),
                 "confidence_score": payload.get("confidence_score"),
-                "curated_by": payload.get("curated_by"),
-                "src_id": payload.get("src_id"),
-                "src_name": payload.get("src_name"),
+                "assay_description": payload.get("description"),  # Renamed from description
+                "document_chembl_id": payload.get("document_chembl_id"),
+                "relationship_description": payload.get("relationship_description"),
+                "relationship_type": payload.get("relationship_type"),
                 "src_assay_id": payload.get("src_assay_id"),
+                "src_id": payload.get("src_id"),
+                "target_chembl_id": payload.get("target_chembl_id"),
+                "tissue_chembl_id": payload.get("tissue_chembl_id"),
+                "variant_sequence": payload.get("variant_sequence"),  # Keep as object for expansion
+                "variant_sequence_json": to_json_string(payload.get("variant_sequence")),  # Keep for compatibility
                 "source_system": "ChEMBL",
                 "extracted_at": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
-            logger.warning("Failed to fetch assay %s: %s", assay_chembl_id, e)
+            logger.warning("Failed to fetch assay %s: %s", assay_chembl_id, str(e))
             return {
                 "assay_chembl_id": assay_chembl_id,
                 "source_system": "ChEMBL",
@@ -994,6 +988,41 @@ class ChEMBLClient(BaseApiClient):
             "error": error_msg
         }
 
+    def fetch_assay_class(self, assay_class_id: int) -> dict[str, Any]:
+        """Fetch assay class data from /assay_class/{id}."""
+        try:
+            payload = self._request("GET", f"assay_class/{assay_class_id}")
+            return {
+                "assay_class_id": assay_class_id,
+                "assay_class_bao_id": payload.get("bao_id"),
+                "assay_class_type": payload.get("class_type"),
+                "assay_class_l1": payload.get("l1"),
+                "assay_class_l2": payload.get("l2"),
+                "assay_class_l3": payload.get("l3"),
+                "assay_class_description": payload.get("description"),
+            }
+        except Exception as e:
+            logger.warning("Failed to fetch assay_class %s: %s", assay_class_id, str(e))
+            return {
+                "assay_class_id": assay_class_id,
+                "error": str(e)
+            }
+
+    def fetch_assay_classifications_batch(self, assay_class_ids: list[int]) -> dict[int, dict[str, Any]]:
+        """Batch fetch assay classes (fallback to individual if no batch endpoint)."""
+        results = {}
+        
+        # ChEMBL doesn't have batch endpoint for assay_class, so use individual requests
+        for class_id in assay_class_ids:
+            try:
+                class_data = self.fetch_assay_class(class_id)
+                results[class_id] = class_data
+            except Exception as e:
+                logger.warning("Failed to fetch assay_class %s in batch: %s", class_id, e)
+                results[class_id] = {"assay_class_id": class_id, "error": str(e)}
+        
+        return results
+
     def fetch_by_doc_id(self, document_chembl_id: str) -> dict[str, Any]:
         """Fetch document data by ChEMBL document ID."""
         try:
@@ -1023,7 +1052,7 @@ class ChEMBLClient(BaseApiClient):
                 "extracted_at": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
-            logger.warning("Failed to fetch document %s: %s", document_chembl_id, e)
+            logger.warning("Failed to fetch document %s: %s", document_chembl_id, str(e))
             return {
                 "document_chembl_id": document_chembl_id,
                 "source_system": "ChEMBL",
@@ -1057,7 +1086,7 @@ class ChEMBLClient(BaseApiClient):
                     result = self.fetch_by_doc_id(doc_id)
                     results[doc_id] = result
                 except Exception as e:
-                    logger.warning("Failed to fetch document %s in batch: %s", doc_id, e)
+                    logger.warning("Failed to fetch document %s in batch: %s", doc_id, str(e))
                     results[doc_id] = {
                         "document_chembl_id": doc_id,
                         "source_system": "ChEMBL",

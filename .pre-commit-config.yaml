@@ -17,52 +17,7 @@ repos:
     hooks:
       - id: block-logs-reports
         name: Block committing logs and reports artifacts
-        entry: python -c "
-import sys
-import os
-import re
-
-# Whitelisted files that are allowed in logs/, reports/, and tests/test_outputs/
-ALLOWED_PATTERNS = [
-    r'logs/README\.md$',
-    r'reports/README\.md$', 
-    r'logs/\.gitkeep$',
-    r'reports/\.gitkeep$',
-    r'logs/\.gitignore$',
-    r'reports/\.gitignore$',
-    r'reports/config_audit\.csv$',  # Existing config audit file
-    r'tests/test_outputs/\.gitkeep$',  # Allow .gitkeep in test outputs
-]
-
-def is_allowed_file(filepath):
-    '''Check if file is in whitelist'''
-    for pattern in ALLOWED_PATTERNS:
-        if re.match(pattern, filepath):
-            return True
-    return False
-
-def main():
-    blocked_files = []
-    
-    for filepath in sys.argv[1:]:
-        if (filepath.startswith('logs/') or filepath.startswith('reports/') or filepath.startswith('tests/test_outputs/')) and not is_allowed_file(filepath):
-            blocked_files.append(filepath)
-    
-    if blocked_files:
-        print('❌ BLOCKED: Attempting to commit files in logs/, reports/, or tests/test_outputs/ directories:')
-        for filepath in blocked_files:
-            print(f'   - {filepath}')
-        print()
-        print('💡 These directories are for generated artifacts and should not be committed.')
-        print('   Allowed files: README.md, .gitkeep, .gitignore, and whitelisted data files.')
-        print('   Use .gitignore to exclude generated files from tracking.')
-        sys.exit(1)
-    
-    print('✅ No forbidden files in logs/ or reports/ directories')
-
-if __name__ == '__main__':
-    main()
-"
+        entry: python -c "import sys, os, re; ALLOWED_PATTERNS = [r'logs/README\.md$', r'reports/README\.md$', r'logs/\.gitkeep$', r'reports/\.gitkeep$', r'logs/\.gitignore$', r'reports/\.gitignore$', r'reports/config_audit\.csv$', r'tests/test_outputs/\.gitkeep$']; def is_allowed_file(filepath): return any(re.match(pattern, filepath) for pattern in ALLOWED_PATTERNS); blocked_files = [filepath for filepath in sys.argv[1:] if (filepath.startswith('logs/') or filepath.startswith('reports/') or filepath.startswith('tests/test_outputs/')) and not is_allowed_file(filepath)]; print('❌ BLOCKED: Attempting to commit files in logs/, reports/, or tests/test_outputs/ directories:') if blocked_files else print('✅ No forbidden files in logs/ or reports/ directories'); [print(f'   - {filepath}') for filepath in blocked_files]; sys.exit(1) if blocked_files else None"
         language: system
         files: ^(logs/|reports/|tests/test_outputs/).*
         pass_filenames: true
@@ -77,66 +32,7 @@ if __name__ == '__main__':
         always_run: false
       - id: check-secrets
         name: Check for potential secrets and sensitive data
-        entry: python -c "
-import sys
-import re
-
-# Patterns that might indicate secrets or sensitive data
-SECRET_PATTERNS = [
-    (r'password\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded password'),
-    (r'api_key\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded API key'),
-    (r'secret\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded secret'),
-    (r'token\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded token'),
-    (r'[A-Za-z0-9+/]{40,}={0,2}', 'Potential base64 encoded secret'),
-]
-
-def check_file(filepath):
-    try:
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-            lines = content.split('\n')
-            
-        issues = []
-        for i, line in enumerate(lines, 1):
-            for pattern, description in SECRET_PATTERNS:
-                if re.search(pattern, line, re.IGNORECASE):
-                    # Skip if it's a comment or example
-                    if not (line.strip().startswith('#') or 'example' in line.lower() or 'placeholder' in line.lower()):
-                        issues.append((i, line.strip(), description))
-        
-        return issues
-    except Exception as e:
-        return [(0, f'Error reading file: {e}', 'File read error')]
-
-def main():
-    all_issues = []
-    
-    for filepath in sys.argv[1:]:
-        if filepath.endswith(('.py', '.yaml', '.yml', '.json', '.env', '.ini', '.cfg')):
-            issues = check_file(filepath)
-            if issues:
-                all_issues.append((filepath, issues))
-    
-    if all_issues:
-        print('⚠️  POTENTIAL SECRETS DETECTED:')
-        for filepath, issues in all_issues:
-            print(f'\\n📁 {filepath}:')
-            for line_num, line, description in issues:
-                if line_num > 0:
-                    print(f'   Line {line_num}: {description}')
-                    print(f'   Content: {line[:100]}...' if len(line) > 100 else f'   Content: {line}')
-                else:
-                    print(f'   {description}')
-        
-        print('\\n💡 Please review these potential secrets and use environment variables or config files instead.')
-        print('   Consider using .env files (not tracked) or secure configuration management.')
-        sys.exit(1)
-    
-    print('✅ No potential secrets detected')
-
-if __name__ == '__main__':
-    main()
-"
+        entry: python -c "import sys, re; SECRET_PATTERNS = [(r'password\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded password'), (r'api_key\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded API key'), (r'secret\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded secret'), (r'token\s*=\s*[\"\'][^\"\']+[\"\']', 'Hardcoded token'), (r'[A-Za-z0-9+/]{40,}={0,2}', 'Potential base64 encoded secret')]; def check_file(filepath): return [(i, line.strip(), description) for i, line in enumerate(open(filepath, 'r', encoding='utf-8', errors='ignore').read().split('\n'), 1) for pattern, description in SECRET_PATTERNS if re.search(pattern, line, re.IGNORECASE) and not (line.strip().startswith('#') or 'example' in line.lower() or 'placeholder' in line.lower())] if filepath.endswith(('.py', '.yaml', '.yml', '.json', '.env', '.ini', '.cfg')) else []; all_issues = [(filepath, check_file(filepath)) for filepath in sys.argv[1:] if check_file(filepath)]; print('⚠️  POTENTIAL SECRETS DETECTED:') if all_issues else print('✅ No potential secrets detected'); [print(f'\\n📁 {filepath}:') or [print(f'   Line {line_num}: {description}\\n   Content: {line[:100]}...' if len(line) > 100 else f'   Line {line_num}: {description}\\n   Content: {line}') for line_num, line, description in issues] for filepath, issues in all_issues]; sys.exit(1) if all_issues else None"
         language: system
         files: ^(src/|configs/|scripts/).*\.(py|yaml|yml|json|env|ini|cfg)$
         pass_filenames: true
@@ -167,60 +63,18 @@ if __name__ == '__main__':
         pass_filenames: false
         always_run: false
       
+      # Check package.json exists
+      - id: check-package-json
+        name: Check package.json exists
+        entry: bash -c 'test -f package.json || (echo "package.json missing!" && exit 1)'
+        language: system
+        pass_filenames: false
+        always_run: true
+      
       # Root cleanliness check
       - id: check-root-files
         name: Check for unwanted files in root
-        entry: python -c "
-import sys
-import os
-from pathlib import Path
-
-ALLOWED_ROOT_FILES = {
-    'README.md', 'Makefile', 'pyproject.toml', 'mkdocs.yml',
-    'Dockerfile', 'docker-compose.yml', 'pyrightconfig.json',
-    '.pre-commit-config.yaml', '.gitignore', '.markdownlint.json',
-    '.python-version', 'LICENSE', 'CHANGELOG.md', '.bandit',
-    '.banditignore', '.coverage', '.dockerignore', '.env.example',
-    '.gitattributes', '.markdown-link-check.json', '.pre-commit-hooks.yaml',
-    '.pymarkdown.json', '.safety_policy.yaml'
-}
-
-ALLOWED_ROOT_DIRS = {
-    'src', 'tests', 'configs', 'scripts', 'docs', 'data', 
-    'metadata', 'logs', '.git', '.github', '.vscode', '.idea',
-    'venv', '.venv', 'env', 'node_modules', '__pycache__',
-    'build', 'dist', 'site', '.pytest_cache', '.mypy_cache',
-    '.ruff_cache', '.cursor'
-}
-
-def main():
-    root = Path('.')
-    violations = []
-    
-    for item in root.iterdir():
-        if item.name.startswith('.'):
-            # Skip dotfiles not explicitly allowed
-            if item.is_file() and item.name not in ALLOWED_ROOT_FILES:
-                continue
-        
-        if item.is_file() and item.name not in ALLOWED_ROOT_FILES:
-            violations.append(f'Unwanted file: {item.name}')
-        elif item.is_dir() and item.name not in ALLOWED_ROOT_DIRS:
-            violations.append(f'Unwanted directory: {item.name}')
-    
-    if violations:
-        print('❌ ROOT CLEANLINESS VIOLATIONS:')
-        for v in violations:
-            print(f'   - {v}')
-        print()
-        print('💡 Keep root clean! Move files to appropriate directories.')
-        sys.exit(1)
-    
-    print('✅ Root directory is clean')
-
-if __name__ == '__main__':
-    main()
-"
+        entry: python -c "import sys, os; from pathlib import Path; ALLOWED_ROOT_FILES = {'README.md', 'Makefile', 'pyproject.toml', 'mkdocs.yml', 'Dockerfile', 'docker-compose.yml', 'pyrightconfig.json', '.pre-commit-config.yaml', '.gitignore', '.markdownlint.json', '.python-version', 'LICENSE', 'CHANGELOG.md', '.bandit', '.banditignore', '.coverage', '.dockerignore', '.env.example', '.gitattributes', '.markdown-link-check.json', '.pre-commit-hooks.yaml', '.pymarkdown.json', '.safety_policy.yaml', 'package.json', '.jscpd.json'}; ALLOWED_ROOT_DIRS = {'src', 'tests', 'configs', 'scripts', 'docs', 'data', 'metadata', 'logs', '.git', '.github', '.vscode', '.idea', 'venv', '.venv', 'env', 'node_modules', '__pycache__', 'build', 'dist', 'site', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.cursor'}; violations = [f'Unwanted file: {item.name}' if item.is_file() and item.name not in ALLOWED_ROOT_FILES else f'Unwanted directory: {item.name}' if item.is_dir() and item.name not in ALLOWED_ROOT_DIRS else None for item in Path('.').iterdir() if not (item.name.startswith('.') and item.is_file() and item.name not in ALLOWED_ROOT_FILES)]; violations = [v for v in violations if v]; print('❌ ROOT CLEANLINESS VIOLATIONS:') if violations else print('✅ Root directory is clean'); [print(f'   - {v}') for v in violations]; print('\\n💡 Keep root clean! Move files to appropriate directories.') if violations else None; sys.exit(1) if violations else None"
         language: system
         pass_filenames: false
         always_run: true

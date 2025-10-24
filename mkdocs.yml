@@ -47,10 +47,6 @@ plugins:
   - redirects:
       redirect_maps:
         'architecture.md': 'explanations/architecture.md'
-        'setup/install.md': 'how-to/installation.md'
-        'setup/config.md': 'reference/configuration/index.md'
-        'guides/howto_add_pipeline.md': 'how-to/development.md'
-        'guides/troubleshooting.md': 'how-to/debug-pipeline.md'
         'api/index.md': 'reference/api/index.md'
         'reference/api_index.md': 'reference/api/index.md'
 
@@ -104,11 +100,19 @@ nav:
     - CLI документы: reference/cli/get-document-data.md
     - CLI пайплайн: reference/cli/pipeline.md
     - Валидация схем: reference/data-schemas/validation.md
+    - API Endpoints: reference/api-endpoints.md
+    - Extraction Contracts: reference/extraction-contracts.md
+    - Нормализация данных: reference/data-normalization.md
+    - Meta Schema: reference/meta-schema.md
+    - Persistence: reference/persistence.md
+    - Logging: reference/logging.md
+    - Testing: reference/testing.md
   - Объяснения:
     - Обзор: explanations/index.md
     - Архитектура: explanations/architecture.md
     - Решения дизайна: explanations/design-decisions.md
     - Чувствительность к регистру: explanations/case-sensitivity.md
+    - Star Schema: explanations/star-schema.md
   - Пайплайны:
     - Documents: pipelines/documents.md
     - Activities: pipelines/activities.md
@@ -123,5 +127,6 @@ nav:
   - Качество:
     - Валидация: quality/validation.md
     - QC чек-листы: quality/qc_checklist.md
+    - Acceptance Criteria: quality/acceptance-criteria.md
   - FAQ: faq.md
   - Changelog: changelog.md

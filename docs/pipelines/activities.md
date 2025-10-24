@@ -15,10 +15,10 @@
 
 **Выходы:**
 
-- `activity_<date>.csv` — нормализованные данные активности
-- `activity_<date>_meta.yaml` — метаданные о процессе обработки
-- `activity_<date>_qc.csv` — отчёт о качестве данных
-- `activity_<date>_correlation_report/` — корреляционный анализ
+- `activities_<date>.csv` — нормализованные данные активности
+- `activities_<date>_meta.yaml` — метаданные о процессе обработки
+- `activities_<date>_qc.csv` — отчёт о качестве данных
+- `activities_<date>_correlation_report/` — корреляционный анализ
 
 ### Место в общей архитектуре
 

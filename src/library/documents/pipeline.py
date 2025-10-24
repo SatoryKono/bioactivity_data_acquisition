@@ -435,16 +435,30 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                 return pd.DataFrame()
         
         elif source_name == "semantic_scholar":
-            # Извлекаем PMID для Semantic Scholar
+            # Извлекаем PMID и заголовки для Semantic Scholar
             pmids = []
+            titles = {}
+            
             if "document_pubmed_id" in data.columns:
                 pmids = data["document_pubmed_id"].dropna().astype(str).unique().tolist()
+                # Создаем маппинг PMID -> заголовок
+                for _, row in data.iterrows():
+                    pmid = str(row.get("document_pubmed_id", ""))
+                    title = row.get("document_title", "") or row.get("title", "")
+                    if pmid and title:
+                        titles[pmid] = title
             elif "pubmed_id" in data.columns:
                 pmids = data["pubmed_id"].dropna().astype(str).unique().tolist()
+                # Создаем маппинг PMID -> заголовок
+                for _, row in data.iterrows():
+                    pmid = str(row.get("pubmed_id", ""))
+                    title = row.get("document_title", "") or row.get("title", "")
+                    if pmid and title:
+                        titles[pmid] = title
             
             if pmids:
                 batch_size = getattr(self.config.sources.get("semantic_scholar", {}), "batch_size", 100)
-                return extract_from_semantic_scholar(client, pmids, batch_size)
+                return extract_from_semantic_scholar(client, pmids, batch_size, titles)
             else:
                 logger.warning("No PMIDs found for Semantic Scholar extraction")
                 return pd.DataFrame()

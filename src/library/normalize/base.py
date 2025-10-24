@@ -44,7 +44,7 @@ class BaseNormalizer:
     
     @staticmethod
     def normalize_chembl_id(cid: Union[str, None]) -> Optional[str]:
-        """Uppercase ChEMBL ID: ^CHEMBL\d+$.
+        """Uppercase ChEMBL ID: ^CHEMBL\\d+$.
         
         Args:
             cid: ChEMBL ID для нормализации

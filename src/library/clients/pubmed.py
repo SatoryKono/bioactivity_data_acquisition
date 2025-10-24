@@ -6,7 +6,7 @@ from typing import Any
 
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
-from library.utils.list_converter import convert_authors_list, safe_str_convert
+from library.utils.list_converter import convert_authors_list
 
 
 class PubMedClient(BaseApiClient):
@@ -166,12 +166,23 @@ class PubMedClient(BaseApiClient):
             formatted_authors = None
 
         # Обработка DOI
-        doi_value: str | None
-        doi_list = record.get("doiList")
-        if isinstance(doi_list, list) and doi_list:
-            doi_value = doi_list[0]
-        else:
-            doi_value = record.get("doi")
+        doi_value: str | None = None
+        
+        # Сначала проверяем articleids (основной источник DOI в PubMed)
+        articleids = record.get("articleids", [])
+        if isinstance(articleids, list):
+            for aid in articleids:
+                if aid.get("idtype") == "doi":
+                    doi_value = aid.get("value")
+                    break
+        
+        # Fallback к другим источникам
+        if not doi_value:
+            doi_list = record.get("doiList")
+            if isinstance(doi_list, list) and doi_list:
+                doi_value = doi_list[0]
+            else:
+                doi_value = record.get("doi")
 
         # Обработка дат публикации
         pub_date = record.get("pubdate")
@@ -223,27 +234,27 @@ class PubMedClient(BaseApiClient):
 
         parsed: dict[str, Any | None] = {
             "source": "pubmed",
-            "pubmed_pmid": record.get("uid") or record.get("pmid") or record.get("PMID"),
-            "pubmed_doi": doi_value,
-            "pubmed_article_title": record.get("title") or record.get("articleTitle"),
-            "pubmed_abstract": record.get("abstract"),
-            "pubmed_journal": record.get("source") or record.get("journalTitle"),
-            "pubmed_volume": record.get("volume"),
-            "pubmed_issue": record.get("issue"),
-            "pubmed_first_page": record.get("pages", "").split("-")[0] if record.get("pages") else None,
-            "pubmed_last_page": record.get("pages", "").split("-")[1] if record.get("pages") and "-" in record.get("pages", "") else None,
-            "pubmed_doc_type": pub_type,
-            "pubmed_mesh_descriptors": mesh_descriptors,
-            "pubmed_mesh_qualifiers": mesh_qualifiers,
-            "pubmed_chemical_list": chemical_list,
-            "pubmed_year_completed": pub_year,
-            "pubmed_month_completed": pub_month,
-            "pubmed_day_completed": pub_day,
-            "pubmed_year_revised": self._extract_revised_date(record, "year"),
-            "pubmed_month_revised": self._extract_revised_date(record, "month"),
-            "pubmed_day_revised": self._extract_revised_date(record, "day"),
-            "pubmed_issn": record.get("issn"),
-            "pubmed_error": None,  # Will be set if there's an error
+            "pubmed_pmid": record.get("uid") or record.get("pmid") or record.get("PMID") or "",
+            "pubmed_doi": doi_value or "",
+            "pubmed_article_title": record.get("title") or record.get("articleTitle") or "",
+            "pubmed_abstract": record.get("abstract") or "",
+            "pubmed_journal": record.get("source") or record.get("journalTitle") or "",
+            "pubmed_volume": record.get("volume") or "",
+            "pubmed_issue": record.get("issue") or "",
+            "pubmed_first_page": record.get("pages", "").split("-")[0] if record.get("pages") else "",
+            "pubmed_last_page": record.get("pages", "").split("-")[1] if record.get("pages") and "-" in record.get("pages", "") else "",
+            "pubmed_doc_type": pub_type or "",
+            "pubmed_mesh_descriptors": mesh_descriptors or "",
+            "pubmed_mesh_qualifiers": mesh_qualifiers or "",
+            "pubmed_chemical_list": chemical_list or "",
+            "pubmed_year_completed": pub_year or "",
+            "pubmed_month_completed": pub_month or "",
+            "pubmed_day_completed": pub_day or "",
+            "pubmed_year_revised": self._extract_revised_date(record, "year") or "",
+            "pubmed_month_revised": self._extract_revised_date(record, "month") or "",
+            "pubmed_day_revised": self._extract_revised_date(record, "day") or "",
+            "pubmed_issn": record.get("issn") or "",
+            "pubmed_error": "",  # Will be set if there's an error
             # Legacy fields for backward compatibility
             "title": record.get("title") or record.get("articleTitle"),
             "abstract": record.get("abstract"),
@@ -297,31 +308,31 @@ class PubMedClient(BaseApiClient):
         return {
             "source": "pubmed",
             "pubmed_pmid": pmid,
-            "pubmed_doi": None,
-            "pubmed_article_title": None,
-            "pubmed_abstract": None,
-            "pubmed_journal": None,
-            "pubmed_volume": None,
-            "pubmed_issue": None,
-            "pubmed_first_page": None,
-            "pubmed_last_page": None,
-            "pubmed_doc_type": None,
-            "pubmed_mesh_descriptors": None,
-            "pubmed_mesh_qualifiers": None,
-            "pubmed_chemical_list": None,
-            "pubmed_year_completed": None,
-            "pubmed_month_completed": None,
-            "pubmed_day_completed": None,
-            "pubmed_year_revised": None,
-            "pubmed_month_revised": None,
-            "pubmed_day_revised": None,
-            "pubmed_issn": None,
+            "pubmed_doi": "",
+            "pubmed_article_title": "",
+            "pubmed_abstract": "",
+            "pubmed_journal": "",
+            "pubmed_volume": "",
+            "pubmed_issue": "",
+            "pubmed_first_page": "",
+            "pubmed_last_page": "",
+            "pubmed_doc_type": "",
+            "pubmed_mesh_descriptors": "",
+            "pubmed_mesh_qualifiers": "",
+            "pubmed_chemical_list": "",
+            "pubmed_year_completed": "",
+            "pubmed_month_completed": "",
+            "pubmed_day_completed": "",
+            "pubmed_year_revised": "",
+            "pubmed_month_revised": "",
+            "pubmed_day_revised": "",
+            "pubmed_issn": "",
             "pubmed_error": error_msg,
             # Legacy fields
-            "title": None,
-            "abstract": None,
-            "doi": None,
-            "authors": None,
+            "title": "",
+            "abstract": "",
+            "doi": "",
+            "authors": "",
         }
 
     def _enhance_with_efetch(self, record: dict[str, Any], pmid: str) -> dict[str, Any]:
