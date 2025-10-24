@@ -36,16 +36,17 @@ class SemanticScholarClient(BaseApiClient):
         enhanced = config.model_copy(update={"headers": headers})
         
         # Создаем специальную fallback стратегию для Semantic Scholar
+        # Учитываем строгий rate limit: 100 req/5min для анонимных
         from library.clients.fallback import (
             FallbackConfig,
             FallbackManager,
             SemanticScholarFallbackStrategy,
         )
         fallback_config = FallbackConfig(
-            max_retries=1,  # Минимальное количество попыток для SemanticScholar
-            base_delay=10.0,  # Базовая задержка 10 секунд
-            max_delay=30.0,  # Максимальная задержка 30 секунд
-            backoff_multiplier=1.5,  # Меньший множитель
+            max_retries=2,  # Увеличиваем попытки для Semantic Scholar
+            base_delay=15.0,  # Увеличиваем базовую задержку до 15 секунд
+            max_delay=60.0,  # Увеличиваем максимальную задержку до 60 секунд
+            backoff_multiplier=2.0,  # Увеличиваем множитель
             jitter=True
         )
         fallback_strategy = SemanticScholarFallbackStrategy(fallback_config)
@@ -54,7 +55,8 @@ class SemanticScholarClient(BaseApiClient):
         super().__init__(enhanced, fallback_manager=fallback_manager, **kwargs)
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
-        identifier = f"PMID:{pmid}"
+        # Semantic Scholar API endpoint for papers by PMID
+        identifier = f"paper/PMID:{pmid}"
         
         try:
             # Use fallback strategy for handling rate limiting and other errors
@@ -110,38 +112,27 @@ class SemanticScholarClient(BaseApiClient):
                 return self._create_empty_record(pmid, f"Request failed: {exc_msg}")
 
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
-        ids = [f"PMID:{pmid}" for pmid in pmids]
-        if not ids:
+        """Fetch multiple papers by PMIDs using individual requests.
+        
+        Semantic Scholar API doesn't have a batch endpoint, so we use individual requests.
+        """
+        pmid_list = list(pmids)
+        if not pmid_list:
             return {}
         
-        try:
-            payload = self._request_with_fallback(
-                "POST",
-                "batch",
-                json={"ids": ids, "fields": ",".join(self._DEFAULT_FIELDS)},
-            )
-        except Exception as exc:
-            # Экранируем символы % в сообщениях об ошибках для безопасного логирования
-            error_msg = str(exc).replace("%", "%%")
-            self.logger.error("Batch request failed: %s", error_msg)
-            # Возвращаем пустые записи для всех PMID
-            result: dict[str, dict[str, Any]] = {}
-            for pmid in pmids:
-                exc_msg = str(exc).replace('%', '%%')
-                result[pmid] = self._create_empty_record(pmid, exc_msg)
-            return result
-        
-        papers = payload.get("data") or payload.get("papers") or []
         result: dict[str, dict[str, Any]] = {}
-        for paper in papers:
-            pmid_value = self._extract_pmid(paper)
-            if pmid_value:
-                result[pmid_value] = self._parse_paper(paper)
         
-        # Добавляем пустые записи для PMID, которые не были найдены
-        for pmid in pmids:
-            if pmid not in result:
-                result[pmid] = self._create_empty_record(pmid, "Paper not found")
+        # Process each PMID individually
+        for pmid in pmid_list:
+            try:
+                # Use the individual fetch method
+                paper_data = self.fetch_by_pmid(pmid)
+                result[pmid] = paper_data
+            except Exception as exc:
+                # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                error_msg = str(exc).replace("%", "%%")
+                self.logger.warning("Failed to fetch PMID %s: %s", pmid, error_msg)
+                result[pmid] = self._create_empty_record(pmid, str(exc))
         
         return result
 
@@ -247,7 +238,6 @@ class SemanticScholarClient(BaseApiClient):
             "semantic_scholar_error": error_msg,
             # Legacy fields
             "title": None,
-         
             "year": None,
             "pubmed_authors": None,
         }
@@ -266,46 +256,12 @@ class SemanticScholarClient(BaseApiClient):
         pmids: list[str],
         batch_size: int = 500
     ) -> dict[str, dict[str, Any]]:
-        """Fetch multiple papers by PMIDs using batch endpoint.
+        """Fetch multiple papers by PMIDs using individual requests.
         
-        Semantic Scholar supports POST /paper/batch with up to 500 IDs.
+        Semantic Scholar API doesn't have a working batch endpoint, so we use individual requests.
         """
         if not pmids:
             return {}
         
-        results = {}
-        
-        # Process in chunks to respect API limits
-        for i in range(0, len(pmids), batch_size):
-            chunk = pmids[i:i + batch_size]
-            
-            try:
-                # Prepare batch request payload
-                identifiers = [f"PMID:{pmid}" for pmid in chunk]
-                batch_payload = {"ids": identifiers}
-                
-                # Make batch request
-                payload = self._request("POST", "batch", json=batch_payload)
-                
-                # Parse batch results
-                papers = payload.get("results", [])
-                
-                for paper in papers:
-                    if paper:  # Skip None results
-                        parsed_paper = self._parse_paper(paper)
-                        pmid = self._extract_pmid(paper)
-                        if pmid:
-                            results[pmid] = parsed_paper
-                
-                # Add empty records for missing PMIDs
-                for pmid in chunk:
-                    if pmid not in results:
-                        results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
-                        
-            except Exception as e:
-                self.logger.warning("Failed to fetch PMIDs batch %s: %s", chunk, e)
-                # Add empty records for failed batch
-                for pmid in chunk:
-                    results[pmid] = self._create_empty_record(pmid, str(e))
-        
-        return results
+        # Use the individual fetch method for each PMID
+        return self.fetch_by_pmids(pmids)

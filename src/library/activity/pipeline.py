@@ -122,9 +122,7 @@ class ActivityPipeline(PipelineBase[ActivityConfig]):
     
     def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
         """Extract data from ChEMBL."""
-        from library.activity.client import ActivityChEMBLClient
-        
-        client = ActivityChEMBLClient(self.clients["chembl"].config)
+        client = self.clients["chembl"]
         
         # Extract activity IDs from input data
         activity_ids = data["activity_chembl_id"].tolist()

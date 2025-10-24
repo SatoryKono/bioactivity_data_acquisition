@@ -1,7 +1,7 @@
 """HTTP clients for external literature sources."""
 from .base import RateLimitConfig, RateLimiter
 from .bioactivity import BioactivityClient
-from .chembl import ChEMBLClient
+from .chembl import ChEMBLClient, ChEMBLDocumentClient
 from .crossref import CrossrefClient
 from .exceptions import ApiClientError, RateLimitError
 from .openalex import OpenAlexClient
@@ -16,6 +16,7 @@ __all__ = [
     "RateLimiter",
     "BioactivityClient",
     "ChEMBLClient",
+    "ChEMBLDocumentClient",
     "CrossrefClient",
     "OpenAlexClient",
     "PubMedClient",

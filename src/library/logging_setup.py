@@ -94,8 +94,8 @@ class SafeFormattingFilter(logging.Filter):
                 try:
                     # Пробуем отформатировать сообщение
                     if hasattr(record, 'args') and record.args:
-                        record.msg % record.args
-                except (TypeError, ValueError) as e:
+                        _ = record.msg % record.args
+                except (TypeError, ValueError):
                     # Если форматирование не удается, конвертируем аргументы в строки
                     if hasattr(record, 'args') and record.args:
                         safe_args = []
@@ -104,7 +104,10 @@ class SafeFormattingFilter(logging.Filter):
                                 # Для списков и кортежей конвертируем в строку
                                 safe_args.append(str(arg))
                             elif hasattr(arg, 'tolist'):  # numpy arrays
-                                safe_args.append(str(arg.tolist()))
+                                try:
+                                    safe_args.append(str(arg.tolist()))  # type: ignore[attr-defined]
+                                except (AttributeError, TypeError):
+                                    safe_args.append(str(arg))
                             else:
                                 safe_args.append(str(arg))
                         record.args = tuple(safe_args)

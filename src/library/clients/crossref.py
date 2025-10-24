@@ -15,7 +15,12 @@ class CrossrefClient(BaseApiClient):
     """HTTP client for Crossref works."""
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
-        super().__init__(config, **kwargs)
+        # Добавляем email в User-Agent для polite pool согласно документации Crossref
+        headers = dict(config.headers)
+        if "User-Agent" not in headers:
+            headers["User-Agent"] = "bioactivity-data-acquisition/0.1.0 (mailto:your-email@example.com)"
+        enhanced = config.model_copy(update={"headers": headers})
+        super().__init__(enhanced, **kwargs)
 
     def fetch_by_doi(self, doi: str) -> dict[str, Any]:
         """Fetch Crossref work by DOI with fallback search."""
@@ -259,6 +264,8 @@ class CrossrefClient(BaseApiClient):
             return {}
         
         results = {}
+        success_count = 0
+        error_count = 0
         
         # Process in chunks to avoid overwhelming the API
         for i in range(0, len(dois), batch_size):
@@ -268,6 +275,7 @@ class CrossrefClient(BaseApiClient):
                 try:
                     result = self.fetch_by_doi(doi)
                     results[doi] = result
+                    success_count += 1
                 except Exception as e:
                     logger.warning("Failed to fetch DOI %s in batch: %s", doi, e)
                     results[doi] = {
@@ -275,7 +283,9 @@ class CrossrefClient(BaseApiClient):
                         "crossref_error": str(e),
                         "source": "crossref"
                     }
+                    error_count += 1
         
+        logger.info(f"Crossref batch completed: {success_count} successful, {error_count} errors out of {len(dois)} DOIs")
         return results
 
     def fetch_by_pmids_batch(

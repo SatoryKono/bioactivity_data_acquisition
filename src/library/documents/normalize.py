@@ -161,11 +161,15 @@ class DocumentNormalizer:
         for field in boolean_fields:
             if field in normalized_df.columns:
                 # Применяем normalize_boolean из normalizers
-                from library.normalizers.boolean_normalizers import normalize_boolean
+                from library.normalizers import normalize_boolean
                 normalized_df[field] = normalized_df[field].apply(normalize_boolean)
                 # Убеждаемся, что колонка имеет правильный dtype
-                # Заменяем None на False и приводим к bool для совместимости с pandera
-                normalized_df[field] = normalized_df[field].fillna(False).astype('bool')
+                # Заменяем None/NaN на False и приводим к bool для совместимости с pandera
+                normalized_df[field] = normalized_df[field].fillna(False)
+                # Приводим к bool, обрабатывая строковые значения
+                normalized_df[field] = normalized_df[field].astype(str).str.lower().map({
+                    'true': True, 'false': False, '1': True, '0': False, 'yes': True, 'no': False
+                }).fillna(False).astype('bool')
         
         # Map pubmed_year_completed to pubmed_year
         if "pubmed_year_completed" in normalized_df.columns:

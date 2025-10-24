@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series
 
 

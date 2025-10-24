@@ -5,7 +5,7 @@ Pandera схемы для валидации данных testitems с норм�
 с атрибутами нормализации для каждой колонки.
 """
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
 
@@ -483,10 +483,6 @@ class TestitemNormalizedSchema:
             ),
             
             # Входные данные из input файла
-            "all_names": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Все названия молекулы"),
-                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
-            ),
             "canonical_smiles": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Канонические SMILES из входных данных"),
                 ["normalize_string_strip", "normalize_smiles", "normalize_smiles_canonical"]

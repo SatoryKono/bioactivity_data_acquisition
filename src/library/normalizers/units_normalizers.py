@@ -147,7 +147,7 @@ def normalize_pchembl(value: Any) -> float | None:
         return None
     
     # Округляем до 3 знаков
-    return round(pchembl_val, 3)
+    return round(pchembl_val, 4)
 
 
 @safe_normalize

@@ -28,6 +28,12 @@ def extract_from_pubmed(client: Any, pmids: list[str], batch_size: int = 200) ->
     
     logger.info(f"Extracting PubMed data for {len(pmids)} PMIDs")
     
+    # Статистика для диагностики
+    total_requested = len(pmids)
+    successful_records = 0
+    error_records = 0
+    error_categories = {"404": 0, "timeout": 0, "rate_limit": 0, "parse_error": 0, "other": 0}
+    
     try:
         # Используем батч-метод если доступен
         if hasattr(client, 'fetch_by_pmids'):
@@ -36,7 +42,9 @@ def extract_from_pubmed(client: Any, pmids: list[str], batch_size: int = 200) ->
             for i in range(0, len(pmids), batch_size):
                 batch = pmids[i:i + batch_size]
                 try:
+                    logger.debug(f"Fetching PubMed batch {i//batch_size + 1} with {len(batch)} PMIDs")
                     batch_records = client.fetch_by_pmids(batch)
+                    logger.info(f"Successfully fetched {len(batch_records)} records from PubMed batch {i//batch_size + 1}")
                     records.update(batch_records)
                 except Exception as e:
                     logger.warning(f"Failed to fetch PubMed batch {i//batch_size + 1}: {e}")
@@ -64,6 +72,23 @@ def extract_from_pubmed(client: Any, pmids: list[str], batch_size: int = 200) ->
                 # Добавляем join key для объединения
                 mapped_record["document_pubmed_id"] = pmid
                 
+                # Категоризируем ошибки для диагностики
+                if "error" in mapped_record:
+                    error_msg = str(mapped_record["error"]).lower()
+                    if "404" in error_msg or "not found" in error_msg:
+                        error_categories["404"] += 1
+                    elif "timeout" in error_msg:
+                        error_categories["timeout"] += 1
+                    elif "rate limit" in error_msg or "429" in error_msg:
+                        error_categories["rate_limit"] += 1
+                    elif "parse" in error_msg or "json" in error_msg:
+                        error_categories["parse_error"] += 1
+                    else:
+                        error_categories["other"] += 1
+                    error_records += 1
+                else:
+                    successful_records += 1
+                
                 # Диагностическое логирование
                 logger.debug(f"Mapped PubMed record columns: {list(mapped_record.keys())}")
                 logger.debug(f"Sample values - doi: {mapped_record.get('pubmed_doi')}, "
@@ -77,7 +102,10 @@ def extract_from_pubmed(client: Any, pmids: list[str], batch_size: int = 200) ->
             df = pd.DataFrame(record_list)
             # Удаляем дублированные колонки
             df = df.loc[:, ~df.columns.duplicated()]
-            logger.info(f"Successfully extracted {len(df)} PubMed records")
+            
+            # Логируем детальную статистику
+            logger.info(f"PubMed extraction completed: {successful_records} successful, {error_records} errors out of {total_requested} PMIDs")
+            logger.info(f"Error breakdown: {error_categories}")
             return df
         else:
             logger.warning("No PubMed records extracted")
@@ -117,7 +145,9 @@ def extract_from_crossref(client: Any, dois: list[str], batch_size: int = 100) -
             for i in range(0, len(dois), batch_size):
                 batch = dois[i:i + batch_size]
                 try:
-                    batch_records = client.fetch_by_dois_batch(batch)
+                    logger.debug(f"Fetching Crossref batch {i//batch_size + 1} with {len(batch)} DOIs")
+                    batch_records = client.fetch_by_dois_batch(batch, batch_size)
+                    logger.info(f"Successfully fetched {len(batch_records)} records from Crossref batch {i//batch_size + 1}")
                     records.update(batch_records)
                 except Exception as e:
                     logger.warning(f"Failed to fetch Crossref batch {i//batch_size + 1}: {e}")
@@ -196,7 +226,9 @@ def extract_from_openalex(client: Any, pmids: list[str], batch_size: int = 50) -
             for i in range(0, len(pmids), batch_size):
                 batch = pmids[i:i + batch_size]
                 try:
+                    logger.debug(f"Fetching OpenAlex batch {i//batch_size + 1} with {len(batch)} PMIDs")
                     batch_records = client.fetch_by_pmids_batch(batch)
+                    logger.info(f"Successfully fetched {len(batch_records)} records from OpenAlex batch {i//batch_size + 1}")
                     records.update(batch_records)
                 except Exception as e:
                     logger.warning(f"Failed to fetch OpenAlex batch {i//batch_size + 1}: {e}")
@@ -275,7 +307,9 @@ def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int
             for i in range(0, len(pmids), batch_size):
                 batch = pmids[i:i + batch_size]
                 try:
+                    logger.debug(f"Fetching Semantic Scholar batch {i//batch_size + 1} with {len(batch)} PMIDs")
                     batch_records = client.fetch_by_pmids_batch(batch)
+                    logger.info(f"Successfully fetched {len(batch_records)} records from Semantic Scholar batch {i//batch_size + 1}")
                     records.update(batch_records)
                 except Exception as e:
                     logger.warning(f"Failed to fetch Semantic Scholar batch {i//batch_size + 1}: {e}")

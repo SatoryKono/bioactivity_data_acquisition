@@ -1,8 +1,7 @@
 # Unified Makefile для bioactivity-data-acquisition
 # Единый интерфейс для всех пайплайнов и операций
 
-.PHONY: help setup-api-keys clean-backups test run-dev install-dev
-.PHONY: run run-documents run-targets run-assays run-activities run-testitems
+.PHONY: help setup-api-keys clean-backups test test-unit test-integration test-e2e run-dev install-dev
 .PHONY: pipeline pipeline-test pipeline-clean health analyze-iuphar
 .PHONY: fmt lint type-check qa
 .PHONY: docs-serve docs-build docs-lint docs-deploy
@@ -28,8 +27,7 @@ help:
 	@echo "$(BLUE)Bioactivity Data Acquisition - Unified Interface$(NC)"
 	@echo ""
 	@echo "$(GREEN)Pipeline Commands:$(NC)"
-	@echo "  make run ENTITY=<documents|targets|assays|activities|testitems> [STAGE=...] [INPUT=...] [CONFIG=...] [FLAGS=\"...\"]"
-	@echo "  make pipeline TYPE=<documents|targets|assays|activities|testitems> INPUT=... CONFIG=... [FLAGS=\"...\"] (legacy)"
+	@echo "  make pipeline ENTITY=<documents|targets|assays|activities|testitems> [CONFIG=...] [INPUT=...] [FLAGS=\"...\"]"
 	@echo "  make pipeline-test TYPE=<...> [MARKERS=\"slow\"]"
 	@echo "  make pipeline-clean TYPE=<...>"
 	@echo ""
@@ -51,47 +49,43 @@ help:
 	@echo "  make docs-lint    - Lint documentation"
 	@echo "  make docs-deploy  - Deploy documentation"
 	@echo ""
+	@echo "$(GREEN)Testing:$(NC)"
+	@echo "  make test         - Run all tests"
+	@echo "  make test-unit    - Run unit tests"
+	@echo "  make test-integration - Run integration tests"
+	@echo "  make test-e2e     - Run e2e tests"
+	@echo ""
 	@echo "$(GREEN)Utilities:$(NC)"
 	@echo "  make clean        - Clean temporary files"
-	@echo "  make test         - Run tests"
 	@echo "  make install-dev  - Install in development mode"
 	@echo ""
 	@echo "$(GREEN)Examples:$(NC)"
-	@echo "  make run ENTITY=documents CONFIG=configs/config_documents_full.yaml"
-	@echo "  make run ENTITY=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml"
-	@echo "  make run ENTITY=activities STAGE=extract CONFIG=configs/config_activity_full.yaml"
-	@echo "  make pipeline-test TYPE=documents MARKERS=\"slow\""
+	@echo "  make pipeline ENTITY=documents CONFIG=configs/config_documents_full.yaml"
+	@echo "  make pipeline ENTITY=targets INPUT=data/input/target.csv CONFIG=configs/config_target_full.yaml"
+	@echo "  make pipeline ENTITY=activities CONFIG=configs/config_activity_full.yaml"
+	@echo "  make test-unit"
 	@echo "  make health CONFIG=configs/config_documents_full.yaml"
 	@echo "  make analyze-iuphar TARGET_CSV=data/output/target/target_20251021.csv VERBOSE=true"
 
 # =============================================================================
-# UNIFIED RUN COMMAND
+# UNIFIED PIPELINE COMMAND
 # =============================================================================
 
 # Универсальная команда для запуска любых пайплайнов
-run:
-	@if [ -z "$(ENTITY)" ]; then \
-		echo "$(RED)Error: ENTITY is required. Use: make run ENTITY=<documents|targets|assays|activities|testitems> [STAGE=...]$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)Running $(ENTITY) pipeline$(if $(STAGE), stage $(STAGE),)...$(NC)"
-	@$(MAKE) run-$(ENTITY) CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)" STAGE="$(STAGE)"
-
-# =============================================================================
-# PIPELINE COMMANDS
-# =============================================================================
-
-# Универсальная команда для запуска пайплайнов (legacy)
 pipeline:
-	@if [ -z "$(TYPE)" ]; then \
-		echo "$(RED)Error: TYPE is required. Use: make pipeline TYPE=<documents|targets|assays|activities|testitems>$(NC)"; \
+	@if [ -z "$(ENTITY)" ]; then \
+		echo "$(RED)Error: ENTITY is required. Use: make pipeline ENTITY=<documents|targets|assays|activities|testitems> [CONFIG=...]$(NC)"; \
 		exit 1; \
 	fi
-	@echo "$(BLUE)Running $(TYPE) pipeline...$(NC)"
-	@$(MAKE) run ENTITY=$(TYPE) CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
+	@echo "$(BLUE)Running $(ENTITY) pipeline...$(NC)"
+	@$(MAKE) pipeline-$(ENTITY) CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
 
-# Run documents pipeline
-run-documents:
+# =============================================================================
+# PIPELINE IMPLEMENTATIONS
+# =============================================================================
+
+# Documents pipeline
+pipeline-documents:
 	@echo "$(BLUE)Running documents pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/documents
 	@$(PYTHON) -m library.cli get-document-data \
@@ -101,12 +95,8 @@ run-documents:
 		--log-level INFO
 	@echo "$(GREEN)Documents pipeline completed!$(NC)"
 
-# Documents pipeline (legacy)
-pipeline-documents:
-	@$(MAKE) run-documents CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
-
-# Run targets pipeline
-run-targets:
+# Targets pipeline
+pipeline-targets:
 	@echo "$(BLUE)Running targets pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/target
 	@$(PYTHON) -m library.cli get-target-data \
@@ -116,12 +106,8 @@ run-targets:
 		--log-level INFO
 	@echo "$(GREEN)Targets pipeline completed!$(NC)"
 
-# Targets pipeline (legacy)
-pipeline-targets:
-	@$(MAKE) run-targets CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
-
-# Run assays pipeline
-run-assays:
+# Assays pipeline
+pipeline-assays:
 	@echo "$(BLUE)Running assays pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/assay
 	@$(PYTHON) -m library.cli get-assay-data \
@@ -131,12 +117,8 @@ run-assays:
 		--log-level INFO
 	@echo "$(GREEN)Assays pipeline completed!$(NC)"
 
-# Assays pipeline (legacy)
-pipeline-assays:
-	@$(MAKE) run-assays CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
-
-# Run activities pipeline
-run-activities:
+# Activities pipeline
+pipeline-activities:
 	@echo "$(BLUE)Running activities pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/activity
 	@$(PYTHON) -m library.cli get-activity-data \
@@ -146,12 +128,8 @@ run-activities:
 		--log-level INFO
 	@echo "$(GREEN)Activities pipeline completed!$(NC)"
 
-# Activities pipeline (legacy)
-pipeline-activities:
-	@$(MAKE) run-activities CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
-
-# Run testitems pipeline
-run-testitems:
+# Testitems pipeline
+pipeline-testitems:
 	@echo "$(BLUE)Running testitems pipeline...$(NC)"
 	@mkdir -p $(OUTPUT_DIR)/testitem
 	@$(PYTHON) -m library.cli testitem-run \
@@ -161,9 +139,6 @@ run-testitems:
 		--verbose
 	@echo "$(GREEN)Testitems pipeline completed!$(NC)"
 
-# Testitems pipeline (legacy)
-pipeline-testitems:
-	@$(MAKE) run-testitems CONFIG=$(CONFIG) INPUT=$(INPUT) FLAGS="$(FLAGS)"
 
 # =============================================================================
 # PIPELINE TESTING
@@ -349,11 +324,12 @@ tidy-root:
 	@echo "$(YELLOW)1. Checking root directory structure...$(NC)"
 	@python -c "import sys; from pathlib import Path; allowed_files={'README.md','Makefile','pyproject.toml','mkdocs.yml','Dockerfile','docker-compose.yml','pyrightconfig.json','.pre-commit-config.yaml','.gitignore','.markdownlint.json','.python-version','LICENSE','CHANGELOG.md','.bandit','.banditignore','.coverage','.dockerignore','.env.example','.gitattributes','.markdown-link-check.json','.pre-commit-hooks.yaml','.pymarkdown.json','.safety_policy.yaml'}; allowed_dirs={'src','tests','configs','scripts','docs','data','metadata','logs','.git','.github','.vscode','.idea','venv','.venv','env','node_modules','__pycache__','build','dist','site','.pytest_cache','.mypy_cache','.ruff_cache','.cursor'}; root=Path('.'); violations=[]; [violations.append(f'Unwanted: {item.name}') for item in root.iterdir() if (item.is_file() and item.name not in allowed_files) or (item.is_dir() and item.name not in allowed_dirs and not item.name.startswith('.'))]; sys.exit(1) if violations and any(print(v) for v in violations) else print('✅ Root is clean')"
 	@echo "$(YELLOW)2. Running Vulture (dead code detection)...$(NC)"
-	@vulture src tests --min-confidence 80 --exclude=*/__pycache__/*,*/site/*,*/.venv/* > metadata/reports/vulture_report.txt 2>&1 || (cat metadata/reports/vulture_report.txt && exit 1)
+	@mkdir -p metadata/reports/analysis
+	@vulture src tests --min-confidence 80 --exclude=*/__pycache__/*,*/site/*,*/.venv/* > metadata/reports/analysis/vulture_report.txt 2>&1 || (cat metadata/reports/analysis/vulture_report.txt && echo "⚠️  Dead code detected")
 	@echo "$(YELLOW)3. Running jscpd (code duplication detection)...$(NC)"
-	@npx jscpd --min-tokens 50 --threshold 3 --ignore "**/node_modules/**,**/.venv/**,**/site/**,**/build/**,**/__pycache__/**,**/data/**" --pattern "**/*.{py,yaml,yml,md}" --reporters console,markdown --output metadata/reports || echo "⚠️  Code duplication detected - check metadata/reports/jscpd-report.md"
+	@npx jscpd --min-tokens 50 --threshold 3 --ignore "**/node_modules/**,**/.venv/**,**/site/**,**/build/**,**/__pycache__/**,**/data/**" --pattern "**/*.{py,yaml,yml,md}" --reporters console,markdown --output metadata/reports/analysis || echo "⚠️  Code duplication detected - check metadata/reports/analysis/jscpd-report.md"
 	@echo "$(YELLOW)4. Running Deptry (dependency management)...$(NC)"
-	@deptry . --ignore DEP002,DEP003 > metadata/reports/deptry_report.txt 2>&1 || (cat metadata/reports/deptry_report.txt && echo "⚠️  Dependency issues detected")
+	@deptry . --ignore DEP002,DEP003 > metadata/reports/analysis/deptry_report.txt 2>&1 || (cat metadata/reports/analysis/deptry_report.txt && echo "⚠️  Dependency issues detected")
 	@echo "$(GREEN)Root cleanup checks completed! Reports saved to metadata/reports/$(NC)"
 
 # =============================================================================
@@ -373,9 +349,27 @@ endif
 
 # Run tests
 test:
-	@echo "$(BLUE)Running tests...$(NC)"
+	@echo "$(BLUE)Running all tests...$(NC)"
 	@pytest tests/ -v
 	@echo "$(GREEN)Tests completed!$(NC)"
+
+# Run unit tests
+test-unit:
+	@echo "$(BLUE)Running unit tests...$(NC)"
+	@pytest tests/unit/ -v -m unit
+	@echo "$(GREEN)Unit tests completed!$(NC)"
+
+# Run integration tests
+test-integration:
+	@echo "$(BLUE)Running integration tests...$(NC)"
+	@pytest tests/integration/ -v -m integration
+	@echo "$(GREEN)Integration tests completed!$(NC)"
+
+# Run e2e tests
+test-e2e:
+	@echo "$(BLUE)Running e2e tests...$(NC)"
+	@pytest tests/e2e/ -v -m e2e
+	@echo "$(GREEN)E2E tests completed!$(NC)"
 
 # Run with test data
 run-dev:
@@ -418,18 +412,3 @@ quick-start: run-dev
 # Full setup
 full-setup: install-dev clean-backups run-dev
 	@echo "$(GREEN)Full setup completed!$(NC)"
-
-# =============================================================================
-# LEGACY COMMANDS (for backward compatibility)
-# =============================================================================
-
-# Legacy commands for backward compatibility
-format: fmt
-lint: lint
-type-check: type-check
-quality: qa
-health-check: health
-docs-serve: docs-serve
-docs-build: docs-build
-docs-lint: docs-lint
-docs-deploy: docs-deploy

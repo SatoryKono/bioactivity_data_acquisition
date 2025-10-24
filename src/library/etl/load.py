@@ -18,7 +18,7 @@ from library.etl.qc import (
     build_enhanced_qc_report,
     build_qc_report,
 )
-from library.io_.normalize import normalize_doi_advanced
+from library.io.normalize import normalize_doi_advanced
 
 if TYPE_CHECKING:  # pragma: no cover - type checking helpers
     from library.config import (
@@ -269,7 +269,7 @@ def write_deterministic_csv(
     from library.config import CsvFormatSettings as _CsvFormatSettings
     from library.config import DeterminismSettings as _DeterminismSettings
     from library.config import ParquetFormatSettings as _ParquetFormatSettings
-    from library.io_.atomic_writes import atomic_write_context
+    from library.io.atomic_writes import atomic_write_context
 
     determinism = determinism or _DeterminismSettings()
     csv_settings: CsvFormatSettings
@@ -309,7 +309,7 @@ def write_deterministic_csv(
         df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)
 
     # Очищаем старые backup файлы перед записью
-    from library.io_.atomic_writes import cleanup_backups
+    from library.io.atomic_writes import cleanup_backups
     backup_count = cleanup_backups(destination.parent)
     if backup_count > 0 and logger is not None:
         logger.info(f"cleaned_up_backups: {backup_count} files in {destination.parent}")

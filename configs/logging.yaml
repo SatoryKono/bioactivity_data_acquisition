@@ -1,8 +1,13 @@
 version: 1
 disable_existing_loggers: false
 
+# Платформо-специфичные настройки
+# Windows: использует более простой формат для совместимости
+# Unix/Linux: полный формат с контекстом
+
 formatters:
   console:
+    # Универсальный формат для всех платформ
     format: "%(asctime)s %(levelname)s %(name)s — %(message)s"
     datefmt: "%Y-%m-%d %H:%M:%S"
   json:
@@ -28,6 +33,9 @@ handlers:
     class: logging.handlers.TimedRotatingFileHandler
     level: DEBUG
     formatter: json
+    # Платформо-специфичные настройки файлов
+    # Windows: более короткие имена файлов
+    # Unix: стандартные имена
     filters: [redact_secrets, add_context, safe_formatting]
     filename: logs/app.log
     when: midnight

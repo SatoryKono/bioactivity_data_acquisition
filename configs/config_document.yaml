@@ -27,14 +27,26 @@ http:
 
 # Источники данных - конфигурация источников для извлечения данных
 sources:
+  chembl:                              # ChEMBL API для базовых метаданных документов
+    enabled: true                      # Включен ли источник
+    http:                              # HTTP настройки для ChEMBL
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"  # Базовый URL API
+      timeout_sec: 60.0                # Таймаут для ChEMBL запросов
+      retries:                         # Настройки повторных попыток
+        total: 3                       # Количество попыток
+        backoff_multiplier: 2.0        # Множитель задержки
+    batch_size: 100                    # Размер батча для запросов
+    max_requests_per_second: 5         # Максимум запросов в секунду
+    
   crossref:                            # Crossref API для DOI метаданных
     enabled: true                      # Включен ли источник
     http:                              # HTTP настройки для Crossref
       base_url: "https://api.crossref.org"  # Базовый URL API
-      timeout_sec: 30.0                # Таймаут для Crossref запросов
+      timeout_sec: 45.0                # Увеличенный таймаут для Crossref запросов
       retries:                         # Настройки повторных попыток
-        total: 3                       # Количество попыток
+        total: 5                       # Увеличено количество попыток
         backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 180.0             # Максимальная задержка 3 минуты
     batch_size: 100                    # Размер батча для запросов
     max_requests_per_second: 10        # Максимум запросов в секунду
     
@@ -42,10 +54,11 @@ sources:
     enabled: true                      # Включен ли источник
     http:                              # HTTP настройки для OpenAlex
       base_url: "https://api.openalex.org"  # Базовый URL API
-      timeout_sec: 30.0                # Таймаут для OpenAlex запросов
+      timeout_sec: 45.0                # Увеличенный таймаут для OpenAlex запросов
       retries:                         # Настройки повторных попыток
-        total: 3                       # Количество попыток
+        total: 5                       # Увеличено количество попыток
         backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 180.0             # Максимальная задержка 3 минуты
     batch_size: 50                     # Размер батча для запросов
     max_requests_per_second: 5         # Максимум запросов в секунду
     
@@ -53,10 +66,11 @@ sources:
     enabled: true                      # Включен ли источник
     http:                              # HTTP настройки для PubMed
       base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"  # Базовый URL E-utilities
-      timeout_sec: 30.0                # Таймаут для PubMed запросов
+      timeout_sec: 45.0                # Увеличенный таймаут для PubMed запросов
       retries:                         # Настройки повторных попыток
-        total: 3                       # Количество попыток
+        total: 5                       # Увеличено количество попыток
         backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 180.0             # Максимальная задержка 3 минуты
     batch_size: 200                    # Размер батча для запросов
     max_requests_per_second: 3         # Максимум запросов в секунду
     
@@ -64,10 +78,11 @@ sources:
     enabled: true                      # Включен ли источник
     http:                              # HTTP настройки для Semantic Scholar
       base_url: "https://api.semanticscholar.org"  # Базовый URL API
-      timeout_sec: 30.0                # Таймаут для Semantic Scholar запросов
+      timeout_sec: 45.0                # Увеличенный таймаут для Semantic Scholar запросов
       retries:                         # Настройки повторных попыток
-        total: 3                       # Количество попыток
+        total: 5                       # Увеличено количество попыток
         backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 180.0             # Максимальная задержка 3 минуты
     batch_size: 100                    # Размер батча для запросов
     max_requests_per_second: 5         # Максимум запросов в секунду
 
@@ -91,12 +106,12 @@ io:
 # Runtime настройки
 runtime:
   workers: 4
-  limit: null
+  limit: 5
   offset: 0
   dry_run: false
   date_tag: null
   dev_mode: false
-  allow_incomplete_sources: false
+  allow_incomplete_sources: true
 
 # Логирование
 logging:
@@ -195,7 +210,7 @@ determinism:
     - pubmed_year             # INT: Год из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1900-текущий год
 
     # Группа полей томов из всех источников
-    - chembl_volume           # STRING: Том из ChEMBL, источник: ChEMBL API, тип: STRING, валидация:rometer
+    - chembl_volume           # STRING: Том из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable
     - crossref_volume         # STRING: Том из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
     - openalex_volume         # STRING: Том из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
     - pubmed_volume           # STRING: Том из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable

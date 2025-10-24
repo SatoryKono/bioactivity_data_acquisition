@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from library.clients.chembl import TestitemChEMBLClient
+from library.clients.chembl import ChEMBLClient
 from library.clients.pubchem import PubChemClient
 from library.testitem.config import TestitemConfig
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_molecules_batch(
-    client: TestitemChEMBLClient,
+    client: ChEMBLClient,
     molecule_chembl_ids: list[str],
     config: TestitemConfig
 ) -> list[dict[str, Any]]:
@@ -91,7 +91,7 @@ def extract_molecules_batch(
 
 
 def extract_molecule_data(
-    client: TestitemChEMBLClient,
+    client: ChEMBLClient,
     molecule_chembl_id: str,
     config: TestitemConfig
 ) -> dict[str, Any]:
@@ -383,7 +383,7 @@ def extract_pubchem_data_batch(
 
 
 def extract_batch_data(
-    chembl_client: TestitemChEMBLClient,
+    chembl_client: ChEMBLClient,
     pubchem_client: PubChemClient,
     input_data: pd.DataFrame,
     config: TestitemConfig

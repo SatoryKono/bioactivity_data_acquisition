@@ -15,6 +15,7 @@ from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
 from library.common.pipeline_base import PipelineBase
 from library.documents.config import DocumentConfig
+from library.documents.diagnostics import DocumentDiagnostics
 from library.documents.normalize import DocumentNormalizer
 from library.documents.quality import DocumentQualityFilter
 from library.documents.validate import DocumentValidator
@@ -33,6 +34,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         self.validator = DocumentValidator(config.model_dump() if hasattr(config, 'model_dump') else config if isinstance(config, dict) else {})
         self.normalizer = DocumentNormalizer(config.model_dump() if hasattr(config, 'model_dump') else config if isinstance(config, dict) else {})
         self.quality_filter = DocumentQualityFilter(config.model_dump() if hasattr(config, 'model_dump') else config if isinstance(config, dict) else {})
+        self.diagnostics = DocumentDiagnostics()
     
     def _setup_clients(self) -> None:
         """Initialize HTTP clients for document sources."""
@@ -301,6 +303,24 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
                     raise
         
         logger.info(f"Extracted data for {len(extracted_data)} documents")
+        
+        # Генерируем диагностический отчет после extract
+        try:
+            logger.info("Generating diagnostic report for extracted data")
+            diagnostic_report = self.diagnostics.analyze_dataframe(extracted_data)
+            summary_report = self.diagnostics.generate_summary_report(extracted_data)
+            
+            # Логируем краткий отчет
+            logger.info("=== EXTRACTION DIAGNOSTICS ===")
+            logger.info(summary_report)
+            
+            # Сохраняем полный отчет
+            report_path = self.diagnostics.save_report(diagnostic_report)
+            logger.info(f"Full diagnostic report saved to {report_path}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to generate diagnostic report: {e}")
+        
         return extracted_data
     
     def _normalize_columns(self, frame: pd.DataFrame) -> pd.DataFrame:
@@ -527,6 +547,24 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         normalized_data = convert_data_types(normalized_data)
         
         logger.info(f"Normalized {len(normalized_data)} documents")
+        
+        # Генерируем финальный диагностический отчет
+        try:
+            logger.info("Generating final diagnostic report")
+            final_report = self.diagnostics.analyze_dataframe(normalized_data)
+            final_summary = self.diagnostics.generate_summary_report(normalized_data)
+            
+            # Логируем финальный отчет
+            logger.info("=== FINAL PIPELINE DIAGNOSTICS ===")
+            logger.info(final_summary)
+            
+            # Сохраняем финальный отчет
+            final_report_path = self.diagnostics.save_report(final_report, "final_diagnostics.json")
+            logger.info(f"Final diagnostic report saved to {final_report_path}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to generate final diagnostic report: {e}")
+        
         return normalized_data
     
     def validate(self, data: pd.DataFrame) -> pd.DataFrame:

@@ -11,13 +11,18 @@ class OpenAlexClient(BaseApiClient):
     """HTTP client for OpenAlex works."""
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
-        super().__init__(config, **kwargs)
+        # Добавляем email в User-Agent для polite pool согласно документации OpenAlex
+        headers = dict(config.headers)
+        if "User-Agent" not in headers:
+            headers["User-Agent"] = "bioactivity-data-acquisition/0.1.0 (mailto:your-email@example.com)"
+        enhanced = config.model_copy(update={"headers": headers})
+        super().__init__(enhanced, **kwargs)
 
     def fetch_by_doi(self, doi: str) -> dict[str, Any]:
         """Fetch a work by DOI with fallback to a filter query."""
 
-        # Use OpenAlex API format: https://api.openalex.org/works/https://doi.org/{doi}
-        path = f"https://api.openalex.org/works/https://doi.org/{doi}"
+        # Use OpenAlex API format: works/https://doi.org/{doi}
+        path = f"works/https://doi.org/{doi}"
         try:
             payload = self._request("GET", path)
             return self._parse_work(payload)
@@ -254,6 +259,8 @@ class OpenAlexClient(BaseApiClient):
             return {}
         
         results = {}
+        success_count = 0
+        error_count = 0
         
         # Process in chunks to avoid URL length limits
         for i in range(0, len(dois), batch_size):
@@ -275,18 +282,22 @@ class OpenAlexClient(BaseApiClient):
                     
                     if doi_value in chunk:
                         results[doi_value] = self._parse_work(work)
+                        success_count += 1
                 
                 # Add empty records for missing DOIs
                 for doi in chunk:
                     if doi not in results:
                         results[doi] = self._create_empty_record(doi, "Not found in batch response")
+                        error_count += 1
                         
             except Exception as e:
                 self.logger.warning("Failed to fetch DOIs batch %s: %s", chunk, e)
                 # Add empty records for failed batch
                 for doi in chunk:
                     results[doi] = self._create_empty_record(doi, str(e))
+                    error_count += 1
         
+        self.logger.info(f"OpenAlex batch completed: {success_count} successful, {error_count} errors out of {len(dois)} DOIs")
         return results
 
     def fetch_by_pmids_batch(

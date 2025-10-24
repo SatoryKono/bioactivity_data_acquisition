@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from library.assay.client import AssayChEMBLClient
+from library.clients.chembl import ChEMBLClient
 from library.assay.config import AssayConfig
 from library.common.pipeline_base import PipelineBase
 from library.common.postprocess_base import AssayPostprocessor
@@ -35,7 +35,7 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         if "chembl" in self.config.sources and self.config.sources["chembl"].enabled:
             self.clients["chembl"] = self._create_chembl_client()
     
-    def _create_chembl_client(self) -> AssayChEMBLClient:
+    def _create_chembl_client(self) -> ChEMBLClient:
         """Create ChEMBL client."""
         from library.config import APIClientConfig
         from library.config import RateLimitSettings
@@ -69,7 +69,7 @@ class AssayPipeline(PipelineBase[AssayConfig]):
             follow_redirects=True,
         )
         
-        return AssayChEMBLClient(client_config)
+        return ChEMBLClient(client_config)
     
     def _get_headers(self, source: str) -> dict[str, str]:
         """Get default headers for a source."""

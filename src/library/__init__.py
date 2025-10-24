@@ -1,4 +1,5 @@
 """Public interface for the bioactivity ETL pipeline."""
+
 from __future__ import annotations
 
 from library.cli import app, main
@@ -50,8 +51,8 @@ from library.etl.transform import normalize_bioactivity_data
 from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
 from library.scripts_base import DeprecatedScriptWrapper, create_deprecated_script_wrapper
 from library.telemetry import get_current_trace_id, setup_telemetry, traced_operation
-from library.utils import *  # noqa: F403
-from library.utils import __all__ as _utils_all
+
+# Utils are available via library.utils module
 
 # CLISettings removed as it doesn't exist in library.config
 
@@ -110,4 +111,4 @@ __all__ = [
 ]
 
 # CLISettings removed
-__all__.extend(_utils_all)  # type: ignore
+# Utils are available via library.utils module

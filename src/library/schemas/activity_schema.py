@@ -5,7 +5,7 @@ Pandera схемы для валидации данных активностей
 """
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
 

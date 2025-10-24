@@ -12,7 +12,7 @@ import pytest
 import yaml
 import pandas as pd
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 
 # Добавляем src в путь для импорта
 import sys

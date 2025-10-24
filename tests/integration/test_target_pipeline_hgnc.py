@@ -1,6 +1,5 @@
 """Integration tests for target pipeline with HGNC and gene symbol."""
 
-from pathlib import Path
 
 import pandas as pd
 import pytest

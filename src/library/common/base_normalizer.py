@@ -5,9 +5,9 @@
 
 import re
 import hashlib
-from typing import Any, Optional, Union
+from typing import Any, Optional
 import pandas as pd
-from datetime import datetime, timezone
+from datetime import timezone
 
 
 class BaseNormalizer:

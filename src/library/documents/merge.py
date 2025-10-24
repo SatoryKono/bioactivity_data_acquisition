@@ -147,6 +147,10 @@ def merge_source_data(base_df: pd.DataFrame, source_df: pd.DataFrame, source_nam
             if col != join_key and col not in result_df.columns:
                 result_df[col] = ""
         
+        # Статистика для диагностики
+        successful_merges = 0
+        failed_merges = 0
+        
         # Заполняем данные по индексу
         for idx in result_df.index:
             key_value = result_df.loc[idx, join_key]
@@ -160,12 +164,25 @@ def merge_source_data(base_df: pd.DataFrame, source_df: pd.DataFrame, source_nam
                             result_df.loc[idx, col] = False
                         else:
                             result_df.loc[idx, col] = value
+                successful_merges += 1
+            else:
+                # Если join_key не найден, добавляем error поле для диагностики
+                error_column = f"{source_name}_error"
+                if error_column not in result_df.columns:
+                    result_df[error_column] = ""
+                result_df.loc[idx, error_column] = f"No matching {join_key} found"
+                failed_merges += 1
         
-        logger.info(f"Successfully merged {len(result_df)} records from {source_name}")
+        logger.info(f"Merge statistics for {source_name}: {successful_merges} successful, {failed_merges} failed out of {len(result_df)} records")
         return result_df
         
     except Exception as e:
         logger.error(f"Failed to merge data from {source_name}: {e}")
+        # Добавляем error колонку для всех записей при критической ошибке
+        error_column = f"{source_name}_error"
+        if error_column not in base_df.columns:
+            base_df[error_column] = ""
+        base_df[error_column] = f"Merge failed: {str(e)}"
         return base_df
 
 
