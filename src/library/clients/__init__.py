@@ -1,6 +1,13 @@
 """HTTP clients for external literature sources."""
-from .base import RateLimitConfig, RateLimiter
-from .exceptions import ApiClientError, RateLimitError
+
+from library.clients.exceptions import (
+    APIClientError,
+    APIConnectionError,
+    APIRateLimitError,
+    APITimeoutError,
+    ResourceNotFoundError,
+    SchemaValidationError,
+)
 from .bioactivity import BioactivityClient
 from .chembl import ChEMBLClient
 from .crossref import CrossrefClient
@@ -10,10 +17,14 @@ from .semantic_scholar import SemanticScholarClient
 from .session import get_shared_session, reset_shared_session
 
 __all__ = [
-    "ApiClientError",
-    "RateLimitConfig",
-    "RateLimitError",
-    "RateLimiter",
+    # Exceptions
+    "APIClientError",
+    "APIConnectionError",
+    "APIRateLimitError",
+    "APITimeoutError",
+    "ResourceNotFoundError",
+    "SchemaValidationError",
+    # Clients
     "BioactivityClient",
     "ChEMBLClient",
     "CrossrefClient",

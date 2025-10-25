@@ -8,6 +8,10 @@ from __future__ import annotations
 from library.clients.chembl import TestitemChEMBLClient  # re-export
 from library.clients.pubchem import PubChemClient  # re-export
 
+<<<<<<< Updated upstream
 __all__ = ["TestitemChEMBLClient", "PubChemClient"]
 
 
+=======
+__all__ = ["ChEMBLClient", "PubChemClient"]
+>>>>>>> Stashed changes

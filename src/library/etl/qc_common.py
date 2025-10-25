@@ -85,5 +85,3 @@ def ensure_common_qc(data_frame: pd.DataFrame, qc_frame: pd.DataFrame | None, mo
 __all__ = [
     "ensure_common_qc",
 ]
-
-

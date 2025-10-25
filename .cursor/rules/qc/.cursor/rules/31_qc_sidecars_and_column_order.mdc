@@ -1,0 +1,8 @@
+---
+description: QC‑сайдкары и проверка column_order
+globs: src/library/postprocessing/**, src/**/export_*.py
+alwaysApply: false
+---
+# QC Sidecars & Column Order Check (Required, Auto Attached)
+- Генерируйте `quality_report_table.csv`, `correlation_report_table.csv`.
+- Перед экспортом проверяйте соответствие `column_order`.

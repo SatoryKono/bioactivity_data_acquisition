@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+---
+
+# Project Doctrine (Blocking)
+
+- Слои: clients → transforms/normalize → schemas → postprocessing → CLI.
+- Запрещено смешивать IO и бизнес‑логику; зависимости только вниз по слоям.
+- Общие трансформы выносите в переиспользуемые модули.
+
+Плохо:
+
+- Запрос к API внутри функции нормализации.
+
+Хорошо:
+
+- client.fetch() в клиентах; normalize.* в трансформах; экспорт в отдельном шаге.

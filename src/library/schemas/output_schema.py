@@ -16,38 +16,20 @@ else:  # pragma: no cover - import side effect
 
 class NormalizedBioactivitySchema(pa.DataFrameModel):
     """Schema for normalized bioactivity data ready for export.
-    
+
     This schema validates normalized data after ETL processing.
     All data should be clean and consistent for downstream analysis.
     """
 
     # Required fields - must be present in all normalized records
-    source: Series[str] = pa.Field(
-        description="Data source identifier (normalized)",
-        nullable=False
-    )
-    retrieved_at: Series[pd.Timestamp] = pa.Field(
-        description="Timestamp when data was retrieved from API",
-        nullable=False
-    )
-    
+    source: Series[str] = pa.Field(description="Data source identifier (normalized)", nullable=False)
+    retrieved_at: Series[pd.Timestamp] = pa.Field(description="Timestamp when data was retrieved from API", nullable=False)
+
     # Core bioactivity fields - nullable=True for missing data
-    target: Series[str] = pa.Field(
-        description="Normalized target name",
-        nullable=True
-    )
-    activity_value: Series[float] = pa.Field(
-        description="Normalized bioactivity value (converted to nM)",
-        nullable=True
-    )
-    activity_unit: Series[str] = pa.Field(
-        description="Normalized activity unit (should be nM after conversion)",
-        nullable=True
-    )
-    smiles: Series[str] = pa.Field(
-        description="Canonical SMILES representation (normalized)",
-        nullable=True
-    )
+    target: Series[str] = pa.Field(description="Normalized target name", nullable=True)
+    activity_value: Series[float] = pa.Field(description="Normalized bioactivity value (converted to nM)", nullable=True)
+    activity_unit: Series[str] = pa.Field(description="Normalized activity unit (should be nM after conversion)", nullable=True)
+    smiles: Series[str] = pa.Field(description="Canonical SMILES representation (normalized)", nullable=True)
 
     class Config:
         strict = True  # STRICT MODE: No additional columns allowed

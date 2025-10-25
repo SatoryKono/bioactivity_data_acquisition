@@ -1,0 +1,8 @@
+---
+description: Обязательная Pandera‑валидация
+globs:
+alwaysApply: true
+---
+# Pandera Schemas Must‑Pass (Blocking)
+- Каждая итоговая таблица валидируется Pandera перед записью.
+- Категории/диапазоны/regex заданы явно.

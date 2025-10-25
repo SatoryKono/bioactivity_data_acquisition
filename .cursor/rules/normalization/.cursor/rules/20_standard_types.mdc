@@ -1,0 +1,9 @@
+---
+description: Нормализация стандартных типов данных
+globs: src/**/normalize_*.py, src/library/postprocessing/**
+alwaysApply: false
+---
+# Standard Types Normalization (Required, Auto Attached)
+- Явные приведения типов: int/float/string/datetime/boolean.
+- Политика NA/NULL, trimming, локали и десятичные разделители.
+- Чёткие правила для временных зон.

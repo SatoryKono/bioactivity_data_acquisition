@@ -10,7 +10,7 @@ from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
-from library.config import APIClientConfig, RateLimitSettings, RetrySettings
+from library.settings import APIClientConfig, RateLimitSettings, RetrySettings
 
 
 def _get_headers(source: str) -> dict[str, str]:
@@ -19,7 +19,7 @@ def _get_headers(source: str) -> dict[str, str]:
         "User-Agent": "BioactivityDataAcquisition/1.0 (https://github.com/your-org/bioactivity_data_acquisition)",
         "Accept": "application/json",
     }
-    
+
     if source == "crossref":
         headers["Accept"] = "application/vnd.crossref.unixref+json"
     elif source == "openalex":
@@ -28,7 +28,7 @@ def _get_headers(source: str) -> dict[str, str]:
         headers["Accept"] = "application/json"
     elif source == "semantic_scholar":
         headers["Accept"] = "application/json"
-    
+
     return headers
 
 
@@ -46,15 +46,15 @@ def _get_base_url(source: str) -> str:
 
 def create_api_client(source: str, config: Any, client_type: str = "generic") -> Any:
     """Create an API client for the specified source using unified configuration.
-    
+
     Args:
         source: Source name (chembl, crossref, openalex, pubmed, semantic_scholar)
         config: Pipeline configuration object with http.global_ and sources[source] settings
         client_type: Type of client to create ("generic", "assay", "activity", "document")
-        
+
     Returns:
         Configured API client instance
-        
+
     Raises:
         ValueError: If source is not supported or not found in configuration
     """
@@ -76,6 +76,7 @@ def create_api_client(source: str, config: Any, client_type: str = "generic") ->
     processed_headers = {}
     for key, value in headers.items():
         if isinstance(value, str):
+
             def replace_placeholder(match):
                 secret_name = match.group(1)
                 env_var = os.environ.get(secret_name.upper())
@@ -127,24 +128,29 @@ def create_api_client(source: str, config: Any, client_type: str = "generic") ->
         timeout=timeout,
         retries=retry_settings,
         rate_limit=rate_limit,
-        endpoint=source_config.endpoint or '',
+        endpoint=source_config.endpoint or "",
     )
 
     # Create and return the appropriate client
     if source == "chembl":
         if client_type == "assay":
-            from library.assay.client import AssayChEMBLClient
-            return AssayChEMBLClient(api_config, timeout=timeout)
+            # TODO: Implement AssayChEMBLClient or import from correct module
+            # from library.assay.client import AssayChEMBLClient
+            # return AssayChEMBLClient(api_config)
+            raise NotImplementedError("AssayChEMBLClient is not implemented yet")
         elif client_type == "activity":
             from library.clients.chembl import ChEMBLClient
-            return ChEMBLClient(api_config, timeout=timeout)
+
+            return ChEMBLClient(api_config)
         elif client_type == "document":
             from library.clients.chembl import ChEMBLClient
-            return ChEMBLClient(api_config, timeout=timeout)
+
+            return ChEMBLClient(api_config)
         else:
             # Default to generic ChEMBL client
             from library.clients.chembl import ChEMBLClient
-            return ChEMBLClient(api_config, timeout=timeout)
+
+            return ChEMBLClient(api_config)
     elif source == "crossref":
         return CrossrefClient(api_config, timeout=timeout)
     elif source == "openalex":

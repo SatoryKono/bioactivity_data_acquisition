@@ -1,0 +1,8 @@
+---
+description: Валидация доменных идентификаторов
+globs: src/**/normalize_*id*.py, src/**/validators/**
+alwaysApply: false
+---
+# Domain IDs Validation (Required, Auto Attached)
+- DOI, ChEMBL ID, UniProt, IUPHAR, PubChem, SMILES, InChI проверяются регекспами/чекерами.
+- Несоответствия — ошибка; нормализуйте в стандартизованные поля.

@@ -8,9 +8,26 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
+<<<<<<< Updated upstream
 from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings, LoggingSettings
+=======
+from library.config import (
+    DeterminismSettings,
+    LoggingSettings,
+    _assign_path,
+    _merge_dicts,
+    _parse_scalar,
+)
+>>>>>>> Stashed changes
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "crossref", "openalex", "pubmed", "semantic_scholar")
 DATE_TAG_FORMAT = "%Y%m%d"
@@ -40,9 +57,7 @@ class DocumentIOSettings(BaseModel):
 class DocumentRuntimeSettings(BaseModel):
     """Runtime toggles controlled via CLI or environment variables."""
 
-    date_tag: str | None = Field(
-        default=None, pattern=DATE_TAG_REGEX
-    )
+    date_tag: str | None = Field(default=None, pattern=DATE_TAG_REGEX)
     workers: int = Field(default=4, ge=1, le=64)
     limit: int | None = Field(default=None, ge=1)
     dry_run: bool = Field(default=False)
@@ -56,15 +71,9 @@ class DocumentRuntimeSettings(BaseModel):
 
 class CitationFormattingSettings(BaseModel):
     """Configuration for citation formatting."""
-    
+
     enabled: bool = Field(default=True)
-    columns: dict[str, str] = Field(default_factory=lambda: {
-        "journal": "journal",
-        "volume": "volume", 
-        "issue": "issue",
-        "first_page": "first_page",
-        "last_page": "last_page"
-    })
+    columns: dict[str, str] = Field(default_factory=lambda: {"journal": "journal", "volume": "volume", "issue": "issue", "first_page": "first_page", "last_page": "last_page"})
 
 
 class DocumentPostprocessSettings(BaseModel):
@@ -96,9 +105,7 @@ class DocumentHTTPSettings(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    global_: DocumentHTTPGlobalSettings = Field(
-        default_factory=DocumentHTTPGlobalSettings, alias="global"
-    )
+    global_: DocumentHTTPGlobalSettings = Field(default_factory=DocumentHTTPGlobalSettings, alias="global")
 
 
 class SourceToggle(BaseModel):
@@ -109,7 +116,7 @@ class SourceToggle(BaseModel):
 
 class DocumentSourceHTTPSettings(BaseModel):
     """HTTP settings specific to a document source."""
-    
+
     base_url: str | None = Field(default=None)
     timeout_sec: float | None = Field(default=None, gt=0.0, le=600.0)
     headers: dict[str, str] = Field(default_factory=dict)
@@ -118,7 +125,7 @@ class DocumentSourceHTTPSettings(BaseModel):
 
 class DocumentSourcePaginationSettings(BaseModel):
     """Pagination settings for a document source."""
-    
+
     page_param: str | None = Field(default=None)
     size_param: str | None = Field(default=None)
     size: int | None = Field(default=None, ge=1, le=1000)
@@ -127,7 +134,7 @@ class DocumentSourcePaginationSettings(BaseModel):
 
 class DocumentSourceSettings(BaseModel):
     """Configuration settings for a document source."""
-    
+
     enabled: bool = Field(default=True)
     name: str | None = Field(default=None)
     endpoint: str | None = Field(default=None)

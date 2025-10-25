@@ -1,0 +1,9 @@
+---
+description: Контракт схем и конфигов
+globs:
+alwaysApply: true
+---
+# Schema & Config Contract (Blocking)
+- `column_order` из YAML — источник истины; Pandera‑схемы обязательны.
+- Несовпадения типов/колонок — ошибка сборки.
+- Разрыв совместимости сопровождается миграцией и записью в CHANGELOG.md.

@@ -1,0 +1,382 @@
+# Конфигурация v2 для activities pipeline
+# Основана на унифицированном шаблоне config.template.yaml
+
+# Метаданные пайплайна - основная информация о пайплайне
+pipeline:
+  name: "activities"                    # Имя пайплайна для идентификации
+  version: "2.0.0"                      # Версия конфигурации
+  entity_type: "activities"             # Тип сущности для обработки
+  description: "ETL pipeline for activity data from ChEMBL"  # Описание назначения
+
+# HTTP настройки - конфигурация для HTTP-клиентов
+http:
+  global:                               # Глобальные настройки HTTP
+    timeout_sec: 60.0                   # Таймаут запросов в секундах
+    retries:                            # Настройки повторных попыток
+      total: 5                          # Общее количество попыток
+      backoff_multiplier: 2.0           # Множитель экспоненциальной задержки
+      backoff_max: 120.0                # Максимальная задержка в секундах
+    rate_limit:                         # Ограничение скорости запросов
+      max_calls: 5                      # Максимум запросов за период
+      period: 15.0                      # Период в секундах
+    headers:                            # HTTP заголовки по умолчанию
+      Accept: "application/json"        # Предпочтительный формат ответа
+      User-Agent: "bioactivity-data-acquisition/0.1.0"  # Идентификация клиента
+    verify_ssl: true                    # Проверка SSL сертификатов
+    follow_redirects: true              # Следование HTTP редиректам
+
+# Источники данных - конфигурация источников для извлечения данных
+sources:
+  chembl:                               # ChEMBL API как основной источник
+    enabled: true                       # Включен ли источник
+    http:                               # HTTP настройки для ChEMBL
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"  # Базовый URL API
+      timeout_sec: 60.0                 # Таймаут для ChEMBL запросов
+      retries:                          # Настройки повторных попыток
+        total: 3                        # Количество попыток для ChEMBL
+        backoff_multiplier: 1.5         # Множитель задержки
+    batch_size: 1000                    # Размер батча для запросов (max 1000 для ChEMBL)
+    max_compounds: null                 # Максимум соединений (null = без ограничений)
+    activity_types: ["IC50", "Ki"]  # Типы активности для фильтрации
+
+# Ввод-вывод - конфигурация входных и выходных данных
+io:
+  input:                                # Настройки входных данных
+    path: "data/input/activities.csv"   # Путь к входному CSV файлу
+    encoding: "utf-8"                   # Кодировка входного файла
+    required_columns: ["activity_chembl_id", "assay_chembl_id", "document_chembl_id", "molecule_chembl_id", "target_chembl_id"]   # Обязательные колонки
+    
+  output:                               # Настройки выходных данных
+    dir: "data/output/activities"       # Директория для выходных файлов
+    format: "csv"                       # Формат выходных файлов
+    csv:                                # Параметры CSV вывода
+      encoding: "utf-8"                 # Кодировка выходного файла
+      float_format: "%.6f"              # Формат чисел с плавающей точкой
+      date_format: "%Y-%m-%dT%H:%M:%SZ" # Формат дат в ISO 8601
+      na_rep: ""                        # Представление пустых значений
+      line_terminator: "\n"             # Разделитель строк
+
+# Runtime настройки - параметры выполнения пайплайна
+runtime:
+  workers: 4                           # Количество параллельных процессов
+  limit: null                          # Ограничение количества записей (null = все)
+  offset: 0                            # Смещение для пагинации
+  dry_run: false                       # Тестовый режим без записи
+  date_tag: null                       # Тег даты для версионирования
+  dev_mode: false                      # Режим разработки
+  allow_incomplete_sources: false      # Разрешить неполные источники
+
+# Логирование - настройки системы логирования
+logging:
+  level: "INFO"                        # Уровень логирования (DEBUG, INFO, WARNING, ERROR)
+  file:                                # Настройки файлового логирования
+    enabled: true                      # Включить запись в файл
+    path: "data/logs/activities.log"   # Путь к файлу логов
+    max_size: "10MB"                   # Максимальный размер файла
+    backup_count: 5                    # Количество архивных файлов
+  console:                             # Настройки консольного логирования
+    enabled: true                      # Включить вывод в консоль
+    format: "text"                     # Формат вывода (text, json)
+  structured: true                     # Структурированное логирование
+
+# Детерминизм - обеспечение воспроизводимости результатов
+determinism:
+  sort:                                # Настройки сортировки для детерминизма
+    by:  ["activity_chembl_id", "assay_chembl_id", "document_chembl_id", "molecule_chembl_id", "target_chembl_id"]  # Поля сортировки
+    ascending: [true, true, true, true, true]  # Направление сортировки
+    na_position: "last"                # Позиция NULL значений
+  column_order:
+    # ACTIVITIES - основные поля
+    - "activity_chembl_id"              # STRING: ChEMBL ID активности (PK), источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "assay_chembl_id"                 # STRING: ChEMBL ID ассая, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "document_chembl_id"              # STRING: ChEMBL ID документа, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "record_id"                       # INT: FK на COMPOUND_RECORDS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "molecule_chembl_id"              # STRING: ChEMBL ID молекулы, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "target_chembl_id"                # STRING: ChEMBL ID таргета, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    
+    # ACTIVITIES - данные активности
+    - "type"                            # STRING: Исходный тип (Ki, IC50, %), источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "relation"                        # STRING: Отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~], <= 50
+    - "value"                           # FLOAT: Исходное значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "units"                           # STRING: Единицы (raw), источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "text_value"                      # STRING: Текстовое значение, источник: ChEMBL, тип: STRING, валидация: nullable, <= 1000
+    - "upper_value"                     # FLOAT: Верхняя граница диапазона, источник: ChEMBL, тип: FLOAT, валидация: nullable
+    
+    # ACTIVITIES - стандартизованные данные
+    - "standard_type"                   # STRING: Нормализованный тип, источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "standard_relation"               # STRING: Нормализованное отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~]
+    - "standard_value"                  # FLOAT: Нормализованное значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "standard_units"                  # STRING: Нормализованные ед., источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "standard_flag"                   # INT: Признак стандартизации (1/0), источник: ChEMBL, тип: INT, валидация: 0 или 1
+    - "standard_text_value"             # STRING: Нормализованный текст, источник: ChEMBL, тип: STRING, валидация: nullable, <= 1000
+    - "standard_upper_value"            # FLOAT: Верхняя граница (std), источник: ChEMBL, тип: FLOAT, валидация: nullable
+    
+    # ACTIVITIES - комментарии и метаданные
+    - "activity_comment"                # STRING: Комментарий активности, источник: ChEMBL, тип: STRING, валидация: nullable, <= 4000
+    - "data_validity_comment"           # STRING: Комментарий валидности, источник: ChEMBL, тип: STRING, валидация: nullable, <= 1000
+    - "potential_duplicate"             # INT: Возможный дубликат, источник: ChEMBL, тип: INT, валидация: 0 или 1
+    - "pchembl_value"                   # FLOAT: pChEMBL (сравнение потентности), источник: ChEMBL, тип: FLOAT, валидация: 0-14
+    
+    # ACTIVITIES - онтологии
+    - "bao_endpoint"                    # STRING: BAO endpoint ID, источник: ChEMBL, тип: STRING, валидация: nullable, regex ^BAO_\d{7}$
+    - "uo_units"                        # STRING: Unit Ontology, источник: ChEMBL, тип: STRING, валидация: nullable, regex ^UO_\d{7}$ или пусто
+    - "qudt_units"                      # STRING: QUDT URI, источник: ChEMBL, тип: STRING, валидация: nullable, валидная URI или пусто
+    - "src_id"                          # INT: Источник, источник: ChEMBL, тип: INT, валидация: nullable, FK к SOURCE
+    - "action_type"                     # STRING: Тип действия лиганда, источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    
+    # ACTIVITY_PROPERTIES (развернутые)
+    - "activity_prop_type"              # STRING: Имя свойства/параметра, источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "activity_prop_relation"          # STRING: Отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~]
+    - "activity_prop_value"             # FLOAT: Значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "activity_prop_units"             # STRING: Единицы, источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "activity_prop_text_value"        # STRING: Текстовое значение, источник: ChEMBL, тип: STRING, валидация: nullable, <= 2000
+    - "activity_prop_standard_type"     # STRING: Нормализованный тип, источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
+    - "activity_prop_standard_relation" # STRING: Нормализованное отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~]
+    - "activity_prop_standard_value"    # FLOAT: Нормализованное значение, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "activity_prop_standard_units"    # STRING: Нормализованные ед., источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
+    - "activity_prop_standard_text_value" # STRING: Нормализованный текст, источник: ChEMBL, тип: STRING, валидация: nullable, <= 2000
+    - "activity_prop_comments"          # STRING: Комментарий к свойству, источник: ChEMBL, тип: STRING, валидация: nullable, <= 2000
+    - "activity_prop_result_flag"       # INT: 1 если это результат, источник: ChEMBL, тип: INT, валидация: 0 или 1
+    
+    # LIGAND_EFF
+    - "bei"                             # FLOAT: Binding Efficiency Index, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "sei"                             # FLOAT: Surface Efficiency Index, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "le"                              # FLOAT: Ligand Efficiency, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    - "lle"                             # FLOAT: Lipophilic Ligand Efficiency, источник: ChEMBL, тип: FLOAT, валидация: nullable, число
+    
+    # Системные поля
+    - "index"                           # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"                # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL
+    - "source_system"                   # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                  # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                    # DATETIME: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                        # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"               # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+
+# Валидация - настройки проверки данных
+validation:
+  enabled: true                        # Включить валидацию
+  strict: false                        # Строгий режим (останавливать при ошибках)
+  schema_validation: true              # Валидация схемы данных
+  data_quality_checks: true            # Проверки качества данных
+
+# Постобработка - настройки обработки после извлечения
+postprocess:
+  qc:                                 # Контроль качества
+    enabled: true                      # Включить QC
+    fail_on: ["missing_standard_value", "invalid_standard_units"]  # Критические ошибки
+    thresholds:                        # Пороговые значения для QC
+      missing_standard_value: 0.1     # Максимальный % отсутствующих standard_value
+      invalid_standard_units: 0.05    # Максимальный % невалидных единиц
+      missing_pchembl_value: 0.2      # Максимальный % отсутствующих pchembl_value
+    detailed_report: true              # Детальный отчет QC
+    
+  correlation:                        # Корреляционный анализ
+    enabled: true                      # Включить корреляцию
+    methods: ["pearson", "spearman"]   # Методы корреляции
+    min_correlation: 0.5               # Минимальная корреляция
+    
+  steps:                              # Этапы постобработки
+    - type: "normalize_units"          # Нормализация единиц измерения
+      description: "Normalize activity units to standard format"
+      unit_mapping:                    # Маппинг единиц к множителям
+        "nM": 1e-9                     # Наномоль к моль
+        "uM": 1e-6                     # Микромоль к моль
+        "mM": 1e-3                     # Миллимоль к моль
+        "M": 1.0                       # Моль к моль
+    - type: "compute_pchembl"          # Вычисление pChEMBL значений
+      description: "Calculate pChEMBL values from standard values"
+      formula: "-log10(standard_value * unit_conversion_factor)"
+    - type: "filter_activities"        # Фильтрация активностей
+      description: "Apply quality filters to activities"
+      rules:                          # Правила фильтрации
+        - min_standard_value: 1e-12    # Минимальное стандартное значение
+        - max_standard_value: 1e-3     # Максимальное стандартное значение
+        - valid_standard_type: true    # Валидный тип активности
+    - type: "deduplicate"              # Дедупликация
+      description: "Remove duplicate activity entries"
+      keys: ["activity_chembl_id"]  # Ключи дедупликации
+
+# Нормализация - настройки нормализации данных
+normalization:
+  enabled: true                        # Включить нормализацию
+  unit_conversion: true                # Конвертация единиц
+  pchembl_calculation: true            # Вычисление pChEMBL
+  activity_type_mapping: true          # Маппинг типов активности
+
+# Качество данных - профили контроля качества
+quality:
+  profiles:
+    default:                          # Профиль по умолчанию
+      enabled: false                   # Временно отключен для тестирования
+      description: "Стандартный профиль QC для активностей"
+      fail_on_criteria: ["missing_chembl_id", "missing_standard_value", "invalid_chembl_id"]
+      thresholds:                      # Пороговые значения
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_standard_value_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_standard_value_rate"
+          operator: ">"
+          value: 0.2
+          severity: "WARNING"
+      rules:                          # Правила валидации
+        - name: "valid_chembl_id"      # Валидация ChEMBL ID
+          description: "Проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_standard_value" # Валидация стандартного значения
+          description: "Проверка корректности стандартного значения"
+          enabled: true
+          parameters:
+            min_value: 1e-12
+            max_value: 1e-3
+        - name: "valid_standard_units" # Валидация единиц
+          description: "Проверка единиц измерения"
+          enabled: true
+          parameters:
+            allowed_values: ["nM", "uM", "mM", "M", "ng/ml", "ug/ml", "mg/ml", "g/ml"]
+        - name: "valid_activity_types" # Валидация типов
+          description: "Проверка типов активности"
+          enabled: true
+          parameters:
+            allowed_values: ["IC50", "Ki"]
+        - name: "valid_pchembl_value"  # Валидация pChEMBL
+          description: "Проверка корректности pChEMBL значения"
+          enabled: true
+          parameters:
+            min_value: 3.0
+            max_value: 12.0
+        - name: "valid_assay_chembl_id"  # Валидация assay ChEMBL ID
+          description: "Проверка формата assay ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_molecule_chembl_id"  # Валидация molecule ChEMBL ID
+          description: "Проверка формата molecule ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+    
+    moderate:                         # Умеренный профиль
+      enabled: true                    # Включить moderate filter
+      description: "Умеренный профиль QC для активностей"
+      required_fields: ["standard_type", "standard_value"]  # Только критичные поля
+      allowed_data_validity_warnings: []  # Пустой список для строгости
+    
+    strict:                           # Строгий профиль
+      enabled: false                   # Отключен по умолчанию
+      description: "Строгий профиль QC для активностей"
+      fail_on_criteria: ["missing_chembl_id", "missing_standard_value", "invalid_chembl_id", "invalid_standard_value"]
+      thresholds:
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_standard_value_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.02
+          severity: "ERROR"
+        - metric: "invalid_standard_value_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+      rules:
+        - name: "valid_chembl_id"
+          description: "Строгая проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_standard_value"
+          description: "Строгая проверка стандартного значения"
+          enabled: true
+          parameters:
+            min_value: 1e-12
+            max_value: 1e-3
+        - name: "valid_standard_units"
+          description: "Строгая проверка единиц измерения"
+          enabled: true
+          parameters:
+            allowed_values: ["nM", "uM", "mM", "M", "ng/ml", "ug/ml", "mg/ml", "g/ml"]
+        - name: "valid_activity_types"
+          description: "Строгая проверка типов активности"
+          enabled: true
+          parameters:
+            allowed_values: ["IC50", "Ki"]
+        - name: "valid_pchembl_value"
+          description: "Строгая проверка pChEMBL значения"
+          enabled: true
+          parameters:
+            min_value: 3.0
+            max_value: 12.0
+        - name: "valid_assay_chembl_id"
+          description: "Строгая проверка assay ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_molecule_chembl_id"
+          description: "Строгая проверка molecule ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+
+# Отслеживание ошибок - настройки error tracking
+error_tracking:
+  enabled: true                        # Включить отслеживание ошибок
+  log_level: "INFO"                    # Уровень логирования ошибок
+  max_errors_per_source: 1000          # Максимум ошибок на источник
+  error_categories:                    # Категории ошибок
+    extraction:                        # Ошибки извлечения
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+    validation:                        # Ошибки валидации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: false
+    transformation:                    # Ошибки трансформации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: true
+    load:                             # Ошибки загрузки
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+  error_aggregation:                   # Агрегация ошибок
+    enabled: true
+    group_by_source: true
+    group_by_type: true
+    group_by_severity: true
+  error_reporting:                     # Отчетность по ошибкам
+    enabled: true
+    include_in_metadata: true
+    separate_error_file: true
+    error_file_format: "csv"
+
+# Кэширование - настройки кэширования данных
+cache:
+  enabled: true                        # Включить кэширование
+  dir: "data/cache/activities"         # Директория кэша
+  ttl: 86400                          # Время жизни кэша в секундах (24 часа)
+  max_size: "1GB"                     # Максимальный размер кэша
+
+# Мониторинг и телеметрия - настройки сбора метрик
+telemetry:
+  enabled: false                       # Включить телеметрию
+  endpoint: null                       # Endpoint для отправки метрик
+  api_key: null                        # API ключ для аутентификации
+  batch_size: 100                      # Размер батча для отправки
+  flush_interval: 30.0                 # Интервал отправки в секундах

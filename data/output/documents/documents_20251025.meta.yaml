@@ -1,0 +1,59 @@
+!!python/object:library.common.metadata.PipelineMetadata
+__dict__:
+  pipeline:
+    name: documents
+    version: 2.0.0
+    entity_type: documents
+    source_system: chembl
+  execution: !!python/object:library.common.metadata.ExecutionInfo
+    __dict__:
+      run_id: documents_20251025_174951_12463444
+      started_at: '2025-10-25T17:49:51.167338'
+      completed_at: '2025-10-25T17:49:51.167361'
+      duration_sec: 2.3e-05
+      memory_peak_mb: null
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      duration_sec: null
+      run_id: null
+      completed_at: null
+      started_at: null
+    __pydantic_private__: null
+  data: !!python/object:library.common.metadata.DataInfo
+    __dict__:
+      row_count: 10
+      row_count_accepted: 10
+      row_count_rejected: 0
+      columns_count: 122
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      row_count_rejected: null
+      row_count_accepted: null
+      columns_count: null
+      row_count: null
+    __pydantic_private__: null
+  sources: []
+  validation: !!python/object:library.common.metadata.ValidationInfo
+    __dict__:
+      schema_passed: true
+      qc_passed: true
+      warnings: 0
+      errors: 0
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      schema_passed: null
+      qc_passed: null
+      errors: null
+      warnings: null
+    __pydantic_private__: null
+  files: {}
+  metadata: {}
+__pydantic_extra__: null
+__pydantic_fields_set__: !!set
+  data: null
+  pipeline: null
+  execution: null
+  validation: null
+  files: null
+  sources: null
+__pydantic_private__: null

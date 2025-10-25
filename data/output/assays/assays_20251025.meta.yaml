@@ -1,0 +1,59 @@
+!!python/object:library.common.metadata.PipelineMetadata
+__dict__:
+  pipeline:
+    name: assays
+    version: 2.0.0
+    entity_type: assays
+    source_system: chembl
+  execution: !!python/object:library.common.metadata.ExecutionInfo
+    __dict__:
+      run_id: assays_20251025_174310_37906157
+      started_at: '2025-10-25T17:43:10.521337'
+      completed_at: '2025-10-25T17:43:10.521382'
+      duration_sec: 4.5e-05
+      memory_peak_mb: null
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      completed_at: null
+      started_at: null
+      duration_sec: null
+      run_id: null
+    __pydantic_private__: null
+  data: !!python/object:library.common.metadata.DataInfo
+    __dict__:
+      row_count: 10
+      row_count_accepted: 10
+      row_count_rejected: 0
+      columns_count: 63
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      row_count_accepted: null
+      row_count_rejected: null
+      row_count: null
+      columns_count: null
+    __pydantic_private__: null
+  sources: []
+  validation: !!python/object:library.common.metadata.ValidationInfo
+    __dict__:
+      schema_passed: true
+      qc_passed: true
+      warnings: 0
+      errors: 0
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      qc_passed: null
+      schema_passed: null
+      warnings: null
+      errors: null
+    __pydantic_private__: null
+  files: {}
+  metadata: {}
+__pydantic_extra__: null
+__pydantic_fields_set__: !!set
+  data: null
+  pipeline: null
+  execution: null
+  validation: null
+  sources: null
+  files: null
+__pydantic_private__: null

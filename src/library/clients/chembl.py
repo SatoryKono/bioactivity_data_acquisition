@@ -1,18 +1,46 @@
-"""HTTP client for ChEMBL API endpoints."""
+"""Shared HTTP utilities for ChEMBL API access."""
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Generator
-from datetime import datetime
-from typing import Any
+import socket
+import threading
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from time import monotonic
+from types import TracebackType
+from typing import Any, cast
 
+<<<<<<< Updated upstream
 from library.clients.base import BaseApiClient
 from library.config import APIClientConfig
+=======
+import requests
+from requests import Session
+
+from library.common.cache import CacheConfig, CacheStrategy, UnifiedCache
+
+try:  # pragma: no cover - urllib3 is always available with requests
+    from urllib3.exceptions import ReadTimeoutError as _Urllib3ReadTimeoutError
+except Exception:  # pragma: no cover - defensive fallback
+    _Urllib3ReadTimeoutError = None
+
+try:  # pragma: no cover - urllib3 is always available with requests
+    from urllib3.exceptions import NameResolutionError as _Urllib3NameResolutionError
+except Exception:  # pragma: no cover - defensive fallback
+    _Urllib3NameResolutionError = None  # type: ignore[assignment]
+
+from library.settings import APIClientConfig, RetrySettings
+
+from ..common.rate_limiter import RateLimiter, get_limiter, sleep
+>>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
 
+<<<<<<< Updated upstream
 class TestitemChEMBLClient(BaseApiClient):
     """HTTP client for ChEMBL molecule endpoints."""
 
@@ -48,10 +76,50 @@ class TestitemChEMBLClient(BaseApiClient):
         except Exception as e:
             logger.warning(f"Failed to fetch molecule {molecule_chembl_id}: {e}")
             return self._create_empty_molecule_record(molecule_chembl_id, str(e))
+=======
+def _strip_json_suffix(url: str) -> str | None:
+    """Return URL without .json suffix if present."""
+    if url.endswith(".json"):
+        return url[:-5]
+    return None
 
-    def resolve_molregno_to_chembl_id(self, molregno: int | str) -> str | None:
-        """Resolve molregno to molecule_chembl_id.
 
+def _is_name_resolution_error(exc: Exception) -> bool:
+    """Return True if exc is a name resolution error."""
+    if _Urllib3NameResolutionError is not None and isinstance(exc, _Urllib3NameResolutionError):
+        return True
+    if isinstance(exc, (socket.gaierror, socket.herror)):
+        return True
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return "Name or service not known" in str(exc)
+    return False
+
+
+def _should_switch_to_fallback(exc: Exception) -> bool:
+    """Return True if we should try fallback URL."""
+    if isinstance(exc, requests.exceptions.HTTPError):
+        response = getattr(exc, "response", None)
+        if response is not None:
+            return response.status_code in {404, 406}
+    return False
+
+>>>>>>> Stashed changes
+
+def _backoff_delay(
+    attempt: int,
+    cfg: RetrySettings,
+    header_delay: float | None = None,
+    jitter: Callable[[float], float] | None = None,
+) -> float:
+    """Calculate backoff delay for attempt."""
+    base_delay = cfg.backoff_multiplier ** (attempt - 1)
+    if header_delay is not None:
+        base_delay = max(base_delay, header_delay)
+    if jitter is not None:
+        base_delay = jitter(base_delay)
+    return min(base_delay, cfg.max_delay)
+
+<<<<<<< Updated upstream
         Returns the first matching ChEMBL ID or None if not found.
         """
         try:
@@ -112,23 +180,191 @@ class TestitemChEMBLClient(BaseApiClient):
             for chembl_id in molecule_chembl_ids:
                 results[chembl_id] = self.fetch_molecule(chembl_id)
             return results
+=======
 
-    def fetch_molecules_batch_streaming(
+def _log_retry_warning(
+    event: str,
+    *,
+    url: str,
+    attempt: int,
+    delay: float,
+    elapsed: float,
+    status: int | None = None,
+    exc_info: bool = False,
+) -> None:
+    """Log retry warning with structured data."""
+    extra = {
+        "url": url,
+        "attempt": attempt,
+        "delay": delay,
+        "elapsed": elapsed,
+        "status": status,
+    }
+    if exc_info:
+        logger.warning(event, extra=extra, exc_info=True)
+    else:
+        logger.warning(event, extra=extra)
+>>>>>>> Stashed changes
+
+
+def _log_retry_delay(
+    url: str,
+    attempt: int,
+    status: int | None,
+    delay: float,
+    header_delay: float | None = None,
+) -> None:
+    """Log retry delay information."""
+    extra = {
+        "url": url,
+        "attempt": attempt,
+        "status": status,
+        "delay": delay,
+        "header_delay": header_delay,
+    }
+    logger.debug("retry_delay", extra=extra)
+
+
+@dataclass
+class ChemblClient:
+    """HTTP client for the ChEMBL API with a TTL cache.
+
+    Parameters
+    ----------
+    api:
+        Global API settings providing the ``User-Agent`` header.
+    retry:
+        Retry configuration applied to all requests.
+    chembl:
+        Optional ChEMBL-specific configuration controlling cache TTL and size.
+    session:
+        Optional pre-configured :class:`requests.Session` instance; primarily
+        intended for tests.
+    global_limiter:
+        Optional system-wide :class:`RateLimiter` enforcing ``Config.rate``
+        across all HTTP clients.
+    jitter:
+        Optional callable producing jitter values for retry backoff. When not
+        provided the jitter is derived from ``retry`` using
+        :meth:`library.config.RetryCfg.build_jitter`.
+    """
+
+    cache: UnifiedCache[dict[str, Any]] = field(init=False)
+    _cache_lock: threading.Lock = field(default_factory=threading.Lock, init=False)
+    _session_local: threading.local = field(init=False)
+    _sessions: set[Session] = field(init=False)
+    _sessions_lock: threading.Lock = field(default_factory=threading.Lock, init=False)
+    _session_factory: Callable[[], Session] = field(init=False)
+    _global_limiter: RateLimiter | None = field(default=None, init=False)
+
+    def __init__(
         self,
-        molecule_chembl_ids: list[str],
-        batch_size: int = 50
-    ) -> Generator[tuple[list[str], list[dict[str, Any]]], None, None]:
-        """Stream molecules in batches using proper ChEMBL API.
-        
-        Yields tuples: (requested_ids, parsed_molecules).
-        Uses molecule.json endpoint with molecule_chembl_id__in filter.
+        api: APIClientConfig | None = None,
+        retry: RetrySettings | None = None,
+        chembl: APIClientConfig | None = None,
+        *,
+        session: Session | None = None,
+        global_limiter: RateLimiter | None = None,
+        jitter: Callable[[float], float] | None = None,
+    ) -> None:
+        # api = api or APIClientConfig()  # Cannot create without required fields
+        retry = retry or RetrySettings()
+        self._jitter = jitter if jitter is not None else None
+        if session is not None:
+
+            def _session_from_argument(provided: Session = session) -> Session:
+                return provided
+
+            self._session_factory = _session_from_argument
+        else:
+            api_cfg_default: APIClientConfig = api
+            retry_cfg_default: RetrySettings = retry
+
+            def _build_session(
+                api_cfg: APIClientConfig = api_cfg_default,
+                retry_cfg: RetrySettings = retry_cfg_default,
+            ) -> Session:
+                session = Session()
+                session.headers.update({"User-Agent": api_cfg.user_agent})
+                return session
+
+            self._session_factory = _build_session
+        ttl = chembl.cache_ttl if chembl is not None else 3600
+        maxsize = chembl.cache_size if chembl is not None else 1000
+
+        # Create unified cache with memory strategy
+        cache_config = CacheConfig(strategy=CacheStrategy.MEMORY, ttl=ttl, max_size=maxsize, key_prefix="chembl")
+        self.cache = UnifiedCache(cache_config)
+        self._session_local = threading.local()
+        self._sessions = set()
+        self._global_limiter = global_limiter
+
+    def _get_session(self) -> Session:
+        """Return a thread-local session."""
+        if not hasattr(self._session_local, "session"):
+            session = self._session_factory()
+            self._session_local.session = session
+            with self._sessions_lock:
+                self._sessions.add(session)
+        return self._session_local.session
+
+    def fetch(
+        self,
+        url: str,
+        cfg: APIClientConfig,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        """Fetch JSON data from ``url`` with retry logic and caching.
+
+        Parameters
+        ----------
+        url:
+            Target URL to fetch.
+        cfg:
+            API configuration providing timeouts and retry settings.
+        timeout:
+            Optional read timeout override.
+
+        Returns
+        -------
+        dict[str, Any]
+            Parsed JSON response.
+
+        Raises
+        ------
+        requests.RequestException
+            If the HTTP request fails.
+        ValueError
+            If the response body is not valid JSON or cannot be decoded.
         """
-        if not molecule_chembl_ids:
-            return
 
-        # ChEMBL API URL length limit requires smaller batches
-        effective_batch_size = min(batch_size, 25)
+        limiter = get_limiter("chembl", cfg.rps, cfg.burst)
+        read_timeout = timeout if timeout is not None else cfg.timeout_read
+        cache_key = url
+        with self._cache_lock:
+            cached = self.cache.get(cache_key)
+            if cached is not None:
+                logger.debug(
+                    "cache_hit",
+                    extra={
+                        "url": url,
+                        "rps": cfg.rps,
+                        "status": "hit",
+                        "timeout": read_timeout,
+                    },
+                )
+                return cast(dict[str, Any], cached)
+            logger.debug(
+                "cache_miss",
+                extra={
+                    "url": url,
+                    "rps": cfg.rps,
+                    "status": "miss",
+                    "timeout": read_timeout,
+                },
+            )
 
+<<<<<<< Updated upstream
         for i in range(0, len(molecule_chembl_ids), effective_batch_size):
             batch = molecule_chembl_ids[i:i + effective_batch_size]
             
@@ -830,3 +1066,327 @@ class ChEMBLClient(BaseApiClient):
                     }
         
         return results
+=======
+        last_exc: BaseException | None = None
+        last_exc_cause: BaseException | None = None
+        total_attempts = cfg.retries + 1
+        fallback_url = _strip_json_suffix(url)
+
+        for attempt in range(1, total_attempts + 1):
+            request_url = url
+            used_fallback = False
+            abort_attempts = False
+            while True:
+                if self._global_limiter is not None:
+                    self._global_limiter.acquire()
+                limiter.acquire()
+                if used_fallback:
+                    event = "request_fallback"
+                else:
+                    event = "request_start" if attempt == 1 else "request_retry"
+                logger.debug(
+                    event,
+                    extra={
+                        "url": request_url,
+                        "attempt": attempt,
+                        "rps": cfg.rps,
+                        "timeout": read_timeout,
+                    },
+                )
+                try:
+                    start_time = monotonic()
+                    session = self._get_session()
+                    with session.get(request_url, timeout=(cfg.timeout_connect, read_timeout)) as response:
+                        response.raise_for_status()
+                        try:
+                            data = cast(dict[str, Any], response.json())
+                        except ValueError as exc:
+                            elapsed = monotonic() - start_time
+                            logger.exception(
+                                "json_error",
+                                extra={"url": request_url, "elapsed": elapsed},
+                            )
+                            raise ValueError(f"invalid JSON in response from {request_url}") from exc
+                        response_elapsed = getattr(response, "elapsed", None)
+                        response_elapsed_seconds: float | None
+                        if response_elapsed is not None and hasattr(response_elapsed, "total_seconds"):
+                            response_elapsed_seconds = float(response_elapsed.total_seconds())
+                        else:
+                            response_elapsed_seconds = None
+                        duration = monotonic() - start_time
+                        logger.debug(
+                            "request_ok",
+                            extra={
+                                "url": request_url,
+                                "status": getattr(response, "status_code", None),
+                                "rps": cfg.rps,
+                                "elapsed": duration,
+                                "response_elapsed": response_elapsed_seconds,
+                                "timeout": read_timeout,
+                            },
+                        )
+                        with self._cache_lock:
+                            cached = self.cache.get(cache_key)
+                            if cached is not None:
+                                return cast(dict[str, Any], cached)
+                            self.cache.set(cache_key, data)
+                            logger.debug("cache_set", extra={"url": url, "rps": cfg.rps})
+                        if used_fallback:
+                            logger.debug(
+                                "request_fallback_ok",
+                                extra={
+                                    "original_url": url,
+                                    "fallback_url": request_url,
+                                    "attempt": attempt,
+                                    "rps": cfg.rps,
+                                    "elapsed": duration,
+                                    "response_elapsed": response_elapsed_seconds,
+                                    "timeout": read_timeout,
+                                },
+                            )
+                        return data
+                except ValueError as exc:
+                    elapsed = monotonic() - start_time
+                    last_exc = exc
+                    last_exc_cause = None
+                    if attempt >= total_attempts:
+                        logger.exception(
+                            "request_fail",
+                            extra={
+                                "url": request_url,
+                                "status": None,
+                                "rps": cfg.rps,
+                                "elapsed": elapsed,
+                                "attempt": attempt,
+                                "timeout": read_timeout,
+                                "retry": attempt,
+                                "backoff": 0.0,
+                            },
+                        )
+                        break
+                    delay = _backoff_delay(attempt, cfg, header_delay=None, jitter=self._jitter)
+                    _log_retry_warning(
+                        "request_retry_json_error",
+                        url=request_url,
+                        attempt=attempt,
+                        delay=delay,
+                        elapsed=elapsed,
+                        status=None,
+                    )
+                    _log_retry_delay(request_url, attempt, None, delay)
+                    sleep(delay)
+                    break
+                except requests.exceptions.HTTPError as exc:
+                    elapsed = monotonic() - start_time
+                    response = getattr(exc, "response", None)
+                    status = getattr(response, "status_code", None)
+                    header_delay = None
+                    if response is not None:
+                        retry_after = response.headers.get("Retry-After")
+                        if retry_after is not None:
+                            try:
+                                header_delay = float(retry_after)
+                            except ValueError:
+                                try:
+                                    retry_date = parsedate_to_datetime(retry_after)
+                                    if retry_date is not None:
+                                        header_delay = retry_date.replace(tzinfo=timezone.utc).timestamp() - datetime.now(timezone.utc).timestamp()
+                                except ValueError:
+                                    pass
+                    last_exc = exc
+                    last_exc_cause = None
+                    if attempt >= total_attempts:
+                        logger.exception(
+                            "request_fail",
+                            extra={
+                                "url": request_url,
+                                "status": status,
+                                "rps": cfg.rps,
+                                "elapsed": elapsed,
+                                "attempt": attempt,
+                                "timeout": read_timeout,
+                                "retry": attempt,
+                                "backoff": 0.0,
+                            },
+                        )
+                        break
+                    delay = _backoff_delay(attempt, cfg, header_delay=header_delay, jitter=self._jitter)
+                    _log_retry_warning(
+                        "request_retry_http_error",
+                        url=request_url,
+                        attempt=attempt,
+                        delay=delay,
+                        elapsed=elapsed,
+                        status=status,
+                        exc_info=True,
+                    )
+                    _log_retry_delay(request_url, attempt, status, delay, header_delay)
+                    sleep(delay)
+                    break
+                except requests.RequestException as exc:
+                    elapsed = monotonic() - start_time
+                    normalized_exc = exc
+                    last_exc = normalized_exc
+                    last_exc_cause = exc if normalized_exc is not exc else None
+                    response = getattr(exc, "response", None)
+                    status = getattr(response, "status_code", None)
+                    name_resolution_error = _is_name_resolution_error(exc)
+                    if not used_fallback and fallback_url is not None and fallback_url != request_url and _should_switch_to_fallback(normalized_exc) and not name_resolution_error:
+                        used_fallback = True
+                        request_url = fallback_url
+                        logger.debug(
+                            "request_fallback_switch",
+                            extra={
+                                "original_url": url,
+                                "fallback_url": request_url,
+                                "attempt": attempt,
+                                "rps": cfg.rps,
+                                "elapsed": elapsed,
+                            },
+                        )
+                        continue
+                    if name_resolution_error:
+                        logger.exception(
+                            "request_name_resolution_error",
+                            extra={
+                                "url": request_url,
+                                "attempt": attempt,
+                                "rps": cfg.rps,
+                                "timeout": read_timeout,
+                                "retry": attempt,
+                                "backoff": 0.0,
+                                "status": status,
+                                "elapsed": elapsed,
+                            },
+                        )
+                        abort_attempts = True
+                        break
+                    if attempt >= total_attempts:
+                        logger.exception(
+                            "request_fail",
+                            extra={
+                                "url": request_url,
+                                "status": None,
+                                "rps": cfg.rps,
+                                "elapsed": elapsed,
+                                "attempt": attempt,
+                                "timeout": read_timeout,
+                                "retry": attempt,
+                                "backoff": 0.0,
+                            },
+                        )
+                        break
+                    delay = _backoff_delay(attempt, cfg, header_delay=None, jitter=self._jitter)
+                    _log_retry_warning(
+                        "request_retry_exception",
+                        url=request_url,
+                        attempt=attempt,
+                        delay=delay,
+                        elapsed=elapsed,
+                        status=status,
+                        exc_info=True,
+                    )
+                    _log_retry_delay(request_url, attempt, status, delay)
+                    sleep(delay)
+                    break
+
+            if abort_attempts:
+                break
+
+        if last_exc is not None:
+            if last_exc_cause is not None and last_exc is not last_exc_cause:
+                raise last_exc from last_exc_cause
+            raise last_exc
+        raise RuntimeError(f"Request loop exited unexpectedly for {url}")
+
+    def fetch_all_activities(self, activity_ids: list[str]) -> Iterator[dict[str, Any]]:
+        """Fetch activity data from ChEMBL API for given activity IDs.
+
+        Parameters
+        ----------
+        activity_ids : list[str]
+            List of ChEMBL activity IDs to fetch.
+
+        Yields
+        ------
+        dict[str, Any]
+            Activity data from ChEMBL API.
+        """
+        if not activity_ids:
+            return
+
+        # ChEMBL API base URL for activities
+        base_url = "https://www.ebi.ac.uk/chembl/api/data/activity"
+
+        # Process activity IDs in batches to avoid URL length limits
+        batch_size = 100  # ChEMBL API can handle up to 100 IDs per request
+
+        for i in range(0, len(activity_ids), batch_size):
+            batch_ids = activity_ids[i : i + batch_size]
+
+            # Build URL with activity IDs as query parameters
+            # Format: /activity?activity_id__in=ID1,ID2,ID3
+            activity_ids_str = ",".join(batch_ids)
+            url = f"{base_url}?activity_id__in={activity_ids_str}&format=json&limit=1000"
+
+            try:
+                # Use the existing fetch method with default config
+                # We need to create a basic config for the request
+                from library.settings import APIClientConfig, RetrySettings
+
+                cfg = APIClientConfig(
+                    name="chembl_activities",
+                    base_url=base_url,
+                    timeout_read=60.0,
+                    timeout_connect=30.0,
+                    rps=5.0,
+                    burst=10,
+                    retries=RetrySettings(retries=3, backoff_multiplier=1.5, max_delay=30.0),
+                )
+
+                response_data = self.fetch(url, cfg)
+
+                # Extract activities from response
+                if isinstance(response_data, dict) and "activities" in response_data:
+                    activities = response_data["activities"]
+                    if isinstance(activities, list):
+                        yield from activities
+                    else:
+                        logger.warning(f"Unexpected activities format in response: {type(activities)}")
+                else:
+                    logger.warning(f"Unexpected response format: {type(response_data)}")
+
+            except Exception as e:
+                logger.error(f"Failed to fetch activities for batch {i // batch_size + 1}: {e}")
+                # Continue with next batch instead of failing completely
+                continue
+
+    def clear_cache(self) -> None:
+        """Remove all entries from the in-memory cache."""
+
+        with self._cache_lock:
+            self.cache.clear()
+
+    def close(self) -> None:
+        """Close all managed sessions."""
+
+        with self._sessions_lock:
+            for session in self._sessions:
+                session.close()
+            self._sessions.clear()
+
+    def __enter__(self) -> ChemblClient:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.close()
+
+
+# Alias for backward compatibility
+ChEMBLClient = ChemblClient
+>>>>>>> Stashed changes

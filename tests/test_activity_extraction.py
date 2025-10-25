@@ -285,7 +285,7 @@ class TestActivityChEMBLClient:
             'bao_label': 'IC50'
         }
         
-        parsed = self.client._parse_activity(sample_activity)
+        parsed = self.client._parse_activity(sample_activity)  # type: ignore[attr-defined]
         
         # Check that all expected fields are present
         expected_fields = [

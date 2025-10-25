@@ -280,3 +280,4 @@ logs/
 !docs/
 !docs/**
 !docs/_build/
+API_KEYS_SETUP.md

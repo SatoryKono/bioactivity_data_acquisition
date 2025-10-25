@@ -16,43 +16,41 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 def _validate_secrets(headers: dict[str, Any]) -> None:
     """Validate that all required secrets are available in environment variables.
-    
+
     Checks all header values for placeholder patterns like {API_KEY} and ensures
     the corresponding environment variables are set.
-    
+
     Args:
         headers: Dictionary of HTTP headers that may contain secret placeholders.
-    
+
     Raises:
         ValueError: If any required environment variables are missing.
     """
     missing_secrets = []
-    
+
     for key, value in headers.items():
+>>>>>>> Stashed changes
         if isinstance(value, str):
-            placeholders = re.findall(r'\{([^}]+)\}', value)
+            placeholders = re.findall(r"\{([^}]+)\}", value)
             for placeholder in placeholders:
                 env_var = os.environ.get(placeholder.upper())
                 if env_var is None:
                     missing_secrets.append(placeholder.upper())
-    
+
     if missing_secrets:
-        raise ValueError(
-            f"Missing required environment variables: {', '.join(set(missing_secrets))}. "
-            f"Please set these variables before running the pipeline."
-        )
+        raise ValueError(f"Missing required environment variables: {', '.join(set(missing_secrets))}. Please set these variables before running the pipeline.")
 
 
 def _merge_dicts(base: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, Any]:
     """Recursively merge overrides into base and return a copy.
-    
+
     Performs deep merge of nested dictionaries, with overrides taking precedence
     over base values.
-    
+
     Args:
         base: Base dictionary to merge into.
         overrides: Dictionary with override values.
-    
+
     Returns:
         New dictionary with merged values.
     """
@@ -84,15 +82,15 @@ def _parse_scalar(value: str) -> Any:
 
 def ensure_output_directories_exist(config: "Config") -> None:
     """Create necessary directories for output files in configuration.
-    
+
     Creates parent directories for all output paths specified in the configuration
     to ensure they exist before writing files.
-    
+
     Args:
         config: Configuration object containing output paths.
     """
     output_settings = config.io.output
-    
+
     # Создаем родительские директории для всех выходных путей
     output_settings.data_path.parent.mkdir(parents=True, exist_ok=True)
     output_settings.qc_report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -215,23 +213,24 @@ class SourceSettings(BaseModel):
         # Merge headers and validate secrets
         merged_headers = {**defaults.headers, **self.http.headers}
         _validate_secrets(merged_headers)
-        
+
         # Process secrets in headers
         processed_headers = {}
         for key, value in merged_headers.items():
             if isinstance(value, str):
+
                 def replace_placeholder(match):
                     secret_name = match.group(1)
                     env_var = os.environ.get(secret_name.upper())
                     return env_var if env_var is not None else match.group(0)
-                processed_value = re.sub(r'\{([^}]+)\}', replace_placeholder, value)
+
+                processed_value = re.sub(r"\{([^}]+)\}", replace_placeholder, value)
                 # Only include header if the value is not empty after processing and not a placeholder
-                if (processed_value and processed_value.strip() and 
-                    not processed_value.startswith('{') and not processed_value.endswith('}')):
+                if processed_value and processed_value.strip() and not processed_value.startswith("{") and not processed_value.endswith("}"):
                     processed_headers[key] = processed_value
             else:
                 processed_headers[key] = value
-        
+
         timeout = self.http.timeout_sec or defaults.timeout_sec
         retries = self.http.retries or defaults.retries
         return APIClientConfig(
@@ -367,8 +366,7 @@ class DeterminismSettings(BaseModel):
         ]
     )
     lowercase_columns: list[str] = Field(
-        default_factory=list,
-        description="Список колонок, которые должны быть приведены к нижнему регистру при нормализации. По умолчанию пустой - регистр сохраняется."
+        default_factory=list, description="Список колонок, которые должны быть приведены к нижнему регистру при нормализации. По умолчанию пустой - регистр сохраняется."
     )
 
 
@@ -429,10 +427,36 @@ class Config(BaseModel):
     @classmethod
     def _load_schema(cls) -> dict[str, Any]:
         """Load JSON Schema for configuration validation."""
+<<<<<<< Updated upstream
         schema_path = Path(__file__).parent.parent.parent / "configs" / "schema.json"
         if not schema_path.exists():
             raise FileNotFoundError(f"Schema file not found: {schema_path}")
         
+=======
+        # Try multiple possible locations for schema.json
+        possible_paths = [
+            # From current working directory (for development)
+            Path.cwd() / "configs" / "schema.json",
+            # From project root (if running from project directory)
+            Path.cwd().parent / "configs" / "schema.json",
+            # From installed package location (for production)
+            Path(__file__).parent.parent.parent / "configs" / "schema.json",
+            # From environment variable if set
+            Path(os.environ.get("SCHEMA_PATH", "")) if os.environ.get("SCHEMA_PATH") else None,
+        ]
+
+        # Filter out None values
+        possible_paths = [p for p in possible_paths if p is not None]
+
+        schema_path = None
+        for path in possible_paths:
+            if path.exists():
+                schema_path = path
+                break
+
+        if schema_path is None:
+            raise FileNotFoundError(f"Schema file not found in any of the following locations: {[str(p) for p in possible_paths]}")
+
         with schema_path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
@@ -482,13 +506,13 @@ class Config(BaseModel):
 
         merged = _merge_dicts(base_data, env_overrides)
         merged = _merge_dicts(merged, cli_overrides)
-        
+
         # Validate against JSON Schema before processing
         cls._validate_with_schema(merged)
-        
+
         # Process secrets
         merged = cls._process_secrets(merged)
-        
+
         return cls.model_validate(merged)
 
     @staticmethod
@@ -519,9 +543,7 @@ class Config(BaseModel):
                 path = [segment.strip().lower() for segment in key.split(".") if segment.strip()]
                 if not path:
                     continue
-                _assign_path(
-                    result, path, value if not isinstance(value, str) else _parse_scalar(value)
-                )
+                _assign_path(result, path, value if not isinstance(value, str) else _parse_scalar(value))
             else:
                 result[key] = value if not isinstance(value, str) else _parse_scalar(value)
         return result
@@ -544,7 +566,7 @@ class Config(BaseModel):
     def _process_secrets(config_data: dict[str, Any]) -> dict[str, Any]:
         """Process secret placeholders in configuration data."""
         import re
-        
+
         def replace_secrets(obj: Any) -> Any:
             if isinstance(obj, str):
                 # Replace {secret_name} with environment variable value
@@ -552,15 +574,15 @@ class Config(BaseModel):
                     secret_name = match.group(1)
                     env_var = os.environ.get(secret_name.upper())
                     return env_var if env_var is not None else match.group(0)
-                
-                return re.sub(r'\{([^}]+)\}', replace_placeholder, obj)
+
+                return re.sub(r"\{([^}]+)\}", replace_placeholder, obj)
             elif isinstance(obj, dict):
                 return {key: replace_secrets(value) for key, value in obj.items()}
             elif isinstance(obj, list):
                 return [replace_secrets(item) for item in obj]
             else:
                 return obj
-        
+
         return replace_secrets(config_data)
 
 

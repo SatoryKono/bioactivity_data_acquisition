@@ -1,0 +1,59 @@
+!!python/object:library.common.metadata.PipelineMetadata
+__dict__:
+  pipeline:
+    name: activities
+    version: 2.0.0
+    entity_type: activities
+    source_system: chembl
+  execution: !!python/object:library.common.metadata.ExecutionInfo
+    __dict__:
+      run_id: activities_20251025_172404_05705944
+      started_at: '2025-10-25T17:24:04.626413'
+      completed_at: '2025-10-25T17:24:04.626465'
+      duration_sec: 5.2e-05
+      memory_peak_mb: null
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      started_at: null
+      completed_at: null
+      duration_sec: null
+      run_id: null
+    __pydantic_private__: null
+  data: !!python/object:library.common.metadata.DataInfo
+    __dict__:
+      row_count: 10
+      row_count_accepted: 10
+      row_count_rejected: 0
+      columns_count: 47
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      row_count_accepted: null
+      row_count: null
+      columns_count: null
+      row_count_rejected: null
+    __pydantic_private__: null
+  sources: []
+  validation: !!python/object:library.common.metadata.ValidationInfo
+    __dict__:
+      schema_passed: true
+      qc_passed: true
+      warnings: 0
+      errors: 0
+    __pydantic_extra__: null
+    __pydantic_fields_set__: !!set
+      errors: null
+      schema_passed: null
+      qc_passed: null
+      warnings: null
+    __pydantic_private__: null
+  files: {}
+  metadata: {}
+__pydantic_extra__: null
+__pydantic_fields_set__: !!set
+  sources: null
+  validation: null
+  execution: null
+  pipeline: null
+  data: null
+  files: null
+__pydantic_private__: null

@@ -266,10 +266,16 @@ fi
 
 ## Связанные документы
 
+<<<<<<< Updated upstream
 - [CLEANUP_REPORT.md](../../CLEANUP_REPORT.md) - основной отчёт об очистке
 - [Makefile](../../Makefile) - доступные команды валидации
 - [Pre-commit конфигурация](../../.pre-commit-config.yaml) - настройки хуков
 - [MkDocs конфигурация](../../configs/mkdocs.yml) - настройки документации
+=======
+- [Makefile](../../Makefile) - доступные команды валидации
+- [Pre-commit конфигурация](../../.pre-commit-config.yaml) - настройки хуков
+- [MkDocs конфигурация](../../mkdocs.yml) - настройки документации
+>>>>>>> Stashed changes
 - [Руководство по контрибьюшену](contribute.md) - процесс разработки
 
 ---

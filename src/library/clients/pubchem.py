@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 
 from library.clients.base import BaseApiClient
-from library.config import APIClientConfig
+from library.common.cache import CacheConfig, CacheStrategy, UnifiedCache
+from library.settings import APIClientConfig
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +19,7 @@ class PubChemClient(BaseApiClient):
 
     def __init__(self, config: APIClientConfig, *, cache_dir: str | None = None, **kwargs: Any) -> None:
         super().__init__(config, **kwargs)
+<<<<<<< Updated upstream
         # Optional simple file cache directory for GET requests
         self._cache_dir: Path | None = Path(cache_dir) if cache_dir else None
         if self._cache_dir is not None:
@@ -28,6 +28,21 @@ class PubChemClient(BaseApiClient):
             except Exception as exc:  # pragma: no cover
                 logger.warning(f"Failed to create PubChem cache dir {self._cache_dir}: {exc}")
                 self._cache_dir = None
+=======
+        # Initialize unified cache
+        if cache_dir is not None:
+            cache_config = CacheConfig(
+                strategy=CacheStrategy.FILE,
+                ttl=3600,  # 1 hour default
+                cache_dir=cache_dir,
+                key_prefix="pubchem",
+            )
+            self._cache = UnifiedCache(cache_config)
+        else:
+            # Use memory cache if no cache_dir provided
+            cache_config = CacheConfig(strategy=CacheStrategy.MEMORY, ttl=3600, max_size=1000, key_prefix="pubchem")
+            self._cache = UnifiedCache(cache_config)
+>>>>>>> Stashed changes
 
     # --- simple GET JSON cache helpers ----------------------------------------------------
     def _cache_key(self, path: str) -> str:
@@ -35,6 +50,7 @@ class PubChemClient(BaseApiClient):
         return hashlib.sha1(key_source.encode("utf-8")).hexdigest()
 
     def _cache_read(self, path: str) -> dict[str, Any] | None:
+<<<<<<< Updated upstream
         if self._cache_dir is None:
             return None
         file_path = self._cache_dir / f"{self._cache_key(path)}.json"
@@ -56,6 +72,14 @@ class PubChemClient(BaseApiClient):
                 json.dump(payload, f, ensure_ascii=False)
         except Exception as exc:  # pragma: no cover
             logger.warning(f"Failed to write PubChem cache: {exc}")
+=======
+        cache_key = self._cache_key(path)
+        return self._cache.get(cache_key)
+
+    def _cache_write(self, path: str, payload: dict[str, Any]) -> None:
+        cache_key = self._cache_key(path)
+        self._cache.set(cache_key, payload)
+>>>>>>> Stashed changes
 
     def _get_with_cache(self, path: str) -> dict[str, Any]:
         cached = self._cache_read(path)
@@ -64,44 +88,36 @@ class PubChemClient(BaseApiClient):
         payload = self._request("GET", path)
         if isinstance(payload, dict):
             self._cache_write(path, payload)
-        return payload
+        return cast(dict[str, Any], payload)
 
     def fetch_compound_properties(self, cid: str) -> dict[str, Any]:
         """Fetch compound properties by PubChem CID."""
         try:
-            payload = self._get_with_cache(
-                f"compound/cid/{cid}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON"
-            )
+            payload = self._get_with_cache(f"compound/cid/{cid}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON")
             return self._parse_compound_properties(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch PubChem properties for CID {cid}: {e}")
             return {}
 
-    def fetch_compounds_properties_batch(
-        self,
-        cids: list[str],
-        batch_size: int = 100
-    ) -> dict[str, dict[str, Any]]:
+    def fetch_compounds_properties_batch(self, cids: list[str], batch_size: int = 100) -> dict[str, dict[str, Any]]:
         """Fetch properties for multiple CIDs.
-        
+
         PubChem supports comma-separated CID lists:
         compound/cid/1,2,3/property/.../JSON
         """
         if not cids:
             return {}
-        
+
         results = {}
-        
+
         # Process in batches to avoid URL length limits
         for i in range(0, len(cids), batch_size):
-            batch = cids[i:i + batch_size]
+            batch = cids[i : i + batch_size]
             batch_str = ",".join(batch)
-            
+
             try:
-                payload = self._get_with_cache(
-                    f"compound/cid/{batch_str}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON"
-                )
-                
+                payload = self._get_with_cache(f"compound/cid/{batch_str}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON")
+
                 # Parse batch results
                 if "PropertyTable" in payload and "Properties" in payload["PropertyTable"]:
                     properties_list = payload["PropertyTable"]["Properties"]
@@ -110,18 +126,18 @@ class PubChemClient(BaseApiClient):
                         if cid:
                             parsed_props = self._parse_compound_properties({"PropertyTable": {"Properties": [prop_data]}})
                             results[cid] = parsed_props
-                
+
                 # Add empty records for missing CIDs
                 for cid in batch:
                     if cid not in results:
                         results[cid] = {}
-                        
+
             except Exception as e:
                 logger.warning(f"Failed to fetch PubChem properties batch {batch}: {e}")
                 # Add empty records for failed batch
                 for cid in batch:
                     results[cid] = {}
-        
+
         return results
 
     def fetch_compound_xrefs(self, cid: str) -> dict[str, Any]:
@@ -220,7 +236,7 @@ class PubChemClient(BaseApiClient):
         properties = payload.get("PropertyTable", {}).get("Properties", [])
         if not properties:
             return {}
-        
+
         props = properties[0]
         return {
             "pubchem_molecular_formula": props.get("MolecularFormula"),
@@ -228,7 +244,7 @@ class PubChemClient(BaseApiClient):
             "pubchem_canonical_smiles": props.get("CanonicalSMILES"),
             "pubchem_isomeric_smiles": props.get("IsomericSMILES"),
             "pubchem_inchi": props.get("InChI"),
-            "pubchem_inchi_key": props.get("InChIKey")
+            "pubchem_inchi_key": props.get("InChIKey"),
         }
 
     def _parse_compound_xrefs(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -236,27 +252,20 @@ class PubChemClient(BaseApiClient):
         xrefs = payload.get("InformationList", {}).get("Information", [])
         if not xrefs:
             return {}
-        
+
         xref_data = xrefs[0]
-        return {
-            "pubchem_registry_id": xref_data.get("RegistryID"),
-            "pubchem_rn": xref_data.get("RN")
-        }
+        return {"pubchem_registry_id": xref_data.get("RegistryID"), "pubchem_rn": xref_data.get("RN")}
 
     def _parse_compound_synonyms(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Parse compound synonyms from PubChem response."""
         synonyms = payload.get("InformationList", {}).get("Information", [])
         if not synonyms:
             return {}
-        
+
         synonym_list = synonyms[0].get("Synonym", [])
-        return {
-            "pubchem_synonyms": synonym_list
-        }
+        return {"pubchem_synonyms": synonym_list}
 
     def _parse_compound_cids(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Parse compound CIDs from PubChem response."""
         cids = payload.get("IdentifierList", {}).get("CID", [])
-        return {
-            "pubchem_cids": cids
-        }
+        return {"pubchem_cids": cids}

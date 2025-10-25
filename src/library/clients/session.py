@@ -1,4 +1,5 @@
 """Shared requests session helpers."""
+
 from __future__ import annotations
 
 import threading
@@ -18,23 +19,20 @@ def get_shared_session() -> requests.Session:
         with _LOCK:
             if _SESSION is None:
                 _SESSION = requests.Session()
-                
+
                 # Configure retry strategy
                 retry_strategy = Retry(
-                    total=3,
-                    backoff_factor=1.0,
-                    status_forcelist=[429, 500, 502, 503, 504],
-                    allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"]
+                    total=3, backoff_factor=1.0, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"]
                 )
-                
+
                 # Mount adapters with retry strategy and timeouts
                 adapter = HTTPAdapter(max_retries=retry_strategy)
                 _SESSION.mount("http://", adapter)
                 _SESSION.mount("https://", adapter)
-                
+
                 # Set default timeout (connect timeout, read timeout)
                 _SESSION.timeout = (10.0, 30.0)
-                
+
     return _SESSION
 
 

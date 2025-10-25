@@ -1,12 +1,24 @@
 """Client for the Crossref API."""
+
 from __future__ import annotations
 
 import logging
 from typing import Any
 from urllib.parse import quote
 
+<<<<<<< Updated upstream
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
+=======
+from library.clients.base import BaseApiClient
+from library.common.exceptions import ApiClientError
+from library.settings import APIClientConfig
+from library.utils.list_converter import (
+    convert_authors_list,
+    convert_issn_list,
+    convert_subject_list,
+)
+>>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
@@ -15,12 +27,27 @@ class CrossrefClient(BaseApiClient):
     """HTTP client for Crossref works."""
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
+<<<<<<< Updated upstream
         super().__init__(config, **kwargs)
+=======
+        # Добавляем email в User-Agent для polite pool согласно документации Crossref
+        headers = dict(config.headers)
+
+        # Используем реальный email из конфигурации
+        email = getattr(config, "mailto", None) or "821311@gmail.com"
+        if "User-Agent" not in headers:
+            headers["User-Agent"] = f"bioactivity-data-acquisition/0.1.0 (mailto:{email})"
+
+        enhanced = config.model_copy(update={"headers": headers})
+        super().__init__(enhanced, **kwargs)
+        self.logger = logger
+>>>>>>> Stashed changes
 
     def fetch_by_doi(self, doi: str) -> dict[str, Any]:
         """Fetch Crossref work by DOI with fallback search."""
 
         encoded = quote(doi, safe="")
+<<<<<<< Updated upstream
         try:
             payload = self._request("GET", encoded)
             message = payload.get("message", payload)
@@ -41,27 +68,39 @@ class CrossrefClient(BaseApiClient):
             self.logger.info("fallback_to_search", doi=doi, error=str(exc))
             try:
                 payload = self._request("GET", "", params={"query.bibliographic": doi})
+=======
+
+        # Добавляем mailto параметр для доступа к polite pool
+        mailto_param = ""
+        if hasattr(self.config, "mailto") and self.config.mailto:
+            mailto_param = f"?mailto={quote(self.config.mailto)}"
+
+        try:
+            # Crossref API requires /works/ prefix for DOI lookups
+            response = self._request("GET", f"works/{encoded}{mailto_param}")
+            payload = response.json()
+            message = payload.get("message", payload)
+            return self._parse_work(message)
+        except ApiClientError as exc:
+            # Try fallback search
+            self.logger.info("fallback_to_search doi=%s error=%s", doi, str(exc))
+            try:
+                # Crossref search endpoint requires /works prefix
+                response = self._request("GET", "works", params={"query.bibliographic": doi})
+                payload = response.json()
+>>>>>>> Stashed changes
                 items = payload.get("message", {}).get("items", [])
                 if not items:
                     raise
                 return self._parse_work(items[0])
-            except ApiClientError as fallback_exc:
-                # If fallback also fails, use graceful degradation
-                if self.degradation_manager.should_degrade(self.config.name, fallback_exc):
-                    self.logger.warning(
-                        f"Crossref fallback also failed, using graceful degradation: {fallback_exc}"
-                    )
-                    return self.degradation_manager.get_fallback_data(
-                        self.config.name,
-                        {"doi": doi},
-                        fallback_exc
-                    )
-                else:
-                    raise
+            except ApiClientError:
+                # If fallback also fails, raise the exception
+                raise
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         """Fetch Crossref work by PubMed identifier with fallback query."""
 
+<<<<<<< Updated upstream
         try:
             payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
         except ApiClientError as exc:
@@ -77,32 +116,35 @@ class CrossrefClient(BaseApiClient):
                 )
             
             self.logger.info("pmid_lookup_failed", pmid=pmid, error=str(exc))
+=======
+        # Добавляем mailto параметр
+        mailto_param = ""
+        if hasattr(self.config, "mailto") and self.config.mailto:
+            mailto_param = f"&mailto={quote(self.config.mailto)}"
+
+        try:
+            response = self._request("GET", "", params={"filter": f"pmid:{pmid}{mailto_param}"})
+            payload = response.json()
+        except ApiClientError as exc:
+            self.logger.info("pmid_lookup_failed pmid=%s error=%s", pmid, str(exc))
+>>>>>>> Stashed changes
             payload = {"message": {"items": []}}
-        
+
         items = payload.get("message", {}).get("items", [])
         if items:
             return self._parse_work(items[0])
 
         self.logger.info("pmid_fallback_to_query", pmid=pmid)
         try:
-            payload = self._request("GET", "", params={"query": pmid})
+            response = self._request("GET", "", params={"query": pmid})
+            payload = response.json()
             items = payload.get("message", {}).get("items", [])
             if not items:
                 raise ApiClientError(f"No Crossref work found for PMID {pmid}")
             return self._parse_work(items[0])
-        except ApiClientError as exc:
-            # If fallback also fails, use graceful degradation
-            if self.degradation_manager.should_degrade(self.config.name, exc):
-                self.logger.warning(
-                    f"Crossref PMID fallback also failed, using graceful degradation: {exc}"
-                )
-                return self.degradation_manager.get_fallback_data(
-                    self.config.name,
-                    {"pmid": pmid},
-                    exc
-                )
-            else:
-                raise
+        except ApiClientError:
+            # If fallback also fails, raise the exception
+            raise
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         # Обрабатываем subject - если это пустой список, возвращаем None
@@ -112,38 +154,66 @@ class CrossrefClient(BaseApiClient):
         elif isinstance(subject, list) and subject:
             # Если есть subjects, объединяем их в строку
             subject = "; ".join(str(s) for s in subject if s)
-        
+
         # Если subject не найден, пытаемся вывести из названия журнала
         if not subject:
             journal = work.get("container-title", [])
             if isinstance(journal, list) and journal:
                 journal_name = journal[0].lower()
-                if 'medicinal chemistry' in journal_name or 'j med chem' in journal_name:
+                if "medicinal chemistry" in journal_name or "j med chem" in journal_name:
                     subject = "Medicinal Chemistry"
-                elif 'pharmacology' in journal_name:
+                elif "pharmacology" in journal_name:
                     subject = "Pharmacology"
-                elif 'biochemistry' in journal_name:
+                elif "biochemistry" in journal_name:
                     subject = "Biochemistry"
-                elif 'organic chemistry' in journal_name:
+                elif "organic chemistry" in journal_name:
                     subject = "Organic Chemistry"
-                elif 'drug' in journal_name:
+                elif "drug" in journal_name:
                     subject = "Drug Discovery"
-                elif 'therapeutic' in journal_name:
+                elif "therapeutic" in journal_name:
                     subject = "Therapeutics"
-                elif 'molecular' in journal_name:
+                elif "molecular" in journal_name:
                     subject = "Molecular Biology"
-                elif 'cell' in journal_name:
+                elif "cell" in journal_name:
                     subject = "Cell Biology"
-                elif 'nature' in journal_name:
+                elif "nature" in journal_name:
                     subject = "General Science"
-                elif 'science' in journal_name:
+                elif "science" in journal_name:
                     subject = "General Science"
-        
+
         # Обрабатываем title - извлекаем первый элемент если это список
         title = work.get("title")
         if isinstance(title, list) and title:
             title = title[0]
+<<<<<<< Updated upstream
         
+=======
+
+        # Извлекаем дополнительные библиографические данные
+        published = work.get("published-print") or work.get("published-online")
+        crossref_year = None
+        if published and "date-parts" in published:
+            date_parts = published["date-parts"]
+            if date_parts and len(date_parts) > 0 and len(date_parts[0]) > 0:
+                year = date_parts[0][0]
+                crossref_year = int(year) if year else None
+
+        # Извлекаем volume, issue, page
+        page = work.get("page")
+        crossref_first_page = None
+        crossref_last_page = None
+        if page:
+            if "-" in page:
+                pages = page.split("-")
+                crossref_first_page = pages[0] if pages[0] else None
+                crossref_last_page = pages[1] if len(pages) > 1 and pages[1] else None
+            else:
+                crossref_first_page = page
+
+        # Извлекаем journal из container-title
+        journal_name = self._extract_journal(work)
+
+>>>>>>> Stashed changes
         record: dict[str, Any | None] = {
             "source": "crossref",
             "doi_key": work.get("DOI"),
@@ -166,7 +236,7 @@ class CrossrefClient(BaseApiClient):
         pmid = work.get("pmid")
         if pmid:
             return str(pmid)
-        
+
         # Проверяем в link
         links = work.get("link", [])
         if isinstance(links, list):
@@ -176,10 +246,11 @@ class CrossrefClient(BaseApiClient):
                     if "pubmed.ncbi.nlm.nih.gov" in url and "pmid=" in url:
                         # Извлекаем PMID из URL
                         import re
-                        match = re.search(r'pmid=(\d+)', url)
+
+                        match = re.search(r"pmid=(\d+)", url)
                         if match:
                             return match.group(1)
-        
+
         return None
 
     def _extract_authors(self, work: dict[str, Any]) -> list[str] | None:
@@ -196,7 +267,7 @@ class CrossrefClient(BaseApiClient):
                         full_name = f"{given} {family}".strip()
                         author_names.append(full_name)
             return author_names if author_names else None
-        
+
         return None
 
     def _extract_issn(self, work: dict[str, Any]) -> str | None:
@@ -207,15 +278,16 @@ class CrossrefClient(BaseApiClient):
             if isinstance(issn, list) and issn:
                 return issn[0]  # Берем первый ISSN если их несколько
             return str(issn)
-        
+
         # Проверяем в container-title
         container_title = work.get("container-title", [])
         if isinstance(container_title, list) and container_title:
             # В Crossref ISSN может быть в метаданных контейнера
             # Но обычно он находится в отдельном поле issn
             pass
-        
+
         return None
+<<<<<<< Updated upstream
 
     def fetch_by_dois_batch(
         self, 
@@ -224,11 +296,56 @@ class CrossrefClient(BaseApiClient):
     ) -> dict[str, dict[str, Any]]:
         """Fetch multiple works by DOIs.
         
+=======
+
+    def _extract_journal(self, work: dict[str, Any]) -> str | None:
+        """Извлекает название журнала из Crossref work."""
+        # Извлекаем из container-title
+        container_title = work.get("container-title", [])
+        if isinstance(container_title, list) and container_title:
+            journal = container_title[0]
+            if journal:
+                return str(journal)
+
+        # Fallback на short-container-title
+        short_container = work.get("short-container-title", [])
+        if isinstance(short_container, list) and short_container:
+            journal = short_container[0]
+            if journal:
+                return str(journal)
+
+        return None
+
+    def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:
+        """Создает пустую запись для случая ошибки."""
+        return {
+            "source": "crossref",
+            "crossref_doi": identifier if identifier.startswith("10.") else None,
+            "crossref_pmid": identifier if not identifier.startswith("10.") else None,
+            "crossref_title": None,
+            "crossref_doc_type": None,
+            "crossref_subject": None,
+            "crossref_abstract": None,
+            "crossref_issn": None,
+            "crossref_authors": None,
+            "crossref_year": None,
+            "crossref_volume": None,
+            "crossref_issue": None,
+            "crossref_first_page": None,
+            "crossref_last_page": None,
+            "crossref_error": error_msg,
+        }
+
+    def fetch_by_dois_batch(self, dois: list[str], batch_size: int = 50) -> dict[str, dict[str, Any]]:
+        """Fetch multiple DOIs in batches.
+
+>>>>>>> Stashed changes
         Crossref doesn't have a true batch endpoint, so we use
         individual requests with controlled concurrency.
         """
         if not dois:
             return {}
+<<<<<<< Updated upstream
         
         results = {}
         
@@ -249,31 +366,47 @@ class CrossrefClient(BaseApiClient):
                     }
         
         return results
+=======
 
-    def fetch_by_pmids_batch(
-        self,
-        pmids: list[str],
-        batch_size: int = 50
-    ) -> dict[str, dict[str, Any]]:
+        result: dict[str, dict[str, Any]] = {}
+
+        # Обрабатываем DOI батчами
+        for i in range(0, len(dois), batch_size):
+            batch = dois[i : i + batch_size]
+            try:
+                self.logger.debug(f"Processing Crossref batch {i // batch_size + 1} with {len(batch)} DOIs")
+                batch_result = self.fetch_by_dois(batch)
+                result.update(batch_result)
+            except Exception as e:
+                self.logger.error(f"Failed to process Crossref batch {i // batch_size + 1}: {e}")
+                # Добавляем ошибки для всех DOI в батче
+                for doi in batch:
+                    result[doi] = self._create_empty_record(doi, f"Batch processing failed: {str(e)}")
+
+        return result
+>>>>>>> Stashed changes
+
+    def fetch_by_pmids_batch(self, pmids: list[str], batch_size: int = 50) -> dict[str, dict[str, Any]]:
         """Fetch multiple works by PMIDs.
-        
+
         Crossref doesn't have a true batch endpoint, so we use
         individual requests with controlled concurrency.
         """
         if not pmids:
             return {}
-        
+
         results = {}
-        
+
         # Process in chunks to avoid overwhelming the API
         for i in range(0, len(pmids), batch_size):
-            chunk = pmids[i:i + batch_size]
-            
+            chunk = pmids[i : i + batch_size]
+
             for pmid in chunk:
                 try:
                     result = self.fetch_by_pmid(pmid)
                     results[pmid] = result
                 except Exception as e:
+<<<<<<< Updated upstream
                     logger.warning(f"Failed to fetch PMID {pmid} in batch: {e}")
                     results[pmid] = {
                         "crossref_pmid": pmid,
@@ -282,3 +415,23 @@ class CrossrefClient(BaseApiClient):
                     }
         
         return results
+=======
+                    logger.warning("Failed to fetch PMID %s in batch: %s", pmid, e)
+                    results[pmid] = {"crossref_pmid": pmid, "crossref_error": str(e), "source": "crossref"}
+
+        return results
+
+    def fetch_by_dois(self, dois: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch multiple DOIs using individual requests."""
+        result: dict[str, dict[str, Any]] = {}
+
+        for doi in dois:
+            try:
+                record = self.fetch_by_doi(doi)
+                result[doi] = record
+            except Exception as e:
+                self.logger.warning(f"Failed to fetch Crossref data for DOI {doi}: {e}")
+                result[doi] = self._create_empty_record(doi, str(e))
+
+        return result
+>>>>>>> Stashed changes

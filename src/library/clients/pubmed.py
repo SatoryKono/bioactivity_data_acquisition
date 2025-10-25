@@ -1,11 +1,22 @@
 """Client for the PubMed API."""
+
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from typing import Any
 
+<<<<<<< Updated upstream
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
+=======
+from library.clients.base import BaseApiClient
+from library.common.exceptions import ApiClientError
+from library.settings import APIClientConfig
+from library.utils.list_converter import convert_authors_list
+>>>>>>> Stashed changes
+
+logger = logging.getLogger(__name__)
 
 
 class PubMedClient(BaseApiClient):
@@ -16,37 +27,30 @@ class PubMedClient(BaseApiClient):
         headers.setdefault("Accept", "application/json")
         enhanced = config.model_copy(update={"headers": headers})
         super().__init__(enhanced, **kwargs)
+        self.logger = logger
 
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         # Используем esummary.fcgi для получения метаданных статьи
-        params = {
-            "db": "pubmed",
-            "id": pmid,
-            "retmode": "json"
-        }
-        
+        params = {"db": "pubmed", "id": pmid, "retmode": "json"}
+
         # Добавляем API ключ если он настроен
-        api_key = getattr(self.config, 'api_key', None)
+        api_key = getattr(self.config, "api_key", None)
         if api_key:
             params["api_key"] = api_key
-        
-        # Use fallback strategy for handling rate limiting and other errors
-        payload = self._request_with_fallback("GET", "esummary.fcgi", params=params)
-        
+
+        # Use standard request method
+        response = self._request("GET", "esummary.fcgi", params=params)
+        payload = response.json()
+
         # Check if we got fallback data
         if payload.get("source") == "fallback":
-            self.logger.warning(
-                "pubmed_fallback_used",
-                pmid=pmid,
-                error=payload.get("error"),
-                fallback_reason=payload.get("fallback_reason")
-            )
+            self.logger.warning(f"pubmed_fallback_used pmid={pmid} error={payload.get('error')} fallback_reason={payload.get('fallback_reason')}")
             return self._create_empty_record(pmid, payload.get("error", "Unknown error"))
-            
+
         record = self._extract_record(payload, pmid)
         if record is None:
             raise ApiClientError(f"No PubMed record found for PMID {pmid}")
-        
+
         # Пытаемся получить дополнительную информацию через efetch
         try:
             enhanced_record = self._enhance_with_efetch(record, pmid)
@@ -60,27 +64,66 @@ class PubMedClient(BaseApiClient):
         pmid_list = list(pmids)
         if not pmid_list:
             return {}
-        
+
         # NCBI E-utilities поддерживает множественные ID через запятую
         ids_param = ",".join(pmid_list)
-        params = {
-            "db": "pubmed",
-            "id": ids_param,
-            "retmode": "json"
-        }
-        
+        params = {"db": "pubmed", "id": ids_param, "retmode": "json"}
+
         # Добавляем API ключ если он настроен
-        api_key = getattr(self.config, 'api_key', None)
+        api_key = getattr(self.config, "api_key", None)
         if api_key:
             params["api_key"] = api_key
+<<<<<<< Updated upstream
             
         payload = self._request("GET", "esummary.fcgi", params=params)
         
+=======
+
+        try:
+            response = self._request("GET", "esummary.fcgi", params=params)
+            payload = response.json()
+        except Exception as e:
+            self.logger.error("pubmed_batch_request_failed pmids=%s error=%s", pmid_list, str(e))
+            # Возвращаем пустые записи с ошибками для всех PMID
+            result = {}
+            for pmid in pmid_list:
+                result[str(pmid)] = self._create_empty_record(pmid, f"Batch request failed: {str(e)}")
+            return result
+
+>>>>>>> Stashed changes
         result: dict[str, dict[str, Any]] = {}
         for pmid in pmid_list:
             record = self._extract_record(payload, pmid)
             if record is not None:
                 result[str(pmid)] = record
+<<<<<<< Updated upstream
+=======
+            else:
+                # Создаем пустую запись с ошибкой если не удалось извлечь
+                result[str(pmid)] = self._create_empty_record(pmid, "No data found")
+        return result
+
+    def fetch_by_pmids_batch(self, pmids: list[str], batch_size: int = 200) -> dict[str, dict[str, Any]]:
+        """Fetch multiple PMIDs in batches to avoid rate limits."""
+        if not pmids:
+            return {}
+
+        result: dict[str, dict[str, Any]] = {}
+
+        # Обрабатываем PMID батчами
+        for i in range(0, len(pmids), batch_size):
+            batch = pmids[i : i + batch_size]
+            try:
+                self.logger.debug(f"Processing PubMed batch {i // batch_size + 1} with {len(batch)} PMIDs")
+                batch_result = self.fetch_by_pmids(batch)
+                result.update(batch_result)
+            except Exception as e:
+                self.logger.error(f"Failed to process PubMed batch {i // batch_size + 1}: {e}")
+                # Добавляем ошибки для всех PMID в батче
+                for pmid in batch:
+                    result[str(pmid)] = self._create_empty_record(pmid, f"Batch processing failed: {str(e)}")
+
+>>>>>>> Stashed changes
         return result
 
     def _extract_record(self, payload: dict[str, Any], pmid: str) -> dict[str, Any] | None:
@@ -89,17 +132,17 @@ class PubMedClient(BaseApiClient):
             error_msg = payload.get("error", "Unknown error")
             self.logger.warning("pubmed_api_error", pmid=pmid, error=error_msg)
             return None
-            
+
         # NCBI E-utilities возвращает данные в формате {"result": {"uids": [...], "pmid": {...}}}
         if "result" in payload and isinstance(payload["result"], dict):
             result = payload["result"]
-            
+
             # Проверяем, есть ли запрашиваемый PMID в списке UIDs
             uids = result.get("uids", [])
             if str(pmid) not in uids:
                 self.logger.warning("pmid_not_found", pmid=pmid, available_uids=uids)
                 return None
-                
+
             # Получаем данные для конкретного PMID
             data = result.get(pmid)
             if data is not None:
@@ -116,8 +159,13 @@ class PubMedClient(BaseApiClient):
 
         if payload.get("pmid") and str(payload.get("pmid")) == str(pmid):
             return self._normalise_record(payload)
+<<<<<<< Updated upstream
             
         self.logger.warning("unexpected_payload_format", pmid=pmid, payload_keys=list(payload.keys()))
+=======
+
+        self.logger.warning("unexpected_payload_format pmid=%s payload_keys=%s", pmid, list(payload.keys()))
+>>>>>>> Stashed changes
         return None
 
     def _normalise_record(self, record: dict[str, Any]) -> dict[str, Any]:
@@ -131,12 +179,32 @@ class PubMedClient(BaseApiClient):
             formatted_authors = None
 
         # Обработка DOI
+<<<<<<< Updated upstream
         doi_value: str | None
         doi_list = record.get("doiList")
         if isinstance(doi_list, list) and doi_list:
             doi_value = doi_list[0]
         else:
             doi_value = record.get("doi")
+=======
+        doi_value: str | None = None
+
+        # Сначала проверяем articleids (основной источник DOI в PubMed)
+        articleids = record.get("articleids", [])
+        if isinstance(articleids, list):
+            for aid in articleids:
+                if aid.get("idtype") == "doi":
+                    doi_value = aid.get("value")
+                    break
+
+        # Fallback к другим источникам
+        if not doi_value:
+            doi_list = record.get("doiList")
+            if isinstance(doi_list, list) and doi_list:
+                doi_value = doi_list[0]
+            else:
+                doi_value = record.get("doi")
+>>>>>>> Stashed changes
 
         # Обработка дат публикации
         pub_date = record.get("pubdate")
@@ -144,6 +212,7 @@ class PubMedClient(BaseApiClient):
             # Парсим дату в формате "2023 Dec 15" или "2023"
             try:
                 from datetime import datetime
+
                 if len(pub_date.split()) >= 3:
                     parsed_date = datetime.strptime(pub_date, "%Y %b %d")
                 elif len(pub_date.split()) == 2:
@@ -166,19 +235,19 @@ class PubMedClient(BaseApiClient):
             mesh_descriptors = "; ".join(str(d) for d in mesh_descriptors if d)
         elif mesh_descriptors is None:
             mesh_descriptors = None
-            
+
         mesh_qualifiers = record.get("meshqualifiers")
         if isinstance(mesh_qualifiers, list):
             mesh_qualifiers = "; ".join(str(q) for q in mesh_qualifiers if q)
         elif mesh_qualifiers is None:
             mesh_qualifiers = None
-            
+
         chemical_list = record.get("chemicals")
         if isinstance(chemical_list, list):
             chemical_list = "; ".join(str(c) for c in chemical_list if c)
         elif chemical_list is None:
             chemical_list = None
-        
+
         # Обрабатываем publication type
         pub_type = record.get("pubtype")
         if isinstance(pub_type, list):
@@ -215,6 +284,14 @@ class PubMedClient(BaseApiClient):
             "doi": doi_value,
             "pubmed_authors": formatted_authors,
         }
+<<<<<<< Updated upstream
+=======
+
+        # Debug logging для проверки MeSH данных
+        pmid = record.get("pmid", "unknown")
+        self.logger.debug("PubMed record for %s: mesh_descriptors=%s, mesh_qualifiers=%s, chemical_list=%s", pmid, mesh_descriptors, mesh_qualifiers, chemical_list)
+
+>>>>>>> Stashed changes
         # Return all fields, including None values, to maintain schema consistency
         return parsed
 
@@ -223,22 +300,22 @@ class PubMedClient(BaseApiClient):
         history = record.get("history", [])
         if not history:
             return None
-        
+
         # Берем последнюю дату из history (обычно это дата последнего обновления)
         last_entry = history[-1]
         date_str = last_entry.get("date", "")
-        
+
         if not date_str:
             return None
-        
+
         try:
             # Парсим дату в формате "1980/04/01 00:00"
             date_part_only = date_str.split(" ")[0]  # "1980/04/01"
             parts = date_part_only.split("/")
-            
+
             if len(parts) >= 3:
                 year, month, day = parts[0], parts[1], parts[2]
-                
+
                 if date_part == "year":
                     return year
                 elif date_part == "month":
@@ -247,7 +324,7 @@ class PubMedClient(BaseApiClient):
                     return day
         except (ValueError, IndexError):
             pass
-        
+
         return None
 
     def _create_empty_record(self, pmid: str, error_msg: str) -> dict[str, Any]:
@@ -287,29 +364,20 @@ class PubMedClient(BaseApiClient):
         try:
             # Получаем полную информацию через efetch напрямую через requests
             import requests
-            
-            fetch_params = {
-                "db": "pubmed",
-                "id": pmid,
-                "retmode": "xml",
-                "rettype": "abstract"
-            }
-            
+
+            fetch_params = {"db": "pubmed", "id": pmid, "retmode": "xml", "rettype": "abstract"}
+
             # Добавляем API ключ если он настроен
-            api_key = getattr(self.config, 'api_key', None)
+            api_key = getattr(self.config, "api_key", None)
             if api_key:
                 fetch_params["api_key"] = api_key
-                
+
             # Делаем прямой запрос к efetch
-            response = requests.get(
-                "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
-                params=fetch_params,
-                headers={"Accept": "application/xml"},
-                timeout=30.0
-            )
-            
+            response = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", params=fetch_params, headers={"Accept": "application/xml"}, timeout=30.0)
+
             if response.status_code == 200:
                 xml_content = response.text
+<<<<<<< Updated upstream
                 
                 # Простой парсинг XML для извлечения DOI и abstract
                 import re
@@ -358,11 +426,82 @@ class PubMedClient(BaseApiClient):
                 if chemical_list:
                     record["pubmed_chemical_list"] = "; ".join(chemical_list)
             
+=======
+
+                # Парсинг XML через lxml
+                from lxml import etree
+
+                from library.xml import make_xml_parser, select_many, select_one, text
+
+                parser = make_xml_parser(recover=True)
+                root = etree.fromstring(xml_content.encode("utf-8"), parser)
+
+                # XPath каталог для PubMed
+                self._extract_doi(root, record)
+                self._extract_abstract(root, record)
+                self._extract_mesh_terms(root, record)
+                self._extract_chemicals(root, record)
+
+>>>>>>> Stashed changes
             return record
-            
+
         except Exception as e:
             self.logger.warning("efetch_parsing_failed", pmid=pmid, error=str(e))
             return record
+
+    def _extract_doi(self, root, record: dict[str, Any]) -> None:
+        """Извлекает DOI из XML."""
+        from library.xml import select_one, text
+
+        # XPath: //ArticleId[@IdType="doi"]/text()
+        doi_elem = select_one(root, './/ArticleId[@IdType="doi"]')
+        if doi_elem is not None:
+            record["pubmed_doi"] = text(doi_elem)
+
+    def _extract_abstract(self, root, record: dict[str, Any]) -> None:
+        """Извлекает abstract из XML."""
+        from library.xml import select_many, select_one, text
+
+        # XPath: //AbstractText/text()
+        abstract_elems = select_many(root, ".//AbstractText")
+        if abstract_elems:
+            parts = [text(elem) for elem in abstract_elems]
+            record["pubmed_abstract"] = " ".join(filter(None, parts))
+        else:
+            # Fallback: ищем в других возможных местах
+            abstract_alt = select_one(root, ".//Abstract")
+            if abstract_alt is not None:
+                record["pubmed_abstract"] = text(abstract_alt)
+
+    def _extract_mesh_terms(self, root, record: dict[str, Any]) -> None:
+        """Извлекает MeSH descriptors и qualifiers."""
+        from library.xml import select_many, select_one, text
+
+        # XPath: //MeshHeading
+        descriptors = []
+        qualifiers = []
+
+        mesh_headings = select_many(root, ".//MeshHeading")
+        for heading in mesh_headings:
+            descriptor_elem = select_one(heading, ".//DescriptorName")
+            if descriptor_elem is not None:
+                descriptors.append(text(descriptor_elem))
+
+            qualifier_elems = select_many(heading, ".//QualifierName")
+            for qual_elem in qualifier_elems:
+                qualifiers.append(text(qual_elem))
+
+        record["pubmed_mesh_descriptors"] = "; ".join(descriptors) if descriptors else "unknown"
+        record["pubmed_mesh_qualifiers"] = "; ".join(qualifiers) if qualifiers else "unknown"
+
+    def _extract_chemicals(self, root, record: dict[str, Any]) -> None:
+        """Извлекает chemical list."""
+        from library.xml import select_many, text
+
+        # XPath: //Chemical/NameOfSubstance/text()
+        chemical_elems = select_many(root, ".//Chemical/NameOfSubstance")
+        chemicals = [text(elem) for elem in chemical_elems]
+        record["pubmed_chemical_list"] = "; ".join(chemicals) if chemicals else "unknown"
 
     def _format_author(self, author: Any) -> str:
         if isinstance(author, str):

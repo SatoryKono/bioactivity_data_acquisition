@@ -57,8 +57,6 @@ def write_publications(
 
     from library.config import (
         CsvFormatSettings as _CsvFormatSettings,
-    )
-    from library.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
 

@@ -1,0 +1,23 @@
+pipeline:
+  name: targets
+  version: 2.0.0
+  entity_type: targets
+  source_system: chembl
+execution:
+  run_id: d98a99f0-e608-49ca-8749-843a070ed162
+  started_at: null
+  completed_at: null
+  duration_sec: null
+data:
+  row_count: null
+  row_count_accepted: null
+  row_count_rejected: null
+  columns_count: null
+sources: []
+validation:
+  schema_passed: null
+  qc_passed: null
+  warnings: null
+  errors: null
+files: {}
+checksums: {}

@@ -1,0 +1,9 @@
+---
+description: Контракт для HTTP‑клиентов внешних API
+globs: src/library/clients/**
+alwaysApply: false
+---
+# HTTP Clients Contract (Required, Auto Attached)
+- Таймауты, ретраи (экспоненциальный backoff), QPS‑лимиты, кэш/TTL.
+- Пагинация и частичные сбои обрабатываются явно.
+- Тест‑контракт для клиента обязателен.

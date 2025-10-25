@@ -1,70 +1,73 @@
 """Public interface for the bioactivity ETL pipeline."""
+
 from __future__ import annotations
 
-from library.cli import app, main
-from library.config import (
-    APIClientConfig,
-    Config,
-    CorrelationSettings,
-    CsvFormatSettings,
-    DeterminismSettings,
-    HTTPGlobalSettings,
-    HTTPSettings,
-    HTTPSourceSettings,
-    IOSettings,
-    LoggingSettings,
-    OutputSettings,
-    PaginationSettings,
-    ParquetFormatSettings,
-    PostprocessSettings,
-    QCStepSettings,
-    QCValidationSettings,
-    RateLimitSettings,
-    RetrySettings,
-    SortSettings,
-    SourceSettings,
-    TransformSettings,
-    ValidationSettings,
-)
-from library.documents import (
-    ALLOWED_SOURCES,
-    DATE_TAG_FORMAT,
-    DEFAULT_ENV_PREFIX,
-    ConfigLoadError,
-    DocumentConfig,
-    DocumentETLResult,
-    DocumentHTTPError,
-    DocumentHTTPGlobalSettings,
-    DocumentHTTPRetrySettings,
-    DocumentHTTPSettings,
-    DocumentInputSettings,
-    DocumentIOError,
-    DocumentIOSettings,
-    DocumentOutputSettings,
-    DocumentPipelineError,
-    DocumentQCError,
-    DocumentRuntimeSettings,
-    DocumentValidationError,
-    SourceToggle,
-    load_document_config,
-    read_document_input,
-    run_document_etl,
-    write_document_outputs,
-)
-from library.etl.extract import fetch_bioactivity_data
-from library.etl.load import write_deterministic_csv, write_qc_artifacts
-from library.etl.run import run_pipeline
-from library.etl.transform import normalize_bioactivity_data
-from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
-from library.scripts_base import DeprecatedScriptWrapper, create_deprecated_script_wrapper
-from library.telemetry import get_current_trace_id, setup_telemetry, traced_operation
-from library.utils import *  # noqa: F403
-from library.utils import __all__ as _utils_all
+from typing import TYPE_CHECKING
 
-try:  # pragma: no cover - optional wiring for partially generated configs
-    from library.config import CLISettings
-except ImportError:  # pragma: no cover - optional wiring for partially generated configs
-    CLISettings = None  # type: ignore[assignment]
+# Only import CLI directly as it's needed for main entry point
+from library.cli import app, main
+
+if TYPE_CHECKING:
+    # Type-only imports to avoid circular dependencies
+    from library.documents import (
+        ALLOWED_SOURCES,
+        DATE_TAG_FORMAT,
+        DEFAULT_ENV_PREFIX,
+        ConfigLoadError,
+        DocumentConfig,
+        DocumentHTTPGlobalSettings,
+        DocumentHTTPRetrySettings,
+        DocumentHTTPSettings,
+        DocumentInputSettings,
+        DocumentIOSettings,
+        DocumentOutputSettings,
+        DocumentRuntimeSettings,
+        SourceToggle,
+        load_document_config,
+        write_document_outputs,
+    )
+    from library.etl.extract import fetch_bioactivity_data
+    from library.etl.load import write_deterministic_csv, write_qc_artifacts
+    from library.etl.run import run_pipeline
+    from library.etl.transform import normalize_bioactivity_data
+    from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
+    from library.scripts_base import (
+        DeprecatedScriptWrapper,
+        create_deprecated_script_wrapper,
+    )
+    from library.config import (
+        APIClientConfig,
+        Config,
+        CorrelationSettings,
+        CsvFormatSettings,
+        DeterminismSettings,
+        HTTPGlobalSettings,
+        HTTPSettings,
+        HTTPSourceSettings,
+        IOSettings,
+        LoggingSettings,
+        OutputSettings,
+        PaginationSettings,
+        ParquetFormatSettings,
+        PostprocessSettings,
+        QCStepSettings,
+        QCValidationSettings,
+        RateLimitSettings,
+        RetrySettings,
+        SortSettings,
+        SourceSettings,
+        TransformSettings,
+        ValidationSettings,
+    )
+    from library.telemetry import (
+        get_current_trace_id,
+        setup_telemetry,
+        traced_operation,
+    )
+
+# Utils are available via library.utils module
+
+# CLISettings removed as it doesn't exist in library.config
 
 __all__ = [
     "ALLOWED_SOURCES",
@@ -77,19 +80,13 @@ __all__ = [
     "DEFAULT_ENV_PREFIX",
     "DeterminismSettings",
     "DocumentConfig",
-    "DocumentETLResult",
-    "DocumentHTTPError",
     "DocumentHTTPGlobalSettings",
     "DocumentHTTPRetrySettings",
     "DocumentHTTPSettings",
-    "DocumentIOError",
     "DocumentIOSettings",
     "DocumentInputSettings",
     "DocumentOutputSettings",
-    "DocumentPipelineError",
-    "DocumentQCError",
     "DocumentRuntimeSettings",
-    "DocumentValidationError",
     "HTTPGlobalSettings",
     "HTTPSettings",
     "HTTPSourceSettings",
@@ -117,8 +114,6 @@ __all__ = [
     "load_document_config",
     "main",
     "normalize_bioactivity_data",
-    "read_document_input",
-    "run_document_etl",
     "run_pipeline",
     "write_deterministic_csv",
     "write_document_outputs",
@@ -128,6 +123,114 @@ __all__ = [
     "get_current_trace_id",
 ]
 
-if CLISettings is not None:
-    __all__.append("CLISettings")
-__all__ += list(_utils_all)
+
+def __getattr__(name: str):
+    """Lazy import for avoiding circular dependencies."""
+    if name in {
+        "APIClientConfig",
+        "Config",
+        "CorrelationSettings",
+        "CsvFormatSettings",
+        "DeterminismSettings",
+        "HTTPGlobalSettings",
+        "HTTPSettings",
+        "HTTPSourceSettings",
+        "IOSettings",
+        "LoggingSettings",
+        "OutputSettings",
+        "PaginationSettings",
+        "ParquetFormatSettings",
+        "PostprocessSettings",
+        "QCStepSettings",
+        "QCValidationSettings",
+        "RateLimitSettings",
+        "RetrySettings",
+        "SortSettings",
+        "SourceSettings",
+        "TransformSettings",
+        "ValidationSettings",
+    }:
+        from library.config import (
+            APIClientConfig, Config, CorrelationSettings, CsvFormatSettings,
+            DeterminismSettings, HTTPGlobalSettings, HTTPSettings, 
+            HTTPSourceSettings, IOSettings, LoggingSettings, OutputSettings,
+            PaginationSettings, ParquetFormatSettings, PostprocessSettings,
+            QCStepSettings, QCValidationSettings, RateLimitSettings,
+            RetrySettings, SortSettings, SourceSettings, TransformSettings,
+            ValidationSettings
+        )
+
+        return globals()[name]
+
+    elif name in {
+        "ALLOWED_SOURCES",
+        "DATE_TAG_FORMAT",
+        "DEFAULT_ENV_PREFIX",
+        "ConfigLoadError",
+        "DocumentConfig",
+        "DocumentHTTPGlobalSettings",
+        "DocumentHTTPRetrySettings",
+        "DocumentHTTPSettings",
+        "DocumentIOSettings",
+        "DocumentInputSettings",
+        "DocumentOutputSettings",
+        "DocumentRuntimeSettings",
+        "SourceToggle",
+        "load_document_config",
+        "write_document_outputs",
+    }:
+        from library.documents import (
+            ALLOWED_SOURCES, DATE_TAG_FORMAT, DEFAULT_ENV_PREFIX, ConfigLoadError,
+            DocumentConfig, DocumentHTTPGlobalSettings, DocumentHTTPRetrySettings,
+            DocumentHTTPSettings, DocumentIOSettings, DocumentInputSettings,
+            DocumentOutputSettings, DocumentRuntimeSettings, SourceToggle,
+            load_document_config, write_document_outputs
+        )
+
+        return globals()[name]
+
+    elif name in {"fetch_bioactivity_data", "write_deterministic_csv", "write_qc_artifacts", "run_pipeline", "normalize_bioactivity_data"}:
+        if name == "fetch_bioactivity_data":
+            from library.etl.extract import fetch_bioactivity_data
+
+            return fetch_bioactivity_data
+        elif name in {"write_deterministic_csv", "write_qc_artifacts"}:
+            from library.etl.load import write_deterministic_csv, write_qc_artifacts
+
+            return globals()[name]
+        elif name == "run_pipeline":
+            from library.etl.run import run_pipeline
+
+            return run_pipeline
+        elif name == "normalize_bioactivity_data":
+            from library.etl.transform import normalize_bioactivity_data
+
+            return normalize_bioactivity_data
+
+    elif name in {"NormalizedBioactivitySchema", "RawBioactivitySchema"}:
+        from library.schemas import NormalizedBioactivitySchema, RawBioactivitySchema
+
+        return globals()[name]
+
+    elif name in {"DeprecatedScriptWrapper", "create_deprecated_script_wrapper"}:
+        from library.scripts_base import (
+            DeprecatedScriptWrapper,
+            create_deprecated_script_wrapper,
+        )
+
+        return globals()[name]
+
+    elif name in {"get_current_trace_id", "setup_telemetry", "traced_operation"}:
+        from library.telemetry import (
+            get_current_trace_id,
+            setup_telemetry,
+            traced_operation,
+        )
+
+        return globals()[name]
+
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+# CLISettings removed
+# Utils are available via library.utils module

@@ -9,8 +9,9 @@
 3. Создать тег `vX.Y.Z` и GitHub Release
 4. Проверить сборку документации и CI
 
-## [Unreleased]
+## [Unreleased] - Data Extraction Refactoring
 
+<<<<<<< Updated upstream
 ### Added
 
 - **Документация очистки репозитория**: Создан `CLEANUP_REPORT.md` с полным описанием проведённой очистки
@@ -21,6 +22,53 @@
 - **CI артефакты**: Публикация test outputs, coverage и security отчётов
 
 ### Changed
+=======
+### Добавлено
+- **НОВЫЙ**: ChEMBL client v2 с детерминистическим поведением
+- **НОВЫЙ**: Token bucket rate limiter с adaptive backoff
+- **НОВЫЙ**: Pydantic модели конфигурации (ApiCfg, RetryCfg, ChemblCacheCfg)
+- **НОВЫЙ**: Детерминистический jitter с фиксированным seed
+- **НОВЫЙ**: TTL кэш с thread-safety гарантиями
+- **НОВЫЙ**: Streaming поддержка для больших датасетов
+- **НОВЫЙ**: Разделение слоев: clients/ transforms/ normalize/ postprocessing/
+- **НОВЫЙ**: Тесты детерминизма с проверкой SHA256
+- **НОВЫЙ**: Адаптер обратной совместимости для постепенной миграции
+- **НОВЫЙ**: Миграционный гайд с примерами до/после
+
+### Изменено
+- **BREAKING**: ChEMBL client переписан для детерминизма и производительности
+- **BREAKING**: Rate limiting на token bucket вместо sliding window
+- **BREAKING**: Упрощена архитектура retry (убран circuit breaker / fallback manager)
+- **BREAKING**: Конфигурация через Pydantic модели вместо кастомных классов
+- **BREAKING**: API клиентов: `_request()` → `fetch()` для ChEMBL
+- **BREAKING**: Pipeline интерфейс: `iter_target_batches()` → `fetch_targets()`
+
+### Удалено
+- **BREAKING**: circuit_breaker.py (перемещен в library/legacy/)
+- **BREAKING**: fallback.py (заменен HTTP-level fallback)
+- **BREAKING**: graceful_degradation.py (упрощен до явной обработки в pipeline)
+- **BREAKING**: cache_manager.py (заменен TTLCache напрямую в клиентах)
+
+### Исправлено
+- **КРИТИЧНО**: Недетерминизм в retry логике (jitter без seed)
+- **КРИТИЧНО**: Race conditions в multi-threaded fetch
+- **КРИТИЧНО**: DNS fallback создавал недетерминистические результаты
+- **КРИТИЧНО**: Dynamic timeout adjustment нарушал воспроизводимость
+- **КРИТИЧНО**: Недетерминистический порядок dict keys в JSON сериализации
+
+### Техническая документация
+- Полная актуализация документации
+- Новая структура навигации по принципам Diátaxis
+- FAQ с частыми вопросами
+- Документация источников данных и лимитов API
+- Автоматические проверки ссылок в CI/CD
+- Реорганизована структура docs/ для лучшей навигации
+- Обновлены примеры команд под v2 конфигурации
+- Улучшена документация CLI и API
+- Устранены все битые ссылки
+- Удалены дублирующиеся файлы
+- Исправлены ссылки на несуществующие файлы
+>>>>>>> Stashed changes
 
 - **Очистка репозитория**: Удалены кэши, временные файлы и большие данные (экономия ~150MB)
 - **Обновлён .gitignore**: OS/IDE файлы, test outputs, site/, временные файлы, кэши

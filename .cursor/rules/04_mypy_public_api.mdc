@@ -1,0 +1,8 @@
+---
+description: Аннотации типов и проверка mypy для публичных API
+globs: src/library/**/*.py
+alwaysApply: false
+---
+# Mypy on Public API (Required)
+- Публичные функции и датаклассы должны иметь аннотации типов.
+- Запуск mypy является частью CI; ошибки блокируют PR.

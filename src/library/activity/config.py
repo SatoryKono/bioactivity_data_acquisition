@@ -230,9 +230,7 @@ class ActivityConfig(BaseModel):
                     return env_var if env_var is not None else match.group(0)
 
                 processed_value = re.sub(r"\{([^}]+)\}", replace_placeholder, value)
-                if processed_value and processed_value.strip() and not (
-                    processed_value.startswith("{") and processed_value.endswith("}")
-                ):
+                if processed_value and processed_value.strip() and not (processed_value.startswith("{") and processed_value.endswith("}")):
                     processed_headers[key] = processed_value
             else:
                 processed_headers[key] = value  # pragma: no cover - non-str headers are rare
@@ -243,10 +241,8 @@ class ActivityConfig(BaseModel):
 
         # Resolve retries
         retry_settings = RetrySettings(
-            total=src.http.retries.get("total", self.http.global_.retries.total),
-            backoff_multiplier=src.http.retries.get(
-                "backoff_multiplier", self.http.global_.retries.backoff_multiplier
-            ),
+            total=src.http.retries.total if hasattr(src.http.retries, 'total') else src.http.retries.get("total", self.http.global_.retries.total),
+            backoff_multiplier=src.http.retries.backoff_multiplier if hasattr(src.http.retries, 'backoff_multiplier') else src.http.retries.get("backoff_multiplier", self.http.global_.retries.backoff_multiplier),
         )
 
         # Optional rate limit
@@ -315,11 +311,7 @@ def load_activity_config(
     # Legacy compatibility mapping
     # Map io.cache.raw_dir -> io.cache_dir
     try:
-        legacy_cache = (
-            merged.get("io", {})
-            .get("cache", {})
-            .get("raw_dir")
-        )
+        legacy_cache = merged.get("io", {}).get("cache", {}).get("raw_dir")
         if legacy_cache and isinstance(legacy_cache, (str, Path)):
             merged.setdefault("io", {})["cache_dir"] = legacy_cache
     except Exception as e:

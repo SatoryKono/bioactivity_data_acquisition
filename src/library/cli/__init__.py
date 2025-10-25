@@ -14,13 +14,17 @@ from rich.table import Table
 
 from library.activity import ActivityConfig, run_activity_etl
 from library.clients.health import create_health_checker_from_config
+<<<<<<< Updated upstream
 from library.config import Config, _assign_path, ensure_output_directories_exist
+=======
+>>>>>>> Stashed changes
 from library.documents.config import (
     ALLOWED_SOURCES,
     DEFAULT_ENV_PREFIX,
     ConfigLoadError,
     load_document_config,
 )
+<<<<<<< Updated upstream
 from library.documents.pipeline import (
     DocumentHTTPError,
     DocumentIOError,
@@ -40,6 +44,22 @@ from library.target import (
     load_target_config,
     read_target_input,
     run_target_etl,
+=======
+from library.documents.pipeline import DocumentPipeline
+from library.documents.writer import write_document_outputs
+from library.etl.run import run_pipeline
+from library.logging_setup import (
+    bind_stage,
+    configure_logging,
+    generate_run_id,
+    set_run_context,
+)
+from library.config import Config, _assign_path, ensure_output_directories_exist
+from library.target import (
+    TargetQCError,
+    TargetValidationError,
+    load_target_config,
+>>>>>>> Stashed changes
     write_target_outputs,
 )
 from library.telemetry import setup_telemetry
@@ -168,6 +188,250 @@ def _build_cli_overrides(
 
 
 app = typer.Typer(help="Bioactivity ETL pipeline")
+<<<<<<< Updated upstream
+=======
+
+
+# Analysis commands
+@app.command("analyze-iuphar-mapping")
+def analyze_iuphar_mapping(
+    target_csv: Path = ANALYZE_TARGET_CSV_OPTION,
+    iuphar_dict: Path = ANALYZE_IUPHAR_DICT_OPTION,
+    sample_size: int = ANALYZE_SAMPLE_SIZE_OPTION,
+    target_id: int | None = ANALYZE_TARGET_ID_OPTION,
+    output_format: str = ANALYZE_OUTPUT_FORMAT_OPTION,
+    verbose: bool = ANALYZE_VERBOSE_OPTION,
+) -> None:
+    """Analyze IUPHAR mapping in target data."""
+
+    import json
+
+    import pandas as pd
+
+    console = Console()
+
+    try:
+        # Load target data
+        console.print(f"[blue]Loading target data from: {target_csv}[/blue]")
+        target_df = pd.read_csv(target_csv)
+
+        # Load IUPHAR dictionary
+        console.print(f"[blue]Loading IUPHAR dictionary from: {iuphar_dict}[/blue]")
+        iuphar_target_df = pd.read_csv(iuphar_dict)
+
+        # Basic statistics
+        console.print("\n[green]=== IUPHAR Mapping Analysis ===[/green]")
+        console.print(f"Total target records: {len(target_df)}")
+        console.print(f"Total IUPHAR dictionary records: {len(iuphar_target_df)}")
+        console.print(f"Unique UniProt IDs in IUPHAR: {iuphar_target_df['swissprot'].nunique()}")
+
+        # Analyze iuphar_target_id distribution
+        if "iuphar_target_id" in target_df.columns:
+            iuphar_counts = target_df["iuphar_target_id"].value_counts()
+            console.print("\n[blue]IUPHAR Target ID Distribution:[/blue]")
+            console.print(f"Unique IUPHAR target IDs: {len(iuphar_counts)}")
+
+            if verbose:
+                console.print("Top 10 IUPHAR target IDs:")
+                for target_id_val, count in iuphar_counts.head(10).items():
+                    console.print(f"  {target_id_val}: {count} records")
+
+        # Validate UniProt ID mapping
+        if "mapping_uniprot_id" in target_df.columns:
+            uniprot_ids = target_df["mapping_uniprot_id"].dropna()
+            console.print("\n[blue]UniProt ID Mapping Validation:[/blue]")
+            console.print(f"Records with UniProt IDs: {len(uniprot_ids)}")
+
+            # Sample validation
+            sample_ids = uniprot_ids.head(sample_size).tolist()
+            console.print(f"Validating first {len(sample_ids)} UniProt IDs:")
+
+            validation_results = []
+            for uid in sample_ids:
+                matches = iuphar_target_df[iuphar_target_df["swissprot"] == uid]
+                if len(matches) > 0:
+                    match_info = {"uniprot_id": uid, "found": True, "target_id": matches.iloc[0]["target_id"], "target_name": matches.iloc[0]["target_name"]}
+                    validation_results.append(match_info)
+                    if verbose:
+                        console.print(f"  [green]✓[/green] {uid} → target_id={match_info['target_id']}, name={match_info['target_name']}")
+                else:
+                    match_info = {"uniprot_id": uid, "found": False, "target_id": None, "target_name": None}
+                    validation_results.append(match_info)
+                    if verbose:
+                        console.print(f"  [red]✗[/red] {uid} not found in IUPHAR dictionary")
+
+            # Summary
+            found_count = sum(1 for r in validation_results if r["found"])
+            console.print("\n[blue]Validation Summary:[/blue]")
+            console.print(f"Found in IUPHAR: {found_count}/{len(validation_results)} ({found_count / len(validation_results) * 100:.1f}%)")
+
+        # Analyze specific target ID if provided
+        if target_id is not None:
+            console.print(f"\n[blue]=== Analysis of IUPHAR Target ID {target_id} ===[/blue]")
+            matches = iuphar_target_df[iuphar_target_df["target_id"] == target_id]
+
+            if len(matches) > 0:
+                console.print(f"Found {len(matches)} records for target_id={target_id}")
+                console.print("UniProt IDs for this target:")
+                uniprot_ids = matches["swissprot"].unique()
+                for uid in uniprot_ids:
+                    console.print(f"  {uid}")
+
+                # Check if any of these UniProt IDs appear in our target data
+                if "mapping_uniprot_id" in target_df.columns:
+                    target_matches = target_df[target_df["mapping_uniprot_id"].isin(uniprot_ids)]
+                    console.print(f"\nRecords in target data with these UniProt IDs: {len(target_matches)}")
+                    if len(target_matches) > 0 and verbose:
+                        console.print("Matching records:")
+                        for _, row in target_matches.head(5).iterrows():
+                            console.print(f"  ChEMBL ID: {row.get('target_chembl_id', 'N/A')}, UniProt: {row.get('mapping_uniprot_id', 'N/A')}")
+            else:
+                console.print(f"[red]No records found for target_id={target_id}[/red]")
+
+        # Output results in requested format
+        if output_format == "json":
+            results = {
+                "target_records": len(target_df),
+                "iuphar_records": len(iuphar_target_df),
+                "unique_uniprot_in_iuphar": iuphar_target_df["swissprot"].nunique(),
+                "validation_results": validation_results if "validation_results" in locals() else [],
+            }
+            console.print("\n[blue]JSON Output:[/blue]")
+            console.print(json.dumps(results, indent=2, ensure_ascii=False))
+
+        elif output_format == "csv" and "validation_results" in locals():
+            validation_df = pd.DataFrame(validation_results)
+            output_path = target_csv.parent / f"iuphar_validation_{target_csv.stem}.csv"
+            validation_df.to_csv(output_path, index=False)
+            console.print(f"\n[green]Validation results saved to: {output_path}[/green]")
+
+        console.print("\n[green]Analysis completed successfully![/green]")
+
+    except Exception as e:
+        console.print(f"[red]Error during analysis: {e}[/red]")
+        if verbose:
+            import traceback
+
+            console.print(traceback.format_exc())
+        raise typer.Exit(1) from e
+
+
+# Manifest commands
+@app.command("list-manifests")
+def list_manifests() -> None:
+    """List all available manifests."""
+    console = Console()
+    manifests_dir = Path("metadata/manifests")
+
+    if not manifests_dir.exists():
+        typer.echo("Manifests directory not found: metadata/manifests", err=True)
+        raise typer.Exit(code=1)
+
+    table = Table(title="Available Manifests")
+    table.add_column("Name", style="cyan")
+    table.add_column("Type", style="green")
+    table.add_column("Description", style="yellow")
+
+    manifest_files = list(manifests_dir.glob("*.json"))
+    for manifest_file in sorted(manifest_files):
+        try:
+            import json
+
+            with open(manifest_file, encoding="utf-8") as f:
+                data = json.load(f)
+
+            name = manifest_file.stem
+            manifest_type = data.get("module", "general")
+            description = data.get("description", "No description available")
+
+            table.add_row(name, manifest_type, description)
+        except Exception as e:
+            table.add_row(manifest_file.stem, "error", f"Failed to read: {e}")
+
+    console.print(table)
+
+
+@app.command("show-manifest")
+def show_manifest(name: str = typer.Argument(..., help="Manifest name (without .json extension)"), format: str = SHOW_MANIFEST_FORMAT_OPTION) -> None:
+    """Show manifest contents."""
+    manifest_path = Path(f"metadata/manifests/{name}.json")
+
+    if not manifest_path.exists():
+        typer.echo(f"Manifest not found: {manifest_path}", err=True)
+        raise typer.Exit(code=1)
+
+    try:
+        import json
+
+        with open(manifest_path, encoding="utf-8") as f:
+            data = json.load(f)
+
+        if format == "json":
+            typer.echo(json.dumps(data, indent=2, ensure_ascii=False))
+        elif format == "yaml":
+            import yaml
+
+            typer.echo(yaml.dump(data, default_flow_style=False, allow_unicode=True))
+        elif format == "table":
+            console = Console()
+            table = Table(title=f"Manifest: {name}")
+            table.add_column("Key", style="cyan")
+            table.add_column("Value", style="green")
+
+            def add_to_table(obj, prefix=""):
+                if isinstance(obj, dict):
+                    for key, value in obj.items():
+                        full_key = f"{prefix}.{key}" if prefix else key
+                        if isinstance(value, (dict, list)):
+                            add_to_table(value, full_key)
+                        else:
+                            table.add_row(full_key, str(value))
+                elif isinstance(obj, list):
+                    for i, item in enumerate(obj):
+                        full_key = f"{prefix}[{i}]" if prefix else f"[{i}]"
+                        if isinstance(item, (dict, list)):
+                            add_to_table(item, full_key)
+                        else:
+                            table.add_row(full_key, str(item))
+
+            add_to_table(data)
+            console.print(table)
+        else:
+            typer.echo(f"Unknown format: {format}", err=True)
+            raise typer.Exit(code=1)
+
+    except Exception as e:
+        typer.echo(f"Failed to read manifest: {e}", err=True)
+        raise typer.Exit(code=1) from e
+
+
+@app.command("list-reports")
+def list_reports() -> None:
+    """List all available reports."""
+    console = Console()
+    reports_dir = Path("metadata/reports")
+
+    if not reports_dir.exists():
+        typer.echo("Reports directory not found: metadata/reports", err=True)
+        raise typer.Exit(code=1)
+
+    table = Table(title="Available Reports")
+    table.add_column("Name", style="cyan")
+    table.add_column("Type", style="green")
+    table.add_column("Size", style="yellow")
+    table.add_column("Modified", style="blue")
+
+    report_files = list(reports_dir.glob("*"))
+    for report_file in sorted(report_files):
+        if report_file.is_file():
+            size = report_file.stat().st_size
+            modified = datetime.fromtimestamp(report_file.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+            table.add_row(report_file.name, report_file.suffix[1:] if report_file.suffix else "unknown", f"{size:,} bytes", modified)
+
+    console.print(table)
+
+
+>>>>>>> Stashed changes
 # Target CLI command
 @app.command("get-target-data")
 def get_target_data(
@@ -227,12 +491,20 @@ def get_target_data(
         logger.info("Target processing started", run_id=run_id)
 
         try:
+<<<<<<< Updated upstream
             input_frame = read_target_input(input)
         except TargetValidationError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
         except TargetIOError as exc:
             typer.echo(str(exc), err=True)
+=======
+            import pandas as pd
+
+            input_frame = pd.read_csv(input)
+        except Exception as exc:
+            typer.echo(f"Failed to read input file: {exc}", err=True)
+>>>>>>> Stashed changes
             raise typer.Exit(code=ExitCode.IO_ERROR) from exc
 
         register_shutdown_handler(lambda: logger.info("Target processing shutdown", run_id=run_id))
@@ -240,7 +512,14 @@ def get_target_data(
         try:
             with ShutdownContext(timeout=60.0):
                 with bind_stage(logger, "target_etl"):
+<<<<<<< Updated upstream
                     result = run_target_etl(cfg, input_frame=input_frame)
+=======
+                    from library.target import TargetPipeline
+
+                    pipeline = TargetPipeline(cfg)
+                    result = pipeline.run(input_data=input_frame)
+>>>>>>> Stashed changes
         except TargetValidationError as exc:
             logger.error("Target validation failed", error=str(exc), run_id=run_id, exc_info=True)
             typer.echo(str(exc), err=True)
@@ -545,8 +824,15 @@ def get_document_data(
             raise typer.Exit(code=ExitCode.VALIDATION_ERROR)
 
         try:
+<<<<<<< Updated upstream
             input_frame = read_document_input(config_model.io.input.documents_csv)
         except DocumentValidationError as exc:
+=======
+            import pandas as pd
+
+            input_frame = pd.read_csv(config_model.io.input.documents_csv)
+        except ValueError as exc:
+>>>>>>> Stashed changes
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
         except DocumentIOError as exc:
@@ -752,9 +1038,18 @@ def testitem_run(
         console.print("[blue]Starting testitem ETL pipeline...[/blue]")
         console.print(f"  Input file: {input}")
         console.print(f"  Output directory: {output}")
+<<<<<<< Updated upstream
         
         result = run_testitem_etl(testitem_config, input_path=input)
         
+=======
+
+        import pandas as pd
+
+        pipeline = TestitemPipeline(testitem_config)
+        result = pipeline.run(input_data=pd.read_csv(input))
+
+>>>>>>> Stashed changes
         # Display results summary
         console.print("[green]ETL pipeline completed successfully![/green]")
         console.print(f"  Processed {len(result.testitems)} molecules")

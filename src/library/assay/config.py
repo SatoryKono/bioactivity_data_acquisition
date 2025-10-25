@@ -8,9 +8,26 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
+<<<<<<< Updated upstream
 from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings, LoggingSettings
+=======
+from library.config import (
+    DeterminismSettings,
+    LoggingSettings,
+    _assign_path,
+    _merge_dicts,
+    _parse_scalar,
+)
+>>>>>>> Stashed changes
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl",)
 DATE_TAG_FORMAT = "%Y%m%d"
@@ -27,7 +44,7 @@ class AssayInputSettings(BaseModel):
 
 class AssayCSVSettings(BaseModel):
     """CSV output settings."""
-    
+
     encoding: str = Field(default="utf-8")
     float_format: str | None = Field(default="%.3f")
     date_format: str | None = Field(default="%Y-%m-%dT%H:%M:%SZ")
@@ -37,7 +54,7 @@ class AssayCSVSettings(BaseModel):
 
 class AssayParquetSettings(BaseModel):
     """Parquet output settings."""
-    
+
     compression: str = Field(default="snappy")
 
 
@@ -60,9 +77,7 @@ class AssayIOSettings(BaseModel):
 class AssayRuntimeSettings(BaseModel):
     """Runtime toggles controlled via CLI or environment variables."""
 
-    date_tag: str | None = Field(
-        default=None, pattern=DATE_TAG_REGEX
-    )
+    date_tag: str | None = Field(default=None, pattern=DATE_TAG_REGEX)
     workers: int = Field(default=4, ge=1, le=64)
     limit: int | None = Field(default=None, ge=1)
     batch_size: int = Field(default=100, ge=1, le=1000)
@@ -90,14 +105,12 @@ class AssayHTTPSettings(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
-    global_: AssayHTTPGlobalSettings = Field(
-        default_factory=AssayHTTPGlobalSettings, alias="global"
-    )
+    global_: AssayHTTPGlobalSettings = Field(default_factory=AssayHTTPGlobalSettings, alias="global")
 
 
 class AssaySourceHTTPSettings(BaseModel):
     """HTTP settings specific to an assay source."""
-    
+
     base_url: str | None = Field(default=None)
     timeout_sec: float | None = Field(default=None, gt=0.0, le=600.0)
     headers: dict[str, str] = Field(default_factory=dict)
@@ -106,7 +119,7 @@ class AssaySourceHTTPSettings(BaseModel):
 
 class AssaySourcePaginationSettings(BaseModel):
     """Pagination settings for an assay source."""
-    
+
     page_param: str | None = Field(default=None)
     size_param: str | None = Field(default=None)
     offset_param: str | None = Field(default=None)
@@ -116,7 +129,7 @@ class AssaySourcePaginationSettings(BaseModel):
 
 class AssaySourceSettings(BaseModel):
     """Configuration settings for an assay source."""
-    
+
     enabled: bool = Field(default=True)
     name: str | None = Field(default=None)
     endpoint: str | None = Field(default=None)
@@ -140,7 +153,7 @@ class SourceToggle(BaseModel):
 
 class CacheSettings(BaseModel):
     """Cache configuration settings."""
-    
+
     enabled: bool = Field(default=True)
     directory: Path = Field(default=Path(".cache/chembl"))
     ttl: int = Field(default=3600, ge=1, le=86400)  # 1 hour to 1 day
@@ -149,7 +162,7 @@ class CacheSettings(BaseModel):
 
 class FilterProfileSettings(BaseModel):
     """Filter profile configuration."""
-    
+
     target_organism: str | None = Field(default=None)
     target_type: str | None = Field(default=None)
     relationship_type: str | None = Field(default=None)
@@ -158,6 +171,57 @@ class FilterProfileSettings(BaseModel):
     assay_type__in: str | None = Field(default=None)
 
 
+<<<<<<< Updated upstream
+=======
+class VariantFilterSettings(BaseModel):
+    """Settings for filtering variant data."""
+
+    include_wildtype: bool = Field(default=True)
+
+
+class VariantFetchSettings(BaseModel):
+    """Settings for fetching variant data."""
+
+    batch_size: int = Field(default=200, ge=1, le=1000)
+
+
+class VariantMutationSettings(BaseModel):
+    """Settings for variant mutation processing."""
+
+    format: str = Field(default="compact", pattern="^(compact|extended)$")
+    include_position: bool = Field(default=True)
+
+
+class VariantInterfaceSettings(BaseModel):
+    """Settings for variant interface/derived columns."""
+
+    extract_sequence_accession: bool = Field(default=True)
+    extract_sequence_mutation: bool = Field(default=True)
+    mutation: VariantMutationSettings = Field(default_factory=VariantMutationSettings)
+
+
+class VariantSettings(BaseModel):
+    """Configuration for variant data handling."""
+
+    filters: VariantFilterSettings = Field(default_factory=VariantFilterSettings)
+    fetch: VariantFetchSettings = Field(default_factory=VariantFetchSettings)
+    interface: VariantInterfaceSettings = Field(default_factory=VariantInterfaceSettings)
+
+
+class TargetIsoformSettings(BaseModel):
+    """Settings for target isoform data."""
+
+    enabled: bool = Field(default=True)
+    batch_size: int = Field(default=50, ge=1, le=200)
+
+
+class TargetSettings(BaseModel):
+    """Configuration for target data handling."""
+
+    join_isoforms: TargetIsoformSettings = Field(default_factory=TargetIsoformSettings)
+
+
+>>>>>>> Stashed changes
 def _default_sources() -> dict[str, AssaySourceSettings]:
     return {name: AssaySourceSettings(name=name) for name in ALLOWED_SOURCES}
 

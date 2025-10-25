@@ -5,9 +5,9 @@ from __future__ import annotations
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from library.clients import BioactivityClient
-from library.config import APIClientConfig
+# from library.clients import BioactivityClient  # Circular import - commented out
 from library.schemas import RawBioactivitySchema
+from library.settings import APIClientConfig
 
 
 def fetch_bioactivity_data(
@@ -17,6 +17,8 @@ def fetch_bioactivity_data(
     """Retrieve and validate bioactivity data for a single source."""
 
     schema = RawBioactivitySchema.to_schema()
+    # Import here to avoid circular import
+    from library.clients import BioactivityClient
     with BioactivityClient(client_config) as client:
         records = client.fetch_records()
     if not records:

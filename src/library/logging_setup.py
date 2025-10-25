@@ -25,50 +25,122 @@ _LOGGING_CONFIGURED = False
 
 class RedactSecretsFilter(logging.Filter):
     """Filter to redact sensitive information from log records."""
-    
+
     def __init__(self, name: str = "") -> None:
         super().__init__(name)
         self.sensitive_patterns = [
-            (re.compile(r'(?i)(token|api_key|password|secret|key)\s*=\s*([^\s,}]+)'), r'\1=[REDACTED]'),
-            (re.compile(r'(?i)(authorization|bearer)\s*:\s*([^\s,}]+)'), r'\1: [REDACTED]'),
-            (re.compile(r'(?i)(password|pwd)\s*=\s*([^\s,}]+)'), r'\1=[REDACTED]'),
+            (re.compile(r"(?i)(token|api_key|password|secret|key)\s*=\s*([^\s,}]+)"), r"\1=[REDACTED]"),
+            (re.compile(r"(?i)(authorization|bearer)\s*:\s*([^\s,}]+)"), r"\1: [REDACTED]"),
+            (re.compile(r"(?i)(password|pwd)\s*=\s*([^\s,}]+)"), r"\1=[REDACTED]"),
         ]
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter and redact sensitive information from log record."""
+<<<<<<< Updated upstream
         if hasattr(record, 'getMessage'):
             message = record.getMessage()
             for pattern, replacement in self.sensitive_patterns:
                 message = pattern.sub(replacement, message)
             record.msg = message
+=======
+        try:
+            # Проверяем, не является ли это записью от urllib3 или requests
+            if "urllib3" in record.name or "requests" in record.name:
+                # Для urllib3/requests записей не пытаемся получить сообщение
+                # так как это может вызвать ошибки форматирования
+                return True
+
+            if hasattr(record, "getMessage"):
+                message = record.getMessage()
+                for pattern, replacement in self.sensitive_patterns:
+                    message = pattern.sub(replacement, message)
+                record.msg = message
+        except Exception as e:
+            # Если что-то пойдет не так, логируем ошибку и пропускаем запись
+            import logging
+
+            logging.getLogger(__name__).debug(f"Error in RedactSecretsFilter: {e}")
+            pass
+>>>>>>> Stashed changes
         return True
 
 
 class AddContextFilter(logging.Filter):
     """Filter to add context variables to log records."""
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Add context variables to log record."""
         record.run_id = run_id_var.get() or "unknown"
         record.stage = stage_var.get() or "unknown"
-        
+
         # Add trace_id from OpenTelemetry if available
         try:
-            from library.telemetry import get_current_trace_id  # type: ignore[import-untyped]
+            from library.telemetry import (
+                get_current_trace_id,  # type: ignore[import-untyped]
+            )
+
             record.trace_id = get_current_trace_id() or "unknown"
         except ImportError:
             record.trace_id = "unknown"
-        
+
         return True
 
 
+<<<<<<< Updated upstream
 def _redact_secrets_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
+=======
+class SafeFormattingFilter(logging.Filter):
+    """Filter to prevent formatting errors in urllib3 and other problematic libraries."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Escape % symbols in log messages to prevent formatting errors."""
+        try:
+            # Для urllib3 полностью отключаем форматирование, заменяя на простую строку
+            if "urllib3" in record.name:
+                if hasattr(record, "msg") and isinstance(record.msg, str):
+                    # Заменяем форматированное сообщение на простое
+                    record.msg = f"urllib3: {record.msg}"
+                    record.args = ()  # Убираем аргументы
+                return True
+
+            # Для всех остальных логов проверяем и исправляем проблемы с форматированием
+            if hasattr(record, "msg") and isinstance(record.msg, str):
+                # Проверяем, есть ли проблемы с форматированием
+                try:
+                    # Пробуем отформатировать сообщение
+                    if hasattr(record, "args") and record.args:
+                        _ = record.msg % record.args
+                except (TypeError, ValueError):
+                    # Если форматирование не удается, конвертируем аргументы в строки
+                    if hasattr(record, "args") and record.args:
+                        safe_args = []
+                        for arg in record.args:
+                            if isinstance(arg, (list, tuple)):
+                                # Для списков и кортежей конвертируем в строку
+                                safe_args.append(str(arg))
+                            elif hasattr(arg, "tolist"):  # numpy arrays
+                                try:
+                                    safe_args.append(str(arg.tolist()))  # type: ignore[attr-defined]
+                                except (AttributeError, TypeError):
+                                    safe_args.append(str(arg))
+                            else:
+                                safe_args.append(str(arg))
+                        record.args = tuple(safe_args)
+
+        except Exception as e:
+            # Если что-то пойдет не так, логируем ошибку и пропускаем запись
+            import logging
+
+            logging.getLogger(__name__).debug(f"Error in SafeFormattingFilter: {e}")
+            pass
+        return True
+
+
+def _redact_secrets_processor(logger: Any, _method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
+>>>>>>> Stashed changes
     """Remove sensitive information from structlog event dictionary."""
-    sensitive_keys = [
-        "authorization", "api_key", "token", "password", "secret", "key",
-        "bearer", "auth", "credential", "access_token", "refresh_token"
-    ]
-    
+    sensitive_keys = ["authorization", "api_key", "token", "password", "secret", "key", "bearer", "auth", "credential", "access_token", "refresh_token"]
+
     def redact_dict(d: MutableMapping[str, Any] | None) -> Mapping[str, Any] | None:
         """Recursively redact sensitive values in a dictionary."""
         if d is None:
@@ -82,29 +154,38 @@ def _redact_secrets_processor(logger: Any, method_name: str, event_dict: Mutable
             else:
                 result[key] = value
         return result
-    
+
     # Redact headers if present
     if "headers" in event_dict:
         event_dict["headers"] = redact_dict(event_dict["headers"])
-    
+
     # Redact any other sensitive fields
     redacted_dict = redact_dict(event_dict)
+<<<<<<< Updated upstream
     
     return redacted_dict
+=======
+
+    # Ensure we always return a valid dictionary
+    return redacted_dict if redacted_dict is not None else {}
+>>>>>>> Stashed changes
 
 
 def _add_context_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
     """Add context variables to structlog event dictionary."""
     event_dict["run_id"] = run_id_var.get() or "unknown"
     event_dict["stage"] = stage_var.get() or "unknown"
-    
+
     # Add trace_id from OpenTelemetry if available
     try:
-        from library.telemetry import get_current_trace_id  # type: ignore[import-untyped]
+        from library.telemetry import (
+            get_current_trace_id,  # type: ignore[import-untyped]
+        )
+
         event_dict["trace_id"] = get_current_trace_id() or "unknown"
     except ImportError:
         event_dict["trace_id"] = "unknown"
-    
+
     return event_dict
 
 
@@ -138,28 +219,28 @@ def configure_logging(
     logging_config: dict | None = None,
 ) -> BoundLogger:
     """Configure structured logging with file and console handlers.
-    
+
     Args:
         level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         config_path: Path to logging configuration YAML file
         file_enabled: Whether to enable file logging
         console_format: Console format (text or json)
         log_file: Custom log file path
-        
+
     Returns:
         Configured structlog logger
     """
     global _LOGGING_CONFIGURED
-    
+
     if _LOGGING_CONFIGURED:
         return structlog.get_logger()
-    
+
     # Use logging config from parameters or defaults
     if logging_config:
         file_enabled = file_enabled if file_enabled is not None else logging_config.get("file", {}).get("enabled", True)
         console_format = console_format if console_format is not None else logging_config.get("console", {}).get("format", "text")
         log_file = log_file or Path(logging_config.get("file", {}).get("path", "logs/app.log"))
-    
+
     # Set defaults if not provided
     if file_enabled is None:
         file_enabled = True
@@ -167,17 +248,38 @@ def configure_logging(
         console_format = "text"
     if log_file is None:
         log_file = Path("logs/app.log")
-    
+
     # Create logs directory if file logging is enabled
     if file_enabled:
         logs_dir = log_file.parent
         logs_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Load configuration from YAML if provided
     if config_path and config_path.exists():
         with config_path.open("r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
+<<<<<<< Updated upstream
         
+=======
+    elif config_path is None:
+        # Auto-detect Windows and use appropriate config
+        import platform
+
+        if platform.system() == "Windows":
+            windows_config_path = Path("configs/logging_windows.yaml")
+            if windows_config_path.exists():
+                config_path = windows_config_path
+                with config_path.open("r", encoding="utf-8") as f:
+                    config = yaml.safe_load(f)
+            else:
+                # Fallback to default config
+                default_config_path = Path("configs/logging.yaml")
+                if default_config_path.exists():
+                    config_path = default_config_path
+                    with config_path.open("r", encoding="utf-8") as f:
+                        config = yaml.safe_load(f)
+
+>>>>>>> Stashed changes
         # Override configuration based on parameters
         if not file_enabled:
             # Remove file handlers
@@ -186,18 +288,18 @@ def configure_logging(
                     logger_config["handlers"] = [h for h in logger_config["handlers"] if h != "file"]
             if "root" in config and "handlers" in config["root"]:
                 config["root"]["handlers"] = [h for h in config["root"]["handlers"] if h != "file"]
-        
+
         if log_file:
             # Update file handler path
             if "handlers" in config and "file" in config["handlers"]:
                 config["handlers"]["file"]["filename"] = str(log_file)
-        
+
         # Apply configuration
         logging.config.dictConfig(config)
     else:
         # Fallback to programmatic configuration
         _configure_programmatic_logging(level, file_enabled, console_format, log_file)
-    
+
     # Configure structlog
     structlog.configure(
         processors=[
@@ -213,7 +315,7 @@ def configure_logging(
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-    
+
     _LOGGING_CONFIGURED = True
     return structlog.get_logger()
 
@@ -226,45 +328,47 @@ def _configure_programmatic_logging(
 ) -> None:
     """Configure logging programmatically without YAML config."""
     # Create formatters
-    console_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(name)s — %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    
-    json_formatter = logging.Formatter(
-        "%(asctime)s %(levelname)s %(name)s %(message)s run_id:%(run_id)s stage:%(stage)s trace_id:%(trace_id)s",
-        datefmt="%Y-%m-%dT%H:%M:%S"
-    )
-    
+    console_formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s — %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+    json_formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s run_id:%(run_id)s stage:%(stage)s trace_id:%(trace_id)s", datefmt="%Y-%m-%dT%H:%M:%S")
+
     # Create handlers
     console_handler = logging.StreamHandler()
     console_handler.setLevel(getattr(logging, level.upper()))
     console_handler.setFormatter(console_formatter)
     console_handler.addFilter(RedactSecretsFilter())
     console_handler.addFilter(AddContextFilter())
-    
+
     handlers = [console_handler]
-    
+
     if file_enabled:
         file_path = log_file or Path("logs/app.log")
         file_handler = logging.handlers.RotatingFileHandler(  # type: ignore
             filename=file_path,
             maxBytes=10485760,  # 10MB
             backupCount=10,
-            encoding="utf-8"
+            encoding="utf-8",
         )
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(json_formatter)
         file_handler.addFilter(RedactSecretsFilter())
         file_handler.addFilter(AddContextFilter())
         handlers.append(file_handler)
-    
+
     # Configure root logger
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         handlers=handlers,
-        format="%(message)s"  # structlog will handle formatting
+        format="%(message)s",  # structlog will handle formatting
     )
+<<<<<<< Updated upstream
+=======
+
+    # Apply SafeFormattingFilter only to problematic libraries
+    for logger_name in ["urllib3", "urllib3.connectionpool", "requests", "requests.packages.urllib3"]:
+        logger = logging.getLogger(logger_name)
+        logger.addFilter(SafeFormattingFilter())
+>>>>>>> Stashed changes
 
 
 @contextmanager
@@ -286,21 +390,21 @@ def get_logger(name: str, **initial_values: Any) -> BoundLogger:
 
 def cleanup_old_logs(older_than_days: int = 14, logs_dir: Path | None = None) -> None:
     """Clean up log files older than specified days.
-    
+
     Args:
         older_than_days: Remove logs older than this many days
         logs_dir: Directory to clean (defaults to logs/)
     """
     import time
-    
+
     if logs_dir is None:
         logs_dir = Path("logs")
-    
+
     if not logs_dir.exists():
         return
-    
+
     cutoff_time = time.time() - (older_than_days * 24 * 60 * 60)
-    
+
     for log_file in logs_dir.rglob("*.log*"):
         if log_file.stat().st_mtime < cutoff_time:
             try:

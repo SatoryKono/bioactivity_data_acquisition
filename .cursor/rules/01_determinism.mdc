@@ -1,0 +1,17 @@
+---
+description: Детерминизм выгрузок и метаданные
+globs:
+alwaysApply: true
+---
+# Determinism & Reproducibility (Blocking)
+- Перед экспортом сортируйте по стабильным ключам.
+- Генерируйте hash_row/hash_business_key детерминированно.
+- Сохраняйте meta.yaml с pipeline_version, chembl_release, row_count, checksums.
+
+Плохо:
+- Произвольный порядок строк при каждом запуске.
+
+Хорошо:
+- export_* сортирует по [assay_id, molecule_id, activity_id] и пишет meta.yaml.
+
+@docs/meta-template.yaml

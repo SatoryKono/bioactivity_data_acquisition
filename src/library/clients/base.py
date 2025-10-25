@@ -1,21 +1,16 @@
-"""Base utilities shared by all HTTP clients."""
+"""Simplified base utilities for HTTP clients."""
+
 from __future__ import annotations
 
-import json
-import random
-import threading
-import time
-from collections import deque
+import logging
 from collections.abc import MutableMapping
-from dataclasses import dataclass
-from functools import partial
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
-import backoff
 import requests
 from requests import Response
 
+<<<<<<< Updated upstream
 from library.clients.circuit_breaker import APICircuitBreaker
 from library.clients.exceptions import ApiClientError, RateLimitError
 from library.clients.fallback import AdaptiveFallbackStrategy, FallbackConfig, FallbackManager
@@ -24,43 +19,20 @@ from library.clients.session import get_shared_session
 from library.config import APIClientConfig
 from library.logging_setup import get_logger
 from library.telemetry import add_span_attribute
+=======
+from library.settings import APIClientConfig
+>>>>>>> Stashed changes
 
+from ..clients.session import get_shared_session
 
-@dataclass(frozen=True)
-class RateLimitConfig:
-    """Rate limit settings."""
+if TYPE_CHECKING:
+    from library.common.rate_limiter import RateLimiter
 
-    max_calls: int
-    period: float
-
-
-class RateLimiter:
-    """A simple thread-safe rate limiter.
-
-    The limiter keeps timestamps of recent calls and raises a ``RateLimitError``
-    when the number of calls within ``period`` exceeds ``max_calls``.
-    """
-
-    def __init__(self, config: RateLimitConfig) -> None:
-        self._config = config
-        self._timestamps: deque[float] = deque()
-        self._lock = threading.Lock()
-
-    def acquire(self) -> None:
-        now = time.monotonic()
-        with self._lock:
-            while self._timestamps and now - self._timestamps[0] >= self._config.period:
-                self._timestamps.popleft()
-            if len(self._timestamps) >= self._config.max_calls:
-                raise RateLimitError(
-                    f"rate limit exceeded: {self._config.max_calls} calls per "
-                    f"{self._config.period}s"
-                )
-            self._timestamps.append(now)
+logger = logging.getLogger(__name__)
 
 
 class BaseApiClient:
-    """Shared functionality for the service-specific clients."""
+    """Simplified base functionality for HTTP clients."""
 
     def __init__(
         self,
@@ -68,15 +40,14 @@ class BaseApiClient:
         *,
         session: requests.Session | None = None,
         rate_limiter: RateLimiter | None = None,
-        timeout: float = 10.0,
+        timeout: float | tuple[float, float] | None = None,
         max_retries: int = 3,
         default_headers: MutableMapping[str, str] | None = None,
-        fallback_manager: FallbackManager | None = None,
-        circuit_breaker: APICircuitBreaker | None = None,
     ) -> None:
         self.config = config
-        self.base_url = config.resolved_base_url.rstrip("/")
+        self.base_url = config.base_url.rstrip("/")
         self.session = session or get_shared_session()
+<<<<<<< Updated upstream
         limiter = config.rate_limit
         if limiter is not None and rate_limiter is None:
             rate_limiter = RateLimiter(RateLimitConfig(limiter.max_calls, limiter.period))
@@ -122,8 +93,41 @@ class BaseApiClient:
         
         # Initialize degradation manager
         self.degradation_manager = get_degradation_manager()
+=======
+
+        # Rate limiting
+        if rate_limiter is None:
+            # Use default rate limiting based on service
+            from ..common.rate_limiter import get_limiter
+
+            if "pubmed" in self.base_url.lower():
+                self.rate_limiter = get_limiter("pubmed", 3.0, 5)
+            elif "crossref" in self.base_url.lower():
+                self.rate_limiter = get_limiter("crossref", 5.0, 10)
+            elif "semanticscholar" in self.base_url.lower():
+                self.rate_limiter = get_limiter("semanticscholar", 2.0, 3)
+            else:
+                self.rate_limiter = get_limiter("default", 5.0, 10)
+        else:
+            self.rate_limiter = rate_limiter
+
+        # Timeout configuration
+        if timeout is not None:
+            self.timeout = timeout
+        else:
+            # Use config timeouts
+            self.timeout = (config.timeout_connect, config.timeout_read)
+
+        self.max_retries = max_retries
+
+        # Headers
+        self.default_headers = {**config.headers} if hasattr(config, "headers") else {}
+        if default_headers:
+            self.default_headers.update(default_headers)
+>>>>>>> Stashed changes
 
     def _make_url(self, path: str) -> str:
+        """Build full URL from path."""
         if not path:
             return str(self.base_url)
         if path.startswith(("http://", "https://")):
@@ -131,6 +135,7 @@ class BaseApiClient:
         normalized = path.lstrip("/")
         return str(urljoin(self.base_url + "/", f"./{normalized}"))
 
+<<<<<<< Updated upstream
     def _send_with_backoff(self, method: str, url: str, **kwargs: Any) -> Response:
         def _call() -> Response:
             # Use config timeout if specified, otherwise rely on session default timeout
@@ -242,26 +247,22 @@ class BaseApiClient:
                 # Re-raise the error if degradation is not appropriate
                 raise
 
+=======
+>>>>>>> Stashed changes
     def _request(
         self,
         method: str,
-        path: str = "",
-        *,
-        expected_status: int = 200,
-        headers: MutableMapping[str, str] | None = None,
+        path: str,
         **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> Response:
+        """Make HTTP request with rate limiting and retry logic."""
         url = self._make_url(path)
-        request_headers = dict(self.default_headers)
-        if headers:
-            request_headers.update(headers)
 
-        # Add tracing attributes
-        add_span_attribute("http.method", method)
-        add_span_attribute("http.url", url)
-        add_span_attribute("api.client", self.config.name)
-        add_span_attribute("http.expected_status", expected_status)
+        # Apply rate limiting
+        if self.rate_limiter:
+            self.rate_limiter.acquire()
 
+<<<<<<< Updated upstream
         self.logger.info(
             "request",
             method=method,
@@ -277,11 +278,33 @@ class BaseApiClient:
             add_span_attribute("error", True)
             add_span_attribute("error.type", "transport_error")
             raise ApiClientError(str(exc)) from exc
+=======
+        # Set timeout
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = self.timeout
 
-        # Add response attributes to span
-        add_span_attribute("http.status_code", response.status_code)
-        add_span_attribute("http.response_size", len(response.content))
+        # Set headers
+        headers = kwargs.get("headers", {})
+        headers.update(self.default_headers)
+        kwargs["headers"] = headers
+>>>>>>> Stashed changes
 
+        # Make request with retry
+        last_exception = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self.session.request(method, url, **kwargs)
+                response.raise_for_status()
+                return response
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt == self.max_retries:
+                    logger.error(f"Request failed after {self.max_retries} retries: {e}")
+                    raise
+                logger.warning(f"Request attempt {attempt + 1} failed: {e}, retrying...")
+                continue
+
+<<<<<<< Updated upstream
         if response.status_code != expected_status:
             # Ограничиваем вывод текста ответа для HTML ошибок
             response_text = response.text
@@ -357,28 +380,36 @@ class BaseApiClient:
         if not isinstance(payload, dict):
             raise ApiClientError("expected JSON object from API")
         return payload
+=======
+        # This should never be reached, but mypy needs it
+        if last_exception:
+            raise last_exception
+        raise RuntimeError("Unexpected error in request retry loop")
 
-    def _xml_to_dict(self, element) -> dict[str, Any]:
-        """Преобразует XML элемент в словарь."""
-        result = {}
-        
-        # Обрабатываем атрибуты
-        if element.attrib:
-            result.update(element.attrib)
-        
-        # Обрабатываем дочерние элементы
-        for child in element:
-            child_dict = self._xml_to_dict(child)
-            if child.tag in result:
-                # Если ключ уже существует, создаем список
-                if not isinstance(result[child.tag], list):
-                    result[child.tag] = [result[child.tag]]
-                result[child.tag].append(child_dict)
-            else:
-                result[child.tag] = child_dict
-        
-        # Если нет дочерних элементов и атрибутов, возвращаем текст
-        if not result and element.text:
-            return element.text.strip()
-        
-        return result
+    def get(self, path: str, **kwargs: Any) -> Response:
+        """Make GET request."""
+        return self._request("GET", path, **kwargs)
+
+    def post(self, path: str, **kwargs: Any) -> Response:
+        """Make POST request."""
+        return self._request("POST", path, **kwargs)
+>>>>>>> Stashed changes
+
+    def put(self, path: str, **kwargs: Any) -> Response:
+        """Make PUT request."""
+        return self._request("PUT", path, **kwargs)
+
+    def delete(self, path: str, **kwargs: Any) -> Response:
+        """Make DELETE request."""
+        return self._request("DELETE", path, **kwargs)
+
+    def close(self) -> None:
+        """Close the session."""
+        if hasattr(self.session, "close"):
+            self.session.close()
+
+    def __enter__(self) -> BaseApiClient:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()

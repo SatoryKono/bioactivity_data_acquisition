@@ -1,0 +1,9 @@
+---
+description: Гигиена документации и автогенерация доков
+globs: docs/**, mkdocs.yml
+alwaysApply: false
+---
+# Docs Hygiene & Autogen (Required, Auto Attached)
+- Поддерживайте актуальность разделов docs/; автогенерация CLI/API.
+- Удаляйте устаревшие страницы и ссылки.
+@docs/templates/source-mapping.md

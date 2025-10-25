@@ -1,0 +1,8 @@
+---
+description: Обязательные pre-commit хуки
+globs:
+alwaysApply: true
+---
+# Pre-commit Mandatory (Required)
+- Перед коммитом запускайте pre-commit; в CI — проверка обязательна.
+- Список хуков: форматтер, исорт/импорты, линтер, mypy, секрет‑скан.

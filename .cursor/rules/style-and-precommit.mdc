@@ -1,0 +1,25 @@
+name: style-and-precommit
+type: Always
+priority: Blocking
+scope: [code, ci]
+triggers:
+  paths: ["src/**", "tests/**"]
+
+rules:
+- do: "Run ruff/black/isort/mypy before commit/PR"
+- do: "Disallow 'from x import *'"
+- do: "Fail CI on lint/type errors"
+
+bad_example: |
+  from utils import *
+  def run(x): return x+1
+good_example: |
+  from library.utils import do_run
+  def run(x: int) -> int: return do_run(x)
+
+checks:
+- "pre-commit run -a passes"
+- "mypy --strict passes"
+
+autofix:
+- "pre-commit run -a"
