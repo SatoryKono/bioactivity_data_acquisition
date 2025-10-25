@@ -72,7 +72,7 @@ class DocumentNormalizer:
         
         # Define all possible columns that should exist in the output
         all_columns = {
-            # Original ChEMBL fields
+            # Original ChEMBL fields (legacy)
             "document_chembl_id", "title", "doi", "document_pubmed_id", "chembl_doc_type", "journal", "year",
             # Legacy ChEMBL fields
             "abstract", "pubmed_authors", "document_classification", "referenses_on_previous_experiments",
@@ -83,12 +83,27 @@ class DocumentNormalizer:
             "pubmed_doi", "pubmed_title", "pubmed_abstract", "pubmed_journal", 
             "pubmed_issn", "pubmed_volume", "pubmed_issue", "pubmed_pages", "pubmed_year", "pubmed_month",
             "pubmed_day", "pubmed_pmcid", "pubmed_error",
+            # Added PubMed fields for completion dates
+            "pubmed_year_completed", "pubmed_month_completed", "pubmed_day_completed",
+            # Added PubMed fields for revision dates
+            "pubmed_year_revised", "pubmed_month_revised", "pubmed_day_revised",
+            # Added PubMed MeSH and chemical fields
+            "pubmed_mesh_descriptors", "pubmed_mesh_qualifiers", "pubmed_chemical_list",
             "semantic_scholar_doi", "semantic_scholar_title", "semantic_scholar_abstract", 
             "semantic_scholar_authors", "semantic_scholar_venue", "semantic_scholar_year", 
             "semantic_scholar_citation_count", "semantic_scholar_error",
-            # ChEMBL enriched fields
-            "chembl_title", "chembl_doi", "chembl_pmid", "chembl_journal", "chembl_year", 
-            "chembl_volume", "chembl_issue",
+            # ChEMBL enriched fields (legacy - удалены, заменены на CHEMBL.DOCS.*)
+            
+            # Новые поля из ChEMBL DOCS согласно спецификации
+            "CHEMBL.DOCS.document_chembl_id", "CHEMBL.DOCS.doc_type", "CHEMBL.DOCS.title", 
+            "CHEMBL.DOCS.journal", "CHEMBL.DOCS.year", "CHEMBL.DOCS.volume", "CHEMBL.DOCS.issue",
+            "CHEMBL.DOCS.first_page", "CHEMBL.DOCS.last_page", "CHEMBL.DOCS.doi", 
+            "CHEMBL.DOCS.pubmed_id", "CHEMBL.DOCS.abstract", "CHEMBL.DOCS.chembl_release",
+            
+            # Новые поля из ChEMBL SOURCE согласно спецификации
+            "CHEMBL.SOURCE.src_id", "CHEMBL.SOURCE.src_description", "CHEMBL.SOURCE.src_short_name",
+            "CHEMBL.SOURCE.src_url", "CHEMBL.SOURCE.data",
+            
             # Computed fields
             "publication_date", "document_sortorder", "citation"
         }
@@ -117,8 +132,15 @@ class DocumentNormalizer:
             "pubmed_issn", "pubmed_volume", "pubmed_issue", "pubmed_pages", "pubmed_pmcid", "pubmed_error",
             "semantic_scholar_doi", "semantic_scholar_title", "semantic_scholar_abstract",
             "semantic_scholar_authors", "semantic_scholar_venue", "semantic_scholar_error",
-            "chembl_title", "chembl_doi", "chembl_pmid", "chembl_journal", "chembl_volume", "chembl_issue",
-            "citation", "document_sortorder"
+            "citation", "document_sortorder",
+            # Новые поля DOCS
+            "CHEMBL.DOCS.document_chembl_id", "CHEMBL.DOCS.doc_type", "CHEMBL.DOCS.title",
+            "CHEMBL.DOCS.journal", "CHEMBL.DOCS.volume", "CHEMBL.DOCS.issue", 
+            "CHEMBL.DOCS.first_page", "CHEMBL.DOCS.last_page", "CHEMBL.DOCS.doi",
+            "CHEMBL.DOCS.abstract", "CHEMBL.DOCS.chembl_release",
+            # Новые поля SOURCE
+            "CHEMBL.SOURCE.src_description", "CHEMBL.SOURCE.src_short_name", 
+            "CHEMBL.SOURCE.src_url", "CHEMBL.SOURCE.data"
         ]
         
         for field in string_fields:
@@ -128,7 +150,9 @@ class DocumentNormalizer:
         # Numeric fields
         numeric_fields = [
             "year", "pubmed_year", "pubmed_month", "pubmed_day", "semantic_scholar_year",
-            "semantic_scholar_citation_count", "chembl_year"
+            "semantic_scholar_citation_count",
+            # Новые поля DOCS и SOURCE
+            "CHEMBL.DOCS.year", "CHEMBL.DOCS.pubmed_id", "CHEMBL.SOURCE.src_id"
         ]
         
         for field in numeric_fields:
@@ -170,10 +194,6 @@ class DocumentNormalizer:
                 normalized_df[field] = normalized_df[field].astype(str).str.lower().map({
                     'true': True, 'false': False, '1': True, '0': False, 'yes': True, 'no': False
                 }).fillna(False).astype('bool')
-        
-        # Map pubmed_year_completed to pubmed_year
-        if "pubmed_year_completed" in normalized_df.columns:
-            normalized_df["pubmed_year"] = normalized_df["pubmed_year_completed"]
         
         return normalized_df
 

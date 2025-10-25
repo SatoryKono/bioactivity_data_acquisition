@@ -131,51 +131,7 @@ class DocumentRawSchema:
                 ["normalize_datetime_iso8601"]
             ),
             
-            # ChEMBL поля
-            "chembl_pmid": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="PMID из ChEMBL"),
-                ["normalize_string_strip", "normalize_pmid"]
-            ),
-            "chembl_title": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Название из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
-            ),
-            "chembl_abstract": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Аннотация из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
-            ),
-            "chembl_authors": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Авторы из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
-            ),
-            "chembl_doi": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="DOI из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
-            ),
-            "chembl_doc_type": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Тип документа из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_upper"]
-            ),
-            "chembl_issn": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="ISSN из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_upper"]
-            ),
-            "chembl_journal": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Журнал из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_titlecase"]
-            ),
-            "chembl_year": add_normalization_metadata(
-                Column(pa.Int, nullable=True, description="Год из ChEMBL"),
-                ["normalize_int", "normalize_year"]
-            ),
-            "chembl_volume": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Том из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc"]
-            ),
-            "chembl_issue": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Номер выпуска из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc"]
-            ),
+            # ChEMBL поля (legacy - удалены, заменены на CHEMBL.DOCS.*)
             "chembl_error": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Ошибка из ChEMBL"),
                 ["normalize_string_strip", "normalize_string_nfc"]
@@ -498,11 +454,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
             
-            # Группа полей PMID из всех источников
-            "chembl_pmid": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="PMID из ChEMBL"),
-                ["normalize_string_strip", "normalize_pmid"]
-            ),
+            # Группа полей PMID из всех источников (chembl_pmid удален, заменен на CHEMBL.DOCS.pubmed_id)
             "crossref_pmid": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="PMID из Crossref"),
                 ["normalize_string_strip", "normalize_pmid"]
@@ -520,11 +472,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_pmid"]
             ),
             
-            # Группа полей названий статей из всех источников
-            "chembl_title": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Название статьи из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
-            ),
+            # Группа полей названий статей из всех источников (chembl_title удален, заменен на CHEMBL.DOCS.title)
             "crossref_title": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Название статьи из Crossref"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
@@ -542,11 +490,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
             
-            # Группа полей аннотаций из всех источников
-            "chembl_abstract": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Аннотация из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
-            ),
+            # Группа полей аннотаций из всех источников (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)
             "crossref_abstract": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Аннотация из Crossref"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
@@ -560,11 +504,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
             
-            # Группа полей авторов из всех источников
-            "chembl_authors": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Авторы из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
-            ),
+            # Группа полей авторов из всех источников (chembl_authors удален, не в спецификации DOCS)
             "crossref_authors": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Авторы из Crossref"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
@@ -582,11 +522,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
             
-            # Группа полей DOI из всех источников
-            "chembl_doi": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="DOI из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
-            ),
+            # Группа полей DOI из всех источников (chembl_doi удален, заменен на CHEMBL.DOCS.doi)
             "crossref_doi": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="DOI из Crossref"),
                 ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
@@ -604,11 +540,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
             ),
             
-            # Группа полей типов публикации из всех источников
-            "chembl_doc_type": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Тип документа из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_upper"]
-            ),
+            # Группа полей типов публикации из всех источников (chembl_doc_type удален, заменен на CHEMBL.DOCS.doc_type)
             "crossref_doc_type": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Тип документа из Crossref"),
                 ["normalize_string_strip", "normalize_string_upper"]
@@ -630,11 +562,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             
-            # Группа полей ISSN из всех источников
-            "chembl_issn": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="ISSN из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_upper"]
-            ),
+            # Группа полей ISSN из всех источников (chembl_issn удален, не возвращается API /document)
             "crossref_issn": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="ISSN из Crossref"),
                 ["normalize_string_strip", "normalize_string_upper"]
@@ -652,11 +580,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             
-            # Группа полей названий журналов из всех источников
-            "chembl_journal": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Название журнала из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_titlecase"]
-            ),
+            # Группа полей названий журналов из всех источников (chembl_journal удален, заменен на CHEMBL.DOCS.journal)
             "crossref_journal": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Название журнала из Crossref"),
                 ["normalize_string_strip", "normalize_string_titlecase"]
@@ -674,11 +598,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_titlecase"]
             ),
             
-            # Группа полей годов издания из всех источников
-            "chembl_year": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="Год из ChEMBL"),
-                ["normalize_int", "normalize_year"]
-            ),
+            # Группа полей годов издания из всех источников (chembl_year удален, заменен на CHEMBL.DOCS.year)
             "crossref_year": add_normalization_metadata(
                 Column(pa.Int64, nullable=True, description="Год из Crossref"),
                 ["normalize_int", "normalize_year"]
@@ -692,11 +612,7 @@ class DocumentNormalizedSchema:
                 ["normalize_int", "normalize_year"]
             ),
             
-            # Группа полей томов из всех источников
-            "chembl_volume": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Том из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc"]
-            ),
+            # Группа полей томов из всех источников (chembl_volume удален, заменен на CHEMBL.DOCS.volume)
             "crossref_volume": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Том из Crossref"),
                 ["normalize_string_strip", "normalize_string_nfc"]
@@ -710,11 +626,7 @@ class DocumentNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_nfc"]
             ),
             
-            # Группа полей выпусков из всех источников
-            "chembl_issue": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="Номер выпуска из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_nfc"]
-            ),
+            # Группа полей выпусков из всех источников (chembl_issue удален, заменен на CHEMBL.DOCS.issue)
             "crossref_issue": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Номер выпуска из Crossref"),
                 ["normalize_string_strip", "normalize_string_nfc"]
@@ -854,5 +766,154 @@ class DocumentNormalizedSchema:
             "invalid_issue": add_normalization_metadata(
                 Column(pa.Bool, nullable=True, description="Невалидный номер выпуска"),
                 ["normalize_boolean"]
+            ),
+            
+            # Новые поля из ChEMBL DOCS согласно спецификации
+            "CHEMBL.DOCS.document_chembl_id": add_normalization_metadata(
+                Column(
+                    pa.String,
+                    checks=[
+                        Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL document ID format"),
+                        Check(lambda x: x.notna())
+                    ],
+                    nullable=False,
+                    description="ChEMBL ID документа"
+                ),
+                ["normalize_string_strip", "normalize_string_upper", "normalize_chembl_id"]
+            ),
+            "CHEMBL.DOCS.doc_type": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Тип документа"),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "CHEMBL.DOCS.title": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Заголовок публикации/набора",
+                    checks=[Check.str_length(max_value=4000, error="Title too long")]
+                ),
+                ["normalize_string_strip", "normalize_string_whitespace"]
+            ),
+            "CHEMBL.DOCS.journal": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Название журнала",
+                    checks=[Check.str_length(max_value=255, error="Journal name too long")]
+                ),
+                ["normalize_string_strip", "normalize_string_titlecase"]
+            ),
+            "CHEMBL.DOCS.year": add_normalization_metadata(
+                Column(
+                    pa.Int64, 
+                    nullable=True, 
+                    description="Год",
+                    checks=[Check.in_range(1800, 2100, error="Year out of range")]
+                ),
+                ["normalize_int", "normalize_year"]
+            ),
+            "CHEMBL.DOCS.volume": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Том",
+                    checks=[Check.str_length(max_value=50, error="Volume too long")]
+                ),
+                ["normalize_string_strip"]
+            ),
+            "CHEMBL.DOCS.issue": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Номер выпуска",
+                    checks=[Check.str_length(max_value=50, error="Issue too long")]
+                ),
+                ["normalize_string_strip"]
+            ),
+            "CHEMBL.DOCS.first_page": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Первая страница",
+                    checks=[Check.str_length(max_value=20, error="First page too long")]
+                ),
+                ["normalize_string_strip"]
+            ),
+            "CHEMBL.DOCS.last_page": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Последняя страница",
+                    checks=[Check.str_length(max_value=20, error="Last page too long")]
+                ),
+                ["normalize_string_strip"]
+            ),
+            "CHEMBL.DOCS.doi": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="DOI",
+                    checks=[Check.str_matches(r'^10\.[^\s/]+/\S+$', error="Invalid DOI format")]
+                ),
+                ["normalize_string_strip", "normalize_string_lower", "normalize_doi"]
+            ),
+            "CHEMBL.DOCS.pubmed_id": add_normalization_metadata(
+                Column(
+                    pa.Int64, 
+                    nullable=True, 
+                    description="PubMed ID",
+                    checks=[Check.ge(1, error="PubMed ID must be positive")]
+                ),
+                ["normalize_int", "normalize_pmid"]
+            ),
+            "CHEMBL.DOCS.abstract": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Аннотация",
+                    checks=[Check.str_length(max_value=4000, error="Abstract too long")]
+                ),
+                ["normalize_string_strip"]
+            ),
+            "CHEMBL.DOCS.chembl_release": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Связь на релиз ChEMBL (вложенный объект)"),
+                ["normalize_json_keys"]
+            ),
+            
+            # Новые поля из ChEMBL SOURCE согласно спецификации
+            "CHEMBL.SOURCE.src_id": add_normalization_metadata(
+                Column(
+                    pa.Int64, 
+                    nullable=True, 
+                    description="Уникальный ID источника",
+                    checks=[Check.ge(1, error="Source ID must be positive")]
+                ),
+                ["normalize_int", "normalize_int_positive"]
+            ),
+            "CHEMBL.SOURCE.src_description": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Описание источника",
+                    checks=[Check.str_length(max_value=4000, error="Source description too long")]
+                ),
+                ["normalize_string_strip"]
+            ),
+            "CHEMBL.SOURCE.src_short_name": add_normalization_metadata(
+                Column(
+                    pa.String, 
+                    nullable=True, 
+                    description="Короткое имя",
+                    checks=[Check.str_length(max_value=255, error="Source short name too long")]
+                ),
+                ["normalize_string_strip", "normalize_string_upper"]
+            ),
+            "CHEMBL.SOURCE.src_url": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="URL источника"),
+                ["normalize_string_strip"]
+            ),
+            "CHEMBL.SOURCE.data": add_normalization_metadata(
+                Column(pa.String, nullable=True, description="Полные данные источника как JSON"),
+                ["normalize_json_structure"]
             ),
         })

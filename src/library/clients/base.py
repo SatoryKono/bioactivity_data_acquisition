@@ -81,17 +81,22 @@ class BaseApiClient:
         if limiter is not None and rate_limiter is None:
             rate_limiter = RateLimiter(RateLimitConfig(limiter.max_calls, limiter.period))
         self.rate_limiter = rate_limiter
-        # Use config timeout, with API-specific defaults for slow APIs
-        if config.timeout is not None:
+        
+        # Поддержка раздельных timeout
+        if config.timeout_connect is not None and config.timeout_read is not None:
+            self.timeout = (config.timeout_connect, config.timeout_read)
+        elif config.timeout is not None:
             self.timeout = config.timeout
         else:
             # Set longer timeouts for slow APIs
             if 'semanticscholar' in self.base_url.lower():
-                self.timeout = 60.0  # 60 seconds for Semantic Scholar
+                self.timeout = (10.0, 60.0)  # (connect, read) for Semantic Scholar
             elif 'pubmed' in self.base_url.lower():
-                self.timeout = 45.0  # 45 seconds for PubMed
+                self.timeout = (10.0, 45.0)  # (connect, read) for PubMed
+            elif 'crossref' in self.base_url.lower():
+                self.timeout = (10.0, 30.0)  # (connect, read) for Crossref
             else:
-                self.timeout = 30.0  # 30 seconds default
+                self.timeout = (10.0, 30.0)  # (connect, read) default
         self.max_retries = (
             max_retries if max_retries is not None else max(1, config.retries.total)
         )

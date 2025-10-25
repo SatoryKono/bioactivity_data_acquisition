@@ -11,41 +11,36 @@ from . import boolean_normalizers  # noqa: F401
 from . import chemistry_normalizers  # noqa: F401
 from . import datetime_normalizers  # noqa: F401
 from . import identifier_normalizers  # noqa: F401
+from . import json_normalizers  # noqa: F401
 from . import numeric_normalizers  # noqa: F401
 from . import ontology_normalizers  # noqa: F401
 from . import string_normalizers  # noqa: F401
 from . import units_normalizers  # noqa: F401
-from .base import NormalizationError
-from .base import get_normalizer
-from .boolean_normalizers import normalize_boolean
-from .boolean_normalizers import normalize_boolean_strict
-from .chemistry_normalizers import normalize_inchi
-from .chemistry_normalizers import normalize_inchi_key
-from .chemistry_normalizers import normalize_smiles
-from .datetime_normalizers import normalize_datetime_iso8601
-from .datetime_normalizers import normalize_datetime_precision
-from .datetime_normalizers import normalize_datetime_validate
-from .identifier_normalizers import normalize_chembl_id
-from .identifier_normalizers import normalize_doi
-from .identifier_normalizers import normalize_iuphar_id
-from .identifier_normalizers import normalize_pubchem_cid
-from .identifier_normalizers import normalize_uniprot_id
-from .numeric_normalizers import normalize_float
-from .numeric_normalizers import normalize_float_precision
-from .numeric_normalizers import normalize_int
-from .numeric_normalizers import normalize_int_positive
-from .numeric_normalizers import normalize_int_range
-from .ontology_normalizers import normalize_bao_id
-from .ontology_normalizers import normalize_bao_label
-from .string_normalizers import normalize_empty_to_null
-from .string_normalizers import normalize_string_lower
-from .string_normalizers import normalize_string_nfc
-from .string_normalizers import normalize_string_strip
-from .string_normalizers import normalize_string_titlecase
-from .string_normalizers import normalize_string_upper
-from .string_normalizers import normalize_string_whitespace
-from .units_normalizers import normalize_pchembl
-from .units_normalizers import normalize_units
+from .base import NormalizationError, get_normalizer
+from .boolean_normalizers import normalize_boolean, normalize_boolean_strict
+from .chemistry_normalizers import (normalize_inchi, normalize_inchi_key,
+                                    normalize_smiles)
+from .datetime_normalizers import (normalize_datetime_iso8601,
+                                   normalize_datetime_precision,
+                                   normalize_datetime_validate)
+from .identifier_normalizers import (normalize_chembl_id, normalize_doi,
+                                     normalize_iuphar_id,
+                                     normalize_pubchem_cid,
+                                     normalize_uniprot_id)
+from .json_normalizers import (normalize_day, normalize_json_keys,
+                               normalize_json_structure, normalize_month,
+                               normalize_pmid, normalize_year)
+from .numeric_normalizers import (normalize_float, normalize_float_precision,
+                                  normalize_int, normalize_int_positive,
+                                  normalize_int_range)
+from .ontology_normalizers import normalize_bao_id, normalize_bao_label
+from .string_normalizers import (normalize_empty_to_null,
+                                 normalize_string_lower, normalize_string_nfc,
+                                 normalize_string_strip,
+                                 normalize_string_titlecase,
+                                 normalize_string_upper,
+                                 normalize_string_whitespace)
+from .units_normalizers import normalize_pchembl, normalize_units
 
 __all__ = [
     # Base
@@ -83,6 +78,14 @@ __all__ = [
     "normalize_uniprot_id",
     "normalize_iuphar_id",
     "normalize_pubchem_cid",
+    "normalize_pmid",
+    
+    # JSON normalizers
+    "normalize_json_keys",
+    "normalize_json_structure",
+    "normalize_year",
+    "normalize_month",
+    "normalize_day",
     
     # Chemistry normalizers
     "normalize_smiles",

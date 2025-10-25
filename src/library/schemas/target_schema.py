@@ -23,7 +23,7 @@ def validate_target_components_json(value: str | None) -> bool:
             if not isinstance(component, dict):
                 return False
             # Check required fields
-            if 'component_id' in component and not isinstance(component['component_id'], int):
+            if 'CHEMBL.TARGET_COMPONENTS.component_id' in component and not isinstance(component['CHEMBL.TARGET_COMPONENTS.component_id'], int):
                 return False
             if 'accession' in component and not isinstance(component['accession'], str):
                 return False
@@ -46,7 +46,7 @@ def validate_target_relations_json(value: str | None) -> bool:
             # Check required fields
             if 'target_relation_id' in relation and not isinstance(relation['target_relation_id'], int):
                 return False
-            if 'target_chembl_id' in relation and not isinstance(relation['target_chembl_id'], str):
+            if 'CHEMBL.TARGETS.target_chembl_id' in relation and not isinstance(relation['CHEMBL.TARGETS.target_chembl_id'], str):
                 return False
         return True
     except (json.JSONDecodeError, TypeError):
@@ -81,7 +81,7 @@ class TargetInputSchema:
     def get_schema() -> DataFrameSchema:
         """Схема для входных данных таргетов."""
         return DataFrameSchema({
-            "target_chembl_id": Column(
+            "CHEMBL.TARGETS.target_chembl_id": Column(
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL target ID format"),
@@ -101,7 +101,7 @@ class TargetRawSchema:
         """Схема для сырых данных таргетов."""
         return DataFrameSchema({
             # Основные поля ChEMBL
-            "target_chembl_id": Column(
+            "CHEMBL.TARGETS.target_chembl_id": Column(
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL target ID format"),
@@ -110,15 +110,15 @@ class TargetRawSchema:
                 nullable=False,
                 description="ChEMBL ID таргета"
             ),
-            "pref_name": Column(pa.String, nullable=True, description="Предпочтительное название"),
+            "CHEMBL.TARGETS.pref_name": Column(pa.String, nullable=True, description="Предпочтительное название"),
             "hgnc_name": Column(pa.String, nullable=True, description="Название по HGNC"),
             "hgnc_id": Column(pa.String, nullable=True, description="HGNC ID"),
-            "target_type": Column(pa.String, nullable=True, description="Тип таргета"),
-            "tax_id": Column(pa.Int, nullable=True, description="Таксономический ID"),
-            "species_group_flag": Column(pa.Bool, nullable=True, description="Флаг группировки по видам"),
-            "target_components": Column(pa.String, nullable=True, description="Компоненты таргета"),
-            "protein_classifications": Column(pa.String, nullable=True, description="Классификация белка"),
-            "cross_references": Column(pa.String, nullable=True, description="Перекрестные ссылки"),
+            "CHEMBL.TARGETS.target_type": Column(pa.String, nullable=True, description="Тип таргета"),
+            "CHEMBL.TARGETS.tax_id": Column(pa.Int, nullable=True, description="Таксономический ID"),
+            "CHEMBL.TARGETS.species_group_flag": Column(pa.Bool, nullable=True, description="Флаг группировки по видам"),
+            "CHEMBL.TARGETS.target_components": Column(pa.String, nullable=True, description="Компоненты таргета"),
+            "CHEMBL.PROTEIN_CLASSIFICATION.pref_name": Column(pa.String, nullable=True, description="Классификация белка"),
+            "CHEMBL.TARGET_COMPONENTS.xref_id": Column(pa.String, nullable=True, description="Перекрестные ссылки"),
             "reaction_ec_numbers": Column(pa.String, nullable=True, description="EC номера реакций"),
             
             # UniProt поля
@@ -185,7 +185,7 @@ class TargetRawSchema:
             "timestamp_utc": Column(pa.DateTime, nullable=True, description="Временная метка UTC"),
             "gene_symbol": Column(pa.String, nullable=True, description="Символ гена"),
             "gene_symbol_list": Column(pa.String, nullable=True, description="Список символов генов"),
-            "organism": Column(pa.String, nullable=True, description="Организм"),
+            "CHEMBL.TARGETS.organism": Column(pa.String, nullable=True, description="Организм"),
             
             # IUPHAR поля
             "iuphar_target_id": Column(pa.Int, nullable=True, description="IUPHAR ID таргета"),
@@ -243,7 +243,7 @@ class TargetRawSchema:
             "hash_business_key": Column(pa.String, nullable=False, description="Хеш бизнес-ключа SHA256"),
             "validation_errors": Column(pa.String, nullable=True, description="Ошибки валидации (JSON)"),
             "extraction_errors": Column(pa.String, nullable=True, description="Ошибки извлечения (JSON)"),
-            "extracted_at": Column(pa.DateTime, nullable=False, description="Время извлечения данных"),
+            "extracted_at": Column(pa.Object, nullable=False, description="Время извлечения данных"),
             "protein_class_pred_L2": Column(pa.String, nullable=True, description="Предсказание класса белка L2"),
             "protein_synonym_list": Column(pa.String, nullable=True, description="Список синонимов белка"),
             "chembl_release": Column(pa.String, nullable=True, description="Версия ChEMBL"),
@@ -261,7 +261,7 @@ class TargetNormalizedSchema:
         """Схема для нормализованных данных таргетов."""
         return DataFrameSchema({
             # Основные поля
-            "target_chembl_id": Column(
+            "CHEMBL.TARGETS.target_chembl_id": Column(
                 pa.String,
                 checks=[
                     Check.str_matches(r'^CHEMBL\d+$', error="Invalid ChEMBL target ID format"),
@@ -270,7 +270,7 @@ class TargetNormalizedSchema:
                 nullable=False,
                 description="ChEMBL ID таргета"
             ),
-            "pref_name": Column(
+            "CHEMBL.TARGETS.pref_name": Column(
                 pa.String, 
                 checks=[
                     Check(lambda x: x.isna() | (x.str.len() <= 255), error="pref_name must be ≤ 255 characters")
@@ -287,7 +287,7 @@ class TargetNormalizedSchema:
                 nullable=True,
                 description="HGNC ID"
             ),
-            "target_type": Column(
+            "CHEMBL.TARGETS.target_type": Column(
                 pa.String, 
                 checks=[
                     Check(lambda x: x.isna() | x.isin([
@@ -298,7 +298,7 @@ class TargetNormalizedSchema:
                 nullable=True, 
                 description="Тип таргета"
             ),
-            "tax_id": Column(
+            "CHEMBL.TARGETS.tax_id": Column(
                 pa.Int,
                 checks=[
                     Check(lambda x: x.isna() | (x > 0), error="Taxonomy ID must be > 0")
@@ -306,7 +306,7 @@ class TargetNormalizedSchema:
                 nullable=True, 
                 description="Таксономический ID"
             ),
-            "species_group_flag": Column(
+            "CHEMBL.TARGETS.species_group_flag": Column(
                 pa.Int,
                 checks=[
                     Check(lambda x: x.isna() | x.isin([0, 1]), error="species_group_flag must be 0 or 1")
@@ -314,7 +314,7 @@ class TargetNormalizedSchema:
                 nullable=True, 
                 description="Флаг группировки по видам"
             ),
-            "target_components": Column(
+            "CHEMBL.TARGETS.target_components": Column(
                 pa.String, 
                 checks=[
                     Check(lambda x: x.apply(validate_target_components_json), error="Invalid target_components JSON structure")
@@ -322,7 +322,7 @@ class TargetNormalizedSchema:
                 nullable=True, 
                 description="Компоненты таргета"
             ),
-            "protein_classifications": Column(
+            "CHEMBL.PROTEIN_CLASSIFICATION.pref_name": Column(
                 pa.String, 
                 checks=[
                     Check(lambda x: x.apply(validate_protein_classifications_json), error="Invalid protein_classifications JSON structure")
@@ -330,7 +330,7 @@ class TargetNormalizedSchema:
                 nullable=True, 
                 description="Классификация белка"
             ),
-            "cross_references": Column(pa.String, nullable=True, description="Перекрестные ссылки"),
+            "CHEMBL.TARGET_COMPONENTS.xref_id": Column(pa.String, nullable=True, description="Перекрестные ссылки"),
             "reaction_ec_numbers": Column(pa.String, nullable=True, description="EC номера реакций"),
             
             # UniProt поля
@@ -352,7 +352,7 @@ class TargetNormalizedSchema:
             "protein_name_alt": Column(pa.String, nullable=True, description="Альтернативное название белка"),
             "geneName": Column(pa.String, nullable=True, description="Название гена"),
             "gene_symbol_list": Column(pa.String, nullable=True, description="Список символов генов"),
-            "organism": Column(pa.String, nullable=True, description="Организм"),
+            "CHEMBL.TARGETS.organism": Column(pa.String, nullable=True, description="Организм"),
             "taxon_id": Column(
                 pa.Int,
                 checks=[
@@ -468,7 +468,7 @@ class TargetNormalizedSchema:
             ),
             "chembl_release": Column(pa.String, nullable=True, description="Версия ChEMBL"),
             "extracted_at": Column(
-                pa.DateTime,
+                pa.Object,
                 checks=[Check(lambda x: x.notna())],
                 nullable=False,
                 description="Время извлечения данных"

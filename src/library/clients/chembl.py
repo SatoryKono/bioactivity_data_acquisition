@@ -8,9 +8,9 @@ from datetime import datetime
 from typing import Any
 
 from library.clients.base import BaseApiClient
-from library.config import APIClientConfig
 from library.common.cache_manager import CacheManager
 from library.common.fallback_data import get_fallback_assay_data
+from library.config import APIClientConfig
 
 logger = logging.getLogger(__name__)
 
@@ -1204,38 +1204,106 @@ class ChEMBLClient(BaseApiClient):
         
         return results
 
+    def fetch_source_by_id(self, src_id: int | str) -> dict[str, Any]:
+        """Fetch source data by ChEMBL source ID."""
+        try:
+            payload = self._request("GET", f"source/{src_id}")
+            
+            # Extract SOURCE fields according to specification
+            source_data = {
+                "src_id": src_id,  # Use the original src_id parameter
+                "src_description": payload.get("src_description"),
+                "src_short_name": payload.get("src_short_name"),
+                "src_url": payload.get("src_url"),
+                "src_comment": payload.get("src_comment")
+            }
+            
+            # Return both individual fields and complete JSON object
+            result = {
+                "CHEMBL.SOURCE.src_id": src_id,  # Use the original src_id parameter
+                "CHEMBL.SOURCE.src_description": source_data.get("src_description"),
+                "CHEMBL.SOURCE.src_short_name": source_data.get("src_short_name"),
+                "CHEMBL.SOURCE.src_url": source_data.get("src_url"),
+                "CHEMBL.SOURCE.data": self._serialize_json(source_data)
+            }
+            
+            return result
+            
+        except Exception as e:
+            _safe_log_error(logger.warning, "Failed to fetch source %s: %s", src_id, str(e))
+            return {
+                "CHEMBL.SOURCE.src_id": None,
+                "CHEMBL.SOURCE.src_description": None,
+                "CHEMBL.SOURCE.src_short_name": None,
+                "CHEMBL.SOURCE.src_url": None,
+                "CHEMBL.SOURCE.data": None,
+                "error": str(e)
+            }
+
+    def _serialize_json(self, data: dict[str, Any] | None) -> str | None:
+        """Safely serialize dictionary to JSON string."""
+        import json
+        try:
+            if data is None:
+                return None
+            return json.dumps(data, ensure_ascii=False, separators=(',', ':'))
+        except (TypeError, ValueError) as e:
+            logger.warning("Failed to serialize JSON: %s", e)
+            return None
+
     def fetch_by_doc_id(self, document_chembl_id: str) -> dict[str, Any]:
-        """Fetch document data by ChEMBL document ID."""
+        """Fetch document data by ChEMBL document ID with DOCS and SOURCE fields."""
         try:
             payload = self._request("GET", f"document/{document_chembl_id}")
             
-            # Extract relevant document fields
-            return {
-                "document_chembl_id": document_chembl_id,
-                "chembl_pmid": payload.get("pubmed_id"),
-                "chembl_doc_type": payload.get("doc_type"),
+            # Extract DOCS fields according to specification
+            result = {
+                # Core document fields
+                "CHEMBL.DOCS.document_chembl_id": document_chembl_id,
+                "CHEMBL.DOCS.doc_type": payload.get("doc_type"),
+                "CHEMBL.DOCS.title": payload.get("title"),
+                "CHEMBL.DOCS.journal": payload.get("journal"),
+                "CHEMBL.DOCS.year": payload.get("year"),
+                "CHEMBL.DOCS.volume": payload.get("volume"),
+                "CHEMBL.DOCS.issue": payload.get("issue"),
+                "CHEMBL.DOCS.first_page": payload.get("first_page"),
+                "CHEMBL.DOCS.last_page": payload.get("last_page"),
+                "CHEMBL.DOCS.doi": payload.get("doi"),
+                "CHEMBL.DOCS.pubmed_id": payload.get("pubmed_id"),
+                "CHEMBL.DOCS.abstract": payload.get("abstract"),
+                "CHEMBL.DOCS.chembl_release": self._serialize_json(payload.get("chembl_release")) if payload.get("chembl_release") is not None else None,
+                
+                # Legacy fields (keep for compatibility)
                 "referenses_on_previous_experiments": payload.get("refs"),
                 "original_experimental_document": payload.get("original_experimental_document"),
-                "chembl_title": payload.get("title"),
-                "chembl_abstract": payload.get("abstract"),
-                "chembl_authors": payload.get("authors"),
-                "chembl_journal": payload.get("journal"),
-                "chembl_year": payload.get("year"),
-                "chembl_volume": payload.get("volume"),
-                "chembl_issue": payload.get("issue"),
-                "chembl_first_page": payload.get("first_page"),
-                "chembl_last_page": payload.get("last_page"),
-                "chembl_doi": payload.get("doi"),
-                "chembl_patent_id": payload.get("patent_id"),
-                "chembl_ridx": payload.get("ridx"),
-                "chembl_teaser": payload.get("teaser"),
+                
+                # System fields
                 "source_system": "ChEMBL",
                 "extracted_at": datetime.utcnow().isoformat() + "Z"
             }
+            
+            # Extract SOURCE data if available
+            src_id = payload.get("src_id")  # Extract src_id directly from top level
+            if src_id:
+                # Fetch detailed source information using src_id
+                source_info = self.fetch_source_by_id(src_id)
+                result.update(source_info)
+            else:
+                # If src_id is absent, set None for all SOURCE fields
+                result.update({
+                    "CHEMBL.SOURCE.src_id": None,
+                    "CHEMBL.SOURCE.src_description": None,
+                    "CHEMBL.SOURCE.src_short_name": None,
+                    "CHEMBL.SOURCE.src_url": None,
+                    "CHEMBL.SOURCE.data": None
+                })
+            
+            return result
+            
         except Exception as e:
             _safe_log_error(logger.warning, "Failed to fetch document %s: %s", document_chembl_id, str(e))
             return {
-                "document_chembl_id": document_chembl_id,
+                "CHEMBL.DOCS.document_chembl_id": document_chembl_id,
                 "source_system": "ChEMBL",
                 "extracted_at": datetime.utcnow().isoformat() + "Z",
                 "error": str(e)
@@ -1269,7 +1337,7 @@ class ChEMBLClient(BaseApiClient):
                 except Exception as e:
                     _safe_log_error(logger.warning, "Failed to fetch document %s in batch: %s", doc_id, str(e))
                     results[doc_id] = {
-                        "document_chembl_id": doc_id,
+                        "CHEMBL.DOCS.document_chembl_id": doc_id,
                         "source_system": "ChEMBL",
                         "extracted_at": datetime.utcnow().isoformat() + "Z",
                         "error": str(e)

@@ -119,6 +119,7 @@ class RateLimitSettings(BaseModel):
 
     max_calls: int = Field(gt=0)
     period: float = Field(gt=0)
+    burst: int | None = Field(default=None, ge=1, description="Burst capacity for token bucket limiter")
 
 
 class HTTPGlobalSettings(BaseModel):
@@ -179,9 +180,12 @@ class APIClientConfig(BaseModel):
     page_size: int | None = Field(default=None, gt=0)
     max_pages: int | None = Field(default=None, gt=0)
     timeout: float = Field(default=30.0, gt=0)
+    timeout_connect: float | None = Field(default=None, gt=0, description="Connection timeout in seconds")
+    timeout_read: float | None = Field(default=None, gt=0, description="Read timeout in seconds")
     retries: RetrySettings = Field(default_factory=RetrySettings)
     rate_limit: RateLimitSettings | None = None
     health_endpoint: str | None = Field(default=None, description="Custom health check endpoint. If None, uses base_url for health checks")
+    mailto: str | None = Field(default=None, description="Email for polite pool access (e.g., Crossref API)")
 
     model_config = ConfigDict(frozen=True)
 

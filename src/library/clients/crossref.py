@@ -18,8 +18,12 @@ class CrossrefClient(BaseApiClient):
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
         # Добавляем email в User-Agent для polite pool согласно документации Crossref
         headers = dict(config.headers)
+        
+        # Используем реальный email из конфигурации
+        email = getattr(config, 'mailto', None) or "821311@gmail.com"
         if "User-Agent" not in headers:
-            headers["User-Agent"] = "bioactivity-data-acquisition/0.1.0 (mailto:your-email@example.com)"
+            headers["User-Agent"] = f"bioactivity-data-acquisition/0.1.0 (mailto:{email})"
+        
         enhanced = config.model_copy(update={"headers": headers})
         super().__init__(enhanced, **kwargs)
 
@@ -27,9 +31,15 @@ class CrossrefClient(BaseApiClient):
         """Fetch Crossref work by DOI with fallback search."""
 
         encoded = quote(doi, safe="")
+        
+        # Добавляем mailto параметр для доступа к polite pool
+        mailto_param = ""
+        if hasattr(self.config, 'mailto') and self.config.mailto:
+            mailto_param = f"?mailto={quote(self.config.mailto)}"
+        
         try:
             # Crossref API requires /works/ prefix for DOI lookups
-            payload = self._request("GET", f"works/{encoded}")
+            payload = self._request("GET", f"works/{encoded}{mailto_param}")
             message = payload.get("message", payload)
             return self._parse_work(message)
         except ApiClientError as exc:
@@ -70,8 +80,13 @@ class CrossrefClient(BaseApiClient):
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         """Fetch Crossref work by PubMed identifier with fallback query."""
 
+        # Добавляем mailto параметр
+        mailto_param = ""
+        if hasattr(self.config, 'mailto') and self.config.mailto:
+            mailto_param = f"&mailto={quote(self.config.mailto)}"
+        
         try:
-            payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
+            payload = self._request("GET", "", params={"filter": f"pmid:{pmid}{mailto_param}"})
         except ApiClientError as exc:
             # Try graceful degradation first
             if self.degradation_manager.should_degrade(self.config.name, exc):

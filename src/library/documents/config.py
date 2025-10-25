@@ -131,6 +131,7 @@ class DocumentSourceSettings(BaseModel):
     
     enabled: bool = Field(default=True)
     name: str | None = Field(default=None)
+    mailto: str | None = Field(default=None, description="Email for polite pool access (e.g., Crossref API)")
     endpoint: str | None = Field(default=None)
     params: dict[str, Any] = Field(default_factory=dict)
     pagination: DocumentSourcePaginationSettings = Field(default_factory=DocumentSourcePaginationSettings)

@@ -102,28 +102,45 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         source_config = self.config.sources["crossref"]
         timeout = source_config.http.timeout_sec or self.config.http.global_.timeout_sec
         
+        # Получаем mailto из конфигурации
+        mailto = getattr(source_config, 'mailto', None) or "821311@gmail.com"
+        
         headers = self._get_headers("crossref")
         headers.update(self.config.http.global_.headers)
         headers.update(source_config.http.headers)
         
         processed_headers = self._process_headers(headers)
         
+        # Получаем timeout настройки
+        timeout_connect = getattr(source_config.http, 'timeout_connect', None) or 10.0
+        timeout_read = getattr(source_config.http, 'timeout_read', None) or 30.0
+        
+        # Получаем rate limit с burst поддержкой
+        rate_limit_config = source_config.rate_limit or {}
+        max_calls = rate_limit_config.get("max_calls", 2)  # Снижено с 10 до 2
+        period = rate_limit_config.get("period", 1.0)
+        burst = rate_limit_config.get("burst", 5)  # НОВОЕ - burst поддержка
+        
         client_config = APIClientConfig(
             name="crossref",
             base_url=source_config.http.base_url or 'https://api.crossref.org',
             timeout_sec=timeout,
+            timeout_connect=timeout_connect,  # НОВОЕ
+            timeout_read=timeout_read,        # НОВОЕ
             retries=RetrySettings(
                 total=source_config.http.retries.get("total", 3),
                 backoff_multiplier=source_config.http.retries.get("backoff_multiplier", 2.0),
                 backoff_max=source_config.http.retries.get("backoff_max", 60.0),
             ),
             rate_limit=RateLimitSettings(
-                max_calls=source_config.rate_limit.get("max_calls", 10),
-                period=source_config.rate_limit.get("period", 1.0),
+                max_calls=max_calls,
+                period=period,
+                burst=burst,  # НОВОЕ
             ),
             headers=processed_headers,
             verify_ssl=getattr(source_config.http, 'verify_ssl', None) or True,
             follow_redirects=getattr(source_config.http, 'follow_redirects', None) or True,
+            mailto=mailto,  # НОВОЕ
         )
         
         return CrossrefClient(client_config)

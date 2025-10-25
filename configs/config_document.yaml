@@ -40,15 +40,22 @@ sources:
     
   crossref:                            # Crossref API для DOI метаданных
     enabled: true                      # Включен ли источник
+    mailto: "821311@gmail.com"         # Email для polite pool доступа
     http:                              # HTTP настройки для Crossref
       base_url: "https://api.crossref.org"  # Базовый URL API
-      timeout_sec: 45.0                # Увеличенный таймаут для Crossref запросов
+      timeout_sec: 40.0                # Общий таймаут (fallback)
+      timeout_connect: 10.0            # Таймаут соединения
+      timeout_read: 30.0               # Таймаут чтения
       retries:                         # Настройки повторных попыток
-        total: 5                       # Увеличено количество попыток
+        total: 3                       # ИЗМЕНЕНО с 5 на 3
         backoff_multiplier: 2.0        # Множитель задержки
-        backoff_max: 180.0             # Максимальная задержка 3 минуты
-    batch_size: 100                    # Размер батча для запросов
-    max_requests_per_second: 10        # Максимум запросов в секунду
+        backoff_max: 60.0              # ИЗМЕНЕНО с 180.0 на 60.0
+    batch_size: 50                     # Размер батча для запросов
+    max_requests_per_second: 2         # ИЗМЕНЕНО с 10 на 2
+    rate_limit:                        # НОВАЯ секция
+      max_calls: 2                     # Максимум вызовов
+      period: 1.0                      # За период (секунды)
+      burst: 5                         # Burst capacity
     
   openalex:                            # OpenAlex API для научных публикаций
     enabled: true                      # Включен ли источник
@@ -79,12 +86,15 @@ sources:
     http:                              # HTTP настройки для Semantic Scholar
       base_url: "https://api.semanticscholar.org"  # Базовый URL API
       timeout_sec: 45.0                # Увеличенный таймаут для Semantic Scholar запросов
+      headers:                         # HTTP заголовки
+        Accept: application/json
+        x-api-key: "{SEMANTIC_SCHOLAR_API_KEY}"  # API ключ для увеличения лимитов
       retries:                         # Настройки повторных попыток
         total: 5                       # Увеличено количество попыток
         backoff_multiplier: 2.0        # Множитель задержки
         backoff_max: 180.0             # Максимальная задержка 3 минуты
     batch_size: 100                    # Размер батча для запросов
-    max_requests_per_second: 5         # Максимум запросов в секунду
+    max_requests_per_second: 0.8       # 1 запрос в секунду согласно API лимитам (0.8 для безопасности)
 
 # Ввод-вывод
 io:
@@ -147,76 +157,65 @@ determinism:
     - pubmed_chemical_list    # TEXT: Список химических веществ из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     - crossref_subject        # TEXT: Предметная область из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
 
-    # Группа полей PMID из всех источников
-    - chembl_pmid             # STRING: PMID из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable, pattern ^\d+$
+    # Группа полей PMID из всех источников (chembl_pmid удален, заменен на CHEMBL.DOCS.pubmed_id)
     - crossref_pmid           # STRING: PMID из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^\d+$
     - openalex_pmid           # STRING: PMID из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^\d+$
     - pubmed_pmid             # STRING: PMID из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^\d+$
     - semantic_scholar_pmid   # STRING: PMID из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^\d+$
     
-    # Группа полей названий статей из всех источников
-    - chembl_title            # TEXT: Название статьи из ChEMBL, источник: ChEMBL API, тип: TEXT, валидация: nullable
+    # Группа полей названий статей из всех источников (chembl_title удален, заменен на CHEMBL.DOCS.title)
     - crossref_title          # TEXT: Название статьи из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
     - openalex_title          # TEXT: Название статьи из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
     - pubmed_article_title    # TEXT: Название статьи из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     - semantic_scholar_title  # TEXT: Название статьи из Semantic Scholar, источник: Semantic Scholar API, тип: TEXT, валидация: nullable
     
-    # Группа полей аннотаций из всех источников
-    - chembl_abstract            # TEXT: Аннотация из ChEMBL, источник: ChEMBL API, тип: TEXT, валидация: nullable
+    # Группа полей аннотаций из всех источников (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)
     - crossref_abstract          # TEXT: Аннотация из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
     - openalex_abstract          # TEXT: Аннотация из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
     - pubmed_abstract            # TEXT: Аннотация из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     
-    # Группа полей авторов из всех источников
-    - chembl_authors             # TEXT: Авторы из ChEMBL, источник: ChEMBL API, тип: TEXT, валидация: nullable
+    # Группа полей авторов из всех источников (chembl_authors удален, не в спецификации DOCS)
     - crossref_authors           # TEXT: Авторы из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
     - openalex_authors           # TEXT: Авторы из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
     - pubmed_authors             # TEXT: Авторы из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     - semantic_scholar_authors   # TEXT: Авторы из Semantic Scholar, источник: Semantic Scholar API, тип: TEXT, валидация: nullable
     
-    # Группа полей DOI из всех источников
-    - chembl_doi              # STRING: DOI из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
+    # Группа полей DOI из всех источников (chembl_doi удален, заменен на CHEMBL.DOCS.doi)
     - crossref_doi            # STRING: DOI из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
     - openalex_doi             # STRING: DOI из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
     - pubmed_doi              # STRING: DOI из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
     - semantic_scholar_doi    # STRING: DOI из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
     
-    # Группа полей типов публикации из всех источников
-    - chembl_doc_type          # STRING: Тип документа из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable
+    # Группа полей типов публикации из всех источников (chembl_doc_type удален, заменен на CHEMBL.DOCS.doc_type)
     - crossref_doc_type       # STRING: Тип документа из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
     - openalex_doc_type      # STRING: Тип документа из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
     - openalex_crossref_doc_type  # STRING: Тип документа из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
     - pubmed_doc_type          # STRING: Тип публикации из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
     - semantic_scholar_doc_type    # STRING: Типы публикации из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable
     
-    # Группа полей ISSN из всех источников
-    - chembl_issn             # STRING: ISSN из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
+    # Группа полей ISSN из всех источников (chembl_issn удален, не возвращается API /document)
     - crossref_issn           # STRING: ISSN из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
     - openalex_issn           # STRING: ISSN из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
     - pubmed_issn             # STRING: ISSN из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
     - semantic_scholar_issn   # STRING: ISSN из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
     
-    # Группа полей названий журналов из всех источников
-    - chembl_journal          # STRING: Название журнала из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable
+    # Группа полей названий журналов из всех источников (chembl_journal удален, заменен на CHEMBL.DOCS.journal)
     - crossref_journal        # STRING: Название журнала из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
     - openalex_journal        # STRING: Название журнала из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
     - pubmed_journal           # STRING: Название журнала из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
     - semantic_scholar_journal  # STRING: Название журнала из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable
     
-    # Группа полей годов издания из всех источников
-    - chembl_year             # INT: Год из ChEMBL, источник: ChEMBL API, тип: INT, валидация: nullable, 1900-текущий год
+    # Группа полей годов издания из всех источников (chembl_year удален, заменен на CHEMBL.DOCS.year)
     - crossref_year           # INT: Год из Crossref, источник: Crossref API, тип: INT, валидация: nullable, 1900-текущий год
     - openalex_year           # INT: Год из OpenAlex, источник: OpenAlex API, тип: INT, валидация: nullable, 1900-текущий год
     - pubmed_year             # INT: Год из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1900-текущий год
 
-    # Группа полей томов из всех источников
-    - chembl_volume           # STRING: Том из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable
+    # Группа полей томов из всех источников (chembl_volume удален, заменен на CHEMBL.DOCS.volume)
     - crossref_volume         # STRING: Том из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
     - openalex_volume         # STRING: Том из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
     - pubmed_volume           # STRING: Том из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
     
-    # Группа полей выпусков из всех источников
-    - chembl_issue            # STRING: Номер выпуска из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable
+    # Группа полей выпусков из всех источников (chembl_issue удален, заменен на CHEMBL.DOCS.issue)
     - crossref_issue          # STRING: Номер выпуска из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
     - openalex_issue          # STRING: Номер выпуска из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
     - pubmed_issue            # STRING: Номер выпуска из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
@@ -256,6 +255,27 @@ determinism:
     - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
     - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
 
+    # Новые поля из ChEMBL DOCS согласно спецификации
+    - CHEMBL.DOCS.document_chembl_id  # STRING: ChEMBL ID документа, источник: ChEMBL API, тип: STRING, валидация: NOT NULL, pattern ^CHEMBL\d+$
+    - CHEMBL.DOCS.doc_type            # STRING: Тип документа, источник: ChEMBL API, тип: STRING, валидация: nullable
+    - CHEMBL.DOCS.title               # STRING: Заголовок публикации/набора, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 4000
+    - CHEMBL.DOCS.journal             # STRING: Название журнала, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 255
+    - CHEMBL.DOCS.year                # INT: Год, источник: ChEMBL API, тип: INT, валидация: nullable, диапазон 1800-2100
+    - CHEMBL.DOCS.volume              # STRING: Том, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 50
+    - CHEMBL.DOCS.issue               # STRING: Номер выпуска, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 50
+    - CHEMBL.DOCS.first_page          # STRING: Первая страница, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 20
+    - CHEMBL.DOCS.last_page           # STRING: Последняя страница, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 20
+    - CHEMBL.DOCS.doi                 # STRING: DOI, источник: ChEMBL API, тип: STRING, валидация: nullable, pattern ^10\.[^\s/]+/\S+$
+    - CHEMBL.DOCS.pubmed_id           # INT: PubMed ID, источник: ChEMBL API, тип: INT, валидация: nullable, ≥ 1
+    - CHEMBL.DOCS.abstract            # STRING: Аннотация, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 4000
+    - CHEMBL.DOCS.chembl_release      # STRING: Связь на релиз ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable, JSON
+
+    # Новые поля из ChEMBL SOURCE согласно спецификации
+    - CHEMBL.SOURCE.src_id            # INT: Уникальный ID источника, источник: ChEMBL API, тип: INT, валидация: nullable, ≥ 1
+    - CHEMBL.SOURCE.src_description   # STRING: Описание источника, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 4000
+    - CHEMBL.SOURCE.src_short_name    # STRING: Короткое имя, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 255
+    - CHEMBL.SOURCE.src_url           # STRING: URL источника, источник: ChEMBL API, тип: STRING, валидация: nullable
+    - CHEMBL.SOURCE.data              # STRING: Полные данные источника, источник: ChEMBL API, тип: STRING, валидация: nullable, JSON
 
     # Поля валидации данных из различных источников
     #- valid_doi               # BOOL: Валидное значение DOI, источник: система, тип: BOOL, валидация: boolean
@@ -525,11 +545,7 @@ normalization:
       - normalize_string_nfc
       - normalize_string_whitespace
     
-    # DOI поля
-    chembl_doi:
-      - normalize_string_strip
-      - normalize_string_lower
-      - normalize_doi
+    # DOI поля (chembl_doi удален, заменен на CHEMBL.DOCS.doi)
     
     crossref_doi:
       - normalize_string_strip
@@ -552,10 +568,7 @@ normalization:
       - normalize_doi
     
     
-    # PMID поля
-    chembl_pmid:
-      - normalize_string_strip
-      - normalize_pmid
+    # PMID поля (chembl_pmid удален, заменен на CHEMBL.DOCS.pubmed_id)
     
     crossref_pmid:
       - normalize_string_strip
@@ -573,11 +586,7 @@ normalization:
       - normalize_string_strip
       - normalize_pmid
     
-    # Текстовые поля
-    chembl_title:
-      - normalize_string_strip
-      - normalize_string_nfc
-      - normalize_string_whitespace
+    # Текстовые поля (chembl_title удален, заменен на CHEMBL.DOCS.title)
     
     crossref_title:
       - normalize_string_strip
@@ -599,11 +608,7 @@ normalization:
       - normalize_string_nfc
       - normalize_string_whitespace
     
-    # Аннотации
-    chembl_abstract:
-      - normalize_string_strip
-      - normalize_string_nfc
-      - normalize_string_whitespace
+    # Аннотации (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)
     
     crossref_abstract:
       - normalize_string_strip
@@ -620,11 +625,7 @@ normalization:
       - normalize_string_nfc
       - normalize_string_whitespace
     
-    # Авторы
-    chembl_authors:
-      - normalize_string_strip
-      - normalize_string_nfc
-      - normalize_string_whitespace
+    # Авторы (chembl_authors удален, не в спецификации DOCS)
     
     crossref_authors:
       - normalize_string_strip
@@ -646,10 +647,7 @@ normalization:
       - normalize_string_nfc
       - normalize_string_whitespace
     
-    # Типы документов
-    chembl_doc_type:
-      - normalize_string_strip
-      - normalize_string_upper
+    # Типы документов (chembl_doc_type удален, заменен на CHEMBL.DOCS.doc_type)
     
     crossref_doc_type:
       - normalize_string_strip
@@ -671,10 +669,7 @@ normalization:
       - normalize_string_strip
       - normalize_string_upper
     
-    # ISSN поля
-    chembl_issn:
-      - normalize_string_strip
-      - normalize_string_upper
+    # ISSN поля (chembl_issn удален, не возвращается API /document)
     
     crossref_issn:
       - normalize_string_strip
@@ -692,10 +687,7 @@ normalization:
       - normalize_string_strip
       - normalize_string_upper
     
-    # Журналы
-    chembl_journal:
-      - normalize_string_strip
-      - normalize_string_titlecase
+    # Журналы (chembl_journal удален, заменен на CHEMBL.DOCS.journal)
     
     crossref_journal:
       - normalize_string_strip
@@ -713,10 +705,7 @@ normalization:
       - normalize_string_strip
       - normalize_string_titlecase
     
-    # Годы
-    chembl_year:
-      - normalize_int
-      - normalize_year
+    # Годы (chembl_year удален, заменен на CHEMBL.DOCS.year)
     
     crossref_year:
       - normalize_int
@@ -730,9 +719,7 @@ normalization:
       - normalize_int
       - normalize_year
     
-    # Тома
-    chembl_volume:
-      - normalize_string_strip
+    # Тома (chembl_volume удален, заменен на CHEMBL.DOCS.volume)
     
     crossref_volume:
       - normalize_string_strip
@@ -743,9 +730,7 @@ normalization:
     pubmed_volume:
       - normalize_string_strip
     
-    # Выпуски
-    chembl_issue:
-      - normalize_string_strip
+    # Выпуски (chembl_issue удален, заменен на CHEMBL.DOCS.issue)
     
     crossref_issue:
       - normalize_string_strip
@@ -862,3 +847,70 @@ normalization:
     # Временные поля
     publication_date:
       - normalize_datetime_iso8601
+    
+    # Новые поля DOCS согласно спецификации
+    CHEMBL.DOCS.document_chembl_id:
+      - normalize_string_strip
+      - normalize_string_upper
+      - normalize_chembl_id
+    
+    CHEMBL.DOCS.doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    CHEMBL.DOCS.title:
+      - normalize_string_strip
+      - normalize_string_whitespace
+    
+    CHEMBL.DOCS.journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    CHEMBL.DOCS.year:
+      - normalize_int
+      - normalize_year
+    
+    CHEMBL.DOCS.volume:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.issue:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.first_page:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.last_page:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    CHEMBL.DOCS.pubmed_id:
+      - normalize_int
+      - normalize_pmid
+    
+    CHEMBL.DOCS.abstract:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.chembl_release:
+      - normalize_json_keys
+    
+    # Новые поля SOURCE согласно спецификации
+    CHEMBL.SOURCE.src_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    CHEMBL.SOURCE.src_description:
+      - normalize_string_strip
+    
+    CHEMBL.SOURCE.src_short_name:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    CHEMBL.SOURCE.src_url:
+      - normalize_string_strip
+    
+    CHEMBL.SOURCE.data:
+      - normalize_json_structure

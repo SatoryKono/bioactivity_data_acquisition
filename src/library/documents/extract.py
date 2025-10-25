@@ -293,7 +293,7 @@ def extract_from_openalex(client: Any, pmids: list[str], batch_size: int = 50) -
         return pd.DataFrame(error_records)
 
 
-def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int = 100, titles: dict[str, str] = None) -> pd.DataFrame:
+def extract_from_semantic_scholar(client: Any, pmids: list[str], batch_size: int = 100, titles: dict[str, str] | None = None) -> pd.DataFrame:
     """Извлечь данные из Semantic Scholar по списку PMID с fallback поиском по заголовку.
     
     Args:

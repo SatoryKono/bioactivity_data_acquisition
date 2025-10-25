@@ -38,7 +38,7 @@ class TargetNormalizedSchema:
         """Схема для нормализованных данных targets."""
         return DataFrameSchema({
             # Основные поля
-            "target_chembl_id": add_normalization_metadata(
+            "CHEMBL.TARGETS.target_chembl_id": add_normalization_metadata(
                 Column(
                     pa.String,
                     checks=[
@@ -50,7 +50,7 @@ class TargetNormalizedSchema:
                 ),
                 ["normalize_string_strip", "normalize_string_upper", "normalize_chembl_id"]
             ),
-            "pref_name": add_normalization_metadata(
+            "CHEMBL.TARGETS.pref_name": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Предпочтительное название"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
@@ -62,27 +62,27 @@ class TargetNormalizedSchema:
                 Column(pa.String, nullable=True, description="HGNC ID"),
                 ["normalize_string_strip", "normalize_hgnc_id"]
             ),
-            "target_type": add_normalization_metadata(
+            "CHEMBL.TARGETS.target_type": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Тип target"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
-            "tax_id": add_normalization_metadata(
+            "CHEMBL.TARGETS.tax_id": add_normalization_metadata(
                 Column(pa.Int64, nullable=True, description="Taxonomy ID"),
                 ["normalize_int", "normalize_int_positive"]
             ),
-            "species_group_flag": add_normalization_metadata(
+            "CHEMBL.TARGETS.species_group_flag": add_normalization_metadata(
                 Column(pa.Bool, nullable=True, description="Флаг группы видов"),
                 ["normalize_boolean"]
             ),
-            "target_components": add_normalization_metadata(
+            "CHEMBL.TARGETS.target_components": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Компоненты target"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
-            "protein_classifications": add_normalization_metadata(
+            "CHEMBL.PROTEIN_CLASSIFICATION.pref_name": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Классификации белков"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
-            "cross_references": add_normalization_metadata(
+            "CHEMBL.TARGET_COMPONENTS.xref_id": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Перекрестные ссылки"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
@@ -100,7 +100,7 @@ class TargetNormalizedSchema:
                 Column(pa.String, nullable=True, description="UniProtKB ID"),
                 ["normalize_string_strip", "normalize_string_upper", "normalize_uniprot_id"]
             ),
-            "secondaryAccessions": add_normalization_metadata(
+            "CHEMBL.TARGET_COMPONENTS.accession": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Вторичные акцессии"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
@@ -124,7 +124,7 @@ class TargetNormalizedSchema:
                 Column(pa.String, nullable=True, description="Список символов генов"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
-            "organism": add_normalization_metadata(
+            "CHEMBL.TARGETS.organism": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Организм"),
                 ["normalize_string_strip", "normalize_string_titlecase"]
             ),
@@ -367,7 +367,7 @@ class TargetNormalizedSchema:
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
             "extracted_at": add_normalization_metadata(
-                Column(pa.DateTime, nullable=True, description="Время извлечения данных"),
+                Column(pa.Object, nullable=True, description="Время извлечения данных"),
                 ["normalize_datetime_iso8601"]
             ),
             "hash_row": add_normalization_metadata(
@@ -394,31 +394,27 @@ class TargetNormalizedSchema:
                 Column(pa.String, nullable=True, description="Описание компонента"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
-            "component_id": add_normalization_metadata(
+            "CHEMBL.TARGET_COMPONENTS.component_id": add_normalization_metadata(
                 Column(pa.Int64, nullable=True, description="ID компонента"),
                 ["normalize_int", "normalize_int_positive"]
             ),
-            "relationship": add_normalization_metadata(
+            "CHEMBL.TARGET_COMPONENTS.relationship": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Отношение компонента"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),
-            "gene": add_normalization_metadata(
+            "CHEMBL.TARGET_COMPONENTS.component_synonyms_gene": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Символ гена"),
                 ["normalize_string_strip", "normalize_string_upper"]
-            ),
-            "uniprot_id": add_normalization_metadata(
-                Column(pa.String, nullable=True, description="UniProt ID из ChEMBL"),
-                ["normalize_string_strip", "normalize_string_upper", "normalize_uniprot_id"]
             ),
             "mapping_uniprot_id": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Маппинг UniProt ID"),
                 ["normalize_string_strip", "normalize_string_upper", "normalize_uniprot_id"]
             ),
-            "chembl_alternative_name": add_normalization_metadata(
+            "CHEMBL.TARGET_COMPONENTS.component_synonyms": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Альтернативное название ChEMBL"),
                 ["normalize_string_strip", "normalize_string_nfc", "normalize_string_whitespace"]
             ),
-            "ec_code": add_normalization_metadata(
+            "CHEMBL.TARGET_COMPONENTS.component_synonyms_ec_code": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="EC код фермента"),
                 ["normalize_string_strip", "normalize_string_upper"]
             ),

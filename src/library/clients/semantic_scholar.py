@@ -57,7 +57,7 @@ class SemanticScholarClient(BaseApiClient):
         
         super().__init__(enhanced, fallback_manager=fallback_manager, **kwargs)
 
-    def fetch_by_pmid(self, pmid: str, title: str = None) -> dict[str, Any]:
+    def fetch_by_pmid(self, pmid: str, title: str | None = None) -> dict[str, Any]:
         # Semantic Scholar API endpoint for papers by PMID
         identifier = f"paper/PMID:{pmid}"
         
