@@ -232,13 +232,8 @@ Examples:
             print("Error: No molecule data found in input file.", file=sys.stderr)
             return 2
         
-        # Apply limit to input data if specified
-        if config.runtime.limit and config.runtime.limit > 0:
-            original_count = len(molecule_data)
-            molecule_data = molecule_data[:config.runtime.limit]
-            print(f"Processing {len(molecule_data)} molecules from {args.input} (limited from {original_count})")
-        else:
-            print(f"Processing {len(molecule_data)} molecules from {args.input}")
+        # Note: Limit is applied in pipeline.extract() method, not here
+        print(f"Processing {len(molecule_data)} molecules from {args.input}")
         
         # Run pipeline
         import pandas as pd

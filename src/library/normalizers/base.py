@@ -140,3 +140,39 @@ def ensure_numeric(value: Any) -> float | None:
             return None
     
     return None
+
+
+class NormalizationPipeline:
+    """Пайплайн для применения цепочки нормализаций."""
+    
+    def __init__(self, functions: list[str]):
+        """Инициализация пайплайна нормализации.
+        
+        Args:
+            functions: Список функций нормализации для применения
+        """
+        self.functions = functions
+    
+    def apply(self, value: Any) -> Any:
+        """Применение цепочки нормализаций к значению.
+        
+        Args:
+            value: Значение для нормализации
+            
+        Returns:
+            Нормализованное значение
+        """
+        result = value
+        
+        for func_name in self.functions:
+            try:
+                func = get_normalizer(func_name)
+                result = func(result)
+                
+                # Если функция вернула None, прерываем цепочку
+                if result is None:
+                    break
+            except NormalizationError:
+                logger.warning(f"Unknown normalization function: {func_name}")
+                
+        return result

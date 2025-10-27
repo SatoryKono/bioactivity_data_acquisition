@@ -300,7 +300,7 @@ class TestitemValidator:
 
     def validate_input(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate input CSV data using input schema."""
-        logger.info("Validating input testitem data: %d records", len(df))
+        logger.info(f"Validating input testitem data: {len(df)} records")
         
         try:
             # Use input schema for CSV data
@@ -314,7 +314,7 @@ class TestitemValidator:
 
     def validate_raw(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate raw input data using Pandera schema."""
-        logger.info("Validating raw testitem data: %d records", len(df))
+        logger.info(f"Validating raw testitem data: {len(df)} records")
         
         try:
             # Use existing schema if available
@@ -328,7 +328,7 @@ class TestitemValidator:
 
     def validate_normalized(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate normalized data using Pandera schema."""
-        logger.info("Validating normalized testitem data: %d records", len(df))
+        logger.info(f"Validating normalized testitem data: {len(df)} records")
         
         try:
             # Use existing schema if available

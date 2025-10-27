@@ -184,16 +184,12 @@ class DocumentNormalizer:
         
         for field in boolean_fields:
             if field in normalized_df.columns:
-                # Применяем normalize_boolean из normalizers
-                from library.normalizers import normalize_boolean
-                normalized_df[field] = normalized_df[field].apply(normalize_boolean)
-                # Убеждаемся, что колонка имеет правильный dtype
+                # Применяем normalize_boolean_field из utils
+                from library.utils.empty_value_handler import normalize_boolean_field
+                # Нормализуем булевы значения
+                normalized_df[field] = normalized_df[field].apply(normalize_boolean_field)
                 # Заменяем None/NaN на False и приводим к bool для совместимости с pandera
-                normalized_df[field] = normalized_df[field].fillna(False)
-                # Приводим к bool, обрабатывая строковые значения
-                normalized_df[field] = normalized_df[field].astype(str).str.lower().map({
-                    'true': True, 'false': False, '1': True, '0': False, 'yes': True, 'no': False
-                }).fillna(False).astype('bool')
+                normalized_df[field] = normalized_df[field].fillna(False).infer_objects(copy=False).astype('bool')
         
         return normalized_df
 

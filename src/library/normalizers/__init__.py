@@ -7,8 +7,10 @@
 """
 
 # Импортируем все модули для регистрации нормализаторов
+from . import assay_normalizers  # noqa: F401
 from . import boolean_normalizers  # noqa: F401
 from . import chemistry_normalizers  # noqa: F401
+from . import dataframe_normalizers  # noqa: F401
 from . import datetime_normalizers  # noqa: F401
 from . import identifier_normalizers  # noqa: F401
 from . import json_normalizers  # noqa: F401
@@ -16,7 +18,17 @@ from . import numeric_normalizers  # noqa: F401
 from . import ontology_normalizers  # noqa: F401
 from . import string_normalizers  # noqa: F401
 from . import units_normalizers  # noqa: F401
-from .base import NormalizationError, get_normalizer
+from .assay_normalizers import (normalize_assay_class_hierarchy,
+                                normalize_assay_class_type,
+                                normalize_assay_description,
+                                normalize_assay_param_type,
+                                normalize_assay_param_units,
+                                normalize_bao_id, normalize_chembl_release,
+                                normalize_protein_sequence, normalize_relation,
+                                normalize_uniprot_accession,
+                                normalize_variant_accession_reported,
+                                normalize_variant_mutation)
+from .base import NormalizationError, NormalizationPipeline, get_normalizer
 from .boolean_normalizers import normalize_boolean, normalize_boolean_strict
 from .chemistry_normalizers import (normalize_inchi, normalize_inchi_key,
                                     normalize_smiles)
@@ -41,11 +53,27 @@ from .string_normalizers import (normalize_empty_to_null,
                                  normalize_string_upper,
                                  normalize_string_whitespace)
 from .units_normalizers import normalize_pchembl, normalize_units
+from .dataframe_normalizers import normalize_assay_dataframe
 
 __all__ = [
     # Base
     "get_normalizer",
     "NormalizationError",
+    "NormalizationPipeline",
+    
+    # Assay normalizers
+    "normalize_assay_description",
+    "normalize_bao_id",
+    "normalize_relation",
+    "normalize_uniprot_accession",
+    "normalize_protein_sequence",
+    "normalize_assay_param_type",
+    "normalize_assay_param_units",
+    "normalize_assay_class_type",
+    "normalize_assay_class_hierarchy",
+    "normalize_variant_mutation",
+    "normalize_variant_accession_reported",
+    "normalize_chembl_release",
     
     # String normalizers
     "normalize_string_strip",
@@ -99,4 +127,7 @@ __all__ = [
     # Units normalizers
     "normalize_units",
     "normalize_pchembl",
+    
+    # DataFrame normalizers
+    "normalize_assay_dataframe",
 ]

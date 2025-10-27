@@ -218,11 +218,8 @@ def main() -> int:
         input_frame = read_target_input(args.input)
         logger.info(f"Loaded {len(input_frame)} target IDs from input file")
         
-        # Применяем ограничение по количеству записей
-        if args.limit and args.limit > 0:
-            original_count = len(input_frame)
-            input_frame = input_frame.head(args.limit)
-            logger.info(f"Limited to {len(input_frame)} targets (from {original_count})")
+        # Note: Limit is applied in pipeline.extract() method, not here
+        logger.info(f"Processing {len(input_frame)} targets")
     except TargetValidationError as exc:
         logger.error(f"Input validation failed: {exc}")
         print(f"Error: Input validation failed: {exc}", file=sys.stderr)

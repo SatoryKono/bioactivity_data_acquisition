@@ -1,0 +1,133 @@
+АНАЛИЗ КОЛОНОК В ВЫХОДНОМ ФАЙЛЕ ASSAYS
+================================================================================
+Дата анализа: 2025-10-26 14:20:34.563448
+Выходной файл: data\output\assays\assays_20251026.csv
+Конфигурационный файл: configs\config_assay.yaml
+
+Общая информация:
+  Всего строк: 1
+  Всего колонок: 56
+  Колонок в конфиге: 0
+
+Количество пустых колонок: 30
+Количество заполненных колонок: 26
+
+Список пустых колонок (30):
+   1. assay_category
+   2. assay_cell_type
+   3. assay_group
+   4. assay_strain
+   5. assay_test_type
+   6. cell_chembl_id
+   7. bao_endpoint
+   8. src_assay_id
+   9. variant_sequence_json
+  10. assay_param_type
+  11. assay_param_relation
+  12. assay_param_value
+  13. assay_param_units
+  14. assay_param_text_value
+  15. assay_param_standard_type
+  16. assay_param_standard_value
+  17. assay_param_standard_units
+  18. assay_class_id
+  19. assay_class_bao_id
+  20. assay_class_type
+  21. assay_class_l1
+  22. assay_class_l2
+  23. assay_class_l3
+  24. assay_class_description
+  25. variant_id
+  26. variant_base_accession
+  27. variant_mutation
+  28. variant_sequence
+  29. variant_accession_reported
+  30. chembl_release
+
+Список заполненных колонок (26):
+   1. assay_chembl_id
+   2. assay_type
+   3. assay_classifications
+   4. assay_organism
+   5. assay_parameters_json
+   6. assay_subcellular_fraction
+   7. assay_tax_id
+   8. assay_tissue
+   9. assay_type_description
+  10. bao_format
+  11. bao_label
+  12. confidence_description
+  13. confidence_score
+  14. assay_description
+  15. document_chembl_id
+  16. relationship_description
+  17. relationship_type
+  18. src_id
+  19. target_chembl_id
+  20. tissue_chembl_id
+  21. index
+  22. pipeline_version
+  23. source_system
+  24. extracted_at
+  25. hash_row
+  26. hash_business_key
+
+Колонки в файле, но отсутствующие в конфиге (56):
+   1. assay_chembl_id
+   2. assay_type
+   3. assay_category
+   4. assay_cell_type
+   5. assay_classifications
+   6. assay_group
+   7. assay_organism
+   8. assay_parameters_json
+   9. assay_strain
+  10. assay_subcellular_fraction
+  11. assay_tax_id
+  12. assay_test_type
+  13. assay_tissue
+  14. assay_type_description
+  15. bao_format
+  16. bao_label
+  17. cell_chembl_id
+  18. confidence_description
+  19. confidence_score
+  20. assay_description
+  21. bao_endpoint
+  22. document_chembl_id
+  23. relationship_description
+  24. relationship_type
+  25. src_assay_id
+  26. src_id
+  27. target_chembl_id
+  28. tissue_chembl_id
+  29. variant_sequence_json
+  30. assay_param_type
+  31. assay_param_relation
+  32. assay_param_value
+  33. assay_param_units
+  34. assay_param_text_value
+  35. assay_param_standard_type
+  36. assay_param_standard_value
+  37. assay_param_standard_units
+  38. assay_class_id
+  39. assay_class_bao_id
+  40. assay_class_type
+  41. assay_class_l1
+  42. assay_class_l2
+  43. assay_class_l3
+  44. assay_class_description
+  45. variant_id
+  46. variant_base_accession
+  47. variant_mutation
+  48. variant_sequence
+  49. variant_accession_reported
+  50. index
+  51. pipeline_version
+  52. source_system
+  53. chembl_release
+  54. extracted_at
+  55. hash_row
+  56. hash_business_key
+
+Колонки в конфиге, но отсутствующие в файле (0):

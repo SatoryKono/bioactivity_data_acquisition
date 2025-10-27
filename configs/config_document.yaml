@@ -99,7 +99,7 @@ sources:
 # Ввод-вывод
 io:
   input:
-    path: "data/input/document.csv"
+    path: "data/input/documents.csv"
     encoding: "utf-8"
     required_columns: ["document_chembl_id","doi", "pubmed_id"]
     
@@ -721,6 +721,9 @@ normalization:
     
     # Тома (chembl_volume удален, заменен на CHEMBL.DOCS.volume)
     
+    chembl_volume:
+      - normalize_string_strip
+    
     crossref_volume:
       - normalize_string_strip
     
@@ -731,6 +734,9 @@ normalization:
       - normalize_string_strip
     
     # Выпуски (chembl_issue удален, заменен на CHEMBL.DOCS.issue)
+    
+    chembl_issue:
+      - normalize_string_strip
     
     crossref_issue:
       - normalize_string_strip

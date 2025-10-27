@@ -451,7 +451,7 @@ logger = logging.getLogger('library.normalize')
 class BaseNormalizer:
     def __init__(self, config: dict):
         self.config = config
-        self.logger = logging.getLogger(f'library.normalize.{self.__class__.__name__}')
+        self.logger = logging.getLogger(f'library.normalizers.{self.__class__.__name__}')
     
     def normalize(self, df: pd.DataFrame) -> pd.DataFrame:
         """Нормализация данных с логированием"""

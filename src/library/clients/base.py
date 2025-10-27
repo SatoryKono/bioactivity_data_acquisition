@@ -184,20 +184,34 @@ class BaseApiClient:
         def _call_with_rate_limit() -> Response:
             # Apply rate limiting before making request
             if self.rate_limiter is not None:
-                try:
-                    self.rate_limiter.acquire()
-                except RateLimitError as e:
-                    # If rate limited, wait and retry
-                    # Экранируем символы % в сообщениях об ошибках для безопасного логирования
-                    error_msg = str(e).replace("%", "%%")
-                    self.logger.warning("Rate limit hit: %s", error_msg)
-                    # Use config-based delay instead of hardcoded delay
-                    if hasattr(self.config, 'rate_limit') and self.config.rate_limit:
-                        delay = self.config.rate_limit.period + random.uniform(0, 1)  # noqa: S311
-                    else:
-                        delay = 5.0 + random.uniform(0, 1)  # Default 5-6 seconds with jitter  # noqa: S311
-                    time.sleep(delay)
-                    self.rate_limiter.acquire()
+                max_rate_limit_retries = 5  # Максимум попыток для rate limiting
+                for attempt in range(max_rate_limit_retries):
+                    try:
+                        self.rate_limiter.acquire()
+                        break  # Успешно получили разрешение
+                    except RateLimitError as e:
+                        if attempt == max_rate_limit_retries - 1:
+                            # Последняя попытка, пробрасываем ошибку
+                            error_msg = str(e).replace("%", "%%")
+                            self.logger.error("Rate limit exceeded after %d attempts: %s", 
+                                            max_rate_limit_retries, error_msg)
+                            raise
+                        
+                        # Экранируем символы % в сообщениях об ошибках для безопасного логирования
+                        error_msg = str(e).replace("%", "%%")
+                        self.logger.warning("Rate limit hit (attempt %d/%d): %s", 
+                                          attempt + 1, max_rate_limit_retries, error_msg)
+                        
+                        # Экспоненциальный backoff для rate limiting
+                        if hasattr(self.config, 'rate_limit') and self.config.rate_limit:
+                            base_delay = self.config.rate_limit.period
+                        else:
+                            base_delay = 5.0
+                        
+                        # Экспоненциальный backoff: delay = base_delay * (2^attempt) + jitter
+                        delay = base_delay * (2 ** attempt) + random.uniform(0, 1)  # noqa: S311
+                        self.logger.info("Waiting %.1f seconds before retry...", delay)
+                        time.sleep(delay)
             
             return _call()
 

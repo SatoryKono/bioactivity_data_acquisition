@@ -472,7 +472,7 @@ class AssayPipeline(PipelineBase[AssayConfig]):
         logger.info("Normalizing assay data")
         
         # Apply assay-specific normalization
-        from library.normalize.assay import normalize_assay_dataframe
+        from library.normalizers import normalize_assay_dataframe
         normalized_data = normalize_assay_dataframe(raw_data)
         
         # Add system metadata fields

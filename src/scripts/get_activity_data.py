@@ -78,6 +78,10 @@ Examples:
         import pandas as pd
         pipeline = ActivityPipeline(cfg)
         input_data = pd.read_csv(args.input)
+        
+        # Note: Limit is applied in pipeline.extract() method, not here
+        print(f"Processing {len(input_data)} activities from {args.input}")
+        
         result = pipeline.run(input_data=input_data)
 
         if not cfg.runtime.dry_run:

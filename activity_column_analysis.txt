@@ -1,0 +1,76 @@
+ANALYSIS OF ACTIVITY OUTPUT FILE
+================================================================================
+
+Total rows: 100
+Total columns in file: 54
+Total columns in config: 54
+
+================================================================================
+EMPTY COLUMNS (count: 23)
+================================================================================
+  - action_type
+  - activity_comment
+  - activity_prop_comments
+  - activity_prop_relation
+  - activity_prop_result_flag
+  - activity_prop_standard_relation
+  - activity_prop_standard_text_value
+  - activity_prop_standard_type
+  - activity_prop_standard_units
+  - activity_prop_standard_value
+  - activity_prop_text_value
+  - activity_prop_type
+  - activity_prop_units
+  - activity_prop_value
+  - chembl_release
+  - data_validity_comment
+  - doc_id
+  - molregno
+  - pchembl_value
+  - standard_text_value
+  - standard_upper_value
+  - text_value
+  - upper_value
+
+================================================================================
+FILLED COLUMNS (count: 31)
+================================================================================
+  - activity_chembl_id (nulls: 0/100 = 0.0%)
+  - assay_chembl_id (nulls: 0/100 = 0.0%)
+  - bao_endpoint (nulls: 0/100 = 0.0%)
+  - bei (nulls: 4/100 = 4.0%)
+  - document_chembl_id (nulls: 0/100 = 0.0%)
+  - extracted_at (nulls: 0/100 = 0.0%)
+  - hash_business_key (nulls: 0/100 = 0.0%)
+  - hash_row (nulls: 0/100 = 0.0%)
+  - index (nulls: 0/100 = 0.0%)
+  - le (nulls: 4/100 = 4.0%)
+  - lle (nulls: 4/100 = 4.0%)
+  - molecule_chembl_id (nulls: 0/100 = 0.0%)
+  - pipeline_version (nulls: 0/100 = 0.0%)
+  - potential_duplicate (nulls: 0/100 = 0.0%)
+  - qudt_units (nulls: 0/100 = 0.0%)
+  - record_id (nulls: 0/100 = 0.0%)
+  - relation (nulls: 0/100 = 0.0%)
+  - saltform_id (nulls: 0/100 = 0.0%)
+  - sei (nulls: 4/100 = 4.0%)
+  - source_system (nulls: 0/100 = 0.0%)
+  - src_id (nulls: 0/100 = 0.0%)
+  - standard_flag (nulls: 0/100 = 0.0%)
+  - standard_relation (nulls: 0/100 = 0.0%)
+  - standard_type (nulls: 0/100 = 0.0%)
+  - standard_units (nulls: 0/100 = 0.0%)
+  - standard_value (nulls: 0/100 = 0.0%)
+  - target_chembl_id (nulls: 0/100 = 0.0%)
+  - type (nulls: 0/100 = 0.0%)
+  - units (nulls: 0/100 = 0.0%)
+  - uo_units (nulls: 0/100 = 0.0%)
+  - value (nulls: 0/100 = 0.0%)
+
+================================================================================
+COLUMNS IN FILE BUT NOT IN CONFIG (count: 0)
+================================================================================
+
+================================================================================
+COLUMNS IN CONFIG BUT NOT IN FILE (count: 0)
+================================================================================

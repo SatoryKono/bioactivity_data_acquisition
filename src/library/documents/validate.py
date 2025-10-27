@@ -21,7 +21,12 @@ class DocumentValidator:
     def __init__(self, config: dict[str, Any] | None = None):
         """Initialize validator with configuration."""
         self.config = config or {}
-        self.strict_mode = self.config.get('validation', {}).get('strict', True)
+        # Try different paths for validation config
+        validation_config = self.config.get('validation', {})
+        if not validation_config:
+            # Try nested path
+            validation_config = self.config.get('config', {}).get('validation', {})
+        self.strict_mode = validation_config.get('strict', False)
 
     def get_raw_schema(self) -> DataFrameSchema:
         """Schema for raw document data from input CSV."""
@@ -214,7 +219,9 @@ class DocumentValidator:
         
         try:
             # Use existing schema if available
-            validated_df = DocumentInputSchema.validate(df, lazy=True)
+            from library.schemas.document_input_schema import DocumentInputSchema
+            schema = DocumentInputSchema()
+            validated_df = schema.validate(df, lazy=True)
             logger.info("Raw data validation passed")
             return validated_df
         except Exception as exc:
@@ -315,17 +322,33 @@ class DocumentValidator:
         logger.info("Validating business rules")
         
         validated_df = df.copy()
+        validation_errors = []
         
-        # Rule 1: At least one identifier must be present (document_chembl_id is required)
+        # Rule 1: document_chembl_id is required and must have valid format
         missing_chembl_id = validated_df['document_chembl_id'].isna()
         if missing_chembl_id.any():
-            logger.warning(f"Found {missing_chembl_id.sum()} records with missing document_chembl_id")
+            error_msg = f"Found {missing_chembl_id.sum()} records with missing document_chembl_id"
+            logger.warning(error_msg)
+            validation_errors.append(error_msg)
+        
+        # Rule 1b: Validate ChEMBL ID format for non-null values
+        if 'document_chembl_id' in validated_df.columns:
+            invalid_chembl_format = (
+                validated_df['document_chembl_id'].notna() & 
+                ~validated_df['document_chembl_id'].str.match(r'^CHEMBL\d+$', na=False)
+            )
+            if invalid_chembl_format.any():
+                error_msg = f"Found {invalid_chembl_format.sum()} records with invalid ChEMBL ID format"
+                logger.warning(error_msg)
+                validation_errors.append(error_msg)
         
         # Rule 2: DOI format validation
         if 'doi' in validated_df.columns:
             invalid_doi_mask = validated_df['doi'].notna() & ~validated_df['doi'].str.match(r'^10\.\d+/.*', na=False)
             if invalid_doi_mask.any():
-                logger.warning(f"Found {invalid_doi_mask.sum()} records with invalid DOI format")
+                error_msg = f"Found {invalid_doi_mask.sum()} records with invalid DOI format"
+                logger.warning(error_msg)
+                validation_errors.append(error_msg)
         
         # Rule 3: Year validation
         if 'year' in validated_df.columns:
@@ -334,7 +357,9 @@ class DocumentValidator:
                 ((validated_df['year'] < 1900) | (validated_df['year'] > 2030))
             )
             if invalid_year_mask.any():
-                logger.warning(f"Found {invalid_year_mask.sum()} records with invalid year")
+                error_msg = f"Found {invalid_year_mask.sum()} records with invalid year"
+                logger.warning(error_msg)
+                validation_errors.append(error_msg)
         
         # Rule 4: Month validation
         if 'month' in validated_df.columns:
@@ -343,7 +368,9 @@ class DocumentValidator:
                 ((validated_df['month'] < 1) | (validated_df['month'] > 12))
             )
             if invalid_month_mask.any():
-                logger.warning(f"Found {invalid_month_mask.sum()} records with invalid month")
+                error_msg = f"Found {invalid_month_mask.sum()} records with invalid month"
+                logger.warning(error_msg)
+                validation_errors.append(error_msg)
         
         # Rule 5: Page logic validation
         if 'first_page' in validated_df.columns and 'last_page' in validated_df.columns:
@@ -353,7 +380,9 @@ class DocumentValidator:
                 (validated_df['first_page'] > validated_df['last_page'])
             )
             if page_logic_errors.any():
-                logger.warning(f"Found {page_logic_errors.sum()} records with page logic errors")
+                error_msg = f"Found {page_logic_errors.sum()} records with page logic errors"
+                logger.warning(error_msg)
+                validation_errors.append(error_msg)
         
         # Rule 6: Publication date consistency
         if 'publication_date' in validated_df.columns and 'year' in validated_df.columns:
@@ -363,7 +392,14 @@ class DocumentValidator:
                 ~validated_df['publication_date'].str.startswith(validated_df['year'].astype(str))
             )
             if date_year_mismatch.any():
-                logger.warning(f"Found {date_year_mismatch.sum()} records with publication date/year mismatch")
+                error_msg = f"Found {date_year_mismatch.sum()} records with publication date/year mismatch"
+                logger.warning(error_msg)
+                validation_errors.append(error_msg)
+        
+        # Handle strict mode: raise exception if validation errors found
+        if validation_errors and self.strict_mode:
+            error_summary = "; ".join(validation_errors)
+            raise DocumentValidationError(f"Business rules validation failed in strict mode: {error_summary}")
         
         return validated_df
 

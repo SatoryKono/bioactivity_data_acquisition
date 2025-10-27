@@ -6,6 +6,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Добавляем src в PYTHONPATH для использования локальной версии library
+project_root = Path(__file__).parent.parent.parent
+src_path = project_root / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
 from library.assay import AssayConfig, AssayPipeline, load_assay_config, write_assay_outputs
 from library.logging_setup import configure_logging
 
@@ -259,13 +265,8 @@ Examples:
                 print("Error: No assay IDs found in input file.", file=sys.stderr)
                 return 2
             
-            # Apply limit to input data if specified
-            if config.runtime.limit and config.runtime.limit > 0:
-                original_count = len(assay_ids)
-                assay_ids = assay_ids[:config.runtime.limit]
-                print(f"Extracting {len(assay_ids)} assays from {args.input} (limited from {original_count})")
-            else:
-                print(f"Extracting {len(assay_ids)} assays from {args.input}")
+            # Note: Limit is applied in pipeline.extract() method, not here
+            print(f"Extracting {len(assay_ids)} assays from {args.input}")
             
             # Apply variant flags
             if args.variants_only:

@@ -80,6 +80,12 @@ class ETLWriter(ABC):
         exclude_columns: list[str] | None = None
     ) -> None:
         """Записать DataFrame в CSV с детерминированным порядком."""
+        import time
+        import logging
+        from datetime import datetime
+        
+        logger = logging.getLogger(__name__)
+        
         # Создать копию данных
         df_copy = df.copy()
         
@@ -105,8 +111,6 @@ class ETLWriter(ABC):
             # Логирование для отладки
             added_columns = [col for col in column_order if col not in df.columns]
             if added_columns:
-                import logging
-                logger = logging.getLogger(__name__)
                 logger.debug(f"Added empty columns from column_order: {added_columns}")
         
         # Сортировка
@@ -122,8 +126,82 @@ class ETLWriter(ABC):
                 
                 df_copy = df_copy.sort_values(by=valid_sort_columns, ascending=ascending)
         
-        # Записать в CSV
-        df_copy.to_csv(output_path, index=False, encoding='utf-8')
+        # Записать в CSV с retry-логикой
+        self._write_csv_with_retry(df_copy, output_path, max_retries=3, retry_delay=1.0)
+    
+    def _write_csv_with_retry(
+        self, 
+        df: pd.DataFrame, 
+        output_path: Path, 
+        max_retries: int = 3, 
+        retry_delay: float = 1.0
+    ) -> None:
+        """Записать DataFrame в CSV с повторными попытками при ошибках доступа."""
+        import time
+        import logging
+        from datetime import datetime
+        
+        logger = logging.getLogger(__name__)
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Проверить, заблокирован ли файл
+                if output_path.exists():
+                    try:
+                        # Попытка открыть файл для записи
+                        with open(output_path, 'a'):
+                            pass
+                    except PermissionError:
+                        if attempt < max_retries:
+                            # Генерировать уникальное имя с миллисекундами
+                            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # миллисекунды
+                            base_name = output_path.stem
+                            suffix = output_path.suffix
+                            parent_dir = output_path.parent
+                            output_path = parent_dir / f"{base_name}_{timestamp}{suffix}"
+                            logger.warning(f"Файл заблокирован, попытка {attempt + 1}/{max_retries + 1}. "
+                                         f"Используем новое имя: {output_path.name}")
+                            time.sleep(retry_delay)
+                            continue
+                        else:
+                            raise PermissionError(
+                                f"Не удалось записать файл {output_path}. "
+                                f"Файл заблокирован другим процессом. "
+                                f"Закройте файл в Excel, текстовом редакторе или другом приложении и попробуйте снова."
+                            )
+                
+                # Записать файл
+                df.to_csv(output_path, index=False, encoding='utf-8')
+                logger.info(f"Файл успешно записан: {output_path}")
+                return
+                
+            except PermissionError as e:
+                if attempt < max_retries:
+                    # Генерировать уникальное имя с миллисекундами
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # миллисекунды
+                    base_name = output_path.stem
+                    suffix = output_path.suffix
+                    parent_dir = output_path.parent
+                    output_path = parent_dir / f"{base_name}_{timestamp}{suffix}"
+                    logger.warning(f"Ошибка доступа при попытке {attempt + 1}/{max_retries + 1}: {e}")
+                    logger.warning(f"Используем новое имя файла: {output_path.name}")
+                    time.sleep(retry_delay)
+                else:
+                    logger.error(f"Не удалось записать файл после {max_retries + 1} попыток")
+                    raise PermissionError(
+                        f"Не удалось записать файл {output_path} после {max_retries + 1} попыток. "
+                        f"Возможные причины:\n"
+                        f"1. Файл открыт в Excel или другом приложении - закройте его\n"
+                        f"2. Недостаточно прав доступа к папке\n"
+                        f"3. Антивирус блокирует запись\n"
+                        f"Попробуйте запустить скрипт от имени администратора или измените папку вывода."
+                    )
+            except Exception as e:
+                if attempt < max_retries:
+                    logger.warning(f"Ошибка при попытке {attempt + 1}/{max_retries + 1}: {e}")
+                    time.sleep(retry_delay)
+                else:
+                    raise
     
     def _write_correlation_reports(
         self,

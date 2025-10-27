@@ -1,0 +1,74 @@
+=== ASSAY DATA ANALYSIS REPORT ===
+
+Analysis Date: 2025-10-26 15:22:58.156718
+Main CSV file: data\output\assays\assays_20251026.csv
+File size: 1457 bytes
+Rows: 1
+Columns: 56
+
+=== EMPTY COLUMNS ===
+Count: 30
+List:
+  - assay_category
+  - assay_cell_type
+  - assay_class_bao_id
+  - assay_class_description
+  - assay_class_id
+  - assay_class_l1
+  - assay_class_l2
+  - assay_class_l3
+  - assay_class_type
+  - assay_group
+  - assay_param_relation
+  - assay_param_standard_type
+  - assay_param_standard_units
+  - assay_param_standard_value
+  - assay_param_text_value
+  - assay_param_type
+  - assay_param_units
+  - assay_param_value
+  - assay_strain
+  - assay_test_type
+  - bao_endpoint
+  - cell_chembl_id
+  - chembl_release
+  - src_assay_id
+  - variant_accession_reported
+  - variant_base_accession
+  - variant_id
+  - variant_mutation
+  - variant_sequence
+  - variant_sequence_json
+
+=== FILLED COLUMNS ===
+Count: 26
+List:
+  - assay_chembl_id
+  - assay_classifications
+  - assay_description
+  - assay_organism
+  - assay_parameters_json
+  - assay_subcellular_fraction
+  - assay_tax_id
+  - assay_tissue
+  - assay_type
+  - assay_type_description
+  - bao_format
+  - bao_label
+  - confidence_description
+  - confidence_score
+  - document_chembl_id
+  - extracted_at
+  - hash_business_key
+  - hash_row
+  - index
+  - pipeline_version
+  - relationship_description
+  - relationship_type
+  - source_system
+  - src_id
+  - target_chembl_id
+  - tissue_chembl_id
+
+=== CONFIG COMPARISON ===
+Could not extract column order from config

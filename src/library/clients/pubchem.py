@@ -61,10 +61,20 @@ class PubChemClient(BaseApiClient):
         cached = self._cache_read(path)
         if cached is not None:
             return cached
-        payload = self._request("GET", path)
-        if isinstance(payload, dict):
-            self._cache_write(path, payload)
-        return payload
+        try:
+            payload = self._request("GET", path)
+            if isinstance(payload, dict):
+                self._cache_write(path, payload)
+            return payload
+        except Exception as e:
+            # Special handling for 503 Server Busy errors from PubChem
+            error_msg = str(e)
+            if "503" in error_msg or "ServerBusy" in error_msg or "PUGREST" in error_msg:
+                logger.warning("PubChem API returned 503 Server Busy for path %s: %s", path, error_msg)
+                # Return empty dict to gracefully degrade
+                return {}
+            # Re-raise other exceptions
+            raise
 
     def fetch_compound_properties(self, cid: str) -> dict[str, Any]:
         """Fetch compound properties by PubChem CID."""
@@ -72,9 +82,17 @@ class PubChemClient(BaseApiClient):
             payload = self._get_with_cache(
                 f"compound/cid/{cid}/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON"
             )
+            # _get_with_cache returns {} on 503, check if empty before parsing
+            if not payload:
+                logger.warning("PubChem returned empty response for CID %s (likely 503 Server Busy)", cid)
+                return {}
             return self._parse_compound_properties(payload)
         except Exception as e:
-            logger.warning("Failed to fetch PubChem properties for CID %s: %s", cid, e)
+            error_msg = str(e)
+            if "503" in error_msg or "ServerBusy" in error_msg:
+                logger.warning("PubChem 503 error for CID %s: %s", cid, error_msg)
+            else:
+                logger.warning("Failed to fetch PubChem properties for CID %s: %s", cid, e)
             return {}
 
     def fetch_compounds_properties_batch(

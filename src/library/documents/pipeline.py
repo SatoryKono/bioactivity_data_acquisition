@@ -279,7 +279,9 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         
         # Apply limit if specified
         if self.config.runtime.limit is not None:
+            logger.info(f"DEBUG: Before pipeline limit - processing {len(normalized_data)} documents")
             normalized_data = normalized_data.head(self.config.runtime.limit)
+            logger.info(f"DEBUG: After pipeline limit - processing {len(normalized_data)} documents")
         
         # Check for duplicates
         duplicates = normalized_data["document_chembl_id"].duplicated()

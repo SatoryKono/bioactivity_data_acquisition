@@ -232,6 +232,9 @@ def configure_logging(
         logs_dir = log_file.parent
         logs_dir.mkdir(parents=True, exist_ok=True)
     
+    # Initialize config variable
+    config = None
+    
     # Load configuration from YAML if provided
     if config_path and config_path.exists():
         with config_path.open("r", encoding="utf-8") as f:
@@ -252,8 +255,9 @@ def configure_logging(
                     config_path = default_config_path
                     with config_path.open("r", encoding="utf-8") as f:
                         config = yaml.safe_load(f)
-        
-        # Override configuration based on parameters
+    
+    # Override configuration based on parameters
+    if config is not None:
         if not file_enabled:
             # Remove file handlers
             for logger_config in config.get("loggers", {}).values():

@@ -44,7 +44,7 @@ io:
   input:                                # Настройки входных данных
     path: "data/input/activities.csv"   # Путь к входному CSV файлу
     encoding: "utf-8"                   # Кодировка входного файла
-    required_columns: ["activity_chembl_id", "assay_chembl_id", "document_chembl_id", "molecule_chembl_id", "target_chembl_id"]   # Обязательные колонки
+    required_columns: ["activity_chembl_id", "assay_chembl_id", "document_chembl_id", "molecule_chembl_id", "saltform_id", "target_chembl_id"]   # Обязательные колонки
     
   output:                               # Настройки выходных данных
     dir: "data/output/activities"       # Директория для выходных файлов
@@ -86,9 +86,15 @@ determinism:
     ascending: [true, true, true, true, true]  # Направление сортировки
     na_position: "last"                # Позиция NULL значений
   column_order:
+    # INPUT DATA - колонки из входного файла
+    - "activity_chembl_id"              # STRING: ChEMBL ID активности, источник: входной файл, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "assay_chembl_id"                 # STRING: ChEMBL ID ассея, источник: входной файл, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "document_chembl_id"              # STRING: ChEMBL ID документа, источник: входной файл, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "molecule_chembl_id"              # STRING: ChEMBL ID молекулы, источник: входной файл, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "saltform_id"                     # STRING: ChEMBL ID солевой формы, источник: входной файл, тип: STRING, валидация: nullable, regex ^CHEMBL\d+$
+    - "target_chembl_id"                # STRING: ChEMBL ID мишени, источник: входной файл, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    
     # ACTIVITIES - основные поля
-    - "activity_id"                     # INT: Уникальный ID активности (PK), источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, >= 1
-    - "assay_id"                        # INT: FK на ASSAYS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
     - "doc_id"                          # INT: FK на DOCS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
     - "record_id"                       # INT: FK на COMPOUND_RECORDS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
     - "molregno"                        # INT: FK на MOLECULE_DICTIONARY, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK

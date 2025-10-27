@@ -46,7 +46,7 @@ class TestitemNormalizer:
             >>> normalizer = TestitemNormalizer(config)
             >>> normalized_df = normalizer.normalize_testitems(validated_df)
         """
-        logger.info("Normalizing %d testitem records", len(df))
+        logger.info(f"Normalizing {len(df)} testitem records")
         
         # Create a copy to avoid modifying original
         normalized_df = df.copy()
@@ -69,7 +69,7 @@ class TestitemNormalizer:
         # Step 5: Add hash fields
         normalized_df = self._add_hash_fields(normalized_df)
         
-        logger.info("Normalization completed. Output: %d records", len(normalized_df))
+        logger.info(f"Normalization completed. Output: {len(normalized_df)} records")
         return normalized_df
 
     def _add_missing_columns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -194,7 +194,7 @@ class TestitemNormalizer:
         integer_fields = [
             "molregno", "parent_molregno", "hba", "hbd", "rtb", 
             "num_ro5_violations", "hba_lipinski", "hbd_lipinski", 
-            "num_lipinski_ro5_violations", "first_approval", "usan_year", 
+            "num_lipinski_ro5_violations", "usan_year", 
             "withdrawn_year", "pubchem_cid", "chirality"
         ]
         
@@ -245,7 +245,7 @@ class TestitemNormalizer:
             if field in normalized_df.columns:
                 normalized_df[field] = normalized_df[field].apply(normalize_boolean_field)
                 # Конвертируем в bool тип (не boolean) - заменяем NaN на False
-                normalized_df[field] = normalized_df[field].fillna(False).astype('bool')
+                normalized_df[field] = normalized_df[field].fillna(False).infer_objects(copy=False).astype('bool')
         
         # List fields
         list_fields = [
@@ -269,6 +269,19 @@ class TestitemNormalizer:
             normalized_df["pref_name_key"] = normalized_df["pref_name"].apply(
                 lambda x: str(x).lower().strip() if x is not None else ""
             )
+        
+        # Type conversions for problematic fields
+        # Convert first_approval from int to string
+        if 'first_approval' in normalized_df.columns:
+            normalized_df['first_approval'] = normalized_df['first_approval'].apply(
+                lambda x: str(int(x)) if pd.notna(x) else None
+            )
+        
+        # Convert nstereo to Int64
+        if 'nstereo' in normalized_df.columns:
+            normalized_df['nstereo'] = pd.to_numeric(
+                normalized_df['nstereo'], errors='coerce'
+            ).astype('Int64')
         
         logger.info("Molecule data normalization completed")
         

@@ -90,7 +90,7 @@ class TestChEMBLClient:
 # tests/unit/test_normalize.py
 import pytest
 import pandas as pd
-from library.normalize.document_normalizer import DocumentNormalizer
+from library.normalizers import DocumentNormalizer
 
 class TestDocumentNormalizer:
     def test_normalize_doi(self):

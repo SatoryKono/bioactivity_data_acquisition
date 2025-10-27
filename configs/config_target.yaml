@@ -96,7 +96,7 @@ runtime:
   limit: null
   offset: 0
   dry_run: false
-  date_tag: null
+  date_tag: null  # Будет автогенерироваться если не указан
   dev_mode: false
   allow_incomplete_sources: true
 

@@ -46,8 +46,9 @@ sources:
       base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"  # Базовый URL PUG-REST API
       timeout_sec: 30.0               # Таймаут для PubChem запросов
       retries:                        # Настройки повторных попыток
-        total: 3                      # Количество попыток
-        backoff_multiplier: 2.0       # Множитель задержки
+        total: 5                      # Количество попыток
+        backoff_multiplier: 3.0       # Множитель задержки (увеличено для больших интервалов)
+        backoff_max: 300.0            # Максимальная задержка 5 минут
     batch_size: 100                   # Размер батча для запросов
     max_requests_per_second: 5        # Максимум запросов в секунду
     allow_polymer: false              # Разрешить полимеры

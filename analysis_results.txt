@@ -1,0 +1,78 @@
+АНАЛИЗ РЕЗУЛЬТАТОВ ВЫПОЛНЕНИЯ СКРИПТА get_target_data.py
+
+Дата: 2025-10-26
+Команда: python src\scripts\get_target_data.py --input data\input\target.csv --config configs\config_target.yaml --limit 1
+
+СТАТУС: ❌ ОШИБКА ВАЛИДАЦИИ
+
+ПРОБЛЕМА:
+Схема ожидает колонку 'CHEMBL.TARGETS.target_chembl_id', а в данных есть только 'target_chembl_id'
+
+АНАЛИЗ КОЛОНОК:
+
+1. КОЛОНКИ В ДАННЫХ (18 колонок):
+   - target_chembl_id
+   - isoform_ids
+   - isoform_names
+   - isoforms
+   - organism
+   - pH_dependence
+   - primaryAccession
+   - target_names
+   - target_uniprot_id
+   - target_organism
+   - target_tax_id
+   - target_uniprot_accession
+   - target_isoform
+   - source_system
+   - extracted_at
+   - pipeline_version
+   - hash_row
+   - hash_business_key
+
+2. КОЛОНКИ В КОНФИГЕ (177 колонок):
+   - CHEMBL.TARGETS.target_chembl_id
+   - CHEMBL.TARGETS.pref_name
+   - CHEMBL.TARGETS.target_type
+   - CHEMBL.TARGETS.tax_id
+   - CHEMBL.TARGETS.species_group_flag
+   - И еще 172 колонки...
+
+3. КОЛОНКИ В ДАННЫХ, НО ОТСУТСТВУЮЩИЕ В КОНФИГЕ (12 колонок):
+   - isoform_ids
+   - isoform_names
+   - isoforms
+   - organism
+   - pH_dependence
+   - primaryAccession
+   - target_names
+   - target_uniprot_id
+   - target_organism
+   - target_tax_id
+   - target_uniprot_accession
+   - target_isoform
+
+4. КОЛОНКИ В КОНФИГЕ, НО ОТСУТСТВУЮЩИЕ В ДАННЫХ (165 колонок):
+   - CHEMBL.TARGETS.target_chembl_id (есть target_chembl_id)
+   - CHEMBL.TARGETS.pref_name
+   - CHEMBL.TARGETS.target_type
+   - CHEMBL.TARGETS.tax_id
+   - CHEMBL.TARGETS.species_group_flag
+   - И еще 160 колонок...
+
+5. ОБЩИЕ КОЛОНКИ (5 колонок):
+   - source_system
+   - extracted_at
+   - pipeline_version
+   - hash_row
+   - hash_business_key
+
+6. КОЛИЧЕСТВО ПУСТЫХ КОЛОНОК: Не удалось определить из-за ошибки валидации
+
+7. КОЛИЧЕСТВО ЗАПОЛНЕННЫХ КОЛОНОК: Не удалось определить из-за ошибки валидации
+
+РЕКОМЕНДАЦИИ:
+1. Исправить несоответствие имен колонок между схемой и данными
+2. Обновить схему валидации для соответствия реальным данным
+3. Проверить процесс нормализации данных
+4. Убедиться в корректности маппинга полей из API в схему

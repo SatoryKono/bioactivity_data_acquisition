@@ -124,22 +124,32 @@ class TargetQCValidator(QCValidator):
         if total_rows == 0:
             return {"total_rows": 0, "quality_passed": False}
         
-        # Проверка обязательных полей
-        metrics["missing_target_chembl_id"] = df["target_chembl_id"].isna().sum() / total_rows
-        metrics["duplicate_primary_keys"] = df["target_chembl_id"].duplicated().sum() / total_rows
+        # Проверка обязательных полей - используем префиксные имена
+        target_chembl_id_col = "CHEMBL.TARGETS.target_chembl_id" if "CHEMBL.TARGETS.target_chembl_id" in df.columns else "target_chembl_id"
         
-        # Проверка валидности ChEMBL ID
-        valid_chembl_pattern = r'^CHEMBL\d+$'
-        metrics["invalid_chembl_id"] = (~df["target_chembl_id"].str.match(valid_chembl_pattern, na=False)).sum() / total_rows
+        if target_chembl_id_col in df.columns:
+            metrics["missing_target_chembl_id"] = df[target_chembl_id_col].isna().sum() / total_rows
+            metrics["duplicate_primary_keys"] = df[target_chembl_id_col].duplicated().sum() / total_rows
+            
+            # Проверка валидности ChEMBL ID
+            valid_chembl_pattern = r'^CHEMBL\d+$'
+            metrics["invalid_chembl_id"] = (~df[target_chembl_id_col].str.match(valid_chembl_pattern, na=False)).sum() / total_rows
+        else:
+            metrics["missing_target_chembl_id"] = 1.0  # 100% missing if column doesn't exist
+            metrics["duplicate_primary_keys"] = 0.0
+            metrics["invalid_chembl_id"] = 0.0
         
         # Проверка валидности UniProt ID
         if "uniprot_id_primary" in df.columns:
             valid_uniprot_pattern = r'^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$'
             metrics["invalid_uniprot_id"] = (~df["uniprot_id_primary"].str.match(valid_uniprot_pattern, na=False)).sum() / total_rows
         
-        # Проверка валидности таксономических ID
-        if "tax_id" in df.columns:
-            metrics["invalid_taxonomy_id"] = (df["tax_id"] <= 0).sum() / total_rows
+        # Проверка валидности таксономических ID - используем префиксные имена
+        tax_id_col = "CHEMBL.TARGETS.tax_id" if "CHEMBL.TARGETS.tax_id" in df.columns else "tax_id"
+        if tax_id_col in df.columns:
+            metrics["invalid_taxonomy_id"] = (df[tax_id_col] <= 0).sum() / total_rows
+        else:
+            metrics["invalid_taxonomy_id"] = 0.0
         
         # Проверка наличия данных из источников
         source_columns = [col for col in df.columns if any(source in col for source in ["chembl", "uniprot", "iuphar", "gtopdb"])]

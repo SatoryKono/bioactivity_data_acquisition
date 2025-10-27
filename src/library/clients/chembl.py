@@ -63,7 +63,7 @@ class ChEMBLClient(BaseApiClient):
         try:
             payload = self._request("GET", "status")
             return {
-                "chembl_release": payload.get("chembl_release"),
+                "chembl_release": payload.get("chembl_db_version"),
                 "status": payload.get("status", "unknown"),
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
@@ -834,13 +834,28 @@ class ChEMBLClient(BaseApiClient):
         try:
             payload = self._request("GET", f"target/{target_chembl_id}")
             
-            # Extract target organism and tax_id
+            # Helper function to convert to JSON string if needed
+            def to_json_string(value):
+                if value is None:
+                    return None
+                if isinstance(value, (dict, list)):
+                    import json
+                    return json.dumps(value)
+                return str(value) if value else None
+            
+            # Extract basic target information
             target_organism = payload.get("organism")
             target_tax_id = payload.get("tax_id")
+            pref_name = payload.get("pref_name")
+            target_type = payload.get("target_type")
+            species_group_flag = payload.get("species_group_flag")
             
             # Extract UniProt accession and isoform from target_components
             target_uniprot_accession = None
             target_isoform = None
+            isoform_ids = []
+            isoform_names = []
+            isoforms = []
             
             target_components = payload.get("target_components", [])
             if target_components:
@@ -852,14 +867,54 @@ class ChEMBLClient(BaseApiClient):
                         component_desc = component.get("component_description", "")
                         if "isoform" in component_desc.lower():
                             target_isoform = component_desc
+                            isoforms.append(component_desc)
                         break
+                
+                # Extract all isoform information
+                for component in target_components:
+                    if component.get("component_type") == "PROTEIN":
+                        component_id = component.get("component_id")
+                        component_desc = component.get("component_description", "")
+                        if component_id:
+                            isoform_ids.append(str(component_id))
+                        if component_desc and "isoform" in component_desc.lower():
+                            isoform_names.append(component_desc)
+                            isoforms.append(component_desc)
+            
+            # Extract protein classifications
+            protein_classifications = payload.get("protein_classification", {})
+            
+            # Extract cross references
+            cross_references = payload.get("cross_references", [])
+            
+            # Extract target names (synonyms)
+            target_names = []
+            synonyms = payload.get("synonyms", [])
+            if synonyms:
+                target_names = [syn.get("synonym", "") for syn in synonyms if syn.get("synonym")]
+            
+            # Extract pH dependence
+            pH_dependence = payload.get("pH_dependence")
             
             return {
                 "target_chembl_id": target_chembl_id,
+                "pref_name": pref_name,
+                "target_type": target_type,
+                "organism": target_organism,
+                "tax_id": target_tax_id,
+                "species_group_flag": species_group_flag,
+                "target_components": to_json_string(target_components),
+                "protein_classifications": to_json_string(protein_classifications),
+                "cross_references": to_json_string(cross_references),
+                "target_names": to_json_string(target_names) if target_names else None,
+                "pH_dependence": pH_dependence,
                 "target_organism": target_organism,
                 "target_tax_id": target_tax_id,
                 "target_uniprot_accession": target_uniprot_accession,
                 "target_isoform": target_isoform,
+                "isoform_ids": to_json_string(isoform_ids) if isoform_ids else None,
+                "isoform_names": to_json_string(isoform_names) if isoform_names else None,
+                "isoforms": to_json_string(isoforms) if isoforms else None,
                 "source_system": "ChEMBL",
                 "extracted_at": datetime.utcnow().isoformat() + "Z"
             }
@@ -1207,6 +1262,7 @@ class ChEMBLClient(BaseApiClient):
     def fetch_source_by_id(self, src_id: int | str) -> dict[str, Any]:
         """Fetch source data by ChEMBL source ID."""
         try:
+            logger.info(f"DEBUG: Fetching source data for src_id={src_id}")
             payload = self._request("GET", f"source/{src_id}")
             
             # Extract SOURCE fields according to specification
@@ -1227,6 +1283,7 @@ class ChEMBLClient(BaseApiClient):
                 "CHEMBL.SOURCE.data": self._serialize_json(source_data)
             }
             
+            logger.info(f"DEBUG: Successfully fetched source {src_id}: {result}")
             return result
             
         except Exception as e:
@@ -1284,12 +1341,18 @@ class ChEMBLClient(BaseApiClient):
             
             # Extract SOURCE data if available
             src_id = payload.get("src_id")  # Extract src_id directly from top level
+            logger.info(f"DEBUG: Document {document_chembl_id} - src_id from payload: {src_id}")
+            logger.info(f"DEBUG: Full payload keys: {list(payload.keys())}")
+            
             if src_id:
                 # Fetch detailed source information using src_id
+                logger.info(f"DEBUG: Fetching source data for src_id={src_id}")
                 source_info = self.fetch_source_by_id(src_id)
+                logger.info(f"DEBUG: Merged SOURCE data: {source_info}")
                 result.update(source_info)
             else:
                 # If src_id is absent, set None for all SOURCE fields
+                logger.info(f"DEBUG: No src_id found, setting SOURCE fields to None")
                 result.update({
                     "CHEMBL.SOURCE.src_id": None,
                     "CHEMBL.SOURCE.src_description": None,
@@ -1297,6 +1360,9 @@ class ChEMBLClient(BaseApiClient):
                     "CHEMBL.SOURCE.src_url": None,
                     "CHEMBL.SOURCE.data": None
                 })
+            
+            logger.info(f"DEBUG: Final result keys: {list(result.keys())}")
+            logger.info(f"DEBUG: SOURCE fields in result: {[k for k in result.keys() if 'SOURCE' in k]}")
             
             return result
             

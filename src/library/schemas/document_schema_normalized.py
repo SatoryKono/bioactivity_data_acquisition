@@ -718,12 +718,12 @@ class DocumentNormalizedSchema:
             
             # Вычисляемые поля
             "publication_date": add_normalization_metadata(
-                Column(pa.DateTime, nullable=True, description="Дата публикации"),
-                ["normalize_datetime_iso8601"]
+                Column(pa.String, nullable=True, description="Дата публикации"),
+                ["normalize_string_strip", "normalize_string_nfc"]
             ),
             "document_sortorder": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="Порядок сортировки документов"),
-                ["normalize_int", "normalize_int_range"]
+                Column(pa.String, nullable=True, description="Порядок сортировки документов"),
+                ["normalize_string_strip", "normalize_string_nfc"]
             ),
             
             # Валидационные флаги

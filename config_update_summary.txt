@@ -1,0 +1,33 @@
+ОТЧЕТ ОБ ОБНОВЛЕНИИ КОНФИГУРАЦИИ config_activity.yaml
+================================================================
+
+Дата: 2025-10-26
+Действие: Добавление колонок из входного файла в конфигурацию
+
+ИЗМЕНЕНИЯ:
+
+1. Добавлены колонки из входного файла в секцию column_order:
+   - activity_chembl_id (STRING, NOT NULL, regex ^CHEMBL\d+$)
+   - assay_chembl_id (STRING, NOT NULL, regex ^CHEMBL\d+$)
+   - document_chembl_id (STRING, NOT NULL, regex ^CHEMBL\d+$)
+   - molecule_chembl_id (STRING, NOT NULL, regex ^CHEMBL\d+$)
+   - saltform_id (STRING, nullable, regex ^CHEMBL\d+$)
+   - target_chembl_id (STRING, NOT NULL, regex ^CHEMBL\d+$)
+
+2. Обновлен список обязательных колонок в io.input.required_columns:
+   - Добавлен saltform_id в список обязательных колонок
+
+РЕЗУЛЬТАТ:
+
+До обновления:
+- Колонки в файле но не в конфиге: 6
+- Колонки в конфиге но не в файле: 50
+- Общие колонки: 0
+
+После обновления:
+- Колонки в файле но не в конфиге: 0 ✓
+- Колонки в конфиге но не в файле: 50
+- Общие колонки: 6 ✓
+
+СТАТУС: УСПЕШНО ЗАВЕРШЕНО
+Все колонки из входного файла теперь присутствуют в конфигурации.

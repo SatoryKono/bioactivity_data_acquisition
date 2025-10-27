@@ -83,8 +83,8 @@ class TestitemNormalizedSchema:
                 ["normalize_boolean"]
             ),
             "first_approval": add_normalization_metadata(
-                Column(pa.Int64, nullable=True, description="Год первого одобрения"),
-                ["normalize_int", "normalize_year"]
+                Column(pa.String, nullable=True, description="Год первого одобрения"),
+                ["normalize_int_to_string", "normalize_year"]
             ),
             "structure_type": add_normalization_metadata(
                 Column(pa.String, nullable=True, description="Тип структуры"),

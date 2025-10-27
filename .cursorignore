@@ -1,0 +1,112 @@
+########################################
+# SECURITY: secrets, creds, env
+########################################
+**/.env
+**/.env.*
+**/secrets.*.json
+**/secrets.json
+**/credentials.json
+**/*.pem
+**/*.key
+**/id_rsa
+**/id_dsa
+**/id_ecdsa
+**/id_ed25519
+
+########################################
+# PYTHON: venv, кэши, артефакты
+########################################
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+.eggs/
+*.egg-info/
+__pycache__/
+*.pyc
+.mypy_cache/
+.pytype/
+.pyre/
+.pytest_cache/
+.coverage
+htmlcov/
+
+########################################
+# BUILD / DIST / LOCKS
+########################################
+build/
+dist/
+*.lock
+*.lockb
+*.bak
+*.tmp
+*.bin
+
+########################################
+# DATA & ARTIFACTS (тяжёлое и генерируемое)
+########################################
+data/
+datasets/
+raw_data/
+external_data/
+intermediate/
+artifacts/
+artifacts/**/*
+outputs/
+outputs/**/*
+results/
+results/**/*
+logs/
+**/logs/
+**/*.log
+
+# типовые форматы артефактов
+**/*.parquet
+**/*.feather
+**/*.arrow
+**/*.orc
+**/*.csv
+**/*.tsv
+**/*.xlsx
+**/*.npz
+**/*.npy
+**/*.pickle
+**/*.joblib
+
+########################################
+# NOTEBOOK NOISE
+########################################
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+########################################
+# DOCS: мусор сборки
+########################################
+site/           # mkdocs build output
+docs/_build/
+docs/.cache/
+
+########################################
+# VCS/IDE мусор
+########################################
+.git/
+.git-lfs/
+.svn/
+.hg/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+########################################
+# PROJECT-SPECIFIC GUARDS
+# Не трогаем конфиги и схемы — они источник истины
+########################################
+!configs/
+!configs/**/config_*_full.yaml
+!src/library/schemas/
+!src/library/schemas/**
+
+# Не игнорировать минимальные примеры в docs
+!docs/**/*.md
+!mkdocs.yml

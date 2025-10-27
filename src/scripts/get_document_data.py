@@ -9,6 +9,7 @@ from typing import Any
 from library.documents import DocumentPipeline
 from library.documents import load_document_config
 from library.documents import write_document_outputs
+from library.documents.config import DocumentConfig
 from library.logging_setup import configure_logging
 
 
@@ -56,6 +57,40 @@ def _generate_date_tag() -> str:
     """Generate date tag for output files."""
     from datetime import datetime
     return datetime.now().strftime("%Y%m%d")
+
+
+def _validate_api_keys(config: DocumentConfig) -> None:
+    """Validate that required API keys are set for enabled sources."""
+    import os
+    
+    missing_keys = []
+    warnings = []
+    
+    # Check Semantic Scholar API key
+    if config.sources.get("semantic_scholar", {}).enabled:
+        api_key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY")
+        if not api_key:
+            warnings.append(
+                "SEMANTIC_SCHOLAR_API_KEY not set. "
+                "Semantic Scholar has strict rate limits without API key. "
+                "Get key at: https://www.semanticscholar.org/product/api"
+            )
+    
+    # Check Crossref email (polite pool)
+    if config.sources.get("crossref", {}).enabled:
+        mailto = getattr(config.sources.get("crossref"), "mailto", None)
+        if not mailto or "@" not in str(mailto):
+            warnings.append(
+                "Crossref 'mailto' not configured. "
+                "Using polite pool with email improves rate limits."
+            )
+    
+    # Print warnings
+    if warnings:
+        print("\n⚠️  API Configuration Warnings:")
+        for warning in warnings:
+            print(f"  - {warning}")
+        print()
 
 
 def main():
@@ -199,6 +234,9 @@ Examples:
         # Load configuration
         config = load_document_config(args.config)
         
+        # Validate API keys for enabled sources
+        _validate_api_keys(config)
+        
         # Apply CLI overrides
         if args.timeout:
             config.http.global_.timeout_sec = args.timeout
@@ -224,13 +262,13 @@ Examples:
             
             # Disable all sources first
             for source in valid_sources:
-                if hasattr(config.sources, source):
-                    getattr(config.sources, source).enabled = False
+                if source in config.sources:
+                    config.sources[source].enabled = False
             
             # Enable only specified sources
             for source in source_list:
-                if hasattr(config.sources, source):
-                    getattr(config.sources, source).enabled = True
+                if source in config.sources:
+                    config.sources[source].enabled = True
         
         # Apply post-processing overrides
         if args.correlation:
@@ -259,13 +297,8 @@ Examples:
             print("Error: No document data found in input file.", file=sys.stderr)
             return 2
         
-        # Apply limit to input data if specified
-        if config.runtime.limit and config.runtime.limit > 0:
-            original_count = len(document_data)
-            document_data = document_data[:config.runtime.limit]
-            print(f"Processing {len(document_data)} documents from {args.input} (limited from {original_count})")
-        else:
-            print(f"Processing {len(document_data)} documents from {args.input}")
+        # Note: Limit is applied in pipeline.extract() method, not here
+        print(f"Processing {len(document_data)} documents from {args.input}")
         
         # Convert to DataFrame
         import pandas as pd

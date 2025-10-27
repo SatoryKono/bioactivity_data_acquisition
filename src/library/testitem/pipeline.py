@@ -188,6 +188,8 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
     
     def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
         """Extract data from ChEMBL."""
+        from library.testitem.extract import extract_molecules_batch
+        
         if data.empty:
             return pd.DataFrame()
         
@@ -203,50 +205,28 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             logger.warning("No valid molecule_chembl_id found for ChEMBL extraction")
             return pd.DataFrame()
         
-        logger.info(f"Extracting ChEMBL data for {len(molecule_ids)} molecules")
+        logger.info(f"Extracting ChEMBL data for {len(molecule_ids)} molecules using extract_molecules_batch")
         
-        # ChEMBL fields to extract
-        chembl_fields = [
-            "molecule_chembl_id", "molregno", "pref_name", "max_phase", 
-            "therapeutic_flag", "structure_type", "alogp", "hba", "hbd", 
-            "psa", "rtb", "ro3_pass", "qed_weighted", "oral", "parenteral", 
-            "topical", "withdrawn_flag", "parent_chembl_id", "molecule_type",
-            "first_approval", "black_box_warning", "natural_product", 
-            "first_in_class", "chirality", "prodrug", "inorganic_flag", 
-            "polymer_flag", "usan_year", "availability_type", "usan_stem",
-            "usan_substem", "usan_stem_definition", "indication_class",
-            "withdrawn_year", "withdrawn_country", "withdrawn_reason",
-            "mechanism_of_action", "direct_interaction", "molecular_mechanism",
-            "drug_chembl_id", "drug_name", "drug_type", "drug_substance_flag",
-            "drug_indication_flag", "drug_antibacterial_flag", "drug_antiviral_flag",
-            "drug_antifungal_flag", "drug_antiparasitic_flag", "drug_antineoplastic_flag",
-            "drug_immunosuppressant_flag", "drug_antiinflammatory_flag"
-        ]
-        
-        # Process in batches
-        batch_size = 25  # ChEMBL API limit
-        all_records = []
-        
-        for i in range(0, len(molecule_ids), batch_size):
-            batch_ids = molecule_ids[i:i + batch_size]
-            try:
-                batch_data = self._fetch_chembl_batch(batch_ids, chembl_fields, client)
-                if not batch_data.empty:
-                    all_records.append(batch_data)
-            except Exception as e:
-                logger.error(f"Failed to fetch ChEMBL batch {i//batch_size + 1}: {e}")
-                continue
-        
-        if not all_records:
-            logger.warning("No ChEMBL data extracted")
+        # Use extract_molecules_batch which calls fetch_molecule_form and other endpoints
+        try:
+            results = extract_molecules_batch(client, molecule_ids, self.config)
+            
+            if not results:
+                logger.warning("No ChEMBL data extracted")
+                return pd.DataFrame()
+            
+            # Convert results to DataFrame
+            result = pd.DataFrame(results)
+            
+            # Add metadata
+            result["retrieved_at"] = pd.Timestamp.now().isoformat()
+            
+            logger.info(f"ChEMBL extraction completed: {len(result)} records")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Failed to extract ChEMBL data: {e}")
             return pd.DataFrame()
-        
-        # Combine all records
-        result = pd.concat(all_records, ignore_index=True)
-        result["retrieved_at"] = pd.Timestamp.now().isoformat()
-        
-        logger.info(f"ChEMBL extraction completed: {len(result)} records")
-        return result
     
     def _fetch_chembl_batch(self, molecule_ids: list[str], fields: list[str], client) -> pd.DataFrame:
         """Fetch a batch of molecules from ChEMBL API."""
@@ -658,7 +638,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                     # If conversion fails, keep as is
                     pass
         
-        logger.info("ChEMBL data merge completed: %d/%d records enriched (%.1f%%)", int(enriched_count), int(total_count), float(enrichment_rate * 100))
+        logger.info(f"ChEMBL data merge completed: {int(enriched_count)}/{int(total_count)} records enriched ({float(enrichment_rate * 100):.1f}%)")
         
         return merged_data
     
@@ -685,7 +665,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         total_count = len(merged_data)
         enrichment_rate = enriched_count / total_count if total_count > 0 else 0
         
-        logger.info("PubChem data merge completed: %d/%d records enriched (%.1f%%)", int(enriched_count), int(total_count), float(enrichment_rate * 100))
+        logger.info(f"PubChem data merge completed: {int(enriched_count)}/{int(total_count)} records enriched ({float(enrichment_rate * 100):.1f}%)")
         
         return merged_data
     
