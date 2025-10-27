@@ -70,7 +70,7 @@ jobs:
     
     - name: Upload test outputs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: test-outputs-${{ matrix.python-version }}
         path: |
@@ -79,7 +79,7 @@ jobs:
     
     - name: Upload coverage artifacts
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: coverage-${{ matrix.python-version }}
         path: |
@@ -89,7 +89,7 @@ jobs:
     
     - name: Upload security reports
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: security-reports-${{ matrix.python-version }}
         path: |
@@ -99,7 +99,7 @@ jobs:
     
     - name: Upload benchmark results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: benchmark-results-${{ matrix.python-version }}
         path: |
@@ -108,7 +108,7 @@ jobs:
     
     - name: Upload logs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: test-logs-${{ matrix.python-version }}
         path: logs/
