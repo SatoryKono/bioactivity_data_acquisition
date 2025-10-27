@@ -419,19 +419,26 @@ class OpenAlexClient(BaseApiClient):
         
         success_count = 0
         error_count = 0
+        
+        self.logger.info(f"openalex_fetch_by_dois_batch starting dois_count={len(dois)} batch_size={batch_size}")
 
         # Process in chunks to avoid URL length limits
         for i in range(0, len(dois), batch_size):
             chunk = dois[i : i + batch_size]
+            self.logger.info(f"openalex_fetch_by_dois_batch_chunk chunk_index={i//batch_size + 1} chunk_size={len(chunk)}")
 
             try:
                 # Create filter string with OR operator
                 filter_parts = [f"doi:{doi}" for doi in chunk]
                 filter_str = "|".join(filter_parts)
+                batch_url = f"https://api.openalex.org/works?filter={filter_str}"
+                self.logger.info(f"openalex_fetch_by_dois_batch_url url={batch_url}")
 
                 response = self._request("GET", "", params={"filter": filter_str})
                 payload = response.json()
                 works = payload.get("results", [])
+                
+                self.logger.info(f"openalex_fetch_by_dois_batch_response chunk_size={len(chunk)} works_found={len(works)}")
 
                 # Map results back to DOIs
                 for work in works:
@@ -441,22 +448,21 @@ class OpenAlexClient(BaseApiClient):
 
                     if doi_value in chunk:
                         results[doi_value] = self._parse_work(work)
-                
                         success_count += 1
 
                 # Add empty records for missing DOIs
                 for doi in chunk:
                     if doi not in results:
                         results[doi] = self._create_empty_record(doi, "Not found in batch response")
-                        
                         error_count += 1
 
             except Exception as e:
-                logger.warning(f"Failed to fetch DOIs batch {chunk}: {e}")
+                self.logger.warning(f"openalex_fetch_by_dois_batch_error chunk={chunk} error={str(e)}")
                 # Add empty records for failed batch
                 for doi in chunk:
                     results[doi] = self._create_empty_record(doi, str(e))
         
+        self.logger.info(f"openalex_fetch_by_dois_batch_complete total_dois={len(dois)} success_count={success_count} error_count={error_count}")
         return results
 
     def fetch_by_pmids_batch(
