@@ -26,21 +26,21 @@ class ActivityChEMBLClient(BaseApiClient):
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def get_chembl_status(self) -> dict[str, Any]:
-        """Get ChEMBL status and release information."""
+        """Get ChEMBL version and release information."""
         try:
-            response = self._request("GET", "status")
+            response = self._request("GET", "version")
             # Parse JSON response
             payload = response.json()
             return {
-                "chembl_release": payload.get("chembl_release", "unknown"),
-                "status": payload.get("status", "unknown"),
+                "version": payload.get("version", "unknown"),
+                "release_date": payload.get("release_date"),
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:
-            logger.warning(f"Failed to get ChEMBL status: {e}")
+            logger.warning(f"Failed to get ChEMBL version: {e}")
             return {
-                "chembl_release": "unknown",
-                "status": "error",
+                "version": "unknown",
+                "release_date": None,
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
 

@@ -139,6 +139,23 @@ class ChEMBLClient(BaseApiClient):
                 "CHEMBL.SOURCE.data": None,
             }
 
+    def get_chembl_status(self) -> dict[str, Any]:
+        """Get ChEMBL version and release information."""
+        try:
+            payload = self._request("GET", "version")
+            return {
+                "version": payload.get("version", "unknown"),
+                "release_date": payload.get("release_date"),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            logger.warning(f"Failed to get ChEMBL version: {e}")
+            return {
+                "version": "unknown",
+                "release_date": None,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+
     def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
         """Make HTTP request using base client functionality."""
         try:

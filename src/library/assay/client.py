@@ -212,17 +212,17 @@ class AssayChEMBLClient(BaseApiClient):
             }
 
     def get_chembl_status(self) -> dict[str, Any]:
-        """Get ChEMBL status and release information."""
+        """Get ChEMBL version and release information."""
         
         try:
-            response = self._request("GET", "status")
+            response = self._request("GET", "version")
             return {
-                "chembl_release": response.get("chembl_release"),
-                "status": response.get("status"),
+                "version": response.get("version"),
+                "release_date": response.get("release_date"),
                 "timestamp": datetime.utcnow().isoformat()
             }
         except Exception as e:
-            logger.error(f"Failed to get ChEMBL status: {e}")
+            logger.error(f"Failed to get ChEMBL version: {e}")
             raise
 
     def _parse_assay(self, payload: dict[str, Any]) -> dict[str, Any]:

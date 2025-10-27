@@ -42,19 +42,19 @@ class TestitemChEMBLClient(BaseApiClient):
         super().__init__(config, **kwargs)
 
     def get_chembl_status(self) -> dict[str, Any]:
-        """Get ChEMBL status and release information."""
+        """Get ChEMBL version and release information."""
         try:
-            payload = self._request("GET", "status").json()
+            payload = self._request("GET", "version").json()
             return {
-                "chembl_release": payload.get("chembl_release", "unknown"),
-                "status": payload.get("status", "unknown"),
+                "version": payload.get("version", "unknown"),
+                "release_date": payload.get("release_date"),
                 "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             }
         except Exception as e:
-            logger.warning(f"Failed to get ChEMBL status: {e}")
+            logger.warning(f"Failed to get ChEMBL version: {e}")
             return {
-                "chembl_release": "unknown",
-                "status": "error",
+                "version": "unknown",
+                "release_date": None,
                 "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             }
 
