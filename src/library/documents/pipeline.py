@@ -264,18 +264,39 @@ def _extract_data_from_source(
                             row_data[key] = value
                     
             elif source == "openalex":
+                # Приоритет DOI над PMID для OpenAlex
+                data_found = False
                 if pd.notna(row.get("doi")) and str(row["doi"]).strip():
+                    logger.info(f"openalex_trying_doi doc_id={row.get('document_chembl_id')} doi={row.get('doi')}")
                     data = client.fetch_by_doi(str(row["doi"]).strip())
                     data.pop("source", None)
-                    for key, value in data.items():
-                        if value is not None:
-                            row_data[key] = value
-                elif pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
+                    # Проверяем, получили ли мы данные
+                    if data.get("openalex_title") is not None:
+                        logger.info(f"openalex_doi_success doc_id={row.get('document_chembl_id')} doi={row.get('doi')}")
+                        data_found = True
+                        for key, value in data.items():
+                            if value is not None:
+                                row_data[key] = value
+                    else:
+                        logger.warning(f"openalex_doi_no_data doc_id={row.get('document_chembl_id')} doi={row.get('doi')} error={data.get('openalex_error')}")
+                
+                # Fallback на PMID если DOI не дал результата
+                if not data_found and pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
+                    logger.info(f"openalex_trying_pmid doc_id={row.get('document_chembl_id')} pmid={row.get('document_pubmed_id')}")
                     data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
                     data.pop("source", None)
-                    for key, value in data.items():
-                        if value is not None:
-                            row_data[key] = value
+                    # Проверяем, получили ли мы данные
+                    if data.get("openalex_title") is not None:
+                        logger.info(f"openalex_pmid_success doc_id={row.get('document_chembl_id')} pmid={row.get('document_pubmed_id')}")
+                        for key, value in data.items():
+                            if value is not None:
+                                row_data[key] = value
+                    else:
+                        logger.warning(f"openalex_pmid_no_data doc_id={row.get('document_chembl_id')} pmid={row.get('document_pubmed_id')} error={data.get('openalex_error')}")
+                        # Сохраняем ошибку даже если данных нет
+                        for key, value in data.items():
+                            if key.endswith("_error") and value is not None:
+                                row_data[key] = value
                     
             elif source == "pubmed":
                 if pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
@@ -384,15 +405,37 @@ def _extract_data_from_source_batch(
                     batch_results.update(batch_data)
                     
         elif source == "openalex":
-            # Process DOIs and PMIDs separately
+            # Приоритет DOI над PMID для OpenAlex
+            logger.info(f"openalex_batch_processing doi_count={len(doi_identifiers)} pmid_count={len(pmid_identifiers)}")
+            
+            # Сначала обрабатываем все DOI
             if doi_identifiers:
+                logger.info(f"openalex_batch_processing_dois starting")
                 for batch_ids in _chunk_list(doi_identifiers, batch_size):
                     batch_data = client.fetch_by_dois_batch(batch_ids, batch_size)
                     batch_results.update(batch_data)
+                    logger.info(f"openalex_batch_dois_chunk processed={len(batch_ids)} results={len(batch_data)}")
+            
+            # Затем обрабатываем PMID только для документов, которые не получили данные через DOI
             if pmid_identifiers:
-                for batch_ids in _chunk_list(pmid_identifiers, batch_size):
-                    batch_data = client.fetch_by_pmids_batch(batch_ids, batch_size)
-                    batch_results.update(batch_data)
+                logger.info(f"openalex_batch_processing_pmids starting")
+                # Фильтруем PMID для документов без данных DOI
+                pmids_to_process = []
+                for _, row in frame.iterrows():
+                    pmid = str(row.get("document_pubmed_id", "")).strip()
+                    doi = str(row.get("doi", "")).strip()
+                    # Добавляем PMID только если DOI не дал результата
+                    if (pmid and pmid in pmid_identifiers and 
+                        (not doi or doi not in batch_results or batch_results[doi].get("openalex_title") is None)):
+                        pmids_to_process.append(pmid)
+                
+                logger.info(f"openalex_batch_pmids_filtered total_pmids={len(pmid_identifiers)} pmids_to_process={len(pmids_to_process)}")
+                
+                if pmids_to_process:
+                    for batch_ids in _chunk_list(pmids_to_process, batch_size):
+                        batch_data = client.fetch_by_pmids_batch(batch_ids, batch_size)
+                        batch_results.update(batch_data)
+                        logger.info(f"openalex_batch_pmids_chunk processed={len(batch_ids)} results={len(batch_data)}")
                     
         elif source == "semantic_scholar" and pmid_identifiers:
             # Process Semantic Scholar PMIDs in batches
@@ -1119,7 +1162,7 @@ def _collect_identifiers(frame: pd.DataFrame, source: str) -> list[tuple[str, st
         elif source == "openalex":
             if pd.notna(row.get("doi")):
                 identifiers.append(("doi", str(row["doi"]).strip()))
-            elif pd.notna(row.get("document_pubmed_id")):
+            if pd.notna(row.get("document_pubmed_id")):
                 identifiers.append(("pmid", str(row["document_pubmed_id"]).strip()))
         elif source == "pubmed":
             if pd.notna(row.get("document_pubmed_id")):
@@ -1176,6 +1219,9 @@ def _merge_batch_results(
             for key, value in batch_result.items():
                 if key.endswith("_error") or value is not None:
                     row_data[key] = value
+        elif identifier:
+            # Если идентификатор есть, но данных нет - логируем это
+            logger.debug(f"openalex_batch_no_data identifier={identifier} source={source}")
         
         enriched_data.append(row_data)
     
@@ -1675,7 +1721,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
 
     def _merge_source_data(self, base_data: pd.DataFrame, source_data: pd.DataFrame, source_name: str) -> pd.DataFrame:
         """Merge data from a source into base data."""
-        from library.documents.merge import merge_source_data
+        from library.documents.merge_fixed import merge_source_data_fixed
 
         if source_data.empty:
             logger.warning(f"No data to merge from {source_name}")
@@ -1693,7 +1739,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
             return base_data
 
         # Объединить данные
-        merged = merge_source_data(base_df=base_data, source_df=source_data, source_name=source_name, join_key=join_key)
+        merged = merge_source_data_fixed(base_df=base_data, source_df=source_data, source_name=source_name, join_key=join_key)
 
         logger.info(f"Merged {len(source_data)} records from {source_name}")
         return merged

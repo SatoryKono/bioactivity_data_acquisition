@@ -4,7 +4,7 @@ pipeline:
   entity_type: targets
   source_system: chembl
 execution:
-  run_id: 2d2ba7b3-f544-408a-8138-f97f73edb2ea
+  run_id: 06134224-d8e6-4b02-bea7-c8963fe021f6
   started_at: null
   completed_at: null
   duration_sec: null

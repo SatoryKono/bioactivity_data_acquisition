@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 # Lazy imports to avoid circular dependency with library.etl
 # These will be imported inside methods where they're used
-from library.etl.enhanced_qc import build_enhanced_qc_summary, build_enhanced_qc_detailed
+from library.etl.enhanced_qc import build_enhanced_qc_detailed
 
 # Импорты новых унифицированных модулей
 from .error_tracking import ErrorSeverity, ErrorTracker, ErrorType

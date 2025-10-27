@@ -16,20 +16,14 @@ logger = logging.getLogger(__name__)
 class SemanticScholarClient(BaseApiClient):
     """HTTP client for Semantic Scholar."""
 
-    # Минимальный набор полей для оптимизации производительности
+    # Минимальный набор полей для оптимизации производительности (как в референсном проекте)
     _DEFAULT_FIELDS = [
-        "title",      
-        "externalIds",
-        "year",
-        "authors",
-        "publicationVenue",  # Для получения ISSN и названия журнала
-        "publicationTypes",  # Для получения типа документа
-        "externalIds",  # Для получения DOI и других ID
-        "paperId",  # Semantic Scholar ID (как в референсе)
-        "venue",  # Для получения данных о журнале (как в референсе)
-        "title",  # Дополнительно для полноты
-        "year",  # Дополнительно для полноты
-        "authors",  # Дополнительно для полноты
+        "title",              # Заголовок статьи
+        "authors",            # Авторы
+        "publicationTypes",   # Типы публикации
+        "externalIds",        # Внешние идентификаторы (DOI, PMID)
+        "paperId",           # Semantic Scholar ID
+        "venue",             # Данные о журнале/конференции
     ]
 
     # Альтернативный минимальный набор для максимальной производительности
@@ -192,6 +186,8 @@ class SemanticScholarClient(BaseApiClient):
         return result
 
     def _parse_paper(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self.logger.debug(f"semantic_scholar_parse_start payload_keys={list(payload.keys())}")
+        
         external_ids = payload.get("externalIds") or {}
         authors = payload.get("authors")
         if isinstance(authors, list) and authors:
@@ -202,18 +198,26 @@ class SemanticScholarClient(BaseApiClient):
         else:
             author_names = None
 
+        # Извлекаем ключевые поля с логированием
+        pmid = self._extract_pmid(payload)
+        journal = self._extract_journal(payload)
+        issn = self._extract_issn(payload)
+        doc_type = self._extract_doc_type(payload)
+        
+        self.logger.info(f"semantic_scholar_fields_extracted pmid={pmid} journal={journal} issn={issn} doc_type={doc_type} authors_count={len(author_names) if author_names else 0}")
+
         record: dict[str, Any | None] = {
             "source": "semantic_scholar",
-            "semantic_scholar_pmid": self._extract_pmid(payload),
+            "semantic_scholar_pmid": pmid,
             "semantic_scholar_doi": external_ids.get("DOI"),
             "semantic_scholar_semantic_scholar_id": payload.get("paperId"),
             "semantic_scholar_title": payload.get("title"),
-            "semantic_scholar_doc_type": self._extract_doc_type(payload),
-            "semantic_scholar_journal": self._extract_journal(payload),
+            "semantic_scholar_doc_type": doc_type,
+            "semantic_scholar_journal": journal,
             "semantic_scholar_external_ids": (
                 json.dumps(external_ids) if external_ids else None
             ),
-            "semantic_scholar_issn": self._extract_issn(payload),
+            "semantic_scholar_issn": issn,
             "semantic_scholar_authors": author_names,
             "semantic_scholar_error": None,  # Will be set if there's an error
             # Legacy fields for backward compatibility
@@ -222,6 +226,7 @@ class SemanticScholarClient(BaseApiClient):
             "pubmed_authors": author_names,
         }
         
+        self.logger.debug(f"semantic_scholar_parse_complete record_keys={list(record.keys())}")
         # Return all fields, including None values, to maintain schema consistency
         return record
 

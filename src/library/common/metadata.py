@@ -15,7 +15,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
-    from library.config import Config
+    pass
 
 
 class SourceInfo(BaseModel):

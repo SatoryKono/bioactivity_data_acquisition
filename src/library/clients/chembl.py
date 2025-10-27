@@ -18,8 +18,8 @@ from requests import Session
 
 from library.clients.base import BaseApiClient
 from library.common.cache import CacheConfig, CacheStrategy, UnifiedCache
-from library.common.rate_limiter import RateLimiter, get_limiter
-from library.config import APIClientConfig, RetrySettings, RateLimitSettings
+from library.common.rate_limiter import RateLimiter
+from library.config import APIClientConfig, RetrySettings
 
 try:  # pragma: no cover - urllib3 is always available with requests
     from urllib3.exceptions import ReadTimeoutError as _Urllib3ReadTimeoutError

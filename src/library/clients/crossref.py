@@ -114,6 +114,8 @@ class CrossrefClient(BaseApiClient):
             raise
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
+        self.logger.debug(f"crossref_parse_start work_keys={list(work.keys())}")
+        
         # Обрабатываем subject - если это пустой список, возвращаем None
         subject = work.get("subject")
         if isinstance(subject, list) and not subject:
@@ -162,6 +164,13 @@ class CrossrefClient(BaseApiClient):
 
         # Извлекаем journal из container-title
         journal_name = self._extract_journal(work)
+        
+        # Извлекаем ключевые поля с логированием
+        pmid = self._extract_pmid(work)
+        abstract = work.get("abstract")
+        issn = self._extract_issn(work)
+        
+        self.logger.info(f"crossref_fields_extracted pmid={pmid} abstract_present={abstract is not None} issn={issn} subject={subject} journal={journal_name}")
 
         record: dict[str, Any | None] = {
             "source": "crossref",
@@ -170,9 +179,9 @@ class CrossrefClient(BaseApiClient):
             "crossref_title": title,
             "crossref_doc_type": work.get("type"),
             "crossref_subject": subject,
-            "crossref_pmid": self._extract_pmid(work),
-            "crossref_abstract": work.get("abstract"),
-            "crossref_issn": self._extract_issn(work),
+            "crossref_pmid": pmid,
+            "crossref_abstract": abstract,
+            "crossref_issn": issn,
             "crossref_authors": self._extract_authors(work),
             "crossref_journal": journal_name,
             "crossref_year": self._extract_year(work),
@@ -182,6 +191,8 @@ class CrossrefClient(BaseApiClient):
             "crossref_last_page": self._extract_last_page(work),
             "crossref_error": None,  # Will be set if there's an error
         }
+        
+        self.logger.debug(f"crossref_parse_complete record_keys={list(record.keys())}")
         # Return all fields, including None values, to maintain schema consistency
         return record
 

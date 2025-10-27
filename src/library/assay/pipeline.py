@@ -15,7 +15,6 @@ import yaml
 
 from library.assay.client import AssayChEMBLClient
 from library.assay.config import AssayConfig
-from library.common.pipeline_base import PipelineBase
 from library.config import APIClientConfig
 from library.etl.enhanced_correlation import (
     build_enhanced_correlation_analysis,

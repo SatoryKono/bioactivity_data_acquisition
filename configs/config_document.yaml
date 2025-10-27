@@ -84,7 +84,7 @@ sources:
   semantic_scholar:                    # Semantic Scholar API
     enabled: true                      # Включен ли источник
     http:                              # HTTP настройки для Semantic Scholar
-      base_url: "https://api.semanticscholar.org"  # Базовый URL API
+      base_url: "https://api.semanticscholar.org/graph/v1"  # Базовый URL API
       timeout_sec: 45.0                # Увеличенный таймаут для Semantic Scholar запросов
       headers:                         # HTTP заголовки
         Accept: application/json
@@ -158,7 +158,7 @@ determinism:
     - crossref_subject        # TEXT: Предметная область из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
 
     # Группа полей PMID из всех источников (chembl_pmid удален, заменен на CHEMBL.DOCS.pubmed_id)
-    - crossref_pmid           # STRING: PMID из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^\d+$
+  
     - openalex_pmid           # STRING: PMID из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^\d+$
     - pubmed_pmid             # STRING: PMID из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^\d+$
     - semantic_scholar_pmid   # STRING: PMID из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^\d+$
@@ -169,8 +169,7 @@ determinism:
     - pubmed_title          # TEXT: Название статьи из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     - semantic_scholar_title  # TEXT: Название статьи из Semantic Scholar, источник: Semantic Scholar API, тип: TEXT, валидация: nullable
     
-    # Группа полей аннотаций из всех источников (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)
-    - crossref_abstract          # TEXT: Аннотация из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
+    # Группа полей аннотаций из всех источников (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)    
     - openalex_abstract          # TEXT: Аннотация из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
     - pubmed_abstract            # TEXT: Аннотация из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     
@@ -193,22 +192,18 @@ determinism:
     - pubmed_doc_type          # STRING: Тип публикации из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
     - semantic_scholar_doc_type    # STRING: Типы публикации из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable
     
-    # Группа полей ISSN из всех источников (chembl_issn удален, не возвращается API /document)
-    - crossref_issn           # STRING: ISSN из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
+    # Группа полей ISSN из всех источников (chembl_issn удален, не возвращается API /document)    
     - openalex_issn           # STRING: ISSN из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
-    - pubmed_issn             # STRING: ISSN из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
-    - semantic_scholar_issn   # STRING: ISSN из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
+    - pubmed_issn             # STRING: ISSN из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$    
     
     # Группа полей названий журналов из всех источников (chembl_journal удален, заменен на CHEMBL.DOCS.journal)
     - crossref_journal        # STRING: Название журнала из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
     - openalex_journal        # STRING: Название журнала из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
     - pubmed_journal           # STRING: Название журнала из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
-    - semantic_scholar_journal  # STRING: Название журнала из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable
     
     # Группа полей годов издания из всех источников (chembl_year удален, заменен на CHEMBL.DOCS.year)
     - crossref_year           # INT: Год из Crossref, источник: Crossref API, тип: INT, валидация: nullable, 1900-текущий год
     - openalex_year           # INT: Год из OpenAlex, источник: OpenAlex API, тип: INT, валидация: nullable, 1900-текущий год
-    - pubmed_year             # INT: Год из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1900-текущий год
 
     # Группа полей томов из всех источников (chembl_volume удален, заменен на CHEMBL.DOCS.volume)
     - crossref_volume         # STRING: Том из Crossref, источник: Crossref API, тип: STRING, валидация: nullable

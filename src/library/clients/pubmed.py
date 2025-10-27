@@ -47,12 +47,14 @@ class PubMedClient(BaseApiClient):
             raise ApiClientError(f"No PubMed record found for PMID {pmid}")
 
         # Пытаемся получить дополнительную информацию через efetch
+        self.logger.info(f"pubmed_enhance_attempt pmid={pmid}")
         try:
             enhanced_record = self._enhance_with_efetch(record, pmid)
+            self.logger.info(f"pubmed_enhance_success pmid={pmid}")
             return enhanced_record
         except Exception as e:
             # Если efetch не работает, возвращаем базовую запись
-            self.logger.warning("efetch_failed", pmid=pmid, error=str(e))
+            self.logger.warning(f"pubmed_enhance_failed pmid={pmid} error={str(e)} error_type={type(e).__name__}")
             return record
 
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
@@ -84,7 +86,14 @@ class PubMedClient(BaseApiClient):
         for pmid in pmid_list:
             record = self._extract_record(payload, pmid)
             if record is not None:
-                result[str(pmid)] = record
+                # Улучшаем запись данными из efetch
+                try:
+                    enhanced_record = self._enhance_with_efetch(record, pmid)
+                    result[str(pmid)] = enhanced_record
+                except Exception as e:
+                    # Если efetch не работает, возвращаем базовую запись
+                    self.logger.warning(f"efetch enhancement failed for PMID {pmid}: {e}")
+                    result[str(pmid)] = record
             else:
                 # Создаем пустую запись с ошибкой если не удалось извлечь
                 result[str(pmid)] = self._create_empty_record(pmid, "No data found")
@@ -413,6 +422,8 @@ class PubMedClient(BaseApiClient):
 
     def _enhance_with_efetch(self, record: dict[str, Any], pmid: str) -> dict[str, Any]:
         """Улучшает запись данными из efetch для получения DOI, abstract и MeSH."""
+        self.logger.info(f"pubmed_efetch_start pmid={pmid}")
+        
         try:
             # Получаем полную информацию через efetch напрямую через requests
             import requests
@@ -423,9 +434,15 @@ class PubMedClient(BaseApiClient):
             api_key = getattr(self.config, "api_key", None)
             if api_key:
                 fetch_params["api_key"] = api_key
+                self.logger.debug(f"pubmed_efetch_api_key pmid={pmid} api_key_present=true")
+            else:
+                self.logger.debug(f"pubmed_efetch_api_key pmid={pmid} api_key_present=false")
 
             # Делаем прямой запрос к efetch
+            self.logger.debug(f"pubmed_efetch_request pmid={pmid} params={fetch_params}")
             response = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", params=fetch_params, headers={"Accept": "application/xml"}, timeout=30.0)
+
+            self.logger.info(f"pubmed_efetch_response pmid={pmid} status_code={response.status_code} content_length={len(response.text)}")
 
             if response.status_code == 200:
                 xml_content = response.text
@@ -433,40 +450,60 @@ class PubMedClient(BaseApiClient):
                 # Парсим XML с помощью xml.etree
                 try:
                     root = ET.fromstring(xml_content)
+                    self.logger.debug(f"pubmed_efetch_xml_parsed pmid={pmid} root_tag={root.tag}")
                     
                     # Извлекаем DOI
                     doi_value = self._extract_doi_from_xml(root)
                     if doi_value:
                         record["pubmed_doi"] = doi_value
+                        self.logger.info(f"pubmed_efetch_doi_extracted pmid={pmid} doi={doi_value}")
+                    else:
+                        self.logger.debug(f"pubmed_efetch_doi_not_found pmid={pmid}")
                     
                     # Извлекаем abstract
                     abstract_text = self._extract_abstract_from_xml(root)
                     if abstract_text:
                         record["pubmed_abstract"] = abstract_text
+                        self.logger.info(f"pubmed_efetch_abstract_extracted pmid={pmid} abstract_length={len(abstract_text)}")
+                    else:
+                        self.logger.debug(f"pubmed_efetch_abstract_not_found pmid={pmid}")
                     
                     # Извлекаем MeSH descriptors и qualifiers
                     mesh_descriptors, mesh_qualifiers = self._extract_mesh_from_xml(root)
                     if mesh_descriptors:
                         record["pubmed_mesh_descriptors"] = mesh_descriptors
+                        self.logger.info(f"pubmed_efetch_mesh_descriptors_extracted pmid={pmid} descriptors={mesh_descriptors}")
+                    else:
+                        self.logger.debug(f"pubmed_efetch_mesh_descriptors_not_found pmid={pmid}")
+                        
                     if mesh_qualifiers:
                         record["pubmed_mesh_qualifiers"] = mesh_qualifiers
+                        self.logger.info(f"pubmed_efetch_mesh_qualifiers_extracted pmid={pmid} qualifiers={mesh_qualifiers}")
+                    else:
+                        self.logger.debug(f"pubmed_efetch_mesh_qualifiers_not_found pmid={pmid}")
                     
                     # Извлекаем chemical list
                     chemical_list = self._extract_chemicals_from_xml(root)
                     if chemical_list:
                         record["pubmed_chemical_list"] = chemical_list
+                        self.logger.info(f"pubmed_efetch_chemicals_extracted pmid={pmid} chemicals={chemical_list}")
+                    else:
+                        self.logger.debug(f"pubmed_efetch_chemicals_not_found pmid={pmid}")
+                        
+                    self.logger.info(f"pubmed_efetch_success pmid={pmid} doi={doi_value is not None} abstract={abstract_text is not None} mesh_desc={mesh_descriptors is not None} mesh_qual={mesh_qualifiers is not None} chemicals={chemical_list is not None}")
                         
                 except ET.ParseError as e:
-                    self.logger.warning(f"XML parsing failed for PMID {pmid}: {e}")
+                    self.logger.warning(f"pubmed_efetch_xml_parse_error pmid={pmid} error={e}")
                     # Fallback к regex парсингу
                     self._fallback_regex_parsing(xml_content, record)
                 
             else:
-                self.logger.warning(f"efetch failed for PMID {pmid}: HTTP {response.status_code}")
+                self.logger.warning(f"pubmed_efetch_http_error pmid={pmid} status_code={response.status_code} response_text={response.text[:200]}")
                 
         except Exception as e:
-            self.logger.warning(f"efetch enhancement failed for PMID {pmid}: {e}")
+            self.logger.warning(f"pubmed_efetch_exception pmid={pmid} error={e} error_type={type(e).__name__}")
         
+        self.logger.info(f"pubmed_efetch_complete pmid={pmid}")
         return record
 
 

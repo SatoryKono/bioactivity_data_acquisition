@@ -479,37 +479,67 @@ class OpenAlexClient(BaseApiClient):
             return {}
 
         results = {}
+        success_count = 0
+        error_count = 0
+        
+        self.logger.info(f"openalex_fetch_by_pmids_batch starting pmids_count={len(pmids)}")
         
         # Use individual requests with fallback logic like fetch_by_pmid
         for pmid in pmids:
             try:
                 # Try direct URL first (like in reference project)
                 path = f"works/pmid:{pmid}"
+                full_url = f"https://api.openalex.org/{path}"
+                self.logger.info(f"openalex_fetch_by_pmid_batch pmid={pmid} url={full_url}")
                 response = self._request("GET", path)
                 payload = response.json()
+                self.logger.info(f"openalex_fetch_by_pmid_batch_success pmid={pmid} status={response.status_code}")
                 results[pmid] = self._parse_work(payload)
+                success_count += 1
             except ApiClientError as exc:
                 status_code = exc.context.details.get("status_code") if exc.context and exc.context.details else None
                 if status_code == 429:
                     self.logger.warning(f"openalex_rate_limited pmid={pmid} error={str(exc)} message=OpenAlex API rate limit exceeded. Consider getting an API key.")
                     results[pmid] = self._create_empty_record(pmid, f"Rate limited: {str(exc)}")
+                    error_count += 1
                 else:
-                    # Fallback to search if direct request fails
-                    self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
+                    # Fallback to filter API first
+                    self.logger.warning(f"openalex_pmid_batch_fallback pmid={pmid} error={str(exc)}")
                     try:
-                        response = self._request("GET", "", params={"search": pmid})
+                        filter_url = f"https://api.openalex.org/works?filter=pmid:{pmid}"
+                        self.logger.info(f"openalex_pmid_batch_fallback_filter pmid={pmid} url={filter_url}")
+                        response = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
                         payload = response.json()
-                        search_results = payload.get("results", [])
-                        if search_results:
-                            results[pmid] = self._parse_work(search_results[0])
+                        filter_results = payload.get("results", [])
+                        self.logger.info(f"openalex_pmid_batch_fallback_filter_result pmid={pmid} results_count={len(filter_results)}")
+                        if filter_results:
+                            results[pmid] = self._parse_work(filter_results[0])
+                            success_count += 1
                         else:
-                            results[pmid] = self._create_empty_record(pmid, "Not found in OpenAlex database")
+                            # Try search API as last resort
+                            search_url = f"https://api.openalex.org/works?search={pmid}"
+                            self.logger.info(f"openalex_pmid_batch_search_fallback pmid={pmid} url={search_url}")
+                            response = self._request("GET", "", params={"search": pmid})
+                            payload = response.json()
+                            search_results = payload.get("results", [])
+                            self.logger.info(f"openalex_pmid_batch_search_fallback_result pmid={pmid} results_count={len(search_results)}")
+                            if search_results:
+                                results[pmid] = self._parse_work(search_results[0])
+                                success_count += 1
+                            else:
+                                results[pmid] = self._create_empty_record(pmid, "Not found in OpenAlex database")
+                                error_count += 1
                     except ApiClientError as fallback_exc:
                         fallback_status_code = fallback_exc.context.details.get("status_code") if fallback_exc.context and fallback_exc.context.details else None
                         if fallback_status_code == 429:
                             results[pmid] = self._create_empty_record(pmid, f"Rate limited: {str(fallback_exc)}")
                         else:
                             results[pmid] = self._create_empty_record(pmid, f"Not found: {str(fallback_exc)}")
+                        error_count += 1
             except Exception as e:
+                self.logger.error(f"openalex_pmid_batch_error pmid={pmid} error={str(e)}")
                 results[pmid] = self._create_empty_record(pmid, f"Error: {str(e)}")
+                error_count += 1
+        
+        self.logger.info(f"openalex_fetch_by_pmids_batch_complete total_pmids={len(pmids)} success_count={success_count} error_count={error_count}")
         

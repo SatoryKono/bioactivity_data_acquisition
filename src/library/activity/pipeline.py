@@ -22,8 +22,6 @@ from library.activity.config import ActivityConfig
 from library.activity.normalize import ActivityNormalizer
 from library.activity.quality import ActivityQualityFilter
 from library.activity.validate import ActivityValidator
-from library.common.entity_mixins import ActivityMixin
-from library.common.pipeline_base import PipelineBase
 
 logger = logging.getLogger(__name__)
 

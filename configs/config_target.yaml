@@ -55,7 +55,7 @@ sources:
       cache_ttl: 86400                # Время жизни кэша (24 часа)
     
   iuphar:                             # IUPHAR/BPS Guide to Pharmacology API
-    enabled: false                     # Включен ли источник
+    enabled: true                     # Включен ли источник
     http:                             # HTTP настройки для IUPHAR
       base_url: "https://www.guidetopharmacology.org"  # Базовый URL API
       timeout_sec: 30.0               # Таймаут для IUPHAR запросов
@@ -69,7 +69,7 @@ sources:
     target_file: "_IUPHAR_target.csv"  # Файл таргетов
     
   gtopdb:                             # Guide to Pharmacology Database
-    enabled: false                     # Включен для полной функциональности
+    enabled: true                      # Включен для полной функциональности
     http:                             # HTTP настройки для GtoP
       base_url: "https://www.guidetopharmacology.org"  # Базовый URL API
       timeout_sec: 30.0               # Таймаут для GtoP запросов

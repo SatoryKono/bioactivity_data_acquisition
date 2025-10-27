@@ -9,13 +9,13 @@ extraction_parameters:
   correlation_analysis_enabled: false
   correlation_insights_count: 0
   crossref_records: 10
-  openalex_records: 0
+  openalex_records: 10
   pubmed_records: 10
   semantic_scholar_records: 10
   sources_processed: 5
   total_documents: 10
 file_checksums:
-  csv: 013b8ac762532b3ef97ee9ff9dd6cbbc6b336d650ed978e42e69a34c383e162a
-  qc: adeb040f72b0c7a261be152f839012135e20f245bd27beb2a46a3e2d1c36b9af
+  csv: df20df751166e187fdae6230e0d7a47687b95da7c861c6df9a0a9213600f68a5
+  qc: 4fc6cb45a7ef8aaa3dbd580b7dfba1a7063856a1983cf669b9a4869911bdd5e6
 pipeline_version: 1.0.0
 row_count: 10

@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from library.common.rate_limiter import (
-    RateLimiter as _RateLimiter,
     RateLimitError as _RateLimitError,
     RateLimiterSet as _RateLimiterSet,
     RateLimitParams as _RateLimitParams,

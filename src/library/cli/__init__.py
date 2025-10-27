@@ -796,7 +796,7 @@ def get_document_data(
 
         try:
             input_frame = read_document_input(config_model.io.input.documents_csv)
-        except DocumentValidationError as exc:
+        except DocumentValidationError:
             import pandas as pd
 
             input_frame = pd.read_csv(config_model.io.input.documents_csv)
