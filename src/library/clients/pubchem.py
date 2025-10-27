@@ -81,7 +81,8 @@ class PubChemClient(BaseApiClient):
         cached = self._cache_read(path)
         if cached is not None:
             return cached
-        payload = self._request("GET", path)
+        response = self._request("GET", path)
+        payload = response.json() if hasattr(response, 'json') else response
         if isinstance(payload, dict):
             self._cache_write(path, payload)
         return cast(dict[str, Any], payload)
@@ -265,3 +266,91 @@ class PubChemClient(BaseApiClient):
         """Parse compound CIDs from PubChem response."""
         cids = payload.get("IdentifierList", {}).get("CID", [])
         return {"pubchem_cids": cids}
+
+    def fetch_compound_properties_with_fallback(
+        self,
+        inchikey: str | None = None,
+        smiles: str | None = None,
+        canonical_smiles: str | None = None,
+        pref_name: str | None = None,
+        synonyms: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Fetch compound properties with fallback strategy.
+        
+        Tries methods in order:
+        1. InChI Key
+        2. SMILES (canonical, then regular)
+        3. Name
+        4. Synonyms (first match)
+        
+        Returns properties dict with '_retrieval_method' key indicating which method worked.
+        """
+        # Method 1: Try InChI Key first
+        if inchikey and len(inchikey.strip()) == 27:
+            try:
+                cid_data = self.fetch_cids_by_inchikey(inchikey)
+                cids = cid_data.get("pubchem_cids", [])
+                if cids:
+                    cid = str(cids[0])
+                    properties = self.fetch_compound_properties(cid)
+                    if properties:
+                        properties["_retrieval_method"] = "inchikey"
+                        return properties
+            except Exception as e:
+                logger.debug(f"PubChem InChI Key lookup failed for {inchikey}: {e}")
+        
+        # Method 2: Try SMILES (canonical first, then regular)
+        smiles_candidates = []
+        if canonical_smiles:
+            smiles_candidates.append(("canonical", canonical_smiles))
+        if smiles and smiles != canonical_smiles:
+            smiles_candidates.append(("regular", smiles))
+            
+        for smiles_type, smiles_value in smiles_candidates:
+            try:
+                logger.warning(f"PubChem InChI Key lookup failed (404), trying {smiles_type} SMILES fallback for {inchikey}")
+                cid_data = self.fetch_cids_by_smiles(smiles_value)
+                cids = cid_data.get("pubchem_cids", [])
+                if cids:
+                    cid = str(cids[0])
+                    properties = self.fetch_compound_properties(cid)
+                    if properties:
+                        properties["_retrieval_method"] = f"smiles_{smiles_type}"
+                        return properties
+            except Exception as e:
+                logger.debug(f"PubChem {smiles_type} SMILES lookup failed for {smiles_value}: {e}")
+        
+        # Method 3: Try name
+        if pref_name:
+            try:
+                logger.warning(f"PubChem SMILES lookup failed, trying name fallback for {pref_name}")
+                cid_data = self.fetch_compound_by_name(pref_name)
+                cids = cid_data.get("pubchem_cids", [])
+                if cids:
+                    cid = str(cids[0])
+                    properties = self.fetch_compound_properties(cid)
+                    if properties:
+                        properties["_retrieval_method"] = "name"
+                        return properties
+            except Exception as e:
+                logger.debug(f"PubChem name lookup failed for {pref_name}: {e}")
+        
+        # Method 4: Try synonyms
+        if synonyms:
+            for synonym in synonyms:
+                try:
+                    logger.warning(f"PubChem name lookup failed, trying synonyms fallback for {synonym}")
+                    cid_data = self.fetch_compound_by_name(synonym)
+                    cids = cid_data.get("pubchem_cids", [])
+                    if cids:
+                        cid = str(cids[0])
+                        properties = self.fetch_compound_properties(cid)
+                        if properties:
+                            properties["_retrieval_method"] = "synonym"
+                            return properties
+                except Exception as e:
+                    logger.debug(f"PubChem synonym lookup failed for {synonym}: {e}")
+        
+        # All methods failed
+        logger.warning(f"All PubChem fallback methods failed for InChI Key {inchikey}")
+        return {}

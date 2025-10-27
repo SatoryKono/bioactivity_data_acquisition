@@ -21,10 +21,27 @@ class OpenAlexClient(BaseApiClient):
         if "User-Agent" not in headers:
             headers["User-Agent"] = "bioactivity-data-acquisition/0.1.0 (mailto:your-email@example.com)"
         enhanced = config.model_copy(update={"headers": headers})
-        super().__init__(enhanced, **kwargs)
+        
+        # Создаем специализированную fallback стратегию для OpenAlex
+        from library.clients.fallback import (
+            FallbackConfig,
+            FallbackManager,
+            OpenAlexFallbackStrategy,
+        )
+        fallback_config = FallbackConfig(
+            max_retries=1,  # Минимальное количество попыток для OpenAlex
+            base_delay=5.0,  # Базовая задержка 5 секунд
+            max_delay=30.0,  # Максимальная задержка 30 секунд
+            backoff_multiplier=1.5,  # Меньший множитель
+            jitter=True
+        )
+        fallback_strategy = OpenAlexFallbackStrategy(fallback_config)
+        fallback_manager = FallbackManager(fallback_strategy)
+        
+        super().__init__(enhanced, fallback_manager=fallback_manager, **kwargs)
         self.logger = logger
 
-    def fetch_by_doi(self, doi: str) -> dict[str, Any]:
+    def fetch_by_doi(self, doi: str, title: str | None = None) -> dict[str, Any]:
         """Fetch a work by DOI with fallback to a filter query."""
 
         # Use OpenAlex API format: https://api.openalex.org/works/https://doi.org/{doi}
@@ -58,9 +75,15 @@ class OpenAlexClient(BaseApiClient):
                 fallback_status_code = fallback_exc.context.details.get("status_code") if fallback_exc.context and fallback_exc.context.details else None
                 if fallback_status_code == 429:
                     return self._create_empty_record(doi, f"Rate limited: {str(fallback_exc)}")
+                
+                # Fallback к поиску по заголовку если есть
+                if title:
+                    self.logger.info(f"openalex_doi_title_fallback doi={doi} title={title}")
+                    return self._search_by_title(title, doi)
+                
                 raise
 
-    def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
+    def fetch_by_pmid(self, pmid: str, title: str | None = None) -> dict[str, Any]:
         """Fetch a work by PMID with fallback search."""
 
         try:
@@ -104,6 +127,12 @@ class OpenAlexClient(BaseApiClient):
                 fallback_status_code = fallback_exc.context.details.get("status_code") if fallback_exc.context and fallback_exc.context.details else None
                 if fallback_status_code == 429:
                     return self._create_empty_record(pmid, f"Rate limited: {str(fallback_exc)}")
+                
+                # Fallback к поиску по заголовку если есть
+                if title:
+                    self.logger.info(f"openalex_pmid_title_fallback pmid={pmid} title={title}")
+                    return self._search_by_title(title, pmid)
+                
                 raise
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
@@ -116,7 +145,10 @@ class OpenAlexClient(BaseApiClient):
         title = work.get("display_name")
         doi_value = ids.get("doi")
         pmid_value = self._extract_pmid(work)
-        self.logger.info(f"openalex_parse_work_fields title_length={len(title) if title else 0} doi={doi_value} pmid={pmid_value} has_abstract={bool(work.get('abstract_inverted_index'))}")
+        self.logger.info(
+            f"openalex_parse_work_fields title_length={len(title) if title else 0} "
+            f"doi={doi_value} pmid={pmid_value} has_abstract={bool(work.get('abstract_inverted_index'))}"
+        )
 
         # Извлекаем DOI - согласно OpenAlex API, DOI находится в ids.doi
         doi_value = ids.get("doi")
@@ -542,4 +574,57 @@ class OpenAlexClient(BaseApiClient):
                 error_count += 1
         
         self.logger.info(f"openalex_fetch_by_pmids_batch_complete total_pmids={len(pmids)} success_count={success_count} error_count={error_count}")
+        
+    def _search_by_title(self, title: str, identifier: str) -> dict[str, Any]:
+        """Search for work by title as fallback when DOI/PMID lookup fails."""
+        try:
+            # Очищаем заголовок от HTML тегов и лишних символов
+            clean_title = self._clean_title_for_search(title)
+            if not clean_title:
+                return self._create_empty_record(identifier, "Empty title for search")
+
+            # Используем поиск по заголовку через search API
+            search_params = {
+                "search": clean_title,
+                "per_page": 5,  # Ограничиваем результаты
+            }
+
+            response = self._request("GET", "", params=search_params)
+            payload = response.json()
+
+            # Проверяем результаты поиска
+            if isinstance(payload, dict) and "results" in payload:
+                works = payload.get("results", [])
+                if works:
+                    # Берем первый результат (наиболее релевантный)
+                    best_match = works[0]
+                    self.logger.info(f"openalex_title_search_success identifier={identifier} title={clean_title} found_work_id={best_match.get('id', 'unknown')}")
+                    return self._parse_work(best_match)
+
+            # Если поиск не дал результатов
+            self.logger.warning(f"openalex_title_search_no_results identifier={identifier} title={clean_title}")
+            return self._create_empty_record(identifier, f"Not found by title search: {clean_title}")
+
+        except Exception as exc:
+            self.logger.error(f"openalex_title_search_failed identifier={identifier} title={title} error={str(exc)}")
+            return self._create_empty_record(identifier, f"Title search failed: {str(exc)}")
+
+    def _clean_title_for_search(self, title: str) -> str:
+        """Clean title for search by removing HTML tags and special characters."""
+        if not title:
+            return ""
+
+        import re
+
+        # Удаляем HTML теги
+        clean = re.sub(r"<[^>]+>", "", title)
+
+        # Удаляем лишние пробелы
+        clean = re.sub(r"\s+", " ", clean).strip()
+
+        # Ограничиваем длину для поиска (OpenAlex имеет лимиты)
+        if len(clean) > 200:
+            clean = clean[:200]
+
+        return clean
         

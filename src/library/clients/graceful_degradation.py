@@ -130,6 +130,54 @@ class CrossrefDegradationStrategy(DegradationStrategy):
         return partial_data
 
 
+class OpenAlexDegradationStrategy(DegradationStrategy):
+    """Degradation strategy for OpenAlex API."""
+    
+    def should_degrade(self, error: ApiClientError) -> bool:
+        """Degrade for OpenAlex-specific errors."""
+        # OpenAlex has moderate rate limits, degrade on rate limiting
+        if error.status_code == 429:
+            return True
+        if error.status_code in [500, 502, 503, 504]:
+            return True
+        return False
+    
+    def get_fallback_data(self, original_request: dict[str, Any], error: ApiClientError) -> dict[str, Any]:
+        """Return fallback data for OpenAlex."""
+        return {
+            "source": "fallback",
+            "api": "openalex",
+            "error": str(error),
+            "fallback_reason": "openalex_unavailable",
+            "openalex_doi": None,
+            "openalex_title": None,
+            "openalex_doc_type": None,
+            "openalex_crossref_doc_type": None,
+            "openalex_year": None,
+            "openalex_pmid": None,
+            "openalex_abstract": None,
+            "openalex_issn": None,
+            "openalex_authors": None,
+            "openalex_journal": None,
+            "openalex_volume": None,
+            "openalex_issue": None,
+            "openalex_first_page": None,
+            "openalex_last_page": None,
+            "openalex_error": str(error),
+            "degraded": True
+        }
+    
+    def get_degraded_response(self, partial_data: list[dict[str, Any]], error: ApiClientError) -> list[dict[str, Any]]:
+        """Process partial OpenAlex data."""
+        for item in partial_data:
+            item["degradation_info"] = {
+                "source": "openalex",
+                "partial": True,
+                "error": str(error)
+            }
+        return partial_data
+
+
 class SemanticScholarDegradationStrategy(DegradationStrategy):
     """Degradation strategy for Semantic Scholar API."""
     
@@ -178,6 +226,7 @@ class GracefulDegradationManager:
         
         self.strategies["chembl"] = ChEMBLDegradationStrategy(default_config)
         self.strategies["crossref"] = CrossrefDegradationStrategy(default_config)
+        self.strategies["openalex"] = OpenAlexDegradationStrategy(default_config)
         self.strategies["semantic_scholar"] = SemanticScholarDegradationStrategy(default_config)
     
     def register_strategy(self, api_name: str, strategy: DegradationStrategy):

@@ -364,17 +364,9 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
 
         return TestitemChEMBLClient(client_config)
 
-    def _create_pubchem_client(self) -> Any:
+    def _create_pubchem_client(self) -> PubChemClient:
         """Create PubChem client."""
-        # Create a simple requests session for PubChem
-        session = requests.Session()
-
-        # Set headers
-        headers = self._get_headers("pubchem")
-        headers.update(self.config.http.global_.headers)
-        session.headers.update(headers)
-
-        return session
+        return _create_pubchem_client(self.config)
 
     def _get_headers(self, source: str) -> dict[str, str]:
         """Get default headers for a source."""
@@ -855,58 +847,35 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         return result
 
     def _fetch_pubchem_record(self, inchi_key: str, fields: list[str], client) -> pd.DataFrame:
-        """Fetch a single record from PubChem API using InChI Key."""
-        # Build URL for PubChem PUG-REST API
-        base_url = self.config.sources["pubchem"].http.base_url
-        url = f"{base_url}/compound/inchikey/{inchi_key}/property/MolecularFormula,MolecularWeight,ConnectivitySMILES,InChI,InChIKey/JSON"
-
+        """Fetch a single record from PubChem API using InChI Key with fallback strategy."""
         try:
-            # Make request
-            response = client.get(url, timeout=self.config.sources["pubchem"].http.timeout_sec)
-            response.raise_for_status()
-
-            data = response.json()
-            if "PropertyTable" not in data or "Properties" not in data["PropertyTable"]:
-                logger.warning("No properties found in PubChem response for InChI Key: %s", inchi_key)
-                return pd.DataFrame()
-
-            properties = data["PropertyTable"]["Properties"]
+            # Use fallback method to get properties
+            properties = client.fetch_compound_properties_with_fallback(inchikey=inchi_key)
+            
             if not properties:
                 return pd.DataFrame()
-
-            # Convert to DataFrame
-            record = properties[0]  # Take first property set
 
             # Map PubChem fields to our schema
             mapped_record = {
                 "inchi_key_from_mol": inchi_key,
-                "pubchem_cid": record.get("CID"),
-                "pubchem_molecular_formula": record.get("MolecularFormula"),
-                "pubchem_molecular_weight": record.get("MolecularWeight"),
-                "pubchem_canonical_smiles": record.get("ConnectivitySMILES"),
-                "pubchem_inchi": record.get("InChI"),
-                "pubchem_inchi_key": record.get("InChIKey"),
-                "pubchem_registry_id": None,  # Not available in this API endpoint
-                "pubchem_rn": None,  # Not available in this API endpoint
+                "pubchem_cid": properties.get("pubchem_cid"),
+                "pubchem_molecular_formula": properties.get("pubchem_molecular_formula"),
+                "pubchem_molecular_weight": properties.get("pubchem_molecular_weight"),
+                "pubchem_canonical_smiles": properties.get("pubchem_canonical_smiles"),
+                "pubchem_isomeric_smiles": properties.get("pubchem_isomeric_smiles"),
+                "pubchem_inchi": properties.get("pubchem_inchi"),
+                "pubchem_inchi_key": properties.get("pubchem_inchi_key"),
+                "pubchem_registry_id": properties.get("pubchem_registry_id"),
+                "pubchem_rn": properties.get("pubchem_rn"),
+                "pubchem_retrieval_method": properties.get("_retrieval_method"),
             }
 
             df = pd.DataFrame([mapped_record])
             return df
 
-        except requests.RequestException as e:
-            if hasattr(e, 'response') and e.response is not None:
-                if e.response.status_code == 404:
-                    logger.warning(f"PubChem record not found for InChI Key {inchi_key}: {e}")
-                    return pd.DataFrame()  # Return empty DataFrame instead of raising
-                else:
-                    logger.error(f"PubChem API request failed for InChI Key {inchi_key}: {e}")
-                    raise
-            else:
-                logger.error(f"PubChem API request failed for InChI Key {inchi_key}: {e}")
-                raise
         except Exception as e:
-            logger.error(f"Failed to process PubChem response for InChI Key {inchi_key}: {e}")
-            raise
+            logger.error(f"Unexpected error fetching PubChem data for InChI Key {inchi_key}: {e}")
+            return pd.DataFrame()
 
     def _merge_chembl_data(self, base_data: pd.DataFrame, chembl_data: pd.DataFrame) -> pd.DataFrame:
         """Merge ChEMBL data into base data."""

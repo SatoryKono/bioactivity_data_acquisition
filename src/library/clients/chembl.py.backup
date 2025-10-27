@@ -102,7 +102,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_molecule(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule data by ChEMBL ID using proper API endpoint."""
         try:
-            payload = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1")
+            payload = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1").json()
             parsed = self._parse_molecule(payload)
             if parsed:
                 return parsed
@@ -130,7 +130,7 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"molecule.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -426,7 +426,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_molecule_form(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule form data."""
         try:
-            payload = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json").json()
             return self._parse_molecule_form(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch molecule form for {molecule_chembl_id}: {e}")
@@ -435,7 +435,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_mechanism(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch mechanism data."""
         try:
-            payload = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json").json()
             return self._parse_mechanism(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch mechanism for {molecule_chembl_id}: {e}")
@@ -458,7 +458,7 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"mechanism.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -487,7 +487,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_atc_classification(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch ATC classification data."""
         try:
-            payload = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json").json()
             return self._parse_atc_classification(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch ATC classification for {molecule_chembl_id}: {e}")
@@ -510,7 +510,7 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"atc_classification.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -539,7 +539,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_drug(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch drug data."""
         try:
-            payload = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json").json()
             return self._parse_drug(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch drug for {molecule_chembl_id}: {e}")
@@ -562,7 +562,7 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"drug.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -591,7 +591,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_drug_warning(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch drug warnings."""
         try:
-            payload = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json").json()
             return self._parse_drug_warning(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch drug warning for {molecule_chembl_id}: {e}")
@@ -614,7 +614,7 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"drug_warning.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -643,7 +643,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_xref_source(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch cross-reference sources."""
         try:
-            payload = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json").json()
             return self._parse_xref_source(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch xref source for {molecule_chembl_id}: {e}")
@@ -751,7 +751,7 @@ class TestitemChEMBLClient(BaseApiClient):
     def resolve_molregno_to_chembl_id(self, molregno: int) -> str | None:
         """Resolve molregno to molecule_chembl_id via ChEMBL API."""
         try:
-            payload = self._request("GET", f"molecule?molregno={molregno}&format=json")
+            payload = self._request("GET", f"molecule?molregno={molregno}&format=json").json()
             molecules = payload.get("molecules", [])
             if molecules:
                 return molecules[0].get("molecule_chembl_id")
@@ -759,156 +759,6 @@ class TestitemChEMBLClient(BaseApiClient):
         except Exception as e:
             logger.warning(f"Failed to resolve molregno {molregno} to molecule_chembl_id: {e}")
             return None
-
-
-class ChEMBLClient(BaseApiClient):
-    """HTTP client for ChEMBL document endpoints."""
-
-    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
-        super().__init__(config, **kwargs)
-
-    def get_chembl_status(self) -> dict[str, Any]:
-        """Get ChEMBL version and release information."""
-        try:
-            payload = self._request("GET", "status.json")
-            return {
-                "version": payload.get("chembl_db_version", "unknown"),
-                "release_date": payload.get("chembl_release_date"),
-                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            }
-        except Exception as e:
-            logger.warning(f"Failed to get ChEMBL version: {e}")
-            return {
-                "version": "unknown",
-                "release_date": None,
-                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-            }
-
-    def fetch_document(self, document_chembl_id: str) -> dict[str, Any]:
-        """Fetch document data from ChEMBL API."""
-        try:
-            payload = self._request("GET", f"document/{document_chembl_id}")
-            return self._parse_document(payload)
-        except Exception as e:
-            logger.warning(f"Failed to fetch document {document_chembl_id}: {e}")
-            return {
-                "document_chembl_id": document_chembl_id,
-                "source_system": "ChEMBL",
-                "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-                "error": str(e)
-            }
-
-    def fetch_documents_batch(
-        self, 
-        document_chembl_ids: list[str], 
-        batch_size: int = 100
-    ) -> Iterator[dict[str, Any]]:
-        """Fetch document data in batches."""
-        if not document_chembl_ids:
-            return
-            
-        for i in range(0, len(document_chembl_ids), batch_size):
-            batch_ids = document_chembl_ids[i:i + batch_size]
-            
-            try:
-                # Build URL with document IDs
-                ids_str = ",".join(batch_ids)
-                url = f"document?document_chembl_id__in={ids_str}&format=json&limit=1000"
-                
-                # Make request
-                response_data = self._request("GET", url)
-                
-                # Extract documents from response
-                if isinstance(response_data, dict) and "documents" in response_data:
-                    documents = response_data["documents"]
-                    if isinstance(documents, list):
-                        for document in documents:
-                            yield self._parse_document({"documents": [document]})
-                    else:
-                        logger.warning(f"Unexpected documents format in response: {type(documents)}")
-                else:
-                    logger.warning(f"Unexpected response format: {type(response_data)}")
-
-            except Exception as e:
-                logger.error(f"Failed to fetch documents for batch {i // batch_size + 1}: {e}")
-                # Continue with next batch instead of failing completely
-                continue
-
-    def _parse_document(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Parse document data from ChEMBL API response."""
-        document = payload.get("documents", [{}])[0] if "documents" in payload else payload
-        
-        return {
-            "document_chembl_id": document.get("document_chembl_id"),
-            "title": document.get("title"),
-            "abstract": document.get("abstract"),
-            "journal": document.get("journal"),
-            "year": document.get("year"),
-            "volume": document.get("volume"),
-            "issue": document.get("issue"),
-            "first_page": document.get("first_page"),
-            "last_page": document.get("last_page"),
-            "pubmed_id": document.get("pubmed_id"),
-            "doi": document.get("doi"),
-            "authors": document.get("authors"),
-            "source_system": "ChEMBL",
-            "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-    def fetch_all_activities(self, activity_ids: list[str]) -> Iterator[dict[str, Any]]:
-        """Fetch activity data from ChEMBL API for given activity IDs.
-
-        Parameters
-        ----------
-        activity_ids : list[str]
-            List of ChEMBL activity IDs to fetch.
-
-        Yields
-        ------
-        dict[str, Any]
-            Activity data from ChEMBL API.
-        """
-        if not activity_ids:
-            return
-
-        # ChEMBL API base URL for activities
-        base_url = "https://www.ebi.ac.uk/chembl/api/data/activity"
-
-        # Process activity IDs in batches to avoid URL length limits
-        batch_size = 100  # ChEMBL API can handle up to 100 IDs per request
-
-        for i in range(0, len(activity_ids), batch_size):
-            batch_ids = activity_ids[i : i + batch_size]
-
-            # Build URL with activity IDs as query parameters
-            # Format: /activity?activity_id__in=ID1,ID2,ID3
-            activity_ids_str = ",".join(batch_ids)
-            url = f"{base_url}?activity_id__in={activity_ids_str}&format=json&limit=1000"
-
-            try:
-                response_data = self._request("GET", url)
-
-                # Extract activities from response
-                if isinstance(response_data, dict) and "activities" in response_data:
-                    activities = response_data["activities"]
-                    if isinstance(activities, list):
-                        yield from activities
-                    else:
-                        logger.warning(f"Unexpected activities format in response: {type(activities)}")
-                else:
-                    logger.warning(f"Unexpected response format: {type(response_data)}")
-
-            except Exception as e:
-                logger.error(f"Failed to fetch activities for batch {i // batch_size + 1}: {e}")
-                # Continue with next batch instead of failing completely
-                continue
-
-    def clear_cache(self) -> None:
-        """Remove all entries from the in-memory cache."""
-
-        with self._cache_lock:
-            self.cache.clear()
-
 
 def _strip_json_suffix(url: str) -> str | None:
     """Return URL without .json suffix if present."""
@@ -966,6 +816,49 @@ def _find_chembl_id_by_molregno(molregno: int) -> str | None:
     # It should be a method of a client class, not a standalone function
     return None
 
+    def fetch_molecules_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch multiple molecules using proper ChEMBL API."""
+        try:
+            # ChEMBL API URL length limit requires smaller batches
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_molecules_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"molecule.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url).json()
+            
+            # Parse results
+            results = {}
+            molecules = payload.get("molecules", [])
+            
+            for molecule in molecules:
+                parsed = self._parse_molecule({"molecules": [molecule]})
+                if parsed:
+                    results[parsed["molecule_chembl_id"]] = parsed
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = self._create_empty_molecule_record(chembl_id, "Not found in API response")
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch molecules batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_molecule(chembl_id)
+            return results
 
 def _log_retry_warning(
     event: str,
@@ -1234,7 +1127,7 @@ class ChemblClient:
             url = f"mechanism.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -1286,7 +1179,7 @@ class ChemblClient:
             url = f"atc_classification.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -1347,7 +1240,7 @@ class ChemblClient:
             url = f"drug.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -1399,7 +1292,7 @@ class ChemblClient:
             url = f"drug_warning.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -1732,6 +1625,161 @@ class ChemblClient:
             "error": error_msg
         }
 
+
+class ChEMBLClient(BaseApiClient):
+    """HTTP client for ChEMBL document endpoints."""
+
+    def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
+        super().__init__(config, **kwargs)
+
+    def get_chembl_status(self) -> dict[str, Any]:
+        """Get ChEMBL version and release information."""
+        try:
+            payload = self._request("GET", "status.json")
+            return {
+                "version": payload.get("chembl_db_version", "unknown"),
+                "release_date": payload.get("chembl_release_date"),
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        except Exception as e:
+            logger.warning(f"Failed to get ChEMBL version: {e}")
+            return {
+                "version": "unknown",
+                "release_date": None,
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            }
+
+    def fetch_by_doc_id(self, document_chembl_id: str) -> dict[str, Any]:
+        """Fetch document data by ChEMBL document ID."""
+        logger.info(f"Fetching document {document_chembl_id} from ChEMBL...")
+        try:
+            payload = self._request("GET", f"document/{document_chembl_id}")
+            logger.info(f"Received payload keys: {list(payload.keys())}")
+            
+            # Fetch source metadata if src_id is available
+            source_fields = {}
+            if "src_id" in payload and payload["src_id"]:
+                source_fields = self.fetch_source_metadata(payload["src_id"])
+            
+            # Extract relevant document fields
+            data = {
+                # Legacy fields
+                "document_chembl_id": document_chembl_id,
+                "document_pubmed_id": payload.get("pubmed_id"),
+                "document_classification": payload.get("doc_type"),
+                "referenses_on_previous_experiments": payload.get("refs"),
+                "original_experimental_document": payload.get("original_experimental_document"),
+                "chembl_title": payload.get("title"),
+                "chembl_abstract": payload.get("abstract"),
+                "chembl_authors": payload.get("authors"),
+                "chembl_journal": payload.get("journal"),
+                "chembl_year": payload.get("year"),
+                "chembl_volume": payload.get("volume"),
+                "chembl_issue": payload.get("issue"),
+                "chembl_first_page": payload.get("first_page"),
+                "chembl_last_page": payload.get("last_page"),
+                "chembl_doi": payload.get("doi"),
+                "chembl_patent_id": payload.get("patent_id"),
+                "chembl_ridx": payload.get("ridx"),
+                "chembl_teaser": payload.get("teaser"),
+                
+                # NEW: CHEMBL.DOCS.* fields according to specification
+                "CHEMBL.DOCS.document_chembl_id": payload.get("document_chembl_id", document_chembl_id),
+                "CHEMBL.DOCS.doc_type": payload.get("doc_type"),
+                "CHEMBL.DOCS.title": payload.get("title"),
+                "CHEMBL.DOCS.journal": payload.get("journal"),
+                "CHEMBL.DOCS.year": payload.get("year"),
+                "CHEMBL.DOCS.volume": payload.get("volume"),
+                "CHEMBL.DOCS.issue": payload.get("issue"),
+                "CHEMBL.DOCS.first_page": payload.get("first_page"),
+                "CHEMBL.DOCS.last_page": payload.get("last_page"),
+                "CHEMBL.DOCS.doi": payload.get("doi"),
+                "CHEMBL.DOCS.pubmed_id": payload.get("pubmed_id"),
+                "CHEMBL.DOCS.abstract": payload.get("abstract"),
+                "CHEMBL.DOCS.chembl_release": payload.get("src_id"),  # JSON reference to release
+                
+                # NEW: CHEMBL.SOURCE.* fields
+                **source_fields,  # adds CHEMBL.SOURCE.* fields
+                
+                "source_system": "ChEMBL",
+                "extracted_at": datetime.utcnow().isoformat()
+            }
+            
+            non_none_count = sum(1 for v in data.values() if v is not None)
+            logger.info(f"Mapped fields: {list(data.keys())}, non-None values: {non_none_count}")
+            return data
+        except Exception as e:
+            logger.warning(f"Failed to fetch document {document_chembl_id}: {e}")
+            return {
+                "document_chembl_id": document_chembl_id,
+                "source_system": "ChEMBL",
+                "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                "error": str(e)
+            }
+
+    def fetch_documents_batch(
+        self, 
+        document_chembl_ids: list[str],
+        batch_size: int = 50
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch multiple documents in batch.
+        
+        ChEMBL doesn't have a true batch endpoint for documents, so we use
+        parallel requests with controlled concurrency.
+        """
+        if not document_chembl_ids:
+            return {}
+        
+        results = {}
+        
+        # Process in chunks to avoid overwhelming the API
+        for i in range(0, len(document_chembl_ids), batch_size):
+            chunk = document_chembl_ids[i:i + batch_size]
+            
+            # For each document in the chunk, make individual requests
+            # This is still more efficient than the original sequential approach
+            for doc_id in chunk:
+                try:
+                    result = self.fetch_by_doc_id(doc_id)
+                    results[doc_id] = result
+                except Exception as e:
+                    logger.warning(f"Failed to fetch document {doc_id} in batch: {e}")
+                    results[doc_id] = {
+                        "document_chembl_id": doc_id,
+                        "source_system": "ChEMBL",
+                        "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                        "error": str(e)
+                    }
+        
+        return results
+
+    def fetch_source_metadata(self, src_id: int) -> dict[str, Any]:
+        """Fetch source metadata from ChEMBL."""
+        try:
+            payload = self._request("GET", f"source/{src_id}")
+            return {
+                "CHEMBL.SOURCE.src_id": payload.get("src_id"),
+                "CHEMBL.SOURCE.src_description": payload.get("src_description"),
+                "CHEMBL.SOURCE.src_short_name": payload.get("src_short_name"),
+                "CHEMBL.SOURCE.src_url": payload.get("src_url"),
+                "CHEMBL.SOURCE.data": json.dumps(payload) if payload else None
+            }
+        except Exception as e:
+            logger.warning(f"Failed to fetch source {src_id}: {e}")
+            return {
+                "CHEMBL.SOURCE.src_id": None,
+                "CHEMBL.SOURCE.src_description": None,
+                "CHEMBL.SOURCE.src_short_name": None,
+                "CHEMBL.SOURCE.src_url": None,
+                "CHEMBL.SOURCE.data": None,
+            }
+
+    def __enter__(self) -> ChemblClient:
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()
+
     def close(self) -> None:
         """Close all sessions."""
         with self._sessions_lock:
@@ -1739,8 +1787,282 @@ class ChemblClient:
                 session.close()
             self._sessions.clear()
 
+    def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+        """Make HTTP request using base client functionality."""
+        try:
+            response = self.session.get(f"{self.base_url}/{url}", timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Request failed: {e}")
+            raise
+            
+            if used_fallback:
+                event = "request_fallback"
+            else:
+                event = "request_start" if attempt == 1 else "request_retry"
+                
+            logger.debug(
+                event,
+                extra={
+                    "url": request_url,
+                    "attempt": attempt,
+                    "timeout": self.timeout,
+                },
+            )
+            
+            try:
+                start_time = monotonic()
+                session = self._get_session()
+                with session.get(request_url, timeout=self.timeout) as response:
+                    response.raise_for_status()
+                    try:
+                        data = cast(dict[str, Any], response.json())
+                    except ValueError as exc:
+                        elapsed = monotonic() - start_time
+                        logger.exception(
+                            "json_error",
+                            extra={"url": request_url, "elapsed": elapsed},
+                        )
+                        raise ValueError(f"invalid JSON in response from {request_url}") from exc
+                        
+                    response_elapsed = getattr(response, "elapsed", None)
+                    response_elapsed_seconds: float | None
+                    if response_elapsed is not None and hasattr(response_elapsed, "total_seconds"):
+                        response_elapsed_seconds = float(response_elapsed.total_seconds())
+                    else:
+                        response_elapsed_seconds = None
+                        
+                    duration = monotonic() - start_time
+                    logger.debug(
+                        "request_ok",
+                        extra={
+                            "url": request_url,
+                            "status": getattr(response, "status_code", None),
+                            "rps": cfg.rps,
+                            "elapsed": duration,
+                            "response_elapsed": response_elapsed_seconds,
+                            "timeout": read_timeout,
+                        },
+                    )
+                    
+                    with self._cache_lock:
+                        cached = self.cache.get(cache_key)
+                        if cached is not None:
+                            return cast(dict[str, Any], cached)
+                        self.cache.set(cache_key, data)
+                        logger.debug("cache_set", extra={"url": url, "rps": cfg.rps})
+                        
+                    if used_fallback:
+                        logger.debug(
+                            "request_fallback_ok",
+                            extra={
+                                "original_url": url,
+                                "fallback_url": request_url,
+                                "attempt": attempt,
+                                "rps": cfg.rps,
+                                "elapsed": duration,
+                                "response_elapsed": response_elapsed_seconds,
+                                "timeout": read_timeout,
+                            },
+                        )
+                    return data
+                    
+            except ValueError as exc:
+                elapsed = monotonic() - start_time
+                last_exc = exc
+                last_exc_cause = None
+                if attempt >= total_attempts:
+                    logger.exception(
+                        "request_fail",
+                        extra={
+                            "url": request_url,
+                            "status": None,
+                            "rps": cfg.rps,
+                            "elapsed": elapsed,
+                            "attempt": attempt,
+                            "timeout": read_timeout,
+                            "retry": attempt,
+                            "backoff": 0.0,
+                        },
+                    )
+                    break
+                delay = _backoff_delay(attempt, cfg.retries, header_delay=None, jitter=self._jitter)
+                _log_retry_warning(
+                    "request_retry_json_error",
+                    url=request_url,
+                    attempt=attempt,
+                    delay=delay,
+                    elapsed=elapsed,
+                    status=None,
+                )
+                _log_retry_delay(request_url, attempt, None, delay)
+                sleep(delay)
+                break
+                
+            except requests.exceptions.HTTPError as exc:
+                elapsed = monotonic() - start_time
+                response = getattr(exc, "response", None)
+                status = getattr(response, "status_code", None)
+                header_delay = None
+                if response is not None:
+                    retry_after = response.headers.get("Retry-After")
+                    if retry_after is not None:
+                        try:
+                            header_delay = float(retry_after)
+                        except ValueError:
+                            try:
+                                retry_date = parsedate_to_datetime(retry_after)
+                                if retry_date is not None:
+                                    header_delay = retry_date.replace(tzinfo=timezone.utc).timestamp() - datetime.now(timezone.utc).timestamp()
+                            except ValueError:
+                                pass
+                last_exc = exc
+                last_exc_cause = None
+                if attempt >= total_attempts:
+                    logger.exception(
+                        "request_fail",
+                        extra={
+                            "url": request_url,
+                            "status": status,
+                            "rps": cfg.rps,
+                            "elapsed": elapsed,
+                            "attempt": attempt,
+                            "timeout": read_timeout,
+                            "retry": attempt,
+                            "backoff": 0.0,
+                        },
+                    )
+                    break
+                delay = _backoff_delay(attempt, cfg.retries, header_delay=header_delay, jitter=self._jitter)
+                _log_retry_warning(
+                    "request_retry_http_error",
+                    url=request_url,
+                    attempt=attempt,
+                    delay=delay,
+                    elapsed=elapsed,
+                    status=status,
+                    exc_info=True,
+                )
+                _log_retry_delay(request_url, attempt, status, delay, header_delay)
+                sleep(delay)
+                break
+                
+            except requests.RequestException as exc:
+                elapsed = monotonic() - start_time
+                normalized_exc = exc
+                last_exc = normalized_exc
+                last_exc_cause = exc if normalized_exc is not exc else None
+                response = getattr(exc, "response", None)
+                status = getattr(response, "status_code", None)
+                name_resolution_error = _is_name_resolution_error(exc)
+                
+                if name_resolution_error:
+                    logger.exception(
+                        "request_name_resolution_error",
+                        extra={
+                            "url": request_url,
+                            "attempt": attempt,
+                            "rps": cfg.rps,
+                            "timeout": read_timeout,
+                            "retry": attempt,
+                            "backoff": 0.0,
+                            "status": status,
+                            "elapsed": elapsed,
+                        },
+                    )
+                    abort_attempts = True
+                    break
+                    
+                if attempt >= total_attempts:
+                    logger.exception(
+                        "request_fail",
+                        extra={
+                            "url": request_url,
+                            "status": None,
+                            "rps": cfg.rps,
+                            "elapsed": elapsed,
+                            "attempt": attempt,
+                            "timeout": read_timeout,
+                            "retry": attempt,
+                            "backoff": 0.0,
+                        },
+                    )
+                    break
+                delay = _backoff_delay(attempt, cfg.retries, header_delay=None, jitter=self._jitter)
+                _log_retry_warning(
+                    "request_retry_exception",
+                    url=request_url,
+                    attempt=attempt,
+                    delay=delay,
+                    elapsed=elapsed,
+                    status=status,
+                    exc_info=True,
+                )
+                _log_retry_delay(request_url, attempt, status, delay)
+                sleep(delay)
+                break
+
+        if last_exc is not None:
+            if last_exc_cause is not None and last_exc is not last_exc_cause:
+                raise last_exc from last_exc_cause
+            raise last_exc
+            
+        # This should never be reached due to the loop structure
+        raise RuntimeError(f"Request loop exited unexpectedly for {url}")
+
+    def fetch_all_activities(self, activity_ids: list[str]) -> Iterator[dict[str, Any]]:
+        """Fetch activity data from ChEMBL API for given activity IDs.
+
+        Parameters
+        ----------
+        activity_ids : list[str]
+            List of ChEMBL activity IDs to fetch.
+
+        Yields
+        ------
+        dict[str, Any]
+            Activity data from ChEMBL API.
+        """
+        if not activity_ids:
+            return
+
+        # ChEMBL API base URL for activities
+        base_url = "https://www.ebi.ac.uk/chembl/api/data/activity"
+
+        # Process activity IDs in batches to avoid URL length limits
+        batch_size = 100  # ChEMBL API can handle up to 100 IDs per request
+
+        for i in range(0, len(activity_ids), batch_size):
+            batch_ids = activity_ids[i : i + batch_size]
+
+            # Build URL with activity IDs as query parameters
+            # Format: /activity?activity_id__in=ID1,ID2,ID3
+            activity_ids_str = ",".join(batch_ids)
+            url = f"{base_url}?activity_id__in={activity_ids_str}&format=json&limit=1000"
+
+            try:
+                response_data = self._request("GET", url)
+
+                # Extract activities from response
+                if isinstance(response_data, dict) and "activities" in response_data:
+                    activities = response_data["activities"]
+                    if isinstance(activities, list):
+                        yield from activities
+                    else:
+                        logger.warning(f"Unexpected activities format in response: {type(activities)}")
+                else:
+                    logger.warning(f"Unexpected response format: {type(response_data)}")
+
+            except Exception as e:
+                logger.error(f"Failed to fetch activities for batch {i // batch_size + 1}: {e}")
+                # Continue with next batch instead of failing completely
+                continue
+
     def clear_cache(self) -> None:
         """Remove all entries from the in-memory cache."""
 
         with self._cache_lock:
             self.cache.clear()
+
+

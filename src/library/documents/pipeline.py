@@ -266,9 +266,11 @@ def _extract_data_from_source(
             elif source == "openalex":
                 # Приоритет DOI над PMID для OpenAlex
                 data_found = False
+                title = row.get("document_title") if pd.notna(row.get("document_title")) else None
+                
                 if pd.notna(row.get("doi")) and str(row["doi"]).strip():
                     logger.info(f"openalex_trying_doi doc_id={row.get('document_chembl_id')} doi={row.get('doi')}")
-                    data = client.fetch_by_doi(str(row["doi"]).strip())
+                    data = client.fetch_by_doi(str(row["doi"]).strip(), title=title)
                     data.pop("source", None)
                     # Проверяем, получили ли мы данные
                     if data.get("openalex_title") is not None:
@@ -283,7 +285,7 @@ def _extract_data_from_source(
                 # Fallback на PMID если DOI не дал результата
                 if not data_found and pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
                     logger.info(f"openalex_trying_pmid doc_id={row.get('document_chembl_id')} pmid={row.get('document_pubmed_id')}")
-                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
+                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip(), title=title)
                     data.pop("source", None)
                     # Проверяем, получили ли мы данные
                     if data.get("openalex_title") is not None:

@@ -255,88 +255,63 @@ def extract_pubchem_data(client: PubChemClient, molecule_data: dict[str, Any], c
         except Exception as e:
             logger.debug(f"Failed parsing xref_sources for PubChem CID: {e}")
 
-    # By InChIKey
-    if pubchem_cid is None:
-        inchikey = None
-        for key_field in ("pubchem_inchi_key", "standard_inchikey", "inchikey"):
-            if key_field in molecule_data and molecule_data[key_field]:
-                inchikey = str(molecule_data[key_field]).strip()
-                break
-        if inchikey and len(inchikey) == 27:
-            try:
-                cid_data = client.fetch_cids_by_inchikey(inchikey)
-                cids = cid_data.get("pubchem_cids", [])
-                if cids:
-                    pubchem_cid = str(cids[0])
-            except Exception as e:
-                logger.debug(f"Failed PubChem CID by InChIKey {inchikey}: {e}")
-
-    # By SMILES (try multiple candidates)
-    if pubchem_cid is None:
-        candidate_smiles: list[str] = []
-        for smi_field in (
-            "pubchem_canonical_smiles",
-            "pubchem_isomeric_smiles",
-            "standard_smiles",
-            "canonical_smiles",
-            "smiles",
-        ):
-            if smi_field in molecule_data and molecule_data[smi_field]:
-                val = str(molecule_data[smi_field]).strip()
-                if val and val not in candidate_smiles:
-                    candidate_smiles.append(val)
-        for smi in candidate_smiles:
-            try:
-                cid_data = client.fetch_cids_by_smiles(smi)
-                cids = cid_data.get("pubchem_cids", [])
-                if cids:
-                    pubchem_cid = str(cids[0])
-                    break
-            except Exception as e:
-                logger.debug(f"Failed PubChem CID by SMILES candidate: {e}")
-
-    # By name
-    if pubchem_cid is None and "pref_name" in molecule_data and molecule_data["pref_name"]:
+    # Try fallback method with all available identifiers
+    inchikey = None
+    canonical_smiles = None
+    smiles = None
+    pref_name = None
+    synonyms = []
+    
+    # Extract InChI Key
+    for key_field in ("pubchem_inchi_key", "standard_inchikey", "inchikey"):
+        if key_field in molecule_data and molecule_data[key_field]:
+            inchikey = str(molecule_data[key_field]).strip()
+            break
+    
+    # Extract SMILES candidates
+    for smi_field in ("pubchem_canonical_smiles", "standard_smiles", "canonical_smiles"):
+        if smi_field in molecule_data and molecule_data[smi_field]:
+            canonical_smiles = str(molecule_data[smi_field]).strip()
+            break
+    
+    for smi_field in ("pubchem_isomeric_smiles", "smiles"):
+        if smi_field in molecule_data and molecule_data[smi_field]:
+            smiles = str(molecule_data[smi_field]).strip()
+            break
+    
+    # Extract name
+    if "pref_name" in molecule_data and molecule_data["pref_name"]:
+        pref_name = str(molecule_data["pref_name"]).strip()
+    
+    # Extract synonyms if available
+    if "molecule_synonyms" in molecule_data and molecule_data["molecule_synonyms"]:
         try:
-            logger.debug(f"S05: Fetching PubChem CID for name: {molecule_data['pref_name']}")
-            cid_data = client.fetch_compound_by_name(molecule_data["pref_name"])
-            cids = cid_data.get("pubchem_cids", [])
-            if cids:
-                pubchem_cid = str(cids[0])
+            synonyms_data = molecule_data["molecule_synonyms"]
+            if isinstance(synonyms_data, list):
+                synonyms = [str(syn.get("molecule_synonym", "")) for syn in synonyms_data if syn.get("molecule_synonym")]
+            elif isinstance(synonyms_data, str):
+                synonyms = [synonyms_data]
         except Exception as e:
-            logger.debug(f"Failed to get PubChem CID for name {molecule_data['pref_name']}: {e}")
-
-    if not pubchem_cid:
-        logger.debug("No PubChem CID available for enrichment")
-        return molecule_data
-
-    logger.info(f"S05: Enriching with PubChem data for CID: {pubchem_cid}")
-
+            logger.debug(f"Failed to parse synonyms: {e}")
+    
+    # Use fallback method
     try:
-        # Fetch compound properties
-        properties_data = client.fetch_compound_properties(pubchem_cid)
-        molecule_data.update(properties_data)
-        # If SMILES still missing, try record fallback
-        if not molecule_data.get("pubchem_canonical_smiles") or not molecule_data.get("pubchem_isomeric_smiles"):
-            record_smiles = client.fetch_record_smiles(pubchem_cid)
-            if record_smiles:
-                molecule_data.update(record_smiles)
-
-        # Fetch cross-references
-        xref_data = client.fetch_compound_xrefs(pubchem_cid)
-        molecule_data.update(xref_data)
-
-        # Fetch synonyms
-        synonym_data = client.fetch_compound_synonyms(pubchem_cid)
-        molecule_data.update(synonym_data)
-
-        # Store the CID for reference
-        molecule_data["pubchem_cid"] = pubchem_cid
-
-        logger.info(f"Successfully enriched with PubChem data for CID: {pubchem_cid}")
-
+        properties_data = client.fetch_compound_properties_with_fallback(
+            inchikey=inchikey,
+            smiles=smiles,
+            canonical_smiles=canonical_smiles,
+            pref_name=pref_name,
+            synonyms=synonyms
+        )
+        
+        if properties_data:
+            molecule_data.update(properties_data)
+            logger.info(f"Successfully enriched with PubChem data using {properties_data.get('_retrieval_method', 'unknown')} method")
+        else:
+            logger.debug("No PubChem data available for enrichment")
+            
     except Exception as e:
-        logger.warning(f"Error enriching with PubChem data for CID {pubchem_cid}: {e}")
+        logger.warning(f"Error enriching with PubChem data: {e}")
         molecule_data["pubchem_error"] = str(e)
 
     return molecule_data
@@ -349,102 +324,69 @@ def extract_pubchem_data_batch(client: PubChemClient, molecules_data: list[dict[
         logger.debug("PubChem enrichment disabled")
         return molecules_data
 
-    # Collect CIDs for batch processing
-    cids_to_fetch = []
-    cid_mapping = {}  # Map CID to molecule index
-
+    # Process each molecule individually with fallback strategy
+    enriched_count = 0
+    
     for idx, molecule_data in enumerate(molecules_data):
-        # Try to get PubChem CID from various sources
-        pubchem_cid = None
-
-        # Already provided
-        if "pubchem_cid" in molecule_data and molecule_data["pubchem_cid"]:
-            pubchem_cid = str(molecule_data["pubchem_cid"])
-
-        # From xref_sources (ChEMBL)
-        if pubchem_cid is None and "xref_sources" in molecule_data and molecule_data["xref_sources"]:
+        # Extract identifiers for fallback
+        inchikey = None
+        canonical_smiles = None
+        smiles = None
+        pref_name = None
+        synonyms = []
+        
+        # Extract InChI Key
+        for key_field in ("pubchem_inchi_key", "standard_inchikey", "inchikey"):
+            if key_field in molecule_data and molecule_data[key_field]:
+                inchikey = str(molecule_data[key_field]).strip()
+                break
+        
+        # Extract SMILES candidates
+        for smi_field in ("pubchem_canonical_smiles", "standard_smiles", "canonical_smiles"):
+            if smi_field in molecule_data and molecule_data[smi_field]:
+                canonical_smiles = str(molecule_data[smi_field]).strip()
+                break
+        
+        for smi_field in ("pubchem_isomeric_smiles", "smiles"):
+            if smi_field in molecule_data and molecule_data[smi_field]:
+                smiles = str(molecule_data[smi_field]).strip()
+                break
+        
+        # Extract name
+        if "pref_name" in molecule_data and molecule_data["pref_name"]:
+            pref_name = str(molecule_data["pref_name"]).strip()
+        
+        # Extract synonyms if available
+        if "molecule_synonyms" in molecule_data and molecule_data["molecule_synonyms"]:
             try:
-                for xref in molecule_data.get("xref_sources", []) or []:
-                    name = (xref.get("xref_name") or "").lower()
-                    src = (xref.get("xref_src") or "").lower()
-                    xref_id = xref.get("xref_id")
-                    if xref_id and ("pubchem" in name or "pubchem" in src):
-                        digits = "".join(ch for ch in str(xref_id) if ch.isdigit())
-                        if digits:
-                            pubchem_cid = digits
-                            break
+                synonyms_data = molecule_data["molecule_synonyms"]
+                if isinstance(synonyms_data, list):
+                    synonyms = [str(syn.get("molecule_synonym", "")) for syn in synonyms_data if syn.get("molecule_synonym")]
+                elif isinstance(synonyms_data, str):
+                    synonyms = [synonyms_data]
             except Exception as e:
-                logger.debug(f"Failed parsing xref_sources for PubChem CID: {e}")
+                logger.debug(f"Failed to parse synonyms for molecule {idx}: {e}")
+        
+        # Use fallback method
+        try:
+            properties_data = client.fetch_compound_properties_with_fallback(
+                inchikey=inchikey,
+                smiles=smiles,
+                canonical_smiles=canonical_smiles,
+                pref_name=pref_name,
+                synonyms=synonyms
+            )
+            
+            if properties_data:
+                molecules_data[idx].update(properties_data)
+                enriched_count += 1
+                logger.debug(f"Enriched molecule {idx} with PubChem data using {properties_data.get('_retrieval_method', 'unknown')} method")
+                
+        except Exception as e:
+            logger.warning(f"Error enriching molecule {idx} with PubChem data: {e}")
+            molecules_data[idx]["pubchem_error"] = str(e)
 
-        # By InChIKey
-        if pubchem_cid is None:
-            inchikey = None
-            for key_field in ("pubchem_inchi_key", "standard_inchikey", "inchikey"):
-                if key_field in molecule_data and molecule_data[key_field]:
-                    inchikey = str(molecule_data[key_field]).strip()
-                    break
-            if inchikey and len(inchikey) == 27:
-                try:
-                    cid_data = client.fetch_cids_by_inchikey(inchikey)
-                    cids = cid_data.get("pubchem_cids", [])
-                    if cids:
-                        pubchem_cid = str(cids[0])
-                except Exception as e:
-                    logger.debug(f"Failed PubChem CID by InChIKey {inchikey}: {e}")
-
-        # By SMILES
-        if pubchem_cid is None:
-            candidate_smiles = []
-            for smi_field in ("pubchem_canonical_smiles", "pubchem_isomeric_smiles", "standard_smiles", "canonical_smiles", "smiles"):
-                if smi_field in molecule_data and molecule_data[smi_field]:
-                    val = str(molecule_data[smi_field]).strip()
-                    if val and val not in candidate_smiles:
-                        candidate_smiles.append(val)
-            for smi in candidate_smiles:
-                try:
-                    cid_data = client.fetch_cids_by_smiles(smi)
-                    cids = cid_data.get("pubchem_cids", [])
-                    if cids:
-                        pubchem_cid = str(cids[0])
-                        break
-                except Exception as e:
-                    logger.debug(f"Failed PubChem CID by SMILES candidate: {e}")
-
-        # By name
-        if pubchem_cid is None and "pref_name" in molecule_data and molecule_data["pref_name"]:
-            try:
-                cid_data = client.fetch_compound_by_name(molecule_data["pref_name"])
-                cids = cid_data.get("pubchem_cids", [])
-                if cids:
-                    pubchem_cid = str(cids[0])
-            except Exception as e:
-                logger.debug(f"Failed to get PubChem CID for name {molecule_data['pref_name']}: {e}")
-
-        if pubchem_cid:
-            cids_to_fetch.append(pubchem_cid)
-            cid_mapping[pubchem_cid] = idx
-
-    if not cids_to_fetch:
-        logger.debug("No PubChem CIDs available for batch enrichment")
-        return molecules_data
-
-    logger.info(f"Enriching {len(cids_to_fetch)} molecules with PubChem data")
-
-    # Batch fetch properties
-    try:
-        pubchem_batch_size = getattr(config.runtime, "pubchem_batch_size", 100)
-        pubchem_props = client.fetch_compounds_properties_batch(cids_to_fetch, pubchem_batch_size)
-
-        # Update molecules with PubChem data
-        for cid, molecule_idx in cid_mapping.items():
-            if cid in pubchem_props:
-                molecules_data[molecule_idx].update(pubchem_props[cid])
-                molecules_data[molecule_idx]["pubchem_cid"] = cid
-
-        logger.info(f"Successfully enriched {len(pubchem_props)} molecules with PubChem properties")
-
-    except Exception as e:
-        logger.warning(f"Failed to enrich molecules with PubChem data: {e}")
+    logger.info(f"Successfully enriched {enriched_count} molecules with PubChem data")
 
     return molecules_data
 
@@ -552,7 +494,12 @@ def extract_batch_data(
             except Exception as e:
                 logger.error(f"Error processing molecule {molecule_chembl_id}: {e}")
                 # Create error record
-                error_data = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M:%S"), "error": str(e)}
+                error_data = {
+                    "molecule_chembl_id": molecule_chembl_id,
+                    "source_system": "ChEMBL",
+                    "extracted_at": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                    "error": str(e)
+                }
                 batch_results.append(error_data)
 
         # PubChem enrichment for this batch

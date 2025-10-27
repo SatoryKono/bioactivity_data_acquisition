@@ -126,6 +126,51 @@ class SemanticScholarFallbackStrategy(FallbackStrategy):
         }
 
 
+class OpenAlexFallbackStrategy(FallbackStrategy):
+    """Specialized fallback strategy for OpenAlex API with moderate rate limits."""
+    
+    def should_retry(self, error: ApiClientError, attempt: int) -> bool:
+        """Conservative retry logic for OpenAlex."""
+        if error.status_code == 429:
+            # For rate limiting, retry once
+            return attempt < 1
+        elif error.status_code in [500, 502, 503, 504]:
+            # For server errors, retry once
+            return attempt < 1
+        else:
+            # For other errors, don't retry
+            return False
+    
+    def get_delay(self, error: ApiClientError, attempt: int) -> float:
+        """Optimized delays for OpenAlex rate limiting."""
+        if error.status_code == 429:
+            # Moderate delays for rate limiting
+            delay = min(5.0 + (attempt * 3.0), 30.0)  # 5-30 секунд
+        elif error.status_code in [500, 502, 503, 504]:
+            # Moderate delay for server errors
+            delay = min(8.0 + (attempt * 5.0), 30.0)
+        else:
+            # Standard delay
+            delay = self.config.base_delay
+        
+        if self.config.jitter:
+            import random  # noqa: S311
+            jitter_factor = random.uniform(0.8, 1.2)  # Больше вариативности
+            delay *= jitter_factor
+        
+        return delay
+    
+    def get_fallback_data(self, error: ApiClientError) -> dict[str, Any]:
+        """Return fallback data for OpenAlex."""
+        return {
+            "source": "fallback",
+            "fallback_used": True,
+            "error": str(error),
+            "fallback_reason": f"OpenAlex API error: {error.status_code}",
+            "retry_count": 1
+        }
+
+
 class AdaptiveFallbackStrategy(FallbackStrategy):
     """Adaptive fallback strategy that learns from API behavior."""
     
@@ -240,6 +285,7 @@ __all__ = [
     "FallbackStrategy", 
     "RateLimitFallbackStrategy",
     "SemanticScholarFallbackStrategy",
+    "OpenAlexFallbackStrategy",
     "AdaptiveFallbackStrategy",
     "FallbackManager"
 ]

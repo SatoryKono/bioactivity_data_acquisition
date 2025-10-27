@@ -1,8 +1,8 @@
 artifacts:
   csv:
     filename: testitem_20251027.csv
-    rows: 10
-    sha256: 80b825100c1b19daef4a30fa9d98ec9bea218799658ba8a9e7d8f287f389b8e6
+    rows: 98
+    sha256: db4144dc7b9a6ab52884d4d0bbfc0ff262967ab94bfc9cdbc4fefd532913d2aa
 chembl_release: ChEMBL_36
 data_quality:
   error_rate: 0.0
@@ -14,8 +14,8 @@ extraction_parameters:
   retries: 5
   timeout_sec: 30
 file_checksums:
-  csv: 80b825100c1b19daef4a30fa9d98ec9bea218799658ba8a9e7d8f287f389b8e6
-  qc: 727b8a17e302024721e30a822566e5cb8b08769eb26354e85bd0bd69272e5ada
+  csv: db4144dc7b9a6ab52884d4d0bbfc0ff262967ab94bfc9cdbc4fefd532913d2aa
+  qc: 2d9d0d54c0782ac715329fc4bbc6fcfa49ddfa7d3b420e5ec0493a128168e231
 pipeline_version: 1.1.0
 pubchem_enrichment:
   enabled: true
@@ -35,7 +35,7 @@ pubchem_enrichment:
     - -1
     - 0
   - !!binary |
-    AAAAAACAVkA=
+    AAAAAAAAAAA=
   records_with_pubchem_data: !!python/object/apply:numpy._core.multiarray.scalar
   - !!python/object/apply:numpy.dtype
     args:
@@ -52,8 +52,8 @@ pubchem_enrichment:
     - -1
     - 0
   - !!binary |
-    CQAAAAAAAAA=
+    AAAAAAAAAAA=
 run_date: '20251027'
 source_counts:
-  chembl: 10
-total_records: 10
+  chembl: 98
+total_records: 98
