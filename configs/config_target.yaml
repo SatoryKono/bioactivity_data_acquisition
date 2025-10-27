@@ -154,7 +154,6 @@ determinism:
     - "uniprot_id_primary"             # STRING: Первичный UniProt ID, источник: UniProt REST API, тип: STRING, валидация: nullable, UNIQUE
     - "uniprot_ids_all"                # TEXT: Все UniProt ID, источник: UniProt, тип: TEXT, валидация: nullable
     - "uniProtkbId"                    # STRING: UniProtKB ID, источник: UniProt, тип: STRING, валидация: nullable
-    - "CHEMBL.TARGET_COMPONENTS.accession"            # TEXT: Вторичные accession номера, источник: UniProt, тип: TEXT, валидация: nullable | internal_name: CHEMBL.TARGET_COMPONENTS.accession
     - "secondaryAccessionNames"        # TEXT: Названия вторичных accession, источник: UniProt, тип: TEXT, валидация: nullable
      
     # 5. Isoform data
@@ -295,7 +294,6 @@ determinism:
     - "extraction_errors"              # TEXT: Ошибки извлечения, источник: система, тип: TEXT, валидация: nullable
     # Метаданные
     - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
-    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                        # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
     - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
     - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
     - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601

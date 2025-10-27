@@ -545,18 +545,28 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             "drug_antiinflammatory_flag",
         ]
 
-        # Process in batches
-        batch_size = 25  # ChEMBL API limit
+        # Use streaming batch processing with configurable batch size
+        batch_size = getattr(self.config.runtime, 'batch_size', 25)
+        logger.info(f"Using streaming batch processing with batch_size={batch_size}")
+        
         all_records = []
-
-        for i in range(0, len(molecule_ids), batch_size):
-            batch_ids = molecule_ids[i : i + batch_size]
+        batch_index = 0
+        
+        # Use client's streaming batch API for better memory efficiency
+        for batch_ids, batch_results in client.fetch_molecules_batch_streaming(molecule_ids, batch_size):
+            batch_index += 1
+            logger.info(f"Processing ChEMBL batch {batch_index}: {len(batch_ids)} molecules")
+            
             try:
-                batch_data = self._fetch_chembl_batch(batch_ids, chembl_fields, client)
+                # Convert batch results to DataFrame
+                batch_data = self._convert_batch_to_dataframe(batch_results, chembl_fields)
                 if not batch_data.empty:
                     all_records.append(batch_data)
+                    logger.info(f"Batch {batch_index} completed: {len(batch_data)} records")
+                else:
+                    logger.warning(f"Batch {batch_index} returned no data")
             except Exception as e:
-                logger.error(f"Failed to fetch ChEMBL batch {i // batch_size + 1}: {e}")
+                logger.error(f"Failed to process ChEMBL batch {batch_index}: {e}")
                 continue
 
         if not all_records:
@@ -567,55 +577,34 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         result = pd.concat(all_records, ignore_index=True)
         result["retrieved_at"] = pd.Timestamp.now().isoformat()
 
-        logger.info(f"ChEMBL extraction completed: {len(result)} records")
+        logger.info(f"ChEMBL extraction completed: {len(result)} records from {batch_index} batches")
         return result
 
-    def _fetch_chembl_batch(self, molecule_ids: list[str], fields: list[str], client) -> pd.DataFrame:
-        """Fetch a batch of molecules from ChEMBL API."""
-        from urllib.parse import urlencode
-
-        params = {"format": "json", "limit": "1000", "fields": ",".join(fields)}
-
-        # Add molecule filter
-        if len(molecule_ids) == 1:
-            params["molecule_chembl_id"] = molecule_ids[0]
-        else:
-            params["molecule_chembl_id__in"] = ",".join(molecule_ids)
-
-        query_string = urlencode(params)
-
-        try:
-            # Make request using ChEMBL client's _request method
-            response = client._request("GET", f"molecule.json?{query_string}")
-            if not response:
-                logger.warning("No response from ChEMBL for batch: %s", molecule_ids)
-                return pd.DataFrame()
-
-            # response is already parsed data from ChEMBL client
-            if "molecules" not in response:
-                logger.warning("No molecules found in ChEMBL response for batch: %s", molecule_ids)
-                return pd.DataFrame()
-
-            # Convert to DataFrame and flatten nested structures
-            molecules = response["molecules"]
-            if not molecules:
-                return pd.DataFrame()
-
-            # Flatten nested structures
-            flattened_molecules = []
-            for molecule in molecules:
-                flattened = self._flatten_molecule_data(molecule)
-                flattened_molecules.append(flattened)
-
-            df = pd.DataFrame(flattened_molecules)
-            return df
-
-        except requests.RequestException as e:
-            logger.error(f"ChEMBL API request failed: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to process ChEMBL response: {e}")
-            raise
+    def _convert_batch_to_dataframe(self, batch_results: dict[str, dict[str, Any]], chembl_fields: list[str]) -> pd.DataFrame:
+        """Convert batch results from client to DataFrame."""
+        if not batch_results:
+            return pd.DataFrame()
+        
+        # Convert batch results to list of records
+        records = []
+        for molecule_id, molecule_data in batch_results.items():
+            if molecule_data:
+                # Flatten nested structures
+                flattened = self._flatten_molecule_data(molecule_data)
+                records.append(flattened)
+        
+        if not records:
+            return pd.DataFrame()
+        
+        # Convert to DataFrame
+        df = pd.DataFrame(records)
+        
+        # Ensure all expected fields are present
+        for field in chembl_fields:
+            if field not in df.columns:
+                df[field] = None
+        
+        return df
 
     def _flatten_molecule_data(self, molecule: dict) -> dict:
         """Flatten nested molecule structures into top-level fields."""
@@ -801,24 +790,40 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             "pubchem_rn",
         ]
 
-        # Process in batches (PubChem rate limit: 5 requests/second)
+        # Use configurable batch processing for PubChem
+        pubchem_batch_size = getattr(self.config.runtime, 'pubchem_batch_size', 100)
+        logger.info(f"Using PubChem batch processing with batch_size={pubchem_batch_size}")
+        
         all_records = []
-
-        for i, inchi_key in enumerate(inchi_keys):
-            try:
-                # Rate limiting: wait 0.2 seconds between requests (5 req/sec)
-                if i > 0:
-                    import time
-
-                    time.sleep(0.2)
-
-                record_data = self._fetch_pubchem_record(inchi_key, pubchem_fields, client)
-                if not record_data.empty:
-                    all_records.append(record_data)
-
-            except Exception as e:
-                logger.error(f"Failed to fetch PubChem data for InChI Key {inchi_key}: {e}")
-                continue
+        batch_index = 0
+        
+        # Process InChI Keys in batches
+        for i in range(0, len(inchi_keys), pubchem_batch_size):
+            batch_keys = inchi_keys[i:i + pubchem_batch_size]
+            batch_index += 1
+            logger.info(f"Processing PubChem batch {batch_index}: {len(batch_keys)} InChI Keys")
+            
+            batch_records = []
+            for j, inchi_key in enumerate(batch_keys):
+                try:
+                    # Rate limiting: wait 0.2 seconds between requests (5 req/sec)
+                    if j > 0:
+                        import time
+                        time.sleep(0.2)
+                    
+                    record_data = self._fetch_pubchem_record(inchi_key, pubchem_fields, client)
+                    if not record_data.empty:
+                        batch_records.append(record_data)
+                        
+                except Exception as e:
+                    logger.error(f"Failed to fetch PubChem data for InChI Key {inchi_key}: {e}")
+                    continue
+            
+            if batch_records:
+                all_records.extend(batch_records)
+                logger.info(f"PubChem batch {batch_index} completed: {len(batch_records)} records")
+            else:
+                logger.warning(f"PubChem batch {batch_index} returned no data")
 
         if not all_records:
             logger.warning("No PubChem data extracted")
@@ -827,7 +832,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         # Combine all records
         result = pd.concat(all_records, ignore_index=True)
 
-        logger.info(f"PubChem extraction completed: {len(result)} records")
+        logger.info(f"PubChem extraction completed: {len(result)} records from {batch_index} batches")
         return result
 
     def _fetch_pubchem_record(self, inchi_key: str, fields: list[str], client) -> pd.DataFrame:
