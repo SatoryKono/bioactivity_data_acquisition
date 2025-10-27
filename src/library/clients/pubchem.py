@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+from pathlib import Path
 from typing import Any, cast
 from urllib.parse import quote
 
@@ -19,7 +21,6 @@ class PubChemClient(BaseApiClient):
 
     def __init__(self, config: APIClientConfig, *, cache_dir: str | None = None, **kwargs: Any) -> None:
         super().__init__(config, **kwargs)
-<<<<<<< Updated upstream
         # Optional simple file cache directory for GET requests
         self._cache_dir: Path | None = Path(cache_dir) if cache_dir else None
         if self._cache_dir is not None:
@@ -28,7 +29,6 @@ class PubChemClient(BaseApiClient):
             except Exception as exc:  # pragma: no cover
                 logger.warning(f"Failed to create PubChem cache dir {self._cache_dir}: {exc}")
                 self._cache_dir = None
-=======
         # Initialize unified cache
         if cache_dir is not None:
             cache_config = CacheConfig(
@@ -42,15 +42,13 @@ class PubChemClient(BaseApiClient):
             # Use memory cache if no cache_dir provided
             cache_config = CacheConfig(strategy=CacheStrategy.MEMORY, ttl=3600, max_size=1000, key_prefix="pubchem")
             self._cache = UnifiedCache(cache_config)
->>>>>>> Stashed changes
 
     # --- simple GET JSON cache helpers ----------------------------------------------------
     def _cache_key(self, path: str) -> str:
         key_source = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
-        return hashlib.sha1(key_source.encode("utf-8")).hexdigest()
+        return hashlib.sha256(key_source.encode("utf-8")).hexdigest()
 
     def _cache_read(self, path: str) -> dict[str, Any] | None:
-<<<<<<< Updated upstream
         if self._cache_dir is None:
             return None
         file_path = self._cache_dir / f"{self._cache_key(path)}.json"
@@ -72,14 +70,12 @@ class PubChemClient(BaseApiClient):
                 json.dump(payload, f, ensure_ascii=False)
         except Exception as exc:  # pragma: no cover
             logger.warning(f"Failed to write PubChem cache: {exc}")
-=======
         cache_key = self._cache_key(path)
         return self._cache.get(cache_key)
 
     def _cache_write(self, path: str, payload: dict[str, Any]) -> None:
         cache_key = self._cache_key(path)
         self._cache.set(cache_key, payload)
->>>>>>> Stashed changes
 
     def _get_with_cache(self, path: str) -> dict[str, Any]:
         cached = self._cache_read(path)

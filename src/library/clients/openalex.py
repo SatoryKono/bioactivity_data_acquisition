@@ -5,15 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-<<<<<<< Updated upstream
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
-=======
-from library.clients.base import BaseApiClient
-from library.common.exceptions import ApiClientError
-from library.settings import APIClientConfig
-from library.utils.list_converter import convert_authors_list, convert_issn_list
->>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +15,7 @@ class OpenAlexClient(BaseApiClient):
     """HTTP client for OpenAlex works."""
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
-<<<<<<< Updated upstream
         super().__init__(config, **kwargs)
-=======
         # Добавляем email в User-Agent для polite pool согласно документации OpenAlex
         headers = dict(config.headers)
         if "User-Agent" not in headers:
@@ -32,7 +23,6 @@ class OpenAlexClient(BaseApiClient):
         enhanced = config.model_copy(update={"headers": headers})
         super().__init__(enhanced, **kwargs)
         self.logger = logger
->>>>>>> Stashed changes
 
     def fetch_by_doi(self, doi: str) -> dict[str, Any]:
         """Fetch a work by DOI with fallback to a filter query."""
@@ -49,13 +39,10 @@ class OpenAlexClient(BaseApiClient):
             if status_code == 429:
                 self.logger.warning(f"openalex_rate_limited doi={doi} error={str(exc)} message=OpenAlex API rate limit exceeded. Consider getting an API key.")
                 return self._create_empty_record(doi, f"Rate limited: {str(exc)}")
-<<<<<<< Updated upstream
             
             self.logger.info("openalex_doi_fallback", doi=doi, error=str(exc))
-=======
 
             self.logger.info("openalex_doi_fallback doi=%s error=%s", doi, str(exc))
->>>>>>> Stashed changes
             try:
                 # Fallback to OpenAlex search API
                 response = self._request("GET", "", params={"filter": f"doi:{doi}"})
@@ -74,7 +61,6 @@ class OpenAlexClient(BaseApiClient):
         """Fetch a work by PMID with fallback search."""
 
         try:
-<<<<<<< Updated upstream
             payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
             results = payload.get("results", [])
             if results:
@@ -86,22 +72,18 @@ class OpenAlexClient(BaseApiClient):
             if not results:
                 raise ApiClientError(f"No OpenAlex work found for PMID {pmid}")
             return self._parse_work(results[0])
-=======
             # Используем прямой URL как в референсном проекте: /works/pmid:{pmid}
             path = f"works/pmid:{pmid}"
             response = self._request("GET", path)
             payload = response.json()
             return self._parse_work(payload)
->>>>>>> Stashed changes
         except ApiClientError as exc:
             # Специальная обработка для ошибок 429 от OpenAlex
             status_code = exc.context.details.get("status_code") if exc.context and exc.context.details else None
             if status_code == 429:
                 self.logger.warning(f"openalex_rate_limited pmid={pmid} error={str(exc)} message=OpenAlex API rate limit exceeded. Consider getting an API key.")
                 return self._create_empty_record(pmid, f"Rate limited: {str(exc)}")
-<<<<<<< Updated upstream
             raise
-=======
 
             # Fallback к поиску если прямой запрос не сработал
             self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
@@ -117,7 +99,6 @@ class OpenAlexClient(BaseApiClient):
                 if fallback_status_code == 429:
                     return self._create_empty_record(pmid, f"Rate limited: {str(fallback_exc)}")
                 raise
->>>>>>> Stashed changes
 
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         ids = work.get("ids") or {}
@@ -162,32 +143,29 @@ class OpenAlexClient(BaseApiClient):
                     source = primary_location["source"]
                     if source and "type_crossref" in source:
                         type_crossref = source["type_crossref"]
-<<<<<<< Updated upstream
         
         record: dict[str, Any | None] = {
-=======
+            "title": work.get("title"),
+            "doi": work.get("doi"),
+            "year": work.get("publication_year"),
+            "authors": self._extract_authors(work.get("authors", [])),
+            "journal": self._extract_journal(work),
+            "issn": self._extract_issn(work),
+            "type": work.get("type"),
+            "openalex_id": work.get("id"),
+            "type_crossref": type_crossref,
+        }
 
-        # Извлекаем библиографические данные из biblio
-        biblio = work.get("biblio", {})
-        openalex_volume = None
-        openalex_issue = None
-        openalex_first_page = None
-        openalex_last_page = None
-
-        if biblio:
-            openalex_volume = biblio.get("volume")
-            openalex_issue = biblio.get("issue")
-            openalex_first_page = biblio.get("first_page")
-            openalex_last_page = biblio.get("last_page")
+        # Extract bibliographic data from biblio
+        work.get("biblio", {})
 
         # Реконструируем abstract из inverted index
-        abstract = self._reconstruct_abstract(work.get("abstract_inverted_index"))
+        self._reconstruct_abstract(work.get("abstract_inverted_index"))
 
         # Извлекаем journal из host_venue
-        journal = self._extract_journal(work)
+        self._extract_journal(work)
 
         record: dict[str, Any] = {
->>>>>>> Stashed changes
             "source": "openalex",
             "openalex_doi": doi_value,
             "openalex_title": title,
@@ -242,8 +220,6 @@ class OpenAlexClient(BaseApiClient):
             return author_names if author_names else None
 
         return None
-<<<<<<< Updated upstream
-=======
 
     def _reconstruct_abstract(self, inverted_index: dict[str, list[int]] | None) -> str | None:
         """Реконструирует абстракт из inverted index формата OpenAlex.
@@ -297,7 +273,6 @@ class OpenAlexClient(BaseApiClient):
                 return str(display_name)
 
         return None
->>>>>>> Stashed changes
 
     def _extract_issn(self, work: dict[str, Any]) -> str | None:
         """Извлекает ISSN из OpenAlex work."""
@@ -355,13 +330,10 @@ class OpenAlexClient(BaseApiClient):
             return {}
 
         results = {}
-<<<<<<< Updated upstream
         
-=======
         success_count = 0
         error_count = 0
 
->>>>>>> Stashed changes
         # Process in chunks to avoid URL length limits
         for i in range(0, len(dois), batch_size):
             chunk = dois[i : i + batch_size]
@@ -383,28 +355,21 @@ class OpenAlexClient(BaseApiClient):
 
                     if doi_value in chunk:
                         results[doi_value] = self._parse_work(work)
-<<<<<<< Updated upstream
                 
-=======
                         success_count += 1
 
->>>>>>> Stashed changes
                 # Add empty records for missing DOIs
                 for doi in chunk:
                     if doi not in results:
                         results[doi] = self._create_empty_record(doi, "Not found in batch response")
-<<<<<<< Updated upstream
                         
-=======
                         error_count += 1
 
->>>>>>> Stashed changes
             except Exception as e:
                 logger.warning(f"Failed to fetch DOIs batch {chunk}: {e}")
                 # Add empty records for failed batch
                 for doi in chunk:
                     results[doi] = self._create_empty_record(doi, str(e))
-<<<<<<< Updated upstream
         
         return results
 
@@ -413,27 +378,15 @@ class OpenAlexClient(BaseApiClient):
         pmids: list[str],
         batch_size: int = 50
     ) -> dict[str, dict[str, Any]]:
-        """Fetch multiple works by PMIDs using filter.
-        
-        OpenAlex supports batch queries using filter with OR operator.
-=======
-                    error_count += 1
-
-        self.logger.info(f"OpenAlex batch completed: {success_count} successful, {error_count} errors out of {len(dois)} DOIs")
-        return results
-
-    def fetch_by_pmids_batch(self, pmids: list[str], batch_size: int = 50) -> dict[str, dict[str, Any]]:
         """Fetch multiple works by PMIDs using individual requests with fallback.
 
         OpenAlex batch queries may not find all documents, so we use individual requests
         with the same fallback logic as fetch_by_pmid.
->>>>>>> Stashed changes
         """
         if not pmids:
             return {}
 
         results = {}
-<<<<<<< Updated upstream
         
         # Process in chunks to avoid URL length limits
         for i in range(0, len(pmids), batch_size):
@@ -469,7 +422,6 @@ class OpenAlexClient(BaseApiClient):
                     results[pmid] = self._create_empty_record(pmid, str(e))
         
         return results
-=======
 
         # Use individual requests with fallback logic like fetch_by_pmid
         for pmid in pmids:
@@ -502,8 +454,6 @@ class OpenAlexClient(BaseApiClient):
                         else:
                             results[pmid] = self._create_empty_record(pmid, f"Not found: {str(fallback_exc)}")
             except Exception as e:
-                self.logger.warning("Failed to fetch PMID %s: %s", pmid, e)
-                results[pmid] = self._create_empty_record(pmid, str(e))
-
+                results[pmid] = self._create_empty_record(pmid, f"Error: {str(e)}")
+        
         return results
->>>>>>> Stashed changes

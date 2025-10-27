@@ -6,15 +6,9 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
-<<<<<<< Updated upstream
 from library.clients.base import ApiClientError, BaseApiClient
 from library.config import APIClientConfig
-=======
-from library.clients.base import BaseApiClient
-from library.common.exceptions import ApiClientError
-from library.settings import APIClientConfig
 from library.utils.list_converter import convert_authors_list
->>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +67,9 @@ class PubMedClient(BaseApiClient):
         api_key = getattr(self.config, "api_key", None)
         if api_key:
             params["api_key"] = api_key
-<<<<<<< Updated upstream
             
         payload = self._request("GET", "esummary.fcgi", params=params)
         
-=======
 
         try:
             response = self._request("GET", "esummary.fcgi", params=params)
@@ -90,14 +82,11 @@ class PubMedClient(BaseApiClient):
                 result[str(pmid)] = self._create_empty_record(pmid, f"Batch request failed: {str(e)}")
             return result
 
->>>>>>> Stashed changes
         result: dict[str, dict[str, Any]] = {}
         for pmid in pmid_list:
             record = self._extract_record(payload, pmid)
             if record is not None:
                 result[str(pmid)] = record
-<<<<<<< Updated upstream
-=======
             else:
                 # Создаем пустую запись с ошибкой если не удалось извлечь
                 result[str(pmid)] = self._create_empty_record(pmid, "No data found")
@@ -123,7 +112,6 @@ class PubMedClient(BaseApiClient):
                 for pmid in batch:
                     result[str(pmid)] = self._create_empty_record(pmid, f"Batch processing failed: {str(e)}")
 
->>>>>>> Stashed changes
         return result
 
     def _extract_record(self, payload: dict[str, Any], pmid: str) -> dict[str, Any] | None:
@@ -159,13 +147,10 @@ class PubMedClient(BaseApiClient):
 
         if payload.get("pmid") and str(payload.get("pmid")) == str(pmid):
             return self._normalise_record(payload)
-<<<<<<< Updated upstream
             
         self.logger.warning("unexpected_payload_format", pmid=pmid, payload_keys=list(payload.keys()))
-=======
 
         self.logger.warning("unexpected_payload_format pmid=%s payload_keys=%s", pmid, list(payload.keys()))
->>>>>>> Stashed changes
         return None
 
     def _normalise_record(self, record: dict[str, Any]) -> dict[str, Any]:
@@ -179,14 +164,12 @@ class PubMedClient(BaseApiClient):
             formatted_authors = None
 
         # Обработка DOI
-<<<<<<< Updated upstream
         doi_value: str | None
         doi_list = record.get("doiList")
         if isinstance(doi_list, list) and doi_list:
             doi_value = doi_list[0]
         else:
             doi_value = record.get("doi")
-=======
         doi_value: str | None = None
 
         # Сначала проверяем articleids (основной источник DOI в PubMed)
@@ -204,7 +187,6 @@ class PubMedClient(BaseApiClient):
                 doi_value = doi_list[0]
             else:
                 doi_value = record.get("doi")
->>>>>>> Stashed changes
 
         # Обработка дат публикации
         pub_date = record.get("pubdate")
@@ -284,14 +266,11 @@ class PubMedClient(BaseApiClient):
             "doi": doi_value,
             "pubmed_authors": formatted_authors,
         }
-<<<<<<< Updated upstream
-=======
 
         # Debug logging для проверки MeSH данных
         pmid = record.get("pmid", "unknown")
         self.logger.debug("PubMed record for %s: mesh_descriptors=%s, mesh_qualifiers=%s, chemical_list=%s", pmid, mesh_descriptors, mesh_qualifiers, chemical_list)
 
->>>>>>> Stashed changes
         # Return all fields, including None values, to maintain schema consistency
         return parsed
 
@@ -377,7 +356,6 @@ class PubMedClient(BaseApiClient):
 
             if response.status_code == 200:
                 xml_content = response.text
-<<<<<<< Updated upstream
                 
                 # Простой парсинг XML для извлечения DOI и abstract
                 import re
@@ -426,7 +404,6 @@ class PubMedClient(BaseApiClient):
                 if chemical_list:
                     record["pubmed_chemical_list"] = "; ".join(chemical_list)
             
-=======
 
                 # Парсинг XML через lxml
                 from lxml import etree
@@ -442,7 +419,6 @@ class PubMedClient(BaseApiClient):
                 self._extract_mesh_terms(root, record)
                 self._extract_chemicals(root, record)
 
->>>>>>> Stashed changes
             return record
 
         except Exception as e:

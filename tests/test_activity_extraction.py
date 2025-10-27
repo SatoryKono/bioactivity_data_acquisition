@@ -1,10 +1,5 @@
 """Tests for activity data extraction functionality."""
 
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch
-
 import pandas as pd
 import pytest
 

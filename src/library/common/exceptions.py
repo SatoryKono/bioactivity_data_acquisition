@@ -87,7 +87,6 @@ class ConfigError(BioactivityError):
     """Raised when configuration files are missing or invalid."""
 
     def __init__(self, message: str, *, config_file: str | None = None, config_section: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(domain=ErrorDomain.CONFIG, severity=ErrorSeverity.HIGH, component="config", details={"config_file": config_file, "config_section": config_section})
         super().__init__(message, cause=cause)
 
 
@@ -102,7 +101,6 @@ class NetworkError(BioactivityError):
     """Base class for network-related errors."""
 
     def __init__(self, message: str, *, url: str | None = None, status_code: int | None = None, component: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(domain=ErrorDomain.NETWORK, severity=ErrorSeverity.MEDIUM, component=component, details={"url": url, "status_code": status_code})
         super().__init__(message, cause=cause)
 
 
@@ -110,9 +108,6 @@ class ApiClientError(NetworkError):
     """Generic API client error."""
 
     def __init__(self, message: str, *, url: str | None = None, status_code: int | None = None, api_name: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.NETWORK, severity=ErrorSeverity.MEDIUM, component=api_name or "api_client", details={"url": url, "status_code": status_code, "api_name": api_name}
-        )
         super().__init__(message, cause=cause)
 
 
@@ -120,12 +115,6 @@ class RateLimitError(ApiClientError):
     """Raised when rate limit is exceeded."""
 
     def __init__(self, message: str, *, url: str | None = None, retry_after: float | None = None, api_name: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.RATE_LIMIT,
-            severity=ErrorSeverity.MEDIUM,
-            component=api_name or "rate_limiter",
-            details={"url": url, "retry_after": retry_after, "api_name": api_name},
-        )
         super().__init__(message, cause=cause)
 
 
@@ -133,7 +122,6 @@ class TimeoutError(NetworkError):
     """Raised when request times out."""
 
     def __init__(self, message: str, *, url: str | None = None, timeout: float | None = None, component: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(domain=ErrorDomain.NETWORK, severity=ErrorSeverity.MEDIUM, component=component, details={"url": url, "timeout": timeout})
         super().__init__(message, cause=cause)
 
 
@@ -142,7 +130,6 @@ class DataError(BioactivityError):
     """Base class for data processing errors."""
 
     def __init__(self, message: str, *, data_source: str | None = None, record_id: str | None = None, component: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(domain=ErrorDomain.DATA, severity=ErrorSeverity.MEDIUM, component=component, details={"data_source": data_source, "record_id": record_id})
         super().__init__(message, cause=cause)
 
 
@@ -150,13 +137,6 @@ class ExtractionError(DataError):
     """Raised when data extraction fails."""
 
     def __init__(self, message: str, *, data_source: str | None = None, record_id: str | None = None, api_name: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.DATA,
-            severity=ErrorSeverity.HIGH,
-            component=api_name or "extractor",
-            operation="extract",
-            details={"data_source": data_source, "record_id": record_id, "api_name": api_name},
-        )
         super().__init__(message, cause=cause)
 
 
@@ -164,13 +144,6 @@ class TransformationError(DataError):
     """Raised when data transformation fails."""
 
     def __init__(self, message: str, *, data_source: str | None = None, record_id: str | None = None, transform_type: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.DATA,
-            severity=ErrorSeverity.MEDIUM,
-            component="transformer",
-            operation="transform",
-            details={"data_source": data_source, "record_id": record_id, "transform_type": transform_type},
-        )
         super().__init__(message, cause=cause)
 
 
@@ -188,13 +161,6 @@ class ValidationError(BioactivityError):
         validation_errors: list[str] | None = None,
         cause: Exception | None = None,
     ) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.VALIDATION,
-            severity=ErrorSeverity.HIGH,
-            component="validator",
-            operation="validate",
-            details={"schema_name": schema_name, "field_name": field_name, "record_id": record_id, "validation_errors": validation_errors},
-        )
         super().__init__(message, cause=cause)
 
 
@@ -221,13 +187,6 @@ class NormalizationError(BioactivityError):
     """Raised when data normalization fails."""
 
     def __init__(self, message: str, *, field_name: str | None = None, value: Any = None, normalizer_name: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.NORMALIZATION,
-            severity=ErrorSeverity.LOW,
-            component="normalizer",
-            operation="normalize",
-            details={"field_name": field_name, "value": str(value) if value is not None else None, "normalizer_name": normalizer_name},
-        )
         super().__init__(message, cause=cause)
 
 
@@ -236,9 +195,6 @@ class CacheError(BioactivityError):
     """Raised when caching operations fail."""
 
     def __init__(self, message: str, *, cache_key: str | None = None, cache_type: str | None = None, operation: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.CACHE, severity=ErrorSeverity.LOW, component="cache", operation=operation, details={"cache_key": cache_key, "cache_type": cache_type}
-        )
         super().__init__(message, cause=cause)
 
 
@@ -247,7 +203,6 @@ class XMLParseError(BioactivityError):
     """Raised when XML parsing fails."""
 
     def __init__(self, message: str, *, xml_source: str | None = None, xpath: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(domain=ErrorDomain.XML, severity=ErrorSeverity.MEDIUM, component="xml_parser", operation="parse", details={"xml_source": xml_source, "xpath": xpath})
         super().__init__(message, cause=cause)
 
 
@@ -255,9 +210,6 @@ class XMLValidationError(XMLParseError):
     """Raised when XML validation fails."""
 
     def __init__(self, message: str, *, xml_source: str | None = None, schema_type: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.XML, severity=ErrorSeverity.MEDIUM, component="xml_validator", operation="validate", details={"xml_source": xml_source, "schema_type": schema_type}
-        )
         super().__init__(message, cause=cause)
 
 
@@ -265,9 +217,6 @@ class XPathError(XMLParseError):
     """Raised when XPath execution fails."""
 
     def __init__(self, message: str, *, xpath: str | None = None, xml_source: str | None = None, cause: Exception | None = None) -> None:
-        context = ErrorContext(
-            domain=ErrorDomain.XML, severity=ErrorSeverity.MEDIUM, component="xpath_processor", operation="xpath", details={"xpath": xpath, "xml_source": xml_source}
-        )
         super().__init__(message, cause=cause)
 
 

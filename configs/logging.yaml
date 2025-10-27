@@ -42,7 +42,6 @@ handlers:
     interval: 1
     backupCount: 14
     encoding: utf-8
-    suffix: "%Y-%m-%d"
 
 loggers:
   "":

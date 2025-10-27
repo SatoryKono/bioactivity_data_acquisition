@@ -8,6 +8,7 @@ from library.clients.exceptions import (
     ResourceNotFoundError,
     SchemaValidationError,
 )
+
 from .bioactivity import BioactivityClient
 from .chembl import ChEMBLClient
 from .crossref import CrossrefClient

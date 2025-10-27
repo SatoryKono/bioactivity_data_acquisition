@@ -26,9 +26,7 @@
 - Базовый URL: <https://api.semanticscholar.org/graph/v1/paper>
 - Строгие лимиты без API‑ключа; рекомендуется ключ `x-api-key`
 
-<<<<<<< Updated upstream
 См. также: api-limits.md и docs/operations.md для скриптов мониторинга и интерпретации отчётов.
-=======
 **Лимиты:**
 
 - RPS: ≤3 запроса в секунду
@@ -287,4 +285,3 @@ export BIOACTIVITY__SOURCES__CHEMBL__BUDGET=50000
 - [CLI](reference/cli/index.md)
 - [Пайплайны](pipelines/documents.md)
 - [FAQ](faq.md)
->>>>>>> Stashed changes

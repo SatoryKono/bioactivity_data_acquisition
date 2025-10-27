@@ -18,8 +18,13 @@ from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
 from library.clients.semantic_scholar import SemanticScholarClient
+from library.common.pipeline_base import PipelineBase
 from library.config import APIClientConfig
 from library.documents.config import DocumentConfig
+from library.documents.diagnostics import DocumentDiagnostics
+from library.documents.normalize import DocumentNormalizer
+from library.documents.quality import DocumentQualityFilter
+from library.documents.validate import DocumentValidator
 from library.etl.enhanced_correlation import (
     build_correlation_insights,
     build_enhanced_correlation_analysis,
@@ -68,7 +73,6 @@ _REQUIRED_COLUMNS = {"document_chembl_id", "doi", "title"}
 logger = logging.getLogger(__name__)
 
 
-<<<<<<< Updated upstream
 def _create_api_client(source: str, config: DocumentConfig) -> Any:
     """Create an API client for the specified source."""
     from library.config import RateLimitSettings, RetrySettings
@@ -1191,7 +1195,6 @@ __all__ = [
     "run_document_etl",
     "write_document_outputs",
 ]
-=======
 class DocumentPipeline(PipelineBase[DocumentConfig]):
     """Document ETL pipeline using unified PipelineBase."""
 
@@ -1808,4 +1811,3 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
         from library.common.writer_base import create_etl_writer
 
         return create_etl_writer(self.config, "documents")
->>>>>>> Stashed changes

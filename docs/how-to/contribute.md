@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 # Руководство по участию в разработке
 
 Добро пожаловать в проект Bioactivity Data Acquisition! Мы ценим ваш вклад в развитие проекта.
@@ -329,7 +328,6 @@ class APIConfig(BaseModel):
  
  
  
-=======
 # Руководство по участию в разработке
 
 Добро пожаловать в проект Bioactivity Data Acquisition! Мы ценим ваш вклад в развитие проекта.
@@ -656,4 +654,3 @@ class APIConfig(BaseModel):
 - [Git LFS документация](https://git-lfs.github.io/)
 - [GitHub Flow](https://guides.github.com/introduction/flow/)
 - [Conventional Commits](https://www.conventionalcommits.org/)
->>>>>>> Stashed changes

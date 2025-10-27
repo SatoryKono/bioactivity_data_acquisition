@@ -125,11 +125,8 @@
 ## Связанные темы
 
 - [Архитектура](architecture.md)
-<<<<<<< Updated upstream
 - [Поток данных](data-flow.md)
 - [Детерминизм](determinism.md)
-=======
 - [Поток данных](architecture.md#поток-данных-etl)
 - [Детерминизм](architecture.md#детерминизм)
->>>>>>> Stashed changes
 - [Конфигурация](../reference/configuration/index.md)

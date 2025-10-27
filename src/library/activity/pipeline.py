@@ -1,8 +1,4 @@
-<<<<<<< Updated upstream
 """Activity data ETL pipeline."""
-=======
-"""Refactored activity ETL pipeline using PipelineBase and mixins."""
->>>>>>> Stashed changes
 
 from __future__ import annotations
 
@@ -17,25 +13,21 @@ import pandas as pd
 from pandera.errors import SchemaError
 from structlog import BoundLogger
 
-<<<<<<< Updated upstream
 from .client import ActivityChEMBLClient
 from .config import ActivityConfig
 from .normalize import ActivityNormalizer
 from .quality import ActivityQualityFilter
 from .validate import ActivityValidator
-=======
 from library.activity.config import ActivityConfig
 from library.activity.normalize import ActivityNormalizer
 from library.activity.quality import ActivityQualityFilter
 from library.activity.validate import ActivityValidator
 from library.common.entity_mixins import ActivityMixin
 from library.common.pipeline_base import PipelineBase
->>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
 
-<<<<<<< Updated upstream
 class ActivityPipelineError(RuntimeError):
     """Base class for activity pipeline errors."""
 
@@ -82,7 +74,7 @@ class ActivityPipeline:
             cache_dir=config.get_cache_path()
         )
         self.validator = ActivityValidator()
-        self.normalizer = ActivityNormalizer()
+        self.normalizer = ActivityNormalizer(config.model_dump() if hasattr(config, "model_dump") else {})
         self.quality_checker = ActivityQualityFilter()
 
     def run(
@@ -150,9 +142,6 @@ class ActivityPipeline:
         normalized_df = self._normalize_activities(validated_df, logger)
         # Add tracking fields similar to assay pipeline
         normalized_df = self._add_tracking_fields(normalized_df, logger)
-        
-        # Add index column
-        normalized_df.insert(0, 'index', range(len(normalized_df)))
         
         # Quality control
         qc_results = self._quality_control(normalized_df, logger)
@@ -534,74 +523,3 @@ def run_activity_etl(
     """
     pipeline = ActivityPipeline(config)
     return pipeline.run(input_csv, logger)
-=======
-class ActivityPipeline(ActivityMixin, PipelineBase[ActivityConfig]):
-    """Activity ETL pipeline using unified PipelineBase and ActivityMixin."""
-
-    def __init__(self, config: ActivityConfig) -> None:
-        """Initialize activity pipeline with configuration."""
-        super().__init__(config)
-        self.validator = ActivityValidator(config.model_dump() if hasattr(config, "model_dump") else {})
-        self.normalizer = ActivityNormalizer(config.model_dump() if hasattr(config, "model_dump") else {})
-        self.quality_filter = ActivityQualityFilter(config.model_dump() if hasattr(config, "model_dump") else {})
-
-    # Client setup and validation methods are now provided by ActivityMixin
-
-    # Extract method is now provided by ActivityMixin
-
-    # All extraction, merging, normalization, validation, and quality filtering methods
-    # are now provided by ActivityMixin
-
-    def _create_qc_validator(self) -> Any:
-        """Создать QC валидатор для пайплайна."""
-        from library.common.qc_profiles import ActivityQCValidator, QCProfile
-
-        # Создаем базовый QC профиль для активностей
-        qc_profile = QCProfile(name="activity_qc", description="Quality control profile for activities", rules=[])
-
-        return ActivityQCValidator(qc_profile)
-
-    def _create_postprocessor(self) -> Any:
-        """Создать постпроцессор для пайплайна."""
-        from library.common.postprocess_base import ActivityPostprocessor
-
-        return ActivityPostprocessor(self.config)
-
-    def _create_etl_writer(self) -> Any:
-        """Создать ETL writer для пайплайна."""
-        from library.common.writer_base import create_etl_writer
-
-        return create_etl_writer(self.config, "activities")
-
-    def _build_metadata(
-        self,
-        data: pd.DataFrame,
-        accepted_data: pd.DataFrame | None = None,
-        rejected_data: pd.DataFrame | None = None,
-        correlation_analysis: dict[str, Any] | None = None,
-        correlation_insights: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Build metadata for activity pipeline."""
-        # Use MetadataBuilder to create proper PipelineMetadata
-        from library.common.metadata import MetadataBuilder
-
-        metadata_builder = MetadataBuilder(self.config, "activities")
-
-        # Prepare additional metadata
-        additional_metadata = {}
-        if correlation_analysis is not None:
-            additional_metadata["correlation_analysis"] = correlation_analysis
-        if correlation_insights is not None:
-            additional_metadata["correlation_insights"] = correlation_insights
-
-        # Build proper metadata using MetadataBuilder
-        metadata = metadata_builder.build_metadata(
-            df=data,
-            accepted_df=accepted_data if accepted_data is not None else data,
-            rejected_df=rejected_data if rejected_data is not None else pd.DataFrame(),
-            output_files={},  # Will be filled by writer
-            additional_metadata=additional_metadata if additional_metadata else None,
-        )
-
-        return metadata
->>>>>>> Stashed changes

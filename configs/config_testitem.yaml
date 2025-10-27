@@ -1,0 +1,462 @@
+# Конфигурация v2 для testitems pipeline
+# Основана на унифицированном шаблоне config.template.yaml
+
+# Метаданные пайплайна - основная информация о пайплайне
+pipeline:
+  name: "testitems"                  # Имя пайплайна для идентификации
+  version: "2.0.0"                  # Версия конфигурации
+  entity_type: "testitems"          # Тип сущности для обработки
+  description: "ETL pipeline for testitem data from ChEMBL and PubChem"  # Описание назначения
+
+# HTTP настройки
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioactivity-data-acquisition/0.1.0"
+    verify_ssl: true
+    follow_redirects: true
+
+# Источники данных - конфигурация источников для извлечения данных
+sources:
+  chembl:                             # ChEMBL API как основной источник
+    name: "chembl"                    # Имя источника (обязательное поле)
+    enabled: true                     # Включен ли источник
+    http:                             # HTTP настройки для ChEMBL
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"  # Базовый URL API
+      timeout_sec: 60.0               # Таймаут для ChEMBL запросов
+      retries:                        # Настройки повторных попыток
+        total: 3                      # Количество попыток для ChEMBL
+        backoff_multiplier: 1.5       # Множитель задержки
+    batch_size: 1000                  # Размер батча для запросов (max 1000 для ChEMBL)
+    max_compounds: null               # Максимум соединений (null = без ограничений)
+    
+  pubchem:                            # PubChem PUG-REST API для химических данных
+    name: "pubchem"                   # Имя источника (обязательное поле)
+    enabled: true                     # Включен ли источник
+    http:                             # HTTP настройки для PubChem
+      base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"  # Базовый URL PUG-REST API
+      timeout_sec: 30.0               # Таймаут для PubChem запросов
+      retries:                        # Настройки повторных попыток
+        total: 3                      # Количество попыток
+        backoff_multiplier: 2.0       # Множитель задержки
+    batch_size: 100                   # Размер батча для запросов
+    max_requests_per_second: 5        # Максимум запросов в секунду
+    allow_polymer: false              # Разрешить полимеры
+    prefer_local_smiles: false        # Предпочитать локальные SMILES
+    prefer_local_values: false        # Предпочитать локальные значения
+    cid_cache_path: "data/cache/pubchem_cid_cache.json"  # Путь к кэшу CID
+    cache_ttl_hours: 720              # Время жизни кэша в часах (30 дней)
+
+# Ввод-вывод
+io:
+  input:
+    path: "data/input/testitems.csv"
+    encoding: "utf-8"
+    required_columns: ["molecule_chembl_id"]
+    
+  output:
+    data_path: "data/output/testitem/testitem.csv"
+    qc_report_path: "data/output/testitem/qc_report.csv"
+    correlation_path: "data/output/testitem/correlation.csv"
+    format: "csv"
+    csv:
+      encoding: "utf-8"
+      float_format: "%.6f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+      na_rep: ""
+      line_terminator: "\n"
+
+# Runtime настройки
+runtime:
+  workers: 4
+  limit: null
+  offset: 0
+  dry_run: false
+  date_tag: null
+  dev_mode: false
+  allow_incomplete_sources: false
+
+# Логирование
+logging:
+  level: "INFO"
+  file:
+    enabled: true
+    path: "data/logs/testitems.log"
+    max_size: "10MB"
+    backup_count: 5
+  console:
+    enabled: true
+    format: "text"
+  structured: true
+
+# Детерминизм
+determinism:
+  sort:
+    by: ["molecule_chembl_id"]
+    ascending: [true]
+    na_position: "last"
+  column_order:
+    # Основные идентификаторы и метаданные
+    - "molecule_chembl_id"            # STRING: PK молекулы из ChEMBL API /molecule, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
+    - "molregno"                      # INT: Номер регистрации молекулы, источник: ChEMBL, тип: INT, валидация: nullable, > 0
+    - "pref_name"                     # STRING: Предпочтительное название молекулы, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "pref_name_key"                 # STRING: Ключ предпочтительного названия, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "parent_chembl_id"              # STRING: ID родительской молекулы, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^CHEMBL\d+$
+    - "parent_molregno"               # INT: Номер регистрации родительской молекулы, источник: ChEMBL, тип: INT, валидация: nullable, > 0
+    - "max_phase"                     # DECIMAL: Максимальная фаза разработки, источник: ChEMBL, тип: DECIMAL, валидация: nullable, 0-4
+    - "therapeutic_flag"              # BOOL: Флаг терапевтического применения, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "dosed_ingredient"              # BOOL: Флаг дозируемого ингредиента, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "first_approval"                # STRING: Дата первого одобрения, источник: ChEMBL, тип: STRING, валидация: nullable, ISO 8601
+    - "structure_type"                # STRING: Тип структуры, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_type"                 # STRING: Тип молекулы, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # Физико-химические свойства ChEMBL
+    - "mw_freebase"                   # DECIMAL: Молекулярная масса freebase, источник: ChEMBL, тип: DECIMAL, валидация: nullable, 50-2000
+    - "alogp"                         # DECIMAL: ALogP значение, источник: ChEMBL, тип: DECIMAL, валидация: nullable
+    - "hba"                           # INT: Количество акцепторов водорода, источник: ChEMBL, тип: INT, валидация: nullable, >= 0
+    - "hbd"                           # INT: Количество доноров водорода, источник: ChEMBL, тип: INT, валидация: nullable, >= 0
+    - "psa"                           # DECIMAL: Полярная площадь поверхности, источник: ChEMBL, тип: DECIMAL, валидация: nullable, >= 0
+    - "rtb"                           # INT: Количество вращающихся связей, источник: ChEMBL, тип: INT, валидация: nullable, >= 0
+    - "ro3_pass"                      # BOOL: Проходит ли Rule of 3, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "num_ro5_violations"            # INT: Количество нарушений Rule of 5, источник: ChEMBL, тип: INT, валидация: nullable, 0-5
+    - "acd_most_apka"                 # DECIMAL: Наиболее кислотный pKa, источник: ChEMBL, тип: DECIMAL, валидация: nullable
+    - "acd_most_bpka"                 # DECIMAL: Наиболее основной pKa, источник: ChEMBL, тип: DECIMAL, валидация: nullable
+    - "acd_logp"                      # DECIMAL: ACD LogP, источник: ChEMBL, тип: DECIMAL, валидация: nullable
+    - "acd_logd"                      # DECIMAL: ACD LogD, источник: ChEMBL, тип: DECIMAL, валидация: nullable
+    - "molecular_species"             # STRING: Молекулярный вид, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "full_mwt"                      # DECIMAL: Полная молекулярная масса, источник: ChEMBL, тип: DECIMAL, валидация: nullable, 50-2000
+    - "aromatic_rings"                # DECIMAL: Количество ароматических колец, источник: ChEMBL, тип: DECIMAL, валидация: nullable, >= 0
+    - "heavy_atoms"                   # DECIMAL: Количество тяжелых атомов, источник: ChEMBL, тип: DECIMAL, валидация: nullable, >= 0
+    - "qed_weighted"                  # DECIMAL: Weighted QED значение, источник: ChEMBL, тип: DECIMAL, валидация: nullable, 0-1
+    - "mw_monoisotopic"               # DECIMAL: Моноизотопная молекулярная масса, источник: ChEMBL, тип: DECIMAL, валидация: nullable
+    - "full_molformula"               # STRING: Полная молекулярная формула, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "hba_lipinski"                  # INT: HBA по Lipinski, источник: ChEMBL, тип: INT, валидация: nullable, >= 0
+    - "hbd_lipinski"                  # INT: HBD по Lipinski, источник: ChEMBL, тип: INT, валидация: nullable, >= 0
+    - "num_lipinski_ro5_violations"   # INT: Количество нарушений Lipinski Ro5, источник: ChEMBL, тип: INT, валидация: nullable, 0-5
+    
+    # Пути введения и флаги
+    - "oral"                          # BOOL: Оральный путь введения, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "parenteral"                    # BOOL: Парентеральный путь введения, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "topical"                       # BOOL: Топический путь введения, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "black_box_warning"             # BOOL: Предупреждение черного ящика, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "natural_product"               # BOOL: Природный продукт, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "first_in_class"                # BOOL: Первый в классе, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "chirality"                     # INT: Хиральность, источник: ChEMBL, тип: INT, валидация: nullable, -1, 0, 1
+    - "prodrug"                       # BOOL: Пролекарство, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "inorganic_flag"                # BOOL: Неорганическое соединение, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "polymer_flag"                  # BOOL: Полимер, источник: ChEMBL, тип: BOOL, валидация: boolean
+    
+    # Регистрация и отзыв
+    - "usan_year"                     # INT: Год USAN регистрации, источник: ChEMBL, тип: INT, валидация: nullable, 1900-текущий год
+    - "availability_type"             # STRING: Тип доступности, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "usan_stem"                     # STRING: USAN stem, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "usan_substem"                  # STRING: USAN substem, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "usan_stem_definition"          # STRING: Определение USAN stem, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "indication_class"              # STRING: Класс показаний, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "withdrawn_flag"                # BOOL: Отозванное лекарство, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "withdrawn_year"                # INT: Год отзыва, источник: ChEMBL, тип: INT, валидация: nullable, 1900-текущий год
+    - "withdrawn_country"             # STRING: Страна отзыва, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "withdrawn_reason"              # STRING: Причина отзыва, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # Механизм действия
+    - "mechanism_of_action"           # STRING: Механизм действия, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "direct_interaction"            # BOOL: Прямое взаимодействие, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "molecular_mechanism"           # STRING: Молекулярный механизм, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # Drug данные
+    - "drug_chembl_id"                # STRING: ID лекарства в ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^CHEMBL\d+$
+    - "drug_name"                     # STRING: Название лекарства, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "drug_type"                     # STRING: Тип лекарства, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "drug_substance_flag"           # BOOL: Флаг лекарственного вещества, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_indication_flag"          # BOOL: Флаг показаний, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_antibacterial_flag"       # BOOL: Флаг антибактериального действия, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_antiviral_flag"           # BOOL: Флаг противовирусного действия, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_antifungal_flag"          # BOOL: Флаг противогрибкового действия, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_antiparasitic_flag"       # BOOL: Флаг противопаразитарного действия, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_antineoplastic_flag"      # BOOL: Флаг противоопухолевого действия, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_immunosuppressant_flag"   # BOOL: Флаг иммуносупрессивного действия, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "drug_antiinflammatory_flag"    # BOOL: Флаг противовоспалительного действия, источник: ChEMBL, тип: BOOL, валидация: boolean
+    
+    # PubChem данные
+    - "pubchem_cid"                   # INT: PubChem CID, источник: PubChem PUG-REST, тип: INT, валидация: nullable, > 0
+    - "pubchem_molecular_formula"     # STRING: Молекулярная формула PubChem, источник: PubChem, тип: STRING, валидация: nullable
+    - "pubchem_molecular_weight"      # DECIMAL: Молекулярная масса PubChem, источник: PubChem, тип: DECIMAL, валидация: nullable, 50-2000
+    - "pubchem_canonical_smiles"      # STRING: Канонические SMILES PubChem, источник: PubChem, тип: STRING, валидация: nullable
+    - "pubchem_isomeric_smiles"       # STRING: Изомерные SMILES PubChem, источник: PubChem, тип: STRING, валидация: nullable
+    - "pubchem_inchi"                 # STRING: InChI PubChem, источник: PubChem, тип: STRING, валидация: nullable
+    - "pubchem_inchi_key"             # STRING: InChI Key PubChem, источник: PubChem, тип: STRING, валидация: nullable, pattern InChIKey
+    - "pubchem_registry_id"           # STRING: Registry ID PubChem, источник: PubChem, тип: STRING, валидация: nullable
+    - "pubchem_rn"                    # STRING: RN PubChem, источник: PubChem, тип: STRING, валидация: nullable
+    
+    # Стандартизированные структуры
+    - "standardized_inchi"            # STRING: Стандартизированный InChI, источник: система, тип: STRING, валидация: nullable
+    - "standardized_inchi_key"        # STRING: Стандартизированный InChI Key, источник: система, тип: STRING, валидация: nullable, pattern InChIKey
+    - "standardized_smiles"           # STRING: Стандартизированные SMILES, источник: система, тип: STRING, валидация: nullable
+    
+    # Вложенные структуры ChEMBL (JSON/распакованные)
+    - "atc_classifications"           # STRING: ATC классификации (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "biotherapeutic"                # STRING: Биотерапевтическое соединение (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "chemical_probe"                # BOOL: Химический зонд, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "cross_references"              # STRING: Перекрестные ссылки (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "helm_notation"                 # STRING: HELM нотация, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_hierarchy"            # STRING: Иерархия молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_properties"           # STRING: Свойства молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_structures"           # STRING: Структуры молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_synonyms"             # STRING: Синонимы молекулы (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "orphan"                        # BOOL: Орфанное лекарство, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "veterinary"                    # BOOL: Ветеринарное лекарство, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - "standard_inchi"                # STRING: Стандартный InChI, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "chirality_chembl"              # STRING: Хиральность из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "molecule_type_chembl"          # STRING: Тип молекулы из ChEMBL, источник: ChEMBL, тип: STRING, валидация: nullable
+    # Входные данные из input файла
+    - "nstereo"                       # INT: Количество стереоизомеров, источник: input, тип: INT, валидация: nullable, >= 0
+    - "salt_chembl_id"                # STRING: ChEMBL ID соли, источник: input, тип: STRING, валидация: nullable
+ 
+
+    # Метаданные
+    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                     
+    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    
+   
+ 
+# Валидация - настройки проверки данных
+validation:
+  enabled: true                      # Включить валидацию
+  strict: false                      # Строгий режим (останавливать при ошибках)
+  schema_validation: true            # Валидация схемы данных
+  data_quality_checks: true          # Проверки качества данных
+
+# Постобработка - настройки обработки после извлечения
+postprocess:
+  qc:                               # Контроль качества
+    enabled: true                    # Включить QC
+    fail_on: ["missing_molecule_chembl_id", "duplicate_primary_keys"]  # Критические ошибки
+    thresholds:                      # Пороговые значения для QC
+      missing_molecule_chembl_id: 0.0  # Максимальный % отсутствующих molecule_chembl_id
+      duplicate_primary_keys: 0.0   # Максимальный % дубликатов PK
+      missing_molecular_weight: 0.1 # Максимальный % отсутствующих молекулярных масс
+    detailed_report: true            # Детальный отчет QC
+    
+  correlation:                      # Корреляционный анализ
+    enabled: true                    # Включить корреляцию
+    methods: ["pearson", "spearman"] # Методы корреляции
+    min_correlation: 0.5             # Минимальная корреляция
+    
+  steps:                            # Этапы постобработки
+    - name: "add_missing_testitem_fields"  # Добавление недостающих полей
+      enabled: true
+      description: "Add missing testitem fields"
+      priority: 1
+    - name: "merge_sources"          # Объединение источников
+      enabled: true
+      description: "Merge identifiers from multiple sources"
+      priority: 2
+      parameters:
+        priority: ["chembl", "pubchem"]  # Приоритет источников
+        merge_rules:                   # Правила объединения
+          - prefer_canonical: true     # Предпочитать канонические формы
+          - merge_synonyms: true       # Объединять синонимы
+    - name: "prefer_canonical"       # Предпочтение канонических структур
+      enabled: false
+      description: "Prefer canonical identifiers and structures"
+      priority: 3
+      parameters:
+        canonical_fields:              # Канонические поля
+          - "inchi_key"                # InChI Key
+          - "canonical_smiles"         # Канонические SMILES
+          - "molecular_formula"        # Молекулярная формула
+    - name: "validate_structures"    # Валидация структур
+      enabled: false
+      description: "Validate molecular structures"
+      priority: 4
+      parameters:
+        rules:                         # Правила валидации
+          - valid_smiles: true         # Валидные SMILES
+          - valid_inchi: true          # Валидные InChI
+          - valid_molecular_formula: true  # Валидная молекулярная формула
+    - name: "deduplicate"            # Дедупликация
+      enabled: true
+      description: "Remove duplicate testitem entries"
+      priority: 5
+      parameters:
+        keys: ["molecule_chembl_id"]   # Ключи дедупликации
+
+# Нормализация - настройки нормализации данных
+normalization:
+  enabled: true                      # Включить нормализацию
+  structure_format: "canonical"     # Формат структур
+  identifier_format: "standard"     # Формат идентификаторов
+  property_format: "standard"       # Формат свойств
+
+# Качество данных - профили контроля качества
+quality:
+  profiles:
+    default:                        # Профиль по умолчанию
+      enabled: true                  # Включен ли профиль
+      description: "Стандартный профиль QC для теститемов"
+      fail_on_criteria: ["missing_chembl_id", "missing_molecular_weight", "invalid_chembl_id"]
+      thresholds:                    # Пороговые значения
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_molecular_weight_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_molecular_weight_rate"
+          operator: ">"
+          value: 0.2
+          severity: "WARNING"
+      rules:                        # Правила валидации
+        - name: "valid_chembl_id"    # Валидация ChEMBL ID
+          description: "Проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_pubchem_cid"  # Валидация PubChem CID
+          description: "Проверка формата PubChem CID"
+          enabled: true
+          parameters:
+            pattern: "^\\d+$"
+        - name: "valid_inchi_key"    # Валидация InChI Key
+          description: "Проверка формата InChI Key"
+          enabled: true
+          parameters:
+            pattern: "^[A-Z]{14}-[A-Z]{10}-[A-Z]$"
+        - name: "valid_molecular_weight"  # Валидация молекулярной массы
+          description: "Проверка корректности молекулярной массы"
+          enabled: true
+          parameters:
+            min_value: 50.0
+            max_value: 2000.0
+        - name: "valid_smiles"       # Валидация SMILES
+          description: "Проверка формата SMILES"
+          enabled: true
+          parameters:
+            min_length: 5
+        - name: "valid_inchi"        # Валидация InChI
+          description: "Проверка формата InChI"
+          enabled: true
+          parameters:
+            min_length: 10
+    
+    strict:                         # Строгий профиль
+      enabled: false                 # Отключен по умолчанию
+      description: "Строгий профиль QC для теститемов"
+      fail_on_criteria: ["missing_chembl_id", "missing_molecular_weight", "invalid_chembl_id", "invalid_molecular_weight"]
+      thresholds:
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_molecular_weight_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.02
+          severity: "ERROR"
+        - metric: "invalid_molecular_weight_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+      rules:
+        - name: "valid_chembl_id"
+          description: "Строгая проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_pubchem_cid"
+          description: "Строгая проверка формата PubChem CID"
+          enabled: true
+          parameters:
+            pattern: "^\\d+$"
+        - name: "valid_inchi_key"
+          description: "Строгая проверка формата InChI Key"
+          enabled: true
+          parameters:
+            pattern: "^[A-Z]{14}-[A-Z]{10}-[A-Z]$"
+        - name: "valid_molecular_weight"
+          description: "Строгая проверка молекулярной массы"
+          enabled: true
+          parameters:
+            min_value: 50.0
+            max_value: 2000.0
+        - name: "valid_smiles"
+          description: "Строгая проверка формата SMILES"
+          enabled: true
+          parameters:
+            min_length: 10
+        - name: "valid_inchi"
+          description: "Строгая проверка формата InChI"
+          enabled: true
+          parameters:
+            min_length: 20
+
+# Отслеживание ошибок - настройки error tracking
+error_tracking:
+  enabled: true                      # Включить отслеживание ошибок
+  log_level: "INFO"                  # Уровень логирования ошибок
+  max_errors_per_source: 1000        # Максимум ошибок на источник
+  error_categories:                  # Категории ошибок
+    extraction:                      # Ошибки извлечения
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+    validation:                      # Ошибки валидации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: false
+    transformation:                  # Ошибки трансформации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: true
+    load:                           # Ошибки загрузки
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+  error_aggregation:                 # Агрегация ошибок
+    enabled: true
+    group_by_source: true
+    group_by_type: true
+    group_by_severity: true
+  error_reporting:                   # Отчетность по ошибкам
+    enabled: true
+    include_in_metadata: true
+    separate_error_file: true
+    error_file_format: "csv"
+
+# Кэширование - настройки кэширования данных
+cache:
+  enabled: true                      # Включить кэширование
+  dir: "data/cache/testitems"       # Директория кэша
+  ttl: 86400                        # Время жизни кэша в секундах (24 часа)
+  max_size: "1GB"                   # Максимальный размер кэша
+
+# Мониторинг и телеметрия - настройки сбора метрик
+telemetry:
+  enabled: false                     # Включить телеметрию
+  endpoint: null                     # Endpoint для отправки метрик
+  api_key: null                      # API ключ для аутентификации
+  batch_size: 100                    # Размер батча для отправки
+  flush_interval: 30.0               # Интервал отправки в секундах

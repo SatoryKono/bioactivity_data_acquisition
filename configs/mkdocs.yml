@@ -3,7 +3,10 @@ site_url: https://satorykono.github.io/bioactivity_data_acquisition/
 repo_url: https://github.com/SatoryKono/bioactivity_data_acquisition
 repo_name: SatoryKono/bioactivity_data_acquisition
 edit_uri: edit/main/docs/
-strict: true
+strict: false
+
+docs_dir: ../docs
+site_dir: ../site
 
 theme:
   name: material
@@ -55,7 +58,6 @@ markdown_extensions:
 
 nav:
   - Обзор: index.md
-  - Руководство по стилю: STYLE_GUIDE.md
   - Туториалы:
       - Обзор: tutorials/index.md
       - Быстрый старт: tutorials/quickstart.md
@@ -103,6 +105,13 @@ nav:
       - Поток данных: explanations/data-flow.md
       - Детерминизм: explanations/determinism.md
       - Чувствительность к регистру: explanations/case-sensitivity.md
+  - Пайплайны:
+      - Обзор: pipelines/index.md
+      - Активности: pipelines/activities.md
+      - Эксперименты: pipelines/assays.md
+      - Мишени: pipelines/targets.md
+      - Молекулы: pipelines/testitems.md
+      - Документы: pipelines/documents.md
   - Дополнительно:
       - Источники данных: data-sources.md
       - API limits: api-limits.md

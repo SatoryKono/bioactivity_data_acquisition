@@ -21,21 +21,21 @@ def pubmed_client():
 @pytest.fixture
 def valid_xml_fixture():
     """Load valid PubMed XML fixture."""
-    with open("tests/parsing/fixtures/pubmed_article_valid.xml", "r", encoding="utf-8") as f:
+    with open("tests/parsing/fixtures/pubmed_article_valid.xml", encoding="utf-8") as f:
         return f.read()
 
 
 @pytest.fixture
 def broken_xml_fixture():
     """Load broken PubMed XML fixture."""
-    with open("tests/parsing/fixtures/pubmed_article_broken.xml", "r", encoding="utf-8") as f:
+    with open("tests/parsing/fixtures/pubmed_article_broken.xml", encoding="utf-8") as f:
         return f.read()
 
 
 @pytest.fixture
 def no_doi_xml_fixture():
     """Load PubMed XML fixture without DOI."""
-    with open("tests/parsing/fixtures/pubmed_article_no_doi.xml", "r", encoding="utf-8") as f:
+    with open("tests/parsing/fixtures/pubmed_article_no_doi.xml", encoding="utf-8") as f:
         return f.read()
 
 

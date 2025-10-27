@@ -38,7 +38,6 @@ class AssayRawSchema(pa.DataFrameModel):
     extracted_at: Series[str] = pa.Field(description="Timestamp when data was retrieved from API", nullable=False)
 
     # Core assay fields - nullable=True because API may not always provide them
-<<<<<<< Updated upstream
     assay_chembl_id: Series[str] = pa.Field(
         description="ChEMBL assay identifier",
         nullable=True
@@ -129,19 +128,56 @@ class AssayRawSchema(pa.DataFrameModel):
         description="Business key hash",
         nullable=True
     )
-=======
-    assay_chembl_id: Series[str] = pa.Field(description="ChEMBL assay identifier", nullable=True)
-    assay_type: Series[str] = pa.Field(description="Assay type (B/F/P/U)", nullable=True)
+    
+    # Assay Classification fields
+    assay_class_id: Series[object] = pa.Field(nullable=True)
+    assay_class_bao_id: Series[str] = pa.Field(nullable=True, str_matches=r"^BAO_\d{7}$")
+    assay_class_type: Series[str] = pa.Field(nullable=True)
+    assay_class_l1: Series[str] = pa.Field(nullable=True)
+    assay_class_l2: Series[str] = pa.Field(nullable=True)
+    assay_class_l3: Series[str] = pa.Field(nullable=True)
+    assay_class_description: Series[str] = pa.Field(nullable=True)
+    
+    # Expanded assay parameters
+    assay_parameters_json: Series[str] = pa.Field(nullable=True)
+    assay_param_type: Series[str] = pa.Field(nullable=True)
+    assay_param_relation: Series[str] = pa.Field(nullable=True)
+    assay_param_value: Series[object] = pa.Field(nullable=True)
+    assay_param_units: Series[str] = pa.Field(nullable=True)
+    assay_param_text_value: Series[str] = pa.Field(nullable=True)
+    assay_param_standard_type: Series[str] = pa.Field(nullable=True)
+    assay_param_standard_value: Series[object] = pa.Field(nullable=True)
+    assay_param_standard_units: Series[str] = pa.Field(nullable=True)
+    
+    # Variant sequences
+    variant_id: Series[object] = pa.Field(nullable=True)
+    variant_base_accession: Series[str] = pa.Field(nullable=True)
+    variant_mutation: Series[str] = pa.Field(nullable=True)
+    variant_sequence: Series[str] = pa.Field(nullable=True, str_matches=r"^[A-Z\*]*$")
+    variant_accession_reported: Series[str] = pa.Field(nullable=True)
+    variant_sequence_json: Series[str] = pa.Field(nullable=True)
+    
+    # Additional metadata
+    document_chembl_id: Series[str] = pa.Field(nullable=True, str_matches=r"^CHEMBL\d+$")
+    tissue_chembl_id: Series[str] = pa.Field(nullable=True)
+    cell_chembl_id: Series[str] = pa.Field(nullable=True)
+    assay_group: Series[str] = pa.Field(nullable=True)
+    assay_test_type: Series[str] = pa.Field(nullable=True)
+    bao_endpoint: Series[str] = pa.Field(nullable=True, str_matches=r"^BAO_\d{7}$")
+    confidence_description: Series[str] = pa.Field(nullable=True)
+    relationship_description: Series[str] = pa.Field(nullable=True)
+    pipeline_version: Series[str] = pa.Field(nullable=False)
+    assay_description: Series[str] = pa.Field(nullable=True)
     assay_category: Series[str] = pa.Field(description="Assay category", nullable=True)
     assay_cell_type: Series[str] = pa.Field(description="Cell type", nullable=True)
     assay_classifications: Series[str] = pa.Field(description="Assay classifications (JSON)", nullable=True)
-    assay_group: Series[str] = pa.Field(description="Assay group", nullable=True)
+    # assay_group: Series[str] = pa.Field(description="Assay group", nullable=True)  # Removed - not in column_order
     assay_organism: Series[str] = pa.Field(description="Assay organism", nullable=True)
-    assay_parameters_json: Series[str] = pa.Field(description="Assay parameters as JSON string", nullable=True)
+    assay_parameters: Series[str] = pa.Field(description="Assay parameters", nullable=True)
     assay_strain: Series[str] = pa.Field(description="Strain", nullable=True)
     assay_subcellular_fraction: Series[str] = pa.Field(description="Subcellular fraction", nullable=True)
     assay_tax_id: Series[object] = pa.Field(description="Organism taxonomic ID", nullable=True)
-    assay_test_type: Series[str] = pa.Field(description="Assay test type", nullable=True)
+    # assay_test_type: Series[str] = pa.Field(description="Assay test type", nullable=True)  # Removed - not in column_order
     assay_tissue: Series[str] = pa.Field(description="Tissue type", nullable=True)
     assay_type_description: Series[str] = pa.Field(description="Assay type description", nullable=True)
     bao_format: Series[str] = pa.Field(description="BAO format", nullable=True)
@@ -185,7 +221,6 @@ class AssayRawSchema(pa.DataFrameModel):
     variant_mutation: Series[str] = pa.Field(description="Variant mutation", nullable=True)
     variant_sequence: Series[str] = pa.Field(description="Variant sequence", nullable=True)
     variant_accession_reported: Series[str] = pa.Field(description="Variant accession reported", nullable=True)
->>>>>>> Stashed changes
 
     class Config:
         strict = True  # STRICT MODE: No additional columns allowed
@@ -200,7 +235,6 @@ class AssayNormalizedSchema(pa.DataFrameModel):
     """
 
     # Required fields - must be present in all normalized records
-<<<<<<< Updated upstream
     source_system: Series[str] = pa.Field(
         description="Data source identifier (normalized)",
         nullable=False
@@ -322,7 +356,6 @@ class AssayNormalizedSchema(pa.DataFrameModel):
         description="Business key hash",
         nullable=False
     )
-=======
     source_system: Series[str] = pa.Field(description="Data source identifier (normalized)", nullable=False)
     extracted_at: Series[object] = pa.Field(description="Timestamp when data was retrieved from API", nullable=False)
     chembl_release: Series[str] = pa.Field(description="ChEMBL release version (e.g., CHEMBL_36)", nullable=True, str_matches=r"^CHEMBL_\d+$")
@@ -333,13 +366,13 @@ class AssayNormalizedSchema(pa.DataFrameModel):
     assay_category: Series[str] = pa.Field(description="Assay category", nullable=True)
     assay_cell_type: Series[str] = pa.Field(description="Cell type", nullable=True)
     assay_classifications: Series[str] = pa.Field(description="Assay classifications (JSON)", nullable=True)
-    assay_group: Series[str] = pa.Field(description="Assay group", nullable=True)
+    # assay_group: Series[str] = pa.Field(description="Assay group", nullable=True)  # Removed - not in column_order
     assay_organism: Series[str] = pa.Field(description="Assay organism", nullable=True)
-    assay_parameters_json: Series[str] = pa.Field(description="Assay parameters as JSON string", nullable=True)
+    assay_parameters: Series[str] = pa.Field(description="Assay parameters", nullable=True)
     assay_strain: Series[str] = pa.Field(description="Strain", nullable=True)
     assay_subcellular_fraction: Series[str] = pa.Field(description="Subcellular fraction", nullable=True)
     assay_tax_id: Series[object] = pa.Field(description="Organism taxonomic ID", nullable=True)
-    assay_test_type: Series[str] = pa.Field(description="Assay test type", nullable=True)
+    # assay_test_type: Series[str] = pa.Field(description="Assay test type", nullable=True)  # Removed - not in column_order
     assay_tissue: Series[str] = pa.Field(description="Tissue type", nullable=True)
     assay_type_description: Series[str] = pa.Field(description="Assay type description", nullable=True)
     bao_format: Series[str] = pa.Field(description="BAO format", nullable=True)
@@ -391,7 +424,6 @@ class AssayNormalizedSchema(pa.DataFrameModel):
     # System fields
     index: Series[int] = pa.Field(description="Row index for deterministic ordering", nullable=False)
     pipeline_version: Series[str] = pa.Field(description="ETL pipeline version", nullable=False)
->>>>>>> Stashed changes
 
     class Config:
         strict = True  # STRICT MODE: No additional columns allowed

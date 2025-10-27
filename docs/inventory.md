@@ -11,12 +11,10 @@ find docs -type f -name "*.md" | sort > /tmp/docs_all.txt
 grep -RhoE "\]\((\.{0,2}/[^)#]+)" docs | sed 's/^\]\(//' | sed 's/#.*$//' | sort -u > /tmp/docs_links.txt
 comm -23 /tmp/docs_all.txt /tmp/docs_links.txt > /tmp/docs_orphans.txt
 
-<<<<<<< Updated upstream
 # линк‑чекер
 pipx install lychee
 lychee --no-progress --exclude-mail --follow-remake docs
 ```
-=======
 - **Всего MD-файлов**: 106
 - **В навигации**: 25
 - **Не в навигации**: 81
@@ -245,4 +243,3 @@ lychee --no-progress --exclude-mail --follow-remake docs
 ✅ **CI/CD настроен** для автоматических проверок  
 ✅ **Редиректы настроены** для всех переименований  
 ✅ **GitHub Pages готовы** к развёртыванию
->>>>>>> Stashed changes

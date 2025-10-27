@@ -86,7 +86,6 @@ class HealthChecker:
                 # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                 name_msg = str(name).replace("%", "%%")
                 error_msg = str(e).replace("%", "%%")
-<<<<<<< Updated upstream
                 self.logger.error(f"Health check failed for {name_msg}: {error_msg}")
                 results.append(HealthStatus(
                     name=name,
@@ -95,11 +94,9 @@ class HealthChecker:
                     last_check=time.time()
                 ))
         
-=======
                 self.logger.error("Health check failed for %s: %s", name_msg, error_msg)
                 results.append(HealthStatus(name=name, is_healthy=False, error_message=str(e), last_check=time.time()))
 
->>>>>>> Stashed changes
         return results
 
     def _check_client_health(self, client: Any, name: str, timeout: float) -> HealthStatus:
@@ -222,10 +219,8 @@ class HealthChecker:
         circuit_states: dict[str, int] = {}  # Placeholder for circuit breaker states
         for status in statuses:
             if status.circuit_state:
-<<<<<<< Updated upstream
                 circuit_states[status.circuit_state] = circuit_states.get(status.circuit_state, 0) + 1
         
-=======
                 try:
                     # circuit_state = CircuitState(status.circuit_state)  # Commented out due to missing module
                     circuit_states[status.circuit_state] = circuit_states.get(status.circuit_state, 0) + 1
@@ -233,7 +228,6 @@ class HealthChecker:
                     # Skip invalid circuit state values
                     continue
 
->>>>>>> Stashed changes
         return {
             "total_apis": total_count,
             "healthy_apis": healthy_count,
@@ -257,13 +251,10 @@ def create_health_checker_from_config(config: dict[str, APIClientConfig]) -> Hea
         except Exception as e:
             # Log error but continue with other clients
             logger = get_logger("HealthChecker")
-<<<<<<< Updated upstream
             logger.warning(f"Failed to create health checker for {name}: {e}")
     
-=======
             logger.warning("Failed to create health checker for %s: %s", name, e)
 
->>>>>>> Stashed changes
     return HealthChecker(clients)
 
 

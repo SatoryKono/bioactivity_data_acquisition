@@ -53,7 +53,8 @@ def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         # ...
 ```
 
-2. **Пустые строки вместо None**:
+1. **Пустые строки вместо None**:
+
 ```python
 def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:
     return {
@@ -66,7 +67,8 @@ def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any
     }
 ```
 
-3. **Парсинг с fallback значениями**:
+2. **Парсинг с fallback значениями**:
+
 ```python
 record: dict[str, Any] = {
     "source": "openalex",
@@ -84,6 +86,7 @@ record: dict[str, Any] = {
 **Изменения**:
 
 1. **Пустые строки вместо None**:
+
 ```python
 def _create_empty_record(self, pmid: str, error_msg: str) -> dict[str, Any]:
     return {
@@ -95,7 +98,8 @@ def _create_empty_record(self, pmid: str, error_msg: str) -> dict[str, Any]:
     }
 ```
 
-2. **Парсинг с fallback значениями**:
+1. **Парсинг с fallback значениями**:
+
 ```python
 record: dict[str, Any] = {
     "source": "semantic_scholar",
@@ -111,18 +115,21 @@ record: dict[str, Any] = {
 ### Тест клиентов ✅
 
 **OpenAlex**:
+
 - ✅ Прямой URL `/works/pmid:{pmid}` работает
 - ✅ Title: "Click chemistry based solid phase supported synthesis of dopaminergic phenylacetylenes"
 - ✅ Abstract: "'Click resins' enable solid phase supported reactions..."
 - ✅ Authors: "Rodriguez Loaiza P, Lber S, H?bner H, Gmeiner P."
 
 **Semantic Scholar**:
+
 - ⚠️ 404 ошибка (документ отсутствует в базе данных)
 - ✅ Возвращает пустые строки вместо None
 
 ### Тест пайплайна ✅
 
 **Результаты**:
+
 - ✅ OpenAlex данные извлекаются корректно
 - ✅ Title, abstract, authors заполняются
 - ✅ Fallback значения работают
@@ -130,11 +137,13 @@ record: dict[str, Any] = {
 
 ## Статистика улучшений
 
-### До исправлений:
+### До исправлений
+
 - **OpenAlex**: 1/15 полей (7%) - документы отсутствуют
 - **Semantic Scholar**: 1/13 полей (8%) - документы отсутствуют
 
-### После исправлений:
+### После исправлений
+
 - **OpenAlex**: 15/15 полей (100%) - данные извлекаются успешно! 🎉
 - **Semantic Scholar**: 1/13 полей (8%) - документы отсутствуют в базе данных
 

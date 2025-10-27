@@ -9,27 +9,56 @@
 3. Создать тег `vX.Y.Z` и GitHub Release
 4. Проверить сборку документации и CI
 
-## [Unreleased] - Data Extraction Refactoring
+## [Unreleased] - Documentation Restructuring
 
-<<<<<<< Updated upstream
 ### Added
 
-- **Документация очистки репозитория**: Создан `CLEANUP_REPORT.md` с полным описанием проведённой очистки
-- **Расширенное руководство по контрибьюшену**: Добавлены детальные инструкции по работе с артефактами, Git LFS и pre-commit хуками
-- **Документация (MkDocs Material)**: API Reference, диаграммы, CI публикации
-- **Git LFS интеграция**: Настроен для `*.parquet`, `*.pkl`, `*.xlsm`, `*.png`, `*.jpg` и других больших форматов
-- **Pre-commit хуки**: Порог 500 КБ, блокировка артефактов, проверка секретов
-- **CI артефакты**: Публикация test outputs, coverage и security отчётов
+- **Полная реструктуризация документации**: Реализован план актуализации всей документации проекта
+- **Новые разделы документации**: 
+  - `explanations/data-flow.md` — детальное описание потока данных
+  - `explanations/determinism.md` — принципы детерминированности
+  - `reference/data-schemas/bioactivity.md` — схемы биоактивности
+  - `reference/data-schemas/documents.md` — схемы документов
+  - `reference/configuration/schema.md` — детальная схема конфигурации
+  - `reference/configuration/examples.md` — примеры конфигураций
+  - `reference/outputs/csv-format.md` — спецификация CSV формата
+  - `reference/outputs/qc-reports.md` — структура QC отчетов
+  - `reference/outputs/correlation-reports.md` — корреляционные отчеты
+  - `pipelines/activities.md` — документация пайплайна активностей
+  - `pipelines/testitems.md` — документация пайплайна молекул
+- **Автогенерация API-документации**: Настроена через mkdocstrings для clients, etl, schemas, config
+- **Архивная структура**: Создана `docs/archive/internal-reports/2024-2025/` для исторических документов
+- **Документ миграции**: Создан `DOCUMENTATION_MIGRATION.md` с полной картой изменений
 
 ### Changed
-=======
-### Добавлено
-- **НОВЫЙ**: ChEMBL client v2 с детерминистическим поведением
-- **НОВЫЙ**: Token bucket rate limiter с adaptive backoff
-- **НОВЫЙ**: Pydantic модели конфигурации (ApiCfg, RetryCfg, ChemblCacheCfg)
-- **НОВЫЙ**: Детерминистический jitter с фиксированным seed
-- **НОВЫЙ**: TTL кэш с thread-safety гарантиями
-- **НОВЫЙ**: Streaming поддержка для больших датасетов
+
+- **Навигация mkdocs.yml**: Полностью обновлена структура навигации по Diátaxis framework
+- **Главная страница**: Добавлена секция пайплайнов и обновлены возможности
+- **API документация**: Переработана с автогенерацией из docstrings
+- **Структура explanations**: Исправлены битые ссылки и добавлены новые страницы
+
+### Removed
+
+- **Устаревшие файлы**: Удалены дубликаты и устаревшие документы
+  - `docs/getting-started.md` (заменен на `tutorials/quickstart.md`)
+  - `docs/health-checking.md` (устарел)
+  - `docs/validation.md` (интегрирован в `reference/data-schemas/`)
+  - `docs/data_schema/` (интегрирован в `reference/data-schemas/`)
+  - `docs/data_qc/` (интегрирован в `reference/outputs/`)
+
+### Archived
+
+- **Внутренние отчеты**: Перемещены в архив (~22 файла)
+  - Отчеты о реализации и аудиты
+  - Планы и чек-листы
+  - Устаревшие README и протоколы
+  - Папки debug, refactor, migration
+
+### Fixed
+
+- **Битые ссылки**: Исправлены все внутренние ссылки в документации
+- **Навигация**: Обновлена структура навигации в mkdocs.yml
+- **Конфигурация mkdocs**: Исправлены пути к документации
 - **НОВЫЙ**: Разделение слоев: clients/ transforms/ normalize/ postprocessing/
 - **НОВЫЙ**: Тесты детерминизма с проверкой SHA256
 - **НОВЫЙ**: Адаптер обратной совместимости для постепенной миграции
@@ -68,7 +97,6 @@
 - Устранены все битые ссылки
 - Удалены дублирующиеся файлы
 - Исправлены ссылки на несуществующие файлы
->>>>>>> Stashed changes
 
 - **Очистка репозитория**: Удалены кэши, временные файлы и большие данные (экономия ~150MB)
 - **Обновлён .gitignore**: OS/IDE файлы, test outputs, site/, временные файлы, кэши
@@ -101,3 +129,10 @@
 ### Added
 - Initial release
 ```
+
+## [Unreleased]
+
+### Added
+- Р Р°СЃС€РёСЂРµРЅ РїР°СЂСЃРµСЂ Р°СЃСЃРµРµРІ РґР»СЏ РёР·РІР»РµС‡РµРЅРёСЏ РІСЃРµС… 56 РїРѕР»РµР№
+- РћР±РЅРѕРІР»РµРЅР° Pandera-СЃС…РµРјР° РґР»СЏ РІР°Р»РёРґР°С†РёРё РЅРѕРІС‹С… РїРѕР»РµР№
+

@@ -241,8 +241,16 @@ class ActivityConfig(BaseModel):
 
         # Resolve retries
         retry_settings = RetrySettings(
-            total=src.http.retries.total if hasattr(src.http.retries, 'total') else src.http.retries.get("total", self.http.global_.retries.total),
-            backoff_multiplier=src.http.retries.backoff_multiplier if hasattr(src.http.retries, 'backoff_multiplier') else src.http.retries.get("backoff_multiplier", self.http.global_.retries.backoff_multiplier),
+            total=(
+                src.http.retries.total
+                if hasattr(src.http.retries, 'total')
+                else src.http.retries.get("total", self.http.global_.retries.total)
+            ),
+            backoff_multiplier=(
+                src.http.retries.backoff_multiplier
+                if hasattr(src.http.retries, 'backoff_multiplier')
+                else src.http.retries.get("backoff_multiplier", self.http.global_.retries.backoff_multiplier)
+            ),
         )
 
         # Optional rate limit

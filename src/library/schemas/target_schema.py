@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib.util
 
-<<<<<<< Updated upstream
 from pandera.typing import Series
 
 _PANDERA_PANDAS_SPEC = importlib.util.find_spec("pandera.pandas")
@@ -36,12 +35,6 @@ class TargetNormalizedSchema(pa.DataFrameModel):
 
 
 __all__ = ["TargetInputSchema", "TargetNormalizedSchema"]
-
-
-=======
-# import pandas as pd  # Unused after removing legacy validators
-import pandera.pandas as pa
-from pandera import Check, Column, DataFrameSchema
 
 
 def validate_target_components_json(value: str | None) -> bool:
@@ -445,4 +438,3 @@ class TargetNormalizedSchema:
 # Example:
 # from library.common.validation import validate_entity_data, ValidationStage
 # result = validate_entity_data("target", df, ValidationStage.NORMALIZED)
->>>>>>> Stashed changes

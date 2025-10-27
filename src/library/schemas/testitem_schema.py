@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-<<<<<<< Updated upstream
 import importlib.util
 
 from pandera.typing import Series
@@ -707,7 +706,6 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
 
 
 __all__ = ["TestitemInputSchema", "TestitemRawSchema", "TestitemNormalizedSchema"]
-=======
 # import pandas as pd  # Unused after removing legacy validators
 import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
@@ -919,4 +917,3 @@ class TestitemNormalizedSchema:
 # Example:
 # from library.common.validation import validate_entity_data, ValidationStage
 # result = validate_entity_data("testitem", df, ValidationStage.NORMALIZED)
->>>>>>> Stashed changes

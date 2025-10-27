@@ -6,8 +6,8 @@ import logging
 from typing import Any
 
 import pandas as pd
-import pandera as pa
-from pandera import Column, DataFrameSchema, Check
+import pandera.pandas as pa
+from .schemas.activity_schema import ActivityRawSchema, ActivityNormalizedSchema
 
 logger = logging.getLogger(__name__)
 
@@ -27,351 +27,11 @@ class ActivityValidator:
 
     def get_raw_schema(self) -> DataFrameSchema:
         """Schema for raw activity data from ChEMBL API."""
-<<<<<<< Updated upstream
-        return DataFrameSchema({
-            # Primary identifiers
-            "activity_chembl_id": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^\d+$", name="chembl_id_format")
-                ],
-                nullable=False,
-                unique=True,
-                description="ChEMBL activity identifier"
-            ),
-            "assay_chembl_id": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="ChEMBL assay identifier"
-            ),
-            "molecule_chembl_id": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="ChEMBL molecule identifier"
-            ),
-            "target_chembl_id": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="ChEMBL target identifier"
-            ),
-            "document_chembl_id": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="ChEMBL document identifier"
-            ),
-            
-            # Published values
-            "published_type": Column(
-                pa.String,
-                nullable=True,
-                description="Published activity type"
-            ),
-            "published_relation": Column(
-                pa.String,
-                nullable=True,
-                description="Published relation"
-            ),
-            "published_value": Column(
-                pa.Float,
-                nullable=True,
-                checks=[
-                    Check.greater_than(0, name="positive_value")
-                ],
-                description="Published activity value"
-            ),
-            "published_units": Column(
-                pa.String,
-                nullable=True,
-                description="Published units"
-            ),
-            
-            # Standardized values
-            "standard_type": Column(
-                pa.String,
-                nullable=True,
-                description="Standardized activity type"
-            ),
-            "standard_relation": Column(
-                pa.String,
-                nullable=True,
-                description="Standardized relation"
-            ),
-            "standard_value": Column(
-                pa.Float,
-                nullable=True,
-                checks=[
-                    Check.greater_than(0, name="positive_value")
-                ],
-                description="Standardized activity value"
-            ),
-            "standard_units": Column(
-                pa.String,
-                nullable=True,
-                description="Standardized units"
-            ),
-            "standard_flag": Column(
-                pa.Bool,
-                nullable=True,
-                description="Standardization flag"
-            ),
-            
-            # Additional fields
-            "pchembl_value": Column(
-                pa.Float,
-                nullable=True,
-                checks=[
-                    Check.in_range(0, 15, name="pchembl_range")
-                ],
-                description="pChEMBL value"
-            ),
-            "data_validity_comment": Column(
-                pa.String,
-                nullable=True,
-                description="Data validity comment"
-            ),
-            "activity_comment": Column(
-                pa.String,
-                nullable=True,
-                description="Activity comment"
-            ),
-            
-            # BAO attributes
-            "bao_endpoint": Column(
-                pa.String,
-                nullable=True,
-                description="BAO endpoint"
-            ),
-            "bao_format": Column(
-                pa.String,
-                nullable=True,
-                description="BAO format"
-            ),
-            "bao_label": Column(
-                pa.String,
-                nullable=True,
-                description="BAO label"
-            ),
-            
-            # Metadata
-            "source_system": Column(
-                pa.String,
-                checks=[
-                    Check.isin(["ChEMBL"], name="valid_source")
-                ],
-                nullable=False,
-                description="Source system"
-            ),
-            # "retrieved_at": Column(
-            #     pa.String,
-            #     checks=[
-            #         Check.str_matches(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", name="iso_datetime")
-            #     ],
-            #     nullable=False,
-            #     description="Retrieval timestamp"
-            # )
-        })
-=======
-        return DataFrameSchema(
-            {
-                # Primary identifiers
-                "activity_chembl_id": Column(pa.String, nullable=False, unique=True, description="ChEMBL activity identifier"),
-                "assay_chembl_id": Column(pa.String, nullable=False, description="ChEMBL assay identifier"),
-                "molecule_chembl_id": Column(pa.String, nullable=False, description="ChEMBL molecule identifier"),
-                "target_chembl_id": Column(pa.String, nullable=True, description="ChEMBL target identifier"),
-                "document_chembl_id": Column(pa.String, nullable=True, description="ChEMBL document identifier"),
-                # Activity values
-                "activity_type": Column(pa.String, nullable=True, required=False, description="Activity type"),
-                "activity_value": Column(pa.Float, nullable=True, required=False, description="Activity value"),
-                "activity_unit": Column(pa.String, nullable=True, required=False, description="Activity unit"),
-                "lower_bound": Column(pa.Float, nullable=True, required=False, description="Lower bound value"),
-                "upper_bound": Column(pa.Float, nullable=True, required=False, description="Upper bound value"),
-                "is_censored": Column(pa.Bool, nullable=True, required=False, description="Whether the value is censored"),
-                # Published values
-                "published_type": Column(pa.String, nullable=True, required=False, description="Published activity type"),
-                "published_relation": Column(pa.String, nullable=True, required=False, description="Published relation"),
-                "published_value": Column(pa.Float, nullable=True, required=False, description="Published activity value"),
-                "published_units": Column(pa.String, nullable=True, required=False, description="Published units"),
-                # Standardized values
-                "standard_type": Column(pa.String, nullable=True, required=False, description="Standardized activity type"),
-                "standard_relation": Column(pa.String, nullable=True, required=False, description="Standardized relation"),
-                "standard_value": Column(pa.Float, nullable=True, required=False, description="Standardized activity value"),
-                "standard_units": Column(pa.String, nullable=True, required=False, description="Standardized units"),
-                "standard_flag": Column(pa.Bool, nullable=True, required=False, description="Standardization flag"),
-                # Additional fields
-                "pchembl_value": Column(pa.Float, nullable=True, required=False, description="pChEMBL value"),
-                "data_validity_comment": Column(pa.String, nullable=True, required=False, description="Data validity comment"),
-                "activity_comment": Column(pa.String, nullable=True, required=False, description="Activity comment"),
-                # BAO attributes
-                "bao_endpoint": Column(pa.String, nullable=True, required=False, description="BAO endpoint"),
-                "bao_format": Column(pa.String, nullable=True, required=False, description="BAO format"),
-                "bao_label": Column(pa.String, nullable=True, required=False, description="BAO label"),
-                "retrieved_at": Column(pa.String, nullable=True, required=False, description="Retrieval timestamp"),
-                "quality_flag": Column(pa.Bool, nullable=True, required=False, description="Quality flag"),
-                "quality_reason": Column(pa.String, nullable=True, required=False, description="Quality reason"),
-            },
-            coerce=True,
-        )
->>>>>>> Stashed changes
+        return ActivityRawSchema.get_schema()
 
     def get_normalized_schema(self) -> DataFrameSchema:
         """Schema for normalized activity data."""
-        base_schema = self.get_raw_schema()
-
-        # Add normalized fields
-        normalized_fields = {
-            # Index column
-<<<<<<< Updated upstream
-            "index": Column(
-                pa.Int64,
-                nullable=False,
-                description="Row index for identification"
-            ),
-            
-            # Foreign keys
-            "assay_key": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="Foreign key to assay table"
-            ),
-            "target_key": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="Foreign key to target table"
-            ),
-            "document_key": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="Foreign key to document table"
-            ),
-            "testitem_key": Column(
-                pa.String,
-                checks=[
-                    Check.str_matches(r"^CHEMBL\d+$", name="chembl_id_format")
-                ],
-                nullable=True,
-                description="Foreign key to testitem table"
-            ),
-            
-            # Interval fields
-            "lower_bound": Column(
-                pa.Float,
-                nullable=True,
-                checks=[
-                    Check.greater_than(0, name="positive_value")
-                ],
-                description="Lower bound of activity interval"
-            ),
-            "upper_bound": Column(
-                pa.Float,
-                nullable=True,
-                checks=[
-                    Check.greater_than(0, name="positive_value")
-                ],
-                description="Upper bound of activity interval"
-            ),
-            "is_censored": Column(
-                pa.Bool,
-                nullable=False,
-                description="Whether the value is censored"
-            ),
-            
-            # Quality fields - исключены из вывода
-            # "quality_flag": Column(
-            #     pa.String,
-            #     checks=[
-            #         Check.isin(["good", "warning", "poor", "unknown"], name="valid_quality_flag")
-            #     ],
-            #     nullable=False,
-            #     description="Quality assessment flag"
-            # ),
-            # "quality_reason": Column(
-            #     pa.String,
-            #     nullable=True,
-            #     description="Reason for quality assessment"
-            # )
-=======
-            "index": Column(pa.Int64, nullable=True, required=False, description="Row index for identification"),
-            # Foreign keys
-            "assay_key": Column(pa.String, nullable=True, required=False, description="Foreign key to assay table"),
-            "target_key": Column(pa.String, nullable=True, required=False, description="Foreign key to target table"),
-            "document_key": Column(pa.String, nullable=True, required=False, description="Foreign key to document table"),
-            "testitem_key": Column(pa.String, nullable=True, required=False, description="Foreign key to testitem table"),
-            # Interval fields
-            "lower_bound": Column(pa.Float, nullable=True, checks=[Check.greater_than(0, name="positive_value")], description="Lower bound of activity interval"),
-            "upper_bound": Column(pa.Float, nullable=True, checks=[Check.greater_than(0, name="positive_value")], description="Upper bound of activity interval"),
-            "is_censored": Column(pa.Bool, nullable=False, description="Whether the value is censored"),
-            # Pipeline fields
-            "retrieved_at": Column(pa.String, nullable=True, required=False, description="Retrieval timestamp"),
-            # Quality fields
-            "quality_flag": Column(pa.Bool, nullable=True, required=False, description="Quality assessment flag"),
-            "quality_reason": Column(pa.String, nullable=True, required=False, description="Reason for quality assessment"),
->>>>>>> Stashed changes
-        }
-
-        # Combine base schema with normalized fields
-        all_columns = {**base_schema.columns, **normalized_fields}
-
-        return DataFrameSchema(
-            columns=all_columns,
-            strict=False,  # Разрешаем дополнительные колонки (например, index)
-<<<<<<< Updated upstream
-            checks=[
-                # Business rule: non-censored records must have both bounds and they must match standard_value
-                Check(
-                    lambda df: (
-                        (df['is_censored'] == False) & 
-                        (df['lower_bound'].notna()) & 
-                        (df['upper_bound'].notna()) &
-                        (df['lower_bound'] == df['standard_value']) &
-                        (df['upper_bound'] == df['standard_value'])
-                    ).all() | (df['is_censored'] == True).all(),
-                    name="non_censored_bounds_consistency"
-                ),
-                
-                # Business rule: censored records must have exactly one bound
-                Check(
-                    lambda df: (
-                        (df['is_censored'] == True) &
-                        (
-                            (df['lower_bound'].notna() & df['upper_bound'].isna()) |
-                            (df['lower_bound'].isna() & df['upper_bound'].notna())
-                        )
-                    ).all() | (df['is_censored'] == False).all(),
-                    name="censored_bounds_consistency"
-                ),
-                
-                # Business rule: bounds must be consistent with relation
-                Check(
-                    lambda df: self._validate_bounds_relation_consistency(df),
-                    name="bounds_relation_consistency"
-                )
-            ]
-=======
-            coerce=True,  # Автоматическое преобразование типов
-            checks=[],
->>>>>>> Stashed changes
-        )
+        return ActivityNormalizedSchema.get_schema()
 
     def get_strict_quality_schema(self) -> DataFrameSchema:
         """Schema for strict quality profile."""
@@ -380,7 +40,6 @@ class ActivityValidator:
         # Override columns with strict requirements
         strict_columns = {
             **base_schema.columns,
-<<<<<<< Updated upstream
             "assay_key": Column(
                 pa.String,
                 checks=[
@@ -397,10 +56,6 @@ class ActivityValidator:
                 nullable=False,  # Required for strict profile
                 description="Foreign key to testitem table (required)"
             ),
-=======
-            "assay_key": Column(pa.String, nullable=True, required=False, description="Foreign key to assay table (required)"),
-            "testitem_key": Column(pa.String, nullable=True, required=False, description="Foreign key to testitem table (required)"),
->>>>>>> Stashed changes
             "standard_type": Column(
                 pa.String,
                 checks=[
@@ -425,38 +80,23 @@ class ActivityValidator:
                 nullable=False,  # Required for strict profile
                 description="Standardized activity value (required)",
             ),
-<<<<<<< Updated upstream
             "data_validity_comment": Column(
                 pa.String,
                 nullable=True,
-                checks=[
-                    Check(lambda x: x.isna().all(), name="no_validity_comments")
-                ],
                 description="Data validity comment (must be null for strict)"
             ),
             "activity_comment": Column(
                 pa.String,
                 nullable=True,
-                checks=[
-                    Check(lambda x: ~x.isin(self.rejected_activity_comments).all(), name="no_rejected_comments")
-                ],
                 description="Activity comment (no rejected values for strict)"
-            )
-=======
-            "data_validity_comment": Column(pa.String, nullable=True, description="Data validity comment (must be null for strict)"),
-            "activity_comment": Column(pa.String, nullable=True, description="Activity comment (no rejected values for strict)"),
->>>>>>> Stashed changes
+            ),
         }
 
         return DataFrameSchema(
             columns=strict_columns,
             strict=False,  # Разрешаем дополнительные колонки
-<<<<<<< Updated upstream
-            checks=base_schema.checks
-=======
             coerce=True,  # Автоматическое преобразование типов
             checks=base_schema.checks,
->>>>>>> Stashed changes
         )
 
     def get_moderate_quality_schema(self) -> DataFrameSchema:
@@ -482,15 +122,8 @@ class ActivityValidator:
         return DataFrameSchema(
             columns=moderate_columns,
             strict=False,  # Разрешаем дополнительные колонки
-<<<<<<< Updated upstream
+            coerce=True,  # Автоматическое приведение типов
             checks=base_schema.checks
-        )
-
-    def validate_raw_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate raw activity data."""
-=======
-            coerce=True,  # Автоматическое преобразование типов
-            checks=base_schema.checks,
         )
 
     def validate_raw_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -512,7 +145,6 @@ class ActivityValidator:
             >>> validator = ActivityValidator(config)
             >>> validated_df = validator.validate_raw_data(raw_df)
         """
->>>>>>> Stashed changes
         logger.info(f"Validating {len(df)} raw activity records")
 
         try:

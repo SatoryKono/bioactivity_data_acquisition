@@ -160,13 +160,8 @@ class TraceContextManager:
         # Set as current span
         trace.set_span_in_context(self.span)
         return self.span
-<<<<<<< Updated upstream
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
-=======
-
     def __exit__(self, exc_type, exc_val, _exc_tb):
->>>>>>> Stashed changes
         if self.span:
             if exc_type:
                 self.span.record_exception(exc_val)

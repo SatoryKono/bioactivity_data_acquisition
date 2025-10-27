@@ -6,11 +6,9 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
-
-# Re-export from the new unified exceptions system
 from library.common.exceptions import NormalizationError
+
+logger = logging.getLogger(__name__)
 
 # Реестр всех доступных нормализаторов
 _NORMALIZER_REGISTRY: dict[str, Callable[[Any], Any]] = {}

@@ -14,15 +14,11 @@ from library.testitem.config import TestitemConfig
 logger = logging.getLogger(__name__)
 
 
-<<<<<<< Updated upstream
 def extract_molecules_batch(
     client: TestitemChEMBLClient,
     molecule_chembl_ids: list[str],
     config: TestitemConfig
 ) -> list[dict[str, Any]]:
-=======
-def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str], config: TestitemConfig) -> list[dict[str, Any]]:
->>>>>>> Stashed changes
     """Extract comprehensive molecule data from ChEMBL API using batch requests."""
 
     logger.info(f"Extracting data for {len(molecule_chembl_ids)} molecules using batch requests")
@@ -55,9 +51,7 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
                 molecule_data_batch[molecule_id] = {}
 
         # Note: Properties are now included in main endpoint, no need for separate batch request
-<<<<<<< Updated upstream
         
-=======
 
         # Statistics for additional endpoints
         mechanism_success = 0
@@ -66,7 +60,6 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
         warning_success = 0
         form_success = 0
 
->>>>>>> Stashed changes
         # Process each molecule
         for molecule_chembl_id in molecule_chembl_ids:
             result = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().isoformat() + "Z"}
@@ -80,7 +73,6 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
             # Fetch additional data individually (only for data not included in main endpoint)
             try:
                 # S03: Fetch parent/child relationship data
-<<<<<<< Updated upstream
                 molecule_form_data = client.fetch_molecule_form(molecule_chembl_id)
                 result.update(molecule_form_data)
                 
@@ -92,7 +84,6 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
                 atc_data = client.fetch_atc_classification(molecule_chembl_id)
                 result.update(atc_data)
                 
-=======
                 # molecule_form_data = client.fetch_molecule_form(molecule_chembl_id)  # Method not available
                 molecule_form_data = {}
                 if molecule_form_data and any(v for v in molecule_form_data.values() if v is not None):
@@ -113,12 +104,10 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
                     result.update(atc_data)
                     atc_success += 1
 
->>>>>>> Stashed changes
                 # Note: Synonyms, properties, structures, and cross-references are now included in main endpoint
                 # No need for separate requests for these
 
                 # Fetch drug data
-<<<<<<< Updated upstream
                 drug_data = client.fetch_drug(molecule_chembl_id)
                 result.update(drug_data)
                 
@@ -126,7 +115,6 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
                 warning_data = client.fetch_drug_warning(molecule_chembl_id)
                 result.update(warning_data)
                 
-=======
                 # drug_data = client.fetch_drug(molecule_chembl_id)  # Method not available
                 drug_data = {}
                 if drug_data and any(v for v in drug_data.values() if v is not None):
@@ -140,15 +128,12 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
                     result.update(warning_data)
                     warning_success += 1
 
->>>>>>> Stashed changes
             except Exception as e:
                 logger.warning(f"Failed to fetch additional data for {molecule_chembl_id}: {e}")
 
             results.append(result)
-<<<<<<< Updated upstream
         
         logger.info(f"Successfully extracted data for {len(results)} molecules")
-=======
 
         # Log detailed statistics for additional endpoints
         total_molecules = len(molecule_chembl_ids)
@@ -171,7 +156,6 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
         if drug_success == 0:
             logger.warning("No drug data found for any molecules. This may indicate missing data in ChEMBL.")
 
->>>>>>> Stashed changes
         return results
 
     except Exception as e:
@@ -185,15 +169,11 @@ def extract_molecules_batch(client: ChEMBLClient, molecule_chembl_ids: list[str]
         return results
 
 
-<<<<<<< Updated upstream
 def extract_molecule_data(
     client: TestitemChEMBLClient,
     molecule_chembl_id: str,
     config: TestitemConfig
 ) -> dict[str, Any]:
-=======
-def extract_molecule_data(client: ChEMBLClient, molecule_chembl_id: str, config: TestitemConfig) -> dict[str, Any]:
->>>>>>> Stashed changes
     """Extract comprehensive molecule data from ChEMBL API."""
 
     logger.info(f"Extracting data for molecule: {molecule_chembl_id}")
@@ -469,16 +449,12 @@ def extract_pubchem_data_batch(client: PubChemClient, molecules_data: list[dict[
     return molecules_data
 
 
-<<<<<<< Updated upstream
 def extract_batch_data(
     chembl_client: TestitemChEMBLClient,
     pubchem_client: PubChemClient,
     input_data: pd.DataFrame,
     config: TestitemConfig
 ) -> pd.DataFrame:
-=======
-def extract_batch_data(chembl_client: ChEMBLClient, pubchem_client: PubChemClient, input_data: pd.DataFrame, config: TestitemConfig) -> pd.DataFrame:
->>>>>>> Stashed changes
     """Extract data for a batch of molecules using streaming batch processing."""
 
     logger.info(f"Extracting data for {len(input_data)} molecules using streaming batches")

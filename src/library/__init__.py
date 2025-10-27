@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 # Only import CLI directly as it's needed for main entry point
-from library.cli import app, main
+# from library.cli import app, main
 
 if TYPE_CHECKING:
     # Type-only imports to avoid circular dependencies
@@ -40,21 +40,15 @@ if TYPE_CHECKING:
         Config,
         CorrelationSettings,
         CsvFormatSettings,
-        DeterminismSettings,
         HTTPGlobalSettings,
         HTTPSettings,
         HTTPSourceSettings,
         IOSettings,
-        LoggingSettings,
-        OutputSettings,
         PaginationSettings,
         ParquetFormatSettings,
         PostprocessSettings,
-        QCStepSettings,
-        QCValidationSettings,
         RateLimitSettings,
         RetrySettings,
-        SortSettings,
         SourceSettings,
         TransformSettings,
         ValidationSettings,
@@ -78,7 +72,6 @@ __all__ = [
     "CsvFormatSettings",
     "DATE_TAG_FORMAT",
     "DEFAULT_ENV_PREFIX",
-    "DeterminismSettings",
     "DocumentConfig",
     "DocumentHTTPGlobalSettings",
     "DocumentHTTPRetrySettings",
@@ -91,18 +84,13 @@ __all__ = [
     "HTTPSettings",
     "HTTPSourceSettings",
     "IOSettings",
-    "LoggingSettings",
     "NormalizedBioactivitySchema",
-    "OutputSettings",
     "PaginationSettings",
     "ParquetFormatSettings",
     "PostprocessSettings",
-    "QCStepSettings",
-    "QCValidationSettings",
-    "RateLimitSettings",
     "RawBioactivitySchema",
+    "RateLimitSettings",
     "RetrySettings",
-    "SortSettings",
     "SourceSettings",
     "SourceToggle",
     "TransformSettings",
@@ -131,32 +119,24 @@ def __getattr__(name: str):
         "Config",
         "CorrelationSettings",
         "CsvFormatSettings",
-        "DeterminismSettings",
         "HTTPGlobalSettings",
         "HTTPSettings",
         "HTTPSourceSettings",
         "IOSettings",
-        "LoggingSettings",
-        "OutputSettings",
         "PaginationSettings",
         "ParquetFormatSettings",
         "PostprocessSettings",
-        "QCStepSettings",
-        "QCValidationSettings",
         "RateLimitSettings",
         "RetrySettings",
-        "SortSettings",
         "SourceSettings",
         "TransformSettings",
         "ValidationSettings",
     }:
         from library.config import (
             APIClientConfig, Config, CorrelationSettings, CsvFormatSettings,
-            DeterminismSettings, HTTPGlobalSettings, HTTPSettings, 
-            HTTPSourceSettings, IOSettings, LoggingSettings, OutputSettings,
+            HTTPGlobalSettings, HTTPSettings, HTTPSourceSettings, IOSettings,
             PaginationSettings, ParquetFormatSettings, PostprocessSettings,
-            QCStepSettings, QCValidationSettings, RateLimitSettings,
-            RetrySettings, SortSettings, SourceSettings, TransformSettings,
+            RateLimitSettings, RetrySettings, SourceSettings, TransformSettings,
             ValidationSettings
         )
 

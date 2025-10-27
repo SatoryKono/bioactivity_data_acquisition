@@ -32,7 +32,6 @@ def write_activity_outputs(
 ) -> dict[str, Path]:
     """Persist ETL artefacts and return generated file paths."""
 
-<<<<<<< Updated upstream
     output_dir.mkdir(parents=True, exist_ok=True)
 
     data_path = output_dir / (f"activity_{date_tag}.csv" if date_tag else "activity.csv")
@@ -162,11 +161,9 @@ def write_activity_outputs(
             logger.debug(f"Failed to save correlation insights: {e}")
 
     return paths
-=======
     # Use the new unified ETL writer
     writer = ActivityETLWriter(config, "activities")
     return writer.write_outputs(result, output_dir, date_tag)
->>>>>>> Stashed changes
 
 
 __all__ = ["write_activity_outputs"]

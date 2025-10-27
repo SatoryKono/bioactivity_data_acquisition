@@ -98,15 +98,8 @@ class ActivityQualityFilter:
     def apply_moderate_quality_filter(self, df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Apply moderate quality filter and return (accepted, rejected) dataframes."""
         logger.info(f"Applying moderate quality filter to {len(df)} records")
-<<<<<<< Updated upstream
         
         if not self.moderate_config.get('enabled', True):
-=======
-        logger.debug(f"Moderate config: {self.moderate_config}")
-        logger.debug(f"Moderate enabled: {self.moderate_config.get('enabled', True)}")
-
-        if not self.moderate_config.get("enabled", True):
->>>>>>> Stashed changes
             logger.info("Moderate quality filter is disabled")
             return df, pd.DataFrame()
 

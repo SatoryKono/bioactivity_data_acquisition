@@ -6,12 +6,13 @@ Use library.common.exceptions instead.
 
 import warnings
 
-warnings.warn("library.xml.exceptions is deprecated. Use library.common.exceptions instead.", DeprecationWarning, stacklevel=2)
-
-# Re-export from the new unified exceptions system for backward compatibility
 from library.common.exceptions import XMLParseError as _XMLParseError
 from library.common.exceptions import XMLValidationError as _XMLValidationError
 from library.common.exceptions import XPathError as _XPathError
+
+warnings.warn("library.xml.exceptions is deprecated. Use library.common.exceptions instead.", DeprecationWarning, stacklevel=2)
+
+# Re-export from the new unified exceptions system for backward compatibility
 
 
 # Legacy compatibility classes

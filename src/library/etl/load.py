@@ -41,14 +41,12 @@ def _deterministic_order(
 
     # Сохраняем только колонки, указанные в column_order
     desired_order = [col for col in determinism.column_order if col in df.columns]
-<<<<<<< Updated upstream
     # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
     ordered = df[desired_order]
     
     # Фильтруем колонки для сортировки, оставляя только существующие
     sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
     
-=======
     # Если нет совпадающих колонок, используем все колонки
     if not desired_order:
         ordered = df
@@ -59,7 +57,6 @@ def _deterministic_order(
     # Фильтруем колонки для сортировки, оставляя только существующие
     sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in ordered.columns]
 
->>>>>>> Stashed changes
     # Если нет колонок для сортировки, возвращаем DataFrame как есть
     if not sort_by:
         return ordered
@@ -85,18 +82,15 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
     """
     if df.empty:
         return df.copy()
-<<<<<<< Updated upstream
     
     df_normalized = df.copy()
     
-=======
 
     # Используем унифицированную логику обработки пустых значений
     from library.utils.empty_value_handler import normalize_dataframe_empty_values
 
     df_normalized = normalize_dataframe_empty_values(df, logger)
 
->>>>>>> Stashed changes
     if logger is not None:
         logger.info(f"normalize_start: {len(df.columns)} колонок, {len(df)} строк")
 
@@ -125,16 +119,13 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
         # Специальная обработка DOI-столбцов
         if column in doi_columns:
             if logger is not None:
-<<<<<<< Updated upstream
                 logger.info("normalizing_doi_column", column=column)
             
             # Заменяем None на NA
             df_normalized[column] = df_normalized[column].replace([None], pd.NA)
             
-=======
-                logger.info(f"normalizing_doi_column: {column}")
+            logger.info(f"normalizing_doi_column: {column}")
 
->>>>>>> Stashed changes
             # Применяем продвинутую нормализацию DOI
             for idx in df_normalized.index:
                 value = df_normalized.loc[idx, column]
@@ -148,16 +139,13 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
                     df_normalized.loc[idx, column] = pd.NA
                 else:
                     df_normalized.loc[idx, column] = normalized_doi
-<<<<<<< Updated upstream
                 
         elif str(df_normalized[column].dtypes) == 'object':  # Обычные строковые данные
             # Заменяем None на NA
             df_normalized[column] = df_normalized[column].replace([None], pd.NA)
             
-=======
 
         elif str(df_normalized[column].dtypes) == "object":  # Обычные строковые данные
->>>>>>> Stashed changes
             # Определяем, нужно ли приводить эту колонку к нижнему регистру
             should_lowercase = determinism is not None and determinism.lowercase_columns is not None and column in determinism.lowercase_columns
 
@@ -213,7 +201,7 @@ def _csv_options(settings: CsvFormatSettings) -> dict[str, object]:
     if settings.na_rep is not None:
         options["na_rep"] = settings.na_rep
     if settings.line_terminator is not None:
-        options["line_terminator"] = settings.line_terminator
+        options["lineterminator"] = settings.line_terminator
     return options
 
 
@@ -280,23 +268,12 @@ def write_deterministic_csv(
 ) -> Path:
     """Persist data to disk in a deterministic order using atomic writes."""
 
-<<<<<<< Updated upstream
     from library.config import (
         CsvFormatSettings as _CsvFormatSettings,
-    )
-    from library.config import (
         DeterminismSettings as _DeterminismSettings,
-    )
-    from library.config import (
         ParquetFormatSettings as _ParquetFormatSettings,
     )
     from library.io_.atomic_writes import atomic_write_context
-=======
-    from library.io.atomic_writes import atomic_write_context
-    from library.config import CsvFormatSettings as _CsvFormatSettings
-    from library.config import DeterminismSettings as _DeterminismSettings
-    from library.config import ParquetFormatSettings as _ParquetFormatSettings
->>>>>>> Stashed changes
 
     determinism = determinism or _DeterminismSettings()
     csv_settings: CsvFormatSettings
@@ -318,7 +295,6 @@ def write_deterministic_csv(
         # Но только если это не QC отчет (который уже имеет структуру metric/value)
         df_to_write = df.copy()
         if not _is_qc_report(df_to_write):
-<<<<<<< Updated upstream
             # Проверяем, существует ли уже колонка index
             if 'index' not in df_to_write.columns:
                 df_to_write.insert(0, 'index', range(len(df_to_write)))
@@ -328,7 +304,6 @@ def write_deterministic_csv(
                 if logger is not None:
                     logger.info(f"index_column_exists: {len(df_to_write.columns)} колонок, первые: {list(df_to_write.columns[:5])}")
         
-=======
             # Проверяем, существуют ли системные метаданные поля
             missing_metadata_fields = []
             required_metadata_fields = ["index", "pipeline_version", "chembl_release"]
@@ -350,7 +325,6 @@ def write_deterministic_csv(
                 if logger is not None:
                     logger.info("metadata_fields_present: все системные метаданные поля присутствуют")
 
->>>>>>> Stashed changes
         # Применяем детерминистический порядок колонок после добавления index
         df_to_write = _deterministic_order(df_to_write, determinism)
         if logger is not None:
@@ -360,12 +334,8 @@ def write_deterministic_csv(
         df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)
 
     # Очищаем старые backup файлы перед записью
-<<<<<<< Updated upstream
     from library.io_.atomic_writes import cleanup_backups
-=======
-    from library.io.atomic_writes import cleanup_backups
 
->>>>>>> Stashed changes
     backup_count = cleanup_backups(destination.parent)
     if backup_count > 0 and logger is not None:
         logger.info("cleaned_up_backups", count=backup_count, directory=str(destination.parent))
@@ -384,13 +354,10 @@ def write_deterministic_csv(
     # Очищаем backup файлы после успешной записи
     backup_count = cleanup_backups(destination.parent)
     if backup_count > 0 and logger is not None:
-<<<<<<< Updated upstream
         logger.info("cleaned_up_backups_after_write", count=backup_count, directory=str(destination.parent))
     
-=======
         logger.info(f"cleaned_up_backups_after_write: {backup_count} files in {destination.parent}")
 
->>>>>>> Stashed changes
     # Автоматически генерируем и сохраняем QC и корреляционные таблицы
     # Но только для основных данных, не для самих QC отчетов и корреляций
     if not df.empty and not _is_report_file(destination):
@@ -496,16 +463,13 @@ def _auto_generate_qc_and_correlation_reports(
     corr_path = data_dir / f"{data_stem}_correlation_report.csv"
 
     if logger is not None:
-<<<<<<< Updated upstream
         logger.info("auto_qc_corr_start", 
                    qc_path=str(qc_path), 
                    corr_path=str(corr_path),
                    data_rows=len(df))
     
-=======
         logger.info(f"auto_qc_corr_start: qc_path={qc_path}, corr_path={corr_path}, data_rows={len(df)}")
 
->>>>>>> Stashed changes
     try:
         # 1. Генерируем базовый QC отчет (только если включен)
         if postprocess.qc.enabled:
@@ -519,13 +483,10 @@ def _auto_generate_qc_and_correlation_reports(
                 qc_report.to_csv(qc_path, **_csv_options(csv_settings))
 
             if logger is not None:
-<<<<<<< Updated upstream
                 logger.info("auto_qc_basic_saved", path=str(qc_path))
         
-=======
                 logger.info(f"auto_qc_basic_saved: {qc_path}")
 
->>>>>>> Stashed changes
         # 2. Генерируем базовую корреляционную матрицу (только если включена)
         if postprocess.correlation.enabled:
             correlation = build_correlation_matrix(df)
@@ -537,13 +498,10 @@ def _auto_generate_qc_and_correlation_reports(
                 correlation.to_csv(corr_path, **_csv_options(csv_settings))
 
             if logger is not None:
-<<<<<<< Updated upstream
                 logger.info("auto_corr_basic_saved", path=str(corr_path))
         
-=======
                 logger.info(f"auto_corr_basic_saved: {corr_path}")
 
->>>>>>> Stashed changes
         # 3. Генерируем расширенные QC отчеты (только если включены)
         if postprocess.qc.enabled and hasattr(postprocess.qc, "enhanced") and postprocess.qc.enhanced:
             enhanced_qc_path = data_dir / f"{data_stem}_quality_report_enhanced.csv"
@@ -634,15 +592,12 @@ def _auto_generate_qc_and_correlation_reports(
                 created_files.append(str(corr_path))
                 if hasattr(postprocess.correlation, "enhanced") and postprocess.correlation.enhanced:
                     created_files.extend([str(enhanced_corr_path), str(detailed_corr_path)])
-<<<<<<< Updated upstream
             
             logger.info("auto_qc_corr_complete", created_files=created_files)
     
-=======
 
             logger.info(f"auto_qc_corr_complete: created_files={created_files}")
 
->>>>>>> Stashed changes
     except Exception as e:
         if logger is not None:
             logger.error("auto_qc_corr_error", error=str(e), error_type=type(e).__name__)

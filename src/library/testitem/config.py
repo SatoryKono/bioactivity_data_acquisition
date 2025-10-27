@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import os
+import yaml
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from library.config import Config
+from library.config import Config, DeterminismSettings
 
 
 class ConfigLoadError(RuntimeError):
@@ -42,22 +43,17 @@ class TestitemConfig(Config):
 
     # Runtime settings
     runtime: TestitemRuntimeSettings = Field(default_factory=TestitemRuntimeSettings)
-<<<<<<< Updated upstream
-=======
 
     # Determinism settings
     determinism: DeterminismSettings = Field(default_factory=DeterminismSettings)
->>>>>>> Stashed changes
 
     @classmethod
     def from_file(cls, path: Path) -> TestitemConfig:
         """Load configuration from YAML file."""
         try:
-<<<<<<< Updated upstream
             # Use the base class load method
             config = cls.load(path)
             
-=======
             # Load raw YAML data
             with path.open("r", encoding="utf-8") as f:
                 raw_data = yaml.safe_load(f) or {}
@@ -75,7 +71,6 @@ class TestitemConfig(Config):
             if determinism_data:
                 config.determinism = DeterminismSettings.model_validate(determinism_data)
 
->>>>>>> Stashed changes
             # Validate testitem-specific configuration
             config._validate()
 

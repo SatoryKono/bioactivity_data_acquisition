@@ -7,16 +7,29 @@ DEPRECATED: Базовый нормализатор для унификации 
 Содержит унифицированные функции нормализации для специальных форматов.
 """
 
-import warnings
-
-warnings.warn("library.common.base_normalizer is deprecated. Use library.normalizers instead.", DeprecationWarning, stacklevel=2)
-
 import hashlib
 import re
+import warnings
 from datetime import timezone
 from typing import Any
 
 import pandas as pd
+
+from library.normalizers import normalize_boolean as _normalize_boolean
+from library.normalizers import normalize_chembl_id as _normalize_chembl_id
+from library.normalizers import (
+    normalize_datetime_iso8601 as _normalize_datetime_iso8601,
+)
+from library.normalizers import normalize_doi as _normalize_doi
+from library.normalizers import normalize_float as _normalize_float
+from library.normalizers import normalize_inchi as _normalize_inchi
+from library.normalizers import normalize_inchi_key as _normalize_inchi_key
+from library.normalizers import normalize_int as _normalize_int
+from library.normalizers import normalize_pmid as _normalize_pmid
+from library.normalizers import normalize_string_strip as _normalize_string_strip
+from library.normalizers import normalize_uniprot_id as _normalize_uniprot_id
+
+warnings.warn("library.common.base_normalizer is deprecated. Use library.normalizers instead.", DeprecationWarning, stacklevel=2)
 
 
 class BaseNormalizer:
@@ -363,19 +376,6 @@ normalizer = BaseNormalizer()
 
 
 # Re-export from the new unified normalizers system for backward compatibility
-from library.normalizers import normalize_boolean as _normalize_boolean
-from library.normalizers import normalize_chembl_id as _normalize_chembl_id
-from library.normalizers import (
-    normalize_datetime_iso8601 as _normalize_datetime_iso8601,
-)
-from library.normalizers import normalize_doi as _normalize_doi
-from library.normalizers import normalize_float as _normalize_float
-from library.normalizers import normalize_inchi as _normalize_inchi
-from library.normalizers import normalize_inchi_key as _normalize_inchi_key
-from library.normalizers import normalize_int as _normalize_int
-from library.normalizers import normalize_pmid as _normalize_pmid
-from library.normalizers import normalize_string_strip as _normalize_string_strip
-from library.normalizers import normalize_uniprot_id as _normalize_uniprot_id
 
 
 # Re-export with deprecation warnings

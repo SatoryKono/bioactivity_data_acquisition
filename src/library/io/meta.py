@@ -115,11 +115,9 @@ class DatasetMetadata:
 
         with open(file_path, "rb") as f:
             content = f.read()
-            md5_hash = hashlib.md5(content).hexdigest()
             sha256_hash = hashlib.sha256(content).hexdigest()
 
             filename = Path(file_path).name
-            self._checksums[f"{filename}_md5"] = md5_hash
             self._checksums[f"{filename}_sha256"] = sha256_hash
 
     def to_dict(self, config: APIClientConfig | None = None) -> dict[str, Any]:

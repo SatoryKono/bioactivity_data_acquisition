@@ -14,17 +14,13 @@ from rich.table import Table
 
 from library.activity import ActivityConfig, run_activity_etl
 from library.clients.health import create_health_checker_from_config
-<<<<<<< Updated upstream
 from library.config import Config, _assign_path, ensure_output_directories_exist
-=======
->>>>>>> Stashed changes
 from library.documents.config import (
     ALLOWED_SOURCES,
     DEFAULT_ENV_PREFIX,
     ConfigLoadError,
     load_document_config,
 )
-<<<<<<< Updated upstream
 from library.documents.pipeline import (
     DocumentHTTPError,
     DocumentIOError,
@@ -44,22 +40,6 @@ from library.target import (
     load_target_config,
     read_target_input,
     run_target_etl,
-=======
-from library.documents.pipeline import DocumentPipeline
-from library.documents.writer import write_document_outputs
-from library.etl.run import run_pipeline
-from library.logging_setup import (
-    bind_stage,
-    configure_logging,
-    generate_run_id,
-    set_run_context,
-)
-from library.config import Config, _assign_path, ensure_output_directories_exist
-from library.target import (
-    TargetQCError,
-    TargetValidationError,
-    load_target_config,
->>>>>>> Stashed changes
     write_target_outputs,
 )
 from library.telemetry import setup_telemetry
@@ -188,8 +168,6 @@ def _build_cli_overrides(
 
 
 app = typer.Typer(help="Bioactivity ETL pipeline")
-<<<<<<< Updated upstream
-=======
 
 
 # Analysis commands
@@ -431,7 +409,6 @@ def list_reports() -> None:
     console.print(table)
 
 
->>>>>>> Stashed changes
 # Target CLI command
 @app.command("get-target-data")
 def get_target_data(
@@ -491,20 +468,17 @@ def get_target_data(
         logger.info("Target processing started", run_id=run_id)
 
         try:
-<<<<<<< Updated upstream
             input_frame = read_target_input(input)
         except TargetValidationError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
         except TargetIOError as exc:
             typer.echo(str(exc), err=True)
-=======
             import pandas as pd
 
             input_frame = pd.read_csv(input)
         except Exception as exc:
             typer.echo(f"Failed to read input file: {exc}", err=True)
->>>>>>> Stashed changes
             raise typer.Exit(code=ExitCode.IO_ERROR) from exc
 
         register_shutdown_handler(lambda: logger.info("Target processing shutdown", run_id=run_id))
@@ -512,14 +486,11 @@ def get_target_data(
         try:
             with ShutdownContext(timeout=60.0):
                 with bind_stage(logger, "target_etl"):
-<<<<<<< Updated upstream
                     result = run_target_etl(cfg, input_frame=input_frame)
-=======
                     from library.target import TargetPipeline
 
                     pipeline = TargetPipeline(cfg)
                     result = pipeline.run(input_data=input_frame)
->>>>>>> Stashed changes
         except TargetValidationError as exc:
             logger.error("Target validation failed", error=str(exc), run_id=run_id, exc_info=True)
             typer.echo(str(exc), err=True)
@@ -824,15 +795,12 @@ def get_document_data(
             raise typer.Exit(code=ExitCode.VALIDATION_ERROR)
 
         try:
-<<<<<<< Updated upstream
             input_frame = read_document_input(config_model.io.input.documents_csv)
         except DocumentValidationError as exc:
-=======
             import pandas as pd
 
             input_frame = pd.read_csv(config_model.io.input.documents_csv)
         except ValueError as exc:
->>>>>>> Stashed changes
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=ExitCode.VALIDATION_ERROR) from exc
         except DocumentIOError as exc:
@@ -1038,18 +1006,15 @@ def testitem_run(
         console.print("[blue]Starting testitem ETL pipeline...[/blue]")
         console.print(f"  Input file: {input}")
         console.print(f"  Output directory: {output}")
-<<<<<<< Updated upstream
         
         result = run_testitem_etl(testitem_config, input_path=input)
         
-=======
 
         import pandas as pd
 
         pipeline = TestitemPipeline(testitem_config)
         result = pipeline.run(input_data=pd.read_csv(input))
 
->>>>>>> Stashed changes
         # Display results summary
         console.print("[green]ETL pipeline completed successfully![/green]")
         console.print(f"  Processed {len(result.testitems)} molecules")

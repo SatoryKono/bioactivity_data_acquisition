@@ -8,12 +8,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from library.clients.base import BaseApiClient
-<<<<<<< Updated upstream
 from library.config import APIClientConfig
-=======
-from library.settings import APIClientConfig
-from library.utils.list_converter import convert_authors_list
->>>>>>> Stashed changes
 
 logger = logging.getLogger(__name__)
 
@@ -29,15 +24,12 @@ class SemanticScholarClient(BaseApiClient):
         "authors",
         "publicationVenue",  # Для получения ISSN и названия журнала
         "publicationTypes",  # Для получения типа документа
-<<<<<<< Updated upstream
-=======
         "externalIds",  # Для получения DOI и других ID
         "paperId",  # Semantic Scholar ID (как в референсе)
         "venue",  # Для получения данных о журнале (как в референсе)
         "title",  # Дополнительно для полноты
         "year",  # Дополнительно для полноты
         "authors",  # Дополнительно для полноты
->>>>>>> Stashed changes
     ]
 
     # Альтернативный минимальный набор для максимальной производительности
@@ -47,7 +39,6 @@ class SemanticScholarClient(BaseApiClient):
         headers = dict(config.headers)
         headers.setdefault("Accept", "application/json")
         enhanced = config.model_copy(update={"headers": headers})
-<<<<<<< Updated upstream
         
         # Создаем специальную fallback стратегию для Semantic Scholar
         from library.clients.fallback import (
@@ -70,7 +61,6 @@ class SemanticScholarClient(BaseApiClient):
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         identifier = f"PMID:{pmid}"
         
-=======
 
         # Fallback strategy removed - using standard request handling
 
@@ -81,7 +71,6 @@ class SemanticScholarClient(BaseApiClient):
         # Semantic Scholar API endpoint for papers by PMID
         identifier = f"paper/PMID:{pmid}"
 
->>>>>>> Stashed changes
         try:
             # Use standard request method
             response = self._request("GET", identifier, params={"fields": ",".join(self._DEFAULT_FIELDS)})
@@ -92,7 +81,6 @@ class SemanticScholarClient(BaseApiClient):
                 # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                 error_msg = str(payload.get("error", "")).replace("%", "%%")
                 fallback_reason_msg = str(payload.get("fallback_reason", "")).replace("%", "%%")
-<<<<<<< Updated upstream
                 self.logger.warning(
                     "semantic_scholar_fallback_used",
                     pmid=pmid,
@@ -101,7 +89,6 @@ class SemanticScholarClient(BaseApiClient):
                 )
                 return self._create_empty_record(pmid, str(payload.get("error", "Unknown error")).replace('%', '%%'))
                 
-=======
                 self.logger.warning(f"semantic_scholar_fallback_used pmid={pmid} error={error_msg} fallback_reason={fallback_reason_msg}")
                 # Fallback к поиску по заголовку если есть
                 if title:
@@ -109,7 +96,6 @@ class SemanticScholarClient(BaseApiClient):
                     return self._search_by_title(title, pmid)
                 return self._create_empty_record(pmid, str(payload.get("error", "Unknown error")).replace("%", "%%"))
 
->>>>>>> Stashed changes
             return self._parse_paper(payload)
 
         except Exception as exc:
@@ -123,21 +109,17 @@ class SemanticScholarClient(BaseApiClient):
                 exc_msg = str(exc).replace("%", "%%")
                 return self._create_empty_record(pmid, f"Rate limited: {exc_msg}. Consider getting an API key for higher limits.")
             else:
-<<<<<<< Updated upstream
-=======
                 # Fallback к поиску по заголовку если есть
                 if title:
                     self.logger.info(f"semantic_scholar_pmid_fallback pmid={pmid} title={title}")
                     return self._search_by_title(title, pmid)
 
->>>>>>> Stashed changes
                 # Экранируем символы % в сообщениях об ошибках для безопасного логирования
                 error_msg = str(exc).replace("%", "%%")
                 self.logger.error(f"semantic_scholar_request_failed pmid={pmid} error={error_msg} error_type={type(exc).__name__}")
                 exc_msg = str(exc).replace("%", "%%")
                 return self._create_empty_record(pmid, f"Request failed: {exc_msg}")
 
-<<<<<<< Updated upstream
     def fetch_by_pmids(self, pmids: Iterable[str]) -> dict[str, dict[str, Any]]:
         ids = [f"PMID:{pmid}" for pmid in pmids]
         if not ids:
@@ -174,7 +156,6 @@ class SemanticScholarClient(BaseApiClient):
         
         return result
 
-=======
     def _search_by_title(self, title: str, pmid: str) -> dict[str, Any]:
         """Search for paper by title as fallback when PMID lookup fails."""
         try:
@@ -254,7 +235,6 @@ class SemanticScholarClient(BaseApiClient):
 
         return result
 
->>>>>>> Stashed changes
     def _parse_paper(self, payload: dict[str, Any]) -> dict[str, Any]:
         external_ids = payload.get("externalIds") or {}
         authors = payload.get("authors")
@@ -268,7 +248,6 @@ class SemanticScholarClient(BaseApiClient):
 
         record: dict[str, Any | None] = {
             "source": "semantic_scholar",
-<<<<<<< Updated upstream
             "semantic_scholar_pmid": self._extract_pmid(payload),
             "semantic_scholar_doi": external_ids.get("DOI"),
             "semantic_scholar_semantic_scholar_id": payload.get("paperId"),
@@ -287,7 +266,6 @@ class SemanticScholarClient(BaseApiClient):
             
             "year": payload.get("year"),
             "pubmed_authors": author_names,
-=======
             "semantic_scholar_pmid": self._extract_pmid(payload) or "",
             "semantic_scholar_doi": external_ids.get("DOI") or "",
             "semantic_scholar_semantic_scholar_id": payload.get("paperId") or "",
@@ -303,16 +281,13 @@ class SemanticScholarClient(BaseApiClient):
             "title": payload.get("title") or "",
             "year": payload.get("year") or "",
             "pubmed_authors": convert_authors_list(author_names) or "",
->>>>>>> Stashed changes
         }
         # Return all fields, including None values, to maintain schema consistency
         return record
 
     def _extract_issn(self, payload: dict[str, Any]) -> str | None:
         """Извлекает ISSN из Semantic Scholar payload."""
-<<<<<<< Updated upstream
         # Сначала проверяем в publicationVenue
-=======
         # Сначала проверяем в venue (как в референсе)
         venue = payload.get("venue", {})
         if isinstance(venue, dict):
@@ -321,7 +296,6 @@ class SemanticScholarClient(BaseApiClient):
                 return str(issn)
 
         # Fallback к publicationVenue
->>>>>>> Stashed changes
         publication_venue = payload.get("publicationVenue", {})
         if isinstance(publication_venue, dict):
             issn = publication_venue.get("issn")
@@ -338,9 +312,7 @@ class SemanticScholarClient(BaseApiClient):
 
     def _extract_journal(self, payload: dict[str, Any]) -> str | None:
         """Извлекает название журнала из Semantic Scholar payload."""
-<<<<<<< Updated upstream
         # Проверяем в publicationVenue
-=======
         # Сначала проверяем в venue (как в референсе)
         venue = payload.get("venue", {})
         if isinstance(venue, dict):
@@ -350,7 +322,6 @@ class SemanticScholarClient(BaseApiClient):
                 return str(journal)
 
         # Fallback к publicationVenue
->>>>>>> Stashed changes
         publication_venue = payload.get("publicationVenue", {})
         if isinstance(publication_venue, dict):
             # Пробуем разные поля для названия журнала
@@ -405,7 +376,6 @@ class SemanticScholarClient(BaseApiClient):
             return pmid.split(":")[-1]
         return None
 
-<<<<<<< Updated upstream
     def fetch_by_pmids_batch(
         self,
         pmids: list[str],
@@ -454,7 +424,6 @@ class SemanticScholarClient(BaseApiClient):
                     results[pmid] = self._create_empty_record(pmid, str(e))
         
         return results
-=======
     def fetch_by_pmids_batch(self, pmids: list[str], batch_size: int = 100) -> dict[str, dict[str, Any]]:
         """Fetch multiple PMIDs in batches.
 
@@ -479,4 +448,3 @@ class SemanticScholarClient(BaseApiClient):
                     result[pmid] = self._create_empty_record(pmid, f"Batch processing failed: {str(e)}")
 
         return result
->>>>>>> Stashed changes

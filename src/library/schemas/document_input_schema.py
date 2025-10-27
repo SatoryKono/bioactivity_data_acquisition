@@ -19,26 +19,20 @@ class DocumentInputSchema(pa.DataFrameModel):
     # Required fields
     document_chembl_id: Series[str] = pa.Field(description="ChEMBL document identifier")
     title: Series[str] = pa.Field(description="Document title")
-<<<<<<< Updated upstream
     
     # Optional fields
-=======
 
     # Optional fields (matching actual CSV columns)
->>>>>>> Stashed changes
     doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
     document_pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed identifier")
     chembl_doc_type: Series[str] = pa.Field(nullable=True, description="Document type from ChEMBL")
     journal: Series[str] = pa.Field(nullable=True, description="Journal name")
-<<<<<<< Updated upstream
     year: Series[int] = pa.Field(nullable=True, description="Publication year")
     
     # Legacy fields (keeping for backward compatibility)
-=======
     year: Series[float] = pa.Field(nullable=True, description="Publication year")
 
     # Legacy fields (matching actual CSV columns)
->>>>>>> Stashed changes
     abstract: Series[str] = pa.Field(nullable=True, description="Document abstract")
     pubmed_authors: Series[str] = pa.Field(
         nullable=True, description="Document authors from PubMed"

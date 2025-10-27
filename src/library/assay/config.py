@@ -17,9 +17,7 @@ from pydantic import (
     model_validator,
 )
 
-<<<<<<< Updated upstream
 from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings, LoggingSettings
-=======
 from library.config import (
     DeterminismSettings,
     LoggingSettings,
@@ -27,7 +25,6 @@ from library.config import (
     _merge_dicts,
     _parse_scalar,
 )
->>>>>>> Stashed changes
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl",)
 DATE_TAG_FORMAT = "%Y%m%d"
@@ -171,8 +168,6 @@ class FilterProfileSettings(BaseModel):
     assay_type__in: str | None = Field(default=None)
 
 
-<<<<<<< Updated upstream
-=======
 class VariantFilterSettings(BaseModel):
     """Settings for filtering variant data."""
 
@@ -221,7 +216,6 @@ class TargetSettings(BaseModel):
     join_isoforms: TargetIsoformSettings = Field(default_factory=TargetIsoformSettings)
 
 
->>>>>>> Stashed changes
 def _default_sources() -> dict[str, AssaySourceSettings]:
     return {name: AssaySourceSettings(name=name) for name in ALLOWED_SOURCES}
 

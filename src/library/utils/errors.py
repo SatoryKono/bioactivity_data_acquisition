@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import warnings
 
-warnings.warn("library.utils.errors is deprecated. Use library.common.exceptions instead.", DeprecationWarning, stacklevel=2)
-
-# Re-export from the new unified exceptions system for backward compatibility
 from library.common.exceptions import ConfigError as _ConfigError
 from library.common.exceptions import ExtractionError as _ExtractionError
 from library.common.exceptions import ValidationError as _ValidationError
+
+warnings.warn("library.utils.errors is deprecated. Use library.common.exceptions instead.", DeprecationWarning, stacklevel=2)
+
+# Re-export from the new unified exceptions system for backward compatibility
 
 
 # Legacy compatibility classes

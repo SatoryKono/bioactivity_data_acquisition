@@ -239,7 +239,6 @@ class MetadataBuilder:
         """Построить упрощённые метаданные пайплайна."""
 
         # Построить основные компоненты
-        pipeline_info = self.build_pipeline_info()
         execution_info = self.build_execution_info(end_time)
         data_info = self.build_data_info(df, accepted_df, rejected_df)
         sources_info = self.build_sources_info(extraction_results)
@@ -248,7 +247,7 @@ class MetadataBuilder:
 
         # Вычислить checksums для файлов
         checksums = {}
-        for file_type, file_path in files_info.items():
+        for _, file_path in files_info.items():
             if isinstance(file_path, (str, Path)):
                 path_obj = Path(file_path)
                 if path_obj.exists():

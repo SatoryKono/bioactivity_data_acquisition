@@ -11,6 +11,7 @@
 ### Примеры защиты
 
 **❌ Уязвимый код:**
+
 ```python
 import xml.etree.ElementTree as ET
 root = ET.fromstring(untrusted_xml)  # XXE vulnerability

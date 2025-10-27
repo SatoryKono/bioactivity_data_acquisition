@@ -32,7 +32,8 @@ class AssayChEMBLClient(BaseApiClient):
         }
         
         try:
-            payload = self._request("GET", f"assay/{assay_id}?format=json", headers=headers)
+            response = self._request("GET", f"assay/{assay_id}?format=json", headers=headers)
+            payload = response.json()
             return self._parse_assay(payload)
         except Exception as e:
             # В случае ошибки возвращаем пустую запись с информацией об ошибке
@@ -67,7 +68,8 @@ class AssayChEMBLClient(BaseApiClient):
                     "limit": len(batch)
                 }
                 
-                payload = self._request("GET", "assay", headers=headers, params=params)
+                response = self._request("GET", "assay", headers=headers, params=params)
+                payload = response.json()
                 
                 # Обрабатываем ответ
                 if "assays" in payload:
@@ -117,7 +119,8 @@ class AssayChEMBLClient(BaseApiClient):
                     "limit": len(batch),
                 }
 
-                payload = self._request("GET", "assay", headers=headers, params=params)
+                response = self._request("GET", "assay", headers=headers, params=params)
+                payload = response.json()
 
                 batch_results: list[dict[str, Any]] = []
                 if isinstance(payload, dict) and "assays" in payload:
@@ -226,7 +229,7 @@ class AssayChEMBLClient(BaseApiClient):
         """Parse assay data from ChEMBL API response."""
         
         try:
-            assay = dict(payload)
+            assay = payload
             logger.debug(f"Parsing assay data: {assay.get('assay_chembl_id', 'unknown')}")
         except Exception as e:
             logger.error(f"Error parsing assay payload: {e}")
@@ -265,12 +268,39 @@ class AssayChEMBLClient(BaseApiClient):
             "assay_parameters": self._parse_parameters_field(assay.get("assay_parameters")),
             "assay_format": assay.get("assay_format"),
             
+            # Additional metadata fields
+            "document_chembl_id": assay.get("document_chembl_id"),
+            "tissue_chembl_id": assay.get("tissue_chembl_id"),
+            "cell_chembl_id": assay.get("cell_chembl_id"),
+            "assay_group": assay.get("assay_group"),
+            "assay_test_type": assay.get("assay_test_type"),
+            "bao_endpoint": assay.get("bao_endpoint"),
+            "confidence_description": assay.get("confidence_description"),
+            "relationship_description": assay.get("relationship_description"),
+            "pipeline_version": "1.0.0",
+            
             # Техслужебные поля
             "source_system": "ChEMBL",
             "extracted_at": datetime.utcnow().isoformat(),
             "hash_row": None,  # Will be calculated later
             "hash_business_key": None,  # Will be calculated later
         }
+        
+        # Parse assay classification
+        assay_class_fields = self._parse_assay_class(assay.get("assay_class"))
+        record.update(assay_class_fields)
+        
+        # Store original JSON and expand first parameter
+        record["assay_parameters_json"] = self._parse_parameters_field(assay.get("assay_parameters"))
+        expanded_params = self._parse_assay_parameters_expanded(assay.get("assay_parameters"))
+        record.update(expanded_params)
+        
+        # Parse variant sequences
+        variant_fields = self._parse_variant_sequence(assay.get("variant_sequence"))
+        record.update(variant_fields)
+        
+        # Add assay_description alias for description
+        record["assay_description"] = record.get("description")
         
         # Calculate hashes
         record["hash_business_key"] = self._calculate_business_key_hash(record)
@@ -326,6 +356,128 @@ class AssayChEMBLClient(BaseApiClient):
         
         return str(value) if value is not None else None
 
+    def _parse_assay_class(self, assay_class_data: dict[str, Any] | list[dict[str, Any]] | None) -> dict[str, Any]:
+        """Parse assay classification data from ChEMBL response.
+        
+        ChEMBL может возвращать assay_class как:
+        - Один объект (dict)
+        - Список объектов (list[dict]) - берем первый
+        - None
+        """
+        if not assay_class_data:
+            return {
+                "assay_class_id": None,
+                "assay_class_bao_id": None,
+                "assay_class_type": None,
+                "assay_class_l1": None,
+                "assay_class_l2": None,
+                "assay_class_l3": None,
+                "assay_class_description": None,
+            }
+        
+        # Если список, берем первый элемент
+        if isinstance(assay_class_data, list):
+            assay_class_data = assay_class_data[0] if assay_class_data else {}
+        
+        return {
+            "assay_class_id": assay_class_data.get("assay_class_id"),
+            "assay_class_bao_id": assay_class_data.get("bao_id"),
+            "assay_class_type": assay_class_data.get("class_type"),
+            "assay_class_l1": assay_class_data.get("l1"),
+            "assay_class_l2": assay_class_data.get("l2"),
+            "assay_class_l3": assay_class_data.get("l3"),
+            "assay_class_description": assay_class_data.get("description"),
+        }
+
+    def _parse_assay_parameters_expanded(self, params: Any) -> dict[str, Any]:
+        """Parse first assay parameter into separate columns.
+        
+        Args:
+            params: assay_parameters field (list[dict] or JSON string)
+        
+        Returns:
+            Dictionary with expanded parameter fields
+        """
+        default = {
+            "assay_param_type": None,
+            "assay_param_relation": None,
+            "assay_param_value": None,
+            "assay_param_units": None,
+            "assay_param_text_value": None,
+            "assay_param_standard_type": None,
+            "assay_param_standard_value": None,
+            "assay_param_standard_units": None,
+        }
+        
+        if not params:
+            return default
+        
+        # Parse JSON if string
+        if isinstance(params, str):
+            try:
+                params = json.loads(params)
+            except (json.JSONDecodeError, TypeError):
+                return default
+        
+        # Extract first parameter
+        if isinstance(params, list) and len(params) > 0:
+            param = params[0]
+            return {
+                "assay_param_type": param.get("type"),
+                "assay_param_relation": param.get("relation"),
+                "assay_param_value": param.get("value"),
+                "assay_param_units": param.get("units"),
+                "assay_param_text_value": param.get("text_value"),
+                "assay_param_standard_type": param.get("standard_type"),
+                "assay_param_standard_value": param.get("standard_value"),
+                "assay_param_standard_units": param.get("standard_units"),
+            }
+        
+        return default
+
+    def _parse_variant_sequence(self, variant_data: Any) -> dict[str, Any]:
+        """Parse variant sequence data from ChEMBL response.
+        
+        Args:
+            variant_data: variant_sequence or similar field from API
+        
+        Returns:
+            Dictionary with variant fields
+        """
+        default = {
+            "variant_id": None,
+            "variant_base_accession": None,
+            "variant_mutation": None,
+            "variant_sequence": None,
+            "variant_accession_reported": None,
+            "variant_sequence_json": None,
+        }
+        
+        if not variant_data:
+            return default
+        
+        # Store full JSON
+        if isinstance(variant_data, (dict, list)):
+            default["variant_sequence_json"] = json.dumps(variant_data, sort_keys=True)
+        
+        # Parse as list
+        variants = variant_data if isinstance(variant_data, list) else [variant_data]
+        
+        if not variants:
+            return default
+        
+        # Extract first variant
+        first_variant = variants[0] if isinstance(variants[0], dict) else {}
+        
+        return {
+            "variant_id": first_variant.get("variant_id"),
+            "variant_base_accession": first_variant.get("base_accession"),
+            "variant_mutation": first_variant.get("mutation"),
+            "variant_sequence": first_variant.get("sequence"),
+            "variant_accession_reported": first_variant.get("accession"),
+            "variant_sequence_json": default["variant_sequence_json"],
+        }
+
     def _calculate_business_key_hash(self, record: dict[str, Any]) -> str:
         """Calculate hash for business key (assay_chembl_id)."""
         business_key = record.get("assay_chembl_id", "")
@@ -343,6 +495,39 @@ class AssayChEMBLClient(BaseApiClient):
         return {
             # Ключи и идентификаторы
             "assay_chembl_id": assay_id,
+            # Add all new fields with None values
+            "document_chembl_id": None,
+            "tissue_chembl_id": None,
+            "cell_chembl_id": None,
+            "assay_group": None,
+            "assay_test_type": None,
+            "bao_endpoint": None,
+            "confidence_description": None,
+            "relationship_description": None,
+            "pipeline_version": "1.0.0",
+            "assay_description": None,
+            "assay_class_id": None,
+            "assay_class_bao_id": None,
+            "assay_class_type": None,
+            "assay_class_l1": None,
+            "assay_class_l2": None,
+            "assay_class_l3": None,
+            "assay_class_description": None,
+            "assay_parameters_json": None,
+            "assay_param_type": None,
+            "assay_param_relation": None,
+            "assay_param_value": None,
+            "assay_param_units": None,
+            "assay_param_text_value": None,
+            "assay_param_standard_type": None,
+            "assay_param_standard_value": None,
+            "assay_param_standard_units": None,
+            "variant_id": None,
+            "variant_base_accession": None,
+            "variant_mutation": None,
+            "variant_sequence": None,
+            "variant_accession_reported": None,
+            "variant_sequence_json": None,
             "src_id": None,
             "src_assay_id": None,
             

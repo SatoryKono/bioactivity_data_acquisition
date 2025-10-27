@@ -1,8 +1,6 @@
 """Tests for ChEMBL client v2 compatibility and migration."""
 
-import pytest
 from unittest.mock import Mock, patch
-import json
 
 from src.library.clients.chembl_v2 import ChemblClient
 from src.library.clients.chembl_adapter import ChemblClientAdapter

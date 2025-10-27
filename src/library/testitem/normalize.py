@@ -8,7 +8,6 @@ from typing import Any
 
 import pandas as pd
 
-<<<<<<< Updated upstream
 logger = logging.getLogger(__name__)
 
 
@@ -277,7 +276,6 @@ def normalize_testitem_data(df: pd.DataFrame) -> pd.DataFrame:
     logger.info("Testitem data normalization completed")
     
     return final_df
-=======
 from library.normalizers import get_normalizer
 from library.schemas.testitem_schema import TestitemNormalizedSchema
 from library.utils.empty_value_handler import (
@@ -811,4 +809,3 @@ class TestitemNormalizer:
                             logger.warning("Failed to apply normalizer '%s' to column '%s': %s", func_name, column_name, e)
 
         return df
->>>>>>> Stashed changes

@@ -12,20 +12,36 @@ and client specific permits.
 
 from __future__ import annotations
 
-import warnings
-
-warnings.warn("library.utils.rate_limit is deprecated. Use library.common.rate_limiter instead.", DeprecationWarning, stacklevel=2)
-
 import asyncio
 import threading
 import time
+import warnings
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, asynccontextmanager
 from dataclasses import dataclass
 
+from library.common.rate_limiter import (
+    RateLimiter as _RateLimiter,
+    RateLimitError as _RateLimitError,
+    RateLimiterSet as _RateLimiterSet,
+    RateLimitParams as _RateLimitParams,
+    configure_rate_limits as _configure_rate_limits,
+    get_rate_limiter as _get_rate_limiter,
+    limit_async as _limit_async,
+    reset_rate_limits as _reset_rate_limits,
+    set_client_limit as _set_client_limit,
+)
 
-class RateLimitError(ValueError):
-    """Raised when an invalid rate limit configuration is supplied."""
+warnings.warn("library.utils.rate_limit is deprecated. Use library.common.rate_limiter instead.", DeprecationWarning, stacklevel=2)
+
+
+# Re-export classes and functions with deprecation warnings
+def _deprecated_wrapper(name: str, obj):
+    """Wrapper that emits deprecation warning when accessed."""
+    def wrapper(*args, **kwargs):
+        warnings.warn(f"{name} is deprecated. Use library.common.rate_limiter instead.", DeprecationWarning, stacklevel=3)
+        return obj(*args, **kwargs)
+    return wrapper
 
 
 class RateLimiter(AbstractContextManager["RateLimiter"]):
@@ -225,33 +241,6 @@ async def limit_async(client_name: str) -> Iterator[None]:  # type: ignore[retur
 
 
 # Re-export from the new unified module for backward compatibility
-from library.common.rate_limiter import (
-    RateLimiter as _RateLimiter,
-)
-from library.common.rate_limiter import (
-    RateLimitError as _RateLimitError,
-)
-from library.common.rate_limiter import (
-    RateLimiterSet as _RateLimiterSet,
-)
-from library.common.rate_limiter import (
-    RateLimitParams as _RateLimitParams,
-)
-from library.common.rate_limiter import (
-    configure_rate_limits as _configure_rate_limits,
-)
-from library.common.rate_limiter import (
-    get_rate_limiter as _get_rate_limiter,
-)
-from library.common.rate_limiter import (
-    limit_async as _limit_async,
-)
-from library.common.rate_limiter import (
-    reset_rate_limits as _reset_rate_limits,
-)
-from library.common.rate_limiter import (
-    set_client_limit as _set_client_limit,
-)
 
 
 # Re-export with deprecation warnings
@@ -264,7 +253,6 @@ def _deprecated_wrapper(name: str, obj):
 
 
 # Re-export classes and functions with deprecation warnings
-RateLimiter = _deprecated_wrapper("RateLimiter", _RateLimiter)
 RateLimitError = _RateLimitError  # Exception, no need to wrap
 RateLimiterSet = _deprecated_wrapper("RateLimiterSet", _RateLimiterSet)
 RateLimitParams = _deprecated_wrapper("RateLimitParams", _RateLimitParams)

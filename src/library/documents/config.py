@@ -17,9 +17,6 @@ from pydantic import (
     model_validator,
 )
 
-<<<<<<< Updated upstream
-from library.config import _assign_path, _merge_dicts, _parse_scalar, DeterminismSettings, LoggingSettings
-=======
 from library.config import (
     DeterminismSettings,
     LoggingSettings,
@@ -27,7 +24,6 @@ from library.config import (
     _merge_dicts,
     _parse_scalar,
 )
->>>>>>> Stashed changes
 
 ALLOWED_SOURCES: tuple[str, ...] = ("chembl", "crossref", "openalex", "pubmed", "semantic_scholar")
 DATE_TAG_FORMAT = "%Y%m%d"

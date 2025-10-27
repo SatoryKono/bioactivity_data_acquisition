@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import random
+import time
 from collections.abc import MutableMapping
+from functools import partial
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
+import backoff
 import requests
 from requests import Response
 
-<<<<<<< Updated upstream
 from library.clients.circuit_breaker import APICircuitBreaker
 from library.clients.exceptions import ApiClientError, RateLimitError
 from library.clients.fallback import AdaptiveFallbackStrategy, FallbackConfig, FallbackManager
@@ -19,13 +23,10 @@ from library.clients.session import get_shared_session
 from library.config import APIClientConfig
 from library.logging_setup import get_logger
 from library.telemetry import add_span_attribute
-=======
-from library.settings import APIClientConfig
->>>>>>> Stashed changes
-
-from ..clients.session import get_shared_session
 
 if TYPE_CHECKING:
+    from library.common.rate_limiter import RateLimiter
+else:
     from library.common.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
@@ -43,14 +44,15 @@ class BaseApiClient:
         timeout: float | tuple[float, float] | None = None,
         max_retries: int = 3,
         default_headers: MutableMapping[str, str] | None = None,
+        fallback_manager: FallbackManager | None = None,
+        circuit_breaker: APICircuitBreaker | None = None,
     ) -> None:
         self.config = config
-        self.base_url = config.base_url.rstrip("/")
+        self.base_url = str(config.base_url).rstrip("/")
         self.session = session or get_shared_session()
-<<<<<<< Updated upstream
         limiter = config.rate_limit
         if limiter is not None and rate_limiter is None:
-            rate_limiter = RateLimiter(RateLimitConfig(limiter.max_calls, limiter.period))
+            rate_limiter = RateLimiter(limiter.max_calls, burst=limiter.period)
         self.rate_limiter = rate_limiter
         # Use config timeout, with API-specific defaults for slow APIs
         if config.timeout is not None:
@@ -93,7 +95,6 @@ class BaseApiClient:
         
         # Initialize degradation manager
         self.degradation_manager = get_degradation_manager()
-=======
 
         # Rate limiting
         if rate_limiter is None:
@@ -115,8 +116,8 @@ class BaseApiClient:
         if timeout is not None:
             self.timeout = timeout
         else:
-            # Use config timeouts
-            self.timeout = (config.timeout_connect, config.timeout_read)
+            # Use config timeout (single value, not tuple)
+            self.timeout = config.timeout
 
         self.max_retries = max_retries
 
@@ -124,7 +125,6 @@ class BaseApiClient:
         self.default_headers = {**config.headers} if hasattr(config, "headers") else {}
         if default_headers:
             self.default_headers.update(default_headers)
->>>>>>> Stashed changes
 
     def _make_url(self, path: str) -> str:
         """Build full URL from path."""
@@ -135,7 +135,6 @@ class BaseApiClient:
         normalized = path.lstrip("/")
         return str(urljoin(self.base_url + "/", f"./{normalized}"))
 
-<<<<<<< Updated upstream
     def _send_with_backoff(self, method: str, url: str, **kwargs: Any) -> Response:
         def _call() -> Response:
             # Use config timeout if specified, otherwise rely on session default timeout
@@ -247,12 +246,12 @@ class BaseApiClient:
                 # Re-raise the error if degradation is not appropriate
                 raise
 
-=======
->>>>>>> Stashed changes
     def _request(
         self,
         method: str,
         path: str,
+        *,
+        expected_status: int = 200,
         **kwargs: Any,
     ) -> Response:
         """Make HTTP request with rate limiting and retry logic."""
@@ -262,7 +261,8 @@ class BaseApiClient:
         if self.rate_limiter:
             self.rate_limiter.acquire()
 
-<<<<<<< Updated upstream
+        request_headers = {**self.default_headers, **(kwargs.pop("headers", {}))}
+        
         self.logger.info(
             "request",
             method=method,
@@ -278,7 +278,6 @@ class BaseApiClient:
             add_span_attribute("error", True)
             add_span_attribute("error.type", "transport_error")
             raise ApiClientError(str(exc)) from exc
-=======
         # Set timeout
         if "timeout" not in kwargs:
             kwargs["timeout"] = self.timeout
@@ -287,7 +286,6 @@ class BaseApiClient:
         headers = kwargs.get("headers", {})
         headers.update(self.default_headers)
         kwargs["headers"] = headers
->>>>>>> Stashed changes
 
         # Make request with retry
         last_exception = None
@@ -304,7 +302,6 @@ class BaseApiClient:
                 logger.warning(f"Request attempt {attempt + 1} failed: {e}, retrying...")
                 continue
 
-<<<<<<< Updated upstream
         if response.status_code != expected_status:
             # Ограничиваем вывод текста ответа для HTML ошибок
             response_text = response.text
@@ -380,7 +377,6 @@ class BaseApiClient:
         if not isinstance(payload, dict):
             raise ApiClientError("expected JSON object from API")
         return payload
-=======
         # This should never be reached, but mypy needs it
         if last_exception:
             raise last_exception
@@ -393,7 +389,6 @@ class BaseApiClient:
     def post(self, path: str, **kwargs: Any) -> Response:
         """Make POST request."""
         return self._request("POST", path, **kwargs)
->>>>>>> Stashed changes
 
     def put(self, path: str, **kwargs: Any) -> Response:
         """Make PUT request."""

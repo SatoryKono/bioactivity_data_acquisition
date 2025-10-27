@@ -22,7 +22,6 @@ class DocumentOutputSchema(pa.DataFrameModel):
     document_pubmed_id: Series[str] = pa.Field(nullable=True, description="PubMed identifier")
     chembl_doc_type: Series[str] = pa.Field(nullable=True, description="Document type from ChEMBL")
     journal: Series[str] = pa.Field(nullable=True, description="Journal name")
-<<<<<<< Updated upstream
     year: Series[int] = pa.Field(nullable=True, description="Publication year")
     
     # Legacy ChEMBL fields (keeping for backward compatibility)
@@ -39,7 +38,6 @@ class DocumentOutputSchema(pa.DataFrameModel):
         nullable=True, description="Is experimental document"
     )
     issue: Series[int] = pa.Field(nullable=True, description="Journal issue number")
-=======
     year: Series[float] = pa.Field(nullable=True, description="Publication year")
 
     # Legacy ChEMBL fields (keeping for backward compatibility)
@@ -54,14 +52,12 @@ class DocumentOutputSchema(pa.DataFrameModel):
     original_experimental_document: Series[bool] = pa.Field(nullable=True, description="Is experimental document")
     is_experimental_doc: Series[bool] = pa.Field(nullable=True, description="Is experimental document (legacy field)")
     issue: Series[str] = pa.Field(nullable=True, description="Journal issue number")
->>>>>>> Stashed changes
     last_page: Series[float] = pa.Field(nullable=True, description="Last page number")
     month: Series[int] = pa.Field(nullable=True, description="Publication month")
     volume: Series[float] = pa.Field(nullable=True, description="Journal volume")
 
     # Enriched fields from external sources
     # source column removed - not needed in final output
-<<<<<<< Updated upstream
     
     # OpenAlex-specific fields (согласно таблице)
     openalex_doi: Series[str] = pa.Field(nullable=True, description="DOI from OpenAlex")
@@ -78,7 +74,6 @@ class DocumentOutputSchema(pa.DataFrameModel):
         nullable=True, description="Publication year from OpenAlex"
     )
     openalex_abstract: Series[str] = pa.Field(nullable=True, description="Abstract from OpenAlex")
-=======
 
     # OpenAlex-specific fields (только те, что реально создаются клиентом)
     openalex_doi: Series[str] = pa.Field(nullable=True, description="DOI from OpenAlex")
@@ -86,7 +81,6 @@ class DocumentOutputSchema(pa.DataFrameModel):
     openalex_doc_type: Series[str] = pa.Field(nullable=True, description="Document type from OpenAlex")
     openalex_crossref_doc_type: Series[str] = pa.Field(nullable=True, description="CrossRef document type from OpenAlex")
     openalex_year: Series[int] = pa.Field(nullable=True, description="Publication year from OpenAlex")
->>>>>>> Stashed changes
     openalex_authors: Series[str] = pa.Field(nullable=True, description="Authors from OpenAlex")
     openalex_issn: Series[str] = pa.Field(nullable=True, description="ISSN from OpenAlex")
     openalex_journal: Series[str] = pa.Field(nullable=True, description="Journal from OpenAlex")
@@ -95,13 +89,10 @@ class DocumentOutputSchema(pa.DataFrameModel):
     openalex_first_page: Series[str] = pa.Field(nullable=True, description="First page from OpenAlex")
     openalex_last_page: Series[str] = pa.Field(nullable=True, description="Last page from OpenAlex")
     openalex_error: Series[str] = pa.Field(nullable=True, description="Error from OpenAlex")
-<<<<<<< Updated upstream
     
     # Crossref-specific fields (согласно таблице)
-=======
 
     # Crossref-specific fields (только те, что реально создаются клиентом)
->>>>>>> Stashed changes
     crossref_doi: Series[str] = pa.Field(nullable=True, description="DOI from Crossref")
     crossref_title: Series[str] = pa.Field(nullable=True, description="Title from Crossref")
     crossref_doc_type: Series[str] = pa.Field(nullable=True, description="Document type from Crossref")
@@ -151,13 +142,10 @@ class DocumentOutputSchema(pa.DataFrameModel):
     pubmed_day_revised: Series[int] = pa.Field(nullable=True, description="Day revised from PubMed")
     pubmed_issn: Series[str] = pa.Field(nullable=True, description="ISSN from PubMed")
     pubmed_error: Series[str] = pa.Field(nullable=True, description="Error from PubMed")
-<<<<<<< Updated upstream
     
     # ChemBL-specific fields (согласно таблице)
-=======
 
     # ChemBL-specific fields (только те, что реально создаются клиентом)
->>>>>>> Stashed changes
     chembl_title: Series[str] = pa.Field(nullable=True, description="Title from ChemBL")
     chembl_doi: Series[str] = pa.Field(nullable=True, description="DOI from ChemBL")
     chembl_pmid: Series[str] = pa.Field(nullable=True, description="PubMed ID from ChemBL")
@@ -167,7 +155,6 @@ class DocumentOutputSchema(pa.DataFrameModel):
     chembl_issue: Series[str] = pa.Field(nullable=True, description="Issue from ChemBL")
     chembl_abstract: Series[str] = pa.Field(nullable=True, description="Abstract from ChemBL")
     chembl_authors: Series[str] = pa.Field(nullable=True, description="Authors from ChemBL")
-<<<<<<< Updated upstream
     chembl_issn: Series[str] = pa.Field(nullable=True, description="ISSN from ChemBL")
     
     # Citation field
@@ -184,7 +171,6 @@ class DocumentOutputSchema(pa.DataFrameModel):
     valid_volume: Series[str] = pa.Field(nullable=True, description="Valid volume value")
     invalid_issue: Series[bool] = pa.Field(nullable=True, description="Issue validation flag")
     valid_issue: Series[str] = pa.Field(nullable=True, description="Valid issue value")
-=======
     chembl_first_page: Series[str] = pa.Field(nullable=True, description="First page from ChemBL")
     chembl_last_page: Series[str] = pa.Field(nullable=True, description="Last page from ChemBL")
     source_system: Series[str] = pa.Field(nullable=True, description="Source system identifier")
@@ -213,7 +199,6 @@ class DocumentOutputSchema(pa.DataFrameModel):
     citation: Series[str] = pa.Field(nullable=True, description="Citation string")
 
     # Validation fields - removed as they are not created by the pipeline
->>>>>>> Stashed changes
 
     class Config:
         strict = True

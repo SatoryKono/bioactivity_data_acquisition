@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from typing import Any, Optional
 
 import numpy as np
@@ -42,8 +43,6 @@ class EnhancedTableQualityProfiler:
 
         return quality_report
 
-<<<<<<< Updated upstream
-=======
     def consume_with_pipeline_specific_metrics(self, df: pd.DataFrame, pipeline_type: str) -> dict[str, Any]:
         """Анализ DataFrame с учетом специфичных метрик для конкретного пайплайна."""
         if self.logger:
@@ -72,7 +71,6 @@ class EnhancedTableQualityProfiler:
         else:
             return {}
 
->>>>>>> Stashed changes
     def _analyze_table_summary(self, df: pd.DataFrame) -> dict[str, Any]:
         """Анализ общей информации о таблице."""
         return {
@@ -88,7 +86,6 @@ class EnhancedTableQualityProfiler:
 
         for col in df.columns:
             series = df[col]
-<<<<<<< Updated upstream
             analysis = {
                 'non_null': int(series.notna().sum()),
                 'non_empty': int(series.notna().sum() - (series.astype(str).str.strip() == '').sum()),
@@ -96,20 +93,6 @@ class EnhancedTableQualityProfiler:
                 'unique_cnt': int(series.nunique()),
                 'unique_pct_of_non_empty': float(series.nunique() / series.notna().sum() * 100) if series.notna().sum() > 0 else 0.0,
                 'dtype': str(series.dtype),
-=======
-            # Безопасное вычисление non_empty без использования оператора - для numpy boolean
-            non_null_count = series.notna().sum()
-            empty_string_count = (series.astype(str).str.strip() == "").sum()
-            non_empty_count = non_null_count - empty_string_count
-
-            analysis = {
-                "non_null": int(non_null_count),
-                "non_empty": int(non_empty_count),
-                "empty_pct": float((series.isna().sum() + empty_string_count) / len(series) * 100),
-                "unique_cnt": int(series.nunique()),
-                "unique_pct_of_non_empty": float(series.nunique() / series.notna().sum() * 100) if series.notna().sum() > 0 else 0.0,
-                "dtype": str(series.dtype),
->>>>>>> Stashed changes
             }
 
             # Анализ паттернов для текстовых данных
@@ -355,10 +338,8 @@ class EnhancedTableQualityProfiler:
 
         return reports
 
-<<<<<<< Updated upstream
 
 def build_enhanced_qc_report(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> dict[str, Any]:
-=======
     def _get_documents_metrics(self, df: pd.DataFrame) -> dict[str, Any]:
         """Специфичные метрики для пайплайна документов."""
         metrics = {}
@@ -571,13 +552,11 @@ def build_enhanced_qc_detailed(df: pd.DataFrame, pipeline_type: str = "generic")
 
 
 def build_enhanced_qc_report(df: pd.DataFrame, logger: BoundLogger | None = None) -> dict[str, Any]:
->>>>>>> Stashed changes
     """Создание расширенного отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
     return profiler.consume(df)
 
 
-<<<<<<< Updated upstream
 def build_enhanced_qc_summary(df: pd.DataFrame, logger: Optional[BoundLogger] = None) -> pd.DataFrame:
     """Создание сводного отчета о качестве данных."""
     profiler = EnhancedTableQualityProfiler(logger=logger)
@@ -597,7 +576,9 @@ __all__ = [
     'build_enhanced_qc_report',
     'build_enhanced_qc_summary',
     'build_enhanced_qc_detailed',
-=======
+]
+
+
 class NormalizationReporter:
     """Репортер для отслеживания и агрегации изменений данных при нормализации."""
 
@@ -768,5 +749,4 @@ __all__ = [
     "build_enhanced_qc_report",
     "build_enhanced_qc_summary",
     "build_enhanced_qc_detailed",
->>>>>>> Stashed changes
 ]

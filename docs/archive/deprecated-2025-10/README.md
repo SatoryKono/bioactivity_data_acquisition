@@ -42,4 +42,5 @@
 2025-10-24
 
 ## Ответственный
+
 Data Engineering Team

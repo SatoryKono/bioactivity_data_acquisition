@@ -87,12 +87,11 @@ determinism:
     na_position: "last"                # Позиция NULL значений
   column_order:
     # ACTIVITIES - основные поля
-    - "activity_chembl_id"              # STRING: ChEMBL ID активности (PK), источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
-    - "assay_chembl_id"                 # STRING: ChEMBL ID ассая, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
-    - "document_chembl_id"              # STRING: ChEMBL ID документа, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "activity_id"                     # INT: Уникальный ID активности (PK), источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, >= 1
+    - "assay_id"                        # INT: FK на ASSAYS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "doc_id"                          # INT: FK на DOCS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
     - "record_id"                       # INT: FK на COMPOUND_RECORDS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
-    - "molecule_chembl_id"              # STRING: ChEMBL ID молекулы, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
-    - "target_chembl_id"                # STRING: ChEMBL ID таргета, источник: ChEMBL API /activity, тип: STRING, валидация: NOT NULL, regex ^CHEMBL\d+$
+    - "molregno"                        # INT: FK на MOLECULE_DICTIONARY, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
     
     # ACTIVITIES - данные активности
     - "type"                            # STRING: Исходный тип (Ki, IC50, %), источник: ChEMBL, тип: STRING, валидация: nullable, <= 250

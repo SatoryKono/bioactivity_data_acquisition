@@ -7,10 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
+import requests
 
-from library.clients.chembl import TestitemChEMBLClient
+from library.clients.chembl import ChEMBLClient, TestitemChEMBLClient
 from library.clients.pubchem import PubChemClient
+from library.common.pipeline_base import PipelineBase
 from library.config import APIClientConfig, RateLimitSettings, RetrySettings
 from library.etl.enhanced_correlation import (
     build_correlation_insights,
@@ -20,14 +23,14 @@ from library.etl.enhanced_correlation import (
 )
 from library.testitem.config import TestitemConfig
 from library.testitem.extract import extract_batch_data
-from library.testitem.normalize import normalize_testitem_data
+from library.testitem.normalize import normalize_testitem_data, TestitemNormalizer
 from library.testitem.persist import persist_testitem_data
-from library.testitem.validate import validate_testitem_data
+from library.testitem.quality import TestitemQualityFilter
+from library.testitem.validate import validate_testitem_data, TestitemValidator
 
 logger = logging.getLogger(__name__)
 
 
-<<<<<<< Updated upstream
 class TestitemPipelineError(RuntimeError):
     """Base class for testitem pipeline errors."""
 
@@ -430,7 +433,6 @@ def run_testitem_etl(
         correlation_reports=correlation_reports,
         correlation_insights=correlation_insights
     )
-=======
 class TestitemPipeline(PipelineBase[TestitemConfig]):
     """Testitem ETL pipeline using unified PipelineBase."""
 
@@ -453,7 +455,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         if "pubchem" in self.config.sources and self.config.sources["pubchem"].enabled:
             self.clients["pubchem"] = self._create_pubchem_client()
 
-    def _create_chembl_client(self) -> ChEMBLClient:
+    def _create_chembl_client(self) -> TestitemChEMBLClient:
         """Create ChEMBL client."""
         from library.settings import RateLimitSettings
 
@@ -493,8 +495,6 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
 
     def _create_pubchem_client(self) -> Any:
         """Create PubChem client."""
-        import requests
-
         # Create a simple requests session for PubChem
         session = requests.Session()
 
@@ -527,8 +527,6 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
 
     def _is_valid_value(self, value) -> bool:
         """Check if a value is valid (not null, not empty array, not empty string)."""
-        import numpy as np
-
         # Check for None
         if value is None:
             return False
@@ -703,8 +701,6 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
     def _fetch_chembl_batch(self, molecule_ids: list[str], fields: list[str], client) -> pd.DataFrame:
         """Fetch a batch of molecules from ChEMBL API."""
         from urllib.parse import urlencode
-
-        import requests
 
         params = {"format": "json", "limit": "1000", "fields": ",".join(fields)}
 
@@ -964,8 +960,6 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
 
     def _fetch_pubchem_record(self, inchi_key: str, fields: list[str], client) -> pd.DataFrame:
         """Fetch a single record from PubChem API using InChI Key."""
-        import requests
-
         # Build URL for PubChem PUG-REST API
         base_url = self.config.sources["pubchem"].http.base_url
         url = f"{base_url}/compound/inchikey/{inchi_key}/property/MolecularFormula,MolecularWeight,ConnectivitySMILES,InChI,InChIKey/JSON"
@@ -1291,7 +1285,6 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             metadata["correlation_insights"] = correlation_insights
 
         return metadata
->>>>>>> Stashed changes
 
 
 def write_testitem_outputs(

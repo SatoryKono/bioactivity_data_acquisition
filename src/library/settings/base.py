@@ -36,7 +36,7 @@ class BaseConfigSection(BaseModel):
     def get_metadata(self) -> dict[str, ConfigMetadata]:
         """Get metadata for all configuration values."""
         metadata = {}
-        for field_name, field_info in self.model_fields.items():
+        for field_name in self.model_fields:
             value = getattr(self, field_name, None)
             metadata[field_name] = ConfigMetadata(source="default", path=field_name, value=value)
         return metadata

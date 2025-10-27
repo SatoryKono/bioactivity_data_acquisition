@@ -1,0 +1,356 @@
+# Конфигурация v2 для assays pipeline
+# Основана на унифицированном шаблоне config.template.yaml
+
+# Метаданные пайплайна - основная информация о пайплайне
+pipeline:
+  name: "assays"                      # Имя пайплайна для идентификации
+  version: "2.0.0"                    # Версия конфигурации
+  entity_type: "assays"              # Тип сущности для обработки
+  description: "ETL pipeline for assay data from ChEMBL"  # Описание назначения
+
+# HTTP настройки - конфигурация для HTTP-клиентов
+http:
+  global:                             # Глобальные настройки HTTP
+    timeout_sec: 60.0                 # Таймаут запросов в секундах
+    retries:                          # Настройки повторных попыток
+      total: 5                        # Общее количество попыток
+      backoff_multiplier: 2.0         # Множитель экспоненциальной задержки
+      backoff_max: 120.0              # Максимальная задержка в секундах
+    rate_limit:                       # Ограничение скорости запросов
+      max_calls: 5                    # Максимум запросов за период
+      period: 15.0                    # Период в секундах
+    headers:                          # HTTP заголовки по умолчанию
+      Accept: "application/json"      # Предпочтительный формат ответа
+      User-Agent: "bioactivity-data-acquisition/0.1.0"  # Идентификация клиента
+    verify_ssl: true                  # Проверка SSL сертификатов
+    follow_redirects: true            # Следование HTTP редиректам
+
+# Источники данных - конфигурация источников для извлечения данных
+sources:
+  chembl:                             # ChEMBL API как основной источник
+    enabled: true                     # Включен ли источник
+    http:                             # HTTP настройки для ChEMBL
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"  # Базовый URL API
+      timeout_sec: 60.0               # Таймаут для ChEMBL запросов
+      retries:                        # Настройки повторных попыток
+        total: 3                      # Количество попыток для ChEMBL
+        backoff_multiplier: 1.5       # Множитель задержки
+    batch_size: 1000                  # Размер батча для запросов (max 1000 для ChEMBL)
+    max_compounds: null               # Максимум соединений (null = без ограничений)
+    bao_enabled: true                 # Включить BAO (BioAssay Ontology) аннотации
+
+# Ввод-вывод - конфигурация входных и выходных данных
+io:
+  input:                              # Настройки входных данных
+    path: "data/input/assays.csv"     # Путь к входному CSV файлу
+    encoding: "utf-8"                 # Кодировка входного файла
+    required_columns: ["assay_chembl_id"]  # Обязательные колонки
+    
+  output:                             # Настройки выходных данных
+    dir: "data/output/assay"         # Директория для выходных файлов
+    format: "csv"                     # Формат выходных файлов
+    csv:                              # Параметры CSV вывода
+      encoding: "utf-8"               # Кодировка выходного файла
+      float_format: "%.6f"            # Формат чисел с плавающей точкой
+      date_format: "%Y-%m-%dT%H:%M:%SZ"  # Формат дат в ISO 8601
+      na_rep: ""                      # Представление пустых значений
+      line_terminator: "\n"           # Разделитель строк
+
+# Runtime настройки - параметры выполнения пайплайна
+runtime:
+  workers: 4                         # Количество параллельных процессов
+  limit: null                        # Ограничение количества записей (null = все)
+  offset: 0                          # Смещение для пагинации
+  dry_run: false                     # Тестовый режим без записи
+  date_tag: null                     # Тег даты для версионирования
+  dev_mode: false                    # Режим разработки
+  allow_incomplete_sources: false    # Разрешить неполные источники
+
+# Логирование - настройки системы логирования
+logging:
+  level: "INFO"                      # Уровень логирования (DEBUG, INFO, WARNING, ERROR)
+  file:                              # Настройки файлового логирования
+    enabled: true                    # Включить запись в файл
+    path: "data/logs/assays.log"     # Путь к файлу логов
+    max_size: "10MB"                 # Максимальный размер файла
+    backup_count: 5                  # Количество архивных файлов
+  console:                           # Настройки консольного логирования
+    enabled: true                    # Включить вывод в консоль
+    format: "text"                   # Формат вывода (text, json)
+  structured: true                   # Структурированное логирование
+
+# Детерминизм - обеспечение воспроизводимости результатов
+determinism:
+  sort:                              # Настройки сортировки для детерминизма
+    by: ["assay_chembl_id"]          # Поля сортировки
+    ascending: [true]                # Направление сортировки
+    na_position: "last"              # Позиция NULL значений
+  column_order:
+    # Основные поля
+    - "assay_chembl_id"                # STRING: PK ассая из ChEMBL API /assay, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
+    - "assay_type"                     # STRING: Тип ассая (B, F, A, P, T, U), источник: ChEMBL, тип: STRING, валидация: enum ["B", "F", "A", "P", "T", "U"]
+    - "assay_category"                 # STRING: Категория ассая, источник: ChEMBL, тип: STRING, валидация: nullable (часто null в API)
+    - "assay_cell_type"                # STRING: Тип клеток для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_classifications"         # STRING: Классификации ассая (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_group"                   # STRING: Группа ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_organism"                # STRING: Организм для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_parameters_json"         # STRING: Параметры ассая (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_strain"                  # STRING: Штамм организма, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_subcellular_fraction"    # STRING: Субклеточная фракция, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_tax_id"                  # INT: Таксономический ID организма, источник: ChEMBL, тип: INT, валидация: nullable, > 0
+    - "assay_test_type"               # STRING: Тип теста ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_tissue"                  # STRING: Ткань для ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_type_description"        # STRING: Описание типа ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "bao_format"                    # STRING: BAO format классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable, pattern ^BAO_\d+$
+    - "bao_label"                     # STRING: BAO label классификация, источник: ChEMBL BAO, тип: STRING, валидация: nullable
+    - "cell_chembl_id"                # STRING: ChEMBL ID клетки, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "confidence_description"        # STRING: Описание уверенности, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "confidence_score"              # INT: Уровень уверенности (0-9), источник: ChEMBL, тип: INT, валидация: nullable, >= 0, <= 9
+    - "assay_description"             # STRING: Описание ассая, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "bao_endpoint"                  # STRING: BAO endpoint, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^BAO_\d{7}$
+    - "document_chembl_id"           # STRING: ChEMBL ID документа, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "relationship_description"     # STRING: Описание связи, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "relationship_type"          # STRING: Тип связи с таргетом, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "src_assay_id"                  # STRING: ID ассая в источнике, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "src_id"                        # INT: ID источника, источник: ChEMBL, тип: INT, валидация: nullable
+    - "target_chembl_id"              # STRING: FK к target_dim, источник: ChEMBL API /target, тип: STRING, валидация: NOT NULL, FK
+    - "tissue_chembl_id"              # STRING: ChEMBL ID ткани, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "variant_sequence_json"         # STRING: Последовательность варианта (JSON), источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # ASSAY_PARAMETERS (развернутые из JSON)
+    - "assay_param_type"              # STRING: Тип параметра ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_relation"          # STRING: Отношение параметра, источник: ChEMBL, тип: STRING, валидация: nullable, enum [=,>,>=,<,<=,~]
+    - "assay_param_value"             # FLOAT: Значение параметра, источник: ChEMBL, тип: FLOAT, валидация: nullable
+    - "assay_param_units"             # STRING: Единицы параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_text_value"        # STRING: Текстовое значение параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_standard_type"     # STRING: Стандартизованный тип параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_param_standard_value"    # FLOAT: Стандартизованное значение параметра, источник: ChEMBL, тип: FLOAT, валидация: nullable
+    - "assay_param_standard_units"    # STRING: Единицы стандартизованного параметра, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # ASSAY_CLASS (из /assay_class endpoint)
+    - "assay_class_id"                # INT: Идентификатор класса ассея, источник: ChEMBL, тип: INT, валидация: nullable
+    - "assay_class_bao_id"            # STRING: BAO ID класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^BAO_\d{7}$
+    - "assay_class_type"              # STRING: Тип класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_l1"                # STRING: Иерархия 1 класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_l2"                # STRING: Иерархия 2 класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_l3"                # STRING: Иерархия 3 класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "assay_class_description"       # STRING: Описание класса ассея, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # VARIANT_SEQUENCES (развернутые из JSON)
+    - "variant_id"                    # INT: Идентификатор варианта, источник: ChEMBL, тип: INT, валидация: nullable
+    - "variant_base_accession"        # STRING: UniProt акцессия базовой последовательности, источник: ChEMBL, тип: STRING, валидация: nullable, pattern UniProt
+    - "variant_mutation"              # STRING: Мутация варианта, источник: ChEMBL, тип: STRING, валидация: nullable
+    - "variant_sequence"              # STRING: Аминокислотная последовательность варианта, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^[A-Z\*]+$
+    - "variant_accession_reported"    # STRING: Сообщённая акцессия варианта, источник: ChEMBL, тип: STRING, валидация: nullable
+    
+    # Метаданные
+    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"              # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL
+    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+
+# Валидация - настройки проверки данных
+validation:
+  enabled: true                      # Включить валидацию
+  strict: false                      # Строгий режим (останавливать при ошибках)
+  schema_validation: true            # Валидация схемы данных
+  data_quality_checks: true          # Проверки качества данных
+
+# Постобработка - настройки обработки после извлечения
+postprocess:
+  qc:                               # Контроль качества
+    enabled: true                    # Включить QC
+    fail_on: ["missing_assay_chembl_id", "duplicate_primary_keys"]  # Критические ошибки
+    thresholds:                      # Пороговые значения для QC
+      missing_assay_chembl_id: 0.0  # Максимальный % отсутствующих assay_chembl_id
+      duplicate_primary_keys: 0.0   # Максимальный % дубликатов PK
+      missing_bao_format: 0.1       # Максимальный % отсутствующих BAO форматов
+    detailed_report: true            # Детальный отчет QC
+    
+  correlation:                      # Корреляционный анализ
+    enabled: true                    # Включить корреляцию
+    methods: ["pearson", "spearman"] # Методы корреляции
+    min_correlation: 0.5             # Минимальная корреляция
+    
+  steps:                            # Этапы постобработки
+    - name: "apply_bao_flags"        # Применение BAO классификаций
+      enabled: true
+      description: "Apply BioAssay Ontology (BAO) flags and classifications"
+      parameters:
+        bao_version: "2.0"           # Версия BAO онтологии
+      priority: 1
+    - name: "validate_assay_type"    # Валидация типов ассаев
+      enabled: false
+      description: "Validate and normalize assay types"
+      priority: 2
+    - name: "filter_assays"          # Фильтрация ассаев
+      enabled: false
+      description: "Apply quality filters to assays"
+      parameters:
+        rules:                       # Правила фильтрации
+          - min_activities: 10       # Минимальное количество активностей
+          - valid_organism: true     # Валидный организм
+          - valid_target: true       # Валидная мишень
+      priority: 3
+    - name: "deduplicate"            # Дедупликация
+      enabled: true
+      description: "Remove duplicate assay entries"
+      priority: 4
+      keys: ["assay_chembl_id"]      # Ключи дедупликации
+
+# Нормализация - настройки нормализации данных
+normalization:
+  enabled: true                      # Включить нормализацию
+  assay_type_format: "standard"     # Формат типов ассаев
+  organism_format: "scientific_name"  # Формат названий организмов
+  bao_format: "standard"            # Формат BAO классификаций
+
+# Качество данных - профили контроля качества
+quality:
+  profiles:
+    default:                        # Профиль по умолчанию
+      enabled: true                  # Включен ли профиль
+      description: "Стандартный профиль QC для ассаев"
+      fail_on_criteria: ["missing_chembl_id", "missing_assay_type", "invalid_chembl_id"]
+      thresholds:                    # Пороговые значения
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_assay_type_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "missing_bao_format_rate"
+          operator: ">"
+          value: 0.2
+          severity: "WARNING"
+      rules:                        # Правила валидации
+        - name: "valid_chembl_id"    # Валидация ChEMBL ID
+          description: "Проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_assay_type"   # Валидация типа ассая
+          description: "Проверка типа ассая"
+          enabled: true
+          parameters:
+            allowed_values: ["B", "F"]
+        - name: "valid_bao_format"   # Валидация BAO формата
+          description: "Проверка формата BAO"
+          enabled: true
+          parameters:
+            pattern: "^BAO_\\d+$"
+        - name: "valid_assay_description"  # Валидация описания ассая
+          description: "Проверка наличия описания ассая"
+          enabled: true
+          parameters:
+            min_length: 10
+        - name: "valid_target_chembl_id"   # Валидация target ChEMBL ID
+          description: "Проверка формата target ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+    
+    strict:                         # Строгий профиль
+      enabled: false                 # Отключен по умолчанию
+      description: "Строгий профиль QC для ассаев"
+      fail_on_criteria: ["missing_chembl_id", "missing_assay_type", "invalid_chembl_id", "missing_bao_format"]
+      thresholds:
+        - metric: "missing_chembl_id_rate"
+          operator: ">"
+          value: 0.0
+          severity: "ERROR"
+        - metric: "missing_assay_type_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_chembl_id_rate"
+          operator: ">"
+          value: 0.02
+          severity: "ERROR"
+        - metric: "missing_bao_format_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+      rules:
+        - name: "valid_chembl_id"
+          description: "Строгая проверка формата ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+        - name: "valid_assay_type"
+          description: "Строгая проверка типа ассая"
+          enabled: true
+          parameters:
+            allowed_values: ["B", "F"]
+        - name: "valid_bao_format"
+          description: "Строгая проверка формата BAO"
+          enabled: true
+          parameters:
+            pattern: "^BAO_\\d+$"
+        - name: "valid_assay_description"
+          description: "Строгая проверка описания ассая"
+          enabled: true
+          parameters:
+            min_length: 20
+        - name: "valid_target_chembl_id"
+          description: "Строгая проверка target ChEMBL ID"
+          enabled: true
+          parameters:
+            pattern: "^CHEMBL\\d+$"
+
+# Отслеживание ошибок - настройки error tracking
+error_tracking:
+  enabled: true                      # Включить отслеживание ошибок
+  log_level: "INFO"                  # Уровень логирования ошибок
+  max_errors_per_source: 1000        # Максимум ошибок на источник
+  error_categories:                  # Категории ошибок
+    extraction:                      # Ошибки извлечения
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+    validation:                      # Ошибки валидации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: false
+    transformation:                  # Ошибки трансформации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: true
+    load:                           # Ошибки загрузки
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+  error_aggregation:                 # Агрегация ошибок
+    enabled: true
+    group_by_source: true
+    group_by_type: true
+    group_by_severity: true
+  error_reporting:                   # Отчетность по ошибкам
+    enabled: true
+    include_in_metadata: true
+    separate_error_file: true
+    error_file_format: "csv"
+
+# Кэширование - настройки кэширования данных
+cache:
+  enabled: true                      # Включить кэширование
+  dir: "data/cache/assays"          # Директория кэша
+  ttl: 86400                        # Время жизни кэша в секундах (24 часа)
+  max_size: "1GB"                   # Максимальный размер кэша
+
+# Мониторинг и телеметрия - настройки сбора метрик
+telemetry:
+  enabled: false                     # Включить телеметрию
+  endpoint: null                     # Endpoint для отправки метрик
+  api_key: null                      # API ключ для аутентификации
+  batch_size: 100                    # Размер батча для отправки
+  flush_interval: 30.0               # Интервал отправки в секундах

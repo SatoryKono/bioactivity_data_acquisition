@@ -1,0 +1,916 @@
+# Конфигурация v2 для documents pipeline
+# Основана на унифицированном шаблоне config.template.yaml
+
+# Метаданные пайплайна - основная информация о пайплайне
+pipeline:
+  name: "documents"                  # Имя пайплайна для идентификации
+  version: "2.0.0"                  # Версия конфигурации
+  entity_type: "documents"          # Тип сущности для обработки
+  description: "ETL pipeline for document metadata from multiple sources"  # Описание назначения
+
+# HTTP настройки
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioactivity-data-acquisition/0.1.0"
+    verify_ssl: true
+    follow_redirects: true
+
+# Источники данных - конфигурация источников для извлечения данных
+sources:
+  chembl:                              # ChEMBL API для базовых метаданных документов
+    enabled: true                      # Включен ли источник
+    http:                              # HTTP настройки для ChEMBL
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"  # Базовый URL API
+      timeout_sec: 60.0                # Таймаут для ChEMBL запросов
+      retries:                         # Настройки повторных попыток
+        total: 3                       # Количество попыток
+        backoff_multiplier: 2.0        # Множитель задержки
+    batch_size: 100                    # Размер батча для запросов
+    max_requests_per_second: 5         # Максимум запросов в секунду
+    
+  crossref:                            # Crossref API для DOI метаданных
+    enabled: true                      # Включен ли источник
+    mailto: "821311@gmail.com"         # Email для polite pool доступа
+    http:                              # HTTP настройки для Crossref
+      base_url: "https://api.crossref.org"  # Базовый URL API
+      timeout_sec: 40.0                # Общий таймаут (fallback)
+      timeout_connect: 10.0            # Таймаут соединения
+      timeout_read: 30.0               # Таймаут чтения
+      retries:                         # Настройки повторных попыток
+        total: 3                       # ИЗМЕНЕНО с 5 на 3
+        backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 60.0              # ИЗМЕНЕНО с 180.0 на 60.0
+    batch_size: 50                     # Размер батча для запросов
+    max_requests_per_second: 2         # ИЗМЕНЕНО с 10 на 2
+    rate_limit:                        # НОВАЯ секция
+      max_calls: 2                     # Максимум вызовов
+      period: 1.0                      # За период (секунды)
+      burst: 5                         # Burst capacity
+    
+  openalex:                            # OpenAlex API для научных публикаций
+    enabled: true                      # Включен ли источник
+    http:                              # HTTP настройки для OpenAlex
+      base_url: "https://api.openalex.org"  # Базовый URL API
+      timeout_sec: 45.0                # Увеличенный таймаут для OpenAlex запросов
+      retries:                         # Настройки повторных попыток
+        total: 5                       # Увеличено количество попыток
+        backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 180.0             # Максимальная задержка 3 минуты
+    batch_size: 50                     # Размер батча для запросов
+    max_requests_per_second: 5         # Максимум запросов в секунду
+    
+  pubmed:                              # PubMed NCBI E-utilities API
+    enabled: true                      # Включен ли источник
+    http:                              # HTTP настройки для PubMed
+      base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"  # Базовый URL E-utilities
+      timeout_sec: 45.0                # Увеличенный таймаут для PubMed запросов
+      retries:                         # Настройки повторных попыток
+        total: 5                       # Увеличено количество попыток
+        backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 180.0             # Максимальная задержка 3 минуты
+    batch_size: 200                    # Размер батча для запросов
+    max_requests_per_second: 3         # Максимум запросов в секунду
+    
+  semantic_scholar:                    # Semantic Scholar API
+    enabled: true                      # Включен ли источник
+    http:                              # HTTP настройки для Semantic Scholar
+      base_url: "https://api.semanticscholar.org"  # Базовый URL API
+      timeout_sec: 45.0                # Увеличенный таймаут для Semantic Scholar запросов
+      headers:                         # HTTP заголовки
+        Accept: application/json
+        x-api-key: "{SEMANTIC_SCHOLAR_API_KEY}"  # API ключ для увеличения лимитов
+      retries:                         # Настройки повторных попыток
+        total: 5                       # Увеличено количество попыток
+        backoff_multiplier: 2.0        # Множитель задержки
+        backoff_max: 180.0             # Максимальная задержка 3 минуты
+    batch_size: 100                    # Размер батча для запросов
+    max_requests_per_second: 0.8       # 1 запрос в секунду согласно API лимитам (0.8 для безопасности)
+
+# Ввод-вывод
+io:
+  input:
+    path: "data/input/document.csv"
+    encoding: "utf-8"
+    required_columns: ["document_chembl_id","doi", "pubmed_id"]
+    
+  output:
+    dir: "data/output/documents"
+    format: "csv"
+    csv:
+      encoding: "utf-8"
+      float_format: "%.6f"
+      date_format: "%Y-%m-%dT%H:%M:%SZ"
+      na_rep: ""
+      line_terminator: "\n"
+
+# Runtime настройки
+runtime:
+  workers: 4
+  limit: 5
+  offset: 0
+  dry_run: false
+  date_tag: null
+  dev_mode: false
+  allow_incomplete_sources: true
+
+# Логирование
+logging:
+  level: "INFO"
+  file:
+    enabled: true
+    path: "data/logs/documents.log"
+    max_size: "10MB"
+    backup_count: 5
+  console:
+    enabled: true
+    format: "text"
+  structured: true
+
+# Детерминизм
+determinism:
+  sort:
+    by: ["document_chembl_id", "doi", "pmid"]
+    ascending: [true, true, true]
+    na_position: "last"
+  column_order:
+     # Основные поля документа (оригинальные из ChEMBL)
+    - document_chembl_id      # STRING: PK документа из ChEMBL API /document, тип: STRING, валидация: NOT NULL, UNIQUE, pattern ^CHEMBL\d+$
+    - pubmed_id               # STRING: PubMed идентификатор, источник: ChEMBL, тип: STRING, валидация: nullable, pattern ^\d+$
+    - doi
+    - classification  # STRING: Классификация документа, источник: ChEMBL, тип: STRING, валидация: nullable
+    - document_contains_external_links  # BOOL: Содержит ли документ внешние ссылки, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - is_experimental_doc     # BOOL: Является ли документ экспериментальным, источник: ChEMBL, тип: BOOL, валидация: boolean
+    - document_citation       # TEXT: Форматированная литературная ссылка, источник: система, тип: TEXT, валидация: nullable
+
+    - pubmed_mesh_descriptors # TEXT: MeSH дескрипторы из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
+    - pubmed_mesh_qualifiers  # TEXT: MeSH квалификаторы из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
+    - pubmed_chemical_list    # TEXT: Список химических веществ из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
+    - crossref_subject        # TEXT: Предметная область из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
+
+    # Группа полей PMID из всех источников (chembl_pmid удален, заменен на CHEMBL.DOCS.pubmed_id)
+    - crossref_pmid           # STRING: PMID из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^\d+$
+    - openalex_pmid           # STRING: PMID из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^\d+$
+    - pubmed_pmid             # STRING: PMID из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^\d+$
+    - semantic_scholar_pmid   # STRING: PMID из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^\d+$
+    
+    # Группа полей названий статей из всех источников (chembl_title удален, заменен на CHEMBL.DOCS.title)
+    - crossref_title          # TEXT: Название статьи из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
+    - openalex_title          # TEXT: Название статьи из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
+    - pubmed_article_title    # TEXT: Название статьи из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
+    - semantic_scholar_title  # TEXT: Название статьи из Semantic Scholar, источник: Semantic Scholar API, тип: TEXT, валидация: nullable
+    
+    # Группа полей аннотаций из всех источников (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)
+    - crossref_abstract          # TEXT: Аннотация из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
+    - openalex_abstract          # TEXT: Аннотация из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
+    - pubmed_abstract            # TEXT: Аннотация из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
+    
+    # Группа полей авторов из всех источников (chembl_authors удален, не в спецификации DOCS)
+    - crossref_authors           # TEXT: Авторы из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
+    - openalex_authors           # TEXT: Авторы из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
+    - pubmed_authors             # TEXT: Авторы из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
+    - semantic_scholar_authors   # TEXT: Авторы из Semantic Scholar, источник: Semantic Scholar API, тип: TEXT, валидация: nullable
+    
+    # Группа полей DOI из всех источников (chembl_doi удален, заменен на CHEMBL.DOCS.doi)
+    - crossref_doi            # STRING: DOI из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
+    - openalex_doi             # STRING: DOI из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
+    - pubmed_doi              # STRING: DOI из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
+    - semantic_scholar_doi    # STRING: DOI из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^10\.\d+/[^\s]+$
+    
+    # Группа полей типов публикации из всех источников (chembl_doc_type удален, заменен на CHEMBL.DOCS.doc_type)
+    - crossref_doc_type       # STRING: Тип документа из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
+    - openalex_doc_type      # STRING: Тип документа из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - openalex_crossref_doc_type  # STRING: Тип документа из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - pubmed_doc_type          # STRING: Тип публикации из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
+    - semantic_scholar_doc_type    # STRING: Типы публикации из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable
+    
+    # Группа полей ISSN из всех источников (chembl_issn удален, не возвращается API /document)
+    - crossref_issn           # STRING: ISSN из Crossref, источник: Crossref API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
+    - openalex_issn           # STRING: ISSN из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
+    - pubmed_issn             # STRING: ISSN из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
+    - semantic_scholar_issn   # STRING: ISSN из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable, pattern ^\d{4}-\d{3}[\dX]$
+    
+    # Группа полей названий журналов из всех источников (chembl_journal удален, заменен на CHEMBL.DOCS.journal)
+    - crossref_journal        # STRING: Название журнала из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
+    - openalex_journal        # STRING: Название журнала из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - pubmed_journal           # STRING: Название журнала из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
+    - semantic_scholar_journal  # STRING: Название журнала из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable
+    
+    # Группа полей годов издания из всех источников (chembl_year удален, заменен на CHEMBL.DOCS.year)
+    - crossref_year           # INT: Год из Crossref, источник: Crossref API, тип: INT, валидация: nullable, 1900-текущий год
+    - openalex_year           # INT: Год из OpenAlex, источник: OpenAlex API, тип: INT, валидация: nullable, 1900-текущий год
+    - pubmed_year             # INT: Год из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1900-текущий год
+
+    # Группа полей томов из всех источников (chembl_volume удален, заменен на CHEMBL.DOCS.volume)
+    - crossref_volume         # STRING: Том из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
+    - openalex_volume         # STRING: Том из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - pubmed_volume           # STRING: Том из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
+    
+    # Группа полей выпусков из всех источников (chembl_issue удален, заменен на CHEMBL.DOCS.issue)
+    - crossref_issue          # STRING: Номер выпуска из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
+    - openalex_issue          # STRING: Номер выпуска из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - pubmed_issue            # STRING: Номер выпуска из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
+    
+    # Группа полей первых страниц из всех источников
+    - crossref_first_page     # STRING: Первая страница из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
+    - openalex_first_page     # STRING: Первая страница из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - pubmed_first_page       # STRING: Начальная страница из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
+    
+    # Группа полей последних страниц из всех источников
+    - crossref_last_page      # STRING: Последняя страница из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
+    - openalex_last_page      # STRING: Последняя страница из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - pubmed_last_page        # STRING: Конечная страница из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
+    
+    # Группа полей ошибок из всех источников
+    - chembl_error            # STRING: Ошибка из ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable
+    - crossref_error          # STRING: Ошибка из Crossref, источник: Crossref API, тип: STRING, валидация: nullable
+    - openalex_error          # STRING: Ошибка из OpenAlex, источник: OpenAlex API, тип: STRING, валидация: nullable
+    - pubmed_error            # STRING: Ошибка из PubMed, источник: PubMed E-utilities, тип: STRING, валидация: nullable
+    - semantic_scholar_error  # STRING: Ошибка из Semantic Scholar, источник: Semantic Scholar API, тип: STRING, валидация: nullable
+
+    # Поля из PubMed (расширенные)
+    - pubmed_year_completed   # INT: Год завершения из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1900-текущий год
+    - pubmed_month_completed  # INT: Месяц завершения из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1-12
+    - pubmed_day_completed    # INT: День завершения из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1-31
+    - pubmed_year_revised     # INT: Год пересмотра из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1900-текущий год
+    - pubmed_month_revised    # INT: Месяц пересмотра из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1-12
+    - pubmed_day_revised      # INT: День пересмотра из PubMed, источник: PubMed E-utilities, тип: INT, валидация: nullable, 1-31
+    - publication_date        # STRING: Дата публикации, источник: вычисляется, тип: DATE, валидация: nullable, ISO 8601
+    - document_sortorder      # INT: Порядок сортировки документов, источник: вычисляется, тип: INT, валидация: NOT NULL, >= 0
+   # Метаданные
+    - "index"                         # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "pipeline_version"               # STRING: Версия пайплайна, источник: система, тип: STRING, валидация: NOT NULL                        # INT: Порядковый номер записи, тип: INT, валидация: NOT NULL, >= 0
+    - "source_system"                 # STRING: Система-источник, источник: система, тип: STRING, валидация: NOT NULL
+    - "chembl_release"                # STRING: Версия ChEMBL, источник: система, тип: STRING, валидация: nullable
+    - "extracted_at"                  # STRING: Время извлечения данных, источник: система, тип: TIMESTAMP, валидация: NOT NULL, ISO 8601
+    - "hash_row"                      # STRING: Хеш строки, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+    - "hash_business_key"             # STRING: Хеш бизнес-ключа, источник: система, тип: STRING, валидация: NOT NULL, SHA256
+
+    # Новые поля из ChEMBL DOCS согласно спецификации
+    - CHEMBL.DOCS.document_chembl_id  # STRING: ChEMBL ID документа, источник: ChEMBL API, тип: STRING, валидация: NOT NULL, pattern ^CHEMBL\d+$
+    - CHEMBL.DOCS.doc_type            # STRING: Тип документа, источник: ChEMBL API, тип: STRING, валидация: nullable
+    - CHEMBL.DOCS.title               # STRING: Заголовок публикации/набора, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 4000
+    - CHEMBL.DOCS.journal             # STRING: Название журнала, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 255
+    - CHEMBL.DOCS.year                # INT: Год, источник: ChEMBL API, тип: INT, валидация: nullable, диапазон 1800-2100
+    - CHEMBL.DOCS.volume              # STRING: Том, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 50
+    - CHEMBL.DOCS.issue               # STRING: Номер выпуска, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 50
+    - CHEMBL.DOCS.first_page          # STRING: Первая страница, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 20
+    - CHEMBL.DOCS.last_page           # STRING: Последняя страница, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 20
+    - CHEMBL.DOCS.doi                 # STRING: DOI, источник: ChEMBL API, тип: STRING, валидация: nullable, pattern ^10\.[^\s/]+/\S+$
+    - CHEMBL.DOCS.pubmed_id           # INT: PubMed ID, источник: ChEMBL API, тип: INT, валидация: nullable, ≥ 1
+    - CHEMBL.DOCS.abstract            # STRING: Аннотация, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 4000
+    - CHEMBL.DOCS.chembl_release      # STRING: Связь на релиз ChEMBL, источник: ChEMBL API, тип: STRING, валидация: nullable, JSON
+
+    # Новые поля из ChEMBL SOURCE согласно спецификации
+    - CHEMBL.SOURCE.src_id            # INT: Уникальный ID источника, источник: ChEMBL API, тип: INT, валидация: nullable, ≥ 1
+    - CHEMBL.SOURCE.src_description   # STRING: Описание источника, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 4000
+    - CHEMBL.SOURCE.src_short_name    # STRING: Короткое имя, источник: ChEMBL API, тип: STRING, валидация: nullable, длина ≤ 255
+    - CHEMBL.SOURCE.src_url           # STRING: URL источника, источник: ChEMBL API, тип: STRING, валидация: nullable
+    - CHEMBL.SOURCE.data              # STRING: Полные данные источника, источник: ChEMBL API, тип: STRING, валидация: nullable, JSON
+
+    # Поля валидации данных из различных источников
+    #- valid_doi               # BOOL: Валидное значение DOI, источник: система, тип: BOOL, валидация: boolean
+    #- valid_journal           # BOOL: Валидное значение журнала, источник: система, тип: BOOL, валидация: boolean
+    #- valid_year              # BOOL: Валидное значение года, источник: система, тип: BOOL, валидация: boolean
+    #- valid_volume            # BOOL: Валидное значение тома, источник: система, тип: BOOL, валидация: boolean
+    #- valid_issue             # BOOL: Валидное значение номера выпуска, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_doi             # BOOL: Флаг невалидности DOI, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_journal         # BOOL: Флаг невалидности журнала, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_year            # BOOL: Флаг невалидности года, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_volume          # BOOL: Флаг невалидности тома, источник: система, тип: BOOL, валидация: boolean
+    #- invalid_issue           # BOOL: Флаг невалидности номера выпуска, источник: система, тип: BOOL, валидация: boolean
+
+
+# Валидация - настройки проверки данных
+validation:
+  enabled: true                        # Включить валидацию
+  strict: false                        # Строгий режим (останавливать при ошибках)
+  schema_validation: true              # Валидация схемы данных
+  data_quality_checks: true            # Проверки качества данных
+
+# Постобработка - настройки обработки после извлечения
+postprocess:
+  qc:                                 # Контроль качества
+    enabled: true                      # Включить QC
+    fail_on: ["missing_doi", "missing_title"]  # Критические ошибки
+    thresholds:                        # Пороговые значения для QC
+      missing_doi: 0.1                # Максимальный % отсутствующих DOI
+      missing_title: 0.05              # Максимальный % отсутствующих заголовков
+    detailed_report: true              # Детальный отчет QC
+    
+  correlation:                        # Корреляционный анализ
+    enabled: true                      # Включить корреляцию
+    methods: ["pearson", "spearman"]   # Методы корреляции
+    min_correlation: 0.5               # Минимальная корреляция
+    
+  steps:                              # Этапы постобработки
+    - name: "add_missing_document_fields"  # Добавление недостающих полей
+      enabled: true
+      description: "Add missing document fields"
+      priority: 1
+    - name: "merge_sources"            # Объединение источников
+      enabled: true
+      description: "Merge data from multiple sources"
+      priority: 2
+      parameters:
+        priority: ["crossref", "openalex", "pubmed", "semantic_scholar"]  # Приоритет источников
+    - name: "doi_fallback"             # Fallback по DOI
+      enabled: false
+      description: "Use DOI as fallback identifier"
+      priority: 3
+    - name: "author_normalization"     # Нормализация авторов
+      enabled: false
+      description: "Normalize author names and affiliations"
+      priority: 4
+    - name: "journal_normalization"    # Нормализация журналов
+      enabled: false
+      description: "Normalize journal names"
+      priority: 5
+    - name: "citation_formatting"      # Форматирование цитирования
+      enabled: false
+      description: "Format citation data"
+      priority: 6
+
+# Нормализация - настройки нормализации данных
+normalization:
+  enabled: true                        # Включить нормализацию
+  doi_format: "standard"              # Формат DOI
+  author_format: "last_first"         # Формат авторов
+  date_format: "iso"                  # Формат дат
+
+# Качество данных - профили контроля качества
+quality:
+  profiles:
+    default:                          # Профиль по умолчанию
+      enabled: true                    # Включен ли профиль
+      description: "Стандартный профиль QC для документов"
+      fail_on_criteria: ["missing_doi", "missing_title", "invalid_doi"]
+      thresholds:                      # Пороговые значения
+        - metric: "missing_doi_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "missing_title_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "invalid_doi_rate"
+          operator: ">"
+          value: 0.2
+          severity: "WARNING"
+      rules:                          # Правила валидации
+        - name: "valid_doi"            # Валидация DOI
+          description: "Проверка формата DOI"
+          enabled: true
+          parameters:
+            pattern: "^10\\.\\d+/[^\\s]+$"
+        - name: "valid_pmid"           # Валидация PMID
+          description: "Проверка формата PMID"
+          enabled: true
+          parameters:
+            pattern: "^\\d+$"
+        - name: "non_empty_title"      # Валидация заголовка
+          description: "Проверка наличия заголовка"
+          enabled: true
+          parameters:
+            min_length: 10
+        - name: "valid_year"           # Валидация года
+          description: "Проверка корректности года публикации"
+          enabled: true
+          parameters:
+            min_year: 1900
+            max_year: 2024
+        - name: "valid_issn"           # Валидация ISSN
+          description: "Проверка формата ISSN"
+          enabled: true
+          parameters:
+            pattern: "^\\d{4}-\\d{3}[\\dX]$"
+    
+    strict:                           # Строгий профиль
+      enabled: false                   # Отключен по умолчанию
+      description: "Строгий профиль QC для документов"
+      fail_on_criteria: ["missing_doi", "missing_title", "invalid_doi", "missing_abstract"]
+      thresholds:
+        - metric: "missing_doi_rate"
+          operator: ">"
+          value: 0.05
+          severity: "ERROR"
+        - metric: "missing_title_rate"
+          operator: ">"
+          value: 0.02
+          severity: "ERROR"
+        - metric: "invalid_doi_rate"
+          operator: ">"
+          value: 0.1
+          severity: "ERROR"
+        - metric: "missing_abstract_rate"
+          operator: ">"
+          value: 0.3
+          severity: "WARNING"
+      rules:
+        - name: "valid_doi"
+          description: "Строгая проверка формата DOI"
+          enabled: true
+          parameters:
+            pattern: "^10\\.\\d+/[^\\s]+$"
+        - name: "valid_pmid"
+          description: "Строгая проверка формата PMID"
+          enabled: true
+          parameters:
+            pattern: "^\\d+$"
+        - name: "non_empty_title"
+          description: "Строгая проверка заголовка"
+          enabled: true
+          parameters:
+            min_length: 20
+        - name: "valid_year"
+          description: "Строгая проверка года"
+          enabled: true
+          parameters:
+            min_year: 1950
+            max_year: 2024
+        - name: "valid_issn"
+          description: "Строгая проверка ISSN"
+          enabled: true
+          parameters:
+            pattern: "^\\d{4}-\\d{3}[\\dX]$"
+        - name: "non_empty_abstract"
+          description: "Проверка наличия аннотации"
+          enabled: true
+          parameters:
+            min_length: 100
+
+# Отслеживание ошибок - настройки error tracking
+error_tracking:
+  enabled: true                        # Включить отслеживание ошибок
+  log_level: "INFO"                    # Уровень логирования ошибок
+  max_errors_per_source: 1000          # Максимум ошибок на источник
+  error_categories:                    # Категории ошибок
+    extraction:                        # Ошибки извлечения
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+    validation:                        # Ошибки валидации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: false
+    transformation:                    # Ошибки трансформации
+      enabled: true
+      severity: "MEDIUM"
+      include_stack_trace: true
+    load:                             # Ошибки загрузки
+      enabled: true
+      severity: "HIGH"
+      include_stack_trace: true
+  error_aggregation:                   # Агрегация ошибок
+    enabled: true
+    group_by_source: true
+    group_by_type: true
+    group_by_severity: true
+  error_reporting:                     # Отчетность по ошибкам
+    enabled: true
+    include_in_metadata: true
+    separate_error_file: true
+    error_file_format: "csv"
+
+# Кэширование - настройки кэширования данных
+cache:
+  enabled: true                        # Включить кэширование
+  dir: "data/cache/documents"         # Директория кэша
+  ttl: 86400                          # Время жизни кэша в секундах (24 часа)
+  max_size: "1GB"                     # Максимальный размер кэша
+
+# Мониторинг и телеметрия - настройки сбора метрик
+telemetry:
+  enabled: false                       # Включить телеметрию
+  endpoint: null                       # Endpoint для отправки метрик
+  api_key: null                        # API ключ для аутентификации
+  batch_size: 100                      # Размер батча для отправки
+  flush_interval: 30.0                 # Интервал отправки в секундах
+
+# Нормализация данных - настройки нормализации полей
+normalization:
+  enabled: true                        # Включить нормализацию
+  version: "1.0.0"                     # Версия системы нормализации
+  responsible: "Data Engineering Team" # Ответственная команда
+  last_updated: "2025-01-23"           # Дата последнего обновления
+  
+  # Функции нормализации для полей документов
+  functions:
+    # Основные идентификаторы
+    document_chembl_id:
+      - normalize_string_strip
+      - normalize_string_upper
+      - normalize_chembl_id
+    
+    document_pubmed_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    document_classification:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    document_citation:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_mesh_descriptors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_mesh_qualifiers:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_chemical_list:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    crossref_subject:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # DOI поля (chembl_doi удален, заменен на CHEMBL.DOCS.doi)
+    
+    crossref_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    openalex_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    pubmed_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    semantic_scholar_doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    
+    # PMID поля (chembl_pmid удален, заменен на CHEMBL.DOCS.pubmed_id)
+    
+    crossref_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    openalex_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    pubmed_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    semantic_scholar_pmid:
+      - normalize_string_strip
+      - normalize_pmid
+    
+    # Текстовые поля (chembl_title удален, заменен на CHEMBL.DOCS.title)
+    
+    crossref_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    openalex_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_article_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    semantic_scholar_title:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # Аннотации (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)
+    
+    crossref_abstract:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    openalex_abstract:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_abstract:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # Авторы (chembl_authors удален, не в спецификации DOCS)
+    
+    crossref_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    openalex_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    pubmed_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    semantic_scholar_authors:
+      - normalize_string_strip
+      - normalize_string_nfc
+      - normalize_string_whitespace
+    
+    # Типы документов (chembl_doc_type удален, заменен на CHEMBL.DOCS.doc_type)
+    
+    crossref_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    openalex_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    openalex_crossref_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    pubmed_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    semantic_scholar_doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    # ISSN поля (chembl_issn удален, не возвращается API /document)
+    
+    crossref_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    openalex_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    pubmed_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    semantic_scholar_issn:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    # Журналы (chembl_journal удален, заменен на CHEMBL.DOCS.journal)
+    
+    crossref_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    openalex_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    pubmed_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    semantic_scholar_journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    # Годы (chembl_year удален, заменен на CHEMBL.DOCS.year)
+    
+    crossref_year:
+      - normalize_int
+      - normalize_year
+    
+    openalex_year:
+      - normalize_int
+      - normalize_year
+    
+    pubmed_year:
+      - normalize_int
+      - normalize_year
+    
+    # Тома (chembl_volume удален, заменен на CHEMBL.DOCS.volume)
+    
+    crossref_volume:
+      - normalize_string_strip
+    
+    openalex_volume:
+      - normalize_string_strip
+    
+    pubmed_volume:
+      - normalize_string_strip
+    
+    # Выпуски (chembl_issue удален, заменен на CHEMBL.DOCS.issue)
+    
+    crossref_issue:
+      - normalize_string_strip
+    
+    openalex_issue:
+      - normalize_string_strip
+    
+    pubmed_issue:
+      - normalize_string_strip
+    
+    # Страницы
+    crossref_first_page:
+      - normalize_string_strip
+    
+    openalex_first_page:
+      - normalize_string_strip
+    
+    pubmed_first_page:
+      - normalize_string_strip
+    
+    crossref_last_page:
+      - normalize_string_strip
+    
+    openalex_last_page:
+      - normalize_string_strip
+    
+    pubmed_last_page:
+      - normalize_string_strip
+    
+    # Ошибки
+    chembl_error:
+      - normalize_string_strip
+    
+    crossref_error:
+      - normalize_string_strip
+    
+    openalex_error:
+      - normalize_string_strip
+    
+    pubmed_error:
+      - normalize_string_strip
+    
+    semantic_scholar_error:
+      - normalize_string_strip
+    
+    # Дополнительные поля PubMed
+    pubmed_year_completed:
+      - normalize_int
+      - normalize_year
+    
+    pubmed_month_completed:
+      - normalize_int
+      - normalize_month
+    
+    pubmed_day_completed:
+      - normalize_int
+      - normalize_day
+    
+    pubmed_year_revised:
+      - normalize_int
+      - normalize_year
+    
+    pubmed_month_revised:
+      - normalize_int
+      - normalize_month
+    
+    pubmed_day_revised:
+      - normalize_int
+      - normalize_day
+    
+    # Системные поля
+    document_sortorder:
+      - normalize_int
+      - normalize_int_positive
+    
+    
+    # Булевые поля
+    referenses_on_previous_experiments:
+      - normalize_boolean
+    
+    original_experimental_document:
+      - normalize_boolean
+    
+    valid_doi:
+      - normalize_boolean
+    
+    valid_journal:
+      - normalize_boolean
+    
+    valid_year:
+      - normalize_boolean
+    
+    valid_volume:
+      - normalize_boolean
+    
+    valid_issue:
+      - normalize_boolean
+    
+    invalid_doi:
+      - normalize_boolean
+    
+    invalid_journal:
+      - normalize_boolean
+    
+    invalid_year:
+      - normalize_boolean
+    
+    invalid_volume:
+      - normalize_boolean
+    
+    invalid_issue:
+      - normalize_boolean
+    
+    # Временные поля
+    publication_date:
+      - normalize_datetime_iso8601
+    
+    # Новые поля DOCS согласно спецификации
+    CHEMBL.DOCS.document_chembl_id:
+      - normalize_string_strip
+      - normalize_string_upper
+      - normalize_chembl_id
+    
+    CHEMBL.DOCS.doc_type:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    CHEMBL.DOCS.title:
+      - normalize_string_strip
+      - normalize_string_whitespace
+    
+    CHEMBL.DOCS.journal:
+      - normalize_string_strip
+      - normalize_string_titlecase
+    
+    CHEMBL.DOCS.year:
+      - normalize_int
+      - normalize_year
+    
+    CHEMBL.DOCS.volume:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.issue:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.first_page:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.last_page:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.doi:
+      - normalize_string_strip
+      - normalize_string_lower
+      - normalize_doi
+    
+    CHEMBL.DOCS.pubmed_id:
+      - normalize_int
+      - normalize_pmid
+    
+    CHEMBL.DOCS.abstract:
+      - normalize_string_strip
+    
+    CHEMBL.DOCS.chembl_release:
+      - normalize_json_keys
+    
+    # Новые поля SOURCE согласно спецификации
+    CHEMBL.SOURCE.src_id:
+      - normalize_int
+      - normalize_int_positive
+    
+    CHEMBL.SOURCE.src_description:
+      - normalize_string_strip
+    
+    CHEMBL.SOURCE.src_short_name:
+      - normalize_string_strip
+      - normalize_string_upper
+    
+    CHEMBL.SOURCE.src_url:
+      - normalize_string_strip
+    
+    CHEMBL.SOURCE.data:
+      - normalize_json_structure

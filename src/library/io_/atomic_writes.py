@@ -75,13 +75,10 @@ def atomic_write_context(target_path: Path, temp_dir: Path | None = None, backup
         temp_path.rename(target_path)
 
         if logger:
-<<<<<<< Updated upstream:src/library/io_/atomic_writes.py
             logger.info("atomic_write_complete", path=str(target_path))
             
-=======
             logger.info(f"atomic_write_complete: {target_path}")
 
->>>>>>> Stashed changes:src/library/io/atomic_writes.py
     except Exception as e:
         # Clean up temporary file on error
         if temp_path.exists():

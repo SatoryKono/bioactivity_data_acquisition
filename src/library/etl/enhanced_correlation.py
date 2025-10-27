@@ -66,13 +66,8 @@ class EnhancedCorrelationAnalyzer:
                 correlations["pearson"] = pd.DataFrame()
         except Exception as e:
             if self.logger:
-<<<<<<< Updated upstream
-                self.logger.warning("Ошибка при вычислении корреляции Пирсона", error=str(e))
-            correlations['pearson'] = pd.DataFrame()
-=======
                 self.logger.warning(f"Ошибка при вычислении корреляции Пирсона error={str(e)}")
             correlations["pearson"] = pd.DataFrame()
->>>>>>> Stashed changes
 
         # Корреляция Спирмена
         try:
@@ -85,13 +80,8 @@ class EnhancedCorrelationAnalyzer:
                 correlations["spearman"] = pd.DataFrame()
         except Exception as e:
             if self.logger:
-<<<<<<< Updated upstream
                 self.logger.warning("Ошибка при вычислении корреляции Спирмена", error=str(e))
             correlations['spearman'] = pd.DataFrame()
-=======
-                self.logger.warning(f"Ошибка при вычислении корреляции Спирмена error={str(e)}")
-            correlations["spearman"] = pd.DataFrame()
->>>>>>> Stashed changes
 
         # Ковариационная матрица
         try:
@@ -104,13 +94,8 @@ class EnhancedCorrelationAnalyzer:
                 correlations["covariance"] = pd.DataFrame()
         except Exception as e:
             if self.logger:
-<<<<<<< Updated upstream
-                self.logger.warning("Ошибка при вычислении ковариации", error=str(e))
-            correlations['covariance'] = pd.DataFrame()
-=======
                 self.logger.warning(f"Ошибка при вычислении ковариации error={str(e)}")
             correlations["covariance"] = pd.DataFrame()
->>>>>>> Stashed changes
 
         return correlations
 
@@ -203,15 +188,12 @@ class EnhancedCorrelationAnalyzer:
                     if n_groups > 1:
                         # Вычисляем eta-squared
                         overall_mean_val = float(df[num_col].mean())
-<<<<<<< Updated upstream
                         def calc_ss_between(group):
                             return (group.mean() - overall_mean_val)**2 * len(group)
-=======
 
                         def calc_ss_between(group, mean_val=overall_mean_val):
                             return (group.mean() - mean_val) ** 2 * len(group)
 
->>>>>>> Stashed changes
                         ss_between = grouped.apply(calc_ss_between).sum()
                         ss_total = ((df[num_col] - overall_mean_val) ** 2).sum()
 
@@ -369,14 +351,11 @@ class EnhancedCorrelationAnalyzer:
                             self.logger.warning("Ошибка при вычислении скользящих корреляций", col1=col1, col2=col2, error=str(e))
         else:
             if self.logger:
-<<<<<<< Updated upstream
                 self.logger.info("Пропускаем скользящие корреляции из-за размера датасета", 
                                dataset_size=len(df), window_size=window_size)
             
-=======
                 self.logger.info(f"Пропускаем скользящие корреляции из-за размера датасета: {len(df)} строк, окно: {window_size}")
 
->>>>>>> Stashed changes
             # Для больших датасетов вычисляем простые корреляции вместо скользящих
             if len(df) >= 10000:
                 simple_correlations = {}
@@ -407,23 +386,13 @@ class EnhancedCorrelationAnalyzer:
     def _analyze_correlation_summary(self, df: pd.DataFrame) -> dict[str, Any]:
         """Сводная статистика по корреляциям."""
         numeric_cols = df.select_dtypes(include=[np.number]).columns
-<<<<<<< Updated upstream
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
         
-        summary = {
-            'total_columns': len(df.columns),
-            'numeric_columns': len(numeric_cols),
-            'categorical_columns': len(categorical_cols),
-            'datetime_columns': len(df.select_dtypes(include=['datetime64']).columns),
-=======
-        categorical_cols = df.select_dtypes(include=["object", "category"]).columns
-
         summary: dict[str, Any] = {
             "total_columns": len(df.columns),
             "numeric_columns": len(numeric_cols),
             "categorical_columns": len(categorical_cols),
             "datetime_columns": len(df.select_dtypes(include=["datetime64"]).columns),
->>>>>>> Stashed changes
         }
 
         if len(numeric_cols) > 1:
@@ -469,13 +438,8 @@ class EnhancedCorrelationAnalyzer:
                     summary["mean_correlation"] = corr_matrix.abs().mean().mean()
             except MemoryError as e:
                 if self.logger:
-<<<<<<< Updated upstream
-                    self.logger.warning("Ошибка памяти при анализе сводной статистики корреляций", error=str(e))
-                summary['memory_error'] = True
-=======
                     self.logger.warning(f"Ошибка памяти при анализе сводной статистики корреляций error={str(e)}")
                 summary["memory_error"] = True
->>>>>>> Stashed changes
             except Exception as e:
                 if self.logger:
                     self.logger.warning("Ошибка при анализе сводной статистики корреляций", error=str(e))

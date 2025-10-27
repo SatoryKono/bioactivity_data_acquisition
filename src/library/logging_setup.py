@@ -36,13 +36,11 @@ class RedactSecretsFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter and redact sensitive information from log record."""
-<<<<<<< Updated upstream
         if hasattr(record, 'getMessage'):
             message = record.getMessage()
             for pattern, replacement in self.sensitive_patterns:
                 message = pattern.sub(replacement, message)
             record.msg = message
-=======
         try:
             # Проверяем, не является ли это записью от urllib3 или requests
             if "urllib3" in record.name or "requests" in record.name:
@@ -61,7 +59,6 @@ class RedactSecretsFilter(logging.Filter):
 
             logging.getLogger(__name__).debug(f"Error in RedactSecretsFilter: {e}")
             pass
->>>>>>> Stashed changes
         return True
 
 
@@ -86,9 +83,16 @@ class AddContextFilter(logging.Filter):
         return True
 
 
-<<<<<<< Updated upstream
 def _redact_secrets_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
-=======
+    """Redact sensitive information from log records."""
+    # Remove or mask sensitive fields
+    sensitive_fields = ["password", "token", "key", "secret", "auth"]
+    for field in sensitive_fields:
+        if field in event_dict:
+            event_dict[field] = "***REDACTED***"
+    return event_dict
+
+
 class SafeFormattingFilter(logging.Filter):
     """Filter to prevent formatting errors in urllib3 and other problematic libraries."""
 
@@ -137,7 +141,6 @@ class SafeFormattingFilter(logging.Filter):
 
 
 def _redact_secrets_processor(logger: Any, _method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
->>>>>>> Stashed changes
     """Remove sensitive information from structlog event dictionary."""
     sensitive_keys = ["authorization", "api_key", "token", "password", "secret", "key", "bearer", "auth", "credential", "access_token", "refresh_token"]
 
@@ -161,14 +164,11 @@ def _redact_secrets_processor(logger: Any, _method_name: str, event_dict: Mutabl
 
     # Redact any other sensitive fields
     redacted_dict = redact_dict(event_dict)
-<<<<<<< Updated upstream
     
     return redacted_dict
-=======
 
     # Ensure we always return a valid dictionary
     return redacted_dict if redacted_dict is not None else {}
->>>>>>> Stashed changes
 
 
 def _add_context_processor(logger: Any, method_name: str, event_dict: MutableMapping[str, Any]) -> Mapping[str, Any]:
@@ -254,13 +254,14 @@ def configure_logging(
         logs_dir = log_file.parent
         logs_dir.mkdir(parents=True, exist_ok=True)
 
+    # Initialize config variable
+    config = None
+
     # Load configuration from YAML if provided
     if config_path and config_path.exists():
         with config_path.open("r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
-<<<<<<< Updated upstream
         
-=======
     elif config_path is None:
         # Auto-detect Windows and use appropriate config
         import platform
@@ -279,7 +280,6 @@ def configure_logging(
                     with config_path.open("r", encoding="utf-8") as f:
                         config = yaml.safe_load(f)
 
->>>>>>> Stashed changes
         # Override configuration based on parameters
         if not file_enabled:
             # Remove file handlers
@@ -289,13 +289,14 @@ def configure_logging(
             if "root" in config and "handlers" in config["root"]:
                 config["root"]["handlers"] = [h for h in config["root"]["handlers"] if h != "file"]
 
-        if log_file:
+        if log_file and config:
             # Update file handler path
             if "handlers" in config and "file" in config["handlers"]:
                 config["handlers"]["file"]["filename"] = str(log_file)
 
         # Apply configuration
-        logging.config.dictConfig(config)
+        if config:
+            logging.config.dictConfig(config)
     else:
         # Fallback to programmatic configuration
         _configure_programmatic_logging(level, file_enabled, console_format, log_file)
@@ -361,14 +362,11 @@ def _configure_programmatic_logging(
         handlers=handlers,
         format="%(message)s",  # structlog will handle formatting
     )
-<<<<<<< Updated upstream
-=======
 
     # Apply SafeFormattingFilter only to problematic libraries
     for logger_name in ["urllib3", "urllib3.connectionpool", "requests", "requests.packages.urllib3"]:
         logger = logging.getLogger(logger_name)
         logger.addFilter(SafeFormattingFilter())
->>>>>>> Stashed changes
 
 
 @contextmanager
