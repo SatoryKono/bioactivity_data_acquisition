@@ -451,6 +451,8 @@ def _normalize_assay_fields(assays_df: pd.DataFrame) -> pd.DataFrame:
     for col in string_columns:
         if col in normalized.columns:
             normalized[col] = normalized[col].astype(str).str.strip()
+            # Replace string representations of empty values with pd.NA
+            normalized[col] = normalized[col].replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
             normalized[col] = normalized[col].replace("", pd.NA)
     
     # Mapping assay_type to description
@@ -497,6 +499,8 @@ def _normalize_assay_fields(assays_df: pd.DataFrame) -> pd.DataFrame:
     # Normalize variant_sequence pattern
     if "variant_sequence" in normalized.columns:
         normalized["variant_sequence"] = normalized["variant_sequence"].astype(str).str.upper()
+        # Replace string representations of empty values with pd.NA
+        normalized["variant_sequence"] = normalized["variant_sequence"].replace(["None", "NONE", "nan", "NaN", "none", "NULL", "null", "NIL"], pd.NA)
         normalized["variant_sequence"] = normalized["variant_sequence"].replace("", pd.NA)
     
     # Validate BAO patterns
@@ -566,14 +570,10 @@ def _validate_assay_schema(assays_df: pd.DataFrame) -> pd.DataFrame:
                     logger.warning(f"Filling {null_count} null values in {field} with default: {default_value}")
                     assays_df[field] = assays_df[field].fillna(default_value)
         
-        # Temporarily disable schema validation to allow script completion
-        logger.warning("Schema validation temporarily disabled - returning data as-is")
-        return assays_df
-        
-        # Original validation code (commented out)
-        # validated_df = AssayNormalizedSchema.validate(assays_df)
-        # logger.info(f"Schema validation passed for {len(validated_df)} assays")
-        # return validated_df
+        # Enable schema validation
+        validated_df = AssayNormalizedSchema.validate(assays_df)
+        logger.info(f"Schema validation passed for {len(validated_df)} assays")
+        return validated_df
     except Exception as e:
         logger.error(f"Schema validation failed: {e}")
         raise AssayValidationError(f"Schema validation failed: {e}") from e

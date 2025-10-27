@@ -53,7 +53,7 @@ def coerce_text(value: Any) -> str | None:
         return None
 
     try:  # pragma: no cover - optional dependency guard
-        import pandas as _pd  # type: ignore
+        import pandas as _pd
 
         if _pd.isna(value):
             return None
@@ -249,7 +249,7 @@ def parse_pubmed_response(response: Mapping[str, Any]) -> list[dict[str, Any]]:
 
     uids = []
     if isinstance(result.get("uids"), list):
-        uids = [coerce_text(uid) for uid in result.get("uids")]
+        uids = [coerce_text(uid) for uid in result.get("uids", [])]
 
     records: list[Mapping[str, Any]] = []
     if uids:

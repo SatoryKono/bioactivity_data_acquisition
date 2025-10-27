@@ -123,8 +123,10 @@ class ETLWriter(ABC):
 
                 df_copy = df_copy.sort_values(by=valid_sort_columns, ascending=ascending)
 
-        # Записать в CSV
-        df_copy.to_csv(output_path, index=False, encoding="utf-8")
+        # Записать в CSV с правильным представлением пустых значений
+        output_config = self._get_output_config() if hasattr(self, '_get_output_config') else self.config.output
+        na_rep = getattr(output_config.csv, 'na_rep', '')
+        df_copy.to_csv(output_path, index=False, encoding="utf-8", na_rep=na_rep)
 
     def _write_correlation_reports(self, correlation_reports: dict[str, pd.DataFrame], output_dir: Path, date_tag: str) -> dict[str, Path]:
         """Записать корреляционные отчеты."""
@@ -144,7 +146,9 @@ class ETLWriter(ABC):
             if consolidated_data:
                 consolidated_df = pd.concat(consolidated_data, ignore_index=True)
                 consolidated_path = correlation_dir / f"{self.entity_type}_correlation_consolidated.csv"
-                consolidated_df.to_csv(consolidated_path, index=False, encoding="utf-8")
+                output_config = self._get_output_config() if hasattr(self, '_get_output_config') else self.config.output
+                na_rep = getattr(output_config.csv, 'na_rep', '')
+                consolidated_df.to_csv(consolidated_path, index=False, encoding="utf-8", na_rep=na_rep)
                 written_files["correlation_consolidated"] = consolidated_path
 
         # Записать индивидуальные отчеты
@@ -153,7 +157,9 @@ class ETLWriter(ABC):
 
         for report_name, report_df in correlation_reports.items():
             report_path = individual_dir / f"{report_name}.csv"
-            report_df.to_csv(report_path, index=False, encoding="utf-8")
+            output_config = self._get_output_config() if hasattr(self, '_get_output_config') else self.config.output
+            na_rep = getattr(output_config.csv, 'na_rep', '')
+            report_df.to_csv(report_path, index=False, encoding="utf-8", na_rep=na_rep)
             written_files[f"correlation_{report_name}"] = report_path
 
         return written_files
@@ -245,7 +251,9 @@ class ETLWriter(ABC):
         # 2. Записать QC сводку (всегда)
         if result.qc_summary is not None:
             qc_summary_path = output_dir / f"{self.entity_type}_{date_tag}_qc_summary.csv"
-            result.qc_summary.to_csv(qc_summary_path, index=False, encoding="utf-8")
+            output_config = self._get_output_config() if hasattr(self, '_get_output_config') else self.config.output
+            na_rep = getattr(output_config.csv, 'na_rep', '')
+            result.qc_summary.to_csv(qc_summary_path, index=False, encoding="utf-8", na_rep=na_rep)
             written_files["qc_summary"] = qc_summary_path
 
         # 3. Записать корреляционные отчеты (если есть)
@@ -310,6 +318,17 @@ class DocumentETLWriter(ETLWriter):
 class TargetETLWriter(ETLWriter):
     """ETL Writer для таргетов."""
 
+    def __init__(self, config, entity_type: str):
+        # Создаем адаптер для TargetConfig
+        if hasattr(config, 'io') and hasattr(config.io, 'output'):
+            # TargetConfig имеет структуру io.output
+            self.config = config
+            self.entity_type = entity_type
+            self.metadata_builder = MetadataBuilder(config, entity_type)
+        else:
+            # Обычная конфигурация
+            super().__init__(config, entity_type)
+
     def get_sort_columns(self) -> list[str]:
         """Колонки для сортировки таргетов."""
         return ["target_chembl_id"]
@@ -323,6 +342,13 @@ class TargetETLWriter(ETLWriter):
     def get_exclude_columns(self) -> list[str]:
         """Колонки для исключения из вывода таргетов."""
         return ["quality_flag", "quality_reason", "retrieved_at", "_row_id"]
+
+    def _get_output_config(self):
+        """Получить конфигурацию вывода с учетом структуры TargetConfig."""
+        if hasattr(self.config, 'io') and hasattr(self.config.io, 'output'):
+            return self.config.io.output
+        else:
+            return self.config.output
 
 
 class AssayETLWriter(ETLWriter):

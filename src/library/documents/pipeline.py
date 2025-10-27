@@ -13,7 +13,7 @@ from typing import Any
 
 import pandas as pd
 
-from library.clients.chembl import ChEMBLClient
+from library.clients.chembl_document import ChEMBLClient
 from library.clients.crossref import CrossrefClient
 from library.clients.openalex import OpenAlexClient
 from library.clients.pubmed import PubMedClient
@@ -207,7 +207,7 @@ def _extract_data_from_source(
         "openalex_crossref_doc_type": None, "openalex_year": None, 
         "openalex_error": None,
         # PubMed columns
-        "pubmed_pmid": None, "pubmed_doi": None, "pubmed_article_title": None, 
+        "pubmed_pmid": None, "pubmed_doi": None, "pubmed_title": None, 
         "pubmed_abstract": None, "pubmed_journal": None, "pubmed_volume": None, 
         "pubmed_issue": None, "pubmed_first_page": None, "pubmed_last_page": None, 
         "pubmed_doc_type": None, "pubmed_mesh_descriptors": None, 
@@ -437,14 +437,18 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
         raise DocumentValidationError(
             f"Input data is missing required columns: {', '.join(sorted(missing))}"
         )
-    normalised["document_chembl_id"] = normalised["document_chembl_id"].astype(str).str.strip()
-    normalised["doi"] = normalised["doi"].astype(str).str.strip()
-    normalised["title"] = normalised["title"].astype(str).str.strip()
+    normalised["document_chembl_id"] = normalised["document_chembl_id"].astype(str).str.strip().replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
+    normalised["doi"] = normalised["doi"].astype(str).str.strip().replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
+    normalised["title"] = normalised["title"].astype(str).str.strip().replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
     
     # Обрабатываем дополнительные поля из исходного CSV, если они присутствуют
     # Маппинг старых имен колонок на новые
     if "classification" in normalised.columns:
-        normalised["document_classification"] = pd.to_numeric(normalised["classification"], errors='coerce')
+        normalised["document_classification"] = pd.to_numeric(normalised["classification"], errors="coerce")
+    
+    # Маппинг pubmed_id на document_pubmed_id для совместимости с ETL
+    if "pubmed_id" in normalised.columns and "document_pubmed_id" not in normalised.columns:
+        normalised["document_pubmed_id"] = normalised["pubmed_id"]
     
     if "document_contains_external_links" in normalised.columns:
         normalised["referenses_on_previous_experiments"] = normalised["document_contains_external_links"].astype('boolean')
@@ -633,7 +637,7 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         "openalex_doi", "openalex_title", "openalex_doc_type", 
         "openalex_crossref_doc_type", "openalex_year", "openalex_error",
         # PubMed-specific fields
-        "pubmed_pmid", "pubmed_doi", "pubmed_article_title", "pubmed_abstract",
+        "pubmed_pmid", "pubmed_doi", "pubmed_title", "pubmed_abstract",
         "pubmed_journal", "pubmed_volume", "pubmed_issue", "pubmed_first_page", 
         "pubmed_last_page", "pubmed_doc_type", "pubmed_mesh_descriptors", 
         "pubmed_mesh_qualifiers", "pubmed_chemical_list", "pubmed_year_completed",
@@ -1561,7 +1565,7 @@ class DocumentPipeline(PipelineBase[DocumentConfig]):
 
         # Normalize document_chembl_id
         if "document_chembl_id" in normalized.columns:
-            normalized["document_chembl_id"] = normalized["document_chembl_id"].astype(str).str.strip()
+            normalized["document_chembl_id"] = normalized["document_chembl_id"].astype(str).str.strip().replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
             normalized = normalized[normalized["document_chembl_id"] != ""]
 
         return normalized.sort_values("document_chembl_id").reset_index(drop=True)

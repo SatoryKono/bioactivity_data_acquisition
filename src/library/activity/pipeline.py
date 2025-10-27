@@ -249,6 +249,12 @@ class ActivityPipeline:
                         filter_ids[filter_type] = ids
                         logger.info(f"Loaded {len(ids)} {filter_type} from {col}")
             
+            # Apply limit to all loaded filter IDs
+            for filter_type, ids in filter_ids.items():
+                if ids and self.config.limit is not None and len(ids) > self.config.limit:
+                    filter_ids[filter_type] = ids[:self.config.limit]
+                    logger.info(f"Applied limit {self.config.limit} to {filter_type} (was {len(ids)})")
+            
         except Exception as e:
             logger.error(f"Failed to load input CSV: {e}")
             raise
@@ -262,6 +268,11 @@ class ActivityPipeline:
     ) -> pd.DataFrame:
         """Extract activities from ChEMBL API in batches and process each batch."""
         logger.info("Extracting activities from ChEMBL API (batch mode)")
+
+        # Early limit check - if we have specific IDs and limit is set, 
+        # we already applied limit in _load_filter_ids, so we can skip early check
+        if self.config.limit is not None:
+            logger.info(f"Processing with limit: {self.config.limit} activities")
 
         try:
             # Get ChEMBL status

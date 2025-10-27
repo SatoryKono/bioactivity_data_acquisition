@@ -134,7 +134,7 @@ def validate_journal_fields(df: pd.DataFrame) -> pd.DataFrame:
                 if field in row and not _is_empty_value(row[field]):
                     original_journal = row[field]
                     break
-            valid_journal.append(original_journal)
+            valid_journal.append(original_journal if original_journal is not None else pd.NA)
         else:
             # Несколько journal - проверяем совпадения
             chembl_journal = _normalize_value(row["chembl_journal"]) if not _is_empty_value(row["chembl_journal"]) else None
@@ -214,7 +214,7 @@ def validate_year_fields(df: pd.DataFrame) -> pd.DataFrame:
                         break
                     except (ValueError, TypeError):
                         pass
-            valid_year.append(original_year)
+            valid_year.append(original_year if original_year is not None else pd.NA)
         else:
             # Несколько year - проверяем совпадения
             chembl_year = None
@@ -253,7 +253,8 @@ def validate_year_fields(df: pd.DataFrame) -> pd.DataFrame:
                                 valid_year.append(int(row[field]))
                                 break
                             except (ValueError, TypeError):
-                                pass
+                                valid_year.append(pd.NA)
+                                break
 
     df_copy["invalid_year"] = invalid_year
     df_copy["valid_year"] = valid_year
@@ -298,7 +299,7 @@ def validate_volume_fields(df: pd.DataFrame) -> pd.DataFrame:
                 if field in row and not _is_empty_value(row[field]):
                     original_volume = row[field]
                     break
-            valid_volume.append(original_volume)
+            valid_volume.append(original_volume if original_volume is not None else pd.NA)
         else:
             # Несколько volume - проверяем совпадения
             chembl_volume = _normalize_value(row["chembl_volume"]) if not _is_empty_value(row["chembl_volume"]) else None
@@ -371,7 +372,7 @@ def validate_issue_fields(df: pd.DataFrame) -> pd.DataFrame:
                 if field in row and not _is_empty_value(row[field]):
                     original_issue = row[field]
                     break
-            valid_issue.append(original_issue)
+            valid_issue.append(original_issue if original_issue is not None else pd.NA)
         else:
             # Несколько issue - проверяем совпадения
             chembl_issue = _normalize_value(row["chembl_issue"]) if not _is_empty_value(row["chembl_issue"]) else None

@@ -61,17 +61,6 @@ class OpenAlexClient(BaseApiClient):
         """Fetch a work by PMID with fallback search."""
 
         try:
-            payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
-            results = payload.get("results", [])
-            if results:
-                return self._parse_work(results[0])
-
-            self.logger.info("openalex_pmid_fallback", pmid=pmid)
-            payload = self._request("GET", "", params={"search": pmid})
-            results = payload.get("results", [])
-            if not results:
-                raise ApiClientError(f"No OpenAlex work found for PMID {pmid}")
-            return self._parse_work(results[0])
             # Используем прямой URL как в референсном проекте: /works/pmid:{pmid}
             path = f"works/pmid:{pmid}"
             response = self._request("GET", path)
@@ -83,13 +72,17 @@ class OpenAlexClient(BaseApiClient):
             if status_code == 429:
                 self.logger.warning(f"openalex_rate_limited pmid={pmid} error={str(exc)} message=OpenAlex API rate limit exceeded. Consider getting an API key.")
                 return self._create_empty_record(pmid, f"Rate limited: {str(exc)}")
-            raise
-
+            
             # Fallback к поиску если прямой запрос не сработал
             self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
             try:
-                response = self._request("GET", "", params={"search": pmid})
-                payload = response.json()
+                payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
+                results = payload.get("results", [])
+                if results:
+                    return self._parse_work(results[0])
+
+                self.logger.info("openalex_search_fallback", pmid=pmid)
+                payload = self._request("GET", "", params={"search": pmid})
                 results = payload.get("results", [])
                 if not results:
                     raise ApiClientError(f"No OpenAlex work found for PMID {pmid}")
@@ -176,6 +169,11 @@ class OpenAlexClient(BaseApiClient):
             "openalex_abstract": work.get("abstract"),
             "openalex_issn": self._extract_issn(work),
             "openalex_authors": self._extract_authors(work),
+            "openalex_journal": self._extract_journal(work),
+            "openalex_volume": self._extract_volume(work),
+            "openalex_issue": self._extract_issue(work),
+            "openalex_first_page": self._extract_first_page(work),
+            "openalex_last_page": self._extract_last_page(work),
             "openalex_error": None,  # Will be set if there's an error
         }
 
@@ -305,6 +303,98 @@ class OpenAlexClient(BaseApiClient):
 
         return None
 
+    def _extract_volume(self, work: dict[str, Any]) -> str | None:
+        """Извлекает том из OpenAlex work."""
+        # OpenAlex хранит библиографические данные в biblio
+        biblio = work.get("biblio", {})
+        if isinstance(biblio, dict):
+            volume = biblio.get("volume")
+            if volume:
+                return str(volume)
+        
+        # Проверяем в primary_location
+        primary_location = work.get("primary_location")
+        if isinstance(primary_location, dict):
+            biblio = primary_location.get("biblio", {})
+            if isinstance(biblio, dict):
+                volume = biblio.get("volume")
+                if volume:
+                    return str(volume)
+        
+        return None
+
+    def _extract_issue(self, work: dict[str, Any]) -> str | None:
+        """Извлекает номер выпуска из OpenAlex work."""
+        # OpenAlex хранит библиографические данные в biblio
+        biblio = work.get("biblio", {})
+        if isinstance(biblio, dict):
+            issue = biblio.get("issue")
+            if issue:
+                return str(issue)
+        
+        # Проверяем в primary_location
+        primary_location = work.get("primary_location")
+        if isinstance(primary_location, dict):
+            biblio = primary_location.get("biblio", {})
+            if isinstance(biblio, dict):
+                issue = biblio.get("issue")
+                if issue:
+                    return str(issue)
+        
+        return None
+
+    def _extract_first_page(self, work: dict[str, Any]) -> str | None:
+        """Извлекает первую страницу из OpenAlex work."""
+        # OpenAlex хранит библиографические данные в biblio
+        biblio = work.get("biblio", {})
+        if isinstance(biblio, dict):
+            first_page = biblio.get("first_page")
+            if first_page:
+                return str(first_page)
+            
+            # Проверяем page_range
+            page_range = biblio.get("page_range")
+            if page_range and isinstance(page_range, str) and "-" in page_range:
+                return page_range.split("-")[0].strip()
+        
+        # Проверяем в primary_location
+        primary_location = work.get("primary_location")
+        if isinstance(primary_location, dict):
+            biblio = primary_location.get("biblio", {})
+            if isinstance(biblio, dict):
+                first_page = biblio.get("first_page")
+                if first_page:
+                    return str(first_page)
+        
+        return None
+
+    def _extract_last_page(self, work: dict[str, Any]) -> str | None:
+        """Извлекает последнюю страницу из OpenAlex work."""
+        # OpenAlex хранит библиографические данные в biblio
+        biblio = work.get("biblio", {})
+        if isinstance(biblio, dict):
+            last_page = biblio.get("last_page")
+            if last_page:
+                return str(last_page)
+            
+            # Проверяем page_range
+            page_range = biblio.get("page_range")
+            if page_range and isinstance(page_range, str) and "-" in page_range:
+                parts = page_range.split("-")
+                if len(parts) > 1:
+                    return parts[1].strip()
+        
+        # Проверяем в primary_location
+        primary_location = work.get("primary_location")
+        if isinstance(primary_location, dict):
+            biblio = primary_location.get("biblio", {})
+            if isinstance(biblio, dict):
+                last_page = biblio.get("last_page")
+                if last_page:
+                    return str(last_page)
+        
+        return None
+
     def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:
         """Создает пустую запись для случая ошибки."""
         return {
@@ -318,6 +408,11 @@ class OpenAlexClient(BaseApiClient):
             "openalex_abstract": None,
             "openalex_issn": None,
             "openalex_authors": None,
+            "openalex_journal": None,
+            "openalex_volume": None,
+            "openalex_issue": None,
+            "openalex_first_page": None,
+            "openalex_last_page": None,
             "openalex_error": error_msg,
         }
 

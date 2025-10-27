@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from typing import Literal
 
 import pandas as pd
 
@@ -13,7 +14,7 @@ def safe_left_join(
     *,
     on: Sequence[str] | str,
     suffixes: tuple[str, str] = ("_left", "_right"),
-    validate: str = "one_to_many",
+    validate: Literal["one_to_one", "1:1", "one_to_many", "1:m", "many_to_one", "m:1", "many_to_many", "m:m"] = "one_to_many",
 ) -> pd.DataFrame:
     """Perform a left join with validation and deterministic column ordering."""
 

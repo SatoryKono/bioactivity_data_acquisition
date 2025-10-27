@@ -80,7 +80,7 @@ class EnhancedCorrelationAnalyzer:
                 correlations["spearman"] = pd.DataFrame()
         except Exception as e:
             if self.logger:
-                self.logger.warning("Ошибка при вычислении корреляции Спирмена", error=str(e))
+                self.logger.warning(f"Ошибка при вычислении корреляции Спирмена: {e}")
             correlations['spearman'] = pd.DataFrame()
 
         # Ковариационная матрица
@@ -151,7 +151,7 @@ class EnhancedCorrelationAnalyzer:
 
                 except Exception as e:
                     if self.logger:
-                        self.logger.warning("Ошибка при анализе категориальных корреляций", col1=col1, col2=col2, error=str(e))
+                        self.logger.warning(f"Ошибка при анализе категориальных корреляций: {col1}, {col2}: {e}")
                     cramers_v_matrix.loc[col1, col2] = 0.0
 
         correlations["cramers_v"] = cramers_v_matrix.fillna(0.0)
@@ -233,7 +233,7 @@ class EnhancedCorrelationAnalyzer:
 
                 except Exception as e:
                     if self.logger:
-                        self.logger.warning("Ошибка при анализе смешанных корреляций", num_col=num_col, cat_col=cat_col, error=str(e))
+                        self.logger.warning(f"Ошибка при анализе смешанных корреляций: {num_col}, {cat_col}: {e}")
                     eta_squared_matrix.loc[num_col, cat_col] = 0.0
                     point_biserial_matrix.loc[num_col, cat_col] = 0.0
 
@@ -285,7 +285,7 @@ class EnhancedCorrelationAnalyzer:
 
                 except Exception as e:
                     if self.logger:
-                        self.logger.warning("Ошибка при вычислении лаговых корреляций", col1=col1, col2=col2, error=str(e))
+                        self.logger.warning(f"Ошибка при вычислении лаговых корреляций: {col1}, {col2}: {e}")
 
         correlations["lag_correlations"] = lag_correlations
 
@@ -345,15 +345,12 @@ class EnhancedCorrelationAnalyzer:
 
                     except MemoryError as e:
                         if self.logger:
-                            self.logger.warning("Ошибка памяти при вычислении скользящих корреляций", col1=col1, col2=col2, error=str(e))
+                            self.logger.warning(f"Ошибка памяти при вычислении скользящих корреляций: {col1}, {col2}: {e}")
                     except Exception as e:
                         if self.logger:
-                            self.logger.warning("Ошибка при вычислении скользящих корреляций", col1=col1, col2=col2, error=str(e))
+                            self.logger.warning(f"Ошибка при вычислении скользящих корреляций: {col1}, {col2}: {e}")
         else:
             if self.logger:
-                self.logger.info("Пропускаем скользящие корреляции из-за размера датасета", 
-                               dataset_size=len(df), window_size=window_size)
-            
                 self.logger.info(f"Пропускаем скользящие корреляции из-за размера датасета: {len(df)} строк, окно: {window_size}")
 
             # Для больших датасетов вычисляем простые корреляции вместо скользящих
@@ -372,12 +369,12 @@ class EnhancedCorrelationAnalyzer:
                                 simple_correlations[f"{col1}_vs_{col2}"] = {"correlation": corr_val, "sample_size": sample_size, "note": "computed_on_sample"}
                         except Exception as e:
                             if self.logger:
-                                self.logger.warning("Ошибка при вычислении простых корреляций", col1=col1, col2=col2, error=str(e))
+                                self.logger.warning(f"Ошибка при вычислении простых корреляций: {col1}, {col2}: {e}")
 
                 if simple_correlations:
                     rolling_correlations["simple_correlations"] = simple_correlations
                     if self.logger:
-                        self.logger.info("Вычислены простые корреляции на выборке", correlations_count=len(simple_correlations))
+                        self.logger.info(f"Вычислены простые корреляции на выборке: {len(simple_correlations)}")
 
         correlations["rolling_correlations"] = rolling_correlations
 
@@ -422,7 +419,7 @@ class EnhancedCorrelationAnalyzer:
                     if len(numeric_df) > 50000:
                         numeric_df = numeric_df.sample(n=50000, random_state=42)
                         if self.logger:
-                            self.logger.info("Используем выборку для корреляционной матрицы", original_size=len(df), sample_size=len(numeric_df))
+                            self.logger.info(f"Используем выборку для корреляционной матрицы: оригинал {len(df)} строк, выборка {len(numeric_df)} строк")
 
                     corr_matrix = numeric_df.corr()
                     # Находим сильные корреляции (|r| > 0.7)
@@ -442,7 +439,7 @@ class EnhancedCorrelationAnalyzer:
                 summary["memory_error"] = True
             except Exception as e:
                 if self.logger:
-                    self.logger.warning("Ошибка при анализе сводной статистики корреляций", error=str(e))
+                    self.logger.warning(f"Ошибка при анализе сводной статистики корреляций: {e}")
 
         return summary
 
@@ -574,6 +571,13 @@ def prepare_data_for_correlation_analysis(df: pd.DataFrame, data_type: str = "ge
         if technical_columns:
             analysis_df = analysis_df.drop(columns=technical_columns)
             _log_info(logger, "Удалены технические колонки", removed_columns=technical_columns)
+        
+        # Добавляем целевые колонки в whitelist для документов
+        critical_columns = [
+            "pubmed_mesh_descriptors", "pubmed_mesh_qualifiers", "pubmed_chemical_list",
+            "crossref_subject", "crossref_pmid", "openalex_pmid"
+        ]
+        # Эти колонки не будут удалены даже если они пустые
 
     elif data_type == "assays":
         # Для ассеев: конвертируем категориальные колонки в числовые
@@ -659,6 +663,18 @@ def prepare_data_for_correlation_analysis(df: pd.DataFrame, data_type: str = "ge
     # Общая обработка: удаляем колонки с высоким процентом пропущенных значений
     missing_threshold = 0.5
     columns_to_keep = analysis_df.columns[analysis_df.isnull().mean() < missing_threshold]
+    
+    # Добавляем критические колонки обратно, если они были удалены
+    if data_type == "documents":
+        critical_columns = [
+            "pubmed_mesh_descriptors", "pubmed_mesh_qualifiers", "pubmed_chemical_list",
+            "crossref_subject", "crossref_pmid", "openalex_pmid"
+        ]
+        for col in critical_columns:
+            if col in analysis_df.columns and col not in columns_to_keep:
+                columns_to_keep = columns_to_keep.union([col])
+                _log_info(logger, "Добавлена критическая колонка обратно в whitelist", column=col)
+    
     removed_columns = set(analysis_df.columns) - set(columns_to_keep)
     if removed_columns:
         analysis_df = analysis_df[columns_to_keep]

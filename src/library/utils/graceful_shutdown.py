@@ -60,8 +60,6 @@ class GracefulShutdownManager:
         return self._shutdown_requested
     
     def wait_for_shutdown(self, timeout: Optional[float] = None) -> bool:
-
-    def wait_for_shutdown(self, timeout: float | None = None) -> bool:
         """Wait for shutdown to complete or timeout.
 
         Returns:
@@ -115,8 +113,6 @@ class ShutdownContext:
     """Context manager for graceful shutdown handling."""
     
     def __init__(self, timeout: Optional[float] = None):
-
-    def __init__(self, timeout: float | None = None):
         self.timeout = timeout
         self.shutdown_manager = get_shutdown_manager()
 
@@ -124,8 +120,6 @@ class ShutdownContext:
         return self.shutdown_manager
     
     def __exit__(self, exc_type, exc_val, exc_tb):
-
-    def __exit__(self, exc_type, exc_val, _exc_tb):
         if self.shutdown_manager.is_shutdown_requested():
             self.shutdown_manager.wait_for_shutdown(self.timeout)
 

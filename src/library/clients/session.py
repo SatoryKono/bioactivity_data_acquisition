@@ -31,7 +31,7 @@ def get_shared_session() -> requests.Session:
                 _SESSION.mount("https://", adapter)
 
                 # Set default timeout (connect timeout, read timeout)
-                _SESSION.timeout = (10.0, 30.0)
+                # _SESSION.timeout = (10.0, 30.0)  # This attribute doesn't exist on Session
 
     return _SESSION
 

@@ -118,26 +118,26 @@ def normalize_json_structure(value: Any) -> str | None:
                         validated[field] = int(val)
                     except (ValueError, TypeError):
                         logger.warning("Invalid src_id type: %s", val)
-                        validated[field] = None
+                        validated[field] = 0
                 elif field == "src_url" and val is not None:
                     # Базовая валидация URL
                     if isinstance(val, str) and (val.startswith("http://") or val.startswith("https://")):
                         validated[field] = val.strip()
                     else:
                         logger.warning("Invalid URL format: %s", val)
-                        validated[field] = None
+                        validated[field] = ""
                 else:
                     # Строковые поля
                     if val is not None:
-                        validated[field] = str(val).strip() if str(val).strip() else None
+                        validated[field] = str(val).strip() if str(val).strip() else ""
                     else:
-                        validated[field] = None
+                        validated[field] = ""
 
         # Добавляем дополнительные поля если они есть
         for key, val in parsed.items():
             if key not in source_fields and key not in validated:
                 if val is not None:
-                    validated[key] = str(val).strip() if str(val).strip() else None
+                    validated[key] = str(val).strip() if str(val).strip() else ""
 
         # Сериализация в компактный JSON
         return json.dumps(validated, ensure_ascii=False, separators=(",", ":"))

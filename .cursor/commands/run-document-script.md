@@ -4,7 +4,7 @@
 **Defaults (edit if needed):**
 - `INPUT`: `data\input\document.csv`
 - `CONFIG`: `configs\config_document.yaml`
-- `LIMIT`: `1`
+- `LIMIT`: `10`
 
 **Steps (Agent):**
 1. Run (Windows cmd/PowerShell compatible):

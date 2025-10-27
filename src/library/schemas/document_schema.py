@@ -123,7 +123,7 @@ class DocumentRawSchema:
                 "openalex_error": Column(pa.String, nullable=True, description="Ошибка из OpenAlex"),
                 # PubMed поля
                 "pubmed_pmid": Column(pa.String, nullable=True, description="PMID из PubMed"),
-                "pubmed_article_title": Column(pa.String, nullable=True, description="Название статьи из PubMed"),
+                "pubmed_title": Column(pa.String, nullable=True, description="Название статьи из PubMed"),
                 "pubmed_abstract": Column(pa.String, nullable=True, description="Аннотация из PubMed"),
                 "pubmed_authors": Column(pa.String, nullable=True, description="Авторы из PubMed"),
                 "pubmed_doi": Column(pa.String, nullable=True, description="DOI из PubMed"),
@@ -256,7 +256,7 @@ class DocumentNormalizedSchema:
                 "openalex_error": Column(pa.String, nullable=True, description="Ошибка из OpenAlex"),
                 # PubMed поля
                 "pubmed_pmid": Column(pa.String, nullable=True, description="PMID из PubMed"),
-                "pubmed_article_title": Column(pa.String, nullable=True, description="Название статьи из PubMed"),
+                "pubmed_title": Column(pa.String, nullable=True, description="Название статьи из PubMed"),
                 "pubmed_abstract": Column(pa.String, nullable=True, description="Аннотация из PubMed"),
                 "pubmed_authors": Column(pa.String, nullable=True, description="Авторы из PubMed"),
                 "pubmed_doi": Column(pa.String, nullable=True, description="DOI из PubMed"),

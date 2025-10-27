@@ -190,7 +190,7 @@ class FileCacheBackend(CacheBackend[T]):
                 cache_path.unlink(missing_ok=True)
                 return None
 
-            return data["value"]
+            return data.get("value", None)
 
         except Exception as e:
             logger.warning(f"Failed to read cache file {cache_path}: {e}")
@@ -228,9 +228,9 @@ class FileCacheBackend(CacheBackend[T]):
 class HybridCacheBackend(CacheBackend[T]):
     """Hybrid cache backend using both memory and file storage."""
 
-    def __init__(self, cache_dir: str, max_size: int = 1000, ttl: int = 3600):
-        self.memory_backend = MemoryCacheBackend(max_size, ttl)
-        self.file_backend = FileCacheBackend(cache_dir, ttl)
+    def __init__(self, cache_dir: str, max_size: int = 1000, ttl: int = 3600) -> None:
+        self.memory_backend: MemoryCacheBackend[T] = MemoryCacheBackend(max_size, ttl)
+        self.file_backend: FileCacheBackend[T] = FileCacheBackend(cache_dir, ttl)
         self._lock = threading.Lock()
 
     def get(self, key: str) -> T | None:

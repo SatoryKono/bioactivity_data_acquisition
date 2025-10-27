@@ -53,7 +53,7 @@ def validate_business_rules(df: pd.DataFrame) -> pd.DataFrame:
     # Rule 1: At least one identifier must be present
     missing_identifiers = (
         validated_df["molecule_chembl_id"].isna() & 
-        validated_df["molregno"].isna()
+        validated_df.get("molregno", pd.Series([True] * len(validated_df))).isna()
     )
     
     if missing_identifiers.any():
@@ -216,9 +216,25 @@ class TestitemValidator:
         self.config = config or {}
         self.strict_mode = self.config.get("validation", {}).get("strict", True)
 
+    def validate_input(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Validate input data before processing."""
+        logger.info(f"Validating input testitem data: {len(df)} records")
+        
+        # Basic validation - check for required columns
+        required_columns = ["molecule_chembl_id"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            error_msg = f"Missing required columns: {missing_columns}"
+            logger.error(error_msg)
+            raise TestitemValidationError(error_msg)
+        
+        logger.info("Input data validation passed")
+        return df
+
     def validate_normalized(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate normalized data using Pandera schema."""
-        logger.info("Validating normalized testitem data: %d records", len(df))
+        logger.info(f"Validating normalized testitem data: {len(df)} records")
 
         try:
             # Use existing schema if available
@@ -229,5 +245,5 @@ class TestitemValidator:
         except Exception as exc:
             # Экранируем символы % в сообщениях об ошибках для безопасного логирования
             safe_exc = str(exc).replace("%", "%%")
-            logger.error("Normalized data validation failed: %s", safe_exc)
+            logger.error(f"Normalized data validation failed: {safe_exc}")
             raise TestitemValidationError(f"Normalized data validation failed: {exc}") from exc

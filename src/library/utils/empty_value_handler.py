@@ -30,8 +30,15 @@ def is_empty_value(value: Any) -> bool:
         # Если pd.isna не может обработать тип (например, список), продолжаем
         pass
 
-    if isinstance(value, str) and value.strip() == "":
-        return True
+    # Handle string representations of empty values
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "":
+            return True
+        # Common string representations of None/null
+        if stripped.lower() in ('none', 'null', 'nan', 'nil'):
+            return True
+    
     if isinstance(value, (list, tuple)) and len(value) == 0:
         return True
     if isinstance(value, dict) and len(value) == 0:
@@ -49,17 +56,17 @@ def normalize_string_field(value: Any) -> str | None:
         str | None: Нормализованная строка или None если значение пустое
     """
     if is_empty_value(value):
-        return pd.NA
+        return None
 
     try:
         if pd.isna(value):
-            return pd.NA
+            return None
     except (ValueError, TypeError):
         # Handle arrays and other non-scalar values
         pass
 
     str_value = str(value).strip()
-    return str_value if str_value else pd.NA
+    return str_value if str_value else None
 
 
 def normalize_numeric_field(value: Any) -> float | None:
@@ -99,11 +106,11 @@ def normalize_boolean_field(value: Any) -> bool | None:
         bool | None: Нормализованное булево значение или None если значение пустое
     """
     if is_empty_value(value):
-        return pd.NA
+        return None
 
     try:
         if pd.isna(value):
-            return pd.NA
+            return None
     except (ValueError, TypeError):
         # Handle arrays and other non-scalar values
         pass
@@ -130,11 +137,11 @@ def normalize_list_field(value: Any) -> list[str] | None:
         list[str] | None: Нормализованный список или None если значение пустое
     """
     if is_empty_value(value):
-        return pd.NA
+        return None
 
     try:
         if pd.isna(value):
-            return pd.NA
+            return None
     except (ValueError, TypeError):
         # Handle arrays and other non-scalar values
         pass
@@ -178,11 +185,11 @@ def normalize_dict_field(value: Any) -> dict[str, Any] | str | None:
         dict[str, Any] | str | None: Нормализованный словарь или строка, или None если значение пустое
     """
     if is_empty_value(value):
-        return pd.NA
+        return None
 
     try:
         if pd.isna(value):
-            return pd.NA
+            return None
     except (ValueError, TypeError):
         # Handle arrays and other non-scalar values
         pass

@@ -62,7 +62,7 @@ def extract_molecules_batch(
 
         # Process each molecule
         for molecule_chembl_id in molecule_chembl_ids:
-            result = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().isoformat() + "Z"}
+            result = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
 
             # Add core molecule data
             if molecule_chembl_id in molecule_data_batch:
@@ -179,7 +179,7 @@ def extract_molecule_data(
     logger.info(f"Extracting data for molecule: {molecule_chembl_id}")
 
     # Initialize result with basic molecule data
-    result = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().isoformat() + "Z"}
+    result = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M:%S")}
 
     try:
         # S02: Fetch molecule core data
@@ -293,7 +293,7 @@ def extract_pubchem_data(client: PubChemClient, molecule_data: dict[str, Any], c
                     pubchem_cid = str(cids[0])
                     break
             except Exception as e:
-                logger.debug("Failed PubChem CID by SMILES candidate: %s", e)
+                logger.debug(f"Failed PubChem CID by SMILES candidate: {e}")
 
     # By name
     if pubchem_cid is None and "pref_name" in molecule_data and molecule_data["pref_name"]:
@@ -408,7 +408,7 @@ def extract_pubchem_data_batch(client: PubChemClient, molecules_data: list[dict[
                         pubchem_cid = str(cids[0])
                         break
                 except Exception as e:
-                    logger.debug("Failed PubChem CID by SMILES candidate: %s", e)
+                    logger.debug(f"Failed PubChem CID by SMILES candidate: {e}")
 
         # By name
         if pubchem_cid is None and "pref_name" in molecule_data and molecule_data["pref_name"]:
@@ -472,7 +472,7 @@ def extract_batch_data(
             elif "molregno" in row and pd.notna(row["molregno"]):
                 # Resolve molregno to molecule_chembl_id via ChEMBL
                 try:
-                    resolved = chembl_client.resolve_molregno_to_chembl_id(row["molregno"])  # type: ignore[attr-defined]
+                    resolved = chembl_client.resolve_molregno_to_chembl_id(row["molregno"])
                 except AttributeError:
                     resolved = None
                 except Exception as e:
@@ -507,15 +507,15 @@ def extract_batch_data(
 
     logger.info(f"Using streaming batch processing with batch_size={batch_size}")
 
-    for requested_ids, molecules_batch in chembl_client.fetch_molecules_batch_streaming(molecule_chembl_ids, batch_size):  # type: ignore[attr-defined]
+    for requested_ids, molecules_batch in chembl_client.fetch_molecules_batch_streaming(molecule_chembl_ids, batch_size):
         batch_index += 1
 
         # Enrich batch with additional ChEMBL data
         try:
-            mechanism_data = chembl_client.fetch_mechanism_batch(requested_ids)  # type: ignore[attr-defined]
-            atc_data = chembl_client.fetch_atc_classification_batch(requested_ids)  # type: ignore[attr-defined]
-            drug_data = chembl_client.fetch_drug_batch(requested_ids)  # type: ignore[attr-defined]
-            warning_data = chembl_client.fetch_drug_warning_batch(requested_ids)  # type: ignore[attr-defined]
+            mechanism_data = chembl_client.fetch_mechanism_batch(requested_ids)
+            atc_data = chembl_client.fetch_atc_classification_batch(requested_ids)
+            drug_data = chembl_client.fetch_drug_batch(requested_ids)
+            warning_data = chembl_client.fetch_drug_warning_batch(requested_ids)
         except Exception as e:
             logger.warning(f"Failed to fetch additional ChEMBL data for batch {batch_index}: {e}")
             mechanism_data = {}
@@ -552,7 +552,7 @@ def extract_batch_data(
             except Exception as e:
                 logger.error(f"Error processing molecule {molecule_chembl_id}: {e}")
                 # Create error record
-                error_data = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().isoformat() + "Z", "error": str(e)}
+                error_data = {"molecule_chembl_id": molecule_chembl_id, "source_system": "ChEMBL", "extracted_at": pd.Timestamp.utcnow().strftime("%Y-%m-%d %H:%M:%S"), "error": str(e)}
                 batch_results.append(error_data)
 
         # PubChem enrichment for this batch

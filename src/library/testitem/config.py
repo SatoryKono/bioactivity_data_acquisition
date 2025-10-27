@@ -51,25 +51,8 @@ class TestitemConfig(Config):
     def from_file(cls, path: Path) -> TestitemConfig:
         """Load configuration from YAML file."""
         try:
-            # Use the base class load method
+            # Use the base class load method which properly handles all fields including sources
             config = cls.load(path)
-            
-            # Load raw YAML data
-            with path.open("r", encoding="utf-8") as f:
-                raw_data = yaml.safe_load(f) or {}
-
-            # Process environment placeholders
-            processed_data = cls._process_env_placeholders(raw_data)
-
-            # Extract determinism settings if present
-            determinism_data = processed_data.pop("determinism", {})
-
-            # Use the base class load method with processed data
-            config = cls.model_validate(processed_data)
-
-            # Set determinism settings if provided
-            if determinism_data:
-                config.determinism = DeterminismSettings.model_validate(determinism_data)
 
             # Validate testitem-specific configuration
             config._validate()
@@ -87,7 +70,7 @@ class TestitemConfig(Config):
         def replace_placeholder(value: Any) -> Any:
             if isinstance(value, str):
                 # Replace {VAR_NAME} with environment variable value
-                def replace_func(match):
+                def replace_func(match: Any) -> str:
                     env_var = match.group(1)
                     return os.environ.get(env_var, match.group(0))
 
@@ -123,13 +106,13 @@ class TestitemConfig(Config):
     def get_output_filename(self, run_date: str) -> str:
         """Generate output filename based on run date."""
         if hasattr(self, "output") and hasattr(self.output, "csv_pattern"):
-            return self.output.csv_pattern.format(run_date=run_date)
+            return str(self.output.csv_pattern.format(run_date=run_date))
         return f"testitem_{run_date}.csv"
 
     def get_meta_filename(self, run_date: str) -> str:
         """Get metadata filename."""
         if hasattr(self, "output") and hasattr(self.output, "meta_filename"):
-            return self.output.meta_filename.format(run_date=run_date)
+            return str(self.output.meta_filename.format(run_date=run_date))
         return f"testitem_{run_date}_meta.yaml"
 
     def get_qc_dir(self) -> Path:

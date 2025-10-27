@@ -17,6 +17,7 @@ import threading
 import time
 from contextlib import AbstractContextManager, asynccontextmanager
 from dataclasses import dataclass
+from typing import Any
 
 from cachetools import TTLCache
 
@@ -130,16 +131,16 @@ class RateLimiter(AbstractContextManager["RateLimiter"]):
         self.acquire()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
-        return False
+        return None
 
     async def __aenter__(self) -> RateLimiter:
         """Async context manager entry."""
         await self.acquire_async()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         return None
 
@@ -239,16 +240,16 @@ class RateLimiterSet:
         self.acquire()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit."""
-        return False
+        return None
 
     async def __aenter__(self) -> RateLimiterSet:
         """Async context manager entry."""
         await self.acquire_async()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Async context manager exit."""
         return None
 

@@ -169,7 +169,7 @@ class ActivityConfig(BaseModel):
 
     # Backward-compatible helpers used by current pipeline/CLI
     @classmethod
-    def from_yaml(cls, path: Path | str) -> ActivityConfig:  # type: ignore[name-defined]
+    def from_yaml(cls, path: Path | str) -> ActivityConfig:
         return load_activity_config(path)
 
     def get_output_path(self) -> Path:
@@ -241,7 +241,7 @@ class ActivityConfig(BaseModel):
 
         # Resolve retries
         retry_settings = RetrySettings(
-            total=(
+            retries=(
                 src.http.retries.total
                 if hasattr(src.http.retries, 'total')
                 else src.http.retries.get("total", self.http.global_.retries.total)

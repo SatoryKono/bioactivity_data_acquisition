@@ -33,8 +33,16 @@ class CrossrefClient(BaseApiClient):
         """Fetch Crossref work by DOI with fallback search."""
 
         encoded = quote(doi, safe="")
+        
+        # Добавляем mailto параметр для доступа к polite pool
+        mailto_param = ""
+        if hasattr(self.config, "mailto") and self.config.mailto:
+            mailto_param = f"?mailto={quote(self.config.mailto)}"
+
         try:
-            payload = self._request("GET", encoded)
+            # Crossref API requires /works/ prefix for DOI lookups
+            response = self._request("GET", f"works/{encoded}{mailto_param}")
+            payload = response.json()
             message = payload.get("message", payload)
             return self._parse_work(message)
         except ApiClientError as exc:
@@ -49,25 +57,6 @@ class CrossrefClient(BaseApiClient):
                     exc
                 )
             
-            # If not degrading, try fallback search
-            self.logger.info("fallback_to_search", doi=doi, error=str(exc))
-            try:
-                payload = self._request("GET", "", params={"query.bibliographic": doi})
-            except Exception as e:
-                raise exc from e
-
-        # Добавляем mailto параметр для доступа к polite pool
-        mailto_param = ""
-        if hasattr(self.config, "mailto") and self.config.mailto:
-            mailto_param = f"?mailto={quote(self.config.mailto)}"
-
-        try:
-            # Crossref API requires /works/ prefix for DOI lookups
-            response = self._request("GET", f"works/{encoded}{mailto_param}")
-            payload = response.json()
-            message = payload.get("message", payload)
-            return self._parse_work(message)
-        except ApiClientError as exc:
             # Try fallback search
             self.logger.info("fallback_to_search doi=%s error=%s", doi, str(exc))
             try:
@@ -76,7 +65,7 @@ class CrossrefClient(BaseApiClient):
                 payload = response.json()
                 items = payload.get("message", {}).get("items", [])
                 if not items:
-                    raise
+                    raise ApiClientError(f"No Crossref work found for DOI {doi}")
                 return self._parse_work(items[0])
             except ApiClientError:
                 # If fallback also fails, raise the exception
@@ -85,8 +74,14 @@ class CrossrefClient(BaseApiClient):
     def fetch_by_pmid(self, pmid: str) -> dict[str, Any]:
         """Fetch Crossref work by PubMed identifier with fallback query."""
 
+        # Добавляем mailto параметр
+        mailto_param = ""
+        if hasattr(self.config, "mailto") and self.config.mailto:
+            mailto_param = f"&mailto={quote(self.config.mailto)}"
+
         try:
-            payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
+            response = self._request("GET", "works", params={"filter": f"pmid:{pmid}{mailto_param}"})
+            payload = response.json()
         except ApiClientError as exc:
             # Try graceful degradation first
             if self.degradation_manager.should_degrade(self.config.name, exc):
@@ -99,16 +94,6 @@ class CrossrefClient(BaseApiClient):
                     exc
                 )
             
-            self.logger.info("pmid_lookup_failed", pmid=pmid, error=str(exc))
-        # Добавляем mailto параметр
-        mailto_param = ""
-        if hasattr(self.config, "mailto") and self.config.mailto:
-            mailto_param = f"&mailto={quote(self.config.mailto)}"
-
-        try:
-            response = self._request("GET", "", params={"filter": f"pmid:{pmid}{mailto_param}"})
-            payload = response.json()
-        except ApiClientError as exc:
             self.logger.info("pmid_lookup_failed pmid=%s error=%s", pmid, str(exc))
             payload = {"message": {"items": []}}
 
@@ -118,7 +103,7 @@ class CrossrefClient(BaseApiClient):
 
         self.logger.info("pmid_fallback_to_query", pmid=pmid)
         try:
-            response = self._request("GET", "", params={"query": pmid})
+            response = self._request("GET", "works", params={"query": pmid})
             payload = response.json()
             items = payload.get("message", {}).get("items", [])
             if not items:
@@ -189,6 +174,12 @@ class CrossrefClient(BaseApiClient):
             "crossref_abstract": work.get("abstract"),
             "crossref_issn": self._extract_issn(work),
             "crossref_authors": self._extract_authors(work),
+            "crossref_journal": journal_name,
+            "crossref_year": self._extract_year(work),
+            "crossref_volume": work.get("volume"),
+            "crossref_issue": work.get("issue"),
+            "crossref_first_page": self._extract_first_page(work),
+            "crossref_last_page": self._extract_last_page(work),
             "crossref_error": None,  # Will be set if there's an error
         }
         # Return all fields, including None values, to maintain schema consistency
@@ -271,10 +262,63 @@ class CrossrefClient(BaseApiClient):
 
         return None
 
+    def _extract_year(self, work: dict[str, Any]) -> int | None:
+        """Извлекает год публикации из Crossref work."""
+        # Проверяем published-print сначала
+        published_print = work.get("published-print")
+        if published_print and isinstance(published_print, dict):
+            date_parts = published_print.get("date-parts")
+            if date_parts and isinstance(date_parts, list) and date_parts[0]:
+                try:
+                    return int(date_parts[0][0])
+                except (ValueError, TypeError, IndexError):
+                    pass
+        
+        # Fallback на published-online
+        published_online = work.get("published-online")
+        if published_online and isinstance(published_online, dict):
+            date_parts = published_online.get("date-parts")
+            if date_parts and isinstance(date_parts, list) and date_parts[0]:
+                try:
+                    return int(date_parts[0][0])
+                except (ValueError, TypeError, IndexError):
+                    pass
+        
+        return None
+
+    def _extract_first_page(self, work: dict[str, Any]) -> str | None:
+        """Извлекает первую страницу из Crossref work."""
+        page = work.get("page")
+        if not page:
+            return None
+        
+        # Crossref может возвращать страницы в формате "123-456" или просто "123"
+        if isinstance(page, str):
+            if "-" in page:
+                return page.split("-")[0].strip()
+            return page.strip()
+        
+        return None
+
+    def _extract_last_page(self, work: dict[str, Any]) -> str | None:
+        """Извлекает последнюю страницу из Crossref work."""
+        page = work.get("page")
+        if not page:
+            return None
+        
+        # Crossref может возвращать страницы в формате "123-456" или просто "123"
+        if isinstance(page, str) and "-" in page:
+            parts = page.split("-")
+            if len(parts) > 1:
+                return parts[1].strip()
+        
+        return None
+
     def _create_empty_record(self, identifier: str, error_msg: str) -> dict[str, Any]:
         """Создает пустую запись для случая ошибки."""
         return {
             "source": "crossref",
+            "doi_key": None,
             "crossref_doi": identifier if identifier.startswith("10.") else None,
             "crossref_pmid": identifier if not identifier.startswith("10.") else None,
             "crossref_title": None,
@@ -283,6 +327,7 @@ class CrossrefClient(BaseApiClient):
             "crossref_abstract": None,
             "crossref_issn": None,
             "crossref_authors": None,
+            "crossref_journal": None,
             "crossref_year": None,
             "crossref_volume": None,
             "crossref_issue": None,

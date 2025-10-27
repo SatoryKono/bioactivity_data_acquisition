@@ -123,7 +123,7 @@ class DocumentOutputSchema(pa.DataFrameModel):
     # PubMed-specific fields (согласно таблице)
     pubmed_pmid: Series[str] = pa.Field(nullable=True, description="PubMed ID")
     pubmed_doi: Series[str] = pa.Field(nullable=True, description="DOI from PubMed")
-    pubmed_article_title: Series[str] = pa.Field(nullable=True, description="Article title from PubMed")
+    pubmed_title: Series[str] = pa.Field(nullable=True, description="Article title from PubMed")
     pubmed_abstract: Series[str] = pa.Field(nullable=True, description="Abstract from PubMed")
     pubmed_journal: Series[str] = pa.Field(nullable=True, description="Journal from PubMed")
     pubmed_volume: Series[str] = pa.Field(nullable=True, description="Volume from PubMed")

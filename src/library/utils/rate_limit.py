@@ -19,6 +19,7 @@ import warnings
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, asynccontextmanager
 from dataclasses import dataclass
+from typing import Any
 
 from library.common.rate_limiter import (
     RateLimiter as _RateLimiter,
@@ -36,9 +37,9 @@ warnings.warn("library.utils.rate_limit is deprecated. Use library.common.rate_l
 
 
 # Re-export classes and functions with deprecation warnings
-def _deprecated_wrapper(name: str, obj):
+def _deprecated_wrapper(name: str, obj: Any) -> Any:
     """Wrapper that emits deprecation warning when accessed."""
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         warnings.warn(f"{name} is deprecated. Use library.common.rate_limiter instead.", DeprecationWarning, stacklevel=3)
         return obj(*args, **kwargs)
     return wrapper
@@ -231,21 +232,21 @@ def reset_rate_limits() -> None:
         _CLIENT_LIMITERS = {}
 
 
-@asynccontextmanager  # type: ignore[misc]
-async def limit_async(client_name: str) -> Iterator[None]:  # type: ignore[return]
+@asynccontextmanager
+async def limit_async(client_name: str) -> Iterator[None]:
     """Async context manager that acquires permits for ``client_name``."""
 
     limiter = get_rate_limiter(client_name)
     await limiter.acquire_async()
-    yield  # type: ignore[misc]
+    yield
 
 
 # Re-export from the new unified module for backward compatibility
 
 
 # Re-export with deprecation warnings
-def _deprecated_wrapper(name: str, obj):
-    def wrapper(*args, **kwargs):
+def _deprecated_wrapper(name: str, obj: Any) -> Any:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         warnings.warn(f"library.utils.rate_limit.{name} is deprecated. Use library.common.rate_limiter.{name} instead.", DeprecationWarning, stacklevel=3)
         return obj(*args, **kwargs)
 

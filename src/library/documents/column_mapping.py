@@ -6,7 +6,7 @@ from typing import Any
 PUBMED_FIELD_MAPPING = {
     "pubmed_pmid": "pubmed_pmid",
     "pubmed_doi": "pubmed_doi",
-    "pubmed_title": "pubmed_article_title",
+    "pubmed_title": "pubmed_title",
     "pubmed_abstract": "pubmed_abstract",
     "pubmed_journal": "pubmed_journal",
     "pubmed_volume": "pubmed_volume",
@@ -122,7 +122,7 @@ ALL_FIELD_MAPPINGS = {
 }
 
 
-def apply_field_mapping(record: dict, source: str) -> dict:
+def apply_field_mapping(record: dict[str, Any], source: str) -> dict[str, Any]:
     """Apply field mapping for a specific source.
 
     Args:
@@ -160,7 +160,7 @@ def apply_field_mapping(record: dict, source: str) -> dict:
     return mapped_record
 
 
-def _get_nested_value(record: dict, field_path: str) -> Any:
+def _get_nested_value(record: dict[str, Any], field_path: str) -> Any:
     """Get value from nested dictionary using dot notation.
 
     Args:

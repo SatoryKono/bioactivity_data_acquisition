@@ -39,21 +39,17 @@ def _deterministic_order(
     if _is_qc_report(df):
         return df.reset_index(drop=True)
 
-    # Сохраняем только колонки, указанные в column_order
-    desired_order = [col for col in determinism.column_order if col in df.columns]
-    # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
-    ordered = df[desired_order]
+    # Создаем копию для безопасного изменения
+    df_copy = df.copy()
     
-    # Фильтруем колонки для сортировки, оставляя только существующие
-    sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
+    # Добавляем отсутствующие колонки с NaN значениями
+    for col in determinism.column_order:
+        if col not in df_copy.columns:
+            df_copy[col] = pd.NA
     
-    # Если нет совпадающих колонок, используем все колонки
-    if not desired_order:
-        ordered = df
-    else:
-        # Исключаем лишние колонки - сохраняем только те, что указаны в конфигурации
-        ordered = df[desired_order]
-
+    # Применяем строгий порядок из конфига
+    ordered = df_copy[determinism.column_order]
+    
     # Фильтруем колонки для сортировки, оставляя только существующие
     sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in ordered.columns]
 
@@ -120,11 +116,10 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
         if column in doi_columns:
             if logger is not None:
                 logger.info("normalizing_doi_column", column=column)
+                logger.info(f"normalizing_doi_column: {column}")
             
             # Заменяем None на NA
             df_normalized[column] = df_normalized[column].replace([None], pd.NA)
-            
-            logger.info(f"normalizing_doi_column: {column}")
 
             # Применяем продвинутую нормализацию DOI
             for idx in df_normalized.index:

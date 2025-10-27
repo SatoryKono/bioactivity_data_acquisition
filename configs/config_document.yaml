@@ -139,8 +139,8 @@ logging:
 # Детерминизм
 determinism:
   sort:
-    by: ["document_chembl_id", "doi", "pmid"]
-    ascending: [true, true, true]
+    by: ["document_chembl_id"]
+    ascending: true
     na_position: "last"
   column_order:
      # Основные поля документа (оригинальные из ChEMBL)
@@ -166,7 +166,7 @@ determinism:
     # Группа полей названий статей из всех источников (chembl_title удален, заменен на CHEMBL.DOCS.title)
     - crossref_title          # TEXT: Название статьи из Crossref, источник: Crossref API, тип: TEXT, валидация: nullable
     - openalex_title          # TEXT: Название статьи из OpenAlex, источник: OpenAlex API, тип: TEXT, валидация: nullable
-    - pubmed_article_title    # TEXT: Название статьи из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
+    - pubmed_title          # TEXT: Название статьи из PubMed, источник: PubMed E-utilities, тип: TEXT, валидация: nullable
     - semantic_scholar_title  # TEXT: Название статьи из Semantic Scholar, источник: Semantic Scholar API, тип: TEXT, валидация: nullable
     
     # Группа полей аннотаций из всех источников (chembl_abstract удален, заменен на CHEMBL.DOCS.abstract)
@@ -598,7 +598,7 @@ normalization:
       - normalize_string_nfc
       - normalize_string_whitespace
     
-    pubmed_article_title:
+    pubmed_title:
       - normalize_string_strip
       - normalize_string_nfc
       - normalize_string_whitespace

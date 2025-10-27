@@ -101,7 +101,7 @@ def create_api_client(source: str, config: Any, client_type: str = "generic") ->
 
     # Create rate limit settings if configured
     rate_limit = None
-    if source_config.rate_limit:
+    if hasattr(source_config, 'rate_limit') and source_config.rate_limit:
         # Convert various rate limit formats to max_calls/period
         max_calls = source_config.rate_limit.get("max_calls")
         period = source_config.rate_limit.get("period")

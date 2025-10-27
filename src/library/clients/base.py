@@ -264,17 +264,19 @@ class BaseApiClient:
         request_headers = {**self.default_headers, **(kwargs.pop("headers", {}))}
         
         self.logger.info(
-            "request",
-            method=method,
-            url=url,
-            params=kwargs.get("params"),
-            headers=request_headers or None,
+            f"Making {method} request to {url}",
+            extra={
+                "method": method,
+                "url": url,
+                "params": kwargs.get("params"),
+                "headers": request_headers or None,
+            }
         )
 
         try:
             response = self._send_with_backoff(method, url, headers=request_headers, **kwargs)
         except requests.exceptions.RequestException as exc:  # pragma: no cover - defensive
-            self.logger.error("transport_error", error=str(exc))
+            self.logger.error(f"Transport error: {exc}", extra={"error": str(exc)})
             add_span_attribute("error", True)
             add_span_attribute("error.type", "transport_error")
             raise ApiClientError(str(exc)) from exc
@@ -367,13 +369,13 @@ class BaseApiClient:
                     root = safe_fromstring(response.text)
                     payload = self._xml_to_dict(root)
                 except Exception as xml_exc:
-                    self.logger.error("xml_parse_error", error=str(xml_exc))
+                    self.logger.error(f"XML parse error: {xml_exc}", extra={"error": str(xml_exc)})
                     raise ApiClientError(f"Failed to parse XML response: {xml_exc}") from xml_exc
             else:
-                self.logger.error("invalid_json", error=str(exc), content_type=content_type)
+                self.logger.error(f"Invalid JSON: {exc}", extra={"error": str(exc), "content_type": content_type})
                 raise ApiClientError("response was not valid JSON") from exc
 
-        self.logger.info("response", status_code=response.status_code)
+        self.logger.info(f"Response received", extra={"status_code": response.status_code})
         if not isinstance(payload, dict):
             raise ApiClientError("expected JSON object from API")
         return payload

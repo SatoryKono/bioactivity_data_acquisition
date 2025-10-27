@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 
 from pandera.typing import Series
+from pandera import DataFrameSchema, Column, Check
 
 _PANDERA_PANDAS_SPEC = importlib.util.find_spec("pandera.pandas")
 if _PANDERA_PANDAS_SPEC is not None:  # pragma: no cover - import side effect
@@ -294,7 +295,7 @@ class TargetNormalizedSchema:
                 "hgnc_name": Column(pa.String, nullable=True, description="Название по HGNC"),
                 "hgnc_id": Column(
                     pa.String,
-                    checks=[Check(lambda x: x.isna() | (x.str.len() == 0) | x.str.match(r"^HGNC:\d+$", na=False), error="Invalid HGNC ID format")],
+                    checks=[Check(lambda x: x.isna() | (x.str.len() == 0) | x.str.match(r"^HGNC:\d+$"), error="Invalid HGNC ID format")],
                     nullable=True,
                     description="HGNC ID",
                 ),
@@ -302,8 +303,7 @@ class TargetNormalizedSchema:
                     pa.String,
                     checks=[
                         Check(
-                            lambda x: x.isna()
-                            | x.isin(["SINGLE PROTEIN", "PROTEIN COMPLEX", "PROTEIN FAMILY", "PROTEIN-PROTEIN INTERACTION", "NUCLEIC-ACID", "ORGANISM"], na=False),
+                            lambda x: x.isna() | (x == "") | x.isin(["SINGLE PROTEIN", "PROTEIN COMPLEX", "PROTEIN FAMILY", "PROTEIN-PROTEIN INTERACTION", "NUCLEIC-ACID", "ORGANISM"]),
                             error="Invalid target_type",
                         )
                     ],
@@ -314,7 +314,7 @@ class TargetNormalizedSchema:
                     pa.Int, checks=[Check(lambda x: x.isna() | (x > 0), error="Taxonomy ID must be > 0")], nullable=True, description="Таксономический ID"
                 ),
                 "CHEMBL.TARGETS.species_group_flag": Column(
-                    pa.Int, checks=[Check(lambda x: x.isna() | x.isin([0, 1]), error="species_group_flag must be 0 or 1")], nullable=True, description="Флаг группировки по видам"
+                    pa.Bool, nullable=True, description="Флаг группировки по видам"
                 ),
                 "CHEMBL.TARGETS.target_components": Column(
                     pa.String,
@@ -335,7 +335,7 @@ class TargetNormalizedSchema:
                     pa.String,
                     checks=[
                         Check(
-                            lambda x: x.isna() | (x.str.len() == 0) | x.str.match(r"^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$", na=False),
+                            lambda x: x.isna() | (x.str.len() == 0) | x.str.match(r"^[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}$"),
                             error="Invalid UniProt ID format",
                         )
                     ],
@@ -350,7 +350,7 @@ class TargetNormalizedSchema:
                 "geneName": Column(pa.String, nullable=True, description="Название гена"),
                 "gene_symbol_list": Column(pa.String, nullable=True, description="Список символов генов"),
                 "CHEMBL.TARGETS.organism": Column(pa.String, nullable=True, description="Организм"),
-                "taxon_id": Column(pa.Int, checks=[Check(lambda x: x.isna() | (x > 0), error="Taxon ID must be > 0")], nullable=True, description="Таксономический ID"),
+                "taxon_id": Column(pa.Int, checks=[Check(lambda x: x.isna() | (x >= 0), error="Taxon ID must be >= 0")], nullable=True, description="Таксономический ID"),
                 "lineage_superkingdom": Column(pa.String, nullable=True, description="Суперцарство в линии"),
                 "lineage_phylum": Column(pa.String, nullable=True, description="Тип в линии"),
                 "lineage_class": Column(pa.String, nullable=True, description="Класс в линии"),

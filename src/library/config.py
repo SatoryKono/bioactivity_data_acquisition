@@ -218,7 +218,7 @@ class SourceSettings(BaseModel):
         for key, value in merged_headers.items():
             if isinstance(value, str):
 
-                def replace_placeholder(match):
+                def replace_placeholder(match: Any) -> str:
                     secret_name = match.group(1)
                     env_var = os.environ.get(secret_name.upper())
                     return env_var if env_var is not None else match.group(0)
@@ -563,7 +563,7 @@ class Config(BaseModel):
         def replace_secrets(obj: Any) -> Any:
             if isinstance(obj, str):
                 # Replace {secret_name} with environment variable value
-                def replace_placeholder(match):
+                def replace_placeholder(match: Any) -> str:
                     secret_name = match.group(1)
                     env_var = os.environ.get(secret_name.upper())
                     return env_var if env_var is not None else match.group(0)

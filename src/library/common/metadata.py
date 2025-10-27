@@ -159,7 +159,7 @@ class MetadataBuilder:
 
         duration = (end_time - self.start_time).total_seconds()
 
-        return ExecutionInfo(run_id=self.run_id, started_at=self.start_time.isoformat(), completed_at=end_time.isoformat(), duration_sec=duration)
+        return ExecutionInfo(run_id=self.run_id, started_at=self.start_time.isoformat(), completed_at=end_time.isoformat(), duration_sec=duration, memory_peak_mb=0.0)
 
     def build_data_info(self, df: Any, accepted_df: Any | None = None, rejected_df: Any | None = None) -> DataInfo:
         """Построить информацию о данных."""
@@ -194,7 +194,12 @@ class MetadataBuilder:
     def build_validation_info(self, validation_results: dict[str, Any] | None = None) -> ValidationInfo:
         """Построить информацию о валидации."""
         if not validation_results:
-            return ValidationInfo()
+            return ValidationInfo(
+                schema_passed=True,
+                qc_passed=True,
+                warnings=0,
+                errors=0,
+            )
 
         return ValidationInfo(
             schema_passed=validation_results.get("schema_passed", True),
@@ -205,7 +210,7 @@ class MetadataBuilder:
 
     def build_files_info(self, output_files: dict[str, Path]) -> dict[str, str | FileInfo]:
         """Построить информацию о файлах."""
-        files_info = {}
+        files_info: dict[str, str | FileInfo] = {}
 
         for file_type, file_path in output_files.items():
             if file_type == "checksums":
@@ -299,13 +304,13 @@ class MetadataBuilder:
         return PipelineMetadata(**metadata_dict)
 
 
-def create_metadata_builder(config: Config, entity_type: str) -> MetadataBuilder:
+def create_metadata_builder(config: dict[str, Any], entity_type: str) -> MetadataBuilder:
     """Создать построитель метаданных для типа сущности."""
     return MetadataBuilder(config, entity_type)
 
 
 def build_standard_metadata(
-    config: Config,
+    config: dict[str, Any],
     entity_type: str,
     df: Any,
     accepted_df: Any | None = None,

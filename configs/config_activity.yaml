@@ -87,12 +87,12 @@ determinism:
     na_position: "last"                # Позиция NULL значений
   column_order:
     # ACTIVITIES - основные поля
-    - "activity_id"                     # INT: Уникальный ID активности (PK), источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, >= 1
-    - "assay_id"                        # INT: FK на ASSAYS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
-    - "doc_id"                          # INT: FK на DOCS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "activity_chembl_id"                     # INT: Уникальный ID активности (PK), источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, >= 1
+    - "assay_chembl_id"                        # INT: FK на ASSAYS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "document_chembl_id"                          # INT: FK на DOCS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "molecule_chembl_id"                        # INT: FK на MOLECULE_DICTIONARY, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
+    - "target_chembl_id"
     - "record_id"                       # INT: FK на COMPOUND_RECORDS, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
-    - "molregno"                        # INT: FK на MOLECULE_DICTIONARY, источник: ChEMBL API /activity, тип: INT, валидация: NOT NULL, FK
-    
     # ACTIVITIES - данные активности
     - "type"                            # STRING: Исходный тип (Ki, IC50, %), источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
     - "relation"                        # STRING: Отношение, источник: ChEMBL, тип: STRING, валидация: enum [=,>,>=,<,<=,~], <= 50
@@ -100,6 +100,17 @@ determinism:
     - "units"                           # STRING: Единицы (raw), источник: ChEMBL, тип: STRING, валидация: nullable, <= 100
     - "text_value"                      # STRING: Текстовое значение, источник: ChEMBL, тип: STRING, валидация: nullable, <= 1000
     - "upper_value"                     # FLOAT: Верхняя граница диапазона, источник: ChEMBL, тип: FLOAT, валидация: nullable
+    
+    # ACTIVITIES - интервальное представление для цензурированных данных
+    - "lower_bound"                     # FLOAT: Нижняя граница интервала, источник: нормализация, тип: FLOAT, валидация: nullable
+    - "upper_bound"                     # FLOAT: Верхняя граница интервала, источник: нормализация, тип: FLOAT, валидация: nullable
+    - "is_censored"                     # BOOL: Признак цензурирования данных, источник: нормализация, тип: BOOL, валидация: nullable
+    
+    # ACTIVITIES - публикованные данные (из ChEMBL API)
+    - "published_type"                  # STRING: Тип публикации (из оригинала), источник: ChEMBL API, тип: STRING, валидация: nullable, <= 250
+    - "published_relation"              # STRING: Отношение публикации, источник: ChEMBL API, тип: STRING, валидация: nullable, <= 50
+    - "published_value"                 # FLOAT: Значение публикации, источник: ChEMBL API, тип: FLOAT, валидация: nullable, число
+    - "published_units"                 # STRING: Единицы публикации, источник: ChEMBL API, тип: STRING, валидация: nullable, <= 100
     
     # ACTIVITIES - стандартизованные данные
     - "standard_type"                   # STRING: Нормализованный тип, источник: ChEMBL, тип: STRING, валидация: nullable, <= 250
@@ -118,6 +129,8 @@ determinism:
     
     # ACTIVITIES - онтологии
     - "bao_endpoint"                    # STRING: BAO endpoint ID, источник: ChEMBL, тип: STRING, валидация: nullable, regex ^BAO_\d{7}$
+    - "bao_format"                       # STRING: BAO format ID, источник: ChEMBL, тип: STRING, валидация: nullable, regex ^BAO_\d{7}$
+    - "bao_label"                        # STRING: BAO label (текстовое описание), источник: ChEMBL, тип: STRING, валидация: nullable, <= 500
     - "uo_units"                        # STRING: Unit Ontology, источник: ChEMBL, тип: STRING, валидация: nullable, regex ^UO_\d{7}$ или пусто
     - "qudt_units"                      # STRING: QUDT URI, источник: ChEMBL, тип: STRING, валидация: nullable, валидная URI или пусто
     - "src_id"                          # INT: Источник, источник: ChEMBL, тип: INT, валидация: nullable, FK к SOURCE

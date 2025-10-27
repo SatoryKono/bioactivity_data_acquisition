@@ -182,7 +182,10 @@ class PipelineBase(ABC, Generic[T]):
         # from library.etl.enhanced_qc import build_enhanced_qc_detailed
 
         # qc_summary = build_enhanced_qc_summary(data)
-        qc_summary = {}
+        qc_summary = pd.DataFrame([
+            {"metric": "row_count", "value": len(data)},
+            {"metric": "column_count", "value": len(data.columns) if not data.empty else 0},
+        ])
         qc_detailed = None
 
         # Проверяем, нужен ли детальный отчёт

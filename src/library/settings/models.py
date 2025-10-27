@@ -45,9 +45,9 @@ class ConfigMetadata:
         if isinstance(path, str):
             path_tuple = (path,)
         else:
-            path_tuple = path
+            path_tuple = tuple(path)
         # Type ignore needed because dict.get expects str key, but we're using tuple
-        return self.snapshot.get(path_tuple, {})  # type: ignore[arg-type]
+        return self.snapshot.get(path_tuple, {})  # type: ignore[arg-type,no-any-return,call-overload]
 
 
 class ApiCfg(BaseModel):

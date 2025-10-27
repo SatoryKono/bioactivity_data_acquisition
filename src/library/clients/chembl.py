@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import socket
 import threading
@@ -18,7 +19,7 @@ from requests import Session
 from library.clients.base import BaseApiClient
 from library.common.cache import CacheConfig, CacheStrategy, UnifiedCache
 from library.common.rate_limiter import RateLimiter, get_limiter
-from library.config import APIClientConfig, RetrySettings
+from library.config import APIClientConfig, RetrySettings, RateLimitSettings
 
 try:  # pragma: no cover - urllib3 is always available with requests
     from urllib3.exceptions import ReadTimeoutError as _Urllib3ReadTimeoutError
@@ -43,24 +44,24 @@ class TestitemChEMBLClient(BaseApiClient):
     def get_chembl_status(self) -> dict[str, Any]:
         """Get ChEMBL status and release information."""
         try:
-            payload = self._request("GET", "status")
+            payload = self._request("GET", "status").json()
             return {
                 "chembl_release": payload.get("chembl_release", "unknown"),
                 "status": payload.get("status", "unknown"),
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             }
         except Exception as e:
             logger.warning(f"Failed to get ChEMBL status: {e}")
             return {
                 "chembl_release": "unknown",
                 "status": "error",
-                "timestamp": datetime.utcnow().isoformat() + "Z"
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             }
 
     def fetch_molecule(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule data by ChEMBL ID using proper API endpoint."""
         try:
-            payload = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1")
+            payload = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1").json()
             parsed = self._parse_molecule(payload)
             if parsed:
                 return parsed
@@ -88,7 +89,7 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"molecule.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -156,7 +157,7 @@ class TestitemChEMBLClient(BaseApiClient):
             "withdrawn_country": molecule.get("withdrawn_country"),
             "withdrawn_reason": molecule.get("withdrawn_reason"),
             "source_system": "ChEMBL",
-            "extracted_at": datetime.utcnow().isoformat() + "Z"
+            "extracted_at": datetime.utcnow().isoformat()
         }
         
         # Extract molecule properties if available
@@ -218,6 +219,27 @@ class TestitemChEMBLClient(BaseApiClient):
                 }
                 xref_list.append(xref_data)
             result["xref_sources"] = xref_list
+        
+        # Extract nested structures as JSON strings
+        if "atc_classifications" in molecule and molecule["atc_classifications"]:
+            result["atc_classifications"] = json.dumps(molecule["atc_classifications"])
+
+        if "biotherapeutic" in molecule and molecule["biotherapeutic"]:
+            result["biotherapeutic"] = json.dumps(molecule["biotherapeutic"])
+
+        if "cross_references" in molecule and molecule["cross_references"]:
+            result["cross_references"] = json.dumps(molecule["cross_references"])
+
+        if "molecule_hierarchy" in molecule and molecule["molecule_hierarchy"]:
+            result["molecule_hierarchy"] = json.dumps(molecule["molecule_hierarchy"])
+
+        # Extract flags and additional fields
+        result["chemical_probe"] = molecule.get("chemical_probe")
+        result["orphan"] = molecule.get("orphan")
+        result["veterinary"] = molecule.get("veterinary")
+        result["helm_notation"] = molecule.get("helm_notation")
+        result["chirality_chembl"] = molecule.get("chirality")
+        result["molecule_type_chembl"] = molecule.get("molecule_type")
         
         return result
 
@@ -285,9 +307,346 @@ class TestitemChEMBLClient(BaseApiClient):
             "synonyms": None,
             "xref_sources": None,
             "source_system": "ChEMBL",
-            "extracted_at": datetime.utcnow().isoformat(),
+            "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             "error": error_msg
         }
+
+    def fetch_molecule_form(self, molecule_chembl_id: str) -> dict[str, Any]:
+        """Fetch molecule form data."""
+        try:
+            payload = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json").json()
+            return self._parse_molecule_form(payload)
+        except Exception as e:
+            logger.warning(f"Failed to fetch molecule form for {molecule_chembl_id}: {e}")
+            return {}
+
+    def fetch_mechanism(self, molecule_chembl_id: str) -> dict[str, Any]:
+        """Fetch mechanism data."""
+        try:
+            payload = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json").json()
+            return self._parse_mechanism(payload)
+        except Exception as e:
+            logger.warning(f"Failed to fetch mechanism for {molecule_chembl_id}: {e}")
+            return {}
+
+    def fetch_mechanism_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch mechanism data for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_mechanism_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"mechanism.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url).json()
+            
+            # Parse results
+            results = {}
+            mechanisms = payload.get("mechanisms", [])
+            
+            for mechanism in mechanisms:
+                chembl_id = mechanism.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_mechanism({"mechanisms": [mechanism]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch mechanism batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_mechanism(chembl_id)
+            return results
+
+    def fetch_atc_classification(self, molecule_chembl_id: str) -> dict[str, Any]:
+        """Fetch ATC classification data."""
+        try:
+            payload = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json").json()
+            return self._parse_atc_classification(payload)
+        except Exception as e:
+            logger.warning(f"Failed to fetch ATC classification for {molecule_chembl_id}: {e}")
+            return {}
+
+    def fetch_atc_classification_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch ATC classification data for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_atc_classification_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"atc_classification.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url).json()
+            
+            # Parse results
+            results = {}
+            classifications = payload.get("atc_classifications", [])
+            
+            for classification in classifications:
+                chembl_id = classification.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_atc_classification({"atc_classifications": [classification]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch ATC classification batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_atc_classification(chembl_id)
+            return results
+
+    def fetch_drug(self, molecule_chembl_id: str) -> dict[str, Any]:
+        """Fetch drug data."""
+        try:
+            payload = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json").json()
+            return self._parse_drug(payload)
+        except Exception as e:
+            logger.warning(f"Failed to fetch drug for {molecule_chembl_id}: {e}")
+            return {}
+
+    def fetch_drug_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch drug data for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_drug_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"drug.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url).json()
+            
+            # Parse results
+            results = {}
+            drugs = payload.get("drugs", [])
+            
+            for drug in drugs:
+                chembl_id = drug.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_drug({"drugs": [drug]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch drug batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_drug(chembl_id)
+            return results
+
+    def fetch_drug_warning(self, molecule_chembl_id: str) -> dict[str, Any]:
+        """Fetch drug warnings."""
+        try:
+            payload = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json").json()
+            return self._parse_drug_warning(payload)
+        except Exception as e:
+            logger.warning(f"Failed to fetch drug warning for {molecule_chembl_id}: {e}")
+            return {}
+
+    def fetch_drug_warning_batch(self, molecule_chembl_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Fetch drug warnings for multiple molecules using proper ChEMBL API."""
+        try:
+            if len(molecule_chembl_ids) > 25:
+                logger.warning(f"Batch size {len(molecule_chembl_ids)} exceeds URL limit of 25, splitting into chunks")
+                results = {}
+                for i in range(0, len(molecule_chembl_ids), 25):
+                    chunk = molecule_chembl_ids[i:i+25]
+                    chunk_results = self.fetch_drug_warning_batch(chunk)
+                    results.update(chunk_results)
+                return results
+            
+            # Use proper ChEMBL API endpoint
+            ids_str = ",".join(molecule_chembl_ids)
+            url = f"drug_warning.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
+            
+            # Make request
+            payload = self._request("GET", url).json()
+            
+            # Parse results
+            results = {}
+            warnings = payload.get("drug_warnings", [])
+            
+            for warning in warnings:
+                chembl_id = warning.get("molecule_chembl_id")
+                if chembl_id:
+                    results[chembl_id] = self._parse_drug_warning({"drug_warnings": [warning]})
+            
+            # Add empty records for missing molecules
+            for chembl_id in molecule_chembl_ids:
+                if chembl_id not in results:
+                    results[chembl_id] = {}
+            
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch drug warning batch: {e}")
+            # Fallback to individual requests
+            results = {}
+            for chembl_id in molecule_chembl_ids:
+                results[chembl_id] = self.fetch_drug_warning(chembl_id)
+            return results
+
+    def fetch_xref_source(self, molecule_chembl_id: str) -> dict[str, Any]:
+        """Fetch cross-reference sources."""
+        try:
+            payload = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json").json()
+            return self._parse_xref_source(payload)
+        except Exception as e:
+            logger.warning(f"Failed to fetch xref source for {molecule_chembl_id}: {e}")
+            return {}
+
+    def _parse_molecule_form(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse molecule form data."""
+        forms = payload.get("molecule_forms", [])
+        if not forms:
+            return {}
+        
+        # Take the first form as primary
+        form = forms[0]
+        return {
+            "molecule_form_chembl_id": form.get("molecule_form_chembl_id"),
+            "parent_chembl_id": form.get("parent_chembl_id"),
+            "parent_molregno": form.get("parent_molregno")
+        }
+
+    def _parse_mechanism(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse mechanism data."""
+        mechanisms = payload.get("mechanisms", [])
+        if not mechanisms:
+            return {}
+        
+        # Take the first mechanism
+        mechanism = mechanisms[0]
+        return {
+            "mechanism_of_action": mechanism.get("mechanism_of_action"),
+            "direct_interaction": mechanism.get("direct_interaction"),
+            "molecular_mechanism": mechanism.get("molecular_mechanism"),
+            "mechanism_comment": mechanism.get("mechanism_comment"),
+            "target_chembl_id": mechanism.get("target_chembl_id")
+        }
+
+    def _parse_atc_classification(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse ATC classification data."""
+        classifications = payload.get("atc_classifications", [])
+        if not classifications:
+            return {}
+        
+        # Take the first classification
+        atc = classifications[0]
+        return {
+            "level1": atc.get("level1"),
+            "level1_description": atc.get("level1_description"),
+            "level2": atc.get("level2"),
+            "level2_description": atc.get("level2_description"),
+            "level3": atc.get("level3"),
+            "level3_description": atc.get("level3_description"),
+            "level4": atc.get("level4"),
+            "level4_description": atc.get("level4_description"),
+            "level5": atc.get("level5"),
+            "level5_description": atc.get("level5_description")
+        }
+
+    def _parse_drug(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse drug data."""
+        drugs = payload.get("drugs", [])
+        if not drugs:
+            return {}
+        
+        # Take the first drug
+        drug = drugs[0]
+        return {
+            "drug_type": drug.get("drug_type"),
+            "max_phase": drug.get("max_phase"),
+            "indication_class": drug.get("indication_class"),
+            "withdrawn_flag": drug.get("withdrawn_flag"),
+            "withdrawn_year": drug.get("withdrawn_year"),
+            "withdrawn_country": drug.get("withdrawn_country"),
+            "withdrawn_reason": drug.get("withdrawn_reason")
+        }
+
+    def _parse_drug_warning(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse drug warnings."""
+        warnings = payload.get("drug_warnings", [])
+        if not warnings:
+            return {}
+        
+        # Take the first warning
+        warning = warnings[0]
+        return {
+            "warning_type": warning.get("warning_type"),
+            "warning_class": warning.get("warning_class"),
+            "warning_description": warning.get("warning_description"),
+            "warning_country": warning.get("warning_country"),
+            "warning_year": warning.get("warning_year")
+        }
+
+    def _parse_xref_source(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Parse cross-reference sources."""
+        sources = payload.get("xref_sources", [])
+        if not sources:
+            return {}
+        
+        # Take the first source
+        source = sources[0]
+        return {
+            "xref_name": source.get("xref_name"),
+            "xref_description": source.get("xref_description"),
+            "xref_url": source.get("xref_url")
+        }
+
+    def resolve_molregno_to_chembl_id(self, molregno: int) -> str | None:
+        """Resolve molregno to molecule_chembl_id via ChEMBL API."""
+        try:
+            payload = self._request("GET", f"molecule?molregno={molregno}&format=json").json()
+            molecules = payload.get("molecules", [])
+            if molecules:
+                return molecules[0].get("molecule_chembl_id")
+            return None
+        except Exception as e:
+            logger.warning(f"Failed to resolve molregno {molregno} to molecule_chembl_id: {e}")
+            return None
 
 def _strip_json_suffix(url: str) -> str | None:
     """Return URL without .json suffix if present."""
@@ -363,7 +722,7 @@ def _find_chembl_id_by_molregno(molregno: int) -> str | None:
             url = f"molecule.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -656,7 +1015,7 @@ class ChemblClient:
             url = f"mechanism.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -708,7 +1067,7 @@ class ChemblClient:
             url = f"atc_classification.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -769,7 +1128,7 @@ class ChemblClient:
             url = f"drug.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -821,7 +1180,7 @@ class ChemblClient:
             url = f"drug_warning.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            payload = self._request("GET", url).json()
             
             # Parse results
             results = {}
@@ -891,7 +1250,7 @@ class ChemblClient:
             "withdrawn_country": molecule.get("withdrawn_country"),
             "withdrawn_reason": molecule.get("withdrawn_reason"),
             "source_system": "ChEMBL",
-            "extracted_at": datetime.utcnow().isoformat() + "Z"
+            "extracted_at": datetime.utcnow().isoformat()
         }
         
         # Extract molecule properties if available
@@ -1150,7 +1509,7 @@ class ChemblClient:
             "withdrawn_country": None,
             "withdrawn_reason": None,
             "source_system": "ChEMBL",
-            "extracted_at": datetime.utcnow().isoformat(),
+            "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             "error": error_msg
         }
 
@@ -1163,11 +1522,19 @@ class ChEMBLClient(BaseApiClient):
 
     def fetch_by_doc_id(self, document_chembl_id: str) -> dict[str, Any]:
         """Fetch document data by ChEMBL document ID."""
+        logger.info(f"Fetching document {document_chembl_id} from ChEMBL...")
         try:
             payload = self._request("GET", f"document/{document_chembl_id}")
+            logger.info(f"Received payload keys: {list(payload.keys())}")
+            
+            # Fetch source metadata if src_id is available
+            source_fields = {}
+            if "src_id" in payload and payload["src_id"]:
+                source_fields = self.fetch_source_metadata(payload["src_id"])
             
             # Extract relevant document fields
-            return {
+            data = {
+                # Legacy fields
                 "document_chembl_id": document_chembl_id,
                 "document_pubmed_id": payload.get("pubmed_id"),
                 "document_classification": payload.get("doc_type"),
@@ -1186,15 +1553,38 @@ class ChEMBLClient(BaseApiClient):
                 "chembl_patent_id": payload.get("patent_id"),
                 "chembl_ridx": payload.get("ridx"),
                 "chembl_teaser": payload.get("teaser"),
+                
+                # NEW: CHEMBL.DOCS.* fields according to specification
+                "CHEMBL.DOCS.document_chembl_id": payload.get("document_chembl_id", document_chembl_id),
+                "CHEMBL.DOCS.doc_type": payload.get("doc_type"),
+                "CHEMBL.DOCS.title": payload.get("title"),
+                "CHEMBL.DOCS.journal": payload.get("journal"),
+                "CHEMBL.DOCS.year": payload.get("year"),
+                "CHEMBL.DOCS.volume": payload.get("volume"),
+                "CHEMBL.DOCS.issue": payload.get("issue"),
+                "CHEMBL.DOCS.first_page": payload.get("first_page"),
+                "CHEMBL.DOCS.last_page": payload.get("last_page"),
+                "CHEMBL.DOCS.doi": payload.get("doi"),
+                "CHEMBL.DOCS.pubmed_id": payload.get("pubmed_id"),
+                "CHEMBL.DOCS.abstract": payload.get("abstract"),
+                "CHEMBL.DOCS.chembl_release": payload.get("src_id"),  # JSON reference to release
+                
+                # NEW: CHEMBL.SOURCE.* fields
+                **source_fields,  # adds CHEMBL.SOURCE.* fields
+                
                 "source_system": "ChEMBL",
-                "extracted_at": datetime.utcnow().isoformat() + "Z"
+                "extracted_at": datetime.utcnow().isoformat()
             }
+            
+            non_none_count = sum(1 for v in data.values() if v is not None)
+            logger.info(f"Mapped fields: {list(data.keys())}, non-None values: {non_none_count}")
+            return data
         except Exception as e:
             logger.warning(f"Failed to fetch document {document_chembl_id}: {e}")
             return {
                 "document_chembl_id": document_chembl_id,
                 "source_system": "ChEMBL",
-                "extracted_at": datetime.utcnow().isoformat(),
+                "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                 "error": str(e)
             }
 
@@ -1228,11 +1618,32 @@ class ChEMBLClient(BaseApiClient):
                     results[doc_id] = {
                         "document_chembl_id": doc_id,
                         "source_system": "ChEMBL",
-                        "extracted_at": datetime.utcnow().isoformat(),
+                        "extracted_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
                         "error": str(e)
                     }
         
         return results
+
+    def fetch_source_metadata(self, src_id: int) -> dict[str, Any]:
+        """Fetch source metadata from ChEMBL."""
+        try:
+            payload = self._request("GET", f"source/{src_id}")
+            return {
+                "CHEMBL.SOURCE.src_id": payload.get("src_id"),
+                "CHEMBL.SOURCE.src_description": payload.get("src_description"),
+                "CHEMBL.SOURCE.src_short_name": payload.get("src_short_name"),
+                "CHEMBL.SOURCE.src_url": payload.get("src_url"),
+                "CHEMBL.SOURCE.data": json.dumps(payload) if payload else None
+            }
+        except Exception as e:
+            logger.warning(f"Failed to fetch source {src_id}: {e}")
+            return {
+                "CHEMBL.SOURCE.src_id": None,
+                "CHEMBL.SOURCE.src_description": None,
+                "CHEMBL.SOURCE.src_short_name": None,
+                "CHEMBL.SOURCE.src_url": None,
+                "CHEMBL.SOURCE.data": None,
+            }
 
     def __enter__(self) -> ChemblClient:
         return self
@@ -1248,26 +1659,15 @@ class ChEMBLClient(BaseApiClient):
             self._sessions.clear()
 
     def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
-        """Make HTTP request with retry logic and caching."""
-        
-        cfg = APIClientConfig(
-            name="chembl",
-            base_url="https://www.ebi.ac.uk/chembl/api/data",
-            timeout_read=60.0,
-            timeout_connect=30.0,
-            rps=5.0,
-            burst=10,
-            retries=RetrySettings(retries=3, backoff_multiplier=1.5, max_delay=30.0),
-        )
-        
-        limiter = get_limiter("chembl", cfg.rps, cfg.burst)
-        read_timeout = cfg.timeout_read
-        cache_key = url
-        
-        with self._cache_lock:
-            cached = self.cache.get(cache_key)
-            if cached is not None:
-                return cast(dict[str, Any], cached)
+        """Make HTTP request using base client functionality."""
+        try:
+            # Use the base client's request method
+            response = self.session.get(f"{self.base_url}/{url}", timeout=self.timeout)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Request failed: {e}")
+            raise
         
         request_url = url
         used_fallback = False
@@ -1302,7 +1702,7 @@ class ChEMBLClient(BaseApiClient):
             try:
                 start_time = monotonic()
                 session = self._get_session()
-                with session.get(request_url, timeout=(cfg.timeout_connect, read_timeout)) as response:
+                with session.get(request_url, timeout=(30.0, read_timeout)) as response:
                     response.raise_for_status()
                     try:
                         data = cast(dict[str, Any], response.json())

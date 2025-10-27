@@ -15,7 +15,7 @@ T = TypeVar("T")
 
 
 @contextmanager
-def atomic_write_context(target_path: Path, temp_dir: Path | None = None, backup: bool = True, logger: BoundLogger | None = None):
+def atomic_write_context(target_path: Path, temp_dir: Path | None = None, backup: bool = True, logger: BoundLogger | None = None) -> Any:
     """Context manager for atomic file writes.
 
     Creates a temporary file, yields it for writing, then atomically moves
@@ -46,8 +46,8 @@ def atomic_write_context(target_path: Path, temp_dir: Path | None = None, backup
         temp_dir.mkdir(parents=True, exist_ok=True)
 
     # Create temporary file in the specified directory
-    temp_fd, temp_path = tempfile.mkstemp(suffix=target_path.suffix, prefix=f".{target_path.stem}_", dir=temp_dir)
-    temp_path = Path(temp_path)
+    temp_fd, temp_path_str = tempfile.mkstemp(suffix=target_path.suffix, prefix=f".{target_path.stem}_", dir=temp_dir)
+    temp_path = Path(temp_path_str)
 
     try:
         # Close the file descriptor immediately - we'll use Path operations
@@ -76,8 +76,6 @@ def atomic_write_context(target_path: Path, temp_dir: Path | None = None, backup
 
         if logger:
             logger.info("atomic_write_complete", path=str(target_path))
-            
-            logger.info(f"atomic_write_complete: {target_path}")
 
     except Exception as e:
         # Clean up temporary file on error
@@ -124,7 +122,7 @@ def atomic_parquet_write(df: pd.DataFrame, target_path: Path, **parquet_kwargs: 
     return target_path
 
 
-def atomic_json_write(data: dict | list, target_path: Path, **json_kwargs: Any) -> Path:
+def atomic_json_write(data: dict[str, Any] | list[Any], target_path: Path, **json_kwargs: Any) -> Path:
     """Atomically write data to JSON.
 
     Args:
@@ -197,7 +195,7 @@ def safe_file_operation(operation: Callable[[], T], target_path: Path, backup: b
     """
 
     # Create a wrapper that writes to a temporary location
-    def wrapped_operation():
+    def wrapped_operation() -> T:
         with atomic_write_context(target_path, backup=backup, logger=logger) as temp_path:
             # Temporarily replace the target path with temp path for the operation
             original_path = target_path

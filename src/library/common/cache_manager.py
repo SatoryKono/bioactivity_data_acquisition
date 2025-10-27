@@ -67,7 +67,7 @@ class CacheManager:
                 return None
 
             logger.debug(f"Cache hit for {cache_type}:{cache_key}")
-            return cache_data.get("data")
+            return cache_data.get("data", None)
 
         except (json.JSONDecodeError, KeyError, OSError) as e:
             logger.warning(f"Failed to read cache file {cache_path}: {e}")

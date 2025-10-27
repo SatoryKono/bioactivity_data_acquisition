@@ -314,7 +314,7 @@ class TestitemNormalizer:
             >>> normalizer = TestitemNormalizer(config)
             >>> normalized_df = normalizer.normalize_testitems(validated_df)
         """
-        logger.info("Normalizing %d testitem records", len(df))
+        logger.info(f"Normalizing {len(df)} testitem records")
 
         # Create a copy to avoid modifying original
         normalized_df = df.copy()
@@ -337,7 +337,7 @@ class TestitemNormalizer:
         # Step 5: Add hash fields
         normalized_df = self._add_hash_fields(normalized_df)
 
-        logger.info("Normalization completed. Output: %d records", len(normalized_df))
+        logger.info(f"Normalization completed. Output: {len(normalized_df)} records")
         return normalized_df
 
     def _add_missing_columns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -581,6 +581,7 @@ class TestitemNormalizer:
             "cross_references",
             "helm_notation",
             "molecule_type_chembl",
+            "first_approval",
         ]
 
         for field in string_fields:
@@ -598,7 +599,6 @@ class TestitemNormalizer:
             "hba_lipinski",
             "hbd_lipinski",
             "num_lipinski_ro5_violations",
-            "first_approval",
             "usan_year",
             "withdrawn_year",
             "pubchem_cid",
@@ -724,18 +724,12 @@ class TestitemNormalizer:
 
     def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add system metadata columns using unified utility."""
-        from library.common.metadata_fields import (
-            add_system_metadata_fields,
-            create_chembl_client_from_config,
-        )
+        from library.common.metadata_fields import add_system_metadata_fields
 
         logger.info("Adding system metadata columns...")
 
-        # Создаем ChEMBL клиент для получения версии
-        chembl_client = create_chembl_client_from_config(self.config)
-
         # Используем унифицированную утилиту
-        return add_system_metadata_fields(df, self.config, chembl_client)
+        return add_system_metadata_fields(df, self.config)
 
     def _add_hash_fields(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add hash fields for deduplication and integrity checking."""
@@ -796,9 +790,9 @@ class TestitemNormalizer:
         # Применяем нормализацию к каждой колонке
         for column_name, column_schema in schema.columns.items():
             if column_name in df.columns:
-                norm_funcs = column_schema.metadata.get("normalization_functions", [])
+                norm_funcs = column_schema.metadata.get("normalization_functions", []) if column_schema.metadata else []
                 if norm_funcs:
-                    logger.debug("Normalizing column '%s' with functions: %s", column_name, norm_funcs)
+                    logger.debug(f"Normalizing column '{column_name}' with functions: {norm_funcs}")
 
                     # Применяем функции нормализации в порядке
                     for func_name in norm_funcs:
@@ -806,6 +800,6 @@ class TestitemNormalizer:
                             func = get_normalizer(func_name)
                             df[column_name] = df[column_name].apply(func)
                         except Exception as e:
-                            logger.warning("Failed to apply normalizer '%s' to column '%s': %s", func_name, column_name, e)
+                            logger.warning(f"Failed to apply normalizer '{func_name}' to column '{column_name}': {e}")
 
         return df

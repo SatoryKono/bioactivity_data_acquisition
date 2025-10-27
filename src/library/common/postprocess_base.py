@@ -147,7 +147,7 @@ class DocumentPostprocessor(BasePostprocessor):
             "openalex_volume": None,
             "openalex_year": None,
             "openalex_doi": None,
-            "pubmed_article_title": None,
+            "pubmed_title": None,
             "pubmed_chemical_list": None,
             "pubmed_id": None,
             "pubmed_mesh_descriptors": None,

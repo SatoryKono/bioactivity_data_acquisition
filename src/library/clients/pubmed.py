@@ -241,7 +241,7 @@ class PubMedClient(BaseApiClient):
             "source": "pubmed",
             "pubmed_pmid": record.get("uid") or record.get("pmid") or record.get("PMID"),
             "pubmed_doi": doi_value,
-            "pubmed_article_title": record.get("title") or record.get("articleTitle"),
+            "pubmed_title": record.get("title") or record.get("articleTitle"),
             "pubmed_abstract": record.get("abstract"),
             "pubmed_journal": record.get("source") or record.get("journalTitle"),
             "pubmed_volume": record.get("volume"),
@@ -312,7 +312,7 @@ class PubMedClient(BaseApiClient):
             "source": "pubmed",
             "pubmed_pmid": pmid,
             "pubmed_doi": None,
-            "pubmed_article_title": None,
+            "pubmed_title": None,
             "pubmed_abstract": None,
             "pubmed_journal": None,
             "pubmed_volume": None,
@@ -403,8 +403,7 @@ class PubMedClient(BaseApiClient):
                 chemical_list = re.findall(r'<ChemicalList[^>]*>.*?<NameOfSubstance[^>]*>([^<]+)</NameOfSubstance>.*?</ChemicalList>', xml_content, re.DOTALL)
                 if chemical_list:
                     record["pubmed_chemical_list"] = "; ".join(chemical_list)
-            
-
+                
                 # Парсинг XML через lxml
                 from lxml import etree
 
@@ -467,8 +466,8 @@ class PubMedClient(BaseApiClient):
             for qual_elem in qualifier_elems:
                 qualifiers.append(text(qual_elem))
 
-        record["pubmed_mesh_descriptors"] = "; ".join(descriptors) if descriptors else "unknown"
-        record["pubmed_mesh_qualifiers"] = "; ".join(qualifiers) if qualifiers else "unknown"
+        record["pubmed_mesh_descriptors"] = "; ".join(descriptors) if descriptors else None
+        record["pubmed_mesh_qualifiers"] = "; ".join(qualifiers) if qualifiers else None
 
     def _extract_chemicals(self, root, record: dict[str, Any]) -> None:
         """Извлекает chemical list."""
@@ -477,7 +476,7 @@ class PubMedClient(BaseApiClient):
         # XPath: //Chemical/NameOfSubstance/text()
         chemical_elems = select_many(root, ".//Chemical/NameOfSubstance")
         chemicals = [text(elem) for elem in chemical_elems]
-        record["pubmed_chemical_list"] = "; ".join(chemicals) if chemicals else "unknown"
+        record["pubmed_chemical_list"] = "; ".join(chemicals) if chemicals else None
 
     def _format_author(self, author: Any) -> str:
         if isinstance(author, str):

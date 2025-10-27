@@ -62,9 +62,9 @@ class ActivityRawSchema:
                 # Основные поля
                 "activity_chembl_id": Column(
                     pa.String,
-                    checks=[Check.str_matches(r"^CHEMBL\d+$", error="Invalid ChEMBL activity ID format"), Check(lambda x: x.notna())],
+                    checks=[Check(lambda x: x.notna())],
                     nullable=False,
-                    description="ChEMBL ID активности",
+                    description="Activity ID (string)",
                 ),
                 "assay_chembl_id": Column(
                     pa.String,
@@ -90,28 +90,23 @@ class ActivityRawSchema:
                     nullable=False,
                     description="ChEMBL ID таргета",
                 ),
-                "retrieved_at": Column(pa.DateTime, checks=[Check(lambda x: x.notna())], nullable=False, description="Время получения данных"),
-                # Поля активности
-                "activity_type": Column(pa.String, nullable=True, description="Тип активности"),
-                "activity_value": Column(pa.Float, nullable=True, description="Значение активности"),
-                "activity_unit": Column(pa.String, nullable=True, description="Единицы активности"),
+                # Поля активности (соответствуют реальным данным из ChEMBL API)
                 "data_validity_comment": Column(pa.String, nullable=True, description="Комментарий о валидности данных"),
                 "activity_comment": Column(pa.String, nullable=True, description="Комментарий к активности"),
-                "lower_bound": Column(pa.Float, nullable=True, description="Нижняя граница"),
-                "upper_bound": Column(pa.Float, nullable=True, description="Верхняя граница"),
-                "is_censored": Column(pa.Bool, nullable=True, description="Флаг цензурированных данных"),
                 "published_type": Column(pa.String, nullable=True, description="Оригинальный тип опубликованной активности"),
                 "published_relation": Column(pa.String, nullable=True, description="Отношение"),
-                "published_value": Column(pa.Float, nullable=True, description="Оригинальное опубликованное значение"),
+                "published_value": Column(pa.String, nullable=True, description="Оригинальное опубликованное значение"),
                 "published_units": Column(pa.String, nullable=True, description="Оригинальные единицы"),
                 "standard_type": Column(pa.String, nullable=True, description="Стандартизованный тип активности"),
                 "standard_relation": Column(pa.String, nullable=True, description="Стандартизованное отношение"),
-                "standard_value": Column(pa.Float, nullable=True, description="Стандартизованное значение"),
+                "standard_value": Column(pa.String, nullable=True, description="Стандартизованное значение"),
                 "standard_units": Column(pa.String, nullable=True, description="Стандартизованные единицы"),
-                "standard_flag": Column(pa.Bool, nullable=True, description="Флаг стандартизации"),
+                "standard_flag": Column(pa.Int, nullable=True, description="Флаг стандартизации"),
+                "pchembl_value": Column(pa.String, nullable=True, description="pChEMBL значение"),
                 "bao_endpoint": Column(pa.String, nullable=True, description="BAO endpoint классификация"),
                 "bao_format": Column(pa.String, nullable=True, description="BAO format классификация"),
                 "bao_label": Column(pa.String, nullable=True, description="BAO label классификация"),
+                "source_system": Column(pa.String, nullable=True, description="Система-источник"),
             }
         )
 

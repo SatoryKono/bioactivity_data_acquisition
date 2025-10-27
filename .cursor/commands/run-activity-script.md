@@ -4,7 +4,7 @@
 **Defaults (edit if needed):**
 - `INPUT`: `data\input\activity.csv`
 - `CONFIG`: `configs\config_activity.yaml`
-- `LIMIT`: `1`
+- `LIMIT`: `100`
 
 **Steps (Agent):**
 1. Run (Windows cmd/PowerShell compatible):

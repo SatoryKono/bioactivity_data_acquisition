@@ -76,8 +76,8 @@ class SourceConfigSection(BaseConfigSection):
     def _set_default_name(cls, v: Any, info: Any) -> str:
         """Set default name from field name if not provided."""
         if v is None and hasattr(info, "field_name"):
-            return info.field_name
-        return v
+            return str(info.field_name)
+        return str(v)
 
 
 class IOSection(BaseConfigSection):
@@ -95,7 +95,7 @@ class IOSection(BaseConfigSection):
         """Convert string to Path."""
         if isinstance(v, str):
             return Path(v)
-        return v
+        return Path(v)
 
 
 class RuntimeSection(BaseConfigSection):

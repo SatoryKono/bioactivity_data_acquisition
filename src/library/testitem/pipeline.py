@@ -227,7 +227,7 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     
     # Normalize molecule_chembl_id if present
     if has_molecule_id:
-        normalised["molecule_chembl_id"] = normalised["molecule_chembl_id"].astype(str).str.strip()
+        normalised["molecule_chembl_id"] = normalised["molecule_chembl_id"].astype(str).str.strip().replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
         # Remove rows with empty molecule_chembl_id
         normalised = normalised[normalised["molecule_chembl_id"].str.len() > 0]
     
@@ -240,7 +240,7 @@ def _normalise_columns(frame: pd.DataFrame) -> pd.DataFrame:
     for field in optional_fields:
         if field in normalised.columns:
             if field in ["parent_chembl_id"]:
-                normalised[field] = normalised[field].astype(str).str.strip()
+                normalised[field] = normalised[field].astype(str).str.strip().replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
             elif field in ["parent_molregno"]:
                 normalised[field] = pd.to_numeric(normalised[field], errors='coerce')
             elif field in ["pubchem_cid"]:
@@ -291,148 +291,13 @@ def run_testitem_etl(
             meta={"pipeline_version": config.pipeline_version, "row_count": 0}
         )
 
-    # S01: Get ChEMBL status and release
-    logger.info("S01: Getting ChEMBL status and release...")
-    chembl_client = _create_chembl_client(config)
-    try:
-        status_info = chembl_client.get_chembl_status()
-        chembl_release = status_info.get("chembl_release", "unknown")
-        if chembl_release is None:
-            chembl_release = "unknown"
-        logger.info(f"ChEMBL release: {chembl_release}")
-    except Exception as e:
-        logger.warning(f"Failed to get ChEMBL status: {e}")
-        chembl_release = "unknown"
-
-    # Create PubChem client if enabled
-    pubchem_client = None
-    if config.enable_pubchem:
-        try:
-            pubchem_client = _create_pubchem_client(config)
-            logger.info("PubChem client created successfully")
-        except Exception as e:
-            logger.warning(f"Failed to create PubChem client: {e}")
-            logger.warning("Continuing without PubChem enrichment")
-
-    # S02-S10: Extract, normalize, validate data
-    logger.info("S02-S10: Extracting, normalizing, and validating data...")
+    # Create and run pipeline
+    pipeline = TestitemPipeline(config)
     
-    # Extract data from APIs
-    extracted_frame = extract_batch_data(chembl_client, pubchem_client, normalised, config)
+    # Run the pipeline
+    result = pipeline.run(normalised)
     
-    if extracted_frame.empty:
-        logger.warning("No data extracted from APIs")
-        return TestitemETLResult(
-            testitems=pd.DataFrame(),
-            qc=pd.DataFrame([{"metric": "row_count", "value": 0}]),
-            meta={"pipeline_version": config.pipeline_version, "row_count": 0}
-        )
-
-    # Add chembl_release to all records
-    extracted_frame["chembl_release"] = chembl_release
-
-    # Normalize data
-    normalized_frame = normalize_testitem_data(extracted_frame)
-
-    # Validate data
-    validated_frame = validate_testitem_data(normalized_frame)
-
-    # Calculate QC metrics
-    qc_metrics = [
-        {"metric": "row_count", "value": int(len(validated_frame))},
-        {"metric": "chembl_release", "value": chembl_release},
-        {"metric": "pubchem_enabled", "value": config.enable_pubchem},
-    ]
-    
-    # Add source-specific metrics
-    if "source_system" in validated_frame.columns:
-        source_counts = validated_frame["source_system"].value_counts().to_dict()
-        qc_metrics.append({"metric": "source_counts", "value": source_counts})
-    
-    # Add PubChem enrichment metrics
-    if "pubchem_cid" in validated_frame.columns:
-        pubchem_count = validated_frame["pubchem_cid"].notna().sum()
-        qc_metrics.append({"metric": "pubchem_enriched_records", "value": int(pubchem_count)})
-    
-    # Add error metrics
-    if "error" in validated_frame.columns:
-        error_count = validated_frame["error"].notna().sum()
-        qc_metrics.append({"metric": "records_with_errors", "value": int(error_count)})
-    
-    qc = pd.DataFrame(qc_metrics)
-
-    # Create metadata
-    meta = {
-        "pipeline_version": config.pipeline_version,
-        "chembl_release": chembl_release,
-        "row_count": len(validated_frame),
-        "extraction_parameters": {
-            "total_molecules": len(validated_frame),
-            "pubchem_enabled": config.enable_pubchem,
-            "allow_parent_missing": config.allow_parent_missing,
-            "batch_size": getattr(config.runtime, 'batch_size', 200),
-            "retries": getattr(config.runtime, 'retries', 5),
-            "timeout_sec": getattr(config.runtime, 'timeout_sec', 30)
-        }
-    }
-
-    # Perform correlation analysis if enabled in config
-    correlation_analysis = None
-    correlation_reports = None
-    correlation_insights = None
-    
-    if (hasattr(config, 'postprocess') and 
-        hasattr(config.postprocess, 'correlation') and 
-        config.postprocess.correlation.enabled and 
-        len(validated_frame) > 1):
-        try:
-            logger.info("Performing correlation analysis...")
-            logger.info(f"Input data shape: {validated_frame.shape}")
-            logger.info(f"Input columns: {list(validated_frame.columns)}")
-            
-            # Подготавливаем данные для корреляционного анализа
-            analysis_df = prepare_data_for_correlation_analysis(
-                validated_frame, 
-                data_type="testitems", 
-                logger=logger
-            )
-            
-            logger.info(f"Prepared data shape: {analysis_df.shape}")
-            logger.info(f"Correlation analysis: {len(analysis_df.columns)} numeric columns, {len(analysis_df)} rows")
-            logger.info(f"Columns for analysis: {list(analysis_df.columns)}")
-            
-            if len(analysis_df.columns) > 1:
-                logger.info("Starting enhanced correlation analysis...")
-                # Perform correlation analysis
-                correlation_analysis = build_enhanced_correlation_analysis(analysis_df, logger)
-                logger.info("Enhanced correlation analysis completed")
-                
-                logger.info("Building correlation reports...")
-                correlation_reports = build_enhanced_correlation_reports(analysis_df, logger)
-                logger.info(f"Generated {len(correlation_reports)} correlation reports")
-                
-                logger.info("Building correlation insights...")
-                correlation_insights = build_correlation_insights(analysis_df, logger)
-                logger.info(f"Correlation analysis completed. Found {len(correlation_insights)} insights.")
-            else:
-                logger.warning("Not enough numeric columns for correlation analysis")
-                logger.warning(f"Available columns: {list(analysis_df.columns)}")
-                
-        except Exception as exc:
-            logger.warning(f"Error during correlation analysis: {exc}")
-            logger.warning(f"Error type: {type(exc).__name__}")
-            import traceback
-            logger.warning(f"Traceback: {traceback.format_exc()}")
-            # Continue without correlation analysis
-
-    return TestitemETLResult(
-        testitems=validated_frame, 
-        qc=qc,
-        meta=meta,
-        correlation_analysis=correlation_analysis,
-        correlation_reports=correlation_reports,
-        correlation_insights=correlation_insights
-    )
+    return result
 class TestitemPipeline(PipelineBase[TestitemConfig]):
     """Testitem ETL pipeline using unified PipelineBase."""
 
@@ -446,14 +311,19 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
     def _setup_clients(self) -> None:
         """Initialize HTTP clients for testitem sources."""
         self.clients = {}
+        logger.info(f"Setting up clients. Available sources: {list(self.config.sources.keys())}")
 
         # ChEMBL client
         if "chembl" in self.config.sources and self.config.sources["chembl"].enabled:
+            logger.info("Creating ChEMBL client")
             self.clients["chembl"] = self._create_chembl_client()
 
         # PubChem client
         if "pubchem" in self.config.sources and self.config.sources["pubchem"].enabled:
+            logger.info("Creating PubChem client")
             self.clients["pubchem"] = self._create_pubchem_client()
+        
+        logger.info(f"Clients created: {list(self.clients.keys())}")
 
     def _create_chembl_client(self) -> TestitemChEMBLClient:
         """Create ChEMBL client."""
@@ -473,6 +343,13 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
 
         # Get retry settings
         retries = source_config.http.retries or self.config.http.global_.retries
+        
+        # Get retry settings as dict
+        retries_dict = {
+            "total": retries.total,
+            "backoff_multiplier": retries.backoff_multiplier,
+            "backoff_max": getattr(retries, "backoff_max", 120.0)
+        }
 
         # Get rate limit settings if available
         rate_limit = None
@@ -486,7 +363,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             name="chembl",
             base_url=source_config.http.base_url,
             timeout=timeout,
-            retries=retries,
+            retries=retries_dict,
             rate_limit=rate_limit,
             headers=processed_headers,
         )
@@ -591,6 +468,8 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                 logger.error("Failed to extract from PubChem: %s", e)
                 if not getattr(self.config.runtime, "allow_incomplete_sources", False):
                     raise
+        else:
+            logger.warning(f"PubChem client not found in clients dict. Available clients: {list(self.clients.keys())}")
 
         # Validate input data first
         self.validator.validate_input(input_data)
@@ -1066,9 +945,9 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                             merged_data.at[idx, col] = str(value)
 
         # Debug: log what columns we have after merge
-        logger.debug("Columns after ChEMBL merge: %s", list(merged_data.columns))
+        logger.debug(f"Columns after ChEMBL merge: {list(merged_data.columns)}")
         if "parent_chembl_id" in merged_data.columns:
-            logger.debug("parent_chembl_id values: %s", merged_data["parent_chembl_id"].tolist())
+            logger.debug(f"parent_chembl_id values: {merged_data['parent_chembl_id'].tolist()}")
         else:
             logger.debug("parent_chembl_id column not found after merge")
 
@@ -1127,7 +1006,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                     # If conversion fails, keep as is
                     pass
 
-        logger.info("ChEMBL data merge completed: %d/%d records enriched (%.1f%%)", int(enriched_count), int(total_count), float(enrichment_rate * 100))
+        logger.info(f"ChEMBL data merge completed: {int(enriched_count)}/{int(total_count)} records enriched ({float(enrichment_rate * 100):.1f}%)")
 
         return merged_data
 
@@ -1148,7 +1027,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         total_count = len(merged_data)
         enrichment_rate = enriched_count / total_count if total_count > 0 else 0
 
-        logger.info("PubChem data merge completed: %d/%d records enriched (%.1f%%)", int(enriched_count), int(total_count), float(enrichment_rate * 100))
+        logger.info(f"PubChem data merge completed: {int(enriched_count)}/{int(total_count)} records enriched ({float(enrichment_rate * 100):.1f}%)")
 
         return merged_data
 
@@ -1295,7 +1174,7 @@ def write_testitem_outputs(
     """Persist ETL artefacts to disk and return the generated paths."""
 
     # Get basic output paths from persist function
-    result_paths = persist_testitem_data(result.testitems, output_dir, config)
+    result_paths = persist_testitem_data(result.data, output_dir, config)
     
     # Save correlation reports if available
     if result.correlation_reports:

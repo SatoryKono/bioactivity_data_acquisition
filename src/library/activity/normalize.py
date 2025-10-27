@@ -422,7 +422,7 @@ class ActivityNormalizer:
         
         for field in text_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.strip().replace('nan', None)
+                df[field] = df[field].astype(str).str.strip().replace(['None', 'nan', 'NaN', 'none', 'NULL', 'null'], pd.NA)
         
         return df
 
@@ -434,7 +434,7 @@ class ActivityNormalizer:
         
         for field in ontology_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.upper().replace('NAN', None)
+                df[field] = df[field].astype(str).str.upper().replace(['NONE', 'NAN', 'NULL'], pd.NA)
         
         return df
 
@@ -446,7 +446,7 @@ class ActivityNormalizer:
         
         for field in units_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.strip().str.lower().replace('nan', None)
+                df[field] = df[field].astype(str).str.strip().str.lower().replace(['none', 'nan', 'null', 'nil'], pd.NA)
         
         return df
 
@@ -458,10 +458,104 @@ class ActivityNormalizer:
         
         for field in comment_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.strip().str.capitalize().replace('Nan', None)
+                df[field] = df[field].astype(str).str.strip().str.capitalize().replace(['None', 'Nan', 'Null'], pd.NA)
         
         # QUDT units - только trim
         if 'qudt_units' in df.columns:
-            df['qudt_units'] = df['qudt_units'].astype(str).str.strip().replace('nan', None)
+            df['qudt_units'] = df['qudt_units'].astype(str).str.strip().replace(['None', 'nan', 'NaN', 'none', 'NULL', 'null'], pd.NA)
+        
+        return df
+    
+    def _add_missing_config_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add missing columns according to config column_order."""
+        logger.debug("Adding missing columns from config")
+        
+        # Get column_order from config
+        column_order = self.config.get('determinism', {}).get('column_order', [])
+        if not column_order:
+            logger.warning("No column_order found in config")
+            return df
+        
+        # Create mapping from ChEMBL API fields to config fields
+        field_mapping = {
+            # Basic activity fields
+            'activity_id': 'activity_chembl_id',  # Use activity_chembl_id as activity_id
+            'assay_id': 'assay_chembl_id',  # Use assay_chembl_id as assay_id  
+            'doc_id': 'document_chembl_id',  # Use document_chembl_id as doc_id
+            'record_id': None,  # Not available from ChEMBL API, will be NULL
+            'molregno': 'molecule_chembl_id',  # Use molecule_chembl_id as molregno
+            
+            # Activity data fields
+            'type': 'published_type',
+            'relation': 'published_relation', 
+            'value': 'published_value',
+            'units': 'published_units',
+            'text_value': None,  # Not available, will be NULL
+            'upper_value': None,  # Not available, will be NULL
+            
+            # Standardized fields (already exist)
+            'standard_type': 'standard_type',
+            'standard_relation': 'standard_relation',
+            'standard_value': 'standard_value', 
+            'standard_units': 'standard_units',
+            'standard_flag': 'standard_flag',
+            'standard_text_value': None,  # Not available, will be NULL
+            'standard_upper_value': None,  # Not available, will be NULL
+            
+            # Comments and metadata
+            'activity_comment': 'activity_comment',
+            'data_validity_comment': 'data_validity_comment',
+            'potential_duplicate': None,  # Not available, will be NULL
+            'pchembl_value': 'pchembl_value',
+            
+            # Ontology fields
+            'bao_endpoint': 'bao_endpoint',
+            'uo_units': None,  # Not available, will be NULL
+            'qudt_units': None,  # Not available, will be NULL
+            'src_id': None,  # Not available, will be NULL
+            'action_type': None,  # Not available, will be NULL
+            
+            # Activity properties (not available from ChEMBL API)
+            'activity_prop_type': None,
+            'activity_prop_relation': None,
+            'activity_prop_value': None,
+            'activity_prop_units': None,
+            'activity_prop_text_value': None,
+            'activity_prop_standard_type': None,
+            'activity_prop_standard_relation': None,
+            'activity_prop_standard_value': None,
+            'activity_prop_standard_units': None,
+            'activity_prop_standard_text_value': None,
+            'activity_prop_comments': None,
+            'activity_prop_result_flag': None,
+            
+            # Ligand efficiency (not available from ChEMBL API)
+            'bei': None,
+            'sei': None,
+            'le': None,
+            'lle': None,
+            
+            # System fields (already added by metadata)
+            'index': 'index',
+            'pipeline_version': 'pipeline_version',
+            'source_system': 'source_system',
+            'chembl_release': 'chembl_release',
+            'extracted_at': 'extracted_at',
+            'hash_row': 'hash_row',
+            'hash_business_key': 'hash_business_key',
+        }
+        
+        # Add missing columns
+        for config_col in column_order:
+            if config_col not in df.columns:
+                source_col = field_mapping.get(config_col)
+                if source_col and source_col in df.columns:
+                    # Copy from source column
+                    df[config_col] = df[source_col]
+                    logger.debug(f"Added column {config_col} from {source_col}")
+                else:
+                    # Add as NULL
+                    df[config_col] = None
+                    logger.debug(f"Added column {config_col} as NULL")
         
         return df

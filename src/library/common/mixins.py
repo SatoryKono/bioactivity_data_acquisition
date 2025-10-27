@@ -212,6 +212,8 @@ class NormalizationMixin(ABC):
         for col in normalized_data.select_dtypes(include=["object"]).columns:
             if normalized_data[col].dtype == "object":
                 normalized_data[col] = normalized_data[col].astype(str).str.strip()
+                # Replace string representations of empty values with pd.NA
+                normalized_data[col] = normalized_data[col].replace(["None", "nan", "NaN", "none", "NULL", "null"], pd.NA)
                 normalized_data[col] = normalized_data[col].replace("", pd.NA)
 
         return normalized_data

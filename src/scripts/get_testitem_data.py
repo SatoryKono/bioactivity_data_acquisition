@@ -257,34 +257,26 @@ Examples:
             # Print summary
             print("\nSummary:")
             # Используем фактический размер результирующего датафрейма
-            print(f"  Total molecules: {len(result.testitems)}")
-            print(f"  Pipeline version: {result.meta.get('pipeline_version', 'unknown')}")
-            print(f"  ChEMBL release: {result.meta.get('chembl_release', 'unknown')}")
+            print(f"  Total molecules: {len(result.data)}")
+            print(f"  Pipeline version: {getattr(result.metadata.pipeline, 'pipeline_version', 'unknown') if hasattr(result.metadata, 'pipeline') else 'unknown'}")
+            print(f"  ChEMBL release: {getattr(result.metadata.execution, 'chembl_release', 'unknown') if hasattr(result.metadata, 'execution') else 'unknown'}")
             # Отображаем состояние PubChem по конфигурации запуска
             print(f"  PubChem enabled: {config.enable_pubchem}")
             print(f"  Date tag: {date_tag}")
             
             # Print source statistics
-            source_counts = result.meta.get('source_counts', {})
+            source_counts = getattr(result.metadata.pipeline, 'source_counts', {}) if hasattr(result.metadata, 'pipeline') else {}
             print("\nSource statistics:")
             for source, count in source_counts.items():
                 print(f"  {source}: {count} records")
             
             # Print PubChem enrichment statistics
-            pubchem_stats = result.meta.get('pubchem_enrichment', {})
-            if pubchem_stats.get('enabled', False):
+            pubchem_stats = getattr(result.metadata.pipeline, 'pubchem_enrichment', {}) if hasattr(result.metadata, 'pipeline') else {}
+            if isinstance(pubchem_stats, dict) and pubchem_stats.get('enabled', False):
                 enrichment_rate = pubchem_stats.get('enrichment_rate', 0)
                 records_with_pubchem = pubchem_stats.get('records_with_pubchem_data', 0)
                 print(f"  PubChem enrichment rate: {enrichment_rate:.1%}")
                 print(f"  Records with PubChem data: {records_with_pubchem}")
-            
-            # Print data quality metrics
-            data_quality = result.meta.get('data_quality', {})
-            if data_quality:
-                error_rate = data_quality.get('error_rate', 0)
-                records_with_errors = data_quality.get('records_with_errors', 0)
-                print(f"  Data quality - Error rate: {error_rate:.1%}")
-                print(f"  Data quality - Records with errors: {records_with_errors}")
         else:
             print("Dry run completed. No files were written.")
         
