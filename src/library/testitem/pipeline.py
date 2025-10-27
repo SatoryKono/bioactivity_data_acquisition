@@ -20,6 +20,7 @@ from library.testitem.normalize import TestitemNormalizer
 from library.testitem.persist import persist_testitem_data
 from library.testitem.quality import TestitemQualityFilter
 from library.testitem.validate import TestitemValidator
+from library.testitem.constants import TESTITEM_CHEMBL_FIELDS
 
 logger = logging.getLogger(__name__)
 
@@ -490,60 +491,8 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
 
         logger.info(f"Extracting ChEMBL data for {len(molecule_ids)} molecules")
 
-        # ChEMBL fields to extract
-        chembl_fields = [
-            "molecule_chembl_id",
-            "molregno",
-            "pref_name",
-            "max_phase",
-            "therapeutic_flag",
-            "structure_type",
-            "alogp",
-            "hba",
-            "hbd",
-            "psa",
-            "rtb",
-            "ro3_pass",
-            "qed_weighted",
-            "oral",
-            "parenteral",
-            "topical",
-            "withdrawn_flag",
-            "parent_chembl_id",
-            "molecule_type",
-            "first_approval",
-            "black_box_warning",
-            "natural_product",
-            "first_in_class",
-            "chirality",
-            "prodrug",
-            "inorganic_flag",
-            "polymer_flag",
-            "usan_year",
-            "availability_type",
-            "usan_stem",
-            "usan_substem",
-            "usan_stem_definition",
-            "indication_class",
-            "withdrawn_year",
-            "withdrawn_country",
-            "withdrawn_reason",
-            "mechanism_of_action",
-            "direct_interaction",
-            "molecular_mechanism",
-            "drug_chembl_id",
-            "drug_name",
-            "drug_type",
-            "drug_substance_flag",
-            "drug_indication_flag",
-            "drug_antibacterial_flag",
-            "drug_antiviral_flag",
-            "drug_antifungal_flag",
-            "drug_antiparasitic_flag",
-            "drug_antineoplastic_flag",
-            "drug_immunosuppressant_flag",
-            "drug_antiinflammatory_flag",
-        ]
+        # Use fields from constants - these are the fields we request from ChEMBL API
+        chembl_fields = list(TESTITEM_CHEMBL_FIELDS)
 
         # Use streaming batch processing with configurable batch size
         batch_size = getattr(self.config.runtime, 'batch_size', 25)
@@ -553,7 +502,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         batch_index = 0
         
         # Use client's streaming batch API for better memory efficiency
-        for batch_ids, batch_results in client.fetch_molecules_batch_streaming(molecule_ids, batch_size):
+        for batch_ids, batch_results in client.fetch_molecules_batch_streaming(molecule_ids, batch_size, fields=chembl_fields):
             batch_index += 1
             logger.info(f"Processing ChEMBL batch {batch_index}: {len(batch_ids)} molecules")
             
@@ -611,12 +560,39 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         import json
 
         flattened = molecule.copy()
+        
+        # Ensure top-level fields are preserved
+        # These fields come directly from the API response (not nested)
+        top_level_fields = [
+            "molecule_chembl_id", "molregno", "pref_name", "parent_molecule_chembl_id",
+            "max_phase", "molecule_type", "first_approval", "structure_type",
+            "therapeutic_flag", "dosed_ingredient",
+            "oral", "parenteral", "topical", "black_box_warning",
+            "natural_product", "first_in_class", "chirality", "prodrug",
+            "inorganic_flag", "polymer_flag",
+            "usan_year", "availability_type", "usan_stem", "usan_substem",
+            "usan_stem_definition", "indication_class",
+            "withdrawn_flag", "withdrawn_year", "withdrawn_country", "withdrawn_reason",
+            "mechanism_of_action", "direct_interaction", "molecular_mechanism",
+            "drug_chembl_id", "drug_name", "drug_type",
+            "drug_substance_flag", "drug_indication_flag", "drug_antibacterial_flag",
+            "drug_antiviral_flag", "drug_antifungal_flag", "drug_antiparasitic_flag",
+            "drug_antineoplastic_flag", "drug_immunosuppressant_flag", "drug_antiinflammatory_flag",
+            "orphan", "veterinary", "chemical_probe", "helm_notation"
+        ]
+        
+        # These should already be in flattened, but we ensure they're present
+        for field in top_level_fields:
+            if field in molecule and field not in flattened:
+                flattened[field] = molecule.get(field)
 
         # Extract from molecule_hierarchy
         if "molecule_hierarchy" in molecule and molecule["molecule_hierarchy"]:
             hierarchy = molecule["molecule_hierarchy"]
             flattened["parent_chembl_id"] = hierarchy.get("parent_chembl_id")
             flattened["parent_molregno"] = hierarchy.get("parent_molregno")
+            # Note: parent_chembl_id should map to parent_chembl_id (not parent_molecule_chembl_id)
+            # which is different from parent_molecule_chembl_id field
 
         # Extract from molecule_properties
         if "molecule_properties" in molecule and molecule["molecule_properties"]:
@@ -645,6 +621,9 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             flattened["acd_logp"] = props.get("acd_logp")
             flattened["acd_most_apka"] = props.get("acd_most_apka")
             flattened["acd_most_bpka"] = props.get("acd_most_bpka")
+            
+            # Additional properties that might be available
+            # These are included to ensure we capture all data if available
 
             # Механизм действия
             flattened["mechanism_of_action"] = props.get("mechanism_of_action")
@@ -746,6 +725,28 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         # Extract molecule_type_chembl
         if "molecule_type_chembl" in molecule:
             flattened["molecule_type_chembl"] = molecule.get("molecule_type_chembl")
+        
+        # Derive pref_name_key from pref_name (lowercase for searching)
+        if "pref_name" in flattened and flattened["pref_name"] and pd.notna(flattened["pref_name"]):
+            try:
+                flattened["pref_name_key"] = str(flattened["pref_name"]).lower().strip()
+            except Exception:
+                flattened["pref_name_key"] = None
+        else:
+            flattened["pref_name_key"] = None
+        
+        # Derive salt_chembl_id: if molecule has a parent and it's different from itself, it's a salt
+        if "molecule_chembl_id" in flattened and "parent_chembl_id" in flattened:
+            molecule_id = flattened.get("molecule_chembl_id")
+            parent_id = flattened.get("parent_chembl_id")
+            
+            # Check if this is a salt (has parent and parent is different from itself)
+            if parent_id and molecule_id and parent_id != molecule_id:
+                flattened["salt_chembl_id"] = molecule_id
+            else:
+                flattened["salt_chembl_id"] = None
+        else:
+            flattened["salt_chembl_id"] = None
 
         return flattened
 

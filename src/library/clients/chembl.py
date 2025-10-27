@@ -156,11 +156,82 @@ class TestitemChEMBLClient(BaseApiClient):
                 results[chembl_id] = self.fetch_molecule(chembl_id)
             return results
 
-    def fetch_molecules_batch_streaming(self, molecule_chembl_ids: list[str], batch_size: int) -> Iterator[tuple[list[str], dict[str, dict[str, Any]]]]:
-        """Fetch molecules in streaming batches."""
-        for i in range(0, len(molecule_chembl_ids), batch_size):
-            batch_ids = molecule_chembl_ids[i:i + batch_size]
-            batch_results = self.fetch_molecules_batch(batch_ids)
+    def fetch_molecules_batch_streaming(
+        self, 
+        molecule_ids: list[str], 
+        batch_size: int = 25,
+        fields: tuple[str, ...] | None = None
+    ) -> Iterator[tuple[list[str], dict[str, dict[str, Any]]]]:
+        """Fetch molecule data in streaming batches.
+        
+        Args:
+            molecule_ids: List of ChEMBL molecule IDs to fetch
+            batch_size: Number of molecules per batch (max 25 for ChEMBL API)
+            fields: Optional tuple of field names to request from API.
+                    If None, all available fields are requested.
+                    
+        Yields:
+            Tuple of (batch_ids, batch_results) where:
+            - batch_ids: List of molecule IDs in this batch
+            - batch_results: Dict mapping molecule_id to molecule data
+        """
+        if not molecule_ids:
+            return
+            
+        # Limit batch size to ChEMBL API maximum
+        effective_batch_size = min(batch_size, 25)
+        
+        for i in range(0, len(molecule_ids), effective_batch_size):
+            batch_ids = molecule_ids[i:i + effective_batch_size]
+            batch_results = {}
+            
+            try:
+                # Build query parameters
+                params = {
+                    "format": "json",
+                    "limit": len(batch_ids)
+                }
+                
+                # Add fields parameter if specified
+                if fields:
+                    params["fields"] = ",".join(fields)
+                
+                # Build URL with molecule IDs filter
+                ids_str = ",".join(batch_ids)
+                endpoint = f"molecule.json?molecule_chembl_id__in={ids_str}"
+                
+                # Build query string for additional params
+                from urllib.parse import urlencode
+                if params:
+                    query_string = urlencode(params)
+                    endpoint += f"&{query_string}"
+                
+                # Make request
+                response = self._request("GET", endpoint)
+                payload = response.json()
+                
+                # Parse molecules from response
+                molecules = payload.get("molecules", [])
+                
+                # Convert to dict keyed by molecule_chembl_id
+                for molecule in molecules:
+                    chembl_id = molecule.get("molecule_chembl_id")
+                    if chembl_id:
+                        batch_results[chembl_id] = molecule
+                
+                # Add empty records for molecules not found
+                for chembl_id in batch_ids:
+                    if chembl_id not in batch_results:
+                        batch_results[chembl_id] = {}
+                
+                logger.debug(f"Fetched {len(batch_results)} molecules from batch of {len(batch_ids)}")
+                
+            except Exception as e:
+                logger.error(f"Failed to fetch batch of molecules: {e}")
+                # Add empty records for failed batch
+                for chembl_id in batch_ids:
+                    batch_results[chembl_id] = {}
+            
             yield batch_ids, batch_results
 
     def _parse_molecule(self, payload: dict[str, Any]) -> dict[str, Any]:
