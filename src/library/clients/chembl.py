@@ -58,6 +58,47 @@ class TestitemChEMBLClient(BaseApiClient):
                 "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             }
 
+    def fetch(self, url: str, cfg: Any, timeout: float | None = None) -> dict[str, Any]:
+        """Fetch data from ChEMBL API endpoint.
+        
+        This method provides compatibility with legacy code that expects a fetch() method.
+        It extracts the endpoint from the full URL and uses the internal _request() method.
+        
+        Args:
+            url: Full URL or endpoint path
+            cfg: Configuration object (unused, kept for compatibility)
+            timeout: Request timeout in seconds
+            
+        Returns:
+            Dictionary containing the API response data
+            
+        Raises:
+            Exception: If the request fails
+        """
+        try:
+            # Extract endpoint from full URL if needed
+            if url.startswith("http"):
+                # Remove base URL to get endpoint
+                endpoint = url.replace(self.config.base_url, "").lstrip("/")
+            else:
+                endpoint = url.lstrip("/")
+            
+            # Make request using internal method
+            response = self._request("GET", endpoint, timeout=timeout)
+            
+            # Return JSON data if response is a Response object, otherwise return as-is
+            if hasattr(response, 'json'):
+                return response.json()
+            elif isinstance(response, dict):
+                return response
+            else:
+                # Try to parse as JSON if it's a string
+                return json.loads(response) if isinstance(response, str) else response
+                
+        except Exception as e:
+            logger.error(f"Failed to fetch data from {url}: {e}")
+            raise
+
     def fetch_molecule(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule data by ChEMBL ID using proper API endpoint."""
         try:

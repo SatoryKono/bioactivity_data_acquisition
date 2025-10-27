@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from typing import Any
 
@@ -68,9 +69,6 @@ class PubMedClient(BaseApiClient):
         if api_key:
             params["api_key"] = api_key
             
-        payload = self._request("GET", "esummary.fcgi", params=params)
-        
-
         try:
             response = self._request("GET", "esummary.fcgi", params=params)
             payload = response.json()
@@ -148,8 +146,6 @@ class PubMedClient(BaseApiClient):
         if payload.get("pmid") and str(payload.get("pmid")) == str(pmid):
             return self._normalise_record(payload)
             
-        self.logger.warning("unexpected_payload_format", pmid=pmid, payload_keys=list(payload.keys()))
-
         self.logger.warning("unexpected_payload_format pmid=%s payload_keys=%s", pmid, list(payload.keys()))
         return None
 
@@ -164,12 +160,6 @@ class PubMedClient(BaseApiClient):
             formatted_authors = None
 
         # Обработка DOI
-        doi_value: str | None
-        doi_list = record.get("doiList")
-        if isinstance(doi_list, list) and doi_list:
-            doi_value = doi_list[0]
-        else:
-            doi_value = record.get("doi")
         doi_value: str | None = None
 
         # Сначала проверяем articleids (основной источник DOI в PubMed)
@@ -306,6 +296,89 @@ class PubMedClient(BaseApiClient):
 
         return None
 
+    def _extract_doi_from_xml(self, root: ET.Element) -> str | None:
+        """Извлекает DOI из XML корня."""
+        # Ищем ArticleId с IdType="doi"
+        for article_id in root.findall(".//ArticleId"):
+            if article_id.get("IdType") == "doi":
+                return article_id.text
+        return None
+
+    def _extract_abstract_from_xml(self, root: ET.Element) -> str | None:
+        """Извлекает abstract из XML корня."""
+        abstract_parts = []
+        
+        # Ищем все AbstractText элементы
+        for abstract_text in root.findall(".//AbstractText"):
+            if abstract_text.text:
+                abstract_parts.append(abstract_text.text.strip())
+        
+        if abstract_parts:
+            return " ".join(abstract_parts)
+        
+        # Fallback: ищем в Abstract элементе
+        abstract_elem = root.find(".//Abstract")
+        if abstract_elem is not None and abstract_elem.text:
+            return abstract_elem.text.strip()
+        
+        return None
+
+    def _extract_mesh_from_xml(self, root: ET.Element) -> tuple[str | None, str | None]:
+        """Извлекает MeSH descriptors и qualifiers из XML."""
+        descriptors = []
+        qualifiers = []
+        
+        # Извлекаем descriptors
+        for descriptor in root.findall(".//DescriptorName"):
+            if descriptor.text:
+                descriptors.append(descriptor.text.strip())
+        
+        # Извлекаем qualifiers
+        for qualifier in root.findall(".//QualifierName"):
+            if qualifier.text:
+                qualifiers.append(qualifier.text.strip())
+        
+        descriptors_str = "; ".join(descriptors) if descriptors else None
+        qualifiers_str = "; ".join(qualifiers) if qualifiers else None
+        
+        return descriptors_str, qualifiers_str
+
+    def _extract_chemicals_from_xml(self, root: ET.Element) -> str | None:
+        """Извлекает список химических веществ из XML."""
+        chemicals = []
+        
+        # Ищем химические вещества в разных местах XML
+        for chemical in root.findall(".//NameOfSubstance"):
+            if chemical.text:
+                chemicals.append(chemical.text.strip())
+        
+        # Также ищем в ChemicalList
+        for chemical in root.findall(".//ChemicalList//NameOfSubstance"):
+            if chemical.text:
+                chemicals.append(chemical.text.strip())
+        
+        return "; ".join(chemicals) if chemicals else None
+
+    def _fallback_regex_parsing(self, xml_content: str, record: dict[str, Any]) -> None:
+        """Fallback regex парсинг если XML парсинг не удался."""
+        import re
+        
+        # DOI
+        doi_match = re.search(r'<ArticleId IdType="doi">([^<]+)</ArticleId>', xml_content)
+        if doi_match:
+            record["pubmed_doi"] = doi_match.group(1)
+        
+        # Abstract
+        abstract_matches = re.findall(r'<AbstractText[^>]*>(.*?)</AbstractText>', xml_content, re.DOTALL)
+        if abstract_matches:
+            abstract_parts = []
+            for match in abstract_matches:
+                clean_abstract = re.sub(r'<[^>]+>', '', match).strip()
+                if clean_abstract:
+                    abstract_parts.append(clean_abstract)
+            if abstract_parts:
+                record["pubmed_abstract"] = ' '.join(abstract_parts)
+
     def _create_empty_record(self, pmid: str, error_msg: str) -> dict[str, Any]:
         """Создает пустую запись для случая ошибки."""
         return {
@@ -339,7 +412,7 @@ class PubMedClient(BaseApiClient):
         }
 
     def _enhance_with_efetch(self, record: dict[str, Any], pmid: str) -> dict[str, Any]:
-        """Улучшает запись данными из efetch для получения DOI и abstract."""
+        """Улучшает запись данными из efetch для получения DOI, abstract и MeSH."""
         try:
             # Получаем полную информацию через efetch напрямую через requests
             import requests
@@ -357,126 +430,48 @@ class PubMedClient(BaseApiClient):
             if response.status_code == 200:
                 xml_content = response.text
                 
-                # Простой парсинг XML для извлечения DOI и abstract
-                import re
-                
-                # Ищем DOI в XML
-                doi_match = re.search(r'<ArticleId IdType="doi">([^<]+)</ArticleId>', xml_content)
-                if doi_match:
-                    record["pubmed_doi"] = doi_match.group(1)
-                
-                # Ищем abstract в XML - улучшенный поиск
-                # Сначала ищем все AbstractText теги
-                abstract_matches = re.findall(r'<AbstractText[^>]*>(.*?)</AbstractText>', xml_content, re.DOTALL)
-                if abstract_matches:
-                    # Объединяем все части abstract
-                    abstract_parts = []
-                    for match in abstract_matches:
-                        # Очищаем от HTML тегов внутри abstract
-                        clean_abstract = re.sub(r'<[^>]+>', '', match).strip()
-                        if clean_abstract:
-                            abstract_parts.append(clean_abstract)
+                # Парсим XML с помощью xml.etree
+                try:
+                    root = ET.fromstring(xml_content)
                     
-                    if abstract_parts:
-                        record["pubmed_abstract"] = ' '.join(abstract_parts)
+                    # Извлекаем DOI
+                    doi_value = self._extract_doi_from_xml(root)
+                    if doi_value:
+                        record["pubmed_doi"] = doi_value
+                    
+                    # Извлекаем abstract
+                    abstract_text = self._extract_abstract_from_xml(root)
+                    if abstract_text:
+                        record["pubmed_abstract"] = abstract_text
+                    
+                    # Извлекаем MeSH descriptors и qualifiers
+                    mesh_descriptors, mesh_qualifiers = self._extract_mesh_from_xml(root)
+                    if mesh_descriptors:
+                        record["pubmed_mesh_descriptors"] = mesh_descriptors
+                    if mesh_qualifiers:
+                        record["pubmed_mesh_qualifiers"] = mesh_qualifiers
+                    
+                    # Извлекаем chemical list
+                    chemical_list = self._extract_chemicals_from_xml(root)
+                    if chemical_list:
+                        record["pubmed_chemical_list"] = chemical_list
+                        
+                except ET.ParseError as e:
+                    self.logger.warning(f"XML parsing failed for PMID {pmid}: {e}")
+                    # Fallback к regex парсингу
+                    self._fallback_regex_parsing(xml_content, record)
                 
-                # Если не нашли через AbstractText, попробуем другие варианты
-                if not record.get("pubmed_abstract"):
-                    # Ищем в других возможных местах
-                    abstract_alt = re.search(r'<Abstract[^>]*>(.*?)</Abstract>', xml_content, re.DOTALL)
-                    if abstract_alt:
-                        clean_abstract = re.sub(r'<[^>]+>', '', abstract_alt.group(1)).strip()
-                        if clean_abstract:
-                            record["pubmed_abstract"] = clean_abstract
+            else:
+                self.logger.warning(f"efetch failed for PMID {pmid}: HTTP {response.status_code}")
                 
-                # Извлекаем MeSH descriptors
-                mesh_descriptors = re.findall(r'<MeshHeadingList[^>]*>.*?<DescriptorName[^>]*>([^<]+)</DescriptorName>.*?</MeshHeadingList>', xml_content, re.DOTALL)
-                if mesh_descriptors:
-                    record["pubmed_mesh_descriptors"] = "; ".join(mesh_descriptors)
-                
-                # Извлекаем MeSH qualifiers
-                mesh_qualifiers = re.findall(r'<QualifierName[^>]*>([^<]+)</QualifierName>', xml_content)
-                if mesh_qualifiers:
-                    record["pubmed_mesh_qualifiers"] = "; ".join(mesh_qualifiers)
-                
-                # Извлекаем Chemical List
-                chemical_list = re.findall(r'<ChemicalList[^>]*>.*?<NameOfSubstance[^>]*>([^<]+)</NameOfSubstance>.*?</ChemicalList>', xml_content, re.DOTALL)
-                if chemical_list:
-                    record["pubmed_chemical_list"] = "; ".join(chemical_list)
-                
-                # Парсинг XML через lxml
-                from lxml import etree
-
-                from library.xml import make_xml_parser, select_many, select_one, text
-
-                parser = make_xml_parser(recover=True)
-                root = etree.fromstring(xml_content.encode("utf-8"), parser)
-
-                # XPath каталог для PubMed
-                self._extract_doi(root, record)
-                self._extract_abstract(root, record)
-                self._extract_mesh_terms(root, record)
-                self._extract_chemicals(root, record)
-
-            return record
-
         except Exception as e:
-            self.logger.warning("efetch_parsing_failed", pmid=pmid, error=str(e))
-            return record
+            self.logger.warning(f"efetch enhancement failed for PMID {pmid}: {e}")
+        
+        return record
 
-    def _extract_doi(self, root, record: dict[str, Any]) -> None:
-        """Извлекает DOI из XML."""
-        from library.xml import select_one, text
 
-        # XPath: //ArticleId[@IdType="doi"]/text()
-        doi_elem = select_one(root, './/ArticleId[@IdType="doi"]')
-        if doi_elem is not None:
-            record["pubmed_doi"] = text(doi_elem)
 
-    def _extract_abstract(self, root, record: dict[str, Any]) -> None:
-        """Извлекает abstract из XML."""
-        from library.xml import select_many, select_one, text
 
-        # XPath: //AbstractText/text()
-        abstract_elems = select_many(root, ".//AbstractText")
-        if abstract_elems:
-            parts = [text(elem) for elem in abstract_elems]
-            record["pubmed_abstract"] = " ".join(filter(None, parts))
-        else:
-            # Fallback: ищем в других возможных местах
-            abstract_alt = select_one(root, ".//Abstract")
-            if abstract_alt is not None:
-                record["pubmed_abstract"] = text(abstract_alt)
-
-    def _extract_mesh_terms(self, root, record: dict[str, Any]) -> None:
-        """Извлекает MeSH descriptors и qualifiers."""
-        from library.xml import select_many, select_one, text
-
-        # XPath: //MeshHeading
-        descriptors = []
-        qualifiers = []
-
-        mesh_headings = select_many(root, ".//MeshHeading")
-        for heading in mesh_headings:
-            descriptor_elem = select_one(heading, ".//DescriptorName")
-            if descriptor_elem is not None:
-                descriptors.append(text(descriptor_elem))
-
-            qualifier_elems = select_many(heading, ".//QualifierName")
-            for qual_elem in qualifier_elems:
-                qualifiers.append(text(qual_elem))
-
-        record["pubmed_mesh_descriptors"] = "; ".join(descriptors) if descriptors else None
-        record["pubmed_mesh_qualifiers"] = "; ".join(qualifiers) if qualifiers else None
-
-    def _extract_chemicals(self, root, record: dict[str, Any]) -> None:
-        """Извлекает chemical list."""
-        from library.xml import select_many, text
-
-        # XPath: //Chemical/NameOfSubstance/text()
-        chemical_elems = select_many(root, ".//Chemical/NameOfSubstance")
-        chemicals = [text(elem) for elem in chemical_elems]
-        record["pubmed_chemical_list"] = "; ".join(chemicals) if chemicals else None
 
     def _format_author(self, author: Any) -> str:
         if isinstance(author, str):

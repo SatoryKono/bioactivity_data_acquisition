@@ -6,10 +6,10 @@ config:
   limit: 100
   qc_enabled: true
   workers: 4
-extraction_timestamp: '2025-10-27T12:39:58.376093Z'
+extraction_timestamp: '2025-10-27T13:14:32.645867Z'
 file_checksums:
-  csv: 69f72c079f37b974aa1943b8dd7ddb7498638ebf9ced74122f97aaaf5e00ef89
-  qc: 473b4c325575c5a8f5498b21ab88cf8428c22241d9c12cb20cae60296f9e0f0a
+  csv: 1ddd21b4fed665f4be033ce568a3a25c9c482e2f38319d02d5c79533b2851354
+  qc: cd35a102569671ff6402e916600a7ee5209c3ddaf289d61fd7d12f737f7c6539
 pipeline_version: 1.0.0
 row_count: 100
 total_activities: 100

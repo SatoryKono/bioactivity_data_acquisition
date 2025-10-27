@@ -42,10 +42,10 @@ def _deterministic_order(
     # Создаем копию для безопасного изменения
     df_copy = df.copy()
     
-    # Добавляем отсутствующие колонки с NaN значениями
+    # Добавляем отсутствующие колонки с None значениями
     for col in determinism.column_order:
         if col not in df_copy.columns:
-            df_copy[col] = pd.NA
+            df_copy[col] = None
     
     # Применяем строгий порядок из конфига
     ordered = df_copy[determinism.column_order]
@@ -129,15 +129,15 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
 
                 # Нормализуем DOI
                 normalized_doi = normalize_doi_advanced(value)
-                # Если DOI невалидный, устанавливаем pd.NA
+                # Если DOI невалидный, устанавливаем None
                 if normalized_doi is None:
-                    df_normalized.loc[idx, column] = pd.NA
+                    df_normalized.loc[idx, column] = None
                 else:
                     df_normalized.loc[idx, column] = normalized_doi
                 
         elif str(df_normalized[column].dtypes) == 'object':  # Обычные строковые данные
-            # Заменяем None на NA
-            df_normalized[column] = df_normalized[column].replace([None], pd.NA)
+            # Заменяем None на None (оставляем как есть для корректного отображения в CSV)
+            df_normalized[column] = df_normalized[column].replace([None], None)
             
 
         elif str(df_normalized[column].dtypes) == "object":  # Обычные строковые данные
@@ -165,13 +165,13 @@ def _normalize_dataframe(df: pd.DataFrame, determinism: DeterminismSettings | No
 
                 # Проверяем, является ли результат пустой строкой или специальным значением
                 if str_value in ["", "nan", "none", "null"]:
-                    df_normalized.loc[idx, column] = pd.NA
+                    df_normalized.loc[idx, column] = None
                 else:
                     df_normalized.loc[idx, column] = str_value
 
         elif pd.api.types.is_numeric_dtype(df_normalized[column]):
-            # Числовые данные - заменяем NaN на pd.NA для консистентности
-            df_normalized[column] = df_normalized[column].replace([np.nan, np.inf, -np.inf], pd.NA)
+            # Числовые данные - заменяем NaN на None для консистентности
+            df_normalized[column] = df_normalized[column].replace([np.nan, np.inf, -np.inf], None)
 
         elif pd.api.types.is_bool_dtype(df_normalized[column]):
             # Логические данные - пропускаем нормализацию для всех булевых колонок
@@ -327,6 +327,13 @@ def write_deterministic_csv(
 
         # Нормализуем данные перед сохранением
         df_to_write = _normalize_dataframe(df_to_write, determinism=determinism, logger=logger)
+
+    # Финальная замена всех NA на None + преобразование StringDtype для корректного отображения в CSV
+    if not df_to_write.empty:
+        df_to_write = df_to_write.replace({pd.NA: None, np.nan: None})
+        for col in df_to_write.columns:
+            if hasattr(df_to_write[col].dtype, 'name') and df_to_write[col].dtype.name == 'string':
+                df_to_write[col] = df_to_write[col].astype(object)
 
     # Очищаем старые backup файлы перед записью
     from library.io_.atomic_writes import cleanup_backups

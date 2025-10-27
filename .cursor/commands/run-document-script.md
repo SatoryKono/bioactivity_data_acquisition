@@ -2,7 +2,7 @@
 **Goal:** Запустить сбор данных по документам напрямую через Python‑скрипт.
 
 **Defaults (edit if needed):**
-- `INPUT`: `data\input\document.csv`
+- `INPUT`: `data\input\documents.csv`
 - `CONFIG`: `configs\config_document.yaml`
 - `LIMIT`: `10`
 

@@ -39,7 +39,7 @@ sources:
     max_compounds: null               # Максимум соединений (null = без ограничений)
     
   uniprot:                            # UniProt REST API для белковых данных
-    enabled: false                     # Включен ли источник
+    enabled: true                     # Включен ли источник
     http:                             # HTTP настройки для UniProt
       base_url: "https://rest.uniprot.org"  # Базовый URL REST API
       timeout_sec: 30.0               # Таймаут для UniProt запросов
@@ -47,7 +47,12 @@ sources:
         total: 3                      # Количество попыток
         backoff_multiplier: 2.0       # Множитель задержки
     batch_size: 100                   # Размер батча для запросов
-    mapping_enabled: false             # Включить маппинг UniProt-ChEMBL
+    mapping_enabled: true             # Включить маппинг UniProt-ChEMBL
+    mapping:                          # Настройки маппинга ChEMBL→UniProt
+      base: "https://rest.uniprot.org/idmapping"  # Базовый URL для маппинга
+      timeout: 60.0                   # Таймаут для маппинга
+      poll_interval: 1.0              # Интервал опроса статуса
+      cache_ttl: 86400                # Время жизни кэша (24 часа)
     
   iuphar:                             # IUPHAR/BPS Guide to Pharmacology API
     enabled: false                     # Включен ли источник

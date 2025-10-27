@@ -29,9 +29,11 @@ class OpenAlexClient(BaseApiClient):
 
         # Use OpenAlex API format: https://api.openalex.org/works/https://doi.org/{doi}
         path = f"https://api.openalex.org/works/https://doi.org/{doi}"
+        self.logger.info(f"openalex_fetch_by_doi doi={doi} url={path}")
         try:
             response = self._request("GET", path)
             payload = response.json()
+            self.logger.info(f"openalex_fetch_by_doi_success doi={doi} status={response.status_code}")
             return self._parse_work(payload)
         except ApiClientError as exc:
             # Специальная обработка для ошибок 429 от OpenAlex
@@ -40,14 +42,15 @@ class OpenAlexClient(BaseApiClient):
                 self.logger.warning(f"openalex_rate_limited doi={doi} error={str(exc)} message=OpenAlex API rate limit exceeded. Consider getting an API key.")
                 return self._create_empty_record(doi, f"Rate limited: {str(exc)}")
             
-            self.logger.info("openalex_doi_fallback", doi=doi, error=str(exc))
-
-            self.logger.info("openalex_doi_fallback doi=%s error=%s", doi, str(exc))
+            self.logger.warning(f"openalex_doi_fallback doi={doi} error={str(exc)}")
             try:
                 # Fallback to OpenAlex search API
+                fallback_url = f"https://api.openalex.org/works?filter=doi:{doi}"
+                self.logger.info(f"openalex_doi_fallback_filter doi={doi} url={fallback_url}")
                 response = self._request("GET", "", params={"filter": f"doi:{doi}"})
                 payload = response.json()
                 results = payload.get("results", [])
+                self.logger.info(f"openalex_doi_fallback_filter_result doi={doi} results_count={len(results)}")
                 if not results:
                     raise
                 return self._parse_work(results[0])
@@ -63,8 +66,11 @@ class OpenAlexClient(BaseApiClient):
         try:
             # Используем прямой URL как в референсном проекте: /works/pmid:{pmid}
             path = f"works/pmid:{pmid}"
+            full_url = f"https://api.openalex.org/{path}"
+            self.logger.info(f"openalex_fetch_by_pmid pmid={pmid} url={full_url}")
             response = self._request("GET", path)
             payload = response.json()
+            self.logger.info(f"openalex_fetch_by_pmid_success pmid={pmid} status={response.status_code}")
             return self._parse_work(payload)
         except ApiClientError as exc:
             # Специальная обработка для ошибок 429 от OpenAlex
@@ -74,16 +80,23 @@ class OpenAlexClient(BaseApiClient):
                 return self._create_empty_record(pmid, f"Rate limited: {str(exc)}")
             
             # Fallback к поиску если прямой запрос не сработал
-            self.logger.info("openalex_pmid_fallback pmid=%s", pmid)
+            self.logger.warning(f"openalex_pmid_fallback pmid={pmid} error={str(exc)}")
             try:
+                # Попробуем filter API
+                filter_url = f"https://api.openalex.org/works?filter=pmid:{pmid}"
+                self.logger.info(f"openalex_pmid_fallback_filter pmid={pmid} url={filter_url}")
                 payload = self._request("GET", "", params={"filter": f"pmid:{pmid}"})
                 results = payload.get("results", [])
+                self.logger.info(f"openalex_pmid_fallback_filter_result pmid={pmid} results_count={len(results)}")
                 if results:
                     return self._parse_work(results[0])
 
-                self.logger.info("openalex_search_fallback", pmid=pmid)
+                # Попробуем search API
+                search_url = f"https://api.openalex.org/works?search={pmid}"
+                self.logger.info(f"openalex_pmid_search_fallback pmid={pmid} url={search_url}")
                 payload = self._request("GET", "", params={"search": pmid})
                 results = payload.get("results", [])
+                self.logger.info(f"openalex_pmid_search_fallback_result pmid={pmid} results_count={len(results)}")
                 if not results:
                     raise ApiClientError(f"No OpenAlex work found for PMID {pmid}")
                 return self._parse_work(results[0])
@@ -96,33 +109,31 @@ class OpenAlexClient(BaseApiClient):
     def _parse_work(self, work: dict[str, Any]) -> dict[str, Any]:
         ids = work.get("ids") or {}
 
-        # Debug logging
+        # Debug logging - добавляем больше информации для диагностики
         self.logger.debug(f"openalex_parse_work work_type={work.get('type')} work_type_crossref={work.get('type_crossref')} work_keys={list(work.keys())}")
+        
+        # Логируем ключевые поля для диагностики
+        title = work.get("display_name")
+        doi_value = ids.get("doi")
+        pmid_value = self._extract_pmid(work)
+        self.logger.info(f"openalex_parse_work_fields title_length={len(title) if title else 0} doi={doi_value} pmid={pmid_value} has_abstract={bool(work.get('abstract_inverted_index'))}")
 
-        # Извлекаем DOI - проверяем разные возможные поля
-        doi_value = work.get("doi") or ids.get("doi") or work.get("DOI")
+        # Извлекаем DOI - согласно OpenAlex API, DOI находится в ids.doi
+        doi_value = ids.get("doi")
         if doi_value and doi_value.startswith("https://doi.org/"):
             doi_value = doi_value.replace("https://doi.org/", "")
 
-        # Обрабатываем title - используем display_name как fallback
-        title = work.get("title") or work.get("display_name")
+        # OpenAlex НЕ возвращает title напрямую, только display_name
+        # display_name может быть заголовком статьи или описанием работы
+        title = work.get("display_name")
 
-        # Обрабатываем publication_year - проверяем разные поля
-        pub_year = work.get("publication_year") or work.get("year")
+        # Извлекаем publication_year - основное поле в OpenAlex API
+        pub_year = work.get("publication_year")
         if pub_year is not None:
             try:
                 pub_year = int(pub_year)
             except (ValueError, TypeError):
                 pub_year = None
-
-        # Если publication_year не найден, попробуем извлечь из published-print
-        if pub_year is None and "published-print" in work:
-            published_print = work["published-print"]
-            if "date-parts" in published_print and published_print["date-parts"]:
-                try:
-                    pub_year = int(published_print["date-parts"][0][0])
-                except (ValueError, TypeError, IndexError):
-                    pub_year = None
 
         # Извлекаем type_crossref - проверяем разные возможные поля
         type_crossref = work.get("type_crossref")
@@ -137,26 +148,6 @@ class OpenAlexClient(BaseApiClient):
                     if source and "type_crossref" in source:
                         type_crossref = source["type_crossref"]
         
-        record: dict[str, Any | None] = {
-            "title": work.get("title"),
-            "doi": work.get("doi"),
-            "year": work.get("publication_year"),
-            "authors": self._extract_authors(work.get("authors", [])),
-            "journal": self._extract_journal(work),
-            "issn": self._extract_issn(work),
-            "type": work.get("type"),
-            "openalex_id": work.get("id"),
-            "type_crossref": type_crossref,
-        }
-
-        # Extract bibliographic data from biblio
-        work.get("biblio", {})
-
-        # Реконструируем abstract из inverted index
-        self._reconstruct_abstract(work.get("abstract_inverted_index"))
-
-        # Извлекаем journal из host_venue
-        self._extract_journal(work)
 
         record: dict[str, Any] = {
             "source": "openalex",
@@ -166,7 +157,7 @@ class OpenAlexClient(BaseApiClient):
             "openalex_crossref_doc_type": type_crossref,
             "openalex_year": pub_year,
             "openalex_pmid": self._extract_pmid(work),
-            "openalex_abstract": work.get("abstract"),
+            "openalex_abstract": self._reconstruct_abstract(work.get("abstract_inverted_index")),
             "openalex_issn": self._extract_issn(work),
             "openalex_authors": self._extract_authors(work),
             "openalex_journal": self._extract_journal(work),
@@ -483,41 +474,6 @@ class OpenAlexClient(BaseApiClient):
 
         results = {}
         
-        # Process in chunks to avoid URL length limits
-        for i in range(0, len(pmids), batch_size):
-            chunk = pmids[i:i + batch_size]
-            
-            try:
-                # Create filter string with OR operator
-                filter_parts = [f"pmid:{pmid}" for pmid in chunk]
-                filter_str = "|".join(filter_parts)
-                
-                payload = self._request("GET", "", params={"filter": filter_str})
-                works = payload.get("results", [])
-                
-                # Map results back to PMIDs
-                for work in works:
-                    ids = work.get("ids", {})
-                    pmid_value = ids.get("pmid")
-                    if pmid_value and pmid_value.startswith("https://pubmed.ncbi.nlm.nih.gov/"):
-                        pmid_value = pmid_value.replace("https://pubmed.ncbi.nlm.nih.gov/", "")
-                    
-                    if pmid_value in chunk:
-                        results[pmid_value] = self._parse_work(work)
-                
-                # Add empty records for missing PMIDs
-                for pmid in chunk:
-                    if pmid not in results:
-                        results[pmid] = self._create_empty_record(pmid, "Not found in batch response")
-                        
-            except Exception as e:
-                logger.warning(f"Failed to fetch PMIDs batch {chunk}: {e}")
-                # Add empty records for failed batch
-                for pmid in chunk:
-                    results[pmid] = self._create_empty_record(pmid, str(e))
-        
-        return results
-
         # Use individual requests with fallback logic like fetch_by_pmid
         for pmid in pmids:
             try:
@@ -551,4 +507,3 @@ class OpenAlexClient(BaseApiClient):
             except Exception as e:
                 results[pmid] = self._create_empty_record(pmid, f"Error: {str(e)}")
         
-        return results

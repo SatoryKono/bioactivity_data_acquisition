@@ -1,0 +1,18 @@
+[importlinter]
+root_package = library
+
+[contracts]
+name = layering
+type = layers
+layers =
+    library.clients
+    library.normalizers
+    library.schemas
+    library.common
+    library.activity
+    library.assay
+    library.documents
+    library.target
+    library.testitem
+    library.etl
+    library.cli

@@ -167,9 +167,9 @@ def _get_base_url(source: str) -> str:
     urls = {
         "chembl": "https://www.ebi.ac.uk/chembl/api/data",
         "crossref": "https://api.crossref.org/works",
-        "openalex": "https://api.openalex.org/works",
+        "openalex": "https://api.openalex.org",
         "pubmed": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/",
-        "semantic_scholar": "https://api.semanticscholar.org/graph/v1/paper",
+        "semantic_scholar": "https://api.semanticscholar.org/graph/v1",
     }
     return urls.get(source, "")
 
@@ -287,7 +287,9 @@ def _extract_data_from_source(
                     
             elif source == "semantic_scholar":
                 if pd.notna(row.get("document_pubmed_id")) and str(row["document_pubmed_id"]).strip():
-                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip())
+                    # Передаем title для fallback поиска
+                    title = row.get("document_title") if pd.notna(row.get("document_title")) else None
+                    data = client.fetch_by_pmid(str(row["document_pubmed_id"]).strip(), title=title)
                     data.pop("source", None)
                     for key, value in data.items():
                         if value is not None:
@@ -1170,9 +1172,9 @@ def _merge_batch_results(
             batch_result = batch_data[identifier]
             # Remove source field to avoid overwriting
             batch_result.pop("source", None)
-            # Only update non-None values
+            # Always preserve error fields, update other fields only if not None
             for key, value in batch_result.items():
-                if value is not None:
+                if key.endswith("_error") or value is not None:
                     row_data[key] = value
         
         enriched_data.append(row_data)

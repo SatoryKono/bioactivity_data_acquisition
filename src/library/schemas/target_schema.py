@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 
 from pandera.typing import Series
 from pandera import DataFrameSchema, Column, Check
@@ -52,7 +53,7 @@ def validate_target_components_json(value: str | None) -> bool:
             # Check required fields
             if "CHEMBL.TARGET_COMPONENTS.component_id" in component and not isinstance(component["CHEMBL.TARGET_COMPONENTS.component_id"], int):
                 return False
-            if "accession" in component and not isinstance(component["accession"], str):
+            if "accession" in component and component["accession"] is not None and not isinstance(component["accession"], str):
                 return False
         return True
     except (json.JSONDecodeError, TypeError):

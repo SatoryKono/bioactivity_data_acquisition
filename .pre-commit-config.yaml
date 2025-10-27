@@ -141,8 +141,6 @@ if __name__ == '__main__':
         files: ^(src/|configs/|scripts/).*\.(py|yaml|yml|json|env|ini|cfg)$
         pass_filenames: true
         always_run: false
-<<<<<<< Updated upstream
-=======
       
       # Vulture - dead code detection
       - id: vulture
@@ -158,14 +156,6 @@ if __name__ == '__main__':
         name: Check dependency issues with Deptry
         entry: deptry . --ignore DEP002,DEP003
         language: system
-        pass_filenames: false
-        always_run: false
-      
-      # jscpd - copy-paste detector
-      - id: jscpd
-        name: Detect code duplication with jscpd
-        entry: npx jscpd --min-tokens 50 --threshold 3 --ignore "**/node_modules/**,**/.venv/**,**/site/**,**/build/**,**/__pycache__/**,**/data/**" --pattern "**/*.{py,yaml,yml,md}" --reporters console --exitOnError
-        language: node
         pass_filenames: false
         always_run: false
       
@@ -190,7 +180,6 @@ if __name__ == '__main__':
         language: system
         files: ^src/library/clients/(pubmed|base)\.py$
         pass_filenames: true
->>>>>>> Stashed changes
 
   - repo: https://github.com/psf/black
     rev: 24.4.2

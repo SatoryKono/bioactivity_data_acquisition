@@ -422,7 +422,10 @@ class ActivityNormalizer:
         
         for field in text_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.strip().replace(['None', 'nan', 'NaN', 'none', 'NULL', 'null'], pd.NA)
+                df[field] = df[field].replace([pd.NA, 'None', 'nan', 'NaN', 'none', 'NULL', 'null'], None)
+                mask = df[field].notna()
+                if mask.any():
+                    df[field].loc[mask] = df[field].loc[mask].astype(str).str.strip()
         
         return df
 
@@ -434,7 +437,10 @@ class ActivityNormalizer:
         
         for field in ontology_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.upper().replace(['NONE', 'NAN', 'NULL'], pd.NA)
+                df[field] = df[field].replace([pd.NA, 'NONE', 'NAN', 'NULL', 'none', 'nan', 'null'], None)
+                mask = df[field].notna()
+                if mask.any():
+                    df[field].loc[mask] = df[field].loc[mask].astype(str).str.upper()
         
         return df
 
@@ -446,7 +452,10 @@ class ActivityNormalizer:
         
         for field in units_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.strip().str.lower().replace(['none', 'nan', 'null', 'nil'], pd.NA)
+                df[field] = df[field].replace([pd.NA, 'none', 'nan', 'null', 'nil', 'None', 'NaN', 'NULL', 'NIL'], None)
+                mask = df[field].notna()
+                if mask.any():
+                    df[field].loc[mask] = df[field].loc[mask].astype(str).str.strip().str.lower()
         
         return df
 
@@ -458,11 +467,17 @@ class ActivityNormalizer:
         
         for field in comment_fields:
             if field in df.columns:
-                df[field] = df[field].astype(str).str.strip().str.capitalize().replace(['None', 'Nan', 'Null'], pd.NA)
+                df[field] = df[field].replace([pd.NA, 'None', 'none', 'nan', 'NaN', 'Null', 'null', 'NA', '<NA>', '<na>'], None)
+                mask = df[field].notna()
+                if mask.any():
+                    df[field].loc[mask] = df[field].loc[mask].astype(str).str.strip().str.capitalize()
         
         # QUDT units - только trim
         if 'qudt_units' in df.columns:
-            df['qudt_units'] = df['qudt_units'].astype(str).str.strip().replace(['None', 'nan', 'NaN', 'none', 'NULL', 'null'], pd.NA)
+            df['qudt_units'] = df['qudt_units'].replace([pd.NA, 'None', 'none', 'nan', 'NaN', 'Null', 'null', 'NA', '<NA>'], None)
+            mask = df['qudt_units'].notna()
+            if mask.any():
+                df['qudt_units'].loc[mask] = df['qudt_units'].loc[mask].astype(str).str.strip()
         
         return df
     
