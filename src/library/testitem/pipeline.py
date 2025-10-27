@@ -361,7 +361,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             headers=processed_headers,
         )
 
-        return ChEMBLClient(client_config)
+        return TestitemChEMBLClient(client_config)
 
     def _create_pubchem_client(self) -> Any:
         """Create PubChem client."""

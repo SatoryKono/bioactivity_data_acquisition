@@ -1,0 +1,59 @@
+artifacts:
+  csv:
+    filename: testitem_20251027.csv
+    rows: 10
+    sha256: ca92be5b5ead2034816b46a9e994c842d68c35bfc1bd02fd2f6ce5ebe0b60b3f
+chembl_release: unknown
+data_quality:
+  error_rate: 0.0
+  records_with_errors: 0
+extraction_parameters:
+  allow_parent_missing: false
+  batch_size: 50
+  enable_pubchem: true
+  retries: 5
+  timeout_sec: 30
+file_checksums:
+  csv: ca92be5b5ead2034816b46a9e994c842d68c35bfc1bd02fd2f6ce5ebe0b60b3f
+  qc: 467bd90e46684f7f537d1c1abbba7bc42dd35c25a9e7eeb932549c18bf17324b
+pipeline_version: 1.1.0
+pubchem_enrichment:
+  enabled: true
+  enrichment_rate: !!python/object/apply:numpy._core.multiarray.scalar
+  - !!python/object/apply:numpy.dtype
+    args:
+    - f8
+    - false
+    - true
+    state: !!python/tuple
+    - 3
+    - <
+    - null
+    - null
+    - null
+    - -1
+    - -1
+    - 0
+  - !!binary |
+    AAAAAACAVkA=
+  records_with_pubchem_data: !!python/object/apply:numpy._core.multiarray.scalar
+  - !!python/object/apply:numpy.dtype
+    args:
+    - i8
+    - false
+    - true
+    state: !!python/tuple
+    - 3
+    - <
+    - null
+    - null
+    - null
+    - -1
+    - -1
+    - 0
+  - !!binary |
+    CQAAAAAAAAA=
+run_date: '20251027'
+source_counts:
+  chembl: 10
+total_records: 10
