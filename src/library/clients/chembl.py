@@ -44,7 +44,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def get_chembl_status(self) -> dict[str, Any]:
         """Get ChEMBL version and release information."""
         try:
-            payload = self._request("GET", "status.json")
+            response = self._request("GET", "status.json")
+            payload = response.json()
             return {
                 "version": payload.get("chembl_db_version", "unknown"),
                 "release_date": payload.get("chembl_release_date"),
@@ -102,7 +103,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_molecule(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule data by ChEMBL ID using proper API endpoint."""
         try:
-            payload = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1")
+            response = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1")
+            payload = response.json()
             parsed = self._parse_molecule(payload)
             if parsed:
                 return parsed
@@ -770,7 +772,8 @@ class ChEMBLClient(BaseApiClient):
     def get_chembl_status(self) -> dict[str, Any]:
         """Get ChEMBL version and release information."""
         try:
-            payload = self._request("GET", "status.json")
+            response = self._request("GET", "status.json")
+            payload = response.json()
             return {
                 "version": payload.get("chembl_db_version", "unknown"),
                 "release_date": payload.get("chembl_release_date"),
