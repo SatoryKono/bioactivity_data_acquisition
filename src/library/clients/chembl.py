@@ -86,6 +86,7 @@ class TestitemChEMBLClient(BaseApiClient):
             
             # Make request using internal method
             response = self._request("GET", endpoint, timeout=timeout)
+            payload = response.json()
             
             # Return JSON data if response is a Response object, otherwise return as-is
             if hasattr(response, 'json'):
@@ -104,6 +105,7 @@ class TestitemChEMBLClient(BaseApiClient):
         """Fetch molecule data by ChEMBL ID using proper API endpoint."""
         try:
             response = self._request("GET", f"molecule.json?molecule_chembl_id={molecule_chembl_id}&format=json&limit=1")
+            payload = response.json()
             payload = response.json()
             parsed = self._parse_molecule(payload)
             if parsed:
@@ -132,7 +134,9 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"molecule.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -428,7 +432,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_molecule_form(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule form data."""
         try:
-            payload = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_molecule_form(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch molecule form for {molecule_chembl_id}: {e}")
@@ -437,7 +442,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_mechanism(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch mechanism data."""
         try:
-            payload = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_mechanism(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch mechanism for {molecule_chembl_id}: {e}")
@@ -460,7 +466,9 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"mechanism.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -489,7 +497,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_atc_classification(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch ATC classification data."""
         try:
-            payload = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_atc_classification(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch ATC classification for {molecule_chembl_id}: {e}")
@@ -512,7 +521,9 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"atc_classification.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -541,7 +552,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_drug(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch drug data."""
         try:
-            payload = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_drug(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch drug for {molecule_chembl_id}: {e}")
@@ -564,7 +576,9 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"drug.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -593,7 +607,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_drug_warning(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch drug warnings."""
         try:
-            payload = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_drug_warning(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch drug warning for {molecule_chembl_id}: {e}")
@@ -616,7 +631,9 @@ class TestitemChEMBLClient(BaseApiClient):
             url = f"drug_warning.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -645,7 +662,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def fetch_xref_source(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch cross-reference sources."""
         try:
-            payload = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_xref_source(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch xref source for {molecule_chembl_id}: {e}")
@@ -753,7 +771,8 @@ class TestitemChEMBLClient(BaseApiClient):
     def resolve_molregno_to_chembl_id(self, molregno: int) -> str | None:
         """Resolve molregno to molecule_chembl_id via ChEMBL API."""
         try:
-            payload = self._request("GET", f"molecule?molregno={molregno}&format=json")
+            response = self._request("GET", f"molecule?molregno={molregno}&format=json")
+            payload = response.json()
             molecules = payload.get("molecules", [])
             if molecules:
                 return molecules[0].get("molecule_chembl_id")
@@ -790,7 +809,8 @@ class ChEMBLClient(BaseApiClient):
     def fetch_document(self, document_chembl_id: str) -> dict[str, Any]:
         """Fetch document data from ChEMBL API."""
         try:
-            payload = self._request("GET", f"document/{document_chembl_id}")
+            response = self._request("GET", f"document/{document_chembl_id}")
+            payload = response.json()
             return self._parse_document(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch document {document_chembl_id}: {e}")
@@ -1153,7 +1173,8 @@ class ChemblClient:
     def fetch_molecule_form(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule form data."""
         try:
-            payload = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"molecule_form?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_molecule_form(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch molecule form for {molecule_chembl_id}: {e}")
@@ -1162,7 +1183,8 @@ class ChemblClient:
     def fetch_molecule_properties(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch molecule properties."""
         try:
-            payload = self._request("GET", f"molecule_properties?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"molecule_properties?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_molecule_properties(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch molecule properties for {molecule_chembl_id}: {e}")
@@ -1185,7 +1207,8 @@ class ChemblClient:
             batch_payload = {"molecule_chembl_ids": molecule_chembl_ids}
             
             # Make batch request
-            payload = self._request("POST", "molecule_properties/batch", json=batch_payload)
+            response = self._request("POST", "molecule_properties/batch", json=batch_payload)
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -1214,7 +1237,8 @@ class ChemblClient:
     def fetch_mechanism(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch mechanism data."""
         try:
-            payload = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"mechanism?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_mechanism(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch mechanism for {molecule_chembl_id}: {e}")
@@ -1237,7 +1261,9 @@ class ChemblClient:
             url = f"mechanism.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -1266,7 +1292,8 @@ class ChemblClient:
     def fetch_atc_classification(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch ATC classification data."""
         try:
-            payload = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"atc_classification?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_atc_classification(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch ATC classification for {molecule_chembl_id}: {e}")
@@ -1289,7 +1316,9 @@ class ChemblClient:
             url = f"atc_classification.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -1318,7 +1347,8 @@ class ChemblClient:
     def fetch_compound_synonym(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch compound synonyms."""
         try:
-            payload = self._request("GET", f"compound_synonym?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"compound_synonym?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_compound_synonym(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch compound synonym for {molecule_chembl_id}: {e}")
@@ -1327,7 +1357,8 @@ class ChemblClient:
     def fetch_drug(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch drug data."""
         try:
-            payload = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"drug?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_drug(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch drug data for {molecule_chembl_id}: {e}")
@@ -1350,7 +1381,9 @@ class ChemblClient:
             url = f"drug.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -1379,7 +1412,8 @@ class ChemblClient:
     def fetch_drug_warning(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch drug warnings."""
         try:
-            payload = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"drug_warning?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_drug_warning(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch drug warning for {molecule_chembl_id}: {e}")
@@ -1402,7 +1436,9 @@ class ChemblClient:
             url = f"drug_warning.json?molecule_chembl_id__in={ids_str}&format=json&limit=1000"
             
             # Make request
-            payload = self._request("GET", url)
+            response = self._request("GET", url)
+            payload = response.json()
+            payload = response.json()
             
             # Parse results
             results = {}
@@ -1431,7 +1467,8 @@ class ChemblClient:
     def fetch_xref_source(self, molecule_chembl_id: str) -> dict[str, Any]:
         """Fetch cross-reference sources."""
         try:
-            payload = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json")
+            response = self._request("GET", f"xref_source?molecule_chembl_id={molecule_chembl_id}&format=json")
+            payload = response.json()
             return self._parse_xref_source(payload)
         except Exception as e:
             logger.warning(f"Failed to fetch xref source for {molecule_chembl_id}: {e}")
