@@ -107,6 +107,20 @@ class ActivityPipeline:
         # Ensure directories exist
         self.config.ensure_directories()
         
+        # S01: Get ChEMBL status and release (аналогично assay pipeline строка 598-611)
+        logger.info("Getting ChEMBL status and release...")
+        try:
+            status_info = self.client.get_chembl_status()
+            chembl_version = status_info.get("version", "unknown")
+            release_date = status_info.get("release_date")
+            if chembl_version is None:
+                chembl_version = "unknown"
+            logger.info(f"ChEMBL version: {chembl_version}, release date: {release_date}")
+        except Exception as e:
+            logger.warning(f"Failed to get ChEMBL version: {e}")
+            chembl_version = "unknown"
+            release_date = None
+        
         # Load filter IDs if provided
         filter_ids = self._load_filter_ids(input_csv, logger)
         
@@ -120,7 +134,7 @@ class ActivityPipeline:
                 meta={
                     "total_activities": 0,
                     "extraction_timestamp": datetime.utcnow().isoformat() + "Z",
-                    "chembl_release": "unknown",
+                    "chembl_release": chembl_version,
                 },
                 qc=pd.DataFrame(),
             )
@@ -138,6 +152,8 @@ class ActivityPipeline:
         
         # Normalize data
         normalized_df = self._normalize_activities(validated_df, logger)
+        # Add chembl_release to all records (аналогично assay pipeline строка 666)
+        normalized_df["chembl_release"] = chembl_version
         # Add tracking fields similar to assay pipeline
         normalized_df = self._add_tracking_fields(normalized_df, logger)
         
@@ -273,10 +289,6 @@ class ActivityPipeline:
             logger.info(f"Processing with limit: {self.config.limit} activities")
 
         try:
-            # Get ChEMBL status
-            status = self.client.get_chembl_status()
-            logger.info("ChEMBL status", status=status)
-
             # Prepare filter params (activity_ids dominate)
             act_ids = filter_ids.get("activity_ids") or None
             filter_params = {
@@ -475,13 +487,14 @@ class ActivityPipeline:
         logger.info("Generating metadata")
         
         try:
-            # Get ChEMBL status for release info
+            # Get ChEMBL version for release info
             status = self.client.get_chembl_status()
             
             meta = {
                 "total_activities": len(activities_df),
                 "extraction_timestamp": datetime.utcnow().isoformat() + "Z",
-                "chembl_release": status.get("chembl_release", "unknown"),
+                "chembl_release": status.get("version", "unknown"),
+                "chembl_release_date": status.get("release_date"),
                 "pipeline_version": "1.0.0",
                 "config": {
                     "limit": self.config.limit,

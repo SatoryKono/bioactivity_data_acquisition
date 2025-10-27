@@ -1,17 +1,18 @@
 activity_type_distribution:
-  IC50: 1
-  Ki: 1
-chembl_release: unknown
+  IC50: 28
+  Ki: 72
+chembl_release: ChEMBL_36
+chembl_release_date: '2025-07-28'
 config:
-  limit: 2
+  limit: 100
   qc_enabled: true
   workers: 4
-extraction_timestamp: '2025-10-27T15:25:34.380459Z'
+extraction_timestamp: '2025-10-27T17:08:10.477061Z'
 file_checksums:
-  csv: afaa9741a2bb6db425620e79ebc7e547d28ec35cca2ffc3c65965c3f9f7f5ce7
-  qc: f6c84159725f90a06b75a34998ced922003837a9f22722113fca562cb39dfa8e
+  csv: a4a17d2e487744a29934234fc594b2f9c2de855231036e35ad8041187d7c7057
+  qc: 770b82d8f07b2dd45f74e706c10b72546d9c60059bd38d1d6e5c6af5d7cab1f5
 pipeline_version: 1.0.0
-row_count: 2
-total_activities: 2
+row_count: 100
+total_activities: 100
 unit_distribution:
-  nm: 2
+  nm: 100

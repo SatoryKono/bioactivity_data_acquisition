@@ -215,10 +215,11 @@ class AssayChEMBLClient(BaseApiClient):
         """Get ChEMBL version and release information."""
         
         try:
-            response = self._request("GET", "version")
+            response = self._request("GET", "status.json")
+            payload = response.json()
             return {
-                "version": response.get("version"),
-                "release_date": response.get("release_date"),
+                "version": payload.get("chembl_db_version"),
+                "release_date": payload.get("chembl_release_date"),
                 "timestamp": datetime.utcnow().isoformat()
             }
         except Exception as e:

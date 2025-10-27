@@ -62,24 +62,30 @@ def add_system_metadata_fields(
     df_with_metadata["source_system"] = source_system
 
     # ChEMBL release - динамически из API или из конфига
-    chembl_release = None
+    chembl_version = None
+    chembl_release_date = None
     if chembl_client:
         try:
-            # ChEMBLClient не имеет метода get_chembl_status()
-            # Используем fallback на конфигурацию
-            logger.debug("ChEMBLClient does not have get_chembl_status method, using config fallback")
+            # ChEMBLClient теперь имеет метод get_chembl_status() для получения версии
+            status = chembl_client.get_chembl_status()
+            chembl_version = status.get("version")
+            chembl_release_date = status.get("release_date")
+            logger.debug(f"Retrieved ChEMBL version: {chembl_version}, release_date: {chembl_release_date}")
         except Exception as e:
-            logger.warning(f"Failed to get ChEMBL release from API: {e}")
+            logger.warning(f"Failed to get ChEMBL version from API: {e}")
 
     # Fallback на конфигурацию если API недоступен
-    if not chembl_release:
-        chembl_release = config.get("sources", {}).get("chembl", {}).get("release")
-        if chembl_release:
-            logger.info(f"Using ChEMBL release from config: {chembl_release}")
+    if not chembl_version:
+        chembl_version = config.get("sources", {}).get("chembl", {}).get("version")
+        if chembl_version:
+            logger.info(f"Using ChEMBL version from config: {chembl_version}")
         else:
-            logger.warning("ChEMBL release not available from API or config")
+            logger.warning("ChEMBL version not available from API or config")
+            chembl_version = "unknown"
 
-    df_with_metadata["chembl_release"] = chembl_release
+    df_with_metadata["chembl_release"] = chembl_version
+    df_with_metadata["chembl_version"] = chembl_version
+    df_with_metadata["chembl_release_date"] = chembl_release_date
 
     # Extracted at - текущее время UTC
     df_with_metadata["extracted_at"] = datetime.utcnow().isoformat() + "Z"

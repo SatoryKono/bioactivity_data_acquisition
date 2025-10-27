@@ -660,26 +660,6 @@ def prepare_data_for_correlation_analysis(df: pd.DataFrame, data_type: str = "ge
         analysis_df = analysis_df[numeric_columns]
         _log_info(logger, "Выбраны только числовые колонки", numeric_columns=list(numeric_columns))
 
-    # Общая обработка: удаляем колонки с высоким процентом пропущенных значений
-    missing_threshold = 0.5
-    columns_to_keep = analysis_df.columns[analysis_df.isnull().mean() < missing_threshold]
-    
-    # Добавляем критические колонки обратно, если они были удалены
-    if data_type == "documents":
-        critical_columns = [
-            "pubmed_mesh_descriptors", "pubmed_mesh_qualifiers", "pubmed_chemical_list",
-            "crossref_subject", "crossref_pmid", "openalex_pmid"
-        ]
-        for col in critical_columns:
-            if col in analysis_df.columns and col not in columns_to_keep:
-                columns_to_keep = columns_to_keep.union([col])
-                _log_info(logger, "Добавлена критическая колонка обратно в whitelist", column=col)
-    
-    removed_columns = set(analysis_df.columns) - set(columns_to_keep)
-    if removed_columns:
-        analysis_df = analysis_df[columns_to_keep]
-        _log_info(logger, "Удалены колонки с высоким процентом пропущенных значений", removed_columns=list(removed_columns), threshold=missing_threshold)
-
     # Удаляем колонки с нулевой дисперсией (константные значения)
     constant_columns = []
     for col in analysis_df.columns:

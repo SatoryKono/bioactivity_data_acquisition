@@ -28,12 +28,12 @@ class ActivityChEMBLClient(BaseApiClient):
     def get_chembl_status(self) -> dict[str, Any]:
         """Get ChEMBL version and release information."""
         try:
-            response = self._request("GET", "version")
+            response = self._request("GET", "status.json")
             # Parse JSON response
             payload = response.json()
             return {
-                "version": payload.get("version", "unknown"),
-                "release_date": payload.get("release_date"),
+                "version": payload.get("chembl_db_version", "unknown"),
+                "release_date": payload.get("chembl_release_date"),
                 "timestamp": datetime.utcnow().isoformat() + "Z"
             }
         except Exception as e:

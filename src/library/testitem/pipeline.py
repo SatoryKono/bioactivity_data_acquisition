@@ -196,7 +196,7 @@ def read_testitem_input(path: Path) -> pd.DataFrame:
     """Load the input CSV containing testitem identifiers."""
 
     try:
-        frame = pd.read_csv(path)
+        frame = pd.read_csv(path, low_memory=False)
     except FileNotFoundError as exc:
         raise TestitemIOError(f"Input CSV not found: {path}") from exc
     except pd.errors.EmptyDataError as exc:
@@ -428,6 +428,24 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
     def extract(self, input_data: pd.DataFrame) -> pd.DataFrame:
         """Extract testitem data from multiple sources."""
         logger.info(f"Extracting testitem data for {len(input_data)} testitems")
+
+        # Get ChEMBL status and release
+        logger.info("Getting ChEMBL status and release...")
+        chembl_client = self.clients.get("chembl")
+        if chembl_client:
+            try:
+                status_info = chembl_client.get_chembl_status()
+                self.chembl_version = status_info.get("version", "unknown")
+                release_date = status_info.get("release_date")
+                if self.chembl_version is None:
+                    self.chembl_version = "unknown"
+                logger.info(f"ChEMBL version: {self.chembl_version}, release date: {release_date}")
+            except Exception as e:
+                logger.warning(f"Failed to get ChEMBL version: {e}")
+                self.chembl_version = "unknown"
+        else:
+            logger.warning("ChEMBL client not available, using unknown for chembl_release")
+            self.chembl_version = "unknown"
 
         # Apply limit if specified
         if getattr(self.config.runtime, "limit", None) is not None:
@@ -876,8 +894,16 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
             return df
 
         except requests.RequestException as e:
-            logger.error(f"PubChem API request failed for InChI Key {inchi_key}: {e}")
-            raise
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code == 404:
+                    logger.warning(f"PubChem record not found for InChI Key {inchi_key}: {e}")
+                    return pd.DataFrame()  # Return empty DataFrame instead of raising
+                else:
+                    logger.error(f"PubChem API request failed for InChI Key {inchi_key}: {e}")
+                    raise
+            else:
+                logger.error(f"PubChem API request failed for InChI Key {inchi_key}: {e}")
+                raise
         except Exception as e:
             logger.error(f"Failed to process PubChem response for InChI Key {inchi_key}: {e}")
             raise
@@ -896,6 +922,18 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
 
         # Start with base data
         merged_data = base_data.copy()
+
+        # Collect all new columns that need to be added
+        new_columns = {}
+        for chembl_row in chembl_dict.values():
+            for col in chembl_row.keys():
+                if col not in merged_data.columns:
+                    new_columns[col] = None
+
+        # Add all new columns at once to avoid fragmentation
+        if new_columns:
+            for col, default_value in new_columns.items():
+                merged_data[col] = default_value
 
         # For each row in base data, enrich with ChEMBL data
         for idx, row in merged_data.iterrows():
@@ -934,9 +972,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                                 # If type conversion fails, keep original value
                                 pass
                     else:
-                        # Add new column if it doesn't exist
-                        if col not in merged_data.columns:
-                            merged_data[col] = None
+                        # This should not happen now since we added all columns upfront
                         try:
                             merged_data.at[idx, col] = value
                         except (ValueError, TypeError):
@@ -1037,6 +1073,13 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
         # Apply testitem normalization
         normalized_data = self.normalizer.normalize_testitems(raw_data)
 
+        # Add chembl_release to all records
+        if hasattr(self, 'chembl_version'):
+            normalized_data["chembl_release"] = self.chembl_version
+        else:
+            normalized_data["chembl_release"] = "unknown"
+            logger.warning("chembl_version not set, using 'unknown' for chembl_release")
+
         logger.info(f"Normalized {len(normalized_data)} testitems")
         return normalized_data
 
@@ -1132,6 +1175,7 @@ class TestitemPipeline(PipelineBase[TestitemConfig]):
                 "config": self.config.model_dump() if hasattr(self.config, "model_dump") else {},
                 "source_counts": source_counts,
                 "pubchem_enrichment": pubchem_enrichment,
+                "chembl_release": getattr(self, 'chembl_version', 'unknown'),
             },
             "execution": {
                 "run_id": f"testitem_run_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}",

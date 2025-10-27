@@ -600,13 +600,15 @@ def run_assay_etl(
     client = _create_api_client(config)
     try:
         status_info = client.get_chembl_status()
-        chembl_release = status_info.get("chembl_release", "unknown")
-        if chembl_release is None:
-            chembl_release = "unknown"
-        logger.info(f"ChEMBL release: {chembl_release}")
+        chembl_version = status_info.get("version", "unknown")
+        release_date = status_info.get("release_date")
+        if chembl_version is None:
+            chembl_version = "unknown"
+        logger.info(f"ChEMBL version: {chembl_version}, release date: {release_date}")
     except Exception as e:
-        logger.warning(f"Failed to get ChEMBL status: {e}")
-        chembl_release = "unknown"
+        logger.warning(f"Failed to get ChEMBL version: {e}")
+        chembl_version = "unknown"
+        release_date = None
 
     # S02: Fetch assay core data
     logger.info("S02: Fetching assay core data...")
@@ -649,7 +651,7 @@ def run_assay_etl(
         return AssayETLResult(
             assays=pd.DataFrame(),
             qc=pd.DataFrame([{"metric": "row_count", "value": 0}]),
-            meta={"chembl_release": chembl_release, "row_count": 0}
+            meta={"chembl_release": chembl_version, "row_count": 0}
         )
 
     # S03: Enrich with source data
@@ -661,7 +663,7 @@ def run_assay_etl(
     enriched_frame = _normalize_assay_fields(enriched_frame)
 
     # Add chembl_release to all records
-    enriched_frame["chembl_release"] = chembl_release
+    enriched_frame["chembl_release"] = chembl_version
 
     # Generate hashes for all records
     enriched_frame["hash_business_key"] = enriched_frame["assay_chembl_id"].apply(
@@ -696,7 +698,7 @@ def run_assay_etl(
     # Create metadata
     meta = {
         "pipeline_version": "1.0.0",
-        "chembl_release": chembl_release,
+        "chembl_release": chembl_version,
         "row_count": len(validated_frame),
         "extraction_parameters": {
             "total_assays": len(validated_frame),

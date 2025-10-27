@@ -70,17 +70,17 @@ class DatasetMetadata:
                         burst=10,
                         retries=RetrySettings(retries=3, backoff_multiplier=1.5, max_delay=30.0),
                     )
-                    status_data = client.fetch("status", cfg)
+                    status_data = client.fetch("version", cfg)
                     self._chembl_status = status_data
                 except Exception as e:
-                    self._chembl_status = {"chembl_release": None, "status": "error", "error": str(e)}
+                    self._chembl_status = {"version": None, "release_date": None, "error": str(e)}
 
                 if self.logger:
-                    self.logger.info(f"Retrieved ChEMBL status: release={self._chembl_status.get('chembl_release')}, status={self._chembl_status.get('status')}")
+                    self.logger.info(f"Retrieved ChEMBL version: version={self._chembl_status.get('version')}, release_date={self._chembl_status.get('release_date')}")
             except Exception as e:
                 if self.logger:
-                    self.logger.warning(f"Failed to get ChEMBL status: {e}")
-                self._chembl_status = {"chembl_release": None, "status": "error", "error": str(e)}
+                    self.logger.warning(f"Failed to get ChEMBL version: {e}")
+                self._chembl_status = {"version": None, "release_date": None, "error": str(e)}
 
         return self._chembl_status
 
@@ -141,7 +141,7 @@ class DatasetMetadata:
                 "row_count_rejected": self._row_count_rejected,
                 "columns_count": self._columns_count,
             },
-            "sources": [{"name": "chembl", "version": chembl_status.get("chembl_release"), "records": self._row_count}] if chembl_status.get("chembl_release") else [],
+            "sources": [{"name": "chembl", "version": chembl_status.get("version"), "release_date": chembl_status.get("release_date"), "records": self._row_count}] if chembl_status.get("version") else [],
             "validation": {"schema_passed": self._schema_passed, "qc_passed": self._qc_passed, "warnings": self._warnings, "errors": self._errors},
             "files": self._files,
             "checksums": self._checksums,

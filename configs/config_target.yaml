@@ -173,6 +173,7 @@ determinism:
     - "lineage_superkingdom"           # STRING: Суперцарство в линии, источник: UniProt, тип: STRING, валидация: nullable
     - "lineage_phylum"                 # STRING: Тип в линии, источник: UniProt, тип: STRING, валидация: nullable
     - "lineage_class"                  # STRING: Класс в линии, источник: UniProt, тип: STRING, валидация: nullable
+    - "genus"                           # STRING: Род организма, источник: UniProt, тип: STRING, валидация: nullable
     
     # 8. Sequence info
     - "sequence_length"                # INT: Длина последовательности, источник: UniProt, тип: INT, валидация: nullable, > 0

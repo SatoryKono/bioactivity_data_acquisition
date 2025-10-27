@@ -21,7 +21,7 @@ def _load_testitem_data(input_path: Path, id_column: str | None = None) -> list[
     import pandas as pd
     
     if input_path.suffix.lower() == '.csv':
-        df = pd.read_csv(input_path)
+        df = pd.read_csv(input_path, low_memory=False)
         
         # Если указана конкретная колонка, проверяем только её
         if id_column:

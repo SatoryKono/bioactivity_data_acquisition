@@ -44,10 +44,10 @@ class TestitemChEMBLClient(BaseApiClient):
     def get_chembl_status(self) -> dict[str, Any]:
         """Get ChEMBL version and release information."""
         try:
-            payload = self._request("GET", "version").json()
+            payload = self._request("GET", "status.json").json()
             return {
-                "version": payload.get("version", "unknown"),
-                "release_date": payload.get("release_date"),
+                "version": payload.get("chembl_db_version", "unknown"),
+                "release_date": payload.get("chembl_release_date"),
                 "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             }
         except Exception as e:
@@ -1631,6 +1631,23 @@ class ChEMBLClient(BaseApiClient):
 
     def __init__(self, config: APIClientConfig, **kwargs: Any) -> None:
         super().__init__(config, **kwargs)
+
+    def get_chembl_status(self) -> dict[str, Any]:
+        """Get ChEMBL version and release information."""
+        try:
+            payload = self._request("GET", "status.json").json()
+            return {
+                "version": payload.get("chembl_db_version", "unknown"),
+                "release_date": payload.get("chembl_release_date"),
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        except Exception as e:
+            logger.warning(f"Failed to get ChEMBL version: {e}")
+            return {
+                "version": "unknown",
+                "release_date": None,
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            }
 
     def fetch_by_doc_id(self, document_chembl_id: str) -> dict[str, Any]:
         """Fetch document data by ChEMBL document ID."""

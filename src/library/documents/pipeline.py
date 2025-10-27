@@ -700,7 +700,9 @@ def _initialize_all_columns(frame: pd.DataFrame) -> pd.DataFrame:
         # Publication date field
         "publication_date",
         # Document sort order field
-        "document_sortorder"
+        "document_sortorder",
+        # ChEMBL release field
+        "chembl_release"
     }
     
     # Add missing columns with default values
@@ -733,13 +735,13 @@ def _calculate_checksum(file_path: Path) -> str:
     return sha256_hash.hexdigest()
 
 
-def _add_tracking_fields(df: pd.DataFrame) -> pd.DataFrame:
-    """Add tracking fields: extracted_at, hash_business_key, hash_row."""
+def _add_tracking_fields(df: pd.DataFrame, chembl_version: str) -> pd.DataFrame:
+    """Add tracking fields: extracted_at, hash_business_key, hash_row, chembl_release."""
     import hashlib
     import json
     from datetime import datetime
     
-    logger.info("Adding tracking fields: extracted_at, hash_business_key, hash_row")
+    logger.info("Adding tracking fields: extracted_at, hash_business_key, hash_row, chembl_release")
     
     # Add extracted_at timestamp
     now_iso = datetime.utcnow().isoformat() + "Z"
@@ -747,6 +749,9 @@ def _add_tracking_fields(df: pd.DataFrame) -> pd.DataFrame:
         df["extracted_at"] = now_iso
     else:
         df["extracted_at"] = df["extracted_at"].fillna(now_iso)
+    
+    # Add chembl_release to all records
+    df["chembl_release"] = chembl_version
     
     # Add hash_business_key based on document_chembl_id
     if "document_chembl_id" in df.columns:
@@ -776,6 +781,21 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
 
     if config.runtime.limit is not None:
         normalised = normalised.head(config.runtime.limit)
+
+    # Get ChEMBL status and release
+    logger.info("Getting ChEMBL status and release...")
+    try:
+        chembl_client = _create_api_client("chembl", config)
+        status_info = chembl_client.get_chembl_status()
+        chembl_version = status_info.get("version", "unknown")
+        release_date = status_info.get("release_date")
+        if chembl_version is None:
+            chembl_version = "unknown"
+        logger.info(f"ChEMBL version: {chembl_version}, release date: {release_date}")
+    except Exception as e:
+        logger.warning(f"Failed to get ChEMBL version: {e}")
+        chembl_version = "unknown"
+        release_date = None
 
     duplicates = normalised["document_chembl_id"].duplicated()
     if bool(duplicates.any()):
@@ -909,7 +929,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     
     # Добавляем технические поля для отслеживания
     logger.info("Добавляем технические поля отслеживания...")
-    enriched_frame = _add_tracking_fields(enriched_frame)
+    enriched_frame = _add_tracking_fields(enriched_frame, chembl_version)
     
     # Calculate QC metrics
     qc_metrics = [
@@ -988,6 +1008,7 @@ def run_document_etl(config: DocumentConfig, frame: pd.DataFrame) -> DocumentETL
     # Создаем метаданные
     meta = {
         "pipeline_version": "1.0.0",
+        "chembl_release": chembl_version,
         "row_count": len(enriched_frame),
         "enabled_sources": enabled_sources,
         "extraction_parameters": {
