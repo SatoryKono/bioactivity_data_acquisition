@@ -377,11 +377,25 @@ class DocumentPipeline(PipelineBase):
 
             try:
                 fetched = self._fetch_documents_recursive(to_fetch)
+                fetched_ids: set[str] = set()
                 for record in fetched:
                     document_id = record.get("document_chembl_id")
-                    if document_id:
-                        self._document_cache[self._document_cache_key(str(document_id))] = record
+                    if not document_id:
+                        continue
+                    document_id = str(document_id)
+                    fetched_ids.add(document_id)
+                    self._document_cache[self._document_cache_key(document_id)] = record
                 results.extend(fetched)
+
+                missing_ids = [document_id for document_id in to_fetch if document_id not in fetched_ids]
+                for document_id in missing_ids:
+                    fallback = self._create_fallback_row(
+                        document_id,
+                        "E_NOT_FOUND",
+                        "Document not found in ChEMBL",
+                    )
+                    self._document_cache[self._document_cache_key(document_id)] = fallback
+                    results.append(fallback)
             except Exception as exc:  # noqa: BLE001
                 error_type = self._classify_error(exc)
                 logger.error(
