@@ -219,10 +219,28 @@ class DocumentPipeline(PipelineBase):
         elif "pubmed_id" in chembl_df.columns:
             pmids = chembl_df["pubmed_id"].dropna().astype(str).tolist()
 
-        if "doi" in chembl_df.columns:
-            dois = chembl_df["doi"].dropna().tolist()
+        doi_columns = [col for col in ("doi", "chembl_doi") if col in chembl_df.columns]
+        if doi_columns:
+            seen_dois: set[str] = set()
+            ordered_dois: list[str] = []
+            for column in doi_columns:
+                for value in chembl_df[column].dropna().tolist():
+                    doi_str = str(value)
+                    if not doi_str:
+                        continue
+                    if doi_str in seen_dois:
+                        continue
+                    seen_dois.add(doi_str)
+                    ordered_dois.append(doi_str)
+            dois = ordered_dois
 
-        logger.info("enrichment_data", pmids_count=len(pmids), dois_count=len(dois), sample_pmids=pmids[:3] if pmids else [])
+        logger.info(
+            "enrichment_data",
+            pmids_count=len(pmids),
+            dois_count=len(dois),
+            doi_columns=doi_columns,
+            sample_pmids=pmids[:3] if pmids else [],
+        )
 
         # Fetch from external sources in parallel
         pubmed_df = None
