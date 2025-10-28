@@ -223,25 +223,34 @@
 
 ### Критические риски
 
-1. **Детерминизм (G1, G9, G13)**
+1. **Детерминизм (G1, G9, G13)** ✅ ЗАКРЫТ
    - Риск: Неидентичность run-to-run
    - Mitigation: AC1, AC6, golden-run
    - Компромисс: Performance overhead
+   - **Статус**: Синхронизирована NA-policy (R1), типо-зависимая политика зафиксирована в [02-io-system.md](requirements/02-io-system.md#na-policy)
 
-2. **Отказоустойчивость (G3, G11)**
+2. **Отказоустойчивость (G3, G11)** ✅ ЧАСТИЧНО ЗАКРЫТ
    - Риск: 429-штормы, неустойчивый limit
    - Mitigation: AC5, бинарный поиск limit
    - Компромисс: Время выгрузки
+   - **Статус**: Протокол requeue для PartialFailure формализован (R3), см. [03-data-extraction.md](requirements/03-data-extraction.md#протокол-повторной-постановки-requeue-для-partialfailure)
 
-3. **Эволюция схем (G4, G10)**
+3. **Эволюция схем (G4, G10)** ✅ ЗАКРЫТ
    - Риск: Breaking changes незамеченные
    - Mitigation: AC10, fail-fast
    - Компромисс: Жёсткость валидации
+   - **Статус**: Обязательные поля lineage добавлены в meta.yaml (R2), см. [02-io-system.md](requirements/02-io-system.md#обязательные-поля-meta-yaml)
 
 4. **Целостность данных (G7, G8)**
    - Риск: Потеря nested data, шум в output
    - Mitigation: AC8, strict-enrichment
    - Компромисс: Объём данных (long-format)
+
+**Закрытые риски R1–R3:**
+
+- **R1 (blocker)**: Конфликт NA-policy устранён через типо-зависимую политику
+- **R2 (critical)**: Обязательные поля lineage (`run_id`, `config_hash`, `config_snapshot`) добавлены
+- **R3 (major)**: Протокол requeue формализован с лимитом `max_partial_retries=3`
 
 ---
 
@@ -325,4 +334,3 @@
 - ETA определены
 
 **Текущее состояние**: 3.4/5.0 → **Цель**: 4.4/5.0
-

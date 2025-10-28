@@ -187,18 +187,22 @@ qc_report = {
 
 ## Связи с Gap-листом
 
-| AC ID | Покрывает gaps |
-|-------|----------------|
-| AC1 | G1, G13 |
-| AC2 | G4 |
-| AC3 | G5 |
-| AC4 | G1, G15 |
-| AC5 | G11 |
-| AC6 | G9 |
-| AC7 | G6 |
-| AC8 | G7 |
-| AC9 | G10 |
-| AC10 | G4, G8 |
+| AC ID | Покрывает gaps | Закрытые риски |
+|-------|----------------|----------------|
+| AC1 | G1, G13 | |
+| AC2 | G4 | |
+| AC3 | G5 | **R1** (NA-policy) ✅ |
+| AC4 | G1, G15 | |
+| AC5 | G11 | |
+| AC6 | G9 | |
+| AC7 | G6 | |
+| AC8 | G7 | |
+| AC9 | G10 | |
+| AC10 | G4, G8 | **R2** (meta.yaml lineage) ✅ |
+
+**Дополнительные закрытые риски:**
+
+- **R3** (major): Протокол requeue для PartialFailure формализован в [03-data-extraction.md](requirements/03-data-extraction.md#протокол-повторной-постановки-requeue-для-partialfailure) ✅
 
 ## Инструменты проверки
 

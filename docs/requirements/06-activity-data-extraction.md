@@ -164,6 +164,7 @@ data = r.json()
 - **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
 
 - **Валидация конфига:**
+
   ```python
   if batch_size > 25:
       raise ConfigValidationError(
@@ -1303,8 +1304,7 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
 **Диаграмма связей:**
 
-```
-
+```text
 Activity
 ├── assay_chembl_id → Assay
 ├── target_chembl_id → Target

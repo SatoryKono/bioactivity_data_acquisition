@@ -42,6 +42,7 @@
 **Файлы**:
 
 - `docs/requirements/04-normalization-validation.md` — централизация column_order
+- `docs/requirements/02-io-system.md` — синхронизация NA-policy (R1) ✅
 - `src/library/schemas/registry.py` — schema drift detection
 - `src/library/schemas/precision_map.py` — precision_policy
 - `tests/unit/test_schema_drift.py` — тесты drift
@@ -53,6 +54,8 @@
 - Fail-fast при несовместимой major версии
 - precision_map и NA-policy обязательны
 - CLI флаг `--fail-on-schema-drift` (default=True)
+- **Типо-зависимая NA-policy**: строки → "", числа → null (R1) ✅
+- **Расширение meta.yaml**: добавлены `run_id`, `config_hash`, `config_snapshot` (R2) ✅
 
 **Тесты**: AC2, AC10, G4, G5
 
@@ -65,6 +68,8 @@
 
 **ETA**: 2 дня
 
+**Закрытые риски**: R1 (blocker), R2 (critical)
+
 ---
 
 ## PR-3: Клиент API (429/Retry-After, limiter)
@@ -74,6 +79,7 @@
 **Файлы**:
 
 - `docs/requirements/03-data-extraction.md` — Retry-After стратегия
+- `docs/requirements/03-data-extraction.md` — протокол requeue для PartialFailure (R3) ✅
 - `src/library/clients/unified_client.py` — патч 3 (retry-after)
 
 - `src/library/clients/rate_limit.py` — TokenBucket acquire
@@ -86,6 +92,7 @@
 
 - Respect Retry-After ≥ указанного
 - Запрет ретраев на 4xx (кроме 429)
+- **Протокол requeue**: реализация `retry_queue`, `drain_partial_queue()` с лимитом 3 попытки (R3) ✅
 
 **Тесты**: AC5, G11
 
@@ -97,6 +104,8 @@
 **Откат**: Снизить ожидания, уменьшить backoff.
 
 **ETA**: 1 день
+
+**Закрытый риск**: R3 (major)
 
 ---
 

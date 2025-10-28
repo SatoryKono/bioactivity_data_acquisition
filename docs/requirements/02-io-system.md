@@ -600,18 +600,28 @@ schema_version: "2.1.0"
 
 ### NA Policy
 
-**Критический инвариант (v3.0):** Единая политика для всех типов данных.
+**Критический инвариант (v3.0):** Политика пропусков опирается на Pandera-тип колонки.
 
 **Правила для пропущенных значений:**
 
-- **Все типы**: `NA/None/NaN` → `""` (пустая строка)
+- **Строковые поля** → `""` (пустая строка в CSV и canonical JSON)
+- **Числовые/даты/boolean** → `pd.NA` или `None` (пустая ячейка в CSV, `null` в canonical JSON)
 
 ```python
-df = df.fillna("")  # Единая политика для всех типов
+string_columns = {
+    name
+    for name, field in schema.__fields__.items()
+    if pd.api.types.is_string_dtype(field.dtype)
+}
+df[string_columns] = df[string_columns].fillna("")
+non_string = df.columns.difference(string_columns)
+df[non_string] = df[non_string].astype(schema.to_schema().dtype)
 
 ```
 
-**Обоснование:** Обеспечивает детерминизм канонической сериализации при вычислении хешей.
+**Обоснование:** Типовая политика сохраняет семантику `null` для числовых/булевых колонок и предотвращает дрейф хешей для строк.
+
+**См. также**: [00-architecture-overview.md](00-architecture-overview.md) — NA-policy: "" для строк, null для чисел.
 
 ### Точность чисел
 
@@ -696,7 +706,12 @@ hash_row = hashlib.sha256(row_str.encode()).hexdigest()
 **Каноническая сериализация для hash_row:**
 
 ```python
-def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> str:
+def canonicalize_row_for_hash(
+    row: dict[str, Any],
+    column_order: list[str],
+    *,
+    string_columns: Collection[str],
+) -> str:
     """
     Каноническая сериализация строки для детерминированного хеширования.
 
@@ -704,9 +719,10 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
     1. JSON с sort_keys=True, separators=(',', ':')
     2. ISO8601 UTC для всех datetime с суффиксом 'Z'
     3. Float формат: %.6f
-    4. NA-policy: все типы → "" (пустая строка)
+    4. NA-policy: строковые → "", остальные → None
     5. Column order: строго по column_order
     """
+    from collections.abc import Collection
     from datetime import datetime, timezone
     import json
     import pandas as pd
@@ -716,10 +732,10 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
     for col in column_order:
         value = row.get(col)
 
-        # Применяем NA-policy (единая для всех типов)
-
+        # Применяем NA-policy: строковые → "", остальные → None
         if pd.isna(value):
-            canonical[col] = ""  # Пустая строка для всех NA
+            canonical[col] = "" if col in string_columns else None
+            continue
 
         elif isinstance(value, float):
             canonical[col] = float(f"{value:.6f}")  # Фиксированная точность
@@ -734,6 +750,16 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
 
     return json.dumps(canonical, sort_keys=True, ensure_ascii=False)
 
+# Использование:
+STRING_COLUMNS = {
+    name
+    for name, field in schema.fields.items()
+    if pd.api.types.is_string_dtype(field.dtype)
+}
+canonicalize_row_for_hash(row, schema.column_order, string_columns=STRING_COLUMNS)
+
+# Здесь `schema` — Pandera DataFrameModel; `string_columns` используется при вычислении `hash_row`.
+
 ```
 
 ## Manifest & Atomic Write
@@ -745,8 +771,12 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
 ```yaml
 
 # meta.yaml
-
+run_id: "abc123"
 pipeline_version: "2.1.0"
+config_hash: "sha256:deadbeef..."
+config_snapshot:
+  path: "configs/pipelines/document.yaml"
+  sha256: "sha256:d1c2..."
 chembl_release: "33"
 row_count: 12345
 column_count: 42
@@ -768,6 +798,16 @@ lineage:
     - "validate_dois"
 
 ```
+
+**Обязательные поля lineage конфигурации:**
+
+- `run_id`: уникальный идентификатор запуска (UUID8 или timestamp-based)
+- `config_hash`: SHA256 хеш конфигурации (после резолва переменных окружения)
+- `config_snapshot`: путь и хеш исходного файла конфигурации
+
+**Обоснование:** Обеспечивает полную воспроизводимость и аудит запусков, закрывает требование R2 из gap-анализа.
+
+**См. также**: [09-document-chembl-extraction.md](09-document-chembl-extraction.md) — примеры использования `config_hash`.
 
 ### Протокол Atomic Write
 

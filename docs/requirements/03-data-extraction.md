@@ -910,6 +910,71 @@ class PartialFailure(APIError):
 | 503 | ServerError | Retry с backoff | Да | Да |
 | Partial | PartialFailure | Log + requeue | Да | Да |
 
+### Протокол повторной постановки (requeue) для PartialFailure
+
+**Цель:** гарантировать дочитывание недополученных страниц без нарушения детерминизма.
+
+**Шаги протокола:**
+
+1. При выбросе `PartialFailure` сохраняем `endpoint`, `page_state`, `expected` и `received` в run-scoped `retry_queue`.
+2. После основной пагинации обрабатываем `retry_queue` FIFO, повторно вызывая `request()` с оригинальным `page_state`.
+3. Ограничиваем `max_partial_retries` (конфиг `http.global.partial_retries.max`, по умолчанию 3) для защиты от бесконечных циклов.
+4. Логи повторов включают `run_id`, `page_state`, `attempt` и `retry_origin="partial_requeue"`.
+
+```python
+from collections import deque
+from dataclasses import dataclass
+
+retry_queue: deque[RetryWorkItem] = deque()
+
+
+@dataclass
+class RetryWorkItem:
+    endpoint: str
+    params: dict
+    attempt: int = 0
+
+
+def requeue_partial(endpoint: str, params: dict) -> None:
+    """Помещает PartialFailure в очередь повторной обработки."""
+    retry_queue.append(RetryWorkItem(endpoint=endpoint, params=params.copy()))
+
+
+def drain_partial_queue(client: UnifiedAPIClient) -> None:
+    """Обрабатывает очередь частичных сбоев FIFO."""
+    while retry_queue:
+        item = retry_queue.popleft()
+        if item.attempt >= config.http["global"].partial_retries["max"]:
+            raise RetryExhausted(
+                item.attempt,
+                PartialFailure(0, 0, item.params.get("page_state"))
+            )
+        client.logger.info(
+            "partial_requeue_retry",
+            endpoint=item.endpoint,
+            page_state=item.params.get("page_state"),
+            attempt=item.attempt + 1,
+            retry_origin="partial_requeue"
+        )
+        client.request("GET", item.endpoint, params=item.params)
+        item.attempt += 1
+
+```
+
+**Примечание:** `params` обязан содержать исходный `page_state`, чтобы соблюсти контракт идемпотентности.
+
+**Конфигурация:**
+
+```yaml
+http:
+  global:
+    partial_retries:
+      max: 3  # Максимум 3 попытки для PartialFailure
+      backoff_factor: 2.0
+```
+
+**Обоснование:** Предотвращает потерю данных при частичных сбоях пагинации, формализует недостающий контракт обработки ошибок, закрывает риск R3 из gap-анализа.
+
 ### Примеры логов
 
 ```json
