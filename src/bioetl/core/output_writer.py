@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
@@ -96,9 +98,11 @@ class AtomicWriter:
 class QualityReportGenerator:
     """Генератор quality report."""
 
-    def generate(self, df: pd.DataFrame) -> pd.DataFrame:
+    def generate(
+        self, df: pd.DataFrame, issues: list[dict[str, Any]] | None = None
+    ) -> pd.DataFrame:
         """Создает QC отчет."""
-        metrics = []
+        metrics: list[dict[str, Any]] = []
 
         for column in df.columns:
             null_count = df[column].isna().sum()
@@ -107,6 +111,7 @@ class QualityReportGenerator:
 
             metrics.append(
                 {
+                    "metric": "column_profile",
                     "column": column,
                     "null_count": null_count,
                     "null_fraction": null_fraction,
@@ -114,6 +119,12 @@ class QualityReportGenerator:
                     "dtype": str(df[column].dtype),
                 }
             )
+
+        if issues:
+            for issue in issues:
+                record = {"metric": issue.get("metric", "validation_issue")}
+                record.update(issue)
+                metrics.append(record)
 
         return pd.DataFrame(metrics)
 
@@ -132,6 +143,7 @@ class UnifiedOutputWriter:
         output_path: Path,
         metadata: OutputMetadata | None = None,
         extended: bool = False,
+        issues: list[dict[str, Any]] | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -166,7 +178,7 @@ class UnifiedOutputWriter:
 
         # Generate and write quality report
         logger.info("generating_quality_report")
-        quality_df = self.quality_generator.generate(df)
+        quality_df = self.quality_generator.generate(df, issues=issues)
         self.atomic_writer.write(quality_df, quality_path)
 
         # Calculate checksums

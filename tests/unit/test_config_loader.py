@@ -190,6 +190,50 @@ def test_invalid_config():
         load_config(Path("nonexistent.yaml"))
 
 
+def test_activity_batch_size_enforced(tmp_path):
+    """Ensure chembl batch size cannot exceed documented maximum."""
+
+    config_file = tmp_path / "activity.yaml"
+    config_file.write_text(
+        """
+version: 1
+pipeline:
+  name: activity
+  entity: activity
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+cache:
+  enabled: true
+  directory: "data/cache"
+  ttl: 86400
+  release_scoped: true
+paths:
+  input_root: "data/input"
+  output_root: "data/output"
+determinism:
+  sort:
+    by: []
+    ascending: []
+  column_order: []
+sources:
+  chembl:
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    batch_size: 99
+"""
+    )
+
+    with pytest.raises(ValueError, match="batch_size"):
+        load_config(config_file)
+
+
 def test_circular_extends(tmp_path):
     """Test circular extends detection."""
     base_file = tmp_path / "base.yaml"
