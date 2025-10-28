@@ -507,6 +507,15 @@ class TestActivityPipeline:
         assert report["metrics"]["null_rate"]["value"] == 0
         assert report["metrics"]["invalid_units"]["value"] == 0
 
+        issue_metrics = {
+            issue["metric"]: issue for issue in pipeline.validation_issues if issue.get("metric")
+        }
+        assert {"qc.duplicates", "qc.null_rate", "qc.invalid_units", "schema.validation"}.issubset(
+            issue_metrics.keys()
+        )
+        assert issue_metrics["schema.validation"]["status"] == "passed"
+        assert issue_metrics["schema.validation"]["severity"] == "info"
+
     def test_validate_raises_on_duplicates(self, activity_config):
         """Duplicate activities should fail validation."""
         run_id = str(uuid.uuid4())[:8]
@@ -544,6 +553,11 @@ class TestActivityPipeline:
         schema_report = report.get("schema_validation")
         assert schema_report is not None
         assert schema_report.get("status") == "failed"
+        schema_issues = [
+            issue for issue in pipeline.validation_issues if issue.get("metric") == "schema.validation"
+        ]
+        assert schema_issues
+        assert all(issue.get("severity") == "critical" for issue in schema_issues)
 
     def test_validate_invalid_unit_triggers_pandera_error(self, activity_config):
         """Invalid standard unit should raise a Pandera schema error."""
@@ -561,6 +575,38 @@ class TestActivityPipeline:
         schema_report = report.get("schema_validation")
         assert schema_report is not None
         assert schema_report.get("status") == "failed"
+        schema_issues = [
+            issue for issue in pipeline.validation_issues if issue.get("metric") == "schema.validation"
+        ]
+        assert schema_issues
+        assert all(issue.get("severity") == "critical" for issue in schema_issues)
+
+    def test_activity_quality_report_includes_qc_metrics(self, activity_config, tmp_path):
+        """QC artifacts should include validation issues emitted by the pipeline."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = pd.concat(
+            [
+                self._build_activity_dataframe(activity_id=1, index_value=0),
+                self._build_activity_dataframe(activity_id=2, index_value=1),
+            ],
+            ignore_index=True,
+        )
+
+        validated = pipeline.validate(df)
+        artifacts = pipeline.export(validated, tmp_path / "activity.csv")
+
+        quality_df = pd.read_csv(artifacts.quality_report)
+        metric_labels = quality_df["metric"].fillna("")
+        issue_mask = metric_labels.str.startswith("qc.") | (metric_labels == "schema.validation")
+        issue_rows = quality_df[issue_mask]
+
+        assert not issue_rows.empty
+        assert set(issue_rows["metric"]).issuperset(
+            {"qc.duplicates", "qc.null_rate", "qc.invalid_units", "schema.validation"}
+        )
 
     def test_activity_cache_key_release_scope(self, activity_config, monkeypatch, tmp_path):
         """Cache keys must include release scoping for determinism."""

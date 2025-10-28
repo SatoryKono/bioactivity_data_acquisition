@@ -559,8 +559,15 @@ class ActivityPipeline(PipelineBase):
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate activity data against schema."""
+        self.validation_issues.clear()
+
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
+            self._last_validation_report = {
+                "metrics": {},
+                "schema_validation": {"status": "skipped"},
+                "issues": [],
+            }
             return df
 
         qc_metrics = self._calculate_qc_metrics(df)
@@ -580,36 +587,114 @@ class ActivityPipeline(PipelineBase):
                 severity=metric["severity"],
                 details=metric.get("details"),
             )
+
+            issue_payload: dict[str, Any] = {
+                "metric": f"qc.{metric_name}",
+                "issue_type": "qc_metric",
+                "severity": metric.get("severity", "info"),
+                "value": metric.get("value"),
+                "threshold": metric.get("threshold"),
+                "passed": metric.get("passed"),
+            }
+            if metric.get("details"):
+                issue_payload["details"] = metric["details"]
+            self.record_validation_issue(issue_payload)
+
             if (not metric["passed"]) and self._severity_level(metric["severity"]) >= severity_level_threshold:
                 failing_metrics[metric_name] = metric
 
         if failing_metrics:
             self._last_validation_report["failing_metrics"] = failing_metrics
+            if self._last_validation_report is not None:
+                self._last_validation_report["issues"] = list(self.validation_issues)
             logger.error("qc_threshold_exceeded", failing_metrics=failing_metrics)
             raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(failing_metrics.keys()))
 
         try:
             validated_df = ActivitySchema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
+            error_count = len(failure_cases) if getattr(failure_cases, "__len__", None) else None
+            schema_issue: dict[str, Any] = {
+                "metric": "schema.validation",
+                "issue_type": "schema_validation",
+                "severity": "critical",
+                "status": "failed",
+                "errors": error_count,
+            }
+
+            if failure_cases is not None and not getattr(failure_cases, "empty", False):
+                try:
+                    grouped = failure_cases.groupby("column", dropna=False)
+                    for column, group in grouped:
+                        column_name = (
+                            str(column)
+                            if column is not None and not (isinstance(column, float) and pd.isna(column))
+                            else "<dataframe>"
+                        )
+                        issue_details: dict[str, Any] = {
+                            "metric": "schema.validation",
+                            "issue_type": "schema_validation",
+                            "severity": "critical",
+                            "column": column_name,
+                            "check": ", ".join(
+                                sorted({str(check) for check in group["check"].dropna().unique()})
+                            )
+                            or "<unspecified>",
+                            "count": int(group.shape[0]),
+                        }
+                        failure_examples = (
+                            group["failure_case"].dropna().astype(str).unique().tolist()[:5]
+                        )
+                        if failure_examples:
+                            issue_details["examples"] = failure_examples
+                        self.record_validation_issue(issue_details)
+                except Exception:  # pragma: no cover - defensive grouping fallback
+                    schema_issue["details"] = "failed_to_group_failure_cases"
+
+            self.record_validation_issue(schema_issue)
+
+            if self._last_validation_report is not None:
+                self._last_validation_report["schema_validation"] = {
+                    "status": "failed",
+                    "errors": error_count,
+                    "failure_cases": failure_cases,
+                }
+                self._last_validation_report["issues"] = list(self.validation_issues)
+
+            logger.error(
+                "schema_validation_failed",
+                error=str(exc),
+                failure_count=error_count,
+            )
+
+            if self._severity_level("critical") >= severity_level_threshold:
+                raise
+
+            logger.warning(
+                "schema_validation_below_threshold", severity_threshold=severity_threshold
+            )
+            return df
+
+        self.record_validation_issue(
+            {
+                "metric": "schema.validation",
+                "issue_type": "schema_validation",
+                "severity": "info",
+                "status": "passed",
+                "errors": 0,
+            }
+        )
+
+        if self._last_validation_report is not None:
             self._last_validation_report["schema_validation"] = {
                 "status": "passed",
                 "errors": 0,
             }
-            logger.info("schema_validation_passed", rows=len(validated_df))
-            return validated_df
-        except SchemaErrors as exc:
-            failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
-            if self._last_validation_report is not None:
-                self._last_validation_report["schema_validation"] = {
-                    "status": "failed",
-                    "errors": len(failure_cases) if failure_cases is not None else None,
-                    "failure_cases": failure_cases,
-                }
-            logger.error(
-                "schema_validation_failed",
-                error=str(exc),
-                failure_count=len(failure_cases) if failure_cases is not None else None,
-            )
-            raise
+            self._last_validation_report["issues"] = list(self.validation_issues)
+
+        logger.info("schema_validation_passed", rows=len(validated_df))
+        return validated_df
 
     @property
     def last_validation_report(self) -> dict[str, Any] | None:
