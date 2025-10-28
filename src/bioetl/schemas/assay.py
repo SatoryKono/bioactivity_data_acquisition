@@ -87,6 +87,23 @@ class AssaySchema(BaseSchema):
     tissue_chembl_id: Series[str] = pa.Field(nullable=True, description="ChEMBL ID ткани")
     variant_sequence_json: Series[str] = pa.Field(nullable=True, description="Последовательность варианта (JSON)")
 
+    # Target enrichment (whitelist)
+    pref_name: Series[str] = pa.Field(nullable=True, description="Whitelisted target preferred name")
+    organism: Series[str] = pa.Field(nullable=True, description="Whitelisted organism name")
+    target_type: Series[str] = pa.Field(nullable=True, description="Whitelisted target type")
+    species_group_flag: Series[int] = pa.Field(
+        nullable=True,
+        ge=0,
+        le=1,
+        description="Whitelisted species group flag",
+    )
+    tax_id: Series[int] = pa.Field(nullable=True, ge=0, description="Whitelisted NCBI taxonomy ID")
+    component_count: Series[int] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Whitelisted component count",
+    )
+
     # ASSAY_PARAMETERS (развернутые из JSON)
     assay_param_type: Series[str] = pa.Field(nullable=True, description="Тип параметра ассея")
     assay_param_relation: Series[str] = pa.Field(
@@ -196,4 +213,71 @@ class AssaySchema(BaseSchema):
         strict = True
         coerce = True
         ordered = True
+        # Column order: business fields first, then system fields, then hash fields
+        column_order = [
+            "assay_chembl_id",
+            "row_subtype",
+            "row_index",
+            "assay_type",
+            "assay_category",
+            "assay_cell_type",
+            "assay_classifications",
+            "assay_group",
+            "assay_organism",
+            "assay_parameters_json",
+            "assay_strain",
+            "assay_subcellular_fraction",
+            "assay_tax_id",
+            "assay_test_type",
+            "assay_tissue",
+            "assay_type_description",
+            "bao_format",
+            "bao_label",
+            "cell_chembl_id",
+            "confidence_description",
+            "confidence_score",
+            "assay_description",
+            "bao_endpoint",
+            "document_chembl_id",
+            "relationship_description",
+            "relationship_type",
+            "src_assay_id",
+            "src_id",
+            "target_chembl_id",
+            "pref_name",
+            "organism",
+            "target_type",
+            "species_group_flag",
+            "tax_id",
+            "component_count",
+            "tissue_chembl_id",
+            "variant_sequence_json",
+            "assay_param_type",
+            "assay_param_relation",
+            "assay_param_value",
+            "assay_param_units",
+            "assay_param_text_value",
+            "assay_param_standard_type",
+            "assay_param_standard_value",
+            "assay_param_standard_units",
+            "assay_class_id",
+            "assay_class_bao_id",
+            "assay_class_type",
+            "assay_class_l1",
+            "assay_class_l2",
+            "assay_class_l3",
+            "assay_class_description",
+            "variant_id",
+            "variant_base_accession",
+            "variant_mutation",
+            "variant_sequence",
+            "variant_accession_reported",
+            "pipeline_version",
+            "source_system",
+            "chembl_release",
+            "extracted_at",
+            "hash_business_key",
+            "hash_row",
+            "index",
+        ]
 

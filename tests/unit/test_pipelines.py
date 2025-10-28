@@ -1,5 +1,6 @@
 """Tests for pipeline implementations."""
 
+import json
 import uuid
 from typing import Any
 
@@ -78,7 +79,7 @@ class TestAssayPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) >= 0  # May be limited by nrows=10
 
-    def test_transform_adds_metadata(self, assay_config):
+    def test_transform_adds_metadata(self, assay_config, monkeypatch):
         """Test transformation adds pipeline metadata."""
         run_id = str(uuid.uuid4())[:8]
         pipeline = AssayPipeline(assay_config, run_id)
@@ -87,6 +88,17 @@ class TestAssayPipeline:
             "assay_chembl_id": ["CHEMBL1"],
             "description": ["  Test Assay  "],
         })
+
+        mock_assay_data = pd.DataFrame({
+            "assay_chembl_id": ["CHEMBL1"],
+            "assay_parameters_json": [None],
+            "variant_sequence_json": [None],
+            "assay_classifications": [None],
+        })
+
+        monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: mock_assay_data)
+        monkeypatch.setattr(pipeline, "_fetch_target_reference_data", lambda ids: pd.DataFrame())
+        monkeypatch.setattr(pipeline, "_fetch_assay_class_reference_data", lambda ids: pd.DataFrame())
 
         result = pipeline.transform(df)
         assert "pipeline_version" in result.columns
@@ -189,6 +201,143 @@ class TestAssayPipeline:
 
         assert "metric" in quality_df.columns
         assert not (quality_df["metric"] == "validation_issue").any()
+    def test_transform_expands_and_enriches(self, assay_config, monkeypatch, caplog):
+        """Ensure parameters, variants, and classifications survive transform with enrichment."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(assay_config, run_id)
+
+        input_df = pd.DataFrame({
+            "assay_chembl_id": ["CHEMBL1"],
+        })
+
+        assay_payload = pd.DataFrame({
+            "assay_chembl_id": ["CHEMBL1"],
+            "target_chembl_id": ["CHEMBL2"],
+            "assay_parameters_json": [json.dumps([
+                {
+                    "type": "CONC",
+                    "relation": ">",
+                    "value": 1.5,
+                    "units": "nM",
+                    "text_value": "1.5",
+                    "standard_type": "IC50",
+                    "standard_value": 1.5,
+                    "standard_units": "nM",
+                },
+                {
+                    "type": "TEMP",
+                    "relation": "=",
+                    "value": 37,
+                    "units": "C",
+                },
+            ])],
+            "variant_sequence_json": [json.dumps([
+                {
+                    "variant_id": 101,
+                    "base_accession": "P12345",
+                    "mutation": "A50T",
+                    "variant_seq": "MTEYKLVVVG",
+                    "accession_reported": "Q99999",
+                }
+            ])],
+            "assay_classifications": [json.dumps([
+                {
+                    "assay_class_id": 501,
+                    "bao_id": "BAO_0000001",
+                    "class_type": "primary",
+                    "l1": "Level1",
+                    "l2": "Level2",
+                    "l3": "Level3",
+                    "description": "Example class",
+                },
+                {
+                    "assay_class_id": 502,
+                    "bao_id": "BAO_0000002",
+                    "class_type": "secondary",
+                    "l1": "L1",
+                    "l2": "L2",
+                    "l3": "L3",
+                    "description": "Another class",
+                },
+            ])],
+        })
+
+        monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: assay_payload)
+
+        target_reference = pd.DataFrame({
+            "target_chembl_id": ["CHEMBL2"],
+            "pref_name": ["Target X"],
+            "organism": ["Homo sapiens"],
+            "target_type": ["SINGLE PROTEIN"],
+            "species_group_flag": [1],
+            "tax_id": [9606],
+            "component_count": [1],
+            "unexpected_column": ["drop"],
+        })
+
+        assay_class_reference = pd.DataFrame({
+            "assay_class_id": [501, 502],
+            "assay_class_bao_id": ["BAO_0000001", "BAO_0000002"],
+            "assay_class_type": ["primary", "secondary"],
+            "assay_class_l1": ["Level1", "L1"],
+            "assay_class_l2": ["Level2", "L2"],
+            "assay_class_l3": ["Level3", "L3"],
+            "assay_class_description": ["Example class", "Another class"],
+            "extra_field": ["drop", "drop"],
+        })
+
+        monkeypatch.setattr(
+            pipeline,
+            "_fetch_target_reference_data",
+            lambda ids: target_reference,
+        )
+        monkeypatch.setattr(
+            pipeline,
+            "_fetch_assay_class_reference_data",
+            lambda ids: assay_class_reference,
+        )
+
+        result = pipeline.transform(input_df)
+
+        # Canonical ordering maintained
+        assert list(result.columns) == AssaySchema.Config.column_order
+
+        # Expect four row subtypes: assay, param, variant, class (2 class rows -> 5 total rows)
+        assert set(result["row_subtype"].unique()) == {"assay", "param", "variant", "class"}
+
+        assay_rows = result[result["row_subtype"] == "assay"]
+        assert len(assay_rows) == 1
+        assert assay_rows.iloc[0]["pref_name"] == "Target X"
+
+        param_rows = result[result["row_subtype"] == "param"]
+        assert len(param_rows) == 2
+        assert sorted(param_rows["row_index"].tolist()) == [0, 1]
+        assert {"CONC", "TEMP"} == set(param_rows["assay_param_type"].dropna())
+
+        variant_rows = result[result["row_subtype"] == "variant"]
+        assert len(variant_rows) == 1
+        assert variant_rows.iloc[0]["variant_id"] == 101
+
+        class_rows = result[result["row_subtype"] == "class"]
+        assert len(class_rows) == 2
+        # Enrichment should preserve whitelist fields and drop unexpected columns
+        assert "extra_field" not in result.columns
+        assert class_rows["assay_class_description"].notna().all()
+
+        # Join loss logging triggered when enrichment loses records (simulate by clearing target data)
+        join_loss_payload = pd.DataFrame({
+            "assay_chembl_id": ["CHEMBL9"],
+            "target_chembl_id": ["CHEMBL_NOPE"],
+            "assay_parameters_json": [None],
+            "variant_sequence_json": [None],
+            "assay_classifications": [None],
+        })
+        monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: join_loss_payload)
+        monkeypatch.setattr(pipeline, "_fetch_target_reference_data", lambda ids: pd.DataFrame())
+        with caplog.at_level("WARNING"):
+            pipeline.transform(pd.DataFrame({"assay_chembl_id": ["CHEMBL9"], "target_chembl_id": ["CHEMBL_NOPE"]}))
+        assert any("target_enrichment_join_loss" in rec.message for rec in caplog.records)
 
 
 class TestActivityPipeline:
