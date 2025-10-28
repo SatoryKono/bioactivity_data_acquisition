@@ -71,6 +71,10 @@ class APIConfig:
     retry_backoff_factor: float = 2.0
     retry_giveup_on: list[type[Exception]] = field(default_factory=lambda: [])
 
+    # Partial failure retry
+
+    partial_retry_max: int = 3  # Максимум попыток для PartialFailure
+
     # Timeout
 
     timeout_connect: float = 10.0

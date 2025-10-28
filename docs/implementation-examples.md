@@ -396,7 +396,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 
 +    """
 
-+    tmpdir = path.parent / ".tmp" / run_id
++    tmpdir = path.parent / f".tmp_run_{run_id}"
 
 +    tmpdir.mkdir(parents=True, exist_ok=True)
 +

@@ -445,12 +445,16 @@ class UnifiedOutputWriter:
         quality_df = self.quality_generator.generate(df)
         self._write_dataset(quality_df, artifacts.quality_report)
 
-        # Условная генерация correlation отчета
+        # Условная генерация correlation отчета (только при явном включении)
 
-        if hasattr(self, 'config') and self.config.postprocess.correlation.enabled:
+        if hasattr(self, 'config') and getattr(self.config, 'postprocess', None) and self.config.postprocess.correlation.enabled:
             correlation_df = self.correlation_generator.generate(df)
             if not correlation_df.empty:
                 self._write_dataset(correlation_df, artifacts.correlation_report)
+            else:
+                logger.info("skip_correlation_report", reason="no_numeric_columns")
+        else:
+            logger.info("skip_correlation_report", reason="disabled_in_config", invariant="determinism")
 
         # Дополнительные артефакты в extended режиме
 
@@ -1137,14 +1141,23 @@ for artifact in [artifacts.dataset, artifacts.quality_report, ...]:
 
 **Цель:** Гарантировать, что порядок колонок соответствует Schema Registry.
 
+**Момент проверки:** Проверка выполняется **после** Pandera валидации схемы, **перед** атомарной записью.
+
 **Проверка:**
 
 ```python
-assert df.columns.tolist() == schema.column_order
+# После Pandera validation
+df = schema.validate(df, lazy=True)
+
+# Применяем column_order из схемы (источник истины)
+df = df[schema.column_order]
+
+# Проверка перед записью
+assert list(df.columns) == schema.column_order
 
 ```
 
-**Ожидаемое:** Полное совпадение порядка.
+**Ожидаемое:** Полное совпадение порядка колонок.
 
 ### AC-05: NA-Policy в Сериализации
 
