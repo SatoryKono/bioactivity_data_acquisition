@@ -426,9 +426,8 @@ class TestItemPipeline(PipelineBase):
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import TestItemSchema
 
-        if "column_order" in TestItemSchema.Config.__dict__:
-            expected_cols = TestItemSchema.Config.column_order
-
+        expected_cols = TestItemSchema.get_column_order()
+        if expected_cols:
             # Add missing columns with None values
             for col in expected_cols:
                 if col not in df.columns:

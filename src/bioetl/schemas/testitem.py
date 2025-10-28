@@ -86,6 +86,47 @@ class TestItemSchema(BaseSchema):
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
 
+    _column_order = [
+        "molecule_chembl_id",
+        "molregno",
+        "pref_name",
+        "parent_chembl_id",
+        "max_phase",
+        "structure_type",
+        "molecule_type",
+        "mw_freebase",
+        "qed_weighted",
+        "standardized_smiles",
+        "standard_inchi",
+        "standard_inchi_key",
+        "heavy_atoms",
+        "aromatic_rings",
+        "rotatable_bonds",
+        "hba",
+        "hbd",
+        "lipinski_ro5_violations",
+        "lipinski_ro5_pass",
+        "all_names",
+        "molecule_synonyms",
+        "atc_classifications",
+        "pubchem_cid",
+        "pubchem_molecular_formula",
+        "pubchem_molecular_weight",
+        "pubchem_canonical_smiles",
+        "pubchem_isomeric_smiles",
+        "pubchem_inchi",
+        "pubchem_inchi_key",
+        "pubchem_iupac_name",
+        "pubchem_synonyms",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+        "hash_business_key",
+        "hash_row",
+        "index",
+    ]
+
     class Config:
         strict = True
         coerce = True

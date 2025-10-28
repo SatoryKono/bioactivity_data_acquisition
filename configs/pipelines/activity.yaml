@@ -21,9 +21,13 @@ determinism:
 
 qc:
   enabled: true
-  severity_threshold: warning
+  severity_threshold: error
   duplicate_check:
     enabled: true
     field: "activity_id"
     threshold: 0
+  thresholds:
+    duplicates: 0
+    null_rate_critical: 0.3
+    invalid_units: 0
 
