@@ -66,7 +66,7 @@ class TargetPipeline(PipelineBase):
                 "iuphar_type", "iuphar_class", "iuphar_subclass",
             ])
 
-        df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
+        df = pd.read_csv(input_file)  # Read all records
 
         logger.info("extraction_completed", rows=len(df))
         return df

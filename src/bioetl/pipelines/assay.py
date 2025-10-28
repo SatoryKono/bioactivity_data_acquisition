@@ -205,7 +205,6 @@ class AssayPipeline(PipelineBase):
             # Create base assay row
             assay_row = row.to_dict()
             assay_row["row_subtype"] = "assay"
-            assay_row["row_index"] = 0
             exploded_rows.append(assay_row)
 
             # TODO: In future, add explode for params and variants
@@ -217,6 +216,9 @@ class AssayPipeline(PipelineBase):
             #         exploded_rows.append(param_row)
 
         df = pd.DataFrame(exploded_rows)
+
+        # Generate row_index for deterministic ordering within each (assay_chembl_id, row_subtype) group
+        df["row_index"] = df.groupby(["assay_chembl_id", "row_subtype"]).cumcount()
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"

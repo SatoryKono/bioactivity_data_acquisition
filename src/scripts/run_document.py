@@ -143,17 +143,16 @@ def main(
             typer.echo("Starting pipeline execution...")
 
             # Apply limit by modifying extract behavior temporarily
-            original_extract = pipeline.extract
+            if limit and limit > 0:
+                original_extract = pipeline.extract
 
-            def limited_extract(input_file: Path | None = None) -> pd.DataFrame:
-                """Extract with optional row limit."""
-                df = original_extract(input_file)
-                if limit and limit > 0:
+                def limited_extract(input_file: Path | None = None) -> pd.DataFrame:
+                    """Extract with optional row limit."""
+                    df = original_extract(input_file)
                     logger.info("applying_row_limit", limit=limit, original_rows=len(df))
                     df = df.head(limit)
-                return df
+                    return df
 
-            if limit:
                 pipeline.extract = limited_extract
 
             # Run full pipeline

@@ -47,7 +47,7 @@ def merge_with_precedence(
             merged_df = merged_df.merge(
                 pubmed_prefixed,
                 left_on="chembl_pmid",
-                right_on="pubmed_pubmed_id",
+                right_on="pubmed_pubmed_pmid",
                 how="left",
             )
 
