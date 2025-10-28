@@ -2,12 +2,11 @@
 
 import logging
 import re
+from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from collections.abc import Callable
-
 from typing import Any
 
 import structlog
@@ -122,6 +121,11 @@ def setup_logger(mode: str = "development", run_id: str | None = None) -> None:
         mode: 'development', 'production', or 'testing'
         run_id: Optional run ID for context
     """
+    # Suppress verbose urllib3 logs first, before any logging setup
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+    logging.getLogger("urllib3.util.retry").setLevel(logging.WARNING)
+
     # Set context with run_id if provided
     if run_id:
         set_context({"run_id": run_id})

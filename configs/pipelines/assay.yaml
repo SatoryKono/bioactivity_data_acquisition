@@ -12,9 +12,12 @@ sources:
     max_url_length: 2000
 
 determinism:
+  hash_algorithm: "sha256"
+  float_precision: 6
+  datetime_format: "iso8601"
   sort:
-    by: ["assay_chembl_id"]
-    ascending: [true]
+    by: ["assay_chembl_id", "row_subtype", "row_index"]
+    ascending: [true, true, true]
 
 qc:
   enabled: true

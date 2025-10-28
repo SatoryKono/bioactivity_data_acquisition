@@ -3,7 +3,7 @@
 from bioetl.schemas.activity import ActivitySchema
 from bioetl.schemas.assay import AssaySchema
 from bioetl.schemas.base import BaseSchema
-from bioetl.schemas.document import ChEMBLDocumentSchema, PubMedDocumentSchema
+from bioetl.schemas.document import DocumentSchema
 from bioetl.schemas.registry import SchemaRegistry, schema_registry
 from bioetl.schemas.target import (
     ProteinClassSchema,
@@ -16,8 +16,7 @@ from bioetl.schemas.testitem import TestItemSchema
 __all__ = [
     "BaseSchema",
     "ActivitySchema",
-    "ChEMBLDocumentSchema",
-    "PubMedDocumentSchema",
+    "DocumentSchema",
     "AssaySchema",
     "TestItemSchema",
     "TargetSchema",

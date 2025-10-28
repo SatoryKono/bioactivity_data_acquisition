@@ -150,11 +150,15 @@ class UnifiedOutputWriter:
             metadata = OutputMetadata.from_dataframe(df)
 
         # Create base paths
+        # Use the path as-is if it already contains a date
+        # Otherwise add current date tag
         base_name = output_path.stem
-        date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
+        if not base_name.endswith(datetime.now(timezone.utc).strftime("%Y%m%d")):
+            date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
+            base_name = f"{base_name}_{date_tag}"
 
-        dataset_path = output_path.parent / f"{base_name}_{date_tag}.csv"
-        quality_path = output_path.parent / f"{base_name}_{date_tag}_quality_report.csv"
+        dataset_path = output_path.parent / f"{base_name}.csv"
+        quality_path = output_path.parent / f"{base_name}_quality_report.csv"
 
         # Write main dataset
         logger.info("writing_dataset", path=dataset_path, rows=len(df))
@@ -171,7 +175,7 @@ class UnifiedOutputWriter:
         # Write metadata if extended
         metadata_path = None
         if extended:
-            metadata_path = output_path.parent / f"{base_name}_{date_tag}_meta.yaml"
+            metadata_path = output_path.parent / f"{base_name}_meta.yaml"
             self._write_metadata(metadata_path, metadata, checksums)
 
         return OutputArtifacts(

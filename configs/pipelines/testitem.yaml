@@ -11,11 +11,16 @@ sources:
     batch_size: 25
     max_url_length: 2000
   pubchem:
-    enabled: false  # PubChem enrichment optional
+    enabled: true  # PubChem enrichment enabled
     base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
     batch_size: 100
+    rate_limit_max_calls: 5
+    rate_limit_period: 1.0
 
 determinism:
+  hash_algorithm: "sha256"
+  float_precision: 6
+  datetime_format: "iso8601"
   sort:
     by: ["molecule_chembl_id"]
     ascending: [true]

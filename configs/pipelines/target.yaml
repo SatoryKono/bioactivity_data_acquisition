@@ -18,6 +18,9 @@ sources:
     base_url: "https://www.guidetopharmacology.org/services"
 
 determinism:
+  hash_algorithm: "sha256"
+  float_precision: 6
+  datetime_format: "iso8601"
   sort:
     by: ["target_chembl_id"]
     ascending: [true]

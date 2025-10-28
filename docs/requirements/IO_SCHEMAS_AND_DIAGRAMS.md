@@ -51,9 +51,7 @@ schema:
   foreign_keys:
     - field: target_chembl_id
       references: target(target_chembl_id)
-    - field: assay_class_id
-      references: assay_class(assay_class_id)
-  column_order: [assay_chembl_id, row_subtype, row_index, pref_name, hash_row, hash_business_key, chembl_release]
+  column_order: [assay_chembl_id, row_subtype, row_index, assay_type, assay_category, assay_cell_type, assay_classifications, assay_group, assay_organism, assay_parameters_json, assay_strain, assay_subcellular_fraction, assay_tax_id, assay_test_type, assay_tissue, assay_type_description, assay_description, bao_endpoint, bao_format, bao_label, cell_chembl_id, confidence_description, confidence_score, document_chembl_id, relationship_description, relationship_type, src_assay_id, src_id, target_chembl_id, tissue_chembl_id, variant_sequence_json, assay_param_type, assay_param_relation, assay_param_value, assay_param_units, assay_param_text_value, assay_param_standard_type, assay_param_standard_value, assay_param_standard_units, assay_class_id, assay_class_bao_id, assay_class_type, assay_class_l1, assay_class_l2, assay_class_l3, assay_class_description, variant_id, variant_base_accession, variant_mutation, variant_sequence, variant_accession_reported, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
   fields:
     - name: assay_chembl_id
       dtype: string
@@ -63,7 +61,7 @@ schema:
       constraints:
         regex: '^CHEMBL\\d+$'
       na_policy: forbid
-      notes: "Первичный ключ (часть)"
+      notes: "Первичный ключ ассая из ChEMBL API"
       evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
     - name: row_subtype
       dtype: string
@@ -84,24 +82,485 @@ schema:
       na_policy: forbid
       notes: "Индекс для детерминизма"
       evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
-    - name: pref_name
+    - name: assay_type
+      dtype: string
+      required: false
+      units: null
+      allowed_values: ["B", "F", "A", "P", "T", "U"]
+      constraints: {}
+      na_policy: allow
+      notes: "Тип ассая (B, F, A, P, T, U)"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_category
       dtype: string
       required: false
       units: null
       allowed_values: []
       constraints: {}
       na_policy: allow
-      notes: "Имя ассая из ChEMBL"
+      notes: "Категория ассая"
       evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
-    - name: hash_row
+    - name: assay_cell_type
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Тип клеток для ассая"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_classifications
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Классификации ассая (JSON)"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_group
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Группа ассая"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_organism
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Организм для ассая"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_parameters_json
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Параметры ассая (JSON)"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_strain
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Штамм организма"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_subcellular_fraction
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Субклеточная фракция"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_tax_id
+      dtype: int
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        min: 0
+      na_policy: allow
+      notes: "Таксономический ID организма"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_test_type
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Тип теста ассая"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_tissue
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Ткань для ассая"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_type_description
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Описание типа ассая"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_description
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Описание ассая"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: bao_endpoint
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^BAO_\\d{7}$'
+      na_policy: allow
+      notes: "BAO endpoint"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: bao_format
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^BAO_\\d+$'
+      na_policy: allow
+      notes: "BAO format классификация"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: bao_label
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "BAO label классификация"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: cell_chembl_id
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^CHEMBL\\d+$'
+      na_policy: allow
+      notes: "ChEMBL ID клетки"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: confidence_description
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Описание уверенности"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: confidence_score
+      dtype: int
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        min: 0
+        max: 9
+      na_policy: allow
+      notes: "Уровень уверенности (0-9)"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: document_chembl_id
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^CHEMBL\\d+$'
+      na_policy: allow
+      notes: "ChEMBL ID документа"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: relationship_description
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Описание связи"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: relationship_type
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Тип связи с таргетом"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: src_assay_id
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "ID ассая в источнике"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: src_id
+      dtype: int
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "ID источника"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: target_chembl_id
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^CHEMBL\\d+$'
+      na_policy: allow
+      notes: "FK на таргет"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: tissue_chembl_id
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^CHEMBL\\d+$'
+      na_policy: allow
+      notes: "ChEMBL ID ткани"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: variant_sequence_json
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Последовательность варианта (JSON)"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_type
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Тип параметра ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_relation
+      dtype: string
+      required: false
+      units: null
+      allowed_values: ["=", ">", ">=", "<", "<=", "~"]
+      constraints: {}
+      na_policy: allow
+      notes: "Отношение параметра"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_value
+      dtype: float
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Значение параметра"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_units
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Единицы параметра"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_text_value
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Текстовое значение параметра"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_standard_type
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Стандартизованный тип параметра"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_standard_value
+      dtype: float
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Стандартизованное значение параметра"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_param_standard_units
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Единицы стандартизованного параметра"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_class_id
+      dtype: int
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Идентификатор класса ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_class_bao_id
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^BAO_\\d{7}$'
+      na_policy: allow
+      notes: "BAO ID класса ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_class_type
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Тип класса ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_class_l1
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Иерархия 1 класса ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_class_l2
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Иерархия 2 класса ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_class_l3
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Иерархия 3 класса ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: assay_class_description
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Описание класса ассея"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: variant_id
+      dtype: int
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Идентификатор варианта"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: variant_base_accession
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^[A-Z0-9]{6,10}(-[0-9]+)?$'
+      na_policy: allow
+      notes: "UniProt акцессия базовой последовательности"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: variant_mutation
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Мутация варианта"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: variant_sequence
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^[A-Z\\*]+$'
+      na_policy: allow
+      notes: "Аминокислотная последовательность варианта"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: variant_accession_reported
+      dtype: string
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Сообщённая акцессия варианта"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: pipeline_version
       dtype: string
       required: true
       units: null
       allowed_values: []
-      constraints:
-        regex: '^[0-9a-f]{64}$'
+      constraints: {}
       na_policy: forbid
-      notes: "SHA256 канонической строки"
+      notes: "Версия пайплайна"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: source_system
+      dtype: string
+      required: true
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: forbid
+      notes: "Источник данных"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: chembl_release
+      dtype: string
+      required: true
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: forbid
+      notes: "Версия источника"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: extracted_at
+      dtype: string
+      required: true
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: forbid
+      notes: "ISO8601 метка времени извлечения"
       evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
     - name: hash_business_key
       dtype: string
@@ -113,14 +572,25 @@ schema:
       na_policy: forbid
       notes: "SHA256 от assay_chembl_id"
       evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
-    - name: chembl_release
+    - name: hash_row
       dtype: string
       required: true
       units: null
       allowed_values: []
-      constraints: {}
+      constraints:
+        regex: '^[0-9a-f]{64}$'
       na_policy: forbid
-      notes: "Версия источника"
+      notes: "SHA256 канонической строки"
+      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+    - name: index
+      dtype: int
+      required: true
+      units: null
+      allowed_values: []
+      constraints:
+        min: 0
+      na_policy: forbid
+      notes: "Детерминированный индекс строки"
       evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 ### E) Mapping Input→Output
@@ -129,7 +599,7 @@ schema:
 | assay_chembl_id | assay_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 | row_subtype | derived from nested structure type | assign literal per explode stage | none | value in {assay,param,variant} | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 | row_index | enumerate within subtype | enumerate starting 0 | none | integer >=0 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
-| pref_name | ChEMBL assay record.pref_name | whitespace trim | none | optional string | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
+| description | ChEMBL assay record.description | whitespace trim | none | optional string | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 | hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 | hash_business_key | assay_chembl_id | SHA256(assay_chembl_id) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 
@@ -199,7 +669,7 @@ schema:
       references: target(target_chembl_id)
     - field: document_chembl_id
       references: document(document_chembl_id)
-  column_order: [activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, published_type, published_relation, published_value, published_units, standard_type, standard_relation, standard_value, standard_units, standard_flag, lower_bound, upper_bound, is_censored, pchembl_value, activity_comment, data_validity_comment, bao_endpoint, bao_format, bao_label, extracted_at, hash_business_key, hash_row, index, source_system, chembl_release]
+  column_order: [activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, published_type, published_relation, published_value, published_units, standard_type, standard_relation, standard_value, standard_units, standard_flag, lower_bound, upper_bound, is_censored, pchembl_value, activity_comment, data_validity_comment, bao_endpoint, bao_format, bao_label, potential_duplicate, uo_units, qudt_units, src_id, action_type, activity_properties_json, bei, sei, le, lle, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
   fields:
     - name: activity_id
       dtype: Int64
@@ -416,6 +886,97 @@ schema:
       na_policy: allow
       notes: "BAO label (Bioassay Ontology)"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: potential_duplicate
+      dtype: Int64
+      required: false
+      units: null
+      allowed_values: [0, 1]
+      constraints: {}
+      na_policy: allow
+      notes: "Возможный дубликат активности"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: uo_units
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^UO_\\d{7}$'
+      na_policy: allow
+      notes: "Unit Ontology ID"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: qudt_units
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "QUDT URI для единиц измерения"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: src_id
+      dtype: Int64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "ID источника данных"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: action_type
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Тип действия лиганда"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: activity_properties_json
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Свойства активности в формате JSON"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: bei
+      dtype: Float64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Binding Efficiency Index"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: sei
+      dtype: Float64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Surface Efficiency Index"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: le
+      dtype: Float64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Ligand Efficiency"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: lle
+      dtype: Float64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Lipophilic Ligand Efficiency"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
     - name: extracted_at
       dtype: StringDtype
       required: true
@@ -554,7 +1115,7 @@ schema:
   foreign_keys:
     - field: parent_chembl_id
       references: molecule(molecule_chembl_id)
-  column_order: [molecule_chembl_id, molregno, pref_name, parent_chembl_id, max_phase, structure_type, molecule_type, mw_freebase, qed_weighted, pubchem_cid, standardized_smiles, hash_row, hash_business_key, chembl_release]
+  column_order: [molecule_chembl_id, molregno, pref_name, parent_chembl_id, max_phase, structure_type, molecule_type, mw_freebase, qed_weighted, standardized_smiles, standard_inchi, standard_inchi_key, heavy_atoms, aromatic_rings, rotatable_bonds, hba, hbd, lipinski_ro5_violations, lipinski_ro5_pass, all_names, molecule_synonyms, atc_classifications, pubchem_cid, pubchem_synonyms, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
   fields:
     - name: molecule_chembl_id
       dtype: string

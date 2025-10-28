@@ -87,6 +87,9 @@ class DeterminismConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    hash_algorithm: str = Field(default="sha256", description="Hash algorithm for row integrity")
+    float_precision: int = Field(default=6, ge=0, le=15, description="Float precision for canonical serialization")
+    datetime_format: str = Field(default="iso8601", description="DateTime format for canonical serialization")
     sort: SortConfig = Field(default_factory=SortConfig)
     column_order: list[str] = Field(default_factory=list)
 
