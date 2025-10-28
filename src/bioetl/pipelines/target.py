@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -17,6 +18,14 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TargetSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.pipelines.target_gold import (
+    annotate_source_rank,
+    coalesce_by_priority,
+    expand_xrefs,
+    materialize_gold,
+    merge_components,
+    _split_accession_field,
+)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -327,13 +336,31 @@ class TargetPipeline(PipelineBase):
         else:
             logger.info("iuphar_enrichment_skipped", reason="no_client")
 
-        # Add pipeline metadata
+        timestamp = pd.Timestamp.now(tz="UTC").isoformat()
         df["pipeline_version"] = "1.0.0"
         df["source_system"] = "chembl"
         df["chembl_release"] = None
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        df["extracted_at"] = timestamp
 
-        return df
+        gold_targets, gold_components, gold_protein_class, gold_xref = self._build_gold_outputs(
+            df,
+            component_enrichment,
+            iuphar_gold,
+        )
+
+        self.gold_targets = gold_targets
+        self.gold_components = gold_components
+        self.gold_protein_class = gold_protein_class
+        self.gold_xref = gold_xref
+
+        self._materialize_gold_outputs(
+            gold_targets,
+            gold_components,
+            gold_protein_class,
+            gold_xref,
+        )
+
+        return gold_targets
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate target data against schema."""
@@ -1395,6 +1422,324 @@ class TargetPipeline(PipelineBase):
             )
             gold_sorted = gold_df.sort_values(by=["target_chembl_id"], kind="stable")
             gold_sorted.to_parquet(gold_path, index=False)
+
+    def _build_gold_outputs(
+        self,
+        df: pd.DataFrame,
+        component_enrichment: pd.DataFrame,
+        iuphar_gold: pd.DataFrame,
+    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+        """Assemble deterministic gold-level DataFrames."""
+
+        chembl_components = self._expand_json_column(df, "target_components")
+        components_df = merge_components(
+            chembl_components,
+            component_enrichment,
+            targets=df,
+        )
+
+        if not components_df.empty:
+            components_df = annotate_source_rank(
+                components_df,
+                source_column="data_origin",
+                output_column="merge_rank",
+            )
+            sort_columns = [
+                col
+                for col in [
+                    "target_chembl_id",
+                    "canonical_accession",
+                    "isoform_accession",
+                    "component_id",
+                ]
+                if col in components_df.columns
+            ]
+            if sort_columns:
+                components_df = components_df.sort_values(sort_columns, kind="stable")
+            components_df = components_df.reset_index(drop=True)
+
+        protein_class_df = self._expand_protein_classifications(df)
+        if not protein_class_df.empty:
+            protein_class_df = protein_class_df.sort_values(
+                ["target_chembl_id", "class_level", "class_name"],
+                kind="stable",
+            ).reset_index(drop=True)
+
+        xref_df = expand_xrefs(df)
+        if not xref_df.empty:
+            sort_columns = [
+                col
+                for col in ["target_chembl_id", "xref_src_db", "xref_id", "component_id"]
+                if col in xref_df.columns
+            ]
+            if sort_columns:
+                xref_df = xref_df.sort_values(sort_columns, kind="stable").reset_index(drop=True)
+
+        targets_gold = self._build_targets_gold(df, components_df, iuphar_gold)
+        targets_gold = targets_gold.sort_values(["target_chembl_id"], kind="stable").reset_index(drop=True)
+
+        return targets_gold, components_df, protein_class_df, xref_df
+
+    def _materialize_gold_outputs(
+        self,
+        targets_df: pd.DataFrame,
+        components_df: pd.DataFrame,
+        protein_class_df: pd.DataFrame,
+        xref_df: pd.DataFrame,
+    ) -> None:
+        """Persist gold-level DataFrames respecting runtime configuration."""
+
+        runtime = getattr(self.config, "runtime", None)
+        if runtime is not None and getattr(runtime, "dry_run", False):
+            logger.info("gold_materialization_skipped", reason="dry_run")
+            return
+
+        gold_path = getattr(self.config.materialization, "gold", Path("data/gold/targets.parquet"))
+        materialize_gold(
+            Path(gold_path),
+            targets=targets_df,
+            components=components_df,
+            protein_class=protein_class_df,
+            xref=xref_df,
+        )
+
+    def _expand_json_column(self, df: pd.DataFrame, column: str) -> pd.DataFrame:
+        """Expand a JSON encoded column into a flat DataFrame."""
+
+        if column not in df.columns:
+            return pd.DataFrame()
+
+        records: list[dict[str, Any]] = []
+        for row in df.itertuples(index=False):
+            payload = getattr(row, column, None)
+            if payload is None or payload is pd.NA:
+                continue
+            if isinstance(payload, str) and payload.strip() in {"", "[]"}:
+                continue
+            if isinstance(payload, (list, tuple)) and not payload:
+                continue
+
+            if isinstance(payload, str):
+                try:
+                    parsed = json.loads(payload)
+                except json.JSONDecodeError:
+                    logger.debug("expand_json_column_invalid", column=column, value=payload)
+                    continue
+            else:
+                parsed = payload
+
+            if isinstance(parsed, dict):
+                parsed = [parsed]
+
+            if not isinstance(parsed, list):
+                continue
+
+            for item in parsed:
+                if not isinstance(item, dict):
+                    continue
+                record = item.copy()
+                if "target_chembl_id" not in record:
+                    record["target_chembl_id"] = getattr(row, "target_chembl_id", None)
+                records.append(record)
+
+        if not records:
+            return pd.DataFrame()
+
+        return pd.DataFrame(records).convert_dtypes()
+
+    def _expand_protein_classifications(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Normalise protein classification hierarchy."""
+
+        raw_df = self._expand_json_column(df, "protein_classifications")
+        if raw_df.empty:
+            return pd.DataFrame(columns=["target_chembl_id", "class_level", "class_name", "full_path"])
+
+        records: list[dict[str, Any]] = []
+        level_keys = ["l1", "l2", "l3", "l4", "l5"]
+        for entry in raw_df.to_dict("records"):
+            target_id = entry.get("target_chembl_id")
+            path: list[str] = []
+            for idx, key in enumerate(level_keys, start=1):
+                class_name = entry.get(key)
+                if class_name in {None, "", pd.NA}:
+                    continue
+                class_name_str = str(class_name)
+                path.append(class_name_str)
+                records.append(
+                    {
+                        "target_chembl_id": target_id,
+                        "class_level": f"L{idx}",
+                        "class_name": class_name_str,
+                        "full_path": " > ".join(path),
+                    }
+                )
+
+        if not records:
+            return pd.DataFrame(columns=["target_chembl_id", "class_level", "class_name", "full_path"])
+
+        protein_class_df = pd.DataFrame(records).drop_duplicates()
+        return protein_class_df.convert_dtypes()
+
+    def _build_targets_gold(
+        self,
+        df: pd.DataFrame,
+        components_df: pd.DataFrame,
+        iuphar_gold: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Construct the final targets table with aggregated attributes."""
+
+        working = df.copy()
+
+        coalesce_map = {
+            "pref_name": [
+                ("pref_name", "chembl"),
+                ("uniprot_protein_name", "uniprot"),
+                ("iuphar_name", "iuphar"),
+            ],
+            "organism": [
+                ("organism", "chembl"),
+                ("uniprot_taxonomy_name", "uniprot"),
+            ],
+            "tax_id": [
+                ("tax_id", "chembl"),
+                ("taxonomy", "chembl"),
+                ("uniprot_taxonomy_id", "uniprot"),
+            ],
+            "gene_symbol": [
+                ("gene_symbol", "chembl"),
+                ("uniprot_gene_primary", "uniprot"),
+            ],
+            "hgnc_id": [
+                ("hgnc_id", "chembl"),
+                ("uniprot_hgnc_id", "uniprot"),
+                ("hgnc", "uniprot"),
+            ],
+            "lineage": [
+                ("lineage", "chembl"),
+                ("uniprot_lineage", "uniprot"),
+            ],
+            "uniprot_id_primary": [
+                ("uniprot_canonical_accession", "uniprot"),
+                ("uniprot_accession", "chembl"),
+                ("primaryAccession", "chembl"),
+            ],
+        }
+
+        working = coalesce_by_priority(working, coalesce_map, source_suffix="_origin")
+
+        if not iuphar_gold.empty:
+            iuphar_subset = iuphar_gold.drop_duplicates("target_chembl_id")
+            working = working.merge(
+                iuphar_subset,
+                on="target_chembl_id",
+                how="left",
+                suffixes=("", "_iuphar"),
+            )
+
+        if not components_df.empty and "isoform_accession" in components_df.columns:
+            isoform_counts = components_df.groupby("target_chembl_id")["isoform_accession"].nunique()
+            isoform_map = (
+                components_df.groupby("target_chembl_id")["isoform_accession"]
+                .apply(
+                    lambda values: sorted(
+                        {str(value) for value in values if value not in {None, "", pd.NA}}
+                    )
+                )
+                .to_dict()
+            )
+        else:
+            isoform_counts = pd.Series(dtype="Int64")
+            isoform_map: dict[str, list[str]] = {}
+
+        working["isoform_count"] = (
+            working["target_chembl_id"].map(isoform_counts).fillna(0).astype("Int64")
+        )
+        working["has_alternative_products"] = (working["isoform_count"] > 1).astype("boolean")
+
+        working["has_uniprot"] = working["uniprot_id_primary"].notna().astype("boolean")
+        if "iuphar_target_id" in working.columns:
+            working["has_iuphar"] = working["iuphar_target_id"].notna().astype("boolean")
+        else:
+            working["has_iuphar"] = pd.Series(False, index=working.index, dtype="boolean")
+
+        if "uniprot_secondary_accessions" in working.columns:
+            secondary_map = {
+                key: _split_accession_field(value)
+                for key, value in working.set_index("target_chembl_id")["uniprot_secondary_accessions"].items()
+            }
+        else:
+            secondary_map = {}
+
+        def combine_ids(row: pd.Series) -> Any:
+            accs: list[str] = []
+            primary = row.get("uniprot_id_primary")
+            if pd.notna(primary):
+                accs.append(str(primary))
+            accs.extend(isoform_map.get(row.get("target_chembl_id"), []))
+            accs.extend(secondary_map.get(row.get("target_chembl_id"), []))
+            seen: set[str] = set()
+            unique: list[str] = []
+            for acc in accs:
+                if not acc:
+                    continue
+                if acc not in seen:
+                    seen.add(acc)
+                    unique.append(acc)
+            return "; ".join(unique) if unique else pd.NA
+
+        working["uniprot_ids_all"] = working.apply(combine_ids, axis=1)
+
+        origin_columns = [col for col in working.columns if col.endswith("_origin")]
+
+        def derive_origin(row: pd.Series) -> str:
+            origins = {
+                str(row[col]).lower()
+                for col in origin_columns
+                if pd.notna(row[col]) and str(row[col]).strip()
+            }
+            if row.get("has_iuphar") is True:
+                origins.add("iuphar")
+            if not origins:
+                origins.add("chembl")
+            return ",".join(sorted(origins))
+
+        working["data_origin"] = working.apply(derive_origin, axis=1)
+        working = working.drop(columns=origin_columns, errors="ignore")
+
+        expected_columns = [
+            "target_chembl_id",
+            "pref_name",
+            "organism",
+            "tax_id",
+            "gene_symbol",
+            "hgnc_id",
+            "lineage",
+            "uniprot_id_primary",
+            "uniprot_ids_all",
+            "isoform_count",
+            "has_alternative_products",
+            "has_uniprot",
+            "has_iuphar",
+            "iuphar_type",
+            "iuphar_class",
+            "iuphar_subclass",
+            "pipeline_version",
+            "source_system",
+            "chembl_release",
+            "extracted_at",
+            "data_origin",
+        ]
+
+        for column in expected_columns:
+            if column not in working.columns:
+                working[column] = pd.NA
+
+        working["has_alternative_products"] = working["has_alternative_products"].astype("boolean")
+        working["has_uniprot"] = working["has_uniprot"].astype("boolean")
+        working["has_iuphar"] = working["has_iuphar"].astype("boolean")
+        working["isoform_count"] = working["isoform_count"].astype("Int64")
+
+        return working[expected_columns].convert_dtypes()
 
     def _evaluate_iuphar_qc(self, coverage: float) -> None:
         """Compare coverage against QC thresholds and log warnings."""
