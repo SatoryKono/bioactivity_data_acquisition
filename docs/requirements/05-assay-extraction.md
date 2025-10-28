@@ -83,6 +83,8 @@ sources:
     enabled: true
     batch_size: 25  # КРИТИЧЕСКИ: жесткое ограничение URL
     # Валидация: config validation должна падать при batch_size > 25
+    
+    # Инвариант G6: batch_size ≤ 25; превышение — ошибка конфигурации; причина: ограничение URL/413.
     max_url_length: 2000  # Жесткий лимит ChEMBL API
 
 # Кэширование
@@ -349,6 +351,8 @@ def _expand_assay_parameters_wide(self, assay_data: dict, max_params: int = 5) -
 
 **Рекомендация:** Использовать **Вариант A (long format)** как основной, с опциональным pivot в wide при необходимости.
 
+**Инвариант G7:** Расширение вложенных массивов только в long-format (parameters, variant_sequences, classifications); при невозможности — error; включить RI-чек "assay→target".
+
 #### 2.4.2 Variant Sequences (ПРАВИЛЬНАЯ СПЕЦИФИКАЦИЯ)
 
 **Источник:** Поле `variant_sequence` (может быть объект ИЛИ массив)
@@ -439,6 +443,8 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
 
 ### 2.5 Обогащение данными (Enrichment)
 
+**См. также**: [gaps.md](../gaps.md) (G6, G7, G8), [acceptance-criteria.md](../acceptance-criteria.md) (AC7, AC8), [implementation-examples.md](../implementation-examples.md) (патч 2).
+
 #### 2.5.1 Обогащение Target данными
 
 **Метод:** `AssayPipeline._enrich_with_target_data()`
@@ -517,6 +523,8 @@ def _merge_target_data(self, assay_df: pd.DataFrame, target_df: pd.DataFrame) ->
     
     return result
 ```
+
+**Инвариант G8:** --strict-enrichment + schema check; whitelist-enrichment обязателен; запрет лишних полей при enrichment.
 
 #### 2.5.2 Обогащение Assay Class данными
 

@@ -490,6 +490,10 @@ while True:
 - Логи фиксируют `page`, `offset`, `consumed`, `rate_limiter_state`
 - Идти по `next` до `null`
 
+**Инвариант G2, G9:** Только offset-пагинация; идти по page_meta.next до null; перед записью сортировка по activity_id обязательна: `df.sort_values(["activity_id"])`.
+
+**См. также**: [gaps.md](../gaps.md) (G2, G9), [acceptance-criteria.md](../acceptance-criteria.md) (AC6).
+
 ### ⚠️ UNCERTAIN: Максимальный limit
 
 **Проблема:**
@@ -655,6 +659,23 @@ complete_activities = df[
     df['molecule_chembl_id'].notna()
 ]
 ```
+
+**Инвариант G10, AC9:** QC-фильтры по validity/duplicates как AC; инвариант duplicates_activity_id==0; проверка перед записью: `df["activity_id"].duplicated().sum()==0`.
+
+```python
+# Обязательная проверка перед записью
+duplicate_count = df["activity_id"].duplicated().sum()
+assert duplicate_count == 0, f"Found {duplicate_count} duplicate activity_id entries"
+
+# QC report
+qc_report = {
+    "duplicates_activity_id": duplicate_count,
+    "threshold": 0,
+    "passed": duplicate_count == 0
+}
+```
+
+**См. также**: [gaps.md](../gaps.md) (G10), [acceptance-criteria.md](../acceptance-criteria.md) (AC9).
 
 ### ⚠️ UNCERTAIN: Стабильность BAO полей
 

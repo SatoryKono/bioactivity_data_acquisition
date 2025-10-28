@@ -564,29 +564,49 @@ def is_compatible(from_version: str, to_version: str) -> bool:
     return from_major == to_major  # Major версия должна совпадать
 ```
 
-### Хранение column_order в схеме
+### Хранение column_order в схеме (источник истины)
 
-**Источник истины:** Schema Registry, не `meta.yaml`.
+**Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме — fail-fast до записи; precision_map и NA-policy обязательны для всех таблиц.
 
 ```python
-# schema.py (Schema Registry)
+# schema.py (Schema Registry) — источник истины
 class DocumentSchema(BaseSchema):
     column_order = ["document_chembl_id", "title", "journal", ...]
+    precision_map = {"year": 0}
+    na_policy = {"na_strings": ["", "N/A"], "na_numeric": None}
 
 # При экспорте
-df = df[schema.column_order]
+df = df[schema.column_order]  # используем order из схемы
+
+# Валидация перед записью
+assert list(df.columns) == schema.column_order, "Column order mismatch!"
 
 # В meta.yaml (только для справки)
 meta = {
     "column_order": schema.column_order,  # Копия из схемы
+    "precision_map": schema.precision_map,  # Копия
     ...
 }
+```
+
+**Fail-fast при несоответствии**:
+```python
+def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
+    """Валидация соответствия порядка колонок схеме."""
+    if list(df.columns) != schema.column_order:
+        raise SchemaValidationError(
+            f"Column order mismatch: expected {schema.column_order}, "
+            f"got {list(df.columns)}"
+        )
 ```
 
 **Преимущества:**
 - Единый источник истины
 - Невозможность рассинхронизации
 - Простая миграция при изменении порядка
+- Fail-fast до записи
+
+**См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC10).
 
 ### Метрики precision
 
@@ -660,7 +680,9 @@ class ActivitySchema(BaseSchema):
         return round(value, precision)
 ```
 
-### Semver Policy и Schema Evolution
+### Semver Policy и Schema Evolution (fail-fast на major)
+
+**Инвариант:** Семантика schema drift: major incompatible (fail-fast), minor backward-compatible; CLI-флаг `--fail-on-schema-drift` (default=True).
 
 **Критическое правило:** Изменения схемы требуют bump версии и валидацию совместимости.
 

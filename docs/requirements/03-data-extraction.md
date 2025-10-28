@@ -779,6 +779,8 @@ assert response1.items == response2.items  # Идемпотентность
 
 **Критическое правило:** Каждый запрос использует **только одну** стратегию пагинации.
 
+**Особое требование для ChEMBL Activity:** Для ChEMBL Activity разрешена только offset-пагинация; смешивание offset/page/cursor запрещено и валидируется; нарушение — ошибка конфигурации.
+
 **Недопустимо:**
 ```python
 # Смешивание page и cursor
@@ -786,6 +788,9 @@ params = {"page": 1, "cursor": "abc123"}  # Ошибка! Непредсказу
 
 # Смешивание offset и cursor
 params = {"offset": 100, "cursor": "abc123"}  # Ошибка!
+
+# Смешивание для ChEMBL Activity (G2)
+params = {"offset": 0, "page": 1}  # Ошибка! Только offset для activity
 ```
 
 **Допустимо:**
@@ -814,12 +819,44 @@ def validate_pagination_params(params: dict) -> None:
         raise ValueError(f"Multiple pagination strategies detected: {params}")
 ```
 
+**См. также**: [gaps.md](../gaps.md) (G2), [06-activity-data-extraction.md](06-activity-data-extraction.md).
+
 ### TTL курсора
 
 TTL курсора — ответственность внешнего API. UnifiedAPIClient:
 - Не устанавливает TTL для cursor
 - Не валидирует срок действия cursor
 - Логирует предупреждение при использовании истекшего cursor
+
+## Rate Limiting и Retry-After
+
+### Контракт Retry-After (инвариант)
+
+**Обязательное требование**: Respect Retry-After обязателен; ожидание не меньше указанного; ретраи на 4xx запрещены (кроме 429); circuit-breaker обязателен.
+
+**Протокол для 429**:
+```python
+if response.status_code == 429:
+    retry_after = response.headers.get('Retry-After')
+    if retry_after:
+        wait = min(int(retry_after), 60)  # Cap at 60s
+        logger.warning("Rate limited by API", 
+                      code=429, 
+                      retry_after=wait, 
+                      endpoint=endpoint,
+                      attempt=attempt,
+                      run_id=context.run_id)
+        time.sleep(wait)
+    raise RateLimitError("Rate limited")
+```
+
+**Политика ретраев**:
+- 2xx, 3xx: успех, возвращаем response
+- 429: respect Retry-After, ретраить
+- 4xx (кроме 429): не ретраить, fail-fast
+- 5xx: exponential backoff, retry
+
+**См. также**: [gaps.md](../gaps.md) (G11), [acceptance-criteria.md](../acceptance-criteria.md) (AC5).
 
 ## Acceptance Criteria
 

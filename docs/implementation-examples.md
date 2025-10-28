@@ -1,23 +1,12 @@
-# Примеры реализации
+# Примеры реализации (Unified Diff)
 
-Унифицированные патчи для закрытия gaps и выполнения acceptance criteria.
+Унифицированные патчи для закрытия gaps из [gaps.md](gaps.md).
 
-## Обзор
+## Патч 1: Канонизация для хэширования (AC3, G5)
 
-Данный документ содержит конкретные изменения кода (unified diff формат) для:
-- Канонизации хеширования (AC3)
-- Long-format для вложенных данных (AC8)
-- Rate limiting и Retry-After (AC5)
-- CLI флаги строгих режимов (AC10)
-- Atomic writer (AC1, AC4)
+**Зачем**: Детерминизм hash_row, устранение различий из-за порядка и формата.
 
-## Патч 1: Канонизация для хэширования
-
-**Файл:** `src/library/common/hash_utils.py`
-
-**Зачем:** AC3, детерминизм hash_row
-
-**Ссылка:** [00-architecture-overview.md](requirements/00-architecture-overview.md#каноническая-сериализация)
+**Файл**: `src/library/common/hash_utils.py`
 
 ```diff
 --- a/src/library/common/hash_utils.py
@@ -34,6 +23,8 @@
 +            return float(f"{v:.6f}")
 +        if isinstance(v, (datetime.date, datetime.datetime)):
 +            return v.isoformat()
++        if v is None:
++            return None  # будет serialized как null
 +        return v
 +    return json.dumps({k: _normalize(v) for k, v in sorted(row.items())},
 +                      sort_keys=True, separators=(",", ":"))
@@ -44,49 +35,40 @@
 +    return sha256(canonicalize_row_for_hash(row).encode()).hexdigest()
 ```
 
-**Тест:**
-```python
-def test_hash_row_deterministic():
-    row = {"id": "A001", "value": 12.3456789, "date": date(2025, 1, 28)}
-    hash1 = hash_row(row)
-    hash2 = hash_row(row)
-    assert hash1 == hash2  # Детерминированность
-    
-    # Проверка форматирования
-    canonical = canonicalize_row_for_hash(row)
-    assert '"date":"2025-01-28"' in canonical
-    assert '"value":12.345679' in canonical  # округлено до 6 знаков
-```
+**Особенности**:
+- `sort_keys=True` для детерминированного порядка
+- ISO8601 для дат и datetime (единообразно)
+- Фиксированная точность float (%.6f)
+- `separators=(",", ":")` без пробелов
+- NA-policy: None→null
 
-## Патч 2: Long-format для assay parameters
+**См. также**: [00-architecture-overview.md → Каноническая сериализация](requirements/00-architecture-overview.md)
 
-**Файл:** `src/library/pipelines/assay/transform.py`
+---
 
-**Зачем:** AC8, предотвращение потерь вложенных данных
+## Патч 2: Long-format для assay parameters (AC8, G7)
 
-**Ссылка:** [00-architecture-overview.md](requirements/00-architecture-overview.md#long-format)
+**Зачем**: Предотвращение потери вложенных данных, обязательный long-format для nested структур.
+
+**Файл**: `src/library/pipelines/assay/transform.py`
 
 ```diff
 --- a/src/library/pipelines/assay/transform.py
 +++ b/src/library/pipelines/assay/transform.py
 @@
 -def expand_assay_parameters(df: pd.DataFrame) -> pd.DataFrame:
+-    # Старая реализация с потерей данных
 -    ...
 +def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
 +    """
 +    Превращает массив parameters в long-format с полями:
 +    assay_chembl_id, param_index, param_name, param_value, row_subtype="parameter".
 +    
-+    Args:
-+        df: DataFrame с колонкой assay_parameters (list[dict])
-+        
-+    Returns:
-+        DataFrame в long-format по одному параметру на строку
++    Инвариант: ни одна запись не теряется.
 +    """
 +    rows = []
 +    for _, r in df.iterrows():
-+        params = r.get("assay_parameters") or []
-+        for i, p in enumerate(params):
++        for i, p in enumerate(r.get("assay_parameters") or []):
 +            rows.append({
 +                "assay_chembl_id": r["assay_chembl_id"],
 +                "param_index": i,
@@ -94,148 +76,174 @@ def test_hash_row_deterministic():
 +                "param_value": p.get("value"),
 +                "row_subtype": "parameter",
 +            })
++    
 +    if not rows:
++        # Возвращаем пустой DataFrame с правильными колонками
 +        return pd.DataFrame(columns=["assay_chembl_id","param_index","param_name","param_value","row_subtype"])
++    
 +    return pd.DataFrame(rows, columns=["assay_chembl_id","param_index","param_name","param_value","row_subtype"])
+
++
++# Аналогично для variant_sequences и classifications
++def expand_variant_sequences_long(df: pd.DataFrame) -> pd.DataFrame:
++    """Тот же подход для variant_sequences."""
++    rows = []
++    for _, r in df.iterrows():
++        for i, vs in enumerate(r.get("variant_sequences") or []):
++            rows.append({
++                "assay_chembl_id": r["assay_chembl_id"],
++                "varseq_index": i,
++                "variant_name": vs.get("name"),
++                "sequence": vs.get("sequence"),
++                "row_subtype": "variant_sequence",
++            })
++    return pd.DataFrame(rows if rows else [],
++                       columns=["assay_chembl_id","varseq_index","variant_name","sequence","row_subtype"])
++
++def expand_classifications_long(df: pd.DataFrame) -> pd.DataFrame:
++    """Тот же подход для assay_classifications."""
++    rows = []
++    for _, r in df.iterrows():
++        for i, ac in enumerate(r.get("assay_classifications") or []):
++            rows.append({
++                "assay_chembl_id": r["assay_chembl_id"],
++                "class_index": i,
++                "class_type": ac.get("type"),
++                "class_value": ac.get("value"),
++                "row_subtype": "classification",
++            })
++    return pd.DataFrame(rows if rows else [],
++                       columns=["assay_chembl_id","class_index","class_type","class_value","row_subtype"])
 ```
 
-**Использование:**
+**Использование**:
 ```python
-# Старый подход (потеря данных)
-df_flat = df.explode("assay_parameters")  # ❌ Не гарантирует сохранность
+# В пайплайне assay
+df_parameters = expand_assay_parameters_long(df)
+df_variants = expand_variant_sequences_long(df)
+df_classes = expand_classifications_long(df)
 
-# Новый подход (long-format)
-df_params = expand_assay_parameters_long(df)  # ✅ Все параметры сохранены
+# Объединение
+df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 ```
 
-## Патч 3: TokenBucket + Retry-After логирование
+**См. также**: [00-architecture-overview.md → Long format](requirements/00-architecture-overview.md)
 
-**Файл 1:** `src/library/clients/rate_limit.py`
+---
 
-**Файл 2:** `src/library/clients/unified_client.py`
+## Патч 3: TokenBucket + Retry-After логирование (AC5, G11)
 
-**Зачем:** AC5, наблюдаемость rate limiting
+**Зачем**: Наблюдаемость ретраев, respect Retry-After инвариант.
 
-**Ссылка:** [03-data-extraction.md → AC-07 Retry-After](requirements/03-data-extraction.md#ac-07-respect-retry-after-429)
+**Файл**: `src/library/clients/rate_limit.py`
 
 ```diff
 --- a/src/library/clients/rate_limit.py
 +++ b/src/library/clients/rate_limit.py
 @@
  class TokenBucketLimiter:
-     def __init__(self, max_calls:int, period:float, jitter:bool=True): 
-         self.max_calls = max_calls
-         self.period = period
-         self.jitter = jitter
-         self._tokens = float(max_calls)
-         self._last_update = time.time()
-         
+     def __init__(self, max_calls:int, period:float, jitter:bool=True): ...
+     
      def acquire(self) -> None:
 -        pass
-+        """Блокирующее ожидание следующего токена, с опциональным джиттером."""
++        # Блокирующее ожидание следующего токена, с опциональным джиттером
 +        now = time.time()
-+        elapsed = now - self._last_update
 +        
-+        # Refill tokens
-+        self._tokens = min(self.max_calls, self._tokens + (elapsed / self.period) * self.max_calls)
++        # Пополнение bucket
++        elapsed = now - self.last_refill
++        tokens_to_add = int(elapsed / self.period * self.max_calls)
++        self.tokens = min(self.max_calls, self.tokens + tokens_to_add)
++        self.last_refill = now
 +        
-+        if self._tokens >= 1.0:
-+            self._tokens -= 1.0
-+            self._last_update = now
-+        else:
-+            # Wait for next token
++        # Если токенов нет, ждём
++        if self.tokens < 1:
 +            wait_time = self.period / self.max_calls
 +            if self.jitter:
-+                wait_time *= random.uniform(0.8, 1.2)
++                wait_time += random.uniform(0, wait_time * 0.1)
 +            time.sleep(wait_time)
-+            self._tokens = 0.0
-+            self._last_update = time.time()
++            self.tokens -= 1
++        else:
++            self.tokens -= 1
+```
 
+**Файл**: `src/library/clients/unified_client.py`
+
+```diff
 --- a/src/library/clients/unified_client.py
 +++ b/src/library/clients/unified_client.py
-@@
- def request(...):
-     for attempt in range(max_retries):
-         try:
-             response = session.get(endpoint, params=params, timeout=timeout)
-             
-             if response.status_code == 429:
--                retry_after = response.headers.get('Retry-After')
-+                retry_after = response.headers.get('Retry-After')
-                 if retry_after:
--                    time.sleep(min(int(retry_after), 60))
-+                    wait = min(int(retry_after), 60)
-+                    logger.warning(
-+                        "Rate limited by API",
-+                        code=429,
-+                        retry_after=wait,
-+                        endpoint=endpoint,
-+                        attempt=attempt
-+                    )
-+                    time.sleep(wait)
-                 raise RateLimitError("Rate limited")
+@@ def request(...):
+     if response.status_code == 429:
+         retry_after = response.headers.get('Retry-After')
+         if retry_after:
+-            time.sleep(min(int(retry_after), 60))
++            wait = min(int(retry_after), 60)
++            logger.warning("Rate limited by API", 
++                          code=429, 
++                          retry_after=wait, 
++                          endpoint=endpoint, 
++                          attempt=attempt,
++                          run_id=context.run_id)
++            time.sleep(wait)
+         raise RateLimitError("Rate limited")
 ```
 
-**Лог пример:**
-```json
-{
-  "event": "Rate limited by API",
-  "code": 429,
-  "retry_after": 5,
-  "endpoint": "/api/data/activity",
-  "attempt": 2,
-  "timestamp": "2025-01-28T14:23:15.123Z"
-}
+**Тест**:
+```python
+def test_respect_retry_after(mocker, caplog):
+    mock_response = Mock(status_code=429, headers={'Retry-After': '5'})
+    mocker.patch('requests.get', return_value=mock_response)
+    
+    start = time.time()
+    with pytest.raises(RateLimitError):
+        client.request(url)
+    elapsed = time.time() - start
+    
+    assert elapsed >= 5.0, f"Did not wait Retry-After, elapsed={elapsed}"
+    
+    # Проверка лога
+    assert any("Rate limited by API" in rec.message and rec.levelname == "WARNING" 
+               for rec in caplog.records)
 ```
 
-## Патч 4: CLI-флаги строгих режимов
+**См. также**: [03-data-extraction.md → AC-07 Retry-After](requirements/03-data-extraction.md#ac-07-respect-retry-after-429)
 
-**Файл:** `src/cli/main.py`
+---
 
-**Зачем:** AC10 и gap G8
+## Патч 4: CLI-флаги строгих режимов (AC10, G8)
 
-**Ссылка:** [04-normalization-validation.md → Schema drift](requirements/04-normalization-validation.md#ac-08-schema-drift-detection)
+**Зачем**: Fail-fast на schema drift, whitelist enrichment контроль.
+
+**Файл**: `src/cli/main.py`
 
 ```diff
 --- a/src/cli/main.py
 +++ b/src/cli/main.py
 @@
- parser = argparse.ArgumentParser(description="Bioactivity Data Acquisition Pipeline")
 -parser.add_argument("--fail-on-schema-drift", action="store_true", default=False)
 +parser.add_argument("--fail-on-schema-drift", action="store_true", default=True,
 +                    help="Fail-fast при несовместимой major версии схемы")
 +parser.add_argument("--strict-enrichment", action="store_true", default=True,
 +                    help="Запрет лишних полей при enrichment (whitelist)")
- parser.add_argument("--golden", type=str, help="Path to golden output for comparison")
-
-+# Обработка флагов
- if args.fail_on_schema_drift:
-+    config.schema_validation = "strict"
-     schema = schema_registry.get(args.schema_name, args.schema_version)
-     if not is_compatible(schema):
-         logger.error("Schema drift detected", schema=args.schema_name, version=args.schema_version)
-         sys.exit(1)
-
-+if args.strict_enrichment:
-+    config.enrichment_policy = "whitelist"  # Запрет неподдерживаемых полей
 ```
 
-**Примеры использования:**
+**Использование**:
 ```bash
-# Строгий режим по умолчанию
-python -m pipeline run --extract assay
+# Строгий режим (default)
+python -m pipeline run --fail-on-schema-drift --strict-enrichment
 
-# Мягкий режим для разработки
-python -m pipeline run --extract assay --no-fail-on-schema-drift --no-strict-enrichment
+# Либеральный режим (для debugging)
+python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 ```
 
-## Патч 5: Atomic writer с os.replace
+**См. также**: [04-normalization-validation.md → Schema drift](requirements/04-normalization-validation.md#ac-08-schema-drift-detection)
 
-**Файл:** `src/library/io/writer.py`
+---
 
-**Зачем:** AC1/AC4, гарантия атомарности
+## Патч 5: Atomic writer с os.replace (AC1, AC4, G1)
 
-**Ссылка:** [02-io-system.md → Atomic Write](requirements/02-io-system.md#протокол-atomic-write)
+**Зачем**: Гарантированная атомарность записи, отсутствие partial artifacts.
+
+**Файл**: `src/library/io/writer.py`
 
 ```diff
 --- a/src/library/io/writer.py
@@ -245,115 +253,107 @@ python -m pipeline run --extract assay --no-fail-on-schema-drift --no-strict-enr
 -    path.write_bytes(content)
 +def write_bytes_atomic(path: Path, content: bytes, run_id: str) -> None:
 +    """
-+    Атомарная запись через run-scoped временную директорию с os.replace.
++    Атомарная запись через run-scoped temp dir и os.replace.
 +    
-+    Args:
-+        path: Финальный путь к файлу
-+        content: Байты для записи
-+        run_id: UUID run-scope для изоляции временных файлов
++    Протокол:
++    1. Создать temp dir: {parent}/.tmp/{run_id}/
++    2. Записать во временный файл: {name}.tmp
++    3. os.replace(tmp_path, final_path) — атомарная операция
++    4. Cleanup temp files при любой ошибке
++    
++    Инвариант: либо файл записан полностью, либо не записан вообще.
 +    """
-+    # Create run-scoped temp directory
 +    tmpdir = path.parent / ".tmp" / run_id
 +    tmpdir.mkdir(parents=True, exist_ok=True)
 +    
-+    # Write to temporary file
-+    tmppath = tmpdir / (path.name + ".tmp")
-+    tmppath.write_bytes(content)
++    tmppath = tmpdir / f"{path.name}.tmp"
 +    
-+    # Atomic replace
-+    output_parent = path.parent
-+    output_parent.mkdir(parents=True, exist_ok=True)
-+    os.replace(str(tmppath), str(path))  # Atomic на POSIX и Windows
-+    
-+    # Cleanup temp file (not dir, для других потенциальных файлов в run)
-+    tmppath.unlink(missing_ok=True)
-
-
-+@contextmanager
-+def atomic_writer_context(path: Path, run_id: str):
-+    """Context manager для гарантированного cleanup."""
-+    tmpdir = path.parent / ".tmp" / run_id
 +    try:
-+        yield tmpdir
++        # Запись
++        tmppath.write_bytes(content)
++        
++        # Валидация (опционально)
++        # checksum = compute_checksum(tmppath)
++        
++        # Атомарный rename
++        path.parent.mkdir(parents=True, exist_ok=True)
++        os.replace(str(tmppath), str(path))
++        
++    except Exception as e:
++        # Cleanup при ошибке
++        tmppath.unlink(missing_ok=True)
++        raise RuntimeError(f"Failed to write atomic file: {path}") from e
++    
 +    finally:
-+        # Cleanup всех .tmp файлов в run-scoped dir
-+        if tmpdir.exists():
-+            for temp_file in tmpdir.glob("*.tmp"):
-+                temp_file.unlink(missing_ok=True)
-+            try:
-+                tmpdir.rmdir()
-+            except OSError:
-+                pass
++        # Cleanup temp dir если пустая
++        try:
++            if tmpdir.exists():
++                remaining = list(tmpdir.glob("*"))
++                if not remaining:
++                    tmpdir.rmdir()
++        except OSError:
++            pass
+
++
++def write_dataframe_atomic(df: pd.DataFrame, path: Path, run_id: str, format: str = "csv") -> None:
++    """Обертка для DataFrame с атомарной записью."""
++    if format == "csv":
++        content = df.to_csv(index=False).encode("utf-8")
++    elif format == "parquet":
++        content = df.to_parquet(index=False)
++    else:
++        raise ValueError(f"Unsupported format: {format}")
++    
++    write_bytes_atomic(path, content, run_id)
 ```
 
-**Использование:**
+**Проверка**:
 ```python
-run_id = generate_run_id()
-
-# CSV
-with atomic_writer_context(output_path, run_id):
-    temp_path = tmpdir / f"{output_path.name}.tmp"
-    df.to_csv(temp_path, index=False)
-    os.replace(str(temp_path), str(output_path))
-
-# Metadata
-meta_content = yaml.dump(metadata)
-write_bytes_atomic(meta_path, meta_content.encode(), run_id)
+def test_atomic_write_no_partial(mocker):
+    """Проверка, что при ошибке не остаётся partial файла."""
+    run_id = "test_run_123"
+    path = Path("/tmp/test.csv")
+    
+    # Mock ошибку записи
+    mocker.patch.object(Path, 'write_bytes', side_effect=OSError("Disk full"))
+    
+    with pytest.raises(RuntimeError):
+        write_bytes_atomic(path, b"content", run_id)
+    
+    # Финальный файл не должен существовать
+    assert not path.exists()
+    
+    # Temp файл должен быть удалён
+    tmpdir = path.parent / ".tmp" / run_id
+    assert not (tmpdir / f"{path.name}.tmp").exists()
 ```
 
-## Интеграционное использование
+**См. также**: [02-io-system.md → Atomic Write](requirements/02-io-system.md#протокол-atomic-write)
 
-**Пример полного пайплайна assay с применением всех патчей:**
+---
 
-```python
-from src.library.common.hash_utils import hash_row
-from src.library.pipelines.assay.transform import expand_assay_parameters_long
-from src.library.io.writer import atomic_writer_context
-from src.library.clients.rate_limit import TokenBucketLimiter
+## Резюме патчей
 
-def assay_pipeline(config: AssayConfig, run_id: str):
-    # AC7: валидация batch
-    assert config.batch_size <= 25, f"batch_size must be ≤ 25, got {config.batch_size}"
-    
-    limiter = TokenBucketLimiter(max_calls=10, period=1.0)
-    
-    # Extract
-    df_raw = client.fetch_assays(assay_ids, batch_size=config.batch_size)
-    
-    # AC8: Long-format
-    df_params = expand_assay_parameters_long(df_raw)
-    
-    # Transform & validate
-    df_normalized = normalize_assays(df_raw)
-    
-    # AC6: Sort
-    df_final = df_normalized.sort_values("assay_chembl_id")
-    
-    # AC3: Hash
-    df_final["hash_row"] = df_final.apply(hash_row, axis=1)
-    
-    # AC1/AC4: Atomic write
-    with atomic_writer_context(output_path, run_id):
-        temp_path = tmpdir / f"{output_path.name}.tmp"
-        df_final.to_csv(temp_path, index=False)
-        os.replace(str(temp_path), str(output_path))
-    
-    logger.info("Pipeline completed", run_id=run_id, rows=len(df_final))
-```
+| Патч | Файл(ы) | AC | Gap(s) | Приоритет |
+|------|---------|----|--------|-----------|
+| 1. Канонизация | `hash_utils.py` | AC3 | G5 | Med |
+| 2. Long-format | `transform.py` | AC8 | G7 | High |
+| 3. Retry-After | `rate_limit.py`, `unified_client.py` | AC5 | G11 | High |
+| 4. CLI флаги | `main.py` | AC10 | G8 | Med |
+| 5. Atomic writer | `writer.py` | AC1, AC4 | G1 | High |
 
-## Связь с gaps и AC
+## Порядок применения
 
-| Патч | Gaps | AC |
-|------|------|-----|
-| 1. Канонизация хеша | G5 | AC3 |
-| 2. Long-format | G7 | AC8 |
-| 3. Retry-After | G11 | AC5 |
-| 4. CLI флаги | G4, G8 | AC10 |
-| 5. Atomic writer | G1, G15 | AC1, AC4 |
+1. **Патч 5** (Atomic writer) — основа детерминизма
+2. **Патч 1** (Канонизация) — для стабильных хешей
+3. **Патч 3** (Retry-After) — для отказоустойчивости
+4. **Патч 2** (Long-format) — для assay quality
+5. **Патч 4** (CLI флаги) — для строгости
 
-## Примечания
+## Связи с другими документами
 
-- Все патчи применяются последовательно согласно [pr-plan.md](pr-plan.md)
-- Предварительно нужно прогнать тесты из [test-plan.md](test-plan.md)
-- При возникновении проблем см. [gaps.md](gaps.md) для связей с исходными проблемами
-
+- [gaps.md](gaps.md) — описание проблем, которые решают патчи
+- [acceptance-criteria.md](acceptance-criteria.md) — критерии проверки патчей
+- [02-io-system.md](requirements/02-io-system.md) — протокол atomic write
+- [03-data-extraction.md](requirements/03-data-extraction.md) — Retry-After стратегия
+- [04-normalization-validation.md](requirements/04-normalization-validation.md) — schema drift

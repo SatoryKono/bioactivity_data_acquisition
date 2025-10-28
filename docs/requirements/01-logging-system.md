@@ -228,6 +228,18 @@ set_run_context(run_id=run_id, stage="extract", actor="scheduler")
 set_run_context(run_id=run_id, stage="extract", actor="fedor")
 ```
 
+**Обязательные поля логов (инвариант G12):**
+
+Список обязательных полей для всех модулей: `run_id`, `stage`, `endpoint`, `params`, `attempt`, `retry_after`, `duration_ms`.
+
+**Применение:**
+- Все HTTP-запросы: `run_id`, `stage`, `endpoint`, `attempt`, `duration_ms`
+- Retry логи: `retry_after`, `attempt`
+- Пагинация: `page_state`, `params`
+- Ошибки: `error_code`, `error_message`
+
+**См. также**: [gaps.md](../gaps.md) (G12).
+
 **Правила маскирования секретов**
 
 1. **Словарь чувствительных ключей:**

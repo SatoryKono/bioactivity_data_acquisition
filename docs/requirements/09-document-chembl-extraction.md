@@ -154,8 +154,14 @@ class DocumentInputSchema(pa.DataFrameModel):
 
 **Параметры:**
 - `chunk_size` по умолчанию: 10
-- Допустимый диапазон: 5–20
-- URL length limit: 1800 символов
+- **Максимальный размер батча: 25 ID** (жёсткое ограничение)
+- URL length limit: 8000 символов (порог для переключения на POST)
+
+**POST override стратегия:**
+При `len(ids) > 25` или риске `414 URI Too Long` (URL > 8000 символов) выполняется:
+- POST-запрос на `/document.json` с заголовком `X-HTTP-Method-Override: GET`
+- Параметр `document_chembl_id__in` передаётся в теле запроса
+- При ошибках применяется recursive split до единичных ID
 
 **Алгоритм динамической подстройки:**
 
@@ -216,8 +222,29 @@ def _fetch_documents_chunk(
 **429 обработка:**
 ```python
 if response.status_code == 429:
-    retry_after = response.headers.get('Retry-After')
-    wait_sec = min(int(retry_after), 60) if retry_after else 60
+    retry_after_raw = response.headers.get('Retry-After', '60')
+    
+    # Поддержка delta-seconds и HTTP-date (RFC 7231)
+    try:
+        wait_sec = int(retry_after_raw)
+    except ValueError:
+        try:
+            # HTTP-date формат
+            from email.utils import parsedate_to_datetime
+            retry_date = parsedate_to_datetime(retry_after_raw)
+            wait_sec = max(0, int((retry_date - datetime.now(timezone.utc)).total_seconds()))
+        except Exception:
+            wait_sec = 60
+    
+    # Cap на 120 секунд
+    wait_sec = min(wait_sec, 120)
+    
+    logger.warning(
+        "rate_limited",
+        retry_after_raw=retry_after_raw,
+        retry_after_calculated=wait_sec,
+        endpoint=endpoint
+    )
     time.sleep(wait_sec)
     raise RateLimitError()
 ```
@@ -225,11 +252,30 @@ if response.status_code == 429:
 **Circuit breaker:**
 ```python
 class CircuitBreaker:
-    def __init__(self, failure_threshold=5, cooldown_sec=60):
+    def __init__(self, failure_threshold=5, reset_timeout=60):
+        """
+        Circuit breaker для защиты от каскадных сбоев.
+        
+        Args:
+            failure_threshold: порог сбоев для открытия (по умолчанию 5)
+            reset_timeout: таймаут до half-open (по умолчанию 60 сек)
+        """
         self.failure_threshold = failure_threshold
-        self.cooldown_sec = cooldown_sec
+        self.reset_timeout = reset_timeout
         self.failure_count = 0
         self.state = "closed"  # closed/open/half-open
+        self.last_failure_time = None
+    
+    def half_open_probe(self):
+        """Half-open состояние: 1 пробный запрос в минуту."""
+        if self.state == "half-open":
+            now = time.time()
+            if self.last_probe_time and (now - self.last_probe_time) < 60:
+                raise CircuitBreakerOpen("Probe cooldown active")
+            self.last_probe_time = now
+
+# Обязательные лог-поля
+logger.error("circuit_breaker_triggered", cb_state=state, cb_failures=failure_count)
 ```
 
 **Логирование:**
@@ -1306,6 +1352,29 @@ merged_df = merge_with_precedence(
 | `mesh_terms` | PubMed | 1 | PubMed уникальный |
 | `chemicals` | PubMed | 1 | PubMed CAS номера |
 
+### 12.3.1 Merge-precedence enforcement
+
+**Правила разрешения конфликтов:**
+- При наличии значения из нескольких источников используется приоритет из таблицы 12.3
+- Поле `*_source` заполняется именем победившего источника
+- При конфликтах DOI/PMID выставляются флаги `conflict_doi` / `conflict_pmid`
+- Все варианты значений сохраняются в audit trail для трассировки
+
+**Пример:**
+```python
+# DOI precedence: Crossref > PubMed > OpenAlex > S2 > ChEMBL
+doi_sources = {
+    "Crossref": "10.1371/journal.pone.0123456",
+    "PubMed": "10.1371/journal.pone.0123456",
+    "ChEMBL": "10.1371/journal.pone.123456"  # опечатка
+}
+
+# Выбирается Crossref, conflict_doi=True (т.к. ChEMBL отличается)
+df["doi_clean"] = "10.1371/journal.pone.0123456"
+df["doi_clean_source"] = "Crossref"
+df["conflict_doi"] = True
+```
+
 ### 12.4 Алгоритм choose_field
 
 ```python
@@ -1604,8 +1673,34 @@ COLUMN_ORDER = [
     "pipeline_version", "extracted_at", "hash_business_key", "hash_row", "index",
 ]
 
-# Применение
-df_final = df.reindex(columns=COLUMN_ORDER, fill_value="")
+# Применение с типобезопасной NA-policy
+df_final = df.reindex(columns=COLUMN_ORDER)
+
+# NA-policy по типам колонок
+DTYPES_CONFIG = {
+    # Строковые → пустая строка
+    "document_chembl_id": "string", "title": "string", "abstract": "string", 
+    "doi": "string", "doi_clean": "string", "journal": "string",
+    # ... остальные строковые
+    
+    # Числовые → pd.NA (nullable Int64/Float64)
+    "pubmed_id": "Int64", "year": "Int64", "citation_count": "Int64",
+    "influential_citations": "Int64", "authors_count": "Int64",
+    
+    # Boolean → pd.NA (nullable BooleanDtype)
+    "is_oa": "boolean", "conflict_doi": "boolean", "conflict_pmid": "boolean",
+}
+
+for col, dtype in DTYPES_CONFIG.items():
+    if col not in df_final.columns:
+        continue
+    if pd.api.types.is_string_dtype(dtype):
+        df_final[col] = df_final[col].fillna("").astype(dtype)
+    else:
+        df_final[col] = df_final[col].astype(dtype)
+
+# Запрещено: object dtypes → ошибка валидации
+assert not any(df_final.dtypes == "object"), "Object dtypes forbidden"
 ```
 
 ### 14.3 Хеши
@@ -1623,22 +1718,55 @@ df["hash_business_key"] = df["document_chembl_id"].apply(compute_hash_business_k
 
 **hash_row:**
 ```python
+def canonicalize_row_for_hash(row: pd.Series, column_order: list[str]) -> str:
+    """
+    Каноническая сериализация строки для хеширования.
+    
+    Правила:
+    - JSON с sort_keys=True, separators=(',', ':')
+    - Даты/время в ISO8601 UTC (YYYY-MM-DDTHH:MM:SSZ)
+    - Float с фиксированной точностью %.6f
+    - NA-policy: для строк → "", для остальных → null в JSON
+    """
+    def _normalize_value(v, col_dtype):
+        # Float
+        if isinstance(v, float):
+            if pd.isna(v):
+                return None
+            return float(f"{v:.6f}")
+        
+        # NA/None
+        if pd.isna(v):
+            # Для строковых колонок → ""
+            if pd.api.types.is_string_dtype(col_dtype):
+                return ""
+            return None
+        
+        # Datetime
+        if isinstance(v, (pd.Timestamp, datetime)):
+            if v.tzinfo:
+                return v.tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")
+            return v.strftime("%Y-%m-%dT%H:%M:%SZ")
+        
+        # Dict/List (уже JSON-сериализуемы)
+        if isinstance(v, (dict, list)):
+            return v
+        
+        return str(v)
+    
+    # Построение словаря по column_order
+    payload = {}
+    for col in column_order:
+        value = row.get(col)
+        col_dtype = row.index.get_loc(col) if col in row.index else None
+        payload[col] = _normalize_value(value, col_dtype)
+    
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
 def compute_hash_row(row: pd.Series) -> str:
     """Compute SHA256 hash of canonical row representation."""
-    sorted_row = row[COLUMN_ORDER].sort_index()
-    
-    parts = []
-    for col, val in sorted_row.items():
-        if pd.isna(val):
-            parts.append(f"{col}:")
-        elif isinstance(val, (dict, list)):
-            json_str = json.dumps(val, sort_keys=True, separators=(",", ":"))
-            parts.append(f"{col}:{json_str}")
-        else:
-            parts.append(f"{col}:{val}")
-    
-    canonical = "|".join(parts)
-    return hashlib.sha256(canonical.encode()).hexdigest()
+    canonical = canonicalize_row_for_hash(row, COLUMN_ORDER)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 df["hash_row"] = df.apply(compute_hash_row, axis=1)
 ```
@@ -1855,6 +1983,35 @@ def validate_documents(df: pd.DataFrame, stage: str = "normalized") -> pd.DataFr
             failure_cases=exc.failure_cases.to_dict(orient="records"),
         )
         raise
+```
+
+### 15.4.1 CLI флаги для строгой валидации
+
+**--fail-on-schema-drift:**
+При несовпадении схемы Pandera с `column_order` или изменении типов колонок:
+- Exit code: 1
+- Лог: детальная информация о расхождениях
+- Use case: CI/CD проверки перед деплоем
+
+**--strict-enrichment:**
+При ошибках обогащения от внешних источников (403/401 от PubMed/Crossref/OpenAlex/S2):
+- Exit code: 1
+- QC флаг: `qc_flag_external_access_denied=1`
+- Use case: критичные пайплайны, требующие полноты данных
+
+**Пример:**
+```bash
+# Schema drift detection
+python -m scripts.get_document_data \
+  --mode all \
+  --input documents.csv \
+  --fail-on-schema-drift
+
+# Strict enrichment mode
+python -m scripts.get_document_data \
+  --mode all \
+  --input documents.csv \
+  --strict-enrichment
 ```
 
 ## 16. QC и метрики качества
@@ -2394,6 +2551,15 @@ python -m scripts.get_document_data \
 - [ ] Таблицы FIELD_MAPPING, ERROR MATRIX, COLUMN_ORDER включены
 - [ ] Чек-лист детерминизма присутствует
 - [ ] Конфигурация YAML для всех источников
+- [ ] Бит-в-бит идентичность CSV/Parquet на повторных запусках
+- [ ] Стабильность hash_row (canonical serialization)
+- [ ] POST override для батчей > 25 ID реализован и протестирован
+- [ ] Retry-After поддерживает delta-seconds и HTTP-date
+- [ ] Circuit breaker с фиксированными параметрами (threshold=5, timeout=60s)
+- [ ] NA-policy по типам (string→"", numeric/bool→pd.NA, запрет object)
+- [ ] CLI флаги --fail-on-schema-drift и --strict-enrichment работают
+- [ ] meta.yaml содержит schema_version и hash_policy_version
+- [ ] Acceptance criteria AC11-AC20 проходят в CI
 
 ## 21. Риски и снижения (расширенные)
 
@@ -2413,6 +2579,10 @@ python -m scripts.get_document_data \
 | Лицензирование S2 для commercial use | Низкая | Критическая | Юридическая консультация |
 | Rate limit violations | Средняя | Высокая | Token bucket + exponential backoff |
 | Network instability | Средняя | Средняя | Retry policies + circuit breaker |
+| Дрейф хешей после смены политики | Средняя | Средняя | Версионирование hash_policy, миграция снапшотов |
+| 429 интерпретируется неверно (HTTP-date) | Средняя | Средняя | Парсинг RFC 7231, каппинг на 120s, логирование retry_after_raw |
+| POST override не принят прокси | Низкая | Средняя | Фича-флаг, fallback на GET с recursive split |
+| NA-policy ломает существующие пайплайны | Средняя | Средняя | Типизация Pandera, миграция схем с semver |
 
 ## 22. Приложения
 
