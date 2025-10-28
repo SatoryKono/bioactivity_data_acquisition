@@ -379,6 +379,12 @@ class PubMedClient:
 2. Все вызовы обёрнуты в rate-limiter и retry-политику
 3. На каждый сырой ответ сохраняется бинарный снапшот в `landing/`
 
+### Интеграция с Unified-компонентами
+
+- **PubMedUnifiedClientAdapter** оборачивает `UnifiedAPIClient`, наследуя токен-бакет и retry контракты (Respect Retry-After, fail-fast на 4xx) без дублирования логики; используем штатную реализацию лимитера и backoff из [docs/requirements/03-data-extraction.md#rate-limiting-и-retry-after](../requirements/03-data-extraction.md#rate-limiting-и-retry-after) для выполнения AC-07 и AC-19.
+- **UnifiedLogger** фиксирует обязательные поля (`run_id`, `stage`, `endpoint`, `attempt`, `retry_after`, `duration_ms`) при каждом HTTP-вызове, соблюдая инвариант G12 из [docs/requirements/01-logging-system.md#обязательные-поля-логов-инвариант-g12](../requirements/01-logging-system.md#обязательные-поля-логов-инвариант-g12) и поддерживая проверку AC-05 из [docs/acceptance-criteria.md#ac5](../acceptance-criteria.md#ac5).
+- **UnifiedOutputWriter** отвечает за детерминированную запись Bronze/Silver/QC артефактов в соответствии с инвариантами атомарности и канонизации ([docs/requirements/02-io-system.md#инварианты](../requirements/02-io-system.md#инварианты)) и акцептанс-критериям AC-01/AC-02/AC-05 ([docs/requirements/02-io-system.md#ac-01-golden-compare-детерминизма](../requirements/02-io-system.md#ac-01-golden-compare-%D0%B4%D0%B5%D1%82%D0%B5%D1%80%D0%BC%D0%B8%D0%BD%D0%B8%D0%B7%D0%BC%D0%B0), [docs/requirements/02-io-system.md#ac-02-запрет-частичных-артефактов](../requirements/02-io-system.md#ac-02-%D0%B7%D0%B0%D0%BF%D1%80%D0%B5%D1%82-%D1%87%D0%B0%D1%81%D1%82%D0%B8%D1%87%D0%BD%D1%8B%D1%85-%D0%B0%D1%80%D1%82%D0%B5%D1%84%D0%B0%D0%BA%D1%82%D0%BE%D0%B2), [docs/requirements/02-io-system.md#ac-05-na-policy-в-сериализации](../requirements/02-io-system.md#ac-05-na-policy-%D0%B2-%D1%81%D0%B5%D1%80%D0%B8%D0%B0%D0%BB%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D0%B8)).
+
 ## 10. Схемы данных
 
 ### PubMedRecordSchema (Bronze)
@@ -480,6 +486,12 @@ class PubMedChemical:
 3. **Golden files:**
    - Стабильные Parquet + meta.yaml с контрольными суммами
    - Не меняем порядок колонок и сортировку (детерминизм)
+
+## 16. Чек-лист тестирования
+
+- `pytest` — прогнать модульные и интеграционные тесты (валидирует юнит-контракты клиентов и парсеров, покрывая AC-07/AC-19).
+- `mypy src` — статический анализ типов для подтверждения контрактов Unified-компонентов.
+- `python -m pipeline.pubmed run --config configs/config_pubmed.yaml --mode epost-efetch --golden data/golden/pubmed_records.parquet` — golden-run для проверки AC-01/AC-02/AC-05.
 
 ## 12. Документация
 
