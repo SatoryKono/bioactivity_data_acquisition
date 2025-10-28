@@ -2343,6 +2343,130 @@ class DocumentNormalizedSchema(DocumentRawSchema):
 
 ```
 
+### 15.3.1 DocumentOutputSchema (AUD-3)
+
+Формализованная выходная схема с PK и полным списком полей:
+
+```python
+class DocumentOutputSchema(pa.DataFrameModel):
+    """
+    Output schema для Document pipeline.
+    Primary Key: document_chembl_id
+    Foreign Keys: DOI, PMID (для внешних ссылок)
+    """
+    
+    # === PRIMARY KEY ===
+    document_chembl_id: Series[str] = pa.Field(
+        regex=r"^CHEMBL\d+$",
+        nullable=False,
+        unique=True,
+        description="ChEMBL document identifier (PRIMARY KEY)"
+    )
+    
+    # === CORE FIELDS ===
+    title: Series[str] = pa.Field(nullable=True, str_length_max=1000)
+    abstract: Series[str] = pa.Field(nullable=True, str_length_max=5000)
+    
+    # === IDENTIFIERS (potential FK) ===
+    doi: Series[str] = pa.Field(nullable=True, description="DOI identifier")
+    doi_clean: Series[str] = pa.Field(nullable=True, description="Normalized DOI")
+    pubmed_id: Series[pd.Int64Dtype] = pa.Field(nullable=True, description="PMID identifier")
+    
+    # === PUBLICATION INFO ===
+    year: Series[pd.Int64Dtype] = pa.Field(ge=1500, le=2100, nullable=True)
+    journal: Series[str] = pa.Field(nullable=True)
+    journal_abbrev: Series[str] = pa.Field(nullable=True)
+    volume: Series[str] = pa.Field(nullable=True)
+    issue: Series[str] = pa.Field(nullable=True)
+    first_page: Series[str] = pa.Field(nullable=True)
+    last_page: Series[str] = pa.Field(nullable=True)
+    
+    # === AUTHORS ===
+    authors: Series[str] = pa.Field(nullable=True, description="Concatenated author list")
+    authors_count: Series[pd.Int64Dtype] = pa.Field(ge=0, nullable=True)
+    
+    # === ENRICHMENT FIELDS (mode=all) ===
+    mesh_terms: Series[str] = pa.Field(nullable=True)
+    chemicals: Series[str] = pa.Field(nullable=True)
+    fields_of_study: Series[str] = pa.Field(nullable=True)
+    concepts_top3: Series[str] = pa.Field(nullable=True)
+    citation_count: Series[pd.Int64Dtype] = pa.Field(ge=0, nullable=True)
+    influential_citations: Series[pd.Int64Dtype] = pa.Field(ge=0, nullable=True)
+    is_oa: Series[pd.BooleanDtype] = pa.Field(nullable=True)
+    oa_status: Series[str] = pa.Field(nullable=True)
+    oa_url: Series[str] = pa.Field(nullable=True)
+    
+    # === ISSN ===
+    issn_print: Series[str] = pa.Field(nullable=True)
+    issn_electronic: Series[str] = pa.Field(nullable=True)
+    
+    # === SOURCE TRACKING ===
+    title_source: Series[str] = pa.Field(nullable=True)
+    abstract_source: Series[str] = pa.Field(nullable=True)
+    journal_source: Series[str] = pa.Field(nullable=True)
+    authors_source: Series[str] = pa.Field(nullable=True)
+    issn_print_source: Series[str] = pa.Field(nullable=True)
+    issn_electronic_source: Series[str] = pa.Field(nullable=True)
+    
+    # === CONFLICTS ===
+    conflict_doi: Series[pd.BooleanDtype] = pa.Field(nullable=True)
+    conflict_pmid: Series[pd.BooleanDtype] = pa.Field(nullable=True)
+    
+    # === QC FLAGS ===
+    qc_flag_invalid_doi: Series[pd.Int64Dtype] = pa.Field(isin=[0, 1], nullable=True)
+    qc_flag_out_of_range_year: Series[pd.Int64Dtype] = pa.Field(isin=[0, 1], nullable=True)
+    qc_flag_s2_access_denied: Series[pd.Int64Dtype] = pa.Field(isin=[0, 1], nullable=True)
+    qc_flag_title_fallback_used: Series[pd.Int64Dtype] = pa.Field(isin=[0, 1], nullable=True)
+    
+    # === SOURCE MARKER ===
+    source: Series[str] = pa.Field(eq="ChEMBL", nullable=False)
+    
+    # === HASHES ===
+    hash_business_key: Series[str] = pa.Field(nullable=False, str_length=64)
+    hash_row: Series[str] = pa.Field(nullable=False, str_length=64)
+    
+    # === METADATA ===
+    chembl_release: Series[str] = pa.Field(nullable=True)
+    run_id: Series[str] = pa.Field(nullable=True)
+    git_commit: Series[str] = pa.Field(nullable=True)
+    config_hash: Series[str] = pa.Field(nullable=True)
+    pipeline_version: Series[str] = pa.Field(nullable=True)
+    extracted_at: Series[str] = pa.Field(nullable=True)
+    index: Series[pd.Int64Dtype] = pa.Field(nullable=True)
+    
+    class Config:
+        strict = True
+        ordered = True
+        coerce = True
+    
+    @staticmethod
+    def get_column_order() -> list[str]:
+        """Возвращает канонический порядок колонок."""
+        return [
+            "document_chembl_id",  # PK первым
+            "title", "abstract",
+            "doi", "doi_clean", "pubmed_id",
+            "year", "journal", "journal_abbrev",
+            "volume", "issue", "first_page", "last_page",
+            "authors", "authors_count",
+            # ... остальные enrichment поля
+            "hash_business_key", "hash_row"  # Хеши последними
+        ]
+
+
+# Schema Registry
+DOCUMENT_SCHEMAS = {
+    "input": DocumentInputSchema,
+    "raw": DocumentRawSchema,
+    "normalized": DocumentNormalizedSchema,
+    "output": DocumentOutputSchema,
+}
+```
+
+**Schema ID:** `document.output` v1.0.0
+
+**Ссылка:** См. также [04-normalization-validation.md](04-normalization-validation.md) для column_order и NA-policy.
+
 ### 15.4 Валидация
 
 ```python

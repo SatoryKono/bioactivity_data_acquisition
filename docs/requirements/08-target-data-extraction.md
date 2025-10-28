@@ -561,6 +561,153 @@ Protein classification hierarchy для интеграции с внешними
 
 **Размер:** ~5-10x от targets
 
+### Output Schema Specification (AUD-3)
+
+Формализованные Pandera схемы для 4 выходных таблиц с явными PK/FK:
+
+```python
+from pandera import DataFrameModel, Field, Column
+from pandera.typing import Series
+
+# ===== 1. TARGETS =====
+class TargetsOutputSchema(DataFrameModel):
+    """
+    Output schema для таблицы targets.
+    Primary Key: target_chembl_id
+    """
+    
+    target_chembl_id: Series[str] = Field(
+        str_matches=r'^CHEMBL\d+$',
+        nullable=False,
+        unique=True,
+        description="ChEMBL target identifier (PRIMARY KEY)"
+    )
+    pref_name: Series[str] = Field(nullable=True)
+    organism: Series[str] = Field(nullable=True)
+    tax_id: Series[int] = Field(nullable=True)
+    
+    # UniProt
+    uniprot_id_primary: Series[str] = Field(nullable=True)
+    uniprot_ids_all: Series[str] = Field(nullable=True)
+    
+    # Gene info
+    gene_symbol: Series[str] = Field(nullable=True)
+    hgnc_id: Series[str] = Field(nullable=True)
+    
+    # Protein classification
+    protein_class_pred_L1: Series[str] = Field(nullable=True)
+    protein_class_pred_L2: Series[str] = Field(nullable=True)
+    protein_class_pred_L3: Series[str] = Field(nullable=True)
+    
+    # Metadata
+    cellularity: Series[str] = Field(nullable=True)
+    data_origin: Series[str] = Field(nullable=True)
+    
+    class Config:
+        strict = True
+        coerce = True
+
+
+# ===== 2. TARGET_COMPONENTS =====
+class TargetComponentsOutputSchema(DataFrameModel):
+    """
+    Output schema для таблицы target_components.
+    Primary Key: (target_chembl_id, component_id)
+    """
+    
+    target_chembl_id: Series[str] = Field(
+        str_matches=r'^CHEMBL\d+$',
+        nullable=False,
+        description="FK to targets"
+    )
+    component_id: Series[int] = Field(
+        nullable=False,
+        description="Component identifier"
+    )
+    component_type: Series[str] = Field(nullable=True)
+    accession: Series[str] = Field(nullable=True)
+    sequence: Series[str] = Field(nullable=True)
+    is_ortholog: Series[bool] = Field(nullable=True)
+    merge_rank: Series[int] = Field(nullable=True)
+    
+    class Config:
+        strict = True
+        coerce = True
+    
+    @staticmethod
+    def get_primary_key() -> list[str]:
+        return ["target_chembl_id", "component_id"]
+
+
+# ===== 3. PROTEIN_CLASS =====
+class ProteinClassOutputSchema(DataFrameModel):
+    """
+    Output schema для таблицы protein_class.
+    Primary Key: (target_chembl_id, class_level, class_name)
+    """
+    
+    target_chembl_id: Series[str] = Field(
+        str_matches=r'^CHEMBL\d+$',
+        nullable=False,
+        description="FK to targets"
+    )
+    class_level: Series[str] = Field(
+        nullable=False,
+        description="L1, L2, L3, L4..."
+    )
+    class_name: Series[str] = Field(nullable=False)
+    full_path: Series[str] = Field(nullable=True)
+    
+    class Config:
+        strict = True
+        coerce = True
+    
+    @staticmethod
+    def get_primary_key() -> list[str]:
+        return ["target_chembl_id", "class_level", "class_name"]
+
+
+# ===== 4. XREF =====
+class XrefOutputSchema(DataFrameModel):
+    """
+    Output schema для таблицы xref.
+    Primary Key: (target_chembl_id, xref_src_db, xref_id)
+    """
+    
+    target_chembl_id: Series[str] = Field(
+        str_matches=r'^CHEMBL\d+$',
+        nullable=False,
+        description="FK to targets"
+    )
+    xref_src_db: Series[str] = Field(nullable=False, description="UniProt, Ensembl, PDB, etc.")
+    xref_id: Series[str] = Field(nullable=False)
+    
+    class Config:
+        strict = True
+        coerce = True
+    
+    @staticmethod
+    def get_primary_key() -> list[str]:
+        return ["target_chembl_id", "xref_src_db", "xref_id"]
+
+
+# Schema Registry
+TARGET_SCHEMAS = {
+    "targets": TargetsOutputSchema,
+    "target_components": TargetComponentsOutputSchema,
+    "protein_class": ProteinClassOutputSchema,
+    "xref": XrefOutputSchema,
+}
+```
+
+**Schema IDs:**
+- `target.output.targets` v1.0.0
+- `target.output.target_components` v1.0.0
+- `target.output.protein_class` v1.0.0
+- `target.output.xref` v1.0.0
+
+**Ссылка:** См. также [04-normalization-validation.md](04-normalization-validation.md) для column_order и NA-policy.
+
 ### Форматы и типы данных
 
 - **Целые числа**: `tax_id`, `hgnc_id` → `Int64` (nullable)
