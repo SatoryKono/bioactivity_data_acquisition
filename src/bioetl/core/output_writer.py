@@ -99,17 +99,20 @@ class QualityReportGenerator:
     """Генератор quality report."""
 
     def generate(
-        self, df: pd.DataFrame, issues: list[dict[str, Any]] | None = None
+        self,
+        df: pd.DataFrame,
+        issues: list[dict[str, Any]] | None = None,
+        qc_metrics: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
         """Создает QC отчет."""
-        metrics: list[dict[str, Any]] = []
+        rows: list[dict[str, Any]] = []
 
         for column in df.columns:
             null_count = df[column].isna().sum()
             null_fraction = null_count / len(df) if len(df) > 0 else 0
             unique_count = df[column].nunique()
 
-            metrics.append(
+            rows.append(
                 {
                     "metric": "column_profile",
                     "column": column,
@@ -124,9 +127,18 @@ class QualityReportGenerator:
             for issue in issues:
                 record = {"metric": issue.get("metric", "validation_issue")}
                 record.update(issue)
-                metrics.append(record)
+                rows.append(record)
 
-        return pd.DataFrame(metrics)
+        if qc_metrics:
+            for name, value in qc_metrics.items():
+                entry: dict[str, Any] = {
+                    "metric": "qc_metric",
+                    "name": name,
+                    "value": value,
+                }
+                rows.append(entry)
+
+        return pd.DataFrame(rows)
 
 
 class UnifiedOutputWriter:
@@ -144,6 +156,7 @@ class UnifiedOutputWriter:
         metadata: OutputMetadata | None = None,
         extended: bool = False,
         issues: list[dict[str, Any]] | None = None,
+        qc_metrics: dict[str, Any] | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -178,7 +191,11 @@ class UnifiedOutputWriter:
 
         # Generate and write quality report
         logger.info("generating_quality_report")
-        quality_df = self.quality_generator.generate(df, issues=issues)
+        quality_df = self.quality_generator.generate(
+            df,
+            issues=issues,
+            qc_metrics=qc_metrics,
+        )
         self.atomic_writer.write(quality_df, quality_path)
 
         # Calculate checksums

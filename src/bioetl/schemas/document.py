@@ -1,9 +1,47 @@
 """Document schema for multi-source enrichment according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
+import pandas as pd
 import pandera as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema
+
+
+class DocumentRawSchema(pa.DataFrameModel):
+    """Schema for raw ChEMBL document payloads prior to normalization."""
+
+    document_chembl_id: Series[str] = pa.Field(
+        regex=r"^CHEMBL\d+$",
+        nullable=False,
+        description="Primary identifier for the document record",
+    )
+    title: Series[str] = pa.Field(nullable=True, description="Document title from ChEMBL")
+    abstract: Series[str] = pa.Field(nullable=True, description="Abstract text from ChEMBL")
+    doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
+    year: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Publication year reported by ChEMBL",
+    )
+    journal: Series[str] = pa.Field(nullable=True, description="Journal name")
+    journal_abbrev: Series[str] = pa.Field(nullable=True, description="Journal abbreviation")
+    volume: Series[str] = pa.Field(nullable=True, description="Journal volume")
+    issue: Series[str] = pa.Field(nullable=True, description="Journal issue")
+    first_page: Series[str] = pa.Field(nullable=True, description="First page of article")
+    last_page: Series[str] = pa.Field(nullable=True, description="Last page of article")
+    pubmed_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed identifier supplied by ChEMBL",
+    )
+    authors: Series[str] = pa.Field(nullable=True, description="Author list from ChEMBL")
+    source: Series[str] = pa.Field(
+        nullable=True,
+        description="Source system providing the document payload",
+    )
+
+    class Config:
+        strict = False
+        ordered = True
+        coerce = True
 
 
 class DocumentSchema(BaseSchema):
@@ -264,3 +302,10 @@ class DocumentSchema(BaseSchema):
         strict = True
         coerce = True
         ordered = True
+
+
+class DocumentNormalizedSchema(DocumentSchema):
+    """Alias schema for normalized document outputs."""
+
+    class Config(DocumentSchema.Config):
+        strict = True
