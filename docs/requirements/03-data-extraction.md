@@ -879,7 +879,7 @@ params = {"cursor": "abc123", "limit": 100}
 # Ответ: {"items": [...], "next_cursor": "def456", "has_more": true}
 ```
 
-**3. Offset + Limit**
+3. Offset + Limit
 ```python
 params = {"offset": 0, "limit": 100}
 # Ответ: {"items": [...], "offset": 100, "total": 1000}
