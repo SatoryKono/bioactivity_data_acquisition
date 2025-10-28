@@ -5,6 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from pydantic import ValidationError
 
 from bioetl.config import PipelineConfig, load_config, parse_cli_overrides
 
@@ -163,6 +164,16 @@ cli: {}
     config1 = load_config(config_file)
     config2 = load_config(config_file)
     assert config1.config_hash == config2.config_hash
+
+
+def test_chembl_batch_size_limit():
+    """Chembl batch size must not exceed documented maximum."""
+
+    with pytest.raises(ValidationError):
+        load_config(
+            Path("configs/pipelines/assay.yaml"),
+            overrides={"sources": {"chembl": {"batch_size": 30}}},
+        )
 
 
 def test_parse_cli_overrides():

@@ -1,15 +1,18 @@
 """Assay Pipeline - ChEMBL assay data extraction."""
 
 import json
+import subprocess
 from collections.abc import Iterable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import requests
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
+from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
@@ -48,12 +51,10 @@ class AssayPipeline(PipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
 
-        # Initialize ChEMBL API client
         chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")  # type: ignore
-        else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
+        default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
+        base_url = getattr(chembl_source, "base_url", default_base_url)
+        batch_size = getattr(chembl_source, "batch_size", 25) or 25
 
         chembl_config = APIConfig(
             name="chembl",
@@ -62,6 +63,224 @@ class AssayPipeline(PipelineBase):
             cache_ttl=config.cache.ttl,
         )
         self.api_client = UnifiedAPIClient(chembl_config)
+
+        self.batch_size = batch_size
+        self.chembl_base_url = base_url
+        self.chembl_release: str | None = None
+        self.git_commit = self._resolve_git_commit()
+        self.config_hash = config.config_hash
+        self.run_metadata: dict[str, Any] = {
+            "run_id": run_id,
+            "git_commit": self.git_commit,
+            "config_hash": self.config_hash,
+            "chembl_base_url": self.chembl_base_url,
+            "chembl_release": None,
+        }
+
+        self._cache_enabled = bool(config.cache.enabled)
+        self._assay_cache: dict[str, dict[str, Any]] = {}
+        self._status_payload: dict[str, Any] | None = None
+
+        self._initialize_status()
+
+    @staticmethod
+    def _resolve_git_commit() -> str:
+        """Return the current git commit SHA or 'unknown'."""
+        try:
+            output = subprocess.check_output([
+                "git",
+                "rev-parse",
+                "HEAD",
+            ], stderr=subprocess.DEVNULL)
+            return output.decode().strip()
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            return "unknown"
+
+    def _initialize_status(self) -> None:
+        """Capture ChEMBL status to anchor the run's release metadata."""
+        try:
+            status = self.api_client.request_json("/status.json")
+        except CircuitBreakerOpenError as exc:
+            logger.error("chembl_status_circuit_open", error=str(exc))
+            self.run_metadata["status_error"] = str(exc)
+            return
+        except Exception as exc:  # noqa: BLE001 - propagate as metadata for observability
+            logger.warning("chembl_status_unavailable", error=str(exc))
+            self.run_metadata["status_error"] = str(exc)
+            return
+
+        self._status_payload = status if isinstance(status, dict) else {}
+        release: str | None = None
+        if isinstance(status, dict):
+            release_value = status.get("chembl_db_version") or status.get("chembl_release")
+            if release_value:
+                release = str(release_value)
+        else:
+            logger.warning(
+                "chembl_status_unexpected_payload",
+                payload_type=type(status).__name__,
+            )
+
+        if release:
+            self.chembl_release = release
+            self.run_metadata["chembl_release"] = release
+            logger.info("chembl_status_captured", chembl_release=release, base_url=self.chembl_base_url)
+        else:
+            logger.warning("chembl_status_missing_release", base_url=self.chembl_base_url)
+
+        self.run_metadata["status_checked_at"] = datetime.now(timezone.utc).isoformat()
+
+    def _make_cache_key(self, assay_id: str) -> str:
+        """Compose release-qualified cache key for assay payloads."""
+        release = self.chembl_release or "unknown"
+        return f"assay:{release}:{assay_id}"
+
+    def _cache_get(self, assay_id: str) -> dict[str, Any] | None:
+        """Return cached assay payload if caching is enabled."""
+        if not self._cache_enabled:
+            return None
+        key = self._make_cache_key(assay_id)
+        cached = self._assay_cache.get(key)
+        if cached is not None:
+            logger.debug("assay_cache_hit", key=key)
+            return cached.copy()
+        return None
+
+    def _cache_set(self, assay_id: str, payload: dict[str, Any]) -> None:
+        """Persist payload to in-memory cache if enabled."""
+        if not self._cache_enabled:
+            return
+        key = self._make_cache_key(assay_id)
+        self._assay_cache[key] = payload.copy()
+        logger.debug("assay_cache_store", key=key)
+
+    def _normalize_assay_record(self, assay: dict[str, Any]) -> dict[str, Any]:
+        """Normalize raw assay payload from ChEMBL."""
+        classifications = assay.get("assay_classifications")
+        classifications_str = None
+        if classifications:
+            try:
+                classifications_str = json.dumps(
+                    classifications,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            except (TypeError, ValueError):
+                try:
+                    classifications_str = " | ".join(classifications)
+                except TypeError:
+                    classifications_str = None
+
+        params = assay.get("assay_parameters")
+        params_json = json.dumps(params, ensure_ascii=False) if params is not None else None
+
+        record: dict[str, Any] = {
+            "assay_chembl_id": assay.get("assay_chembl_id"),
+            "assay_type": assay.get("assay_type"),
+            "assay_category": assay.get("assay_category"),
+            "assay_cell_type": assay.get("assay_cell_type"),
+            "assay_classifications": classifications_str,
+            "assay_group": assay.get("assay_group"),
+            "assay_organism": assay.get("assay_organism"),
+            "assay_parameters_json": params_json,
+            "assay_strain": assay.get("assay_strain"),
+            "assay_subcellular_fraction": assay.get("assay_subcellular_fraction"),
+            "assay_tax_id": assay.get("assay_tax_id"),
+            "assay_test_type": assay.get("assay_test_type"),
+            "assay_tissue": assay.get("assay_tissue"),
+            "assay_type_description": assay.get("assay_type_description"),
+            "bao_format": assay.get("bao_format"),
+            "bao_label": assay.get("bao_label"),
+            "bao_endpoint": assay.get("bao_endpoint"),
+            "cell_chembl_id": assay.get("cell_chembl_id"),
+            "confidence_description": assay.get("confidence_description"),
+            "confidence_score": assay.get("confidence_score"),
+            "assay_description": assay.get("description"),
+            "document_chembl_id": assay.get("document_chembl_id"),
+            "relationship_description": assay.get("relationship_description"),
+            "relationship_type": assay.get("relationship_type"),
+            "src_assay_id": assay.get("src_assay_id"),
+            "src_id": assay.get("src_id"),
+            "target_chembl_id": assay.get("target_chembl_id"),
+            "tissue_chembl_id": assay.get("tissue_chembl_id"),
+        }
+
+        assay_class = assay.get("assay_class")
+        if isinstance(assay_class, dict):
+            record.update({
+                "assay_class_id": assay_class.get("assay_class_id"),
+                "assay_class_bao_id": assay_class.get("bao_id"),
+                "assay_class_type": assay_class.get("assay_class_type"),
+                "assay_class_l1": assay_class.get("class_level_1"),
+                "assay_class_l2": assay_class.get("class_level_2"),
+                "assay_class_l3": assay_class.get("class_level_3"),
+                "assay_class_description": assay_class.get("assay_class_description"),
+            })
+
+        variant_sequences = assay.get("variant_sequence")
+        variant_sequence_json = None
+        if variant_sequences:
+            if isinstance(variant_sequences, list) and variant_sequences:
+                variant = variant_sequences[0]
+                if isinstance(variant, dict):
+                    record.update({
+                        "variant_id": variant.get("variant_id"),
+                        "variant_base_accession": variant.get("base_accession"),
+                        "variant_mutation": variant.get("mutation"),
+                        "variant_sequence": variant.get("variant_seq"),
+                        "variant_accession_reported": variant.get("accession_reported"),
+                    })
+                variant_sequence_json = json.dumps(variant_sequences, ensure_ascii=False)
+            elif isinstance(variant_sequences, dict):
+                record.update({
+                    "variant_id": variant_sequences.get("variant_id"),
+                    "variant_base_accession": variant_sequences.get("base_accession"),
+                    "variant_mutation": variant_sequences.get("mutation"),
+                    "variant_sequence": variant_sequences.get("variant_seq"),
+                    "variant_accession_reported": variant_sequences.get("accession_reported"),
+                })
+                variant_sequence_json = json.dumps([variant_sequences], ensure_ascii=False)
+
+        record["variant_sequence_json"] = variant_sequence_json
+        record["source_system"] = "chembl"
+        record["chembl_release"] = self.chembl_release
+        return record
+
+    def _create_fallback_record(self, assay_id: str, error: Exception | None = None) -> dict[str, Any]:
+        """Generate fallback payload when API data cannot be retrieved."""
+        http_status: int | None = None
+        retry_after: float | None = None
+        error_code: Any | None = getattr(error, "code", None)
+        attempt: Any | None = getattr(error, "attempt", None)
+
+        if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
+            http_status = error.response.status_code
+            retry_after_header = error.response.headers.get("Retry-After")
+            if retry_after_header:
+                try:
+                    retry_after = float(retry_after_header)
+                except ValueError:
+                    retry_after = None
+        else:
+            http_status = getattr(error, "status", None)
+            retry_after = getattr(error, "retry_after", None)
+
+        message = str(error) if error else "Fallback: API unavailable"
+
+        record: dict[str, Any] = {
+            "assay_chembl_id": assay_id,
+            "source_system": "ChEMBL_FALLBACK",
+            "chembl_release": self.chembl_release,
+            "error_code": error_code,
+            "http_status": http_status,
+            "error_message": message,
+            "retry_after_sec": retry_after,
+            "attempt": attempt,
+            "run_id": self.run_id,
+            "git_commit": self.git_commit,
+            "config_hash": self.config_hash,
+        }
+        return record
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract assay data from input file."""
@@ -80,127 +299,91 @@ class AssayPipeline(PipelineBase):
         return result
 
     def _fetch_assay_data(self, assay_ids: list[str]) -> pd.DataFrame:
-        """Fetch assay data from ChEMBL API."""
-        results = []
+        """Fetch assay data from ChEMBL API with release-scoped caching."""
+        if not assay_ids:
+            return pd.DataFrame()
 
-        batch_size = 20
-        for i in range(0, len(assay_ids), batch_size):
-            batch_ids = assay_ids[i:i + batch_size]
-            logger.info("fetching_batch", batch=i // batch_size + 1, size=len(batch_ids))
-            
+        results: list[dict[str, Any]] = []
+        pending: list[str] = []
+        seen: set[str] = set()
+
+        for assay_id in assay_ids:
+            if not assay_id or assay_id in seen:
+                continue
+            seen.add(assay_id)
+            cached = self._cache_get(assay_id)
+            if cached is not None:
+                results.append(cached)
+            else:
+                pending.append(assay_id)
+
+        if not pending:
+            logger.info("assay_fetch_served_from_cache", count=len(results))
+            return pd.DataFrame(results)
+
+        for index in range(0, len(pending), self.batch_size):
+            batch_ids = pending[index : index + self.batch_size]
+            logger.info(
+                "fetching_batch",
+                batch=index // self.batch_size + 1,
+                size=len(batch_ids),
+            )
+
             try:
-                url = f"{self.api_client.config.base_url}/assay.json"
-                params = {"assay_chembl_id__in": ",".join(batch_ids)}
-                
-                response = self.api_client.request_json(url, params=params)
-                assays = response.get("assays", [])
-                
-                for assay in assays:
-                    # Extract and serialize classifications with proper empty list handling
-                    classifications = assay.get("assay_classifications")
-                    classifications_str = None
-                    if classifications:
-                        try:
-                            classifications_str = json.dumps(
-                                classifications,
-                                ensure_ascii=False,
-                                sort_keys=True,
-                            )
-                        except (TypeError, ValueError):
-                            # Fallback to simple string join if JSON serialization fails
-                            try:
-                                classifications_str = " | ".join(classifications)
-                            except TypeError:
-                                classifications_str = None
-                    
-                    # Extract and serialize parameters with proper empty list handling
-                    params = assay.get("assay_parameters")
-                    params_json = json.dumps(params, ensure_ascii=False) if params is not None else None
-                    
-                    assay_data = {
-                        "assay_chembl_id": assay.get("assay_chembl_id"),
-                        "assay_type": assay.get("assay_type"),
-                        "assay_category": assay.get("assay_category"),
-                        "assay_cell_type": assay.get("assay_cell_type"),
-                        "assay_classifications": classifications_str,
-                        "assay_group": assay.get("assay_group"),
-                        "assay_organism": assay.get("assay_organism"),
-                        "assay_parameters_json": params_json,
-                        "assay_strain": assay.get("assay_strain"),
-                        "assay_subcellular_fraction": assay.get("assay_subcellular_fraction"),
-                        "assay_tax_id": assay.get("assay_tax_id"),
-                        "assay_test_type": assay.get("assay_test_type"),
-                        "assay_tissue": assay.get("assay_tissue"),
-                        "assay_type_description": assay.get("assay_type_description"),
-                        "bao_format": assay.get("bao_format"),
-                        "bao_label": assay.get("bao_label"),
-                        "bao_endpoint": assay.get("bao_endpoint"),
-                        "cell_chembl_id": assay.get("cell_chembl_id"),
-                        "confidence_description": assay.get("confidence_description"),
-                        "confidence_score": assay.get("confidence_score"),
-                        "assay_description": assay.get("description"),
-                        "document_chembl_id": assay.get("document_chembl_id"),
-                        "relationship_description": assay.get("relationship_description"),
-                        "relationship_type": assay.get("relationship_type"),
-                        "src_assay_id": assay.get("src_assay_id"),
-                        "src_id": assay.get("src_id"),
-                        "target_chembl_id": assay.get("target_chembl_id"),
-                        "tissue_chembl_id": assay.get("tissue_chembl_id"),
-                    }
-                    
-                    # Handle assay_class
-                    assay_class = assay.get("assay_class")
-                    if isinstance(assay_class, dict):
-                        assay_data.update({
-                            "assay_class_id": assay_class.get("assay_class_id"),
-                            "assay_class_bao_id": assay_class.get("bao_id"),
-                            "assay_class_type": assay_class.get("assay_class_type"),
-                            "assay_class_l1": assay_class.get("class_level_1"),
-                            "assay_class_l2": assay_class.get("class_level_2"),
-                            "assay_class_l3": assay_class.get("class_level_3"),
-                            "assay_class_description": assay_class.get("assay_class_description"),
-                        })
-                    
-                    # Handle variant_sequence (take first one for now)
-                    variant_sequences = assay.get("variant_sequence")
-                    variant_sequence_json = None
-                    
-                    if variant_sequences:
-                        if isinstance(variant_sequences, list) and len(variant_sequences) > 0:
-                            variant = variant_sequences[0]
-                            assay_data.update({
-                                "variant_id": variant.get("variant_id"),
-                                "variant_base_accession": variant.get("base_accession"),
-                                "variant_mutation": variant.get("mutation"),
-                                "variant_sequence": variant.get("variant_seq"),
-                                "variant_accession_reported": variant.get("accession_reported"),
-                            })
-                            variant_sequence_json = json.dumps(variant_sequences, ensure_ascii=False)
-                        elif isinstance(variant_sequences, dict):
-                            # Handle single variant as dict
-                            assay_data.update({
-                                "variant_id": variant_sequences.get("variant_id"),
-                                "variant_base_accession": variant_sequences.get("base_accession"),
-                                "variant_mutation": variant_sequences.get("mutation"),
-                                "variant_sequence": variant_sequences.get("variant_seq"),
-                                "variant_accession_reported": variant_sequences.get("accession_reported"),
-                            })
-                            variant_sequence_json = json.dumps([variant_sequences], ensure_ascii=False)
-                    
-                    assay_data["variant_sequence_json"] = variant_sequence_json
-                    
-                    results.append(assay_data)
-                
-                logger.info("batch_fetched", count=len(assays))
-                
-            except Exception as e:
-                logger.error("batch_fetch_failed", error=str(e), batch_ids=batch_ids)
-                # Continue with next batch
-        
+                response = self.api_client.request_json(
+                    "/assay.json",
+                    params={"assay_chembl_id__in": ",".join(batch_ids)},
+                )
+            except CircuitBreakerOpenError as exc:
+                logger.error("assay_fetch_circuit_open", error=str(exc), batch_ids=batch_ids)
+                for assay_id in batch_ids:
+                    fallback = self._create_fallback_record(assay_id, exc)
+                    self._cache_set(assay_id, fallback)
+                    results.append(fallback)
+                continue
+            except requests.exceptions.RequestException as exc:
+                logger.error("assay_fetch_request_exception", error=str(exc), batch_ids=batch_ids)
+                for assay_id in batch_ids:
+                    fallback = self._create_fallback_record(assay_id, exc)
+                    self._cache_set(assay_id, fallback)
+                    results.append(fallback)
+                continue
+            except Exception as exc:  # noqa: BLE001 - capture for fallback creation
+                logger.error("assay_fetch_failed", error=str(exc), batch_ids=batch_ids)
+                for assay_id in batch_ids:
+                    fallback = self._create_fallback_record(assay_id, exc)
+                    self._cache_set(assay_id, fallback)
+                    results.append(fallback)
+                continue
+
+            assays_payload = []
+            if isinstance(response, dict):
+                assays_payload = response.get("assays", []) or []
+            if not isinstance(assays_payload, list):
+                assays_payload = []
+
+            assays_by_id: dict[str, dict[str, Any]] = {}
+            for assay in assays_payload:
+                assay_id = assay.get("assay_chembl_id")
+                if assay_id:
+                    assays_by_id[str(assay_id)] = assay
+
+            for assay_id in batch_ids:
+                payload = assays_by_id.get(assay_id)
+                if payload:
+                    normalized = self._normalize_assay_record(payload)
+                    self._cache_set(assay_id, normalized)
+                    results.append(normalized)
+                else:
+                    logger.warning("assay_missing_from_response", assay_id=assay_id)
+                    fallback = self._create_fallback_record(assay_id)
+                    self._cache_set(assay_id, fallback)
+                    results.append(fallback)
+
         if not results:
             logger.warning("no_results_from_api")
             return pd.DataFrame()
-        
+
         df = pd.DataFrame(results)
         logger.info("api_extraction_completed", rows=len(df))
         return df
@@ -549,8 +732,11 @@ class AssayPipeline(PipelineBase):
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
-        df["source_system"] = "chembl"
-        df["chembl_release"] = None
+        if "source_system" in df.columns:
+            df["source_system"] = df["source_system"].fillna("chembl")
+        else:
+            df["source_system"] = "chembl"
+        df["chembl_release"] = self.chembl_release
         df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
 
         # Generate hash fields for data integrity

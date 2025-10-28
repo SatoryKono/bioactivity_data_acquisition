@@ -51,6 +51,35 @@ def document_config():
 class TestAssayPipeline:
     """Tests for AssayPipeline."""
 
+    @pytest.fixture(autouse=True)
+    def _mock_status(self, monkeypatch):
+        """Return a deterministic status payload to prevent live network calls."""
+
+        def _status_stub(self, url, params=None, method="GET"):
+            if url == "/status.json":
+                return {"chembl_db_version": "ChEMBL_TEST"}
+            raise AssertionError(f"Unexpected request during test: {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", _status_stub)
+
+    def test_cache_key_composition(self, assay_config, monkeypatch):
+        """Ensure cache keys include the captured release."""
+
+        call_count = {"status": 0}
+
+        def _request(self, url, params=None, method="GET"):
+            if url == "/status.json":
+                call_count["status"] += 1
+                return {"chembl_db_version": "ChEMBL_36"}
+            raise AssertionError(f"Unexpected URL {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", _request)
+
+        pipeline = AssayPipeline(assay_config, "run-cache")
+        assert call_count["status"] == 1
+        assert pipeline.chembl_release == "ChEMBL_36"
+        assert pipeline._make_cache_key("CHEMBL1") == "assay:ChEMBL_36:CHEMBL1"
+
     def test_init(self, assay_config):
         """Test pipeline initialization."""
         run_id = str(uuid.uuid4())[:8]
@@ -110,6 +139,51 @@ class TestAssayPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+
+    def test_fetch_assay_data_uses_cache(self, assay_config, monkeypatch):
+        """Assay payloads should be cached by release-qualified key."""
+
+        counts = {"status": 0, "fetch": 0}
+
+        def _request(self, url, params=None, method="GET"):
+            if url == "/status.json":
+                counts["status"] += 1
+                return {"chembl_db_version": "ChEMBL_37"}
+            if url == "/assay.json":
+                counts["fetch"] += 1
+                return {"assays": [{"assay_chembl_id": "CHEMBL1", "assay_type": "BIND"}]}
+            raise AssertionError(f"Unexpected URL {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", _request)
+
+        pipeline = AssayPipeline(assay_config, "run-cache-hit")
+        first = pipeline._fetch_assay_data(["CHEMBL1"])
+        second = pipeline._fetch_assay_data(["CHEMBL1"])
+
+        assert counts["fetch"] == 1
+        assert not first.empty
+        assert not second.empty
+        assert second.iloc[0]["assay_chembl_id"] == "CHEMBL1"
+
+    def test_fetch_assay_data_fallback_metadata(self, assay_config, monkeypatch):
+        """Fallback records should include error metadata when requests fail."""
+
+        def _request(self, url, params=None, method="GET"):
+            if url == "/status.json":
+                return {"chembl_db_version": "ChEMBL_F"}
+            raise CircuitBreakerOpenError("breaker open for tests")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", _request)
+
+        pipeline = AssayPipeline(assay_config, "run-fallback")
+        df = pipeline._fetch_assay_data(["CHEMBL_FAIL"])
+
+        assert not df.empty
+        row = df.iloc[0]
+        assert row["assay_chembl_id"] == "CHEMBL_FAIL"
+        assert row["source_system"] == "ChEMBL_FALLBACK"
+        assert row["error_message"].startswith("Circuit") or "breaker" in row["error_message"]
+        assert row["run_id"] == "run-fallback"
 
     def test_validate_schema_errors_capture(self, assay_config):
         """Schema violations should be surfaced as validation issues."""
