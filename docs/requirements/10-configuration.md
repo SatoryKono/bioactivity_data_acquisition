@@ -42,6 +42,7 @@ determinism:
   sort:
     by: []
     ascending: []
+    na_position: []
   column_order: []
 postprocess:
   qc:
@@ -61,7 +62,7 @@ cli:
 | `http.global` | `timeout_sec`, `retries.total`         | Гарантированные лимиты для клиентов без локальных переопределений. |
 | `cache`       | `enabled`, `directory`, `release_scoped` | Политика кэширования и инвалидации.                              |
 | `paths`       | `output_root`                          | Каталог для детерминированных артефактов.                        |
-| `determinism` | `sort.by`, `column_order`              | Формирование стабильного порядка строк/столбцов.                 |
+| `determinism` | `sort.by`, `sort.ascending`, `sort.na_position`, `column_order` | Формирование стабильного порядка строк/столбцов и обработка `NA` значений. |
 | `postprocess` | `qc.enabled`                           | Включение QC-этапов.                                             |
 | `qc`          | `severity_threshold`                   | Глобальный уровень, при превышении которого пайплайн падает.     |
 | `cli`         | `default_config`                       | Значение по умолчанию для `--config`.                            |
@@ -130,9 +131,12 @@ class CacheConfig(BaseModel):
     directory: Path
     ttl: int = Field(..., ge=0)
     release_scoped: bool
+    namespace: Optional[str] = None
 
 class DeterminismConfig(BaseModel):
     sort_by: List[str] = Field(..., alias="sort.by")
+    sort_ascending: List[bool] = Field(default_factory=list, alias="sort.ascending")
+    sort_na_position: List[str] = Field(default_factory=list, alias="sort.na_position")
     column_order: List[str]
 
 class PipelineMetadata(BaseModel):
@@ -158,6 +162,8 @@ class PipelineConfig(BaseModel):
             raise ValueError("Unsupported config version")
         return value
 ```
+
+Поле `cache.namespace` используется профильными конфигурациями для отделения кэшированных данных разных источников (например, `chembl`, `pubchem`) в общей директории. При необходимости списка переопределений сортировки нужно задавать согласованные массивы `determinism.sort.by`, `determinism.sort.ascending` и `determinism.sort.na_position` одинаковой длины.
 
 Модели используют `env` и `alias` для поддержки плоских переопределений. При сериализации в YAML необходимо применять `model_dump()` и `yaml.safe_dump` с `sort_keys=True`.
 
