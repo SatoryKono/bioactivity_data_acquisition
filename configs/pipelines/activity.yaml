@@ -1,0 +1,26 @@
+extends: ../base.yaml
+
+pipeline:
+  name: activity
+  entity: activity
+
+sources:
+  chembl:
+    enabled: true
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    batch_size: 25
+    max_url_length: 2000
+
+determinism:
+  sort:
+    by: ["activity_id"]
+    ascending: [true]
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  duplicate_check:
+    enabled: true
+    field: "activity_id"
+    threshold: 0
+

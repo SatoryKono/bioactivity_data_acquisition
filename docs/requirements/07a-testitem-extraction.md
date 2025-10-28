@@ -625,8 +625,7 @@ def _create_fallback_record(
 
 **Интеграция с ChEMBL pipeline:**
 
-```
-
+```text
 ChEMBL Extract → PubChem Enrichment Layer → Normalize → Validate
      ↓                      ↓
 molecule_chembl_id    CID Resolution Strategy
@@ -641,10 +640,9 @@ pref_name                  ↓
 
 **Стратегия обогащения (2-step process):**
 
-*Step 1: CID Resolution (Multi-strategy)*
+#### Step 1: CID Resolution (Multi-strategy)
 
 ```python
-
 # Приоритет lookup стратегий (см. 07b § 5):
 
 # 1. Cache lookup (persistent CID mapping, TTL 30 days)
@@ -659,16 +657,14 @@ pref_name                  ↓
 
 ```
 
-*Step 2: Batch Properties Fetch*
+#### Step 2: Batch Properties Fetch
 
 ```python
-
 # Endpoint: /compound/cid/{cids}/property/{properties}/JSON
 
 # Batch size: 100 CIDs (comma-separated)
 
 # Properties: MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName
-
 ```
 
 **Rate limiting:** 5 requests/second (пауза 0.2s между запросами)
@@ -696,7 +692,6 @@ curl -H "Accept: application/json" \
 ```bash
 curl -H "Accept: application/json" \
   "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName/JSON"
-
 ```
 
 **Response структура:**
@@ -772,18 +767,12 @@ def _enrich_with_pubchem(
 - Cache hit rate: ≥60%
 
 > **⚠️ Важно:** Полная спецификация включает:
-
 > - Multi-level caching strategy (in-memory + persistent)
-
 > - Parallel processing с ThreadPoolExecutor
-
 > - Service outage detection & cooldown
-
 > - Comprehensive error handling matrix
-
 > - Monitoring & alerting setup
-
->
+> 
 > См. [`07b-testitem-data-extraction.md`](./07b-testitem-data-extraction.md) для деталей.
 
 ---
@@ -1458,8 +1447,7 @@ postprocess:
 
 **Output структура (если enabled):**
 
-```
-
+```text
 testitem_correlation_report_20251028/
 ├── numeric_pearson.csv
 ├── numeric_spearman.csv
@@ -1544,13 +1532,13 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 
 ### 8.2 Ключевые различия
 
-#### Testitem особенности:
+#### Testitem особенности
 
 1. **Двойная структура обогащения:**
    - ChEMBL: полное извлечение всех молекулярных свойств
    - PubChem: опциональное обогащение через PUG-REST API
 
-2. **Nested JSON стратегия:**
+2. **Nested JSON стратегия**
    - Распаковка в плоские колонки (molecule_properties → 22 поля)
    - Сохранение JSON для аудита и программного доступа
    - Двойное хранение для синонимов (all_names + molecule_synonyms JSON)
@@ -1560,12 +1548,12 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
    - Валидация диапазонов (mw_freebase: 50-2000, alogp: -10 to 10)
    - Поддержка Rule of 3/5 violations
 
-4. **PubChem интеграция:**
+4. **PubChem интеграция**
    - Multi-strategy CID resolution
    - Batch properties fetch (100 CIDs per request)
    - Persistent CID mapping cache (30 days TTL)
 
-#### Assay особенности:
+#### Assay особенности
 
 1. **Triple enrichment:**
    - ChEMBL: assay metadata

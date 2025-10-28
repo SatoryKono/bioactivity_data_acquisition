@@ -23,7 +23,7 @@ class PipelineBase(ABC):
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     @abstractmethod
-    def extract(self) -> pd.DataFrame:
+    def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
         """Извлекает данные из источника."""
         pass
 
@@ -47,13 +47,15 @@ class PipelineBase(ABC):
         logger.info("exporting_data", path=output_path, rows=len(df))
         return self.output_writer.write(df, output_path, extended=extended)
 
-    def run(self, output_path: Path, extended: bool = False) -> OutputArtifacts:
+    def run(
+        self, output_path: Path, extended: bool = False, *args: Any, **kwargs: Any
+    ) -> OutputArtifacts:
         """Запускает полный пайплайн: extract → transform → validate → export."""
         logger.info("pipeline_started", pipeline=self.config.pipeline.name)
 
         try:
             # Extract
-            df = self.extract()
+            df = self.extract(*args, **kwargs)
             logger.info("extraction_completed", rows=len(df))
 
             # Transform
@@ -66,7 +68,7 @@ class PipelineBase(ABC):
 
             # Export
             artifacts = self.export(df, output_path, extended=extended)
-            logger.info("pipeline_completed", artifacts=len(artifacts))
+            logger.info("pipeline_completed", artifacts=str(artifacts.dataset))
 
             return artifacts
 

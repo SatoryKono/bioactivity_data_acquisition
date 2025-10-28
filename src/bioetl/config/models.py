@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -37,7 +37,7 @@ class HttpConfig(BaseModel):
     timeout_sec: float = Field(..., gt=0)
     retries: RetryConfig
     rate_limit: RateLimitConfig
-    headers: Dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str] = Field(default_factory=dict)
 
 
 class SourceConfig(BaseModel):
@@ -47,9 +47,9 @@ class SourceConfig(BaseModel):
 
     enabled: bool = True
     base_url: str
-    batch_size: Optional[int] = Field(default=None, ge=1)
-    max_url_length: Optional[int] = Field(default=None, ge=1)
-    api_key: Optional[str] = None
+    batch_size: int | None = Field(default=None, ge=1)
+    max_url_length: int | None = Field(default=None, ge=1)
+    api_key: str | None = None
 
 
 class CacheConfig(BaseModel):
@@ -58,7 +58,7 @@ class CacheConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool
-    directory: Path
+    directory: Path | str
     ttl: int = Field(..., ge=0)
     release_scoped: bool = True
 
@@ -70,7 +70,7 @@ class PathConfig(BaseModel):
 
     input_root: Path = Field(default=Path("data/input"))
     output_root: Path = Field(default=Path("data/output"))
-    cache_root: Optional[Path] = None
+    cache_root: Path | None = None
 
 
 class SortConfig(BaseModel):
@@ -78,8 +78,8 @@ class SortConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    by: List[str] = Field(default_factory=list)
-    ascending: List[bool] = Field(default_factory=list)
+    by: list[str] = Field(default_factory=list)
+    ascending: list[bool] = Field(default_factory=list)
 
 
 class DeterminismConfig(BaseModel):
@@ -88,7 +88,7 @@ class DeterminismConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     sort: SortConfig = Field(default_factory=SortConfig)
-    column_order: List[str] = Field(default_factory=list)
+    column_order: list[str] = Field(default_factory=list)
 
 
 class QCConfig(BaseModel):
@@ -98,7 +98,7 @@ class QCConfig(BaseModel):
 
     enabled: bool = True
     severity_threshold: str = Field(default="warning")
-    thresholds: Dict[str, float] = Field(default_factory=dict)
+    thresholds: dict[str, float] = Field(default_factory=dict)
 
 
 class PostprocessConfig(BaseModel):
@@ -106,9 +106,9 @@ class PostprocessConfig(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    normalization: Dict[str, Any] = Field(default_factory=dict)
-    enrichment: Dict[str, Any] = Field(default_factory=dict)
-    deduplication: Dict[str, Any] = Field(default_factory=dict)
+    normalization: dict[str, Any] = Field(default_factory=dict)
+    enrichment: dict[str, Any] = Field(default_factory=dict)
+    deduplication: dict[str, Any] = Field(default_factory=dict)
 
 
 class PipelineMetadata(BaseModel):
@@ -128,14 +128,14 @@ class PipelineConfig(BaseModel):
 
     version: int
     pipeline: PipelineMetadata
-    http: Dict[str, HttpConfig]
-    sources: Dict[str, SourceConfig] = Field(default_factory=dict)
+    http: dict[str, HttpConfig]
+    sources: dict[str, SourceConfig] = Field(default_factory=dict)
     cache: CacheConfig
     paths: PathConfig
     determinism: DeterminismConfig
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
     qc: QCConfig = Field(default_factory=QCConfig)
-    cli: Dict[str, Any] = Field(default_factory=dict)
+    cli: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("version")
     @classmethod
@@ -145,13 +145,13 @@ class PipelineConfig(BaseModel):
             raise ValueError("Unsupported config version")
         return value
 
-    def model_dump_canonical(self) -> Dict[str, Any]:
+    def model_dump_canonical(self) -> dict[str, Any]:
         """
         Dump model to dict with canonical serialization for hashing.
 
         Excludes paths and secrets.
         """
-        data = self.model_dump(mode="json", exclude={"paths", "sources"})
+        data: dict[str, Any] = self.model_dump(mode="json", exclude={"paths", "sources"})
         # Add back sources without api_key
         if self.sources:
             data["sources"] = {}

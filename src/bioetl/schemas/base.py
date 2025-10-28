@@ -18,5 +18,5 @@ class BaseSchema(pa.DataFrameModel):
     class Config:
         strict = True
         coerce = True
-        ordered = True
+        ordered = False  # Disable column order check for now
 

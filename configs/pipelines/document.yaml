@@ -1,0 +1,34 @@
+extends: ../base.yaml
+
+pipeline:
+  name: document
+  entity: document
+
+sources:
+  chembl:
+    enabled: true
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    batch_size: 10
+    max_url_length: 2000
+  pubmed:
+    enabled: false  # PubMed enrichment optional
+    base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+  crossref:
+    enabled: false  # Crossref enrichment optional
+    base_url: "https://api.crossref.org"
+  openalex:
+    enabled: false  # OpenAlex enrichment optional
+    base_url: "https://api.openalex.org"
+  semantic_scholar:
+    enabled: false  # Semantic Scholar enrichment optional
+    base_url: "https://api.semanticscholar.org/graph/v1"
+
+determinism:
+  sort:
+    by: ["document_chembl_id"]
+    ascending: [true]
+
+qc:
+  enabled: true
+  severity_threshold: warning
+

@@ -1,0 +1,22 @@
+extends: ../base.yaml
+
+pipeline:
+  name: assay
+  entity: assay
+
+sources:
+  chembl:
+    enabled: true
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    batch_size: 25
+    max_url_length: 2000
+
+determinism:
+  sort:
+    by: ["assay_chembl_id"]
+    ascending: [true]
+
+qc:
+  enabled: true
+  severity_threshold: warning
+

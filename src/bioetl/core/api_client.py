@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import requests
-from cachetools import TTLCache
+from cachetools import TTLCache  # type: ignore
 
 from bioetl.core.logger import UnifiedLogger
 

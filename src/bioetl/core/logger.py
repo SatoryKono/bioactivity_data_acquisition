@@ -6,7 +6,9 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+
+from typing import Any
 
 import structlog
 

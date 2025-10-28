@@ -3,14 +3,14 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
-import yaml
+import yaml  # type: ignore
 
 from bioetl.config.models import PipelineConfig
 
 
-def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """
     Deep merge two dictionaries.
 
@@ -25,15 +25,15 @@ def deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]
     return result
 
 
-def load_yaml(path: Path) -> Dict[str, Any]:
+def load_yaml(path: Path) -> Any:
     """Load YAML file and resolve anchors/aliases."""
     with path.open("r") as f:
         return yaml.safe_load(f)
 
 
 def load_config(
-    config_path: Path,
-    overrides: Dict[str, Any] | None = None,
+    config_path: Path | str,
+    overrides: dict[str, Any] | None = None,
     env_prefix: str = "BIOETL_",
 ) -> PipelineConfig:
     """
@@ -51,6 +51,10 @@ def load_config(
     """
     overrides = overrides or {}
 
+    # Convert to Path if string
+    if isinstance(config_path, str):
+        config_path = Path(config_path)
+
     # Load config file and resolve extends
     config_data = _load_with_extends(config_path)
 
@@ -64,10 +68,11 @@ def load_config(
         config_data = deep_merge(config_data, env_overrides)
 
     # Validate and return
-    return PipelineConfig.model_validate(config_data)
+    result: PipelineConfig = PipelineConfig.model_validate(config_data)
+    return result
 
 
-def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Dict[str, Any]:
+def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Any:
     """Load YAML file and recursively resolve extends."""
     visited = visited or set()
 
@@ -93,9 +98,9 @@ def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Dict[str
     return data
 
 
-def _load_env_overrides(prefix: str) -> Dict[str, Any]:
+def _load_env_overrides(prefix: str) -> dict[str, Any]:
     """Load environment variable overrides."""
-    overrides = {}
+    overrides: dict[str, Any] = {}
 
     for key, value in os.environ.items():
         if not key.startswith(prefix):
@@ -123,14 +128,14 @@ def _load_env_overrides(prefix: str) -> Dict[str, Any]:
     return overrides
 
 
-def parse_cli_overrides(overrides: list[str]) -> Dict[str, Any]:
+def parse_cli_overrides(overrides: list[str]) -> dict[str, Any]:
     """
     Parse CLI overrides from list of 'key=value' strings.
 
     Example:
         ['http.global.timeout_sec=45', 'sources.chembl.batch_size=20']
     """
-    result = {}
+    result: dict[str, Any] = {}
 
     for override in overrides:
         if "=" not in override:

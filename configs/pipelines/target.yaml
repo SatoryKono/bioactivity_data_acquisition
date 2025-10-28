@@ -1,0 +1,31 @@
+extends: ../base.yaml
+
+pipeline:
+  name: target
+  entity: target
+
+sources:
+  chembl:
+    enabled: true
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    batch_size: 25
+    max_url_length: 2000
+  uniprot:
+    enabled: false  # UniProt enrichment optional
+    base_url: "https://rest.uniprot.org"
+  iuphar:
+    enabled: false  # IUPHAR enrichment optional
+    base_url: "https://www.guidetopharmacology.org/services"
+
+determinism:
+  sort:
+    by: ["target_chembl_id"]
+    ascending: [true]
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  enrichments:
+    uniprot: 80  # Minimum enrichment rate
+    iuphar: 60
+

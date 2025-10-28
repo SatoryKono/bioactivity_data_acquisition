@@ -5,12 +5,9 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.schemas.registry import SchemaRegistry
 
 logger = UnifiedLogger.get(__name__)
 

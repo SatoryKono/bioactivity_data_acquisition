@@ -162,29 +162,36 @@ tests/
   └── golden/ (пусто)
 ```
 
+## Завершенные компоненты
+
+### UnifiedOutputWriter ✅
+- Атомарная запись через `os.replace()` в run-scoped temp directories
+- Quality report generation (null counts, uniqueness, dtypes)
+- Metadata generation (YAML с checksums)
+- Поддержка extended mode
+- Функциональность протестирована
+
+### Pipeline Base и CLI ✅
+- `PipelineBase` abstract class с lifecycle методов
+- Typer CLI с командой `list`
+- Контекстное логирование через run_id
+- Готова архитектура для пайплайнов
+
 ## Следующие шаги
 
-### Приоритет 1: Pandera схемы и Schema Registry
-- Базовая Pandera schema для валидации
-- Schema Registry с версионированием
-- Детекция schema drift
+### Приоритет 1: Первый пайплайн
+- Реализовать конкретный пайплайн (Assay или Activity)
+- Подключить к UnifiedAPIClient
+- Интеграция с нормализаторами и схемами
 
-### Приоритет 2: UnifiedOutputWriter
-- Atomic writes через `os.replace()`
-- Canonical serialization (NA policy, precision)
-- QC reports (quality_report_table.csv)
-- Correlation reports (correlation_report_table.csv)
-- meta.yaml generation с checksums
-
-### Приоритет 3: Базовые пайплайны
-- `PipelineBase` abstract class
-- Minimal CLI (typer)
-- Первый пайплайн: Assay или Activity
-
-### Приоритет 4: Интеграционные тесты
-- Mock HTTP серверы
+### Приоритет 2: Интеграционные тесты
+- Mock HTTP серверы для API
 - End-to-end тесты пайплайнов
 - Golden test fixtures
+
+### Приоритет 3: Полный CLI
+- Команды run, validate для пайплайнов
+- Флаги --config, --extended, --verbose
 
 ## Тестирование
 
