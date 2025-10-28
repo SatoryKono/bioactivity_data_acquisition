@@ -1,6 +1,6 @@
 # BioETL
 
-Unified ETL framework for bioactivity data extraction from ChEMBL and external sources with full determinism and reproducibility.
+Unified ETL framework for bioactivity data extraction from ChEMBL and external sources with full determinism and reproducibility, including precedence-aware metadata merging for normalized OpenAlex column names.
 
 ## Installation
 
