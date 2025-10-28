@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -35,8 +36,11 @@ class HttpConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     timeout_sec: float = Field(..., gt=0)
+    connect_timeout_sec: float | None = Field(default=None, gt=0)
+    read_timeout_sec: float | None = Field(default=None, gt=0)
     retries: RetryConfig
     rate_limit: RateLimitConfig
+    rate_limit_jitter: bool = True
     headers: dict[str, str] = Field(default_factory=dict)
 
 
@@ -52,6 +56,85 @@ class SourceConfig(BaseModel):
     api_key: str | None = None
 
 
+class CircuitBreakerConfig(BaseModel):
+    """Circuit breaker tuning options."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    failure_threshold: int = Field(default=5, ge=1)
+    timeout_sec: float = Field(default=60.0, gt=0)
+
+
+class TargetSourceConfig(SourceConfig):
+    """Extended configuration for target pipeline sources."""
+
+    model_config = ConfigDict(extra="allow")
+
+    http_profile: str | None = None
+    http: HttpConfig | None = None
+    rate_limit: RateLimitConfig | None = None
+    timeout_sec: float | None = Field(default=None, gt=0)
+    headers: dict[str, str] = Field(default_factory=dict)
+    cache_enabled: bool | None = None
+    cache_ttl: int | None = Field(default=None, ge=0)
+    cache_maxsize: int | None = Field(default=None, ge=1)
+    stage: str = Field(default="primary")
+    partial_retry_max: int | None = Field(default=None, ge=0)
+    fallback_strategies: list[str] = Field(default_factory=list)
+    circuit_breaker: CircuitBreakerConfig | None = None
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def resolve_api_key(cls, value: str | None) -> str | None:
+        """Resolve environment variable references for API keys."""
+
+        if value is None:
+            return value
+
+        if isinstance(value, str):
+            candidate = value.strip()
+            if candidate.startswith("env:"):
+                env_name = candidate.split(":", 1)[1]
+                env_value = os.getenv(env_name)
+                return env_value if env_value is not None else value
+
+            if candidate.startswith("${") and candidate.endswith("}"):
+                env_name = candidate[2:-1]
+                env_value = os.getenv(env_name)
+                return env_value if env_value is not None else value
+
+        return value
+
+    @field_validator("headers", mode="after")
+    @classmethod
+    def resolve_header_secrets(cls, value: dict[str, str]) -> dict[str, str]:
+        """Resolve environment references in header values."""
+
+        resolved: dict[str, str] = {}
+        for key, header_value in value.items():
+            if isinstance(header_value, str):
+                candidate = header_value.strip()
+                if candidate.startswith("env:"):
+                    env_name = candidate.split(":", 1)[1]
+                    env_value = os.getenv(env_name)
+                    if env_value is not None:
+                        resolved[key] = env_value
+                        continue
+
+                if candidate.startswith("${") and candidate.endswith("}"):
+                    env_name = candidate[2:-1]
+                    env_value = os.getenv(env_name)
+                    if env_value is not None:
+                        resolved[key] = env_value
+                        continue
+
+                resolved[key] = header_value
+            else:
+                resolved[key] = header_value
+
+        return resolved
+
+
 class CacheConfig(BaseModel):
     """Cache configuration."""
 
@@ -61,6 +144,7 @@ class CacheConfig(BaseModel):
     directory: Path | str
     ttl: int = Field(..., ge=0)
     release_scoped: bool = True
+    maxsize: int = Field(default=1024, ge=1)
 
 
 class PathConfig(BaseModel):
@@ -124,6 +208,33 @@ class PipelineMetadata(BaseModel):
     release_scope: bool = True
 
 
+class MaterializationPaths(BaseModel):
+    """Paths used for materialization stages."""
+
+    model_config = ConfigDict(extra="allow")
+
+    bronze: Path | str | None = None
+    silver: Path | str | None = None
+    gold: Path | str | None = None
+    qc_report: Path | str | None = None
+    staging: Path | str | None = None
+    checkpoints: dict[str, Path | str] = Field(default_factory=dict)
+
+
+class FallbackOptions(BaseModel):
+    """Fallback behaviour toggles for HTTP sources."""
+
+    model_config = ConfigDict(extra="allow")
+
+    enabled: bool = True
+    prefer_cache: bool = True
+    allow_partial_materialization: bool = False
+    use_materialized_outputs: bool = True
+    strategies: list[str] = Field(default_factory=lambda: ["cache", "network"])
+    partial_retry_max: int = Field(default=3, ge=0)
+    circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+
+
 class PipelineConfig(BaseModel):
     """Root pipeline configuration model."""
 
@@ -132,12 +243,14 @@ class PipelineConfig(BaseModel):
     version: int
     pipeline: PipelineMetadata
     http: dict[str, HttpConfig]
-    sources: dict[str, SourceConfig] = Field(default_factory=dict)
+    sources: dict[str, TargetSourceConfig] = Field(default_factory=dict)
     cache: CacheConfig
     paths: PathConfig
     determinism: DeterminismConfig
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
     qc: QCConfig = Field(default_factory=QCConfig)
+    materialization: MaterializationPaths = Field(default_factory=MaterializationPaths)
+    fallbacks: FallbackOptions = Field(default_factory=FallbackOptions)
     cli: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("version")
