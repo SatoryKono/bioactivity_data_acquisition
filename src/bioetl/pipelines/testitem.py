@@ -730,11 +730,49 @@ class TestItemPipeline(PipelineBase):
         molecule_ids = df["molecule_chembl_id"].unique().tolist()
         molecule_data = self._fetch_molecule_data(molecule_ids)
 
-        # Merge with existing data
+        # Merge normalized ChEMBL data with existing input records
         if not molecule_data.empty:
-            df = df.merge(molecule_data, on="molecule_chembl_id", how="left", suffixes=("", "_api"))
-            # Remove duplicate columns from API merge
-            df = df.loc[:, ~df.columns.str.endswith("_api")]
+            if "molecule_chembl_id" not in molecule_data.columns:
+                logger.warning(
+                    "molecule_data_missing_id_column",
+                    available_columns=list(molecule_data.columns),
+                )
+            else:
+                normalized_df = (
+                    molecule_data.drop_duplicates("molecule_chembl_id").set_index("molecule_chembl_id")
+                )
+
+                input_indexed = df.set_index("molecule_chembl_id")
+                deduplicated_input = input_indexed
+
+                if input_indexed.index.has_duplicates:
+                    duplicated_ids = (
+                        input_indexed.index[input_indexed.index.duplicated()].unique().tolist()
+                    )
+                    logger.warning(
+                        "duplicate_molecule_ids_in_input",
+                        count=len(duplicated_ids),
+                        sample=[str(mol_id) for mol_id in duplicated_ids[:5]],
+                    )
+                    deduplicated_input = input_indexed[~input_indexed.index.duplicated(keep="first")]
+
+                # Overlay normalized values while falling back to the original input when needed
+                normalized_columns = [
+                    column for column in normalized_df.columns if column not in {"molecule_chembl_id"}
+                ]
+
+                for column in normalized_columns:
+                    normalized_series = normalized_df[column]
+                    if column in deduplicated_input.columns:
+                        combined_series = normalized_series.combine_first(deduplicated_input[column])
+                    else:
+                        combined_series = normalized_series
+
+                    overlay = df["molecule_chembl_id"].map(combined_series)
+                    if column in df.columns:
+                        df[column] = overlay.combine_first(df[column])
+                    else:
+                        df[column] = overlay
 
         # PubChem enrichment (optional)
         if "pubchem" in self.external_adapters:
