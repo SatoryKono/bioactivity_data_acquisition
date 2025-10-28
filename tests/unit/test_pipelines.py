@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 import pytest
+import requests
 from pandera.errors import SchemaErrors
 
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
@@ -611,6 +612,75 @@ class TestTestItemPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+
+    def test_fetch_molecule_data_uses_cache(self, testitem_config, monkeypatch):
+        """Ensure repeated molecule fetches reuse cached records."""
+
+        monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = TestItemPipeline(testitem_config, run_id="cache")
+
+        call_count = {"count": 0}
+
+        def fake_request_json(url, params=None, method="GET"):
+            call_count["count"] += 1
+            assert params is not None
+            assert params["limit"] <= pipeline.batch_size
+            return {
+                "molecules": [
+                    {
+                        "molecule_chembl_id": "CHEMBL1",
+                        "pref_name": "Example",
+                        "molecule_properties": {
+                            "mw_freebase": 100.0,
+                            "qed_weighted": 0.5,
+                        },
+                        "molecule_structures": {
+                            "canonical_smiles": "CCO",
+                        },
+                    }
+                ]
+            }
+
+        monkeypatch.setattr(pipeline.api_client, "request_json", fake_request_json)
+
+        first = pipeline._fetch_molecule_data(["CHEMBL1"])
+        second = pipeline._fetch_molecule_data(["CHEMBL1"])
+
+        assert call_count["count"] == 1
+        assert len(first) == 1
+        assert len(second) == 1
+        assert second.iloc[0]["fallback_attempt"] is None
+
+    def test_fetch_molecule_data_creates_fallback_with_metadata(self, testitem_config, monkeypatch):
+        """Verify fallback rows capture structured error metadata."""
+
+        monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = TestItemPipeline(testitem_config, run_id="fallback")
+
+        response = requests.Response()
+        response.status_code = 404
+        response.headers["Retry-After"] = "3"
+        response._content = b"{}"
+        response.url = "https://example/molecule/CHEMBL404.json"
+
+        http_error = requests.exceptions.HTTPError("Not Found", response=response)
+
+        def fake_request_json(url, params=None, method="GET"):
+            if url == "/molecule.json":
+                return {"molecules": []}
+            raise http_error
+
+        monkeypatch.setattr(pipeline.api_client, "request_json", fake_request_json)
+
+        df = pipeline._fetch_molecule_data(["CHEMBL404"])
+
+        assert len(df) == 1
+        record = df.iloc[0]
+        assert record["molecule_chembl_id"] == "CHEMBL404"
+        assert record["fallback_http_status"] == 404
+        assert record["fallback_retry_after_sec"] == pytest.approx(3.0)
+        assert record["fallback_attempt"] == 2
+        assert "Not Found" in record["fallback_error_message"]
 
 
 class TestTargetPipeline:
