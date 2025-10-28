@@ -160,110 +160,24 @@ class TestitemInputSchema(pa.DataFrameModel):
 
 ### 1.2 Конфигурация
 
-**Файл:** `configs/config_testitem.yaml`
+**Стандарт:** `docs/requirements/10-configuration.md` (§2–§6).
 
-**Критические параметры:**
+**Профиль:** `configs/pipelines/testitem.yaml` (`extends: "../base.yaml"`).
 
-```yaml
-# Метаданные пайплайна
-pipeline:
-  name: "testitems"
-  version: "2.0.0"
-  entity_type: "testitems"
-  description: "ETL pipeline for testitem data from ChEMBL and PubChem"
+| Секция | Путь | Требование | Обоснование |
+|--------|------|------------|-------------|
+| Pipeline | `pipeline.name` | `testitems` | Фиксирует идентификатор сущности для логирования и каталогов выгрузки. |
+| HTTP | `http.global.rate_limit.max_calls` | `≤ 5` | Совместимость с лимитами ChEMBL/PubChem без ключей. |
+| Sources / ChEMBL | `sources.chembl.batch_size` | `≤ 25` | Ограничение на длину URL; проверяется `PipelineConfig`. |
+| Sources / PubChem | `sources.pubchem.batch_size` | `100` | Оптимальный размер пакета для CID запросов. |
+| Cache | `cache.namespace` | `testitem` | Разделяет k/v пространство с другими пайплайнами. |
+| Determinism | `determinism.sort.by` | `['molecule_chembl_id']` | Гарантирует стабильный порядок строк при выгрузке. |
+| QC | `postprocess.qc.fail_on` | содержит `missing_molecule_chembl_id`, `duplicate_primary_keys` | Любое нарушение приводит к падению запуска. |
 
-# HTTP настройки
-http:
-  global:
-    timeout_sec: 60.0
-    retries:
-      total: 5
-      backoff_multiplier: 2.0
-      backoff_max: 120.0
-      exponential_jitter: true
-      respect_retry_after: true
-    rate_limit:
-      max_calls: 5
-      period: 15.0
-    headers:
-      Accept: "application/json"
-      User-Agent: "bioactivity-data-acquisition/0.1.0"
-    verify_ssl: true
-    follow_redirects: true
-
-# Источники данных
-sources:
-  chembl:
-    name: "chembl"
-    enabled: true
-    http:
-      base_url: "https://www.ebi.ac.uk/chembl/api/data"
-      timeout_sec: 60.0
-      retries:
-        total: 5
-        backoff_multiplier: 2.0
-    batch_size: 25  # КРИТИЧЕСКИ: жесткое ограничение URL
-    # Валидация: config validation должна падать при batch_size > 25
-    max_url_length: 2000  # Жесткий лимит ChEMBL API
-    
-  pubchem:
-    name: "pubchem"
-    enabled: true  # Опциональный источник
-    http:
-      base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-      timeout_sec: 30.0
-      retries:
-        total: 3
-        backoff_multiplier: 2.0
-    batch_size: 100  # 100 CIDs per batch request
-    max_requests_per_second: 5
-    cache_ttl_hours: 720  # 30 дней для persistent CID mapping
-
-# Кэширование
-cache:
-  enabled: true
-  directory: "data/cache/testitem"
-  ttl: 86400  # 24 часа
-  release_scoped: true  # КРИТИЧЕСКИ: инвалидация при смене release
-  namespace: "testitem"
-
-# Детерминизм
-determinism:
-  sort:
-    by: ["molecule_chembl_id"]
-    ascending: [true]
-    na_position: "last"
-  column_order: [...]  # Явный список 80+ колонок (см. §9)
-
-# Валидация
-validation:
-  enabled: true
-  strict: false
-  schema_validation: true
-  data_quality_checks: true
-
-# Postprocess
-postprocess:
-  qc:
-    enabled: true
-    fail_on: ["missing_molecule_chembl_id", "duplicate_primary_keys"]
-    thresholds:
-      missing_molecule_chembl_id: 0.0
-      duplicate_primary_keys: 0.0
-      invalid_chembl_id_pattern: 0.05
-      missing_molecular_weight: 0.1
-  correlation:
-    enabled: false  # По умолчанию ВЫКЛЮЧЕН
-    methods: ["pearson", "spearman"]
-```
-
-**Валидация batch_size:**
-```python
-if config.sources.chembl.batch_size > 25:
-    raise ConfigValidationError(
-        "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
-    )
-```
+**Переопределения:**
+- переменные окружения: `BIOETL_SOURCES__PUBCHEM__API_KEY`, `BIOETL_CACHE__DIRECTORY`;
+- CLI: `--set sources.pubchem.enabled=false` для отключения внешнего источника;
+- тестовые прогоны используют `--set postprocess.qc.enabled=false` (см. политику в §10-configuration).
 
 ---
 
@@ -1253,7 +1167,7 @@ checksums:
 **ВАЖНО:** Корреляционный анализ **НЕ часть ETL** и должен быть **опциональным**
 
 ```yaml
-# config_testitem.yaml
+# configs/pipelines/testitem.yaml
 postprocess:
   correlation:
     enabled: false  # По умолчанию ВЫКЛЮЧЕН
@@ -1282,27 +1196,27 @@ testitem_correlation_report_20251028/
 python scripts/get_testitem_data.py \
   --input data/input/testitem.csv \
   --final-out data/output/testitem.csv \
-  --config configs/config_testitem.yaml
+  --config configs/pipelines/testitem.yaml
 
 # С лимитом и golden compare
 python scripts/get_testitem_data.py \
   --input testitems.csv \
   --limit 100 \
   --golden golden_testitem.csv \
-  --config configs/config_testitem.yaml
+  --config configs/pipelines/testitem.yaml
 
 # Управление PubChem
 python scripts/get_testitem_data.py \
   --input testitems.csv \
   --enable-pubchem \
   --pubchem-rate-limit 5 \
-  --config configs/config_testitem.yaml
+  --config configs/pipelines/testitem.yaml
 
 # Batch size контроль (ChEMBL)
 python scripts/get_testitem_data.py \
   --input testitems.csv \
   --batch-size 25 \
-  --config configs/config_testitem.yaml
+  --config configs/pipelines/testitem.yaml
 ```
 
 **Новые CLI параметры:**

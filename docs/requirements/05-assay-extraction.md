@@ -58,71 +58,22 @@ class AssayInputSchema(pa.DataFrameModel):
 
 ### 1.2 Конфигурация
 
-**Файл:** `configs/config_assay.yaml`
+**Базовый стандарт:** см. `docs/requirements/10-configuration.md` (§2–§6).
 
-**Критические параметры:**
+**Профильный файл:** `configs/pipelines/assay.yaml`, который объявляет `extends: "../base.yaml"` и проходит валидацию `PipelineConfig`.
 
-```yaml
-# HTTP настройки
-http:
-  global:
-    timeout_sec: 60.0
-    retries:
-      total: 5
-      backoff_multiplier: 2.0
-      backoff_max: 120.0
-      exponential_jitter: true
-      respect_retry_after: true
-    rate_limit:
-      max_calls: 5
-      period: 15.0
+**Критические переопределения:**
 
-# Источники данных
-sources:
-  chembl:
-    enabled: true
-    batch_size: 25  # КРИТИЧЕСКИ: жесткое ограничение URL
-    # Валидация: config validation должна падать при batch_size > 25
-    
-    # Инвариант G6: batch_size ≤ 25; превышение — ошибка конфигурации; причина: ограничение URL/413.
-    max_url_length: 2000  # Жесткий лимит ChEMBL API
+| Путь | Значение по умолчанию | Ограничение | Комментарий |
+|------|-----------------------|-------------|-------------|
+| `sources.chembl.batch_size` | 25 | `≤ 25` (жёсткое требование ChEMBL URL) | Проверяется на этапе валидации конфигурации. |
+| `sources.chembl.max_url_length` | 2000 | `≤ 2000` | Используется для предиктивного троттлинга запросов. |
+| `cache.namespace` | `"chembl"` | Не пусто | Обеспечивает release-scoped invalidation. |
+| `determinism.sort.by` | `['assay_chembl_id', 'row_subtype', 'row_index']` | Первый ключ — `assay_chembl_id` | Гарантирует детерминированный экспорт. |
+| `determinism.column_order` | ссылочный список 154+ полей | Полный список обязателен | Нарушение приводит к падению `PipelineConfig`. |
+| `enrichment.target_fields` | см. стандарт | Только whitelisted поля | Дополнение новых полей требует обновления документации. |
 
-# Кэширование
-cache:
-  enabled: true
-  directory: "data/cache/chembl"
-  ttl: 86400  # 24 часа
-  release_scoped: true  # КРИТИЧЕСКИ: инвалидация при смене release
-  namespace: "chembl"
-
-# Детерминизм
-determinism:
-  sort:
-    by: ["assay_chembl_id", "row_subtype", "row_index"]
-    ascending: [true, true, true]
-    na_position: "last"
-  column_order: [...]  # Явный список 154+ колонок
-
-# Обогащение (whitelist)
-enrichment:
-  target_fields:
-    - target_chembl_id
-    - pref_name
-    - organism
-    - target_type
-    - species_group_flag
-    - tax_id
-    - component_count
-  assay_class_fields:
-    - assay_class_id
-    - bao_id  # aka assay_class_bao_id
-    - class_type
-    - l1
-    - l2
-    - l3
-    - description
-  strict_enrichment: true  # Запрет неразрешенных полей
-```
+Секреты (API ключи) прокидываются через переменные окружения `BIOETL_SOURCES__CHEMBL__API_KEY` и `BIOETL_HTTP__GLOBAL__HEADERS__AUTHORIZATION`. Для быстрой настройки допускается использование CLI-переопределений, например `--set sources.chembl.batch_size=20`, однако изменения должны сопровождаться обоснованием в run metadata.
 
 ## 2. Процесс извлечения (Extract)
 
@@ -829,7 +780,7 @@ checksums:
 **ВАЖНО:** Корреляционный анализ **НЕ часть ETL** и должен быть **опциональным**
 
 ```yaml
-# config_assay.yaml
+# configs/pipelines/assay.yaml
 postprocess:
   correlation:
     enabled: false  # По умолчанию ВЫКЛЮЧЕН
@@ -847,28 +798,28 @@ postprocess:
 python get_assay_data.py \
   --input assay_ids.csv \
   --golden golden_assay.csv \
-  --config configs/config_assay.yaml
+  --config configs/pipelines/assay.yaml
 
 # Sample с seed
 python get_assay_data.py \
   --target CHEMBL231 \
   --sample 100 \
   --sample-seed 42 \
-  --config configs/config_assay.yaml
+  --config configs/pipelines/assay.yaml
 
 # Контроль API параметров
 python get_assay_data.py \
   --input assay_ids.csv \
   --max-url-length 2000 \
   --page-size 25 \
-  --config configs/config_assay.yaml
+  --config configs/pipelines/assay.yaml
 
 # Strict validation
 python get_assay_data.py \
   --input assay_ids.csv \
   --strict-enrichment \
   --fail-on-schema-drift \
-  --config configs/config_assay.yaml
+  --config configs/pipelines/assay.yaml
 ```
 
 **Новые CLI параметры:**
@@ -884,7 +835,7 @@ python get_assay_data.py \
 ## 8. Критические исправления (To-Do)
 
 ### A. Batch size
-- [ ] Исправить `configs/config_assay.yaml`: `batch_size: 25`
+- [ ] Исправить `configs/pipelines/assay.yaml`: `batch_size: 25`
 - [ ] Добавить валидацию в `AssayConfig`: `if batch_size > 25: raise`
 - [ ] Обновить документацию с объяснением URL limit
 

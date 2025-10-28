@@ -69,6 +69,97 @@ Target ETL Pipeline
     └── Export: targets, target_components, protein_class, xref
 ```
 
+### Stage 2: UniProt Enrichment — детализация
+
+Stage 2 отвечает за нормализацию и обогащение белковых компонентов через UniProt REST API. Этот этап запускается для всех компонентов с валидным `accession` из ChEMBL и материализует данные в `data/silver/targets_uniprot.parquet`.
+
+#### Режимы UniProt REST API
+
+- **`/uniprotkb/{accession}` (`entry` mode)** — точечные запросы по одному accession. Используется для повторной проверки спорных записей и добора редких полей.
+- **`/uniprotkb/search` (`search` mode)** — массовый выбор по фильтрам (`accession`, `gene`, `organism_id`) с поддержкой пагинации. Применяется для выборок небольших объёмов (<500 записей) и для пере-запроса после обновлений.
+- **`/uniprotkb/stream` (`stream` mode)** — основной массовый канал, возвращающий NDJSON. Используется после ID Mapping для выгрузки всех атрибутов. Обязательно передавать параметр `fields` для ограничения набора колонок.
+
+Рекомендуемое значение параметра `fields`:
+
+```
+fields=accession,gene_names,organism_name,organism_id,lineage,sequence_length,features,cc_ptm,protein_name,protein_existence
+```
+
+Обязательные для сохранения поля Stage 2:
+
+1. `accession`
+2. `gene_names`
+3. `taxonomy` (минимум `organism_id`, `organism_name`, `lineage`)
+4. `features` (включая тип, позицию и описание)
+5. `cc_ptm`
+
+#### Rate limiting и стратегия backoff
+
+- Не превышать **3 запроса в секунду** (≈180 запросов в минуту) по каждому REST-эндпоинту.
+- Обрабатывать HTTP 429/5xx через экспоненциальный backoff: базовая задержка 2 секунды, множитель 2.0, максимум 5 повторов, джиттер `uniform(0, 1)`.
+- Для `stream` использовать один долгоживущий запрос; при сетевых сбоях повторять с возобновлением по последнему успешно обработанному accession.
+
+#### Workflow UniProt ID Mapping
+
+1. **`/idmapping/run`** — отправка списка исходных идентификаторов (`from=UniProtKB_AC`, `to=UniProtKB`). Батчим списки до 100 000 accession за вызов, разбивая входные данные из Stage 1.
+2. **`/idmapping/status/{jobId}`** — polling статуса не чаще одного раза в 5 секунд. При `jobStatus=FINISHED` переходить к стриму; при `FAILED` логировать и повторять отправку джобов с уменьшенным размером пакета (50%).
+3. **`/idmapping/stream/{jobId}`** — стрим результатов ID Mapping в NDJSON. Поля, возвращённые сервисом, передаются в Stage 2 `stream` запрос для дальнейшего обогащения.
+
+#### Валидация и обновление accession
+
+1. **Предвалидация**: проверка формата accession с помощью регэкспа UniProt перед отправкой в ID Mapping; дубликаты фильтруются.
+2. **Синхронизация**: результаты ID Mapping мержатся с входными компонентами. Для записей с изменённым accession (primary vs secondary) фиксируем соответствие `old_accession → new_accession` в журнале.
+3. **Пере-запрос `entry`**: если запись помечена как `isObsolete`, выполняем запрос `/uniprotkb/{new_accession}` для валидации и подтягивания обязательных полей.
+4. **Контроль полноты**: Pandera-схема Stage 2 проверяет наличие обязательных полей (`accession`, `gene_names`, `taxonomy`, `features`, `cc_ptm`) и непротиворечивость таксономии (`organism_id` совпадает с `taxonomy.tax_id`).
+5. **Обновления**: при обнаружении новых primary accession (из-за слияния записей) повторно инициируем workflow ID Mapping и стрим обновлённых данных, чтобы silver-слой оставался консистентным.
+
+### Stage 1: ChEMBL REST ресурсы и контракты
+
+#### Ключевые эндпоинты
+
+| Ресурс | Назначение | Обязательные поля (тип, nullable) |
+|--------|------------|------------------------------------|
+| `GET /target` | Базовая карточка таргета с возможностью включать `protein_classifications`, `cross_references`. | `target_chembl_id` (string, NOT NULL); `pref_name` (string, nullable); `target_type` (string, nullable); `organism` (string, nullable); `tax_id` (int64, nullable); `species_group_flag` (boolean, nullable) |
+| `GET /target_component` | Денормализованные компоненты и последовательности для комплексных таргетов. | `component_id` (int64, nullable); `component_type` (string, nullable); `accession` (string, nullable); `sequence` (string, nullable); `component_description` (string, nullable) |
+| `GET /target_relation` | Связи между таргетами (гомология, эквивалентность). | `target_relation_id` (string, nullable); `relationship_type` (string, nullable); `related_target_chembl_id` (string, nullable) |
+| `GET /protein_classification` | Иерархия protein families (уровни L1-L4). | `protein_class_id` (int64, nullable); `class_level` (int64, nullable); `pref_name` (string, nullable); `short_name` (string, nullable) |
+
+> **Примечание:** `target_chembl_id` является единственным полем с ограничением NOT NULL. Остальные поля допускают пропуски и должны обрабатываться в стадии трансформации.
+
+#### Правила пагинации и фильтрации Stage 1
+
+- **Пагинация**: запросы используют `limit` и `offset` (по умолчанию `limit=20`, `offset=0`). Ответ содержит блок `page_meta.limit`, `page_meta.offset`, `page_meta.total_count`. Итерация продолжается, пока `offset >= total_count`.
+- **Фильтры**: поддерживаются суффиксы `__exact`, `__contains`, `__icontains`, `__in`, `__gt`, `__lt` для любых полей ресурса. Фильтры можно комбинировать (`&`) для сложных критериев.
+- **Длинные запросы**: при превышении лимита URL (>2000 символов) выполняется `POST` на соответствующий ресурс с заголовком `X-HTTP-Method-Override: GET`. Тело запроса передает параметры (например, `{"target_chembl_id__in": "CHEMBL203,CHEMBL204"}`) в формате JSON.
+
+#### TARGET_FIELDS для материализации Stage 1
+
+```python
+TARGET_FIELDS = [
+    "pref_name",                 # string, nullable
+    "target_chembl_id",          # string, NOT NULL (PRIMARY KEY)
+    "component_description",     # string, nullable
+    "component_id",              # int64, nullable
+    "relationship",              # string, nullable (derived from target_type)
+    "gene",                      # string, nullable (pipe-delimited)
+    "uniprot_id",                # string, nullable
+    "mapping_uniprot_id",        # string, nullable
+    "chembl_alternative_name",   # string, nullable
+    "ec_code",                   # string, nullable (pipe-delimited)
+    "hgnc_name",                 # string, nullable
+    "hgnc_id",                   # int64, nullable
+    "target_type",               # string, nullable
+    "tax_id",                    # int64, nullable
+    "species_group_flag",        # boolean, nullable
+    "target_components",         # json string, nullable
+    "protein_classifications",   # json string, nullable
+    "cross_references",          # json string, nullable
+    "reaction_ec_numbers",       # json/string, nullable
+]
+```
+
+> **Инварианты Stage 1:** `target_chembl_id` должен быть уникальным и заполненным, остальные поля допускают `NULL`, но сохраняются в детерминированном формате (строки — UTF-8, JSON — сериализованный словарь с сортировкой ключей).
+
 ### Контрольные точки материализации
 
 Pipeline сохраняет промежуточные результаты на каждой стадии для:
@@ -105,6 +196,45 @@ PipelineResult = dataclass(
 - Isoforms требует UniProt enrichment
 - Orthologs требует UniProt accession resolution
 - IUPHAR требует accession или gene_symbol
+
+### Stage 3: IUPHAR Classification (Optional)
+
+**Цель:** дополнить таргеты фармакологической классификацией и согласованными идентификаторами из GtoPdb/IUPHAR.
+
+**Ключевые REST ресурсы:**
+
+- `GET /targets`: базовый список таргетов c полями `targetId`, `type`, `familyId`, `annotationStatus`. Поддерживаемые фильтры включают `targetType` (например, `"GPCR"`, `"Ion channel"`), `familyId` для выборки по конкретному семейству и `annotationStatus` для исключения черновиков.
+- `GET /targets/families`: дерево семейств с полями `familyId`, `parentFamilyId`, `level`, `name`, `type`. Фильтры `type` и `parentFamilyId` используются для построения поддеревьев.
+- `GET /targets/{targetId}/synonyms`: дополнительные названия и алиасы, используемые для нормализации `pref_name` и `pref_symbol`.
+- `GET /targets/{targetId}/geneProteinInformation`: HGNC/UniProt атрибуты (`hgncId`, `geneSymbol`, `uniprotIds`, `species`).
+
+**Обработка и фильтрация:**
+
+- Ограничиваем выдачу активными таргетами (`annotationStatus=CURATED`).
+- Для белковых таргетов используем `targetType in {"GPCR", "Enzyme", "Ion channel", "Transporter"}` для снижения шума.
+- Ветка `targets/families` собирается итеративно: сначала `type`, затем `parentFamilyId` по уровням до листьев.
+
+**Структура данных:**
+
+```python
+@dataclass
+class IUPHARData:
+    target_df: pd.DataFrame  # записи /targets + geneProteinInformation + synonyms
+    family_df: pd.DataFrame  # дерево /targets/families со всеми уровнями
+```
+
+`family_df` нормализует иерархию классификации: `type → class → subclass → chain → target`. Для каждой ветви рассчитываем два пути:
+
+- `full_id_path`: `'typeId/classId/subclassId/chainId/targetId'`
+- `full_name_path`: `'Type name > Class name > Subclass name > Chain name > Target name'`
+
+**Согласование идентификаторов:**
+
+- `hgncId` из `geneProteinInformation` маппится на `hgnc_id` ChEMBL: допускаются различия в формате (`HGNC:1234` → `1234`). При конфликте приоритет у значения из ChEMBL, а IUPHAR сохраняется как альтернатива в `xref`.
+- `uniprotIds` приводятся к верхнему регистру и сравниваются с `accession` из UniProt стадии. Несоответствия логируются и попадают в QC-отчет, а консенсусное значение выбирается по правилу: если `uniprot_id_primary` из UniProt присутствует в списке IUPHAR, принимаем его, иначе добавляем IUPHAR ID в `uniprot_ids_all` без замены основного.
+- `geneSymbol` сверяется с `gene_symbol` из UniProt; расхождения фиксируются, но не переписывают основное значение без ручной валидации.
+
+Результат Stage 3 — DataFrame `iuphar_classification`, содержащий агрегированные поля `iuphar_target_id`, `iuphar_family_id`, `iuphar_type`, `full_id_path`, `full_name_path`, которые присоединяются к `targets` на этапе Stage 4.
 
 ### Метаданные pipeline
 
@@ -242,82 +372,26 @@ Protein classification hierarchy для интеграции с внешними
 
 ## 1.5 Конфигурация
 
-### YAML структура
+- Базовые требования см. `docs/requirements/10-configuration.md`.
+- Профильный файл: `configs/pipelines/target.yaml` (`extends: "../base.yaml"`).
 
-Полный пример `configs/config_target.yaml`:
+| Секция | Ключ | Значение | Ограничение | Комментарий |
+|--------|------|----------|-------------|-------------|
+| HTTP | `http.global.timeout_sec` | `60.0` | `> 0` | Используется по умолчанию всеми клиентами. |
+| Источники / ChEMBL | `sources.chembl.batch_size` | `5` | `≤ 5` | Стабильность batch-запросов к `/target.json`. |
+| Источники / UniProt | `sources.uniprot.id_mapping_max_ids` | `100000` | `≤ 100000` | Лимит официального API. |
+| Источники / IUPHAR | `sources.iuphar.retries` | `3` | `≤ 5` | Встроенный ограничитель API. |
+| Cache | `cache.ttl.chembl` | `86400` | `≥ 0` | Кэш на сутки для ChEMBL. |
+| Cache | `cache.ttl.uniprot` | `604800` | `≥ 0` | Кэш на неделю для UniProt. |
+| Cache | `cache.ttl.iuphar` | `2592000` | `≥ 0` | Кэш на 30 дней для IUPHAR. |
+| Determinism | `determinism.sort.by` | `['target_chembl_id', 'accession', 'component_id']` | — | Гарантия детерминированного порядка. |
+| Determinism | `determinism.hash_columns` | `['target_chembl_id', 'pref_name', 'organism', 'uniprot_id_primary']` | Не пусто | Используется для хешей целостности. |
+| Output | `output.format` | `parquet` | `{'parquet', 'csv'}` | Основной формат выгрузки. |
 
-```yaml
-# HTTP настройки
-http:
-  global:
-    timeout_sec: 60.0
-    retries:
-      total: 5
-      backoff_multiplier: 2.0
-      backoff_max: 120.0
-      exponential_jitter: true
-      respect_retry_after: true
-    rate_limit:
-      max_calls: 5
-      period: 15.0
-
-# ChEMBL настройки
-sources:
-  chembl:
-    enabled: true
-    base_url: "https://www.ebi.ac.uk/chembl/api/data"
-    batch_size: 5  # КРИТИЧЕСКИ: для стабильности batch requests
-    timeout_read: 60.0
-    retry:
-      enable: true
-      shrink_factor: 0.5
-      min_size: 1
-      single_timeout_retries: 3
-      single_timeout_delay: 2.0
-
-  uniprot:
-    enabled: true
-    base_url: "https://rest.uniprot.org"
-    id_mapping_max_ids: 100000  # Лимит UniProt ID Mapping
-    stream_timeout: 300.0
-    retries: 3
-    batch_size: 500
-
-  iuphar:
-    enabled: true
-    base_url: "https://www.guidetopharmacology.org/services"
-    timeout_sec: 30.0
-    retries: 3
-
-# Кэширование
-cache:
-  enabled: true
-  directory: "data/cache"
-  ttl:
-    chembl: 86400  # 24 часа
-    uniprot: 604800  # 7 дней
-    iuphar: 2592000  # 30 дней
-  release_scoped_invalidation: true  # Инвалидация при смене release
-
-# Детерминизм
-determinism:
-  sort:
-    by: ["target_chembl_id", "accession", "component_id"]
-    ascending: [true, true, true]
-  hash_columns:
-    - target_chembl_id
-    - pref_name
-    - organism
-    - uniprot_id_primary
-
-# Выходные файлы
-output:
-  format: "parquet"
-  compression: "snappy"
-  directory: "data/output/target"
-  write_raw: true  # Сохранение в landing/
-  write_checkpoints: true  # Bronze, silver, gold
-```
+**Переопределения:**
+- CLI: `--set sources.uniprot.batch_size=100` для стресс-тестов (не для продакшн);
+- ENV: `BIOETL_SOURCES__UNIPROT__API_KEY` (если предоставлен приватный канал), `BIOETL_OUTPUT__DIRECTORY=/mnt/out/target`.
+- `determinism.hash_columns` не допускает пустых значений — нарушение ведёт к ошибке загрузки конфигурации.
 
 ### HTTP настройки
 
@@ -484,7 +558,7 @@ determinism:
 # 1) ChEMBL targets + components
 python -m scripts.get_target_data \
   --source chembl \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/input/target_ids.csv \
   --out data/bronze/targets.parquet
 ```
@@ -495,7 +569,7 @@ python -m scripts.get_target_data \
 # 1) ChEMBL extraction
 python -m scripts.get_target_data \
   --source chembl \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/input/target_ids.csv \
   --out data/bronze/targets.parquet \
   --write-raw
@@ -503,14 +577,14 @@ python -m scripts.get_target_data \
 # 2) UniProt enrichment
 python -m scripts.get_target_data \
   --source uniprot \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/bronze/targets.parquet \
   --out data/silver/targets_uniprot.parquet
 
 # 3) IUPHAR classification
 python -m scripts.get_target_data \
   --source iuphar \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/silver/targets_uniprot.parquet \
   --out data/gold/targets_final.parquet
 
