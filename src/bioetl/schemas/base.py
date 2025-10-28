@@ -6,7 +6,7 @@ from pandera.typing import Series
 
 class BaseSchema(pa.DataFrameModel):
     """Базовый класс для Pandera схем.
-    
+
     Содержит обязательные системные поля для всех пайплайнов:
     - index: детерминированный индекс строки
     - hash_row: SHA256 от канонической строки (для проверки целостности)
@@ -40,4 +40,11 @@ class BaseSchema(pa.DataFrameModel):
         strict = True
         coerce = True
         ordered = True  # Enforce column order
+
+    @classmethod
+    def get_column_order(cls) -> list[str]:
+        """Return schema column order if defined."""
+
+        order = getattr(cls, "_column_order", None)
+        return list(order) if order else []
 

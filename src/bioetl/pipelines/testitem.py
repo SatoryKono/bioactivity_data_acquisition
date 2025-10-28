@@ -1,9 +1,10 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pandas as pd
+import requests
 
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -30,10 +31,21 @@ class TestItemPipeline(PipelineBase):
         chembl_source = config.sources.get("chembl")
         if isinstance(chembl_source, dict):
             base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = chembl_source.get("batch_size", 25)
+            batch_size_config = chembl_source.get("batch_size", 25)
         else:
             base_url = "https://www.ebi.ac.uk/chembl/api/data"
-            batch_size = 25
+            batch_size_config = 25
+
+        try:
+            batch_size_value = int(batch_size_config)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("sources.chembl.batch_size must be an integer") from exc
+
+        if batch_size_value <= 0:
+            raise ValueError("sources.chembl.batch_size must be greater than zero")
+
+        if batch_size_value > 25:
+            raise ValueError("sources.chembl.batch_size must be <= 25 due to ChEMBL API limits")
 
         chembl_config = APIConfig(
             name="chembl",
@@ -42,7 +54,7 @@ class TestItemPipeline(PipelineBase):
             cache_ttl=config.cache.ttl,
         )
         self.api_client = UnifiedAPIClient(chembl_config)
-        self.batch_size = batch_size
+        self.batch_size = batch_size_value
 
         # Initialize external adapters (PubChem)
         self.external_adapters: dict[str, ExternalAdapter] = {}
@@ -50,6 +62,7 @@ class TestItemPipeline(PipelineBase):
 
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
+        self._molecule_cache: dict[str, dict[str, Any]] = {}
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract molecule data from input file."""
@@ -82,158 +95,253 @@ class TestItemPipeline(PipelineBase):
         return df
 
     def _fetch_molecule_data(self, molecule_ids: list[str]) -> pd.DataFrame:
-        """Fetch molecule data from ChEMBL API."""
-        results = []
+        """Fetch molecule data from ChEMBL API with release-scoped caching."""
+        if not molecule_ids:
+            logger.warning("no_molecule_ids_provided")
+            return pd.DataFrame()
 
-        for i in range(0, len(molecule_ids), self.batch_size):
-            batch_ids = molecule_ids[i:i + self.batch_size]
+        cache_hits = 0
+        api_success_count = 0
+        fallback_count = 0
+        results: list[dict[str, Any]] = []
+        ids_to_fetch: list[str] = []
+
+        for molecule_id in molecule_ids:
+            cache_key = self._cache_key(molecule_id)
+            cached_record = self._molecule_cache.get(cache_key)
+            if cached_record is not None:
+                results.append(cached_record.copy())
+                cache_hits += 1
+            else:
+                ids_to_fetch.append(molecule_id)
+
+        for i in range(0, len(ids_to_fetch), self.batch_size):
+            batch_ids = ids_to_fetch[i : i + self.batch_size]
             logger.info("fetching_batch", batch=i // self.batch_size + 1, size=len(batch_ids))
 
             try:
-                url = f"{self.api_client.config.base_url}/molecule.json"
                 params = {
                     "molecule_chembl_id__in": ",".join(batch_ids),
-                    "limit": len(batch_ids)  # Запрашиваем столько записей, сколько ID в батче
+                    "limit": min(len(batch_ids), self.batch_size),
                 }
-
-                response = self.api_client.request_json(url, params=params)
+                response = self.api_client.request_json("/molecule.json", params=params)
                 molecules = response.get("molecules", [])
 
-                # Проверка: все ли ID вернулись
-                returned_ids = {m["molecule_chembl_id"] for m in molecules}
-                missing_ids = set(batch_ids) - returned_ids
+                returned_ids = {m.get("molecule_chembl_id") for m in molecules if m.get("molecule_chembl_id")}
+                missing_ids = [mol_id for mol_id in batch_ids if mol_id not in returned_ids]
+
+                for mol in molecules:
+                    record = self._serialize_molecule_record(mol)
+                    results.append(record)
+                    api_success_count += 1
+                    self._store_in_cache(record)
 
                 if missing_ids:
                     logger.warning(
                         "incomplete_batch_response",
                         requested=len(batch_ids),
                         returned=len(molecules),
-                        missing=list(missing_ids)
+                        missing=missing_ids,
                     )
-
-                    # Fallback: повторный запрос для пропущенных ID с увеличенным лимитом
                     for missing_id in missing_ids:
-                        logger.info("retry_missing_molecule", molecule_chembl_id=missing_id)
-                        try:
-                            retry_url = f"{self.api_client.config.base_url}/molecule/{missing_id}.json"
-                            retry_response = self.api_client.request_json(retry_url)
-                            retry_mol = retry_response if isinstance(retry_response, dict) and "molecule_chembl_id" in retry_response else None
-
-                            if retry_mol:
-                                logger.info("retry_successful", molecule_chembl_id=missing_id)
-                                # Парсим данные из retry_mol так же, как из molecules
-                                mol_data = {
-                                    "molecule_chembl_id": retry_mol.get("molecule_chembl_id"),
-                                    "molregno": retry_mol.get("molecule_chembl_id"),
-                                    "pref_name": retry_mol.get("pref_name"),
-                                    "parent_chembl_id": retry_mol.get("molecule_hierarchy", {}).get("parent_chembl_id") if isinstance(retry_mol.get("molecule_hierarchy"), dict) else None,
-                                    "max_phase": retry_mol.get("max_phase"),
-                                    "structure_type": retry_mol.get("structure_type"),
-                                    "molecule_type": retry_mol.get("molecule_type"),
-                                }
-
-                                # molecule_properties
-                                props = retry_mol.get("molecule_properties", {})
-                                if isinstance(props, dict):
-                                    mol_data.update({
-                                        "mw_freebase": props.get("mw_freebase"),
-                                        "qed_weighted": props.get("qed_weighted"),
-                                        "heavy_atoms": props.get("heavy_atoms"),
-                                        "aromatic_rings": props.get("aromatic_rings"),
-                                        "rotatable_bonds": props.get("num_rotatable_bonds"),
-                                        "hba": props.get("hba"),
-                                        "hbd": props.get("hbd"),
-                                    })
-
-                                # molecule_structures
-                                struct = retry_mol.get("molecule_structures", {})
-                                if isinstance(struct, dict):
-                                    mol_data.update({
-                                        "standardized_smiles": struct.get("canonical_smiles"),
-                                        "standard_inchi": struct.get("standard_inchi"),
-                                        "standard_inchi_key": struct.get("standard_inchi_key"),
-                                    })
-
-                                results.append(mol_data)
+                        record = self._fetch_single_molecule(missing_id, attempt=2)
+                        if record:
+                            results.append(record)
+                            if record.get("fallback_attempt") is not None:
+                                fallback_count += 1
                             else:
-                                # Если retry тоже failed (404), создаём fallback
-                                logger.warning("retry_failed_create_fallback", molecule_chembl_id=missing_id)
-                                results.append({
-                                    "molecule_chembl_id": missing_id,
-                                    "molregno": missing_id,
-                                    "pref_name": None,
-                                    "parent_chembl_id": missing_id,
-                                    "max_phase": None,
-                                    "structure_type": "MOL",
-                                    "molecule_type": "Small molecule",
-                                    "standardized_smiles": None,
-                                    "standard_inchi": None,
-                                    "standard_inchi_key": None,
-                                })
-                        except Exception as retry_e:
-                            logger.error("retry_failed", molecule_chembl_id=missing_id, error=str(retry_e))
-                            # Создаём fallback при ошибке retry
-                            results.append({
-                                "molecule_chembl_id": missing_id,
-                                "molregno": missing_id,
-                                "pref_name": None,
-                                "parent_chembl_id": missing_id,
-                                "max_phase": None,
-                                "structure_type": "MOL",
-                                "molecule_type": "Small molecule",
-                                "standardized_smiles": None,
-                                "standard_inchi": None,
-                                "standard_inchi_key": None,
-                            })
-
-                for mol in molecules:
-                    mol_data = {
-                        "molecule_chembl_id": mol.get("molecule_chembl_id"),
-                        "molregno": mol.get("molecule_chembl_id"),  # Placeholder - API doesn't return molregno directly
-                        "pref_name": mol.get("pref_name"),
-                        "parent_chembl_id": mol.get("molecule_hierarchy", {}).get("parent_chembl_id") if isinstance(mol.get("molecule_hierarchy"), dict) else None,
-                        "max_phase": mol.get("max_phase"),
-                        "structure_type": mol.get("structure_type"),
-                        "molecule_type": mol.get("molecule_type"),
-                    }
-
-                    # molecule_properties
-                    props = mol.get("molecule_properties", {})
-                    if isinstance(props, dict):
-                        mol_data.update({
-                            "mw_freebase": props.get("mw_freebase"),
-                            "qed_weighted": props.get("qed_weighted"),
-                            "heavy_atoms": props.get("heavy_atoms"),
-                            "aromatic_rings": props.get("aromatic_rings"),
-                            "rotatable_bonds": props.get("num_rotatable_bonds"),  # Fixed field name
-                            "hba": props.get("hba"),
-                            "hbd": props.get("hbd"),
-                        })
-
-                    # molecule_structures
-                    struct = mol.get("molecule_structures", {})
-                    if isinstance(struct, dict):
-                        mol_data.update({
-                            "standardized_smiles": struct.get("canonical_smiles"),
-                            "standard_inchi": struct.get("standard_inchi"),
-                            "standard_inchi_key": struct.get("standard_inchi_key"),
-                        })
-
-                    results.append(mol_data)
+                                api_success_count += 1
 
                 logger.info("batch_fetched", count=len(molecules))
 
-            except Exception as e:
-                logger.error("batch_fetch_failed", error=str(e), batch_ids=batch_ids)
-                # Continue with next batch
+            except Exception as exc:  # noqa: BLE001
+                logger.error("batch_fetch_failed", error=str(exc), batch_ids=batch_ids)
+                for missing_id in batch_ids:
+                    record = self._create_fallback_record(
+                        missing_id,
+                        attempt=1,
+                        error=exc,
+                        message="Batch request failed",
+                    )
+                    results.append(record)
+                    fallback_count += 1
+                    self._store_in_cache(record)
 
         if not results:
             logger.warning("no_results_from_api")
             return pd.DataFrame()
 
-        df = pd.DataFrame(results)
-        logger.info("api_extraction_completed", rows=len(df))
-        return df
+        logger.info(
+            "molecule_fetch_summary",
+            requested=len(molecule_ids),
+            fetched=len(results),
+            cache_hits=cache_hits,
+            api_success_count=api_success_count,
+            fallback_count=fallback_count,
+        )
+
+        return pd.DataFrame(results)
+
+    def _cache_key(self, molecule_id: str) -> str:
+        release = self._chembl_release or "unversioned"
+        return f"{release}:{molecule_id}"
+
+    def _store_in_cache(self, record: dict[str, Any]) -> None:
+        molecule_id = record.get("molecule_chembl_id")
+        if not molecule_id:
+            return
+        cache_key = self._cache_key(str(molecule_id))
+        self._molecule_cache[cache_key] = record.copy()
+
+    def _serialize_molecule_record(self, payload: dict[str, Any]) -> dict[str, Any]:
+        mol_data: dict[str, Any] = {
+            "molecule_chembl_id": payload.get("molecule_chembl_id"),
+            "molregno": payload.get("molecule_chembl_id"),
+            "pref_name": payload.get("pref_name"),
+            "parent_chembl_id": payload.get("molecule_hierarchy", {}).get("parent_chembl_id")
+            if isinstance(payload.get("molecule_hierarchy"), dict)
+            else None,
+            "max_phase": payload.get("max_phase"),
+            "structure_type": payload.get("structure_type"),
+            "molecule_type": payload.get("molecule_type"),
+            "fallback_error_code": None,
+            "fallback_http_status": None,
+            "fallback_retry_after_sec": None,
+            "fallback_attempt": None,
+            "fallback_error_message": None,
+        }
+
+        props = payload.get("molecule_properties", {})
+        if isinstance(props, dict):
+            mol_data.update(
+                {
+                    "mw_freebase": props.get("mw_freebase"),
+                    "qed_weighted": props.get("qed_weighted"),
+                    "heavy_atoms": props.get("heavy_atoms"),
+                    "aromatic_rings": props.get("aromatic_rings"),
+                    "rotatable_bonds": props.get("num_rotatable_bonds"),
+                    "hba": props.get("hba"),
+                    "hbd": props.get("hbd"),
+                }
+            )
+
+        struct = payload.get("molecule_structures", {})
+        if isinstance(struct, dict):
+            mol_data.update(
+                {
+                    "standardized_smiles": struct.get("canonical_smiles"),
+                    "standard_inchi": struct.get("standard_inchi"),
+                    "standard_inchi_key": struct.get("standard_inchi_key"),
+                }
+            )
+
+        return mol_data
+
+    def _fetch_single_molecule(self, molecule_id: str, attempt: int) -> dict[str, Any]:
+        try:
+            response = self.api_client.request_json(f"/molecule/{molecule_id}.json")
+        except requests.exceptions.HTTPError as exc:
+            record = self._create_fallback_record(
+                molecule_id,
+                attempt=attempt,
+                error=exc,
+                retry_after=self._extract_retry_after(exc),
+            )
+            fallback_message = record.get("fallback_error_message")
+            logger.warning(
+                "molecule_fallback_http_error",
+                molecule_chembl_id=molecule_id,
+                http_status=record.get("fallback_http_status"),
+                attempt=attempt,
+                message=fallback_message,
+            )
+            self._store_in_cache(record)
+            return record
+        except Exception as exc:  # noqa: BLE001
+            record = self._create_fallback_record(
+                molecule_id,
+                attempt=attempt,
+                error=exc,
+            )
+            logger.error(
+                "molecule_fallback_unexpected_error",
+                molecule_chembl_id=molecule_id,
+                attempt=attempt,
+                error=str(exc),
+            )
+            self._store_in_cache(record)
+            return record
+
+        if not isinstance(response, dict) or "molecule_chembl_id" not in response:
+            record = self._create_fallback_record(
+                molecule_id,
+                attempt=attempt,
+                message="Missing molecule in response",
+            )
+            logger.warning("molecule_missing_in_response", molecule_chembl_id=molecule_id, attempt=attempt)
+            self._store_in_cache(record)
+            return record
+
+        record = self._serialize_molecule_record(response)
+        self._store_in_cache(record)
+        return record
+
+    def _create_fallback_record(
+        self,
+        molecule_id: str,
+        attempt: int,
+        error: Exception | None = None,
+        retry_after: float | None = None,
+        message: str | None = None,
+    ) -> dict[str, Any]:
+        error_code = getattr(error, "code", None)
+        if error_code is None and error is not None:
+            error_code = error.__class__.__name__
+
+        http_status: int | None = None
+        if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
+            http_status = error.response.status_code
+
+        if retry_after is None and isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
+            retry_after = self._extract_retry_after(error)
+
+        fallback_record: dict[str, Any] = {
+            "molecule_chembl_id": molecule_id,
+            "molregno": None,
+            "pref_name": None,
+            "parent_chembl_id": None,
+            "max_phase": None,
+            "structure_type": None,
+            "molecule_type": None,
+            "mw_freebase": None,
+            "qed_weighted": None,
+            "standardized_smiles": None,
+            "standard_inchi": None,
+            "standard_inchi_key": None,
+            "heavy_atoms": None,
+            "aromatic_rings": None,
+            "rotatable_bonds": None,
+            "hba": None,
+            "hbd": None,
+            "fallback_error_code": error_code,
+            "fallback_http_status": http_status,
+            "fallback_retry_after_sec": retry_after,
+            "fallback_attempt": attempt,
+            "fallback_error_message": message or (str(error) if error else "Missing from ChEMBL response"),
+        }
+        return fallback_record
+
+    @staticmethod
+    def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:
+        if error.response is None:
+            return None
+        retry_after = error.response.headers.get("Retry-After")
+        if retry_after is None:
+            return None
+        try:
+            return float(retry_after)
+        except (TypeError, ValueError):
+            return None
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from status endpoint.
@@ -318,9 +426,8 @@ class TestItemPipeline(PipelineBase):
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import TestItemSchema
 
-        if "column_order" in TestItemSchema.Config.__dict__:
-            expected_cols = TestItemSchema.Config.column_order
-
+        expected_cols = TestItemSchema.get_column_order()
+        if expected_cols:
             # Add missing columns with None values
             for col in expected_cols:
                 if col not in df.columns:

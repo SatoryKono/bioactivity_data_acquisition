@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class RetryConfig(BaseModel):
@@ -147,6 +147,22 @@ class PipelineConfig(BaseModel):
         if value != 1:
             raise ValueError("Unsupported config version")
         return value
+
+    @model_validator(mode="after")
+    def _validate_chembl_batch_size(self) -> "PipelineConfig":
+        """Ensure ChEMBL batch size does not exceed API limits."""
+
+        chembl = self.sources.get("chembl") if self.sources else None
+        if chembl is not None:
+            batch_size = getattr(chembl, "batch_size", None)
+            if batch_size is None:
+                chembl.batch_size = 25
+            elif batch_size > 25:
+                raise ValueError(
+                    "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit",
+                )
+
+        return self
 
     def model_dump_canonical(self) -> dict[str, Any]:
         """
