@@ -3,9 +3,13 @@
 ## Обзор
 
 UnifiedLogger — универсальная система логирования, объединяющая:
+
 - Структурированность из **structlog** (bioactivity_data_acquisition5)
+
 - Детерминизм через **UTC timestamps** (ChEMBL_data_acquisition6)
+
 - Контекстное логирование через **ContextVar**
+
 - Автоматическое редактирование секретов
 
 ## Архитектура
@@ -24,6 +28,7 @@ UnifiedLogger
 │   └── FileHandler (JSON, ротация 10MB×10)
 └── Telemetry (опционально)
     └── OpenTelemetry интеграция
+
 ```
 
 ## Компоненты
@@ -36,25 +41,38 @@ UnifiedLogger
 from dataclasses import dataclass
 from typing import Any
 
-
 @dataclass(frozen=True)
 class LogContext:
     """Контекст выполнения для логирования."""
 
     run_id: str  # UUID8 уникальный идентификатор запуска
+
     stage: str  # Текущий этап пайплайна
+
     actor: str  # Инициатор (system, scheduler, username)
+
     source: str  # Источник данных (chembl, pubmed, ...)
+
     generated_at: str  # UTC timestamp ISO8601
+
     trace_id: str | None = None  # OpenTelemetry trace ID
+
     endpoint: str | None = None  # HTTP эндпоинт или None для стадийных логов
+
     page_state: str | None = None  # Положение пагинации
+
     params: dict[str, Any] | None = None  # Запрос или дополнительные параметры
+
     attempt: int | None = None  # Номер попытки повторного запроса
+
     retry_after: float | None = None  # Планируемая пауза между повторами
+
     duration_ms: int | None = None  # Длительность операции
+
     error_code: int | None = None  # Код ошибки (HTTP, бизнес-правила)
+
     error_message: str | None = None  # Сообщение об ошибке
+
 ```
 
 **Использование**:
@@ -69,6 +87,7 @@ context = LogContext(
     trace_id=get_current_trace_id(),
 )
 set_log_context(context)
+
 ```
 
 ### 2. SecurityProcessor (structlog processor)
@@ -82,12 +101,13 @@ def security_processor(logger, method_name, event_dict):
         "api_key", "token", "password", "secret", "authorization",
         "bearer", "auth", "credential", "access_token"
     ]
-    
+
     for key in list(event_dict.keys()):
         if any(s in key.lower() for s in sensitive_keys):
             event_dict[key] = "[REDACTED]"
-    
+
     return event_dict
+
 ```
 
 ### 3. RedactSecretsFilter (logging.Filter)
@@ -97,16 +117,16 @@ def security_processor(logger, method_name, event_dict):
 ```python
 class RedactSecretsFilter(logging.Filter):
     """Редактирует секреты в log records."""
-    
+
     def __init__(self):
         super().__init__()
         self.patterns = [
-            (re.compile(r'(?i)(token|api_key|password)\s*=\s*([^\s,}]+)'), 
+            (re.compile(r'(?i)(token|api_key|password)\s*=\s*([^\s,}]+)'),
              r'\1=[REDACTED]'),
-            (re.compile(r'(?i)(authorization)\s*:\s*([^\s,}]+)'), 
+            (re.compile(r'(?i)(authorization)\s*:\s*([^\s,}]+)'),
              r'\1: [REDACTED]'),
         ]
-    
+
     def filter(self, record):
         if hasattr(record, 'getMessage'):
             message = record.getMessage()
@@ -114,6 +134,7 @@ class RedactSecretsFilter(logging.Filter):
                 message = pattern.sub(replacement, message)
             record.msg = message
         return True
+
 ```
 
 ### 4. SafeFormattingFilter (logging.Filter)
@@ -123,26 +144,30 @@ class RedactSecretsFilter(logging.Filter):
 ```python
 class SafeFormattingFilter(logging.Filter):
     """Защищает от ошибок форматирования в urllib3."""
-    
+
     def filter(self, record):
         if 'urllib3' in record.name:
             if hasattr(record, 'msg') and isinstance(record.msg, str):
                 record.msg = f"urllib3: {record.msg}"
                 record.args = ()  # Убираем аргументы
+
             return True
-        
+
         # Для остальных: проверяем форматирование
+
         if hasattr(record, 'msg') and isinstance(record.msg, str):
             try:
                 if hasattr(record, 'args') and record.args:
                     _ = record.msg % record.args
             except (TypeError, ValueError):
                 # Конвертируем проблемные аргументы в строки
+
                 if hasattr(record, 'args') and record.args:
                     safe_args = [str(arg) for arg in record.args]
                     record.args = tuple(safe_args)
-        
+
         return True
+
 ```
 
 ### 5. LoggerConfig (dataclass)
@@ -153,16 +178,22 @@ class SafeFormattingFilter(logging.Filter):
 @dataclass
 class LoggerConfig:
     """Конфигурация UnifiedLogger."""
-    
+
     level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
+
     console_format: str = "text"  # text или json
+
     file_enabled: bool = True
     file_path: Path = Path("logs/app.log")
     file_format: str = "json"  # всегда JSON для файла
+
     max_bytes: int = 10 * 1024 * 1024  # 10MB
+
     backup_count: int = 10
     telemetry_enabled: bool = False  # OpenTelemetry
+
     redact_secrets: bool = True
+
 ```
 
 ## Использование
@@ -173,13 +204,16 @@ class LoggerConfig:
 from unified_logger import configure_logging, get_logger
 
 # Инициализация
+
 configure_logging(LoggerConfig(level="INFO", console_format="text"))
 logger = get_logger("my_module")
 
 # Логирование
+
 logger.info("Pipeline started", stage="init", row_count=1000)
 logger.warning("API rate limit approaching", remaining=5)
 logger.error("Failed to fetch data", api="openalex", error=str(e), exc_info=True)
+
 ```
 
 ### Stage-based логирование
@@ -190,7 +224,9 @@ from unified_logger import bind_stage
 with bind_stage(logger, "extract", source="chembl"):
     logger.info("Fetching ChEMBL data", batch_size=25)
     # ... выполнение операции ...
+
     logger.info("Extraction complete", rows=1500)
+
 ```
 
 ### Контекстные переменные
@@ -202,8 +238,11 @@ run_id = generate_run_id()
 set_run_context(run_id=run_id, stage="extract", actor="scheduler", source="chembl")
 
 # Теперь все логи автоматически содержат run_id, stage, actor и source
+
 logger.info("Processing", step="first")
+
 # Output: {"run_id": "a3f8d2e1", "stage": "extract", "actor": "scheduler", "source": "chembl", "step": "first", ...}
+
 ```
 
 ### Контекст и редактирование секретов
@@ -214,6 +253,7 @@ logger.info("Processing", step="first")
 
 | Поле | Development | Testing | Production | Комментарий |
 | --- | --- | --- | --- | --- |
+
 | `run_id` | запрещён `None` | запрещён `None` | запрещён `None` | UUID8 генерируется всегда |
 | `stage` | запрещён `None` | запрещён `None` | запрещён `None` | Значения: extract/transform/validate/load |
 | `actor` | запрещён `None` | запрещён `None` | запрещён `None` | system/scheduler/<username> |
@@ -234,28 +274,41 @@ logger.info("Processing", step="first")
 **Поле actor**
 
 Идентифицирует кто или что инициировало выполнение:
+
 - `system`: автоматические системные запуски
+
 - `scheduler`: запуски по расписанию (cron, Airflow)
+
 - `<username>`: ручные запуски пользователем
 
 ```python
+
 # Автоматический запуск
+
 set_run_context(run_id=run_id, stage="extract", actor="system", source="chembl")
 
 # Запуск по расписанию
+
 set_run_context(run_id=run_id, stage="extract", actor="scheduler", source="chembl")
 
 # Ручной запуск
+
 set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
+
 ```
 
 **Обязательные поля логов (инвариант G12):**
 
 - Базовые поля (`run_id`, `stage`, `actor`, `source`, `generated_at`) обязательны всегда.
+
 - В production для каждого HTTP-события обязательно присутствуют `trace_id`, `endpoint`, `attempt`, `duration_ms` и `params` (если запрос имеет параметры).
+
 - В testing обязательны `attempt` для повторов и `endpoint` при обращениях к HTTP.
+
 - В development допускается пропуск телеметрии (`trace_id`, `duration_ms`, `attempt`) при локальной отладке, но `run_id` и `stage` остаются обязательными.
+
 - Для retry логов `retry_after` указывается, только если хедер получен от API; в остальных случаях остаётся `None`.
+
 - Для ошибок добавляются `error_code` и `error_message`; для успехов поля остаются `None`.
 
 **См. также**: [gaps.md](../gaps.md) (G12).
@@ -270,6 +323,7 @@ SENSITIVE_KEYS = [
     "bearer", "auth", "credential", "access_token", "refresh_token",
     "api_secret", "private_key", "x-api-key"
 ]
+
 ```
 
 2. **Паттерны для маскирования:**
@@ -281,12 +335,15 @@ REDACT_PATTERNS = [
     (r'Bearer\s+[A-Za-z0-9\-._~+/]+', 'Bearer [REDACTED]'),
     (r'api_key":\s*"[^"]+"', 'api_key": "[REDACTED]"')
 ]
+
 ```
 
 3. **Применение маскирования:**
 
 ```python
+
 # До: {"api_key": "sk_live_abc123", "user": "john"}
+
 # После: {"api_key": "[REDACTED]", "user": "john"}
 
 def redact_secrets(event_dict: dict) -> dict:
@@ -294,20 +351,23 @@ def redact_secrets(event_dict: dict) -> dict:
     for key in list(event_dict.keys()):
         if any(s in key.lower() for s in SENSITIVE_KEYS):
             event_dict[key] = "[REDACTED]"
-    
+
     # Паттерны для текстовых полей
+
     if 'message' in event_dict:
         text = event_dict['message']
         for pattern, replacement in REDACT_PATTERNS:
             text = re.sub(pattern, replacement, text)
         event_dict['message'] = text
-    
+
     return event_dict
+
 ```
 
 **Примеры логов с обязательными полями:**
 
 Development (локальный dry-run, допускаются `None` для телеметрии):
+
 ```json
 {
   "run_id": "dev-a3f8d2e1",
@@ -327,9 +387,11 @@ Development (локальный dry-run, допускаются `None` для т
   "level": "info",
   "message": "Local dry-run of extract stage"
 }
+
 ```
 
 Testing (повтор запроса с имитацией 429, `trace_id` остаётся `None`):
+
 ```json
 {
   "run_id": "test-a3f8d2e1",
@@ -349,9 +411,11 @@ Testing (повтор запроса с имитацией 429, `trace_id` ос�
   "level": "warning",
   "message": "Retry due to HTTP 429"
 }
+
 ```
 
 Production (успешный HTTP-запрос, все поля заполнены):
+
 ```json
 {
   "run_id": "prod-a3f8d2e1",
@@ -371,6 +435,7 @@ Production (успешный HTTP-запрос, все поля заполнен
   "level": "info",
   "message": "Successfully fetched 100 molecules"
 }
+
 ```
 
 ### Интеграция с OpenTelemetry
@@ -381,13 +446,16 @@ from unified_logger import configure_logging, LoggerConfig
 config = LoggerConfig(
     level="INFO",
     telemetry_enabled=True  # Автоматически добавляет trace_id
+
 )
 
 configure_logging(config)
 logger = get_logger()
 
 logger.info("API call started", endpoint="/api/data")
+
 # Output включает trace_id из OpenTelemetry span
+
 ```
 
 ## Режимы работы
@@ -398,10 +466,12 @@ logger.info("API call started", endpoint="/api/data")
 config = LoggerConfig(
     level="DEBUG",
     console_format="text",  # Читаемый вывод
+
     file_enabled=True,
     file_path=Path("logs/dev.log"),
     telemetry_enabled=False
 )
+
 ```
 
 ### Production
@@ -410,13 +480,16 @@ config = LoggerConfig(
 config = LoggerConfig(
     level="INFO",
     console_format="json",  # JSON для парсинга
+
     file_enabled=True,
     file_path=Path("logs/app_20250128.log"),
     file_format="json",
     max_bytes=10 * 1024 * 1024,
     backup_count=10,
     telemetry_enabled=True  # Полный трейсинг
+
 )
+
 ```
 
 ### Testing
@@ -424,10 +497,13 @@ config = LoggerConfig(
 ```python
 config = LoggerConfig(
     level="WARNING",  # Только warnings и errors
+
     console_format="text",
     file_enabled=False,  # Без файлов в тестах
+
     telemetry_enabled=False
 )
+
 ```
 
 ## Форматы вывода
@@ -435,9 +511,11 @@ config = LoggerConfig(
 ### Console (text)
 
 ```
+
 [2025-01-28 14:23:15] [INFO] [extract] Pipeline started stage=init row_count=1000
 [2025-01-28 14:23:20] [WARNING] [extract] API rate limit approaching remaining=5
 [2025-01-28 14:23:25] [ERROR] [extract] Failed to fetch data api=openalex error=Timeout
+
 ```
 
 ### Console (JSON)
@@ -452,6 +530,7 @@ config = LoggerConfig(
 {"event": "Failed to fetch data", "level": "error", "logger": "extract",
  "stage": "init", "api": "openalex", "error": "Timeout",
  "timestamp": "2025-01-28T14:23:25.789Z"}
+
 ```
 
 ### File (JSON)
@@ -467,10 +546,13 @@ config = LoggerConfig(
 ```text
 logs/
   app_20250128.log        # Текущий
+
   app_20250128.log.1      # Предыдущий
+
   app_20250128.log.2
   ...
   app_20250128.log.10     # Самый старый (удаляется при следующей ротации)
+
 ```
 
 ### Cleanup старых логов
@@ -479,7 +561,9 @@ logs/
 from unified_logger import cleanup_old_logs
 
 # Удаляет логи старше 14 дней
+
 cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
+
 ```
 
 ## Именование файлов
@@ -488,21 +572,29 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 
 ```python
 "{script_name}_{YYYYMMDD}.log"
+
 ```
 
 Примеры:
 
 - `get_document_data_20250128.log`
+
 - `get_activity_data_20250128.log`
+
 - `pipeline_20250128.log` (если script_name пустой)
 
 ## Best Practices
 
 1.  **Всегда используйте context manager для stages**: `with bind_stage(logger, "stage_name"):`
+
 2.  **Добавляйте структурированные поля**: `logger.info("message", key1=value1, key2=value2)`
+
 3.  **Используйте exc_info для исключений**: `logger.error("message", exc_info=True)`
+
 4.  **Не логируйте секреты**: они автоматически редактируются
+
 5.  **Выбирайте адекватный уровень**: DEBUG для разработки, INFO для production
+
 6.  **Используйте JSON в production**: для парсинга и анализа
 
 ## Расширение
@@ -519,6 +611,7 @@ configure_logging(
     LoggerConfig(...),
     additional_processors=[custom_processor]
 )
+
 ```
 
 ## Миграция
@@ -526,30 +619,38 @@ configure_logging(
 ### Из стандартного logging
 
 ```python
+
 # Было
+
 import logging
 logger = logging.getLogger(__name__)
 logger.info("message")
 
 # Стало
+
 from unified_logger import get_logger
 logger = get_logger(__name__)
 logger.info("message")
+
 ```
 
 ### Из structlog без конфигурации
 
 ```python
+
 # Было
+
 import structlog
 logger = structlog.get_logger()
 logger.info("message")
 
 # Стало
+
 from unified_logger import configure_logging, get_logger
 configure_logging(LoggerConfig(level="INFO"))
 logger = get_logger(__name__)
 logger.info("message")  # Та же API
+
 ```
 
 ---

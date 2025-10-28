@@ -3,9 +3,13 @@
 ## Обзор
 
 UnifiedOutputWriter — детерминированная система записи данных, объединяющая:
+
 - **Атомарную запись** через временные файлы (bioactivity_data_acquisition5)
+
 - **Трехфайловую систему** с QC отчетами (ChEMBL_data_acquisition6)
+
 - **Автоматическую валидацию** через Pandera
+
 - **Run manifests** для отслеживания пайплайнов
 
 ## Архитектура
@@ -25,6 +29,7 @@ UnifiedOutputWriter
 │   └── ManifestWriter
 └── Atomic Write Layer
     └── AtomicWriter (temporary files + rename)
+
 ```
 
 ## Компоненты
@@ -37,12 +42,17 @@ UnifiedOutputWriter
 @dataclass(frozen=True)
 class OutputArtifacts:
     """Пути к стандартным выходным артефактам."""
-    
+
     dataset: Path  # Основной датасет
+
     quality_report: Path  # QC метрики
+
     correlation_report: Path | None  # Корреляционный анализ (опционально)
+
     metadata: Path | None  # Метаданные (опционально)
+
     manifest: Path | None  # Run manifest (опционально)
+
 ```
 
 **Формат имен**:
@@ -52,7 +62,9 @@ output.{table_name}_{date_tag}.csv
 output.{table_name}_{date_tag}_quality_report_table.csv
 output.{table_name}_{date_tag}_data_correlation_report_table.csv
 output.{table_name}_{date_tag}.meta.yaml  # если extended
+
 run_manifest_{timestamp}.json  # если extended
+
 ```
 
 ### 2. AtomicWriter
@@ -68,52 +80,67 @@ class AtomicWriter:
 
     def __init__(self, run_id: str):
         self.run_id = run_id
-    
+
     def write(self, data: pd.DataFrame, path: Path, **kwargs):
         """Записывает data в path атомарно через run-scoped temp directory."""
-        
+
         # Run-scoped temp directory
+
         temp_dir = path.parent / f".tmp_run_{self.run_id}"
         temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Temp file path
+
         temp_path = temp_dir / f"{path.name}.tmp"
-        
+
         try:
             # Запись во временный файл
+
             self._write_to_file(data, temp_path, **kwargs)
-            
+
             # Атомарный rename через os.replace (Windows-compatible)
+
             path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(str(temp_path), str(path))
-            
+
         except Exception as e:
             # Cleanup временного файла при ошибке
+
             temp_path.unlink(missing_ok=True)
             raise
-        
+
         finally:
             # Cleanup temp directory (если пуста)
+
             try:
                 if temp_dir.exists() and not any(temp_dir.iterdir()):
                     temp_dir.rmdir()
                 elif temp_dir.exists():
                     # Удаляем temp файлы в любом случае
+
                     for temp_file in temp_dir.glob("*.tmp"):
                         temp_file.unlink(missing_ok=True)
             except OSError:
                 pass
+
 ```
 
 **Ключевые принципы атомарной записи:**
+
 - **os.replace() вместо Path.rename()**: гарантирует атомарность на POSIX и Windows
+
 - **Run-scoped temp directories**: `.tmp_run_{run_id}/` изолируют временные файлы между запусками
+
 - **Guaranteed cleanup**: finally блок удаляет partial файлы даже при сбоях
+
 - **Windows-compatibility**: os.replace() является атомарной операцией на всех ОС
 
 **Передача run_id**:
+
 - В CLI run_id создаётся на старте пайплайна и передаётся в `AtomicWriter` явным аргументом конструктора.
+
 - Допускается DI через контекст исполнения (`contextvars` или context manager), но **инициализация всегда явная**, чтобы соблюдать инвариант детерминизма из [00-architecture-overview.md](00-architecture-overview.md#2-%D0%94%D0%B5%D1%82%D0%B5%D1%80%D0%BC%D0%B8%D0%BD%D0%B8%D0%B7%D0%BC).
+
 - Run-scoped временные директории `.tmp_run_{run_id}` обеспечивают принцип «всё или ничего» из AC (см. раздел *Standard (2 файла, без correlation по умолчанию)* в [00-architecture-overview.md](00-architecture-overview.md#2-unifiedoutputwriter-%E2%80%94-%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B2%D0%B2%D0%BE%D0%B4%D0%B0-%D0%B2%D1%8B%D0%B2%D0%BE%D0%B4%D0%B0)).
 
 ### 3. OutputMetadata (dataclass)
@@ -124,17 +151,19 @@ class AtomicWriter:
 @dataclass(frozen=True)
 class OutputMetadata:
     """Метаданные выходного файла."""
-    
+
     pipeline_version: str
     source_system: str
     chembl_release: str | None
     generated_at: str  # UTC ISO8601
+
     row_count: int
     column_count: int
     column_order: list[str]
     checksums: dict[str, str]  # {"dataset": "sha256:...", "quality": "sha256:..."}
+
     git_commit: str | None
-    
+
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame, column_order: list[str]):
         """Создает метаданные из DataFrame."""
@@ -149,6 +178,7 @@ class OutputMetadata:
             checksums={},
             git_commit=get_git_sha()
         )
+
 ```
 
 ### 4. FormatHandler
@@ -158,11 +188,11 @@ class OutputMetadata:
 ```python
 class FormatHandler:
     """Обработчик различных форматов вывода."""
-    
+
     def write_csv(
-        self, 
-        df: pd.DataFrame, 
-        path: Path, 
+        self,
+        df: pd.DataFrame,
+        path: Path,
         *,
         encoding: str = "utf-8",
         float_format: str = "%.6f",
@@ -171,14 +201,14 @@ class FormatHandler:
         """Детерминированная запись CSV."""
         if column_order:
             df = df[column_order]
-        
+
         df.to_csv(
             path,
             index=False,
             encoding=encoding,
             float_format=float_format
         )
-    
+
     def write_parquet(
         self,
         df: pd.DataFrame,
@@ -191,13 +221,14 @@ class FormatHandler:
         """Оптимизированная запись Parquet."""
         if column_order:
             df = df[column_order]
-        
+
         df.to_parquet(
             path,
             index=False,
             compression=compression,
             engine=engine
         )
+
 ```
 
 ### 5. QualityReportGenerator
@@ -207,17 +238,17 @@ class FormatHandler:
 ```python
 class QualityReportGenerator:
     """Генератор quality report."""
-    
+
     def generate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Создает QC отчет."""
         metrics = []
-        
+
         for column in df.columns:
             null_count = df[column].isna().sum()
             null_fraction = null_count / len(df) if len(df) > 0 else 0
             unique_count = df[column].nunique()
             duplicate_count = df.duplicated(subset=[column]).sum()
-            
+
             metrics.append({
                 "column": column,
                 "dtype": str(df[column].dtype),
@@ -228,8 +259,9 @@ class QualityReportGenerator:
                 "min": df[column].min() if pd.api.types.is_numeric_dtype(df[column]) else None,
                 "max": df[column].max() if pd.api.types.is_numeric_dtype(df[column]) else None,
             })
-        
+
         return pd.DataFrame(metrics)
+
 ```
 
 ### 6. CorrelationReportGenerator
@@ -239,22 +271,25 @@ class QualityReportGenerator:
 ```python
 class CorrelationReportGenerator:
     """Генератор correlation report."""
-    
+
     def generate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Создает корреляционный отчет."""
         # Только числовые колонки
+
         numeric_cols = df.select_dtypes(include=[np.number]).columns
-        
+
         if len(numeric_cols) < 2:
             return pd.DataFrame()  # Пустой если недостаточно числовых колонок
-        
+
         corr_matrix = df[numeric_cols].corr()
-        
+
         # Преобразуем в long format
+
         correlations = []
         for i, col1 in enumerate(corr_matrix.columns):
             for j, col2 in enumerate(corr_matrix.columns):
                 if i <= j:  # Избегаем дубликатов
+
                     correlations.append({
                         "column_1": col1,
                         "column_2": col2,
@@ -262,6 +297,7 @@ class CorrelationReportGenerator:
                     })
 
         return pd.DataFrame(correlations)
+
 ```
 
 ### 6.1 Условная генерация корреляций
@@ -298,8 +334,10 @@ def maybe_write_correlation(
         correlation_df,
         correlation_path,
         float_format="%.6f",  # соблюдаем форматирование из инвариантов детерминизма
+
     )
     return correlation_path
+
 ```
 
 Такое ветвление делает зависимость от конфигурации явной, подчёркивая влияние на детерминизм (константный набор артефактов) и соответствие AC «всё или ничего»: если отчёт выключен, он не появляется вовсе, что предотвращает дрейф структуры выпуска.
@@ -312,32 +350,36 @@ def maybe_write_correlation(
 @dataclass
 class RunManifest:
     """Manifest выполнения пайплайна."""
-    
+
     run_id: str
     timestamp: str  # UTC ISO8601
+
     exit_code: int
     duration_sec: float
     steps: list[StepManifest]
     config: dict  # Resolved configuration
-    
+
 @dataclass
 class StepManifest:
     """Manifest отдельного шага."""
-    
+
     step_name: str
     status: str  # success, failed, skipped
+
     exit_code: int
     duration_sec: float
     artifacts: list[str]  # Paths to output files
+
     stats: dict  # row_count, column_count, etc.
 
 class ManifestWriter:
     """Записывает run manifest."""
-    
+
     def write(self, manifest: RunManifest, path: Path):
         """Записывает manifest в JSON."""
         with path.open("w") as f:
             json.dump(asdict(manifest), f, indent=2, ensure_ascii=False)
+
 ```
 
 ## Основной класс: UnifiedOutputWriter
@@ -345,7 +387,7 @@ class ManifestWriter:
 ```python
 class UnifiedOutputWriter:
     """Универсальный writer для пайплайнов."""
-    
+
     def __init__(
         self,
         *,
@@ -354,7 +396,9 @@ class UnifiedOutputWriter:
         column_order: list[str] | None = None,
         key_columns: list[str] | None = None,
         format: str = "csv",  # csv или parquet
+
         mode: str = "standard",  # standard или extended
+
         output_dir: Path = Path("data/output")
     ):
         self.run_id = run_id
@@ -370,7 +414,7 @@ class UnifiedOutputWriter:
         self.format_handler = FormatHandler()
         self.atomic_writer = AtomicWriter(run_id)
         self.manifest_writer = ManifestWriter()
-    
+
     def write(
         self,
         df: pd.DataFrame,
@@ -378,52 +422,61 @@ class UnifiedOutputWriter:
         date_tag: str
     ) -> OutputArtifacts:
         """Записывает датасет со всеми артефактами."""
-        
+
         # Валидация
+
         if self.schema:
             df = self.schema.validate(df, lazy=True)
-        
+
         # Детерминированная сортировка
+
         df_sorted = self._deterministic_sort(df)
-        
+
         # Генерация путей
+
         artifacts = self._make_artifacts(table_name, date_tag)
-        
+
         # Запись основного датасета
+
         self._write_dataset(df_sorted, artifacts.dataset)
-        
+
         # Генерация и запись QC отчета
+
         quality_df = self.quality_generator.generate(df)
         self._write_dataset(quality_df, artifacts.quality_report)
-        
+
         # Условная генерация correlation отчета
+
         if hasattr(self, 'config') and self.config.postprocess.correlation.enabled:
             correlation_df = self.correlation_generator.generate(df)
             if not correlation_df.empty:
                 self._write_dataset(correlation_df, artifacts.correlation_report)
-        
+
         # Дополнительные артефакты в extended режиме
+
         if self.mode == "extended":
             self._write_metadata(df, artifacts.metadata)
             self._write_manifest(artifacts)
-        
+
         return artifacts
-    
+
     def _deterministic_sort(self, df: pd.DataFrame) -> pd.DataFrame:
         """Детерминированная сортировка."""
         if not self.key_columns or not df.empty:
             # Используем первый доступный столбец если key_columns не заданы
+
             sort_cols = [col for col in self.key_columns if col in df.columns]
             if not sort_cols:
                 sort_cols = [df.columns[0]]
-            
+
             return df.sort_values(
                 sort_cols,
                 ascending=True,
                 na_position='last'
             ).reset_index(drop=True)
-        
+
         return df
+
 ```
 
 ## Использование
@@ -448,6 +501,7 @@ artifacts = writer.write(df, table_name="documents", date_tag="20250128")
 print(f"Dataset: {artifacts.dataset}")
 print(f"Quality: {artifacts.quality_report}")
 print(f"Correlation: {artifacts.correlation_report}")
+
 ```
 
 ### Extended Mode с метаданными
@@ -460,12 +514,14 @@ writer = UnifiedOutputWriter(
     key_columns=["document_chembl_id"],
     format="csv",
     mode="extended"  # Включает metadata и manifest
+
 )
 
 artifacts = writer.write(df, table_name="documents", date_tag="20250128")
 
 print(f"Metadata: {artifacts.metadata}")
 print(f"Manifest: {artifacts.manifest}")
+
 ```
 
 ### Parquet формат
@@ -474,10 +530,12 @@ print(f"Manifest: {artifacts.manifest}")
 writer = UnifiedOutputWriter(
     schema=ActivitySchema,
     format="parquet",  # Использует Parquet вместо CSV
+
     output_dir=Path("data/output/parquet")
 )
 
 artifacts = writer.write(df, table_name="activities", date_tag="20250128")
+
 ```
 
 ## Deterministic Output
@@ -491,37 +549,51 @@ artifacts = writer.write(df, table_name="activities", date_tag="20250128")
 `meta.yaml` содержит **копию** `column_order` из схемы для справки и воспроизводимости, но **не является** источником истины.
 
 ```python
+
 # schema.py - ИСТОЧНИК ИСТИНЫ
+
 class DocumentSchema(BaseSchema):
     """Схема определяет column_order."""
     ...
     schema_id = "document.chembl"
     schema_version = "2.1.0"
     column_order = [  # ← Источник истины
+
         "document_chembl_id", "title", "doi", "journal",
         "hash_business_key", "hash_row"
     ]
+
 ```
 
 При экспорте:
+
 ```python
+
 # Берем column_order из схемы
+
 df = df[schema.column_order]  # Используется порядок из схемы
+
 ```
 
 В `meta.yaml` (только для справки):
+
 ```yaml
+
 # meta.yaml - КОПИЯ для справки
+
 column_order:  # Копируется из схемы
+
   - "document_chembl_id"
   - "title"
   - "doi"
   # ...
 
 # Валидация консистентности
+
 column_order_source: "schema_registry"
 schema_id: "document.chembl"
 schema_version: "2.1.0"
+
 ```
 
 **Acceptance Criteria AC-03:** При валидации `df.columns.tolist() == schema.column_order` должно быть истиной.
@@ -531,10 +603,12 @@ schema_version: "2.1.0"
 **Критический инвариант (v3.0):** Единая политика для всех типов данных.
 
 **Правила для пропущенных значений:**
+
 - **Все типы**: `NA/None/NaN` → `""` (пустая строка)
 
 ```python
 df = df.fillna("")  # Единая политика для всех типов
+
 ```
 
 **Обоснование:** Обеспечивает детерминизм канонической сериализации при вычислении хешей.
@@ -544,24 +618,34 @@ df = df.fillna("")  # Единая политика для всех типов
 **Критический инвариант (v3.0):** Единый формат `%.6f` для всех float значений.
 
 **Правило:**
+
 - Все float значения форматируются с 6 знаками после запятой
+
 - Применяется ко всем контекстам: хеширование, вывод, сериализация
 
 **Обоснование:**
+
 - Обеспечивает детерминизм канонической сериализации
+
 - Единообразие обработки данных
+
 - Достаточная точность для научных вычислений
 
 ```python
+
 # В схеме
+
 class ActivitySchema(BaseSchema):
     pic50: float = pa.Field()  # Используется %.6f при сериализации
+
     molecular_weight: float = pa.Field()  # Используется %.6f при сериализации
+
 ```
 
 ### Сортировка
 
 Стандартный порядок для фактовых таблиц:
+
 ```python
 sort_order = [
     "document_id",
@@ -571,9 +655,11 @@ sort_order = [
     "activity_id",
     "created_at_utc",
     "id"  # Последний ключ для tie-breaking
+
 ]
 
 df = df.sort_values(sort_order, ascending=True, na_position='last')
+
 ```
 
 ### Хеши
@@ -581,22 +667,30 @@ df = df.sort_values(sort_order, ascending=True, na_position='last')
 Для отслеживания изменений строк:
 
 **hash_business_key**: хеш от business key
+
 ```python
 import hashlib
 bk = "|".join([row.document_id, row.target_id, row.testitem_id])
 hash_bk = hashlib.sha256(bk.encode()).hexdigest()
+
 ```
 
 **hash_row**: хеш от всей строки (ordered, typed, normalized)
+
 ```python
 row_str = "|".join([str(v) for v in df.loc[idx].values])
 hash_row = hashlib.sha256(row_str.encode()).hexdigest()
+
 ```
 
 Правила:
+
 - Колонки в фиксированном порядке (`column_order`)
+
 - Типы приведены (float → str с точностью)
+
 - Значения нормализованы (trim, NA policy)
+
 - Всегда SHA256 (64 hex символа)
 
 **Каноническая сериализация для hash_row:**
@@ -605,7 +699,7 @@ hash_row = hashlib.sha256(row_str.encode()).hexdigest()
 def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> str:
     """
     Каноническая сериализация строки для детерминированного хеширования.
-    
+
     Правила:
     1. JSON с sort_keys=True, separators=(',', ':')
     2. ISO8601 UTC для всех datetime с суффиксом 'Z'
@@ -616,25 +710,30 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
     from datetime import datetime, timezone
     import json
     import pandas as pd
-    
+
     canonical = {}
-    
+
     for col in column_order:
         value = row.get(col)
-        
+
         # Применяем NA-policy (единая для всех типов)
+
         if pd.isna(value):
             canonical[col] = ""  # Пустая строка для всех NA
+
         elif isinstance(value, float):
             canonical[col] = float(f"{value:.6f}")  # Фиксированная точность
+
         elif isinstance(value, datetime):
             canonical[col] = value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
         elif isinstance(value, (dict, list)):
             canonical[col] = json.loads(json.dumps(value, sort_keys=True))  # Нормализация
+
         else:
             canonical[col] = value
-    
+
     return json.dumps(canonical, sort_keys=True, ensure_ascii=False)
+
 ```
 
 ## Manifest & Atomic Write
@@ -644,7 +743,9 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
 ### Обязательные поля meta.yaml
 
 ```yaml
+
 # meta.yaml
+
 pipeline_version: "2.1.0"
 chembl_release: "33"
 row_count: 12345
@@ -653,6 +754,7 @@ column_order:
   - "document_chembl_id"
   - "title"
   # ... все колонки
+
 checksums:
   dataset: "sha256:abc123..."
   quality: "sha256:def456..."
@@ -664,6 +766,7 @@ lineage:
   transformations:
     - "normalize_titles"
     - "validate_dois"
+
 ```
 
 ### Протокол Atomic Write
@@ -673,42 +776,54 @@ lineage:
 1. **Запись во временный файл в run-scoped директории**
 
 ```python
+
 # Run-scoped temp directory
+
 temp_dir = output_path.parent / f".tmp_run_{run_id}"
 temp_dir.mkdir(parents=True, exist_ok=True)
 temp_path = temp_dir / f"{output_path.name}.tmp"
 
 # Запись
+
 df.to_csv(temp_path, index=False)
+
 ```
 
-2. **Валидация checksums (опционально, для критичных данных)**
+1. **Валидация checksums (опционально, для критичных данных)**
 
 ```python
 checksum = compute_checksum(temp_path)
+
 # Запись checksum в метаданные
+
 ```
 
-3. **Атомарный replace**
+1. **Атомарный replace**
 
 ```python
+
 # os.replace() гарантирует атомарность на POSIX и Windows
+
 output_path.parent.mkdir(parents=True, exist_ok=True)
 os.replace(str(temp_path), str(output_path))  # Atomic операция
+
 ```
 
-4. **Guaranteed cleanup при любой ошибке**
+1. **Guaranteed cleanup при любой ошибке**
 
 ```python
 try:
     # Write + replace
+
     write_data()
 except Exception as e:
     # Cleanup temp files
+
     temp_path.unlink(missing_ok=True)
     raise
 finally:
     # Cleanup temp directory
+
     if temp_dir.exists():
         for temp_file in temp_dir.glob("*.tmp"):
             temp_file.unlink(missing_ok=True)
@@ -716,6 +831,7 @@ finally:
             temp_dir.rmdir()
         except OSError:
             pass
+
 ```
 
 **Инвариант атомарности:** Либо все артефакты записаны, либо ни один (нет partial файлов в финальной директории).
@@ -733,9 +849,13 @@ finally:
 **Критический инвариант:** Частичные артефакты в финальной директории недопустимы.
 
 **Недопустимо:**
+
 - CSV с неполными данными
+
 - `meta.yaml` без checksums или lineage
+
 - Пустые файлы (размер = 0)
+
 - Артефакты без соответствующих QC отчетов (в standard/extended режиме)
 
 **Протокол валидации после записи:**
@@ -744,32 +864,37 @@ finally:
 def validate_artifacts_completeness(artifacts: OutputArtifacts, mode: str) -> None:
     """
     Проверяет полноту всех артефактов после записи.
-    
+
     Raises:
         IOError: при обнаружении частичных артефактов
     """
     # Обязательные артефакты для любого режима
+
     required = [artifacts.dataset, artifacts.quality_report]
-    
+
     # Extended режим добавляет metadata
+
     if mode == "extended":
         if artifacts.metadata:
             required.append(artifacts.metadata)
-    
+
     # Проверка существования и размера
+
     for artifact in required:
         if not artifact.exists():
             raise IOError(f"Partial artifact: {artifact} missing")
-        
+
         if artifact.stat().st_size == 0:
             raise IOError(f"Empty artifact: {artifact}")
-    
+
     # Проверка checksums в meta.yaml (если extended)
+
     if mode == "extended" and artifacts.metadata:
         import yaml
         meta = yaml.safe_load(artifacts.metadata.read_text())
         if "checksums" not in meta or not meta["checksums"]:
             raise IOError(f"Missing checksums in {artifacts.metadata}")
+
 ```
 
 **Acceptance Criteria AC-02:** При вызове этой функции после записи не должно быть частичных артефактов.
@@ -781,43 +906,53 @@ def validate_artifacts_completeness(artifacts: OutputArtifacts, mode: str) -> No
 ### Флаги
 
 ```bash
+
 # Dry run (валидация без записи)
+
 python pipeline.py --dry-run
 
 # Ограничение количества записей
+
 python pipeline.py --limit 1000
 
 # Сэмплирование данных
+
 python pipeline.py --sample 0.1  # 10% данных
 
 # Golden comparison
+
 python pipeline.py --golden data/output/golden/documents_20250115.csv
 
 # Формат вывода
+
 python pipeline.py --output-format parquet  # csv или parquet
+
 ```
 
 ### Сценарий: Golden Run
 
 Контрольный прогон для проверки детерминизма.
 
-**Этап 1: Создание golden**
+### Этап 1: Создание golden
 
 ```bash
 python pipeline.py --input data/input/documents.csv \
                    --output data/output/golden/
+
 ```
 
-**Этап 2: Сравнение с golden**
+### Этап 2: Сравнение с golden
 
 ```bash
 python pipeline.py --input data/input/documents.csv \
                    --golden data/output/golden/documents_20250115.csv
+
 ```
 
 **Результат:**
 
 - При совпадении: `✅ Deterministic output confirmed`
+
 - При расхождении: отчет diff.txt с различиями
 
 **Формат отчета diff.txt:**
@@ -830,13 +965,16 @@ Row 42: Column 'title' differs
 Row 123: Hash mismatch
   golden_hash: "abc123..."
   actual_hash: "def456..."
+
 ```
 
 ### Сценарий: Sampling для тестов
 
 Быстрая проверка на малой выборке:
+
 ```bash
 python pipeline.py --sample 0.01 --limit 100  # 1% или 100 строк
+
 ```
 
 ## Режимы работы
@@ -846,13 +984,17 @@ python pipeline.py --sample 0.01 --limit 100  # 1% или 100 строк
 **Критическое изменение:** Корреляционный анализ является **опциональным** и по умолчанию **выключен**.
 
 ```yaml
+
 # Конфигурация корреляций
+
 postprocess:
   correlation:
     enabled: false  # По умолчанию ВЫКЛЮЧЕН
+
     steps:
       - name: "correlation_analysis"
         enabled: false
+
 ```
 
 **Обоснование:** Корреляции не являются частью ETL-контракта и создают риск недетерминизма из-за численных алгоритмов.
@@ -862,37 +1004,56 @@ postprocess:
 ### Standard (без correlation по умолчанию)
 
 ```text
+
 # Создает основные артефакты без correlation:
+
 output.documents_20250128.csv
 output.documents_20250128_quality_report_table.csv
+
 ```
 
 **При включении correlation (опционально):**
+
 ```text
 output.documents_20250128_data_correlation_report_table.csv
+
 ```
 
 **Инварианты:**
+
 - Checksums стабильны при одинаковом вводе (SHA256)
+
 - Порядок строк фиксирован (deterministic sort)
+
 - Column order из Schema Registry
+
 - NA-policy: `""` для строк, `null` для чисел
+
 - Correlation опциональный (по умолчанию выключен)
 
 ### Extended (+ metadata и manifest)
 
 ```text
+
 # Добавляет метаданные и manifest:
+
 output.documents_20250128.meta.yaml
 reports/run_manifest_20250128142315.json
+
 ```
 
 **Инварианты:**
+
 - `meta.yaml` валиден по YAML schema
+
 - `lineage` содержит все трансформации
+
 - `checksums` вычислены для всех артефактов
+
 - `git_commit` присутствует в production
+
 - Нет частичных артефактов (все или ничего)
+
 - `column_order` копируется из Schema Registry (не источник истины)
 
 ## Acceptance Criteria
@@ -904,8 +1065,10 @@ reports/run_manifest_20250128142315.json
 **Цель:** Проверка бит-в-бит воспроизводимости вывода.
 
 **Команда:**
+
 ```bash
 python pipeline.py --input X --golden data/output/golden/Y.csv
+
 ```
 
 **Ожидаемый результат:** "✅ Deterministic output confirmed" или пустой `diff.txt`.
@@ -917,11 +1080,15 @@ python pipeline.py --input X --golden data/output/golden/Y.csv
 **Цель:** Гарантировать, что все файлы записаны полностью или не записаны вообще.
 
 **Проверка:**
+
 ```python
+
 # После write()
+
 for artifact in [artifacts.dataset, artifacts.quality_report, ...]:
     assert artifact.exists(), f"Missing: {artifact}"
     assert artifact.stat().st_size > 0, f"Empty: {artifact}"
+
 ```
 
 **Порог:** Нет частичных файлов в финальной директории.
@@ -931,8 +1098,10 @@ for artifact in [artifacts.dataset, artifacts.quality_report, ...]:
 **Цель:** Гарантировать, что порядок колонок соответствует Schema Registry.
 
 **Проверка:**
+
 ```python
 assert df.columns.tolist() == schema.column_order
+
 ```
 
 **Ожидаемое:** Полное совпадение порядка.
@@ -942,26 +1111,39 @@ assert df.columns.tolist() == schema.column_order
 **Цель:** Проверка применения канонической политики NA.
 
 **Тестовые данные:**
+
 - Строковое NA → `""`
+
 - Числовое NaN → `null` в JSON, пустое в CSV
 
 **Проверка:**
+
 ```python
+
 # После канонической сериализации
+
 serialized_row = canonicalize_row_for_hash(row, column_order)
 assert '"string_field": ""' in serialized_row  # пустая строка
+
 assert '"numeric_field": null' in serialized_row  # null
+
 ```
 
 ## Best Practices
 
 1. **Всегда используйте schema**: валидация перед записью предотвращает ошибки
-2. **Фиксируйте column_order**: для воспроизводимости
-3. **Задавайте key_columns**: для детерминированной сортировки
-4. **Используйте standard mode для production**: уменьшает размер вывода
-5. **Используйте extended mode для debugging**: полные метаданные
-6. **CSV для человекочитаемости**: Parquet для производительности и размера
-7. **Проверяйте artifacts перед использованием**: существование файлов
+
+1. **Фиксируйте column_order**: для воспроизводимости
+
+1. **Задавайте key_columns**: для детерминированной сортировки
+
+1. **Используйте standard mode для production**: уменьшает размер вывода
+
+1. **Используйте extended mode для debugging**: полные метаданные
+
+1. **CSV для человекочитаемости**: Parquet для производительности и размера
+
+1. **Проверяйте artifacts перед использованием**: существование файлов
 
 ## Обработка ошибок
 
@@ -974,6 +1156,7 @@ except pa.errors.SchemaErrors as e:
 except IOError as e:
     logger.error("IO error during write", error=str(e))
     raise
+
 ```
 
 ## Интеграция с UnifiedLogger
@@ -989,6 +1172,7 @@ with bind_stage(logger, "write_output"):
         row_count=len(df),
         checksum=compute_checksum(artifacts.dataset)
     )
+
 ```
 
 ## Миграция
@@ -996,27 +1180,36 @@ with bind_stage(logger, "write_output"):
 ### Из bioactivity_data_acquisition5
 
 ```python
+
 # Было
+
 from library.io.read_write import write_publications
 write_publications(df, path)
 
 # Стало
+
 from unified_output import UnifiedOutputWriter
 writer = UnifiedOutputWriter()
 writer.write(df, table_name="documents", date_tag="20250128")
+
 ```
 
 ### Из ChEMBL_data_acquisition6
 
 ```python
+
 # Было
+
 from library.io.output_writer import save_standard_outputs
 save_standard_outputs(df, qc_df, corr_df, "documents", "20250128")
 
 # Стало
+
 from unified_output import UnifiedOutputWriter
 writer = UnifiedOutputWriter()  # Автоматически генерирует QC и correlation
+
 writer.write(df, table_name="documents", date_tag="20250128")
+
 ```
 
 ---

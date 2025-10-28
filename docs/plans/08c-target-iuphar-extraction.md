@@ -13,7 +13,9 @@ IUPHAR/BPS Guide to Pharmacology (GtoPdb) предоставляет фарма�
 ### Базовая конфигурация
 
 - **Base URL**: `https://www.guidetopharmacology.org/services/`
+
 - **API version**: v1
+
 - **Форматы**: JSON
 
 ### Ключевые сервисы
@@ -23,16 +25,24 @@ IUPHAR/BPS Guide to Pharmacology (GtoPdb) предоставляет фарма�
 Получение списка всех таргетов с метаданными.
 
 **Пример:**
+
 ```bash
 GET https://www.guidetopharmacology.org/services/targets?format=json
+
 ```
 
 **Параметры:**
+
 - `type`: фильтр по типу target
+
 - `name`: поиск по названию
+
 - `geneSymbol`: фильтр по gene symbol
+
 - `ecNumber`: фильтр по EC number
+
 - `accession`: фильтр по UniProt accession
+
 - `database`: фильтр по базе данных
 
 #### /targets/families - Иерархия семейств
@@ -40,11 +50,14 @@ GET https://www.guidetopharmacology.org/services/targets?format=json
 Получение всех families с иерархической структурой.
 
 **Пример:**
+
 ```bash
 GET https://www.guidetopharmacology.org/services/targets/families?format=json
+
 ```
 
 **Структура response:**
+
 ```json
 {
   "familyId": 1,
@@ -54,6 +67,7 @@ GET https://www.guidetopharmacology.org/services/targets/families?format=json
   "fullNamePath": "GPCRs",
   "targetIds": [1, 2, 3, ...]
 }
+
 ```
 
 #### /targets/families/{id} - Детали семейства
@@ -90,35 +104,52 @@ GET https://www.guidetopharmacology.org/services/targets/families?format=json
 @dataclass
 class IUPHARData:
     """Container for IUPHAR target and family data."""
-    
+
     target_df: pd.DataFrame
     family_df: pd.DataFrame
     _target_cache: dict[str, pd.Series | None]
     _family_cache: dict[str, pd.Series | None]
+
 ```
 
 ### Target DataFrame structure
 
 **Ключевые поля:**
+
 - `target_id`: уникальный IUPHAR ID (integer)
+
 - `name`: название target
+
 - `type`: тип (receptor, ion channel, enzyme, transporter)
+
 - `class`: класс (например, "GPCR")
+
 - `subclass`: подкласс (например, "Class A")
+
 - `family_id`: FK к families table
+
 - `hgnc_id`, `hgnc_name`: HGNC gene information
+
 - `uniprot_id_primary`: primary UniProt accession
+
 - `organism`, `taxon_id`: таксономия
+
 - `description`: описание функции
 
 ### Family DataFrame structure
 
 **Ключевые поля:**
+
 - `family_id`: уникальный ID family
+
 - `family_name`: название
+
 - `parent_id`: родительское family (для иерархии)
+
 - `full_id_path`: полный путь ID (например, "1.2.3.4")
+
 - `full_name_path`: полный путь названий (например, "GPCRs > Class A > Adenosine")
+
 - `target_ids`: список target IDs (pipe-delimited)
 
 ### Lookup caches
@@ -127,8 +158,11 @@ class IUPHARData:
 
 ```python
 _target_df_by_id: pd.DataFrame        # Indexed by target_id
+
 _family_df_by_id: pd.DataFrame        # Indexed by family_id
+
 _family_by_target: dict[str, pd.Series]  # Mapping target_id → family row
+
 ```
 
 ---
@@ -140,33 +174,44 @@ _family_by_target: dict[str, pd.Series]  # Mapping target_id → family row
 IUPHAR использует иерархическую классификацию:
 
 ```
+
 Type
  └── Class (L1)
       └── Subclass (L2)
            └── Chain (L3)
                 └── Specific target
+
 ```
 
 **Пример:**
+
 ```
+
 GPCRs (Type: Receptor, Class: GPCR)
   └── Class A (Subclass)
        └── Adenosine receptors (Chain)
             └── A1 adenosine receptor (Target)
+
 ```
 
 ### Full ID/Name paths
 
 **Full ID path:**
+
 - Формат: "1.2.3.4" (dot-separated hierarchy levels)
+
 - Строится рекурсивно через parent_id
 
 **Full name path:**
+
 - Формат: "GPCRs > Class A > Adenosine > A1"
+
 - Строится как конкатенация всех ancestor names
 
 **Mapping к target:**
+
 - Через `target_id` в families table
+
 - Join с targets по `target_id`
 
 ---
@@ -184,10 +229,13 @@ def get_hgnc_mapping(iuphar_data: IUPHARData, target_id: str) -> tuple[str, str]
     hgnc_name = target.get("hgnc_name", "")
     hgnc_id = target.get("hgnc_id", "")
     return hgnc_name, hgnc_id
+
 ```
 
 **Формат HGNC ID:**
+
 - IUPHAR: "HGNC:123" или plain "123"
+
 - Normalized: "123" (только число)
 
 ### UniProt mapping
@@ -199,6 +247,7 @@ def get_uniprot_mapping(iuphar_data: IUPHARData, target_id: str) -> str:
     """Extract primary UniProt ID from IUPHAR data."""
     target = iuphar_data.target_df[target_id]
     return target.get("uniprot_id_primary", "")
+
 ```
 
 ---
@@ -213,7 +262,9 @@ def get_uniprot_mapping(iuphar_data: IUPHARData, target_id: str) -> str:
 def get_natural_ligands_count(iuphar_data: IUPHARData, target_id: str) -> int:
     """Get count of natural ligands for target."""
     # Lookup через databaseLinks или external API call
+
     # Returns: gtop_natural_ligands_n
+
 ```
 
 ### Interactions count
@@ -224,6 +275,7 @@ def get_natural_ligands_count(iuphar_data: IUPHARData, target_id: str) -> int:
 def get_interactions_count(iuphar_data: IUPHARData, target_id: str) -> int:
     """Get count of interactions for target."""
     # Returns: gtop_interactions_n
+
 ```
 
 ### Function text
@@ -235,6 +287,7 @@ def get_function_text(iuphar_data: IUPHARData, target_id: str) -> str:
     """Get function description for target."""
     target = iuphar_data.target_df[target_id]
     return target.get("description", "")[:200]  # Truncate to 200 chars
+
 ```
 
 ### Synonyms
@@ -245,7 +298,9 @@ Pipe-delimited список синонимов:
 def get_synonyms(iuphar_data: IUPHARData, target_id: str) -> str:
     """Get pipe-delimited synonyms for target."""
     # Fetch через /targets/{id}/synonyms endpoint
+
     # Returns: "synonym1|synonym2|synonym3"
+
 ```
 
 ---
@@ -262,8 +317,9 @@ def merge_iuphar_data(
     iuphar_data: IUPHARData
 ) -> pd.DataFrame:
     """Merge IUPHAR classification into ChEMBL data."""
-    
+
     # Primary join: UniProt Accession
+
     result = chembl_df.merge(
         iuphar_data.target_df,
         left_on="uniprot_id_primary",
@@ -271,8 +327,9 @@ def merge_iuphar_data(
         how="left",
         suffixes=("_chembl", "_iuphar")
     )
-    
+
     # Fallback join: HGNC gene symbol
+
     missing_mask = result["target_id_iuphar"].isna()
     if missing_mask.any():
         result.loc[missing_mask, :] = result.loc[missing_mask, :].merge(
@@ -282,14 +339,17 @@ def merge_iuphar_data(
             how="left",
             suffixes=("_chembl", "_iuphar")
         )
-    
+
     return result
+
 ```
 
 ### Join priorities
 
 1. **Primary**: `uniprot_id_primary` (самый точный)
+
 2. **Secondary**: `gene_symbol` (fallback при отсутствии UniProt)
+
 3. **Tertiary**: name fuzzy match (последний resort)
 
 ### Конфликты
@@ -297,21 +357,29 @@ def merge_iuphar_data(
 При конфликтах данных применяется правило приоритета:
 
 **ChEMBL priority для core fields:**
+
 - `target_chembl_id`, `pref_name`, `target_type`, `organism`
 
 **IUPHAR priority для classification:**
+
 - `type`, `class`, `subclass`, `full_name_path`
+
 - `natural_ligands_n`, `interactions_n`
 
 ### Error handling
 
 IUPHAR API может возвращать:
+
 - **204 No Content**: нет данных для target
+
 - **404 Not Found**: target не существует
 
 **Response:**
+
 - Не паниковать, пропускать target
+
 - Логировать пропуски для аудита
+
 - Continue pipeline без прерывания
 
 ---
@@ -325,11 +393,13 @@ from library.integration.iuphar_library import IUPHARData
 from library.clients.iuphar import load_targets, load_families
 
 # Загрузка из CSV files
+
 iuphar_data = IUPHARData.from_files(
     target_path="data/iuphar/targets.csv",
     family_path="data/iuphar/families.csv",
     encoding="utf-8"
 )
+
 ```
 
 ### Enrichment полного pipeline
@@ -340,11 +410,13 @@ def enrich_with_iuphar(
     iuphar_data: IUPHARData
 ) -> pd.DataFrame:
     """Enrich ChEMBL data with IUPHAR classification."""
-    
+
     # Merge targets
+
     enriched = merge_iuphar_data(chembl_df, iuphar_data)
-    
+
     # Extract family paths
+
     for idx, row in enriched.iterrows():
         target_id = row.get("target_id_iuphar")
         if pd.notna(target_id):
@@ -352,8 +424,9 @@ def enrich_with_iuphar(
             if family is not None:
                 enriched.at[idx, "iuphar_full_id_path"] = family.get("full_id_path")
                 enriched.at[idx, "iuphar_full_name_path"] = family.get("full_name_path")
-    
+
     return enriched
+
 ```
 
 ---
@@ -361,6 +434,8 @@ def enrich_with_iuphar(
 ## Ссылки
 
 - [IUPHAR/BPS Guide to PHARMACOLOGY](https://www.guidetopharmacology.org/webServices.jsp)
+
 - [GtoPdb API Documentation](https://www.guidetopharmacology.org/services/targets/)
+
 - Код: `e:\github\ChEMBL_data_acquisition6\library\integration\iuphar_library.py`
 

@@ -5,9 +5,13 @@
 Все пайплайны используют единую систему конфигурации на базе YAML и Pydantic. Базовый файл `configs/base.yaml` описывает обязательные секции, а профильные конфигурации (например, `configs/pipelines/assay.yaml`) расширяют его через механизм наследования. Переопределения допускаются через CLI и переменные окружения с приоритетом `base.yaml < profile.yaml < CLI < env`.
 
 **Цели стандарта:**
+
 - типобезопасность и единая точка валидации;
+
 - детерминированная сериализация конфигураций (hash → `config_hash`);
+
 - предсказуемые правила расширения и приоритетов;
+
 - единая схема логических секций (`http`, `cache`, `determinism`, `postprocess`, `paths`, `qc`, `cli`).
 
 ## 2. Базовая схема YAML
@@ -20,6 +24,7 @@ pipeline:
   name: "base"
   entity: "abstract"
   release_scope: true  # связывать конфиг с версией источника
+
 http:
   global:
     timeout_sec: 60.0
@@ -50,6 +55,7 @@ qc:
   severity_threshold: "warning"
 cli:
   default_config: "configs/base.yaml"
+
 ```
 
 ### 2.1 Обязательные поля и их назначение
@@ -73,7 +79,9 @@ cli:
 Каждый профильный файл должен объявлять, от какого шаблона он расширяется, с помощью ключа `extends`:
 
 ```yaml
+
 # configs/pipelines/assay.yaml
+
 extends: "../base.yaml"
 pipeline:
   name: "assay"
@@ -85,11 +93,15 @@ sources:
     base_url: "https://www.ebi.ac.uk/chembl/api/data"
     batch_size: 25
     max_url_length: 2000
+
 ```
 
 Мерж выполняется по правилам «глубокого» обновления словарей:
+
 - словари объединяются рекурсивно;
+
 - списки считаются атомарными и полностью заменяются дочерними значениями (например, `determinism.sort.by` в профиле полностью заменяет базовый список);
+
 - скалярные значения заменяются последним источником.
 
 Профильные файлы могут ссылаться на общие шаблоны через `anchors` и `aliases`, однако итоговая конфигурация после развёртывания должна соответствовать модели из раздела 4.
@@ -157,6 +169,7 @@ class PipelineConfig(BaseModel):
         if value != 1:
             raise ValueError("Unsupported config version")
         return value
+
 ```
 
 Модели используют `env` и `alias` для поддержки плоских переопределений. При сериализации в YAML необходимо применять `model_dump()` и `yaml.safe_dump` с `sort_keys=True`.
@@ -172,6 +185,7 @@ bioetl pipeline run \
   --config configs/pipelines/assay.yaml \
   --set sources.chembl.batch_size=20 \
   --set http.global.timeout_sec=45
+
 ```
 
 Путь интерпретируется точечной нотацией и применяется после загрузки профильного файла. Для сложных структур допускается передача JSON-строки: `--set determinism.sort.by='["assay_chembl_id"]'`.
@@ -207,6 +221,7 @@ bioetl pipeline run \
   1. объявить `extends` на `../base.yaml` или иной общий шаблон;
   2. пройти валидацию `PipelineConfig.validate_yaml(path)` (реализация в `src/config/loader.py`);
   3. задокументировать специфичные ограничения (batch size, TTL, сортировка).
+
 - Набор линтеров (`ruff`, `mypy`) должен проверять, что `PipelineConfig` не допускает неизвестных полей (`model_config = ConfigDict(extra="forbid")`).
 
 Применение этого стандарта обеспечивает единообразие конфигураций, избавляет от копипасты YAML и упрощает сопровождение CLI/CI-переопределений.

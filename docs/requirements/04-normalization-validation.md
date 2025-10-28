@@ -3,9 +3,13 @@
 ## Обзор
 
 UnifiedSchema — система нормализации и валидации, объединяющая:
+
 - **Модульные нормализаторы** с реестром (bioactivity_data_acquisition5)
+
 - **Источник-специфичные схемы** для разных API (ChEMBL_data_acquisition6)
+
 - **Pandera валидацию** с метаданными
+
 - **Фабрики полей** для типовых идентификаторов
 
 ## Архитектура
@@ -44,6 +48,7 @@ Schema System (Pandera)
 │       └── TestItemSchema
 │           ├── ChEMBLTestItemSchema
 │           └── PubChemTestItemSchema
+
 ```
 
 ## Компоненты нормализации
@@ -57,17 +62,17 @@ from abc import ABC, abstractmethod
 
 class BaseNormalizer(ABC):
     """Базовый класс для нормализаторов."""
-    
+
     @abstractmethod
     def normalize(self, value: Any) -> Any:
         """Нормализует значение."""
         pass
-    
+
     @abstractmethod
     def validate(self, value: Any) -> bool:
         """Проверяет корректность значения."""
         pass
-    
+
     def safe_normalize(self, value: Any) -> Any:
         """Безопасная нормализация с обработкой ошибок."""
         try:
@@ -75,6 +80,7 @@ class BaseNormalizer(ABC):
         except Exception as e:
             logger.warning(f"Normalization failed: {e}", value=value)
             return None
+
 ```
 
 ### 2. StringNormalizer
@@ -84,38 +90,39 @@ class BaseNormalizer(ABC):
 ```python
 class StringNormalizer(BaseNormalizer):
     """Нормализатор строк."""
-    
+
     def __init__(self):
         self.normalizations = [
             self.strip,
             self.nfc,
             self.whitespace
         ]
-    
+
     def normalize(self, value: str | None) -> str | None:
         """Нормализует строку."""
         if value is None or not isinstance(value, str):
             return None
-        
+
         result = value
         for func in self.normalizations:
             result = func(result)
-        
+
         return result if result else None
-    
+
     def strip(self, s: str) -> str:
         """Удаляет пробелы в начале и конце."""
         return s.strip()
-    
+
     def nfc(self, s: str) -> str:
         """Приводит к Unicode NFC."""
         import unicodedata
         return unicodedata.normalize('NFC', s)
-    
+
     def whitespace(self, s: str) -> str:
         """Нормализует множественные пробелы."""
         import re
         return re.sub(r'\s+', ' ', s)
+
 ```
 
 ### 3. IdentifierNormalizer
@@ -125,7 +132,7 @@ class StringNormalizer(BaseNormalizer):
 ```python
 class IdentifierNormalizer(BaseNormalizer):
     """Нормализатор идентификаторов."""
-    
+
     PATTERNS = {
         'doi': r'^10\.\d+/.+$',
         'pmid': r'^\d+$',
@@ -134,31 +141,36 @@ class IdentifierNormalizer(BaseNormalizer):
         'pubchem_cid': r'^\d+$',
         'inchi_key': r'^[A-Z]{14}-[A-Z]{10}-[A-Z]$'
     }
-    
+
     def normalize(self, value: str) -> str | None:
         """Нормализует идентификатор."""
         if not value or not isinstance(value, str):
             return None
-        
+
         s = value.strip().upper()
-        
+
         # ChEMBL ID
+
         if s.startswith('CHEMBL'):
             return s
-        
+
         # DOI
+
         if s.startswith('10.'):
             return s.lower()
-        
+
         # PMID, PubChem CID
+
         if s.isdigit():
             return s
-        
+
         # UniProt
+
         if re.match(self.PATTERNS['uniprot'], s):
             return s.upper()
-        
+
         return s
+
 ```
 
 ### 4. ChemistryNormalizer
@@ -168,32 +180,36 @@ class IdentifierNormalizer(BaseNormalizer):
 ```python
 class ChemistryNormalizer(BaseNormalizer):
     """Нормализатор химических структур."""
-    
+
     def normalize_smiles(self, value: str) -> str | None:
         """Нормализует SMILES."""
         if not value:
             return None
-        
+
         # Базовая нормализация
+
         s = value.strip()
-        
+
         # Удаляем дублирующиеся пробелы
+
         s = re.sub(r'\s+', ' ', s)
-        
+
         return s if s else None
-    
+
     def normalize_inchi(self, value: str) -> str | None:
         """Нормализует InChI."""
         if not value:
             return None
-        
+
         s = value.strip()
-        
+
         # InChI должен начинаться с "InChI="
+
         if not s.startswith('InChI='):
             return None
-        
+
         return s
+
 ```
 
 ### 5. NormalizerRegistry
@@ -203,21 +219,21 @@ class ChemistryNormalizer(BaseNormalizer):
 ```python
 class NormalizerRegistry:
     """Реестр нормализаторов."""
-    
+
     _registry: dict[str, BaseNormalizer] = {}
-    
+
     @classmethod
     def register(cls, name: str, normalizer: BaseNormalizer):
         """Регистрирует нормализатор."""
         cls._registry[name] = normalizer
-    
+
     @classmethod
     def get(cls, name: str) -> BaseNormalizer:
         """Получает нормализатор по имени."""
         if name not in cls._registry:
             raise ValueError(f"Normalizer {name} not found")
         return cls._registry[name]
-    
+
     @classmethod
     def normalize(cls, name: str, value: Any) -> Any:
         """Нормализует значение через нормализатор."""
@@ -225,10 +241,12 @@ class NormalizerRegistry:
         return normalizer.safe_normalize(value)
 
 # Инициализация
+
 registry = NormalizerRegistry()
 registry.register("string", StringNormalizer())
 registry.register("identifier", IdentifierNormalizer())
 registry.register("chemistry", ChemistryNormalizer())
+
 ```
 
 ## Компоненты схем Pandera
@@ -240,20 +258,24 @@ registry.register("chemistry", ChemistryNormalizer())
 ```python
 class BaseSchema(pa.DataFrameModel):
     """Базовый класс для Pandera схем."""
-    
+
     # Системные поля
+
     index: int = pa.Field(ge=0, nullable=False)
     pipeline_version: str = pa.Field(nullable=False)
     source_system: str = pa.Field(nullable=False)
     chembl_release: str | None = pa.Field(nullable=True)
     extracted_at: str = pa.Field(nullable=False)  # ISO8601 UTC
+
     hash_row: str = pa.Field(nullable=False, str_length=64)  # SHA256
+
     hash_business_key: str = pa.Field(nullable=False, str_length=64)
-    
+
     class Config:
         strict = True
         coerce = True
         ordered = True
+
 ```
 
 ### 2. DocumentSchema — ChEMBL
@@ -261,7 +283,7 @@ class BaseSchema(pa.DataFrameModel):
 ```python
 class ChEMBLDocumentSchema(BaseSchema):
     """Схема для ChEMBL документов."""
-    
+
     document_chembl_id: str = pa.Field(
         nullable=False,
         str_matches=r'^CHEMBL\d+$'
@@ -275,6 +297,7 @@ class ChEMBLDocumentSchema(BaseSchema):
     last_page: str | None = pa.Field(nullable=True)
     doi: str | None = pa.Field(nullable=True, str_matches=r'^10\.\d+/.+$')
     pmid: str | None = pa.Field(nullable=True, str_matches=r'^\d+$')
+
 ```
 
 ### 3. DocumentSchema — PubMed
@@ -282,7 +305,7 @@ class ChEMBLDocumentSchema(BaseSchema):
 ```python
 class PubMedDocumentSchema(BaseSchema):
     """Схема для PubMed документов."""
-    
+
     pmid: str = pa.Field(nullable=False, str_matches=r'^\d+$')
     title: str = pa.Field(nullable=False)
     journal_info: str | None = pa.Field(nullable=True)
@@ -291,6 +314,7 @@ class PubMedDocumentSchema(BaseSchema):
     abstract: str | None = pa.Field(nullable=True)
     mesh_terms: str | None = pa.Field(nullable=True)
     doi: str | None = pa.Field(nullable=True)
+
 ```
 
 ### 4. DocumentSchema — CrossRef
@@ -298,13 +322,14 @@ class PubMedDocumentSchema(BaseSchema):
 ```python
 class CrossRefDocumentSchema(BaseSchema):
     """Схема для CrossRef документов."""
-    
+
     doi: str = pa.Field(nullable=False, str_matches=r'^10\.\d+/.+$')
     title: str = pa.Field(nullable=False)
     type: str | None = pa.Field(nullable=True)
     subtype: str | None = pa.Field(nullable=True)
     subject: str | None = pa.Field(nullable=True)
     publisher: str | None = pa.Field(nullable=True)
+
 ```
 
 ### 5. DocumentSchema — OpenAlex
@@ -312,13 +337,14 @@ class CrossRefDocumentSchema(BaseSchema):
 ```python
 class OpenAlexDocumentSchema(BaseSchema):
     """Схема для OpenAlex документов."""
-    
+
     openalex_id: str | None = pa.Field(nullable=True)
     publication_types: str | None = pa.Field(nullable=True)
     genre: str | None = pa.Field(nullable=True)
     venue: str | None = pa.Field(nullable=True)
     mesh_descriptors: str | None = pa.Field(nullable=True)
     mesh_qualifiers: str | None = pa.Field(nullable=True)
+
 ```
 
 ### 6. DocumentSchema — Semantic Scholar
@@ -326,12 +352,13 @@ class OpenAlexDocumentSchema(BaseSchema):
 ```python
 class SemanticScholarDocumentSchema(BaseSchema):
     """Схема для Semantic Scholar документов."""
-    
+
     s2_id: str | None = pa.Field(nullable=True)
     title: str | None = pa.Field(nullable=True)
     authors: str | None = pa.Field(nullable=True)
     citation_count: int | None = pa.Field(ge=0, nullable=True)
     influential_citations: int | None = pa.Field(ge=0, nullable=True)
+
 ```
 
 ### 7. TargetSchema — ChEMBL
@@ -339,7 +366,7 @@ class SemanticScholarDocumentSchema(BaseSchema):
 ```python
 class ChEMBLTargetSchema(BaseSchema):
     """Схема для ChEMBL целей."""
-    
+
     target_chembl_id: str = pa.Field(
         nullable=False,
         str_matches=r'^CHEMBL\d+$'
@@ -348,6 +375,7 @@ class ChEMBLTargetSchema(BaseSchema):
     target_components: str | None = pa.Field(nullable=True)
     organism: str | None = pa.Field(nullable=True)
     pref_name: str | None = pa.Field(nullable=True)
+
 ```
 
 ### 8. TargetSchema — UniProt
@@ -355,7 +383,7 @@ class ChEMBLTargetSchema(BaseSchema):
 ```python
 class UniProtTargetSchema(BaseSchema):
     """Схема для UniProt целей."""
-    
+
     uniprot_accession: str = pa.Field(
         nullable=False,
         str_matches=r'^[A-Z0-9]{6,10}(-[0-9]+)?$'
@@ -365,6 +393,7 @@ class UniProtTargetSchema(BaseSchema):
     organism: str | None = pa.Field(nullable=True)
     function: str | None = pa.Field(nullable=True)
     sequence: str | None = pa.Field(nullable=True)
+
 ```
 
 ### 9. TargetSchema — IUPHAR
@@ -372,12 +401,13 @@ class UniProtTargetSchema(BaseSchema):
 ```python
 class IUPHARTargetSchema(BaseSchema):
     """Схема для IUPHAR целей."""
-    
+
     iuphar_id: str | None = pa.Field(nullable=True)
     target_name: str | None = pa.Field(nullable=True)
     target_family: str | None = pa.Field(nullable=True)
     species: str | None = pa.Field(nullable=True)
     ligands: str | None = pa.Field(nullable=True)
+
 ```
 
 ### 10. TestItemSchema — ChEMBL
@@ -385,7 +415,7 @@ class IUPHARTargetSchema(BaseSchema):
 ```python
 class ChEMBLTestItemSchema(BaseSchema):
     """Схема для ChEMBL молекул."""
-    
+
     molecule_chembl_id: str = pa.Field(
         nullable=False,
         str_matches=r'^CHEMBL\d+$'
@@ -396,6 +426,7 @@ class ChEMBLTestItemSchema(BaseSchema):
     molecule_type: str | None = pa.Field(nullable=True)
     canonical_smiles: str | None = pa.Field(nullable=True)
     standard_inchi: str | None = pa.Field(nullable=True)
+
 ```
 
 ### 11. TestItemSchema — PubChem
@@ -403,7 +434,7 @@ class ChEMBLTestItemSchema(BaseSchema):
 ```python
 class PubChemTestItemSchema(BaseSchema):
     """Схема для PubChem соединений."""
-    
+
     pubchem_cid: str = pa.Field(
         nullable=False,
         str_matches=r'^\d+$'
@@ -414,6 +445,7 @@ class PubChemTestItemSchema(BaseSchema):
     canonical_smiles: str | None = pa.Field(nullable=True)
     inchi: str | None = pa.Field(nullable=True)
     inchikey: str | None = pa.Field(nullable=True)
+
 ```
 
 ## Использование
@@ -426,16 +458,23 @@ from unified_schema import NormalizerRegistry
 registry = NormalizerRegistry()
 
 # Нормализация строки
+
 result = registry.normalize("string", "  Hello  World  ")
+
 # → "Hello World"
 
 # Нормализация идентификатора
+
 result = registry.normalize("identifier", " chembl25 ")
+
 # → "CHEMBL25"
 
 # Нормализация DOI
+
 result = registry.normalize("identifier", "10.1234/example")
+
 # → "10.1234/example"
+
 ```
 
 ### Валидация через схемы
@@ -444,12 +483,15 @@ result = registry.normalize("identifier", "10.1234/example")
 from unified_schema import ChEMBLDocumentSchema, PubMedDocumentSchema
 
 # Валидация ChEMBL документа
+
 schema = ChEMBLDocumentSchema
 validated_df = schema.validate(df, lazy=True)
 
 # Валидация PubMed документа
+
 schema = PubMedDocumentSchema
 validated_df = schema.validate(df, lazy=True)
+
 ```
 
 ### Применение нормализации к DataFrame
@@ -458,29 +500,36 @@ validated_df = schema.validate(df, lazy=True)
 def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
     """Применяет нормализацию на основе метаданных схемы."""
     normalized_df = df.copy()
-    
+
     for column, column_info in schema.__fields__.items():
         if column in normalized_df.columns:
             # Получаем нормализаторы из metadata
+
             metadata = column_info.metadata or {}
             normalizers = metadata.get('normalization_functions', [])
-            
+
             for normalizer_name in normalizers:
                 normalizer = NormalizerRegistry.get(normalizer_name)
                 normalized_df[column] = normalized_df[column].apply(
                     lambda x: normalizer.safe_normalize(x)
                 )
-    
+
     return normalized_df
+
 ```
 
 ## Best Practices
 
 1. **Всегда валидируйте через Pandera**: перед записью данных
+
 2. **Используйте lazy=True**: для получения всех ошибок сразу
+
 3. **Применяйте нормализацию до валидации**: очистка данных
+
 4. **Выбирайте правильную схему**: в зависимости от источника
+
 5. **Добавляйте системные поля**: hash_row, hash_business_key
+
 6. **Логируйте ошибки валидации**: для отладки
 
 ## Schema Registry
@@ -490,30 +539,37 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 ### Структура схемы
 
 Каждая схема содержит:
+
 - `schema_id`: уникальный идентификатор (например, `document.chembl`)
+
 - `schema_version`: семантическая версия (semver: MAJOR.MINOR.PATCH)
+
 - `column_order`: источник истины для порядка колонок
 
 ```python
 class DocumentSchema(BaseSchema):
     """Схема для ChEMBL документов."""
-    
+
     # Метаданные схемы
+
     schema_id = "document.chembl"
     schema_version = "2.1.0"
-    
+
     # Порядок колонок (источник истины)
+
     column_order = [
         "document_chembl_id", "title", "journal", "year",
         "doi", "pmid", "hash_business_key", "hash_row"
     ]
-    
+
     # Поля схемы
+
     document_chembl_id: str = pa.Field(str_matches=r'^CHEMBL\d+$')
     title: str = pa.Field(nullable=False)
     journal: str | None = pa.Field(nullable=True)
     year: int | None = pa.Field(ge=1800, le=2030, nullable=True)
     ...
+
 ```
 
 ### Правила эволюции схем
@@ -523,17 +579,27 @@ class DocumentSchema(BaseSchema):
 | Изменение | Impact | Пример | Версия |
 |-----------|--------|--------|--------|
 | Удаление колонки | Breaking | Удалить `pmid` | MAJOR++ |
+
 | Переименование колонки | Breaking | `title` → `article_title` | MAJOR++ |
+
 | Добавление обязательной колонки | Breaking | Добавить обязательный `source` | MAJOR++ |
+
 | Изменение типа колонки | Breaking | `int` → `float` | MAJOR++ |
+
 | Добавление опциональной колонки | Compatible | Добавить опциональный `abstract` | MINOR++ |
+
 | Добавление constraint | Backward | Добавить `min=0` | MINOR++ |
+
 | Изменение column_order | Compatible | Переставить колонки | PATCH++ |
+
 | Документация/комментарии | None | Обновить docstring | PATCH++ |
 
 **Правило "заморозки" колонок:**
+
 - Добавление колонки: minor или major (если обязательная)
+
 - Удаление колонки: только major
+
 - Изменение типа колонки: только major
 
 ### Матрица совместимости
@@ -548,13 +614,15 @@ class DocumentSchema(BaseSchema):
 | 2.x.x | 3.0.0 | ⚠️ Breaking | Полный перезапуск пайплайна |
 
 **Проверка совместимости:**
+
 ```python
 def is_compatible(from_version: str, to_version: str) -> bool:
     """Проверяет совместимость версий."""
     from_major = int(from_version.split('.')[0])
     to_major = int(to_version.split('.')[0])
-    
+
     return from_major == to_major  # Major версия должна совпадать
+
 ```
 
 ### Хранение column_order в схеме (источник истины)
@@ -562,24 +630,32 @@ def is_compatible(from_version: str, to_version: str) -> bool:
 **Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме — fail-fast до записи; NA-policy обязательна для всех таблиц.
 
 ```python
+
 # schema.py (Schema Registry) — источник истины
+
 class DocumentSchema(BaseSchema):
     column_order = ["document_chembl_id", "title", "journal", ...]
 
 # При экспорте
+
 df = df[schema.column_order]  # используем order из схемы
 
 # Валидация перед записью
+
 assert list(df.columns) == schema.column_order, "Column order mismatch!"
 
 # В meta.yaml (только для справки)
+
 meta = {
     "column_order": schema.column_order,  # Копия из схемы
+
     ...
 }
+
 ```
 
 **Fail-fast при несоответствии**:
+
 ```python
 def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
     """Валидация соответствия порядка колонок схеме."""
@@ -588,12 +664,17 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
             f"Column order mismatch: expected {schema.column_order}, "
             f"got {list(df.columns)}"
         )
+
 ```
 
 **Преимущества:**
+
 - Единый источник истины
+
 - Невозможность рассинхронизации
+
 - Простая миграция при изменении порядка
+
 - Fail-fast до записи
 
 **См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC10).
@@ -612,17 +693,19 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
 def validate_schema_compatibility(schema: type[BaseSchema], expected_version: str, fail_on_drift: bool) -> None:
     """
     Проверяет совместимость версий схем.
-    
+
     Raises:
         SchemaDriftError: при несовместимых изменениях и fail_on_drift=True
     """
     actual_version = schema.schema_version
-    
+
     # Разбор версий
+
     expected_major = int(expected_version.split('.')[0])
     actual_major = int(actual_version.split('.')[0])
-    
+
     # Major mismatch = breaking change
+
     if expected_major != actual_major:
         if fail_on_drift:
             raise SchemaDriftError(
@@ -635,6 +718,7 @@ def validate_schema_compatibility(schema: type[BaseSchema], expected_version: st
                 expected=expected_version,
                 actual=actual_version
             )
+
 ```
 
 ### Реестр схем
@@ -644,19 +728,19 @@ def validate_schema_compatibility(schema: type[BaseSchema], expected_version: st
 ```python
 class SchemaRegistry:
     """Реестр всех Pandera схем с валидацией версий."""
-    
+
     _schemas: dict[str, type[BaseSchema]] = {}
-    
+
     @classmethod
     def register(cls, schema: type[BaseSchema]):
         """Регистрирует схему."""
         schema_id = schema.schema_id
         cls._schemas[schema_id] = schema
-    
+
     @classmethod
     def get(
-        cls, 
-        schema_id: str, 
+        cls,
+        schema_id: str,
         expected_version: str | None = None,
         fail_on_drift: bool = True
     ) -> type[BaseSchema]:
@@ -664,17 +748,20 @@ class SchemaRegistry:
         schema = cls._schemas.get(schema_id)
         if not schema:
             raise ValueError(f"Schema {schema_id} not found")
-        
+
         # Проверка версии
+
         if expected_version:
             validate_schema_compatibility(schema, expected_version, fail_on_drift)
-        
+
         return schema
 
 # Инициализация
+
 SchemaRegistry.register(DocumentSchema)
 SchemaRegistry.register(ActivitySchema)
 SchemaRegistry.register(TargetSchema)
+
 ```
 
 ## Расширение
@@ -685,14 +772,18 @@ SchemaRegistry.register(TargetSchema)
 class CustomNormalizer(BaseNormalizer):
     def normalize(self, value: Any) -> Any:
         # Ваша логика
+
         return normalized_value
-    
+
     def validate(self, value: Any) -> bool:
         # Ваша проверка
+
         return is_valid
 
 # Регистрация
+
 NormalizerRegistry.register("custom", CustomNormalizer())
+
 ```
 
 ### Создание новой схемы
@@ -700,16 +791,20 @@ NormalizerRegistry.register("custom", CustomNormalizer())
 ```python
 class MyCustomSchema(BaseSchema):
     # Метаданные
+
     schema_id = "custom.mytable"
     schema_version = "1.0.0"
     column_order = ["id", "name", "value"]
-    
+
     # Поля
+
     custom_field: str = pa.Field(nullable=False)
     other_field: int | None = pa.Field(ge=0, nullable=True)
-    
+
     # Регистрация
+
     SchemaRegistry.register(MyCustomSchema)
+
 ```
 
 ## NA-policy Инвариант
@@ -717,24 +812,36 @@ class MyCustomSchema(BaseSchema):
 **Критический инвариант (v3.0):** Все NA/None/NaN значения преобразуются в `""` (пустая строка) перед записью и хешированием.
 
 **Правило:**
+
 - Строковые колонки: `NA` → `""`
+
 - Числовые колонки: `NaN` → `""`
+
 - Даты и время: `NaT` → `""`
+
 - Булевы: `NA` → `""`
 
 **Обоснование:**
+
 - Обеспечивает детерминизм канонической сериализации при вычислении хешей
+
 - Упрощает логику обработки (не нужно различать типы NA по типу колонки)
+
 - Гарантирует бит-в-бит идентичность при одинаковом вводе
 
 **Применение:**
+
 ```python
+
 # Перед записью
+
 df = df.fillna("")
 
 # В канонической сериализации
+
 if pd.isna(value):
     canonical[col] = ""  # Для всех типов
+
 ```
 
 ## Acceptance Criteria
@@ -744,14 +851,21 @@ if pd.isna(value):
 **Цель:** Гарантировать fail-fast при несовместимых изменениях схемы.
 
 **Тест:**
+
 ```python
+
 # Запуск с несовпадающей major-версией и --fail-on-schema-drift
+
 schema = SchemaRegistry.get("document.chembl", expected_version="3.0.0", fail_on_drift=True)
+
 # Ожидаемое: SchemaDriftError
 
 # Без флага - warning
+
 schema = SchemaRegistry.get("document.chembl", expected_version="3.0.0", fail_on_drift=False)
+
 # Ожидаемое: warning в логах
+
 ```
 
 **Порог:** exit != 0 при fail_on_drift=True и major mismatch.
@@ -761,14 +875,17 @@ schema = SchemaRegistry.get("document.chembl", expected_version="3.0.0", fail_on
 **Цель:** Гарантировать, что порядок колонок соответствует схеме.
 
 **Тест:**
+
 ```python
 df = pd.DataFrame({...})
 schema = ActivitySchema()
 
 # Применение column_order из схемы
+
 df_ordered = df[schema.column_order]
 
 assert df_ordered.columns.tolist() == schema.column_order
+
 ```
 
 **Ожидаемое:** Полное совпадение порядка колонок.
