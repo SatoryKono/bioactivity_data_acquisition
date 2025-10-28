@@ -107,10 +107,106 @@ data = r.json()
 - `limit` — количество записей на странице (default: 20, max: см. раздел UNCERTAIN)
 - `offset` — смещение для offset-based pagination
 
+**⚠️ Breaking Change (v3.0):** Activity pipeline теперь использует **batch IDs** стратегию (`activity_id__in`) вместо offset-пагинации. См. раздел "Батчевое извлечение" ниже.
+
 **Расширенные фильтры:**
 - `field__filter` — стандартные Django-подобные фильтры (например, `pchembl_value__gte`)
 - `only` — выборка полей (например, `only=molecule_chembl_id,pchembl_value`)
 - `order_by` — сортировка (например, `order_by=-pchembl_value`)
+
+### Батчевое извлечение из ChEMBL API
+
+**Метод:** `ActivityPipeline._extract_from_chembl()`
+
+**Эндпоинт ChEMBL:** `/activity.json?activity_id__in={ids}`
+
+**Размер батча:**
+
+- **Конфиг:** `sources.chembl.batch_size: 25` (ОБЯЗАТЕЛЬНО)
+- **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
+- **Валидация конфига:**
+  ```python
+  if batch_size > 25:
+      raise ConfigValidationError(
+          "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
+      )
+  ```
+
+**Алгоритм:**
+
+```python
+def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
+    """Extract activity data with 25-item batching."""
+    
+    # Счетчики метрик
+    success_count = 0
+    fallback_count = 0
+    error_count = 0
+    api_calls = 0
+    cache_hits = 0
+    
+    # Жесткий размер батча
+    BATCH_SIZE = 25
+    
+    activity_ids = data["activity_id"].tolist()
+    
+    # Батчевое извлечение
+    for i in range(0, len(activity_ids), BATCH_SIZE):
+        batch_ids = activity_ids[i:i + BATCH_SIZE]
+        
+        try:
+            # Проверка кэша с release-scoping
+            cached = self._check_cache(batch_ids, self.chembl_release)
+            if cached:
+                batch_data = cached
+                cache_hits += len(batch_ids)
+            else:
+                batch_data = chembl_client.fetch_activities_batch(batch_ids)
+                api_calls += 1
+                self._store_cache(batch_data, self.chembl_release)
+            
+            # Обработка ответов
+            for activity_id in batch_ids:
+                activity_data = batch_data.get(activity_id)
+                if activity_data and "error" not in activity_data:
+                    if activity_data.get("source_system") == "ChEMBL_FALLBACK":
+                        fallback_count += 1
+                    else:
+                        success_count += 1
+                else:
+                    error_count += 1
+                    # Fallback с расширенными полями
+                    activity_data = self._create_fallback_record(activity_id)
+                    
+        except CircuitBreakerOpenError:
+            # Fallback для всего батча
+            for activity_id in batch_ids:
+                activity_data = self._create_fallback_record(activity_id)
+                fallback_count += 1
+        
+        except Exception as e:
+            error_count += len(batch_ids)
+            logger.error(f"Batch failed: {e}")
+    
+    # Логирование статистики
+    logger.info({
+        "total_activities": len(activity_ids),
+        "success_count": success_count,
+        "fallback_count": fallback_count,
+        "error_count": error_count,
+        "success_rate": (success_count + fallback_count) / len(activity_ids),
+        "api_calls": api_calls,
+        "cache_hits": cache_hits
+    })
+    
+    return extracted_dataframe
+```
+
+**Преимущества batch IDs над offset:**
+- Детерминированность: одинаковый набор activity_id всегда даёт одинаковый результат
+- Кэшируемость: ключ кэша = список ID, не зависит от пагинации
+- Производительность: один запрос на 25 записей вместо множества offset-запросов
+- Отказоустойчивость: можно повторно запросить конкретный батч без потери контекста
 
 ### Примеры запросов
 
