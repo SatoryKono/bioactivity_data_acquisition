@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -94,14 +94,41 @@ class DeterminismConfig(BaseModel):
     column_order: list[str] = Field(default_factory=list)
 
 
+class QCThresholdConfig(BaseModel):
+    """Threshold configuration for a QC metric."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min: float | None = Field(default=None)
+    max: float | None = Field(default=None)
+    severity: Literal["info", "warning", "error"] = Field(default="warning")
+    description: str | None = Field(default=None)
+
+    @field_validator("severity")
+    @classmethod
+    def _normalize_severity(cls, value: str) -> str:
+        """Normalize severity values to lowercase."""
+        return value.lower()
+
+    @field_validator("max")
+    @classmethod
+    def _validate_thresholds(
+        cls, value: float | None, values: dict[str, Any]
+    ) -> float | None:
+        """Ensure at least one of min/max is configured."""
+        if value is None and values.get("min") is None:
+            raise ValueError("QC threshold requires at least one of min or max")
+        return value
+
+
 class QCConfig(BaseModel):
     """Quality control configuration."""
 
     model_config = ConfigDict(extra="allow")
 
     enabled: bool = True
-    severity_threshold: str = Field(default="warning")
-    thresholds: dict[str, float] = Field(default_factory=dict)
+    severity_threshold: Literal["info", "warning", "error"] = Field(default="warning")
+    thresholds: dict[str, QCThresholdConfig] = Field(default_factory=dict)
 
 
 class PostprocessConfig(BaseModel):

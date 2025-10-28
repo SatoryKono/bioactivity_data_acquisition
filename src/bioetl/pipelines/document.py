@@ -1,11 +1,13 @@
 """Document Pipeline - ChEMBL document extraction with external enrichment."""
 
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pandera as pa
 
 from bioetl.adapters import (
     CrossrefAdapter,
@@ -17,10 +19,20 @@ from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.qc import compute_document_qc_metrics
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.document_enrichment import merge_with_precedence
-from bioetl.schemas import DocumentSchema
+from bioetl.pipelines.document_enrichment import detect_conflicts
+from bioetl.schemas import (
+    DOCUMENT_NORMALIZED_COLUMN_ORDER,
+    DocumentInputSchema,
+    DocumentNormalizedSchema,
+    DocumentRawSchema,
+    DocumentSchema,
+)
 from bioetl.schemas.registry import schema_registry
+from bioetl.normalizers import registry as normalizer_registry
+from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
 logger = UnifiedLogger.get(__name__)
 
@@ -64,23 +76,127 @@ class DocumentPipeline(PipelineBase):
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
 
+    def get_validation_schemas(self) -> dict[str, pa.DataFrameModel]:
+        """Provide Pandera schemas for validation stages."""
+
+        return {
+            "input": DocumentInputSchema,
+            "raw": DocumentRawSchema,
+            "normalized": DocumentNormalizedSchema,
+        }
+
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
         if input_file is None:
-            # Default to data/input/documents.csv
             input_file = Path("data/input/documents.csv")
 
         logger.info("reading_input", path=input_file)
 
-        # Read input file with document IDs
         if not input_file.exists():
             logger.warning("input_file_not_found", path=input_file)
-            return pd.DataFrame(columns=[
-                "document_chembl_id", "doi", "pmid", "journal", "title",
-                "year", "authors", "abstract",
-            ])
+            return pd.DataFrame(
+                columns=[
+                    "document_chembl_id",
+                    "chembl_title",
+                    "chembl_abstract",
+                    "chembl_doi",
+                    "chembl_pmid",
+                    "chembl_journal",
+                    "chembl_year",
+                    "chembl_authors",
+                ]
+            )
 
         df = pd.read_csv(input_file)
+
+        if df.empty:
+            logger.info("extraction_completed", rows=0)
+            return df
+
+        validated_ids = self.validate_input(df[["document_chembl_id"]].copy())
+        df["document_chembl_id"] = validated_ids["document_chembl_id"]
+
+        string_normalizer = normalizer_registry
+
+        if "pubmed_id" in df.columns:
+            df["chembl_pmid"] = (
+                pd.to_numeric(df["pubmed_id"], errors="coerce").astype("Int64")
+            )
+        else:
+            df["chembl_pmid"] = pd.Series([pd.NA] * len(df), dtype="Int64")
+
+        field_mapping = {
+            "title": "chembl_title",
+            "abstract": "chembl_abstract",
+            "journal": "chembl_journal",
+            "authors": "chembl_authors",
+        }
+
+        for original, mapped in field_mapping.items():
+            if original in df.columns:
+                df[mapped] = df[original].apply(
+                    lambda value: string_normalizer.normalize("string", value)
+                    if pd.notna(value)
+                    else None
+                )
+            else:
+                df[mapped] = None
+
+        if "doi" in df.columns:
+            df["chembl_doi"] = df["doi"].apply(
+                lambda value: string_normalizer.normalize("string", value)
+                if pd.notna(value)
+                else None
+            )
+        else:
+            df["chembl_doi"] = None
+
+        if "year" in df.columns:
+            df["chembl_year"] = pd.to_numeric(df["year"], errors="coerce").astype(
+                "Int64"
+            )
+        else:
+            df["chembl_year"] = pd.Series([pd.NA] * len(df), dtype="Int64")
+
+        columns_to_drop = [
+            col
+            for col in ["title", "abstract", "journal", "authors", "doi", "pubmed_id", "year"]
+            if col in df.columns
+        ]
+        if columns_to_drop:
+            df = df.drop(columns=columns_to_drop)
+
+        # Ensure required columns exist even if input lacked values
+        required_raw_cols = [
+            "chembl_title",
+            "chembl_abstract",
+            "chembl_doi",
+            "chembl_pmid",
+            "chembl_journal",
+            "chembl_year",
+            "chembl_authors",
+        ]
+
+        for col in required_raw_cols:
+            if col not in df.columns:
+                if col in {"chembl_pmid", "chembl_year"}:
+                    df[col] = pd.Series([pd.NA] * len(df), dtype="Int64")
+                else:
+                    df[col] = None
+
+        enrichment_enabled = any(
+            hasattr(self.config.sources.get(source_name), "enabled")
+            and self.config.sources[source_name].enabled
+            for source_name in ["pubmed", "crossref", "openalex", "semantic_scholar"]
+            if source_name in self.config.sources
+        )
+
+        if enrichment_enabled:
+            logger.info("enrichment_enabled", note="Fetching data from external sources")
+            df = self._enrich_with_external_sources(df)
+
+        if "pubmed_id" in df.columns:
+            df = df.drop(columns=["pubmed_id"])
 
         logger.info("extraction_completed", rows=len(df))
         return df
@@ -310,168 +426,166 @@ class DocumentPipeline(PipelineBase):
             logger.warning("failed_to_get_chembl_version", error=str(e))
             return None
 
+    FIELD_PRECEDENCE = {
+        "title": [
+            "pubmed_article_title",
+            "chembl_title",
+            "crossref_title",
+            "openalex_title",
+            "semantic_scholar_title",
+        ],
+        "abstract": ["pubmed_abstract", "chembl_abstract"],
+        "journal": ["pubmed_journal", "chembl_journal", "semantic_scholar_journal"],
+        "doi": [
+            "chembl_doi",
+            "pubmed_doi",
+            "crossref_doi",
+            "openalex_doi",
+            "semantic_scholar_doi",
+        ],
+        "pubmed_id": ["chembl_pmid", "pubmed_pmid", "semantic_scholar_pubmed_id"],
+        "authors": [
+            "pubmed_authors",
+            "chembl_authors",
+            "crossref_authors",
+            "openalex_authors",
+            "semantic_scholar_authors",
+        ],
+    }
+
+    @staticmethod
+    def _select_field(row: pd.Series, candidates: list[str]) -> tuple[Any, str | None]:
+        """Select first non-empty value from candidates."""
+
+        for column in candidates:
+            if column in row.index:
+                value = row[column]
+                if pd.notna(value) and str(value).strip():
+                    return value, column
+        return None, None
+
+    @staticmethod
+    def _normalize_doi(value: Any) -> str | None:
+        """Normalize DOI string."""
+
+        if not isinstance(value, str):
+            return None
+        doi = value.strip().lower()
+        if not doi:
+            return None
+        doi = re.sub(r"^https?://(dx\.)?doi.org/", "", doi)
+        doi = doi.replace("doi:", "")
+        doi = doi.strip()
+        return doi or None
+
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform document data with multi-source merge."""
+        """Normalize enriched document data and compute metadata."""
+
         if df.empty:
             return df
 
-        # Map ChEMBL input fields according to schema
-        # Map pubmed_id from CSV to document_pubmed_id
+        df = df.copy()
+
+        # Detect conflicts between source-provided identifiers
+        df = df.apply(detect_conflicts, axis=1)
+
+        for field, candidates in self.FIELD_PRECEDENCE.items():
+            selections = df.apply(
+                lambda row: self._select_field(row, candidates), axis=1
+            )
+            df[field] = selections.map(lambda item: item[0] if item else None)
+            df[f"{field}_source"] = selections.map(
+                lambda item: item[1] if item else None
+            )
+
+        primary_title_source = self.FIELD_PRECEDENCE["title"][0]
+        if "title_source" in df.columns:
+            df["qc_flag_title_fallback_used"] = df["title_source"].apply(
+                lambda src: 0 if src == primary_title_source else 1
+            )
+            df.loc[df["title_source"].isna(), "qc_flag_title_fallback_used"] = 1
+        else:
+            df["qc_flag_title_fallback_used"] = 1
+
+        if "chembl_year" in df.columns and "year" not in df.columns:
+            df["year"] = df["chembl_year"]
+
+        if "year" in df.columns:
+            df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
+        else:
+            df["year"] = pd.Series([pd.NA] * len(df), dtype="Int64")
+
         if "pubmed_id" in df.columns:
-            df["document_pubmed_id"] = df["pubmed_id"].apply(lambda x: int(x) if pd.notna(x) and str(x).isdigit() else None)
+            df["pubmed_id"] = pd.to_numeric(df["pubmed_id"], errors="coerce").astype(
+                "Int64"
+            )
+        else:
+            df["pubmed_id"] = pd.Series([pd.NA] * len(df), dtype="Int64")
 
-        # Map classification
-        if "classification" in df.columns:
-            df["document_classification"] = df["classification"]
+        df["doi_clean"] = df["doi"].apply(self._normalize_doi)
 
-        # Map is_experimental_doc to original_experimental_document (boolean)
-        if "is_experimental_doc" in df.columns:
-            df["original_experimental_document"] = df["is_experimental_doc"].apply(lambda x: bool(x) if pd.notna(x) else None)
+        def _count_authors(value: Any) -> Any:
+            if not isinstance(value, str):
+                return pd.NA
+            tokens = [token.strip() for token in re.split(r"[,;]", value) if token.strip()]
+            return len(tokens) if tokens else pd.NA
 
-        # Map document_contains_external_links to referenses_on_previous_experiments
-        if "document_contains_external_links" in df.columns:
-            df["referenses_on_previous_experiments"] = df["document_contains_external_links"].apply(lambda x: bool(x) if pd.notna(x) else None)
+        df["authors_count"] = df["authors"].apply(_count_authors).astype("Int64")
 
-        # IMPORTANT: Map pubmed_id to chembl_pmid BEFORE normalization
-        # Map pubmed_id -> chembl_pmid (convert to int)
-        if "pubmed_id" in df.columns:
-            df["chembl_pmid"] = df["pubmed_id"].apply(lambda x: int(x) if pd.notna(x) and str(x).isdigit() else None)
+        if "conflict_doi" not in df.columns:
+            df["conflict_doi"] = False
+        if "conflict_pmid" not in df.columns:
+            df["conflict_pmid"] = False
 
-        # Normalize identifiers
-        from bioetl.normalizers import registry
+        df["conflict_doi"] = df["conflict_doi"].astype("boolean")
+        df["conflict_pmid"] = df["conflict_pmid"].astype("boolean")
 
-        # Normalize IDs before enrichment (now pubmed_id is safe to normalize)
-        for col in ["document_chembl_id", "doi", "pmid", "pubmed_id"]:
-            if col in df.columns:
-                df[col] = df[col].apply(
-                    lambda x: registry.normalize("identifier", x) if pd.notna(x) else None
-                )
-
-        # Save original title for semantic scholar enrichment BEFORE renaming
-        if "title" in df.columns:
-            df["_original_title"] = df["title"]
-
-        # Rename ChEMBL fields to multi-source naming convention BEFORE enrichment
-        field_mapping = {
-            "title": "chembl_title",
-            "journal": "chembl_journal",
-            "year": "chembl_year",
-            "authors": "chembl_authors",
-            "abstract": "chembl_abstract",
-            "volume": "chembl_volume",
-            "issue": "chembl_issue",
-        }
-
-        for old_col, new_col in field_mapping.items():
-            if old_col in df.columns:
-                df[new_col] = df[old_col].apply(
-                    lambda x: registry.normalize("string", x) if pd.notna(x) else None
-                )
-                if old_col != new_col:
-                    df = df.drop(columns=[old_col])
-
-        # Add chembl_doi from doi (but keep doi for enrichment)
-        if "doi" in df.columns:
-            df["chembl_doi"] = df["doi"]
-
-        # Set chembl_doc_type - default to journal-article for ChEMBL documents
-        df["chembl_doc_type"] = "journal-article"
-
-        # Keep pubmed_id and doi with original names for enrichment (chembl_pmid already created above)
-
-        # Check if enrichment is enabled and apply AFTER renaming
-        enrichment_enabled = any(
-            hasattr(self.config.sources.get(source_name), "enabled")
-            and self.config.sources[source_name].enabled
-            for source_name in ["pubmed", "crossref", "openalex", "semantic_scholar"]
-            if source_name in self.config.sources
+        df["qc_flag_title_fallback_used"] = (
+            pd.to_numeric(df["qc_flag_title_fallback_used"], errors="coerce")
+            .fillna(0)
+            .astype("Int64")
         )
 
-        if enrichment_enabled:
-            logger.info("enrichment_enabled", note="Fetching data from external sources")
-            df = self._enrich_with_external_sources(df)
+        source_columns = [col for col in df.columns if col.endswith("_source")]
+        if source_columns:
+            df = df.drop(columns=source_columns)
 
-        # Drop temporary join keys if they exist
-        if "pubmed_id" in df.columns:
-            df = df.drop(columns=["pubmed_id"])
-        if "_original_title" in df.columns:
-            df = df.drop(columns=["_original_title"])
-
-        # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
         df["source_system"] = "chembl"
         df["chembl_release"] = self._chembl_release
         df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
 
-        # Generate hash fields for data integrity
-        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+        required_columns = set(DOCUMENT_NORMALIZED_COLUMN_ORDER)
+        extra_columns = [col for col in df.columns if col not in required_columns]
+        if extra_columns:
+            df = df.drop(columns=extra_columns)
 
-        if "document_chembl_id" in df.columns:
-            df["hash_business_key"] = df["document_chembl_id"].apply(generate_hash_business_key)
-            df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+        # Ensure columns required by schema exist
+        for column in DOCUMENT_NORMALIZED_COLUMN_ORDER:
+            if column not in df.columns:
+                df[column] = None
 
-            # Generate deterministic index
-            df = df.sort_values("document_chembl_id")  # Sort by primary key
-            df["index"] = range(len(df))
+        df = df.sort_values("document_chembl_id").reset_index(drop=True)
+        df["index"] = df.index
+        df["hash_business_key"] = df["document_chembl_id"].apply(
+            generate_hash_business_key
+        )
+        df["hash_row"] = df.apply(
+            lambda row: generate_hash_row(
+                {
+                    col: (row[col] if not pd.isna(row[col]) else None)
+                    for col in DOCUMENT_NORMALIZED_COLUMN_ORDER
+                    if col != "hash_row"
+                }
+            ),
+            axis=1,
+        )
 
-            # Add all missing columns from schema
-            from bioetl.schemas import DocumentSchema
-            expected_cols = DocumentSchema.column_order
-
-            # Add missing columns with None values
-            for col in expected_cols:
-                if col not in df.columns:
-                    df[col] = None
-
-            # Reorder columns according to schema
-            df = df[expected_cols]
-
+        df = df[DOCUMENT_NORMALIZED_COLUMN_ORDER]
         return df
 
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate document data against schema with strict validation."""
-        if df.empty:
-            logger.info("validation_skipped_empty", rows=0)
-            return df
+    def compute_qc_metrics(self, df: pd.DataFrame) -> dict[str, float]:
+        """Compute QC metrics for the normalized document dataset."""
 
-        try:
-            # Check for duplicates
-            duplicate_count = df["document_chembl_id"].duplicated().sum() if "document_chembl_id" in df.columns else 0
-            if duplicate_count > 0:
-                logger.warning("duplicates_found", count=duplicate_count)
-                df = df.drop_duplicates(subset=["document_chembl_id"], keep="first")
-
-            # Validation: doc_type обязателен если есть данные от источника
-            sources_to_validate = [
-                ("pubmed", ["pubmed_doc_type"], ["pubmed_article_title", "pubmed_abstract"]),
-                ("crossref", ["crossref_doc_type"], ["crossref_title", "crossref_authors"]),
-                ("openalex", ["openalex_doc_type"], ["openalex_title", "openalex_authors"]),
-                ("semantic_scholar", ["semantic_scholar_doc_type"], ["semantic_scholar_title", "semantic_scholar_abstract"]),
-            ]
-
-            validation_errors = []
-            for source_name, required_fields, actual_field_names in sources_to_validate:
-                # Check if any data exists from this source
-                has_source_data = any(
-                    col in df.columns and df[col].notna().any()
-                    for col in actual_field_names
-                    if col in df.columns
-                )
-
-                if has_source_data:
-                    # Validate doc_type is present (DOI is optional)
-                    for required_field in required_fields:
-                        if required_field not in df.columns or df[required_field].isna().all():
-                            validation_errors.append(f"{source_name}: {required_field} обязателен при наличии данных")
-
-            if validation_errors:
-                error_msg = "; ".join(validation_errors)
-                logger.error("validation_failed", errors=error_msg)
-                raise ValueError(f"Валидация не прошла: {error_msg}")
-
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
-            raise
+        return compute_document_qc_metrics(df)
 

@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
@@ -132,6 +133,7 @@ class UnifiedOutputWriter:
         output_path: Path,
         metadata: OutputMetadata | None = None,
         extended: bool = False,
+        qc_summary: pd.DataFrame | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -166,7 +168,7 @@ class UnifiedOutputWriter:
 
         # Generate and write quality report
         logger.info("generating_quality_report")
-        quality_df = self.quality_generator.generate(df)
+        quality_df = qc_summary if qc_summary is not None else self.quality_generator.generate(df)
         self.atomic_writer.write(quality_df, quality_path)
 
         # Calculate checksums
