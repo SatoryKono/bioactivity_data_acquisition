@@ -110,6 +110,11 @@ class DocumentSchema(BaseSchema):
     pubmed_error: Series[str] = pa.Field(nullable=True, description="Ошибка PubMed адаптера")
     semantic_scholar_error: Series[str] = pa.Field(nullable=True, description="Ошибка Semantic Scholar адаптера")
 
+    # Fallback level error context
+    error_type: Series[str] = pa.Field(nullable=True, description="Код ошибки для fallback строки")
+    error_message: Series[str] = pa.Field(nullable=True, description="Текст ошибки для fallback строки")
+    attempted_at: Series[str] = pa.Field(nullable=True, description="ISO8601 время последней попытки")
+
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
 
@@ -184,6 +189,10 @@ class DocumentSchema(BaseSchema):
             # Pages (2)
             "pubmed_first_page",
             "pubmed_last_page",
+            # Fallback level errors
+            "error_type",
+            "error_message",
+            "attempted_at",
             # Errors (4) - should be before pubmed dates
             "crossref_error",
             "openalex_error",

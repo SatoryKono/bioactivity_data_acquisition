@@ -752,16 +752,18 @@ class TestTargetPipeline:
 class TestDocumentPipeline:
     """Tests for DocumentPipeline."""
 
-    def test_init(self, document_config):
+    def test_init(self, document_config, monkeypatch):
         """Test pipeline initialization."""
         run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = DocumentPipeline(document_config, run_id)
         assert pipeline.config == document_config
         assert pipeline.run_id == run_id
 
-    def test_extract_empty_file(self, document_config, tmp_path):
+    def test_extract_empty_file(self, document_config, tmp_path, monkeypatch):
         """Test extraction with empty file."""
         run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = DocumentPipeline(document_config, run_id)
 
         csv_path = tmp_path / "empty.csv"
@@ -771,24 +773,46 @@ class TestDocumentPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
 
-    def test_extract_with_data(self, document_config, tmp_path):
+    def test_extract_with_data(self, document_config, tmp_path, monkeypatch):
         """Test extraction with sample data."""
         run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = DocumentPipeline(document_config, run_id)
+        pipeline.batch_size = 2
 
         csv_path = tmp_path / "documents.csv"
         csv_path.write_text(
             "document_chembl_id,title,doi\n"
             "CHEMBL1,Test Article,10.1234/test\n"
+            "CHEMBL2,Test Article 2,10.1234/test2\n"
         )
+
+        captured_chunks: list[str] = []
+
+        def fake_request(url: str, params: dict | None = None, method: str = "GET") -> dict:
+            assert params is not None
+            captured_chunks.append(params["document_chembl_id__in"])
+            documents = [
+                {
+                    "document_chembl_id": doc_id,
+                    "title": f"Title {doc_id}",
+                    "doi": f"10.0000/{doc_id.lower()}",
+                }
+                for doc_id in params["document_chembl_id__in"].split(",")
+            ]
+            return {"documents": documents}
+
+        monkeypatch.setattr(pipeline.api_client, "request_json", fake_request)
 
         result = pipeline.extract(input_file=csv_path)
         assert isinstance(result, pd.DataFrame)
-        assert len(result) >= 0
+        assert len(result) == 2
+        assert captured_chunks in (["CHEMBL1,CHEMBL2"], ["CHEMBL1,CHEMBL2", "CHEMBL2"])
 
-    def test_transform_adds_metadata(self, document_config):
+    def test_transform_adds_metadata(self, document_config, monkeypatch):
         """Test transformation adds pipeline metadata."""
         run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = DocumentPipeline(document_config, run_id)
 
         df = pd.DataFrame({
@@ -801,9 +825,10 @@ class TestDocumentPipeline:
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
 
-    def test_validate_removes_duplicates(self, document_config):
+    def test_validate_removes_duplicates(self, document_config, monkeypatch):
         """Test validation removes duplicates."""
         run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = DocumentPipeline(document_config, run_id)
 
         df = pd.DataFrame({
@@ -813,6 +838,54 @@ class TestDocumentPipeline:
 
         result = pipeline.validate(df)
         assert len(result) == 1
+
+    def test_recursive_timeout_split(self, document_config, tmp_path, monkeypatch):
+        """Ensure recursive splitting handles timeouts gracefully."""
+        run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = DocumentPipeline(document_config, run_id)
+        pipeline.batch_size = 4
+
+        csv_path = tmp_path / "documents.csv"
+        csv_path.write_text("document_chembl_id\nCHEMBL1\nCHEMBL2\n")
+
+        call_sizes: list[int] = []
+
+        def fake_request(url: str, params: dict | None = None, method: str = "GET") -> dict:
+            assert params is not None
+            ids = params["document_chembl_id__in"].split(",")
+            call_sizes.append(len(ids))
+            if len(ids) > 1:
+                raise requests.exceptions.ReadTimeout("timeout")
+            return {"documents": [{"document_chembl_id": ids[0], "title": "ok"}]}
+
+        monkeypatch.setattr(pipeline.api_client, "request_json", fake_request)
+
+        result = pipeline.extract(input_file=csv_path)
+        assert sorted(call_sizes) == [1, 1, 2]
+        assert set(result["document_chembl_id"]) == {"CHEMBL1", "CHEMBL2"}
+
+    def test_fallback_row_includes_error_context(self, document_config, tmp_path, monkeypatch):
+        """Ensure fallback rows contain error context fields when retries exhaust."""
+        run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = DocumentPipeline(document_config, run_id)
+
+        csv_path = tmp_path / "documents.csv"
+        csv_path.write_text("document_chembl_id\nCHEMBL999\n")
+
+        def fake_request(url: str, params: dict | None = None, method: str = "GET") -> dict:
+            raise requests.exceptions.ReadTimeout("timeout")
+
+        monkeypatch.setattr(pipeline.api_client, "request_json", fake_request)
+
+        result = pipeline.extract(input_file=csv_path)
+        assert len(result) == 1
+        row = result.iloc[0]
+        assert row["document_chembl_id"] == "CHEMBL999"
+        assert row["error_type"] == "E_TIMEOUT"
+        assert pd.notna(row["error_message"])
+        assert pd.notna(row["attempted_at"])
 def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[str, Any]:
     """Construct a minimal row conforming to AssaySchema for tests."""
 
