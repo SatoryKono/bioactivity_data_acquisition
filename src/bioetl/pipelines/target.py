@@ -611,6 +611,19 @@ class TargetPipeline(PipelineBase):
         working_df = df.reset_index(drop=True).copy()
         working_df = working_df.convert_dtypes()
 
+        default_iuphar_columns: dict[str, str] = {
+            "iuphar_target_id": "Int64",
+            "iuphar_type": "string",
+            "iuphar_class": "string",
+            "iuphar_subclass": "string",
+        }
+
+        for column, dtype in default_iuphar_columns.items():
+            if column not in working_df.columns:
+                working_df[column] = pd.Series(
+                    pd.NA, index=working_df.index, dtype=dtype
+                )
+
         targets = self._fetch_iuphar_collection(
             "/targets",
             unique_key="targetId",
