@@ -7,62 +7,115 @@ from bioetl.schemas.base import BaseSchema
 
 
 class TestItemSchema(BaseSchema):
-    """Schema for ChEMBL TestItem (molecule) data.
+    """Schema for ChEMBL TestItem (molecule) data with expanded field coverage."""
 
-    Primary Key: [molecule_chembl_id]
-    Contains ~81 fields including all physico-chemical properties, drug_* fields, structures
-    """
-
-    # Primary Key
     molecule_chembl_id: Series[str] = pa.Field(
         nullable=False,
         regex=r'^CHEMBL\d+$',
-        description="Первичный ключ",
+        description="Primary identifier",
     )
-
-    # ChEMBL identifiers
-    molregno: Series[int] = pa.Field(nullable=True, ge=1, description="Внутренний регистровый номер")
+    molregno: Series[int] = pa.Field(nullable=True, ge=1, description="Internal ChEMBL registry number")
+    pref_name: Series[str] = pa.Field(nullable=True, description="Preferred name")
+    pref_name_key: Series[str] = pa.Field(nullable=True, description="Normalized preferred name key")
     parent_chembl_id: Series[str] = pa.Field(
         nullable=True,
         regex=r'^CHEMBL\d+$',
-        description="Связь с родительской молекулой",
+        description="Parent molecule ChEMBL ID",
     )
+    parent_molregno: Series[int] = pa.Field(nullable=True, ge=1, description="Parent molregno")
+    therapeutic_flag: Series[bool] = pa.Field(nullable=True, description="Therapeutic flag")
+    structure_type: Series[str] = pa.Field(nullable=True, description="Structure type")
+    molecule_type: Series[str] = pa.Field(nullable=True, description="Molecule type")
+    molecule_type_chembl: Series[str] = pa.Field(nullable=True, description="Molecule type from ChEMBL")
+    max_phase: Series[int] = pa.Field(nullable=True, ge=0, description="Maximum clinical phase")
+    first_approval: Series[int] = pa.Field(nullable=True, ge=0, description="First approval year")
+    dosed_ingredient: Series[bool] = pa.Field(nullable=True, description="Dosed ingredient flag")
+    availability_type: Series[int] = pa.Field(nullable=True, ge=0, description="Availability type")
+    chirality: Series[str] = pa.Field(nullable=True, description="Chirality descriptor")
+    chirality_chembl: Series[str] = pa.Field(nullable=True, description="ChEMBL chirality descriptor")
+    mechanism_of_action: Series[str] = pa.Field(nullable=True, description="Mechanism of action")
+    direct_interaction: Series[bool] = pa.Field(nullable=True, description="Direct interaction flag")
+    molecular_mechanism: Series[bool] = pa.Field(nullable=True, description="Molecular mechanism flag")
+    oral: Series[bool] = pa.Field(nullable=True, description="Oral administration flag")
+    parenteral: Series[bool] = pa.Field(nullable=True, description="Parenteral administration flag")
+    topical: Series[bool] = pa.Field(nullable=True, description="Topical administration flag")
+    black_box_warning: Series[bool] = pa.Field(nullable=True, description="Black box warning flag")
+    natural_product: Series[bool] = pa.Field(nullable=True, description="Natural product flag")
+    first_in_class: Series[bool] = pa.Field(nullable=True, description="First-in-class flag")
+    prodrug: Series[bool] = pa.Field(nullable=True, description="Prodrug flag")
+    inorganic_flag: Series[bool] = pa.Field(nullable=True, description="Inorganic flag")
+    polymer_flag: Series[bool] = pa.Field(nullable=True, description="Polymer flag")
+    usan_year: Series[int] = pa.Field(nullable=True, ge=0, description="USAN year")
+    usan_stem: Series[str] = pa.Field(nullable=True, description="USAN stem")
+    usan_substem: Series[str] = pa.Field(nullable=True, description="USAN substem")
+    usan_stem_definition: Series[str] = pa.Field(nullable=True, description="USAN stem definition")
+    indication_class: Series[str] = pa.Field(nullable=True, description="Indication class")
+    withdrawn_flag: Series[bool] = pa.Field(nullable=True, description="Withdrawn flag")
+    withdrawn_year: Series[int] = pa.Field(nullable=True, ge=0, description="Withdrawal year")
+    withdrawn_country: Series[str] = pa.Field(nullable=True, description="Withdrawal country")
+    withdrawn_reason: Series[str] = pa.Field(nullable=True, description="Withdrawal reason")
+    drug_chembl_id: Series[str] = pa.Field(nullable=True, description="Drug ChEMBL ID")
+    drug_name: Series[str] = pa.Field(nullable=True, description="Drug name")
+    drug_type: Series[str] = pa.Field(nullable=True, description="Drug type")
+    drug_substance_flag: Series[bool] = pa.Field(nullable=True, description="Drug substance flag")
+    drug_indication_flag: Series[bool] = pa.Field(nullable=True, description="Drug indication flag")
+    drug_antibacterial_flag: Series[bool] = pa.Field(nullable=True, description="Drug antibacterial flag")
+    drug_antiviral_flag: Series[bool] = pa.Field(nullable=True, description="Drug antiviral flag")
+    drug_antifungal_flag: Series[bool] = pa.Field(nullable=True, description="Drug antifungal flag")
+    drug_antiparasitic_flag: Series[bool] = pa.Field(nullable=True, description="Drug antiparasitic flag")
+    drug_antineoplastic_flag: Series[bool] = pa.Field(nullable=True, description="Drug antineoplastic flag")
+    drug_immunosuppressant_flag: Series[bool] = pa.Field(nullable=True, description="Drug immunosuppressant flag")
+    drug_antiinflammatory_flag: Series[bool] = pa.Field(nullable=True, description="Drug anti-inflammatory flag")
 
-    # Basic molecule information
-    pref_name: Series[str] = pa.Field(nullable=True, description="Предпочтительное название")
-    max_phase: Series[int] = pa.Field(nullable=True, ge=0, description="Максимальная стадия разработки")
-    structure_type: Series[str] = pa.Field(nullable=True, description="Тип структуры")
-    molecule_type: Series[str] = pa.Field(nullable=True, description="Тип молекулы")
-
-    # Molecular properties
-    mw_freebase: Series[float] = pa.Field(nullable=True, ge=0, description="Молекулярная масса")
-    qed_weighted: Series[float] = pa.Field(nullable=True, description="QED score")
-
-    # Structure
-    standardized_smiles: Series[str] = pa.Field(nullable=True, description="Стандартизированная структура")
-    standard_inchi: Series[str] = pa.Field(nullable=True, description="Standard InChI")
-    standard_inchi_key: Series[str] = pa.Field(nullable=True, description="Standard InChI Key")
-
-    # Additional properties
-    heavy_atoms: Series[int] = pa.Field(nullable=True, ge=0, description="Heavy atoms count")
-    aromatic_rings: Series[int] = pa.Field(nullable=True, ge=0, description="Aromatic rings count")
-    rotatable_bonds: Series[int] = pa.Field(nullable=True, ge=0, description="Rotatable bonds count")
+    mw_freebase: Series[float] = pa.Field(nullable=True, ge=0, description="Free base molecular weight")
+    alogp: Series[float] = pa.Field(nullable=True, description="ALogP")
     hba: Series[int] = pa.Field(nullable=True, ge=0, description="Hydrogen bond acceptors")
     hbd: Series[int] = pa.Field(nullable=True, ge=0, description="Hydrogen bond donors")
+    psa: Series[float] = pa.Field(nullable=True, ge=0, description="Polar surface area")
+    rtb: Series[int] = pa.Field(nullable=True, ge=0, description="Rotatable bonds (rtb)")
+    ro3_pass: Series[bool] = pa.Field(nullable=True, description="Rule of three pass flag")
+    num_ro5_violations: Series[int] = pa.Field(nullable=True, ge=0, description="Number of RO5 violations")
+    acd_most_apka: Series[float] = pa.Field(nullable=True, description="ACD most acidic pKa")
+    acd_most_bpka: Series[float] = pa.Field(nullable=True, description="ACD most basic pKa")
+    acd_logp: Series[float] = pa.Field(nullable=True, description="ACD LogP")
+    acd_logd: Series[float] = pa.Field(nullable=True, description="ACD LogD")
+    molecular_species: Series[str] = pa.Field(nullable=True, description="Molecular species")
+    full_mwt: Series[float] = pa.Field(nullable=True, ge=0, description="Full molecular weight")
+    aromatic_rings: Series[int] = pa.Field(nullable=True, ge=0, description="Aromatic ring count")
+    heavy_atoms: Series[int] = pa.Field(nullable=True, ge=0, description="Heavy atom count")
+    qed_weighted: Series[float] = pa.Field(nullable=True, description="QED weighted score")
+    mw_monoisotopic: Series[float] = pa.Field(nullable=True, ge=0, description="Monoisotopic molecular weight")
+    full_molformula: Series[str] = pa.Field(nullable=True, description="Full molecular formula")
+    hba_lipinski: Series[int] = pa.Field(nullable=True, ge=0, description="Lipinski H-bond acceptors")
+    hbd_lipinski: Series[int] = pa.Field(nullable=True, ge=0, description="Lipinski H-bond donors")
+    num_lipinski_ro5_violations: Series[int] = pa.Field(nullable=True, ge=0, description="Lipinski RO5 violation count")
+    lipinski_ro5_violations: Series[int] = pa.Field(nullable=True, ge=0, description="Alias for Lipinski RO5 violations")
+    lipinski_ro5_pass: Series[bool] = pa.Field(nullable=True, description="Lipinski RO5 pass flag")
 
-    # Lipinski
-    lipinski_ro5_violations: Series[int] = pa.Field(nullable=True, ge=0, description="Lipinski RO5 violations")
-    lipinski_ro5_pass: Series[bool] = pa.Field(nullable=True, description="Lipinski RO5 pass")
+    standardized_smiles: Series[str] = pa.Field(nullable=True, description="Standardized SMILES")
+    standard_inchi: Series[str] = pa.Field(nullable=True, description="Standard InChI")
+    standard_inchi_key: Series[str] = pa.Field(nullable=True, description="Standard InChI key")
 
-    # Synonyms
-    all_names: Series[str] = pa.Field(nullable=True, description="All names")
-    molecule_synonyms: Series[str] = pa.Field(nullable=True, description="Molecule synonyms (JSON)")
+    all_names: Series[str] = pa.Field(nullable=True, description="Aggregated synonyms")
+    molecule_hierarchy: Series[str] = pa.Field(nullable=True, description="Molecule hierarchy JSON")
+    molecule_properties: Series[str] = pa.Field(nullable=True, description="Molecule properties JSON")
+    molecule_structures: Series[str] = pa.Field(nullable=True, description="Molecule structures JSON")
+    molecule_synonyms: Series[str] = pa.Field(nullable=True, description="Molecule synonyms JSON")
+    atc_classifications: Series[str] = pa.Field(nullable=True, description="ATC classifications JSON")
+    cross_references: Series[str] = pa.Field(nullable=True, description="Cross references JSON")
+    biotherapeutic: Series[str] = pa.Field(nullable=True, description="Biotherapeutic JSON")
+    chemical_probe: Series[str] = pa.Field(nullable=True, description="Chemical probe JSON")
+    orphan: Series[str] = pa.Field(nullable=True, description="Orphan designation JSON")
+    veterinary: Series[str] = pa.Field(nullable=True, description="Veterinary JSON")
+    helm_notation: Series[str] = pa.Field(nullable=True, description="HELM notation JSON")
 
-    # Classification
-    atc_classifications: Series[str] = pa.Field(nullable=True, description="ATC classifications (JSON)")
+    fallback_error_code: Series[str] = pa.Field(nullable=True, description="Fallback error code")
+    fallback_http_status: Series[int] = pa.Field(nullable=True, ge=0, description="Fallback HTTP status")
+    fallback_retry_after_sec: Series[float] = pa.Field(nullable=True, ge=0, description="Fallback Retry-After seconds")
+    fallback_attempt: Series[int] = pa.Field(nullable=True, ge=0, description="Fallback attempt")
+    fallback_error_message: Series[str] = pa.Field(nullable=True, description="Fallback error message")
 
-    # PubChem enrichment (optional)
-    pubchem_cid: Series[int] = pa.Field(nullable=True, ge=1, description="Идентификатор PubChem (enrichment)")
+    pubchem_cid: Series[int] = pa.Field(nullable=True, ge=1, description="PubChem CID")
     pubchem_molecular_formula: Series[str] = pa.Field(nullable=True, description="PubChem molecular formula")
     pubchem_molecular_weight: Series[float] = pa.Field(nullable=True, ge=0, description="PubChem molecular weight")
     pubchem_canonical_smiles: Series[str] = pa.Field(nullable=True, description="PubChem canonical SMILES")
@@ -71,57 +124,138 @@ class TestItemSchema(BaseSchema):
     pubchem_inchi_key: Series[str] = pa.Field(
         nullable=True,
         regex=r'^[A-Z]{14}-[A-Z]{10}-[A-Z]$',
-        description="PubChem InChI Key"
+        description="PubChem InChI key",
     )
     pubchem_iupac_name: Series[str] = pa.Field(nullable=True, description="PubChem IUPAC name")
-    pubchem_synonyms: Series[str] = pa.Field(nullable=True, description="PubChem synonyms")
+    pubchem_registry_id: Series[str] = pa.Field(nullable=True, description="PubChem registry ID")
+    pubchem_rn: Series[str] = pa.Field(nullable=True, description="PubChem RN")
+    pubchem_synonyms: Series[str] = pa.Field(nullable=True, description="PubChem synonyms JSON")
+    pubchem_enriched_at: Series[str] = pa.Field(nullable=True, description="PubChem enrichment timestamp")
+    pubchem_cid_source: Series[str] = pa.Field(nullable=True, description="PubChem CID source")
+    pubchem_fallback_used: Series[bool] = pa.Field(nullable=True, description="PubChem fallback used flag")
+    pubchem_enrichment_attempt: Series[int] = pa.Field(nullable=True, ge=0, description="PubChem enrichment attempt")
+    pubchem_lookup_inchikey: Series[str] = pa.Field(nullable=True, description="Lookup InChIKey used for PubChem resolution")
 
-    # System fields (from BaseSchema)
-    # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
+    _column_order = [
+        "molecule_chembl_id",
+        "molregno",
+        "pref_name",
+        "pref_name_key",
+        "parent_chembl_id",
+        "parent_molregno",
+        "therapeutic_flag",
+        "structure_type",
+        "molecule_type",
+        "molecule_type_chembl",
+        "max_phase",
+        "first_approval",
+        "dosed_ingredient",
+        "availability_type",
+        "chirality",
+        "chirality_chembl",
+        "mechanism_of_action",
+        "direct_interaction",
+        "molecular_mechanism",
+        "oral",
+        "parenteral",
+        "topical",
+        "black_box_warning",
+        "natural_product",
+        "first_in_class",
+        "prodrug",
+        "inorganic_flag",
+        "polymer_flag",
+        "usan_year",
+        "usan_stem",
+        "usan_substem",
+        "usan_stem_definition",
+        "indication_class",
+        "withdrawn_flag",
+        "withdrawn_year",
+        "withdrawn_country",
+        "withdrawn_reason",
+        "drug_chembl_id",
+        "drug_name",
+        "drug_type",
+        "drug_substance_flag",
+        "drug_indication_flag",
+        "drug_antibacterial_flag",
+        "drug_antiviral_flag",
+        "drug_antifungal_flag",
+        "drug_antiparasitic_flag",
+        "drug_antineoplastic_flag",
+        "drug_immunosuppressant_flag",
+        "drug_antiinflammatory_flag",
+        "mw_freebase",
+        "alogp",
+        "hba",
+        "hbd",
+        "psa",
+        "rtb",
+        "ro3_pass",
+        "num_ro5_violations",
+        "acd_most_apka",
+        "acd_most_bpka",
+        "acd_logp",
+        "acd_logd",
+        "molecular_species",
+        "full_mwt",
+        "aromatic_rings",
+        "heavy_atoms",
+        "qed_weighted",
+        "mw_monoisotopic",
+        "full_molformula",
+        "hba_lipinski",
+        "hbd_lipinski",
+        "num_lipinski_ro5_violations",
+        "lipinski_ro5_violations",
+        "lipinski_ro5_pass",
+        "standardized_smiles",
+        "standard_inchi",
+        "standard_inchi_key",
+        "all_names",
+        "molecule_hierarchy",
+        "molecule_properties",
+        "molecule_structures",
+        "molecule_synonyms",
+        "atc_classifications",
+        "cross_references",
+        "biotherapeutic",
+        "chemical_probe",
+        "orphan",
+        "veterinary",
+        "helm_notation",
+        "pubchem_cid",
+        "pubchem_molecular_formula",
+        "pubchem_molecular_weight",
+        "pubchem_canonical_smiles",
+        "pubchem_isomeric_smiles",
+        "pubchem_inchi",
+        "pubchem_inchi_key",
+        "pubchem_iupac_name",
+        "pubchem_registry_id",
+        "pubchem_rn",
+        "pubchem_synonyms",
+        "pubchem_enriched_at",
+        "pubchem_cid_source",
+        "pubchem_fallback_used",
+        "pubchem_enrichment_attempt",
+        "pubchem_lookup_inchikey",
+        "fallback_error_code",
+        "fallback_http_status",
+        "fallback_retry_after_sec",
+        "fallback_attempt",
+        "fallback_error_message",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+        "hash_business_key",
+        "hash_row",
+        "index",
+    ]
 
     class Config:
         strict = True
         coerce = True
         ordered = True
-        # Column order: business fields first, then system fields, then hash fields
-        column_order = [
-            "molecule_chembl_id",
-            "molregno",
-            "pref_name",
-            "parent_chembl_id",
-            "max_phase",
-            "structure_type",
-            "molecule_type",
-            "mw_freebase",
-            "qed_weighted",
-            "standardized_smiles",
-            "standard_inchi",
-            "standard_inchi_key",
-            "heavy_atoms",
-            "aromatic_rings",
-            "rotatable_bonds",
-            "hba",
-            "hbd",
-            "lipinski_ro5_violations",
-            "lipinski_ro5_pass",
-            "all_names",
-            "molecule_synonyms",
-            "atc_classifications",
-            "pubchem_cid",
-            "pubchem_molecular_formula",
-            "pubchem_molecular_weight",
-            "pubchem_canonical_smiles",
-            "pubchem_isomeric_smiles",
-            "pubchem_inchi",
-            "pubchem_inchi_key",
-            "pubchem_iupac_name",
-            "pubchem_synonyms",
-            "pipeline_version",
-            "source_system",
-            "chembl_release",
-            "extracted_at",
-            "hash_business_key",
-            "hash_row",
-            "index",
-        ]
-

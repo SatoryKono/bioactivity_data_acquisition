@@ -1,9 +1,47 @@
 """Document schema for multi-source enrichment according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
+import pandas as pd
 import pandera as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema
+
+
+class DocumentRawSchema(pa.DataFrameModel):
+    """Schema for raw ChEMBL document payloads prior to normalization."""
+
+    document_chembl_id: Series[str] = pa.Field(
+        regex=r"^CHEMBL\d+$",
+        nullable=False,
+        description="Primary identifier for the document record",
+    )
+    title: Series[str] = pa.Field(nullable=True, description="Document title from ChEMBL")
+    abstract: Series[str] = pa.Field(nullable=True, description="Abstract text from ChEMBL")
+    doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
+    year: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Publication year reported by ChEMBL",
+    )
+    journal: Series[str] = pa.Field(nullable=True, description="Journal name")
+    journal_abbrev: Series[str] = pa.Field(nullable=True, description="Journal abbreviation")
+    volume: Series[str] = pa.Field(nullable=True, description="Journal volume")
+    issue: Series[str] = pa.Field(nullable=True, description="Journal issue")
+    first_page: Series[str] = pa.Field(nullable=True, description="First page of article")
+    last_page: Series[str] = pa.Field(nullable=True, description="Last page of article")
+    pubmed_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed identifier supplied by ChEMBL",
+    )
+    authors: Series[str] = pa.Field(nullable=True, description="Author list from ChEMBL")
+    source: Series[str] = pa.Field(
+        nullable=True,
+        description="Source system providing the document payload",
+    )
+
+    class Config:
+        strict = False
+        ordered = True
+        coerce = True
 
 
 class DocumentSchema(BaseSchema):
@@ -24,6 +62,57 @@ class DocumentSchema(BaseSchema):
     document_classification: Series[str] = pa.Field(nullable=True, description="Document classification")
     referenses_on_previous_experiments: Series[bool] = pa.Field(nullable=True, description="References on previous experiments")
     original_experimental_document: Series[bool] = pa.Field(nullable=True, description="Original experimental document")
+
+    # Resolved fields with precedence
+    pmid: Series[int] = pa.Field(nullable=True, description="Resolved PMID using precedence")
+    pmid_source: Series[str] = pa.Field(nullable=True, description="Source of resolved PMID")
+    doi_clean: Series[str] = pa.Field(nullable=True, description="Resolved DOI using precedence")
+    doi_clean_source: Series[str] = pa.Field(nullable=True, description="Source of resolved DOI")
+    title: Series[str] = pa.Field(nullable=True, description="Resolved title")
+    title_source: Series[str] = pa.Field(nullable=True, description="Source of resolved title")
+    abstract: Series[str] = pa.Field(nullable=True, description="Resolved abstract")
+    abstract_source: Series[str] = pa.Field(nullable=True, description="Source of resolved abstract")
+    journal: Series[str] = pa.Field(nullable=True, description="Resolved journal name")
+    journal_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal")
+    journal_abbrev: Series[str] = pa.Field(nullable=True, description="Resolved journal abbreviation")
+    journal_abbrev_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal abbreviation")
+    authors: Series[str] = pa.Field(nullable=True, description="Resolved authors")
+    authors_source: Series[str] = pa.Field(nullable=True, description="Source of resolved authors")
+    year: Series[int] = pa.Field(nullable=True, description="Resolved publication year")
+    year_source: Series[str] = pa.Field(nullable=True, description="Source of resolved publication year")
+    volume: Series[str] = pa.Field(nullable=True, description="Resolved journal volume")
+    volume_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal volume")
+    issue: Series[str] = pa.Field(nullable=True, description="Resolved journal issue")
+    issue_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal issue")
+    first_page: Series[str] = pa.Field(nullable=True, description="Resolved first page")
+    first_page_source: Series[str] = pa.Field(nullable=True, description="Source of resolved first page")
+    last_page: Series[str] = pa.Field(nullable=True, description="Resolved last page")
+    last_page_source: Series[str] = pa.Field(nullable=True, description="Source of resolved last page")
+    issn_print: Series[str] = pa.Field(nullable=True, description="Resolved print ISSN")
+    issn_print_source: Series[str] = pa.Field(nullable=True, description="Source of resolved print ISSN")
+    issn_electronic: Series[str] = pa.Field(nullable=True, description="Resolved electronic ISSN")
+    issn_electronic_source: Series[str] = pa.Field(nullable=True, description="Source of resolved electronic ISSN")
+    is_oa: Series[bool] = pa.Field(nullable=True, description="Resolved Open Access flag")
+    is_oa_source: Series[str] = pa.Field(nullable=True, description="Source of Open Access flag")
+    oa_status: Series[str] = pa.Field(nullable=True, description="Resolved OA status")
+    oa_status_source: Series[str] = pa.Field(nullable=True, description="Source of OA status")
+    oa_url: Series[str] = pa.Field(nullable=True, description="Resolved OA URL")
+    oa_url_source: Series[str] = pa.Field(nullable=True, description="Source of OA URL")
+    citation_count: Series[int] = pa.Field(nullable=True, description="Resolved citation count")
+    citation_count_source: Series[str] = pa.Field(nullable=True, description="Source of citation count")
+    influential_citations: Series[int] = pa.Field(nullable=True, description="Resolved influential citation count")
+    influential_citations_source: Series[str] = pa.Field(nullable=True, description="Source of influential citations")
+    fields_of_study: Series[str] = pa.Field(nullable=True, description="Resolved fields of study")
+    fields_of_study_source: Series[str] = pa.Field(nullable=True, description="Source of fields of study")
+    concepts_top3: Series[str] = pa.Field(nullable=True, description="Resolved OpenAlex concepts")
+    concepts_top3_source: Series[str] = pa.Field(nullable=True, description="Source of OpenAlex concepts")
+    mesh_terms: Series[str] = pa.Field(nullable=True, description="Resolved MeSH terms")
+    mesh_terms_source: Series[str] = pa.Field(nullable=True, description="Source of MeSH terms")
+    chemicals: Series[str] = pa.Field(nullable=True, description="Resolved chemicals list")
+    chemicals_source: Series[str] = pa.Field(nullable=True, description="Source of chemicals list")
+
+    conflict_doi: Series[bool] = pa.Field(nullable=True, description="Conflict flag for DOI discrepancies")
+    conflict_pmid: Series[bool] = pa.Field(nullable=True, description="Conflict flag for PMID discrepancies")
 
     # PMID fields (4 sources)
     chembl_pmid: Series[int] = pa.Field(nullable=True, description="PMID из ChEMBL")
@@ -110,12 +199,17 @@ class DocumentSchema(BaseSchema):
     pubmed_error: Series[str] = pa.Field(nullable=True, description="Ошибка PubMed адаптера")
     semantic_scholar_error: Series[str] = pa.Field(nullable=True, description="Ошибка Semantic Scholar адаптера")
 
+    # Fallback level error context
+    error_type: Series[str] = pa.Field(nullable=True, description="Код ошибки для fallback строки")
+    error_message: Series[str] = pa.Field(nullable=True, description="Текст ошибки для fallback строки")
+    attempted_at: Series[str] = pa.Field(nullable=True, description="ISO8601 время последней попытки")
+
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
 
     # Column order according to IO_SCHEMAS_AND_DIAGRAMS.md line 957
     # Stored as class attribute to avoid Pandera treating it as a custom check
-    column_order = [
+    _column_order = [
             "index",
             "extracted_at",
             "pipeline_version",
@@ -184,6 +278,10 @@ class DocumentSchema(BaseSchema):
             # Pages (2)
             "pubmed_first_page",
             "pubmed_last_page",
+            # Fallback level errors
+            "error_type",
+            "error_message",
+            "attempted_at",
             # Errors (4) - should be before pubmed dates
             "crossref_error",
             "openalex_error",
@@ -204,3 +302,10 @@ class DocumentSchema(BaseSchema):
         strict = True
         coerce = True
         ordered = True
+
+
+class DocumentNormalizedSchema(DocumentSchema):
+    """Alias schema for normalized document outputs."""
+
+    class Config(DocumentSchema.Config):
+        strict = True

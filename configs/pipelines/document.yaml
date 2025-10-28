@@ -59,4 +59,17 @@ determinism:
 qc:
   enabled: true
   severity_threshold: warning
+  thresholds:
+    doi_coverage:
+      min: 0.3
+      severity: warning
+    pmid_coverage:
+      min: 0.2
+      severity: warning
+    conflicts_doi:
+      max: 0.15
+      severity: error
+    title_fallback_rate:
+      max: 0.25
+      severity: warning
 
