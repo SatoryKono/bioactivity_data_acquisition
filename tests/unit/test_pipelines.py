@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 import requests
 from pandera.errors import SchemaErrors
+from pathlib import Path
 
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 from unittest.mock import MagicMock
@@ -55,7 +56,7 @@ class TestAssayPipeline:
     def _mock_status(self, monkeypatch):
         """Return a deterministic status payload to prevent live network calls."""
 
-        def _status_stub(self, url, params=None, method="GET"):
+        def _status_stub(self, url, params=None, method="GET", **kwargs):
             if url == "/status.json":
                 return {"chembl_db_version": "ChEMBL_TEST"}
             raise AssertionError(f"Unexpected request during test: {url}")
@@ -67,7 +68,7 @@ class TestAssayPipeline:
 
         call_count = {"status": 0}
 
-        def _request(self, url, params=None, method="GET"):
+        def _request(self, url, params=None, method="GET", **kwargs):
             if url == "/status.json":
                 call_count["status"] += 1
                 return {"chembl_db_version": "ChEMBL_36"}
@@ -145,7 +146,7 @@ class TestAssayPipeline:
 
         counts = {"status": 0, "fetch": 0}
 
-        def _request(self, url, params=None, method="GET"):
+        def _request(self, url, params=None, method="GET", **kwargs):
             if url == "/status.json":
                 counts["status"] += 1
                 return {"chembl_db_version": "ChEMBL_37"}
@@ -168,7 +169,7 @@ class TestAssayPipeline:
     def test_fetch_assay_data_fallback_metadata(self, assay_config, monkeypatch):
         """Fallback records should include error metadata when requests fail."""
 
-        def _request(self, url, params=None, method="GET"):
+        def _request(self, url, params=None, method="GET", **kwargs):
             if url == "/status.json":
                 return {"chembl_db_version": "ChEMBL_F"}
             raise CircuitBreakerOpenError("breaker open for tests")
@@ -738,7 +739,7 @@ class TestActivityPipeline:
     def test_activity_cache_key_release_scope(self, activity_config, monkeypatch, tmp_path):
         """Cache keys must include release scoping for determinism."""
 
-        def fake_request_json(self, url, params=None, method="GET"):
+        def fake_request_json(self, url, params=None, method="GET", **kwargs):
             if url.endswith("/status.json"):
                 return {"chembl_db_version": "ChEMBL_99", "chembl_release_date": "2024-01-01"}
             raise AssertionError("unexpected url")
@@ -758,7 +759,7 @@ class TestActivityPipeline:
     def test_activity_fallback_on_circuit_breaker(self, activity_config, monkeypatch, tmp_path):
         """Fallback records include extended metadata on circuit breaker opens."""
 
-        def fake_request_json(self, url, params=None, method="GET"):
+        def fake_request_json(self, url, params=None, method="GET", **kwargs):
             if url.endswith("/status.json"):
                 return {"chembl_db_version": "ChEMBL_99"}
             raise AssertionError("unexpected url")
@@ -784,7 +785,7 @@ class TestActivityPipeline:
 
         activity_calls: list[str] = []
 
-        def fake_request_json(self, url, params=None, method="GET"):
+        def fake_request_json(self, url, params=None, method="GET", **kwargs):
             if url.endswith("/status.json"):
                 return {"chembl_db_version": "ChEMBL_99"}
             if not url.startswith("http"):
@@ -868,7 +869,7 @@ class TestTestItemPipeline:
 
         call_count = {"count": 0}
 
-        def fake_request_json(url, params=None, method="GET"):
+        def fake_request_json(url, params=None, method="GET", **kwargs):
             call_count["count"] += 1
             assert params is not None
             assert params["limit"] <= pipeline.batch_size
@@ -915,7 +916,7 @@ class TestTestItemPipeline:
 
         http_error = requests.exceptions.HTTPError("Not Found", response=response)
 
-        def fake_request_json(url, params=None, method="GET"):
+        def fake_request_json(url, params=None, method="GET", **kwargs):
             if url == "/molecule.json":
                 return {"molecules": []}
             raise http_error
@@ -1086,6 +1087,77 @@ class TestTargetPipeline:
 
         result = pipeline.validate(df)
         assert len(result) == 1
+
+    def test_uniprot_enrichment_merges_primary(self, target_config, tmp_path):
+        """UniProt enrichment should populate canonical fields and silver artifacts."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TargetPipeline(target_config, run_id)
+
+        class DummyUniProtClient:
+            def request_json(self, url, params=None, method="GET", **kwargs):
+                assert url == "/search"
+                return {
+                    "results": [
+                        {
+                            "primaryAccession": "P12345",
+                            "secondaryAccession": ["Q54321"],
+                            "proteinDescription": {
+                                "recommendedName": {"fullName": {"value": "Kinase"}}
+                            },
+                            "genes": [
+                                {
+                                    "geneName": {"value": "EGFR"},
+                                    "synonyms": [{"value": "ERBB"}],
+                                }
+                            ],
+                            "organism": {
+                                "scientificName": "Homo sapiens",
+                                "taxonId": 9606,
+                            },
+                            "lineage": [
+                                {"scientificName": "Eukaryota"},
+                                {"scientificName": "Metazoa"},
+                            ],
+                            "sequence": {"length": 1210},
+                            "comments": [
+                                {
+                                    "commentType": "ALTERNATIVE PRODUCTS",
+                                    "isoforms": [
+                                        {
+                                            "isoformIds": ["P12345-2"],
+                                            "names": [{"value": "Isoform 2"}],
+                                            "sequence": {"length": 1200},
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                }
+
+        pipeline.uniprot_client = DummyUniProtClient()
+        pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_orthologs_client = None
+        pipeline.config.materialization.silver = tmp_path / "targets_uniprot.parquet"
+
+        df = pd.DataFrame({
+            "target_chembl_id": ["CHEMBL1"],
+            "pref_name": ["EGFR"],
+            "uniprot_accession": ["P12345"],
+            "gene_symbol": ["EGFR"],
+        })
+
+        enriched = pipeline.transform(df)
+
+        assert enriched.loc[0, "uniprot_canonical_accession"] == "P12345"
+        assert enriched.loc[0, "uniprot_merge_strategy"] == "direct"
+        assert pipeline.qc_metrics.get("enrichment_success.uniprot") == 1.0
+
+        silver_path = Path(pipeline.config.materialization.silver)
+        component_path = silver_path.parent / "component_enrichment.parquet"
+        assert silver_path.exists()
+        assert component_path.exists()
 
 
 class TestDocumentPipeline:

@@ -240,6 +240,8 @@ class UnifiedAPIClient:
         url: str,
         params: dict[str, Any] | None = None,
         method: str = "GET",
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Make JSON request with all protections.
@@ -258,7 +260,7 @@ class UnifiedAPIClient:
 
         # Check cache for GET requests
         cache_key: str | None = None
-        if self.cache and method == "GET":
+        if self.cache and method == "GET" and not data and not json:
             cache_key = self._cache_key(url, params)
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
@@ -275,6 +277,8 @@ class UnifiedAPIClient:
                 method=method,
                 url=url,
                 params=params,
+                data=data,
+                json=json,
                 timeout=(self.config.timeout_connect, self.config.timeout_read),
             )
 
@@ -290,6 +294,8 @@ class UnifiedAPIClient:
                         method=method,
                         url=url,
                         params=params,
+                        data=data,
+                        json=json,
                         timeout=(self.config.timeout_connect, self.config.timeout_read),
                     )
 
@@ -306,7 +312,7 @@ class UnifiedAPIClient:
                 data: dict[str, Any] = response.json()
 
                 # Cache result
-                if self.cache and cache_key:
+                if self.cache and cache_key and method == "GET" and not data and not json:
                     self.cache[cache_key] = data
 
                 return data
