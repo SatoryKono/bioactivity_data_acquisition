@@ -69,6 +69,53 @@ Target ETL Pipeline
     └── Export: targets, target_components, protein_class, xref
 ```
 
+### Stage 1: ChEMBL REST ресурсы и контракты
+
+#### Ключевые эндпоинты
+
+| Ресурс | Назначение | Обязательные поля (тип, nullable) |
+|--------|------------|------------------------------------|
+| `GET /target` | Базовая карточка таргета с возможностью включать `protein_classifications`, `cross_references`. | `target_chembl_id` (string, NOT NULL); `pref_name` (string, nullable); `target_type` (string, nullable); `organism` (string, nullable); `tax_id` (int64, nullable); `species_group_flag` (boolean, nullable) |
+| `GET /target_component` | Денормализованные компоненты и последовательности для комплексных таргетов. | `component_id` (int64, nullable); `component_type` (string, nullable); `accession` (string, nullable); `sequence` (string, nullable); `component_description` (string, nullable) |
+| `GET /target_relation` | Связи между таргетами (гомология, эквивалентность). | `target_relation_id` (string, nullable); `relationship_type` (string, nullable); `related_target_chembl_id` (string, nullable) |
+| `GET /protein_classification` | Иерархия protein families (уровни L1-L4). | `protein_class_id` (int64, nullable); `class_level` (int64, nullable); `pref_name` (string, nullable); `short_name` (string, nullable) |
+
+> **Примечание:** `target_chembl_id` является единственным полем с ограничением NOT NULL. Остальные поля допускают пропуски и должны обрабатываться в стадии трансформации.
+
+#### Правила пагинации и фильтрации Stage 1
+
+- **Пагинация**: запросы используют `limit` и `offset` (по умолчанию `limit=20`, `offset=0`). Ответ содержит блок `page_meta.limit`, `page_meta.offset`, `page_meta.total_count`. Итерация продолжается, пока `offset >= total_count`.
+- **Фильтры**: поддерживаются суффиксы `__exact`, `__contains`, `__icontains`, `__in`, `__gt`, `__lt` для любых полей ресурса. Фильтры можно комбинировать (`&`) для сложных критериев.
+- **Длинные запросы**: при превышении лимита URL (>2000 символов) выполняется `POST` на соответствующий ресурс с заголовком `X-HTTP-Method-Override: GET`. Тело запроса передает параметры (например, `{"target_chembl_id__in": "CHEMBL203,CHEMBL204"}`) в формате JSON.
+
+#### TARGET_FIELDS для материализации Stage 1
+
+```python
+TARGET_FIELDS = [
+    "pref_name",                 # string, nullable
+    "target_chembl_id",          # string, NOT NULL (PRIMARY KEY)
+    "component_description",     # string, nullable
+    "component_id",              # int64, nullable
+    "relationship",              # string, nullable (derived from target_type)
+    "gene",                      # string, nullable (pipe-delimited)
+    "uniprot_id",                # string, nullable
+    "mapping_uniprot_id",        # string, nullable
+    "chembl_alternative_name",   # string, nullable
+    "ec_code",                   # string, nullable (pipe-delimited)
+    "hgnc_name",                 # string, nullable
+    "hgnc_id",                   # int64, nullable
+    "target_type",               # string, nullable
+    "tax_id",                    # int64, nullable
+    "species_group_flag",        # boolean, nullable
+    "target_components",         # json string, nullable
+    "protein_classifications",   # json string, nullable
+    "cross_references",          # json string, nullable
+    "reaction_ec_numbers",       # json/string, nullable
+]
+```
+
+> **Инварианты Stage 1:** `target_chembl_id` должен быть уникальным и заполненным, остальные поля допускают `NULL`, но сохраняются в детерминированном формате (строки — UTF-8, JSON — сериализованный словарь с сортировкой ключей).
+
 ### Контрольные точки материализации
 
 Pipeline сохраняет промежуточные результаты на каждой стадии для:
