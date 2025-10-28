@@ -92,12 +92,20 @@ COLUMN_ORDER = [
     "bao_endpoint",
     "bao_format",
     "bao_label",
+    "canonical_smiles",
+    "target_organism",
+    "target_tax_id",
+    "activity_properties",
+    "compound_key",
+    "is_citation",
+    "high_citation_rate",
+    "exact_data_citation",
+    "rounded_data_citation",
     "potential_duplicate",
     "uo_units",
     "qudt_units",
     "src_id",
     "action_type",
-    "activity_properties_json",
     "bei",
     "sei",
     "le",
@@ -188,7 +196,15 @@ class ActivitySchema(BaseSchema):
     action_type: Series[str] = pa.Field(nullable=True, description="Тип действия лиганда")
 
     # Activity properties (JSON string)
-    activity_properties_json: Series[str] = pa.Field(nullable=True, description="Свойства активности в формате JSON")
+    canonical_smiles: Series[str] = pa.Field(nullable=True, description="Канонический SMILES лиганда")
+    target_organism: Series[str] = pa.Field(nullable=True, description="Организм таргета")
+    target_tax_id: Series[int] = pa.Field(nullable=True, ge=1, description="NCBI Taxonomy ID таргета")
+    activity_properties: Series[str] = pa.Field(nullable=True, description="Свойства активности в каноническом виде")
+    compound_key: Series[str] = pa.Field(nullable=True, description="Бизнес-ключ для связывания активности")
+    is_citation: Series[bool] = pa.Field(nullable=True, description="Флаг наличия цитирования")
+    high_citation_rate: Series[bool] = pa.Field(nullable=True, description="Высокая частота цитирований")
+    exact_data_citation: Series[bool] = pa.Field(nullable=True, description="Флаг точного цитирования")
+    rounded_data_citation: Series[bool] = pa.Field(nullable=True, description="Флаг округленного цитирования")
 
     # Ligand efficiency
     bei: Series[float] = pa.Field(nullable=True, description="Binding Efficiency Index")
@@ -224,12 +240,20 @@ class ActivitySchema(BaseSchema):
         "bao_endpoint",
         "bao_format",
         "bao_label",
+        "canonical_smiles",
+        "target_organism",
+        "target_tax_id",
+        "activity_properties",
+        "compound_key",
+        "is_citation",
+        "high_citation_rate",
+        "exact_data_citation",
+        "rounded_data_citation",
         "potential_duplicate",
         "uo_units",
         "qudt_units",
         "src_id",
         "action_type",
-        "activity_properties_json",
         "bei",
         "sei",
         "le",

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import pandas as pd
 from pandera.errors import SchemaErrors
@@ -26,6 +28,383 @@ logger = UnifiedLogger.get(__name__)
 
 # Register schema
 schema_registry.register("activity", "1.0.0", ActivitySchema)
+
+
+NA_STRINGS = {"", "na", "n/a", "none", "null", "nan"}
+RELATION_ALIASES = {
+    "==": "=",
+    "=": "=",
+    "≡": "=",
+    "<": "<",
+    "≤": "<=",
+    "⩽": "<=",
+    "⩾": ">=",
+    "≥": ">=",
+    ">": ">",
+    "~": "~",
+}
+UNIT_SYNONYMS = {
+    "nm": "nM",
+    "nanomolar": "nM",
+    "μm": "µM",
+    "µm": "µM",
+    "um": "µM",
+    "μmolar": "µM",
+    "µmolar": "µM",
+    "mum": "µM",
+    "μmol/l": "µmol/L",
+    "µmol/l": "µmol/L",
+    "umol/l": "µmol/L",
+    "mmol/l": "mmol/L",
+    "mol/l": "mol/L",
+    "μg/ml": "µg/mL",
+    "μg/mL": "µg/mL",
+    "µg/ml": "µg/mL",
+    "µg/mL": "µg/mL",
+    "ug/ml": "µg/mL",
+    "ug/mL": "µg/mL",
+    "ng/ml": "ng/mL",
+    "pg/ml": "pg/mL",
+    "mg/ml": "mg/mL",
+    "mg/l": "mg/L",
+    "ug/l": "µg/L",
+    "μg/l": "µg/L",
+    "µg/l": "µg/L",
+}
+BOOLEAN_TRUE = {"true", "1", "yes", "y", "t"}
+BOOLEAN_FALSE = {"false", "0", "no", "n", "f"}
+
+
+def _is_na(value: Any) -> bool:
+    """Return True if the provided value should be treated as NA."""
+
+    if value is None:
+        return True
+    if isinstance(value, float) and math.isnan(value):
+        return True
+    if isinstance(value, str):
+        if value.strip() == "":
+            return True
+        return value.strip().lower() in NA_STRINGS
+    return False
+
+
+def _canonicalize_whitespace(text: str) -> str:
+    """Collapse consecutive whitespace into single spaces."""
+
+    return re.sub(r"\s+", " ", text.strip())
+
+
+def _normalize_string(
+    value: Any,
+    *,
+    uppercase: bool = False,
+    title_case: bool = False,
+    max_length: int | None = None,
+) -> str | None:
+    """Normalize textual values with canonical whitespace and casing."""
+
+    if _is_na(value):
+        return None
+
+    text = str(value)
+    text = _canonicalize_whitespace(text)
+    if not text:
+        return None
+
+    if uppercase:
+        text = text.upper()
+    elif title_case:
+        tokens = text.split(" ")
+        normalized_tokens: list[str] = []
+        for token in tokens:
+            if token.isupper() and len(token) <= 4:
+                normalized_tokens.append(token)
+            elif token.lower() in {"sp.", "spp.", "cf."}:
+                normalized_tokens.append(token.lower())
+            else:
+                normalized_tokens.append(token.capitalize())
+        text = " ".join(normalized_tokens)
+
+    if max_length is not None:
+        text = text[:max_length]
+    return text
+
+
+def _normalize_chembl_id(value: Any) -> str | None:
+    """Normalize ChEMBL identifiers to uppercase canonical form."""
+
+    normalized = _normalize_string(value, uppercase=True)
+    if normalized is None:
+        return None
+    return normalized
+
+
+def _normalize_bao_id(value: Any) -> str | None:
+    """Normalize BAO identifiers."""
+
+    normalized = _normalize_string(value, uppercase=True)
+    if normalized is None:
+        return None
+    return normalized
+
+
+def _normalize_units(value: Any, default: str | None = None) -> str | None:
+    """Normalize measurement units using known synonyms."""
+
+    if _is_na(value):
+        return default
+
+    text = _canonicalize_whitespace(str(value))
+    key = text.lower()
+    canonical = UNIT_SYNONYMS.get(key)
+    if canonical is not None:
+        return canonical
+    return text
+
+
+def _normalize_relation(value: Any, default: str = "=") -> str:
+    """Normalize inequality relations to ASCII equivalents."""
+
+    if _is_na(value):
+        return default
+    relation = str(value).strip()
+    if relation == "":
+        return default
+    return RELATION_ALIASES.get(relation, RELATION_ALIASES.get(relation.lower(), default))
+
+
+def _normalize_float(value: Any) -> float | None:
+    """Convert values to float when possible."""
+
+    if _is_na(value):
+        return None
+    try:
+        result = float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(result):
+        return None
+    return result
+
+
+def _normalize_int(value: Any) -> int | None:
+    """Convert values to integers when possible."""
+
+    if _is_na(value):
+        return None
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_bool(value: Any, *, default: bool = False) -> bool:
+    """Normalize boolean-like values to strict bools."""
+
+    if _is_na(value):
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    text = str(value).strip().lower()
+    if text in BOOLEAN_TRUE:
+        return True
+    if text in BOOLEAN_FALSE:
+        return False
+    return default
+
+
+def _normalize_target_organism(value: Any) -> str | None:
+    """Normalize organism names to title case with canonical whitespace."""
+
+    return _normalize_string(value, title_case=True)
+
+
+def _parse_numeric(value: Any) -> float | None:
+    """Best-effort conversion to float for property parsing."""
+
+    if isinstance(value, (int, float)) and not (isinstance(value, float) and math.isnan(value)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _normalize_activity_properties(
+    raw: Any,
+) -> tuple[str | None, list[dict[str, Any]]]:
+    """Canonicalize activity properties preserving all entries."""
+
+    if _is_na(raw):
+        return None, []
+
+    parsed: Any = raw
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return None, []
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return None, []
+
+    if isinstance(parsed, dict):
+        parsed = [parsed]
+
+    if not isinstance(parsed, list):
+        return None, []
+
+    normalized_records: list[dict[str, Any]] = []
+    for entry in parsed:
+        if not isinstance(entry, dict):
+            continue
+        normalized_entry: dict[str, Any] = {}
+        for key, value in entry.items():
+            if isinstance(value, str):
+                text_value = _normalize_string(value)
+                if text_value is None:
+                    normalized_entry[key] = None
+                else:
+                    numeric = _parse_numeric(text_value)
+                    normalized_entry[key] = numeric if numeric is not None else text_value
+            elif isinstance(value, (int, float)):
+                if isinstance(value, float) and math.isnan(value):
+                    normalized_entry[key] = None
+                else:
+                    normalized_entry[key] = value
+            elif isinstance(value, bool) or value is None:
+                normalized_entry[key] = value
+            else:
+                normalized_entry[key] = value
+        if normalized_entry:
+            normalized_records.append(dict(sorted(normalized_entry.items())))
+
+    if not normalized_records:
+        return None, []
+
+    normalized_records.sort(
+        key=lambda item: (
+            str(
+                item.get("name")
+                or item.get("type")
+                or item.get("property_name")
+                or ""
+            ).lower(),
+            json.dumps(item, ensure_ascii=False, sort_keys=True),
+        )
+    )
+    canonical = json.dumps(normalized_records, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return canonical, normalized_records
+
+
+def _normalize_ligand_efficiency(
+    ligand_efficiency: Any,
+) -> tuple[float | None, float | None, float | None, float | None]:
+    """Normalize ligand efficiency metrics once."""
+
+    if not isinstance(ligand_efficiency, dict):
+        return None, None, None, None
+
+    bei = _normalize_float(ligand_efficiency.get("bei"))
+    sei = _normalize_float(ligand_efficiency.get("sei"))
+    le = _normalize_float(ligand_efficiency.get("le"))
+    lle = _normalize_float(ligand_efficiency.get("lle"))
+    return bei, sei, le, lle
+
+
+def _derive_compound_key(
+    molecule_id: str | None,
+    standard_type: str | None,
+    target_id: str | None,
+) -> str | None:
+    """Build compound key when all components are available."""
+
+    if molecule_id and standard_type and target_id:
+        return "|".join([molecule_id, standard_type, target_id])
+    return None
+
+
+def _derive_is_citation(
+    document_id: str | None,
+    properties: Sequence[dict[str, Any]],
+) -> bool:
+    """Infer citation flag from document linkage or properties."""
+
+    if document_id:
+        return True
+
+    for prop in properties:
+        label = str(prop.get("name") or prop.get("type") or "").lower()
+        if label.replace(" ", "_") == "is_citation":
+            return _normalize_bool(prop.get("value"), default=False)
+    return False
+
+
+def _derive_exact_data_citation(
+    comment: str | None,
+    properties: Sequence[dict[str, Any]],
+) -> bool:
+    """Derive exact data citation flag from comments or properties."""
+
+    text = (comment or "").lower()
+    if "exact" in text and "citation" in text:
+        return True
+
+    for prop in properties:
+        label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
+        if label == "exact_data_citation":
+            return _normalize_bool(prop.get("value"), default=False)
+    return False
+
+
+def _derive_rounded_data_citation(
+    comment: str | None,
+    properties: Sequence[dict[str, Any]],
+) -> bool:
+    """Derive rounded data citation flag."""
+
+    text = (comment or "").lower()
+    if "rounded" in text and "citation" in text:
+        return True
+
+    for prop in properties:
+        label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
+        if label == "rounded_data_citation":
+            return _normalize_bool(prop.get("value"), default=False)
+    return False
+
+
+def _derive_high_citation_rate(properties: Sequence[dict[str, Any]]) -> bool:
+    """Detect high citation rate from property payloads."""
+
+    for prop in properties:
+        label = str(prop.get("name") or prop.get("type") or "").lower()
+        if "citation" not in label:
+            continue
+        numeric = None
+        for candidate in ("value", "num_value", "property_value", "count"):
+            if candidate in prop:
+                numeric = _parse_numeric(prop.get(candidate))
+                if numeric is not None:
+                    break
+        if numeric is not None and numeric >= 50:
+            return True
+        if label.replace(" ", "_") == "high_citation_rate":
+            return _normalize_bool(prop.get("value"), default=False)
+    return False
+
+
+def _derive_is_censored(relation: str | None) -> bool | None:
+    """Infer censorship flag from relation symbol."""
+
+    if relation is None:
+        return None
+    return relation != "="
 
 
 class ActivityPipeline(PipelineBase):
@@ -71,15 +450,8 @@ class ActivityPipeline(PipelineBase):
         # Read input file with activity IDs
         if not input_file.exists():
             logger.warning("input_file_not_found", path=input_file)
-            # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=[
-                "activity_id", "molecule_chembl_id", "assay_chembl_id",
-                "target_chembl_id", "document_chembl_id", "standard_type",
-                "standard_relation", "standard_value", "standard_units",
-                "pchembl_value", "bao_endpoint", "bao_format", "bao_label",
-                "canonical_smiles", "target_organism", "target_tax_id",
-                "data_validity_comment", "activity_properties",
-            ])
+            expected_cols = ActivitySchema.get_column_order()
+            return pd.DataFrame(columns=expected_cols if expected_cols else [])
 
         # Read CSV file
         df = pd.read_csv(input_file)
@@ -92,42 +464,21 @@ class ActivityPipeline(PipelineBase):
         # Extract activity IDs for API call
         activity_ids = df['activity_id'].dropna().astype(int).unique().tolist()
 
-        if activity_ids:
-            logger.info("fetching_from_chembl_api", count=len(activity_ids))
-            # Fetch enriched data from ChEMBL API
-            enriched_df = self._extract_from_chembl(activity_ids)
-
-            if not enriched_df.empty:
-                # Merge with CSV data using activity_id as key
-                df = df.merge(enriched_df, on='activity_id', how='left', suffixes=('', '_api'))
-                logger.info("enriched_from_api", rows=len(df))
-            else:
-                logger.warning("no_api_data_returned")
-        else:
+        if not activity_ids:
             logger.warning("no_activity_ids_found")
+            expected_cols = ActivitySchema.get_column_order()
+            return pd.DataFrame(columns=expected_cols if expected_cols else [])
 
-        # Add missing IO_SCHEMAS columns with None/default values
-        required_cols = [
-            "activity_id", "molecule_chembl_id", "assay_chembl_id", "target_chembl_id", "document_chembl_id",
-            "published_type", "published_relation", "published_value", "published_units",
-            "standard_type", "standard_relation", "standard_value", "standard_units", "standard_flag",
-            "lower_bound", "upper_bound", "is_censored", "pchembl_value",
-            "activity_comment", "data_validity_comment",
-            "bao_endpoint", "bao_format", "bao_label",
-            "potential_duplicate", "uo_units", "qudt_units", "src_id", "action_type",
-            "activity_properties_json", "bei", "sei", "le", "lle"
-        ]
+        logger.info("fetching_from_chembl_api", count=len(activity_ids))
+        extracted_df = self._extract_from_chembl(activity_ids)
 
-        for col in required_cols:
-            if col not in df.columns:
-                df[col] = None
+        if extracted_df.empty:
+            logger.warning("no_api_data_returned")
+            expected_cols = ActivitySchema.get_column_order()
+            return pd.DataFrame(columns=expected_cols if expected_cols else [])
 
-        # Set default values
-        df['standard_relation'] = '='
-        df['bao_label'] = None
-
-        logger.info("extraction_completed", rows=len(df), columns=len(df.columns))
-        return df
+        logger.info("extraction_completed", rows=len(extracted_df), columns=len(extracted_df.columns))
+        return extracted_df
 
     def _extract_from_chembl(self, activity_ids: list[int]) -> pd.DataFrame:
         """Extract activity data using release-scoped batching with caching."""
@@ -266,35 +617,97 @@ class ActivityPipeline(PipelineBase):
     def _normalize_activity(self, activity: dict[str, Any]) -> dict[str, Any]:
         """Normalize raw activity payload into a flat record."""
 
-        activity_data: dict[str, Any] = {
-            "activity_id": activity.get("activity_id"),
-            "molecule_chembl_id": activity.get("molecule_chembl_id"),
-            "assay_chembl_id": activity.get("assay_chembl_id"),
-            "target_chembl_id": activity.get("target_chembl_id"),
-            "document_chembl_id": activity.get("document_chembl_id"),
-            "published_type": activity.get("published_type"),
-            "published_relation": activity.get("published_relation"),
-            "published_value": activity.get("published_value"),
-            "published_units": activity.get("published_units"),
-            "standard_type": activity.get("standard_type"),
-            "standard_relation": activity.get("standard_relation"),
-            "standard_value": activity.get("standard_value"),
-            "standard_units": activity.get("standard_units"),
-            "standard_flag": activity.get("standard_flag"),
-            "lower_bound": activity.get("lower_bound"),
-            "upper_bound": activity.get("upper_bound"),
-            "is_censored": activity.get("is_censored"),
-            "pchembl_value": activity.get("pchembl_value"),
-            "activity_comment": activity.get("activity_comment"),
-            "data_validity_comment": activity.get("data_validity_comment"),
-            "bao_endpoint": activity.get("bao_endpoint"),
-            "bao_format": activity.get("bao_format"),
-            "bao_label": activity.get("bao_label"),
-            "potential_duplicate": activity.get("potential_duplicate"),
-            "uo_units": activity.get("uo_units"),
-            "qudt_units": activity.get("qudt_units"),
-            "src_id": activity.get("src_id"),
-            "action_type": activity.get("action_type"),
+        activity_id = _normalize_int(activity.get("activity_id"))
+        molecule_id = _normalize_chembl_id(activity.get("molecule_chembl_id"))
+        assay_id = _normalize_chembl_id(activity.get("assay_chembl_id"))
+        target_id = _normalize_chembl_id(activity.get("target_chembl_id"))
+        document_id = _normalize_chembl_id(activity.get("document_chembl_id"))
+
+        published_type = _normalize_string(activity.get("type") or activity.get("published_type"), uppercase=True)
+        published_relation = _normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
+        published_value = _normalize_float(activity.get("value") or activity.get("published_value"))
+        published_units = _normalize_units(activity.get("units") or activity.get("published_units"))
+
+        standard_type = _normalize_string(activity.get("standard_type"), uppercase=True)
+        standard_relation = _normalize_relation(activity.get("standard_relation"), default="=")
+        standard_value = _normalize_float(activity.get("standard_value"))
+        standard_units = _normalize_units(activity.get("standard_units"), default="nM")
+        standard_flag = _normalize_int(activity.get("standard_flag"))
+
+        lower_bound = _normalize_float(activity.get("standard_lower_value") or activity.get("lower_value"))
+        upper_bound = _normalize_float(activity.get("standard_upper_value") or activity.get("upper_value"))
+        is_censored = _derive_is_censored(standard_relation)
+
+        pchembl_value = _normalize_float(activity.get("pchembl_value"))
+        activity_comment = _normalize_string(activity.get("activity_comment"))
+        data_validity_comment = _normalize_string(activity.get("data_validity_comment"))
+
+        bao_endpoint = _normalize_bao_id(activity.get("bao_endpoint"))
+        bao_format = _normalize_bao_id(activity.get("bao_format"))
+        bao_label = _normalize_string(activity.get("bao_label"), max_length=128)
+
+        canonical_smiles = _normalize_string(activity.get("canonical_smiles"))
+        target_organism = _normalize_target_organism(activity.get("target_organism"))
+        target_tax_id = _normalize_int(activity.get("target_tax_id"))
+
+        potential_duplicate = _normalize_int(activity.get("potential_duplicate"))
+        uo_units = _normalize_string(activity.get("uo_units"), uppercase=True)
+        qudt_units = _normalize_string(activity.get("qudt_units"))
+        src_id = _normalize_int(activity.get("src_id"))
+        action_type = _normalize_string(activity.get("action_type"))
+
+        properties_str, properties = _normalize_activity_properties(activity.get("activity_properties"))
+        ligand_efficiency = activity.get("ligand_efficiency") or activity.get("ligand_eff")
+        bei, sei, le, lle = _normalize_ligand_efficiency(ligand_efficiency)
+
+        compound_key = _derive_compound_key(molecule_id, standard_type, target_id)
+        is_citation = _derive_is_citation(document_id, properties)
+        exact_citation = _derive_exact_data_citation(data_validity_comment, properties)
+        rounded_citation = _derive_rounded_data_citation(data_validity_comment, properties)
+        high_citation_rate = _derive_high_citation_rate(properties)
+
+        record: dict[str, Any] = {
+            "activity_id": activity_id,
+            "molecule_chembl_id": molecule_id,
+            "assay_chembl_id": assay_id,
+            "target_chembl_id": target_id,
+            "document_chembl_id": document_id,
+            "published_type": published_type,
+            "published_relation": published_relation,
+            "published_value": published_value,
+            "published_units": published_units,
+            "standard_type": standard_type,
+            "standard_relation": standard_relation,
+            "standard_value": standard_value,
+            "standard_units": standard_units,
+            "standard_flag": standard_flag,
+            "lower_bound": lower_bound,
+            "upper_bound": upper_bound,
+            "is_censored": is_censored,
+            "pchembl_value": pchembl_value,
+            "activity_comment": activity_comment,
+            "data_validity_comment": data_validity_comment,
+            "bao_endpoint": bao_endpoint,
+            "bao_format": bao_format,
+            "bao_label": bao_label,
+            "canonical_smiles": canonical_smiles,
+            "target_organism": target_organism,
+            "target_tax_id": target_tax_id,
+            "activity_properties": properties_str,
+            "compound_key": compound_key,
+            "is_citation": is_citation,
+            "high_citation_rate": high_citation_rate,
+            "exact_data_citation": exact_citation,
+            "rounded_data_citation": rounded_citation,
+            "potential_duplicate": potential_duplicate,
+            "uo_units": uo_units,
+            "qudt_units": qudt_units,
+            "src_id": src_id,
+            "action_type": action_type,
+            "bei": bei,
+            "sei": sei,
+            "le": le,
+            "lle": lle,
             "chembl_release": self._chembl_release,
             "source_system": "chembl",
             "fallback_reason": None,
@@ -305,29 +718,10 @@ class ActivityPipeline(PipelineBase):
             "retry_after_sec": None,
             "attempt": None,
             "run_id": self.run_id,
+            "extracted_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        activity_properties = activity.get("activity_properties")
-        if activity_properties:
-            activity_data["activity_properties_json"] = json.dumps(activity_properties, ensure_ascii=False)
-        else:
-            activity_data["activity_properties_json"] = None
-
-        ligand_eff = activity.get("ligand_eff")
-        if isinstance(ligand_eff, dict):
-            activity_data.update(
-                {
-                    "bei": ligand_eff.get("bei"),
-                    "sei": ligand_eff.get("sei"),
-                    "le": ligand_eff.get("le"),
-                    "lle": ligand_eff.get("lle"),
-                }
-            )
-        else:
-            activity_data.update({"bei": None, "sei": None, "le": None, "lle": None})
-
-        activity_data.setdefault("extracted_at", datetime.now(timezone.utc).isoformat())
-        return activity_data
+        return record
 
     def _create_fallback_record(
         self,
@@ -357,13 +751,13 @@ class ActivityPipeline(PipelineBase):
             "target_chembl_id": None,
             "document_chembl_id": None,
             "published_type": None,
-            "published_relation": None,
+            "published_relation": "=",
             "published_value": None,
             "published_units": None,
             "standard_type": None,
-            "standard_relation": None,
+            "standard_relation": "=",
             "standard_value": None,
-            "standard_units": None,
+            "standard_units": "nM",
             "standard_flag": None,
             "lower_bound": None,
             "upper_bound": None,
@@ -374,12 +768,20 @@ class ActivityPipeline(PipelineBase):
             "bao_endpoint": None,
             "bao_format": None,
             "bao_label": None,
+            "canonical_smiles": None,
+            "target_organism": None,
+            "target_tax_id": None,
+            "activity_properties": None,
+            "compound_key": None,
+            "is_citation": False,
+            "high_citation_rate": False,
+            "exact_data_citation": False,
+            "rounded_data_citation": False,
             "potential_duplicate": None,
             "uo_units": None,
             "qudt_units": None,
             "src_id": None,
             "action_type": None,
-            "activity_properties_json": None,
             "bei": None,
             "sei": None,
             "le": None,
@@ -491,69 +893,43 @@ class ActivityPipeline(PipelineBase):
         if df.empty:
             return df
 
-        # Normalize identifiers
-        from bioetl.normalizers import registry
+        df = df.copy()
 
-        for col in ["molecule_chembl_id", "assay_chembl_id", "target_chembl_id", "document_chembl_id"]:
-            if col in df.columns:
-                df[col] = df[col].apply(
-                    lambda x: registry.normalize("identifier", x) if pd.notna(x) else None
-                )
-
-        # Normalize units
-        for col in ["standard_units", "published_units", "uo_units", "qudt_units"]:
-            if col in df.columns:
-                df[col] = df[col].apply(
-                    lambda x: registry.normalize("string", x) if pd.notna(x) else None
-                )
-
-        # Normalize action_type
-        if "action_type" in df.columns:
-            df["action_type"] = df["action_type"].apply(
-                lambda x: registry.normalize("string", x) if pd.notna(x) else None
-            )
-
-        # Validate potential_duplicate (should be 0 or 1)
-        if "potential_duplicate" in df.columns:
-            df["potential_duplicate"] = df["potential_duplicate"].apply(
-                lambda x: x if pd.notna(x) and x in [0, 1] else None
-            )
-
-        # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        df["pipeline_version"] = pipeline_version
 
         if "source_system" not in df.columns:
-            df["source_system"] = None
-        df["source_system"] = df["source_system"].fillna("chembl")
+            df["source_system"] = "chembl"
+        else:
+            df["source_system"] = df["source_system"].fillna("chembl")
 
         if "chembl_release" not in df.columns:
             df["chembl_release"] = self._chembl_release
         else:
             df["chembl_release"] = df["chembl_release"].fillna(self._chembl_release)
 
+        timestamp_now = datetime.now(timezone.utc).isoformat()
         if "extracted_at" in df.columns:
-            df["extracted_at"] = df["extracted_at"].fillna(pd.Timestamp.now(tz="UTC").isoformat())
+            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
         else:
-            df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+            df["extracted_at"] = timestamp_now
 
-        # Generate hash fields for data integrity
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
         df["hash_business_key"] = df["activity_id"].apply(generate_hash_business_key)
         df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
 
-        # Generate deterministic index
-        df = df.sort_values("activity_id")  # Sort by primary key
+        df = df.sort_values(["activity_id", "source_system"])
         df["index"] = range(len(df))
 
-        # Reorder columns according to schema
         from bioetl.schemas import ActivitySchema
-        from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
         expected_cols = ActivitySchema.get_column_order()
         if expected_cols:
-            # Only reorder columns that exist in the DataFrame
-            df = df[[col for col in column_order if col in df.columns]]
+            for col in expected_cols:
+                if col not in df.columns:
+                    df[col] = None
+            df = df[expected_cols]
 
         return df
 

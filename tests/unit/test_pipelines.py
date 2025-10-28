@@ -377,12 +377,20 @@ class TestActivityPipeline:
             "bao_endpoint": "BAO_0000190",
             "bao_format": "BAO_0000357",
             "bao_label": "single protein format",
+            "canonical_smiles": "C1=CC=CC=C1",
+            "target_organism": "Homo Sapiens",
+            "target_tax_id": 9606,
+            "activity_properties": "[]",
+            "compound_key": "CHEMBL1|IC50|CHEMBL3",
+            "is_citation": True,
+            "high_citation_rate": False,
+            "exact_data_citation": False,
+            "rounded_data_citation": False,
             "potential_duplicate": 0,
             "uo_units": "UO_0000065",
             "qudt_units": "http://qudt.org/vocab/unit/NanoMOL-PER-L",
             "src_id": 1,
             "action_type": "inhibition",
-            "activity_properties_json": "{}",
             "bei": 1.0,
             "sei": 1.0,
             "le": 1.0,
@@ -416,6 +424,91 @@ class TestActivityPipeline:
         result = pipeline.extract(input_file=csv_path)
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
+
+    def test_normalize_activity_field_mapping(self, activity_config):
+        """Dedicated mappers should normalize every field as specified."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        raw_activity = {
+            "activity_id": "123 ",
+            "molecule_chembl_id": " chembl42 ",
+            "assay_chembl_id": "ChEmBl2 ",
+            "target_chembl_id": "cheMBL3",
+            "document_chembl_id": " chembl4 ",
+            "type": " ic50 ",
+            "relation": "≥",
+            "value": " 10 ",
+            "units": " nm ",
+            "standard_type": " ki ",
+            "standard_relation": "≤",
+            "standard_value": " 9.5 ",
+            "standard_units": "ug/ml",
+            "standard_flag": "1",
+            "standard_lower_value": "8",
+            "standard_upper_value": "12",
+            "pchembl_value": "7.3",
+            "activity_comment": "  comment ",
+            "data_validity_comment": "Exact data citation confirmed",
+            "bao_endpoint": " bao_0000190 ",
+            "bao_format": "BAO_0000357",
+            "bao_label": " single   protein format ",
+            "canonical_smiles": " CC(O) ",
+            "target_organism": "homo   sapiens",
+            "target_tax_id": "9606",
+            "potential_duplicate": "1",
+            "uo_units": "uo_0000065",
+            "qudt_units": " http://qudt.org/unit ",
+            "src_id": "42",
+            "action_type": " inhibition ",
+            "activity_properties": [
+                {"name": "citation_count", "value": "120"},
+                {"name": "note", "value": " curated "},
+            ],
+            "ligand_efficiency": {"bei": "10", "sei": "2", "le": "0.5", "lle": "4"},
+        }
+
+        normalized = pipeline._normalize_activity(raw_activity)
+
+        assert normalized["activity_id"] == 123
+        assert normalized["molecule_chembl_id"] == "CHEMBL42"
+        assert normalized["assay_chembl_id"] == "CHEMBL2"
+        assert normalized["target_chembl_id"] == "CHEMBL3"
+        assert normalized["document_chembl_id"] == "CHEMBL4"
+        assert normalized["published_type"] == "IC50"
+        assert normalized["published_relation"] == ">="
+        assert normalized["published_units"] == "nM"
+        assert normalized["standard_type"] == "KI"
+        assert normalized["standard_relation"] == "<="
+        assert normalized["standard_units"] == "µg/mL"
+        assert normalized["standard_flag"] == 1
+        assert normalized["lower_bound"] == 8.0
+        assert normalized["upper_bound"] == 12.0
+        assert normalized["is_censored"] is True
+        assert normalized["bao_endpoint"] == "BAO_0000190"
+        assert normalized["canonical_smiles"] == "CC(O)"
+        assert normalized["target_organism"] == "Homo Sapiens"
+        assert normalized["target_tax_id"] == 9606
+        assert normalized["potential_duplicate"] == 1
+        assert normalized["uo_units"] == "UO_0000065"
+        assert normalized["qudt_units"] == "http://qudt.org/unit"
+        assert normalized["src_id"] == 42
+        assert normalized["action_type"] == "inhibition"
+        assert normalized["bei"] == 10.0
+        assert normalized["sei"] == 2.0
+        assert normalized["le"] == 0.5
+        assert normalized["lle"] == 4.0
+        assert normalized["compound_key"] == "CHEMBL42|KI|CHEMBL3"
+        assert normalized["is_citation"] is True
+        assert normalized["exact_data_citation"] is True
+        assert normalized["rounded_data_citation"] is False
+        assert normalized["high_citation_rate"] is True
+
+        properties = json.loads(normalized["activity_properties"])
+        assert properties[0]["name"] == "citation_count"
+        assert properties[0]["value"] == 120.0
+        assert properties[1]["value"] == "curated"
 
     def test_validate_records_qc_metrics(self, activity_config):
         """Validation should record QC metrics for downstream reporting."""
