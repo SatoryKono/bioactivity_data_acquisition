@@ -580,7 +580,7 @@ class UnifiedAPIClient:
                 wait_time = self.retry_policy.get_wait_time(attempt)
                 time.sleep(wait_time)
 
-``` 
+```
 
 ### Cache policy
 

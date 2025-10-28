@@ -363,7 +363,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 
 ### Идентификаторы
 
-**ChEMBL IDs:** 
+**ChEMBL IDs:**
 - Regex: `^CHEMBL\d+$`
 - Нормализация: uppercase
 - Примеры: `CHEMBL998`, `CHEMBL1909156`
