@@ -1052,7 +1052,8 @@ class TestItemPipeline(PipelineBase):
 
         missing_ratio = missing_count / total_refs if total_refs else 0.0
         threshold = float(self.config.qc.thresholds.get("testitem.parent_missing_ratio", 0.0))
-        severity = "error" if missing_ratio > threshold else "warning"
+        exceeds_threshold = missing_ratio > threshold
+        severity = "error" if exceeds_threshold else "warning"
         sample_parents = parent_series[missing_mask].unique().tolist()[:5]
 
         issue = {
@@ -1066,8 +1067,8 @@ class TestItemPipeline(PipelineBase):
         }
         self.record_validation_issue(issue)
 
-        should_fail = self._should_fail(severity)
-        log_fn = logger.error if should_fail else logger.warning
+        should_fail = self._should_fail(severity) if exceeds_threshold else False
+        log_fn = logger.error if exceeds_threshold else logger.warning
         log_fn(
             "referential_integrity_failure",
             relation="testitem->parent",
