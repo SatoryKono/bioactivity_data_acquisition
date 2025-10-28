@@ -115,7 +115,7 @@ class DocumentSchema(BaseSchema):
 
     # Column order according to IO_SCHEMAS_AND_DIAGRAMS.md line 957
     # Stored as class attribute to avoid Pandera treating it as a custom check
-    column_order = [
+    _column_order = [
             "index",
             "extracted_at",
             "pipeline_version",
