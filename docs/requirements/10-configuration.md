@@ -203,6 +203,90 @@ bioetl pipeline run \
 
 Переменные окружения применяются **после** CLI-переопределений, что позволяет секьюрно прокидывать секреты на уровне CI/CD.
 
+### 5.3 CLI Interface Specification (AUD-4)
+
+**Унифицированные CLI флаги для всех пайплайнов:**
+
+Все пайплайны (assay, activity, testitem, target, document) поддерживают следующий набор стандартных флагов:
+
+| Флаг | Тип | Обязательность | Описание |
+|---|---|---|---|
+| `--config` | path | Опционально | Путь к YAML конфигурации (default: `configs/base.yaml`) |
+| `--golden` | path | Опционально | Путь к golden-файлу для детерминированного сравнения |
+| `--sample` | int | Опционально | Ограничить входные данные до N записей (для тестирования) |
+| `--fail-on-schema-drift` | flag | Опционально | Fail-fast при major-версии схемы (default: `True` в production) |
+| `--extended` | flag | Опционально | Включить расширенные артефакты (correlation_report, meta.yaml, manifest) |
+| `--mode` | str | Опционально | Режим работы (для Document: `chembl` | `all`) |
+| `--dry-run` | flag | Опционально | Проверка конфигурации без выполнения |
+| `--verbose` / `-v` | flag | Опционально | Детальное логирование |
+
+**Приоритет переопределений:**
+
+1. Базовый конфиг (`base.yaml`)
+2. Профильный конфиг (`assay.yaml`, `activity.yaml`, и т.д.)
+3. CLI флаги (`--config`, `--set`)
+4. Переменные окружения (`BIOETL_*`)
+
+**Инварианты CLI:**
+
+```python
+@dataclass
+class CLIArguments:
+    """Модель CLI аргументов для всех пайплайнов."""
+    config: Path
+    golden: Path | None = None
+    sample: int | None = None
+    fail_on_schema_drift: bool = True  # Production default
+    extended: bool = False
+    mode: str = "default"
+    dry_run: bool = False
+    verbose: bool = False
+    # Дополнительные аргументы через --set
+    overrides: dict[str, Any] = field(default_factory=dict)
+    
+    def validate(self) -> None:
+        """Валидация конфликтующих опций."""
+        if self.sample and self.sample < 1:
+            raise ValueError("--sample must be >= 1")
+        if self.config and not self.config.exists():
+            raise FileNotFoundError(f"Config not found: {self.config}")
+```
+
+**Таблица поддержки флагов по пайплайнам:**
+
+| Флаг | Assay | Activity | Testitem | Target | Document |
+|---|---|---|---|---|---|
+| `--config` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `--golden` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `--sample` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `--fail-on-schema-drift` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `--extended` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `--mode` | ❌ | ❌ | ❌ | ❌ | ✅ (`chembl` \| `all`) |
+
+**Примеры использования:**
+
+```bash
+# Базовый запуск
+bioetl pipeline run --config configs/pipelines/assay.yaml
+
+# С golden-сравнением
+bioetl pipeline run --config configs/pipelines/activity.yaml \
+  --golden data/golden/activity_20241021.csv
+
+# Расширенный режим с переопределением
+bioetl pipeline run --config configs/pipelines/document.yaml \
+  --mode all \
+  --extended \
+  --set sources.crossref.batching.dois_per_request=50
+
+# Тестовый запуск на ограниченной выборке
+bioetl pipeline run --config configs/pipelines/testitem.yaml \
+  --sample 100 \
+  --verbose
+```
+
+**Ссылка:** См. секции CLI в [05-assay-extraction.md](05-assay-extraction.md), [06-activity-data-extraction.md](06-activity-data-extraction.md), [07a-testitem-extraction.md](07a-testitem-extraction.md), [08-target-data-extraction.md](08-target-data-extraction.md), [09-document-chembl-extraction.md](09-document-chembl-extraction.md).
+
 ## 6. Профильные расширения
 
 | Профиль | Файл | Ключевые расширения | Ограничения |

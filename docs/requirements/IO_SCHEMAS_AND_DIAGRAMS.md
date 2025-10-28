@@ -122,15 +122,6 @@ schema:
       na_policy: forbid
       notes: "Версия источника"
       evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
-    - name: additional_columns
-      dtype: string
-      required: true
-      units: null
-      allowed_values: []
-      constraints: {}
-      na_policy: allow
-      notes: "Совокупность полей ассая (hierarchy, parameters, variant_sequences, metadata)"
-      evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 ### E) Mapping Input→Output
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
@@ -140,6 +131,11 @@ schema:
 | row_index | enumerate within subtype | enumerate starting 0 | none | integer >=0 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 | pref_name | ChEMBL assay record.pref_name | whitespace trim | none | optional string | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 | hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
+| hash_business_key | assay_chembl_id | SHA256(assay_chembl_id) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
+
+**Note:** Assay schema содержит все поля из data/output/assay/assay_*.csv включая src_id, src_name, assay_type, assay_organism, assay_tax_id и др. Полный список см. в requirements:05-assay-extraction.md
+
+---
 
 ### F) Контракты и детерминизм
 - Batch запросы `≤25` ID, при превышении — откат к POST+Override; circuit breaker 5/60, retries уважают `Retry-After`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
@@ -203,10 +199,10 @@ schema:
       references: target(target_chembl_id)
     - field: document_chembl_id
       references: document(document_chembl_id)
-  column_order: [activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, standard_type, standard_relation, standard_value, standard_units, pchembl_value, canonical_smiles, ligand_efficiency, bao_endpoint, bao_format, bao_label, target_organism, target_tax_id, data_validity_comment, activity_properties, compound_key, is_citation, high_citation_rate, exact_data_citation, rounded_data_citation]
+  column_order: [activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, published_type, published_relation, published_value, published_units, standard_type, standard_relation, standard_value, standard_units, standard_flag, lower_bound, upper_bound, is_censored, pchembl_value, activity_comment, data_validity_comment, bao_endpoint, bao_format, bao_label, extracted_at, hash_business_key, hash_row, index, source_system, chembl_release]
   fields:
     - name: activity_id
-      dtype: int
+      dtype: Int64
       required: true
       units: null
       allowed_values: []
@@ -216,7 +212,7 @@ schema:
       notes: "Уникальный идентификатор активности"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
     - name: molecule_chembl_id
-      dtype: string
+      dtype: StringDtype
       required: false
       units: null
       allowed_values: []
@@ -225,27 +221,148 @@ schema:
       na_policy: allow
       notes: "FK на молекулу"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: assay_chembl_id
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^CHEMBL\\d+$'
+      na_policy: allow
+      notes: "FK на ассай"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: target_chembl_id
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^CHEMBL\\d+$'
+      na_policy: allow
+      notes: "FK на таргет"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: document_chembl_id
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^CHEMBL\\d+$'
+      na_policy: allow
+      notes: "FK на документ"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: published_type
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Оригинальный тип опубликованных данных"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: published_relation
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Соотношение для published_value"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: published_value
+      dtype: Float64
+      required: false
+      units: "as provided"
+      allowed_values: []
+      constraints:
+        min: 0
+      na_policy: allow
+      notes: "Оригинальное опубликованное значение"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: published_units
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Единицы published_value"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: standard_type
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Стандартизированный тип активности"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: standard_relation
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Соотношение для standard_value (=, >, <, >=, <=)"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
     - name: standard_value
-      dtype: float
+      dtype: Float64
       required: false
       units: "as provided (nM, µM, etc.)"
       allowed_values: []
       constraints:
         min: 0
       na_policy: allow
-      notes: "Стандартизированное значение, единицы из standard_units"
+      notes: "Стандартизированное значение"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
     - name: standard_units
-      dtype: string
+      dtype: StringDtype
       required: false
       units: null
       allowed_values: []
       constraints: {}
       na_policy: allow
-      notes: "Единицы (nM, µM, …)"
+      notes: "Единицы стандартизированного значения"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: standard_flag
+      dtype: Int64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Флаг стандартизации (0/1)"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: lower_bound
+      dtype: Float64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Нижняя граница стандартизированного значения"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: upper_bound
+      dtype: Float64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Верхняя граница стандартизированного значения"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: is_censored
+      dtype: boolean
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Флаг цензурирования данных"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
     - name: pchembl_value
-      dtype: float
+      dtype: Float64
       required: false
       units: null
       allowed_values: []
@@ -254,51 +371,118 @@ schema:
       na_policy: allow
       notes: "-log10 нормированное значение"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
-    - name: compound_key
-      dtype: string
-      required: true
-      units: null
-      allowed_values: []
-      constraints: {}
-      na_policy: forbid
-      notes: "Бизнес-ключ (молекула+тип+таргет)"
-      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
-    - name: ligand_efficiency
-      dtype: string
+    - name: activity_comment
+      dtype: StringDtype
       required: false
       units: null
       allowed_values: []
       constraints: {}
       na_policy: allow
-      notes: "JSON dump метрик эффективности"
+      notes: "Комментарий к активности"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
-    - name: quality_flags
-      dtype: string
+    - name: data_validity_comment
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Комментарий о валидности данных"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: bao_endpoint
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "BAO endpoint (Bioassay Ontology)"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: bao_format
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "BAO format (Bioassay Ontology)"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: bao_label
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "BAO label (Bioassay Ontology)"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: extracted_at
+      dtype: StringDtype
       required: true
       units: null
       allowed_values: []
       constraints: {}
       na_policy: forbid
-      notes: "Флаги is_citation/high_citation_rate/exact/rounded"
+      notes: "ISO8601 метка времени извлечения"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
-    - name: additional_fields
-      dtype: string
+    - name: hash_business_key
+      dtype: StringDtype
+      required: true
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^[0-9a-f]{64}$'
+      na_policy: forbid
+      notes: "SHA256 от activity_id"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: hash_row
+      dtype: StringDtype
+      required: true
+      units: null
+      allowed_values: []
+      constraints:
+        regex: '^[0-9a-f]{64}$'
+      na_policy: forbid
+      notes: "SHA256 канонической строки"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: index
+      dtype: Int64
       required: true
       units: null
       allowed_values: []
       constraints: {}
-      na_policy: allow
-      notes: "Прочие поля ChEMBL (bao_*, target_*, activity_properties)"
+      na_policy: forbid
+      notes: "Индекс для детерминизма"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: source_system
+      dtype: StringDtype
+      required: true
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: forbid
+      notes: "Источник данных (ChEMBL, ChEMBL_FALLBACK)"
+      evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+    - name: chembl_release
+      dtype: StringDtype
+      required: true
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: forbid
+      notes: "Версия ChEMBL источника"
       evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 ### E) Mapping Input→Output
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
 | activity_id | API activity_id | passthrough | none | unique, >=1 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
-| standard_value | API standard_value | to float with NaN handling | none | >=0 or null | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
+| standard_value | API standard_value | to Float64 with NaN handling | none | >=0 or null | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
 | standard_units | API standard_units | normalize synonyms | convert synonyms to canonical tokens | isin allowed list | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
-| compound_key | molecule_chembl_id + standard_type + target_chembl_id | concatenate with pipe | none | non-empty string | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
-| ligand_efficiency | API ligand_efficiency | stable json dumps | none | json parseable | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
+| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
+| hash_business_key | activity_id | SHA256(activity_id) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
+
+---
 
 ### F) Контракты и детерминизм
 - Batch `activity_id__in` ≤25, fallback split, respect Retry-After, duplicates запрещены (`duplicated()==0`). [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
@@ -469,15 +653,6 @@ schema:
       na_policy: forbid
       notes: "Версия источника"
       evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
-    - name: extended_columns
-      dtype: string
-      required: true
-      units: null
-      allowed_values: []
-      constraints: {}
-      na_policy: allow
-      notes: "Остальные ~90 полей (properties, flags, JSON, metadata)"
-      evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 ### E) Mapping Input→Output
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
@@ -487,6 +662,11 @@ schema:
 | pubchem_cid | PubChem properties.CID | first successful CID | none | integer >=1 or null | [ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11] |
 | standardized_smiles | molecule_structures + chemistry normalizer | canonicalize SMILES | none | non-empty or null | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
 | hash_row | canonicalized row | SHA256 | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
+| hash_business_key | molecule_chembl_id | SHA256(molecule_chembl_id) | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
+
+**Note:** Testitem schema содержит ~81 поле включая все физико-химические свойства, флаги, drug_*, структуры из requirements:07a-testitem-extraction.md. Полный список полей см. в data/output/testitem/testitem_*.csv
+
+---
 
 ### F) Контракты и детерминизм
 - ChEMBL batch ≤25, PubChem batch ≤100 (5 req/sec), многоуровневый cache и graceful degradation. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] [ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11]
@@ -774,86 +954,38 @@ schema:
   name: document/output
   primary_key: [document_chembl_id]
   foreign_keys: []
-  column_order: [document_chembl_id, doi_clean, pubmed_id, title, journal, year, source_priority, fallback_reason, hash_row, chembl_release]
+  column_order: [index, extracted_at, hash_business_key, hash_row, document_chembl_id, document_pubmed_id, document_classification, referenses_on_previous_experiments, original_experimental_document, document_citation, pubmed_mesh_descriptors, pubmed_mesh_qualifiers, pubmed_chemical_list, crossref_subject, chembl_pmid, openalex_pmid, pubmed_pmid, semantic_scholar_pmid, chembl_title, crossref_title, openalex_title, pubmed_article_title, semantic_scholar_title, chembl_abstract, pubmed_abstract, chembl_authors, crossref_authors, openalex_authors, pubmed_authors, semantic_scholar_authors, chembl_doi, crossref_doi, openalex_doi, pubmed_doi, semantic_scholar_doi, chembl_doc_type, crossref_doc_type, openalex_doc_type, openalex_crossref_doc_type, pubmed_doc_type, semantic_scholar_doc_type, openalex_issn, pubmed_issn, semantic_scholar_issn, chembl_journal, pubmed_journal, semantic_scholar_journal, chembl_year, openalex_year, chembl_volume, pubmed_volume, chembl_issue, pubmed_issue, pubmed_first_page, pubmed_last_page, crossref_error, openalex_error, pubmed_error, semantic_scholar_error, pubmed_year_completed, pubmed_month_completed, pubmed_day_completed, pubmed_year_revised, pubmed_month_revised, pubmed_day_revised, publication_date, document_sortorder, valid_doi, valid_journal, valid_year, valid_volume, valid_issue, invalid_doi, invalid_journal, invalid_year, invalid_volume, invalid_issue]
   fields:
-    - name: document_chembl_id
-      dtype: string
+    - name: index
+      dtype: Int64
+      required: true
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: forbid
+      notes: "Индекс строки"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: extracted_at
+      dtype: StringDtype
+      required: true
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: forbid
+      notes: "ISO8601 метка времени извлечения"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: hash_business_key
+      dtype: StringDtype
       required: true
       units: null
       allowed_values: []
       constraints:
-        regex: '^CHEMBL\\d+$'
+        regex: '^[0-9a-f]{64}$'
       na_policy: forbid
-      notes: "Первичный ключ"
-      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: doi_clean
-      dtype: string
-      required: false
-      units: null
-      allowed_values: []
-      constraints:
-        regex: '^10\\.'
-      na_policy: allow
-      notes: "Нормализованный DOI"
-      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: pubmed_id
-      dtype: int
-      required: false
-      units: null
-      allowed_values: []
-      constraints:
-        min: 1
-      na_policy: allow
-      notes: "PMID из ChEMBL/PubMed"
-      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: title
-      dtype: string
-      required: false
-      units: null
-      allowed_values: []
-      constraints: {}
-      na_policy: allow
-      notes: "Заголовок публикации"
-      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: journal
-      dtype: string
-      required: false
-      units: null
-      allowed_values: []
-      constraints: {}
-      na_policy: allow
-      notes: "Название журнала"
-      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: year
-      dtype: int
-      required: false
-      units: null
-      allowed_values: []
-      constraints:
-        min: 1800
-      na_policy: allow
-      notes: "Год публикации"
-      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: source_priority
-      dtype: string
-      required: true
-      units: null
-      allowed_values: ["chembl", "pubmed", "crossref", "openalex", "semantic_scholar"]
-      constraints: {}
-      na_policy: forbid
-      notes: "Источник победитель по приоритетной матрице"
-      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: fallback_reason
-      dtype: string
-      required: false
-      units: null
-      allowed_values: []
-      constraints: {}
-      na_policy: allow
-      notes: "Причина fallback (timeout, access_denied, etc.)"
+      notes: "SHA256 от document_chembl_id"
       evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
     - name: hash_row
-      dtype: string
+      dtype: StringDtype
       required: true
       units: null
       allowed_values: []
@@ -862,33 +994,333 @@ schema:
       na_policy: forbid
       notes: "SHA256 канонической строки"
       evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: chembl_release
-      dtype: string
+    - name: document_chembl_id
+      dtype: StringDtype
       required: true
       units: null
       allowed_values: []
-      constraints: {}
+      constraints:
+        regex: '^CHEMBL\\d+$'
       na_policy: forbid
-      notes: "Версия ChEMBL"
+      notes: "Первичный ключ"
       evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
-    - name: enrichment_columns
-      dtype: string
-      required: true
+    - name: chembl_title
+      dtype: StringDtype
+      required: false
       units: null
       allowed_values: []
       constraints: {}
       na_policy: allow
-      notes: "Поля адаптеров (PubMed.*, Crossref.*, OpenAlex.*, S2.*)"
+      notes: "Заголовок из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: crossref_title
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Заголовок из Crossref"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: openalex_title
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Заголовок из OpenAlex"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_article_title
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Заголовок из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: semantic_scholar_title
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Заголовок из Semantic Scholar"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_abstract
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Аннотация из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_abstract
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Аннотация из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_authors
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Авторы из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: crossref_authors
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Авторы из Crossref"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: openalex_authors
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Авторы из OpenAlex"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_authors
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Авторы из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: semantic_scholar_authors
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Авторы из Semantic Scholar"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_doi
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "DOI из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: crossref_doi
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "DOI из Crossref"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: openalex_doi
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "DOI из OpenAlex"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_doi
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "DOI из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: semantic_scholar_doi
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "DOI из Semantic Scholar"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_pmid
+      dtype: Int64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "PMID из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_pmid
+      dtype: Int64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "PMID из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_year
+      dtype: Int64
+      required: false
+      units: null
+      allowed_values: []
+      constraints:
+        min: 1800
+        max: 2100
+      na_policy: allow
+      notes: "Год публикации из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: openalex_year
+      dtype: Int64
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Год публикации из OpenAlex"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_journal
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Название журнала из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_journal
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Название журнала из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: semantic_scholar_journal
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Название журнала из Semantic Scholar"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_volume
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Том журнала из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_volume
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Том журнала из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: chembl_issue
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Выпуск журнала из ChEMBL"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_issue
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Выпуск журнала из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_first_page
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Первая страница из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_last_page
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Последняя страница из PubMed"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: crossref_error
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Ошибка Crossref адаптера"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: openalex_error
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Ошибка OpenAlex адаптера"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: pubmed_error
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Ошибка PubMed адаптера"
+      evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+    - name: semantic_scholar_error
+      dtype: StringDtype
+      required: false
+      units: null
+      allowed_values: []
+      constraints: {}
+      na_policy: allow
+      notes: "Ошибка Semantic Scholar адаптера"
       evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 ### E) Mapping Input→Output
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
 | document_chembl_id | input.document_chembl_id | uppercase & trim | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
-| doi_clean | ChEMBL doi / PubMed DOI / Crossref DOI | normalize case, strip prefixes | none | regex `^10\.` or null | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
-| pubmed_id | ChEMBL pubmed_id / PubMed PMID | cast to int | none | >=1 or null | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
-| source_priority | priority matrix (chembl>pubmed>crossref>openalex>semantic_scholar) | select first non-null per hierarchy | none | value in priority list | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
-| fallback_reason | adapter errors | capture error context | none | optional string | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
+| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
+| hash_business_key | document_chembl_id | SHA256(document_chembl_id) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
+
+---
 
 ### F) Контракты и детерминизм
 - Batch ≤25, recursive split на timeouts, respect Retry-After, circuit breaker 5/60. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]

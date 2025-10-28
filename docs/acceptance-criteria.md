@@ -18,6 +18,41 @@
 | AC9 | QC duplicates=0 | Проверка | df["activity_id"].duplicated().sum()==0 | 0 | qc_summary [ref: 06-activity-data-extraction.md](requirements/06-activity-data-extraction.md#11-quality-control) |
 | AC10 | Schema drift fail-fast | Запуск с несовместимой major | --fail-on-schema-drift | exit!=0 | лог [ref: 04-normalization-validation.md](requirements/04-normalization-validation.md#ac-08-schema-drift-detection) |
 
+## Новые AC (AUD-5)
+
+### AC11: Обязательные поля логов
+
+**Цель:** Все логи содержат минимальный набор полей для трассируемости.
+
+```python
+# Проверка обязательных полей
+def test_mandatory_log_fields():
+    with capture_logs() as logs:
+        logger.info("test message")
+    
+    log = logs[0]
+    mandatory = ["run_id", "stage", "actor", "source", "generated_at"]
+    
+    for field in mandatory:
+        assert field in log, f"Missing field: {field}"
+```
+
+**Артефакт:** Логи должны проходить статическую проверку обязательных полей.
+
+### AC12-AC16: QC пороги по пайплайнам
+
+**AC12 (Assay):** duplicates=0, referential_integrity_violations=0
+
+**AC13 (Activity):** duplicates_activity_id=0, max_ic50_missing ≤ 5%
+
+**AC14 (Testitem):** duplicates_molecule_chembl_id=0, pubchem_enrichment ≥ 60%
+
+**AC15 (Target):** duplicates_target_chembl_id=0, uniprot_coverage ≥ 80%
+
+**AC16 (Document):** duplicates_document_chembl_id=0, s2_access_denied ≤ 5%
+
+**Артефакт:** QC отчеты с явными порогами для каждого пайплайна.
+
 ## Детализация по категориям
 
 ### IO и детерминизм (AC1, AC3, AC4, AC6)
@@ -202,8 +237,16 @@ qc_report = {
 | AC8 | G7 | |
 | AC9 | G10 | |
 | AC10 | G4, G8 | **R2** (meta.yaml lineage) ✅ |
+| AC11 | G12 | **R4** (обязательные поля логов) ✅ |
+| AC12 | - | |
+| AC13 | - | |
+| AC14 | - | |
+| AC15 | - | |
+| AC16 | - | |
 
 **Дополнительные закрытые риски:**
+
+- **R4** (AUD-5): Обязательные поля логов формализованы в [01-logging-system.md](requirements/01-logging-system.md#acceptance-criteria-aud-5) ✅
 
 - **R3** (major): Протокол requeue для PartialFailure формализован в [03-data-extraction.md](requirements/03-data-extraction.md#протокол-повторной-постановки-requeue-для-partialfailure) ✅
 
