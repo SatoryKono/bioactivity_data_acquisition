@@ -95,10 +95,8 @@ flowchart LR
 
 ### Base URL
 
-```
-
+```text
 https://www.ebi.ac.uk/chembl/api/data
-
 ```
 
 ### Ресурс документов
@@ -569,17 +567,20 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
 **Процесс:**
 
 1. **Извлечение ChEMBL:**
+
    ```python
    chembl_df = get_documents(document_ids, cfg=cfg, client=client)
    ```
 
 2. **Извлечение ключей обогащения:**
+
    ```python
    pmids = chembl_df["pubmed_id"].dropna().astype(int).tolist()
    dois = chembl_df["doi_clean"].dropna().tolist()
    ```
 
 3. **Вызов адаптеров** (каждый независимо):
+
    ```python
    pubmed_df = fetch_pubmed(pmids)
    openalex_df = fetch_openalex(dois)
@@ -849,8 +850,7 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
 
 **ESearch - поиск по условиям:**
 
-```
-
+```text
 https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?
   db=pubmed
   &term=<query>
@@ -860,26 +860,22 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?
   &tool=bioactivity_etl
   &email=<contact>
   &api_key=<key>
-
 ```
 
 **EPost - загрузка UID в историю:**
 
-```
-
+```text
 POST https://eutils.ncbi.nlm.nih.gov/entrez/eutils/epost.fcgi?db=pubmed
 Body: id=PMID1,PMID2,...
 
 Возвращает: WebEnv + query_key
-
 ```
 
 **EFetch - извлечение полных записей:**
 
 По истории (рекомендуется для больших списков):
 
-```
-
+```text
 https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
   db=pubmed
   &query_key=<key>
@@ -891,13 +887,11 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
   &tool=bioactivity_etl
   &email=<contact>
   &api_key=<key>
-
 ```
 
 По явному списку ID (POST для >200):
 
-```
-
+```text
 POST https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
   db=pubmed
   &retmode=xml
@@ -906,17 +900,14 @@ POST https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
   &email=<contact>
   &api_key=<key>
 Body: id=PMID1,PMID2,...
-
 ```
 
 **ELink - связанные ресурсы (опционально):**
 
-```
-
+```text
 dbfrom=pubmed&linkname=pubmed_pmc&id=<PMIDs>  # PMCID маппинг
 
 dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список референсов
-
 ```
 
 ### 8.3 History Server
@@ -1548,7 +1539,7 @@ def handle_access_denied(error_response, attempt):
 
 - Attribution required: "Data from Semantic Scholar"
 
-- Terms: https://www.semanticscholar.org/product/api/api-terms-of-use
+- Terms: <https://www.semanticscholar.org/product/api/api-terms-of-use>
 
 **В production:** проконсультироваться с юристами!
 

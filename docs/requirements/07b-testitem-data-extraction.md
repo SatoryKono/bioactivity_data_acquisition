@@ -50,8 +50,7 @@ PubChem служит опциональным, но важным источни�
 
 ### 2.1 Компонентная модель
 
-```
-
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │               Testitem ETL Pipeline                           │
 │                                                                │
@@ -193,18 +192,14 @@ PubChem PUG-REST API предоставляет несколько endpoints д�
 
 **URL Pattern:**
 
-```
-
+```text
 https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properties}/JSON
-
 ```
 
 **Batch Example:**
 
-```
-
+```text
 /compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON
-
 ```
 
 **Response Structure:**
@@ -234,29 +229,23 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 
 **InChIKey Lookup:**
 
-```
-
+```text
 /compound/inchikey/BSYNRYMUTXBXSQ-UHFFFAOYSA-N/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
-
 ```
 
 **SMILES Lookup:**
 
-```
-
+```text
 /compound/smiles/CC(=O)OC1=CC=CC=C1C(=O)O/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
-
 ```
 
 **Name Lookup:**
 
-```
-
+```text
 /compound/name/aspirin/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
-
 ```
 
 ### 3.2 Рекомендуемый HTTP Client
@@ -1486,8 +1475,7 @@ class PubChemEnrichedTestitemSchema(pa.DataFrameModel):
 
 Рекомендуемая организация кода для максимальной читаемости и тестируемости:
 
-```
-
+```text
 library/
 ├── clients/
 │   ├── __init__.py
@@ -2112,8 +2100,7 @@ class MemoryCacheLayer:
 
 **Directory structure:**
 
-```
-
+```text
 data/cache/pubchem_http/
 ├── a1b2c3d4e5f6...  # compound/cid/2244/property/...
 
@@ -2211,6 +2198,7 @@ def clean_expired_entries(
 **Strategies для увеличения cache hit rate:**
 
 1. **Multiple cache keys per molecule:**
+
    ```python
    # Cache под всеми возможными идентификаторами
 
@@ -2224,6 +2212,7 @@ def clean_expired_entries(
    ```
 
 2. **Preemptive caching:**
+
    ```python
    # При успешном resolution, cache для всех альтернатив
 
@@ -2232,6 +2221,7 @@ def clean_expired_entries(
    ```
 
 3. **Cache warming:**
+
    ```python
    # Загрузка популярных молекул при старте
 
@@ -3198,7 +3188,7 @@ performance_targets:
 
 ### Ключевые рекомендации
 
-**1. Используйте Batch API (из проекта 1)**
+#### 1. Используйте Batch API (из проекта 1)
 
 - 100x меньше запросов
 
@@ -3206,7 +3196,7 @@ performance_targets:
 
 - Автоматический fallback на individual requests
 
-**2. Реализуйте Multi-Level Caching (из проекта 2)**
+#### 2. Реализуйте Multi-Level Caching (из проекта 2)
 
 - In-memory cache для скорости
 
@@ -3214,7 +3204,7 @@ performance_targets:
 
 - File cache для отладки (опционально)
 
-**3. Применяйте Parallel Processing (из проекта 2)**
+#### 3. Применяйте Parallel Processing (из проекта 2)
 
 - 4 workers для CID resolution
 
@@ -3222,7 +3212,7 @@ performance_targets:
 
 - Соблюдение rate limits
 
-**4. Обеспечьте Graceful Degradation (оба проекта)**
+#### 4. Обеспечьте Graceful Degradation (оба проекта)
 
 - PubChem всегда опционален
 
@@ -3230,7 +3220,7 @@ performance_targets:
 
 - Детальное логирование для диагностики
 
-**5. Мониторьте активно**
+#### 5. Мониторьте активно
 
 - Enrichment rate ≥80%
 
@@ -3312,4 +3302,3 @@ target_performance:
 **Дата создания:** 2024-10-28
 **Авторы:** Synthesis из bioactivity_data_acquisition5 и ChEMBL_data_acquisition6
 **Статус:** Production Ready
-
