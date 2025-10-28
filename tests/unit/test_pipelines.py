@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 from bioetl.config.loader import load_config
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
-from bioetl.schemas import AssaySchema
+from bioetl.schemas import AssaySchema, TestItemSchema
 
 
 @pytest.fixture
@@ -609,9 +609,9 @@ class TestTestItemPipeline:
         })
 
         result = pipeline.transform(df)
-        assert "pipeline_version" in result.columns
-        assert "source_system" in result.columns
-        assert "extracted_at" in result.columns
+        expected_columns = TestItemSchema.get_column_order()
+        assert list(result.columns) == expected_columns
+        assert len(expected_columns) >= 80
 
     def test_fetch_molecule_data_uses_cache(self, testitem_config, monkeypatch):
         """Ensure repeated molecule fetches reuse cached records."""
@@ -650,6 +650,9 @@ class TestTestItemPipeline:
         assert len(first) == 1
         assert len(second) == 1
         assert second.iloc[0]["fallback_attempt"] is None
+        assert first.iloc[0]["molecule_properties"] == json.dumps(
+            {"mw_freebase": 100.0, "qed_weighted": 0.5}, sort_keys=True, separators=(",", ":")
+        )
 
     def test_fetch_molecule_data_creates_fallback_with_metadata(self, testitem_config, monkeypatch):
         """Verify fallback rows capture structured error metadata."""
@@ -681,6 +684,32 @@ class TestTestItemPipeline:
         assert record["fallback_retry_after_sec"] == pytest.approx(3.0)
         assert record["fallback_attempt"] == 2
         assert "Not Found" in record["fallback_error_message"]
+        assert record["pref_name_key"] is None
+
+    def test_flatten_molecule_synonyms_canonical(self, testitem_config):
+        """Synonym flattening should be deterministic and sorted."""
+
+        pipeline = TestItemPipeline(testitem_config, run_id="synonyms")
+        payload = {
+            "molecule_synonyms": [
+                {"molecule_synonym": "Beta "},
+                {"molecule_synonym": "alpha"},
+                "Gamma",
+            ]
+        }
+
+        flattened = pipeline._flatten_molecule_synonyms(payload)
+        assert flattened["all_names"] == "alpha; Beta; Gamma"
+        expected_json = json.dumps(
+            [
+                {"molecule_synonym": "alpha"},
+                {"molecule_synonym": "Beta"},
+                "Gamma",
+            ],
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        assert flattened["molecule_synonyms"] == expected_json
 
 
 class TestTargetPipeline:
