@@ -57,7 +57,7 @@ run_manifest_{timestamp}.json  # если extended
 
 ### 2. AtomicWriter
 
-Безопасная атомарная запись через run-scoped временные директории с использованием `os.replace`:
+Безопасная атомарная запись через run-scoped временные директории с использованием `os.replace` и явным управлением `run_id`:
 
 ```python
 import os
@@ -65,7 +65,7 @@ from pathlib import Path
 
 class AtomicWriter:
     """Атомарная запись с защитой от corruption."""
-    
+
     def __init__(self, run_id: str):
         self.run_id = run_id
     
@@ -110,6 +110,11 @@ class AtomicWriter:
 - **Run-scoped temp directories**: `.tmp_run_{run_id}/` изолируют временные файлы между запусками
 - **Guaranteed cleanup**: finally блок удаляет partial файлы даже при сбоях
 - **Windows-compatibility**: os.replace() является атомарной операцией на всех ОС
+
+**Передача run_id**:
+- В CLI run_id создаётся на старте пайплайна и передаётся в `AtomicWriter` явным аргументом конструктора.
+- Допускается DI через контекст исполнения (`contextvars` или context manager), но **инициализация всегда явная**, чтобы соблюдать инвариант детерминизма из [00-architecture-overview.md](00-architecture-overview.md#2-%D0%94%D0%B5%D1%82%D0%B5%D1%80%D0%BC%D0%B8%D0%BD%D0%B8%D0%B7%D0%BC).
+- Run-scoped временные директории `.tmp_run_{run_id}` обеспечивают принцип «всё или ничего» из AC (см. раздел *Standard (2 файла, без correlation по умолчанию)* в [00-architecture-overview.md](00-architecture-overview.md#2-unifiedoutputwriter-%E2%80%94-%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B2%D0%B2%D0%BE%D0%B4%D0%B0-%D0%B2%D1%8B%D0%B2%D0%BE%D0%B4%D0%B0)).
 
 ### 3. OutputMetadata (dataclass)
 
@@ -255,9 +260,49 @@ class CorrelationReportGenerator:
                         "column_2": col2,
                         "pearson_correlation": f"{corr_matrix.loc[col1, col2]:.4f}"
                     })
-        
+
         return pd.DataFrame(correlations)
 ```
+
+### 6.1 Условная генерация корреляций
+
+Согласно инвариантам режима *Standard* из [00-architecture-overview.md](00-architecture-overview.md#2-unifiedoutputwriter-%E2%80%94-%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B2%D0%B2%D0%BE%D0%B4%D0%B0-%D0%B2%D1%8B%D0%B2%D0%BE%D0%B4%D0%B0), корреляционные отчёты выключены по умолчанию, чтобы сохранить детерминизм и минимальный AC-профиль (нет лишних файлов, нет нестабильных статистик). Генерация привязана к конфигурации `postprocess.correlation.enabled` и должна явно ветвиться в коде:
+
+```python
+def maybe_write_correlation(
+    df: pd.DataFrame,
+    *,
+    config: PipelineConfig,
+    correlation_writer: CorrelationReportGenerator,
+    atomic_writer: AtomicWriter,
+    correlation_path: Path,
+    run_logger: BoundLogger,
+):
+    """Опционально создаёт корреляционный отчёт."""
+
+    if not config.postprocess.correlation.enabled:
+        run_logger.info(
+            "skip_correlation_report",
+            reason="disabled_in_config",
+            invariant="determinism"
+        )
+        return None
+
+    correlation_df = correlation_writer.generate(df)
+
+    if correlation_df.empty:
+        run_logger.info("skip_correlation_report", reason="no_numeric_columns")
+        return None
+
+    atomic_writer.write(
+        correlation_df,
+        correlation_path,
+        float_format="%.6f",  # соблюдаем форматирование из инвариантов детерминизма
+    )
+    return correlation_path
+```
+
+Такое ветвление делает зависимость от конфигурации явной, подчёркивая влияние на детерминизм (константный набор артефактов) и соответствие AC «всё или ничего»: если отчёт выключен, он не появляется вовсе, что предотвращает дрейф структуры выпуска.
 
 ### 7. ManifestWriter
 
