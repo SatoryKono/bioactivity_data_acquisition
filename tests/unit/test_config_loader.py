@@ -173,6 +173,12 @@ def test_parse_cli_overrides():
     assert result["sources"]["chembl"]["batch_size"] == 20
 
 
+def test_chembl_batch_size_over_limit_raises():
+    """Ensure ChEMBL batch size above 25 is rejected."""
+    with pytest.raises(ValueError):
+        load_config(Path("configs/pipelines/assay.yaml"), overrides={"sources": {"chembl": {"batch_size": 30}}})
+
+
 def test_invalid_config():
     """Test invalid configuration raises error."""
     with pytest.raises(Exception):

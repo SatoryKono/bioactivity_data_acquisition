@@ -127,6 +127,13 @@ class AssaySchema(BaseSchema):
     )
     variant_accession_reported: Series[str] = pa.Field(nullable=True, description="Сообщённая акцессия варианта")
 
+    # Error metadata for fallback records
+    error_code: Series[str] = pa.Field(nullable=True, description="Код ошибки, приведшей к fallback")
+    http_status: Series[int] = pa.Field(nullable=True, description="HTTP статус при ошибке")
+    error_message: Series[str] = pa.Field(nullable=True, description="Сообщение об ошибке")
+    retry_after_sec: Series[float] = pa.Field(nullable=True, description="Значение Retry-After в секундах")
+    attempt: Series[int] = pa.Field(nullable=True, description="Попытка, на которой сработал fallback")
+
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
 
@@ -187,6 +194,11 @@ class AssaySchema(BaseSchema):
             "variant_mutation",
             "variant_sequence",
             "variant_accession_reported",
+            "error_code",
+            "http_status",
+            "error_message",
+            "retry_after_sec",
+            "attempt",
             "pipeline_version",
             "source_system",
             "chembl_release",

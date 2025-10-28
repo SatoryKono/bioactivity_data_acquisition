@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config.loader import load_config
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
 
 
@@ -90,6 +91,67 @@ class TestAssayPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+
+    def test_fetch_assay_data_uses_release_scoped_cache(self, assay_config, tmp_path, monkeypatch):
+        """Ensure release-qualified cache prevents duplicate API calls."""
+
+        calls: dict[str, int] = {"assay": 0}
+
+        def fake_request(self, url, params=None, method="GET"):
+            if str(url).endswith("status.json"):
+                return {"chembl_db_version": "CHEMBL_99"}
+            calls["assay"] += 1
+            return {
+                "assays": [
+                    {
+                        "assay_chembl_id": "CHEMBL1",
+                        "assay_type": "B",
+                    }
+                ]
+            }
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", fake_request, raising=False)
+
+        cache = assay_config.cache.model_copy(update={"directory": tmp_path})
+        sources = dict(assay_config.sources)
+        sources["chembl"] = sources["chembl"].model_copy(update={"batch_size": 5})
+        updated_config = assay_config.model_copy(update={"cache": cache, "sources": sources})
+
+        pipeline = AssayPipeline(updated_config, "run123")
+
+        df_first = pipeline._fetch_assay_data(["CHEMBL1"])
+        assert calls["assay"] == 1
+        assert not df_first.empty
+
+        df_second = pipeline._fetch_assay_data(["CHEMBL1"])
+        assert calls["assay"] == 1  # cache hit, no additional API calls
+        assert not df_second.empty
+
+        cache_key = pipeline._cache_key("CHEMBL1")
+        cache_path = pipeline._cache_path(cache_key)
+        assert cache_path is not None and cache_path.exists()
+
+    def test_fetch_assay_data_fallback_on_circuit_breaker(self, assay_config, tmp_path, monkeypatch):
+        """Fallback records should include error metadata when circuit breaker is open."""
+
+        def fake_request(self, url, params=None, method="GET"):
+            if str(url).endswith("status.json"):
+                return {"chembl_db_version": "CHEMBL_99"}
+            raise CircuitBreakerOpenError("chembl breaker open")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", fake_request, raising=False)
+
+        cache = assay_config.cache.model_copy(update={"directory": tmp_path})
+        updated_config = assay_config.model_copy(update={"cache": cache})
+
+        pipeline = AssayPipeline(updated_config, "run123")
+
+        df = pipeline._fetch_assay_data(["CHEMBL1"])
+        assert not df.empty
+        row = df.iloc[0]
+        assert row["assay_chembl_id"] == "CHEMBL1"
+        assert row["source_system"] == "ChEMBL_FALLBACK"
+        assert row["error_message"]
 
 
 class TestActivityPipeline:
