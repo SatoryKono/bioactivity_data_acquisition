@@ -21,6 +21,7 @@ class PipelineBase(ABC):
         self.run_id = run_id
         self.output_writer = UnifiedOutputWriter(run_id)
         self.validation_issues: list[dict[str, Any]] = []
+        self.qc_metrics: dict[str, Any] = {}
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -72,6 +73,7 @@ class PipelineBase(ABC):
             output_path,
             extended=extended,
             issues=self.validation_issues,
+            qc_metrics=self.qc_metrics,
         )
 
     def run(

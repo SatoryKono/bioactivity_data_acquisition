@@ -10,6 +10,7 @@ from urllib.parse import urlencode
 
 import pandas as pd
 import requests
+from pandera.errors import SchemaErrors
 
 from bioetl.adapters import (
     CrossrefAdapter,
@@ -23,7 +24,12 @@ from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAP
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.document_enrichment import merge_with_precedence
-from bioetl.schemas import DocumentSchema, DocumentInputSchema
+from bioetl.schemas.document import (
+    DocumentNormalizedSchema,
+    DocumentRawSchema,
+    DocumentSchema,
+)
+from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 
 logger = UnifiedLogger.get(__name__)
@@ -102,8 +108,11 @@ class DocumentPipeline(PipelineBase):
             return pd.DataFrame(columns=["document_chembl_id"])
 
         result_df = pd.DataFrame(records)
-        logger.info("extraction_completed", rows=len(result_df))
-        return result_df
+        result_df = result_df.convert_dtypes()
+
+        validated = self._validate_raw_dataframe(result_df)
+        logger.info("extraction_completed", rows=len(validated))
+        return validated
 
     def _init_external_adapters(self) -> None:
         """Initialize external API adapters."""
@@ -382,6 +391,47 @@ class DocumentPipeline(PipelineBase):
         logger.warning("rejected_inputs_found", count=len(rejected_df), path=output_path)
         self.output_writer.atomic_writer.write(rejected_df, output_path)
 
+    def _validate_raw_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Validate raw payloads against Pandera schema before transformation."""
+
+        if df.empty:
+            logger.info("raw_validation_skipped_empty", rows=0)
+            return df
+
+        working_df = df.copy()
+        schema = DocumentRawSchema.to_schema()
+
+        for column in schema.columns:
+            if column not in working_df.columns:
+                working_df[column] = pd.NA
+
+        if "source" not in working_df.columns:
+            working_df["source"] = "ChEMBL"
+        else:
+            working_df["source"] = working_df["source"].fillna("ChEMBL")
+
+        working_df = working_df.convert_dtypes()
+
+        try:
+            validated = DocumentRawSchema.validate(working_df, lazy=True)
+            logger.info("raw_schema_validation_passed", rows=len(validated))
+            return validated
+        except SchemaErrors as exc:
+            failure_cases = getattr(exc, "failure_cases", None)
+            details = None
+            if isinstance(failure_cases, pd.DataFrame):
+                details = failure_cases.to_dict(orient="records")
+
+            self.record_validation_issue(
+                {
+                    "metric": "raw_schema_validation",
+                    "severity": "error",
+                    "details": details,
+                }
+            )
+            logger.error("raw_schema_validation_failed", error=str(exc))
+            raise
+
     def _fetch_documents(self, ids: Sequence[str]) -> list[dict[str, Any]]:
         """Fetch document payloads from ChEMBL with resilient batching."""
 
@@ -627,15 +677,15 @@ class DocumentPipeline(PipelineBase):
 
             # Add all missing columns from schema
             from bioetl.schemas import DocumentSchema
-            expected_cols = DocumentSchema.column_order
 
-            # Add missing columns with None values
-            for col in expected_cols:
-                if col not in df.columns:
-                    df[col] = None
+            expected_cols = DocumentSchema.get_column_order()
 
-            # Reorder columns according to schema
-            df = df[expected_cols]
+            if expected_cols:
+                for col in expected_cols:
+                    if col not in df.columns:
+                        df[col] = None
+
+                df = df[expected_cols]
 
         return df
 
@@ -643,46 +693,184 @@ class DocumentPipeline(PipelineBase):
         """Validate document data against schema with strict validation."""
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
+            self.qc_metrics = {}
             return df
+
+        working_df = df.copy().convert_dtypes()
+
+        duplicate_count = (
+            working_df["document_chembl_id"].duplicated().sum()
+            if "document_chembl_id" in working_df.columns
+            else 0
+        )
+        if duplicate_count > 0:
+            logger.warning("duplicates_found", count=duplicate_count)
+            working_df = working_df.drop_duplicates(subset=["document_chembl_id"], keep="first")
+            self.record_validation_issue(
+                {
+                    "metric": "duplicates_removed",
+                    "value": int(duplicate_count),
+                    "severity": "warning",
+                }
+            )
+
+        sources_to_validate = [
+            ("pubmed", ["pubmed_doc_type"], ["pubmed_article_title", "pubmed_abstract"]),
+            ("crossref", ["crossref_doc_type"], ["crossref_title", "crossref_authors"]),
+            ("openalex", ["openalex_doc_type"], ["openalex_title", "openalex_authors"]),
+            (
+                "semantic_scholar",
+                ["semantic_scholar_doc_type"],
+                ["semantic_scholar_title", "semantic_scholar_abstract"],
+            ),
+        ]
+
+        validation_errors: list[str] = []
+        for source_name, required_fields, actual_field_names in sources_to_validate:
+            has_source_data = any(
+                column in working_df.columns and working_df[column].notna().any()
+                for column in actual_field_names
+            )
+
+            if has_source_data:
+                for required_field in required_fields:
+                    if required_field not in working_df.columns or working_df[required_field].isna().all():
+                        validation_errors.append(
+                            f"{source_name}: {required_field} обязателен при наличии данных"
+                        )
+
+        if validation_errors:
+            error_msg = "; ".join(validation_errors)
+            self.record_validation_issue(
+                {
+                    "metric": "source_doc_type_missing",
+                    "severity": "error",
+                    "details": validation_errors,
+                }
+            )
+            logger.error("validation_failed", errors=error_msg)
+            raise ValueError(f"Валидация не прошла: {error_msg}")
 
         try:
-            # Check for duplicates
-            duplicate_count = df["document_chembl_id"].duplicated().sum() if "document_chembl_id" in df.columns else 0
-            if duplicate_count > 0:
-                logger.warning("duplicates_found", count=duplicate_count)
-                df = df.drop_duplicates(subset=["document_chembl_id"], keep="first")
+            validated_df = DocumentNormalizedSchema.validate(working_df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = getattr(exc, "failure_cases", None)
+            details = None
+            if isinstance(failure_cases, pd.DataFrame):
+                details = failure_cases.to_dict(orient="records")
 
-            # Validation: doc_type обязателен если есть данные от источника
-            sources_to_validate = [
-                ("pubmed", ["pubmed_doc_type"], ["pubmed_article_title", "pubmed_abstract"]),
-                ("crossref", ["crossref_doc_type"], ["crossref_title", "crossref_authors"]),
-                ("openalex", ["openalex_doc_type"], ["openalex_title", "openalex_authors"]),
-                ("semantic_scholar", ["semantic_scholar_doc_type"], ["semantic_scholar_title", "semantic_scholar_abstract"]),
-            ]
-
-            validation_errors = []
-            for source_name, required_fields, actual_field_names in sources_to_validate:
-                # Check if any data exists from this source
-                has_source_data = any(
-                    col in df.columns and df[col].notna().any()
-                    for col in actual_field_names
-                    if col in df.columns
-                )
-
-                if has_source_data:
-                    # Validate doc_type is present (DOI is optional)
-                    for required_field in required_fields:
-                        if required_field not in df.columns or df[required_field].isna().all():
-                            validation_errors.append(f"{source_name}: {required_field} обязателен при наличии данных")
-
-            if validation_errors:
-                error_msg = "; ".join(validation_errors)
-                logger.error("validation_failed", errors=error_msg)
-                raise ValueError(f"Валидация не прошла: {error_msg}")
-
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
+            self.record_validation_issue(
+                {
+                    "metric": "normalized_schema_validation",
+                    "severity": "error",
+                    "details": details,
+                }
+            )
+            logger.error("schema_validation_failed", error=str(exc))
             raise
+
+        metrics = self._compute_qc_metrics(validated_df)
+        self.qc_metrics = metrics
+        self._enforce_qc_thresholds(metrics)
+
+        logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
+        return validated_df
+
+    def _compute_qc_metrics(self, df: pd.DataFrame) -> dict[str, float]:
+        """Compute coverage, conflict, and fallback quality metrics."""
+
+        total = len(df)
+        if total == 0:
+            return {
+                "doi_coverage": 0.0,
+                "pmid_coverage": 0.0,
+                "title_coverage": 0.0,
+                "journal_coverage": 0.0,
+                "authors_coverage": 0.0,
+                "conflicts_doi": 0.0,
+                "conflicts_pmid": 0.0,
+                "title_fallback_rate": 0.0,
+            }
+
+        def _coverage(column: str) -> float:
+            if column not in df.columns:
+                return 0.0
+            return float(df[column].notna().sum() / total)
+
+        metrics: dict[str, float] = {
+            "doi_coverage": _coverage("doi_clean"),
+            "pmid_coverage": _coverage("pmid") if "pmid" in df.columns else _coverage("pubmed_id"),
+            "title_coverage": _coverage("title"),
+            "journal_coverage": _coverage("journal"),
+            "authors_coverage": _coverage("authors"),
+        }
+
+        if "conflict_doi" in df.columns:
+            conflict_doi = df["conflict_doi"].fillna(False).astype("boolean")
+            metrics["conflicts_doi"] = float(conflict_doi.sum() / total)
+        else:
+            metrics["conflicts_doi"] = 0.0
+
+        if "conflict_pmid" in df.columns:
+            conflict_pmid = df["conflict_pmid"].fillna(False).astype("boolean")
+            metrics["conflicts_pmid"] = float(conflict_pmid.sum() / total)
+        else:
+            metrics["conflicts_pmid"] = 0.0
+
+        if "title_source" in df.columns:
+            fallback_mask = (
+                df["title_source"]
+                .fillna("")
+                .astype(str)
+                .str.contains("fallback", case=False)
+            )
+            metrics["title_fallback_rate"] = float(fallback_mask.sum() / total)
+        else:
+            metrics["title_fallback_rate"] = 0.0
+
+        logger.debug("qc_metrics_computed", metrics=metrics)
+        return metrics
+
+    def _enforce_qc_thresholds(self, metrics: dict[str, float]) -> None:
+        """Validate QC metrics against configured thresholds."""
+
+        thresholds = self.config.qc.thresholds or {}
+        if not thresholds:
+            return
+
+        failing: list[str] = []
+        for metric_name, config in thresholds.items():
+            if not isinstance(config, dict):
+                continue
+
+            value = metrics.get(metric_name)
+            if value is None:
+                continue
+
+            min_threshold = config.get("min")
+            max_threshold = config.get("max")
+            severity = str(config.get("severity", "warning"))
+
+            passed = True
+            if min_threshold is not None and value < float(min_threshold):
+                passed = False
+            if max_threshold is not None and value > float(max_threshold):
+                passed = False
+
+            issue_payload = {
+                "metric": metric_name,
+                "value": value,
+                "threshold_min": float(min_threshold) if min_threshold is not None else None,
+                "threshold_max": float(max_threshold) if max_threshold is not None else None,
+                "severity": severity if not passed else "info",
+                "passed": passed,
+            }
+            self.record_validation_issue(issue_payload)
+
+            if not passed and self._should_fail(severity):
+                failing.append(metric_name)
+
+        if failing:
+            logger.error("qc_threshold_exceeded", failing=failing)
+            raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(sorted(failing)))
 
