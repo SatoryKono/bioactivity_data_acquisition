@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import (
@@ -32,6 +33,7 @@ class ActivityPipeline(PipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
+        self._last_validation_report: dict[str, Any] | None = None
 
         # Initialize ChEMBL API client
         chembl_source = config.sources.get("chembl")
@@ -546,11 +548,12 @@ class ActivityPipeline(PipelineBase):
 
         # Reorder columns according to schema
         from bioetl.schemas import ActivitySchema
+        from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
         expected_cols = ActivitySchema.get_column_order()
         if expected_cols:
             # Only reorder columns that exist in the DataFrame
-            df = df[[col for col in expected_cols if col in df.columns]]
+            df = df[[col for col in column_order if col in df.columns]]
 
         return df
 
@@ -560,17 +563,132 @@ class ActivityPipeline(PipelineBase):
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        try:
-            # Check for duplicates
-            duplicate_count = df["activity_id"].duplicated().sum() if "activity_id" in df.columns else 0
-            if duplicate_count > 0:
-                logger.warning("duplicates_found", count=duplicate_count)
-                # Remove duplicates, keeping first occurrence
-                df = df.drop_duplicates(subset=["activity_id"], keep="first")
+        qc_metrics = self._calculate_qc_metrics(df)
+        self._last_validation_report = {"metrics": qc_metrics}
 
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
+        severity_threshold = self.config.qc.severity_threshold.lower()
+        severity_level_threshold = self._severity_level(severity_threshold)
+
+        failing_metrics: dict[str, Any] = {}
+        for metric_name, metric in qc_metrics.items():
+            log_method = logger.error if not metric["passed"] else logger.info
+            log_method(
+                "qc_metric",
+                metric=metric_name,
+                value=metric["value"],
+                threshold=metric["threshold"],
+                severity=metric["severity"],
+                details=metric.get("details"),
+            )
+            if (not metric["passed"]) and self._severity_level(metric["severity"]) >= severity_level_threshold:
+                failing_metrics[metric_name] = metric
+
+        if failing_metrics:
+            self._last_validation_report["failing_metrics"] = failing_metrics
+            logger.error("qc_threshold_exceeded", failing_metrics=failing_metrics)
+            raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(failing_metrics.keys()))
+
+        try:
+            validated_df = ActivitySchema.validate(df, lazy=True)
+            self._last_validation_report["schema_validation"] = {
+                "status": "passed",
+                "errors": 0,
+            }
+            logger.info("schema_validation_passed", rows=len(validated_df))
+            return validated_df
+        except SchemaErrors as exc:
+            failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
+            if self._last_validation_report is not None:
+                self._last_validation_report["schema_validation"] = {
+                    "status": "failed",
+                    "errors": len(failure_cases) if failure_cases is not None else None,
+                    "failure_cases": failure_cases,
+                }
+            logger.error(
+                "schema_validation_failed",
+                error=str(exc),
+                failure_count=len(failure_cases) if failure_cases is not None else None,
+            )
             raise
+
+    @property
+    def last_validation_report(self) -> dict[str, Any] | None:
+        """Return the most recent validation report."""
+        return self._last_validation_report
+
+    def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, Any]:
+        """Compute QC metrics for validation."""
+        qc_config = self.config.qc
+        thresholds = qc_config.thresholds or {}
+
+        metrics: dict[str, Any] = {}
+
+        duplicate_threshold = thresholds.get("duplicates")
+        duplicate_config = getattr(qc_config, "duplicate_check", None)
+        duplicate_field = "activity_id"
+        if duplicate_config and isinstance(duplicate_config, dict):
+            duplicate_field = duplicate_config.get("field", duplicate_field)
+            if duplicate_threshold is None:
+                duplicate_threshold = duplicate_config.get("threshold")
+        if duplicate_threshold is None:
+            duplicate_threshold = 0
+
+        duplicate_count = 0
+        duplicate_values: list[Any] = []
+        if duplicate_field in df.columns:
+            duplicate_mask = df[duplicate_field].duplicated(keep=False)
+            duplicate_count = int(df[duplicate_field].duplicated().sum())
+            duplicate_values = df.loc[duplicate_mask, duplicate_field].tolist()
+
+        metrics["duplicates"] = {
+            "value": duplicate_count,
+            "threshold": duplicate_threshold,
+            "passed": duplicate_count <= duplicate_threshold,
+            "severity": "error" if duplicate_count > duplicate_threshold else "info",
+            "details": {"field": duplicate_field, "duplicate_values": duplicate_values},
+        }
+
+        critical_columns = ["standard_value", "standard_type", "molecule_chembl_id"]
+        null_rates: dict[str, float] = {}
+        for column in critical_columns:
+            if column in df.columns and len(df) > 0:
+                null_rates[column] = float(df[column].isna().mean())
+            else:
+                null_rates[column] = 1.0 if column not in df.columns else 0.0
+
+        null_rate_threshold = float(thresholds.get("null_rate_critical", 1.0))
+        max_null_rate = max(null_rates.values()) if null_rates else 0.0
+        metrics["null_rate"] = {
+            "value": max_null_rate,
+            "threshold": null_rate_threshold,
+            "passed": max_null_rate <= null_rate_threshold,
+            "severity": "error" if max_null_rate > null_rate_threshold else "info",
+            "details": {"column_null_rates": null_rates},
+        }
+
+        invalid_units_threshold = float(thresholds.get("invalid_units", 0))
+        invalid_units_count = 0
+        invalid_indices: list[int] = []
+        invalid_fraction = 0.0
+        if {"standard_value", "standard_units"}.issubset(df.columns) and len(df) > 0:
+            mask = df["standard_value"].notna() & df["standard_units"].isna()
+            invalid_units_count = int(mask.sum())
+            invalid_indices = df.index[mask].tolist()
+            invalid_fraction = invalid_units_count / len(df)
+
+        metrics["invalid_units"] = {
+            "value": invalid_units_count,
+            "threshold": invalid_units_threshold,
+            "passed": invalid_units_count <= invalid_units_threshold,
+            "severity": "error" if invalid_units_count > invalid_units_threshold else "info",
+            "details": {"invalid_row_indices": invalid_indices, "invalid_fraction": invalid_fraction},
+        }
+
+        return metrics
+
+    @staticmethod
+    def _severity_level(severity: str) -> int:
+        """Map severity string to comparable level."""
+        levels = {"info": 0, "warning": 1, "error": 2, "critical": 3}
+        return levels.get(severity.lower(), 1)
 
