@@ -25,6 +25,57 @@ class DocumentSchema(BaseSchema):
     referenses_on_previous_experiments: Series[bool] = pa.Field(nullable=True, description="References on previous experiments")
     original_experimental_document: Series[bool] = pa.Field(nullable=True, description="Original experimental document")
 
+    # Resolved fields with precedence
+    pmid: Series[int] = pa.Field(nullable=True, description="Resolved PMID using precedence")
+    pmid_source: Series[str] = pa.Field(nullable=True, description="Source of resolved PMID")
+    doi_clean: Series[str] = pa.Field(nullable=True, description="Resolved DOI using precedence")
+    doi_clean_source: Series[str] = pa.Field(nullable=True, description="Source of resolved DOI")
+    title: Series[str] = pa.Field(nullable=True, description="Resolved title")
+    title_source: Series[str] = pa.Field(nullable=True, description="Source of resolved title")
+    abstract: Series[str] = pa.Field(nullable=True, description="Resolved abstract")
+    abstract_source: Series[str] = pa.Field(nullable=True, description="Source of resolved abstract")
+    journal: Series[str] = pa.Field(nullable=True, description="Resolved journal name")
+    journal_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal")
+    journal_abbrev: Series[str] = pa.Field(nullable=True, description="Resolved journal abbreviation")
+    journal_abbrev_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal abbreviation")
+    authors: Series[str] = pa.Field(nullable=True, description="Resolved authors")
+    authors_source: Series[str] = pa.Field(nullable=True, description="Source of resolved authors")
+    year: Series[int] = pa.Field(nullable=True, description="Resolved publication year")
+    year_source: Series[str] = pa.Field(nullable=True, description="Source of resolved publication year")
+    volume: Series[str] = pa.Field(nullable=True, description="Resolved journal volume")
+    volume_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal volume")
+    issue: Series[str] = pa.Field(nullable=True, description="Resolved journal issue")
+    issue_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal issue")
+    first_page: Series[str] = pa.Field(nullable=True, description="Resolved first page")
+    first_page_source: Series[str] = pa.Field(nullable=True, description="Source of resolved first page")
+    last_page: Series[str] = pa.Field(nullable=True, description="Resolved last page")
+    last_page_source: Series[str] = pa.Field(nullable=True, description="Source of resolved last page")
+    issn_print: Series[str] = pa.Field(nullable=True, description="Resolved print ISSN")
+    issn_print_source: Series[str] = pa.Field(nullable=True, description="Source of resolved print ISSN")
+    issn_electronic: Series[str] = pa.Field(nullable=True, description="Resolved electronic ISSN")
+    issn_electronic_source: Series[str] = pa.Field(nullable=True, description="Source of resolved electronic ISSN")
+    is_oa: Series[bool] = pa.Field(nullable=True, description="Resolved Open Access flag")
+    is_oa_source: Series[str] = pa.Field(nullable=True, description="Source of Open Access flag")
+    oa_status: Series[str] = pa.Field(nullable=True, description="Resolved OA status")
+    oa_status_source: Series[str] = pa.Field(nullable=True, description="Source of OA status")
+    oa_url: Series[str] = pa.Field(nullable=True, description="Resolved OA URL")
+    oa_url_source: Series[str] = pa.Field(nullable=True, description="Source of OA URL")
+    citation_count: Series[int] = pa.Field(nullable=True, description="Resolved citation count")
+    citation_count_source: Series[str] = pa.Field(nullable=True, description="Source of citation count")
+    influential_citations: Series[int] = pa.Field(nullable=True, description="Resolved influential citation count")
+    influential_citations_source: Series[str] = pa.Field(nullable=True, description="Source of influential citations")
+    fields_of_study: Series[str] = pa.Field(nullable=True, description="Resolved fields of study")
+    fields_of_study_source: Series[str] = pa.Field(nullable=True, description="Source of fields of study")
+    concepts_top3: Series[str] = pa.Field(nullable=True, description="Resolved OpenAlex concepts")
+    concepts_top3_source: Series[str] = pa.Field(nullable=True, description="Source of OpenAlex concepts")
+    mesh_terms: Series[str] = pa.Field(nullable=True, description="Resolved MeSH terms")
+    mesh_terms_source: Series[str] = pa.Field(nullable=True, description="Source of MeSH terms")
+    chemicals: Series[str] = pa.Field(nullable=True, description="Resolved chemicals list")
+    chemicals_source: Series[str] = pa.Field(nullable=True, description="Source of chemicals list")
+
+    conflict_doi: Series[bool] = pa.Field(nullable=True, description="Conflict flag for DOI discrepancies")
+    conflict_pmid: Series[bool] = pa.Field(nullable=True, description="Conflict flag for PMID discrepancies")
+
     # PMID fields (4 sources)
     chembl_pmid: Series[int] = pa.Field(nullable=True, description="PMID из ChEMBL")
     pubmed_pmid: Series[int] = pa.Field(nullable=True, description="PMID из PubMed")
@@ -116,89 +167,124 @@ class DocumentSchema(BaseSchema):
     # Column order according to IO_SCHEMAS_AND_DIAGRAMS.md line 957
     # Stored as class attribute to avoid Pandera treating it as a custom check
     column_order = [
-            "index",
-            "extracted_at",
-            "pipeline_version",
-            "source_system",
-            "chembl_release",
-            "hash_business_key",
-            "hash_row",
-            "document_chembl_id",
-            "document_pubmed_id",
-            "document_classification",
-            "referenses_on_previous_experiments",
-            "original_experimental_document",
-            "pubmed_mesh_descriptors",
-            "pubmed_mesh_qualifiers",
-            "pubmed_chemical_list",
-            "crossref_subject",
-            # PMID (4)
-            "chembl_pmid",
-            "openalex_pmid",
-            "pubmed_pmid",
-            "semantic_scholar_pmid",
-            # Title (5)
-            "chembl_title",
-            "crossref_title",
-            "openalex_title",
-            "pubmed_article_title",
-            "semantic_scholar_title",
-            # Abstract (2)
-            "chembl_abstract",
-            "pubmed_abstract",
-            # Authors (5)
-            "chembl_authors",
-            "crossref_authors",
-            "openalex_authors",
-            "pubmed_authors",
-            "semantic_scholar_authors",
-            # DOI (5)
-            "chembl_doi",
-            "crossref_doi",
-            "openalex_doi",
-            "pubmed_doi",
-            "semantic_scholar_doi",
-            # Doc Type (6)
-            "chembl_doc_type",
-            "crossref_doc_type",
-            "openalex_doc_type",
-            "openalex_crossref_doc_type",
-            "pubmed_doc_type",
-            "semantic_scholar_doc_type",
-            # ISSN (3) - in spec comes after Journal, before Year
-            "openalex_issn",
-            "pubmed_issn",
-            "semantic_scholar_issn",
-            # Journal (3)
-            "chembl_journal",
-            "pubmed_journal",
-            "semantic_scholar_journal",
-            # Year (2)
-            "chembl_year",
-            "openalex_year",
-            # Volume/Issue (4)
-            "chembl_volume",
-            "pubmed_volume",
-            "chembl_issue",
-            "pubmed_issue",
-            # Pages (2)
-            "pubmed_first_page",
-            "pubmed_last_page",
-            # Errors (4) - should be before pubmed dates
-            "crossref_error",
-            "openalex_error",
-            "pubmed_error",
-            "semantic_scholar_error",
-            # PubMed dates (6)
-            "pubmed_year_completed",
-            "pubmed_month_completed",
-            "pubmed_day_completed",
-            "pubmed_year_revised",
-            "pubmed_month_revised",
-            "pubmed_day_revised",
-            # Note: pipeline_version, source_system, chembl_release from BaseSchema
-            # but not in column_order spec line 957
-        ]
+        "index",
+        "extracted_at",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "hash_business_key",
+        "hash_row",
+        "document_chembl_id",
+        "document_pubmed_id",
+        "document_classification",
+        "referenses_on_previous_experiments",
+        "original_experimental_document",
+        # Resolved fields
+        "pmid",
+        "pmid_source",
+        "doi_clean",
+        "doi_clean_source",
+        "title",
+        "title_source",
+        "abstract",
+        "abstract_source",
+        "journal",
+        "journal_source",
+        "journal_abbrev",
+        "journal_abbrev_source",
+        "authors",
+        "authors_source",
+        "year",
+        "year_source",
+        "volume",
+        "volume_source",
+        "issue",
+        "issue_source",
+        "first_page",
+        "first_page_source",
+        "last_page",
+        "last_page_source",
+        "issn_print",
+        "issn_print_source",
+        "issn_electronic",
+        "issn_electronic_source",
+        "is_oa",
+        "is_oa_source",
+        "oa_status",
+        "oa_status_source",
+        "oa_url",
+        "oa_url_source",
+        "citation_count",
+        "citation_count_source",
+        "influential_citations",
+        "influential_citations_source",
+        "fields_of_study",
+        "fields_of_study_source",
+        "concepts_top3",
+        "concepts_top3_source",
+        "mesh_terms",
+        "mesh_terms_source",
+        "chemicals",
+        "chemicals_source",
+        "conflict_doi",
+        "conflict_pmid",
+        # Source-specific metadata retained for audit
+        "pubmed_mesh_descriptors",
+        "pubmed_mesh_qualifiers",
+        "pubmed_chemical_list",
+        "crossref_subject",
+        "chembl_pmid",
+        "openalex_pmid",
+        "pubmed_pmid",
+        "semantic_scholar_pmid",
+        "chembl_title",
+        "crossref_title",
+        "openalex_title",
+        "pubmed_article_title",
+        "semantic_scholar_title",
+        "chembl_abstract",
+        "pubmed_abstract",
+        "chembl_authors",
+        "crossref_authors",
+        "openalex_authors",
+        "pubmed_authors",
+        "semantic_scholar_authors",
+        "chembl_doi",
+        "crossref_doi",
+        "openalex_doi",
+        "pubmed_doi",
+        "semantic_scholar_doi",
+        "chembl_doc_type",
+        "crossref_doc_type",
+        "openalex_doc_type",
+        "openalex_crossref_doc_type",
+        "pubmed_doc_type",
+        "semantic_scholar_doc_type",
+        "openalex_issn",
+        "pubmed_issn",
+        "semantic_scholar_issn",
+        "chembl_journal",
+        "pubmed_journal",
+        "semantic_scholar_journal",
+        "chembl_year",
+        "openalex_year",
+        "chembl_volume",
+        "pubmed_volume",
+        "chembl_issue",
+        "pubmed_issue",
+        "pubmed_first_page",
+        "pubmed_last_page",
+        "crossref_error",
+        "openalex_error",
+        "pubmed_error",
+        "semantic_scholar_error",
+        "pubmed_year_completed",
+        "pubmed_month_completed",
+        "pubmed_day_completed",
+        "pubmed_year_revised",
+        "pubmed_month_revised",
+        "pubmed_day_revised",
+    ]
 
     class Config:
         strict = True
