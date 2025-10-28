@@ -61,6 +61,13 @@ class TestItemSchema(BaseSchema):
     # Classification
     atc_classifications: Series[str] = pa.Field(nullable=True, description="ATC classifications (JSON)")
 
+    # Fallback metadata
+    fallback_error_code: Series[str] = pa.Field(nullable=True, description="Fallback error code or type")
+    fallback_http_status: Series[int] = pa.Field(nullable=True, ge=0, description="HTTP status for fallback")
+    fallback_retry_after_sec: Series[float] = pa.Field(nullable=True, ge=0, description="Retry-After header value")
+    fallback_attempt: Series[int] = pa.Field(nullable=True, ge=0, description="Attempt number when fallback created")
+    fallback_error_message: Series[str] = pa.Field(nullable=True, description="Fallback error message context")
+
     # PubChem enrichment (optional)
     pubchem_cid: Series[int] = pa.Field(nullable=True, ge=1, description="Идентификатор PubChem (enrichment)")
     pubchem_molecular_formula: Series[str] = pa.Field(nullable=True, description="PubChem molecular formula")
@@ -107,6 +114,11 @@ class TestItemSchema(BaseSchema):
             "all_names",
             "molecule_synonyms",
             "atc_classifications",
+            "fallback_error_code",
+            "fallback_http_status",
+            "fallback_retry_after_sec",
+            "fallback_attempt",
+            "fallback_error_message",
             "pubchem_cid",
             "pubchem_molecular_formula",
             "pubchem_molecular_weight",
