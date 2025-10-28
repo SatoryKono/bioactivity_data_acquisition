@@ -506,11 +506,22 @@ class TestActivityPipeline:
         assert report["metrics"]["duplicates"]["value"] == 0
         assert report["metrics"]["null_rate"]["value"] == 0
         assert report["metrics"]["invalid_units"]["value"] == 0
+        assert report["metrics"]["null_fraction.standard_value"]["value"] == 0
+        assert report["metrics"]["null_fraction.standard_type"]["value"] == 0
+        assert report["metrics"]["null_fraction.molecule_chembl_id"]["value"] == 0
 
         issue_metrics = {
             issue["metric"]: issue for issue in pipeline.validation_issues if issue.get("metric")
         }
-        assert {"qc.duplicates", "qc.null_rate", "qc.invalid_units", "schema.validation"}.issubset(
+        assert {
+            "qc.duplicates",
+            "qc.null_rate",
+            "qc.null_fraction.standard_value",
+            "qc.null_fraction.standard_type",
+            "qc.null_fraction.molecule_chembl_id",
+            "qc.invalid_units",
+            "schema.validation",
+        }.issubset(
             issue_metrics.keys()
         )
         assert issue_metrics["schema.validation"]["status"] == "passed"
@@ -536,6 +547,29 @@ class TestActivityPipeline:
         assert report is not None
         assert report["metrics"]["duplicates"]["value"] == 1
         assert "duplicates" in report.get("failing_metrics", {})
+
+    def test_validate_honors_zero_null_threshold(self, activity_config):
+        """Null QC thresholds should respect explicit zero values."""
+
+        activity_config.qc.thresholds["activity.null_fraction"] = 1.0
+        activity_config.qc.thresholds["activity.null_fraction.standard_value"] = 0.0
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = self._build_activity_dataframe(activity_id=1)
+        df.loc[0, "standard_value"] = None
+
+        with pytest.raises(ValueError):
+            pipeline.validate(df)
+
+        report = pipeline.last_validation_report
+        assert report is not None
+        column_metric = report["metrics"].get("null_fraction.standard_value")
+        assert column_metric is not None
+        assert column_metric["threshold"] == 0.0
+        assert column_metric["value"] == 1.0
+        assert report["failing_metrics"].get("null_fraction.standard_value") == column_metric
 
     def test_validate_invalid_relation_triggers_pandera_error(self, activity_config):
         """Invalid standard relation should raise a Pandera schema error."""
