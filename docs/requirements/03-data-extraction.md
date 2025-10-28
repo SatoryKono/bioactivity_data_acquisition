@@ -379,18 +379,101 @@ class PaginationHandler:
             params = {config.get("page_param", "page"): page}
             if page_size:
                 params[config.get("size_param", "page_size")] = page_size
-            
+
             response = session.get(url, params=params)
             response.raise_for_status()
-            
+
             data = response.json()
             yield data
-            
+
             # Проверяем, есть ли еще страницы
             if not self._has_next_page(data, config):
                 break
-            
+
             page += 1
+
+    def _paginate_by_cursor(
+        self,
+        session: requests.Session,
+        url: str,
+        config: dict
+    ) -> Iterator[dict]:
+        """Пагинация по cursor token."""
+        cursor: str | None = config.get("initial_cursor")
+        limit = config.get("limit", 100)
+
+        while True:
+            params = {config.get("cursor_param", "cursor"): cursor} if cursor else {}
+            params[config.get("size_param", "limit")] = limit
+
+            response = session.get(url, params=params)
+            response.raise_for_status()
+
+            data = response.json()
+            yield data
+
+            if not self._has_next_page(data, config):
+                break
+
+            cursor = data.get(config.get("next_cursor_key", "next_cursor"))
+
+    def _paginate_by_offset(
+        self,
+        session: requests.Session,
+        url: str,
+        config: dict
+    ) -> Iterator[dict]:
+        """Пагинация по offset/limit."""
+        offset = config.get("offset_start", 0)
+        limit = config.get("limit", 100)
+        max_total = config.get("max_total")
+
+        while True:
+            params = {
+                config.get("offset_param", "offset"): offset,
+                config.get("size_param", "limit"): limit,
+            }
+
+            response = session.get(url, params=params)
+            response.raise_for_status()
+
+            data = response.json()
+            yield data
+
+            if not self._has_next_page(data, config):
+                break
+
+            offset += limit
+            if max_total is not None and offset >= max_total:
+                break
+
+    def _has_next_page(self, payload: dict, config: dict) -> bool:
+        """Определяет, есть ли следующая страница."""
+        strategy = config.get("type", "page")
+
+        if strategy == "page":
+            total_pages = payload.get(config.get("total_pages_key", "total_pages"))
+            current_page = payload.get(config.get("page_key", "page"))
+            items = payload.get(config.get("items_key", "items"), [])
+            return bool(items) and (
+                total_pages is None or (current_page or 0) < total_pages
+            )
+
+        if strategy == "cursor":
+            has_more = payload.get(config.get("has_more_key", "has_more"))
+            next_cursor = payload.get(config.get("next_cursor_key", "next_cursor"))
+            items = payload.get(config.get("items_key", "items"), [])
+            return bool(items) and (has_more is True or next_cursor)
+
+        if strategy == "offset":
+            items = payload.get(config.get("items_key", "items"), [])
+            total = payload.get(config.get("total_key", "total"))
+            next_offset = payload.get(config.get("next_offset_key", "offset"))
+            if total is not None and next_offset is not None:
+                return next_offset < total
+            return len(items) == config.get("limit", 100)
+
+        return False
 ```
 
 ## Основной класс: UnifiedAPIClient
@@ -444,15 +527,13 @@ class UnifiedAPIClient:
     ) -> dict:
         """Выполняет HTTP запрос."""
         
-        # Rate limiting
-        self.rate_limiter.acquire()
-        
         # Circuit breaker + Retry
         def _make_request():
             url = urljoin(self.config.base_url, endpoint)
-            
-            response = self.rate_limiter.acquire()
-            
+
+            # Rate limiting перед каждой попыткой
+            self.rate_limiter.acquire()
+
             response = self.session.request(
                 method,
                 url,
@@ -498,15 +579,62 @@ class UnifiedAPIClient:
                 # Backoff
                 wait_time = self.retry_policy.get_wait_time(attempt)
                 time.sleep(wait_time)
-    
+
+``` 
+
+### Cache policy
+
+UnifiedAPIClient разделяет ответственность кэширования на два уровня:
+
+1. **In-memory TTLCache** — run-scoped. Очищается при завершении пайплайна.
+2. **Persistent cache** — release-scoped. Ключи include `chembl_release`/`pipeline_version`.
+
+```python
+def _cache_key(self, endpoint: str, params: dict) -> str:
+    """Формирует release-scoped ключ."""
+    release = params.get("chembl_release") or self.config.headers.get("X-Source-Release")
+    payload = {
+        "endpoint": endpoint,
+        "params": params,
+        "release": release,
+    }
+    return canonical_hash(payload)
+
+def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
+    """Выполняет запрос с warm-up и инвалидацией."""
+    params = params or {}
+    key = self._cache_key(endpoint, params)
+
+    if self.cache and key in self.cache:
+        return self.cache[key]
+
+    response = self.get(endpoint, params=params)
+
+    if self.cache:
+        self.cache[key] = response
+
+    return response
+```
+
+**Warm-up:** допускается прогрев популярных ключей при старте (например, `status` endpoints).
+
+**Invalidation:**
+
+- При смене `chembl_release`/`pipeline_version` сбрасываем persistent cache (новый namespace).
+- Принудительное очищение через CLI флаг `--cache-clear` добавляет `run_id` в namespace.
+
+**TTL ответственность:** значения TTL читаются из `config.cache_ttl`; истёкший ключ удаляется при обращении. Для критичных
+источников (ChEMBL activities) дополнительно проверяем release-маркер и drop cache, если API вернул новый `release`.
+
+```python
     def get(self, endpoint: str, **kwargs) -> dict:
         """GET запрос с автоматическим переключением на POST при длинных URL."""
         params = kwargs.get("params") or {}
-        
+
         # Проверка длины URL
         url = urljoin(self.config.base_url, endpoint)
         full_url = requests.Request("GET", url, params=params).prepare().url
-        
+
         max_url_length = getattr(self.config, 'max_url_length', 2000)
         if len(full_url) > max_url_length:
             # Переключаемся на POST с X-HTTP-Method-Override
@@ -520,9 +648,9 @@ class UnifiedAPIClient:
             headers = kwargs.pop("headers", {})
             headers["X-HTTP-Method-Override"] = "GET"
             return self.request("POST", endpoint, data=params, headers=headers, **kwargs)
-        
+
         return self.request("GET", endpoint, **kwargs)
-    
+
     def post(self, endpoint: str, data: dict, **kwargs) -> dict:
         """POST запрос."""
         return self.request("POST", endpoint, json=data, **kwargs)
