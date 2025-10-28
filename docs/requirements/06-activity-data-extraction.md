@@ -736,19 +736,33 @@ while True:
 
 **См. также**: [gaps.md](../gaps.md) (G2, G9), [acceptance-criteria.md](../acceptance-criteria.md) (AC6).
 
-### ⚠️ UNCERTAIN: Максимальный limit
+### ⚠️ TODO: Максимальный limit для Activity API
 
-**Проблема:**
+**Проблема (AUD-1):**
 
-- Внешние источники упоминают 1000, но это не норматив
+Внешние источники упоминают 1000 как возможный максимум, но это не подтверждено для `/activity` endpoint. Требуется эмпирическая верификация через бинарный поиск.
 
-**План проверки:**
+**План верификации:**
 
-- Бинарный поиск по значениям `limit` (1000, 2000, 5000)
+1. **Бинарный поиск по значениям `limit`**: начать с диапазона [1, 10000]
+2. **Критерий остановки**: первая 400/413 ошибка от ChEMBL API
+3. **Зафиксировать проверенное значение** в configs/pipelines/activity.yaml (поле `sources.chembl.max_limit`)
+4. **Добавить тест** в `tests/integration/test_chembl_limits.py`
 
-- До первого 400/413 ошибки
+**curl команды для проверки:**
 
-- Зафиксировать предел в Best Practices
+```bash
+# Низкий лимит (должен работать)
+curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=100"
+
+# Средний лимит
+curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=1000"
+
+# Высокий лимит
+curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5000"
+```
+
+**Ссылка:** [test-plan.md](../test-plan.md), процедура бинарного поиска
 
 ---
 

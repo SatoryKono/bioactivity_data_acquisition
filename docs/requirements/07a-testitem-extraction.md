@@ -1135,6 +1135,102 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
 
 ```
 
+**TestitemOutputSchema (AUD-3):** Формализованная выходная схема с PK и полным списком полей.
+
+```python
+class TestitemOutputSchema(pa.DataFrameModel):
+    """
+    Output schema для Testitem pipeline с явными PK и валидацией.
+    
+    Primary Key: molecule_chembl_id
+    Fields: 95+ полей из ChEMBL + опционально PubChem enrichment
+    """
+    
+    # === PRIMARY KEY ===
+    molecule_chembl_id: Series[pd.StringDtype] = pa.Field(
+        str_matches=r'^CHEMBL\d+$',
+        nullable=False,
+        unique=True,
+        description="ChEMBL molecule identifier (PRIMARY KEY)"
+    )
+    
+    # === ChEMBL BASE FIELDS ===
+    molregno: Series[pd.Int64Dtype] = pa.Field(nullable=True)
+    pref_name: Series[pd.StringDtype] = pa.Field(nullable=True)
+    parent_chembl_id: Series[pd.StringDtype] = pa.Field(
+        str_matches=r'^CHEMBL\d+$',
+        nullable=True,
+        description="Parent molecule FK"
+    )
+    
+    # === STRUCTURES ===
+    canonical_smiles: Series[pd.StringDtype] = pa.Field(nullable=True)
+    standard_inchi: Series[pd.StringDtype] = pa.Field(nullable=True)
+    standard_inchi_key: Series[pd.StringDtype] = pa.Field(
+        str_matches=r'^[A-Z]{14}-[A-Z]{10}-[A-Z]$',
+        nullable=True
+    )
+    
+    # === PHYSICO-CHEMICAL PROPERTIES ===
+    mw_freebase: Series[pd.Float64Dtype] = pa.Field(ge=50.0, le=2000.0, nullable=True)
+    alogp: Series[pd.Float64Dtype] = pa.Field(ge=-10.0, le=10.0, nullable=True)
+    qed_weighted: Series[pd.Float64Dtype] = pa.Field(ge=0.0, le=1.0, nullable=True)
+    rotatable_bonds: Series[pd.Int64Dtype] = pa.Field(ge=0, le=100, nullable=True)
+    tpsa: Series[pd.Float64Dtype] = pa.Field(ge=0.0, le=1000.0, nullable=True)
+    # ... остальные 22 свойства
+    
+    # === PUBCHEM ENRICHMENT (optional) ===
+    pubchem_cid: Series[pd.Int64Dtype] = pa.Field(ge=1, nullable=True)
+    pubchem_smiles: Series[pd.StringDtype] = pa.Field(nullable=True)
+    pubchem_inchi_key: Series[pd.StringDtype] = pa.Field(
+        str_matches=r'^[A-Z]{14}-[A-Z]{10}-[A-Z]$',
+        nullable=True
+    )
+    pubchem_synonyms: Series[pd.StringDtype] = pa.Field(nullable=True)
+    # ... остальные pubchem_* поля
+    
+    # === HIERARCHY & REFERENCES ===
+    all_names: Series[pd.StringDtype] = pa.Field(nullable=True)
+    synonyms_json: Series[pd.StringDtype] = pa.Field(nullable=True)
+    
+    # === METADATA ===
+    index: Series[pd.Int64Dtype] = pa.Field(ge=0, nullable=False)
+    pipeline_version: Series[pd.StringDtype] = pa.Field(nullable=False)
+    extracted_at: Series[pd.StringDtype] = pa.Field(nullable=False)
+    hash_row: Series[pd.StringDtype] = pa.Field(str_length=64, nullable=False)
+    hash_business_key: Series[pd.StringDtype] = pa.Field(str_length=64, nullable=False)
+    
+    class Config:
+        strict = True  # Требуем соответствие схеме
+        coerce = True  # Автоматическое приведение типов
+    
+    # Свойство column_order
+    @staticmethod
+    def get_column_order() -> list[str]:
+        """Возвращает канонический порядок колонок."""
+        return [
+            "molecule_chembl_id",  # PK первым
+            "molregno", "pref_name", "parent_chembl_id",
+            # ... остальные поля в документации
+            "hash_business_key", "hash_row"  # Хеши последними
+        ]
+```
+
+**Schema Registry:** Схема регистрируется в `src/library/schemas/__init__.py`:
+
+```python
+from pandera import DataFrameModel
+
+class TestitemOutputSchema(DataFrameModel):
+    # ... реализация выше
+    
+    schema_id = "testitem.output"
+    schema_version = "1.0.0"
+    column_order = TestitemOutputSchema.get_column_order()
+```
+
+**Ссылка:** См. также [04-normalization-validation.md](04-normalization-validation.md) для column_order и NA-policy.
+
 ### 4.2 QC профили
 
 ```python

@@ -113,7 +113,11 @@ https://www.ebi.ac.uk/chembl/api/data
 
 - `format`: "json" (рекомендуется)
 
-**uncertain:** Подтверждение доступных полей у `/document.json` для выборки по `document_chembl_id__in`.
+### ⚠️ TODO: Подтверждение полей `/document.json` (AUD-1)
+
+**Проблема:**
+
+Требуется подтверждение доступных полей в ответе `/document.json` при батчевом запросе `document_chembl_id__in`. Неизвестно, совпадает ли набор полей с single-record endpoint.
 
 **План проверки:**
 
@@ -375,7 +379,9 @@ logger.error("circuit_breaker_triggered", cb_state=state, cb_failures=failure_co
 | `authors` | StringDtype | YES | Список авторов |
 | `source` | StringDtype | NO | Константа "ChEMBL" |
 
-**uncertain:** Наличие `journal_abbrev` и полей пагинации. Проверка через curl (§2).
+**⚠️ TODO: Проверка наличия полей (AUD-1):**
+
+Наличие полей `journal_abbrev` и полей пагинации (`page_meta`) требует подтверждения через curl. См. curl команды в разделе выше (§2).
 
 ### 4.2 FIELD_MAPPING (расширенный с внешними источниками)
 

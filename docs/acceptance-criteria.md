@@ -89,11 +89,13 @@ assert list(df_validated.columns) == schema.column_order
 
 #### AC10: Schema drift fail-fast
 
+**Важно:** В production режиме default=True обязателен для предотвращения незамеченных breaking changes.
+
 ```python
 
 # CLI
 
-# python -m pipeline run --fail-on-schema-drift
+# python -m pipeline run --fail-on-schema-drift  # default=True в production
 
 # Runtime
 
@@ -127,6 +129,7 @@ def test_respect_retry_after():
         client.request(url)
         elapsed = time.time() - start
         assert elapsed >= 5.0
+        assert elapsed <= 60.0  # Cap инвариант
 
 ```
 

@@ -679,6 +679,110 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
 
 **См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC10).
 
+### Централизованная политика NA-policy и Precision-policy (AUD-2)
+
+**Инвариант:** Единый источник истины для NA-policy и precision-policy — Pandera схема. Все пайплайны обязаны следовать этим правилам при нормализации данных и генерации хешей.
+
+#### NA-policy (Null Availability Policy)
+
+**Определение:** Политика обработки пропущенных значений для детерминированной сериализации и хеширования.
+
+| Тип данных | NA-значение | JSON сериализация | Применение |
+|---|---|---|---|
+| `str` / `StringDtype` | `""` (пустая строка) | `""` | Все текстовые поля |
+| `int` / `Int64Dtype` | `None` → `null` | `null` | Все целочисленные поля |
+| `float` / `Float64Dtype` | `None` → `null` | `null` | Все числовые поля |
+| `bool` / `BooleanDtype` | `None` → `null` | `null` | Логические флаги |
+| `datetime` | `None` → ISO8601 UTC | ISO8601 string | Временные метки |
+| `dict` / JSON | `None` или `{}` | Canonical JSON | Вложенные структуры |
+
+**Каноническая сериализация:**
+
+```python
+def canonicalize_for_hash(value: Any, dtype: str) -> Any:
+    """Приводит значение к канонической форме для хеширования."""
+    if value is None:
+        if dtype == "string":
+            return ""
+        elif dtype == "datetime":
+            return None  # ISO8601 не применим
+        else:
+            return None
+    
+    if dtype == "datetime" and isinstance(value, (datetime.date, datetime.datetime)):
+        return value.isoformat()
+    
+    if dtype == "json" and isinstance(value, dict):
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
+    
+    return value
+```
+
+#### Precision-policy
+
+**Определение:** Политика округления для числовых полей, обеспечивающая детерминизм и научную точность.
+
+| Тип поля | Точность (decimal places) | Применение |
+|---|---|---|
+| `standard_value` | 6 | Экспериментальные значения активностей |
+| `pchembl_value` | 2 | log10-значения |
+| `molecular_weight` | 2 | Молекулярный вес в Da |
+| `logp` | 3 | Коэффициент распределения |
+| `rotatable_bonds` | 0 | Целочисленные дескрипторы |
+| `tpsa` | 2 | Polar surface area |
+| Default (остальные `float`) | 6 | По умолчанию |
+
+**Применение:**
+
+```python
+def format_float(value: float, field_name: str) -> str:
+    """Форматирует float согласно precision_policy."""
+    precision_policy = {
+        "standard_value": 6,
+        "pchembl_value": 2,
+        "molecular_weight": 2,
+        "logp": 3,
+        "rotatable_bonds": 0,
+        "tpsa": 2,
+    }
+    decimals = precision_policy.get(field_name, 6)  # Default 6
+    return f"{value:.{decimals}f}"
+```
+
+**Обоснование:**
+- Детерминизм: одинаковое округление даёт одинаковый хеш
+- Научная точность: 6 decimal places достаточно для IC50/Ki
+- Экономия памяти: разумный баланс
+
+#### Проверка соответствия meta.yaml → schema
+
+**AC-02-NA (AUD-2):** Meta.yaml должна содержать копию NA-policy и precision-policy из схемы для аудита.
+
+```python
+def generate_meta_with_policies(schema: BaseSchema, df: pd.DataFrame) -> dict:
+    """Генерирует meta.yaml с копией политик из схемы."""
+    return {
+        "column_order": schema.column_order,  # Копия
+        "na_policy": schema.na_policy,  # Копия
+        "precision_policy": schema.precision_policy,  # Копия
+        "pipeline_version": schema.schema_version,
+        "row_count": len(df),
+        # ... остальные метаданные
+    }
+```
+
+**Валидация:**
+
+```python
+def validate_meta_policies(meta: dict, schema: BaseSchema) -> None:
+    """Проверяет соответствие политик в meta.yaml схеме."""
+    assert meta["column_order"] == schema.column_order
+    assert meta.get("na_policy") == schema.na_policy
+    assert meta.get("precision_policy") == schema.precision_policy
+```
+
+**См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC3, AC10).
+
 ### Semver Policy и Schema Evolution (fail-fast на major)
 
 **Инвариант:** Семантика schema drift: major incompatible (fail-fast), minor backward-compatible; CLI-флаг `--fail-on-schema-drift` (default=True).
@@ -764,6 +868,33 @@ SchemaRegistry.register(TargetSchema)
 
 ```
 
+### Метрики precision
+
+Единая карта точности для числовых полей (инвариант v3.0):
+
+| Поле | Precision | Формат | Обоснование |
+|------|-----------|--------|-------------|
+| standard_value | 6 | `%.6f` | Научная точность |
+| pic50 | 6 | `%.6f` | Фармакологические расчеты |
+| molecular_weight | 2 | `%.2f` | Достаточно для молекул |
+| все остальные float | 6 | `%.6f` | Default для детерминизма |
+
+**Применение:**
+
+```python
+def format_float(value: float, field_name: str) -> str:
+    """Форматирует float согласно precision_map."""
+    precision_map = {
+        "standard_value": 6,
+        "pic50": 6,
+        "molecular_weight": 2,
+    }
+    decimals = precision_map.get(field_name, 6)  # Default 6
+    return f"{value:.{decimals}f}"
+```
+
+**Обоснование:** Обеспечивает детерминизм сериализации и достаточную точность для научных вычислений.
+
 ## Расширение
 
 ### Добавление нового нормализатора
@@ -810,8 +941,6 @@ class MyCustomSchema(BaseSchema):
 ## Acceptance Criteria
 
 **Примечание:** NA-policy и каноническая сериализация описаны в [02-io-system.md](02-io-system.md#na-policy) как типо-зависимая политика (строки → `""`, числа/даты/boolean → `null`).
-
-### Acceptance Criteria
 
 ### AC-08: Schema Drift Detection
 

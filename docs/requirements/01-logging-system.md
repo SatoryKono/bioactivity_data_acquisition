@@ -311,6 +311,8 @@ set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
 
 - Для ошибок добавляются `error_code` и `error_message`; для успехов поля остаются `None`.
 
+**Инвариант для всех сред:** `run_id`, `stage`, `actor`, `source`, `generated_at` обязательны всегда, независимо от окружения.
+
 **См. также**: [gaps.md](../gaps.md) (G12).
 
 **Правила маскирования секретов**

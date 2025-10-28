@@ -552,6 +552,8 @@ artifacts = writer.write(df, table_name="activities", date_tag="20250128")
 
 `meta.yaml` содержит **копию** `column_order` из схемы для справки и воспроизводимости, но **не является** источником истины.
 
+**Единый источник:** Подробности политики column_order и NA-policy описаны в [04-normalization-validation.md](04-normalization-validation.md#централизованная-политика-na-policy-и-precision-policy-aud-2) как часть AUD-2 исправления.
+
 ```python
 
 # schema.py - ИСТОЧНИК ИСТИНЫ
@@ -792,6 +794,7 @@ column_order:
 checksums:
   dataset: "sha256:abc123..."
   quality: "sha256:def456..."
+  correlation: "sha256:ghi789..."  # Опционально, только если correlation enabled
 git_commit: "a1b2c3d"
 generated_at: "2025-01-28T14:23:15.123Z"
 lineage:
