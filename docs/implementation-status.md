@@ -138,7 +138,11 @@ src/bioetl/
   │   ├── identifier.py ✅
   │   ├── chemistry.py ✅
   │   └── registry.py ✅
-  ├── schemas/ (пусто)
+  ├── schemas/
+  │   ├── __init__.py ✅
+  │   ├── base.py ✅
+  │   ├── document.py ✅
+  │   └── registry.py ✅
   ├── pipelines/ (пусто)
   └── cli/ (пусто)
 
