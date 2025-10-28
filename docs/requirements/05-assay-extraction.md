@@ -884,38 +884,31 @@ postprocess:
 
 ## 7. CLI Дополнения
 
+**Унифицированный интерфейс**: Все пайплайны используют единую команду `bioetl pipeline run`. См. стандарт в [10-configuration.md](10-configuration.md#53-cli-interface-specification-aud-4).
+
 ```bash
 
 # Golden compare для детерминизма
 
-python get_assay_data.py \
-  --input assay_ids.csv \
-  --golden golden_assay.csv \
-  --config configs/pipelines/assay.yaml
+bioetl pipeline run --config configs/pipelines/assay.yaml \
+  --golden golden_assay.csv
 
-# Sample с seed
+# Sample с ограничением
 
-python get_assay_data.py \
-  --target CHEMBL231 \
-  --sample 100 \
-  --sample-seed 42 \
-  --config configs/pipelines/assay.yaml
+bioetl pipeline run --config configs/pipelines/assay.yaml \
+  --sample 100
 
 # Контроль API параметров
 
-python get_assay_data.py \
-  --input assay_ids.csv \
-  --max-url-length 2000 \
-  --page-size 25 \
-  --config configs/pipelines/assay.yaml
+bioetl pipeline run --config configs/pipelines/assay.yaml \
+  --set sources.chembl.max_url_length=2000 \
+  --set sources.chembl.batch_size=25
 
 # Strict validation
 
-python get_assay_data.py \
-  --input assay_ids.csv \
-  --strict-enrichment \
+bioetl pipeline run --config configs/pipelines/assay.yaml \
   --fail-on-schema-drift \
-  --config configs/pipelines/assay.yaml
+  --set qc.severity_threshold=error
 
 ```
 

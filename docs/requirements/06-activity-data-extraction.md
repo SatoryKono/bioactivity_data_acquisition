@@ -1006,15 +1006,15 @@ qc_report = {
 
 ## 12. Output Artifacts
 
-### Standard режим (3 файла)
+### Standard режим (2 файла)
 
 - `activity_{date}.csv` — основной датасет
 
 - `activity_{date}_quality_report.csv` — QC метрики
 
-- `activity_{date}_correlation_report.csv` — корреляции
+**Корреляционный анализ опционален**: файл `activity_{date}_correlation_report.csv` создаётся только при `postprocess.correlation.enabled: true` в конфигурации.
 
-### Extended режим (5 файлов)
+### Extended режим (+ metadata и manifest)
 
 - Добавляет `activity_{date}_meta.yaml` — метаданные
 
@@ -1051,7 +1051,7 @@ execution:
 artifacts:
   csv_path: "activity_2025-10-28.csv"
   qc_report_path: "activity_2025-10-28_quality_report.csv"
-  corr_report_path: "activity_2025-10-28_correlation_report.csv"
+  # corr_report_path: опционально, только при postprocess.correlation.enabled: true
   column_order: [
     "activity_id", "molecule_chembl_id", "assay_chembl_id", "target_chembl_id",
     "document_chembl_id", "standard_type", "standard_relation", "standard_value",
@@ -1064,7 +1064,7 @@ artifacts:
 checksums:
   csv_sha256: "13d5deb55a24b8286fb261f6d3c74dff08360089d25f75c6cc2723ef0d126234"
   qc_sha256: "4a8a623f070b039fb82925026b209917a72c87883eb30e3a749f95f3a40eaa9e"
-  corr_sha256: "..."
+  # corr_sha256: опционально, только при postprocess.correlation.enabled: true
 row_count: 123456
 qc_summary:
   missing_standard_value_pct: 12.3

@@ -1262,11 +1262,23 @@ save_standard_outputs(df, qc_df, corr_df, "documents", "20250128")
 # Стало
 
 from unified_output import UnifiedOutputWriter
-writer = UnifiedOutputWriter()  # Автоматически генерирует QC и correlation
 
-writer.write(df, table_name="documents", date_tag="20250128")
+# Standard режим: dataset + quality_report
+writer = UnifiedOutputWriter(
+    run_id=generate_run_id(),
+    schema=DocumentSchema,
+    mode="standard"
+)
+artifacts = writer.write(df, table_name="documents", date_tag="20250128")
+# artifacts.correlation_report будет None, если postprocess.correlation.enabled=false
+
+# Для включения correlation:
+# В конфигурации: postprocess.correlation.enabled: true
+# Или через CLI: --set postprocess.correlation.enabled=true
 
 ```
+
+**Важно**: UnifiedOutputWriter генерирует correlation отчёт только при явном `config.postprocess.correlation.enabled=true`. По умолчанию создаются только 2 файла (dataset + quality_report), что обеспечивает детерминизм и минимальный AC-профиль.
 
 ---
 

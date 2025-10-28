@@ -1423,16 +1423,15 @@ qc:
 output_files:
   csv: "testitem_20251028.csv"
   qc: "testitem_20251028_quality_report.csv"
-  correlation: "testitem_20251028_correlation_report.csv"
-  meta: "testitem_20251028_meta.yaml"
+  # correlation: опционально, только при postprocess.correlation.enabled: true
+  meta: "testitem_20251028_meta.yaml"  # только в extended режиме
 
 checksums:
   csv:
     sha256: "abc123def456..."
   qc:
     sha256: "def456789abc..."
-  correlation:
-    sha256: "ghi789012def..."
+  # correlation: опционально, только при postprocess.correlation.enabled: true
 
 ```
 
@@ -1474,37 +1473,32 @@ testitem_correlation_report_20251028/
 
 ## 7. CLI дополнения
 
+**Унифицированный интерфейс**: Все пайплайны используют единую команду `bioetl pipeline run`. См. стандарт в [10-configuration.md](10-configuration.md#53-cli-interface-specification-aud-4).
+
 ```bash
 
 # Базовая команда
 
-python scripts/get_testitem_data.py \
-  --input data/input/testitem.csv \
-  --final-out data/output/testitem.csv \
-  --config configs/pipelines/testitem.yaml
+bioetl pipeline run --config configs/pipelines/testitem.yaml \
+  --set paths.input_root=data/input \
+  --set paths.output_root=data/output/testitem
 
 # С лимитом и golden compare
 
-python scripts/get_testitem_data.py \
-  --input testitems.csv \
-  --limit 100 \
-  --golden golden_testitem.csv \
-  --config configs/pipelines/testitem.yaml
+bioetl pipeline run --config configs/pipelines/testitem.yaml \
+  --sample 100 \
+  --golden golden_testitem.csv
 
 # Управление PubChem
 
-python scripts/get_testitem_data.py \
-  --input testitems.csv \
-  --enable-pubchem \
-  --pubchem-rate-limit 5 \
-  --config configs/pipelines/testitem.yaml
+bioetl pipeline run --config configs/pipelines/testitem.yaml \
+  --set sources.pubchem.enabled=true \
+  --set sources.pubchem.rate_limit.max_calls=5
 
 # Batch size контроль (ChEMBL)
 
-python scripts/get_testitem_data.py \
-  --input testitems.csv \
-  --batch-size 25 \
-  --config configs/pipelines/testitem.yaml
+bioetl pipeline run --config configs/pipelines/testitem.yaml \
+  --set sources.chembl.batch_size=25
 
 ```
 

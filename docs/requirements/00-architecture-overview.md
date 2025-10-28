@@ -86,6 +86,8 @@
 
 - Correlation отчет **только** при явном `postprocess.correlation.enabled: true`
 
+- См. детали в [10-configuration.md](10-configuration.md#53-cli-interface-specification-aud-4)
+
 - Инварианты:
   - Checksums стабильны при одинаковом вводе (SHA256)
   - Порядок строк фиксирован (deterministic sort)

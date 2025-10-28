@@ -932,53 +932,42 @@ determinism:
 
 ### Минимальная команда CLI
 
+**Унифицированный интерфейс**: Все пайплайны используют единую команду `bioetl pipeline run`. См. стандарт в [10-configuration.md](10-configuration.md#53-cli-interface-specification-aud-4).
+
 ```bash
 
-# 1) ChEMBL targets + components
+# Базовый запуск
 
-python -m scripts.get_target_data \
-  --source chembl \
-  --config configs/pipelines/target.yaml \
-  --input data/input/target_ids.csv \
-  --out data/bronze/targets.parquet
+bioetl pipeline run --config configs/pipelines/target.yaml \
+  --set paths.input_root=data/input \
+  --set paths.output_root=data/output/target
 
 ```
 
-### Полный pipeline
+### С опциями источников
 
 ```bash
 
-# 1) ChEMBL extraction
+# Только ChEMBL
 
-python -m scripts.get_target_data \
-  --source chembl \
-  --config configs/pipelines/target.yaml \
-  --input data/input/target_ids.csv \
-  --out data/bronze/targets.parquet \
-  --write-raw
+bioetl pipeline run --config configs/pipelines/target.yaml \
+  --set sources.uniprot.enabled=false \
+  --set sources.iuphar.enabled=false
 
-# 2) UniProt enrichment
+# С UniProt enrichment
 
-python -m scripts.get_target_data \
-  --source uniprot \
-  --config configs/pipelines/target.yaml \
-  --input data/bronze/targets.parquet \
-  --out data/silver/targets_uniprot.parquet
+bioetl pipeline run --config configs/pipelines/target.yaml \
+  --set sources.uniprot.enabled=true \
+  --set sources.uniprot.batch_size=100
 
-# 3) IUPHAR classification
+# С IUPHAR
 
-python -m scripts.get_target_data \
-  --source iuphar \
-  --config configs/pipelines/target.yaml \
-  --input data/silver/targets_uniprot.parquet \
-  --out data/gold/targets_final.parquet
+bioetl pipeline run --config configs/pipelines/target.yaml \
+  --set sources.iuphar.enabled=true
 
-# 4) Post-processing
+# Всё включено (default)
 
-python -m scripts.postprocess_targets \
-  --input data/gold/targets_final.parquet \
-  --output data/output/target/targets.parquet \
-  --quality-report data/output/target/targets_quality.csv
+bioetl pipeline run --config configs/pipelines/target.yaml
 
 ```
 
