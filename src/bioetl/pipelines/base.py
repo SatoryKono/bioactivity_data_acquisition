@@ -20,7 +20,29 @@ class PipelineBase(ABC):
         self.config = config
         self.run_id = run_id
         self.output_writer = UnifiedOutputWriter(run_id)
+        self.validation_issues: list[dict[str, Any]] = []
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
+
+    _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2}
+
+    def record_validation_issue(self, issue: dict[str, Any]) -> None:
+        """Store a validation issue for later QC reporting."""
+
+        issue = issue.copy()
+        issue.setdefault("metric", "validation_issue")
+        issue.setdefault("severity", "info")
+        self.validation_issues.append(issue)
+
+    def _severity_value(self, severity: str) -> int:
+        """Convert severity label to comparable integer."""
+
+        return self._SEVERITY_LEVELS.get(severity.lower(), 0)
+
+    def _should_fail(self, severity: str) -> bool:
+        """Determine if the given severity breaches the configured threshold."""
+
+        threshold = self.config.qc.severity_threshold.lower()
+        return self._severity_value(severity) >= self._severity_value(threshold)
 
     @abstractmethod
     def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
@@ -45,7 +67,12 @@ class PipelineBase(ABC):
     ) -> OutputArtifacts:
         """Экспортирует данные с QC отчетами."""
         logger.info("exporting_data", path=output_path, rows=len(df))
-        return self.output_writer.write(df, output_path, extended=extended)
+        return self.output_writer.write(
+            df,
+            output_path,
+            extended=extended,
+            issues=self.validation_issues,
+        )
 
     def run(
         self, output_path: Path, extended: bool = False, *args: Any, **kwargs: Any
