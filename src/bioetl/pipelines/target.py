@@ -1494,9 +1494,14 @@ class TargetPipeline(PipelineBase):
             logger.info("gold_materialization_skipped", reason="dry_run")
             return
 
-        gold_path = getattr(self.config.materialization, "gold", Path("data/gold/targets.parquet"))
+        gold_path = getattr(self.config.materialization, "gold", None)
+        if not gold_path:
+            gold_path = Path("data/gold/targets.parquet")
+        else:
+            gold_path = Path(gold_path)
+
         materialize_gold(
-            Path(gold_path),
+            gold_path,
             targets=targets_df,
             components=components_df,
             protein_class=protein_class_df,
