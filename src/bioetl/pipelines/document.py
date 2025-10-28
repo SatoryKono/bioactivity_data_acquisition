@@ -1,11 +1,15 @@
 """Document Pipeline - ChEMBL document extraction with external enrichment."""
 
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Sequence
+from urllib.parse import urlencode
 
 import pandas as pd
+import requests
 
 from bioetl.adapters import (
     CrossrefAdapter,
@@ -15,11 +19,11 @@ from bioetl.adapters import (
 )
 from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
+from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.document_enrichment import merge_with_precedence
-from bioetl.schemas import DocumentSchema
+from bioetl.schemas import DocumentSchema, DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 
 logger = UnifiedLogger.get(__name__)
@@ -43,10 +47,12 @@ class DocumentPipeline(PipelineBase):
         chembl_source = config.sources.get("chembl")
         if isinstance(chembl_source, dict):
             base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = chembl_source.get("batch_size", 10)
+            batch_size = int(chembl_source.get("batch_size", 10) or 10)
+            max_url_length = int(chembl_source.get("max_url_length", 1800) or 1800)
         else:
             base_url = "https://www.ebi.ac.uk/chembl/api/data"
             batch_size = 10
+            max_url_length = 1800
 
         chembl_config = APIConfig(
             name="chembl",
@@ -56,6 +62,9 @@ class DocumentPipeline(PipelineBase):
         )
         self.api_client = UnifiedAPIClient(chembl_config)
         self.batch_size = batch_size
+        self.max_url_length = max_url_length
+        self.max_batch_size = 25
+        self._document_cache: dict[str, dict[str, Any]] = {}
 
         # Initialize external adapters if enabled
         self.external_adapters: dict[str, Any] = {}
@@ -67,23 +76,34 @@ class DocumentPipeline(PipelineBase):
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
         if input_file is None:
-            # Default to data/input/documents.csv
             input_file = Path("data/input/documents.csv")
 
         logger.info("reading_input", path=input_file)
 
-        # Read input file with document IDs
         if not input_file.exists():
             logger.warning("input_file_not_found", path=input_file)
-            return pd.DataFrame(columns=[
-                "document_chembl_id", "doi", "pmid", "journal", "title",
-                "year", "authors", "abstract",
-            ])
+            return pd.DataFrame(columns=["document_chembl_id"])
 
-        df = pd.read_csv(input_file)
+        df = pd.read_csv(input_file, dtype="string")
 
-        logger.info("extraction_completed", rows=len(df))
-        return df
+        valid_ids, rejected_rows = self._prepare_input_ids(df)
+        if rejected_rows:
+            self._persist_rejected_inputs(rejected_rows)
+
+        if not valid_ids:
+            logger.warning("no_valid_ids", total=len(df))
+            return pd.DataFrame(columns=["document_chembl_id"])
+
+        logger.info("validated_ids", total=len(valid_ids))
+
+        records = self._fetch_documents(valid_ids)
+        if not records:
+            logger.warning("no_records_fetched", ids=len(valid_ids))
+            return pd.DataFrame(columns=["document_chembl_id"])
+
+        result_df = pd.DataFrame(records)
+        logger.info("extraction_completed", rows=len(result_df))
+        return result_df
 
     def _init_external_adapters(self) -> None:
         """Initialize external API adapters."""
@@ -278,6 +298,179 @@ class DocumentPipeline(PipelineBase):
         logger.info("after_merge", enriched_cols=len(enriched_df.columns), enriched_rows=len(enriched_df))
 
         return enriched_df
+
+    # ------------------------------------------------------------------
+    # Extraction helpers
+    # ------------------------------------------------------------------
+
+    def _prepare_input_ids(self, df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
+        """Normalize and validate input identifiers using Pandera schema."""
+
+        if "document_chembl_id" not in df.columns:
+            raise ValueError("Input file must contain 'document_chembl_id' column")
+
+        regex = re.compile(r"^CHEMBL\d+$")
+        valid_ids: list[str] = []
+        rejected: list[dict[str, str]] = []
+        seen: set[str] = set()
+
+        for raw_value in df["document_chembl_id"].tolist():
+            normalized, reason = self._normalize_identifier(raw_value, regex)
+            if reason:
+                rejected.append(
+                    {
+                        "document_chembl_id": "" if raw_value is None else str(raw_value),
+                        "reason": reason,
+                    }
+                )
+                continue
+
+            if normalized in seen:
+                logger.debug("duplicate_id_skipped", document_chembl_id=normalized)
+                continue
+
+            seen.add(normalized)
+            valid_ids.append(normalized)
+
+        if valid_ids:
+            DocumentInputSchema.validate(pd.DataFrame({"document_chembl_id": valid_ids}))
+
+        return valid_ids, rejected
+
+    def _normalize_identifier(
+        self, value: Any, pattern: re.Pattern[str]
+    ) -> tuple[str | None, str | None]:
+        """Normalize identifier to uppercase CHEMBL format with validation reason."""
+
+        if value is None or pd.isna(value):
+            return None, "missing"
+
+        text = str(value).strip().upper()
+        if not text or text in {"#N/A", "N/A", "NONE", "NULL"}:
+            return None, "missing"
+
+        if not pattern.fullmatch(text):
+            return None, "invalid_format"
+
+        return text, None
+
+    def _persist_rejected_inputs(self, rows: list[dict[str, str]]) -> None:
+        """Persist rejected inputs for auditability."""
+
+        rejected_df = pd.DataFrame(rows)
+        output_dir = Path("data/output/rejected_inputs")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / f"document_rejected_{self.run_id}.csv"
+        logger.warning("rejected_inputs_found", count=len(rejected_df), path=output_path)
+        self.output_writer.atomic_writer.write(rejected_df, output_path)
+
+    def _fetch_documents(self, ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Fetch document payloads from ChEMBL with resilient batching."""
+
+        results: list[dict[str, Any]] = []
+        for chunk in self._chunked(ids, max(1, self.batch_size)):
+            cached_records, to_fetch = self._separate_cached(chunk)
+            results.extend(cached_records)
+
+            if not to_fetch:
+                continue
+
+            try:
+                fetched = self._fetch_documents_recursive(to_fetch)
+                for record in fetched:
+                    document_id = record.get("document_chembl_id")
+                    if document_id:
+                        self._document_cache[self._document_cache_key(str(document_id))] = record
+                results.extend(fetched)
+            except Exception as exc:  # noqa: BLE001
+                error_type = self._classify_error(exc)
+                logger.error(
+                    "document_fetch_failed",
+                    chunk=list(to_fetch),
+                    error=str(exc),
+                    error_type=error_type,
+                )
+                for document_id in to_fetch:
+                    fallback = self._create_fallback_row(document_id, error_type, str(exc))
+                    self._document_cache[self._document_cache_key(document_id)] = fallback
+                    results.append(fallback)
+
+        return results
+
+    def _fetch_documents_recursive(self, ids: Sequence[str]) -> list[dict[str, Any]]:
+        """Recursively fetch documents handling URL length and timeouts."""
+
+        if not ids:
+            return []
+
+        if len(ids) > self.max_batch_size:
+            midpoint = max(1, len(ids) // 2)
+            return self._fetch_documents_recursive(ids[:midpoint]) + self._fetch_documents_recursive(ids[midpoint:])
+
+        params = {"document_chembl_id__in": ",".join(ids)}
+        full_url = self._build_full_url("/document.json", params)
+
+        if len(full_url) > self.max_url_length and len(ids) > 1:
+            midpoint = max(1, len(ids) // 2)
+            return self._fetch_documents_recursive(ids[:midpoint]) + self._fetch_documents_recursive(ids[midpoint:])
+
+        try:
+            response = self.api_client.request_json("/document.json", params=params)
+        except requests.exceptions.ReadTimeout:
+            if len(ids) <= 1:
+                raise
+            midpoint = max(1, len(ids) // 2)
+            return self._fetch_documents_recursive(ids[:midpoint]) + self._fetch_documents_recursive(ids[midpoint:])
+
+        documents = response.get("documents") or response.get("document") or []
+        return [doc for doc in documents if isinstance(doc, dict)]
+
+    def _build_full_url(self, endpoint: str, params: dict[str, Any]) -> str:
+        base = self.api_client.config.base_url.rstrip("/")
+        query = urlencode(params, doseq=False)
+        return f"{base}{endpoint}?{query}" if query else f"{base}{endpoint}"
+
+    def _chunked(self, items: Sequence[str], size: int) -> Iterable[Sequence[str]]:
+        for idx in range(0, len(items), size):
+            yield items[idx : idx + size]
+
+    def _separate_cached(self, ids: Sequence[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        cached: list[dict[str, Any]] = []
+        missing: list[str] = []
+        for document_id in ids:
+            key = self._document_cache_key(document_id)
+            if key in self._document_cache:
+                cached.append(self._document_cache[key])
+            else:
+                missing.append(document_id)
+        return cached, missing
+
+    def _document_cache_key(self, document_id: str) -> str:
+        release = self._chembl_release or "unknown"
+        return f"document:{release}:{document_id}"
+
+    def _classify_error(self, exc: Exception) -> str:
+        if isinstance(exc, requests.exceptions.ReadTimeout):
+            return "E_TIMEOUT"
+        if isinstance(exc, requests.exceptions.HTTPError):
+            status = exc.response.status_code if exc.response is not None else None
+            if status == 429:
+                return "E_HTTP_429"
+            if status and 500 <= status < 600:
+                return "E_HTTP_5XX"
+            if status and 400 <= status < 500:
+                return "E_HTTP_4XX"
+        if isinstance(exc, CircuitBreakerOpenError):
+            return "E_CIRCUIT_BREAKER_OPEN"
+        return "E_UNKNOWN"
+
+    def _create_fallback_row(self, document_id: str, error_type: str, error_message: str) -> dict[str, Any]:
+        return {
+            "document_chembl_id": document_id,
+            "error_type": error_type,
+            "error_message": error_message,
+            "attempted_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from status endpoint.
