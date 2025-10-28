@@ -14,25 +14,58 @@ class TargetSchema(BaseSchema):
     pref_name: Series[str] = pa.Field(nullable=True)
     target_type: Series[str] = pa.Field(nullable=True)
 
-    # Organism
     organism: Series[str] = pa.Field(nullable=True)
-    taxonomy: Series[int] = pa.Field(nullable=True, ge=1)
-
-    # Cross-references
+    tax_id: Series[int] = pa.Field(nullable=True, ge=1)
+    gene_symbol: Series[str] = pa.Field(nullable=True)
     hgnc_id: Series[str] = pa.Field(nullable=True)
+    lineage: Series[str] = pa.Field(nullable=True)
 
-    # UniProt enrichment (optional)
+    uniprot_id_primary: Series[str] = pa.Field(nullable=True)
+    uniprot_ids_all: Series[str] = pa.Field(nullable=True)
+    isoform_count: Series[int] = pa.Field(nullable=True, ge=0)
+    has_alternative_products: Series[bool] = pa.Field(nullable=True)
+    has_uniprot: Series[bool] = pa.Field(nullable=True)
+    has_iuphar: Series[bool] = pa.Field(nullable=True)
     uniprot_accession: Series[str] = pa.Field(nullable=True)
 
-    # IUPHAR classification (optional)
     iuphar_type: Series[str] = pa.Field(nullable=True)
     iuphar_class: Series[str] = pa.Field(nullable=True)
     iuphar_subclass: Series[str] = pa.Field(nullable=True)
+    data_origin: Series[str] = pa.Field(nullable=True)
 
     class Config:
         strict = True
         coerce = True
         ordered = False
+
+    _column_order = [
+        "target_chembl_id",
+        "pref_name",
+        "target_type",
+        "organism",
+        "tax_id",
+        "gene_symbol",
+        "hgnc_id",
+        "lineage",
+        "uniprot_accession",
+        "uniprot_id_primary",
+        "uniprot_ids_all",
+        "isoform_count",
+        "has_alternative_products",
+        "has_uniprot",
+        "has_iuphar",
+        "iuphar_type",
+        "iuphar_class",
+        "iuphar_subclass",
+        "data_origin",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+        "hash_business_key",
+        "hash_row",
+        "index",
+    ]
 
 
 class TargetComponentSchema(BaseSchema):
