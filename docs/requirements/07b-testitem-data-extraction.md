@@ -2907,263 +2907,40 @@ performance_targets:
 
 ---
 
-## 10. Конфигурация (Unified YAML)
+## 10. Конфигурация
 
-### 10.1 Рекомендуемая структура конфигурации
+### 10.1 Базовый стандарт
 
-```yaml
-# config_pubchem_optimal.yaml
-# Optimal PubChem configuration combining best practices
+- Используется единый шаблон `configs/base.yaml` и стандарты из `docs/requirements/10-configuration.md`.
+- Профиль testitem подключается через `configs/pipelines/testitem.yaml` (`extends: "../base.yaml"`).
 
-sources:
-  pubchem:
-    # Feature toggle
-    enabled: true                        # Enable PubChem enrichment
-    required: false                      # Don't block pipeline on failure
-    
-    # HTTP settings
-    http:
-      base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-      timeout_sec: 30.0                  # Request timeout
-      
-      retries:
-        total: 3                         # Max retry attempts
-        backoff_multiplier: 2.0          # Exponential backoff multiplier
-        backoff_max: 60.0                # Max backoff delay
-      
-      headers:
-        Accept: "application/json"
-        User-Agent: "BioactivityETL/2.0 (mailto:contact@example.org)"  # ⚠️ REQUIRED by PubChem
-    
-    # CID Resolution Strategy
-    cid_resolution:
-      strategies:                        # Priority order (top to bottom)
-        - cache                          # Check cache first (fastest)
-        - direct                         # Use provided CID
-        - xref                           # ChEMBL cross-references
-        - inchikey                       # InChIKey lookup (most reliable)
-        - smiles_canonical               # Canonical SMILES
-        - smiles_isomeric                # Isomeric SMILES (fallback)
-        - name                           # Name-based search (last resort)
-      
-      max_retries_per_strategy: 2        # Retries per strategy
-      skip_on_first_success: true        # Stop at first success
-    
-    # Batch API Settings
-    batch:
-      enabled: true                      # Use batch API (recommended)
-      size: 100                          # CIDs per batch (max 100)
-      fallback_to_individual: true       # Fallback on batch failure
-    
-    # Caching Configuration
-    cache:
-      # Level 1: In-memory cache
-      memory:
-        enabled: true
-        ttl_seconds: 3600                # 1 hour
-        max_entries: 1000
-      
-      # Level 2: Persistent CID mapping
-      cid_mapping:
-        enabled: true
-        path: "data/cache/pubchem_cid_cache.json"
-        ttl_hours: 720                   # 30 days
-        atomic_writes: true
-        lazy_persist: true               # Persist every N updates
-        persist_interval: 100            # Updates before persist
-      
-      # Level 3: HTTP response cache (optional, for debugging)
-      http_responses:
-        enabled: false                   # Disabled by default
-        directory: "data/cache/pubchem_http"
-        cleanup_on_start: false
-    
-    # Performance Settings
-    performance:
-      workers: 4                         # Parallel CID resolution workers
-      
-      rate_limit:
-        max_requests: 5                  # PubChem limit
-        per_seconds: 1.0                 # Per second
-        adaptive: true                   # Auto-adjust based on 429 responses
-      
-      # Connection pooling
-      connection_pool:
-        max_connections: 20
-        max_per_host: 10
-    
-    # Telemetry & Monitoring
-    telemetry:
-      enabled: true
-      track_enrichment_rate: true
-      track_cache_hit_rate: true
-      track_cid_source_distribution: true
-      track_performance_metrics: true
-      log_every_n_molecules: 100         # Log progress
-    
-    # Error Handling
-    error_handling:
-      graceful_degradation: true         # Continue on errors
-      max_consecutive_errors: 10         # Stop after N consecutive errors
-      cooldown_on_rate_limit: true
-      cooldown_duration_seconds: 60
-    
-    # Data Quality
-    quality:
-      validate_cid_format: true          # Validate CID is numeric
-      validate_inchikey_format: true     # Validate 27-char format
-      min_enrichment_rate: 0.70          # Warn if below 70%
-      
-      # Field validation
-      require_fields:                    # Fields that must be present if CID found
-        - pubchem_cid
-        - pubchem_molecular_formula
-        - pubchem_inchi_key
-```
+### 10.2 Расширение PubChem
 
-### 10.2 Environment Variables
+| Путь | Значение по умолчанию | Ограничения | Назначение |
+|------|-----------------------|-------------|------------|
+| `sources.pubchem.enabled` | `true` | Можно отключить только через CLI/env | Фича-флаг enrichment. |
+| `sources.pubchem.http.base_url` | `https://pubchem.ncbi.nlm.nih.gov/rest/pug` | Строка URL | Основной REST endpoint. |
+| `sources.pubchem.http.retries.total` | `3` | `1–5` | Ограничение для backoff (PubChem penalizes >5). |
+| `sources.pubchem.batch.size` | `100` | `≤ 100` | Верхний предел API batch. |
+| `sources.pubchem.cache.cid_mapping.ttl_hours` | `720` | `≥ 0` | Стабильность соответствий CID↔molecule. |
+| `sources.pubchem.performance.rate_limit.max_requests` | `5` | `≤ 5` | Соответствует публичному лимиту без API ключа. |
+| `postprocess.qc.pubchem_min_enrichment_rate` | `0.70` | `0–1` | Генерирует предупреждение при деградации. |
 
-```bash
-# Environment variable overrides for PubChem configuration
+### 10.3 Переопределения
 
-# Feature toggle
-export PUBCHEM_ENABLED=true
+- **CLI:**
+  - `--set sources.pubchem.enabled=false` — отключить обогащение.
+  - `--set sources.pubchem.performance.workers=2` — снизить параллельность в тестовом окружении.
+- **Переменные окружения:**
+  - `BIOETL_SOURCES__PUBCHEM__HTTP__HEADERS__USER_AGENT="BioactivityETL/2.0 (mailto:data@example.org)"` — обязательный заголовок.
+  - `BIOETL_SOURCES__PUBCHEM__API_KEY=<secret>` — привязка к приватному ключу (используется в client).
+  - `BIOETL_SOURCES__PUBCHEM__CACHE__CID_MAPPING__PATH=/mnt/cache/pubchem_cid_cache.json` — переопределение пути.
 
-# API settings
-export PUBCHEM_BASE_URL="https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-export PUBCHEM_TIMEOUT=30
-export PUBCHEM_USER_AGENT="BioactivityETL/2.0 (contact@example.org)"
+### 10.4 Валидация
 
-# Cache settings
-export PUBCHEM_CACHE_DIR="data/cache/pubchem"
-export PUBCHEM_CACHE_TTL_HOURS=720
-export PUBCHEM_CID_CACHE_PATH="data/cache/pubchem_cid_cache.json"
-
-# Performance
-export PUBCHEM_WORKERS=4
-export PUBCHEM_BATCH_SIZE=100
-export PUBCHEM_RATE_LIMIT=5
-
-# Debugging
-export PUBCHEM_LOG_LEVEL=INFO
-export PUBCHEM_HTTP_CACHE_ENABLED=false
-```
-
-### 10.3 Configuration Loading
-
-```python
-"""Configuration loader for PubChem settings."""
-
-from __future__ import annotations
-
-import os
-from pathlib import Path
-from typing import Any
-
-import yaml
-from pydantic import BaseModel, Field, field_validator
-
-
-class PubChemHTTPConfig(BaseModel):
-    """HTTP configuration for PubChem."""
-    base_url: str = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-    timeout_sec: float = 30.0
-    max_retries: int = 3
-    backoff_multiplier: float = 2.0
-    user_agent: str = Field(..., description="Required by PubChem")
-    
-    @field_validator('user_agent')
-    @classmethod
-    def validate_user_agent(cls, v: str) -> str:
-        """Validate User-Agent contains contact info."""
-        if not v or v == "Python-requests":
-            raise ValueError(
-                "PubChem requires custom User-Agent with contact information"
-            )
-        return v
-
-
-class PubChemCacheConfig(BaseModel):
-    """Cache configuration."""
-    memory_enabled: bool = True
-    memory_ttl_seconds: int = 3600
-    memory_max_entries: int = 1000
-    
-    cid_mapping_enabled: bool = True
-    cid_mapping_path: Path = Path("data/cache/pubchem_cid_cache.json")
-    cid_mapping_ttl_hours: float = 720.0
-    
-    http_cache_enabled: bool = False
-    http_cache_dir: Path | None = None
-
-
-class PubChemPerformanceConfig(BaseModel):
-    """Performance configuration."""
-    workers: int = Field(4, ge=1, le=8)
-    batch_size: int = Field(100, ge=1, le=100)
-    rate_limit_max_requests: int = 5
-    rate_limit_per_seconds: float = 1.0
-
-
-class PubChemConfig(BaseModel):
-    """Complete PubChem configuration."""
-    enabled: bool = True
-    required: bool = False
-    
-    http: PubChemHTTPConfig
-    cache: PubChemCacheConfig
-    performance: PubChemPerformanceConfig
-    
-    # Telemetry
-    telemetry_enabled: bool = True
-    log_every_n_molecules: int = 100
-    
-    # Quality
-    min_enrichment_rate: float = Field(0.70, ge=0.0, le=1.0)
-    
-    @classmethod
-    def from_yaml(cls, config_path: Path | str) -> PubChemConfig:
-        """Load configuration from YAML file."""
-        with open(config_path) as f:
-            config_data = yaml.safe_load(f)
-        
-        # Extract PubChem section
-        pubchem_config = config_data.get('sources', {}).get('pubchem', {})
-        
-        # Apply environment variable overrides
-        pubchem_config = cls._apply_env_overrides(pubchem_config)
-        
-        return cls(**pubchem_config)
-    
-    @staticmethod
-    def _apply_env_overrides(config: dict[str, Any]) -> dict[str, Any]:
-        """Apply environment variable overrides."""
-        env_mappings = {
-            'PUBCHEM_ENABLED': ('enabled', bool),
-            'PUBCHEM_BASE_URL': ('http.base_url', str),
-            'PUBCHEM_TIMEOUT': ('http.timeout_sec', float),
-            'PUBCHEM_USER_AGENT': ('http.user_agent', str),
-            'PUBCHEM_WORKERS': ('performance.workers', int),
-            'PUBCHEM_BATCH_SIZE': ('performance.batch_size', int),
-            'PUBCHEM_CACHE_TTL_HOURS': ('cache.cid_mapping_ttl_hours', float),
-        }
-        
-        for env_var, (config_path, value_type) in env_mappings.items():
-            env_value = os.getenv(env_var)
-            if env_value is not None:
-                # Navigate nested config
-                parts = config_path.split('.')
-                target = config
-                for part in parts[:-1]:
-                    target = target.setdefault(part, {})
-                
-                # Convert and set value
-                target[parts[-1]] = value_type(env_value)
-        
-        return config
-```
-
----
+- Проверка конфигурации осуществляется моделью `PipelineConfig` (см. §4 `10-configuration`).
+- Дополнительные валидаторы: `sources.pubchem.http.headers.User-Agent` должен содержать контактный email; проверяется функцией `validate_pubchem_headers()` внутри загрузчика.
+- Нарушения лимитов (`batch.size > 100`, `rate_limit.max_requests > 5`) считаются фатальными ошибками конфигурации.
 
 ## Заключение
 
@@ -3235,7 +3012,7 @@ target_performance:
 **Проект 1 (bioactivity_data_acquisition5):**
 - `src/library/clients/pubchem.py` - HTTP client с batch support
 - `src/library/testitem/extract.py` - Extraction logic
-- `configs/config_testitem.yaml` - Configuration
+- `configs/pipelines/testitem.yaml` - Configuration
 
 **Проект 2 (ChEMBL_data_acquisition6):**
 - `library/clients/pubchem.py` - Low-level client

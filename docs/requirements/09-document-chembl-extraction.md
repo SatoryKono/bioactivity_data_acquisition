@@ -2132,192 +2132,41 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
     return violations
 ```
 
-## 17. Конфигурация YAML (расширенная)
+## 17. Конфигурация
 
-```yaml
-version: 1
+- Следует стандарту `docs/requirements/10-configuration.md`.
+- Профильный файл: `configs/pipelines/document.yaml` (`extends: "../base.yaml"`).
 
-pipeline:
-  name: document_chembl
-  pipeline_version: "1.0.0"
+### 17.1 Основные переопределения
 
-chembl:
-  base_url: "https://www.ebi.ac.uk/chembl/api/data"
-  endpoint: "/document.json"
-  chunk_size: 10
-  max_chunk_size: 20
-  url_max_len: 1800
-  timeout_sec: 30
-  connect_timeout_sec: 10
-  rate_limit_rps: 3
-  max_retries: 5
-  backoff:
-    initial_sec: 0.5
-    max_sec: 8
-    jitter: true
-  cache:
-    enable: true
-    scope_by_release: true
-    ttl_sec: 86400
+| Секция | Ключ | Значение | Ограничение | Комментарий |
+|--------|------|----------|-------------|-------------|
+| Pipeline | `pipeline.name` | `document_chembl` | — | Используется в логах и `run_config.yaml`. |
+| Sources / ChEMBL | `sources.chembl.chunk_size` | `10` | `≤ 20` | Гарантирует лимит URL (~1800 символов). |
+| Sources / PubMed | `sources.pubmed.history.use_history` | `true` | — | Обязательно для работы с большими батчами. |
+| Sources / PubMed | `sources.pubmed.rate_limit.max_calls_per_sec_with_key` | `10` | `≤ 10` | Соответствует политике NCBI. |
+| Sources / Crossref | `sources.crossref.batching.dois_per_request` | `100` | `≤ 200` | Максимальный пакет Crossref. |
+| Postprocess | `postprocess.priority_matrix` | таблица приоритетов источников | Не пусто | Управляет выбором лучших полей. |
+| QC | `qc.max_title_fallback` | `0.15` | `0–1` | Порог предупреждений по полю title. |
+| QC | `qc.max_s2_access_denied` | `0.05` | `0–1` | Контроль блокировок Semantic Scholar. |
 
-sources:
-  pubmed:
-    enabled: true
-    http:
-      base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-      timeout_sec: 45
-      retries:
-        total: 5
-        backoff_multiplier: 2.0
-        backoff_max: 180
-      identify:
-        tool: "bioactivity_etl"
-        email_env: "PUBMED_EMAIL"
-        api_key_env: "PUBMED_API_KEY"
-    batching:
-      ids_per_fetch: 200
-      transport_for_large_ids: "POST"
-    rate_limit:
-      max_calls_per_sec_no_key: 3
-      max_calls_per_sec_with_key: 10
-      workers: 1
-    history:
-      use_history: true
-    caching:
-      driver: "redis"
-      ttl_sec: 86400
+### 17.2 Переопределения CLI/ENV
 
-  crossref:
-    enabled: true
-    http:
-      base_url: "https://api.crossref.org"
-      timeout_connect: 10.0
-      timeout_read: 30.0
-      retries:
-        total: 3
-        backoff_multiplier: 2.0
-        backoff_max: 60.0
-      identify:
-        mailto_env: "CROSSREF_EMAIL"
-        user_agent: "bioactivity_etl/1.0"
-        plus_token_env: "CROSSREF_PLUS_TOKEN"
-    batching:
-      dois_per_request: 100
-      use_cursor: true
-      rows_per_page: 1000
-    rate_limit:
-      max_calls_per_sec: 2
-      burst: 5
-      workers: 2
-    caching:
-      driver: "redis"
-      ttl_sec: 86400
-    polite_pool:
-      enabled: true
+- CLI примеры:
+  - `--set sources.pubmed.enabled=false` — запуск только ChEMBL/Crossref.
+  - `--set postprocess.priority_matrix.title='["PubMed","ChEMBL","Crossref","OpenAlex","S2"]'` — смена порядка приоритетов.
+- Переменные окружения:
+  - `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__TOOL=bioactivity_etl`.
+  - `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL_ENV=PUBMED_EMAIL` (значение берётся из секретов CI).
+  - `BIOETL_SOURCES__CROSSREF__IDENTIFY__PLUS_TOKEN_ENV=CROSSREF_PLUS_TOKEN`.
 
-  openalex:
-    enabled: true
-    http:
-      base_url: "https://api.openalex.org"
-      timeout_sec: 30.0
-      retries:
-        total: 3
-        backoff_multiplier: 2.0
-        backoff_max: 60.0
-      identify:
-        user_agent: "bioactivity_etl/1.0 (contact: owner@example.org)"
-        api_key_env: "OPENALEX_API_KEY"
-    batching:
-      per_page: 200
-      use_cursor: true
-    rate_limit:
-      max_calls_per_sec: 10
-      burst: 10
-      workers: 4
-    caching:
-      driver: "redis"
-      ttl_sec: 86400
-    fallback:
-      title_search_enabled: true
-      fuzzy_matching: true
-      similarity_threshold: 0.8
+### 17.3 Валидация
 
-  semantic_scholar:
-    enabled: true
-    http:
-      base_url: "https://api.semanticscholar.org"
-      timeout_sec: 30.0
-      retries:
-        total: 3
-        backoff_multiplier: 2.0
-        backoff_max: 300
-      identify:
-        user_agent: "bioactivity_etl/1.0 (mailto:owner@example.org)"
-        api_key_env: "SEMANTIC_SCHOLAR_API_KEY"
-    rate_limit:
-      max_calls_per_sec: 0.8
-      with_api_key: 10.0
-      burst: 15
-      workers: 1
-    fallback:
-      title_search_enabled: true
-      similarity_threshold: 0.85
-      use_search_api: true
-    caching:
-      driver: "redis"
-      ttl_sec: 3600
-
-modes:
-  chembl:
-    input_column: "document_chembl_id"
-    limit: null
-  
-  all:
-    input_column: "document_chembl_id"
-    enable_pubmed: true
-    enable_openalex: true
-    enable_crossref: true
-    enable_semantic_scholar: true
-    precedence:
-      title: ["PubMed","ChEMBL","OpenAlex","Crossref","S2"]
-      abstract: ["PubMed","ChEMBL","OpenAlex","Crossref","S2"]
-      journal: ["PubMed","Crossref","OpenAlex","ChEMBL","S2"]
-      authors: ["PubMed","Crossref","OpenAlex","ChEMBL","S2"]
-    workers: 4
-    batch_size_external: 100
-    sleep_external_sec: 0.5
-
-output:
-  dir: "data/output/documents"
-  temp_dir: ".tmp"
-  format: "csv"
-  csv:
-    encoding: "utf-8"
-    newline: "\n"
-    na_rep: ""
-    float_fmt: "%.6f"
-  parquet:
-    compression: "zstd"
-
-determinism:
-  sort_by: ["document_chembl_id","pubmed_id","doi_clean"]
-  column_order_path: "schemas/document_column_order.txt"
-  float_format: "%.6f"
-  json_canonical: true
-
-validation:
-  fail_fast: true
-
-qc:
-  enable: true
-  min_doi_coverage: 0.3
-  max_year_out_of_range: 0.01
-  max_s2_access_denied: 0.05
-  max_title_fallback: 0.1
-
-cli:
-  enable_golden: true
-```
+- Используется `PipelineConfig.validate_yaml('configs/pipelines/document.yaml')`.
+- Дополнительные проверки:
+  - `sources.chembl.chunk_size` ≤ `sources.chembl.max_chunk_size`.
+  - `postprocess.priority_matrix` должен содержать все поля из §13.
+  - `qc` пороги не могут быть отрицательными.
 
 ## 18. Выходные артефакты и атомарная запись
 
