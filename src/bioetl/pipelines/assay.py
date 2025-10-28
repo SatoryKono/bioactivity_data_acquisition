@@ -3,8 +3,10 @@
 import json
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
@@ -421,7 +423,7 @@ class AssayPipeline(PipelineBase):
         """Transform assay data with explode functionality."""
         if df.empty:
             # Return empty DataFrame with all required columns from schema
-            return pd.DataFrame(columns=AssaySchema.Config.column_order)
+            return pd.DataFrame(columns=AssaySchema.get_column_order())
 
         from bioetl.normalizers import registry
 
@@ -564,30 +566,192 @@ class AssayPipeline(PipelineBase):
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import AssaySchema
 
-        if "column_order" in AssaySchema.Config.__dict__:
-            expected_cols = AssaySchema.Config.column_order
-            
+        expected_cols = AssaySchema.get_column_order()
+        if expected_cols:
             # Add missing columns with None values
             for col in expected_cols:
                 if col not in df.columns:
                     df[col] = None
-            
+
             # Reorder to match schema column_order
             df = df[expected_cols]
 
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate assay data against schema."""
-        try:
-            # Add confidence_score as int if missing
-            if "confidence_score" in df.columns and df["confidence_score"].isna().all():
-                df["confidence_score"] = df["confidence_score"].astype("Int64")  # Nullable int
+        """Validate assay data against schema and referential integrity."""
+        self.validation_issues.clear()
 
-            # Skip validation for now - will add later
-            logger.info("validation_skipped", rows=len(df))
+        if df.empty:
+            logger.info("validation_skipped_empty", rows=0)
             return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
+
+        if "confidence_score" in df.columns:
+            try:
+                df["confidence_score"] = pd.to_numeric(
+                    df["confidence_score"], errors="coerce"
+                ).astype("Int64")
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("confidence_score_cast_failed", error=str(exc))
+
+        try:
+            validated_df = AssaySchema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            schema_issues = self._summarize_schema_errors(exc.failure_cases)
+            for issue in schema_issues:
+                self.record_validation_issue(issue)
+                logger.error(
+                    "schema_validation_error",
+                    column=issue.get("column"),
+                    check=issue.get("check"),
+                    count=issue.get("count"),
+                    severity=issue.get("severity"),
+                )
+
+            summary = "; ".join(
+                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+                for issue in schema_issues
+            )
+            raise ValueError(f"Schema validation failed: {summary}") from exc
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("schema_validation_unexpected_error", error=str(exc))
             raise
+
+        self._check_referential_integrity(validated_df)
+
+        logger.info(
+            "validation_completed",
+            rows=len(validated_df),
+            issues=len(self.validation_issues),
+        )
+        return validated_df
+
+    def _summarize_schema_errors(self, failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
+        """Convert Pandera failure cases to structured validation issues."""
+
+        issues: list[dict[str, Any]] = []
+        if failure_cases.empty:
+            return issues
+
+        for column, group in failure_cases.groupby("column", dropna=False):
+            column_name = (
+                str(column)
+                if column is not None and not (isinstance(column, float) and pd.isna(column))
+                else "<dataframe>"
+            )
+            checks = sorted({str(check) for check in group["check"].dropna().unique()})
+            details = ", ".join(
+                group["failure_case"].dropna().astype(str).unique().tolist()[:5]
+            )
+            issues.append(
+                {
+                    "issue_type": "schema",
+                    "severity": "error",
+                    "column": column_name,
+                    "check": ", ".join(checks) if checks else "<unspecified>",
+                    "count": int(group.shape[0]),
+                    "details": details,
+                }
+            )
+
+        return issues
+
+    def _load_target_reference_ids(self) -> set[str]:
+        """Load known target identifiers for referential integrity checks."""
+
+        target_path = Path(self.config.paths.input_root) / "target.csv"
+        if not target_path.exists():
+            logger.warning("referential_check_skipped", reason="target_file_missing", path=str(target_path))
+            return set()
+
+        try:
+            target_df = pd.read_csv(target_path, usecols=["target_chembl_id"])
+        except ValueError:
+            logger.warning(
+                "referential_check_skipped",
+                reason="target_column_missing",
+                path=str(target_path),
+            )
+            return set()
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "referential_check_skipped",
+                reason="target_load_failed",
+                error=str(exc),
+                path=str(target_path),
+            )
+            return set()
+
+        values = (
+            target_df["target_chembl_id"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+        reference_ids = set(values.tolist())
+        logger.debug(
+            "referential_reference_loaded",
+            path=str(target_path),
+            count=len(reference_ids),
+        )
+        return reference_ids
+
+    def _check_referential_integrity(self, df: pd.DataFrame) -> None:
+        """Validate assay → target relationships against reference data."""
+
+        if "target_chembl_id" not in df.columns:
+            logger.debug("referential_check_skipped", reason="column_absent")
+            return
+
+        reference_ids = self._load_target_reference_ids()
+        if not reference_ids:
+            return
+
+        target_series = df["target_chembl_id"].astype("string").str.upper()
+        missing_mask = target_series.notna() & ~target_series.isin(reference_ids)
+        missing_count = int(missing_mask.sum())
+
+        if missing_count == 0:
+            logger.info("referential_integrity_passed", relation="assay->target")
+            return
+
+        total_rows = len(df)
+        missing_ratio = missing_count / total_rows if total_rows else 0.0
+        threshold = float(self.config.qc.thresholds.get("assay.target_missing_ratio", 0.0))
+        severity = "error" if missing_ratio > threshold else "info"
+
+        sample_targets = (
+            target_series[missing_mask]
+            .dropna()
+            .unique()
+            .tolist()[:5]
+        )
+
+        issue = {
+            "issue_type": "referential_integrity",
+            "severity": severity,
+            "column": "target_chembl_id",
+            "check": "assay->target",
+            "count": missing_count,
+            "ratio": missing_ratio,
+            "threshold": threshold,
+            "details": ", ".join(sample_targets),
+        }
+        self.record_validation_issue(issue)
+
+        log_fn = logger.error if severity == "error" else logger.warning
+        log_fn(
+            "referential_integrity_failure",
+            relation="assay->target",
+            missing_count=missing_count,
+            missing_ratio=missing_ratio,
+            threshold=threshold,
+            severity=severity,
+        )
+
+        if self._should_fail(severity):
+            raise ValueError(
+                "Referential integrity violation: assays reference missing targets"
+            )
 

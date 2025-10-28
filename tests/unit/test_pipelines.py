@@ -2,6 +2,7 @@
 
 import json
 import uuid
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -104,6 +105,102 @@ class TestAssayPipeline:
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
 
+    def test_validate_schema_errors_capture(self, assay_config):
+        """Schema violations should be surfaced as validation issues."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(assay_config, run_id)
+        df = pd.DataFrame([_build_assay_row("CHEMBL0", 0, None)]).convert_dtypes()
+        df = df.drop(columns=["row_subtype"])  # force schema failure
+
+        with pytest.raises(ValueError):
+            pipeline.validate(df)
+
+        assert pipeline.validation_issues
+        issue = pipeline.validation_issues[0]
+        assert issue["issue_type"] == "schema"
+        assert issue["severity"] == "error"
+
+    def test_validation_issues_reflected_in_quality_report(self, assay_config, tmp_path):
+        """Referential integrity warnings should appear in QC artifacts."""
+
+        paths = assay_config.paths.model_copy(
+            update={
+                "input_root": tmp_path,
+                "output_root": tmp_path / "out",
+            }
+        )
+        qc_settings = assay_config.qc.model_copy(
+            update={"thresholds": {"assay.target_missing_ratio": 0.75}}
+        )
+        config = assay_config.model_copy(update={"paths": paths, "qc": qc_settings}, deep=True)
+
+        pd.DataFrame({"target_chembl_id": ["CHEMBL1000"]}).to_csv(
+            tmp_path / "target.csv", index=False
+        )
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(config, run_id)
+
+        df = pd.DataFrame(
+            [
+                _build_assay_row("CHEMBL1", 0, "CHEMBL1000"),
+                _build_assay_row("CHEMBL2", 1, "CHEMBL9999"),
+            ]
+        ).convert_dtypes()
+
+        validated = pipeline.validate(df)
+
+        assert len(pipeline.validation_issues) == 1
+        issue = pipeline.validation_issues[0]
+        assert issue["issue_type"] == "referential_integrity"
+        assert issue["count"] == 1
+
+        artifacts = pipeline.export(validated, tmp_path / "out" / "assay.csv")
+        quality_df = pd.read_csv(artifacts.quality_report)
+        validation_rows = quality_df[quality_df["metric"] == "validation_issue"]
+
+        assert not validation_rows.empty
+        assert (
+            validation_rows["issue_type"].fillna("").str.contains("referential_integrity").any()
+        )
+
+    def test_quality_report_without_validation_issues(self, assay_config, tmp_path):
+        """A clean dataset should not emit validation_issue rows in QC."""
+
+        paths = assay_config.paths.model_copy(
+            update={
+                "input_root": tmp_path,
+                "output_root": tmp_path / "out",
+            }
+        )
+        qc_settings = assay_config.qc.model_copy(
+            update={"thresholds": {"assay.target_missing_ratio": 0.75}}
+        )
+        config = assay_config.model_copy(update={"paths": paths, "qc": qc_settings}, deep=True)
+
+        pd.DataFrame({"target_chembl_id": ["CHEMBL1000", "CHEMBL2000"]}).to_csv(
+            tmp_path / "target.csv", index=False
+        )
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(config, run_id)
+
+        df = pd.DataFrame(
+            [
+                _build_assay_row("CHEMBL1", 0, "CHEMBL1000"),
+                _build_assay_row("CHEMBL2", 1, "CHEMBL2000"),
+            ]
+        ).convert_dtypes()
+
+        validated = pipeline.validate(df)
+        assert not pipeline.validation_issues
+
+        artifacts = pipeline.export(validated, tmp_path / "out" / "assay.csv")
+        quality_df = pd.read_csv(artifacts.quality_report)
+
+        assert "metric" in quality_df.columns
+        assert not (quality_df["metric"] == "validation_issue").any()
     def test_transform_expands_and_enriches(self, assay_config, monkeypatch, caplog):
         """Ensure parameters, variants, and classifications survive transform with enrichment."""
 
@@ -448,3 +545,30 @@ class TestDocumentPipeline:
 
         result = pipeline.validate(df)
         assert len(result) == 1
+def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[str, Any]:
+    """Construct a minimal row conforming to AssaySchema for tests."""
+
+    schema_columns = list(AssaySchema.to_schema().columns.keys())
+    row = {column: None for column in schema_columns}
+    row.update(
+        {
+            "assay_chembl_id": assay_id,
+            "row_subtype": "assay",
+            "row_index": 0,
+            "assay_tax_id": 9606,
+            "assay_class_id": 1,
+            "confidence_score": 1,
+            "src_id": 1,
+            "variant_id": 1,
+            "pipeline_version": "1.0.0",
+            "source_system": "chembl",
+            "chembl_release": None,
+            "extracted_at": "2024-01-01T00:00:00+00:00",
+            "hash_business_key": f"{index + 1:064x}",
+            "hash_row": f"{index + 101:064x}",
+            "index": index,
+            "target_chembl_id": target_id,
+        }
+    )
+    return row
+
