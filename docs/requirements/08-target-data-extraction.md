@@ -62,12 +62,64 @@ Target ETL Pipeline
 │   ├── /targets/families → full ID/name paths
 │   └── Materialization checkpoint: data/gold/targets_final.parquet
 └── Stage 4: Post-processing
-    ├── Merge: ChEMBL + UniProt + IUPHAR
-    ├── Normalization: identifiers, names, EC numbers
-    ├── Derivation: genus, cellularity classification
+    ├── fetch_orthologs: приоритизация Homo sapiens → Mus musculus → Rattus norvegicus
+    ├── Isoform expansion: canonical vs isoform accessions, ALTERNATIVE_PRODUCTS
+    ├── Normalization: identifiers, names, EC numbers, secondary accessions
+    ├── Fallback mapping: UniProt → ChEMBL accession, fuzzy gene symbol match
     ├── Validation: Pandera schemas, QC reports
     └── Export: targets, target_components, protein_class, xref
 ```
+
+### Stage 4: Post-processing
+
+Финальная стадия агрегирует результаты всех источников, применяет биологические эвристики и нормализует идентификаторы перед материализацией `gold`-слоя.
+
+#### fetch_orthologs
+
+- Функция `fetch_orthologs` вызывается после успешного разрешения UniProt accession на стадии 2.
+- Вход: canonical accession и полный taxonomic lineage компонента.
+- Выход: DataFrame с колонками `accession`, `ortholog_accession`, `organism`, `source_priority`, `evidence`.
+- Источник данных: UniProt `/uniprotkb/search` c фильтрами `relationship_type:ortholog` и `reviewed:true`.
+- Приоритет организмов фиксирован: **Homo sapiens > Mus musculus > Rattus norvegicus**. Остальные orthologs сохраняются, но помечаются низким приоритетом (`source_priority = "fallback"`).
+- Используется в `finalise_targets` для заполнения пропущенных компонентов, когда ChEMBL содержит non-human accessions или отсутствуют UniProt ID для мыши/крысы.
+
+#### ID Mapping сценарии
+
+1. **Direct accession**: `target_component.accession` совпадает с UniProt canonical → прямое соединение, приоритет `source_priority = 0`.
+2. **Secondary accession**: ChEMBL хранит устаревший accession → использует UniProt `secondaryAccessions` для маппинга, помечается как `source_priority = 1`.
+3. **ID Mapping service**: если accession не найден, `idmapping/run` (UniProt → UniProtKB) выполняет перекодировку, возвращая canonical/isoform пары (`mapped_to`).
+4. **Ortholog bridge**: если отсутствуют прямые accession, `fetch_orthologs` возвращает ближайший ortholog, который подставляется в `target_components` с флагом `is_ortholog = true`.
+5. **Gene symbol merge**: финальный fallback через нормализованный `gene_symbol` (upper-case, `HGNC` aliases).
+
+#### Стратегии объединения результатов
+
+- Все стадии объединяются в `postprocess_targets` через последовательные `merge_asof`/`merge` операции по `target_chembl_id` и `accession`.
+- Для конфликтующих полей используется `coalesce_by_priority(columns=["chembl", "uniprot", "iuphar"])`.
+- Ortholog и isoform данные агрегируются в структуру `component_enrichment`, затем разворачиваются (`explode`) при построении `target_components`.
+- Каждому компоненту назначается `data_origin` (`chembl`, `uniprot`, `ortholog`, `fallback`) и `merge_rank`, что обеспечивает детерминированную сортировку.
+
+#### Извлечение изоформ
+
+- UniProt entries содержат блок `ALTERNATIVE_PRODUCTS`. В нём canonical isoform (`isoformType="canonical"`) и альтернативные изоформы (`isoformType="displayed"/"alternative"`).
+- Canonical accession = `entry.primaryAccession`. Isoform accession образуется конкатенацией canonical + суффикс (`-1`, `-2`, ...), например `P00533-2`.
+- Если ChEMBL предоставляет только canonical accession, UniProt enrichment расширяет его до списка изоформ: `canonical_accession`, `isoform_accessions`, `secondary_accessions`.
+- Вторичные accession (устаревшие) переносятся из `secondaryAccessions` и влияют на ID Mapping сценарий №2.
+- `target_components` получает дополнительные строки на изоформы с колонками: `accession`, `is_canonical`, `isoform_variant`, `sequence_length_isoform` (если `sequence` предоставлена в UniProt).
+- Canonical компоненты помечаются `is_canonical = true`, изоформы — `false`. При отсутствии isoform sequence поле остаётся NULL, но сохраняется ссылка на `isoform_id`.
+- Данные изоформ влияют на downstream-агрегации: `targets.isoform_count`, `targets.has_alternative_products`, `targets.secondary_accessions`.
+
+#### Управление отсутствующими маппингами
+
+Все fallback-стратегии сосредоточены на стадии пост-обработки:
+
+1. **UniProt accession отсутствует в ChEMBL** → запрос `idmapping/run` (ChEMBL accession → UniProtKB) и повторное соединение.
+2. **ChEMBL accession отсутствует в UniProt** → поиск в `secondaryAccessions`; при успехе accession заменяется на canonical.
+3. **Не найден canonical accession** → `fetch_orthologs` возвращает ortholog для приоритетных организмов, компонент помечается как `is_ortholog`.
+4. **gene_symbol отсутствует** → извлекается из UniProt `gene.primary`, включая `synonyms`; используется fuzzy match (`rapidfuzz.fuzz.token_sort_ratio ≥ 90`).
+5. **classification отсутствует в IUPHAR** → воспроизводится ChEMBL `protein_classification` с флагом `classification_source = "chembl"`.
+6. **organism lineage отсутствует** → берётся из UniProt taxonomy (`lineage[].scientificName`).
+
+Каждый fallback логируется с уровнем `WARNING`, добавляется в QC-отчёт (`qc_missing_mappings.csv`) и фиксируется в `meta.yaml` (`fallback_counts`).
 
 ### Контрольные точки материализации
 
@@ -367,17 +419,6 @@ output:
 - **UniProt Accession**: формат `[OPQ][0-9][A-Z0-9]{3}[0-9]` или `[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2}`
 - **HGNC ID**: формат `HGNC:\d+`
 - **EC numbers**: формат `\d+(?:\.(?:\d+|-)){3}` (strict validation)
-
-### Fallback стратегии
-
-Когда данных нет в primary источнике:
-
-1. **UniProt accession отсутствует в ChEMBL** → попытка через UniProt ID Mapping Service
-2. **gene_symbol отсутствует в ChEMBL** → извлечение из UniProt `geneName`
-3. **classification отсутствует в IUPHAR** → использование ChEMBL protein_classification
-4. **organism lineage отсутствует** → derivation из UniProt taxonomy
-
----
 
 ## 1.7 Детерминизм и воспроизводимость
 
