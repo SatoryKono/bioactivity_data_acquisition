@@ -69,6 +69,50 @@ Target ETL Pipeline
     └── Export: targets, target_components, protein_class, xref
 ```
 
+### Stage 2: UniProt Enrichment — детализация
+
+Stage 2 отвечает за нормализацию и обогащение белковых компонентов через UniProt REST API. Этот этап запускается для всех компонентов с валидным `accession` из ChEMBL и материализует данные в `data/silver/targets_uniprot.parquet`.
+
+#### Режимы UniProt REST API
+
+- **`/uniprotkb/{accession}` (`entry` mode)** — точечные запросы по одному accession. Используется для повторной проверки спорных записей и добора редких полей.
+- **`/uniprotkb/search` (`search` mode)** — массовый выбор по фильтрам (`accession`, `gene`, `organism_id`) с поддержкой пагинации. Применяется для выборок небольших объёмов (<500 записей) и для пере-запроса после обновлений.
+- **`/uniprotkb/stream` (`stream` mode)** — основной массовый канал, возвращающий NDJSON. Используется после ID Mapping для выгрузки всех атрибутов. Обязательно передавать параметр `fields` для ограничения набора колонок.
+
+Рекомендуемое значение параметра `fields`:
+
+```
+fields=accession,gene_names,organism_name,organism_id,lineage,sequence_length,features,cc_ptm,protein_name,protein_existence
+```
+
+Обязательные для сохранения поля Stage 2:
+
+1. `accession`
+2. `gene_names`
+3. `taxonomy` (минимум `organism_id`, `organism_name`, `lineage`)
+4. `features` (включая тип, позицию и описание)
+5. `cc_ptm`
+
+#### Rate limiting и стратегия backoff
+
+- Не превышать **3 запроса в секунду** (≈180 запросов в минуту) по каждому REST-эндпоинту.
+- Обрабатывать HTTP 429/5xx через экспоненциальный backoff: базовая задержка 2 секунды, множитель 2.0, максимум 5 повторов, джиттер `uniform(0, 1)`.
+- Для `stream` использовать один долгоживущий запрос; при сетевых сбоях повторять с возобновлением по последнему успешно обработанному accession.
+
+#### Workflow UniProt ID Mapping
+
+1. **`/idmapping/run`** — отправка списка исходных идентификаторов (`from=UniProtKB_AC`, `to=UniProtKB`). Батчим списки до 100 000 accession за вызов, разбивая входные данные из Stage 1.
+2. **`/idmapping/status/{jobId}`** — polling статуса не чаще одного раза в 5 секунд. При `jobStatus=FINISHED` переходить к стриму; при `FAILED` логировать и повторять отправку джобов с уменьшенным размером пакета (50%).
+3. **`/idmapping/stream/{jobId}`** — стрим результатов ID Mapping в NDJSON. Поля, возвращённые сервисом, передаются в Stage 2 `stream` запрос для дальнейшего обогащения.
+
+#### Валидация и обновление accession
+
+1. **Предвалидация**: проверка формата accession с помощью регэкспа UniProt перед отправкой в ID Mapping; дубликаты фильтруются.
+2. **Синхронизация**: результаты ID Mapping мержатся с входными компонентами. Для записей с изменённым accession (primary vs secondary) фиксируем соответствие `old_accession → new_accession` в журнале.
+3. **Пере-запрос `entry`**: если запись помечена как `isObsolete`, выполняем запрос `/uniprotkb/{new_accession}` для валидации и подтягивания обязательных полей.
+4. **Контроль полноты**: Pandera-схема Stage 2 проверяет наличие обязательных полей (`accession`, `gene_names`, `taxonomy`, `features`, `cc_ptm`) и непротиворечивость таксономии (`organism_id` совпадает с `taxonomy.tax_id`).
+5. **Обновления**: при обнаружении новых primary accession (из-за слияния записей) повторно инициируем workflow ID Mapping и стрим обновлённых данных, чтобы silver-слой оставался консистентным.
+
 ### Stage 1: ChEMBL REST ресурсы и контракты
 
 #### Ключевые эндпоинты
