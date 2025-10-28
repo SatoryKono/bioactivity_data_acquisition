@@ -6,6 +6,9 @@ from pandera.typing import Series
 from bioetl.schemas.base import BaseSchema
 
 
+RELATION_ALLOWED_VALUES = ["=", ">", "<", ">=", "<=", "~"]
+
+
 class ActivitySchema(BaseSchema):
     """Schema for ChEMBL Activity data according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
@@ -15,34 +18,42 @@ class ActivitySchema(BaseSchema):
     # Foreign Keys
     molecule_chembl_id: Series[str] = pa.Field(
         nullable=True,
-        regex=r'^CHEMBL\d+$',
+        str_matches=r"^CHEMBL\d+$",
         description="FK на молекулу",
     )
     assay_chembl_id: Series[str] = pa.Field(
         nullable=True,
-        regex=r'^CHEMBL\d+$',
+        str_matches=r"^CHEMBL\d+$",
         description="FK на ассай",
     )
     target_chembl_id: Series[str] = pa.Field(
         nullable=True,
-        regex=r'^CHEMBL\d+$',
+        str_matches=r"^CHEMBL\d+$",
         description="FK на таргет",
     )
     document_chembl_id: Series[str] = pa.Field(
         nullable=True,
-        regex=r'^CHEMBL\d+$',
+        str_matches=r"^CHEMBL\d+$",
         description="FK на документ",
     )
 
     # Published activity data (original from source)
     published_type: Series[str] = pa.Field(nullable=True, description="Оригинальный тип опубликованных данных")
-    published_relation: Series[str] = pa.Field(nullable=True, description="Соотношение для published_value")
+    published_relation: Series[str] = pa.Field(
+        nullable=True,
+        isin=RELATION_ALLOWED_VALUES,
+        description="Соотношение для published_value",
+    )
     published_value: Series[float] = pa.Field(nullable=True, ge=0, description="Оригинальное опубликованное значение")
     published_units: Series[str] = pa.Field(nullable=True, description="Единицы published_value")
 
     # Standardized activity data
     standard_type: Series[str] = pa.Field(nullable=True, description="Стандартизированный тип активности")
-    standard_relation: Series[str] = pa.Field(nullable=True, description="Соотношение для standard_value (=, >, <, >=, <=)")
+    standard_relation: Series[str] = pa.Field(
+        nullable=True,
+        isin=RELATION_ALLOWED_VALUES,
+        description="Соотношение для standard_value (=, >, <, >=, <=)",
+    )
     standard_value: Series[float] = pa.Field(nullable=True, ge=0, description="Стандартизированное значение")
     standard_units: Series[str] = pa.Field(nullable=True, description="Единицы стандартизированного значения")
     standard_flag: Series[int] = pa.Field(nullable=True, description="Флаг стандартизации (0/1)")
@@ -64,7 +75,11 @@ class ActivitySchema(BaseSchema):
 
     # Ontologies and metadata
     potential_duplicate: Series[int] = pa.Field(nullable=True, isin=[0, 1], description="Возможный дубликат активности")
-    uo_units: Series[str] = pa.Field(nullable=True, regex=r'^UO_\d{7}$', description="Unit Ontology ID")
+    uo_units: Series[str] = pa.Field(
+        nullable=True,
+        str_matches=r"^UO_\d{7}$",
+        description="Unit Ontology ID",
+    )
     qudt_units: Series[str] = pa.Field(nullable=True, description="QUDT URI для единиц измерения")
     src_id: Series[int] = pa.Field(nullable=True, description="ID источника данных")
     action_type: Series[str] = pa.Field(nullable=True, description="Тип действия лиганда")
@@ -128,5 +143,5 @@ class ActivitySchema(BaseSchema):
     class Config:
         strict = True
         coerce = True
-        ordered = True
+        ordered = False
 

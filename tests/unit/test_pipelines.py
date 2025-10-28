@@ -26,6 +26,38 @@ def activity_config():
     return load_config("configs/pipelines/activity.yaml")
 
 
+def _prepare_activity_frame(
+    pipeline: ActivityPipeline,
+    df: pd.DataFrame,
+    overrides: dict[str, Any] | None = None,
+) -> pd.DataFrame:
+    """Run transform and hydrate required activity columns for validation."""
+
+    transformed = pipeline.transform(df)
+
+    defaults: dict[str, Any] = {
+        "molecule_chembl_id": "CHEMBL1",
+        "assay_chembl_id": "CHEMBL1",
+        "target_chembl_id": "CHEMBL1",
+        "document_chembl_id": "CHEMBL1",
+        "standard_flag": 0,
+        "potential_duplicate": 0,
+        "src_id": 0,
+    }
+
+    overrides = overrides or {}
+
+    for column, value in defaults.items():
+        if column in transformed.columns and column not in overrides:
+            transformed.loc[:, column] = transformed[column].fillna(value)
+
+    for column, value in overrides.items():
+        if column in transformed.columns:
+            transformed.loc[:, column] = value
+
+    return transformed
+
+
 @pytest.fixture
 def testitem_config():
     """Load testitem pipeline config."""
@@ -364,19 +396,151 @@ class TestActivityPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
 
-    def test_validate_removes_duplicates(self, activity_config):
-        """Test validation removes duplicates."""
+    def test_validate_duplicate_threshold_failure(self, activity_config, monkeypatch):
+        """Duplicate ratio above threshold should raise with QC issue recorded."""
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", lambda *args, **kwargs: {})
+
         run_id = str(uuid.uuid4())[:8]
         pipeline = ActivityPipeline(activity_config, run_id)
 
-        df = pd.DataFrame({
-            "activity_id": [1, 1, 2],
-            "molecule_chembl_id": ["CHEMBL1", "CHEMBL1", "CHEMBL2"],
-        })
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 1],
+                "standard_value": [1.0, 1.1],
+                "standard_units": ["nM", "nM"],
+            }
+        )
 
-        result = pipeline.validate(df)
-        assert len(result) == 2
-        assert result["activity_id"].nunique() == 2
+        transformed = _prepare_activity_frame(pipeline, df)
+
+        with pytest.raises(ValueError, match="Duplicate ratio"):
+            pipeline.validate(transformed)
+
+        assert any(
+            issue.get("metric") == "duplicates_activity_id"
+            for issue in pipeline.validation_issues
+        )
+
+    def test_validate_duplicate_metric_allows_under_threshold(self, activity_config, monkeypatch):
+        """Duplicate metric is recorded and data deduplicated when threshold permits."""
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", lambda *args, **kwargs: {})
+
+        config = activity_config.model_copy(deep=True)
+        duplicate_cfg = getattr(config.qc, "duplicate_check", {}).copy()
+        duplicate_cfg["threshold"] = 1.0
+        setattr(config.qc, "duplicate_check", duplicate_cfg)
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(config, run_id)
+
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 1],
+                "standard_value": [1.0, 2.0],
+                "standard_units": ["nM", "nM"],
+            }
+        )
+
+        transformed = _prepare_activity_frame(pipeline, df)
+        validated = pipeline.validate(transformed)
+
+        assert len(validated) == 1
+        assert validated["activity_id"].tolist() == [1]
+        duplicate_issue = next(
+            issue for issue in pipeline.validation_issues if issue.get("metric") == "duplicates_activity_id"
+        )
+        assert duplicate_issue["severity"] == "info"
+
+    def test_validate_invalid_relation_raises_schema_error(self, activity_config, monkeypatch):
+        """Invalid relation values should surface as Pandera schema errors."""
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", lambda *args, **kwargs: {})
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = pd.DataFrame(
+            {
+                "activity_id": [100],
+                "standard_value": [1.0],
+                "standard_units": ["nM"],
+            }
+        )
+
+        transformed = _prepare_activity_frame(
+            pipeline,
+            df,
+            overrides={"standard_relation": "??"},
+        )
+
+        with pytest.raises(ValueError, match="Schema validation failed"):
+            pipeline.validate(transformed)
+
+        assert any(
+            issue.get("issue_type") == "schema" and issue.get("column") == "standard_relation"
+            for issue in pipeline.validation_issues
+        )
+
+    def test_validate_invalid_units_raises_schema_error(self, activity_config, monkeypatch):
+        """Invalid unit identifiers must raise schema errors and be reported."""
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", lambda *args, **kwargs: {})
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = pd.DataFrame(
+            {
+                "activity_id": [200],
+                "standard_value": [1.0],
+                "standard_units": ["nM"],
+                "uo_units": ["INVALID"],
+            }
+        )
+
+        transformed = _prepare_activity_frame(
+            pipeline,
+            df,
+            overrides={"uo_units": "INVALID"},
+        )
+
+        with pytest.raises(ValueError, match="Schema validation failed"):
+            pipeline.validate(transformed)
+
+        assert any(
+            issue.get("metric") == "invalid_units_count"
+            for issue in pipeline.validation_issues
+        )
+
+    def test_activity_quality_report_reflects_qc(self, activity_config, monkeypatch, tmp_path):
+        """QC report should include validation issues captured during validation."""
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", lambda *args, **kwargs: {})
+
+        config = activity_config.model_copy(deep=True)
+        duplicate_cfg = getattr(config.qc, "duplicate_check", {}).copy()
+        duplicate_cfg["threshold"] = 1.5
+        setattr(config.qc, "duplicate_check", duplicate_cfg)
+        config.qc.thresholds.update({"activity.null_fraction.standard_value": 1.0})
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(config, run_id)
+
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 1],
+                "standard_value": [1.0, None],
+                "standard_units": ["nM", "nM"],
+            }
+        )
+
+        transformed = _prepare_activity_frame(pipeline, df)
+        validated = pipeline.validate(transformed)
+        artifacts = pipeline.export(validated, tmp_path / "activity.csv")
+
+        quality_df = pd.read_csv(artifacts.quality_report)
+        metrics = quality_df[quality_df["metric"] != "column_profile"]
+
+        assert "duplicates_activity_id" in metrics["metric"].values
+        assert "missing_standard_value_pct" in metrics["metric"].values
+        assert any(metrics["metric"].str.contains("invalid_units_count"))
 
     def test_activity_cache_key_release_scope(self, activity_config, monkeypatch, tmp_path):
         """Cache keys must include release scoping for determinism."""

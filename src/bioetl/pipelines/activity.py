@@ -20,6 +20,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
+from pandera.errors import SchemaErrors
 
 logger = UnifiedLogger.get(__name__)
 
@@ -219,6 +220,8 @@ class ActivityPipeline(PipelineBase):
         )
 
         df = pd.DataFrame(results_sorted)
+        if not df.empty:
+            df = df.reindex(sorted(df.columns), axis=1)
         logger.info("extraction_completed", rows=len(df), from_api=True)
         return df
 
@@ -549,28 +552,211 @@ class ActivityPipeline(PipelineBase):
 
         expected_cols = ActivitySchema.get_column_order()
         if expected_cols:
-            # Only reorder columns that exist in the DataFrame
-            df = df[[col for col in expected_cols if col in df.columns]]
+            for col in expected_cols:
+                if col not in df.columns:
+                    df[col] = None
+            df = df[expected_cols]
 
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate activity data against schema."""
+        self.validation_issues.clear()
+
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        try:
-            # Check for duplicates
-            duplicate_count = df["activity_id"].duplicated().sum() if "activity_id" in df.columns else 0
-            if duplicate_count > 0:
-                logger.warning("duplicates_found", count=duplicate_count)
-                # Remove duplicates, keeping first occurrence
-                df = df.drop_duplicates(subset=["activity_id"], keep="first")
+        duplicate_cfg: dict[str, Any] = getattr(self.config.qc, "duplicate_check", {}) or {}
+        qc_thresholds = self.config.qc.thresholds or {}
 
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
+        duplicate_field = duplicate_cfg.get("field", "activity_id")
+        duplicate_threshold = float(
+            duplicate_cfg.get(
+                "threshold",
+                qc_thresholds.get("activity.duplicate_ratio", 0.0),
+            )
+            or 0.0
+        )
+
+        if duplicate_field in df.columns and len(df) > 0:
+            duplicate_mask = df[duplicate_field].duplicated(keep=False)
+            duplicate_count = int(duplicate_mask.sum())
+            duplicate_ratio = duplicate_count / float(len(df)) if len(df) else 0.0
+
+            if duplicate_count > 0:
+                severity = "warning" if duplicate_ratio > duplicate_threshold else "info"
+                issue = {
+                    "metric": "duplicates_activity_id",
+                    "issue_type": "qc_metric",
+                    "severity": severity,
+                    "field": duplicate_field,
+                    "count": duplicate_count,
+                    "ratio": duplicate_ratio,
+                    "threshold": duplicate_threshold,
+                }
+                self.record_validation_issue(issue)
+
+                log_method = (
+                    logger.warning
+                    if self._severity_value(severity) >= self._severity_value("warning")
+                    else logger.info
+                )
+                log_method(
+                    "qc_duplicate_metric",
+                    field=duplicate_field,
+                    ratio=duplicate_ratio,
+                    count=duplicate_count,
+                    threshold=duplicate_threshold,
+                )
+
+                if self._should_fail(severity):
+                    raise ValueError(
+                        f"Duplicate ratio for {duplicate_field} {duplicate_ratio:.3f} exceeds threshold {duplicate_threshold:.3f}"
+                    )
+
+                df = df.drop_duplicates(subset=[duplicate_field], keep="first")
+
+        null_threshold_default = float(qc_thresholds.get("activity.null_fraction", 1.0) or 1.0)
+        null_columns = ["standard_value"]
+
+        for column in null_columns:
+            if column not in df.columns or len(df) == 0:
+                continue
+
+            null_fraction = float(df[column].isna().sum()) / float(len(df)) if len(df) else 0.0
+            column_threshold = float(
+                qc_thresholds.get(f"activity.null_fraction.{column}", null_threshold_default)
+                or null_threshold_default
+            )
+
+            severity = "warning" if null_fraction > column_threshold else "info"
+            issue = {
+                "metric": "missing_standard_value_pct",
+                "issue_type": "qc_metric",
+                "severity": severity,
+                "column": column,
+                "fraction": null_fraction,
+                "percentage": null_fraction * 100,
+                "threshold": column_threshold,
+            }
+            self.record_validation_issue(issue)
+
+            log_method = (
+                logger.warning
+                if self._severity_value(severity) >= self._severity_value("warning")
+                else logger.info
+            )
+            log_method(
+                "qc_null_metric",
+                column=column,
+                fraction=null_fraction,
+                threshold=column_threshold,
+            )
+
+            if self._should_fail(severity):
+                raise ValueError(
+                    f"Null fraction for {column} {null_fraction:.3f} exceeds threshold {column_threshold:.3f}"
+                )
+
+        try:
+            validated_df = ActivitySchema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            schema_issues = self._summarize_schema_errors(exc.failure_cases)
+            for issue in schema_issues:
+                self.record_validation_issue(issue)
+                logger.error(
+                    "schema_validation_error",
+                    column=issue.get("column"),
+                    check=issue.get("check"),
+                    count=issue.get("count"),
+                    severity=issue.get("severity"),
+                )
+
+            summary = "; ".join(
+                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+                for issue in schema_issues
+            )
+            raise ValueError(f"Schema validation failed: {summary}") from exc
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("schema_validation_unexpected_error", error=str(exc))
             raise
+
+        # Compute unit validity metric (should be zero for validated data)
+        invalid_units_count = 0
+        if "uo_units" in validated_df.columns and len(validated_df) > 0:
+            series = validated_df["uo_units"].dropna().astype(str)
+            invalid_units_count = int((~series.str.match(r"^UO_\d{7}$")).sum())
+
+        unit_threshold = float(qc_thresholds.get("activity.invalid_units_count", 0.0) or 0.0)
+        severity = "warning" if invalid_units_count > unit_threshold else "info"
+        unit_issue = {
+            "metric": "invalid_units_count",
+            "issue_type": "qc_metric",
+            "severity": severity,
+            "column": "uo_units",
+            "count": invalid_units_count,
+            "threshold": unit_threshold,
+        }
+        self.record_validation_issue(unit_issue)
+
+        log_method = (
+            logger.warning
+            if self._severity_value(severity) >= self._severity_value("warning")
+            else logger.info
+        )
+        log_method(
+            "qc_unit_metric",
+            column="uo_units",
+            count=invalid_units_count,
+            threshold=unit_threshold,
+        )
+
+        if invalid_units_count > unit_threshold and self._should_fail(severity):
+            raise ValueError(
+                f"Invalid unit count {invalid_units_count} exceeds threshold {unit_threshold:.0f}"
+            )
+
+        logger.info(
+            "validation_completed",
+            rows=len(validated_df),
+            issues=len(self.validation_issues),
+        )
+        return validated_df
+
+    def _summarize_schema_errors(self, failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
+        """Summarize Pandera failure cases for QC reporting."""
+
+        issues: list[dict[str, Any]] = []
+        if failure_cases.empty:
+            return issues
+
+        for column, group in failure_cases.groupby("column", dropna=False):
+            column_name = (
+                str(column)
+                if column is not None and not (isinstance(column, float) and pd.isna(column))
+                else "<dataframe>"
+            )
+            checks = sorted({str(check) for check in group["check"].dropna().unique()})
+            details = ", ".join(
+                group["failure_case"].dropna().astype(str).unique().tolist()[:5]
+            )
+
+            issue: dict[str, Any] = {
+                "issue_type": "schema",
+                "severity": "error",
+                "column": column_name,
+                "check": ", ".join(checks) if checks else "<unspecified>",
+                "count": int(group.shape[0]),
+                "details": details,
+            }
+
+            if column_name in {"uo_units", "qudt_units", "standard_units"}:
+                issue["metric"] = "invalid_units_count"
+            elif column_name in {"standard_relation", "published_relation"}:
+                issue["metric"] = "invalid_relations_count"
+
+            issues.append(issue)
+
+        return issues
 
