@@ -121,6 +121,63 @@ cli: {}
         del os.environ["BIOETL_HTTP__GLOBAL__TIMEOUT_SEC"]
 
 
+def test_target_source_env_resolution(tmp_path, monkeypatch):
+    """Environment placeholders in source secrets should be resolved."""
+
+    config_file = tmp_path / "target.yaml"
+    config_file.write_text(
+        """
+version: 1
+pipeline:
+  name: target
+  entity: target
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+cache:
+  enabled: true
+  directory: "data/cache"
+  ttl: 86400
+  release_scoped: true
+paths:
+  input_root: "data/input"
+  output_root: "data/output"
+determinism:
+  sort:
+    by: []
+    ascending: []
+  column_order: []
+postprocess: {}
+qc:
+  enabled: true
+  severity_threshold: warning
+sources:
+  chembl:
+    enabled: true
+    base_url: "https://api.example.com"
+    api_key: "${TEST_TARGET_API_KEY}"
+    headers:
+      Authorization: "env:TEST_TARGET_AUTH"
+""",
+    )
+
+    monkeypatch.setenv("TEST_TARGET_API_KEY", "secret-token")
+    monkeypatch.setenv("TEST_TARGET_AUTH", "Bearer secret-token")
+
+    config = load_config(config_file)
+    chembl_source = config.sources["chembl"]
+
+    assert chembl_source.api_key == "secret-token"
+    assert chembl_source.headers["Authorization"] == "Bearer secret-token"
+
+
 def test_config_hash_stability(tmp_path):
     """Test config_hash stability."""
     config_file = tmp_path / "test.yaml"
