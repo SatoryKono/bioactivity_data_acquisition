@@ -26,6 +26,7 @@ from bioetl.pipelines.target_gold import (
     merge_components,
     _split_accession_field,
 )
+from bioetl.utils import finalize_pipeline_output
 
 logger = UnifiedLogger.get(__name__)
 
@@ -86,6 +87,7 @@ class TargetPipeline(PipelineBase):
 
         chembl_source = self.source_configs.get("chembl")
         self.batch_size = chembl_source.batch_size if chembl_source and chembl_source.batch_size else 25
+        self._chembl_release = self._get_chembl_release() if self.chembl_client else None
 
     def _build_api_client_config(
         self,
@@ -233,6 +235,31 @@ class TargetPipeline(PipelineBase):
             return global_http.rate_limit_jitter
         return True
 
+    def _get_chembl_release(self) -> str | None:
+        """Fetch the ChEMBL database release identifier."""
+
+        if self.chembl_client is None:
+            return None
+
+        try:
+            status = self.chembl_client.request_json("/status.json")
+        except Exception as exc:  # noqa: BLE001 - errors are logged and ignored
+            logger.warning("failed_to_get_chembl_version", error=str(exc))
+            return None
+
+        version = status.get("chembl_db_version")
+        release_date = status.get("chembl_release_date")
+        if version:
+            logger.info(
+                "chembl_version_fetched",
+                version=version,
+                release_date=release_date,
+            )
+            return str(version)
+
+        logger.warning("chembl_version_not_in_status_response")
+        return None
+
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract target data from input file."""
         if input_file is None:
@@ -260,6 +287,8 @@ class TargetPipeline(PipelineBase):
         """Transform target data."""
         if df.empty:
             return df
+
+        df = df.copy()
 
         # Normalize identifiers
         from bioetl.normalizers import registry
@@ -337,15 +366,37 @@ class TargetPipeline(PipelineBase):
             logger.info("iuphar_enrichment_skipped", reason="no_client")
 
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
-        df["pipeline_version"] = "1.0.0"
-        df["source_system"] = "chembl"
-        df["chembl_release"] = None
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        source_system = "chembl"
+        df["pipeline_version"] = pipeline_version
+        df["source_system"] = source_system
+        df["chembl_release"] = self._chembl_release
         df["extracted_at"] = timestamp
 
         gold_targets, gold_components, gold_protein_class, gold_xref = self._build_gold_outputs(
             df,
             component_enrichment,
             iuphar_gold,
+        )
+
+        sort_config = getattr(self.config, "determinism", None)
+        sort_settings = getattr(sort_config, "sort", None)
+        sort_columns = list(getattr(sort_settings, "by", []) or [])
+        if not sort_columns:
+            sort_columns = ["target_chembl_id"]
+        ascending_flags = list(getattr(sort_settings, "ascending", []) or [])
+        ascending_param = ascending_flags if ascending_flags else None
+
+        gold_targets = finalize_pipeline_output(
+            gold_targets,
+            business_key="target_chembl_id",
+            sort_by=sort_columns,
+            ascending=ascending_param,
+            pipeline_version=pipeline_version,
+            source_system=source_system,
+            chembl_release=self._chembl_release,
+            extracted_at=timestamp,
+            schema=TargetSchema,
         )
 
         self.gold_targets = gold_targets
@@ -1709,11 +1760,13 @@ class TargetPipeline(PipelineBase):
         expected_columns = [
             "target_chembl_id",
             "pref_name",
+            "target_type",
             "organism",
             "tax_id",
             "gene_symbol",
             "hgnc_id",
             "lineage",
+            "uniprot_accession",
             "uniprot_id_primary",
             "uniprot_ids_all",
             "isoform_count",
@@ -1723,11 +1776,11 @@ class TargetPipeline(PipelineBase):
             "iuphar_type",
             "iuphar_class",
             "iuphar_subclass",
+            "data_origin",
             "pipeline_version",
             "source_system",
             "chembl_release",
             "extracted_at",
-            "data_origin",
         ]
 
         for column in expected_columns:
@@ -1739,7 +1792,7 @@ class TargetPipeline(PipelineBase):
         working["has_iuphar"] = working["has_iuphar"].astype("boolean")
         working["isoform_count"] = working["isoform_count"].astype("Int64")
 
-        return working[expected_columns].convert_dtypes()
+        return working.convert_dtypes()
 
     def _evaluate_iuphar_qc(self, coverage: float) -> None:
         """Compare coverage against QC thresholds and log warnings."""

@@ -16,7 +16,8 @@ from unittest.mock import MagicMock
 from bioetl.config.loader import load_config
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
-from bioetl.schemas import AssaySchema, TestItemSchema
+from bioetl.core.hashing import generate_hash_business_key
+from bioetl.schemas import AssaySchema, TargetSchema, TestItemSchema
 
 
 @pytest.fixture
@@ -1026,6 +1027,17 @@ class TestTestItemPipeline:
 class TestTargetPipeline:
     """Tests for TargetPipeline."""
 
+    @pytest.fixture(autouse=True)
+    def _mock_status(self, monkeypatch):
+        """Avoid live network calls when resolving ChEMBL status."""
+
+        def _status_stub(self, url, params=None, method="GET", **kwargs):
+            if url == "/status.json":
+                return {"chembl_db_version": "ChEMBL_TEST"}
+            raise AssertionError(f"Unexpected request during test: {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", _status_stub)
+
     def test_init(self, target_config):
         """Test pipeline initialization."""
         run_id = str(uuid.uuid4())[:8]
@@ -1060,10 +1072,16 @@ class TestTargetPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) >= 0
 
-    def test_transform_adds_metadata(self, target_config):
+    def test_transform_adds_metadata(self, target_config, monkeypatch):
         """Test transformation adds pipeline metadata."""
         run_id = str(uuid.uuid4())[:8]
         pipeline = TargetPipeline(target_config, run_id)
+        pipeline.uniprot_client = None
+        pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_orthologs_client = None
+        pipeline.iuphar_client = None
+        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
+        monkeypatch.setattr(TargetPipeline, "_materialize_silver", lambda self, *args, **kwargs: None)
 
         df = pd.DataFrame({
             "target_chembl_id": ["CHEMBL1"],
@@ -1071,9 +1089,16 @@ class TestTargetPipeline:
         })
 
         result = pipeline.transform(df)
-        assert "pipeline_version" in result.columns
-        assert "source_system" in result.columns
-        assert "extracted_at" in result.columns
+        assert result.loc[0, "pipeline_version"] == "1.0.0"
+        assert result.loc[0, "source_system"] == "chembl"
+        assert result.loc[0, "chembl_release"] == "ChEMBL_TEST"
+        assert result.loc[0, "index"] == 0
+        expected_hash = generate_hash_business_key("CHEMBL1")
+        assert result.loc[0, "hash_business_key"] == expected_hash
+        assert isinstance(result.loc[0, "hash_row"], str)
+        assert len(result.loc[0, "hash_row"]) == 64
+        expected_order = TargetSchema.get_column_order()
+        assert list(result.columns[:len(expected_order)]) == expected_order
 
     def test_validate_removes_duplicates(self, target_config):
         """Test validation removes duplicates."""
@@ -1088,11 +1113,21 @@ class TestTargetPipeline:
         result = pipeline.validate(df)
         assert len(result) == 1
 
-    def test_uniprot_enrichment_merges_primary(self, target_config, tmp_path):
+    def test_uniprot_enrichment_merges_primary(self, target_config, tmp_path, monkeypatch):
         """UniProt enrichment should populate canonical fields and silver artifacts."""
 
         run_id = str(uuid.uuid4())[:8]
         pipeline = TargetPipeline(target_config, run_id)
+
+        def _fake_materialize_silver(self, uniprot_df, component_df):
+            silver_path = Path(self.config.materialization.silver)
+            silver_path.parent.mkdir(parents=True, exist_ok=True)
+            silver_path.write_text("dummy")
+            component_path = silver_path.parent / "component_enrichment.parquet"
+            component_path.write_text("dummy")
+
+        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
+        monkeypatch.setattr(TargetPipeline, "_materialize_silver", _fake_materialize_silver)
 
         class DummyUniProtClient:
             def request_json(self, url, params=None, method="GET", **kwargs):
@@ -1139,6 +1174,7 @@ class TestTargetPipeline:
         pipeline.uniprot_client = DummyUniProtClient()
         pipeline.uniprot_idmapping_client = None
         pipeline.uniprot_orthologs_client = None
+        pipeline.iuphar_client = None
         pipeline.config.materialization.silver = tmp_path / "targets_uniprot.parquet"
 
         df = pd.DataFrame({
@@ -1168,6 +1204,7 @@ class TestTargetPipeline:
         pipeline.uniprot_client = None
         pipeline.uniprot_idmapping_client = None
         pipeline.uniprot_orthologs_client = None
+        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
 
         class DummyIupharClient:
             def request_json(self, url, params=None, method="GET", **kwargs):
