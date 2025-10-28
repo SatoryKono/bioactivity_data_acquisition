@@ -197,6 +197,45 @@ PipelineResult = dataclass(
 - Orthologs требует UniProt accession resolution
 - IUPHAR требует accession или gene_symbol
 
+### Stage 3: IUPHAR Classification (Optional)
+
+**Цель:** дополнить таргеты фармакологической классификацией и согласованными идентификаторами из GtoPdb/IUPHAR.
+
+**Ключевые REST ресурсы:**
+
+- `GET /targets`: базовый список таргетов c полями `targetId`, `type`, `familyId`, `annotationStatus`. Поддерживаемые фильтры включают `targetType` (например, `"GPCR"`, `"Ion channel"`), `familyId` для выборки по конкретному семейству и `annotationStatus` для исключения черновиков.
+- `GET /targets/families`: дерево семейств с полями `familyId`, `parentFamilyId`, `level`, `name`, `type`. Фильтры `type` и `parentFamilyId` используются для построения поддеревьев.
+- `GET /targets/{targetId}/synonyms`: дополнительные названия и алиасы, используемые для нормализации `pref_name` и `pref_symbol`.
+- `GET /targets/{targetId}/geneProteinInformation`: HGNC/UniProt атрибуты (`hgncId`, `geneSymbol`, `uniprotIds`, `species`).
+
+**Обработка и фильтрация:**
+
+- Ограничиваем выдачу активными таргетами (`annotationStatus=CURATED`).
+- Для белковых таргетов используем `targetType in {"GPCR", "Enzyme", "Ion channel", "Transporter"}` для снижения шума.
+- Ветка `targets/families` собирается итеративно: сначала `type`, затем `parentFamilyId` по уровням до листьев.
+
+**Структура данных:**
+
+```python
+@dataclass
+class IUPHARData:
+    target_df: pd.DataFrame  # записи /targets + geneProteinInformation + synonyms
+    family_df: pd.DataFrame  # дерево /targets/families со всеми уровнями
+```
+
+`family_df` нормализует иерархию классификации: `type → class → subclass → chain → target`. Для каждой ветви рассчитываем два пути:
+
+- `full_id_path`: `'typeId/classId/subclassId/chainId/targetId'`
+- `full_name_path`: `'Type name > Class name > Subclass name > Chain name > Target name'`
+
+**Согласование идентификаторов:**
+
+- `hgncId` из `geneProteinInformation` маппится на `hgnc_id` ChEMBL: допускаются различия в формате (`HGNC:1234` → `1234`). При конфликте приоритет у значения из ChEMBL, а IUPHAR сохраняется как альтернатива в `xref`.
+- `uniprotIds` приводятся к верхнему регистру и сравниваются с `accession` из UniProt стадии. Несоответствия логируются и попадают в QC-отчет, а консенсусное значение выбирается по правилу: если `uniprot_id_primary` из UniProt присутствует в списке IUPHAR, принимаем его, иначе добавляем IUPHAR ID в `uniprot_ids_all` без замены основного.
+- `geneSymbol` сверяется с `gene_symbol` из UniProt; расхождения фиксируются, но не переписывают основное значение без ручной валидации.
+
+Результат Stage 3 — DataFrame `iuphar_classification`, содержащий агрегированные поля `iuphar_target_id`, `iuphar_family_id`, `iuphar_type`, `full_id_path`, `full_name_path`, которые присоединяются к `targets` на этапе Stage 4.
+
 ### Метаданные pipeline
 
 Каждый run фиксирует:
