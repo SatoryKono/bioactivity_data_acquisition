@@ -609,13 +609,17 @@ class TargetPipeline(PipelineBase[TargetConfig]):
         if validated_data["target_chembl_id"].duplicated().any():
             raise ValueError("Duplicate target_chembl_id values detected")
 
+        source_config = self._get_source_config("chembl")
+        if source_config.get("enabled") is False:
+            logger.info("ChEMBL source disabled; skipping extraction")
+            return validated_data
+
         chembl_client = self.clients.get("chembl")
         if chembl_client is None:
             logger.info("Initializing ChEMBL client on-demand")
             chembl_client = self._create_chembl_client()
             self.clients["chembl"] = chembl_client
 
-        source_config = self._get_source_config("chembl")
         batch_size = source_config.get("batch_size", 25)
         max_url_length = source_config.get("max_url_length", 2000)
 
