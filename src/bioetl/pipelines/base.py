@@ -23,7 +23,7 @@ class PipelineBase(ABC):
         self.validation_issues: list[dict[str, Any]] = []
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
-    _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2}
+    _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
 
     def record_validation_issue(self, issue: dict[str, Any]) -> None:
         """Store a validation issue for later QC reporting."""
