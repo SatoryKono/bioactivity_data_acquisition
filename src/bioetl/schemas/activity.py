@@ -1,9 +1,115 @@
 """Pandera schemas for Activity data."""
 
+from __future__ import annotations
+
 import pandera as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema
+
+RELATION_VALUES = ["=", ">", "<", ">=", "<="]
+STANDARD_UNITS_ALLOWED = {
+    "nM",
+    "uM",
+    "µM",
+    "μM",
+    "mM",
+    "M",
+    "pM",
+    "fM",
+    "mol/L",
+    "mmol/L",
+    "umol/L",
+    "µmol/L",
+    "nmol/L",
+    "pmol/L",
+    "mol%",
+    "%",
+    "mg/mL",
+    "mg/ml",
+    "ug/mL",
+    "ug/ml",
+    "µg/mL",
+    "µg/ml",
+    "μg/mL",
+    "μg/ml",
+    "ng/mL",
+    "ng/ml",
+    "pg/mL",
+    "pg/ml",
+    "mg/L",
+    "ug/L",
+    "ng/L",
+    "pg/L",
+    "g/L",
+    "kg/L",
+    "cells/mL",
+    "cells/L",
+    "mg/kg",
+    "ug/kg",
+    "ng/kg",
+    "IU/mL",
+    "IU/ml",
+    "U/mL",
+    "U/ml",
+    "mol/L",
+    "Molar",
+    "mm",
+    "cm",
+    "nm",
+    "µm",
+    "um",
+    "s",
+    "sec",
+    "min",
+    "h",
+    "hr",
+    "day",
+    "ratio",
+}
+
+COLUMN_ORDER = [
+    "activity_id",
+    "molecule_chembl_id",
+    "assay_chembl_id",
+    "target_chembl_id",
+    "document_chembl_id",
+    "published_type",
+    "published_relation",
+    "published_value",
+    "published_units",
+    "standard_type",
+    "standard_relation",
+    "standard_value",
+    "standard_units",
+    "standard_flag",
+    "lower_bound",
+    "upper_bound",
+    "is_censored",
+    "pchembl_value",
+    "activity_comment",
+    "data_validity_comment",
+    "bao_endpoint",
+    "bao_format",
+    "bao_label",
+    "potential_duplicate",
+    "uo_units",
+    "qudt_units",
+    "src_id",
+    "action_type",
+    "activity_properties_json",
+    "bei",
+    "sei",
+    "le",
+    "lle",
+    "pipeline_version",
+    "source_system",
+    "chembl_release",
+    "extracted_at",
+    "hash_business_key",
+    "hash_row",
+    "index",
+]
 
 
 class ActivitySchema(BaseSchema):
@@ -36,15 +142,27 @@ class ActivitySchema(BaseSchema):
 
     # Published activity data (original from source)
     published_type: Series[str] = pa.Field(nullable=True, description="Оригинальный тип опубликованных данных")
-    published_relation: Series[str] = pa.Field(nullable=True, description="Соотношение для published_value")
+    published_relation: Series[str] = pa.Field(
+        nullable=True,
+        isin=RELATION_VALUES,
+        description="Соотношение для published_value",
+    )
     published_value: Series[float] = pa.Field(nullable=True, ge=0, description="Оригинальное опубликованное значение")
     published_units: Series[str] = pa.Field(nullable=True, description="Единицы published_value")
 
     # Standardized activity data
     standard_type: Series[str] = pa.Field(nullable=True, description="Стандартизированный тип активности")
-    standard_relation: Series[str] = pa.Field(nullable=True, description="Соотношение для standard_value (=, >, <, >=, <=)")
+    standard_relation: Series[str] = pa.Field(
+        nullable=True,
+        isin=RELATION_VALUES,
+        description="Соотношение для standard_value (=, >, <, >=, <=)",
+    )
     standard_value: Series[float] = pa.Field(nullable=True, ge=0, description="Стандартизированное значение")
-    standard_units: Series[str] = pa.Field(nullable=True, description="Единицы стандартизированного значения")
+    standard_units: Series[str] = pa.Field(
+        nullable=True,
+        isin=STANDARD_UNITS_ALLOWED,
+        description="Единицы стандартизированного значения",
+    )
     standard_flag: Series[int] = pa.Field(nullable=True, description="Флаг стандартизации (0/1)")
     pchembl_value: Series[float] = pa.Field(nullable=True, ge=0, description="-log10 нормированное значение")
 
@@ -84,48 +202,5 @@ class ActivitySchema(BaseSchema):
     class Config:
         strict = True
         coerce = True
-        ordered = True
-        # Column order: business fields first, then system fields, then hash fields
-        column_order = [
-            "activity_id",
-            "molecule_chembl_id",
-            "assay_chembl_id",
-            "target_chembl_id",
-            "document_chembl_id",
-            "published_type",
-            "published_relation",
-            "published_value",
-            "published_units",
-            "standard_type",
-            "standard_relation",
-            "standard_value",
-            "standard_units",
-            "standard_flag",
-            "lower_bound",
-            "upper_bound",
-            "is_censored",
-            "pchembl_value",
-            "activity_comment",
-            "data_validity_comment",
-            "bao_endpoint",
-            "bao_format",
-            "bao_label",
-            "potential_duplicate",
-            "uo_units",
-            "qudt_units",
-            "src_id",
-            "action_type",
-            "activity_properties_json",
-            "bei",
-            "sei",
-            "le",
-            "lle",
-            "pipeline_version",
-            "source_system",
-            "chembl_release",
-            "extracted_at",
-            "hash_business_key",
-            "hash_row",
-            "index",
-        ]
+        ordered = False
 

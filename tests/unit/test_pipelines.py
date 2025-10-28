@@ -4,6 +4,9 @@ import uuid
 
 import pandas as pd
 import pytest
+from pandera.errors import SchemaErrors
+
+from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
 from bioetl.config.loader import load_config
 from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
@@ -95,6 +98,55 @@ class TestAssayPipeline:
 class TestActivityPipeline:
     """Tests for ActivityPipeline."""
 
+    @staticmethod
+    def _build_activity_dataframe(activity_id: int = 1, index_value: int = 0) -> pd.DataFrame:
+        """Create a minimal valid activity dataframe for validation tests."""
+        base_hash = format(activity_id, "x").zfill(64)
+        row = {
+            "activity_id": activity_id,
+            "molecule_chembl_id": "CHEMBL1",
+            "assay_chembl_id": "CHEMBL2",
+            "target_chembl_id": "CHEMBL3",
+            "document_chembl_id": "CHEMBL4",
+            "published_type": "IC50",
+            "published_relation": "=",
+            "published_value": 10.0,
+            "published_units": "nM",
+            "standard_type": "IC50",
+            "standard_relation": "=",
+            "standard_value": 9.5,
+            "standard_units": "nM",
+            "standard_flag": 1,
+            "pchembl_value": 7.0,
+            "lower_bound": 8.0,
+            "upper_bound": 11.0,
+            "is_censored": False,
+            "activity_comment": None,
+            "data_validity_comment": None,
+            "bao_endpoint": "BAO_0000190",
+            "bao_format": "BAO_0000357",
+            "bao_label": "single protein format",
+            "potential_duplicate": 0,
+            "uo_units": "UO_0000065",
+            "qudt_units": "http://qudt.org/vocab/unit/NanoMOL-PER-L",
+            "src_id": 1,
+            "action_type": "inhibition",
+            "activity_properties_json": "{}",
+            "bei": 1.0,
+            "sei": 1.0,
+            "le": 1.0,
+            "lle": 1.0,
+            "pipeline_version": "1.0.0",
+            "source_system": "chembl",
+            "chembl_release": "36",
+            "extracted_at": "2024-01-01T00:00:00+00:00",
+            "hash_business_key": base_hash,
+            "hash_row": format(activity_id + 1000, "x").zfill(64),
+            "index": index_value,
+        }
+        df = pd.DataFrame([row])
+        return df[[col for col in ACTIVITY_COLUMN_ORDER if col in df.columns]]
+
     def test_init(self, activity_config):
         """Test pipeline initialization."""
         run_id = str(uuid.uuid4())[:8]
@@ -114,19 +166,76 @@ class TestActivityPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
 
-    def test_validate_removes_duplicates(self, activity_config):
-        """Test validation removes duplicates."""
+    def test_validate_records_qc_metrics(self, activity_config):
+        """Validation should record QC metrics for downstream reporting."""
         run_id = str(uuid.uuid4())[:8]
         pipeline = ActivityPipeline(activity_config, run_id)
 
-        df = pd.DataFrame({
-            "activity_id": [1, 1, 2],
-            "molecule_chembl_id": ["CHEMBL1", "CHEMBL1", "CHEMBL2"],
-        })
+        df = self._build_activity_dataframe(activity_id=1)
 
         result = pipeline.validate(df)
-        assert len(result) == 2
-        assert result["activity_id"].nunique() == 2
+        assert len(result) == 1
+
+        report = pipeline.last_validation_report
+        assert report is not None
+        assert report["metrics"]["duplicates"]["value"] == 0
+        assert report["metrics"]["null_rate"]["value"] == 0
+        assert report["metrics"]["invalid_units"]["value"] == 0
+
+    def test_validate_raises_on_duplicates(self, activity_config):
+        """Duplicate activities should fail validation."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = pd.concat(
+            [
+                self._build_activity_dataframe(activity_id=1, index_value=0),
+                self._build_activity_dataframe(activity_id=1, index_value=1),
+            ],
+            ignore_index=True,
+        )
+
+        with pytest.raises(ValueError):
+            pipeline.validate(df)
+
+        report = pipeline.last_validation_report
+        assert report is not None
+        assert report["metrics"]["duplicates"]["value"] == 1
+        assert "duplicates" in report.get("failing_metrics", {})
+
+    def test_validate_invalid_relation_triggers_pandera_error(self, activity_config):
+        """Invalid standard relation should raise a Pandera schema error."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = self._build_activity_dataframe(activity_id=1)
+        df.loc[0, "standard_relation"] = "!="
+
+        with pytest.raises(SchemaErrors):
+            pipeline.validate(df)
+
+        report = pipeline.last_validation_report
+        assert report is not None
+        schema_report = report.get("schema_validation")
+        assert schema_report is not None
+        assert schema_report.get("status") == "failed"
+
+    def test_validate_invalid_unit_triggers_pandera_error(self, activity_config):
+        """Invalid standard unit should raise a Pandera schema error."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = self._build_activity_dataframe(activity_id=1)
+        df.loc[0, "standard_units"] = "INVALID_UNIT"
+
+        with pytest.raises(SchemaErrors):
+            pipeline.validate(df)
+
+        report = pipeline.last_validation_report
+        assert report is not None
+        schema_report = report.get("schema_validation")
+        assert schema_report is not None
+        assert schema_report.get("status") == "failed"
 
 
 class TestTestItemPipeline:
