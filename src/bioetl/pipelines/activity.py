@@ -260,8 +260,9 @@ class ActivityPipeline(PipelineBase):
         # Reorder columns according to schema
         from bioetl.schemas import ActivitySchema
 
-        if "column_order" in ActivitySchema.Config.__dict__:
-            expected_cols = ActivitySchema.Config.column_order
+        column_order_fn = getattr(ActivitySchema, "column_order", None)
+        expected_cols = column_order_fn() if callable(column_order_fn) else None
+        if expected_cols:
             # Only reorder columns that exist in the DataFrame
             df = df[[col for col in expected_cols if col in df.columns]]
 

@@ -4,9 +4,12 @@ import uuid
 
 import pandas as pd
 import pytest
+from pandera.errors import SchemaErrors
 
 from bioetl.config.loader import load_config
 from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
+from bioetl.schemas import TestItemSchema
+from bioetl.schemas.registry import schema_registry
 
 
 @pytest.fixture
@@ -132,6 +135,64 @@ class TestActivityPipeline:
 class TestTestItemPipeline:
     """Tests for TestItemPipeline."""
 
+    @staticmethod
+    def _build_testitem_df(rows: list[dict[str, object]]) -> pd.DataFrame:
+        """Create a DataFrame aligned with TestItemSchema column order."""
+        df = pd.DataFrame(rows)
+        return df[TestItemSchema.column_order()]
+
+    @staticmethod
+    def _row(
+        molecule_id: str,
+        index: int,
+        *,
+        parent_id: str | None = None,
+        hash_suffix: int = 0,
+    ) -> dict[str, object]:
+        """Construct a single valid row for schema validation tests."""
+        parent = parent_id if parent_id is not None else molecule_id
+        base_hash = f"{index + hash_suffix:064x}"
+        return {
+            "molecule_chembl_id": molecule_id,
+            "molregno": 1000 + index,
+            "pref_name": f"Test Molecule {index}",
+            "parent_chembl_id": parent,
+            "max_phase": 3,
+            "structure_type": "SMALL",
+            "molecule_type": "Small molecule",
+            "mw_freebase": 123.45,
+            "qed_weighted": 0.75,
+            "standardized_smiles": "CCO",
+            "standard_inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3",
+            "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+            "heavy_atoms": 9,
+            "aromatic_rings": 1,
+            "rotatable_bonds": 4,
+            "hba": 2,
+            "hbd": 1,
+            "lipinski_ro5_violations": 0,
+            "lipinski_ro5_pass": True,
+            "all_names": "Test",  # simple string representation
+            "molecule_synonyms": "[\"Test\"]",
+            "atc_classifications": "[\"A01\"]",
+            "pubchem_cid": 2000 + index,
+            "pubchem_molecular_formula": "C2H6O",
+            "pubchem_molecular_weight": 46.07,
+            "pubchem_canonical_smiles": "CCO",
+            "pubchem_isomeric_smiles": "C[C@H]O",
+            "pubchem_inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3",
+            "pubchem_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+            "pubchem_iupac_name": "ethanol",
+            "pubchem_synonyms": "[\"ethanol\"]",
+            "pipeline_version": "1.0.0",
+            "source_system": "chembl",
+            "chembl_release": "CHEMBL_36",
+            "extracted_at": "2023-01-01T00:00:00+00:00",
+            "hash_business_key": base_hash,
+            "hash_row": f"{index + 1 + hash_suffix:064x}",
+            "index": index,
+        }
+
     def test_init(self, testitem_config):
         """Test pipeline initialization."""
         run_id = str(uuid.uuid4())[:8]
@@ -165,6 +226,79 @@ class TestTestItemPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+
+    def test_validate_invalid_chembl_id(self, testitem_config):
+        """Schema violations for CHEMBL identifiers raise SchemaErrors."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TestItemPipeline(testitem_config, run_id)
+
+        rows = [self._row("CHEMBL1", 0)]
+        df = self._build_testitem_df(rows)
+        df.loc[0, "molecule_chembl_id"] = "INVALID_ID"
+        df.loc[0, "parent_chembl_id"] = "INVALID_ID"
+
+        with pytest.raises(SchemaErrors):
+            pipeline.validate(df)
+
+    def test_validation_schema_injects_custom_checks(self, testitem_config):
+        """Custom Pandera checks are present on generated schema columns."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TestItemPipeline(testitem_config, run_id)
+
+        schema_model = schema_registry.get("testitem", "latest")
+        with pipeline._schema_without_column_order(schema_model) as model:
+            schema = pipeline._build_validation_schema(model)
+
+        molecule_check_names = {
+            check.name for check in schema.columns["molecule_chembl_id"].checks if check.name
+        }
+        parent_check_names = {
+            check.name for check in schema.columns["parent_chembl_id"].checks if check.name
+        }
+
+        assert "molecule_chembl_id_format" in molecule_check_names
+        assert "parent_chembl_id_format" in parent_check_names
+
+    def test_validate_missing_required_column(self, testitem_config):
+        """Missing required fields bubble up as SchemaError failures."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TestItemPipeline(testitem_config, run_id)
+
+        df = self._build_testitem_df([self._row("CHEMBL1", 0)])
+        df = df.drop(columns=["standard_inchi_key"])
+
+        with pytest.raises(SchemaErrors):
+            pipeline.validate(df)
+
+    def test_validate_qc_threshold_violation(self, testitem_config):
+        """QC threshold breaches cause the pipeline to fail."""
+        testitem_config.qc.thresholds = {"duplicate_primary_keys": 0.0}
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TestItemPipeline(testitem_config, run_id)
+
+        row = self._row("CHEMBL1", 0)
+        duplicate_row = self._row("CHEMBL1", 1, hash_suffix=100)
+        df = self._build_testitem_df([row, duplicate_row])
+
+        with pytest.raises(ValueError, match="duplicate_primary_keys"):
+            pipeline.validate(df)
+
+    def test_validate_parent_reference_threshold_violation(self, testitem_config):
+        """Invalid parent references trigger QC enforcement when configured."""
+        testitem_config.qc.thresholds = {"invalid_parent_references": 0.0}
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TestItemPipeline(testitem_config, run_id)
+
+        rows = [
+            self._row("CHEMBL1000", 0, parent_id="CHEMBL999999"),
+            self._row("CHEMBL1001", 1, parent_id="CHEMBL1000"),
+        ]
+        df = self._build_testitem_df(rows)
+
+        with pytest.raises(ValueError, match="invalid_parent_references"):
+            pipeline.validate(df)
 
 
 class TestTargetPipeline:

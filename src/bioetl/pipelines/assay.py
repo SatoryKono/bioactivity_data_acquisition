@@ -172,7 +172,9 @@ class AssayPipeline(PipelineBase):
         """Transform assay data with explode functionality."""
         if df.empty:
             # Return empty DataFrame with all required columns from schema
-            return pd.DataFrame(columns=AssaySchema.Config.column_order)
+            column_order_fn = getattr(AssaySchema, "column_order", None)
+            expected_columns = column_order_fn() if callable(column_order_fn) else []
+            return pd.DataFrame(columns=expected_columns)
 
         from bioetl.normalizers import registry
 
@@ -239,9 +241,10 @@ class AssayPipeline(PipelineBase):
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import AssaySchema
 
-        if "column_order" in AssaySchema.Config.__dict__:
-            expected_cols = AssaySchema.Config.column_order
-            
+        column_order_fn = getattr(AssaySchema, "column_order", None)
+        expected_cols = column_order_fn() if callable(column_order_fn) else None
+        if expected_cols:
+
             # Add missing columns with None values
             for col in expected_cols:
                 if col not in df.columns:

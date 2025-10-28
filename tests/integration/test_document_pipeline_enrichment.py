@@ -161,7 +161,7 @@ class TestDocumentPipelineEnrichment:
         
         # Get expected column order from schema
         if "column_order" in DocumentSchema.Config.__dict__:
-            expected_order = DocumentSchema.Config.column_order
+            expected_order = DocumentSchema.column_order()
             
             # Check that existing columns follow the order
             existing_cols = [col for col in df.columns if col in expected_order]

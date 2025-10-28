@@ -1,9 +1,12 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
+from contextlib import contextmanager
 from pathlib import Path
-from typing import cast
+from typing import Iterator, Type, cast
 
 import pandas as pd
+import pandera as pa
+from pandera.errors import SchemaError, SchemaErrors
 
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -318,15 +321,15 @@ class TestItemPipeline(PipelineBase):
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import TestItemSchema
 
-        if "column_order" in TestItemSchema.Config.__dict__:
-            expected_cols = TestItemSchema.Config.column_order
-
+        column_order_fn = getattr(TestItemSchema, "column_order", None)
+        expected_cols = column_order_fn() if callable(column_order_fn) else None
+        if expected_cols:
             # Add missing columns with None values
             for col in expected_cols:
                 if col not in df.columns:
                     df[col] = None
 
-            # Reorder to match schema column_order
+            # Reorder to match schema column order
             df = df[expected_cols]
 
         return df
@@ -410,17 +413,159 @@ class TestItemPipeline(PipelineBase):
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        try:
-            # Check for duplicates
-            duplicate_count = df["molecule_chembl_id"].duplicated().sum() if "molecule_chembl_id" in df.columns else 0
-            if duplicate_count > 0:
-                logger.warning("duplicates_found", count=duplicate_count)
-                # Remove duplicates, keeping first occurrence
-                df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
+        metrics: dict[str, float] = {}
 
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
+        # Detect and remove duplicates by primary key
+        duplicate_count = (
+            df["molecule_chembl_id"].duplicated().sum()
+            if "molecule_chembl_id" in df.columns
+            else 0
+        )
+        metrics["duplicate_primary_keys"] = float(duplicate_count)
+        if duplicate_count > 0:
+            logger.warning("duplicates_found", count=duplicate_count)
+            df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
+
+        # Referential integrity: parent_chembl_id must refer to a known molecule
+        invalid_parent_refs = 0
+        parent_population = 0
+        if {"parent_chembl_id", "molecule_chembl_id"}.issubset(df.columns):
+            parent_mask = df["parent_chembl_id"].notna()
+            parent_population = int(parent_mask.sum())
+            if parent_population:
+                known_ids = set(df["molecule_chembl_id"].dropna())
+                invalid_mask = parent_mask & ~df["parent_chembl_id"].isin(known_ids)
+                invalid_parent_refs = int(invalid_mask.sum())
+                if invalid_parent_refs:
+                    sample = (
+                        df.loc[invalid_mask, ["molecule_chembl_id", "parent_chembl_id"]]
+                        .head(5)
+                        .to_dict(orient="records")
+                    )
+                    logger.warning(
+                        "invalid_parent_references",
+                        count=invalid_parent_refs,
+                        examples=sample,
+                    )
+        metrics["invalid_parent_references"] = float(invalid_parent_refs)
+        if parent_population:
+            metrics["parent_reference_population"] = float(parent_population)
+            metrics["invalid_parent_reference_ratio"] = (
+                float(invalid_parent_refs) / float(parent_population)
+            )
+
+        # Pandera schema validation with detailed error propagation
+        schema_model = schema_registry.get("testitem", "latest")
+        try:
+            with self._schema_without_column_order(schema_model) as validation_schema:
+                pandera_schema = self._build_validation_schema(validation_schema)
+                validated_df = pandera_schema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = exc.failure_cases.to_dict(orient="records")
+            logger.error(
+                "schema_validation_failed",
+                error_count=len(failure_cases),
+                failures=failure_cases[:10],
+            )
             raise
+        except SchemaError as exc:
+            logger.error("schema_validation_error", error=str(exc))
+            raise
+
+        metrics["row_count"] = float(len(validated_df))
+
+        self._enforce_qc_thresholds(metrics)
+
+        logger.info(
+            "validation_completed",
+            rows=len(validated_df),
+            duplicates_removed=duplicate_count,
+            metrics=metrics,
+        )
+        return validated_df
+
+    @staticmethod
+    @contextmanager
+    def _schema_without_column_order(
+        schema_model: Type[TestItemSchema],
+    ) -> Iterator[Type[TestItemSchema]]:
+        """Temporarily remove column order attributes for Pandera validation."""
+
+        removed_class_attrs: dict[str, object] = {}
+        if hasattr(schema_model, "COLUMN_ORDER"):
+            removed_class_attrs["COLUMN_ORDER"] = getattr(schema_model, "COLUMN_ORDER")
+            delattr(schema_model, "COLUMN_ORDER")
+
+        config_column_order = None
+        if hasattr(schema_model, "Config") and hasattr(schema_model.Config, "column_order"):
+            config_column_order = getattr(schema_model.Config, "column_order")
+            delattr(schema_model.Config, "column_order")
+
+        try:
+            yield schema_model
+        finally:
+            if config_column_order is not None:
+                setattr(schema_model.Config, "column_order", config_column_order)
+            for attr, value in removed_class_attrs.items():
+                setattr(schema_model, attr, value)
+
+    @staticmethod
+    def _build_validation_schema(
+        schema_model: Type[TestItemSchema],
+    ) -> pa.DataFrameSchema:
+        """Convert schema model to DataFrameSchema with custom checks."""
+
+        schema = schema_model.to_schema()
+
+        chembl_pattern = r"^CHEMBL\d+$"
+
+        if "molecule_chembl_id" in schema.columns:
+            column = schema.columns["molecule_chembl_id"]
+            checks = list(column.checks)
+            checks.append(pa.Check.str_matches(chembl_pattern, name="molecule_chembl_id_format"))
+            schema.columns["molecule_chembl_id"] = column.set_checks(checks)
+
+        if "parent_chembl_id" in schema.columns:
+            column = schema.columns["parent_chembl_id"]
+            checks = list(column.checks)
+            checks.append(
+                pa.Check(
+                    lambda s: s.dropna().str.match(chembl_pattern).all(),
+                    name="parent_chembl_id_format",
+                )
+            )
+            schema.columns["parent_chembl_id"] = column.set_checks(checks)
+
+        return schema
+
+    def _enforce_qc_thresholds(self, metrics: dict[str, float]) -> None:
+        """Validate QC metrics against configuration thresholds."""
+        thresholds = getattr(self.config.qc, "thresholds", {}) or {}
+        if not thresholds:
+            logger.debug("qc_thresholds_not_configured", metrics=metrics)
+            return
+
+        violations: list[dict[str, float]] = []
+        for metric_name, max_value in thresholds.items():
+            metric_value = metrics.get(metric_name)
+            if metric_value is None:
+                continue
+            if metric_value > float(max_value):
+                violations.append(
+                    {
+                        "metric": metric_name,
+                        "value": metric_value,
+                        "threshold": float(max_value),
+                    }
+                )
+
+        if violations:
+            logger.error("qc_thresholds_exceeded", violations=violations)
+            formatted = ", ".join(
+                f"{v['metric']}={v['value']} (threshold={v['threshold']})"
+                for v in violations
+            )
+            raise ValueError(f"QC thresholds exceeded: {formatted}")
+
+        logger.info("qc_thresholds_passed", metrics=metrics, thresholds=thresholds)
 

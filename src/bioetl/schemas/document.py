@@ -6,6 +6,77 @@ from pandera.typing import Series
 from bioetl.schemas.base import BaseSchema
 
 
+DOCUMENT_COLUMN_ORDER = [
+    "index",
+    "extracted_at",
+    "pipeline_version",
+    "source_system",
+    "chembl_release",
+    "hash_business_key",
+    "hash_row",
+    "document_chembl_id",
+    "document_pubmed_id",
+    "document_classification",
+    "referenses_on_previous_experiments",
+    "original_experimental_document",
+    "pubmed_mesh_descriptors",
+    "pubmed_mesh_qualifiers",
+    "pubmed_chemical_list",
+    "crossref_subject",
+    "chembl_pmid",
+    "openalex_pmid",
+    "pubmed_pmid",
+    "semantic_scholar_pmid",
+    "chembl_title",
+    "crossref_title",
+    "openalex_title",
+    "pubmed_article_title",
+    "semantic_scholar_title",
+    "chembl_abstract",
+    "pubmed_abstract",
+    "chembl_authors",
+    "crossref_authors",
+    "openalex_authors",
+    "pubmed_authors",
+    "semantic_scholar_authors",
+    "chembl_doi",
+    "crossref_doi",
+    "openalex_doi",
+    "pubmed_doi",
+    "semantic_scholar_doi",
+    "chembl_doc_type",
+    "crossref_doc_type",
+    "openalex_doc_type",
+    "openalex_crossref_doc_type",
+    "pubmed_doc_type",
+    "semantic_scholar_doc_type",
+    "openalex_issn",
+    "pubmed_issn",
+    "semantic_scholar_issn",
+    "chembl_journal",
+    "pubmed_journal",
+    "semantic_scholar_journal",
+    "chembl_year",
+    "openalex_year",
+    "chembl_volume",
+    "pubmed_volume",
+    "chembl_issue",
+    "pubmed_issue",
+    "pubmed_first_page",
+    "pubmed_last_page",
+    "crossref_error",
+    "openalex_error",
+    "pubmed_error",
+    "semantic_scholar_error",
+    "pubmed_year_completed",
+    "pubmed_month_completed",
+    "pubmed_day_completed",
+    "pubmed_year_revised",
+    "pubmed_month_revised",
+    "pubmed_day_revised",
+]
+
+
 class DocumentSchema(BaseSchema):
     """Unified schema for ChEMBL documents with multi-source enrichment.
 
@@ -115,90 +186,11 @@ class DocumentSchema(BaseSchema):
 
     # Column order according to IO_SCHEMAS_AND_DIAGRAMS.md line 957
     # Stored as class attribute to avoid Pandera treating it as a custom check
-    column_order = [
-            "index",
-            "extracted_at",
-            "pipeline_version",
-            "source_system",
-            "chembl_release",
-            "hash_business_key",
-            "hash_row",
-            "document_chembl_id",
-            "document_pubmed_id",
-            "document_classification",
-            "referenses_on_previous_experiments",
-            "original_experimental_document",
-            "pubmed_mesh_descriptors",
-            "pubmed_mesh_qualifiers",
-            "pubmed_chemical_list",
-            "crossref_subject",
-            # PMID (4)
-            "chembl_pmid",
-            "openalex_pmid",
-            "pubmed_pmid",
-            "semantic_scholar_pmid",
-            # Title (5)
-            "chembl_title",
-            "crossref_title",
-            "openalex_title",
-            "pubmed_article_title",
-            "semantic_scholar_title",
-            # Abstract (2)
-            "chembl_abstract",
-            "pubmed_abstract",
-            # Authors (5)
-            "chembl_authors",
-            "crossref_authors",
-            "openalex_authors",
-            "pubmed_authors",
-            "semantic_scholar_authors",
-            # DOI (5)
-            "chembl_doi",
-            "crossref_doi",
-            "openalex_doi",
-            "pubmed_doi",
-            "semantic_scholar_doi",
-            # Doc Type (6)
-            "chembl_doc_type",
-            "crossref_doc_type",
-            "openalex_doc_type",
-            "openalex_crossref_doc_type",
-            "pubmed_doc_type",
-            "semantic_scholar_doc_type",
-            # ISSN (3) - in spec comes after Journal, before Year
-            "openalex_issn",
-            "pubmed_issn",
-            "semantic_scholar_issn",
-            # Journal (3)
-            "chembl_journal",
-            "pubmed_journal",
-            "semantic_scholar_journal",
-            # Year (2)
-            "chembl_year",
-            "openalex_year",
-            # Volume/Issue (4)
-            "chembl_volume",
-            "pubmed_volume",
-            "chembl_issue",
-            "pubmed_issue",
-            # Pages (2)
-            "pubmed_first_page",
-            "pubmed_last_page",
-            # Errors (4) - should be before pubmed dates
-            "crossref_error",
-            "openalex_error",
-            "pubmed_error",
-            "semantic_scholar_error",
-            # PubMed dates (6)
-            "pubmed_year_completed",
-            "pubmed_month_completed",
-            "pubmed_day_completed",
-            "pubmed_year_revised",
-            "pubmed_month_revised",
-            "pubmed_day_revised",
-            # Note: pipeline_version, source_system, chembl_release from BaseSchema
-            # but not in column_order spec line 957
-        ]
+    @classmethod
+    def column_order(cls) -> list[str]:
+        """Return expected column ordering for deterministic exports."""
+
+        return DOCUMENT_COLUMN_ORDER
 
     class Config:
         strict = True
