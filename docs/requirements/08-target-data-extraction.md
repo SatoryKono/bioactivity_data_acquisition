@@ -242,82 +242,26 @@ Protein classification hierarchy для интеграции с внешними
 
 ## 1.5 Конфигурация
 
-### YAML структура
+- Базовые требования см. `docs/requirements/10-configuration.md`.
+- Профильный файл: `configs/pipelines/target.yaml` (`extends: "../base.yaml"`).
 
-Полный пример `configs/config_target.yaml`:
+| Секция | Ключ | Значение | Ограничение | Комментарий |
+|--------|------|----------|-------------|-------------|
+| HTTP | `http.global.timeout_sec` | `60.0` | `> 0` | Используется по умолчанию всеми клиентами. |
+| Источники / ChEMBL | `sources.chembl.batch_size` | `5` | `≤ 5` | Стабильность batch-запросов к `/target.json`. |
+| Источники / UniProt | `sources.uniprot.id_mapping_max_ids` | `100000` | `≤ 100000` | Лимит официального API. |
+| Источники / IUPHAR | `sources.iuphar.retries` | `3` | `≤ 5` | Встроенный ограничитель API. |
+| Cache | `cache.ttl.chembl` | `86400` | `≥ 0` | Кэш на сутки для ChEMBL. |
+| Cache | `cache.ttl.uniprot` | `604800` | `≥ 0` | Кэш на неделю для UniProt. |
+| Cache | `cache.ttl.iuphar` | `2592000` | `≥ 0` | Кэш на 30 дней для IUPHAR. |
+| Determinism | `determinism.sort.by` | `['target_chembl_id', 'accession', 'component_id']` | — | Гарантия детерминированного порядка. |
+| Determinism | `determinism.hash_columns` | `['target_chembl_id', 'pref_name', 'organism', 'uniprot_id_primary']` | Не пусто | Используется для хешей целостности. |
+| Output | `output.format` | `parquet` | `{'parquet', 'csv'}` | Основной формат выгрузки. |
 
-```yaml
-# HTTP настройки
-http:
-  global:
-    timeout_sec: 60.0
-    retries:
-      total: 5
-      backoff_multiplier: 2.0
-      backoff_max: 120.0
-      exponential_jitter: true
-      respect_retry_after: true
-    rate_limit:
-      max_calls: 5
-      period: 15.0
-
-# ChEMBL настройки
-sources:
-  chembl:
-    enabled: true
-    base_url: "https://www.ebi.ac.uk/chembl/api/data"
-    batch_size: 5  # КРИТИЧЕСКИ: для стабильности batch requests
-    timeout_read: 60.0
-    retry:
-      enable: true
-      shrink_factor: 0.5
-      min_size: 1
-      single_timeout_retries: 3
-      single_timeout_delay: 2.0
-
-  uniprot:
-    enabled: true
-    base_url: "https://rest.uniprot.org"
-    id_mapping_max_ids: 100000  # Лимит UniProt ID Mapping
-    stream_timeout: 300.0
-    retries: 3
-    batch_size: 500
-
-  iuphar:
-    enabled: true
-    base_url: "https://www.guidetopharmacology.org/services"
-    timeout_sec: 30.0
-    retries: 3
-
-# Кэширование
-cache:
-  enabled: true
-  directory: "data/cache"
-  ttl:
-    chembl: 86400  # 24 часа
-    uniprot: 604800  # 7 дней
-    iuphar: 2592000  # 30 дней
-  release_scoped_invalidation: true  # Инвалидация при смене release
-
-# Детерминизм
-determinism:
-  sort:
-    by: ["target_chembl_id", "accession", "component_id"]
-    ascending: [true, true, true]
-  hash_columns:
-    - target_chembl_id
-    - pref_name
-    - organism
-    - uniprot_id_primary
-
-# Выходные файлы
-output:
-  format: "parquet"
-  compression: "snappy"
-  directory: "data/output/target"
-  write_raw: true  # Сохранение в landing/
-  write_checkpoints: true  # Bronze, silver, gold
-```
+**Переопределения:**
+- CLI: `--set sources.uniprot.batch_size=100` для стресс-тестов (не для продакшн);
+- ENV: `BIOETL_SOURCES__UNIPROT__API_KEY` (если предоставлен приватный канал), `BIOETL_OUTPUT__DIRECTORY=/mnt/out/target`.
+- `determinism.hash_columns` не допускает пустых значений — нарушение ведёт к ошибке загрузки конфигурации.
 
 ### HTTP настройки
 
@@ -484,7 +428,7 @@ determinism:
 # 1) ChEMBL targets + components
 python -m scripts.get_target_data \
   --source chembl \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/input/target_ids.csv \
   --out data/bronze/targets.parquet
 ```
@@ -495,7 +439,7 @@ python -m scripts.get_target_data \
 # 1) ChEMBL extraction
 python -m scripts.get_target_data \
   --source chembl \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/input/target_ids.csv \
   --out data/bronze/targets.parquet \
   --write-raw
@@ -503,14 +447,14 @@ python -m scripts.get_target_data \
 # 2) UniProt enrichment
 python -m scripts.get_target_data \
   --source uniprot \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/bronze/targets.parquet \
   --out data/silver/targets_uniprot.parquet
 
 # 3) IUPHAR classification
 python -m scripts.get_target_data \
   --source iuphar \
-  --config configs/config_target.yaml \
+  --config configs/pipelines/target.yaml \
   --input data/silver/targets_uniprot.parquet \
   --out data/gold/targets_final.parquet
 
