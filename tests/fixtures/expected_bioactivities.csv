@@ -1,3 +1,0 @@
-activity_unit,activity_value,compound_id,retrieved_at,smiles,source,target
-nM,100.0,CHEMBL1,2024-01-01T00:00:00+0000,CCC,chembl,A
-nM,200.0,CHEMBL2,2024-01-02T00:00:00+0000,CCO,chembl,B
