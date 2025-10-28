@@ -4,18 +4,133 @@ pipeline:
   name: target
   entity: target
 
+http:
+  chembl:
+    timeout_sec: 45.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 45.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 12
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-target-pipeline/1.0"
+  uniprot:
+    timeout_sec: 60.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 60.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 90.0
+    rate_limit:
+      max_calls: 3
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-target-pipeline/1.0"
+  uniprot_idmapping:
+    timeout_sec: 60.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 60.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 90.0
+    rate_limit:
+      max_calls: 2
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-target-pipeline/1.0"
+  uniprot_orthologs:
+    timeout_sec: 60.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 60.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 90.0
+    rate_limit:
+      max_calls: 2
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-target-pipeline/1.0"
+  iuphar:
+    timeout_sec: 45.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 45.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 60.0
+    rate_limit:
+      max_calls: 6
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-target-pipeline/1.0"
+
 sources:
   chembl:
     enabled: true
     base_url: "https://www.ebi.ac.uk/chembl/api/data"
     batch_size: 25
     max_url_length: 2000
+    http_profile: chembl
+    stage: primary
+    cache_enabled: true
+    cache_ttl: 43200
+    cache_maxsize: 4096
+    fallback_strategies: ["cache", "network"]
+    circuit_breaker:
+      failure_threshold: 5
+      timeout_sec: 90.0
   uniprot:
-    enabled: false  # UniProt enrichment optional
-    base_url: "https://rest.uniprot.org"
+    enabled: true
+    base_url: "https://rest.uniprot.org/uniprotkb"
+    http_profile: uniprot
+    stage: enrichment
+    rate_limit:
+      max_calls: 3
+      period: 1.0
+    cache_enabled: true
+    cache_ttl: 21600
+  uniprot_idmapping:
+    enabled: true
+    base_url: "https://rest.uniprot.org/idmapping"
+    http_profile: uniprot_idmapping
+    stage: enrichment
+    cache_enabled: true
+    cache_ttl: 21600
+  uniprot_orthologs:
+    enabled: false
+    base_url: "https://rest.uniprot.org/uniprotkb/stream"
+    http_profile: uniprot_orthologs
+    stage: optional
   iuphar:
-    enabled: false  # IUPHAR enrichment optional
+    enabled: true
     base_url: "https://www.guidetopharmacology.org/services"
+    http_profile: iuphar
+    stage: enrichment
+    api_key: "${IUPHAR_API_KEY}"
+    headers:
+      x-api-key: "${IUPHAR_API_KEY}"
+    rate_limit:
+      max_calls: 6
+      period: 1.0
+    cache_enabled: true
+    cache_ttl: 14400
 
 determinism:
   hash_algorithm: "sha256"
@@ -28,7 +143,42 @@ determinism:
 qc:
   enabled: true
   severity_threshold: warning
-  enrichments:
-    uniprot: 80  # Minimum enrichment rate
-    iuphar: 60
+  thresholds:
+    enrichment_success.uniprot:
+      min: 0.8
+      severity: warning
+    enrichment_success.iuphar:
+      min: 0.6
+      severity: warning
+    fallback_usage_rate:
+      max: 0.1
+      severity: info
+  stage_expectations:
+    chembl: true
+    uniprot: true
+    uniprot_idmapping: true
+    iuphar: true
+
+materialization:
+  bronze: "data/bronze/targets.parquet"
+  silver: "data/silver/targets_uniprot.parquet"
+  gold: "data/gold/targets_final.parquet"
+  qc_report: "data/output/targets_qc.csv"
+  checkpoints:
+    chembl: "data/checkpoints/chembl_targets.json"
+    enrichment: "data/checkpoints/targets_enrichment.json"
+
+fallbacks:
+  enabled: true
+  prefer_cache: true
+  allow_partial_materialization: true
+  strategies:
+    - cache
+    - network
+    - offline
+  partial_retry_max: 2
+  use_materialized_outputs: true
+  circuit_breaker:
+    failure_threshold: 5
+    timeout_sec: 90.0
 
