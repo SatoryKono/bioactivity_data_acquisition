@@ -873,7 +873,7 @@ params = {"page": 1, "limit": 100}
 # Ответ: {"items": [...], "page": 1, "total_pages": 10}
 ```
 
-**2. Cursor**
+2. Cursor
 ```python
 params = {"cursor": "abc123", "limit": 100}
 # Ответ: {"items": [...], "next_cursor": "def456", "has_more": true}
@@ -921,6 +921,7 @@ assert response1.items == response2.items  # Идемпотентность
 **⚠️ Breaking Change (v3.0):** Все ChEMBL pipelines унифицированы на batch IDs стратегию.
 
 **Недопустимо:**
+
 ```python
 # Смешивание page и cursor
 params = {"page": 1, "cursor": "abc123"}  # Ошибка! Непредсказуемое поведение
