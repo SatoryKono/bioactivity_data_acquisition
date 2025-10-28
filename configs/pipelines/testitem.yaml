@@ -28,4 +28,8 @@ determinism:
 qc:
   enabled: true
   severity_threshold: warning
+  thresholds:
+    testitem.duplicate_ratio: 0.0
+    testitem.fallback_ratio: 0.2
+    testitem.parent_missing_ratio: 0.0
 

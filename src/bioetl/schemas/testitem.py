@@ -259,4 +259,3 @@ class TestItemSchema(BaseSchema):
         strict = True
         coerce = True
         ordered = True
-        column_order = _column_order

@@ -865,6 +865,69 @@ class TestTestItemPipeline:
         )
         assert flattened["molecule_synonyms"] == expected_json
 
+    def test_validate_schema_reports_invalid_ids(self, testitem_config):
+        """Invalid molecule identifiers should surface schema violations."""
+
+        pipeline = TestItemPipeline(testitem_config, run_id="schema-invalid")
+        df = _build_testitem_frame(["INVALID"])
+
+        with pytest.raises(ValueError) as excinfo:
+            pipeline.validate(df)
+
+        assert "molecule_chembl_id" in str(excinfo.value)
+        assert any(issue.get("issue_type") == "schema" for issue in pipeline.validation_issues)
+
+    def test_validate_schema_reports_missing_required_fields(self, testitem_config):
+        """Missing required fields should be reported with schema context."""
+
+        pipeline = TestItemPipeline(testitem_config, run_id="schema-missing")
+        df = _build_testitem_frame(["CHEMBL123"])
+        df = df.drop(columns=["hash_row"])
+
+        with pytest.raises(ValueError) as excinfo:
+            pipeline.validate(df)
+
+        assert "hash_row" in str(excinfo.value)
+        assert any(issue.get("issue_type") == "schema" for issue in pipeline.validation_issues)
+
+    def test_validate_qc_threshold_breaches_fail_run(self, testitem_config):
+        """QC threshold breaches should stop the pipeline."""
+
+        config = testitem_config.model_copy(deep=True)
+        config.qc.thresholds["testitem.duplicate_ratio"] = 0.0
+        pipeline = TestItemPipeline(config, run_id="qc-breach")
+
+        df = _build_testitem_frame(["CHEMBL1", "CHEMBL1"])
+
+        with pytest.raises(ValueError) as excinfo:
+            pipeline.validate(df)
+
+        assert "testitem.duplicate_ratio" in str(excinfo.value)
+        assert any(
+            issue.get("metric") == "testitem.duplicate_ratio"
+            for issue in pipeline.validation_issues
+        )
+
+    def test_validate_parent_referential_integrity(self, testitem_config):
+        """Parent-child referential integrity violations must fail validation."""
+
+        config = testitem_config.model_copy(deep=True)
+        config.qc.thresholds["testitem.parent_missing_ratio"] = 0.0
+        pipeline = TestItemPipeline(config, run_id="parent-breach")
+
+        df = _build_testitem_frame(
+            ["CHEMBL1", "CHEMBL2"], parent_ids=[None, "CHEMBL999"]
+        )
+
+        with pytest.raises(ValueError) as excinfo:
+            pipeline.validate(df)
+
+        assert "parent" in str(excinfo.value)
+        assert any(
+            issue.get("issue_type") == "referential_integrity"
+            for issue in pipeline.validation_issues
+        )
+
 
 class TestTargetPipeline:
     """Tests for TargetPipeline."""
@@ -1069,6 +1132,8 @@ class TestDocumentPipeline:
         assert row["error_type"] == "E_TIMEOUT"
         assert pd.notna(row["error_message"])
         assert pd.notna(row["attempted_at"])
+
+
 def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[str, Any]:
     """Construct a minimal row conforming to AssaySchema for tests."""
 
@@ -1095,4 +1160,101 @@ def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[s
         }
     )
     return row
+
+
+def _build_testitem_frame(
+    molecule_ids: list[str],
+    parent_ids: list[str | None] | None = None,
+    fallback_codes: list[str | None] | None = None,
+) -> pd.DataFrame:
+    """Construct a DataFrame that conforms to TestItemSchema."""
+
+    schema = TestItemSchema.to_schema()
+    columns = list(schema.columns.keys())
+    rows: list[dict[str, Any]] = []
+
+    for idx, molecule_id in enumerate(molecule_ids):
+        row: dict[str, Any] = {}
+        for name, column in schema.columns.items():
+            if name == "molecule_chembl_id":
+                value: Any = molecule_id
+            elif name == "parent_chembl_id":
+                value = parent_ids[idx] if parent_ids else None
+            elif name == "hash_business_key":
+                value = f"{idx + 1:064x}"
+            elif name == "hash_row":
+                value = f"{idx + 101:064x}"
+            elif name == "index":
+                value = idx
+            elif name == "pipeline_version":
+                value = "1.0.0"
+            elif name == "source_system":
+                value = "chembl"
+            elif name == "chembl_release":
+                value = "ChEMBL_TEST"
+            elif name == "extracted_at":
+                value = "2024-01-01T00:00:00+00:00"
+            elif name == "fallback_error_code":
+                value = fallback_codes[idx] if fallback_codes else None
+            elif name == "fallback_http_status":
+                value = 500
+            elif name == "fallback_retry_after_sec":
+                value = 0.0
+            elif name == "fallback_attempt":
+                value = 1
+            elif name in {"pubchem_inchi_key", "pubchem_lookup_inchikey", "standard_inchi_key"}:
+                value = "AAAAAAAAAAAAAA-BBBBBBBBBB-C"
+            elif name == "standard_inchi":
+                value = "InChI=1S/CH4/h1H4"
+            elif name == "standardized_smiles":
+                value = "C"
+            elif name in {"pubchem_enriched_at", "pubchem_cid_source"}:
+                value = "chembl"
+            elif name == "pubchem_cid":
+                value = 1
+            elif name in {
+                "molregno",
+                "parent_molregno",
+                "availability_type",
+                "max_phase",
+                "hba",
+                "hbd",
+                "rtb",
+                "num_ro5_violations",
+                "num_lipinski_ro5_violations",
+                "lipinski_ro5_violations",
+                "pubchem_enrichment_attempt",
+                "usan_year",
+                "withdrawn_year",
+            }:
+                value = 1
+            elif name in {
+                "mw_freebase",
+                "psa",
+                "alogp",
+                "acd_most_apka",
+                "acd_most_bpka",
+                "acd_logp",
+                "acd_logd",
+                "full_mwt",
+                "mw_monoisotopic",
+                "qed_weighted",
+                "pubchem_molecular_weight",
+            }:
+                value = 1.0
+            elif name in {"ro3_pass", "lipinski_ro5_pass", "pubchem_fallback_used"}:
+                value = False
+            elif column.dtype in {"boolean", "bool"}:
+                value = False
+            elif str(column.dtype).startswith("int"):
+                value = 1
+            elif str(column.dtype).startswith("float"):
+                value = 1.0
+            else:
+                value = "value" if not column.nullable else None
+            row[name] = value
+        rows.append(row)
+
+    df = pd.DataFrame(rows, columns=columns).convert_dtypes()
+    return df
 
