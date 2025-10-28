@@ -165,7 +165,7 @@ class FormatHandler:
         path: Path, 
         *,
         encoding: str = "utf-8",
-        float_format: str = "%.3f",
+        float_format: str = "%.6f",
         column_order: list[str] | None = None
     ):
         """Детерминированная запись CSV."""
@@ -349,6 +349,7 @@ class UnifiedOutputWriter:
     def __init__(
         self,
         *,
+        run_id: str,
         schema: pa.DataFrameModel | None = None,
         column_order: list[str] | None = None,
         key_columns: list[str] | None = None,
@@ -362,11 +363,11 @@ class UnifiedOutputWriter:
         self.format = format
         self.mode = mode
         self.output_dir = output_dir
-        
+
         self.quality_generator = QualityReportGenerator()
         self.correlation_generator = CorrelationReportGenerator()
         self.format_handler = FormatHandler()
-        self.atomic_writer = AtomicWriter()
+        self.atomic_writer = AtomicWriter(run_id)
         self.manifest_writer = ManifestWriter()
     
     def write(
@@ -431,6 +432,7 @@ from unified_output import UnifiedOutputWriter
 from schemas import DocumentSchema
 
 writer = UnifiedOutputWriter(
+    run_id=generate_run_id(),
     schema=DocumentSchema,
     column_order=["document_chembl_id", "title", "doi", "journal"],
     key_columns=["document_chembl_id"],
@@ -449,6 +451,7 @@ print(f"Correlation: {artifacts.correlation_report}")
 
 ```python
 writer = UnifiedOutputWriter(
+    run_id=generate_run_id(),
     schema=DocumentSchema,
     column_order=["document_chembl_id", "title", "doi", "journal"],
     key_columns=["document_chembl_id"],
