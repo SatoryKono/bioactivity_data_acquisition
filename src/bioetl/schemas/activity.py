@@ -34,6 +34,9 @@ class ActivitySchema(BaseSchema):
         description="FK на документ",
     )
 
+    # Derived keys
+    compound_key: Series[str] = pa.Field(nullable=True, description="Бизнес-ключ активности")
+
     # Published activity data (original from source)
     published_type: Series[str] = pa.Field(nullable=True, description="Оригинальный тип опубликованных данных")
     published_relation: Series[str] = pa.Field(nullable=True, description="Соотношение для published_value")
@@ -51,7 +54,7 @@ class ActivitySchema(BaseSchema):
     # Boundaries and censorship
     lower_bound: Series[float] = pa.Field(nullable=True, description="Нижняя граница стандартизированного значения")
     upper_bound: Series[float] = pa.Field(nullable=True, description="Верхняя граница стандартизированного значения")
-    is_censored: Series[bool] = pa.Field(nullable=True, description="Флаг цензурирования данных")
+    is_censored: Series[bool] = pa.Field(nullable=False, description="Флаг цензурирования данных")
 
     # Comments
     activity_comment: Series[str] = pa.Field(nullable=True, description="Комментарий к активности")
@@ -69,14 +72,25 @@ class ActivitySchema(BaseSchema):
     src_id: Series[int] = pa.Field(nullable=True, description="ID источника данных")
     action_type: Series[str] = pa.Field(nullable=True, description="Тип действия лиганда")
 
-    # Activity properties (JSON string)
-    activity_properties_json: Series[str] = pa.Field(nullable=True, description="Свойства активности в формате JSON")
+    canonical_smiles: Series[str] = pa.Field(nullable=True, description="Канонические SMILES")
+    target_organism: Series[str] = pa.Field(nullable=True, description="Организм таргета")
+    target_tax_id: Series[int] = pa.Field(nullable=True, ge=1, description="Taxonomy ID таргета")
+
+    # Activity properties
+    activity_properties: Series[str] = pa.Field(nullable=True, description="Каноническое представление свойств активности")
 
     # Ligand efficiency
+    ligand_efficiency: Series[str] = pa.Field(nullable=True, description="Каноническое представление ligand_efficiency")
     bei: Series[float] = pa.Field(nullable=True, description="Binding Efficiency Index")
     sei: Series[float] = pa.Field(nullable=True, description="Surface Efficiency Index")
     le: Series[float] = pa.Field(nullable=True, description="Ligand Efficiency")
     lle: Series[float] = pa.Field(nullable=True, description="Lipophilic Ligand Efficiency")
+
+    # QC flags
+    is_citation: Series[bool] = pa.Field(nullable=False, description="Флаг наличия цитаты")
+    high_citation_rate: Series[bool] = pa.Field(nullable=False, description="Флаг высокой цитируемости")
+    exact_data_citation: Series[bool] = pa.Field(nullable=False, description="Точная цитата данных")
+    rounded_data_citation: Series[bool] = pa.Field(nullable=False, description="Округленная цитата данных")
 
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
@@ -92,6 +106,7 @@ class ActivitySchema(BaseSchema):
             "assay_chembl_id",
             "target_chembl_id",
             "document_chembl_id",
+            "compound_key",
             "published_type",
             "published_relation",
             "published_value",
@@ -110,16 +125,24 @@ class ActivitySchema(BaseSchema):
             "bao_endpoint",
             "bao_format",
             "bao_label",
+            "canonical_smiles",
+            "target_organism",
+            "target_tax_id",
             "potential_duplicate",
             "uo_units",
             "qudt_units",
             "src_id",
             "action_type",
-            "activity_properties_json",
+            "activity_properties",
+            "ligand_efficiency",
             "bei",
             "sei",
             "le",
             "lle",
+            "is_citation",
+            "high_citation_rate",
+            "exact_data_citation",
+            "rounded_data_citation",
             "pipeline_version",
             "source_system",
             "chembl_release",
@@ -127,5 +150,43 @@ class ActivitySchema(BaseSchema):
             "hash_business_key",
             "hash_row",
             "index",
+        ]
+
+        string_columns = [
+            "molecule_chembl_id",
+            "assay_chembl_id",
+            "target_chembl_id",
+            "document_chembl_id",
+            "compound_key",
+            "published_type",
+            "published_relation",
+            "published_units",
+            "standard_type",
+            "standard_relation",
+            "standard_units",
+            "activity_comment",
+            "data_validity_comment",
+            "bao_endpoint",
+            "bao_format",
+            "bao_label",
+            "canonical_smiles",
+            "target_organism",
+            "uo_units",
+            "qudt_units",
+            "action_type",
+            "activity_properties",
+            "ligand_efficiency",
+            "pipeline_version",
+            "source_system",
+            "chembl_release",
+            "extracted_at",
+        ]
+
+        bool_columns = [
+            "is_censored",
+            "is_citation",
+            "high_citation_rate",
+            "exact_data_citation",
+            "rounded_data_citation",
         ]
 
