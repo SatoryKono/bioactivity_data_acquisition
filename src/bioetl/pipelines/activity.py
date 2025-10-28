@@ -735,20 +735,64 @@ class ActivityPipeline(PipelineBase):
 
         critical_columns = ["standard_value", "standard_type", "molecule_chembl_id"]
         null_rates: dict[str, float] = {}
-        for column in critical_columns:
-            if column in df.columns and len(df) > 0:
-                null_rates[column] = float(df[column].isna().mean())
-            else:
-                null_rates[column] = 1.0 if column not in df.columns else 0.0
+        column_thresholds: dict[str, float] = {}
 
-        null_rate_threshold = float(thresholds.get("null_rate_critical", 1.0))
+        def _coerce_threshold(value: Any | None, default: float) -> float:
+            """Return a float threshold, preserving explicit zero values."""
+
+            if value is None:
+                return float(default)
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return float(default)
+
+        null_rate_threshold = _coerce_threshold(thresholds.get("null_rate_critical"), 1.0)
+        null_threshold_default = _coerce_threshold(
+            thresholds.get("activity.null_fraction"), null_rate_threshold
+        )
+
+        for column in critical_columns:
+            column_present = column in df.columns
+            if column_present and len(df) > 0:
+                null_fraction = float(df[column].isna().mean())
+                null_count = int(df[column].isna().sum())
+            elif column_present:
+                null_fraction = 0.0
+                null_count = 0
+            else:
+                null_fraction = 1.0
+                null_count = len(df)
+
+            column_threshold = _coerce_threshold(
+                thresholds.get(f"activity.null_fraction.{column}"), null_threshold_default
+            )
+
+            null_rates[column] = null_fraction
+            column_thresholds[column] = column_threshold
+
+            metrics[f"null_fraction.{column}"] = {
+                "value": null_fraction,
+                "threshold": column_threshold,
+                "passed": null_fraction <= column_threshold,
+                "severity": "error" if null_fraction > column_threshold else "info",
+                "details": {
+                    "column": column,
+                    "column_present": column_present,
+                    "null_count": null_count,
+                },
+            }
+
         max_null_rate = max(null_rates.values()) if null_rates else 0.0
         metrics["null_rate"] = {
             "value": max_null_rate,
             "threshold": null_rate_threshold,
             "passed": max_null_rate <= null_rate_threshold,
             "severity": "error" if max_null_rate > null_rate_threshold else "info",
-            "details": {"column_null_rates": null_rates},
+            "details": {
+                "column_null_rates": null_rates,
+                "column_thresholds": column_thresholds,
+            },
         }
 
         invalid_units_threshold = float(thresholds.get("invalid_units", 0))
