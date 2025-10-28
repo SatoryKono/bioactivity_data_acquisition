@@ -1,11 +1,13 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
 import requests
+from pandera.errors import SchemaErrors
 
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -850,22 +852,269 @@ class TestItemPipeline(PipelineBase):
             return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate molecule data against schema."""
+        """Validate molecule data against schema and QC policies."""
+        self.validation_issues.clear()
+
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        try:
-            # Check for duplicates
-            duplicate_count = df["molecule_chembl_id"].duplicated().sum() if "molecule_chembl_id" in df.columns else 0
-            if duplicate_count > 0:
-                logger.warning("duplicates_found", count=duplicate_count)
-                # Remove duplicates, keeping first occurrence
-                df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
+        qc_metrics = self._calculate_qc_metrics(df)
+        failing_metrics: list[str] = []
 
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
+        for metric_name, metric in qc_metrics.items():
+            log_fn = logger.error if not metric["passed"] else logger.info
+            log_fn(
+                "qc_metric",
+                metric=metric_name,
+                value=metric["value"],
+                threshold=metric["threshold"],
+                severity=metric["severity"],
+                count=metric.get("count"),
+                details=metric.get("details"),
+            )
+
+            issue: dict[str, Any] = {
+                "metric": metric_name,
+                "issue_type": "qc_metric",
+                "severity": metric["severity"],
+                "value": metric["value"],
+                "threshold": metric["threshold"],
+            }
+            if "count" in metric:
+                issue["count"] = metric["count"]
+            if metric.get("details") is not None:
+                issue["details"] = metric["details"]
+            self.record_validation_issue(issue)
+
+            if not metric["passed"] and self._should_fail(metric["severity"]):
+                failing_metrics.append(metric_name)
+
+        if failing_metrics:
+            raise ValueError(
+                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics))
+            )
+
+        duplicates_metric = qc_metrics.get("testitem.duplicate_ratio")
+        if (
+            duplicates_metric
+            and duplicates_metric.get("count")
+            and "molecule_chembl_id" in df.columns
+        ):
+            df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
+
+        try:
+            validated_df = TestItemSchema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            schema_issues = self._summarize_schema_errors(exc.failure_cases)
+            for issue in schema_issues:
+                self.record_validation_issue(issue)
+                logger.error(
+                    "schema_validation_error",
+                    column=issue.get("column"),
+                    check=issue.get("check"),
+                    count=issue.get("count"),
+                    severity=issue.get("severity"),
+                )
+
+            summary = "; ".join(
+                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+                for issue in schema_issues
+            )
+            raise ValueError(f"Schema validation failed: {summary}") from exc
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("schema_validation_unexpected_error", error=str(exc))
             raise
+
+        self._validate_identifier_formats(validated_df)
+        self._check_referential_integrity(validated_df)
+
+        logger.info(
+            "validation_completed",
+            rows=len(validated_df),
+            issues=len(self.validation_issues),
+        )
+        return validated_df
+
+    def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+        """Compute QC metrics used to gate validation."""
+
+        thresholds = self.config.qc.thresholds or {}
+        total_rows = len(df)
+        metrics: dict[str, dict[str, Any]] = {}
+
+        duplicate_count = 0
+        duplicate_ratio = 0.0
+        duplicate_values: list[str] = []
+        if total_rows > 0 and "molecule_chembl_id" in df.columns:
+            duplicate_count = int(df["molecule_chembl_id"].duplicated().sum())
+            if duplicate_count:
+                duplicate_values = (
+                    df.loc[
+                        df["molecule_chembl_id"].duplicated(keep=False),
+                        "molecule_chembl_id",
+                    ]
+                    .astype(str)
+                    .tolist()
+                )
+                duplicate_ratio = duplicate_count / total_rows
+
+        duplicate_threshold = float(thresholds.get("testitem.duplicate_ratio", 0.0))
+        duplicate_severity = "error" if duplicate_ratio > duplicate_threshold else "info"
+        metrics["testitem.duplicate_ratio"] = {
+            "count": duplicate_count,
+            "value": duplicate_ratio,
+            "threshold": duplicate_threshold,
+            "passed": duplicate_ratio <= duplicate_threshold,
+            "severity": duplicate_severity,
+            "details": {"duplicate_values": duplicate_values},
+        }
+
+        fallback_count = 0
+        fallback_ratio = 0.0
+        if total_rows > 0 and "fallback_error_code" in df.columns:
+            fallback_count = int(df["fallback_error_code"].notna().sum())
+            fallback_ratio = fallback_count / total_rows
+
+        fallback_threshold = float(thresholds.get("testitem.fallback_ratio", 1.0))
+        fallback_severity = "warning" if fallback_ratio > fallback_threshold else "info"
+        metrics["testitem.fallback_ratio"] = {
+            "count": fallback_count,
+            "value": fallback_ratio,
+            "threshold": fallback_threshold,
+            "passed": fallback_ratio <= fallback_threshold,
+            "severity": fallback_severity,
+            "details": None if fallback_count == 0 else {"fallback_count": fallback_count},
+        }
+
+        return metrics
+
+    def _summarize_schema_errors(self, failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
+        """Convert Pandera failure cases to structured validation issues."""
+
+        issues: list[dict[str, Any]] = []
+        if failure_cases.empty:
+            return issues
+
+        for column, group in failure_cases.groupby("column", dropna=False):
+            column_name = (
+                str(column)
+                if column is not None and not (isinstance(column, float) and pd.isna(column))
+                else "<dataframe>"
+            )
+            checks = sorted({str(check) for check in group["check"].dropna().unique()})
+            details = ", ".join(
+                group["failure_case"].dropna().astype(str).unique().tolist()[:5]
+            )
+            issues.append(
+                {
+                    "issue_type": "schema",
+                    "severity": "error",
+                    "column": column_name,
+                    "check": ", ".join(checks) if checks else "<unspecified>",
+                    "count": int(group.shape[0]),
+                    "details": details,
+                }
+            )
+
+        return issues
+
+    def _check_referential_integrity(self, df: pd.DataFrame) -> None:
+        """Ensure parent_chembl_id values resolve to known molecules."""
+
+        required_columns = {"molecule_chembl_id", "parent_chembl_id"}
+        if df.empty or not required_columns.issubset(df.columns):
+            logger.debug("referential_check_skipped", reason="columns_absent")
+            return
+
+        parent_series = (
+            df["parent_chembl_id"].dropna().astype("string").str.strip().str.upper()
+        )
+        if parent_series.empty:
+            logger.info("referential_integrity_passed", relation="testitem->parent", checked=0)
+            return
+
+        molecule_ids = (
+            df["molecule_chembl_id"].astype("string").str.strip().str.upper()
+        )
+        known_ids = set(molecule_ids.tolist())
+        missing_mask = ~parent_series.isin(known_ids)
+        missing_count = int(missing_mask.sum())
+        total_refs = int(parent_series.size)
+
+        if missing_count == 0:
+            logger.info(
+                "referential_integrity_passed",
+                relation="testitem->parent",
+                checked=total_refs,
+            )
+            return
+
+        missing_ratio = missing_count / total_refs if total_refs else 0.0
+        threshold = float(self.config.qc.thresholds.get("testitem.parent_missing_ratio", 0.0))
+        severity = "error" if missing_ratio > threshold else "warning"
+        sample_parents = parent_series[missing_mask].unique().tolist()[:5]
+
+        issue = {
+            "metric": "testitem.parent_missing_ratio",
+            "issue_type": "referential_integrity",
+            "severity": severity,
+            "value": missing_ratio,
+            "count": missing_count,
+            "threshold": threshold,
+            "details": {"sample_parent_ids": sample_parents},
+        }
+        self.record_validation_issue(issue)
+
+        should_fail = self._should_fail(severity)
+        log_fn = logger.error if should_fail else logger.warning
+        log_fn(
+            "referential_integrity_failure",
+            relation="testitem->parent",
+            missing_count=missing_count,
+            missing_ratio=missing_ratio,
+            threshold=threshold,
+            severity=severity,
+        )
+
+        if should_fail:
+            raise ValueError(
+                "Referential integrity violation: parent_chembl_id references missing molecules"
+            )
+
+    def _validate_identifier_formats(self, df: pd.DataFrame) -> None:
+        """Enforce identifier format constraints not handled by Pandera."""
+
+        if "molecule_chembl_id" not in df.columns:
+            return
+
+        pattern = re.compile(r"^CHEMBL\d+$")
+        chembl_ids = df["molecule_chembl_id"].astype("string")
+        invalid_mask = chembl_ids.isna() | ~chembl_ids.str.match(pattern)
+        invalid_count = int(invalid_mask.sum())
+
+        if invalid_count == 0:
+            return
+
+        invalid_values = chembl_ids[invalid_mask].dropna().unique().tolist()[:5]
+        issue = {
+            "issue_type": "schema",
+            "severity": "error",
+            "column": "molecule_chembl_id",
+            "check": "regex:^CHEMBL\\d+$",
+            "count": invalid_count,
+            "details": ", ".join(invalid_values),
+        }
+        self.record_validation_issue(issue)
+
+        logger.error(
+            "identifier_format_error",
+            column="molecule_chembl_id",
+            invalid_count=invalid_count,
+            sample_values=invalid_values,
+        )
+
+        raise ValueError(
+            "Schema validation failed: molecule_chembl_id does not match CHEMBL pattern"
+        )
 
