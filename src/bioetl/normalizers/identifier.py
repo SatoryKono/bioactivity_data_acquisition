@@ -13,7 +13,7 @@ class IdentifierNormalizer(BaseNormalizer):
         "doi": r"^10\.\d{4,}/.+$",
         "pmid": r"^\d+$",
         "chembl_id": r"^CHEMBL\d+$",
-        "uniprot": r"^[A-Z0-9]{5}[0-9](?:-[0-9]+)?$",
+        "uniprot": r"^[A-Z][0-9][A-Z0-9]{3}[0-9](?:[A-Z0-9]{4})?(?:-[0-9]+)?$",
         "pubchem_cid": r"^\d+$",
         "inchi_key": r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$",
         "orcid": r"^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$",
