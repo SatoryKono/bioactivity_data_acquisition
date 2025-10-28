@@ -1,7 +1,12 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pandas as pd
 
@@ -12,12 +17,276 @@ from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
+from bioetl.schemas.testitem import TESTITEM_COLUMN_ORDER
 from bioetl.schemas.registry import schema_registry
 
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
 schema_registry.register("testitem", "1.0.0", TestItemSchema)
+
+
+_MOLECULE_METADATA_COLUMNS = {
+    "index",
+    "pipeline_version",
+    "source_system",
+    "chembl_release",
+    "extracted_at",
+    "hash_row",
+    "hash_business_key",
+}
+
+
+def _canonical_json(value: Any) -> str | None:
+    """Serialize value to canonical JSON or return ``None`` for empty payloads."""
+
+    if value in (None, "", [], {}):
+        return None
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _normalize_pref_name(name: str | None) -> str | None:
+    """Create deterministic search key for preferred molecule name."""
+
+    if not isinstance(name, str):
+        return None
+
+    normalized = re.sub(r"\s+", " ", name.strip()).lower()
+    normalized = re.sub(r"[^0-9a-z]+", "_", normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    return normalized or None
+
+
+def _flatten_molecule_hierarchy(molecule: dict[str, Any]) -> dict[str, Any]:
+    """Extract parent molecule identifiers and canonical JSON hierarchy."""
+
+    hierarchy = molecule.get("molecule_hierarchy")
+    if not isinstance(hierarchy, dict):
+        return {
+            "parent_chembl_id": None,
+            "parent_molregno": None,
+            "molecule_hierarchy": None,
+        }
+
+    return {
+        "parent_chembl_id": hierarchy.get("parent_chembl_id"),
+        "parent_molregno": hierarchy.get("parent_molregno"),
+        "molecule_hierarchy": _canonical_json(hierarchy),
+    }
+
+
+_PROPERTY_FIELDS: tuple[str, ...] = (
+    "mw_freebase",
+    "alogp",
+    "hba",
+    "hbd",
+    "psa",
+    "rtb",
+    "ro3_pass",
+    "num_ro5_violations",
+    "acd_most_apka",
+    "acd_most_bpka",
+    "acd_logp",
+    "acd_logd",
+    "molecular_species",
+    "full_mwt",
+    "aromatic_rings",
+    "heavy_atoms",
+    "qed_weighted",
+    "mw_monoisotopic",
+    "full_molformula",
+    "hba_lipinski",
+    "hbd_lipinski",
+    "num_lipinski_ro5_violations",
+)
+
+
+def _flatten_molecule_properties(molecule: dict[str, Any]) -> dict[str, Any]:
+    """Extract physico-chemical properties with canonical JSON serialization."""
+
+    props = molecule.get("molecule_properties")
+    flattened: dict[str, Any] = {field: None for field in _PROPERTY_FIELDS}
+
+    if isinstance(props, dict):
+        for field in _PROPERTY_FIELDS:
+            flattened[field] = props.get(field)
+        flattened["molecule_properties"] = _canonical_json(props)
+    else:
+        flattened["molecule_properties"] = None
+
+    return flattened
+
+
+_STRUCTURE_FIELDS = {
+    "canonical_smiles": "canonical_smiles",
+    "standard_inchi": "standard_inchi",
+    "standard_inchi_key": "standard_inchi_key",
+    "standardized_smiles": "standardized_smiles",
+    "standardized_inchi": "standardized_inchi",
+    "standardized_inchi_key": "standardized_inchi_key",
+}
+
+
+def _flatten_molecule_structures(molecule: dict[str, Any]) -> dict[str, Any]:
+    """Extract structures and canonical JSON representation."""
+
+    structures = molecule.get("molecule_structures")
+    flattened = {field: None for field in _STRUCTURE_FIELDS}
+
+    if isinstance(structures, dict):
+        for field, key in _STRUCTURE_FIELDS.items():
+            flattened[field] = structures.get(key)
+        flattened["molecule_structures"] = _canonical_json(structures)
+    else:
+        flattened["molecule_structures"] = None
+
+    return flattened
+
+
+def _sorted_synonym_entries(synonyms: Iterable[Any]) -> list[Any]:
+    """Return synonyms sorted deterministically by synonym text and source."""
+
+    sortable_entries: list[tuple[tuple[str, str], Any]] = []
+    for entry in synonyms:
+        if isinstance(entry, dict):
+            synonym = str(entry.get("molecule_synonym", ""))
+            source = str(entry.get("synonyms_source", ""))
+            sanitized = {key: entry.get(key) for key in sorted(entry.keys())}
+            sortable_entries.append(((synonym, source), sanitized))
+        else:
+            sortable_entries.append(((str(entry), ""), entry))
+
+    sortable_entries.sort(key=lambda item: item[0])
+    return [entry for _, entry in sortable_entries]
+
+
+def _flatten_molecule_synonyms(molecule: dict[str, Any]) -> dict[str, Any]:
+    """Extract synonyms with canonical JSON string and aggregated names."""
+
+    synonyms = molecule.get("molecule_synonyms")
+    if not isinstance(synonyms, Iterable) or isinstance(synonyms, (str, bytes)):
+        return {"all_names": None, "molecule_synonyms": None}
+
+    sorted_entries = _sorted_synonym_entries(synonyms)
+
+    synonym_names: list[str] = []
+    for entry in sorted_entries:
+        if isinstance(entry, dict) and "molecule_synonym" in entry:
+            synonym_names.append(str(entry["molecule_synonym"]))
+        elif isinstance(entry, dict) and "value" in entry:
+            synonym_names.append(str(entry["value"]))
+
+    aggregated = "; ".join(synonym_names) if synonym_names else None
+
+    return {
+        "all_names": aggregated,
+        "molecule_synonyms": _canonical_json(sorted_entries),
+    }
+
+
+def _flatten_nested_json_fields(molecule: dict[str, Any], field_names: Iterable[str]) -> dict[str, Any]:
+    """Serialize nested JSON structures for the given field names."""
+
+    return {field: _canonical_json(molecule.get(field)) for field in field_names}
+
+
+_TOP_LEVEL_FIELDS: tuple[str, ...] = (
+    "molregno",
+    "pref_name",
+    "max_phase",
+    "therapeutic_flag",
+    "dosed_ingredient",
+    "first_approval",
+    "structure_type",
+    "molecule_type",
+    "oral",
+    "parenteral",
+    "topical",
+    "black_box_warning",
+    "natural_product",
+    "first_in_class",
+    "chirality",
+    "prodrug",
+    "inorganic_flag",
+    "polymer_flag",
+    "usan_year",
+    "availability_type",
+    "usan_stem",
+    "usan_substem",
+    "usan_stem_definition",
+    "indication_class",
+    "withdrawn_flag",
+    "withdrawn_year",
+    "withdrawn_country",
+    "withdrawn_reason",
+    "mechanism_of_action",
+    "direct_interaction",
+    "molecular_mechanism",
+    "drug_chembl_id",
+    "drug_name",
+    "drug_type",
+    "drug_substance_flag",
+    "drug_indication_flag",
+    "drug_antibacterial_flag",
+    "drug_antiviral_flag",
+    "drug_antifungal_flag",
+    "drug_antiparasitic_flag",
+    "drug_antineoplastic_flag",
+    "drug_immunosuppressant_flag",
+    "drug_antiinflammatory_flag",
+)
+
+
+_NESTED_JSON_FIELDS: tuple[str, ...] = (
+    "atc_classifications",
+    "biotherapeutic",
+    "chemical_probe",
+    "cross_references",
+    "helm_notation",
+    "orphan",
+    "veterinary",
+    "chirality_chembl",
+    "molecule_type_chembl",
+)
+
+
+def _initialize_record_defaults() -> dict[str, Any]:
+    """Return default record with ``None`` for all expected columns."""
+
+    defaults: dict[str, Any] = {}
+    for column in TESTITEM_COLUMN_ORDER:
+        if column in _MOLECULE_METADATA_COLUMNS or column.startswith("pubchem_"):
+            continue
+        defaults[column] = None
+    return defaults
+
+
+def _normalize_molecule_record(molecule: dict[str, Any]) -> dict[str, Any]:
+    """Normalize raw ChEMBL molecule into flat record."""
+
+    record = _initialize_record_defaults()
+    record["molecule_chembl_id"] = molecule.get("molecule_chembl_id")
+    record["pref_name"] = molecule.get("pref_name")
+    record["pref_name_key"] = _normalize_pref_name(molecule.get("pref_name"))
+
+    for field in _TOP_LEVEL_FIELDS:
+        if field in molecule:
+            record[field] = molecule.get(field)
+
+    record.update(_flatten_molecule_hierarchy(molecule))
+    record.update(_flatten_molecule_properties(molecule))
+    record.update(_flatten_molecule_structures(molecule))
+    record.update(_flatten_molecule_synonyms(molecule))
+    record.update(_flatten_nested_json_fields(molecule, _NESTED_JSON_FIELDS))
+
+    # Ensure parent molregno type alignment if provided as string
+    if record.get("parent_molregno") is not None:
+        try:
+            record["parent_molregno"] = int(record["parent_molregno"])
+        except (TypeError, ValueError):
+            record["parent_molregno"] = record.get("parent_molregno")
+
+    return record
 
 
 class TestItemPipeline(PipelineBase):
@@ -63,15 +332,7 @@ class TestItemPipeline(PipelineBase):
         if not input_file.exists():
             logger.warning("input_file_not_found", path=input_file)
             # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=[
-                "molecule_chembl_id", "molregno", "parent_chembl_id",
-                "canonical_smiles", "standard_inchi", "standard_inchi_key",
-                "molecular_weight", "heavy_atoms", "aromatic_rings",
-                "rotatable_bonds", "hba", "hbd",
-                "lipinski_ro5_violations", "lipinski_ro5_pass",
-                "all_names", "molecule_synonyms",
-                "atc_classifications", "pubchem_cid", "pubchem_synonyms",
-            ])
+            return pd.DataFrame(columns=TESTITEM_COLUMN_ORDER)
 
         df = pd.read_csv(input_file)  # Read all records
 
@@ -82,156 +343,71 @@ class TestItemPipeline(PipelineBase):
         return df
 
     def _fetch_molecule_data(self, molecule_ids: list[str]) -> pd.DataFrame:
-        """Fetch molecule data from ChEMBL API."""
-        results = []
+        """Fetch molecule data from ChEMBL API and normalize records."""
+
+        records: list[dict[str, Any]] = []
 
         for i in range(0, len(molecule_ids), self.batch_size):
-            batch_ids = molecule_ids[i:i + self.batch_size]
+            batch_ids = molecule_ids[i : i + self.batch_size]
             logger.info("fetching_batch", batch=i // self.batch_size + 1, size=len(batch_ids))
 
             try:
                 url = f"{self.api_client.config.base_url}/molecule.json"
                 params = {
                     "molecule_chembl_id__in": ",".join(batch_ids),
-                    "limit": len(batch_ids)  # Запрашиваем столько записей, сколько ID в батче
+                    "limit": len(batch_ids),
                 }
-
                 response = self.api_client.request_json(url, params=params)
                 molecules = response.get("molecules", [])
 
-                # Проверка: все ли ID вернулись
-                returned_ids = {m["molecule_chembl_id"] for m in molecules}
-                missing_ids = set(batch_ids) - returned_ids
+                returned_ids = {m.get("molecule_chembl_id") for m in molecules if isinstance(m, dict)}
+                missing_ids = [mid for mid in batch_ids if mid not in returned_ids]
 
                 if missing_ids:
                     logger.warning(
                         "incomplete_batch_response",
                         requested=len(batch_ids),
                         returned=len(molecules),
-                        missing=list(missing_ids)
+                        missing=missing_ids,
                     )
 
-                    # Fallback: повторный запрос для пропущенных ID с увеличенным лимитом
-                    for missing_id in missing_ids:
-                        logger.info("retry_missing_molecule", molecule_chembl_id=missing_id)
-                        try:
-                            retry_url = f"{self.api_client.config.base_url}/molecule/{missing_id}.json"
-                            retry_response = self.api_client.request_json(retry_url)
-                            retry_mol = retry_response if isinstance(retry_response, dict) and "molecule_chembl_id" in retry_response else None
-
-                            if retry_mol:
-                                logger.info("retry_successful", molecule_chembl_id=missing_id)
-                                # Парсим данные из retry_mol так же, как из molecules
-                                mol_data = {
-                                    "molecule_chembl_id": retry_mol.get("molecule_chembl_id"),
-                                    "molregno": retry_mol.get("molecule_chembl_id"),
-                                    "pref_name": retry_mol.get("pref_name"),
-                                    "parent_chembl_id": retry_mol.get("molecule_hierarchy", {}).get("parent_chembl_id") if isinstance(retry_mol.get("molecule_hierarchy"), dict) else None,
-                                    "max_phase": retry_mol.get("max_phase"),
-                                    "structure_type": retry_mol.get("structure_type"),
-                                    "molecule_type": retry_mol.get("molecule_type"),
-                                }
-
-                                # molecule_properties
-                                props = retry_mol.get("molecule_properties", {})
-                                if isinstance(props, dict):
-                                    mol_data.update({
-                                        "mw_freebase": props.get("mw_freebase"),
-                                        "qed_weighted": props.get("qed_weighted"),
-                                        "heavy_atoms": props.get("heavy_atoms"),
-                                        "aromatic_rings": props.get("aromatic_rings"),
-                                        "rotatable_bonds": props.get("num_rotatable_bonds"),
-                                        "hba": props.get("hba"),
-                                        "hbd": props.get("hbd"),
-                                    })
-
-                                # molecule_structures
-                                struct = retry_mol.get("molecule_structures", {})
-                                if isinstance(struct, dict):
-                                    mol_data.update({
-                                        "standardized_smiles": struct.get("canonical_smiles"),
-                                        "standard_inchi": struct.get("standard_inchi"),
-                                        "standard_inchi_key": struct.get("standard_inchi_key"),
-                                    })
-
-                                results.append(mol_data)
-                            else:
-                                # Если retry тоже failed (404), создаём fallback
-                                logger.warning("retry_failed_create_fallback", molecule_chembl_id=missing_id)
-                                results.append({
-                                    "molecule_chembl_id": missing_id,
-                                    "molregno": missing_id,
-                                    "pref_name": None,
-                                    "parent_chembl_id": missing_id,
-                                    "max_phase": None,
-                                    "structure_type": "MOL",
-                                    "molecule_type": "Small molecule",
-                                    "standardized_smiles": None,
-                                    "standard_inchi": None,
-                                    "standard_inchi_key": None,
-                                })
-                        except Exception as retry_e:
-                            logger.error("retry_failed", molecule_chembl_id=missing_id, error=str(retry_e))
-                            # Создаём fallback при ошибке retry
-                            results.append({
-                                "molecule_chembl_id": missing_id,
-                                "molregno": missing_id,
-                                "pref_name": None,
-                                "parent_chembl_id": missing_id,
-                                "max_phase": None,
-                                "structure_type": "MOL",
-                                "molecule_type": "Small molecule",
-                                "standardized_smiles": None,
-                                "standard_inchi": None,
-                                "standard_inchi_key": None,
-                            })
-
                 for mol in molecules:
-                    mol_data = {
-                        "molecule_chembl_id": mol.get("molecule_chembl_id"),
-                        "molregno": mol.get("molecule_chembl_id"),  # Placeholder - API doesn't return molregno directly
-                        "pref_name": mol.get("pref_name"),
-                        "parent_chembl_id": mol.get("molecule_hierarchy", {}).get("parent_chembl_id") if isinstance(mol.get("molecule_hierarchy"), dict) else None,
-                        "max_phase": mol.get("max_phase"),
-                        "structure_type": mol.get("structure_type"),
-                        "molecule_type": mol.get("molecule_type"),
-                    }
+                    if not isinstance(mol, dict):
+                        continue
+                    records.append(_normalize_molecule_record(mol))
 
-                    # molecule_properties
-                    props = mol.get("molecule_properties", {})
-                    if isinstance(props, dict):
-                        mol_data.update({
-                            "mw_freebase": props.get("mw_freebase"),
-                            "qed_weighted": props.get("qed_weighted"),
-                            "heavy_atoms": props.get("heavy_atoms"),
-                            "aromatic_rings": props.get("aromatic_rings"),
-                            "rotatable_bonds": props.get("num_rotatable_bonds"),  # Fixed field name
-                            "hba": props.get("hba"),
-                            "hbd": props.get("hbd"),
-                        })
-
-                    # molecule_structures
-                    struct = mol.get("molecule_structures", {})
-                    if isinstance(struct, dict):
-                        mol_data.update({
-                            "standardized_smiles": struct.get("canonical_smiles"),
-                            "standard_inchi": struct.get("standard_inchi"),
-                            "standard_inchi_key": struct.get("standard_inchi_key"),
-                        })
-
-                    results.append(mol_data)
+                for missing_id in missing_ids:
+                    try:
+                        retry_url = f"{self.api_client.config.base_url}/molecule/{missing_id}.json"
+                        retry_response = self.api_client.request_json(retry_url)
+                        if isinstance(retry_response, dict) and retry_response.get("molecule_chembl_id"):
+                            logger.info("retry_successful", molecule_chembl_id=missing_id)
+                            records.append(_normalize_molecule_record(retry_response))
+                        else:
+                            logger.warning("retry_no_payload", molecule_chembl_id=missing_id)
+                            fallback = _initialize_record_defaults()
+                            fallback["molecule_chembl_id"] = missing_id
+                            records.append(fallback)
+                    except Exception as retry_error:  # noqa: BLE001
+                        logger.error(
+                            "retry_failed",
+                            molecule_chembl_id=missing_id,
+                            error=str(retry_error),
+                        )
+                        fallback = _initialize_record_defaults()
+                        fallback["molecule_chembl_id"] = missing_id
+                        records.append(fallback)
 
                 logger.info("batch_fetched", count=len(molecules))
 
-            except Exception as e:
-                logger.error("batch_fetch_failed", error=str(e), batch_ids=batch_ids)
-                # Continue with next batch
+            except Exception as error:  # noqa: BLE001
+                logger.error("batch_fetch_failed", error=str(error), batch_ids=batch_ids)
 
-        if not results:
+        if not records:
             logger.warning("no_results_from_api")
             return pd.DataFrame()
 
-        df = pd.DataFrame(results)
+        df = pd.DataFrame(records)
         logger.info("api_extraction_completed", rows=len(df))
         return df
 
@@ -281,14 +457,44 @@ class TestItemPipeline(PipelineBase):
                 )
 
         # Fetch molecule data from ChEMBL API
-        molecule_ids = df["molecule_chembl_id"].unique().tolist()
+        molecule_ids = df["molecule_chembl_id"].dropna().unique().tolist()
         molecule_data = self._fetch_molecule_data(molecule_ids)
 
-        # Merge with existing data
-        if not molecule_data.empty:
-            df = df.merge(molecule_data, on="molecule_chembl_id", how="left", suffixes=("", "_api"))
-            # Remove duplicate columns from API merge
-            df = df.loc[:, ~df.columns.str.endswith("_api")]
+        if molecule_data.empty:
+            logger.warning("molecule_data_empty", reason="chembl_fetch")
+            normalized_records = []
+            for mol_id in molecule_ids:
+                record = _initialize_record_defaults()
+                record["molecule_chembl_id"] = mol_id
+                normalized_records.append(record)
+            molecule_data = pd.DataFrame(normalized_records)
+
+        # Ensure all expected columns are present before merging back input data
+        for column in TESTITEM_COLUMN_ORDER:
+            if column in _MOLECULE_METADATA_COLUMNS or column.startswith("pubchem_"):
+                continue
+            if column not in molecule_data.columns:
+                molecule_data[column] = None
+
+        # Merge normalized data with input, preferring normalized values
+        normalized_df = molecule_data.drop_duplicates("molecule_chembl_id").set_index("molecule_chembl_id")
+        input_df = df.set_index("molecule_chembl_id")
+
+        combined_df = normalized_df.copy()
+        for column in input_df.columns:
+            if column in combined_df.columns:
+                combined_df[column] = combined_df[column].combine_first(input_df[column])
+            else:
+                combined_df[column] = input_df[column]
+
+        df = combined_df.reset_index().rename(columns={"index": "molecule_chembl_id"})
+
+        if "pref_name" in df.columns:
+            normalized_keys = df["pref_name"].apply(_normalize_pref_name)
+            if "pref_name_key" in df.columns:
+                df["pref_name_key"] = df["pref_name_key"].combine_first(normalized_keys)
+            else:
+                df["pref_name_key"] = normalized_keys
 
         # PubChem enrichment (optional)
         if "pubchem" in self.external_adapters:

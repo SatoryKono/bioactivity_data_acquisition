@@ -199,7 +199,10 @@ class PubChemAdapter(ExternalAdapter):
 
         # PubChem CID
         if "CID" in record:
-            normalized["pubchem_cid"] = int(record["CID"])
+            try:
+                normalized["pubchem_cid"] = int(record["CID"])
+            except (TypeError, ValueError):
+                normalized["pubchem_cid"] = None
 
         # Molecular formula
         if "MolecularFormula" in record:
@@ -207,7 +210,7 @@ class PubChemAdapter(ExternalAdapter):
 
         # Molecular weight
         if "MolecularWeight" in record:
-            normalized["pubchem_molecular_weight"] = float(record["MolecularWeight"])
+            normalized["pubchem_molecular_weight"] = self._safe_float(record["MolecularWeight"])
 
         # Canonical SMILES (without stereochemistry)
         # PubChem returns this as "ConnectivitySMILES"
@@ -230,6 +233,14 @@ class PubChemAdapter(ExternalAdapter):
         # IUPAC name
         if "IUPACName" in record:
             normalized["pubchem_iupac_name"] = str(record["IUPACName"])
+
+        normalized.setdefault("pubchem_registry_id", record.get("RegistryID"))
+        normalized.setdefault("pubchem_rn", record.get("RN"))
+
+        if "pubchem_registry_id" not in normalized:
+            normalized["pubchem_registry_id"] = None
+        if "pubchem_rn" not in normalized:
+            normalized["pubchem_rn"] = None
 
         return normalized
 
@@ -306,4 +317,13 @@ class PubChemAdapter(ExternalAdapter):
         )
 
         return df_enriched
+
+    @staticmethod
+    def _safe_float(value: Any) -> float | None:
+        """Safely convert value to float if possible."""
+
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 

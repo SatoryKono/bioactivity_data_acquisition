@@ -7,6 +7,8 @@ import pytest
 
 from bioetl.config.loader import load_config
 from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
+from bioetl.pipelines.testitem import _flatten_molecule_synonyms
+from bioetl.schemas.testitem import TESTITEM_COLUMN_ORDER
 
 
 @pytest.fixture
@@ -156,6 +158,9 @@ class TestTestItemPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = TestItemPipeline(testitem_config, run_id)
 
+        pipeline.external_adapters.clear()
+        pipeline._fetch_molecule_data = lambda ids: pd.DataFrame({"molecule_chembl_id": ids})
+
         df = pd.DataFrame({
             "molecule_chembl_id": ["CHEMBL1"],
             "canonical_smiles": ["CC(=O)O"],
@@ -165,6 +170,43 @@ class TestTestItemPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+
+    def test_transform_column_order(self, testitem_config):
+        """Ensure transform returns all expected columns in schema order."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TestItemPipeline(testitem_config, run_id)
+        pipeline.external_adapters.clear()
+        pipeline._fetch_molecule_data = lambda ids: pd.DataFrame({"molecule_chembl_id": ids})
+
+        df = pd.DataFrame({
+            "molecule_chembl_id": ["CHEMBL1"],
+            "nstereo": [2],
+        })
+
+        result = pipeline.transform(df)
+        assert list(result.columns) == TESTITEM_COLUMN_ORDER
+
+
+def test_flatten_molecule_synonyms_is_deterministic():
+    """Ensure synonym serialization is deterministic for multiple entries."""
+
+    molecule = {
+        "molecule_synonyms": [
+            {"molecule_synonym": "Beta", "synonyms_source": "SourceB"},
+            {"molecule_synonym": "Alpha", "synonyms_source": "SourceA"},
+            {"molecule_synonym": "Gamma", "synonyms_source": "SourceC"},
+        ]
+    }
+
+    flattened = _flatten_molecule_synonyms(molecule)
+
+    assert flattened["all_names"] == "Alpha; Beta; Gamma"
+    assert flattened["molecule_synonyms"] == (
+        '[{"molecule_synonym":"Alpha","synonyms_source":"SourceA"},'
+        '{"molecule_synonym":"Beta","synonyms_source":"SourceB"},'
+        '{"molecule_synonym":"Gamma","synonyms_source":"SourceC"}]'
+    )
 
 
 class TestTargetPipeline:
