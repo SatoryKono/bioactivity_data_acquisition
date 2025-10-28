@@ -248,6 +248,13 @@ def merge_with_precedence(
     if openalex_df is not None and not openalex_df.empty:
         if "doi_clean" in openalex_df.columns and "chembl_doi" in merged_df.columns:
             openalex_prefixed = openalex_df.add_prefix("openalex_")
+            double_prefixed_columns = {
+                column: column.replace("openalex_openalex_", "openalex_", 1)
+                for column in openalex_prefixed.columns
+                if column.startswith("openalex_openalex_")
+            }
+            if double_prefixed_columns:
+                openalex_prefixed = openalex_prefixed.rename(columns=double_prefixed_columns)
             if "openalex_doi_clean" in openalex_prefixed.columns:
                 openalex_prefixed["openalex_doi"] = openalex_prefixed["openalex_doi_clean"]
 
