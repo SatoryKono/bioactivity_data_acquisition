@@ -40,7 +40,7 @@ class OutputArtifacts:
     
     dataset: Path  # Основной датасет
     quality_report: Path  # QC метрики
-    correlation_report: Path  # Корреляционный анализ
+    correlation_report: Path | None  # Корреляционный анализ (опционально)
     metadata: Path | None  # Метаданные (опционально)
     manifest: Path | None  # Run manifest (опционально)
 ```
@@ -357,6 +357,7 @@ class UnifiedOutputWriter:
         mode: str = "standard",  # standard или extended
         output_dir: Path = Path("data/output")
     ):
+        self.run_id = run_id
         self.schema = schema
         self.column_order = column_order
         self.key_columns = key_columns or []
@@ -395,9 +396,11 @@ class UnifiedOutputWriter:
         quality_df = self.quality_generator.generate(df)
         self._write_dataset(quality_df, artifacts.quality_report)
         
-        # Генерация и запись correlation отчета
-        correlation_df = self.correlation_generator.generate(df)
-        self._write_dataset(correlation_df, artifacts.correlation_report)
+        # Условная генерация correlation отчета
+        if hasattr(self, 'config') and self.config.postprocess.correlation.enabled:
+            correlation_df = self.correlation_generator.generate(df)
+            if not correlation_df.empty:
+                self._write_dataset(correlation_df, artifacts.correlation_report)
         
         # Дополнительные артефакты в extended режиме
         if self.mode == "extended":
@@ -525,33 +528,35 @@ schema_version: "2.1.0"
 
 ### NA Policy
 
+**Критический инвариант (v3.0):** Единая политика для всех типов данных.
+
 Правила для пропущенных значений:
-- **Строки**: `NA` → `""`
-- **Числа**: `NaN` → `null` (в JSON) или пустое (в CSV)
+- **Все типы**: `NA/None/NaN` → `""` (пустая строка)
 
 ```python
-df = df.fillna({
-    "string_columns": "",  # Пустая строка
-    "numeric_columns": None  # null в JSON
-})
+df = df.fillna("")  # Единая политика для всех типов
 ```
+
+**Обоснование:** Обеспечивает детерминизм канонической сериализации при вычислении хешей.
 
 ### Точность чисел
 
-Настраиваемая по типам метрик:
+**Критический инвариант (v3.0):** Единый формат `%.6f` для всех float значений.
 
-| Тип метрики | Знаков после запятой | Пример |
-|-------------|----------------------|--------|
-| pIC50, Ki | 3 | `7.234` |
-| molecular_weight, LogP | 2 | `456.78` |
-| correlation, coefficient | 4 | `0.8234` |
-| score, ratio | 2 | `0.95` |
+**Правило:**
+- Все float значения форматируются с 6 знаками после запятой
+- Применяется ко всем контекстам: хеширование, вывод, сериализация
+
+**Обоснование:**
+- Обеспечивает детерминизм канонической сериализации
+- Единообразие обработки данных
+- Достаточная точность для научных вычислений
 
 ```python
 # В схеме
 class ActivitySchema(BaseSchema):
-    pic50: float = pa.Field(precision=3)  # 3 знака
-    molecular_weight: float = pa.Field(precision=2)  # 2 знака
+    pic50: float = pa.Field()  # Используется %.6f при сериализации
+    molecular_weight: float = pa.Field()  # Используется %.6f при сериализации
 ```
 
 ### Сортировка
@@ -605,7 +610,7 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
     1. JSON с sort_keys=True, separators=(',', ':')
     2. ISO8601 UTC для всех datetime с суффиксом 'Z'
     3. Float формат: %.6f
-    4. NA-policy: строки → "", числа → null
+    4. NA-policy: все типы → "" (пустая строка)
     5. Column order: строго по column_order
     """
     from datetime import datetime, timezone
@@ -617,12 +622,9 @@ def canonicalize_row_for_hash(row: dict[str, Any], column_order: list[str]) -> s
     for col in column_order:
         value = row.get(col)
         
-        # Применяем NA-policy
+        # Применяем NA-policy (единая для всех типов)
         if pd.isna(value):
-            if isinstance(row.get(col, None), str):
-                canonical[col] = ""  # Пустая строка для NA в строковом поле
-            else:
-                canonical[col] = None  # null для числовых NA
+            canonical[col] = ""  # Пустая строка для всех NA
         elif isinstance(value, float):
             canonical[col] = float(f"{value:.6f}")  # Фиксированная точность
         elif isinstance(value, datetime):

@@ -854,7 +854,18 @@ class PartialFailure(APIError):
 
 Спецификация стратегий пагинации для внешних API.
 
-### Стратегии
+### Стратегии пагинации по pipeline
+
+**Унифицированная стратегия для ChEMBL pipelines (v3.0):**
+
+| Pipeline | Стратегия | Параметр | Batch Size | URL Limit | Endpoint |
+|----------|-----------|----------|------------|-----------|----------|
+| Assay | Batch IDs | `assay_chembl_id__in` | 25 | 2000 | `/assay.json` |
+| Testitem | Batch IDs | `molecule_chembl_id__in` | 25 | 2000 | `/molecule.json` |
+| Activity | Batch IDs | `activity_id__in` | 25 | 2000 | `/activity.json` |
+| Target | Batch IDs | `target_chembl_id__in` | 25 | 2000 | `/target.json` |
+
+**Общие стратегии для других API:**
 
 **1. Page + Limit**
 ```python
@@ -907,7 +918,7 @@ assert response1.items == response2.items  # Идемпотентность
 
 **Критическое правило:** Каждый запрос использует **только одну** стратегию пагинации.
 
-**Особое требование для ChEMBL Activity:** Для ChEMBL Activity разрешена только offset-пагинация; смешивание offset/page/cursor запрещено и валидируется; нарушение — ошибка конфигурации.
+**⚠️ Breaking Change (v3.0):** Все ChEMBL pipelines унифицированы на batch IDs стратегию.
 
 **Недопустимо:**
 ```python
@@ -917,14 +928,17 @@ params = {"page": 1, "cursor": "abc123"}  # Ошибка! Непредсказу
 # Смешивание offset и cursor
 params = {"offset": 100, "cursor": "abc123"}  # Ошибка!
 
-# Смешивание для ChEMBL Activity (G2)
-params = {"offset": 0, "page": 1}  # Ошибка! Только offset для activity
+# Смешивание batch IDs с другими стратегиями
+params = {"assay_chembl_id__in": "CHEMBL1,CHEMBL2", "offset": 0}  # Ошибка!
 ```
 
-**Допустимо:**
+**Допустимо (унифицированная стратегия для ChEMBL):**
 ```python
-# Однозначная стратегия - только offset для ChEMBL activity
-params = {"offset": 0, "limit": 100}  # Только offset
+# Batch IDs для всех ChEMBL pipelines
+params = {"activity_id__in": "123,456,789"}  # Activity
+params = {"assay_chembl_id__in": "CHEMBL1,CHEMBL2"}  # Assay
+params = {"molecule_chembl_id__in": "CHEMBL25,CHEMBL26"}  # Testitem
+params = {"target_chembl_id__in": "CHEMBL231,CHEMBL232"}  # Target
 
 # Однозначная стратегия - только cursor (для других API)
 params = {"cursor": "abc123", "limit": 100}  # Только cursor

@@ -493,7 +493,6 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 - `schema_id`: уникальный идентификатор (например, `document.chembl`)
 - `schema_version`: семантическая версия (semver: MAJOR.MINOR.PATCH)
 - `column_order`: источник истины для порядка колонок
-- `precision_map`: настройки точности для числовых полей
 
 ```python
 class DocumentSchema(BaseSchema):
@@ -508,12 +507,6 @@ class DocumentSchema(BaseSchema):
         "document_chembl_id", "title", "journal", "year",
         "doi", "pmid", "hash_business_key", "hash_row"
     ]
-    
-    # Настройки точности
-    precision_map = {
-        "year": 0,  # Целое число
-        "other_numeric": 2  # По умолчанию 2 знака
-    }
     
     # Поля схемы
     document_chembl_id: str = pa.Field(str_matches=r'^CHEMBL\d+$')
@@ -566,14 +559,12 @@ def is_compatible(from_version: str, to_version: str) -> bool:
 
 ### Хранение column_order в схеме (источник истины)
 
-**Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме — fail-fast до записи; precision_map и NA-policy обязательны для всех таблиц.
+**Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме — fail-fast до записи; NA-policy обязательна для всех таблиц.
 
 ```python
 # schema.py (Schema Registry) — источник истины
 class DocumentSchema(BaseSchema):
     column_order = ["document_chembl_id", "title", "journal", ...]
-    precision_map = {"year": 0}
-    na_policy = {"na_strings": ["", "N/A"], "na_numeric": None}
 
 # При экспорте
 df = df[schema.column_order]  # используем order из схемы
@@ -584,7 +575,6 @@ assert list(df.columns) == schema.column_order, "Column order mismatch!"
 # В meta.yaml (только для справки)
 meta = {
     "column_order": schema.column_order,  # Копия из схемы
-    "precision_map": schema.precision_map,  # Копия
     ...
 }
 ```
@@ -607,78 +597,6 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
 - Fail-fast до записи
 
 **См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC10).
-
-### Метрики precision
-
-Настраиваемая точность для разных типов метрик:
-
-```python
-# По умолчанию
-precision_map = {
-    "pIC50": 3,
-    "Ki": 3,
-    "IC50": 3,
-    "EC50": 3,
-    "molecular_weight": 2,
-    "LogP": 2,
-    "correlation": 4,
-    "coefficient": 4,
-    "score": 2,
-    "ratio": 2,
-    "fraction": 4
-}
-
-# В схеме ActivitySchema
-class ActivitySchema(BaseSchema):
-    pic50: float = pa.Field(precision=3)  # 3 знака
-    molecular_weight: float = pa.Field(precision=2)  # 2 знака
-    correlation: float = pa.Field(precision=4)  # 4 знака
-    
-    # Применение
-    def apply_precision(self, value: float, field_name: str) -> float:
-        precision = self.precision_map.get(field_name, 2)
-        return round(value, precision)
-```
-
-**Примеры:**
-- `pIC50 = 7.234567` → `7.235`
-- `molecular_weight = 456.789012` → `456.79`
-- `correlation = 0.82345678` → `0.8235`
-
-**Расширенный precision_map для ActivitySchema:**
-
-```python
-class ActivitySchema(BaseSchema):
-    """Схема для activity с явной precision_map."""
-    
-    schema_id = "activity.chembl"
-    schema_version = "1.0.0"
-    
-    # Явная precision_map для числовых полей
-    precision_map = {
-        "pchembl_value": 4,      # 4 знака для pChEMBL
-        "standard_value": 3,      # 3 знака для стандартных значений
-        "pic50": 3,               # 3 знака для pIC50
-        "ki": 3,                  # 3 знака для Ki
-        "ic50": 3,                # 3 знака для IC50
-        "ec50": 3,                # 3 знака для EC50
-        "molecular_weight": 2,    # 2 знака для молекулярного веса
-        "logp": 2,                # 2 знака для LogP
-        "correlation": 4,         # 4 знака для корреляций
-        "coefficient": 4,         # 4 знака для коэффициентов
-        "default": 2              # По умолчанию 2 знака
-    }
-    
-    # Применение precision при нормализации
-    @classmethod
-    def normalize_value(cls, field_name: str, value: float | None) -> float | None:
-        """Нормализует значение с применением precision."""
-        if value is None:
-            return None
-        
-        precision = cls.precision_map.get(field_name, cls.precision_map["default"])
-        return round(value, precision)
-```
 
 ### Semver Policy и Schema Evolution (fail-fast на major)
 
@@ -792,6 +710,31 @@ class MyCustomSchema(BaseSchema):
     
     # Регистрация
     SchemaRegistry.register(MyCustomSchema)
+```
+
+## NA-policy Инвариант
+
+**Критический инвариант (v3.0):** Все NA/None/NaN значения преобразуются в `""` (пустая строка) перед записью и хешированием.
+
+**Правило:**
+- Строковые колонки: `NA` → `""`
+- Числовые колонки: `NaN` → `""`
+- Даты и время: `NaT` → `""`
+- Булевы: `NA` → `""`
+
+**Обоснование:**
+- Обеспечивает детерминизм канонической сериализации при вычислении хешей
+- Упрощает логику обработки (не нужно различать типы NA по типу колонки)
+- Гарантирует бит-в-бит идентичность при одинаковом вводе
+
+**Применение:**
+```python
+# Перед записью
+df = df.fillna("")
+
+# В канонической сериализации
+if pd.isna(value):
+    canonical[col] = ""  # Для всех типов
 ```
 
 ## Acceptance Criteria

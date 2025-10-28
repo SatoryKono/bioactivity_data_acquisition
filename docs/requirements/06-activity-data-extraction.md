@@ -203,6 +203,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 ```
 
 **Преимущества batch IDs над offset:**
+
 - Детерминированность: одинаковый набор activity_id всегда даёт одинаковый результат
 - Кэшируемость: ключ кэша = список ID, не зависит от пагинации
 - Производительность: один запрос на 25 записей вместо множества offset-запросов
@@ -211,6 +212,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 ### Примеры запросов
 
 **Single by activity_id:**
+
 ```bash
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 ```
@@ -236,6 +238,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 ```
 
 **Batch по molecule_chembl_id:**
+
 ```bash
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=3"
 ```
@@ -243,6 +246,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `total_count`.
 
 **Batch по target_chembl_id с фильтрами:**
+
 ```bash
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CHEMBL240&assay_type=B&pchembl_value__gte=6&only=molecule_chembl_id,pchembl_value,assay_chembl_id&order_by=-pchembl_value&limit=5"
 ```
