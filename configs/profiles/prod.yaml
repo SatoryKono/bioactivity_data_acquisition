@@ -1,0 +1,26 @@
+extends: ../base.yaml
+
+pipeline:
+  name: "prod"
+  entity: "production"
+
+http:
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+
+cache:
+  enabled: true
+  directory: "data/cache"
+  ttl: 86400
+  release_scoped: true
+
+qc:
+  severity_threshold: "error"
+

@@ -1,0 +1,26 @@
+extends: ../base.yaml
+
+pipeline:
+  name: "dev"
+  entity: "development"
+
+http:
+  global:
+    timeout_sec: 30.0
+    retries:
+      total: 2
+      backoff_multiplier: 1.5
+      backoff_max: 30.0
+    rate_limit:
+      max_calls: 10
+      period: 10.0
+
+cache:
+  enabled: true
+  directory: "data/cache"
+  ttl: 3600
+  release_scoped: false
+
+qc:
+  severity_threshold: "error"
+
