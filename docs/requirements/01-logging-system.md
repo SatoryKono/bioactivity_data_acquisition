@@ -33,14 +33,28 @@ UnifiedLogger
 Унифицированный контекст для всех логов:
 
 ```python
+from dataclasses import dataclass
+from typing import Any
+
+
 @dataclass(frozen=True)
 class LogContext:
     """Контекст выполнения для логирования."""
-    
+
     run_id: str  # UUID8 уникальный идентификатор запуска
     stage: str  # Текущий этап пайплайна
-    trace_id: str | None  # OpenTelemetry trace ID
+    actor: str  # Инициатор (system, scheduler, username)
+    source: str  # Источник данных (chembl, pubmed, ...)
     generated_at: str  # UTC timestamp ISO8601
+    trace_id: str | None = None  # OpenTelemetry trace ID
+    endpoint: str | None = None  # HTTP эндпоинт или None для стадийных логов
+    page_state: str | None = None  # Положение пагинации
+    params: dict[str, Any] | None = None  # Запрос или дополнительные параметры
+    attempt: int | None = None  # Номер попытки повторного запроса
+    retry_after: float | None = None  # Планируемая пауза между повторами
+    duration_ms: int | None = None  # Длительность операции
+    error_code: int | None = None  # Код ошибки (HTTP, бизнес-правила)
+    error_message: str | None = None  # Сообщение об ошибке
 ```
 
 **Использование**:
@@ -49,8 +63,10 @@ class LogContext:
 context = LogContext(
     run_id=generate_run_id(),
     stage="extract",
+    actor="scheduler",
+    source="chembl",
+    generated_at=datetime.now(UTC).isoformat(),
     trace_id=get_current_trace_id(),
-    generated_at=datetime.now(UTC).isoformat()
 )
 set_log_context(context)
 ```
@@ -183,32 +199,37 @@ with bind_stage(logger, "extract", source="chembl"):
 from unified_logger import set_run_context, generate_run_id
 
 run_id = generate_run_id()
-set_run_context(run_id=run_id, stage="extract", actor="scheduler")
+set_run_context(run_id=run_id, stage="extract", actor="scheduler", source="chembl")
 
-# Теперь все логи автоматически содержат run_id, stage и actor
+# Теперь все логи автоматически содержат run_id, stage, actor и source
 logger.info("Processing", step="first")
-# Output: {"run_id": "a3f8d2e1", "stage": "extract", "actor": "scheduler", "step": "first", ...}
+# Output: {"run_id": "a3f8d2e1", "stage": "extract", "actor": "scheduler", "source": "chembl", "step": "first", ...}
 ```
 
 ### Контекст и редактирование секретов
 
 **Обязательный набор полей контекста**
 
-**Критическое изменение:** Все контекстные поля обязательны для каждого события лога.
+Контракт теперь фиксирован на уровне сред выполнения. Поля `LogContext` могут принимать `None` только в тех средах, где это явно разрешено.
 
-Каждое событие лога **обязательно** содержит:
-- `run_id`: UUID8 уникальный идентификатор запуска
-- `stage`: текущий этап пайплайна (extract, normalize, validate, write)
-- `trace_id`: OpenTelemetry trace ID (опционально только для development)
-- `source`: источник данных (chembl, pubmed, etc.)
-- `endpoint`: URL эндпоинта API (для HTTP-запросов)
-- `page_state`: состояние пагинации (для пагинированных запросов)
-- `attempt`: номер попытки запроса (обязательно для HTTP-запросов)
-- `duration_ms`: длительность операции в миллисекундах
-- `level`: уровень логирования (DEBUG, INFO, WARNING, ERROR)
-- `message`: текстовое описание события
-- `timestamp_utc`: UTC timestamp в формате ISO8601
-- `actor`: инициатор выполнения (system, scheduler, username)
+| Поле | Development | Testing | Production | Комментарий |
+| --- | --- | --- | --- | --- |
+| `run_id` | запрещён `None` | запрещён `None` | запрещён `None` | UUID8 генерируется всегда |
+| `stage` | запрещён `None` | запрещён `None` | запрещён `None` | Значения: extract/transform/validate/load |
+| `actor` | запрещён `None` | запрещён `None` | запрещён `None` | system/scheduler/<username> |
+| `source` | запрещён `None` | запрещён `None` | запрещён `None` | Описывает источник данных |
+| `generated_at` | запрещён `None` | запрещён `None` | запрещён `None` | ISO8601 в UTC |
+| `trace_id` | `None` допустим, если трейсинг отключён | `None` допустим | обязателен | В production telemetry обязательна |
+| `endpoint` | `None` допустим для стадийных логов | `None` допустим для стадийных логов | обязателен для HTTP-событий (может быть `None` только для стадийных логов) | Для событий без HTTP допускается `None` |
+| `page_state` | `None` допустим | `None` допустим | `None` допустим | Используется для пагинации |
+| `params` | `None` допустим | `None` допустим | обязателен, если запрос имеет параметры | Сериализованный словарь запроса |
+| `attempt` | `None` допустим | обязателен для HTTP-повторов | обязателен | Номер попытки обращения |
+| `retry_after` | `None` допустим | `None` допустим | `None` допустим (заполняется, если хедер присутствует) | В секундах |
+| `duration_ms` | `None` допустим | `None` допустим | обязателен | Разница времени выполнения |
+| `error_code` | `None` допустим | `None` допустим | `None` допустим | Заполняется для ошибок |
+| `error_message` | `None` допустим | `None` допустим | `None` допустим | Сообщение об ошибке |
+
+> `None` в таблице означает «поле может быть опущено или установлено в `None`». Если поле помечено как «обязателен», система валидации отвергнет запись без значения.
 
 **Поле actor**
 
@@ -219,24 +240,23 @@ logger.info("Processing", step="first")
 
 ```python
 # Автоматический запуск
-set_run_context(run_id=run_id, stage="extract", actor="system")
+set_run_context(run_id=run_id, stage="extract", actor="system", source="chembl")
 
 # Запуск по расписанию
-set_run_context(run_id=run_id, stage="extract", actor="scheduler")
+set_run_context(run_id=run_id, stage="extract", actor="scheduler", source="chembl")
 
 # Ручной запуск
-set_run_context(run_id=run_id, stage="extract", actor="fedor")
+set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
 ```
 
 **Обязательные поля логов (инвариант G12):**
 
-Список обязательных полей для всех модулей: `run_id`, `stage`, `endpoint`, `params`, `attempt`, `retry_after`, `duration_ms`.
-
-**Применение:**
-- Все HTTP-запросы: `run_id`, `stage`, `endpoint`, `attempt`, `duration_ms`
-- Retry логи: `retry_after`, `attempt`
-- Пагинация: `page_state`, `params`
-- Ошибки: `error_code`, `error_message`
+- Базовые поля (`run_id`, `stage`, `actor`, `source`, `generated_at`) обязательны всегда.
+- В production для каждого HTTP-события обязательно присутствуют `trace_id`, `endpoint`, `attempt`, `duration_ms` и `params` (если запрос имеет параметры).
+- В testing обязательны `attempt` для повторов и `endpoint` при обращениях к HTTP.
+- В development допускается пропуск телеметрии (`trace_id`, `duration_ms`, `attempt`) при локальной отладке, но `run_id` и `stage` остаются обязательными.
+- Для retry логов `retry_after` указывается, только если хедер получен от API; в остальных случаях остаётся `None`.
+- Для ошибок добавляются `error_code` и `error_message`; для успехов поля остаются `None`.
 
 **См. также**: [gaps.md](../gaps.md) (G12).
 
@@ -287,60 +307,69 @@ def redact_secrets(event_dict: dict) -> dict:
 
 **Примеры логов с обязательными полями:**
 
-Успешный HTTP-запрос:
+Development (локальный dry-run, допускаются `None` для телеметрии):
 ```json
 {
-  "run_id": "a3f8d2e1",
+  "run_id": "dev-a3f8d2e1",
   "stage": "extract",
-  "trace_id": "00-a1b2c3d",
+  "actor": "developer",
   "source": "chembl",
-  "endpoint": "/api/molecule",
-  "page_state": "offset=100&limit=100",
-  "attempt": 1,
-  "duration_ms": 1234,
+  "generated_at": "2025-01-28T09:15:00.000Z",
+  "trace_id": null,
+  "endpoint": null,
+  "page_state": null,
+  "params": null,
+  "attempt": null,
+  "retry_after": null,
+  "duration_ms": null,
+  "error_code": null,
+  "error_message": null,
   "level": "info",
-  "message": "Successfully fetched 100 molecules",
-  "actor": "scheduler",
-  "timestamp_utc": "2025-01-28T14:23:15.123Z"
+  "message": "Local dry-run of extract stage"
 }
 ```
 
-Retry при 429:
+Testing (повтор запроса с имитацией 429, `trace_id` остаётся `None`):
 ```json
 {
-  "run_id": "a3f8d2e1",
+  "run_id": "test-a3f8d2e1",
   "stage": "extract",
-  "trace_id": "00-a1b2c3d",
+  "actor": "pytest",
   "source": "pubmed",
+  "generated_at": "2025-01-28T11:00:05.321Z",
+  "trace_id": null,
   "endpoint": "/api/article",
   "page_state": "offset=500&limit=100",
+  "params": {"query": "covid"},
   "attempt": 2,
   "retry_after": 7,
-  "duration_ms": 150,
+  "duration_ms": 180,
+  "error_code": null,
+  "error_message": null,
   "level": "warning",
-  "message": "Rate limited by API",
-  "actor": "system",
-  "timestamp_utc": "2025-01-28T14:23:20.456Z"
+  "message": "Retry due to HTTP 429"
 }
 ```
 
-Ошибка с giveup на 4xx:
+Production (успешный HTTP-запрос, все поля заполнены):
 ```json
 {
-  "run_id": "a3f8d2e1",
+  "run_id": "prod-a3f8d2e1",
   "stage": "extract",
+  "actor": "scheduler",
+  "source": "chembl",
+  "generated_at": "2025-01-28T14:23:15.123Z",
   "trace_id": "00-a1b2c3d",
-  "source": "pubmed",
-  "endpoint": "/api/article",
-  "page_state": null,
+  "endpoint": "/api/molecule",
+  "page_state": "offset=100&limit=100",
+  "params": {"format": "json", "limit": 100},
   "attempt": 1,
-  "code": 400,
-  "duration_ms": 500,
-  "level": "error",
-  "message": "Client error, giving up",
-  "error": "Bad Request",
-  "actor": "fedor",
-  "timestamp_utc": "2025-01-28T14:23:25.789Z"
+  "retry_after": null,
+  "duration_ms": 1234,
+  "error_code": null,
+  "error_message": null,
+  "level": "info",
+  "message": "Successfully fetched 100 molecules"
 }
 ```
 
