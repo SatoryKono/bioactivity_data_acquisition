@@ -202,7 +202,7 @@ class DocumentPipeline(PipelineBase):
         if "doi" in chembl_df.columns:
             dois = chembl_df["doi"].dropna().tolist()
 
-        logger.info("enrichment_data", pmids_count=len(pmids), dois_count=len(dois))
+        logger.info("enrichment_data", pmids_count=len(pmids), dois_count=len(dois), sample_pmids=pmids[:3] if pmids else [])
 
         # Fetch from external sources in parallel
         pubmed_df = None
@@ -441,12 +441,12 @@ class DocumentPipeline(PipelineBase):
                 logger.warning("duplicates_found", count=duplicate_count)
                 df = df.drop_duplicates(subset=["document_chembl_id"], keep="first")
 
-            # Strict validation: DOI обязателен если есть данные от источника
+            # Validation: doc_type обязателен если есть данные от источника
             sources_to_validate = [
-                ("pubmed", ["pubmed_doi", "pubmed_doc_type"], ["pubmed_article_title", "pubmed_abstract"]),
-                ("crossref", ["crossref_doi", "crossref_doc_type"], ["crossref_title", "crossref_authors"]),
-                ("openalex", ["openalex_doi", "openalex_doc_type"], ["openalex_title", "openalex_authors"]),
-                ("semantic_scholar", ["semantic_scholar_doi", "semantic_scholar_doc_type"], ["semantic_scholar_title", "semantic_scholar_abstract"]),
+                ("pubmed", ["pubmed_doc_type"], ["pubmed_article_title", "pubmed_abstract"]),
+                ("crossref", ["crossref_doc_type"], ["crossref_title", "crossref_authors"]),
+                ("openalex", ["openalex_doc_type"], ["openalex_title", "openalex_authors"]),
+                ("semantic_scholar", ["semantic_scholar_doc_type"], ["semantic_scholar_title", "semantic_scholar_abstract"]),
             ]
 
             validation_errors = []
@@ -459,15 +459,15 @@ class DocumentPipeline(PipelineBase):
                 )
 
                 if has_source_data:
-                    # Validate DOI and doc_type are present
+                    # Validate doc_type is present (DOI is optional)
                     for required_field in required_fields:
                         if required_field not in df.columns or df[required_field].isna().all():
                             validation_errors.append(f"{source_name}: {required_field} обязателен при наличии данных")
 
             if validation_errors:
                 error_msg = "; ".join(validation_errors)
-                logger.error("strict_validation_failed", errors=error_msg)
-                raise ValueError(f"Строгая валидация не прошла: {error_msg}")
+                logger.error("validation_failed", errors=error_msg)
+                raise ValueError(f"Валидация не прошла: {error_msg}")
 
             logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
             return df

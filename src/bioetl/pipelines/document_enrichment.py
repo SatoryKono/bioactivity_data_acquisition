@@ -40,14 +40,29 @@ def merge_with_precedence(
 
     # Merge each source by their join key
     if pubmed_df is not None and not pubmed_df.empty:
-        # Add prefix to all columns BEFORE checking join keys
+        # Add prefix to all columns
         pubmed_prefixed = pubmed_df.add_prefix("pubmed_")
+        
+        # Fix double prefixes: pubmed_pubmed_* -> pubmed_*
+        rename_map = {}
+        for col in pubmed_prefixed.columns:
+            if col.startswith("pubmed_pubmed_"):
+                new_name = "pubmed_" + col.replace("pubmed_pubmed_", "")
+                rename_map[col] = new_name
+        
+        # Also rename pubmed_title to pubmed_article_title
+        if "pubmed_title" in pubmed_prefixed.columns:
+            pubmed_prefixed = pubmed_prefixed.rename(columns={"pubmed_title": "pubmed_article_title"})
+        
+        if rename_map:
+            pubmed_prefixed = pubmed_prefixed.rename(columns=rename_map)
+        
         # Join by PMID
-        if "pubmed_pubmed_pmid" in pubmed_prefixed.columns and "chembl_pmid" in merged_df.columns:
+        if "pubmed_pmid" in pubmed_prefixed.columns and "chembl_pmid" in merged_df.columns:
             merged_df = merged_df.merge(
                 pubmed_prefixed,
                 left_on="chembl_pmid",
-                right_on="pubmed_pubmed_pmid",
+                right_on="pubmed_pmid",
                 how="left",
             )
 
