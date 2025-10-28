@@ -2,6 +2,7 @@
 
 import json
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -18,11 +19,41 @@ class PubChemAdapter(ExternalAdapter):
     - Graceful degradation
     """
 
+    _PUBCHEM_COLUMNS: list[str] = [
+        "pubchem_cid",
+        "pubchem_molecular_formula",
+        "pubchem_molecular_weight",
+        "pubchem_canonical_smiles",
+        "pubchem_isomeric_smiles",
+        "pubchem_inchi",
+        "pubchem_inchi_key",
+        "pubchem_iupac_name",
+        "pubchem_registry_id",
+        "pubchem_rn",
+        "pubchem_synonyms",
+        "pubchem_enriched_at",
+        "pubchem_cid_source",
+        "pubchem_fallback_used",
+        "pubchem_enrichment_attempt",
+        "pubchem_lookup_inchikey",
+    ]
+
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize PubChem adapter."""
         super().__init__(api_config, adapter_config)
         self.last_request_time = 0.0
         self.min_request_interval = 0.2  # 5 requests per second
+
+    @staticmethod
+    def _canonical_json(value: Any) -> str | None:
+        """Serialize value to canonical JSON string."""
+
+        if value in (None, ""):
+            return None
+        try:
+            return json.dumps(value, sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError):
+            return None
 
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by identifiers.
@@ -36,52 +67,82 @@ class PubChemAdapter(ExternalAdapter):
         if not ids:
             return []
 
-        # Fetch CIDs first, then properties
-        cid_mapping = self._resolve_cids_batch(ids)
-        if not cid_mapping:
+        unique_ids = list(dict.fromkeys([identifier for identifier in ids if identifier]))
+        if not unique_ids:
             return []
 
+        resolution = self._resolve_cids_batch(unique_ids)
+
         # Fetch properties in batch (max 100 CIDs per request)
-        all_records = []
-        cids = [cid for cid in cid_mapping.values() if cid]
-        batch_size = self.adapter_config.batch_size or 100
+        cid_to_properties: dict[int, dict[str, Any]] = {}
+        resolved_cids = [info["cid"] for info in resolution.values() if info.get("cid")]
+        if resolved_cids:
+            batch_size = self.adapter_config.batch_size or 100
+            for i in range(0, len(resolved_cids), batch_size):
+                batch_cids = resolved_cids[i : i + batch_size]
+                try:
+                    for record in self._fetch_properties_batch(batch_cids):
+                        cid = record.get("CID")
+                        if cid is not None:
+                            cid_to_properties[int(cid)] = record
+                except Exception as exc:  # noqa: BLE001
+                    self.logger.error("batch_properties_failed", batch=i, error=str(exc))
 
-        for i in range(0, len(cids), batch_size):
-            batch_cids = cids[i : i + batch_size]
-            try:
-                records = self._fetch_properties_batch(batch_cids)
-                all_records.extend(records)
-            except Exception as e:
-                self.logger.error("batch_properties_failed", batch=i, error=str(e))
+        results: list[dict[str, Any]] = []
+        for identifier in unique_ids:
+            info = resolution.get(
+                identifier,
+                {"cid": None, "cid_source": "failed", "attempt": 1, "fallback_used": False},
+            )
+            cid = info.get("cid")
+            base_record = cid_to_properties.get(cid, {}).copy() if cid else {}
+            if cid is not None:
+                base_record.setdefault("CID", cid)
+            base_record["_source_identifier"] = identifier
+            base_record["_cid_source"] = info.get("cid_source", "inchikey" if cid else "failed")
+            base_record["_enrichment_attempt"] = info.get("attempt", 1)
+            base_record["_fallback_used"] = info.get("fallback_used", False)
+            results.append(base_record)
 
-        # Map back to original identifiers
-        return self._map_records_to_ids(all_records, cid_mapping)
+        return results
 
-    def _resolve_cids_batch(self, identifiers: list[str]) -> dict[str, int]:
+    def _resolve_cids_batch(self, identifiers: list[str]) -> dict[str, dict[str, Any]]:
         """Resolve PubChem CIDs from identifiers.
 
         Args:
             identifiers: List of InChI Keys, SMILES, or names
 
         Returns:
-            Mapping of identifier -> CID
+            Mapping of identifier -> resolution metadata
         """
-        cid_mapping = {}
+        cid_mapping: dict[str, dict[str, Any]] = {}
 
         for identifier in identifiers:
             if not identifier:
                 continue
 
+            metadata: dict[str, Any] = {
+                "cid": None,
+                "cid_source": "failed",
+                "attempt": 1,
+                "fallback_used": False,
+            }
+
             try:
-                # Try InChIKey lookup (most reliable)
                 cid = self._resolve_cid_by_inchikey(identifier)
                 if cid:
-                    cid_mapping[identifier] = cid
+                    metadata["cid"] = cid
+                    metadata["cid_source"] = "inchikey"
                     self.logger.debug("cid_resolved", identifier=identifier[:20], cid=cid)
-            except Exception as e:
-                self.logger.warning("cid_resolution_failed", identifier=identifier[:20], error=str(e))
+                else:
+                    self.logger.debug("cid_not_found", identifier=identifier[:20])
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning("cid_resolution_failed", identifier=identifier[:20], error=str(exc))
 
-        self.logger.info("cid_resolution_completed", total=len(identifiers), resolved=len(cid_mapping))
+            cid_mapping[identifier] = metadata
+
+        resolved = sum(1 for info in cid_mapping.values() if info.get("cid"))
+        self.logger.info("cid_resolution_completed", total=len(identifiers), resolved=resolved)
         return cid_mapping
 
     def _resolve_cid_by_inchikey(self, inchikey: str) -> int | None:
@@ -158,34 +219,6 @@ class PubChemAdapter(ExternalAdapter):
             self.logger.error("batch_properties_fetch_failed", cids_count=len(cids), error=str(e))
             return []
 
-    def _map_records_to_ids(
-        self,
-        records: list[dict[str, Any]],
-        cid_mapping: dict[str, int]
-    ) -> list[dict[str, Any]]:
-        """Map PubChem records back to original identifiers.
-
-        Args:
-            records: List of PubChem property records
-            cid_mapping: Mapping of identifier -> CID
-
-        Returns:
-            List of enriched records with original identifiers
-        """
-        # Reverse mapping: CID -> identifier
-        cid_to_identifier = {cid: identifier for identifier, cid in cid_mapping.items()}
-
-        enriched_records = []
-        for record in records:
-            cid = record.get("CID")
-            if cid and cid in cid_to_identifier:
-                # Add original identifier to record
-                enriched_record = record.copy()
-                enriched_record["_source_identifier"] = cid_to_identifier[cid]
-                enriched_records.append(enriched_record)
-
-        return enriched_records
-
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize PubChem record to standard format.
 
@@ -195,11 +228,15 @@ class PubChemAdapter(ExternalAdapter):
         Returns:
             Normalized record with pubchem_* prefix
         """
-        normalized = {}
+        normalized = {column: None for column in self._PUBCHEM_COLUMNS}
 
         # PubChem CID
-        if "CID" in record:
-            normalized["pubchem_cid"] = int(record["CID"])
+        cid = record.get("CID") or record.get("_cid")
+        if cid is not None:
+            try:
+                normalized["pubchem_cid"] = int(cid)
+            except (TypeError, ValueError):
+                normalized["pubchem_cid"] = None
 
         # Molecular formula
         if "MolecularFormula" in record:
@@ -230,6 +267,25 @@ class PubChemAdapter(ExternalAdapter):
         # IUPAC name
         if "IUPACName" in record:
             normalized["pubchem_iupac_name"] = str(record["IUPACName"])
+
+        if "RegistryID" in record:
+            normalized["pubchem_registry_id"] = str(record["RegistryID"])
+
+        if "RN" in record:
+            normalized["pubchem_rn"] = str(record["RN"])
+
+        if "Synonym" in record:
+            normalized["pubchem_synonyms"] = self._canonical_json(record["Synonym"])
+        elif "Synonyms" in record:
+            normalized["pubchem_synonyms"] = self._canonical_json(record["Synonyms"])
+
+        normalized["pubchem_lookup_inchikey"] = record.get("_source_identifier")
+
+        cid_source = record.get("_cid_source", "inchikey" if normalized["pubchem_cid"] else "failed")
+        normalized["pubchem_cid_source"] = cid_source
+        normalized["pubchem_enrichment_attempt"] = record.get("_enrichment_attempt", 1)
+        normalized["pubchem_fallback_used"] = bool(record.get("_fallback_used", False))
+        normalized["pubchem_enriched_at"] = datetime.now(timezone.utc).isoformat()
 
         return normalized
 
@@ -280,10 +336,23 @@ class PubChemAdapter(ExternalAdapter):
             self.logger.warning("enrichment_failed", reason="no_pubchem_data")
             return df
 
-        # Map back using InChI Key
-        # Create mapping from InChI Key to PubChem data
-        pubchem_df['inchi_key_normalized'] = pubchem_df['pubchem_inchi_key'].str.upper()
-        
+        # Map back using InChI Key (fallback to lookup identifier when PubChem omits InChIKey)
+        inchi_series = pubchem_df.get('pubchem_inchi_key')
+        lookup_series = pubchem_df.get('pubchem_lookup_inchikey')
+        if inchi_series is None:
+            inchi_series = lookup_series
+        elif lookup_series is not None:
+            inchi_series = inchi_series.fillna(lookup_series)
+
+        if inchi_series is None:
+            pubchem_df['inchi_key_normalized'] = None
+        else:
+            normalized = inchi_series.astype(str)
+            normalized = normalized.where(inchi_series.notna(), None)
+            normalized = normalized.str.upper()
+            normalized = normalized.where(~normalized.isin(['NONE', 'NAN']), None)
+            pubchem_df['inchi_key_normalized'] = normalized
+
         # Merge with original dataframe
         df_enriched = df.merge(
             pubchem_df,

@@ -1,5 +1,6 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
+import json
 from pathlib import Path
 from typing import Any, cast
 
@@ -23,6 +24,334 @@ schema_registry.register("testitem", "1.0.0", TestItemSchema)
 
 class TestItemPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL molecule (testitem) data."""
+
+    # ChEMBL molecule columns expected from the API according to 07a specification
+    _CHEMBL_CORE_FIELDS: list[str] = [
+        "molregno",
+        "pref_name",
+        "pref_name_key",
+        "parent_chembl_id",
+        "parent_molregno",
+        "therapeutic_flag",
+        "structure_type",
+        "molecule_type",
+        "molecule_type_chembl",
+        "max_phase",
+        "first_approval",
+        "dosed_ingredient",
+        "availability_type",
+        "chirality",
+        "chirality_chembl",
+        "mechanism_of_action",
+        "direct_interaction",
+        "molecular_mechanism",
+        "oral",
+        "parenteral",
+        "topical",
+        "black_box_warning",
+        "natural_product",
+        "first_in_class",
+        "prodrug",
+        "inorganic_flag",
+        "polymer_flag",
+        "usan_year",
+        "usan_stem",
+        "usan_substem",
+        "usan_stem_definition",
+        "indication_class",
+        "withdrawn_flag",
+        "withdrawn_year",
+        "withdrawn_country",
+        "withdrawn_reason",
+        "drug_chembl_id",
+        "drug_name",
+        "drug_type",
+        "drug_substance_flag",
+        "drug_indication_flag",
+        "drug_antibacterial_flag",
+        "drug_antiviral_flag",
+        "drug_antifungal_flag",
+        "drug_antiparasitic_flag",
+        "drug_antineoplastic_flag",
+        "drug_immunosuppressant_flag",
+        "drug_antiinflammatory_flag",
+    ]
+
+    _CHEMBL_PROPERTY_FIELDS: list[str] = [
+        "mw_freebase",
+        "alogp",
+        "hba",
+        "hbd",
+        "psa",
+        "rtb",
+        "ro3_pass",
+        "num_ro5_violations",
+        "acd_most_apka",
+        "acd_most_bpka",
+        "acd_logp",
+        "acd_logd",
+        "molecular_species",
+        "full_mwt",
+        "aromatic_rings",
+        "heavy_atoms",
+        "qed_weighted",
+        "mw_monoisotopic",
+        "full_molformula",
+        "hba_lipinski",
+        "hbd_lipinski",
+        "num_lipinski_ro5_violations",
+        "lipinski_ro5_violations",
+        "lipinski_ro5_pass",
+    ]
+
+    _CHEMBL_STRUCTURE_FIELDS: list[str] = [
+        "standardized_smiles",
+        "standard_inchi",
+        "standard_inchi_key",
+    ]
+
+    _CHEMBL_JSON_FIELDS: list[str] = [
+        "molecule_hierarchy",
+        "molecule_properties",
+        "molecule_structures",
+        "molecule_synonyms",
+        "atc_classifications",
+        "cross_references",
+        "biotherapeutic",
+        "chemical_probe",
+        "orphan",
+        "veterinary",
+        "helm_notation",
+    ]
+
+    _CHEMBL_TEXT_FIELDS: list[str] = [
+        "all_names",
+    ]
+
+    _PUBCHEM_FIELDS: list[str] = [
+        "pubchem_cid",
+        "pubchem_molecular_formula",
+        "pubchem_molecular_weight",
+        "pubchem_canonical_smiles",
+        "pubchem_isomeric_smiles",
+        "pubchem_inchi",
+        "pubchem_inchi_key",
+        "pubchem_iupac_name",
+        "pubchem_registry_id",
+        "pubchem_rn",
+        "pubchem_synonyms",
+        "pubchem_enriched_at",
+        "pubchem_cid_source",
+        "pubchem_fallback_used",
+        "pubchem_enrichment_attempt",
+    ]
+
+    _FALLBACK_FIELDS: list[str] = [
+        "fallback_error_code",
+        "fallback_http_status",
+        "fallback_retry_after_sec",
+        "fallback_attempt",
+        "fallback_error_message",
+    ]
+
+    @classmethod
+    def _expected_columns(cls) -> list[str]:
+        """Return ordered list of expected columns prior to metadata fields."""
+
+        business_fields = [
+            "molecule_chembl_id",
+            *cls._CHEMBL_CORE_FIELDS,
+            *cls._CHEMBL_PROPERTY_FIELDS,
+            *cls._CHEMBL_STRUCTURE_FIELDS,
+            *cls._CHEMBL_TEXT_FIELDS,
+            *cls._CHEMBL_JSON_FIELDS,
+        ]
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for col in business_fields:
+            if col not in seen:
+                ordered.append(col)
+                seen.add(col)
+        ordered.extend(cls._PUBCHEM_FIELDS)
+        ordered.extend(cls._FALLBACK_FIELDS)
+        return ordered
+
+    @staticmethod
+    def _canonical_json(value: Any) -> str | None:
+        """Serialize value to canonical JSON string."""
+
+        if value in (None, ""):
+            return None
+        try:
+            return json.dumps(value, sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError):
+            return None
+
+    @classmethod
+    def _empty_molecule_record(cls) -> dict[str, Any]:
+        """Create an empty molecule record with all expected fields."""
+
+        record = {column: None for column in cls._expected_columns()}
+        return record
+
+    @staticmethod
+    def _normalize_pref_name(pref_name: Any) -> str | None:
+        """Normalize preferred name for deterministic keys."""
+
+        if not isinstance(pref_name, str):
+            return None
+        normalized = pref_name.strip().lower()
+        return normalized or None
+
+    @classmethod
+    def _flatten_molecule_hierarchy(cls, molecule: dict[str, Any]) -> dict[str, Any]:
+        """Flatten molecule_hierarchy node with canonical JSON."""
+
+        flattened = {
+            "parent_chembl_id": None,
+            "parent_molregno": None,
+            "molecule_hierarchy": None,
+        }
+
+        hierarchy = molecule.get("molecule_hierarchy")
+        if isinstance(hierarchy, dict) and hierarchy:
+            flattened["parent_chembl_id"] = hierarchy.get("parent_chembl_id")
+            flattened["parent_molregno"] = hierarchy.get("parent_molregno")
+            flattened["molecule_hierarchy"] = cls._canonical_json(hierarchy)
+
+        return flattened
+
+    @classmethod
+    def _flatten_molecule_properties(cls, molecule: dict[str, Any]) -> dict[str, Any]:
+        """Extract 22 molecular properties with canonical JSON payload."""
+
+        flattened = {field: None for field in cls._CHEMBL_PROPERTY_FIELDS}
+        flattened["molecule_properties"] = None
+
+        props = molecule.get("molecule_properties")
+        if isinstance(props, dict) and props:
+            mapping = {
+                "mw_freebase": "mw_freebase",
+                "alogp": "alogp",
+                "hba": "hba",
+                "hbd": "hbd",
+                "psa": "psa",
+                "rtb": "rtb",
+                "ro3_pass": "ro3_pass",
+                "num_ro5_violations": "num_ro5_violations",
+                "acd_most_apka": "acd_most_apka",
+                "acd_most_bpka": "acd_most_bpka",
+                "acd_logp": "acd_logp",
+                "acd_logd": "acd_logd",
+                "molecular_species": "molecular_species",
+                "full_mwt": "full_mwt",
+                "aromatic_rings": "aromatic_rings",
+                "heavy_atoms": "heavy_atoms",
+                "qed_weighted": "qed_weighted",
+                "mw_monoisotopic": "mw_monoisotopic",
+                "full_molformula": "full_molformula",
+                "hba_lipinski": "hba_lipinski",
+                "hbd_lipinski": "hbd_lipinski",
+                "num_lipinski_ro5_violations": "num_lipinski_ro5_violations",
+                "lipinski_ro5_violations": "num_lipinski_ro5_violations",
+                "lipinski_ro5_pass": "lipinski_ro5_pass",
+            }
+            for field, source in mapping.items():
+                flattened[field] = props.get(source)
+
+            if "lipinski_ro5_pass" not in props and "ro3_pass" in props:
+                flattened["lipinski_ro5_pass"] = props.get("ro3_pass")
+
+            if flattened["rtb"] is None and "num_rotatable_bonds" in props:
+                flattened["rtb"] = props.get("num_rotatable_bonds")
+
+            flattened["molecule_properties"] = cls._canonical_json(props)
+
+        return flattened
+
+    @classmethod
+    def _flatten_molecule_structures(cls, molecule: dict[str, Any]) -> dict[str, Any]:
+        """Extract canonical molecular structures."""
+
+        flattened = {
+            "standardized_smiles": None,
+            "standard_inchi": None,
+            "standard_inchi_key": None,
+            "molecule_structures": None,
+        }
+
+        structures = molecule.get("molecule_structures")
+        if isinstance(structures, dict) and structures:
+            flattened["standardized_smiles"] = structures.get("canonical_smiles")
+            flattened["standard_inchi"] = structures.get("standard_inchi")
+            flattened["standard_inchi_key"] = structures.get("standard_inchi_key")
+            flattened["molecule_structures"] = cls._canonical_json(structures)
+
+        return flattened
+
+    @staticmethod
+    def _sorted_synonym_entries(synonyms: list[Any]) -> list[Any]:
+        """Sort synonym entries deterministically."""
+
+        def synonym_key(entry: Any) -> str:
+            if isinstance(entry, dict):
+                value = entry.get("molecule_synonym")
+            else:
+                value = entry
+            if not isinstance(value, str):
+                return ""
+            return value.strip().lower()
+
+        return sorted(synonyms, key=synonym_key)
+
+    @classmethod
+    def _flatten_molecule_synonyms(cls, molecule: dict[str, Any]) -> dict[str, Any]:
+        """Extract synonyms with canonical serialization."""
+
+        flattened = {
+            "all_names": None,
+            "molecule_synonyms": None,
+        }
+
+        synonyms = molecule.get("molecule_synonyms")
+        if isinstance(synonyms, list) and synonyms:
+            synonym_names: list[str] = []
+            normalized_entries: list[Any] = []
+
+            for entry in synonyms:
+                if isinstance(entry, dict):
+                    normalized_entry = entry.copy()
+                    value = normalized_entry.get("molecule_synonym")
+                    if isinstance(value, str):
+                        trimmed_value = value.strip()
+                        normalized_entry["molecule_synonym"] = trimmed_value
+                        synonym_names.append(trimmed_value)
+                    normalized_entries.append(normalized_entry)
+                elif isinstance(entry, str):
+                    trimmed = entry.strip()
+                    normalized_entries.append(trimmed)
+                    synonym_names.append(trimmed)
+
+            unique_names = sorted({name.strip() for name in synonym_names if name}, key=str.lower)
+            if unique_names:
+                flattened["all_names"] = "; ".join(unique_names)
+
+            if normalized_entries:
+                sorted_entries = cls._sorted_synonym_entries(normalized_entries)
+                flattened["molecule_synonyms"] = cls._canonical_json(sorted_entries)
+
+        return flattened
+
+    @classmethod
+    def _flatten_nested_json(cls, molecule: dict[str, Any], field_name: str) -> str | None:
+        """Serialize nested JSON structure to canonical string."""
+
+        value = molecule.get(field_name)
+        if value in (None, ""):
+            return None
+        return cls._canonical_json(value)
+
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
@@ -76,15 +405,7 @@ class TestItemPipeline(PipelineBase):
         if not input_file.exists():
             logger.warning("input_file_not_found", path=input_file)
             # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=[
-                "molecule_chembl_id", "molregno", "parent_chembl_id",
-                "canonical_smiles", "standard_inchi", "standard_inchi_key",
-                "molecular_weight", "heavy_atoms", "aromatic_rings",
-                "rotatable_bonds", "hba", "hbd",
-                "lipinski_ro5_violations", "lipinski_ro5_pass",
-                "all_names", "molecule_synonyms",
-                "atc_classifications", "pubchem_cid", "pubchem_synonyms",
-            ])
+            return pd.DataFrame(columns=TestItemSchema.get_column_order())
 
         df = pd.read_csv(input_file)  # Read all records
 
@@ -194,48 +515,79 @@ class TestItemPipeline(PipelineBase):
         self._molecule_cache[cache_key] = record.copy()
 
     def _serialize_molecule_record(self, payload: dict[str, Any]) -> dict[str, Any]:
-        mol_data: dict[str, Any] = {
-            "molecule_chembl_id": payload.get("molecule_chembl_id"),
-            "molregno": payload.get("molecule_chembl_id"),
-            "pref_name": payload.get("pref_name"),
-            "parent_chembl_id": payload.get("molecule_hierarchy", {}).get("parent_chembl_id")
-            if isinstance(payload.get("molecule_hierarchy"), dict)
-            else None,
-            "max_phase": payload.get("max_phase"),
-            "structure_type": payload.get("structure_type"),
-            "molecule_type": payload.get("molecule_type"),
-            "fallback_error_code": None,
-            "fallback_http_status": None,
-            "fallback_retry_after_sec": None,
-            "fallback_attempt": None,
-            "fallback_error_message": None,
-        }
+        record = self._empty_molecule_record()
 
-        props = payload.get("molecule_properties", {})
-        if isinstance(props, dict):
-            mol_data.update(
-                {
-                    "mw_freebase": props.get("mw_freebase"),
-                    "qed_weighted": props.get("qed_weighted"),
-                    "heavy_atoms": props.get("heavy_atoms"),
-                    "aromatic_rings": props.get("aromatic_rings"),
-                    "rotatable_bonds": props.get("num_rotatable_bonds"),
-                    "hba": props.get("hba"),
-                    "hbd": props.get("hbd"),
-                }
-            )
+        record["molecule_chembl_id"] = payload.get("molecule_chembl_id")
+        record["molregno"] = payload.get("molregno")
+        pref_name = payload.get("pref_name")
+        record["pref_name"] = pref_name
+        record["pref_name_key"] = self._normalize_pref_name(pref_name)
+        record["therapeutic_flag"] = payload.get("therapeutic_flag")
+        record["structure_type"] = payload.get("structure_type")
+        record["molecule_type"] = payload.get("molecule_type")
+        record["molecule_type_chembl"] = payload.get("molecule_type")
+        record["max_phase"] = payload.get("max_phase")
+        record["first_approval"] = payload.get("first_approval")
+        record["dosed_ingredient"] = payload.get("dosed_ingredient")
+        record["availability_type"] = payload.get("availability_type")
+        record["chirality"] = payload.get("chirality")
+        record["chirality_chembl"] = payload.get("chirality")
+        record["mechanism_of_action"] = payload.get("mechanism_of_action")
+        record["direct_interaction"] = payload.get("direct_interaction")
+        record["molecular_mechanism"] = payload.get("molecular_mechanism")
+        record["oral"] = payload.get("oral")
+        record["parenteral"] = payload.get("parenteral")
+        record["topical"] = payload.get("topical")
+        record["black_box_warning"] = payload.get("black_box_warning")
+        record["natural_product"] = payload.get("natural_product")
+        record["first_in_class"] = payload.get("first_in_class")
+        record["prodrug"] = payload.get("prodrug")
+        record["inorganic_flag"] = payload.get("inorganic_flag")
+        record["polymer_flag"] = payload.get("polymer_flag")
+        record["usan_year"] = payload.get("usan_year")
+        record["usan_stem"] = payload.get("usan_stem")
+        record["usan_substem"] = payload.get("usan_substem")
+        record["usan_stem_definition"] = payload.get("usan_stem_definition")
+        record["indication_class"] = payload.get("indication_class")
+        record["withdrawn_flag"] = payload.get("withdrawn_flag")
+        record["withdrawn_year"] = payload.get("withdrawn_year")
+        record["withdrawn_country"] = payload.get("withdrawn_country")
+        record["withdrawn_reason"] = payload.get("withdrawn_reason")
+        record["drug_chembl_id"] = payload.get("drug_chembl_id")
+        record["drug_name"] = payload.get("drug_name")
+        record["drug_type"] = payload.get("drug_type")
+        record["drug_substance_flag"] = payload.get("drug_substance_flag")
+        record["drug_indication_flag"] = payload.get("drug_indication_flag")
+        record["drug_antibacterial_flag"] = payload.get("drug_antibacterial_flag")
+        record["drug_antiviral_flag"] = payload.get("drug_antiviral_flag")
+        record["drug_antifungal_flag"] = payload.get("drug_antifungal_flag")
+        record["drug_antiparasitic_flag"] = payload.get("drug_antiparasitic_flag")
+        record["drug_antineoplastic_flag"] = payload.get("drug_antineoplastic_flag")
+        record["drug_immunosuppressant_flag"] = payload.get("drug_immunosuppressant_flag")
+        record["drug_antiinflammatory_flag"] = payload.get("drug_antiinflammatory_flag")
 
-        struct = payload.get("molecule_structures", {})
-        if isinstance(struct, dict):
-            mol_data.update(
-                {
-                    "standardized_smiles": struct.get("canonical_smiles"),
-                    "standard_inchi": struct.get("standard_inchi"),
-                    "standard_inchi_key": struct.get("standard_inchi_key"),
-                }
-            )
+        record.update(self._flatten_molecule_hierarchy(payload))
+        record.update(self._flatten_molecule_properties(payload))
+        record.update(self._flatten_molecule_structures(payload))
+        record.update(self._flatten_molecule_synonyms(payload))
 
-        return mol_data
+        # Nested JSON blobs
+        for field in [
+            "atc_classifications",
+            "cross_references",
+            "biotherapeutic",
+            "chemical_probe",
+            "orphan",
+            "veterinary",
+            "helm_notation",
+        ]:
+            record[field] = self._flatten_nested_json(payload, field)
+
+        # Reset fallback metadata defaults
+        for field in self._FALLBACK_FIELDS:
+            record[field] = None
+
+        return record
 
     def _fetch_single_molecule(self, molecule_id: str, attempt: int) -> dict[str, Any]:
         try:
@@ -305,30 +657,16 @@ class TestItemPipeline(PipelineBase):
         if retry_after is None and isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
             retry_after = self._extract_retry_after(error)
 
-        fallback_record: dict[str, Any] = {
-            "molecule_chembl_id": molecule_id,
-            "molregno": None,
-            "pref_name": None,
-            "parent_chembl_id": None,
-            "max_phase": None,
-            "structure_type": None,
-            "molecule_type": None,
-            "mw_freebase": None,
-            "qed_weighted": None,
-            "standardized_smiles": None,
-            "standard_inchi": None,
-            "standard_inchi_key": None,
-            "heavy_atoms": None,
-            "aromatic_rings": None,
-            "rotatable_bonds": None,
-            "hba": None,
-            "hbd": None,
-            "fallback_error_code": error_code,
-            "fallback_http_status": http_status,
-            "fallback_retry_after_sec": retry_after,
-            "fallback_attempt": attempt,
-            "fallback_error_message": message or (str(error) if error else "Missing from ChEMBL response"),
-        }
+        fallback_record = self._empty_molecule_record()
+        fallback_record["molecule_chembl_id"] = molecule_id
+        fallback_record["fallback_error_code"] = error_code
+        fallback_record["fallback_http_status"] = http_status
+        fallback_record["fallback_retry_after_sec"] = retry_after
+        fallback_record["fallback_attempt"] = attempt
+        fallback_record["fallback_error_message"] = (
+            message or (str(error) if error else "Missing from ChEMBL response")
+        )
+
         return fallback_record
 
     @staticmethod
