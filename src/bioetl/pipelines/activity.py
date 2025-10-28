@@ -7,6 +7,7 @@ import pandas as pd
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pipelines.activity_mappers import map_activity_row
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
@@ -53,14 +54,7 @@ class ActivityPipeline(PipelineBase):
         if not input_file.exists():
             logger.warning("input_file_not_found", path=input_file)
             # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=[
-                "activity_id", "molecule_chembl_id", "assay_chembl_id",
-                "target_chembl_id", "document_chembl_id", "standard_type",
-                "standard_relation", "standard_value", "standard_units",
-                "pchembl_value", "bao_endpoint", "bao_format", "bao_label",
-                "canonical_smiles", "target_organism", "target_tax_id",
-                "data_validity_comment", "activity_properties",
-            ])
+            return pd.DataFrame(columns=ActivitySchema.Config.column_order)
 
         # Read CSV file
         df = pd.read_csv(input_file)
@@ -86,26 +80,6 @@ class ActivityPipeline(PipelineBase):
                 logger.warning("no_api_data_returned")
         else:
             logger.warning("no_activity_ids_found")
-
-        # Add missing IO_SCHEMAS columns with None/default values
-        required_cols = [
-            "activity_id", "molecule_chembl_id", "assay_chembl_id", "target_chembl_id", "document_chembl_id",
-            "published_type", "published_relation", "published_value", "published_units",
-            "standard_type", "standard_relation", "standard_value", "standard_units", "standard_flag",
-            "lower_bound", "upper_bound", "is_censored", "pchembl_value",
-            "activity_comment", "data_validity_comment",
-            "bao_endpoint", "bao_format", "bao_label",
-            "potential_duplicate", "uo_units", "qudt_units", "src_id", "action_type",
-            "activity_properties_json", "bei", "sei", "le", "lle"
-        ]
-
-        for col in required_cols:
-            if col not in df.columns:
-                df[col] = None
-
-        # Set default values
-        df['standard_relation'] = '='
-        df['bao_label'] = None
 
         logger.info("extraction_completed", rows=len(df), columns=len(df.columns))
         return df
@@ -157,37 +131,17 @@ class ActivityPipeline(PipelineBase):
                             "bao_endpoint": act.get("bao_endpoint"),
                             "bao_format": act.get("bao_format"),
                             "bao_label": act.get("bao_label"),
-                            # New fields: ontologies and metadata
+                            "canonical_smiles": act.get("canonical_smiles"),
+                            "target_organism": act.get("target_organism"),
+                            "target_tax_id": act.get("target_tax_id"),
+                            "activity_properties": act.get("activity_properties"),
+                            "ligand_efficiency": act.get("ligand_efficiency") or act.get("ligand_eff"),
                             "potential_duplicate": act.get("potential_duplicate"),
                             "uo_units": act.get("uo_units"),
                             "qudt_units": act.get("qudt_units"),
                             "src_id": act.get("src_id"),
                             "action_type": act.get("action_type"),
                         }
-
-                        # Handle activity_properties as JSON
-                        activity_props = act.get("activity_properties")
-                        if activity_props:
-                            activity_data["activity_properties_json"] = json.dumps(activity_props, ensure_ascii=False)
-                        else:
-                            activity_data["activity_properties_json"] = None
-
-                        # Handle ligand_eff
-                        ligand_eff = act.get("ligand_eff")
-                        if isinstance(ligand_eff, dict):
-                            activity_data.update({
-                                "bei": ligand_eff.get("bei"),
-                                "sei": ligand_eff.get("sei"),
-                                "le": ligand_eff.get("le"),
-                                "lle": ligand_eff.get("lle"),
-                            })
-                        else:
-                            activity_data.update({
-                                "bei": None,
-                                "sei": None,
-                                "le": None,
-                                "lle": None,
-                            })
 
                         results.append(activity_data)
 
@@ -213,59 +167,78 @@ class ActivityPipeline(PipelineBase):
         if df.empty:
             return df
 
-        # Normalize identifiers
-        from bioetl.normalizers import registry
+        # Map raw rows to canonical schema fields
+        records = [map_activity_row(row) for row in df.to_dict(orient="records")]
+        normalized_df = pd.DataFrame(records)
 
-        for col in ["molecule_chembl_id", "assay_chembl_id", "target_chembl_id", "document_chembl_id"]:
-            if col in df.columns:
-                df[col] = df[col].apply(
-                    lambda x: registry.normalize("identifier", x) if pd.notna(x) else None
-                )
+        # Ensure all expected columns exist
+        for column in ActivitySchema.Config.column_order:
+            if column not in normalized_df.columns:
+                if column in ActivitySchema.Config.string_columns:
+                    normalized_df[column] = ""
+                elif column in ActivitySchema.Config.bool_columns:
+                    normalized_df[column] = False
+                else:
+                    normalized_df[column] = pd.NA
 
-        # Normalize units
-        for col in ["standard_units", "published_units", "uo_units", "qudt_units"]:
-            if col in df.columns:
-                df[col] = df[col].apply(
-                    lambda x: registry.normalize("string", x) if pd.notna(x) else None
-                )
+        # Apply NA policy for string columns
+        for column in ActivitySchema.Config.string_columns:
+            if column in normalized_df.columns:
+                normalized_df[column] = normalized_df[column].fillna("")
 
-        # Normalize action_type
-        if "action_type" in df.columns:
-            df["action_type"] = df["action_type"].apply(
-                lambda x: registry.normalize("string", x) if pd.notna(x) else None
-            )
+        # Apply NA policy for boolean columns
+        for column in ActivitySchema.Config.bool_columns:
+            if column in normalized_df.columns:
+                normalized_df[column] = normalized_df[column].fillna(False).astype(bool)
 
-        # Validate potential_duplicate (should be 0 or 1)
-        if "potential_duplicate" in df.columns:
-            df["potential_duplicate"] = df["potential_duplicate"].apply(
-                lambda x: x if pd.notna(x) and x in [0, 1] else None
-            )
+        int_columns = [
+            "activity_id",
+            "standard_flag",
+            "potential_duplicate",
+            "src_id",
+            "target_tax_id",
+        ]
+
+        for column in int_columns:
+            if column in normalized_df.columns:
+                normalized_df[column] = pd.to_numeric(normalized_df[column], errors="coerce").astype("Int64")
+
+        # Ensure numeric precision by rounding floats to 6 decimal places
+        float_columns = [
+            "published_value",
+            "standard_value",
+            "lower_bound",
+            "upper_bound",
+            "pchembl_value",
+            "bei",
+            "sei",
+            "le",
+            "lle",
+        ]
+
+        for column in float_columns:
+            if column in normalized_df.columns:
+                normalized_df[column] = pd.to_numeric(normalized_df[column], errors="coerce")
+                normalized_df[column] = normalized_df[column].round(6)
 
         # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
-        df["source_system"] = "chembl"
-        df["chembl_release"] = None
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        normalized_df["pipeline_version"] = "1.0.0"
+        normalized_df["source_system"] = "chembl"
+        normalized_df["chembl_release"] = ""
+        normalized_df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
 
-        # Generate hash fields for data integrity
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
-        df["hash_business_key"] = df["activity_id"].apply(generate_hash_business_key)
-        df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+        normalized_df["hash_business_key"] = normalized_df["activity_id"].apply(generate_hash_business_key)
+        normalized_df["hash_row"] = normalized_df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
 
-        # Generate deterministic index
-        df = df.sort_values("activity_id")  # Sort by primary key
-        df["index"] = range(len(df))
+        normalized_df = normalized_df.sort_values("activity_id")
+        normalized_df["index"] = range(len(normalized_df))
 
-        # Reorder columns according to schema
-        from bioetl.schemas import ActivitySchema
+        expected_cols = ActivitySchema.Config.column_order
+        normalized_df = normalized_df[expected_cols]
 
-        if "column_order" in ActivitySchema.Config.__dict__:
-            expected_cols = ActivitySchema.Config.column_order
-            # Only reorder columns that exist in the DataFrame
-            df = df[[col for col in expected_cols if col in df.columns]]
-
-        return df
+        return normalized_df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate activity data against schema."""
