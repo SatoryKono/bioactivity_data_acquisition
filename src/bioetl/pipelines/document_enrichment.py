@@ -40,10 +40,10 @@ def merge_with_precedence(
 
     # Merge each source by their join key
     if pubmed_df is not None and not pubmed_df.empty:
+        # Add prefix to all columns BEFORE checking join keys
+        pubmed_prefixed = pubmed_df.add_prefix("pubmed_")
         # Join by PMID
-        if "pubmed_id" in pubmed_df.columns and "chembl_pmid" in merged_df.columns:
-            # Add prefix to all columns
-            pubmed_prefixed = pubmed_df.add_prefix("pubmed_")
+        if "pubmed_pubmed_pmid" in pubmed_prefixed.columns and "chembl_pmid" in merged_df.columns:
             merged_df = merged_df.merge(
                 pubmed_prefixed,
                 left_on="chembl_pmid",

@@ -191,8 +191,10 @@ class DocumentPipeline(PipelineBase):
         pmids = []
         dois = []
 
-        # Check for both 'pmid' and 'pubmed_id' column names
-        if "pmid" in chembl_df.columns:
+        # Check for multiple possible PMID column names
+        if "chembl_pmid" in chembl_df.columns:
+            pmids = chembl_df["chembl_pmid"].dropna().astype(str).tolist()
+        elif "pmid" in chembl_df.columns:
             pmids = chembl_df["pmid"].dropna().astype(str).tolist()
         elif "pubmed_id" in chembl_df.columns:
             pmids = chembl_df["pubmed_id"].dropna().astype(str).tolist()
@@ -330,10 +332,15 @@ class DocumentPipeline(PipelineBase):
         if "document_contains_external_links" in df.columns:
             df["referenses_on_previous_experiments"] = df["document_contains_external_links"].apply(lambda x: bool(x) if pd.notna(x) else None)
 
-        # Normalize identifiers FIRST
+        # IMPORTANT: Map pubmed_id to chembl_pmid BEFORE normalization
+        # Map pubmed_id -> chembl_pmid (convert to int)
+        if "pubmed_id" in df.columns:
+            df["chembl_pmid"] = df["pubmed_id"].apply(lambda x: int(x) if pd.notna(x) and str(x).isdigit() else None)
+
+        # Normalize identifiers
         from bioetl.normalizers import registry
 
-        # Normalize IDs before enrichment
+        # Normalize IDs before enrichment (now pubmed_id is safe to normalize)
         for col in ["document_chembl_id", "doi", "pmid", "pubmed_id"]:
             if col in df.columns:
                 df[col] = df[col].apply(
@@ -370,10 +377,7 @@ class DocumentPipeline(PipelineBase):
         # Set chembl_doc_type - default to journal-article for ChEMBL documents
         df["chembl_doc_type"] = "journal-article"
 
-        # Map pubmed_id -> chembl_pmid (convert to int)
-        if "pubmed_id" in df.columns:
-            df["chembl_pmid"] = df["pubmed_id"].apply(lambda x: int(x) if pd.notna(x) and str(x).isdigit() else None)
-            # IMPORTANT: Keep pubmed_id and doi with original names for enrichment
+        # Keep pubmed_id and doi with original names for enrichment (chembl_pmid already created above)
 
         # Check if enrichment is enabled and apply AFTER renaming
         enrichment_enabled = any(
