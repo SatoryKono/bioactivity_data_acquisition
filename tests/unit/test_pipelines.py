@@ -1159,6 +1159,59 @@ class TestTargetPipeline:
         assert silver_path.exists()
         assert component_path.exists()
 
+    def test_iuphar_enrichment_merges_classification(self, target_config, monkeypatch):
+        """IUPHAR enrichment populates classification data and materializes artifacts."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TargetPipeline(target_config, run_id)
+
+        pipeline.uniprot_client = None
+        pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_orthologs_client = None
+
+        class DummyIupharClient:
+            def request_json(self, url, params=None, method="GET", **kwargs):
+                if url == "/targets":
+                    return [
+                        {
+                            "targetId": 1,
+                            "name": "Test Target",
+                            "familyIds": [11],
+                        }
+                    ]
+                if url == "/targets/families":
+                    return [
+                        {"familyId": 1, "name": "GPCRs", "parentFamilyIds": [], "subFamilyIds": [10]},
+                        {"familyId": 10, "name": "Class A GPCRs", "parentFamilyIds": [1], "subFamilyIds": [11]},
+                        {"familyId": 11, "name": "Adenosine receptors", "parentFamilyIds": [10], "subFamilyIds": []},
+                    ]
+                raise AssertionError(f"Unexpected URL {url}")
+
+        pipeline.iuphar_client = DummyIupharClient()
+
+        captured: dict[str, pd.DataFrame] = {}
+
+        def _capture_materialization(self, classification_df, gold_df):
+            captured["classification"] = classification_df
+            captured["gold"] = gold_df
+
+        monkeypatch.setattr(TargetPipeline, "_materialize_iuphar", _capture_materialization)
+
+        df = pd.DataFrame({
+            "target_chembl_id": ["CHEMBL1"],
+            "pref_name": ["Test Target"],
+        })
+
+        enriched = pipeline.transform(df)
+
+        assert enriched.loc[0, "iuphar_type"] == "GPCRs"
+        assert enriched.loc[0, "iuphar_class"] == "Class A GPCRs"
+        assert enriched.loc[0, "iuphar_subclass"] == "Adenosine receptors"
+        assert pipeline.qc_metrics["iuphar_coverage"] == pytest.approx(1.0)
+        assert "classification" in captured and not captured["classification"].empty
+        assert "gold" in captured and not captured["gold"].empty
+        assert set(captured["classification"]["classification_source"].unique()) == {"iuphar"}
+
 
 class TestDocumentPipeline:
     """Tests for DocumentPipeline."""
