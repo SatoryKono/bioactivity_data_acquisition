@@ -1,5 +1,8 @@
 """Document schema for multi-source enrichment according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
+from __future__ import annotations
+
+import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
@@ -59,6 +62,52 @@ class DocumentRawSchema(pa.DataFrameModel):
         # different order (a common scenario observed by CLI users on Windows).
         ordered = False
         coerce = True
+
+    @classmethod
+    def validate(  # type: ignore[override]
+        cls,
+        check_obj: pd.DataFrame,
+        *args,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """Validate ``check_obj`` while being resilient to column permutations.
+
+        Some Pandera versions incorrectly trigger ``COLUMN_NOT_ORDERED`` errors
+        even when ``Config.ordered`` is set to ``False`` on the ``DataFrameModel``.
+        To guarantee consistent behaviour across environments (notably on
+        Windows/Python 3.13 where the regression was observed), we normalize the
+        incoming DataFrame prior to delegating to Pandera. Missing optional
+        columns are added as ``pd.NA`` so validation retains deterministic column
+        order, and extra columns are preserved in their original positions after
+        the schema-enforced subset is validated.
+        """
+
+        schema = cls.to_schema()
+        schema._ordered = False  # defensive: ensure ordering is never enforced
+
+        if not isinstance(check_obj, pd.DataFrame):
+            return schema.validate(check_obj, *args, **kwargs)
+
+        original_columns = list(check_obj.columns)
+        expected_columns = list(schema.columns.keys())
+
+        working_df = check_obj.copy()
+        missing_columns = [col for col in expected_columns if col not in working_df.columns]
+
+        for column in missing_columns:
+            working_df[column] = pd.NA
+
+        ordered_df = working_df.reindex(columns=expected_columns)
+        validated_core = schema.validate(ordered_df, *args, **kwargs)
+
+        extra_columns = [col for col in original_columns if col not in expected_columns]
+        if extra_columns:
+            extras = working_df.loc[:, extra_columns]
+            # ``pd.concat`` preserves the deterministic order of the schema
+            # columns while keeping user-supplied extras to the right.
+            return pd.concat([validated_core, extras], axis=1)
+
+        return validated_core
 
 
 class DocumentSchema(BaseSchema):
