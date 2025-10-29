@@ -791,20 +791,19 @@ class AssayPipeline(PipelineBase):
         else:
             df["row_index"] = pd.Series([0] * len(df), dtype="Int64")
 
-        _coerce_nullable_int_columns(
-            df,
-            [
-                "row_index",
-                "assay_tax_id",
-                "confidence_score",
-                "src_id",
-                "species_group_flag",
-                "tax_id",
-                "component_count",
-                "assay_class_id",
-                "variant_id",
-            ],
-        )
+        nullable_int_columns = [
+            "row_index",
+            "assay_tax_id",
+            "confidence_score",
+            "src_id",
+            "species_group_flag",
+            "tax_id",
+            "component_count",
+            "assay_class_id",
+            "variant_id",
+        ]
+
+        _coerce_nullable_int_columns(df, nullable_int_columns)
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
@@ -829,14 +828,34 @@ class AssayPipeline(PipelineBase):
         from bioetl.schemas import AssaySchema
 
         expected_cols = AssaySchema.get_column_order()
+        nullable_int_set = set(nullable_int_columns)
         if expected_cols:
             # Add missing columns with None values
             for col in expected_cols:
                 if col not in df.columns:
-                    df[col] = None
+                    if col in nullable_int_set:
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    else:
+                        df[col] = pd.NA
+                elif col in nullable_int_set:
+                    # Ensure dtype stability for columns already present but
+                    # potentially inferred as ``object`` when upstream payloads
+                    # contained stringified numbers or missing values.
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+                    if df[col].isna().any():
+                        df[col] = pd.array(df[col], dtype="Int64")
+                    else:
+                        df[col] = df[col].astype("int64", copy=False)
 
             # Reorder to match schema column_order
             df = df[expected_cols]
+
+        # Pandera enforces strict column order as part of the schema config. If
+        # new nullable integer columns were added in the previous step they will
+        # currently contain ``Int64`` values, but re-running the coercion keeps
+        # the behaviour consistent for callers that operate on the reordered
+        # frame (e.g. QC reporting) before validation happens downstream.
+        _coerce_nullable_int_columns(df, nullable_int_columns)
 
         return df
 
