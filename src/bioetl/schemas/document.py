@@ -52,7 +52,12 @@ class DocumentRawSchema(pa.DataFrameModel):
 
     class Config:
         strict = False
-        ordered = True
+        # Allow Pandera to accept column order permutations that appear in
+        # upstream payloads. The pipeline itself reorders columns deterministically
+        # before validation, but disabling Pandera's order enforcement prevents
+        # false-positive ``COLUMN_NOT_ORDERED`` errors when CSV inputs arrive in a
+        # different order (a common scenario observed by CLI users on Windows).
+        ordered = False
         coerce = True
 
 
