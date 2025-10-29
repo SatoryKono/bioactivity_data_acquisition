@@ -8,7 +8,11 @@ import pandas as pd
 
 from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.output_writer import OutputArtifacts, UnifiedOutputWriter
+from bioetl.core.output_writer import (
+    OutputArtifacts,
+    OutputMetadata,
+    UnifiedOutputWriter,
+)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -25,6 +29,9 @@ class PipelineBase(ABC):
         self.qc_summary_data: dict[str, Any] = {}
         self.qc_missing_mappings = pd.DataFrame()
         self.qc_enrichment_metrics = pd.DataFrame()
+        self.runtime_options: dict[str, Any] = {}
+        self.additional_tables: dict[str, pd.DataFrame] = {}
+        self.export_metadata: OutputMetadata | None = None
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -74,12 +81,15 @@ class PipelineBase(ABC):
         return self.output_writer.write(
             df,
             output_path,
+            metadata=self.export_metadata,
             extended=extended,
             issues=self.validation_issues,
             qc_metrics=self.qc_metrics,
             qc_summary=self.qc_summary_data,
             qc_missing_mappings=self.qc_missing_mappings,
             qc_enrichment_metrics=self.qc_enrichment_metrics,
+            additional_tables=self.additional_tables,
+            runtime_options=self.runtime_options,
         )
 
     def run(
@@ -89,6 +99,8 @@ class PipelineBase(ABC):
         logger.info("pipeline_started", pipeline=self.config.pipeline.name)
 
         try:
+            self.additional_tables = {}
+            self.export_metadata = None
             # Extract
             df = self.extract(*args, **kwargs)
             logger.info("extraction_completed", rows=len(df))

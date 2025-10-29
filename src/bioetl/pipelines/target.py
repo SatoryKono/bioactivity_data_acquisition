@@ -16,6 +16,7 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import CircuitBreakerConfig, HttpConfig, RateLimitConfig, RetryConfig, TargetSourceConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.output_writer import OutputMetadata
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import (
     ProteinClassSchema,
@@ -351,11 +352,27 @@ class TargetPipeline(PipelineBase):
                 lambda x: registry.normalize("string", x) if pd.notna(x) else None
             )
 
+        with_uniprot = bool(self.runtime_options.get("with_uniprot", True))
+        with_iuphar = bool(self.runtime_options.get("with_iuphar", True))
+        self.runtime_options["with_uniprot"] = with_uniprot
+        self.runtime_options["with_iuphar"] = with_iuphar
+
+        logger.info(
+            "enrichment_stages_configured",
+            with_uniprot=with_uniprot,
+            with_iuphar=with_iuphar,
+        )
+
         enrichment_metrics: dict[str, Any] = {}
         uniprot_silver = pd.DataFrame()
         component_enrichment = pd.DataFrame()
 
-        if (
+        stage_summary = self.qc_summary_data.setdefault("stages", {})
+
+        if not with_uniprot:
+            logger.info("uniprot_enrichment_skipped", reason="disabled")
+            stage_summary["uniprot"] = {"status": "skipped", "reason": "disabled"}
+        elif (
             self.uniprot_client is not None
             and "uniprot_accession" in df.columns
             and df["uniprot_accession"].notna().any()
@@ -373,20 +390,39 @@ class TargetPipeline(PipelineBase):
                         "error": str(exc),
                     }
                 )
+                stage_summary["uniprot"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
             else:
                 if enrichment_metrics:
                     self.qc_metrics.update(enrichment_metrics)
                 if not uniprot_silver.empty or not component_enrichment.empty:
                     self._materialize_silver(uniprot_silver, component_enrichment)
+                stage_summary["uniprot"] = {
+                    "status": "completed",
+                    "rows": int(len(df)),
+                }
         else:
             logger.info(
                 "uniprot_enrichment_skipped",
                 reason="no_accessions" if "uniprot_accession" not in df.columns else "no_client",
             )
+            stage_summary["uniprot"] = {
+                "status": "skipped",
+                "reason": (
+                    "missing_column"
+                    if "uniprot_accession" not in df.columns
+                    else "client_unavailable"
+                ),
+            }
 
         iuphar_classification = pd.DataFrame()
         iuphar_gold = pd.DataFrame()
-        if self.iuphar_client is not None:
+        if not with_iuphar:
+            logger.info("iuphar_enrichment_skipped", reason="disabled")
+            stage_summary["iuphar"] = {"status": "skipped", "reason": "disabled"}
+        elif self.iuphar_client is not None:
             try:
                 df, iuphar_classification, iuphar_gold, iuphar_metrics = self._enrich_iuphar(df)
             except Exception as exc:  # pragma: no cover - defensive logging
@@ -400,6 +436,10 @@ class TargetPipeline(PipelineBase):
                         "error": str(exc),
                     }
                 )
+                stage_summary["iuphar"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
             else:
                 if iuphar_metrics:
                     self.qc_metrics.update(iuphar_metrics)
@@ -408,8 +448,13 @@ class TargetPipeline(PipelineBase):
                         self._evaluate_iuphar_qc(float(coverage_value))
                 if not iuphar_classification.empty or not iuphar_gold.empty:
                     self._materialize_iuphar(iuphar_classification, iuphar_gold)
+                stage_summary["iuphar"] = {
+                    "status": "completed",
+                    "rows": int(len(df)),
+                }
         else:
             logger.info("iuphar_enrichment_skipped", reason="no_client")
+            stage_summary["iuphar"] = {"status": "skipped", "reason": "client_unavailable"}
 
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
@@ -450,6 +495,31 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class = gold_protein_class
         self.gold_xref = gold_xref
 
+        additional_tables: dict[str, pd.DataFrame] = {}
+        if not gold_components.empty:
+            additional_tables["target_components"] = gold_components
+        if not gold_protein_class.empty:
+            additional_tables["target_protein_classifications"] = gold_protein_class
+        if not gold_xref.empty:
+            additional_tables["target_xrefs"] = gold_xref
+        if not component_enrichment.empty:
+            additional_tables["target_component_enrichment"] = component_enrichment
+        if not iuphar_classification.empty:
+            additional_tables["target_iuphar_classification"] = iuphar_classification
+        if not iuphar_gold.empty:
+            additional_tables["target_iuphar_enrichment"] = iuphar_gold
+
+        self.additional_tables = additional_tables
+
+        self.export_metadata = OutputMetadata.from_dataframe(
+            gold_targets,
+            pipeline_version=pipeline_version,
+            source_system=source_system,
+            chembl_release=self._chembl_release,
+            column_order=list(gold_targets.columns),
+            run_id=self.run_id,
+        )
+
         if self._qc_missing_mapping_records:
             self.qc_missing_mappings = pd.DataFrame(self._qc_missing_mapping_records).convert_dtypes()
         else:
@@ -462,6 +532,9 @@ class TargetPipeline(PipelineBase):
             gold_protein_class,
             gold_xref,
         )
+
+        if self.qc_metrics:
+            logger.info("qc_metrics_collected", metrics=self.qc_metrics)
 
         self._materialize_gold_outputs(
             gold_targets,
