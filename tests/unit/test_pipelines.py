@@ -148,6 +148,62 @@ class TestAssayPipeline:
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
 
+    def test_transform_coerces_nullable_int_columns(self, assay_config, monkeypatch):
+        """Stringified integers should be normalised to nullable Int64 columns."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(assay_config, run_id)
+
+        df = pd.DataFrame({"assay_chembl_id": ["CHEMBL123"]})
+
+        mock_assay_data = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL123"],
+                "assay_parameters_json": [None],
+                "variant_sequence_json": [json.dumps([{"variant_id": "501"}])],
+                "assay_classifications": [json.dumps([{"assay_class_id": "42"}])],
+                "assay_tax_id": ["9606"],
+                "confidence_score": ["9"],
+                "src_id": ["12"],
+                "variant_id": ["501"],
+                "assay_class_id": ["42"],
+                "target_chembl_id": ["CHEMBL_TGT123"],
+            }
+        )
+
+        mock_target_reference = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL_TGT123"],
+                "component_count": ["3"],
+                "species_group_flag": ["1"],
+                "tax_id": ["9606"],
+                "pref_name": ["Mock Target"],
+                "organism": ["Mock Organism"],
+                "target_type": ["protein"],
+            }
+        )
+
+        monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: mock_assay_data)
+        monkeypatch.setattr(pipeline, "_fetch_target_reference_data", lambda ids: mock_target_reference)
+        monkeypatch.setattr(pipeline, "_fetch_assay_class_reference_data", lambda ids: pd.DataFrame())
+
+        result = pipeline.transform(df)
+
+        nullable_columns = [
+            "component_count",
+            "assay_class_id",
+            "variant_id",
+            "assay_tax_id",
+            "confidence_score",
+            "src_id",
+            "species_group_flag",
+            "tax_id",
+        ]
+        for column in nullable_columns:
+            assert column in result.columns
+            assert str(result[column].dtype) == "Int64"
+
+
     def test_fetch_assay_data_uses_cache(self, assay_config, monkeypatch):
         """Assay payloads should be cached by release-qualified key."""
 

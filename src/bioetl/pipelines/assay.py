@@ -3,6 +3,7 @@
 import json
 import subprocess
 from collections.abc import Iterable
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -46,46 +47,44 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = {
 
 
 # Nullable integer columns that require explicit coercion before schema validation.
-_NULLABLE_INT_COLUMNS = (
-    "row_index",
-    "assay_tax_id",
-    "confidence_score",
-    "species_group_flag",
-    "tax_id",
-    "component_count",
-    "assay_class_id",
-    "variant_id",
-    "src_id",
-)
+@lru_cache(maxsize=1)
+def _schema_numeric_metadata() -> dict[str, tuple[str, bool]]:
+    """Return dtype/nullability metadata for schema columns."""
+
+    schema = AssaySchema.to_schema()
+    metadata: dict[str, tuple[str, bool]] = {}
+
+    for name, column in schema.columns.items():
+        dtype_str = str(column.dtype).lower()
+        metadata[name] = (dtype_str, bool(getattr(column, "nullable", False)))
+
+    return metadata
+
+
+@lru_cache(maxsize=1)
+def _resolve_nullable_int_columns() -> tuple[str, ...]:
+    """Return schema-defined nullable integer columns for dtype coercion."""
+
+    metadata = _schema_numeric_metadata()
+    return tuple(
+        name for name, (dtype_str, nullable) in metadata.items() if dtype_str == "int64" and nullable
+    )
+
+
+_NULLABLE_INT_COLUMNS = ("row_index",) + _resolve_nullable_int_columns()
 
 
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
     """Coerce selected columns to Pandera-compatible integer dtypes."""
 
-    # Fetch schema metadata once to determine the expected dtype for each
-    # nullable integer column. Accessing ``to_schema`` repeatedly is relatively
-    # expensive and allocating it inside the loop would also make the function
-    # harder to test in isolation, so we resolve it lazily only if we actually
-    # need to coerce at least one column that exists in the frame.
-    schema = None
-
     for column in columns:
         if column not in df.columns:
             continue
 
-        if schema is None:
-            # Import lazily to avoid circular imports at module load time.
-            from bioetl.schemas.assay import AssaySchema
-
-            schema = AssaySchema.to_schema()
-
         series = pd.to_numeric(df[column], errors="coerce")
 
-        target_dtype = None
-        if schema is not None:
-            schema_column = schema.columns.get(column)
-            if schema_column is not None:
-                target_dtype = str(schema_column.dtype.type).lower()
+        dtype_str, nullable = _schema_numeric_metadata().get(column, (None, False))
+        target_dtype = dtype_str
 
         # Pandera represents nullable integer columns as ``Int64`` while the
         # runtime data coming from the API may already be clean integers. When
@@ -93,7 +92,7 @@ def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> No
         # cast to the numpy dtype if the series does not contain missing
         # values; otherwise we fall back to pandas' nullable ``Int64`` dtype so
         # Pandera can still coerce it successfully during validation.
-        if target_dtype == "int64" and not series.isna().any():
+        if target_dtype == "int64" and not nullable and not series.isna().any():
             df[column] = series.astype("int64", copy=False)
         else:
             df[column] = pd.array(series, dtype="Int64")
@@ -791,19 +790,7 @@ class AssayPipeline(PipelineBase):
         else:
             df["row_index"] = pd.Series([0] * len(df), dtype="Int64")
 
-        nullable_int_columns = [
-            "row_index",
-            "assay_tax_id",
-            "confidence_score",
-            "src_id",
-            "species_group_flag",
-            "tax_id",
-            "component_count",
-            "assay_class_id",
-            "variant_id",
-        ]
-
-        _coerce_nullable_int_columns(df, nullable_int_columns)
+        _coerce_nullable_int_columns(df, _NULLABLE_INT_COLUMNS)
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
@@ -828,7 +815,7 @@ class AssayPipeline(PipelineBase):
         from bioetl.schemas import AssaySchema
 
         expected_cols = AssaySchema.get_column_order()
-        nullable_int_set = set(nullable_int_columns)
+        nullable_int_set = set(_NULLABLE_INT_COLUMNS)
         if expected_cols:
             # Add missing columns with None values
             for col in expected_cols:
@@ -855,7 +842,7 @@ class AssayPipeline(PipelineBase):
         # currently contain ``Int64`` values, but re-running the coercion keeps
         # the behaviour consistent for callers that operate on the reordered
         # frame (e.g. QC reporting) before validation happens downstream.
-        _coerce_nullable_int_columns(df, nullable_int_columns)
+        _coerce_nullable_int_columns(df, _NULLABLE_INT_COLUMNS)
 
         return df
 
