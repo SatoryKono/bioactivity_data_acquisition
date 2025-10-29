@@ -91,10 +91,10 @@ def coalesce_by_priority(
         result[output_column] = merged
 
         if source_suffix is not None:
-            def resolve_source(row: pd.Series) -> Any:
+            def resolve_source(row: pd.Series, sources: list[str] = column_sources) -> Any:
                 for idx, value in enumerate(row):
                     if value is not pd.NA and not pd.isna(value):
-                        return column_sources[idx]
+                        return sources[idx]
                 return pd.NA
 
             result[f"{output_column}{source_suffix}"] = candidate_frame.apply(

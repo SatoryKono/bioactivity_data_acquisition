@@ -606,6 +606,7 @@ class AssayPipeline(PipelineBase):
         """Transform assay data with explode functionality."""
         if df.empty:
             # Return empty DataFrame with all required columns from schema
+            from bioetl.schemas.assay import AssaySchema
             return pd.DataFrame(columns=AssaySchema.get_column_order())
 
         from bioetl.normalizers import registry
@@ -613,7 +614,7 @@ class AssayPipeline(PipelineBase):
         # Fetch assay data from ChEMBL API
         assay_ids = df["assay_chembl_id"].unique().tolist()
         assay_data = self._fetch_assay_data(assay_ids)
-        
+
         # Merge with existing data
         if not assay_data.empty:
             df = df.merge(assay_data, on="assay_chembl_id", how="left", suffixes=("", "_api"))

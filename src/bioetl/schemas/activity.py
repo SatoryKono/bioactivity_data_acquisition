@@ -52,7 +52,6 @@ STANDARD_UNITS_ALLOWED = {
     "IU/ml",
     "U/mL",
     "U/ml",
-    "mol/L",
     "Molar",
     "mm",
     "cm",

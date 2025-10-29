@@ -86,7 +86,7 @@ class AtomicWriter:
             self._write_to_file(data, temp_path, **kwargs)
             path.parent.mkdir(parents=True, exist_ok=True)
             os.replace(str(temp_path), str(path))
-        except Exception as e:
+        except Exception:
             temp_path.unlink(missing_ok=True)
             raise
         finally:

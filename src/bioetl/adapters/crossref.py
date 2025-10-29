@@ -56,7 +56,7 @@ class CrossrefAdapter(ExternalAdapter):
                     all_items.append(response["message"])
             except Exception as e:
                 self.logger.warning("fetch_doi_failed", doi=doi, error=str(e))
-        
+
         return all_items
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:

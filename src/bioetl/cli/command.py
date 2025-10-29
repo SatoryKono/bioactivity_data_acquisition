@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Sequence, Type
+from typing import Any
 
 import pandas as pd
 import typer
@@ -20,7 +21,7 @@ class PipelineCommandConfig:
     """Configuration describing how to build a CLI command for a pipeline."""
 
     pipeline_name: str
-    pipeline_factory: Callable[[], Type[PipelineBase]]
+    pipeline_factory: Callable[[], type[PipelineBase]]
     default_config: Path
     default_input: Path | None
     default_output_dir: Path

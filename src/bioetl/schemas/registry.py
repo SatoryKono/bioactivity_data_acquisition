@@ -1,7 +1,6 @@
 """Schema Registry with versioning."""
 
 import re
-from typing import Any
 
 import pandera as pa
 from packaging import version

@@ -2,10 +2,11 @@
 
 import os
 import re
+from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 from urllib.parse import urlencode
 
 import pandas as pd

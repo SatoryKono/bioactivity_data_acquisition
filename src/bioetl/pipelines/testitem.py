@@ -195,7 +195,7 @@ class TestItemPipeline(PipelineBase):
     def _empty_molecule_record(cls) -> dict[str, Any]:
         """Create an empty molecule record with all expected fields."""
 
-        record = {column: None for column in cls._expected_columns()}
+        record = dict.fromkeys(cls._expected_columns())
         return record
 
     @staticmethod
@@ -229,7 +229,7 @@ class TestItemPipeline(PipelineBase):
     def _flatten_molecule_properties(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Extract 22 molecular properties with canonical JSON payload."""
 
-        flattened = {field: None for field in cls._CHEMBL_PROPERTY_FIELDS}
+        flattened = dict.fromkeys(cls._CHEMBL_PROPERTY_FIELDS)
         flattened["molecule_properties"] = None
 
         props = molecule.get("molecule_properties")

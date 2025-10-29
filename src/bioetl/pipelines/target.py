@@ -3,21 +3,36 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 import pandas as pd
-import re
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import CircuitBreakerConfig, HttpConfig, RateLimitConfig, RetryConfig, TargetSourceConfig
+from bioetl.config.models import (
+    CircuitBreakerConfig,
+    HttpConfig,
+    RateLimitConfig,
+    RetryConfig,
+    TargetSourceConfig,
+)
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import OutputMetadata
 from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.target_gold import (
+    _split_accession_field,
+    annotate_source_rank,
+    coalesce_by_priority,
+    expand_xrefs,
+    materialize_gold,
+    merge_components,
+)
 from bioetl.schemas import (
     ProteinClassSchema,
     TargetComponentSchema,
@@ -25,14 +40,6 @@ from bioetl.schemas import (
     XrefSchema,
 )
 from bioetl.schemas.registry import schema_registry
-from bioetl.pipelines.target_gold import (
-    annotate_source_rank,
-    coalesce_by_priority,
-    expand_xrefs,
-    materialize_gold,
-    merge_components,
-    _split_accession_field,
-)
 from bioetl.utils import finalize_pipeline_output
 
 logger = UnifiedLogger.get(__name__)
@@ -680,13 +687,13 @@ class TargetPipeline(PipelineBase):
 
         entries = self._fetch_uniprot_entries(accessions)
         secondary_index: dict[str, dict[str, Any]] = {}
-        for uniprot_entry in entries.values():
+        for entry in entries.values():
             for field in ("secondaryAccession", "secondaryAccessions"):
-                secondary_values = uniprot_entry.get(field, [])
+                secondary_values = entry.get(field, [])
                 if isinstance(secondary_values, str):
                     secondary_values = [secondary_values]
                 for secondary in secondary_values or []:
-                    secondary_index[str(secondary)] = uniprot_entry
+                    secondary_index[str(secondary)] = entry
 
         used_entries: dict[str, dict[str, Any]] = {}
         unresolved: dict[int, str] = {}
@@ -702,15 +709,15 @@ class TargetPipeline(PipelineBase):
 
             accession_str = str(accession).strip()
             total_with_accession += 1
-            entry: dict[str, Any] | None = entries.get(accession_str)
+            uniprot_entry: dict[str, Any] | None = entries.get(accession_str)
             merge_strategy = "direct"
 
-            if entry is None:
-                entry = secondary_index.get(accession_str)
-                if entry is not None:
+            if uniprot_entry is None:
+                uniprot_entry = secondary_index.get(accession_str)
+                if uniprot_entry is not None:
                     merge_strategy = "secondary_accession"
                     fallback_counts["secondary_accession"] += 1
-                    resolved = entry.get("primaryAccession") or entry.get("accession")
+                    resolved = uniprot_entry.get("primaryAccession") or uniprot_entry.get("accession")
                     self._record_missing_mapping(
                         stage="uniprot",
                         target_id=row.get("target_chembl_id"),
@@ -720,15 +727,15 @@ class TargetPipeline(PipelineBase):
                         status="resolved",
                     )
 
-            if entry is None:
+            if uniprot_entry is None:
                 unresolved[idx] = accession_str
                 continue
 
             resolved_rows += 1
-            canonical = entry.get("primaryAccession") or entry.get("accession")
+            canonical = uniprot_entry.get("primaryAccession") or uniprot_entry.get("accession")
             if canonical:
-                used_entries[str(canonical)] = entry
-            self._apply_entry_enrichment(working_df, idx, entry, merge_strategy)
+                used_entries[str(canonical)] = uniprot_entry
+            self._apply_entry_enrichment(working_df, int(idx), uniprot_entry, merge_strategy)
 
         # Attempt ID mapping for unresolved accessions
         if unresolved:
@@ -845,7 +852,7 @@ class TargetPipeline(PipelineBase):
                     status="resolved",
                     details={"ortholog_source": best.get("organism")},
                 )
-                self._apply_entry_enrichment(working_df, idx, entry, "ortholog")
+                self._apply_entry_enrichment(working_df, int(idx), entry, "ortholog")
                 working_df.at[idx, "ortholog_source"] = best.get("organism")
                 resolved_rows += 1
                 unresolved.pop(idx, None)

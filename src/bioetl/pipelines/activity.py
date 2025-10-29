@@ -6,9 +6,10 @@ import hashlib
 import json
 import math
 import re
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 import pandas as pd
 from pandera.errors import SchemaErrors
@@ -735,14 +736,14 @@ class ActivityPipeline(PipelineBase):
         error_code = None
         retry_after = None
 
-        if hasattr(error, "response") and getattr(error, "response") is not None:
+        if hasattr(error, "response") and error.response is not None:
             http_status = getattr(error.response, "status_code", None)
 
         if hasattr(error, "code"):
-            error_code = getattr(error, "code")
+            error_code = error.code
 
         if hasattr(error, "retry_after"):
-            retry_after = getattr(error, "retry_after")
+            retry_after = error.retry_after
 
         return {
             "activity_id": activity_id,

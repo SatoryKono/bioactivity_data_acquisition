@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
-from typing import Iterable, Sequence, TypeVar
+from typing import TypeVar
 
 import pandas as pd
 
