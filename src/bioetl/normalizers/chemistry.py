@@ -8,7 +8,7 @@ from typing import Any
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers.base import BaseNormalizer
-from bioetl.normalizers.constants import NA_STRINGS
+from bioetl.normalizers.constants import NA_STRINGS, RELATION_ALIASES, UNIT_SYNONYMS
 from bioetl.normalizers.numeric import NumericNormalizer
 
 logger = UnifiedLogger.get(__name__)
@@ -128,6 +128,69 @@ class ChemistryStringNormalizer(BaseNormalizer):
         """Проверяет, что значение можно нормализовать как строку."""
 
         return _is_na(value) or isinstance(value, str)
+
+
+class ChemistryRelationNormalizer(BaseNormalizer):
+    """Normalize comparison relation symbols to canonical ChEMBL form."""
+
+    def normalize(
+        self,
+        value: Any,
+        *,
+        default: str | None = "=",
+        **_: Any,
+    ) -> str | None:
+        if _is_na(value):
+            return default
+
+        text = str(value).strip()
+        if not text:
+            return default
+
+        canonical = RELATION_ALIASES.get(text)
+        if canonical is None:
+            canonical = RELATION_ALIASES.get(text.lower())
+        return canonical if canonical is not None else default
+
+    def validate(self, value: Any) -> bool:
+        if _is_na(value):
+            return True
+        return self.normalize(value, default=None) is not None
+
+
+class ChemistryUnitsNormalizer(BaseNormalizer):
+    """Normalize unit synonyms used across chemistry pipelines."""
+
+    def normalize(
+        self,
+        value: Any,
+        *,
+        default: str | None = None,
+        **_: Any,
+    ) -> str | None:
+        if _is_na(value):
+            return default
+
+        text = _canonicalize_whitespace(str(value))
+        if not text:
+            return default
+
+        canonical = UNIT_SYNONYMS.get(text.lower())
+        if canonical is not None:
+            return canonical
+        return text
+
+    def validate(self, value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, float) and math.isnan(value):
+            return True
+        if isinstance(value, str):
+            return bool(value.strip())
+        try:
+            return bool(str(value).strip())
+        except Exception:  # pragma: no cover - defensive guard
+            return False
 
 
 class ChemblIdNormalizer(BaseNormalizer):

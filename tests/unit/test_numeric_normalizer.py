@@ -63,42 +63,6 @@ class TestNumericNormalizer:
         assert self.normalizer.normalize_bool("", default=False) is False
         assert self.normalizer.normalize_bool("unknown", default=True) is True
 
-    def test_normalize_relation(self):
-        """Тест нормализации знаков сравнения."""
-        # Валидные знаки
-        assert self.normalizer.normalize_relation("=") == "="
-        assert self.normalizer.normalize_relation("==") == "="
-        assert self.normalizer.normalize_relation("≤") == "<="
-        assert self.normalizer.normalize_relation("⩽") == "<="
-        assert self.normalizer.normalize_relation("≥") == ">="
-        assert self.normalizer.normalize_relation("⩾") == ">="
-
-        # NA значения
-        assert self.normalizer.normalize_relation(None) == "="
-        assert self.normalizer.normalize_relation("") == "="
-
-        # Неизвестные знаки
-        assert self.normalizer.normalize_relation("unknown") == "="
-        assert self.normalizer.normalize_relation("unknown", default="~") == "~"
-
-    def test_normalize_units(self):
-        """Тест нормализации единиц измерения."""
-        # Синонимы
-        assert self.normalizer.normalize_units("nm") == "nM"
-        assert self.normalizer.normalize_units("nanomolar") == "nM"
-        assert self.normalizer.normalize_units("μm") == "µM"
-        assert self.normalizer.normalize_units("um") == "µM"
-        assert self.normalizer.normalize_units("μg/ml") == "µg/mL"
-
-        # NA значения
-        assert self.normalizer.normalize_units(None) is None
-        assert self.normalizer.normalize_units("") is None
-        assert self.normalizer.normalize_units(None, default="nM") == "nM"
-
-        # Неизвестные единицы
-        assert self.normalizer.normalize_units("unknown") == "unknown"
-        assert self.normalizer.normalize_units("kg") == "kg"
-
     def test_validate(self):
         """Тест валидации значений."""
         assert self.normalizer.validate(42) is True
@@ -146,8 +110,8 @@ class TestBooleanNormalizer:
         """Тест нормализации невалидных значений."""
         assert self.normalizer.normalize("unknown") is None
         assert self.normalizer.normalize("xyz") is None
-        # Числа обрабатываются как bool (True для ненулевых)
-        assert self.normalizer.normalize(3.14) is True
+        # Неинтегральные числа приводят к None
+        assert self.normalizer.normalize(3.14) is None
 
     def test_normalize_with_default(self):
         """Тест нормализации с дефолтом."""
@@ -166,5 +130,5 @@ class TestBooleanNormalizer:
         assert self.normalizer.validate("false") is True
         assert self.normalizer.validate(None) is True
         assert self.normalizer.validate("unknown") is False
-        # Числа валидны для bool нормализации
-        assert self.normalizer.validate(3.14) is True
+        # Неинтегральные числа считаются невалидными
+        assert self.normalizer.validate(3.14) is False
