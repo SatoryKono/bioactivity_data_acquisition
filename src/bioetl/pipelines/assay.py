@@ -16,6 +16,7 @@ from pandera.errors import SchemaErrors
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
@@ -295,46 +296,62 @@ class AssayPipeline(PipelineBase):
         params_json = json.dumps(params, ensure_ascii=False) if params is not None else None
 
         record: dict[str, Any] = {
-            "assay_chembl_id": assay.get("assay_chembl_id"),
-            "assay_type": assay.get("assay_type"),
-            "assay_category": assay.get("assay_category"),
-            "assay_cell_type": assay.get("assay_cell_type"),
+            "assay_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("assay_chembl_id")),
+            "assay_type": registry.normalize("chemistry.string", assay.get("assay_type")),
+            "assay_category": registry.normalize("chemistry.string", assay.get("assay_category")),
+            "assay_cell_type": registry.normalize("chemistry.string", assay.get("assay_cell_type")),
             "assay_classifications": classifications_str,
-            "assay_group": assay.get("assay_group"),
-            "assay_organism": assay.get("assay_organism"),
+            "assay_group": registry.normalize("chemistry.string", assay.get("assay_group")),
+            "assay_organism": registry.normalize("chemistry.string", assay.get("assay_organism")),
             "assay_parameters_json": params_json,
-            "assay_strain": assay.get("assay_strain"),
-            "assay_subcellular_fraction": assay.get("assay_subcellular_fraction"),
-            "assay_tax_id": assay.get("assay_tax_id"),
-            "assay_test_type": assay.get("assay_test_type"),
-            "assay_tissue": assay.get("assay_tissue"),
-            "assay_type_description": assay.get("assay_type_description"),
-            "bao_format": assay.get("bao_format"),
-            "bao_label": assay.get("bao_label"),
-            "bao_endpoint": assay.get("bao_endpoint"),
-            "cell_chembl_id": assay.get("cell_chembl_id"),
-            "confidence_description": assay.get("confidence_description"),
-            "confidence_score": assay.get("confidence_score"),
-            "assay_description": assay.get("description"),
-            "document_chembl_id": assay.get("document_chembl_id"),
-            "relationship_description": assay.get("relationship_description"),
-            "relationship_type": assay.get("relationship_type"),
-            "src_assay_id": assay.get("src_assay_id"),
-            "src_id": assay.get("src_id"),
-            "target_chembl_id": assay.get("target_chembl_id"),
-            "tissue_chembl_id": assay.get("tissue_chembl_id"),
+            "assay_strain": registry.normalize("chemistry.string", assay.get("assay_strain")),
+            "assay_subcellular_fraction": registry.normalize(
+                "chemistry.string", assay.get("assay_subcellular_fraction")
+            ),
+            "assay_tax_id": registry.normalize("chemistry.int", assay.get("assay_tax_id")),
+            "assay_test_type": registry.normalize("chemistry.string", assay.get("assay_test_type")),
+            "assay_tissue": registry.normalize("chemistry.string", assay.get("assay_tissue")),
+            "assay_type_description": registry.normalize(
+                "chemistry.string", assay.get("assay_type_description")
+            ),
+            "bao_format": registry.normalize("chemistry.bao_id", assay.get("bao_format")),
+            "bao_label": registry.normalize("chemistry.string.max_128", assay.get("bao_label")),
+            "bao_endpoint": registry.normalize("chemistry.bao_id", assay.get("bao_endpoint")),
+            "cell_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("cell_chembl_id")),
+            "confidence_description": registry.normalize(
+                "chemistry.string", assay.get("confidence_description")
+            ),
+            "confidence_score": registry.normalize("chemistry.int", assay.get("confidence_score")),
+            "assay_description": registry.normalize("chemistry.string", assay.get("description")),
+            "document_chembl_id": registry.normalize(
+                "chemistry.chembl_id", assay.get("document_chembl_id")
+            ),
+            "relationship_description": registry.normalize(
+                "chemistry.string", assay.get("relationship_description")
+            ),
+            "relationship_type": registry.normalize(
+                "chemistry.string", assay.get("relationship_type")
+            ),
+            "src_assay_id": registry.normalize("chemistry.string", assay.get("src_assay_id")),
+            "src_id": registry.normalize("chemistry.int", assay.get("src_id")),
+            "target_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("target_chembl_id")),
+            "tissue_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("tissue_chembl_id")),
         }
 
         assay_class = assay.get("assay_class")
         if isinstance(assay_class, dict):
             record.update({
-                "assay_class_id": assay_class.get("assay_class_id"),
-                "assay_class_bao_id": assay_class.get("bao_id"),
-                "assay_class_type": assay_class.get("assay_class_type"),
-                "assay_class_l1": assay_class.get("class_level_1"),
-                "assay_class_l2": assay_class.get("class_level_2"),
-                "assay_class_l3": assay_class.get("class_level_3"),
-                "assay_class_description": assay_class.get("assay_class_description"),
+                "assay_class_id": registry.normalize("chemistry.int", assay_class.get("assay_class_id")),
+                "assay_class_bao_id": registry.normalize("chemistry.bao_id", assay_class.get("bao_id")),
+                "assay_class_type": registry.normalize(
+                    "chemistry.string", assay_class.get("assay_class_type")
+                ),
+                "assay_class_l1": registry.normalize("chemistry.string", assay_class.get("class_level_1")),
+                "assay_class_l2": registry.normalize("chemistry.string", assay_class.get("class_level_2")),
+                "assay_class_l3": registry.normalize("chemistry.string", assay_class.get("class_level_3")),
+                "assay_class_description": registry.normalize(
+                    "chemistry.string", assay_class.get("assay_class_description")
+                ),
             })
 
         variant_sequences = assay.get("variant_sequence")
@@ -344,20 +361,38 @@ class AssayPipeline(PipelineBase):
                 variant = variant_sequences[0]
                 if isinstance(variant, dict):
                     record.update({
-                        "variant_id": variant.get("variant_id"),
-                        "variant_base_accession": variant.get("base_accession"),
-                        "variant_mutation": variant.get("mutation"),
-                        "variant_sequence": variant.get("variant_seq"),
-                        "variant_accession_reported": variant.get("accession_reported"),
+                        "variant_id": registry.normalize("chemistry.int", variant.get("variant_id")),
+                        "variant_base_accession": registry.normalize(
+                            "chemistry.string", variant.get("base_accession")
+                        ),
+                        "variant_mutation": registry.normalize(
+                            "chemistry.string", variant.get("mutation")
+                        ),
+                        "variant_sequence": registry.normalize(
+                            "chemistry.string", variant.get("variant_seq")
+                        ),
+                        "variant_accession_reported": registry.normalize(
+                            "chemistry.string", variant.get("accession_reported")
+                        ),
                     })
                 variant_sequence_json = json.dumps(variant_sequences, ensure_ascii=False)
             elif isinstance(variant_sequences, dict):
                 record.update({
-                    "variant_id": variant_sequences.get("variant_id"),
-                    "variant_base_accession": variant_sequences.get("base_accession"),
-                    "variant_mutation": variant_sequences.get("mutation"),
-                    "variant_sequence": variant_sequences.get("variant_seq"),
-                    "variant_accession_reported": variant_sequences.get("accession_reported"),
+                    "variant_id": registry.normalize(
+                        "chemistry.int", variant_sequences.get("variant_id")
+                    ),
+                    "variant_base_accession": registry.normalize(
+                        "chemistry.string", variant_sequences.get("base_accession")
+                    ),
+                    "variant_mutation": registry.normalize(
+                        "chemistry.string", variant_sequences.get("mutation")
+                    ),
+                    "variant_sequence": registry.normalize(
+                        "chemistry.string", variant_sequences.get("variant_seq")
+                    ),
+                    "variant_accession_reported": registry.normalize(
+                        "chemistry.string", variant_sequences.get("accession_reported")
+                    ),
                 })
                 variant_sequence_json = json.dumps([variant_sequences], ensure_ascii=False)
 

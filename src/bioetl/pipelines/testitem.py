@@ -825,7 +825,9 @@ class TestItemPipeline(PipelineBase):
         for col in ["molecule_chembl_id", "parent_chembl_id"]:
             if col in df.columns:
                 df[col] = df[col].apply(
-                    lambda x: registry.normalize("identifier", x) if pd.notna(x) else None
+                    lambda x: registry.normalize("chemistry.chembl_id.strict", x)
+                    if pd.notna(x)
+                    else None
                 )
 
         # Fetch molecule data from ChEMBL API
