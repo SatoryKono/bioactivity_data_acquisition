@@ -948,8 +948,10 @@ class ActivityPipeline(PipelineBase):
             df["source_system"] = df["source_system"].fillna("chembl")
 
         if "chembl_release" not in df.columns:
-            df["chembl_release"] = self._chembl_release
-        else:
+            df["chembl_release"] = (
+                self._chembl_release if self._chembl_release is not None else pd.NA
+            )
+        elif self._chembl_release is not None:
             df["chembl_release"] = df["chembl_release"].fillna(self._chembl_release)
 
         timestamp_now = datetime.now(timezone.utc).isoformat()
