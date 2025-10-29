@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore
+import yaml  # type: ignore[import-untyped]
 
 from bioetl.config.models import PipelineConfig
 

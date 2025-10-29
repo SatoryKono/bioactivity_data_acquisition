@@ -9,7 +9,7 @@ from typing import Any, Iterable, Sequence
 from urllib.parse import urlencode
 
 import pandas as pd
-import requests
+import requests  # type: ignore[import-untyped]
 from pandera.errors import SchemaErrors
 
 from bioetl.adapters import (

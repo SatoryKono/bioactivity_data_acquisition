@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import requests
+import requests  # type: ignore[import-untyped]
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig

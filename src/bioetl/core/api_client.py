@@ -9,7 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-import requests
+import requests  # type: ignore[import-untyped]
 from cachetools import TTLCache  # type: ignore
 
 from bioetl.core.logger import UnifiedLogger

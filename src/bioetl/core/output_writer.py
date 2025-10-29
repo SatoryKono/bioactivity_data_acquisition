@@ -351,7 +351,7 @@ class UnifiedOutputWriter:
         runtime_options: dict[str, Any] | None = None,
     ) -> None:
         """Записывает метаданные в YAML."""
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         meta_dict = {
             "run_id": metadata.run_id,

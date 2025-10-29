@@ -69,7 +69,7 @@ class TargetConfig(BaseModel):
     @classmethod
     def from_yaml(cls, config_path: Path | str, overrides: dict[str, Any] | None = None) -> TargetConfig:
         """Load configuration from YAML file."""
-        import yaml
+        import yaml  # type: ignore[import-untyped]
         
         config_path = Path(config_path)
         if not config_path.exists():
