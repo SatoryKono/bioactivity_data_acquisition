@@ -20,6 +20,11 @@
           "default": "data/output/assay"
         },
         {
+          "name": "sample",
+          "description": "Обработать только первые N записей для тестирования",
+          "default": 1
+        },
+        {
           "name": "limit",
           "description": "Ограничить извлечение первыми N записями",
           "default": 1
@@ -49,6 +54,11 @@
           "name": "output-dir",
           "description": "Директория для выходных файлов",
           "default": "data/output/activity"
+        },
+        {
+          "name": "sample",
+          "description": "Обработать только первые N записей для тестирования",
+          "default": 1
         },
         {
           "name": "limit",
@@ -85,6 +95,11 @@
           "name": "mode",
           "description": "Режим выполнения (chembl, all)",
           "default": "all"
+        },
+        {
+          "name": "sample",
+          "description": "Обработать только первые N записей для тестирования",
+          "default": 1
         },
         {
           "name": "limit",
@@ -134,7 +149,8 @@
         },
         {
           "name": "sample",
-          "description": "Обработать только первые N записей для тестирования"
+          "description": "Обработать только первые N записей для тестирования",
+          "default": 1
         },
         {
           "name": "limit",
@@ -171,6 +187,11 @@
           "name": "output-dir",
           "description": "Директория для выходных файлов",
           "default": "data/output/testitems"
+        },
+        {
+          "name": "sample",
+          "description": "Обработать только первые N записей для тестирования",
+          "default": 1
         },
         {
           "name": "limit",
