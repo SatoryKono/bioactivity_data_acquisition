@@ -175,6 +175,12 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             pipeline_cls = config.pipeline_factory()
             pipeline = pipeline_cls(config_obj, run_id)
 
+            if sample_limit is not None:
+                runtime_options = getattr(pipeline, "runtime_options", None)
+                if isinstance(runtime_options, dict):
+                    runtime_options["limit"] = sample_limit
+                    runtime_options.setdefault("sample", sample_limit)
+
             if dry_run:
                 typer.echo("[DRY-RUN] Configuration loaded successfully.")
                 typer.echo(f"Config path: {config_path}")

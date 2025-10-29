@@ -501,6 +501,32 @@ class TestActivityPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
 
+    def test_extract_applies_runtime_limit_before_fetch(
+        self, activity_config, tmp_path, monkeypatch
+    ) -> None:
+        """Ensure runtime limits constrain the number of API lookups."""
+
+        run_id = "limit-run"
+        pipeline = ActivityPipeline(activity_config, run_id)
+        pipeline.runtime_options["limit"] = 2
+
+        captured_ids: list[int] = []
+
+        def fake_extract(ids: list[int]) -> pd.DataFrame:
+            captured_ids.extend(ids)
+            return pd.DataFrame({"activity_id": ids})
+
+        monkeypatch.setattr(pipeline, "_extract_from_chembl", fake_extract)
+
+        input_df = pd.DataFrame({"activity_id": [1, 2, 3, 4]})
+        input_path = tmp_path / "activities.csv"
+        input_df.to_csv(input_path, index=False)
+
+        result = pipeline.extract(input_file=input_path)
+
+        assert captured_ids == [1, 2]
+        assert len(result) == 2
+
     def test_normalize_activity_field_mapping(self, activity_config):
         """Dedicated mappers should normalize every field as specified."""
 
@@ -1308,6 +1334,33 @@ class TestDocumentPipeline:
         result = pipeline.extract(input_file=csv_path)
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
+
+    def test_extract_respects_runtime_limit(self, document_config, tmp_path, monkeypatch):
+        """Document extraction limits the number of requested identifiers."""
+
+        run_id = "doc-limit"
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = DocumentPipeline(document_config, run_id)
+        pipeline.runtime_options["limit"] = 1
+
+        captured_requests: list[list[str]] = []
+
+        def fake_fetch(ids: list[str]) -> list[dict[str, str]]:
+            captured_requests.append(ids.copy())
+            return [{"document_chembl_id": ids[0], "title": "Doc"}]
+
+        monkeypatch.setattr(pipeline, "_fetch_documents", fake_fetch)
+
+        csv_path = tmp_path / "documents.csv"
+        csv_path.write_text(
+            "document_chembl_id\nCHEMBL1\nCHEMBL2\n",
+            encoding="utf-8",
+        )
+
+        result = pipeline.extract(input_file=csv_path)
+
+        assert captured_requests == [["CHEMBL1"]]
+        assert len(result) == 1
 
     def test_extract_with_data(self, document_config, tmp_path, monkeypatch):
         """Test extraction with sample data."""
