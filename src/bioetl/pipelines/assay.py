@@ -57,6 +57,12 @@ _NULLABLE_INT_COLUMNS = (
     "variant_id",
     "src_id",
 )
+def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
+    """Coerce selected columns to pandas nullable Int64 dtype."""
+
+    for column in columns:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
 
 
 class AssayPipeline(PipelineBase):
@@ -766,6 +772,21 @@ class AssayPipeline(PipelineBase):
             df["row_index"] = df["row_index"].fillna(0).astype("Int64")
         else:
             df["row_index"] = pd.Series([0] * len(df), dtype="Int64")
+
+        _coerce_nullable_int_columns(
+            df,
+            [
+                "row_index",
+                "assay_tax_id",
+                "confidence_score",
+                "src_id",
+                "species_group_flag",
+                "tax_id",
+                "component_count",
+                "assay_class_id",
+                "variant_id",
+            ],
+        )
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
