@@ -24,6 +24,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dataframe import align_dataframe_to_schema
 
 logger = UnifiedLogger.get(__name__)
 
@@ -979,12 +980,7 @@ class ActivityPipeline(PipelineBase):
 
         from bioetl.schemas import ActivitySchema
 
-        expected_cols = ActivitySchema.get_column_order()
-        if expected_cols:
-            for col in expected_cols:
-                if col not in df.columns:
-                    df[col] = None
-            df = df[expected_cols]
+        df = align_dataframe_to_schema(df, ActivitySchema)
 
         df = df.convert_dtypes()
 
@@ -1009,26 +1005,7 @@ class ActivityPipeline(PipelineBase):
 
         df = df.copy()
 
-        expected_columns = ActivitySchema.get_column_order()
-        if expected_columns:
-            missing_columns = [column for column in expected_columns if column not in df.columns]
-            if missing_columns:
-                for column in missing_columns:
-                    df[column] = pd.NA
-                logger.debug(
-                    "validation_missing_columns_filled",
-                    columns=missing_columns,
-                )
-
-            extra_columns = [column for column in df.columns if column not in expected_columns]
-            ordered_columns = list(expected_columns) + extra_columns
-            if list(df.columns) != ordered_columns:
-                logger.debug(
-                    "validation_reordered_columns",
-                    expected=len(expected_columns),
-                    extras=extra_columns,
-                )
-                df = df[ordered_columns]
+        df = align_dataframe_to_schema(df, ActivitySchema)
 
         qc_metrics = self._calculate_qc_metrics(df)
         self._last_validation_report = {"metrics": qc_metrics}

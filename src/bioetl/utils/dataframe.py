@@ -99,3 +99,33 @@ def finalize_pipeline_output(
         result = result[list(expected_columns) + extras]
 
     return result.convert_dtypes()
+
+
+def align_dataframe_to_schema(
+    df: DataFrameT,
+    schema: type[BaseSchema],
+) -> DataFrameT:
+    """Return dataframe with columns ordered according to the schema."""
+
+    if df.empty:
+        expected = schema.get_column_order()
+        if expected:
+            return df.reindex(columns=expected)
+        return df.copy()
+
+    result = df.copy()
+    expected_columns = schema.get_column_order()
+
+    if not expected_columns:
+        expected_columns = list(schema.to_schema().columns.keys())
+
+    for column in expected_columns:
+        if column not in result.columns:
+            result[column] = pd.NA
+
+    extras = [column for column in result.columns if column not in expected_columns]
+    ordered = list(expected_columns) + extras
+    if list(result.columns) != ordered:
+        result = result.loc[:, ordered]
+
+    return result
