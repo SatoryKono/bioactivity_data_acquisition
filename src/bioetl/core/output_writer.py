@@ -1,6 +1,7 @@
 """UnifiedOutputWriter: deterministic data writing with quality metrics and atomic writes."""
 
 import hashlib
+import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -23,6 +24,9 @@ class OutputArtifacts:
     correlation_report: Path | None = None
     metadata: Path | None = None
     manifest: Path | None = None
+    qc_summary: Path | None = None
+    qc_missing_mappings: Path | None = None
+    qc_enrichment_metrics: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -157,6 +161,9 @@ class UnifiedOutputWriter:
         extended: bool = False,
         issues: list[dict[str, Any]] | None = None,
         qc_metrics: dict[str, Any] | None = None,
+        qc_summary: dict[str, Any] | None = None,
+        missing_mappings: pd.DataFrame | None = None,
+        enrichment_metrics: pd.DataFrame | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -184,6 +191,9 @@ class UnifiedOutputWriter:
 
         dataset_path = output_path.parent / f"{base_name}.csv"
         quality_path = output_path.parent / f"{base_name}_quality_report.csv"
+        summary_path = output_path.parent / f"{base_name}_qc_summary.json"
+        missing_path = output_path.parent / f"{base_name}_qc_missing_mappings.csv"
+        enrichment_path = output_path.parent / f"{base_name}_qc_enrichment_metrics.csv"
 
         # Write main dataset
         logger.info("writing_dataset", path=dataset_path, rows=len(df))
@@ -198,8 +208,47 @@ class UnifiedOutputWriter:
         )
         self.atomic_writer.write(quality_df, quality_path)
 
+        # Write QC summary JSON
+        summary_written = False
+        if qc_summary is not None:
+            logger.info("writing_qc_summary", path=summary_path)
+            _write_json(summary_path, qc_summary)
+            summary_written = True
+
+        # Missing mappings CSV
+        missing_written = False
+        if missing_mappings is not None:
+            missing_df = missing_mappings.copy()
+            if missing_df.empty:
+                missing_df = pd.DataFrame(columns=["target_chembl_id", "submitted_accession", "reason"])
+            logger.info("writing_qc_missing_mappings", path=missing_path, rows=len(missing_df))
+            self.atomic_writer.write(missing_df, missing_path)
+            missing_written = True
+
+        # Enrichment metrics CSV
+        enrichment_written = False
+        if enrichment_metrics is not None:
+            enrichment_df = enrichment_metrics.copy()
+            if enrichment_df.empty:
+                enrichment_df = pd.DataFrame(columns=["metric", "value", "threshold", "severity", "passed"])
+            logger.info(
+                "writing_qc_enrichment_metrics",
+                path=enrichment_path,
+                rows=len(enrichment_df),
+            )
+            self.atomic_writer.write(enrichment_df, enrichment_path)
+            enrichment_written = True
+
         # Calculate checksums
-        checksums = self._calculate_checksums(dataset_path, quality_path)
+        checksum_targets = [dataset_path, quality_path]
+        if summary_written:
+            checksum_targets.append(summary_path)
+        if missing_written:
+            checksum_targets.append(missing_path)
+        if enrichment_written:
+            checksum_targets.append(enrichment_path)
+
+        checksums = self._calculate_checksums(*checksum_targets)
 
         # Write metadata if extended
         metadata_path = None
@@ -211,6 +260,9 @@ class UnifiedOutputWriter:
             dataset=dataset_path,
             quality_report=quality_path,
             metadata=metadata_path,
+            qc_summary=summary_path if summary_written else None,
+            qc_missing_mappings=missing_path if missing_written else None,
+            qc_enrichment_metrics=enrichment_path if enrichment_written else None,
         )
 
     def _calculate_checksums(self, *paths: Path) -> dict[str, str]:
@@ -243,4 +295,31 @@ class UnifiedOutputWriter:
 
         with path.open("w") as f:
             yaml.dump(meta_dict, f, default_flow_style=False, sort_keys=True)
+
+
+def _write_json(path: Path, payload: dict[str, Any]) -> None:
+    """Persist JSON payload with UTF-8 encoding."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, default=_json_default)
+
+
+def _json_default(value: Any) -> Any:
+    """Best-effort serializer for non-JSON-native types."""
+
+    if isinstance(value, (pd.Timestamp, datetime)):
+        return value.isoformat()
+    if isinstance(value, (set, frozenset)):
+        return sorted(value)
+    if isinstance(value, Path):
+        return str(value)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        pass
+    try:
+        return str(value)
+    except Exception:  # pragma: no cover - last resort
+        return None
 

@@ -144,12 +144,6 @@ qc:
   enabled: true
   severity_threshold: warning
   thresholds:
-    enrichment_success.uniprot:
-      min: 0.8
-      severity: warning
-    enrichment_success.iuphar:
-      min: 0.6
-      severity: warning
     fallback_usage_rate:
       max: 0.1
       severity: info
@@ -158,6 +152,13 @@ qc:
     uniprot: true
     uniprot_idmapping: true
     iuphar: true
+  enrichments:
+    uniprot:
+      min: 0.8
+      severity: warning
+    iuphar:
+      min: 0.6
+      severity: warning
 
 materialization:
   bronze: "data/bronze/targets.parquet"

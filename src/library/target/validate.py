@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
 from library.schemas.target_schema import TargetRawSchema, TargetNormalizedSchema

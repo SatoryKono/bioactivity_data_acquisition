@@ -6,17 +6,26 @@ import json
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterable, Iterator, Sequence
 
 import pandas as pd
 import re
 
+from pandera.errors import SchemaErrors
+
 from bioetl.config import PipelineConfig
 from bioetl.config.models import CircuitBreakerConfig, HttpConfig, RateLimitConfig, RetryConfig, TargetSourceConfig
+from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas import TargetSchema
+from bioetl.schemas import (
+    BaseSchema,
+    ProteinClassSchema,
+    TargetComponentSchema,
+    TargetSchema,
+    XrefSchema,
+)
 from bioetl.schemas.registry import schema_registry
 from bioetl.pipelines.target_gold import (
     annotate_source_rank,
@@ -86,6 +95,13 @@ class TargetPipeline(PipelineBase):
 
         chembl_source = self.source_configs.get("chembl")
         self.batch_size = chembl_source.batch_size if chembl_source and chembl_source.batch_size else 25
+
+        # Gold artefacts and QC containers initialised to empty frames
+        self.gold_targets: pd.DataFrame = pd.DataFrame()
+        self.gold_components: pd.DataFrame = pd.DataFrame()
+        self.gold_protein_class: pd.DataFrame = pd.DataFrame()
+        self.gold_xref: pd.DataFrame = pd.DataFrame()
+        self.qc_missing_mappings = pd.DataFrame()
 
     def _build_api_client_config(
         self,
@@ -279,6 +295,10 @@ class TargetPipeline(PipelineBase):
         enrichment_metrics: dict[str, Any] = {}
         uniprot_silver = pd.DataFrame()
         component_enrichment = pd.DataFrame()
+        missing_mappings = pd.DataFrame()
+        self.qc_missing_mappings = pd.DataFrame(
+            columns=["target_chembl_id", "submitted_accession", "reason"]
+        )
 
         if (
             self.uniprot_client is not None
@@ -286,7 +306,13 @@ class TargetPipeline(PipelineBase):
             and df["uniprot_accession"].notna().any()
         ):
             try:
-                df, uniprot_silver, component_enrichment, enrichment_metrics = self._enrich_uniprot(df)
+                (
+                    df,
+                    uniprot_silver,
+                    component_enrichment,
+                    enrichment_metrics,
+                    missing_mappings,
+                ) = self._enrich_uniprot(df)
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.error("uniprot_enrichment_failed", error=str(exc))
                 self.record_validation_issue(
@@ -301,6 +327,8 @@ class TargetPipeline(PipelineBase):
             else:
                 if enrichment_metrics:
                     self.qc_metrics.update(enrichment_metrics)
+                if missing_mappings is not None:
+                    self.qc_missing_mappings = missing_mappings
                 if not uniprot_silver.empty or not component_enrichment.empty:
                     self._materialize_silver(uniprot_silver, component_enrichment)
         else:
@@ -328,9 +356,6 @@ class TargetPipeline(PipelineBase):
             else:
                 if iuphar_metrics:
                     self.qc_metrics.update(iuphar_metrics)
-                    coverage_value = iuphar_metrics.get("iuphar_coverage")
-                    if coverage_value is not None:
-                        self._evaluate_iuphar_qc(float(coverage_value))
                 if not iuphar_classification.empty or not iuphar_gold.empty:
                     self._materialize_iuphar(iuphar_classification, iuphar_gold)
         else:
@@ -342,10 +367,47 @@ class TargetPipeline(PipelineBase):
         df["chembl_release"] = None
         df["extracted_at"] = timestamp
 
+        metadata_fields = {
+            "pipeline_version": "1.0.0",
+            "source_system": "chembl",
+            "chembl_release": None,
+            "extracted_at": timestamp,
+        }
+
         gold_targets, gold_components, gold_protein_class, gold_xref = self._build_gold_outputs(
             df,
             component_enrichment,
             iuphar_gold,
+        )
+
+        gold_targets = self._apply_system_fields(
+            gold_targets,
+            key_columns=["target_chembl_id"],
+            metadata=metadata_fields,
+            schema_cls=TargetSchema,
+        )
+        gold_components = self._apply_system_fields(
+            gold_components,
+            key_columns=[
+                "target_chembl_id",
+                "component_id",
+                "canonical_accession",
+                "isoform_accession",
+            ],
+            metadata=metadata_fields,
+            schema_cls=TargetComponentSchema,
+        )
+        gold_protein_class = self._apply_system_fields(
+            gold_protein_class,
+            key_columns=["target_chembl_id", "class_level", "class_name"],
+            metadata=metadata_fields,
+            schema_cls=ProteinClassSchema,
+        )
+        gold_xref = self._apply_system_fields(
+            gold_xref,
+            key_columns=["target_chembl_id", "xref_src_db", "xref_id", "component_id"],
+            metadata=metadata_fields,
+            schema_cls=XrefSchema,
         )
 
         self.gold_targets = gold_targets
@@ -363,24 +425,399 @@ class TargetPipeline(PipelineBase):
         return gold_targets
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate target data against schema."""
+        """Validate target data against schema with QC artefact aggregation."""
+
+        self.validation_issues.clear()
+
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
+            self.qc_summary = self._build_qc_summary(df)
+            self.qc_enrichment_metrics = pd.DataFrame()
+            return df
+
+        duplicate_count = (
+            df["target_chembl_id"].duplicated().sum()
+            if "target_chembl_id" in df.columns
+            else 0
+        )
+        if duplicate_count > 0:
+            logger.warning("duplicates_found", count=int(duplicate_count))
+            self.record_validation_issue(
+                {
+                    "metric": "duplicates.target_chembl_id",
+                    "issue_type": "data_quality",
+                    "severity": "warning",
+                    "count": int(duplicate_count),
+                }
+            )
+            df = df.drop_duplicates(subset=["target_chembl_id"], keep="first")
+
+        validated_targets = self._validate_dataframe("targets", TargetSchema, df)
+        self.gold_targets = validated_targets
+
+        self.gold_components = self._validate_dataframe(
+            "target_components",
+            TargetComponentSchema,
+            self.gold_components,
+        )
+        self.gold_protein_class = self._validate_dataframe(
+            "protein_classifications",
+            ProteinClassSchema,
+            self.gold_protein_class,
+        )
+        self.gold_xref = self._validate_dataframe(
+            "target_xrefs",
+            XrefSchema,
+            self.gold_xref,
+        )
+
+        self._enforce_enrichment_thresholds()
+        if self.qc_enrichment_metrics is None:
+            self.qc_enrichment_metrics = self._build_enrichment_metrics_frame()
+
+        self.qc_summary = self._build_qc_summary(validated_targets)
+
+        logger.info(
+            "validation_completed",
+            rows=len(validated_targets),
+            issues=len(self.validation_issues),
+        )
+        return validated_targets
+
+    def _validate_dataframe(
+        self,
+        table_name: str,
+        schema_cls: type[BaseSchema],
+        df: pd.DataFrame | None,
+    ) -> pd.DataFrame:
+        """Validate ``df`` against ``schema_cls`` capturing issues in QC payloads."""
+
+        if df is None:
+            return pd.DataFrame()
+
+        if df.empty:
+            logger.info("schema_validation_skipped", table=table_name, reason="empty")
             return df
 
         try:
-            # Check for duplicates
-            duplicate_count = df["target_chembl_id"].duplicated().sum() if "target_chembl_id" in df.columns else 0
-            if duplicate_count > 0:
-                logger.warning("duplicates_found", count=duplicate_count)
-                # Remove duplicates, keeping first occurrence
-                df = df.drop_duplicates(subset=["target_chembl_id"], keep="first")
+            validated = schema_cls.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            issues = self._summarize_schema_errors(exc.failure_cases, table_name)
+            for issue in issues:
+                self.record_validation_issue(issue)
+                logger.error(
+                    "schema_validation_error",
+                    table=table_name,
+                    column=issue.get("column"),
+                    check=issue.get("check"),
+                    count=issue.get("count"),
+                    severity=issue.get("severity"),
+                )
 
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
+            summary = "; ".join(
+                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+                for issue in issues
+            )
+            if not summary:
+                summary = str(exc)
+
+            if any(self._should_fail(issue.get("severity", "error")) for issue in issues):
+                raise ValueError(f"Schema validation failed for {table_name}: {summary}") from exc
+
             return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error("schema_validation_unexpected_error", table=table_name, error=str(exc))
             raise
+
+        return validated
+
+    def _summarize_schema_errors(
+        self,
+        failure_cases: pd.DataFrame | None,
+        table: str,
+    ) -> list[dict[str, Any]]:
+        """Convert Pandera failure cases into structured issues."""
+
+        issues: list[dict[str, Any]] = []
+
+        if failure_cases is None or failure_cases.empty:
+            issues.append(
+                {
+                    "metric": "schema.validation",
+                    "issue_type": "schema",
+                    "severity": "error",
+                    "table": table,
+                }
+            )
+            return issues
+
+        for column, group in failure_cases.groupby("column", dropna=False):
+            column_name = (
+                str(column)
+                if column is not None and not (isinstance(column, float) and pd.isna(column))
+                else "<dataframe>"
+            )
+            checks = sorted({str(check) for check in group["check"].dropna().unique()})
+            details = ", ".join(
+                group["failure_case"].dropna().astype(str).unique().tolist()[:5]
+            )
+            issues.append(
+                {
+                    "metric": "schema.validation",
+                    "issue_type": "schema",
+                    "severity": "error",
+                    "table": table,
+                    "column": column_name,
+                    "check": ", ".join(checks) if checks else "<unspecified>",
+                    "count": int(group.shape[0]),
+                    "details": details,
+                }
+            )
+
+        return issues
+
+    def _enforce_enrichment_thresholds(self) -> None:
+        """Validate enrichment coverage metrics against configuration thresholds."""
+
+        enrichments = getattr(self.config.qc, "enrichments", {}) or {}
+        if not enrichments:
+            self.qc_enrichment_metrics = None
+            return
+
+        entries: list[dict[str, Any]] = []
+        failing: list[str] = []
+
+        for key, rule in enrichments.items():
+            threshold, severity = self._parse_enrichment_rule(rule)
+            metric_label = f"{key}_enrichment"
+            metric_candidates = [
+                self.qc_metrics.get(metric_label),
+                self.qc_metrics.get(f"enrichment_success.{key}"),
+            ]
+            value = next((candidate for candidate in metric_candidates if candidate is not None), None)
+
+            if value is None:
+                entries.append(
+                    {
+                        "metric": metric_label,
+                        "value": None,
+                        "threshold": threshold,
+                        "severity": severity,
+                        "passed": False,
+                        "notes": "metric_missing",
+                    }
+                )
+                self.record_validation_issue(
+                    {
+                        "metric": f"enrichment.{key}",
+                        "issue_type": "qc_threshold",
+                        "severity": severity,
+                        "details": "metric missing",
+                    }
+                )
+                continue
+
+            value_float = float(value)
+            passed = True if threshold is None else value_float >= float(threshold)
+
+            entries.append(
+                {
+                    "metric": metric_label,
+                    "value": value_float,
+                    "threshold": float(threshold) if threshold is not None else None,
+                    "severity": severity,
+                    "passed": passed,
+                }
+            )
+
+            log_fn = logger.info if passed else logger.error
+            log_fn(
+                "qc_enrichment_metric",
+                metric=metric_label,
+                value=value_float,
+                threshold=threshold,
+                severity=severity,
+                passed=passed,
+            )
+
+            if threshold is not None and not passed:
+                self.record_validation_issue(
+                    {
+                        "metric": f"enrichment.{key}",
+                        "issue_type": "qc_threshold",
+                        "severity": severity,
+                        "value": value_float,
+                        "threshold": float(threshold),
+                    }
+                )
+                if self._should_fail(severity):
+                    failing.append(key)
+
+        for metric_name, metric_value in self.qc_metrics.items():
+            if not metric_name.startswith("enrichment"):
+                continue
+            if any(entry["metric"] == metric_name for entry in entries):
+                continue
+            entries.append(
+                {
+                    "metric": metric_name,
+                    "value": metric_value,
+                    "threshold": None,
+                    "severity": "info",
+                    "passed": True,
+                }
+            )
+
+        self.qc_enrichment_metrics = pd.DataFrame(entries) if entries else pd.DataFrame()
+
+        if failing:
+            raise ValueError(
+                "QC enrichment thresholds failed: " + ", ".join(sorted(set(failing)))
+            )
+
+    def _parse_enrichment_rule(self, rule: Any) -> tuple[float | None, str]:
+        """Normalise enrichment threshold configuration."""
+
+        severity = "error"
+        if isinstance(rule, dict):
+            if "severity" in rule:
+                severity = str(rule.get("severity", "error"))
+            threshold = rule.get("min") or rule.get("threshold") or rule.get("value")
+            if threshold is None:
+                return None, severity
+            try:
+                return float(threshold), severity
+            except (TypeError, ValueError):
+                return None, severity
+
+        try:
+            return float(rule), severity
+        except (TypeError, ValueError):
+            return None, severity
+
+    def _build_enrichment_metrics_frame(self) -> pd.DataFrame:
+        """Project enrichment metrics into a tabular representation for QC export."""
+
+        rows: list[dict[str, Any]] = []
+        for metric_name, metric_value in self.qc_metrics.items():
+            if not metric_name.startswith("enrichment"):
+                continue
+            rows.append(
+                {
+                    "metric": metric_name,
+                    "value": metric_value,
+                    "threshold": None,
+                    "severity": "info",
+                    "passed": True,
+                }
+            )
+
+        return pd.DataFrame(rows)
+
+    def _build_qc_summary(self, df: pd.DataFrame) -> dict[str, Any]:
+        """Compose QC summary payload for downstream reporting."""
+
+        metrics_serialised: dict[str, Any] = {}
+        for key, value in self.qc_metrics.items():
+            if isinstance(value, (pd.Series, pd.DataFrame)):
+                continue
+            if isinstance(value, (pd.Timestamp,)):
+                metrics_serialised[key] = value.isoformat()
+            elif isinstance(value, (int, float)):
+                metrics_serialised[key] = float(value)
+            else:
+                metrics_serialised[key] = value
+
+        return {
+            "run_id": self.run_id,
+            "pipeline": self.config.pipeline.name,
+            "generated_at": pd.Timestamp.utcnow().isoformat(),
+            "row_count": int(len(df)),
+            "issues": self.validation_issues,
+            "metrics": metrics_serialised,
+        }
+
+    def _apply_system_fields(
+        self,
+        df: pd.DataFrame,
+        *,
+        key_columns: Sequence[str],
+        metadata: dict[str, Any],
+        schema_cls: type[BaseSchema],
+    ) -> pd.DataFrame:
+        """Ensure system tracking columns are present for schema validation."""
+
+        if df is None or df.empty:
+            return df if df is not None else pd.DataFrame()
+
+        working = df.reset_index(drop=True).copy()
+
+        for column, value in metadata.items():
+            if column in working.columns:
+                if value is None:
+                    working[column] = working[column].where(working[column].notna(), None)
+                else:
+                    working[column] = working[column].fillna(value)
+            else:
+                working[column] = value
+
+        working["index"] = range(len(working))
+
+        key_series = self._build_business_key_series(working, key_columns)
+        working["hash_business_key"] = key_series.apply(generate_hash_business_key)
+        working["hash_row"] = working.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+
+        expected_columns: list[str] = []
+        if hasattr(schema_cls, "get_column_order"):
+            expected_columns = list(schema_cls.get_column_order())
+
+        if not expected_columns:
+            try:
+                expected_columns = list(schema_cls.to_schema().columns.keys())
+            except Exception:  # pragma: no cover - defensive fallback
+                expected_columns = []
+
+        if expected_columns:
+            for column in expected_columns:
+                if column not in working.columns:
+                    working[column] = pd.NA
+            ordered = expected_columns + [col for col in working.columns if col not in expected_columns]
+            working = working[ordered]
+
+        for int_column in ("tax_id", "isoform_count", "merge_rank"):
+            if int_column in working.columns:
+                try:
+                    working[int_column] = pd.to_numeric(working[int_column], errors="coerce").astype("Int64")
+                except Exception:  # pragma: no cover - defensive
+                    pass
+
+        return working.convert_dtypes()
+
+    def _build_business_key_series(
+        self,
+        df: pd.DataFrame,
+        columns: Sequence[str],
+    ) -> pd.Series:
+        """Derive a stable business-key string for hashing purposes."""
+
+        if not columns:
+            return pd.Series(df.index.astype(str), index=df.index)
+
+        valid_columns = [column for column in columns if column in df.columns]
+        if not valid_columns:
+            return pd.Series(df.index.astype(str), index=df.index)
+
+        parts = df[valid_columns].astype(str).fillna("")
+
+        if len(valid_columns) == 1:
+            series = parts.iloc[:, 0].replace({"<NA>": ""})
+            return series.where(series != "", other=df.index.astype(str))
+
+        joined = parts.apply(
+            lambda row: "|".join([value for value in row.tolist() if value and value != "<NA>"]),
+            axis=1,
+        )
+        return joined.where(joined != "", other=df.index.astype(str))
 
     @staticmethod
     def _chunked(values: Iterable[str], size: int) -> Iterator[list[str]]:
@@ -466,6 +903,8 @@ class TargetPipeline(PipelineBase):
         fallback_counts: dict[str, int] = defaultdict(int)
         resolved_rows = 0
         total_with_accession = 0
+
+        missing_records: list[dict[str, Any]] = []
 
         for idx, row in working_df.iterrows():
             accession = row.get("uniprot_accession")
@@ -583,14 +1022,28 @@ class TargetPipeline(PipelineBase):
                 resolved_rows += 1
                 unresolved.pop(idx, None)
 
+        unresolved_count = 0
         if unresolved:
             for idx, accession in unresolved.items():
                 logger.warning("uniprot_enrichment_unresolved", accession=accession)
+                unresolved_count += 1
+                missing_records.append(
+                    {
+                        "target_chembl_id": working_df.at[idx, "target_chembl_id"]
+                        if "target_chembl_id" in working_df.columns
+                        else None,
+                        "submitted_accession": accession,
+                        "reason": "unresolved",
+                    }
+                )
 
         coverage = resolved_rows / total_with_accession if total_with_accession else 0.0
         metrics["enrichment_success.uniprot"] = coverage
         metrics["enrichment.total_with_accession"] = total_with_accession
         metrics["enrichment.resolved"] = resolved_rows
+        metrics["enrichment.uniprot.unresolved"] = unresolved_count
+        if total_with_accession:
+            metrics["enrichment.uniprot.unresolved_rate"] = unresolved_count / total_with_accession
 
         for fallback_name, count in fallback_counts.items():
             metrics[f"fallback.{fallback_name}.count"] = count
@@ -627,8 +1080,13 @@ class TargetPipeline(PipelineBase):
 
         uniprot_silver_df = pd.DataFrame(uniprot_silver_records).convert_dtypes()
         component_enrichment_df = pd.DataFrame(component_records).convert_dtypes()
+        missing_df = (
+            pd.DataFrame(missing_records).convert_dtypes()
+            if missing_records
+            else pd.DataFrame(columns=["target_chembl_id", "submitted_accession", "reason"])
+        )
 
-        return working_df, uniprot_silver_df, component_enrichment_df, metrics
+        return working_df, uniprot_silver_df, component_enrichment_df, metrics, missing_df
 
     def _enrich_iuphar(
         self, df: pd.DataFrame
@@ -1740,39 +2198,4 @@ class TargetPipeline(PipelineBase):
         working["isoform_count"] = working["isoform_count"].astype("Int64")
 
         return working[expected_columns].convert_dtypes()
-
-    def _evaluate_iuphar_qc(self, coverage: float) -> None:
-        """Compare coverage against QC thresholds and log warnings."""
-
-        thresholds = self.config.qc.thresholds or {}
-        config: dict[str, Any] | None = None
-        if isinstance(thresholds.get("iuphar_coverage"), dict):
-            config = thresholds.get("iuphar_coverage")
-        elif isinstance(thresholds.get("enrichment_success.iuphar"), dict):
-            config = thresholds.get("enrichment_success.iuphar")
-
-        if not config:
-            return
-
-        min_threshold = config.get("min")
-        severity = str(config.get("severity", "warning"))
-
-        issue_payload = {
-            "metric": "iuphar_coverage",
-            "value": coverage,
-            "threshold_min": float(min_threshold) if min_threshold is not None else None,
-            "severity": "info",
-            "passed": True,
-            "issue_type": "qc",
-        }
-
-        if min_threshold is not None and coverage < float(min_threshold):
-            logger.warning(
-                "iuphar_coverage_below_threshold",
-                coverage=coverage,
-                threshold=min_threshold,
-            )
-            issue_payload.update({"severity": severity, "passed": False})
-
-        self.record_validation_issue(issue_payload)
 

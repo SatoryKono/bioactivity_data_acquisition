@@ -1065,6 +1065,11 @@ class TestTargetPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = TargetPipeline(target_config, run_id)
 
+        pipeline.uniprot_client = None
+        pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_orthologs_client = None
+        pipeline.iuphar_client = None
+
         df = pd.DataFrame({
             "target_chembl_id": ["CHEMBL1"],
             "pref_name": ["Test Target"],
@@ -1074,19 +1079,30 @@ class TestTargetPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+        assert "hash_row" in result.columns
+        assert "hash_business_key" in result.columns
+        assert "index" in result.columns
 
     def test_validate_removes_duplicates(self, target_config):
         """Test validation removes duplicates."""
         run_id = str(uuid.uuid4())[:8]
         pipeline = TargetPipeline(target_config, run_id)
 
+        pipeline.uniprot_client = None
+        pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_orthologs_client = None
+        pipeline.iuphar_client = None
+
         df = pd.DataFrame({
             "target_chembl_id": ["CHEMBL1", "CHEMBL1"],
             "pref_name": ["Target 1", "Target 2"],
         })
 
-        result = pipeline.validate(df)
+        transformed = pipeline.transform(df)
+        result = pipeline.validate(transformed)
         assert len(result) == 1
+        assert pipeline.qc_summary is not None
+        assert isinstance(pipeline.qc_enrichment_metrics, pd.DataFrame)
 
     def test_uniprot_enrichment_merges_primary(self, target_config, tmp_path):
         """UniProt enrichment should populate canonical fields and silver artifacts."""
@@ -1150,9 +1166,13 @@ class TestTargetPipeline:
 
         enriched = pipeline.transform(df)
 
-        assert enriched.loc[0, "uniprot_canonical_accession"] == "P12345"
-        assert enriched.loc[0, "uniprot_merge_strategy"] == "direct"
+        assert enriched.loc[0, "uniprot_id_primary"] == "P12345"
+        assert enriched.loc[0, "has_uniprot"]
+        assert "uniprot" in str(enriched.loc[0, "data_origin"]).lower()
         assert pipeline.qc_metrics.get("enrichment_success.uniprot") == 1.0
+        assert pipeline.qc_missing_mappings.empty
+        assert "canonical_accession" in pipeline.gold_components.columns
+        assert "data_origin" in pipeline.gold_components.columns
 
         silver_path = Path(pipeline.config.materialization.silver)
         component_path = silver_path.parent / "component_enrichment.parquet"

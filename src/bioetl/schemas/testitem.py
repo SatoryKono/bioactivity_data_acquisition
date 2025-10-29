@@ -1,6 +1,6 @@
 """Pandera schemas for TestItem data according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema
