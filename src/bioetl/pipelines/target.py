@@ -23,7 +23,6 @@ from bioetl.config.models import (
 )
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.output_writer import OutputMetadata
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
@@ -44,9 +43,6 @@ from bioetl.utils import finalize_pipeline_output
 from bioetl.utils.qc import (
     prepare_enrichment_metrics,
     prepare_missing_mappings,
-    update_summary_metrics,
-    update_summary_section,
-    update_validation_issue_summary,
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 
@@ -524,36 +520,49 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class = gold_protein_class
         self.gold_xref = gold_xref
 
-        self.additional_tables.clear()
+        additional_tables: list[tuple[str, pd.DataFrame, Path | str | None]] = []
         if not gold_components.empty:
-            self.add_additional_table("target_components", gold_components)
+            additional_tables.append(("target_components", gold_components, None))
         if not gold_protein_class.empty:
-            self.add_additional_table(
-                "target_protein_classifications",
-                gold_protein_class,
+            additional_tables.append(
+                (
+                    "target_protein_classifications",
+                    gold_protein_class,
+                    None,
+                )
             )
         if not gold_xref.empty:
-            self.add_additional_table("target_xrefs", gold_xref)
+            additional_tables.append(("target_xrefs", gold_xref, None))
         if not component_enrichment.empty:
-            self.add_additional_table(
-                "target_component_enrichment",
-                component_enrichment,
+            additional_tables.append(
+                (
+                    "target_component_enrichment",
+                    component_enrichment,
+                    None,
+                )
             )
         if not iuphar_classification.empty:
-            self.add_additional_table(
-                "target_iuphar_classification",
-                iuphar_classification,
+            additional_tables.append(
+                (
+                    "target_iuphar_classification",
+                    iuphar_classification,
+                    None,
+                )
             )
         if not iuphar_gold.empty:
-            self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
+            additional_tables.append(("target_iuphar_enrichment", iuphar_gold, None))
 
-        self.export_metadata = OutputMetadata.from_dataframe(
+        if additional_tables:
+            self.register_additional_tables(additional_tables)
+        else:
+            self.additional_tables.clear()
+
+        self.build_export_metadata(
             gold_targets,
             pipeline_version=pipeline_version,
             source_system=source_system,
             chembl_release=self._chembl_release,
             column_order=list(gold_targets.columns),
-            run_id=self.run_id,
         )
 
         if self._qc_missing_mapping_records:
@@ -2254,8 +2263,8 @@ class TargetPipeline(PipelineBase):
             "classifications": int(len(protein_class_df)),
             "xrefs": int(len(xref_df)),
         }
-        update_summary_section(self.qc_summary_data, "row_counts", dataset_counts)
-        update_summary_section(self.qc_summary_data, "datasets", dataset_counts)
+        self.update_qc_summary_section("row_counts", dataset_counts)
+        self.update_qc_summary_section("datasets", dataset_counts)
 
         fallback_counts = {
             key.split(".")[1]: int(value)
@@ -2263,15 +2272,14 @@ class TargetPipeline(PipelineBase):
             if key.startswith("fallback.") and key.endswith(".count")
         }
         if fallback_counts:
-            update_summary_section(self.qc_summary_data, "fallback_counts", fallback_counts)
+            self.update_qc_summary_section("fallback_counts", fallback_counts)
 
-        update_summary_metrics(self.qc_summary_data, self.qc_metrics)
+        self.update_qc_summary_metrics(self.qc_metrics)
 
-        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+        self.update_qc_validation_summary()
 
         if not self.qc_missing_mappings.empty:
-            update_summary_section(
-                self.qc_summary_data,
+            self.update_qc_summary_section(
                 "missing_mappings",
                 {
                     "records": int(len(self.qc_missing_mappings)),

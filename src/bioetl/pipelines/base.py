@@ -1,6 +1,7 @@
 """Base pipeline class."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,11 @@ from bioetl.core.output_writer import (
     OutputArtifacts,
     OutputMetadata,
     UnifiedOutputWriter,
+)
+from bioetl.utils.qc import (
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
 )
 
 logger = UnifiedLogger.get(__name__)
@@ -159,6 +165,101 @@ class PipelineBase(ABC):
         """Remove a previously registered additional dataset."""
 
         self.additional_tables.pop(name, None)
+
+    def register_additional_tables(
+        self,
+        tables: Mapping[str, pd.DataFrame]
+        | Iterable[tuple[str, pd.DataFrame, Path | str | None]],
+        *,
+        clear_existing: bool = True,
+    ) -> None:
+        """Register multiple additional datasets for export."""
+
+        if clear_existing:
+            self.additional_tables.clear()
+
+        if isinstance(tables, Mapping):
+            iterator: Iterable[tuple[str, pd.DataFrame, Path | str | None]] = (
+                (name, dataframe, None)
+                for name, dataframe in tables.items()
+            )
+        else:
+            iterator = tables
+
+        for entry in iterator:
+            if len(entry) == 2:
+                table_name, frame = entry  # type: ignore[misc]
+                relative = None
+            else:
+                table_name, frame, relative = entry  # type: ignore[misc]
+            self.add_additional_table(table_name, frame, relative_path=relative)
+
+    def set_export_metadata(self, metadata: OutputMetadata | None) -> OutputMetadata | None:
+        """Persist explicit output metadata for subsequent export."""
+
+        self.export_metadata = metadata
+        return metadata
+
+    def build_export_metadata(
+        self,
+        df: pd.DataFrame,
+        *,
+        pipeline_version: str,
+        source_system: str,
+        chembl_release: str | None = None,
+        column_order: Sequence[str] | None = None,
+    ) -> OutputMetadata:
+        """Construct and cache :class:`OutputMetadata` from ``df``."""
+
+        metadata = OutputMetadata.from_dataframe(
+            df,
+            pipeline_version=pipeline_version,
+            source_system=source_system,
+            chembl_release=chembl_release,
+            column_order=list(column_order) if column_order is not None else list(df.columns),
+            run_id=self.run_id,
+        )
+        self.export_metadata = metadata
+        return metadata
+
+    def set_qc_metrics(
+        self,
+        metrics: Mapping[str, Any],
+        *,
+        merge: bool = False,
+    ) -> None:
+        """Store QC metrics and propagate them to the summary payload."""
+
+        if merge and self.qc_metrics:
+            self.qc_metrics.update(metrics)
+        else:
+            self.qc_metrics = dict(metrics)
+
+        if self.qc_metrics:
+            update_summary_metrics(self.qc_summary_data, self.qc_metrics)
+        else:
+            self.qc_summary_data.pop("metrics", None)
+
+    def update_qc_summary_section(
+        self,
+        section: str,
+        values: Mapping[str, Any] | Any,
+        *,
+        merge: bool = True,
+    ) -> Any:
+        """Update a QC summary section using unified helpers."""
+
+        return update_summary_section(self.qc_summary_data, section, values, merge=merge)
+
+    def update_qc_summary_metrics(self, metrics: Mapping[str, Any]) -> None:
+        """Merge QC metrics into the summary without replacing stored metrics."""
+
+        update_summary_metrics(self.qc_summary_data, metrics)
+
+    def update_qc_validation_summary(self) -> None:
+        """Refresh validation issue counters in the QC summary."""
+
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
 
     def _should_emit_debug_artifacts(self) -> bool:
         """Determine whether verbose/debug outputs should be materialised."""

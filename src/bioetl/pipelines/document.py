@@ -37,9 +37,6 @@ from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
     compute_field_coverage,
     duplicate_summary,
-    update_summary_metrics,
-    update_summary_section,
-    update_validation_issue_summary,
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 
@@ -861,19 +858,25 @@ class DocumentPipeline(PipelineBase):
         """Validate document data against schema with strict validation."""
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
-            self.qc_metrics = {}
-            update_summary_section(self.qc_summary_data, "row_counts", {"documents": 0})
-            update_summary_section(
-                self.qc_summary_data,
+            self.set_qc_metrics({})
+            self.update_qc_summary_section("row_counts", {"documents": 0})
+            self.update_qc_summary_section(
                 "datasets",
                 {"documents": {"rows": 0}},
             )
-            update_summary_section(
-                self.qc_summary_data,
+            self.update_qc_summary_section(
                 "duplicates",
                 {"documents": duplicate_summary(0, 0, field="document_chembl_id")},
             )
-            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+            self.update_qc_validation_summary()
+            pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+            self.build_export_metadata(
+                df,
+                pipeline_version=pipeline_version,
+                source_system="chembl",
+                chembl_release=self._chembl_release,
+                column_order=list(df.columns),
+            )
             return df
 
         working_df = df.copy().convert_dtypes()
@@ -966,17 +969,14 @@ class DocumentPipeline(PipelineBase):
             raise
 
         metrics = self._compute_qc_metrics(validated_df)
-        self.qc_metrics = metrics
-        update_summary_metrics(self.qc_summary_data, metrics)
+        self.set_qc_metrics(metrics)
         row_count = int(len(validated_df))
-        update_summary_section(self.qc_summary_data, "row_counts", {"documents": row_count})
-        update_summary_section(
-            self.qc_summary_data,
+        self.update_qc_summary_section("row_counts", {"documents": row_count})
+        self.update_qc_summary_section(
             "datasets",
             {"documents": {"rows": row_count}},
         )
-        update_summary_section(
-            self.qc_summary_data,
+        self.update_qc_summary_section(
             "duplicates",
             {
                 "documents": duplicate_summary(
@@ -999,14 +999,23 @@ class DocumentPipeline(PipelineBase):
             key: coverage_stats.get(column, 0.0)
             for key, column in coverage_columns.items()
         }
-        update_summary_section(
-            self.qc_summary_data,
+        self.update_qc_summary_section(
             "coverage",
             {"documents": coverage_payload},
         )
         self._enforce_qc_thresholds(metrics)
 
-        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+        self.update_qc_validation_summary()
+
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        column_order = DocumentSchema.get_column_order()
+        self.build_export_metadata(
+            validated_df,
+            pipeline_version=pipeline_version,
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            column_order=column_order if column_order else list(validated_df.columns),
+        )
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
         return validated_df

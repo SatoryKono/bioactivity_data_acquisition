@@ -28,11 +28,7 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.qc import (
-    register_fallback_statistics,
-    update_summary_metrics,
-    update_validation_issue_summary,
-)
+from bioetl.utils.qc import register_fallback_statistics
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import normalize_json_list
 
@@ -956,15 +952,7 @@ class ActivityPipeline(PipelineBase):
                 },
             }
 
-            self.qc_summary_data.setdefault("metrics", {}).update(
-                {
-                    "fallback.count": qc_metrics["fallback.count"],
-                    "fallback.rate": qc_metrics["fallback.rate"],
-                }
-            )
-
-        self.qc_metrics = qc_metrics
-        update_summary_metrics(self.qc_summary_data, qc_metrics)
+        self.set_qc_metrics(qc_metrics)
         self._last_validation_report = {"metrics": qc_metrics}
 
         severity_threshold = self.config.qc.severity_threshold.lower()
@@ -1088,7 +1076,17 @@ class ActivityPipeline(PipelineBase):
             self._last_validation_report["issues"] = list(self.validation_issues)
 
         logger.info("schema_validation_passed", rows=len(validated_df))
-        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+        self.update_qc_validation_summary()
+
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        column_order = ActivitySchema.get_column_order()
+        self.build_export_metadata(
+            validated_df,
+            pipeline_version=pipeline_version,
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            column_order=column_order if column_order else list(validated_df.columns),
+        )
         return validated_df
 
     def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:
