@@ -14,17 +14,16 @@ import pandas as pd
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import (
-    CircuitBreakerConfig,
-    HttpConfig,
-    RateLimitConfig,
-    RetryConfig,
-    TargetSourceConfig,
-)
-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
+from bioetl.config.models import TargetSourceConfig
+from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import OutputMetadata
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import (
+    EnrichmentStage,
+    PipelineBase,
+    enrichment_stage_registry,
+)
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
     annotate_source_rank,
@@ -89,13 +88,18 @@ class TargetPipeline(PipelineBase):
         self.source_configs: dict[str, TargetSourceConfig] = {}
         self.api_clients: dict[str, UnifiedAPIClient] = {}
 
+        factory = APIClientFactory.from_pipeline_config(config)
+
         for source_name, source in config.sources.items():
-            source_config = source if isinstance(source, TargetSourceConfig) else TargetSourceConfig.model_validate(source)
+            if source is None:
+                continue
+
+            source_config = ensure_target_source_config(source, defaults={})
             if not source_config.enabled:
                 continue
 
             self.source_configs[source_name] = source_config
-            api_client_config = self._build_api_client_config(source_name, source_config)
+            api_client_config = factory.create(source_name, source_config)
             self.api_clients[source_name] = UnifiedAPIClient(api_client_config)
 
         self.chembl_client = self.api_clients.get("chembl")
@@ -116,81 +120,6 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class: pd.DataFrame = pd.DataFrame()
         self.gold_xref: pd.DataFrame = pd.DataFrame()
         self._qc_missing_mapping_records: list[dict[str, Any]] = []
-
-    def _build_api_client_config(
-        self,
-        source_name: str,
-        source_config: TargetSourceConfig,
-    ) -> APIConfig:
-        """Create API client configuration for the given source."""
-
-        http_profile = self._resolve_http_profile(source_name, source_config)
-        global_http = self.config.http.get("global")
-
-        timeout_sec = source_config.timeout_sec
-        if timeout_sec is None and http_profile is not None:
-            timeout_sec = http_profile.timeout_sec
-        if timeout_sec is None and global_http is not None:
-            timeout_sec = global_http.timeout_sec
-        if timeout_sec is None:
-            timeout_sec = 60.0
-
-        connect_timeout = self._resolve_timeout(http_profile, global_http, "connect_timeout_sec", timeout_sec)
-        read_timeout = self._resolve_timeout(http_profile, global_http, "read_timeout_sec", timeout_sec)
-
-        retries = self._resolve_retries(http_profile, global_http)
-        rate_limit = self._resolve_rate_limit(source_config, http_profile, global_http)
-        rate_limit_jitter = self._resolve_rate_limit_jitter(http_profile, global_http)
-
-        cache_enabled = source_config.cache_enabled if source_config.cache_enabled is not None else self.config.cache.enabled
-        cache_ttl = source_config.cache_ttl if source_config.cache_ttl is not None else self.config.cache.ttl
-        cache_maxsize = (
-            source_config.cache_maxsize
-            if source_config.cache_maxsize is not None
-            else getattr(self.config.cache, "maxsize", 1024)
-        )
-
-        fallback_config = self.config.fallbacks
-        fallback_enabled = fallback_config.enabled
-        fallback_strategies = source_config.fallback_strategies or fallback_config.strategies
-        partial_retry_max = (
-            source_config.partial_retry_max
-            if source_config.partial_retry_max is not None
-            else fallback_config.partial_retry_max
-        )
-        circuit_breaker: CircuitBreakerConfig = (
-            source_config.circuit_breaker or fallback_config.circuit_breaker
-        )
-
-        headers: dict[str, str] = {}
-        if global_http:
-            headers.update(global_http.headers)
-        if http_profile:
-            headers.update(http_profile.headers)
-        headers.update(source_config.headers)
-
-        return APIConfig(
-            name=source_name,
-            base_url=source_config.base_url,
-            headers=headers,
-            cache_enabled=cache_enabled,
-            cache_ttl=cache_ttl,
-            cache_maxsize=cache_maxsize,
-            rate_limit_max_calls=rate_limit.max_calls,
-            rate_limit_period=rate_limit.period,
-            rate_limit_jitter=rate_limit_jitter,
-            retry_total=retries.total,
-            retry_backoff_factor=retries.backoff_multiplier,
-            retry_backoff_max=retries.backoff_max,
-            retry_status_codes=[int(code) for code in (retries.statuses or [])],
-            partial_retry_max=partial_retry_max,
-            timeout_connect=connect_timeout,
-            timeout_read=read_timeout,
-            cb_failure_threshold=circuit_breaker.failure_threshold,
-            cb_timeout=circuit_breaker.timeout_sec,
-            fallback_enabled=fallback_enabled,
-            fallback_strategies=fallback_strategies,
-        )
 
     def _record_missing_mapping(
         self,
@@ -221,79 +150,6 @@ class TargetPipeline(PipelineBase):
                 record["details"] = str(details)
 
         self._qc_missing_mapping_records.append(record)
-
-    def _resolve_http_profile(
-        self,
-        source_name: str,
-        source_config: TargetSourceConfig,
-    ) -> HttpConfig | None:
-        """Resolve HTTP profile configuration for a source."""
-
-        profile_name = source_config.http_profile or source_name
-        if profile_name and profile_name in self.config.http:
-            return self.config.http[profile_name]
-        return None
-
-    def _resolve_timeout(
-        self,
-        http_profile: HttpConfig | None,
-        global_http: HttpConfig | None,
-        attr: str,
-        default: float,
-    ) -> float:
-        """Resolve timeout value using profile, global configuration, or default."""
-
-        profile_value = getattr(http_profile, attr) if http_profile else None
-        if profile_value is not None:
-            return float(profile_value)
-
-        global_value = getattr(global_http, attr) if global_http else None
-        if global_value is not None:
-            return float(global_value)
-
-        return default
-
-    def _resolve_retries(
-        self,
-        http_profile: HttpConfig | None,
-        global_http: HttpConfig | None,
-    ) -> RetryConfig:
-        """Resolve retry configuration with sensible defaults."""
-
-        if http_profile is not None:
-            return http_profile.retries
-        if global_http is not None:
-            return global_http.retries
-        raise ValueError("Retry configuration is required for API clients")
-
-    def _resolve_rate_limit(
-        self,
-        source_config: TargetSourceConfig,
-        http_profile: HttpConfig | None,
-        global_http: HttpConfig | None,
-    ) -> RateLimitConfig:
-        """Resolve rate limit configuration for a source."""
-
-        if source_config.rate_limit is not None:
-            return source_config.rate_limit
-        if http_profile is not None:
-            return http_profile.rate_limit
-        if global_http is not None:
-            return global_http.rate_limit
-        raise ValueError("Rate limit configuration is required for API clients")
-
-    def _resolve_rate_limit_jitter(
-        self,
-        http_profile: HttpConfig | None,
-        global_http: HttpConfig | None,
-    ) -> bool:
-        """Resolve rate limit jitter flag."""
-
-        if http_profile is not None:
-            return http_profile.rate_limit_jitter
-        if global_http is not None:
-            return global_http.rate_limit_jitter
-        return True
 
     def _get_chembl_release(self) -> str | None:
         """Fetch the ChEMBL database release identifier."""
@@ -392,98 +248,24 @@ class TargetPipeline(PipelineBase):
             with_iuphar=with_iuphar,
         )
 
-        enrichment_metrics: dict[str, Any] = {}
-        uniprot_silver = pd.DataFrame()
-        component_enrichment = pd.DataFrame()
+        self.reset_stage_context()
+        df = self.execute_enrichment_stages(df)
 
-        stage_summary = self.qc_summary_data.setdefault("stages", {})
+        uniprot_context = self.stage_context.get("uniprot", {})
+        uniprot_silver = uniprot_context.get("silver")
+        if not isinstance(uniprot_silver, pd.DataFrame):
+            uniprot_silver = pd.DataFrame()
+        component_enrichment = uniprot_context.get("component_enrichment")
+        if not isinstance(component_enrichment, pd.DataFrame):
+            component_enrichment = pd.DataFrame()
 
-        if not with_uniprot:
-            logger.info("uniprot_enrichment_skipped", reason="disabled")
-            stage_summary["uniprot"] = {"status": "skipped", "reason": "disabled"}
-        elif (
-            self.uniprot_client is not None
-            and "uniprot_accession" in df.columns
-            and df["uniprot_accession"].notna().any()
-        ):
-            try:
-                df, uniprot_silver, component_enrichment, enrichment_metrics = self._enrich_uniprot(df)
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.error("uniprot_enrichment_failed", error=str(exc))
-                self.record_validation_issue(
-                    {
-                        "metric": "enrichment.uniprot",
-                        "issue_type": "enrichment",
-                        "severity": "warning",
-                        "status": "failed",
-                        "error": str(exc),
-                    }
-                )
-                stage_summary["uniprot"] = {
-                    "status": "failed",
-                    "error": str(exc),
-                }
-            else:
-                if enrichment_metrics:
-                    self.qc_metrics.update(enrichment_metrics)
-                if not uniprot_silver.empty or not component_enrichment.empty:
-                    self._materialize_silver(uniprot_silver, component_enrichment)
-                stage_summary["uniprot"] = {
-                    "status": "completed",
-                    "rows": int(len(df)),
-                }
-        else:
-            logger.info(
-                "uniprot_enrichment_skipped",
-                reason="no_accessions" if "uniprot_accession" not in df.columns else "no_client",
-            )
-            stage_summary["uniprot"] = {
-                "status": "skipped",
-                "reason": (
-                    "missing_column"
-                    if "uniprot_accession" not in df.columns
-                    else "client_unavailable"
-                ),
-            }
-
-        iuphar_classification = pd.DataFrame()
-        iuphar_gold = pd.DataFrame()
-        if not with_iuphar:
-            logger.info("iuphar_enrichment_skipped", reason="disabled")
-            stage_summary["iuphar"] = {"status": "skipped", "reason": "disabled"}
-        elif self.iuphar_client is not None:
-            try:
-                df, iuphar_classification, iuphar_gold, iuphar_metrics = self._enrich_iuphar(df)
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.error("iuphar_enrichment_failed", error=str(exc))
-                self.record_validation_issue(
-                    {
-                        "metric": "enrichment.iuphar",
-                        "issue_type": "enrichment",
-                        "severity": "warning",
-                        "status": "failed",
-                        "error": str(exc),
-                    }
-                )
-                stage_summary["iuphar"] = {
-                    "status": "failed",
-                    "error": str(exc),
-                }
-            else:
-                if iuphar_metrics:
-                    self.qc_metrics.update(iuphar_metrics)
-                    coverage_value = iuphar_metrics.get("iuphar_coverage")
-                    if coverage_value is not None:
-                        self._evaluate_iuphar_qc(float(coverage_value))
-                if not iuphar_classification.empty or not iuphar_gold.empty:
-                    self._materialize_iuphar(iuphar_classification, iuphar_gold)
-                stage_summary["iuphar"] = {
-                    "status": "completed",
-                    "rows": int(len(df)),
-                }
-        else:
-            logger.info("iuphar_enrichment_skipped", reason="no_client")
-            stage_summary["iuphar"] = {"status": "skipped", "reason": "client_unavailable"}
+        iuphar_context = self.stage_context.get("iuphar", {})
+        iuphar_classification = iuphar_context.get("classification")
+        if not isinstance(iuphar_classification, pd.DataFrame):
+            iuphar_classification = pd.DataFrame()
+        iuphar_gold = iuphar_context.get("gold")
+        if not isinstance(iuphar_gold, pd.DataFrame):
+            iuphar_gold = pd.DataFrame()
 
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
@@ -2355,4 +2137,156 @@ class TargetPipeline(PipelineBase):
         )
 
         return validated  # type: ignore[no-any-return]
+
+
+def _target_should_run_uniprot(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> tuple[bool, str | None]:
+    """Determine if the UniProt stage should run for the given pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):
+        return False, "unsupported_pipeline"
+    if df.empty:
+        return False, "empty_frame"
+
+    with_uniprot = bool(pipeline.runtime_options.get("with_uniprot", True))
+    pipeline.runtime_options["with_uniprot"] = with_uniprot
+    if not with_uniprot:
+        return False, "disabled"
+
+    if pipeline.uniprot_client is None:
+        return False, "client_unavailable"
+
+    if "uniprot_accession" not in df.columns:
+        return False, "missing_column"
+
+    if not df["uniprot_accession"].notna().any():
+        return False, "no_accessions"
+
+    return True, None
+
+
+def _target_run_uniprot_stage(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> pd.DataFrame:
+    """Execute UniProt enrichment for the target pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):  # pragma: no cover - defensive
+        return df
+
+    try:
+        enriched_df, silver_df, component_df, metrics = pipeline._enrich_uniprot(df)
+    except Exception as exc:
+        pipeline.record_validation_issue(
+            {
+                "metric": "enrichment.uniprot",
+                "issue_type": "enrichment",
+                "severity": "warning",
+                "status": "failed",
+                "error": str(exc),
+            }
+        )
+        raise
+
+    if metrics:
+        pipeline.qc_metrics.update(metrics)
+
+    if not silver_df.empty or not component_df.empty:
+        pipeline._materialize_silver(silver_df, component_df)
+
+    pipeline.stage_context["uniprot"] = {
+        "silver": silver_df,
+        "component_enrichment": component_df,
+    }
+    pipeline.set_stage_summary("uniprot", "completed", rows=int(len(enriched_df)))
+
+    return enriched_df
+
+
+def _target_should_run_iuphar(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> tuple[bool, str | None]:
+    """Determine if the IUPHAR stage should run for the given pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):
+        return False, "unsupported_pipeline"
+    if df.empty:
+        return False, "empty_frame"
+
+    with_iuphar = bool(pipeline.runtime_options.get("with_iuphar", True))
+    pipeline.runtime_options["with_iuphar"] = with_iuphar
+    if not with_iuphar:
+        return False, "disabled"
+
+    if pipeline.iuphar_client is None:
+        return False, "client_unavailable"
+
+    return True, None
+
+
+def _target_run_iuphar_stage(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> pd.DataFrame:
+    """Execute IUPHAR enrichment for the target pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):  # pragma: no cover - defensive
+        return df
+
+    try:
+        enriched_df, classification_df, gold_df, metrics = pipeline._enrich_iuphar(df)
+    except Exception as exc:
+        pipeline.record_validation_issue(
+            {
+                "metric": "enrichment.iuphar",
+                "issue_type": "enrichment",
+                "severity": "warning",
+                "status": "failed",
+                "error": str(exc),
+            }
+        )
+        raise
+
+    if metrics:
+        pipeline.qc_metrics.update(metrics)
+        coverage_value = metrics.get("iuphar_coverage")
+        if coverage_value is not None:
+            try:
+                pipeline._evaluate_iuphar_qc(float(coverage_value))
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                pipeline._evaluate_iuphar_qc(0.0)
+
+    if not classification_df.empty or not gold_df.empty:
+        pipeline._materialize_iuphar(classification_df, gold_df)
+
+    pipeline.stage_context["iuphar"] = {
+        "classification": classification_df,
+        "gold": gold_df,
+    }
+    pipeline.set_stage_summary("iuphar", "completed", rows=int(len(enriched_df)))
+
+    return enriched_df
+
+
+def _register_target_enrichment_stages() -> None:
+    """Register enrichment stages for the target pipeline."""
+
+    enrichment_stage_registry.register(
+        TargetPipeline,
+        EnrichmentStage(
+            name="uniprot",
+            include_if=_target_should_run_uniprot,
+            handler=_target_run_uniprot_stage,
+        ),
+    )
+    enrichment_stage_registry.register(
+        TargetPipeline,
+        EnrichmentStage(
+            name="iuphar",
+            include_if=_target_should_run_iuphar,
+            handler=_target_run_iuphar_stage,
+        ),
+    )
+
+
+_register_target_enrichment_stages()
 

@@ -11,8 +11,8 @@ from pandera.errors import SchemaErrors
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
-from bioetl.config.models import TargetSourceConfig
-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
+from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -409,19 +409,19 @@ class TestItemPipeline(PipelineBase):
 
         # Initialize ChEMBL API client
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
-        chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, TargetSourceConfig):
-            base_url = chembl_source.base_url
-            batch_size_config = chembl_source.batch_size if chembl_source.batch_size is not None else 25
-        elif isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", default_base_url)
-            batch_size_config = chembl_source.get("batch_size", 25)
-        else:
-            base_url = default_base_url
-            batch_size_config = 25
+        factory = APIClientFactory.from_pipeline_config(config)
+        chembl_source = ensure_target_source_config(
+            config.sources.get("chembl"),
+            defaults={
+                "enabled": True,
+                "base_url": default_base_url,
+                "batch_size": 25,
+            },
+        )
 
+        batch_size_value = chembl_source.batch_size if chembl_source.batch_size is not None else 25
         try:
-            batch_size_value = int(batch_size_config)
+            batch_size_value = int(batch_size_value)
         except (TypeError, ValueError) as exc:
             raise ValueError("sources.chembl.batch_size must be an integer") from exc
 
@@ -431,12 +431,7 @@ class TestItemPipeline(PipelineBase):
         if batch_size_value > 25:
             raise ValueError("sources.chembl.batch_size must be <= 25 due to ChEMBL API limits")
 
-        chembl_config = APIConfig(
-            name="chembl",
-            base_url=base_url,
-            cache_enabled=config.cache.enabled,
-            cache_ttl=config.cache.ttl,
-        )
+        chembl_config = factory.create("chembl", chembl_source)
         self.api_client = UnifiedAPIClient(chembl_config)
         self.batch_size = batch_size_value
 
@@ -1212,17 +1207,26 @@ class TestItemPipeline(PipelineBase):
             logger.debug("referential_check_skipped", reason="columns_absent")
             return
 
-        parent_series = (
-            df["parent_chembl_id"].dropna().astype("string").str.strip().str.upper()
+        parent_series = df["parent_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
         )
+        parent_series = parent_series.dropna()
         if parent_series.empty:
             logger.info("referential_integrity_passed", relation="testitem->parent", checked=0)
             return
 
-        molecule_ids = (
-            df["molecule_chembl_id"].astype("string").str.strip().str.upper()
+        molecule_ids = df["molecule_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
         )
-        known_ids = set(molecule_ids.tolist())
+        known_ids = {value for value in molecule_ids.tolist() if value}
         missing_mask = ~parent_series.isin(known_ids)
         missing_count = int(missing_mask.sum())
         total_refs = int(parent_series.size)

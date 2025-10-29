@@ -1,8 +1,11 @@
-"""Base pipeline class."""
+"""Base pipeline class and enrichment stage registry helpers."""
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterable
 
 import pandas as pd
 
@@ -16,6 +19,59 @@ from bioetl.core.output_writer import (
 )
 
 logger = UnifiedLogger.get(__name__)
+
+
+PredicateResult = bool | tuple[bool, str | None]
+
+
+@dataclass(frozen=True)
+class EnrichmentStage:
+    """Definition of an enrichment stage executed during transformation."""
+
+    name: str
+    include_if: Callable[["PipelineBase", pd.DataFrame], PredicateResult]
+    handler: Callable[["PipelineBase", pd.DataFrame], pd.DataFrame | None]
+
+    def should_run(self, pipeline: "PipelineBase", df: pd.DataFrame) -> tuple[bool, str | None]:
+        """Evaluate the inclusion predicate and normalise the response."""
+
+        result = self.include_if(pipeline, df)
+        if isinstance(result, tuple):
+            include, reason = result
+        else:
+            include, reason = bool(result), None
+        return bool(include), reason
+
+    def execute(self, pipeline: "PipelineBase", df: pd.DataFrame) -> pd.DataFrame | None:
+        """Invoke the stage handler."""
+
+        return self.handler(pipeline, df)
+
+
+class EnrichmentStageRegistry:
+    """Global registry storing enrichment stages per pipeline class."""
+
+    def __init__(self) -> None:
+        self._registry: dict[type["PipelineBase"], list[EnrichmentStage]] = {}
+
+    def register(self, pipeline_cls: type["PipelineBase"], stage: EnrichmentStage) -> None:
+        """Register or replace an enrichment stage for the given pipeline class."""
+
+        stages = self._registry.setdefault(pipeline_cls, [])
+        for index, existing in enumerate(stages):
+            if existing.name == stage.name:
+                stages[index] = stage
+                break
+        else:
+            stages.append(stage)
+
+    def get(self, pipeline_cls: type["PipelineBase"]) -> Iterable[EnrichmentStage]:
+        """Return the registered stages for the pipeline class."""
+
+        return tuple(self._registry.get(pipeline_cls, ()))
+
+
+enrichment_stage_registry = EnrichmentStageRegistry()
 
 
 class PipelineBase(ABC):
@@ -34,6 +90,7 @@ class PipelineBase(ABC):
         self.additional_tables: dict[str, AdditionalTableSpec] = {}
         self.export_metadata: OutputMetadata | None = None
         self.debug_dataset_path: Path | None = None
+        self.stage_context: dict[str, Any] = {}
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -45,6 +102,76 @@ class PipelineBase(ABC):
         issue.setdefault("metric", "validation_issue")
         issue.setdefault("severity", "info")
         self.validation_issues.append(issue)
+
+    def reset_stage_context(self) -> None:
+        """Clear any data cached by enrichment stages."""
+
+        self.stage_context.clear()
+
+    def get_stage_summary(self, name: str) -> dict[str, Any] | None:
+        """Return the summary payload for a specific stage if present."""
+
+        stages = self.qc_summary_data.get("stages")
+        if not isinstance(stages, dict):
+            return None
+        payload = stages.get(name)
+        return payload if isinstance(payload, dict) else None
+
+    def set_stage_summary(self, name: str, status: str, **details: Any) -> None:
+        """Record the execution summary for an enrichment stage."""
+
+        payload = {"status": status}
+        payload.update({key: value for key, value in details.items() if value is not None})
+        stages = self.qc_summary_data.setdefault("stages", {})
+        stages[name] = payload
+
+    def execute_enrichment_stages(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Execute registered enrichment stages in sequence for the pipeline."""
+
+        stages = tuple(enrichment_stage_registry.get(type(self)))
+        if not stages:
+            return df
+
+        working_df = df
+        for stage in stages:
+            include, reason = stage.should_run(self, working_df)
+            if not include:
+                logger.info(
+                    "enrichment_stage_skipped",
+                    stage=stage.name,
+                    reason=reason,
+                )
+                if self.get_stage_summary(stage.name) is None:
+                    metadata = {"reason": reason} if reason else {}
+                    self.set_stage_summary(stage.name, "skipped", **metadata)
+                continue
+
+            logger.info("enrichment_stage_started", stage=stage.name)
+            try:
+                result = stage.execute(self, working_df)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.error(
+                    "enrichment_stage_failed",
+                    stage=stage.name,
+                    error=str(exc),
+                )
+                if self.get_stage_summary(stage.name) is None:
+                    self.set_stage_summary(stage.name, "failed", error=str(exc))
+                continue
+
+            if result is not None:
+                working_df = result
+
+            if self.get_stage_summary(stage.name) is None:
+                self.set_stage_summary(stage.name, "completed", rows=int(len(working_df)))
+
+            logger.info(
+                "enrichment_stage_completed",
+                stage=stage.name,
+                rows=len(working_df),
+            )
+
+        return working_df
 
     def get_runtime_limit(self) -> int | None:
         """Return a positive runtime limit if configured, normalising the value."""

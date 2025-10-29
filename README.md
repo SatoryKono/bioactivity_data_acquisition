@@ -51,6 +51,18 @@ tests/
 # Run linting (same as CI)
 ruff check src/bioetl src/library tests
 ruff format --check src/bioetl src/library tests
+# Run tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ --cov=src/bioetl --cov-report=html
+
+# Run specific test suite
+pytest tests/unit/ -v              # Unit tests only
+pytest tests/integration/ -v       # Integration tests only
+
+# Lint
+ruff check src/ tests/
 
 # Type check
 mypy --config-file=pyproject.toml src/bioetl src/library
@@ -61,6 +73,8 @@ pytest tests/unit tests/integration tests/schemas
 # Run every hook locally
 pre-commit run --all-files
 ```
+
+Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
 
 ## License
 
