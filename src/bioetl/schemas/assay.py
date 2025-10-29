@@ -10,7 +10,7 @@ from bioetl.schemas.base import BaseSchema, expose_config_column_order
 class AssaySchema(BaseSchema):
     """Schema for ChEMBL assay data.
 
-    Primary Key: [assay_chembl_id, row_subtype, row_index]
+    Primary Key: [assay_chembl_id, row_subtype]
     Supports exploded format with subtypes: assay, param, variant, class
     """
 
@@ -24,12 +24,6 @@ class AssaySchema(BaseSchema):
         nullable=False,
         description="Тип развёрнутой строки (assay, param, variant, class)",
     )
-    row_index: Series[pd.Int64Dtype] = pa.Field(
-        ge=0,
-        nullable=False,
-        description="Индекс для детерминизма",
-    )
-
     # Основные поля
     assay_type: Series[str] = pa.Field(
         nullable=True,
@@ -219,7 +213,6 @@ class AssaySchema(BaseSchema):
         "extracted_at",
         "assay_chembl_id",
         "row_subtype",
-        "row_index",
         "assay_type",
         "assay_category",
         "assay_cell_type",
