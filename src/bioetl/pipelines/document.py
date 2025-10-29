@@ -33,6 +33,7 @@ from bioetl.schemas.document import (
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.qc import accumulate_summary, register_fallback_statistics
 
 NAType = type(pd.NA)
 
@@ -898,6 +899,12 @@ class DocumentPipeline(PipelineBase):
                 }
             )
 
+        accumulate_summary(
+            self.qc_summary_data,
+            ("validation", "documents"),
+            {"duplicates_removed": int(duplicate_count)},
+        )
+
         sources_to_validate = [
             ("pubmed", ["pubmed_doc_type"], ["pubmed_article_title", "pubmed_abstract"]),
             ("crossref", ["crossref_doc_type"], ["crossref_title", "crossref_authors"]),
@@ -955,6 +962,37 @@ class DocumentPipeline(PipelineBase):
 
         metrics = self._compute_qc_metrics(validated_df)
         self.qc_metrics = metrics
+        accumulate_summary(self.qc_summary_data, "metrics", metrics)
+        accumulate_summary(
+            self.qc_summary_data,
+            "row_counts",
+            {"documents": int(len(validated_df))},
+        )
+
+        register_fallback_statistics(
+            self.qc_summary_data,
+            df=validated_df,
+            additional_tables=self.additional_tables,
+            table_name="document_fallback_records",
+            id_column="document_chembl_id",
+            fallback_columns=[
+                "document_chembl_id",
+                "source_system",
+                "fallback_reason",
+                "fallback_error_type",
+                "fallback_error_message",
+                "fallback_http_status",
+                "fallback_error_code",
+                "fallback_retry_after_sec",
+                "fallback_attempt",
+                "fallback_timestamp",
+                "chembl_release",
+                "run_id",
+                "extracted_at",
+            ],
+            fallback_label="DOCUMENT_FALLBACK",
+        )
+
         self._enforce_qc_thresholds(metrics)
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)

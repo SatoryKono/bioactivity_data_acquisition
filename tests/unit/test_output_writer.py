@@ -147,6 +147,86 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert column_profiles["null_count"].sum() == 0
 
 
+def test_unified_output_writer_writes_qc_artifacts(tmp_path, monkeypatch):
+    """QC summary JSON and CSV artefacts should be persisted when provided."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1, 2], "label": ["a", "b"]})
+    qc_summary = {
+        "row_counts": {"total": 2, "fallback": 1},
+        "metrics": {"coverage": 0.5},
+    }
+    missing_mappings = pd.DataFrame(
+        [
+            {
+                "stage": "uniprot",
+                "target_chembl_id": "CHEMBL1",
+                "input_accession": "P12345",
+                "resolved_accession": pd.NA,
+                "resolution": "unresolved",
+                "status": "missing",
+            }
+        ]
+    )
+    enrichment_metrics = pd.DataFrame(
+        [
+            {
+                "metric": "uniprot",
+                "value": 0.9,
+                "threshold_min": 0.8,
+                "passed": True,
+                "severity": "info",
+            }
+        ]
+    )
+
+    writer = UnifiedOutputWriter("run-qc")
+    output_path = tmp_path / "run-qc" / "target" / "datasets" / "targets.csv"
+
+    artifacts = writer.write(
+        df,
+        output_path,
+        qc_summary=qc_summary,
+        qc_missing_mappings=missing_mappings,
+        qc_enrichment_metrics=enrichment_metrics,
+    )
+
+    assert artifacts.qc_summary is not None and artifacts.qc_summary.exists()
+    assert artifacts.qc_missing_mappings is not None and artifacts.qc_missing_mappings.exists()
+    assert (
+        artifacts.qc_enrichment_metrics is not None
+        and artifacts.qc_enrichment_metrics.exists()
+    )
+
+    with artifacts.qc_summary.open() as handle:
+        summary_payload = json.load(handle)
+
+    assert summary_payload["row_counts"]["total"] == 2
+    assert summary_payload["metrics"]["coverage"] == 0.5
+
+    missing_df = pd.read_csv(artifacts.qc_missing_mappings)
+    assert missing_df.iloc[0]["stage"] == "uniprot"
+    assert missing_df.iloc[0]["status"] == "missing"
+
+    enrichment_df = pd.read_csv(artifacts.qc_enrichment_metrics)
+    assert enrichment_df.iloc[0]["metric"] == "uniprot"
+    assert bool(enrichment_df.iloc[0]["passed"]) is True
+
+    meta_path = artifacts.metadata
+    with meta_path.open() as fh:
+        import yaml
+
+        meta = yaml.safe_load(fh)
+
+    assert "qc_summary" in meta
+    assert meta["qc_summary"]["row_counts"]["total"] == 2
+    qc_artifacts = meta.get("artifacts", {}).get("qc", {})
+    assert "qc_summary" in qc_artifacts
+    assert "qc_missing_mappings" in qc_artifacts
+    assert "qc_enrichment_metrics" in qc_artifacts
+
+
 def test_write_dataframe_json(tmp_path, monkeypatch):
     """Debug dataframe JSON writer should persist records atomically."""
 

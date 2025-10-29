@@ -7,5 +7,18 @@
 """
 
 from bioetl.utils.dataframe import finalize_pipeline_output, resolve_schema_column_order
+from bioetl.utils.qc import (
+    accumulate_summary,
+    prepare_enrichment_metrics_table,
+    prepare_missing_mappings_table,
+    register_fallback_statistics,
+)
 
-__all__ = ["finalize_pipeline_output", "resolve_schema_column_order"]
+__all__ = [
+    "accumulate_summary",
+    "finalize_pipeline_output",
+    "prepare_enrichment_metrics_table",
+    "prepare_missing_mappings_table",
+    "register_fallback_statistics",
+    "resolve_schema_column_order",
+]

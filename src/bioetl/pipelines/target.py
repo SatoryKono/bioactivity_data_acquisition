@@ -40,7 +40,12 @@ from bioetl.schemas import (
     XrefSchema,
 )
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils import finalize_pipeline_output
+from bioetl.utils import (
+    accumulate_summary,
+    finalize_pipeline_output,
+    prepare_enrichment_metrics_table,
+    prepare_missing_mappings_table,
+)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -545,10 +550,7 @@ class TargetPipeline(PipelineBase):
             run_id=self.run_id,
         )
 
-        if self._qc_missing_mapping_records:
-            self.qc_missing_mappings = pd.DataFrame(self._qc_missing_mapping_records).convert_dtypes()
-        else:
-            self.qc_missing_mappings = pd.DataFrame()
+        self.qc_missing_mappings = prepare_missing_mappings_table(self._qc_missing_mapping_records)
 
         self._evaluate_enrichment_thresholds()
         self._update_qc_summary(
@@ -2198,9 +2200,7 @@ class TargetPipeline(PipelineBase):
             if not passed:
                 failing.append({"metric": name, "severity": severity, "value": value_float, "threshold": min_threshold_value})
 
-        self.qc_enrichment_metrics = (
-            pd.DataFrame(records).convert_dtypes() if records else pd.DataFrame()
-        )
+        self.qc_enrichment_metrics = prepare_enrichment_metrics_table(records)
 
         blocking: list[dict[str, Any]] = []
         downgraded: list[dict[str, Any]] = []
@@ -2245,8 +2245,8 @@ class TargetPipeline(PipelineBase):
             "classifications": int(len(protein_class_df)),
             "xrefs": int(len(xref_df)),
         }
-        self.qc_summary_data["row_counts"] = dataset_counts
-        self.qc_summary_data["datasets"] = dataset_counts
+        accumulate_summary(self.qc_summary_data, "row_counts", dataset_counts, mode="set")
+        accumulate_summary(self.qc_summary_data, "datasets", dataset_counts, mode="set")
 
         fallback_counts = {
             key.split(".")[1]: int(value)
@@ -2254,23 +2254,44 @@ class TargetPipeline(PipelineBase):
             if key.startswith("fallback.") and key.endswith(".count")
         }
         if fallback_counts:
-            self.qc_summary_data["fallback_counts"] = fallback_counts
+            accumulate_summary(self.qc_summary_data, "fallback_counts", fallback_counts, mode="set")
+        else:
+            self.qc_summary_data.pop("fallback_counts", None)
 
-        self.qc_summary_data.setdefault("metrics", {}).update(self.qc_metrics)
+        accumulate_summary(self.qc_summary_data, "metrics", self.qc_metrics)
 
         severity_counts: dict[str, int] = {}
         for issue in self.validation_issues:
             severity = str(issue.get("severity", "info")).lower()
             severity_counts[severity] = severity_counts.get(severity, 0) + 1
 
-        self.qc_summary_data["validation_issue_counts"] = severity_counts
-        self.qc_summary_data["validation_issue_total"] = len(self.validation_issues)
+        accumulate_summary(
+            self.qc_summary_data,
+            "validation_issue_counts",
+            severity_counts,
+            mode="set",
+        )
+        accumulate_summary(
+            self.qc_summary_data,
+            "validation_issue_total",
+            int(len(self.validation_issues)),
+            mode="set",
+        )
 
         if not self.qc_missing_mappings.empty:
-            self.qc_summary_data["missing_mappings"] = {
-                "records": int(len(self.qc_missing_mappings)),
-                "stages": sorted(self.qc_missing_mappings["stage"].dropna().unique().tolist()),
-            }
+            accumulate_summary(
+                self.qc_summary_data,
+                "missing_mappings",
+                {
+                    "records": int(len(self.qc_missing_mappings)),
+                    "stages": sorted(
+                        self.qc_missing_mappings["stage"].dropna().unique().tolist()
+                    ),
+                },
+                mode="set",
+            )
+        else:
+            self.qc_summary_data.pop("missing_mappings", None)
 
     def _validate_with_schema(
         self,

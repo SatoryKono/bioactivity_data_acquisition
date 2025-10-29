@@ -21,6 +21,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.qc import accumulate_summary, register_fallback_statistics
 
 logger = UnifiedLogger.get(__name__)
 
@@ -1043,6 +1044,7 @@ class TestItemPipeline(PipelineBase):
             return df
 
         qc_metrics = self._calculate_qc_metrics(df)
+        self.qc_metrics = qc_metrics
         failing_metrics: list[str] = []
 
         for metric_name, metric in qc_metrics.items():
@@ -1086,6 +1088,8 @@ class TestItemPipeline(PipelineBase):
         ):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
+        duplicate_count = int(duplicates_metric.get("count", 0)) if duplicates_metric else 0
+
         normalise_retry_after_column(df)
         try:
             validated_df = TestItemSchema.validate(df, lazy=True)
@@ -1112,6 +1116,42 @@ class TestItemPipeline(PipelineBase):
 
         self._validate_identifier_formats(validated_df)
         self._check_referential_integrity(validated_df)
+
+        accumulate_summary(self.qc_summary_data, "metrics", qc_metrics)
+        accumulate_summary(
+            self.qc_summary_data,
+            "row_counts",
+            {"testitems": int(len(validated_df))},
+        )
+        accumulate_summary(
+            self.qc_summary_data,
+            ("validation", "testitems"),
+            {"duplicates_removed": duplicate_count},
+        )
+
+        register_fallback_statistics(
+            self.qc_summary_data,
+            df=validated_df,
+            additional_tables=self.additional_tables,
+            table_name="testitem_fallback_records",
+            id_column="molecule_chembl_id",
+            fallback_columns=[
+                "molecule_chembl_id",
+                "source_system",
+                "fallback_reason",
+                "fallback_error_type",
+                "fallback_error_message",
+                "fallback_http_status",
+                "fallback_error_code",
+                "fallback_retry_after_sec",
+                "fallback_attempt",
+                "fallback_timestamp",
+                "chembl_release",
+                "run_id",
+                "extracted_at",
+            ],
+            fallback_label="TESTITEM_FALLBACK",
+        )
 
         logger.info(
             "validation_completed",
