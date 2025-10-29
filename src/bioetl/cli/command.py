@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Sequence, Type
+from types import MethodType
+from typing import Any
 
 import pandas as pd
 import typer
@@ -20,7 +22,7 @@ class PipelineCommandConfig:
     """Configuration describing how to build a CLI command for a pipeline."""
 
     pipeline_name: str
-    pipeline_factory: Callable[[], Type[PipelineBase]]
+    pipeline_factory: Callable[[], type[PipelineBase]]
     default_config: Path
     default_input: Path | None
     default_output_dir: Path
@@ -32,7 +34,7 @@ def _validate_sample(sample: int | None) -> None:
     """Raise a user-facing error when sample is invalid."""
 
     if sample is not None and sample < 1:
-        raise typer.BadParameter("--sample must be >= 1", param_name="sample")
+        raise typer.BadParameter("--sample must be >= 1")
 
 
 def _validate_mode(mode: str, choices: Sequence[str] | None) -> None:
@@ -44,8 +46,7 @@ def _validate_mode(mode: str, choices: Sequence[str] | None) -> None:
     if mode not in choices:
         allowed = ", ".join(choices)
         raise typer.BadParameter(
-            f"Mode must be one of: {allowed}",
-            param_name="mode",
+            f"Mode must be one of: {allowed}"
         )
 
 
@@ -74,6 +75,12 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             None,
             "--golden",
             help="Optional golden dataset for deterministic comparisons",
+        ),
+        limit: int | None = typer.Option(
+            None,
+            "--limit",
+            help="Deprecated alias for --sample",
+            hidden=True,
         ),
         sample: int | None = typer.Option(
             None,
@@ -110,6 +117,12 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             "-v",
             help="Enable verbose logging",
         ),
+        validate_columns: bool = typer.Option(
+            True,
+            "--validate-columns/--no-validate-columns",
+            help="Validate output columns against requirements",
+            show_default=True,
+        ),
         set_values: list[str] = typer.Option(
             [],
             "--set",
@@ -120,11 +133,25 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
     ) -> None:
         """Execute the configured pipeline."""
 
-        _validate_sample(sample)
+        if sample is not None and limit is not None and sample != limit:
+            raise typer.BadParameter(
+                "--sample and --limit must match when both are provided"
+            )
+
+        sample_limit = sample if sample is not None else limit
+
+        _validate_sample(sample_limit)
         _validate_mode(mode, config.mode_choices)
 
         UnifiedLogger.setup(mode="development" if verbose else "production")
         logger = UnifiedLogger.get(f"cli.{config.pipeline_name}")
+
+        if limit is not None and sample is None:
+            logger.warning(
+                "deprecated_cli_option_used",
+                option="--limit",
+                replacement="--sample",
+            )
 
         try:
             overrides = parse_cli_overrides(set_values)
@@ -142,8 +169,8 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
             if golden is not None:
                 cli_overrides["golden"] = str(golden)
-            if sample is not None:
-                cli_overrides["sample"] = sample
+            if sample_limit is not None:
+                cli_overrides["sample"] = sample_limit
 
             config_obj = load_config(config_path, overrides=overrides)
 
@@ -152,25 +179,31 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             pipeline_cls = config.pipeline_factory()
             pipeline = pipeline_cls(config_obj, run_id)
 
+            if sample_limit is not None:
+                runtime_options = getattr(pipeline, "runtime_options", None)
+                if isinstance(runtime_options, dict):
+                    runtime_options["limit"] = sample_limit
+                    runtime_options.setdefault("sample", sample_limit)
+
             if dry_run:
                 typer.echo("[DRY-RUN] Configuration loaded successfully.")
                 typer.echo(f"Config path: {config_path}")
                 typer.echo(f"Config hash: {config_obj.config_hash}")
                 return
 
-            if sample is not None:
+            if sample_limit is not None:
                 original_extract = pipeline.extract
 
-                def limited_extract(*args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
+                def limited_extract(self: PipelineBase, *args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
                     df = original_extract(*args, **kwargs)
                     logger.info(
                         "applying_sample_limit",
-                        limit=sample,
+                        limit=sample_limit,
                         original_rows=len(df),
                     )
-                    return df.head(sample)
+                    return df.head(sample_limit)
 
-                pipeline.extract = limited_extract  # type: ignore[assignment]
+                pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
 
             output_dir.mkdir(parents=True, exist_ok=True)
             dataset_name = f"{config.pipeline_name}_{timestamp}.csv"
@@ -185,6 +218,76 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 typer.echo(f"Correlation report: {artifacts.correlation_report}")
             if artifacts.metadata:
                 typer.echo(f"Metadata: {artifacts.metadata}")
+            if artifacts.debug_dataset:
+                typer.echo(f"Debug dataset: {artifacts.debug_dataset}")
+            if artifacts.qc_summary:
+                typer.echo(f"QC summary: {artifacts.qc_summary}")
+            if artifacts.qc_missing_mappings:
+                typer.echo(
+                    f"QC missing mappings: {artifacts.qc_missing_mappings}"
+                )
+            if artifacts.qc_enrichment_metrics:
+                typer.echo(
+                    f"QC enrichment metrics: {artifacts.qc_enrichment_metrics}"
+                )
+
+            # Валидация колонок
+            if validate_columns:
+                typer.echo()
+                typer.echo("Валидация колонок...")
+
+                try:
+                    from bioetl.utils.column_validator import ColumnValidator
+
+                    validator = ColumnValidator()
+
+                    # Загрузить выходной файл для валидации
+                    if artifacts.dataset and artifacts.dataset.exists():
+                        df = pd.read_csv(artifacts.dataset)
+                        result = validator.compare_columns(
+                            entity=config.pipeline_name,
+                            actual_df=df,
+                            schema_version="latest",
+                        )
+
+                        if result.overall_match:
+                            typer.echo("Колонки соответствуют требованиям")
+                        else:
+                            typer.echo("Обнаружены несоответствия в колонках:")
+                            if result.missing_columns:
+                                typer.echo(f"   Отсутствуют: {', '.join(result.missing_columns)}")
+                            if result.extra_columns:
+                                typer.echo(f"   Лишние: {', '.join(result.extra_columns)}")
+                            if not result.order_matches:
+                                typer.echo("   Порядок колонок не соответствует требованиям")
+
+                        # Показать информацию о пустых колонках
+                        if result.empty_columns:
+                            typer.echo(f"Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")
+                        else:
+                            typer.echo("Все колонки содержат данные")
+
+                        # Создать отчет о валидации
+                        validation_report_dir = output_dir / "validation_reports"
+                        validation_report_dir.mkdir(parents=True, exist_ok=True)
+                        report_path = validator.generate_report([result], validation_report_dir)
+                        typer.echo(f"Отчет о валидации: {report_path}")
+
+                        # Если есть критические несоответствия, завершить с ошибкой
+                        if result.missing_columns or result.extra_columns:
+                            typer.secho(
+                                "Критические несоответствия в колонках обнаружены!",
+                                fg=typer.colors.RED,
+                            )
+                            raise typer.Exit(1)
+                    else:
+                        typer.echo("Выходной файл не найден для валидации")
+
+                except ImportError:
+                    typer.echo("Модуль валидации колонок недоступен")
+                except Exception as e:
+                    typer.echo(f"Ошибка валидации колонок: {e}")
+                    logger.warning("column_validation_failed", error=str(e))
 
         except typer.BadParameter:
             raise

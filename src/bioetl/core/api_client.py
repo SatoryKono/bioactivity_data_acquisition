@@ -5,9 +5,12 @@ import json
 import random
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
+from urllib.parse import urljoin
 
 import requests
 from cachetools import TTLCache  # type: ignore
@@ -44,7 +47,9 @@ class APIConfig:
     rate_limit_jitter: bool = True
     retry_total: int = 3
     retry_backoff_factor: float = 2.0
+    retry_backoff_max: float | None = None
     retry_giveup_on: list[type[Exception]] = field(default_factory=list)
+    retry_status_codes: list[int] = field(default_factory=list)
     partial_retry_max: int = 3
     timeout_connect: float = 10.0
     timeout_read: float = 30.0
@@ -152,15 +157,25 @@ class TokenBucketLimiter:
 class RetryPolicy:
     """Политика повторов с giveup условиями."""
 
+    DEFAULT_RETRY_STATUS_CODES: set[int] = {429}
+
     def __init__(
         self,
         total: int = 3,
         backoff_factor: float = 2.0,
         giveup_on: list[type[Exception]] | None = None,
+        backoff_max: float | None = None,
+        status_codes: Iterable[int] | None = None,
     ):
         self.total = total
         self.backoff_factor = backoff_factor
         self.giveup_on = giveup_on or []
+        self.backoff_max = backoff_max
+        self.retry_status_codes: set[int] = (
+            {int(code) for code in status_codes}
+            if status_codes is not None
+            else set()
+        )
 
     def should_giveup(self, exc: Exception, attempt: int) -> bool:
         """Определяет, нужно ли прекратить попытки."""
@@ -170,17 +185,23 @@ class RetryPolicy:
         if type(exc) in self.giveup_on:
             return True
 
-        # Специальная обработка для HTTP ошибок
         if isinstance(exc, requests.exceptions.HTTPError):
-            if hasattr(exc, "response") and exc.response:
-                status_code = exc.response.status_code
+            response = getattr(exc, "response", None)
+            if response is not None:
+                status_code = response.status_code
+                retryable_statuses = (
+                    set(self.retry_status_codes)
+                    if self.retry_status_codes
+                    else set(self.DEFAULT_RETRY_STATUS_CODES)
+                )
 
-                # Не прекращаем для 429 (rate limit) и 5xx
-                if status_code == 429 or (500 <= status_code < 600):
+                if 500 <= status_code < 600:
                     return False
 
-                # Fail-fast на 4xx (кроме 429)
-                elif 400 <= status_code < 500:
+                if status_code in retryable_statuses:
+                    return False
+
+                if 400 <= status_code < 500:
                     logger.error(
                         "client_error_giving_up",
                         code=status_code,
@@ -193,9 +214,16 @@ class RetryPolicy:
 
     def get_wait_time(self, attempt: int, retry_after: float | None = None) -> float:
         """Вычисляет время ожидания для attempt."""
-        if retry_after:
-            return retry_after
-        return self.backoff_factor ** attempt
+        if retry_after is not None:
+            return max(0.0, float(retry_after))
+
+        effective_attempt = max(attempt, 0)
+        wait_time = float(self.backoff_factor) ** effective_attempt
+
+        if self.backoff_max is not None:
+            wait_time = min(wait_time, self.backoff_max)
+
+        return wait_time
 
 
 class UnifiedAPIClient:
@@ -225,6 +253,8 @@ class UnifiedAPIClient:
             total=config.retry_total,
             backoff_factor=config.retry_backoff_factor,
             giveup_on=config.retry_giveup_on,
+            backoff_max=config.retry_backoff_max,
+            status_codes=config.retry_status_codes,
         )
 
         # Initialize cache if enabled
@@ -256,7 +286,9 @@ class UnifiedAPIClient:
         """
         # Build full URL
         if not url.startswith("http"):
-            url = f"{self.config.base_url}{url}"
+            base_url = self.config.base_url.rstrip("/") + "/"
+            relative_path = url.lstrip("/")
+            url = urljoin(base_url, relative_path)
 
         # Check cache for GET requests
         cache_key: str | None = None
@@ -303,6 +335,12 @@ class UnifiedAPIClient:
 
         # Retry logic
         last_exc: Exception | None = None
+        last_response: requests.Response | None = None
+        last_attempt_timestamp: float | None = None
+        last_retry_after_header: str | None = None
+        last_error_text: str | None = None
+        last_attempt = 0
+
         for attempt in range(1, self.retry_policy.total + 1):
             try:
                 response = self.circuit_breaker.call(_execute)
@@ -319,15 +357,35 @@ class UnifiedAPIClient:
 
             except requests.exceptions.HTTPError as e:
                 last_exc = e
+                last_attempt = attempt
+                last_attempt_timestamp = time.time()
+                last_response = getattr(e, "response", None)
+                last_retry_after_header = (
+                    last_response.headers.get("Retry-After")
+                    if last_response is not None and last_response.headers
+                    else None
+                )
+                last_error_text = (
+                    last_response.text if last_response is not None else str(e)
+                )
+
                 if self.retry_policy.should_giveup(e, attempt):
                     break
 
-                wait_time = self.retry_policy.get_wait_time(attempt)
+                retry_after_seconds = self._retry_after_seconds(last_response)
+                wait_time = self.retry_policy.get_wait_time(
+                    attempt,
+                    retry_after=retry_after_seconds,
+                )
                 logger.warning(
                     "retrying_request",
                     attempt=attempt,
                     wait_seconds=wait_time,
                     error=str(e),
+                    status_code=(
+                        last_response.status_code if last_response is not None else None
+                    ),
+                    retry_after=last_retry_after_header,
                 )
                 time.sleep(wait_time)
 
@@ -337,8 +395,47 @@ class UnifiedAPIClient:
                 raise
 
         if last_exc:
+            if not hasattr(last_exc, "retry_metadata"):
+                metadata = {
+                    "attempt": last_attempt,
+                    "timestamp": last_attempt_timestamp or time.time(),
+                    "status_code": (
+                        last_response.status_code if last_response is not None else None
+                    ),
+                    "error_text": last_error_text or str(last_exc),
+                    "retry_after": last_retry_after_header,
+                }
+                last_exc.retry_metadata = metadata
             raise last_exc
         raise RuntimeError("Request failed with no exception captured")
+
+    @staticmethod
+    def _retry_after_seconds(response: requests.Response | None) -> float | None:
+        """Parse Retry-After header into seconds if possible."""
+
+        if response is None or not response.headers:
+            return None
+
+        retry_after = response.headers.get("Retry-After")
+        if not retry_after:
+            return None
+
+        try:
+            return float(retry_after)
+        except (TypeError, ValueError):
+            try:
+                parsed = parsedate_to_datetime(retry_after)
+            except (TypeError, ValueError):
+                return None
+
+            if parsed is None:
+                return None
+
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+
+            delta = parsed - datetime.now(timezone.utc)
+            return max(delta.total_seconds(), 0.0)
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""

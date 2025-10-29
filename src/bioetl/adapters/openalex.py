@@ -2,8 +2,7 @@
 
 from typing import Any
 
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
-from bioetl.core.api_client import APIConfig
+from bioetl.adapters.base import ExternalAdapter
 from bioetl.normalizers import registry
 
 NORMALIZER_ID = registry.get("identifier")
@@ -51,7 +50,7 @@ class OpenAlexAdapter(ExternalAdapter):
                 if item:
                     all_items.extend(item)
 
-        # Fetch by PMID - OpenAlex requires single PMID per request  
+        # Fetch by PMID - OpenAlex requires single PMID per request
         if pmids:
             for pmid in pmids:
                 url = f"/works/pmid:{pmid}"
@@ -159,14 +158,14 @@ class OpenAlexAdapter(ExternalAdapter):
                 venue = source.get("display_name") or source.get("name")
                 if venue:
                     normalized["journal"] = NORMALIZER_STRING.normalize(venue)
-                
+
                 # ISSN
                 if "issn_l" in source and source["issn_l"]:
                     normalized["openalex_issn"] = source["issn_l"]
                 elif "issn" in source and source["issn"]:
                     issn_list = source["issn"] if isinstance(source["issn"], list) else [source["issn"]]
                     normalized["openalex_issn"] = "; ".join(issn_list) if issn_list else None
-                
+
                 # Crossref doc type if available
                 if "type" in source:
                     normalized["crossref_doc_type"] = source["type"]

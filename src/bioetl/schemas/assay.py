@@ -1,16 +1,17 @@
 """Assay schema for ChEMBL data according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
-import pandera as pa
+import pandas as pd
+import pandera.pandas as pa
 from pandera.typing import Series
 
-from bioetl.schemas.base import BaseSchema
+from bioetl.schemas.base import BaseSchema, expose_config_column_order
 
 
 class AssaySchema(BaseSchema):
     """Schema for ChEMBL assay data.
 
-    Primary Key: [assay_chembl_id, row_subtype, row_index]
-    Supports exploded format with subtypes: assay, param, variant, class
+    Primary Key: [assay_chembl_id]
+    Supports exploded format with subtype metadata handled internally.
     """
 
     # Primary Key fields
@@ -19,16 +20,6 @@ class AssaySchema(BaseSchema):
         regex=r'^CHEMBL\d+$',
         description="ChEMBL assay identifier (PK)",
     )
-    row_subtype: Series[str] = pa.Field(
-        nullable=False,
-        description="Тип развёрнутой строки (assay, param, variant, class)",
-    )
-    row_index: Series[int] = pa.Field(
-        ge=0,
-        nullable=False,
-        description="Индекс для детерминизма",
-    )
-
     # Основные поля
     assay_type: Series[str] = pa.Field(
         nullable=True,
@@ -42,7 +33,11 @@ class AssaySchema(BaseSchema):
     assay_parameters_json: Series[str] = pa.Field(nullable=True, description="Параметры ассая (JSON)")
     assay_strain: Series[str] = pa.Field(nullable=True, description="Штамм организма")
     assay_subcellular_fraction: Series[str] = pa.Field(nullable=True, description="Субклеточная фракция")
-    assay_tax_id: Series[int] = pa.Field(ge=0, nullable=True, description="Таксономический ID организма")
+    assay_tax_id: Series[pd.Int64Dtype] = pa.Field(
+        ge=0,
+        nullable=True,
+        description="Таксономический ID организма",
+    )
     assay_test_type: Series[str] = pa.Field(nullable=True, description="Тип теста ассая")
     assay_tissue: Series[str] = pa.Field(nullable=True, description="Ткань для ассая")
     assay_type_description: Series[str] = pa.Field(nullable=True, description="Описание типа ассая")
@@ -63,7 +58,7 @@ class AssaySchema(BaseSchema):
     # Связи
     cell_chembl_id: Series[str] = pa.Field(nullable=True, description="ChEMBL ID клетки")
     confidence_description: Series[str] = pa.Field(nullable=True, description="Описание уверенности")
-    confidence_score: Series[int] = pa.Field(
+    confidence_score: Series[pd.Int64Dtype] = pa.Field(
         ge=0,
         le=9,
         nullable=True,
@@ -78,7 +73,10 @@ class AssaySchema(BaseSchema):
     relationship_description: Series[str] = pa.Field(nullable=True, description="Описание связи")
     relationship_type: Series[str] = pa.Field(nullable=True, description="Тип связи с таргетом")
     src_assay_id: Series[str] = pa.Field(nullable=True, description="ID ассая в источнике")
-    src_id: Series[int] = pa.Field(nullable=True, description="ID источника")
+    src_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="ID источника",
+    )
     target_chembl_id: Series[str] = pa.Field(
         nullable=True,
         regex=r'^CHEMBL\d+$',
@@ -91,14 +89,18 @@ class AssaySchema(BaseSchema):
     pref_name: Series[str] = pa.Field(nullable=True, description="Whitelisted target preferred name")
     organism: Series[str] = pa.Field(nullable=True, description="Whitelisted organism name")
     target_type: Series[str] = pa.Field(nullable=True, description="Whitelisted target type")
-    species_group_flag: Series[int] = pa.Field(
+    species_group_flag: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
         le=1,
         description="Whitelisted species group flag",
     )
-    tax_id: Series[int] = pa.Field(nullable=True, ge=0, description="Whitelisted NCBI taxonomy ID")
-    component_count: Series[int] = pa.Field(
+    tax_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Whitelisted NCBI taxonomy ID",
+    )
+    component_count: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
         description="Whitelisted component count",
@@ -110,15 +112,24 @@ class AssaySchema(BaseSchema):
         nullable=True,
         description="Отношение параметра",
     )
-    assay_param_value: Series[float] = pa.Field(nullable=True, description="Значение параметра")
+    assay_param_value: Series[pd.Float64Dtype] = pa.Field(
+        nullable=True,
+        description="Значение параметра",
+    )
     assay_param_units: Series[str] = pa.Field(nullable=True, description="Единицы параметра")
     assay_param_text_value: Series[str] = pa.Field(nullable=True, description="Текстовое значение параметра")
     assay_param_standard_type: Series[str] = pa.Field(nullable=True, description="Стандартизованный тип параметра")
-    assay_param_standard_value: Series[float] = pa.Field(nullable=True, description="Стандартизованное значение параметра")
+    assay_param_standard_value: Series[pd.Float64Dtype] = pa.Field(
+        nullable=True,
+        description="Стандартизованное значение параметра",
+    )
     assay_param_standard_units: Series[str] = pa.Field(nullable=True, description="Единицы стандартизованного параметра")
 
     # ASSAY_CLASS (из /assay_class endpoint)
-    assay_class_id: Series[int] = pa.Field(nullable=True, description="Идентификатор класса ассея")
+    assay_class_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Идентификатор класса ассея",
+    )
     assay_class_bao_id: Series[str] = pa.Field(
         nullable=True,
         regex=r'^BAO_\d{7}$',
@@ -131,7 +142,10 @@ class AssaySchema(BaseSchema):
     assay_class_description: Series[str] = pa.Field(nullable=True, description="Описание класса ассея")
 
     # VARIANT_SEQUENCES (развернутые из JSON)
-    variant_id: Series[int] = pa.Field(nullable=True, description="Идентификатор варианта")
+    variant_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Идентификатор варианта",
+    )
     variant_base_accession: Series[str] = pa.Field(
         nullable=True,
         description="UniProt акцессия базовой последовательности",
@@ -144,14 +158,56 @@ class AssaySchema(BaseSchema):
     )
     variant_accession_reported: Series[str] = pa.Field(nullable=True, description="Сообщённая акцессия варианта")
 
+    # Fallback metadata
+    fallback_reason: Series[str] = pa.Field(
+        nullable=True,
+        description="Reason why the fallback record was generated",
+    )
+    fallback_error_type: Series[str] = pa.Field(
+        nullable=True,
+        description="Exception class that triggered the fallback",
+    )
+    fallback_error_code: Series[str] = pa.Field(
+        nullable=True,
+        description="Normalized error code captured for the fallback",
+    )
+    fallback_error_message: Series[str] = pa.Field(
+        nullable=True,
+        description="Human readable error message captured for the fallback",
+    )
+    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="HTTP status associated with the fallback (if any)",
+    )
+    fallback_retry_after_sec: Series[float] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Retry-After header (seconds) returned by the upstream API",
+    )
+    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Attempt number when the fallback was emitted",
+    )
+    fallback_timestamp: Series[str] = pa.Field(
+        nullable=True,
+        description="UTC timestamp when the fallback record was materialised",
+    )
+
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
 
-    # Column order: business fields first, then system fields, then hash fields
+    # Column order: system/hash fields first (per BaseSchema), then business fields
     _column_order = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
         "assay_chembl_id",
-        "row_subtype",
-        "row_index",
         "assay_type",
         "assay_category",
         "assay_cell_type",
@@ -167,11 +223,11 @@ class AssaySchema(BaseSchema):
         "assay_type_description",
         "bao_format",
         "bao_label",
+        "bao_endpoint",
         "cell_chembl_id",
         "confidence_description",
         "confidence_score",
         "assay_description",
-        "bao_endpoint",
         "document_chembl_id",
         "relationship_description",
         "relationship_type",
@@ -180,6 +236,12 @@ class AssaySchema(BaseSchema):
         "target_chembl_id",
         "tissue_chembl_id",
         "variant_sequence_json",
+        "pref_name",
+        "organism",
+        "target_type",
+        "species_group_flag",
+        "tax_id",
+        "component_count",
         "assay_param_type",
         "assay_param_relation",
         "assay_param_value",
@@ -200,84 +262,21 @@ class AssaySchema(BaseSchema):
         "variant_mutation",
         "variant_sequence",
         "variant_accession_reported",
-        "pipeline_version",
-        "source_system",
-        "chembl_release",
-        "extracted_at",
-        "hash_business_key",
-        "hash_row",
-        "index",
+        "fallback_reason",
+        "fallback_error_type",
+        "fallback_error_code",
+        "fallback_error_message",
+        "fallback_http_status",
+        "fallback_retry_after_sec",
+        "fallback_attempt",
+        "fallback_timestamp",
     ]
 
     class Config:
         strict = True
         coerce = True
         ordered = True
-        # Column order: business fields first, then system fields, then hash fields
-        column_order = [
-            "assay_chembl_id",
-            "row_subtype",
-            "row_index",
-            "assay_type",
-            "assay_category",
-            "assay_cell_type",
-            "assay_classifications",
-            "assay_group",
-            "assay_organism",
-            "assay_parameters_json",
-            "assay_strain",
-            "assay_subcellular_fraction",
-            "assay_tax_id",
-            "assay_test_type",
-            "assay_tissue",
-            "assay_type_description",
-            "bao_format",
-            "bao_label",
-            "cell_chembl_id",
-            "confidence_description",
-            "confidence_score",
-            "assay_description",
-            "bao_endpoint",
-            "document_chembl_id",
-            "relationship_description",
-            "relationship_type",
-            "src_assay_id",
-            "src_id",
-            "target_chembl_id",
-            "pref_name",
-            "organism",
-            "target_type",
-            "species_group_flag",
-            "tax_id",
-            "component_count",
-            "tissue_chembl_id",
-            "variant_sequence_json",
-            "assay_param_type",
-            "assay_param_relation",
-            "assay_param_value",
-            "assay_param_units",
-            "assay_param_text_value",
-            "assay_param_standard_type",
-            "assay_param_standard_value",
-            "assay_param_standard_units",
-            "assay_class_id",
-            "assay_class_bao_id",
-            "assay_class_type",
-            "assay_class_l1",
-            "assay_class_l2",
-            "assay_class_l3",
-            "assay_class_description",
-            "variant_id",
-            "variant_base_accession",
-            "variant_mutation",
-            "variant_sequence",
-            "variant_accession_reported",
-            "pipeline_version",
-            "source_system",
-            "chembl_release",
-            "extracted_at",
-            "hash_business_key",
-            "hash_row",
-            "index",
-        ]
+
+
+expose_config_column_order(AssaySchema)
 

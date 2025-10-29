@@ -13,6 +13,7 @@ http:
       total: 5
       backoff_multiplier: 2.0
       backoff_max: 120.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
     rate_limit:
       max_calls: 12
       period: 1.0
@@ -28,6 +29,7 @@ http:
       total: 4
       backoff_multiplier: 2.0
       backoff_max: 90.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
     rate_limit:
       max_calls: 3
       period: 1.0
@@ -43,6 +45,7 @@ http:
       total: 4
       backoff_multiplier: 2.0
       backoff_max: 90.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
     rate_limit:
       max_calls: 2
       period: 1.0
@@ -58,6 +61,7 @@ http:
       total: 4
       backoff_multiplier: 2.0
       backoff_max: 90.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
     rate_limit:
       max_calls: 2
       period: 1.0
@@ -73,6 +77,7 @@ http:
       total: 4
       backoff_multiplier: 2.0
       backoff_max: 60.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
     rate_limit:
       max_calls: 6
       period: 1.0
@@ -158,15 +163,18 @@ qc:
     uniprot: true
     uniprot_idmapping: true
     iuphar: true
+  enrichments:
+    uniprot: 0.8
+    iuphar: 0.1
 
 materialization:
-  bronze: "data/bronze/targets.parquet"
-  silver: "data/silver/targets_uniprot.parquet"
-  gold: "data/gold/targets_final.parquet"
-  qc_report: "data/output/targets_qc.csv"
+  bronze: "data/output/target/targets_bronze.parquet"
+  silver: "data/output/target/targets_silver.parquet"
+  gold: "data/output/target/targets_final.parquet"
+  qc_report: "data/output/target/targets_qc.csv"
   checkpoints:
-    chembl: "data/checkpoints/chembl_targets.json"
-    enrichment: "data/checkpoints/targets_enrichment.json"
+    chembl: "data/output/target/checkpoints/chembl_targets.json"
+    enrichment: "data/output/target/checkpoints/targets_enrichment.json"
 
 fallbacks:
   enabled: true

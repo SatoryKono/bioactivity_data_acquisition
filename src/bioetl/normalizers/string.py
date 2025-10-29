@@ -17,7 +17,7 @@ class StringNormalizer(BaseNormalizer):
             self.whitespace,
         ]
 
-    def normalize(self, value: str | None) -> str | None:
+    def normalize(self, value: str | None, **_: Any) -> str | None:
         """Нормализует строку."""
         if value is None or not isinstance(value, str):
             return None

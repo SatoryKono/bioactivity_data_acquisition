@@ -1,27 +1,41 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
-import json
 import re
 from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
-import requests
+import requests  # type: ignore[import-untyped]
 from pandera.errors import SchemaErrors
 
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
+from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.qc import (
+    duplicate_summary,
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
+from bioetl.utils.io import load_input_frame, resolve_input_path
+from bioetl.utils.json import canonical_json
 
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-schema_registry.register("testitem", "1.0.0", TestItemSchema)
+schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
+
+
+# _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
 
 
 class TestItemPipeline(PipelineBase):
@@ -149,12 +163,45 @@ class TestItemPipeline(PipelineBase):
     ]
 
     _FALLBACK_FIELDS: list[str] = [
+        "fallback_reason",
+        "fallback_error_type",
         "fallback_error_code",
         "fallback_http_status",
         "fallback_retry_after_sec",
         "fallback_attempt",
         "fallback_error_message",
+        "fallback_timestamp",
     ]
+
+    _NULLABLE_INT_COLUMNS: list[str] = [
+        "molregno",
+        "parent_molregno",
+        "max_phase",
+        "first_approval",
+        "availability_type",
+        "usan_year",
+        "withdrawn_year",
+        "hba",
+        "hbd",
+        "rtb",
+        "num_ro5_violations",
+        "aromatic_rings",
+        "heavy_atoms",
+        "hba_lipinski",
+        "hbd_lipinski",
+        "num_lipinski_ro5_violations",
+        "lipinski_ro5_violations",
+        "pubchem_cid",
+        "pubchem_enrichment_attempt",
+        "fallback_http_status",
+        "fallback_attempt",
+    ]
+
+    _INT_COLUMN_MINIMUMS: dict[str, int] = {
+        "molregno": 1,
+        "parent_molregno": 1,
+        "pubchem_cid": 1,
+    }
 
     @classmethod
     def _expected_columns(cls) -> list[str]:
@@ -179,38 +226,30 @@ class TestItemPipeline(PipelineBase):
         ordered.extend(cls._FALLBACK_FIELDS)
         return ordered
 
-    @staticmethod
-    def _canonical_json(value: Any) -> str | None:
-        """Serialize value to canonical JSON string."""
-
-        if value in (None, ""):
-            return None
-        try:
-            return json.dumps(value, sort_keys=True, separators=(",", ":"))
-        except (TypeError, ValueError):
-            return None
+    # _canonical_json заменена на canonical_json из bioetl.utils.json
 
     @classmethod
     def _empty_molecule_record(cls) -> dict[str, Any]:
         """Create an empty molecule record with all expected fields."""
 
-        record = {column: None for column in cls._expected_columns()}
+        record = dict.fromkeys(cls._expected_columns())
         return record
 
     @staticmethod
     def _normalize_pref_name(pref_name: Any) -> str | None:
         """Normalize preferred name for deterministic keys."""
 
-        if not isinstance(pref_name, str):
+        normalized = registry.normalize("chemistry.string", pref_name)
+        if normalized is None:
             return None
-        normalized = pref_name.strip().lower()
-        return normalized or None
+        lowered = normalized.lower()
+        return lowered or None
 
     @classmethod
     def _flatten_molecule_hierarchy(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Flatten molecule_hierarchy node with canonical JSON."""
 
-        flattened = {
+        flattened: dict[str, Any] = {
             "parent_chembl_id": None,
             "parent_molregno": None,
             "molecule_hierarchy": None,
@@ -220,7 +259,7 @@ class TestItemPipeline(PipelineBase):
         if isinstance(hierarchy, dict) and hierarchy:
             flattened["parent_chembl_id"] = hierarchy.get("parent_chembl_id")
             flattened["parent_molregno"] = hierarchy.get("parent_molregno")
-            flattened["molecule_hierarchy"] = cls._canonical_json(hierarchy)
+            flattened["molecule_hierarchy"] = canonical_json(hierarchy)
 
         return flattened
 
@@ -228,7 +267,7 @@ class TestItemPipeline(PipelineBase):
     def _flatten_molecule_properties(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Extract 22 molecular properties with canonical JSON payload."""
 
-        flattened = {field: None for field in cls._CHEMBL_PROPERTY_FIELDS}
+        flattened = dict.fromkeys(cls._CHEMBL_PROPERTY_FIELDS)
         flattened["molecule_properties"] = None
 
         props = molecule.get("molecule_properties")
@@ -268,7 +307,7 @@ class TestItemPipeline(PipelineBase):
             if flattened["rtb"] is None and "num_rotatable_bonds" in props:
                 flattened["rtb"] = props.get("num_rotatable_bonds")
 
-            flattened["molecule_properties"] = cls._canonical_json(props)
+            flattened["molecule_properties"] = canonical_json(props)
 
         return flattened
 
@@ -276,7 +315,7 @@ class TestItemPipeline(PipelineBase):
     def _flatten_molecule_structures(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Extract canonical molecular structures."""
 
-        flattened = {
+        flattened: dict[str, Any] = {
             "standardized_smiles": None,
             "standard_inchi": None,
             "standard_inchi_key": None,
@@ -285,10 +324,20 @@ class TestItemPipeline(PipelineBase):
 
         structures = molecule.get("molecule_structures")
         if isinstance(structures, dict) and structures:
-            flattened["standardized_smiles"] = structures.get("canonical_smiles")
-            flattened["standard_inchi"] = structures.get("standard_inchi")
-            flattened["standard_inchi_key"] = structures.get("standard_inchi_key")
-            flattened["molecule_structures"] = cls._canonical_json(structures)
+            flattened["standardized_smiles"] = registry.normalize(
+                "chemistry",
+                structures.get("canonical_smiles"),
+            )
+            flattened["standard_inchi"] = registry.normalize(
+                "chemistry",
+                structures.get("standard_inchi"),
+            )
+            flattened["standard_inchi_key"] = registry.normalize(
+                "chemistry.string",
+                structures.get("standard_inchi_key"),
+                uppercase=True,
+            )
+            flattened["molecule_structures"] = canonical_json(structures)
 
         return flattened
 
@@ -311,7 +360,7 @@ class TestItemPipeline(PipelineBase):
     def _flatten_molecule_synonyms(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Extract synonyms with canonical serialization."""
 
-        flattened = {
+        flattened: dict[str, Any] = {
             "all_names": None,
             "molecule_synonyms": None,
         }
@@ -341,7 +390,7 @@ class TestItemPipeline(PipelineBase):
 
             if normalized_entries:
                 sorted_entries = cls._sorted_synonym_entries(normalized_entries)
-                flattened["molecule_synonyms"] = cls._canonical_json(sorted_entries)
+                flattened["molecule_synonyms"] = canonical_json(sorted_entries)
 
         return flattened
 
@@ -352,19 +401,23 @@ class TestItemPipeline(PipelineBase):
         value = molecule.get(field_name)
         if value in (None, ""):
             return None
-        return cls._canonical_json(value)
+        return canonical_json(value)
 
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
 
         # Initialize ChEMBL API client
+        default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
+        if isinstance(chembl_source, TargetSourceConfig):
+            base_url = chembl_source.base_url
+            batch_size_config = chembl_source.batch_size if chembl_source.batch_size is not None else 25
+        elif isinstance(chembl_source, dict):
+            base_url = chembl_source.get("base_url", default_base_url)
             batch_size_config = chembl_source.get("batch_size", 25)
         else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
+            base_url = default_base_url
             batch_size_config = 25
 
         try:
@@ -397,22 +450,22 @@ class TestItemPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract molecule data from input file."""
-        if input_file is None:
-            # Default to data/input/testitem.csv
-            input_file = Path("data/input/testitem.csv")
+        default_filename = Path("testitem.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        # Read input file with molecule IDs
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=TestItemSchema.get_column_order())
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=TestItemSchema.get_column_order(),
+            limit=self.get_runtime_limit(),
+        )
 
-        df = pd.read_csv(input_file)  # Read all records
-
-        # Don't filter - keep all fields from input file
-        # They will be matched against schema column_order in transform()
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         logger.info("extraction_completed", rows=len(df), columns=len(df.columns))
         return df
@@ -484,6 +537,7 @@ class TestItemPipeline(PipelineBase):
                         missing_id,
                         attempt=1,
                         error=exc,
+                        reason="batch_exception",
                         message="Batch request failed",
                     )
                     results.append(record)
@@ -599,6 +653,7 @@ class TestItemPipeline(PipelineBase):
                 molecule_id,
                 attempt=attempt,
                 error=exc,
+                reason="http_error",
                 retry_after=self._extract_retry_after(exc),
             )
             fallback_message = record.get("fallback_error_message")
@@ -616,6 +671,7 @@ class TestItemPipeline(PipelineBase):
                 molecule_id,
                 attempt=attempt,
                 error=exc,
+                reason="unexpected_error",
             )
             logger.error(
                 "molecule_fallback_unexpected_error",
@@ -630,6 +686,7 @@ class TestItemPipeline(PipelineBase):
             record = self._create_fallback_record(
                 molecule_id,
                 attempt=attempt,
+                reason="missing_from_response",
                 message="Missing molecule in response",
             )
             logger.warning("molecule_missing_in_response", molecule_chembl_id=molecule_id, attempt=attempt)
@@ -647,35 +704,40 @@ class TestItemPipeline(PipelineBase):
         error: Exception | None = None,
         retry_after: float | None = None,
         message: str | None = None,
+        reason: str = "exception",
     ) -> dict[str, Any]:
-        error_code = getattr(error, "code", None)
-        if error_code is None and error is not None:
-            error_code = error.__class__.__name__
-
-        http_status: int | None = None
-        if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
-            http_status = error.response.status_code
-
-        if retry_after is None and isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
+        if retry_after is None and isinstance(error, requests.exceptions.HTTPError):
             retry_after = self._extract_retry_after(error)
 
         fallback_record = self._empty_molecule_record()
         fallback_record["molecule_chembl_id"] = molecule_id
-        fallback_record["fallback_error_code"] = error_code
-        fallback_record["fallback_http_status"] = http_status
-        fallback_record["fallback_retry_after_sec"] = retry_after
-        fallback_record["fallback_attempt"] = attempt
-        fallback_record["fallback_error_message"] = (
-            message or (str(error) if error else "Missing from ChEMBL response")
+
+        metadata = build_fallback_payload(
+            entity="testitem",
+            reason=reason,
+            error=error,
+            source="TESTITEM_FALLBACK",
+            attempt=attempt,
+            message=message,
+            context={
+                "molecule_chembl_id": molecule_id,
+                "chembl_release": self._chembl_release,
+            },
         )
 
+        if retry_after is not None:
+            metadata["fallback_retry_after_sec"] = retry_after
+
+        metadata.setdefault("fallback_error_code", reason if reason else None)
+
+        fallback_record.update(metadata)
         return fallback_record
 
     @staticmethod
-    def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:
-        if error.response is None:
+    def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:  # type: ignore[valid-type]
+        if not hasattr(error, 'response') or error.response is None:  # type: ignore[attr-defined]
             return None
-        retry_after = error.response.headers.get("Retry-After")
+        retry_after = error.response.headers.get("Retry-After")  # type: ignore[attr-defined]
         if retry_after is None:
             return None
         try:
@@ -720,8 +782,6 @@ class TestItemPipeline(PipelineBase):
             return df
 
         # Normalize identifiers
-        from bioetl.normalizers import registry
-
         for col in ["molecule_chembl_id", "parent_chembl_id"]:
             if col in df.columns:
                 df[col] = df[col].apply(
@@ -763,18 +823,39 @@ class TestItemPipeline(PipelineBase):
                     column for column in normalized_df.columns if column not in {"molecule_chembl_id"}
                 ]
 
+                overlay_updates: dict[str, pd.Series] = {}
+
                 for column in normalized_columns:
                     normalized_series = normalized_df[column]
                     if column in deduplicated_input.columns:
-                        combined_series = normalized_series.combine_first(deduplicated_input[column])
+                        if normalized_series.empty:
+                            combined_series = deduplicated_input[column]
+                        else:
+                            normalized_aligned = normalized_series.reindex(
+                                deduplicated_input.index
+                            )
+                            combined_series = normalized_aligned.fillna(
+                                deduplicated_input[column]
+                            )
                     else:
                         combined_series = normalized_series
 
                     overlay = df["molecule_chembl_id"].map(combined_series)
                     if column in df.columns:
-                        df[column] = overlay.combine_first(df[column])
+                        if overlay.empty:
+                            overlay_updates[column] = df[column]
+                        else:
+                            overlay_updates[column] = overlay.fillna(df[column])
                     else:
-                        df[column] = overlay
+                        overlay_updates[column] = overlay
+
+                if overlay_updates:
+                    overlay_df = pd.DataFrame(overlay_updates, index=df.index)
+                    remaining_columns = df.drop(
+                        columns=[col for col in overlay_updates if col in df.columns],
+                        errors="ignore",
+                    )
+                    df = pd.concat([remaining_columns, overlay_df], axis=1)
 
         # PubChem enrichment (optional)
         if "pubchem" in self.external_adapters:
@@ -786,16 +867,21 @@ class TestItemPipeline(PipelineBase):
                 # Continue with original data - graceful degradation
 
         # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
-        df["source_system"] = "chembl"
-        df["chembl_release"] = self._chembl_release
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        extracted_at = pd.Timestamp.now(tz="UTC").isoformat()
+        df = df.assign(
+            pipeline_version="1.0.0",
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            extracted_at=extracted_at,
+        )
 
         # Generate hash fields for data integrity
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
-        df["hash_business_key"] = df["molecule_chembl_id"].apply(generate_hash_business_key)
-        df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+        df = df.assign(
+            hash_business_key=df["molecule_chembl_id"].apply(generate_hash_business_key),
+            hash_row=df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1),
+        )
 
         # Generate deterministic index
         df = df.sort_values("molecule_chembl_id")  # Sort by primary key
@@ -807,9 +893,17 @@ class TestItemPipeline(PipelineBase):
         expected_cols = TestItemSchema.get_column_order()
         if expected_cols:
             # Add missing columns with None values
-            for col in expected_cols:
-                if col not in df.columns:
-                    df[col] = None
+            missing_columns = [col for col in expected_cols if col not in df.columns]
+            if missing_columns:
+                df = df.assign(**dict.fromkeys(missing_columns, None))
+
+            default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
+            default_minimums.update(self._INT_COLUMN_MINIMUMS)
+            coerce_nullable_int(
+                df,
+                self._NULLABLE_INT_COLUMNS,
+                min_values=default_minimums,
+            )
 
             # Reorder to match schema column_order
             df = df[expected_cols]
@@ -837,6 +931,18 @@ class TestItemPipeline(PipelineBase):
                 rate_limit_period = getattr(pubchem, "rate_limit_period", 1.0)
                 batch_size = pubchem.batch_size or 100
 
+            # NOTE:
+            # -----
+            # ``enabled`` defaults to ``False`` because pipeline profiles (for example
+            # ``configs/profiles/dev.yaml``) intentionally omit the PubChem source
+            # block.  When those profiles are used directly with the CLI the
+            # enrichment adapter is not constructed and the downstream dataframe
+            # retains ``pubchem_*`` columns filled with ``None``.
+            #
+            # To activate enrichment, make sure the effective configuration merges in
+            # ``configs/pipelines/testitem.yaml`` (or sets ``sources.pubchem.enabled``
+            # to ``true``) so that we drop into this branch and actually instantiate
+            # the adapter.
             if enabled:
                 pubchem_config = APIConfig(
                     name="pubchem",
@@ -883,7 +989,7 @@ class TestItemPipeline(PipelineBase):
         try:
             # Type cast to PubChemAdapter for specific method access
             enriched_df = cast(PubChemAdapter, pubchem_adapter).enrich_with_pubchem(df, inchi_key_col="standard_inchi_key")
-            return enriched_df
+            return enriched_df  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("pubchem_enrichment_error", error=str(e))
             # Return original dataframe on error - graceful degradation
@@ -895,9 +1001,24 @@ class TestItemPipeline(PipelineBase):
 
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
+            update_summary_section(self.qc_summary_data, "row_counts", {"testitems": 0})
+            update_summary_section(
+                self.qc_summary_data,
+                "datasets",
+                {"testitems": {"rows": 0}},
+            )
+            update_summary_section(
+                self.qc_summary_data,
+                "duplicates",
+                {"testitems": duplicate_summary(0, 0, field="molecule_chembl_id")},
+            )
+            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
             return df
 
+        initial_rows = int(len(df))
+
         qc_metrics = self._calculate_qc_metrics(df)
+        self.qc_metrics = qc_metrics
         failing_metrics: list[str] = []
 
         for metric_name, metric in qc_metrics.items():
@@ -933,6 +1054,8 @@ class TestItemPipeline(PipelineBase):
                 "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics))
             )
 
+        update_summary_metrics(self.qc_summary_data, qc_metrics)
+
         duplicates_metric = qc_metrics.get("testitem.duplicate_ratio")
         if (
             duplicates_metric
@@ -941,6 +1064,7 @@ class TestItemPipeline(PipelineBase):
         ):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
+        coerce_retry_after(df)
         try:
             validated_df = TestItemSchema.validate(df, lazy=True)
         except SchemaErrors as exc:
@@ -967,11 +1091,34 @@ class TestItemPipeline(PipelineBase):
         self._validate_identifier_formats(validated_df)
         self._check_referential_integrity(validated_df)
 
+        row_count = int(len(validated_df))
+        update_summary_section(self.qc_summary_data, "row_counts", {"testitems": row_count})
+        update_summary_section(
+            self.qc_summary_data,
+            "datasets",
+            {"testitems": {"rows": row_count}},
+        )
+
+        duplicate_count = int(qc_metrics.get("testitem.duplicate_ratio", {}).get("count", 0) or 0)
+        update_summary_section(
+            self.qc_summary_data,
+            "duplicates",
+            {
+                "testitems": duplicate_summary(
+                    initial_rows,
+                    duplicate_count,
+                    field="molecule_chembl_id",
+                    threshold=qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold"),
+                )
+            },
+        )
+
         logger.info(
             "validation_completed",
             rows=len(validated_df),
             issues=len(self.validation_issues),
         )
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
 
     def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, dict[str, Any]]:
@@ -1065,17 +1212,26 @@ class TestItemPipeline(PipelineBase):
             logger.debug("referential_check_skipped", reason="columns_absent")
             return
 
-        parent_series = (
-            df["parent_chembl_id"].dropna().astype("string").str.strip().str.upper()
+        parent_series = df["parent_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
         )
+        parent_series = parent_series.dropna()
         if parent_series.empty:
             logger.info("referential_integrity_passed", relation="testitem->parent", checked=0)
             return
 
-        molecule_ids = (
-            df["molecule_chembl_id"].astype("string").str.strip().str.upper()
+        molecule_ids = df["molecule_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
         )
-        known_ids = set(molecule_ids.tolist())
+        known_ids = {value for value in molecule_ids.tolist() if value}
         missing_mask = ~parent_series.isin(known_ids)
         missing_count = int(missing_mask.sum())
         total_refs = int(parent_series.size)

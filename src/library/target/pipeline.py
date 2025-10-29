@@ -5,15 +5,15 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any
 from urllib.parse import urlencode
 
 import backoff
 import pandas as pd
 
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
-
 from library.common.pipeline_base import PipelineBase
 from library.target.config import TargetConfig
 from library.target.normalize import TargetNormalizer
@@ -25,22 +25,22 @@ logger = logging.getLogger(__name__)
 
 class TargetPipeline(PipelineBase[TargetConfig]):
     """Target ETL pipeline using unified PipelineBase."""
-    
+
     def __init__(self, config: TargetConfig) -> None:
         """Initialize target pipeline with configuration."""
         super().__init__(config)
         self.validator = TargetValidator(config.model_dump() if hasattr(config, 'model_dump') else {})
         self.normalizer = TargetNormalizer(config.model_dump() if hasattr(config, 'model_dump') else config)
         self.quality_filter = TargetQualityFilter(config.model_dump() if hasattr(config, 'model_dump') else {})
-    
+
     def _setup_clients(self) -> None:
         """Initialize HTTP clients for target sources."""
         self.clients = {}
-        
+
         # ChEMBL client
         if "chembl" in self.config.sources and self.config.sources["chembl"].get("enabled", False):
             self.clients["chembl"] = self._create_chembl_client()
-    
+
     def _create_chembl_client(self) -> UnifiedAPIClient:
         """Create a UnifiedAPIClient configured for the ChEMBL API."""
 
@@ -104,6 +104,8 @@ class TargetPipeline(PipelineBase[TargetConfig]):
             rate_limit_jitter=bool(rate_limit_jitter),
             retry_total=retries.get("total", 3),
             retry_backoff_factor=retries.get("backoff_multiplier", 2.0),
+            retry_backoff_max=retries.get("backoff_max"),
+            retry_status_codes=[int(code) for code in (retries.get("statuses") or [])],
             timeout_connect=timeout_connect,
             timeout_read=timeout_read,
             cb_failure_threshold=source_config.get("circuit_breaker", {}).get("failure_threshold", 5),
@@ -111,7 +113,7 @@ class TargetPipeline(PipelineBase[TargetConfig]):
         )
 
         return UnifiedAPIClient(api_config)
-    
+
     def _get_headers(self, source: str) -> dict[str, str]:
         """Get default headers for a source."""
         return {
@@ -130,16 +132,16 @@ class TargetPipeline(PipelineBase[TargetConfig]):
             else:
                 processed[key] = value
         return processed
-    
+
     def _get_entity_type(self) -> str:
         """Get entity type for this pipeline."""
         return "targets"
-    
+
     def _create_qc_validator(self):
         """Create QC validator for target data."""
         from library.common.qc_profiles import QCValidator
         return QCValidator(self.config, "targets")
-    
+
     def _create_postprocessor(self):
         """Create postprocessor for target data."""
         from library.common.postprocess_base import BasePostprocessor
@@ -222,7 +224,7 @@ class TargetPipeline(PipelineBase[TargetConfig]):
             if isinstance(candidate, dict):
                 retries = candidate.get("retries")
             elif hasattr(candidate, "retries"):
-                retries = getattr(candidate, "retries")
+                retries = candidate.retries
             if retries is None:
                 continue
             if hasattr(retries, "model_dump"):
@@ -236,7 +238,12 @@ class TargetPipeline(PipelineBase[TargetConfig]):
                 "backoff_max": getattr(retries, "backoff_max", 60.0),
             }
 
-        return {"total": 3, "backoff_multiplier": 2.0, "backoff_max": 60.0}
+        return {
+            "total": 3,
+            "backoff_multiplier": 2.0,
+            "backoff_max": 60.0,
+            "statuses": [404, 408, 409, 425, 429, 500, 502, 503, 504],
+        }
 
     def _extract_headers(self, source: Any) -> dict[str, str]:
         """Extract headers mapping from arbitrary configuration objects."""
@@ -249,7 +256,7 @@ class TargetPipeline(PipelineBase[TargetConfig]):
             return headers if isinstance(headers, dict) else {}
 
         if hasattr(source, "headers"):
-            headers_attr = getattr(source, "headers")
+            headers_attr = source.headers
             if isinstance(headers_attr, dict):
                 return headers_attr
             if hasattr(headers_attr, "model_dump"):
@@ -448,10 +455,10 @@ class TargetPipeline(PipelineBase[TargetConfig]):
         target_component_map: dict[str, list[str]] = defaultdict(list)
         if not components_df.empty and "target_chembl_id" in components_df.columns and "component_id" in components_df.columns:
             for row in components_df.itertuples(index=False):
-                component_id = getattr(row, "component_id")
+                component_id = row.component_id
                 if component_id is None:
                     continue
-                target_component_map[str(getattr(row, "target_chembl_id"))].append(str(component_id))
+                target_component_map[str(row.target_chembl_id)].append(str(component_id))
 
         xrefs_json: dict[str, str] = {}
         for target_id, comp_ids in target_component_map.items():
@@ -589,7 +596,7 @@ class TargetPipeline(PipelineBase[TargetConfig]):
             return client.request_json(url, params=call_params)
 
         return _call(endpoint, params)
-    
+
     def extract(self, input_data: pd.DataFrame) -> pd.DataFrame:
         """Extract target data from ChEMBL with resilient batching and persistence."""
 
@@ -685,23 +692,23 @@ class TargetPipeline(PipelineBase[TargetConfig]):
         )
 
         return targets_df
-    
+
     def normalize(self, raw_data: pd.DataFrame) -> pd.DataFrame:
         """Normalize target data."""
         logger.info(f"Normalizing {len(raw_data)} target records")
-        
+
         # Use the normalizer
         normalized_data = self.normalizer.normalize(raw_data)
-        
+
         logger.info(f"Normalization completed. Records: {len(normalized_data)}")
         return normalized_data
-    
+
     def validate(self, data: pd.DataFrame) -> pd.DataFrame:
         """Validate target data."""
         logger.info(f"Validating {len(data)} target records")
-        
+
         # Use the validator
         validated_data = self.validator.validate_normalized_data(data)
-        
+
         logger.info(f"Validation completed. Records: {len(validated_data)}")
         return validated_data

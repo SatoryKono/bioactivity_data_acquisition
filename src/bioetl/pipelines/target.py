@@ -3,35 +3,57 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 import pandas as pd
-import re
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import CircuitBreakerConfig, HttpConfig, RateLimitConfig, RetryConfig, TargetSourceConfig
+from bioetl.config.models import (
+    CircuitBreakerConfig,
+    HttpConfig,
+    RateLimitConfig,
+    RetryConfig,
+    TargetSourceConfig,
+)
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.output_writer import OutputMetadata
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas import TargetSchema
-from bioetl.schemas.registry import schema_registry
 from bioetl.pipelines.target_gold import (
+    _split_accession_field,
     annotate_source_rank,
     coalesce_by_priority,
     expand_xrefs,
     materialize_gold,
     merge_components,
-    _split_accession_field,
 )
+from bioetl.schemas import (
+    ProteinClassSchema,
+    TargetComponentSchema,
+    TargetSchema,
+    XrefSchema,
+)
+from bioetl.schemas.registry import schema_registry
 from bioetl.utils import finalize_pipeline_output
+from bioetl.utils.qc import (
+    prepare_enrichment_metrics,
+    prepare_missing_mappings,
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-schema_registry.register("target", "1.0.0", TargetSchema)
+schema_registry.register("target", "1.0.0", TargetSchema)  # type: ignore[arg-type]
 
 
 class TargetPipeline(PipelineBase):
@@ -88,6 +110,12 @@ class TargetPipeline(PipelineBase):
         chembl_source = self.source_configs.get("chembl")
         self.batch_size = chembl_source.batch_size if chembl_source and chembl_source.batch_size else 25
         self._chembl_release = self._get_chembl_release() if self.chembl_client else None
+
+        self.gold_targets: pd.DataFrame = pd.DataFrame()
+        self.gold_components: pd.DataFrame = pd.DataFrame()
+        self.gold_protein_class: pd.DataFrame = pd.DataFrame()
+        self.gold_xref: pd.DataFrame = pd.DataFrame()
+        self._qc_missing_mapping_records: list[dict[str, Any]] = []
 
     def _build_api_client_config(
         self,
@@ -153,6 +181,8 @@ class TargetPipeline(PipelineBase):
             rate_limit_jitter=rate_limit_jitter,
             retry_total=retries.total,
             retry_backoff_factor=retries.backoff_multiplier,
+            retry_backoff_max=retries.backoff_max,
+            retry_status_codes=[int(code) for code in (retries.statuses or [])],
             partial_retry_max=partial_retry_max,
             timeout_connect=connect_timeout,
             timeout_read=read_timeout,
@@ -161,6 +191,36 @@ class TargetPipeline(PipelineBase):
             fallback_enabled=fallback_enabled,
             fallback_strategies=fallback_strategies,
         )
+
+    def _record_missing_mapping(
+        self,
+        *,
+        stage: str,
+        target_id: Any | None,
+        accession: Any | None,
+        resolution: str,
+        status: str,
+        resolved_accession: Any | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Capture missing mapping events for QC artifacts."""
+
+        record: dict[str, Any] = {
+            "stage": stage,
+            "target_chembl_id": target_id,
+            "input_accession": accession,
+            "resolved_accession": resolved_accession,
+            "resolution": resolution,
+            "status": status,
+        }
+
+        if details:
+            try:
+                record["details"] = json.dumps(details, ensure_ascii=False, sort_keys=True)
+            except TypeError:
+                record["details"] = str(details)
+
+        self._qc_missing_mapping_records.append(record)
 
     def _resolve_http_profile(
         self,
@@ -185,11 +245,11 @@ class TargetPipeline(PipelineBase):
 
         profile_value = getattr(http_profile, attr) if http_profile else None
         if profile_value is not None:
-            return profile_value
+            return float(profile_value)
 
         global_value = getattr(global_http, attr) if global_http else None
         if global_value is not None:
-            return global_value
+            return float(global_value)
 
         return default
 
@@ -262,23 +322,35 @@ class TargetPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract target data from input file."""
-        if input_file is None:
-            # Default to data/input/target.csv
-            input_file = Path("data/input/target.csv")
+        default_filename = Path("target.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        # Read input file with target IDs
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=[
-                "target_chembl_id", "pref_name", "target_type", "organism",
-                "taxonomy", "hgnc_id", "uniprot_accession",
-                "iuphar_type", "iuphar_class", "iuphar_subclass",
-            ])
+        expected_columns = [
+            "target_chembl_id",
+            "pref_name",
+            "target_type",
+            "organism",
+            "taxonomy",
+            "hgnc_id",
+            "uniprot_accession",
+            "iuphar_type",
+            "iuphar_class",
+            "iuphar_subclass",
+        ]
 
-        df = pd.read_csv(input_file)  # Read all records
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=expected_columns,
+            limit=self.get_runtime_limit(),
+        )
+
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         logger.info("extraction_completed", rows=len(df))
         return df
@@ -289,6 +361,10 @@ class TargetPipeline(PipelineBase):
             return df
 
         df = df.copy()
+        self._qc_missing_mapping_records = []
+        self.qc_missing_mappings = pd.DataFrame()
+        self.qc_enrichment_metrics = pd.DataFrame()
+        self.qc_summary_data = {}
 
         # Normalize identifiers
         from bioetl.normalizers import registry
@@ -305,11 +381,27 @@ class TargetPipeline(PipelineBase):
                 lambda x: registry.normalize("string", x) if pd.notna(x) else None
             )
 
+        with_uniprot = bool(self.runtime_options.get("with_uniprot", True))
+        with_iuphar = bool(self.runtime_options.get("with_iuphar", True))
+        self.runtime_options["with_uniprot"] = with_uniprot
+        self.runtime_options["with_iuphar"] = with_iuphar
+
+        logger.info(
+            "enrichment_stages_configured",
+            with_uniprot=with_uniprot,
+            with_iuphar=with_iuphar,
+        )
+
         enrichment_metrics: dict[str, Any] = {}
         uniprot_silver = pd.DataFrame()
         component_enrichment = pd.DataFrame()
 
-        if (
+        stage_summary = self.qc_summary_data.setdefault("stages", {})
+
+        if not with_uniprot:
+            logger.info("uniprot_enrichment_skipped", reason="disabled")
+            stage_summary["uniprot"] = {"status": "skipped", "reason": "disabled"}
+        elif (
             self.uniprot_client is not None
             and "uniprot_accession" in df.columns
             and df["uniprot_accession"].notna().any()
@@ -327,20 +419,39 @@ class TargetPipeline(PipelineBase):
                         "error": str(exc),
                     }
                 )
+                stage_summary["uniprot"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
             else:
                 if enrichment_metrics:
                     self.qc_metrics.update(enrichment_metrics)
                 if not uniprot_silver.empty or not component_enrichment.empty:
                     self._materialize_silver(uniprot_silver, component_enrichment)
+                stage_summary["uniprot"] = {
+                    "status": "completed",
+                    "rows": int(len(df)),
+                }
         else:
             logger.info(
                 "uniprot_enrichment_skipped",
                 reason="no_accessions" if "uniprot_accession" not in df.columns else "no_client",
             )
+            stage_summary["uniprot"] = {
+                "status": "skipped",
+                "reason": (
+                    "missing_column"
+                    if "uniprot_accession" not in df.columns
+                    else "client_unavailable"
+                ),
+            }
 
         iuphar_classification = pd.DataFrame()
         iuphar_gold = pd.DataFrame()
-        if self.iuphar_client is not None:
+        if not with_iuphar:
+            logger.info("iuphar_enrichment_skipped", reason="disabled")
+            stage_summary["iuphar"] = {"status": "skipped", "reason": "disabled"}
+        elif self.iuphar_client is not None:
             try:
                 df, iuphar_classification, iuphar_gold, iuphar_metrics = self._enrich_iuphar(df)
             except Exception as exc:  # pragma: no cover - defensive logging
@@ -354,6 +465,10 @@ class TargetPipeline(PipelineBase):
                         "error": str(exc),
                     }
                 )
+                stage_summary["iuphar"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
             else:
                 if iuphar_metrics:
                     self.qc_metrics.update(iuphar_metrics)
@@ -362,8 +477,13 @@ class TargetPipeline(PipelineBase):
                         self._evaluate_iuphar_qc(float(coverage_value))
                 if not iuphar_classification.empty or not iuphar_gold.empty:
                     self._materialize_iuphar(iuphar_classification, iuphar_gold)
+                stage_summary["iuphar"] = {
+                    "status": "completed",
+                    "rows": int(len(df)),
+                }
         else:
             logger.info("iuphar_enrichment_skipped", reason="no_client")
+            stage_summary["iuphar"] = {"status": "skipped", "reason": "client_unavailable"}
 
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
@@ -404,6 +524,54 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class = gold_protein_class
         self.gold_xref = gold_xref
 
+        self.additional_tables.clear()
+        if not gold_components.empty:
+            self.add_additional_table("target_components", gold_components)
+        if not gold_protein_class.empty:
+            self.add_additional_table(
+                "target_protein_classifications",
+                gold_protein_class,
+            )
+        if not gold_xref.empty:
+            self.add_additional_table("target_xrefs", gold_xref)
+        if not component_enrichment.empty:
+            self.add_additional_table(
+                "target_component_enrichment",
+                component_enrichment,
+            )
+        if not iuphar_classification.empty:
+            self.add_additional_table(
+                "target_iuphar_classification",
+                iuphar_classification,
+            )
+        if not iuphar_gold.empty:
+            self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
+
+        self.export_metadata = OutputMetadata.from_dataframe(
+            gold_targets,
+            pipeline_version=pipeline_version,
+            source_system=source_system,
+            chembl_release=self._chembl_release,
+            column_order=list(gold_targets.columns),
+            run_id=self.run_id,
+        )
+
+        if self._qc_missing_mapping_records:
+            self.qc_missing_mappings = prepare_missing_mappings(self._qc_missing_mapping_records)
+        else:
+            self.qc_missing_mappings = pd.DataFrame()
+
+        self._evaluate_enrichment_thresholds()
+        self._update_qc_summary(
+            gold_targets,
+            gold_components,
+            gold_protein_class,
+            gold_xref,
+        )
+
+        if self.qc_metrics:
+            logger.info("qc_metrics_collected", metrics=self.qc_metrics)
+
         self._materialize_gold_outputs(
             gold_targets,
             gold_components,
@@ -417,21 +585,66 @@ class TargetPipeline(PipelineBase):
         """Validate target data against schema."""
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
+            self.qc_summary_data.setdefault("validation", {})["targets"] = {
+                "status": "skipped",
+                "rows": 0,
+            }
             return df
 
-        try:
-            # Check for duplicates
-            duplicate_count = df["target_chembl_id"].duplicated().sum() if "target_chembl_id" in df.columns else 0
+        duplicate_count = 0
+        if "target_chembl_id" in df.columns:
+            duplicate_count = int(df["target_chembl_id"].duplicated().sum())
             if duplicate_count > 0:
                 logger.warning("duplicates_found", count=duplicate_count)
-                # Remove duplicates, keeping first occurrence
                 df = df.drop_duplicates(subset=["target_chembl_id"], keep="first")
+                self.record_validation_issue(
+                    {
+                        "metric": "targets.duplicates_removed",
+                        "issue_type": "deduplication",
+                        "severity": "warning",
+                        "count": duplicate_count,
+                    }
+                )
 
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
-            raise
+        validated_targets = self._validate_with_schema(
+            df,
+            TargetSchema,
+            "targets",
+            severity="critical",
+        )
+        self.gold_targets = validated_targets
+
+        self.gold_components = self._validate_with_schema(
+            self.gold_components,
+            TargetComponentSchema,
+            "target_components",
+        )
+
+        self.gold_protein_class = self._validate_with_schema(
+            self.gold_protein_class,
+            ProteinClassSchema,
+            "protein_classifications",
+        )
+
+        self.gold_xref = self._validate_with_schema(
+            self.gold_xref,
+            XrefSchema,
+            "target_xrefs",
+        )
+
+        self._update_qc_summary(
+            self.gold_targets,
+            self.gold_components,
+            self.gold_protein_class,
+            self.gold_xref,
+        )
+
+        logger.info(
+            "validation_completed",
+            rows=len(self.gold_targets),
+            duplicates_removed=duplicate_count,
+        )
+        return self.gold_targets
 
     @staticmethod
     def _chunked(values: Iterable[str], size: int) -> Iterator[list[str]]:
@@ -525,23 +738,33 @@ class TargetPipeline(PipelineBase):
 
             accession_str = str(accession).strip()
             total_with_accession += 1
-            entry = entries.get(accession_str)
+            uniprot_entry: dict[str, Any] | None = entries.get(accession_str)
             merge_strategy = "direct"
 
-            if entry is None:
-                entry = secondary_index.get(accession_str)
-                if entry is not None:
+            if uniprot_entry is None:
+                uniprot_entry = secondary_index.get(accession_str)
+                if uniprot_entry is not None:
                     merge_strategy = "secondary_accession"
                     fallback_counts["secondary_accession"] += 1
+                    resolved = uniprot_entry.get("primaryAccession") or uniprot_entry.get("accession")
+                    self._record_missing_mapping(
+                        stage="uniprot",
+                        target_id=row.get("target_chembl_id"),
+                        accession=accession_str,
+                        resolved_accession=resolved,
+                        resolution="secondary_accession",
+                        status="resolved",
+                    )
 
-            if entry is None:
+            if uniprot_entry is None:
                 unresolved[idx] = accession_str
                 continue
 
             resolved_rows += 1
-            canonical = entry.get("primaryAccession") or entry.get("accession")
-            used_entries[canonical] = entry
-            self._apply_entry_enrichment(working_df, idx, entry, merge_strategy)
+            canonical = uniprot_entry.get("primaryAccession") or uniprot_entry.get("accession")
+            if canonical:
+                used_entries[str(canonical)] = uniprot_entry
+            self._apply_entry_enrichment(working_df, int(idx), uniprot_entry, merge_strategy)
 
         # Attempt ID mapping for unresolved accessions
         if unresolved:
@@ -557,7 +780,7 @@ class TargetPipeline(PipelineBase):
                     if not canonical_acc:
                         continue
 
-                    entry = entries.get(canonical_acc)
+                    entry: dict[str, Any] | None = entries.get(canonical_acc)
                     if entry is None:
                         if canonical_acc not in used_entries:
                             extra_entries = self._fetch_uniprot_entries([canonical_acc])
@@ -568,7 +791,15 @@ class TargetPipeline(PipelineBase):
                         continue
 
                     fallback_counts["idmapping"] += 1
-                    used_entries[canonical_acc] = entry
+                    used_entries[str(canonical_acc)] = entry
+                    self._record_missing_mapping(
+                        stage="uniprot",
+                        target_id=working_df.at[idx, "target_chembl_id"],
+                        accession=submitted,
+                        resolved_accession=canonical_acc,
+                        resolution="idmapping",
+                        status="resolved",
+                    )
                     self._apply_entry_enrichment(working_df, idx, entry, "idmapping")
                     resolved_rows += 1
                     unresolved.pop(idx, None)
@@ -595,7 +826,19 @@ class TargetPipeline(PipelineBase):
                     continue
 
                 fallback_counts["gene_symbol"] += 1
-                used_entries[canonical_acc] = entry
+                used_entries[str(canonical_acc)] = entry
+                self._record_missing_mapping(
+                    stage="uniprot",
+                    target_id=working_df.at[idx, "target_chembl_id"],
+                    accession=accession,
+                    resolved_accession=canonical_acc,
+                    resolution="gene_symbol",
+                    status="resolved",
+                    details={
+                        "gene_symbol": gene_symbol,
+                        "organism": organism,
+                    },
+                )
                 self._apply_entry_enrichment(working_df, idx, entry, "gene_symbol")
                 resolved_rows += 1
                 unresolved.pop(idx, None)
@@ -617,7 +860,7 @@ class TargetPipeline(PipelineBase):
                 if not ortholog_acc:
                     continue
 
-                entry = entries.get(ortholog_acc)
+                entry: dict[str, Any] | None = entries.get(ortholog_acc)
                 if entry is None:
                     extra_entries = self._fetch_uniprot_entries([ortholog_acc])
                     if extra_entries:
@@ -628,8 +871,17 @@ class TargetPipeline(PipelineBase):
                     continue
 
                 fallback_counts["ortholog"] += 1
-                used_entries[ortholog_acc] = entry
-                self._apply_entry_enrichment(working_df, idx, entry, "ortholog")
+                used_entries[str(ortholog_acc)] = entry
+                self._record_missing_mapping(
+                    stage="uniprot",
+                    target_id=working_df.at[idx, "target_chembl_id"],
+                    accession=accession,
+                    resolved_accession=ortholog_acc,
+                    resolution="ortholog",
+                    status="resolved",
+                    details={"ortholog_source": best.get("organism")},
+                )
+                self._apply_entry_enrichment(working_df, int(idx), entry, "ortholog")
                 working_df.at[idx, "ortholog_source"] = best.get("organism")
                 resolved_rows += 1
                 unresolved.pop(idx, None)
@@ -637,11 +889,34 @@ class TargetPipeline(PipelineBase):
         if unresolved:
             for idx, accession in unresolved.items():
                 logger.warning("uniprot_enrichment_unresolved", accession=accession)
+                target_id = working_df.at[idx, "target_chembl_id"] if idx in working_df.index else None
+                self._record_missing_mapping(
+                    stage="uniprot",
+                    target_id=target_id,
+                    accession=accession,
+                    resolution="unresolved",
+                    status="unresolved",
+                )
+                self.record_validation_issue(
+                    {
+                        "metric": "enrichment.uniprot.unresolved",
+                        "issue_type": "missing_mapping",
+                        "severity": "warning",
+                        "target_chembl_id": target_id,
+                        "accession": accession,
+                    }
+                )
 
         coverage = resolved_rows / total_with_accession if total_with_accession else 0.0
         metrics["enrichment_success.uniprot"] = coverage
         metrics["enrichment.total_with_accession"] = total_with_accession
         metrics["enrichment.resolved"] = resolved_rows
+        unresolved_count = len(unresolved)
+        if unresolved_count:
+            metrics["enrichment.uniprot.unresolved"] = unresolved_count
+            metrics["enrichment.uniprot.unresolved_rate"] = (
+                unresolved_count / total_with_accession if total_with_accession else 0.0
+            )
 
         for fallback_name, count in fallback_counts.items():
             metrics[f"fallback.{fallback_name}.count"] = count
@@ -674,7 +949,7 @@ class TargetPipeline(PipelineBase):
 
             isoform_df = self._expand_isoforms(entry)
             if not isoform_df.empty:
-                component_records.extend(isoform_df.to_dict("records"))
+                component_records.extend(isoform_df.to_dict("records"))  # type: ignore[arg-type]
 
         uniprot_silver_df = pd.DataFrame(uniprot_silver_records).convert_dtypes()
         component_enrichment_df = pd.DataFrame(component_records).convert_dtypes()
@@ -715,7 +990,7 @@ class TargetPipeline(PipelineBase):
         family_index: dict[int, dict[str, Any]] = {}
         for raw_family in families:
             try:
-                family_id = int(raw_family.get("familyId"))
+                family_id = int(raw_family.get("familyId") or 0)
             except (TypeError, ValueError):
                 continue
             family_index[family_id] = raw_family
@@ -799,6 +1074,14 @@ class TargetPipeline(PipelineBase):
                     "iuphar_subclass": None,
                     "classification_source": "chembl",
                 })
+                self._record_missing_mapping(
+                    stage="iuphar",
+                    target_id=row.get("target_chembl_id"),
+                    accession=None,
+                    resolution="chembl_fallback",
+                    status="fallback",
+                    details={"reason": "no_candidate_names"},
+                )
                 continue
 
             total_candidates += 1
@@ -824,6 +1107,14 @@ class TargetPipeline(PipelineBase):
                     "iuphar_subclass": None,
                     "classification_source": "chembl",
                 })
+                self._record_missing_mapping(
+                    stage="iuphar",
+                    target_id=row.get("target_chembl_id"),
+                    accession=None,
+                    resolution="chembl_fallback",
+                    status="fallback",
+                    details={"candidates": candidate_names},
+                )
                 continue
 
             matched += 1
@@ -1295,7 +1586,7 @@ class TargetPipeline(PipelineBase):
         results = payload.get("results") or payload.get("entries") or []
         if not results:
             return None
-        return results[0]
+        return results[0]  # type: ignore[no-any-return]
 
     def _extract_gene_primary(self, entry: dict[str, Any]) -> str | None:
         genes = entry.get("genes") or []
@@ -1407,7 +1698,7 @@ class TargetPipeline(PipelineBase):
             logger.info("silver_materialization_skipped", reason="empty_frames")
             return
 
-        silver_path_config = self.config.materialization.silver or Path("data/silver/targets_uniprot.parquet")
+        silver_path_config = self.config.materialization.silver or Path("data/output/target/targets_silver.parquet")
         silver_path = Path(silver_path_config)
         silver_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1443,29 +1734,24 @@ class TargetPipeline(PipelineBase):
             logger.info("iuphar_materialization_skipped", reason="empty_frames")
             return
 
-        silver_base = Path(self.config.materialization.silver or Path("data/silver/targets_uniprot.parquet"))
-        silver_dir = silver_base.parent
-        silver_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(self.config.materialization.gold or Path("data/output/target/targets_final.parquet")).parent
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         if not classification_df.empty:
-            silver_path = silver_dir / "targets_iuphar_classification.parquet"
+            classification_path = output_dir / "targets_iuphar_classification.parquet"
             logger.info(
                 "writing_iuphar_classification",
-                path=str(silver_path),
+                path=str(classification_path),
                 rows=len(classification_df),
             )
             classification_sorted = classification_df.sort_values(
                 by=["target_chembl_id", "iuphar_family_id"],
                 kind="stable",
             )
-            classification_sorted.to_parquet(silver_path, index=False)
-
-        gold_base = Path(self.config.materialization.gold or Path("data/gold/targets_final.parquet"))
-        gold_dir = gold_base.parent
-        gold_dir.mkdir(parents=True, exist_ok=True)
+            classification_sorted.to_parquet(classification_path, index=False)
 
         if not gold_df.empty:
-            gold_path = gold_dir / "targets_iuphar_enrichment.parquet"
+            gold_path = output_dir / "targets_iuphar_enrichment.parquet"
             logger.info(
                 "writing_iuphar_gold",
                 path=str(gold_path),
@@ -1545,7 +1831,7 @@ class TargetPipeline(PipelineBase):
             logger.info("gold_materialization_skipped", reason="dry_run")
             return
 
-        gold_path = getattr(self.config.materialization, "gold", Path("data/gold/targets.parquet"))
+        gold_path = getattr(self.config.materialization, "gold", Path("data/output/target/targets_final.parquet"))
         materialize_gold(
             Path(gold_path),
             targets=targets_df,
@@ -1567,7 +1853,7 @@ class TargetPipeline(PipelineBase):
                 continue
             if isinstance(payload, str) and payload.strip() in {"", "[]"}:
                 continue
-            if isinstance(payload, (list, tuple)) and not payload:
+            if isinstance(payload, list | tuple) and not payload:
                 continue
 
             if isinstance(payload, str):
@@ -1700,7 +1986,7 @@ class TargetPipeline(PipelineBase):
             )
         else:
             isoform_counts = pd.Series(dtype="Int64")
-            isoform_map: dict[str, list[str]] = {}
+            isoform_map = {}
 
         working["isoform_count"] = (
             working["target_chembl_id"].map(isoform_counts).fillna(0).astype("Int64")
@@ -1792,6 +2078,15 @@ class TargetPipeline(PipelineBase):
         working["has_iuphar"] = working["has_iuphar"].astype("boolean")
         working["isoform_count"] = working["isoform_count"].astype("Int64")
 
+        if "tax_id" in working.columns:
+            working["tax_id"] = (
+                pd.to_numeric(working["tax_id"], errors="coerce")
+                .astype("Int64")
+            )
+
+        # Ensure we only expose the expected contract columns in a stable order.
+        working = working[expected_columns]
+
         return working.convert_dtypes()
 
     def _evaluate_iuphar_qc(self, coverage: float) -> None:
@@ -1828,4 +2123,236 @@ class TargetPipeline(PipelineBase):
             issue_payload.update({"severity": severity, "passed": False})
 
         self.record_validation_issue(issue_payload)
+
+    def _evaluate_enrichment_thresholds(self) -> None:
+        """Evaluate enrichment coverage against configured thresholds."""
+
+        qc_config = getattr(self.config, "qc", None)
+        thresholds = getattr(qc_config, "enrichments", {}) if qc_config else {}
+        if not thresholds:
+            self.qc_enrichment_metrics = pd.DataFrame()
+            return
+
+        records: list[dict[str, Any]] = []
+        failing: list[dict[str, Any]] = []
+        enrichment_summary = self.qc_summary_data.setdefault("enrichment", {})
+
+        for name, raw_threshold in thresholds.items():
+            if isinstance(raw_threshold, dict):
+                min_threshold = raw_threshold.get("min")
+                severity = str(raw_threshold.get("severity", "error"))
+            else:
+                min_threshold = raw_threshold
+                severity = "error"
+
+            try:
+                min_threshold_value = float(min_threshold) if min_threshold is not None else None
+            except (TypeError, ValueError):
+                min_threshold_value = None
+
+            metric_key = f"enrichment_success.{name}"
+            value = self.qc_metrics.get(metric_key)
+
+            if value is None:
+                enrichment_summary[name] = {
+                    "value": None,
+                    "threshold_min": min_threshold_value,
+                    "passed": False,
+                    "status": "missing",
+                    "severity": severity,
+                }
+                self.record_validation_issue(
+                    {
+                        "metric": f"enrichment.{name}",
+                        "issue_type": "qc_metric",
+                        "severity": "info",
+                        "status": "missing",
+                    }
+                )
+                continue
+
+            try:
+                value_float = float(value)
+            except (TypeError, ValueError):
+                value_float = value
+
+            passed = True
+            if min_threshold_value is not None:
+                passed = value_float >= min_threshold_value
+
+            record = {
+                "metric": name,
+                "value": value_float,
+                "threshold_min": min_threshold_value,
+                "passed": passed,
+                "severity": severity,
+            }
+            records.append(record)
+
+            enrichment_summary[name] = {
+                "value": value_float,
+                "threshold_min": min_threshold_value,
+                "passed": passed,
+                "severity": severity,
+            }
+
+            issue_payload = {
+                "metric": f"enrichment.{name}",
+                "issue_type": "qc_metric",
+                "severity": severity if not passed else "info",
+                "value": value_float,
+                "threshold_min": min_threshold_value,
+                "passed": passed,
+            }
+            self.record_validation_issue(issue_payload)
+
+            if not passed:
+                failing.append({"metric": name, "severity": severity, "value": value_float, "threshold": min_threshold_value})
+
+        self.qc_enrichment_metrics = prepare_enrichment_metrics(records)
+
+        blocking: list[dict[str, Any]] = []
+        downgraded: list[dict[str, Any]] = []
+        for failure in failing:
+            severity = failure["severity"]
+            if self._severity_value(severity) >= self._severity_value("error") and self._should_fail(severity):
+                blocking.append(failure)
+            elif self._should_fail(severity):
+                downgraded.append(failure)
+
+        if downgraded:
+            downgraded_details = ", ".join(
+                f"{item['metric']} (value={item['value']}, threshold={item['threshold']}, severity={item['severity']})"
+                for item in downgraded
+            )
+            logger.warning(
+                "enrichment_threshold_below_min_non_blocking",
+                details=downgraded_details,
+                severity_threshold=self.config.qc.severity_threshold,
+            )
+
+        if blocking:
+            details = ", ".join(
+                f"{item['metric']} (value={item['value']}, threshold={item['threshold']})"
+                for item in blocking
+            )
+            logger.error("enrichment_threshold_failed", details=details)
+            raise ValueError(f"Enrichment thresholds failed: {details}")
+
+    def _update_qc_summary(
+        self,
+        targets_df: pd.DataFrame,
+        components_df: pd.DataFrame,
+        protein_class_df: pd.DataFrame,
+        xref_df: pd.DataFrame,
+    ) -> None:
+        """Populate QC summary structure with dataset statistics."""
+
+        dataset_counts = {
+            "targets": int(len(targets_df)),
+            "components": int(len(components_df)),
+            "classifications": int(len(protein_class_df)),
+            "xrefs": int(len(xref_df)),
+        }
+        update_summary_section(self.qc_summary_data, "row_counts", dataset_counts)
+        update_summary_section(self.qc_summary_data, "datasets", dataset_counts)
+
+        fallback_counts = {
+            key.split(".")[1]: int(value)
+            for key, value in self.qc_metrics.items()
+            if key.startswith("fallback.") and key.endswith(".count")
+        }
+        if fallback_counts:
+            update_summary_section(self.qc_summary_data, "fallback_counts", fallback_counts)
+
+        update_summary_metrics(self.qc_summary_data, self.qc_metrics)
+
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+
+        if not self.qc_missing_mappings.empty:
+            update_summary_section(
+                self.qc_summary_data,
+                "missing_mappings",
+                {
+                    "records": int(len(self.qc_missing_mappings)),
+                    "stages": sorted(
+                        self.qc_missing_mappings["stage"].dropna().unique().tolist()
+                    ),
+                },
+                merge=False,
+            )
+
+    def _validate_with_schema(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        dataset_name: str,
+        *,
+        severity: str = "error",
+    ) -> pd.DataFrame:
+        """Validate a dataframe against the provided Pandera schema."""
+
+        validation_summary = self.qc_summary_data.setdefault("validation", {})
+
+        if df is None or (hasattr(df, "empty") and df.empty):
+            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
+            self.record_validation_issue(
+                {
+                    "metric": f"schema.{dataset_name}",
+                    "issue_type": "schema_validation",
+                    "severity": "info",
+                    "status": "skipped",
+                    "rows": 0,
+                }
+            )
+            return df
+
+        try:
+            validated = schema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count: int | None = None
+            if failure_cases is not None and hasattr(failure_cases, "shape"):
+                try:
+                    error_count = int(failure_cases.shape[0])
+                except (TypeError, ValueError):
+                    error_count = None
+
+            issue_payload: dict[str, Any] = {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": severity,
+                "status": "failed",
+                "errors": error_count,
+            }
+            if failure_cases is not None:
+                try:
+                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
+                except Exception:  # pragma: no cover - defensive guard
+                    issue_payload["examples"] = "unavailable"
+
+            self.record_validation_issue(issue_payload)
+            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
+            logger.error(
+                "schema_validation_failed",
+                dataset=dataset_name,
+                errors=error_count,
+                error=str(exc),
+            )
+            if self._should_fail(severity):
+                raise
+            return df
+
+        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
+        self.record_validation_issue(
+            {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": "info",
+                "status": "passed",
+                "rows": int(len(validated)),
+            }
+        )
+
+        return validated  # type: ignore[no-any-return]
 

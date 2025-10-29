@@ -163,7 +163,7 @@ class PubChemAdapter(ExternalAdapter):
         try:
             self._rate_limit()
             response = self.api_client.request_json(url)
-            
+
             if not response:
                 return None
 
@@ -228,7 +228,7 @@ class PubChemAdapter(ExternalAdapter):
         Returns:
             Normalized record with pubchem_* prefix
         """
-        normalized = {column: None for column in self._PUBCHEM_COLUMNS}
+        normalized = dict.fromkeys(self._PUBCHEM_COLUMNS)
 
         # PubChem CID
         cid = record.get("CID") or record.get("_cid")
@@ -314,7 +314,6 @@ class PubChemAdapter(ExternalAdapter):
         Returns:
             Enriched DataFrame with pubchem_* columns
         """
-        import pandas as pd
 
         if df.empty or inchi_key_col not in df.columns:
             self.logger.warning("enrichment_skipped", reason="empty_or_missing_column")

@@ -217,12 +217,12 @@ class PubMedAdapter(ExternalAdapter):
                     desc = heading.find("DescriptorName")
                     if desc is not None and desc.text:
                         descriptors.append(desc.text)
-                    
+
                     qual_elems = heading.findall("QualifierName")
                     for qual in qual_elems:
                         if qual is not None and qual.text:
                             qualifiers.append(qual.text)
-                
+
                 record["mesh_descriptors"] = " | ".join(descriptors) if descriptors else None
                 record["mesh_qualifiers"] = " | ".join(qualifiers) if qualifiers else None
 

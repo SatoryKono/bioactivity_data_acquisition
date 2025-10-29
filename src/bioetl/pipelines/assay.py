@@ -2,11 +2,13 @@
 
 import json
 import subprocess
-from collections.abc import Iterable
+from collections import Counter
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
@@ -14,9 +16,14 @@ from pandera.errors import SchemaErrors
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dataframe import resolve_schema_column_order
+from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
@@ -45,6 +52,22 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = {
 }
 
 
+# Nullable integer columns that require explicit coercion before schema validation.
+_NULLABLE_INT_COLUMNS = (
+    "assay_tax_id",
+    "confidence_score",
+    "species_group_flag",
+    "tax_id",
+    "component_count",
+    "assay_class_id",
+    "variant_id",
+    "src_id",
+)
+
+
+# _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
+
+
 class AssayPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL assay data."""
 
@@ -53,8 +76,27 @@ class AssayPipeline(PipelineBase):
 
         chembl_source = config.sources.get("chembl")
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
-        base_url = getattr(chembl_source, "base_url", default_base_url)
-        batch_size = getattr(chembl_source, "batch_size", 25) or 25
+        default_batch_size = 25
+        default_max_url_length = 2000
+
+        if isinstance(chembl_source, dict):
+            base_url = chembl_source.get("base_url", default_base_url) or default_base_url
+            batch_size_value = chembl_source.get("batch_size", default_batch_size)
+            max_url_length_value = chembl_source.get("max_url_length", default_max_url_length)
+        else:
+            base_url = getattr(chembl_source, "base_url", default_base_url) or default_base_url
+            batch_size_value = getattr(chembl_source, "batch_size", default_batch_size)
+            max_url_length_value = getattr(chembl_source, "max_url_length", default_max_url_length)
+
+        try:
+            batch_size = int(batch_size_value)
+        except (TypeError, ValueError):
+            batch_size = default_batch_size
+
+        try:
+            max_url_length = int(max_url_length_value)
+        except (TypeError, ValueError):
+            max_url_length = default_max_url_length
 
         chembl_config = APIConfig(
             name="chembl",
@@ -64,7 +106,8 @@ class AssayPipeline(PipelineBase):
         )
         self.api_client = UnifiedAPIClient(chembl_config)
 
-        self.batch_size = batch_size
+        self.batch_size = max(1, batch_size)
+        self.max_url_length = max(1, max_url_length)
         self.chembl_base_url = base_url
         self.chembl_release: str | None = None
         self.git_commit = self._resolve_git_commit()
@@ -75,11 +118,20 @@ class AssayPipeline(PipelineBase):
             "config_hash": self.config_hash,
             "chembl_base_url": self.chembl_base_url,
             "chembl_release": None,
+            "chembl_max_url_length": self.max_url_length,
         }
 
         self._cache_enabled = bool(config.cache.enabled)
         self._assay_cache: dict[str, dict[str, Any]] = {}
         self._status_payload: dict[str, Any] | None = None
+
+        self._assay_fetch_stats: dict[str, Any] = {
+            "requested": 0,
+            "success_count": 0,
+            "cache_hits": 0,
+            "cache_fallback_hits": 0,
+            "fallback_counts": Counter(),
+        }
 
         self._initialize_status()
 
@@ -135,6 +187,41 @@ class AssayPipeline(PipelineBase):
         release = self.chembl_release or "unknown"
         return f"assay:{release}:{assay_id}"
 
+    def _build_assay_request_url(self, assay_ids: Sequence[str]) -> str:
+        """Return the fully qualified URL used for batch fetching."""
+
+        base = self.api_client.config.base_url.rstrip("/")
+        request = requests.Request(
+            method="GET",
+            url=f"{base}/assay.json",
+            params={"assay_chembl_id__in": ",".join(assay_ids)},
+        )
+        prepared = request.prepare()
+        return prepared.url or ""
+
+    def _split_assay_ids_by_url_length(self, assay_ids: Sequence[str]) -> list[list[str]]:
+        """Recursively split identifiers to satisfy the configured URL length."""
+
+        ids = list(assay_ids)
+        if not ids:
+            return []
+
+        full_url = self._build_assay_request_url(ids)
+        if len(full_url) <= self.max_url_length or len(ids) == 1:
+            if len(full_url) > self.max_url_length:
+                logger.warning(
+                    "assay_single_id_exceeds_url_limit",
+                    assay_id=ids[0],
+                    url_length=len(full_url),
+                    max_length=self.max_url_length,
+                )
+            return [ids]
+
+        midpoint = max(1, len(ids) // 2)
+        return self._split_assay_ids_by_url_length(ids[:midpoint]) + self._split_assay_ids_by_url_length(
+            ids[midpoint:]
+        )
+
     def _cache_get(self, assay_id: str) -> dict[str, Any] | None:
         """Return cached assay payload if caching is enabled."""
         if not self._cache_enabled:
@@ -175,7 +262,7 @@ class AssayPipeline(PipelineBase):
         params_json = json.dumps(params, ensure_ascii=False) if params is not None else None
 
         record: dict[str, Any] = {
-            "assay_chembl_id": assay.get("assay_chembl_id"),
+            "assay_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("assay_chembl_id")),
             "assay_type": assay.get("assay_type"),
             "assay_category": assay.get("assay_category"),
             "assay_cell_type": assay.get("assay_cell_type"),
@@ -189,27 +276,27 @@ class AssayPipeline(PipelineBase):
             "assay_test_type": assay.get("assay_test_type"),
             "assay_tissue": assay.get("assay_tissue"),
             "assay_type_description": assay.get("assay_type_description"),
-            "bao_format": assay.get("bao_format"),
-            "bao_label": assay.get("bao_label"),
-            "bao_endpoint": assay.get("bao_endpoint"),
-            "cell_chembl_id": assay.get("cell_chembl_id"),
+            "bao_format": registry.normalize("chemistry.bao_id", assay.get("bao_format")),
+            "bao_label": registry.normalize("chemistry.string", assay.get("bao_label"), max_length=128),
+            "bao_endpoint": registry.normalize("chemistry.bao_id", assay.get("bao_endpoint")),
+            "cell_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("cell_chembl_id")),
             "confidence_description": assay.get("confidence_description"),
             "confidence_score": assay.get("confidence_score"),
-            "assay_description": assay.get("description"),
-            "document_chembl_id": assay.get("document_chembl_id"),
+            "assay_description": registry.normalize("chemistry.string", assay.get("description")),
+            "document_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("document_chembl_id")),
             "relationship_description": assay.get("relationship_description"),
             "relationship_type": assay.get("relationship_type"),
             "src_assay_id": assay.get("src_assay_id"),
             "src_id": assay.get("src_id"),
-            "target_chembl_id": assay.get("target_chembl_id"),
-            "tissue_chembl_id": assay.get("tissue_chembl_id"),
+            "target_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("target_chembl_id")),
+            "tissue_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("tissue_chembl_id")),
         }
 
         assay_class = assay.get("assay_class")
         if isinstance(assay_class, dict):
             record.update({
                 "assay_class_id": assay_class.get("assay_class_id"),
-                "assay_class_bao_id": assay_class.get("bao_id"),
+                "assay_class_bao_id": registry.normalize("chemistry.bao_id", assay_class.get("bao_id")),
                 "assay_class_type": assay_class.get("assay_class_type"),
                 "assay_class_l1": assay_class.get("class_level_1"),
                 "assay_class_l2": assay_class.get("class_level_2"),
@@ -246,54 +333,117 @@ class AssayPipeline(PipelineBase):
         record["chembl_release"] = self.chembl_release
         return record
 
-    def _create_fallback_record(self, assay_id: str, error: Exception | None = None) -> dict[str, Any]:
+    def _register_fallback(
+        self,
+        assay_id: str,
+        reason: str,
+        error: Exception | None = None,
+    ) -> dict[str, Any]:
+        """Create a fallback payload while recording diagnostic metrics."""
+
+        self._assay_fetch_stats["fallback_counts"][reason] += 1
+        fallback = self._create_fallback_record(assay_id, reason, error)
+        logger.warning(
+            "assay_fallback_created",
+            assay_id=assay_id,
+            reason=reason,
+            error=str(error) if error else None,
+        )
+        return fallback
+
+    def _update_fetch_metrics(self) -> None:
+        """Persist aggregated fetch metrics for observability and QC."""
+
+        stats = self._assay_fetch_stats
+        fallback_counts: Counter[str] = stats["fallback_counts"]
+        fallback_total = int(sum(fallback_counts.values()))
+        requested = int(stats["requested"])
+        success_count = int(stats["success_count"])
+        cache_hits = int(stats["cache_hits"])
+        cache_fallback_hits = int(stats["cache_fallback_hits"])
+
+        success_rate = 0.0
+        if requested:
+            success_rate = (success_count + fallback_total) / requested
+
+        metrics_payload = {
+            "requested": requested,
+            "success_count": success_count,
+            "fallback_total": fallback_total,
+            "fallback_by_reason": dict(fallback_counts),
+            "cache_hits": cache_hits,
+            "cache_fallback_hits": cache_fallback_hits,
+            "success_rate": success_rate,
+        }
+
+        logger.info("assay_fetch_metrics", **metrics_payload)
+
+        self.run_metadata["assay_fetch_metrics"] = metrics_payload
+        self.qc_metrics["assay_fetch_success_count"] = success_count
+        self.qc_metrics["assay_fallback_total"] = fallback_total
+        self.qc_metrics["assay_fetch_cache_hits"] = cache_hits
+        self.qc_metrics["assay_fetch_cache_fallback_hits"] = cache_fallback_hits
+
+    def _create_fallback_record(
+        self, assay_id: str, reason: str, error: Exception | None = None
+    ) -> dict[str, Any]:
         """Generate fallback payload when API data cannot be retrieved."""
-        http_status: int | None = None
-        retry_after: float | None = None
-        error_code: Any | None = getattr(error, "code", None)
-        attempt: Any | None = getattr(error, "attempt", None)
-
-        if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
-            http_status = error.response.status_code
-            retry_after_header = error.response.headers.get("Retry-After")
-            if retry_after_header:
-                try:
-                    retry_after = float(retry_after_header)
-                except ValueError:
-                    retry_after = None
-        else:
-            http_status = getattr(error, "status", None)
-            retry_after = getattr(error, "retry_after", None)
-
-        message = str(error) if error else "Fallback: API unavailable"
 
         record: dict[str, Any] = {
             "assay_chembl_id": assay_id,
-            "source_system": "ChEMBL_FALLBACK",
+            "source_system": "chembl",
             "chembl_release": self.chembl_release,
-            "error_code": error_code,
-            "http_status": http_status,
-            "error_message": message,
-            "retry_after_sec": retry_after,
-            "attempt": attempt,
+            "fallback_reason": None,
+            "fallback_error_type": None,
+            "fallback_error_code": None,
+            "fallback_error_message": None,
+            "fallback_http_status": None,
+            "fallback_retry_after_sec": None,
+            "fallback_attempt": None,
+            "fallback_timestamp": None,
             "run_id": self.run_id,
             "git_commit": self.git_commit,
             "config_hash": self.config_hash,
         }
+
+        metadata = build_fallback_payload(
+            entity="assay",
+            reason=reason,
+            error=error,
+            source="ChEMBL_FALLBACK",
+            context={
+                "chembl_release": self.chembl_release,
+                "run_id": self.run_id,
+                "git_commit": self.git_commit,
+                "config_hash": self.config_hash,
+            },
+        )
+        record.update(metadata)
+
         return record
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract assay data from input file."""
-        if input_file is None:
-            # Default to data/input/assay.csv
-            input_file = Path("data/input/assay.csv")
+        default_filename = Path("assay.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
-        df = pd.read_csv(input_file)  # Read all records
+        logger.info("reading_input", path=resolved_path)
 
-        # Create output DataFrame with just assay_chembl_id for API lookup
-        result = pd.DataFrame()
-        result["assay_chembl_id"] = df["assay_chembl_id"] if "assay_chembl_id" in df.columns else df["assay_chembl_id"]
+        limit_value = self.get_runtime_limit()
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=["assay_chembl_id"],
+            limit=limit_value,
+            dtype="string",
+        )
+
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
+
+        result = pd.DataFrame({"assay_chembl_id": df.get("assay_chembl_id", pd.Series(dtype="string"))})
 
         logger.info("extraction_completed", rows=len(result))
         return result
@@ -306,26 +456,43 @@ class AssayPipeline(PipelineBase):
         results: list[dict[str, Any]] = []
         pending: list[str] = []
         seen: set[str] = set()
+        unique_requested = 0
 
         for assay_id in assay_ids:
             if not assay_id or assay_id in seen:
                 continue
             seen.add(assay_id)
+            unique_requested += 1
             cached = self._cache_get(assay_id)
             if cached is not None:
+                self._assay_fetch_stats["cache_hits"] += 1
+                if cached.get("source_system") == "ChEMBL_FALLBACK":
+                    self._assay_fetch_stats["cache_fallback_hits"] += 1
+                    self._assay_fetch_stats["fallback_counts"]["cache_hit"] += 1
+                else:
+                    self._assay_fetch_stats["success_count"] += 1
                 results.append(cached)
             else:
                 pending.append(assay_id)
 
+        self._assay_fetch_stats["requested"] += unique_requested
+
         if not pending:
             logger.info("assay_fetch_served_from_cache", count=len(results))
+            self._update_fetch_metrics()
             return pd.DataFrame(results)
 
+        batches: list[list[str]] = []
         for index in range(0, len(pending), self.batch_size):
-            batch_ids = pending[index : index + self.batch_size]
+            chunk = pending[index : index + self.batch_size]
+            if not chunk:
+                continue
+            batches.extend(self._split_assay_ids_by_url_length(chunk))
+
+        for batch_index, batch_ids in enumerate(batches, start=1):
             logger.info(
                 "fetching_batch",
-                batch=index // self.batch_size + 1,
+                batch=batch_index,
                 size=len(batch_ids),
             )
 
@@ -337,21 +504,21 @@ class AssayPipeline(PipelineBase):
             except CircuitBreakerOpenError as exc:
                 logger.error("assay_fetch_circuit_open", error=str(exc), batch_ids=batch_ids)
                 for assay_id in batch_ids:
-                    fallback = self._create_fallback_record(assay_id, exc)
+                    fallback = self._register_fallback(assay_id, "circuit_open", exc)
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
                 continue
             except requests.exceptions.RequestException as exc:
                 logger.error("assay_fetch_request_exception", error=str(exc), batch_ids=batch_ids)
                 for assay_id in batch_ids:
-                    fallback = self._create_fallback_record(assay_id, exc)
+                    fallback = self._register_fallback(assay_id, "request_exception", exc)
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
                 continue
             except Exception as exc:  # noqa: BLE001 - capture for fallback creation
                 logger.error("assay_fetch_failed", error=str(exc), batch_ids=batch_ids)
                 for assay_id in batch_ids:
-                    fallback = self._create_fallback_record(assay_id, exc)
+                    fallback = self._register_fallback(assay_id, "unexpected_error", exc)
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
                 continue
@@ -374,18 +541,21 @@ class AssayPipeline(PipelineBase):
                     normalized = self._normalize_assay_record(payload)
                     self._cache_set(assay_id, normalized)
                     results.append(normalized)
+                    self._assay_fetch_stats["success_count"] += 1
                 else:
                     logger.warning("assay_missing_from_response", assay_id=assay_id)
-                    fallback = self._create_fallback_record(assay_id)
+                    fallback = self._register_fallback(assay_id, "missing_from_response")
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
 
         if not results:
             logger.warning("no_results_from_api")
+            self._update_fetch_metrics()
             return pd.DataFrame()
 
         df = pd.DataFrame(results)
         logger.info("api_extraction_completed", rows=len(df))
+        self._update_fetch_metrics()
         return df
 
     def _expand_assay_parameters_long(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -420,13 +590,23 @@ class AssayPipeline(PipelineBase):
                     "row_subtype": "param",
                     "row_index": index,
                     "assay_param_type": param.get("type"),
-                    "assay_param_relation": param.get("relation"),
+                    "assay_param_relation": registry.normalize(
+                        "chemistry.relation",
+                        param.get("relation"),
+                        default="=",
+                    ),
                     "assay_param_value": param.get("value"),
-                    "assay_param_units": param.get("units"),
+                    "assay_param_units": registry.normalize(
+                        "chemistry.units",
+                        param.get("units"),
+                    ),
                     "assay_param_text_value": param.get("text_value"),
                     "assay_param_standard_type": param.get("standard_type"),
                     "assay_param_standard_value": param.get("standard_value"),
-                    "assay_param_standard_units": param.get("standard_units"),
+                    "assay_param_standard_units": registry.normalize(
+                        "chemistry.units",
+                        param.get("standard_units"),
+                    ),
                 }
                 records.append(record)
                 index += 1
@@ -436,50 +616,56 @@ class AssayPipeline(PipelineBase):
 
         return pd.DataFrame(records)
 
-    def _expand_variant_sequences(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Expand variant sequences JSON into long-format rows."""
-
-        if "variant_sequence_json" not in df.columns:
-            return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
-
-        records: list[dict[str, object]] = []
-
-        for _, row in df.iterrows():
-            variant_raw = row.get("variant_sequence_json")
-            if not variant_raw or (isinstance(variant_raw, float) and pd.isna(variant_raw)):
-                continue
-
-            try:
-                variants = json.loads(variant_raw) if isinstance(variant_raw, str) else variant_raw
-            except (TypeError, ValueError):
-                logger.warning("variant_parse_failed", assay_chembl_id=row.get("assay_chembl_id"))
-                continue
-
-            if not isinstance(variants, Iterable):
-                continue
-
-            index = 0
-            for variant in variants:
-                if not isinstance(variant, dict):
-                    continue
-
-                record = {
-                    "assay_chembl_id": row.get("assay_chembl_id"),
-                    "row_subtype": "variant",
-                    "row_index": index,
-                    "variant_id": variant.get("variant_id"),
-                    "variant_base_accession": variant.get("base_accession"),
-                    "variant_mutation": variant.get("mutation"),
-                    "variant_sequence": variant.get("variant_seq"),
-                    "variant_accession_reported": variant.get("accession_reported"),
-                }
-                records.append(record)
-                index += 1
-
-        if not records:
-            return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
-
-        return pd.DataFrame(records)
+    # NOTE:
+    #     Variant sequence details remain embedded within the
+    #     ``variant_sequence_json`` column of the base assay row. Expanding
+    #     these entries into dedicated ``row_subtype="variant"`` records led to
+    #     duplicate assay rows after concatenation. The helper below is kept as
+    #     historical reference but intentionally disabled.
+    # def _expand_variant_sequences(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     """Expand variant sequences JSON into long-format rows."""
+    #
+    #     if "variant_sequence_json" not in df.columns:
+    #         return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
+    #
+    #     records: list[dict[str, object]] = []
+    #
+    #     for _, row in df.iterrows():
+    #         variant_raw = row.get("variant_sequence_json")
+    #         if not variant_raw or (isinstance(variant_raw, float) and pd.isna(variant_raw)):
+    #             continue
+    #
+    #         try:
+    #             variants = json.loads(variant_raw) if isinstance(variant_raw, str) else variant_raw
+    #         except (TypeError, ValueError):
+    #             logger.warning("variant_parse_failed", assay_chembl_id=row.get("assay_chembl_id"))
+    #             continue
+    #
+    #         if not isinstance(variants, Iterable):
+    #             continue
+    #
+    #         index = 0
+    #         for variant in variants:
+    #             if not isinstance(variant, dict):
+    #                 continue
+    #
+    #             record = {
+    #                 "assay_chembl_id": row.get("assay_chembl_id"),
+    #                 "row_subtype": "variant",
+    #                 "row_index": index,
+    #                 "variant_id": variant.get("variant_id"),
+    #                 "variant_base_accession": variant.get("base_accession"),
+    #                 "variant_mutation": variant.get("mutation"),
+    #                 "variant_sequence": variant.get("variant_seq"),
+    #                 "variant_accession_reported": variant.get("accession_reported"),
+    #             }
+    #             records.append(record)
+    #             index += 1
+    #
+    #     if not records:
+    #         return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
+    #
+    #     return pd.DataFrame(records)
 
     def _expand_assay_classifications(self, df: pd.DataFrame) -> pd.DataFrame:
         """Expand assay classifications JSON into long-format rows."""
@@ -603,17 +789,16 @@ class AssayPipeline(PipelineBase):
         return pd.DataFrame(records)
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform assay data with explode functionality."""
+        """Transform assay data and expand nested parameter/class payloads."""
         if df.empty:
             # Return empty DataFrame with all required columns from schema
-            return pd.DataFrame(columns=AssaySchema.get_column_order())
-
-        from bioetl.normalizers import registry
+            from bioetl.schemas.assay import AssaySchema
+            return pd.DataFrame(columns=resolve_schema_column_order(AssaySchema))
 
         # Fetch assay data from ChEMBL API
         assay_ids = df["assay_chembl_id"].unique().tolist()
         assay_data = self._fetch_assay_data(assay_ids)
-        
+
         # Merge with existing data
         if not assay_data.empty:
             df = df.merge(assay_data, on="assay_chembl_id", how="left", suffixes=("", "_api"))
@@ -672,7 +857,6 @@ class AssayPipeline(PipelineBase):
 
         # Explode nested structures into long format dataframes
         params_df = self._expand_assay_parameters_long(base_df)
-        variants_df = self._expand_variant_sequences(base_df)
         classes_df = self._expand_assay_classifications(base_df)
 
         # Assay class enrichment applied to classification rows
@@ -718,17 +902,27 @@ class AssayPipeline(PipelineBase):
                     logger.warning("assay_class_enrichment_join_loss", missing_count=missing_count)
 
         frames = [base_df]
-        for expanded in (params_df, variants_df, classes_df):
+        for expanded in (params_df, classes_df):
             if not expanded.empty:
                 frames.append(expanded)
 
         df = pd.concat(frames, ignore_index=True, sort=False)
 
-        # Ensure row_index is deterministic Int64
+        # Normalise nullable integer columns to Pandas' nullable Int64 dtype so
+        # Pandera can coerce them into the expected dtype('int64') during
+        # validation. Mixed object/float columns originating from API payloads
+        # previously triggered schema validation errors because Pandera refuses
+        # to coerce values like "501" or NaN into strict integers when the
+        # series dtype is ``object``. Explicitly converting here keeps the data
+        # model consistent across all row subtypes.
         if "row_index" in df.columns:
             df["row_index"] = df["row_index"].fillna(0).astype("Int64")
         else:
-            df["row_index"] = 0
+            df["row_index"] = pd.Series([0] * len(df), dtype="Int64")
+
+        nullable_int_columns = list(_NULLABLE_INT_COLUMNS)
+
+        coerce_nullable_int(df, nullable_int_columns)
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
@@ -752,15 +946,36 @@ class AssayPipeline(PipelineBase):
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import AssaySchema
 
-        expected_cols = AssaySchema.get_column_order()
+        expected_cols = resolve_schema_column_order(AssaySchema)
+        nullable_int_set = set(nullable_int_columns)
         if expected_cols:
             # Add missing columns with None values
             for col in expected_cols:
                 if col not in df.columns:
-                    df[col] = None
+                    if col in nullable_int_set:
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype=pd.Int64Dtype())
+                    else:
+                        df[col] = pd.NA
+                elif col in nullable_int_set:
+                    # Ensure dtype stability for columns already present but
+                    # potentially inferred as ``object`` when upstream payloads
+                    # contained stringified numbers or missing values.
+                    numeric_series = pd.to_numeric(df[col], errors="coerce")
+                    df[col] = pd.Series(
+                        pd.array(numeric_series, dtype=pd.Int64Dtype()),
+                        index=df.index,
+                    )
 
             # Reorder to match schema column_order
             df = df[expected_cols]
+
+        # Pandera enforces strict column order as part of the schema config. If
+        # new nullable integer columns were added in the previous step they will
+        # currently contain ``Int64`` values, but re-running the coercion keeps
+        # the behaviour consistent for callers that operate on the reordered
+        # frame (e.g. QC reporting) before validation happens downstream.
+        coerce_nullable_int(df, nullable_int_columns)
+        coerce_retry_after(df)
 
         return df
 
@@ -772,13 +987,35 @@ class AssayPipeline(PipelineBase):
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        if "confidence_score" in df.columns:
-            try:
-                df["confidence_score"] = pd.to_numeric(
-                    df["confidence_score"], errors="coerce"
-                ).astype("Int64")
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.warning("confidence_score_cast_failed", error=str(exc))
+        canonical_order = resolve_schema_column_order(AssaySchema)
+        if canonical_order:
+            missing_columns = [column for column in canonical_order if column not in df.columns]
+            for column in missing_columns:
+                df[column] = pd.NA
+
+            extra_columns = [column for column in df.columns if column not in canonical_order]
+            if extra_columns:
+                df = df.drop(columns=extra_columns)
+
+            df = df.loc[:, canonical_order]
+        else:  # pragma: no cover - defensive fallback
+            schema_columns = list(AssaySchema.to_schema().columns.keys())
+            if schema_columns:
+                for column in schema_columns:
+                    if column not in df.columns:
+                        df[column] = pd.NA
+                df = df.loc[:, schema_columns]
+
+        coerce_retry_after(df)
+        # Normalise nullable integer columns once more before validation.
+        #
+        # Even though ``transform`` already coerces these columns, downstream
+        # callers (including CLI sampling) may mutate frames in between the
+        # stages.  Pandera raises ``coerce_dtype('int64')`` errors when a single
+        # fractional value (e.g. ``"3.5"``) slips through, so we defensively
+        # reuse the same normalisation helper to guarantee determinism at the
+        # point of validation.
+        coerce_nullable_int(df, _NULLABLE_INT_COLUMNS)
 
         try:
             validated_df = AssaySchema.validate(df, lazy=True)
@@ -802,6 +1039,14 @@ class AssayPipeline(PipelineBase):
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("schema_validation_unexpected_error", error=str(exc))
             raise
+
+        output_order = resolve_schema_column_order(AssaySchema)
+        if output_order:
+            missing_output = [col for col in output_order if col not in validated_df.columns]
+            if missing_output:  # pragma: no cover - defensive
+                for column in missing_output:
+                    validated_df[column] = pd.NA
+            validated_df = validated_df.reindex(columns=output_order)
 
         self._check_referential_integrity(validated_df)
 
@@ -870,12 +1115,16 @@ class AssayPipeline(PipelineBase):
 
         values = (
             target_df["target_chembl_id"]
+            .apply(
+                lambda raw: (
+                    registry.normalize("chemistry.chembl_id", raw)
+                    if pd.notna(raw)
+                    else None
+                )
+            )
             .dropna()
-            .astype(str)
-            .str.strip()
-            .str.upper()
         )
-        reference_ids = set(values.tolist())
+        reference_ids = {value for value in values.tolist() if value}
         logger.debug(
             "referential_reference_loaded",
             path=str(target_path),
@@ -894,7 +1143,13 @@ class AssayPipeline(PipelineBase):
         if not reference_ids:
             return
 
-        target_series = df["target_chembl_id"].astype("string").str.upper()
+        target_series = df["target_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
+        )
         missing_mask = target_series.notna() & ~target_series.isin(reference_ids)
         missing_count = int(missing_mask.sum())
 

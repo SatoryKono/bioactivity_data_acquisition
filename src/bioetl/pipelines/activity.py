@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
-import re
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
+import numpy as np
 import pandas as pd
 from pandera.errors import SchemaErrors
 
@@ -20,9 +21,20 @@ from bioetl.core.api_client import (
     UnifiedAPIClient,
 )
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dataframe import resolve_schema_column_order
+from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.qc import (
+    register_fallback_statistics,
+    update_summary_metrics,
+    update_validation_issue_summary,
+)
+from bioetl.utils.io import load_input_frame, resolve_input_path
+from bioetl.utils.json import normalize_json_list
 
 logger = UnifiedLogger.get(__name__)
 
@@ -30,293 +42,28 @@ logger = UnifiedLogger.get(__name__)
 schema_registry.register("activity", "1.0.0", ActivitySchema)
 
 
-NA_STRINGS = {"", "na", "n/a", "none", "null", "nan"}
-RELATION_ALIASES = {
-    "==": "=",
-    "=": "=",
-    "≡": "=",
-    "<": "<",
-    "≤": "<=",
-    "⩽": "<=",
-    "⩾": ">=",
-    "≥": ">=",
-    ">": ">",
-    "~": "~",
-}
-UNIT_SYNONYMS = {
-    "nm": "nM",
-    "nanomolar": "nM",
-    "μm": "µM",
-    "µm": "µM",
-    "um": "µM",
-    "μmolar": "µM",
-    "µmolar": "µM",
-    "mum": "µM",
-    "μmol/l": "µmol/L",
-    "µmol/l": "µmol/L",
-    "umol/l": "µmol/L",
-    "mmol/l": "mmol/L",
-    "mol/l": "mol/L",
-    "μg/ml": "µg/mL",
-    "μg/mL": "µg/mL",
-    "µg/ml": "µg/mL",
-    "µg/mL": "µg/mL",
-    "ug/ml": "µg/mL",
-    "ug/mL": "µg/mL",
-    "ng/ml": "ng/mL",
-    "pg/ml": "pg/mL",
-    "mg/ml": "mg/mL",
-    "mg/l": "mg/L",
-    "ug/l": "µg/L",
-    "μg/l": "µg/L",
-    "µg/l": "µg/L",
-}
-BOOLEAN_TRUE = {"true", "1", "yes", "y", "t"}
-BOOLEAN_FALSE = {"false", "0", "no", "n", "f"}
+INTEGER_COLUMNS: tuple[str, ...] = (
+    "standard_flag",
+    "potential_duplicate",
+    "src_id",
+    "target_tax_id",
+)
+INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
+FLOAT_COLUMNS: tuple[str, ...] = ("fallback_retry_after_sec",)
+NON_NEGATIVE_CACHE_COLUMNS: tuple[str, ...] = ("published_value", "standard_value")
 
 
-def _is_na(value: Any) -> bool:
-    """Return True if the provided value should be treated as NA."""
+@lru_cache(maxsize=1)
+def _get_activity_column_order() -> list[str]:
+    """Return the canonical Activity schema column order with robust fallbacks."""
 
-    if value is None:
-        return True
-    if isinstance(value, float) and math.isnan(value):
-        return True
-    if isinstance(value, str):
-        if value.strip() == "":
-            return True
-        return value.strip().lower() in NA_STRINGS
-    return False
-
-
-def _canonicalize_whitespace(text: str) -> str:
-    """Collapse consecutive whitespace into single spaces."""
-
-    return re.sub(r"\s+", " ", text.strip())
-
-
-def _normalize_string(
-    value: Any,
-    *,
-    uppercase: bool = False,
-    title_case: bool = False,
-    max_length: int | None = None,
-) -> str | None:
-    """Normalize textual values with canonical whitespace and casing."""
-
-    if _is_na(value):
-        return None
-
-    text = str(value)
-    text = _canonicalize_whitespace(text)
-    if not text:
-        return None
-
-    if uppercase:
-        text = text.upper()
-    elif title_case:
-        tokens = text.split(" ")
-        normalized_tokens: list[str] = []
-        for token in tokens:
-            if token.isupper() and len(token) <= 4:
-                normalized_tokens.append(token)
-            elif token.lower() in {"sp.", "spp.", "cf."}:
-                normalized_tokens.append(token.lower())
-            else:
-                normalized_tokens.append(token.capitalize())
-        text = " ".join(normalized_tokens)
-
-    if max_length is not None:
-        text = text[:max_length]
-    return text
-
-
-def _normalize_chembl_id(value: Any) -> str | None:
-    """Normalize ChEMBL identifiers to uppercase canonical form."""
-
-    normalized = _normalize_string(value, uppercase=True)
-    if normalized is None:
-        return None
-    return normalized
-
-
-def _normalize_bao_id(value: Any) -> str | None:
-    """Normalize BAO identifiers."""
-
-    normalized = _normalize_string(value, uppercase=True)
-    if normalized is None:
-        return None
-    return normalized
-
-
-def _normalize_units(value: Any, default: str | None = None) -> str | None:
-    """Normalize measurement units using known synonyms."""
-
-    if _is_na(value):
-        return default
-
-    text = _canonicalize_whitespace(str(value))
-    key = text.lower()
-    canonical = UNIT_SYNONYMS.get(key)
-    if canonical is not None:
-        return canonical
-    return text
-
-
-def _normalize_relation(value: Any, default: str = "=") -> str:
-    """Normalize inequality relations to ASCII equivalents."""
-
-    if _is_na(value):
-        return default
-    relation = str(value).strip()
-    if relation == "":
-        return default
-    return RELATION_ALIASES.get(relation, RELATION_ALIASES.get(relation.lower(), default))
-
-
-def _normalize_float(value: Any) -> float | None:
-    """Convert values to float when possible."""
-
-    if _is_na(value):
-        return None
-    try:
-        result = float(str(value).strip())
-    except (TypeError, ValueError):
-        return None
-    if math.isnan(result):
-        return None
-    return result
-
-
-def _normalize_int(value: Any) -> int | None:
-    """Convert values to integers when possible."""
-
-    if _is_na(value):
-        return None
-    try:
-        return int(str(value).strip())
-    except (TypeError, ValueError):
-        return None
-
-
-def _normalize_bool(value: Any, *, default: bool = False) -> bool:
-    """Normalize boolean-like values to strict bools."""
-
-    if _is_na(value):
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    text = str(value).strip().lower()
-    if text in BOOLEAN_TRUE:
-        return True
-    if text in BOOLEAN_FALSE:
-        return False
-    return default
-
-
-def _normalize_target_organism(value: Any) -> str | None:
-    """Normalize organism names to title case with canonical whitespace."""
-
-    return _normalize_string(value, title_case=True)
-
-
-def _parse_numeric(value: Any) -> float | None:
-    """Best-effort conversion to float for property parsing."""
-
-    if isinstance(value, (int, float)) and not (isinstance(value, float) and math.isnan(value)):
-        return float(value)
-    if isinstance(value, str):
+    columns = resolve_schema_column_order(ActivitySchema)
+    if not columns:
         try:
-            return float(value.strip())
-        except (TypeError, ValueError):
-            return None
-    return None
-
-
-def _normalize_activity_properties(
-    raw: Any,
-) -> tuple[str | None, list[dict[str, Any]]]:
-    """Canonicalize activity properties preserving all entries."""
-
-    if _is_na(raw):
-        return None, []
-
-    parsed: Any = raw
-    if isinstance(raw, str):
-        text = raw.strip()
-        if not text:
-            return None, []
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            return None, []
-
-    if isinstance(parsed, dict):
-        parsed = [parsed]
-
-    if not isinstance(parsed, list):
-        return None, []
-
-    normalized_records: list[dict[str, Any]] = []
-    for entry in parsed:
-        if not isinstance(entry, dict):
-            continue
-        normalized_entry: dict[str, Any] = {}
-        for key, value in entry.items():
-            if isinstance(value, str):
-                text_value = _normalize_string(value)
-                if text_value is None:
-                    normalized_entry[key] = None
-                else:
-                    numeric = _parse_numeric(text_value)
-                    normalized_entry[key] = numeric if numeric is not None else text_value
-            elif isinstance(value, (int, float)):
-                if isinstance(value, float) and math.isnan(value):
-                    normalized_entry[key] = None
-                else:
-                    normalized_entry[key] = value
-            elif isinstance(value, bool) or value is None:
-                normalized_entry[key] = value
-            else:
-                normalized_entry[key] = value
-        if normalized_entry:
-            normalized_records.append(dict(sorted(normalized_entry.items())))
-
-    if not normalized_records:
-        return None, []
-
-    normalized_records.sort(
-        key=lambda item: (
-            str(
-                item.get("name")
-                or item.get("type")
-                or item.get("property_name")
-                or ""
-            ).lower(),
-            json.dumps(item, ensure_ascii=False, sort_keys=True),
-        )
-    )
-    canonical = json.dumps(normalized_records, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return canonical, normalized_records
-
-
-def _normalize_ligand_efficiency(
-    ligand_efficiency: Any,
-) -> tuple[float | None, float | None, float | None, float | None]:
-    """Normalize ligand efficiency metrics once."""
-
-    if not isinstance(ligand_efficiency, dict):
-        return None, None, None, None
-
-    bei = _normalize_float(ligand_efficiency.get("bei"))
-    sei = _normalize_float(ligand_efficiency.get("sei"))
-    le = _normalize_float(ligand_efficiency.get("le"))
-    lle = _normalize_float(ligand_efficiency.get("lle"))
-    return bei, sei, le, lle
-
-
+            columns = ActivitySchema.get_column_order()
+        except AttributeError:  # pragma: no cover - defensive safeguard
+            columns = []
+    return list(columns)
 def _derive_compound_key(
     molecule_id: str | None,
     standard_type: str | None,
@@ -341,7 +88,7 @@ def _derive_is_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower()
         if label.replace(" ", "_") == "is_citation":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -358,7 +105,7 @@ def _derive_exact_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "exact_data_citation":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -375,7 +122,7 @@ def _derive_rounded_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "rounded_data_citation":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -389,13 +136,13 @@ def _derive_high_citation_rate(properties: Sequence[dict[str, Any]]) -> bool:
         numeric = None
         for candidate in ("value", "num_value", "property_value", "count"):
             if candidate in prop:
-                numeric = _parse_numeric(prop.get(candidate))
+                numeric = registry.normalize("numeric", prop.get(candidate))
                 if numeric is not None:
                     break
         if numeric is not None and numeric >= 50:
             return True
         if label.replace(" ", "_") == "high_citation_rate":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -407,12 +154,17 @@ def _derive_is_censored(relation: str | None) -> bool | None:
     return relation != "="
 
 
+# _coerce_nullable_int_columns и _coerce_nullable_float_columns заменены на
+# coerce_nullable_int и coerce_nullable_float из bioetl.utils.dtypes
+
+
 class ActivityPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL activity data."""
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         self._last_validation_report: dict[str, Any] | None = None
+        self._fallback_stats: dict[str, Any] = {}
 
         # Initialize ChEMBL API client
         chembl_source = config.sources.get("chembl")
@@ -441,20 +193,25 @@ class ActivityPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract activity data from input file."""
-        if input_file is None:
-            # Default to data/input/activity.csv
-            input_file = Path("data/input/activity.csv")
+        default_filename = Path("activity.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        # Read input file with activity IDs
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            expected_cols = ActivitySchema.get_column_order()
-            return pd.DataFrame(columns=expected_cols if expected_cols else [])
+        expected_cols = ActivitySchema.get_column_order() or []
+        limit_value = self.get_runtime_limit()
 
-        # Read CSV file
-        df = pd.read_csv(input_file)
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=expected_cols,
+            limit=limit_value,
+        )
+
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         # Map activity_chembl_id to activity_id if needed
         if 'activity_chembl_id' in df.columns:
@@ -463,6 +220,14 @@ class ActivityPipeline(PipelineBase):
 
         # Extract activity IDs for API call
         activity_ids = df['activity_id'].dropna().astype(int).unique().tolist()
+
+        if limit_value is not None and len(activity_ids) > limit_value:
+            logger.info(
+                "applying_input_limit",
+                limit=limit_value,
+                original_ids=len(activity_ids),
+            )
+            activity_ids = activity_ids[:limit_value]
 
         if not activity_ids:
             logger.warning("no_activity_ids_found")
@@ -572,6 +337,22 @@ class ActivityPipeline(PipelineBase):
         )
 
         df = pd.DataFrame(results_sorted)
+        if not df.empty:
+            expected_columns = _get_activity_column_order()
+            if expected_columns:
+                extra_columns = [column for column in df.columns if column not in expected_columns]
+
+                for column in expected_columns:
+                    if column not in df.columns:
+                        if column in INTEGER_COLUMNS_WITH_ID:
+                            df[column] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                        else:
+                            df[column] = pd.Series(pd.NA, index=df.index)
+
+                ordered_columns = [column for column in expected_columns if column in df.columns]
+                df = df[ordered_columns + extra_columns]
+
+            coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
         logger.info("extraction_completed", rows=len(df), from_api=True)
         return df
 
@@ -617,48 +398,79 @@ class ActivityPipeline(PipelineBase):
     def _normalize_activity(self, activity: dict[str, Any]) -> dict[str, Any]:
         """Normalize raw activity payload into a flat record."""
 
-        activity_id = _normalize_int(activity.get("activity_id"))
-        molecule_id = _normalize_chembl_id(activity.get("molecule_chembl_id"))
-        assay_id = _normalize_chembl_id(activity.get("assay_chembl_id"))
-        target_id = _normalize_chembl_id(activity.get("target_chembl_id"))
-        document_id = _normalize_chembl_id(activity.get("document_chembl_id"))
+        activity_id = registry.get("numeric").normalize_int(activity.get("activity_id"))
+        molecule_id = registry.normalize("chemistry.chembl_id", activity.get("molecule_chembl_id"))
+        assay_id = registry.normalize("chemistry.chembl_id", activity.get("assay_chembl_id"))
+        target_id = registry.normalize("chemistry.chembl_id", activity.get("target_chembl_id"))
+        document_id = registry.normalize("chemistry.chembl_id", activity.get("document_chembl_id"))
 
-        published_type = _normalize_string(activity.get("type") or activity.get("published_type"), uppercase=True)
-        published_relation = _normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
-        published_value = _normalize_float(activity.get("value") or activity.get("published_value"))
-        published_units = _normalize_units(activity.get("units") or activity.get("published_units"))
+        published_type = registry.normalize(
+            "chemistry.string",
+            activity.get("type") or activity.get("published_type"),
+            uppercase=True,
+        )
+        published_relation = registry.normalize(
+            "chemistry.relation",
+            activity.get("relation") or activity.get("published_relation"),
+            default="=",
+        )
+        published_value = registry.normalize(
+            "chemistry.non_negative_float",
+            activity.get("value") or activity.get("published_value"),
+            column="published_value",
+        )
+        published_units = registry.normalize(
+            "chemistry.units",
+            activity.get("units") or activity.get("published_units"),
+        )
 
-        standard_type = _normalize_string(activity.get("standard_type"), uppercase=True)
-        standard_relation = _normalize_relation(activity.get("standard_relation"), default="=")
-        standard_value = _normalize_float(activity.get("standard_value"))
-        standard_units = _normalize_units(activity.get("standard_units"), default="nM")
-        standard_flag = _normalize_int(activity.get("standard_flag"))
+        standard_type = registry.normalize(
+            "chemistry.string",
+            activity.get("standard_type"),
+            uppercase=True,
+        )
+        standard_relation = registry.normalize(
+            "chemistry.relation",
+            activity.get("standard_relation"),
+            default="=",
+        )
+        standard_value = registry.normalize(
+            "chemistry.non_negative_float",
+            activity.get("standard_value"),
+            column="standard_value",
+        )
+        standard_units = registry.normalize(
+            "chemistry.units",
+            activity.get("standard_units"),
+            default="nM",
+        )
+        standard_flag = registry.get("numeric").normalize_int(activity.get("standard_flag"))
 
-        lower_bound = _normalize_float(activity.get("standard_lower_value") or activity.get("lower_value"))
-        upper_bound = _normalize_float(activity.get("standard_upper_value") or activity.get("upper_value"))
+        lower_bound = registry.normalize("numeric", activity.get("standard_lower_value") or activity.get("lower_value"))
+        upper_bound = registry.normalize("numeric", activity.get("standard_upper_value") or activity.get("upper_value"))
         is_censored = _derive_is_censored(standard_relation)
 
-        pchembl_value = _normalize_float(activity.get("pchembl_value"))
-        activity_comment = _normalize_string(activity.get("activity_comment"))
-        data_validity_comment = _normalize_string(activity.get("data_validity_comment"))
+        pchembl_value = registry.normalize("numeric", activity.get("pchembl_value"))
+        activity_comment = registry.normalize("chemistry.string", activity.get("activity_comment"))
+        data_validity_comment = registry.normalize("chemistry.string", activity.get("data_validity_comment"))
 
-        bao_endpoint = _normalize_bao_id(activity.get("bao_endpoint"))
-        bao_format = _normalize_bao_id(activity.get("bao_format"))
-        bao_label = _normalize_string(activity.get("bao_label"), max_length=128)
+        bao_endpoint = registry.normalize("chemistry.bao_id", activity.get("bao_endpoint"))
+        bao_format = registry.normalize("chemistry.bao_id", activity.get("bao_format"))
+        bao_label = registry.normalize("chemistry.string", activity.get("bao_label"), max_length=128)
 
-        canonical_smiles = _normalize_string(activity.get("canonical_smiles"))
-        target_organism = _normalize_target_organism(activity.get("target_organism"))
-        target_tax_id = _normalize_int(activity.get("target_tax_id"))
+        canonical_smiles = registry.normalize("chemistry.string", activity.get("canonical_smiles"))
+        target_organism = registry.normalize("chemistry.target_organism", activity.get("target_organism"))
+        target_tax_id = registry.get("numeric").normalize_int(activity.get("target_tax_id"))
 
-        potential_duplicate = _normalize_int(activity.get("potential_duplicate"))
-        uo_units = _normalize_string(activity.get("uo_units"), uppercase=True)
-        qudt_units = _normalize_string(activity.get("qudt_units"))
-        src_id = _normalize_int(activity.get("src_id"))
-        action_type = _normalize_string(activity.get("action_type"))
+        potential_duplicate = registry.get("numeric").normalize_int(activity.get("potential_duplicate"))
+        uo_units = registry.normalize("chemistry.string", activity.get("uo_units"), uppercase=True)
+        qudt_units = registry.normalize("chemistry.string", activity.get("qudt_units"))
+        src_id = registry.get("numeric").normalize_int(activity.get("src_id"))
+        action_type = registry.normalize("chemistry.string", activity.get("action_type"))
 
-        properties_str, properties = _normalize_activity_properties(activity.get("activity_properties"))
+        properties_str, properties = normalize_json_list(activity.get("activity_properties"))
         ligand_efficiency = activity.get("ligand_efficiency") or activity.get("ligand_eff")
-        bei, sei, le, lle = _normalize_ligand_efficiency(ligand_efficiency)
+        bei, sei, le, lle = registry.normalize("chemistry.ligand_efficiency", ligand_efficiency)
 
         compound_key = _derive_compound_key(molecule_id, standard_type, target_id)
         is_citation = _derive_is_citation(document_id, properties)
@@ -711,12 +523,13 @@ class ActivityPipeline(PipelineBase):
             "chembl_release": self._chembl_release,
             "source_system": "chembl",
             "fallback_reason": None,
-            "error_type": None,
-            "error_message": None,
-            "http_status": None,
-            "error_code": None,
-            "retry_after_sec": None,
-            "attempt": None,
+            "fallback_error_type": None,
+            "fallback_error_code": None,
+            "fallback_error_message": None,
+            "fallback_http_status": None,
+            "fallback_retry_after_sec": None,
+            "fallback_attempt": None,
+            "fallback_timestamp": None,
             "run_id": self.run_id,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -731,20 +544,7 @@ class ActivityPipeline(PipelineBase):
     ) -> dict[str, Any]:
         """Create deterministic fallback record enriched with error metadata."""
 
-        http_status = None
-        error_code = None
-        retry_after = None
-
-        if hasattr(error, "response") and getattr(error, "response") is not None:
-            http_status = getattr(error.response, "status_code", None)
-
-        if hasattr(error, "code"):
-            error_code = getattr(error, "code")
-
-        if hasattr(error, "retry_after"):
-            retry_after = getattr(error, "retry_after")
-
-        return {
+        record = {
             "activity_id": activity_id,
             "molecule_chembl_id": None,
             "assay_chembl_id": None,
@@ -787,17 +587,29 @@ class ActivityPipeline(PipelineBase):
             "le": None,
             "lle": None,
             "chembl_release": self._chembl_release,
-            "source_system": "ChEMBL_FALLBACK",
-            "fallback_reason": reason,
-            "error_type": type(error).__name__ if error else None,
-            "error_message": str(error) if error else "Fallback: API unavailable",
-            "http_status": http_status,
-            "error_code": error_code,
-            "retry_after_sec": retry_after,
-            "attempt": getattr(error, "attempt", None),
+            "source_system": "chembl",
+            "fallback_reason": None,
+            "fallback_error_type": None,
+            "fallback_error_code": None,
+            "fallback_error_message": None,
+            "fallback_http_status": None,
+            "fallback_retry_after_sec": None,
+            "fallback_attempt": None,
+            "fallback_timestamp": None,
             "run_id": self.run_id,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
         }
+
+        metadata = build_fallback_payload(
+            entity="activity",
+            reason=reason,
+            error=error,
+            source="ChEMBL_FALLBACK",
+            context={"chembl_release": self._chembl_release, "run_id": self.run_id},
+        )
+        record.update(metadata)
+
+        return record
 
     def _cache_key(self, batch_ids: Iterable[int]) -> str:
         """Create deterministic cache key for a batch of IDs."""
@@ -846,7 +658,69 @@ class ActivityPipeline(PipelineBase):
             cache_path.unlink(missing_ok=True)
             return None
 
-        return [dict(record) for record in data]
+        if not isinstance(data, list):
+            logger.warning("cache_payload_unexpected", path=str(cache_path))
+            return None
+
+        ordered_records: list[dict[str, Any]] = []
+        for raw_record in data:
+            if not isinstance(raw_record, dict):
+                logger.warning("cache_record_invalid", path=str(cache_path))
+                return None
+
+            ordered_records.append(dict(raw_record))
+
+        return self._sanitize_cached_records(ordered_records)
+
+    def _sanitize_cached_records(
+        self, records: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Ensure cached payloads respect non-negative numeric constraints."""
+
+        if not records:
+            return records
+
+        sanitized_records: list[dict[str, Any]] = []
+        for record in records:
+            sanitized = dict(record)
+            activity_id = sanitized.get("activity_id")
+
+            for column in NON_NEGATIVE_CACHE_COLUMNS:
+                if column in sanitized:
+                    sanitized[column] = self._sanitize_cached_non_negative(
+                        sanitized.get(column),
+                        column=column,
+                        activity_id=activity_id,
+                    )
+
+            sanitized_records.append(sanitized)
+
+        return sanitized_records
+
+    def _sanitize_cached_non_negative(
+        self,
+        value: Any,
+        *,
+        column: str,
+        activity_id: Any,
+    ) -> float | None:
+        """Normalise cached numeric values and drop negatives with observability."""
+
+        result = registry.normalize("numeric", value)
+        if result is None:
+            return None
+
+        if result < 0:
+            logger.warning(
+                "cached_non_negative_sanitized",
+                column=column,
+                original_value=result,
+                sanitized_value=None,
+                activity_id=activity_id,
+            )
+            return None
+
+        return result
 
     def _store_batch_in_cache(self, batch_ids: Iterable[int], records: list[dict[str, Any]]) -> None:
         """Persist batch records into the local cache."""
@@ -857,9 +731,15 @@ class ActivityPipeline(PipelineBase):
         cache_path = self._cache_path(batch_ids)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-        serializable = [dict(record) for record in sorted(records, key=lambda row: (row.get("activity_id") or 0, row.get("source_system", "")))]
+        serializable = [
+            dict(record)
+            for record in sorted(
+                records,
+                key=lambda row: (row.get("activity_id") or 0, row.get("source_system", "")),
+            )
+        ]
         with cache_path.open("w", encoding="utf-8") as handle:
-            json.dump(serializable, handle, ensure_ascii=False, sort_keys=True)
+            json.dump(serializable, handle, ensure_ascii=False)
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
@@ -903,16 +783,30 @@ class ActivityPipeline(PipelineBase):
         else:
             df["source_system"] = df["source_system"].fillna("chembl")
 
-        if "chembl_release" not in df.columns:
-            df["chembl_release"] = self._chembl_release
+        release_value = self._chembl_release
+        if isinstance(release_value, str):
+            release_value = release_value.strip()
+
+        if not release_value:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].where(
+                    df["chembl_release"].notna(), pd.NA
+                )
+            else:
+                df["chembl_release"] = pd.Series(pd.NA, index=df.index, dtype="string")
         else:
-            df["chembl_release"] = df["chembl_release"].fillna(self._chembl_release)
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].fillna(release_value)
+            else:
+                df["chembl_release"] = release_value
 
         timestamp_now = datetime.now(timezone.utc).isoformat()
         if "extracted_at" in df.columns:
             df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
         else:
             df["extracted_at"] = timestamp_now
+
+        coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
@@ -922,14 +816,41 @@ class ActivityPipeline(PipelineBase):
         df = df.sort_values(["activity_id", "source_system"])
         df["index"] = range(len(df))
 
-        from bioetl.schemas import ActivitySchema
+        self._update_fallback_artifacts(df)
 
-        expected_cols = ActivitySchema.get_column_order()
+        expected_cols = _get_activity_column_order()
         if expected_cols:
+            missing_columns: list[str] = []
             for col in expected_cols:
                 if col not in df.columns:
-                    df[col] = None
+                    missing_columns.append(col)
+                    if col in INTEGER_COLUMNS_WITH_ID:
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    elif col in FLOAT_COLUMNS:
+                        df[col] = pd.Series(np.nan, index=df.index, dtype="float64")
+                    else:
+                        df[col] = pd.Series(pd.NA, index=df.index)
+            if missing_columns:
+                logger.debug(
+                    "transform_missing_columns_filled",
+                    columns=missing_columns,
+                    total=len(missing_columns),
+                )
             df = df[expected_cols]
+
+        coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
+
+        df = df.convert_dtypes()
+        coerce_retry_after(df)
+
+        coerce_nullable_float(df, FLOAT_COLUMNS)
+
+        if "is_censored" in df.columns:
+            df["is_censored"] = df["is_censored"].astype("boolean")
+
+        for column in INTEGER_COLUMNS:
+            if column in df.columns:
+                df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
 
         return df
 
@@ -946,7 +867,104 @@ class ActivityPipeline(PipelineBase):
             }
             return df
 
+        df = df.copy()
+
+        expected_columns = _get_activity_column_order()
+        if expected_columns:
+            missing_columns = [column for column in expected_columns if column not in df.columns]
+            if missing_columns:
+                for column in missing_columns:
+                    if column in INTEGER_COLUMNS_WITH_ID:
+                        df[column] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    elif column in FLOAT_COLUMNS:
+                        df[column] = pd.Series(np.nan, index=df.index, dtype="float64")
+                    else:
+                        df[column] = pd.Series(pd.NA, index=df.index)
+                logger.debug(
+                    "validation_missing_columns_filled",
+                    columns=missing_columns,
+                )
+
+            extra_columns = [column for column in df.columns if column not in expected_columns]
+            ordered_columns = list(expected_columns) + extra_columns
+            if list(df.columns) != ordered_columns:
+                logger.debug(
+                    "validation_reordered_columns",
+                    expected=len(expected_columns),
+                    extras=extra_columns,
+                )
+                df = df[ordered_columns]
+
+        coerce_retry_after(df)
+        coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
+        coerce_nullable_float(df, FLOAT_COLUMNS)
+
         qc_metrics = self._calculate_qc_metrics(df)
+        fallback_stats = getattr(self, "_fallback_stats", None) or {}
+
+        if fallback_stats:
+            thresholds = getattr(self.config.qc, "thresholds", {}) or {}
+
+            raw_count_threshold = thresholds.get("fallback.count")
+            try:
+                count_threshold = int(raw_count_threshold) if raw_count_threshold is not None else int(
+                    fallback_stats.get("total_rows", len(df))
+                )
+            except (TypeError, ValueError):
+                count_threshold = int(fallback_stats.get("total_rows", len(df)))
+
+            raw_rate_threshold = thresholds.get("fallback.rate")
+            try:
+                rate_threshold = float(raw_rate_threshold) if raw_rate_threshold is not None else 1.0
+            except (TypeError, ValueError):
+                rate_threshold = 1.0
+
+            fallback_count = int(fallback_stats.get("fallback_count", 0))
+            fallback_rate = float(fallback_stats.get("fallback_rate", 0.0))
+
+            count_severity = "info"
+            if fallback_count > count_threshold:
+                count_severity = "error"
+            elif fallback_count > 0:
+                count_severity = "warning"
+
+            rate_severity = "info"
+            if fallback_rate > rate_threshold:
+                rate_severity = "error"
+            elif fallback_rate > 0:
+                rate_severity = "warning"
+
+            qc_metrics["fallback.count"] = {
+                "value": fallback_count,
+                "threshold": count_threshold,
+                "passed": fallback_count <= count_threshold,
+                "severity": count_severity,
+                "details": {
+                    "activity_ids": fallback_stats.get("activity_ids", []),
+                    "reason_counts": fallback_stats.get("reason_counts", {}),
+                },
+            }
+
+            qc_metrics["fallback.rate"] = {
+                "value": fallback_rate,
+                "threshold": rate_threshold,
+                "passed": fallback_rate <= rate_threshold,
+                "severity": rate_severity,
+                "details": {
+                    "fallback_count": fallback_count,
+                    "total_rows": fallback_stats.get("total_rows", len(df)),
+                },
+            }
+
+            self.qc_summary_data.setdefault("metrics", {}).update(
+                {
+                    "fallback.count": qc_metrics["fallback.count"],
+                    "fallback.rate": qc_metrics["fallback.rate"],
+                }
+            )
+
+        self.qc_metrics = qc_metrics
+        update_summary_metrics(self.qc_summary_data, qc_metrics)
         self._last_validation_report = {"metrics": qc_metrics}
 
         severity_threshold = self.config.qc.severity_threshold.lower()
@@ -990,7 +1008,7 @@ class ActivityPipeline(PipelineBase):
             validated_df = ActivitySchema.validate(df, lazy=True)
         except SchemaErrors as exc:
             failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
-            error_count = len(failure_cases) if getattr(failure_cases, "__len__", None) else None
+            error_count = len(failure_cases) if failure_cases is not None else None
             schema_issue: dict[str, Any] = {
                 "metric": "schema.validation",
                 "issue_type": "schema_validation",
@@ -1070,7 +1088,52 @@ class ActivityPipeline(PipelineBase):
             self._last_validation_report["issues"] = list(self.validation_issues)
 
         logger.info("schema_validation_passed", rows=len(validated_df))
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
+
+    def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:
+        """Capture fallback diagnostics for QC reporting and additional outputs."""
+
+        fallback_columns = [
+            "activity_id",
+            "source_system",
+            "fallback_reason",
+            "fallback_error_type",
+            "fallback_error_message",
+            "fallback_http_status",
+            "fallback_error_code",
+            "fallback_retry_after_sec",
+            "fallback_attempt",
+            "fallback_timestamp",
+            "chembl_release",
+            "run_id",
+            "extracted_at",
+        ]
+        fallback_records = register_fallback_statistics(
+            df,
+            summary=self.qc_summary_data,
+            id_column="activity_id",
+            fallback_columns=fallback_columns,
+        )
+
+        self._fallback_stats = self.qc_summary_data.get("fallbacks", {})
+
+        fallback_count = int(self._fallback_stats.get("fallback_count", 0))
+
+        if fallback_count:
+            logger.warning(
+                "chembl_fallback_records_detected",
+                count=fallback_count,
+                activity_ids=self._fallback_stats.get("ids"),
+                reasons=self._fallback_stats.get("reason_counts"),
+            )
+            self.add_additional_table(
+                "activity_fallback_records",
+                fallback_records,
+                relative_path=Path("qc") / "activity_fallback_records.csv",
+            )
+        else:
+            self.remove_additional_table("activity_fallback_records")
 
     @property
     def last_validation_report(self) -> dict[str, Any] | None:

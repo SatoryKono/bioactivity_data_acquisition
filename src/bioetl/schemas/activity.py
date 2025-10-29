@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import pandera as pa
+import pandas as pd
+import pandera.pandas as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema
@@ -52,7 +53,6 @@ STANDARD_UNITS_ALLOWED = {
     "IU/ml",
     "U/mL",
     "U/ml",
-    "mol/L",
     "Molar",
     "mm",
     "cm",
@@ -69,6 +69,13 @@ STANDARD_UNITS_ALLOWED = {
 }
 
 COLUMN_ORDER = [
+    "index",
+    "hash_row",
+    "hash_business_key",
+    "pipeline_version",
+    "source_system",
+    "chembl_release",
+    "extracted_at",
     "activity_id",
     "molecule_chembl_id",
     "assay_chembl_id",
@@ -83,15 +90,20 @@ COLUMN_ORDER = [
     "standard_value",
     "standard_units",
     "standard_flag",
+    "pchembl_value",
     "lower_bound",
     "upper_bound",
     "is_censored",
-    "pchembl_value",
     "activity_comment",
     "data_validity_comment",
     "bao_endpoint",
     "bao_format",
     "bao_label",
+    "potential_duplicate",
+    "uo_units",
+    "qudt_units",
+    "src_id",
+    "action_type",
     "canonical_smiles",
     "target_organism",
     "target_tax_id",
@@ -101,22 +113,18 @@ COLUMN_ORDER = [
     "high_citation_rate",
     "exact_data_citation",
     "rounded_data_citation",
-    "potential_duplicate",
-    "uo_units",
-    "qudt_units",
-    "src_id",
-    "action_type",
     "bei",
     "sei",
     "le",
     "lle",
-    "pipeline_version",
-    "source_system",
-    "chembl_release",
-    "extracted_at",
-    "hash_business_key",
-    "hash_row",
-    "index",
+    "fallback_reason",
+    "fallback_error_type",
+    "fallback_error_code",
+    "fallback_error_message",
+    "fallback_http_status",
+    "fallback_retry_after_sec",
+    "fallback_attempt",
+    "fallback_timestamp",
 ]
 
 
@@ -171,13 +179,20 @@ class ActivitySchema(BaseSchema):
         isin=STANDARD_UNITS_ALLOWED,
         description="Единицы стандартизированного значения",
     )
-    standard_flag: Series[int] = pa.Field(nullable=True, description="Флаг стандартизации (0/1)")
-    pchembl_value: Series[float] = pa.Field(nullable=True, ge=0, description="-log10 нормированное значение")
+    standard_flag: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        coerce=False,
+        description="Флаг стандартизации (0/1)",
+    )
+    pchembl_value: Series[float] = pa.Field(nullable=True,  description="-log10 нормированное значение")
 
     # Boundaries and censorship
     lower_bound: Series[float] = pa.Field(nullable=True, description="Нижняя граница стандартизированного значения")
     upper_bound: Series[float] = pa.Field(nullable=True, description="Верхняя граница стандартизированного значения")
-    is_censored: Series[bool] = pa.Field(nullable=True, description="Флаг цензурирования данных")
+    is_censored: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Флаг цензурирования данных",
+    )
 
     # Comments
     activity_comment: Series[str] = pa.Field(nullable=True, description="Комментарий к активности")
@@ -189,16 +204,30 @@ class ActivitySchema(BaseSchema):
     bao_label: Series[str] = pa.Field(nullable=True, description="BAO label (Bioassay Ontology)")
 
     # Ontologies and metadata
-    potential_duplicate: Series[int] = pa.Field(nullable=True, isin=[0, 1], description="Возможный дубликат активности")
+    potential_duplicate: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        coerce=False,
+        isin=[0, 1],
+        description="Возможный дубликат активности",
+    )
     uo_units: Series[str] = pa.Field(nullable=True, regex=r'^UO_\d{7}$', description="Unit Ontology ID")
     qudt_units: Series[str] = pa.Field(nullable=True, description="QUDT URI для единиц измерения")
-    src_id: Series[int] = pa.Field(nullable=True, description="ID источника данных")
+    src_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        coerce=False,
+        description="ID источника данных",
+    )
     action_type: Series[str] = pa.Field(nullable=True, description="Тип действия лиганда")
 
     # Activity properties (JSON string)
     canonical_smiles: Series[str] = pa.Field(nullable=True, description="Канонический SMILES лиганда")
     target_organism: Series[str] = pa.Field(nullable=True, description="Организм таргета")
-    target_tax_id: Series[int] = pa.Field(nullable=True, ge=1, description="NCBI Taxonomy ID таргета")
+    target_tax_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        coerce=False,
+        ge=1,
+        description="NCBI Taxonomy ID таргета",
+    )
     activity_properties: Series[str] = pa.Field(nullable=True, description="Свойства активности в каноническом виде")
     compound_key: Series[str] = pa.Field(nullable=True, description="Бизнес-ключ для связывания активности")
     is_citation: Series[bool] = pa.Field(nullable=True, description="Флаг наличия цитирования")
@@ -212,63 +241,63 @@ class ActivitySchema(BaseSchema):
     le: Series[float] = pa.Field(nullable=True, description="Ligand Efficiency")
     lle: Series[float] = pa.Field(nullable=True, description="Lipophilic Ligand Efficiency")
 
+    # Fallback metadata
+    fallback_reason: Series[str] = pa.Field(
+        nullable=True,
+        description="Reason why the fallback record was generated",
+    )
+    fallback_error_type: Series[str] = pa.Field(
+        nullable=True,
+        description="Exception class that triggered the fallback",
+    )
+    fallback_error_code: Series[str] = pa.Field(
+        nullable=True,
+        description="Normalized error code captured for the fallback",
+    )
+    fallback_error_message: Series[str] = pa.Field(
+        nullable=True,
+        description="Human readable error message captured for the fallback",
+    )
+    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="HTTP status associated with the fallback (if any)",
+    )
+    fallback_retry_after_sec: Series[float] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Retry-After header (seconds) returned by the upstream API",
+    )
+    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Attempt number when the fallback was emitted",
+    )
+    fallback_timestamp: Series[str] = pa.Field(
+        nullable=True,
+        description="UTC timestamp when the fallback record was materialised",
+    )
+
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
 
-    # Column order: business fields first, then system fields, then hash fields
-    _column_order = [
-        "activity_id",
-        "molecule_chembl_id",
-        "assay_chembl_id",
-        "target_chembl_id",
-        "document_chembl_id",
-        "published_type",
-        "published_relation",
-        "published_value",
-        "published_units",
-        "standard_type",
-        "standard_relation",
-        "standard_value",
-        "standard_units",
-        "standard_flag",
-        "lower_bound",
-        "upper_bound",
-        "is_censored",
-        "pchembl_value",
-        "activity_comment",
-        "data_validity_comment",
-        "bao_endpoint",
-        "bao_format",
-        "bao_label",
-        "canonical_smiles",
-        "target_organism",
-        "target_tax_id",
-        "activity_properties",
-        "compound_key",
-        "is_citation",
-        "high_citation_rate",
-        "exact_data_citation",
-        "rounded_data_citation",
-        "potential_duplicate",
-        "uo_units",
-        "qudt_units",
-        "src_id",
-        "action_type",
-        "bei",
-        "sei",
-        "le",
-        "lle",
-        "pipeline_version",
-        "source_system",
-        "chembl_release",
-        "extracted_at",
-        "hash_business_key",
-        "hash_row",
-        "index",
-    ]
+    # Column order: system/hash fields first (per BaseSchema), then business fields
+    _column_order = COLUMN_ORDER
 
-    class Config:
+    class Config(BaseSchema.Config):
         strict = True
         coerce = True
-        ordered = True
+        ordered = False  # Column order enforced via pipeline determinism utilities
+
+
+class _ActivityColumnOrderAccessor:
+    """Descriptor exposing column order for backwards compatibility."""
+
+    def __get__(self, instance, owner) -> list[str]:  # noqa: D401 - short accessor
+        return ActivitySchema.get_column_order()
+
+
+# Mirror behaviour from other schemas: surface column_order via Config without
+# registering it as a Pandera check during model creation.
+ActivitySchema.Config.ordered = False
 

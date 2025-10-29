@@ -20,7 +20,7 @@ class IdentifierNormalizer(BaseNormalizer):
         "openalex": r"^[WASICF]\d+$",
     }
 
-    def normalize(self, value: str) -> str | None:
+    def normalize(self, value: str, **_: Any) -> str | None:
         """Нормализует идентификатор."""
         if not isinstance(value, str):
             return None

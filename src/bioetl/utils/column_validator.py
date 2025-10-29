@@ -1,0 +1,402 @@
+"""Утилита для сравнения колонок в выводе с требованиями."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import pandera.pandas as pa
+
+from bioetl.core.logger import UnifiedLogger
+from bioetl.schemas.registry import SchemaRegistry
+from bioetl.utils.dataframe import resolve_schema_column_order
+
+logger = UnifiedLogger.get(__name__)
+
+
+class ColumnComparisonResult:
+    """Результат сравнения колонок."""
+
+    def __init__(
+        self,
+        entity: str,
+        expected_columns: list[str],
+        actual_columns: list[str],
+        missing_columns: list[str],
+        extra_columns: list[str],
+        order_matches: bool,
+        column_count_matches: bool,
+        empty_columns: list[str],
+        non_empty_columns: list[str],
+    ):
+        self.entity = entity
+        self.expected_columns = expected_columns
+        self.actual_columns = actual_columns
+        self.missing_columns = missing_columns
+        self.extra_columns = extra_columns
+        self.order_matches = order_matches
+        self.column_count_matches = column_count_matches
+        self.empty_columns = empty_columns
+        self.non_empty_columns = non_empty_columns
+        self.overall_match = (
+            len(missing_columns) == 0
+            and len(extra_columns) == 0
+            and order_matches
+            and column_count_matches
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Преобразовать результат в словарь."""
+        return {
+            "entity": self.entity,
+            "overall_match": self.overall_match,
+            "expected_columns": self.expected_columns,
+            "actual_columns": self.actual_columns,
+            "missing_columns": self.missing_columns,
+            "extra_columns": self.extra_columns,
+            "order_matches": self.order_matches,
+            "column_count_matches": self.column_count_matches,
+            "empty_columns": self.empty_columns,
+            "non_empty_columns": self.non_empty_columns,
+            "expected_count": len(self.expected_columns),
+            "actual_count": len(self.actual_columns),
+            "empty_count": len(self.empty_columns),
+            "non_empty_count": len(self.non_empty_columns),
+        }
+
+
+class ColumnValidator:
+    """Валидатор колонок для сравнения с требованиями."""
+
+    def __init__(self):
+        self.logger = UnifiedLogger.get(__name__)
+
+    def compare_columns(
+        self,
+        entity: str,
+        actual_df: pd.DataFrame,
+        schema_version: str = "latest",
+    ) -> ColumnComparisonResult:
+        """
+        Сравнить колонки в DataFrame с ожидаемой схемой.
+
+        Args:
+            entity: Имя сущности (assay, activity, testitem, target, document)
+            actual_df: DataFrame для проверки
+            schema_version: Версия схемы для сравнения
+
+        Returns:
+            ColumnComparisonResult с результатами сравнения
+        """
+        try:
+            # Получить схему из реестра
+            schema = SchemaRegistry.get(entity, schema_version)
+            expected_columns = self._get_expected_columns(schema)
+
+            # Получить фактические колонки
+            actual_columns = list(actual_df.columns)
+
+            # Сравнить колонки
+            missing_columns = list(set(expected_columns) - set(actual_columns))
+            extra_columns = list(set(actual_columns) - set(expected_columns))
+            order_matches = expected_columns == actual_columns
+            column_count_matches = len(expected_columns) == len(actual_columns)
+
+            # Проверить пустые колонки
+            empty_columns, non_empty_columns = self._analyze_column_data(actual_df)
+
+            result = ColumnComparisonResult(
+                entity=entity,
+                expected_columns=expected_columns,
+                actual_columns=actual_columns,
+                missing_columns=missing_columns,
+                extra_columns=extra_columns,
+                order_matches=order_matches,
+                column_count_matches=column_count_matches,
+                empty_columns=empty_columns,
+                non_empty_columns=non_empty_columns,
+            )
+
+            self.logger.info(
+                "column_comparison_completed",
+                entity=entity,
+                overall_match=result.overall_match,
+                expected_count=len(expected_columns),
+                actual_count=len(actual_columns),
+                missing_count=len(missing_columns),
+                extra_count=len(extra_columns),
+            )
+
+            return result
+
+        except Exception as e:
+            self.logger.error(
+                "column_comparison_failed",
+                entity=entity,
+                error=str(e),
+            )
+            raise
+
+    def _get_expected_columns(self, schema: pa.DataFrameModel) -> list[str]:
+        """Получить ожидаемые колонки из схемы."""
+        return resolve_schema_column_order(schema)
+
+    def _analyze_column_data(self, df: pd.DataFrame) -> tuple[list[str], list[str]]:
+        """
+        Анализировать данные в колонках и определить пустые/непустые.
+
+        Args:
+            df: DataFrame для анализа
+
+        Returns:
+            Tuple[empty_columns, non_empty_columns]
+        """
+        empty_columns = []
+        non_empty_columns = []
+
+        for column in df.columns:
+            # Проверить, есть ли непустые значения
+            non_null_count = df[column].notna().sum()
+
+            if non_null_count == 0:
+                empty_columns.append(column)
+            else:
+                non_empty_columns.append(column)
+
+        return empty_columns, non_empty_columns
+
+    def generate_report(
+        self,
+        results: list[ColumnComparisonResult],
+        output_path: Path,
+    ) -> Path:
+        """
+        Сгенерировать отчет о сравнении колонок.
+
+        Args:
+            results: Список результатов сравнения
+            output_path: Путь для сохранения отчета
+
+        Returns:
+            Путь к созданному отчету
+        """
+        report_data = {
+            "timestamp": pd.Timestamp.now().isoformat(),
+            "summary": self._generate_summary(results),
+            "details": [result.to_dict() for result in results],
+        }
+
+        # Сохранить JSON отчет
+        json_path = output_path / "column_comparison_report.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(report_data, f, indent=2, ensure_ascii=False)
+
+        # Создать Markdown отчет
+        md_path = output_path / "column_comparison_report.md"
+        self._generate_markdown_report(report_data, md_path)
+
+        self.logger.info(
+            "column_comparison_report_generated",
+            json_path=str(json_path),
+            md_path=str(md_path),
+        )
+
+        return md_path
+
+    def _generate_summary(self, results: list[ColumnComparisonResult]) -> dict[str, Any]:
+        """Сгенерировать сводку результатов."""
+        total_entities = len(results)
+        matching_entities = sum(1 for r in results if r.overall_match)
+        entities_with_issues = total_entities - matching_entities
+
+        return {
+            "total_entities": total_entities,
+            "matching_entities": matching_entities,
+            "entities_with_issues": entities_with_issues,
+            "overall_success_rate": matching_entities / total_entities if total_entities > 0 else 0,
+            "issues": {
+                "missing_columns": sum(len(r.missing_columns) for r in results),
+                "extra_columns": sum(len(r.extra_columns) for r in results),
+                "order_mismatches": sum(1 for r in results if not r.order_matches),
+                "count_mismatches": sum(1 for r in results if not r.column_count_matches),
+                "empty_columns": sum(len(r.empty_columns) for r in results),
+            },
+        }
+
+    def _generate_markdown_report(
+        self,
+        report_data: dict[str, Any],
+        output_path: Path,
+    ) -> None:
+        """Сгенерировать Markdown отчет."""
+        results: list[dict[str, Any]] = report_data["details"]
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("# Отчет о сравнении колонок\n\n")
+            f.write(f"**Дата:** {report_data['timestamp']}\n\n")
+
+            # Сводка
+            summary = report_data["summary"]
+            f.write("## Сводка\n\n")
+            f.write(f"- **Всего сущностей:** {summary['total_entities']}\n")
+            f.write(f"- **Соответствуют требованиям:** {summary['matching_entities']}\n")
+            f.write(f"- **Имеют проблемы:** {summary['entities_with_issues']}\n")
+            f.write(f"- **Процент успеха:** {summary['overall_success_rate']:.1%}\n\n")
+
+            # Проблемы
+            issues = summary["issues"]
+            f.write("## Проблемы\n\n")
+            f.write(f"- **Отсутствующие колонки:** {issues['missing_columns']}\n")
+            f.write(f"- **Лишние колонки:** {issues['extra_columns']}\n")
+            f.write(f"- **Несоответствие порядка:** {issues['order_mismatches']}\n")
+            f.write(f"- **Несоответствие количества:** {issues['count_mismatches']}\n")
+            f.write(f"- **Пустые колонки:** {issues['empty_columns']}\n\n")
+
+            # Детали по каждой сущности
+            f.write("## Детали по сущностям\n\n")
+            for detail in results:
+                f.write(f"### {detail['entity'].upper()}\n\n")
+                f.write(f"**Статус:** {'Соответствует' if detail['overall_match'] else 'Не соответствует'}\n\n")
+                f.write(f"**Количество колонок:** {detail['actual_count']} (ожидается {detail['expected_count']})\n")
+                f.write(f"**Пустые колонки:** {detail['empty_count']} из {detail['actual_count']}\n\n")
+
+                if detail["missing_columns"]:
+                    f.write("**Отсутствующие колонки:**\n")
+                    for col in detail["missing_columns"]:
+                        f.write(f"- `{col}`\n")
+                    f.write("\n")
+
+                if detail["extra_columns"]:
+                    f.write("**Лишние колонки:**\n")
+                    for col in detail["extra_columns"]:
+                        f.write(f"- `{col}`\n")
+                    f.write("\n")
+
+                if not detail["order_matches"]:
+                    f.write("**Порядок колонок не соответствует требованиям**\n\n")
+
+                if detail["empty_columns"]:
+                    f.write("**Пустые колонки:**\n")
+                    for col in detail["empty_columns"]:
+                        f.write(f"- `{col}`\n")
+                    f.write("\n")
+
+                f.write("---\n\n")
+
+    def validate_pipeline_output(
+        self,
+        pipeline_name: str,
+        output_dir: Path,
+        schema_version: str = "latest",
+    ) -> list[ColumnComparisonResult]:
+        """
+        Валидировать выходные данные pipeline.
+
+        Args:
+            pipeline_name: Имя pipeline (assay, activity, testitem, target, document)
+            output_dir: Директория с выходными данными
+            schema_version: Версия схемы для сравнения
+
+        Returns:
+            Список результатов сравнения
+        """
+        results: list[ColumnComparisonResult] = []
+
+        # Найти CSV файлы в выходной директории
+        csv_files = [
+            csv_file
+            for csv_file in output_dir.glob("**/*.csv")
+            if not self._should_skip_file(csv_file)
+        ]
+
+        if not csv_files:
+            self.logger.warning(
+                "no_csv_files_found",
+                pipeline_name=pipeline_name,
+                output_dir=str(output_dir),
+            )
+            return results
+
+        git_lfs_pointers: list[Path] = []
+
+        for csv_file in csv_files:
+            try:
+                if self._is_git_lfs_pointer(csv_file):
+                    git_lfs_pointers.append(csv_file)
+                    self.logger.warning(
+                        "git_lfs_pointer_detected",
+                        file=str(csv_file),
+                        hint="Fetch real artifacts with `git lfs pull` or rerun the pipeline.",
+                    )
+                    continue
+
+                # Загрузить DataFrame
+                df = pd.read_csv(csv_file)
+
+                # Определить сущность по имени файла
+                entity = self._extract_entity_from_filename(csv_file.name)
+
+                # Сравнить колонки
+                result = self.compare_columns(entity, df, schema_version)
+                results.append(result)
+
+            except Exception as e:
+                self.logger.error(
+                    "validation_failed_for_file",
+                    file=str(csv_file),
+                    error=str(e),
+                )
+
+        if git_lfs_pointers and not results:
+            pointer_list = ", ".join(str(path) for path in git_lfs_pointers)
+            raise ValueError(
+                "Не удалось валидировать колонки: обнаружены только Git LFS pointer файлы. "
+                "Загрузите реальные артефакты (git lfs pull) или перезапустите пайплайн. "
+                f"Файлы: {pointer_list}"
+            )
+
+        return results
+
+    def _extract_entity_from_filename(self, filename: str) -> str:
+        """Извлечь имя сущности из имени файла."""
+        # Убрать расширение и путь
+        name = Path(filename).stem
+
+        # Маппинг имен файлов на сущности
+        entity_mapping = {
+            "assay": "assay",
+            "activity": "activity",
+            "testitem": "testitem",
+            "testitems": "testitem",
+            "target": "target",
+            "targets": "target",
+            "document": "document",
+            "documents": "document",
+        }
+
+        return entity_mapping.get(name, name)
+
+    def _should_skip_file(self, path: Path) -> bool:
+        """Определить, следует ли пропустить CSV файл при валидации."""
+
+        filename = path.name.lower()
+        skip_suffixes = (
+            "_quality_report.csv",
+            "_correlation_report.csv",
+            "_qc.csv",
+            "_metadata.csv",
+        )
+
+        return filename.endswith(skip_suffixes)
+
+    def _is_git_lfs_pointer(self, path: Path) -> bool:
+        """Проверить, представляет ли файл указатель Git LFS."""
+
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                first_line = handle.readline().strip()
+        except OSError:
+            return False
+
+        return first_line.startswith("version https://git-lfs.github.com/spec/")

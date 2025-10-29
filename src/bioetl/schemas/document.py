@@ -1,10 +1,13 @@
 """Document schema for multi-source enrichment according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
+from __future__ import annotations
+
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
+from pandera.engines import pandas_engine
 from pandera.typing import Series
 
-from bioetl.schemas.base import BaseSchema
+from bioetl.schemas.base import BaseSchema, expose_config_column_order
 
 
 class DocumentRawSchema(pa.DataFrameModel):
@@ -15,24 +18,37 @@ class DocumentRawSchema(pa.DataFrameModel):
         nullable=False,
         description="Primary identifier for the document record",
     )
-    title: Series[str] = pa.Field(nullable=True, description="Document title from ChEMBL")
     abstract: Series[str] = pa.Field(nullable=True, description="Abstract text from ChEMBL")
-    doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
-    year: Series[pd.Int64Dtype] = pa.Field(
+    authors: Series[str] = pa.Field(nullable=True, description="Author list from ChEMBL")
+    classification: Series[str] = pa.Field(
         nullable=True,
-        description="Publication year reported by ChEMBL",
+        description="Document classification flag provided by ChEMBL",
     )
+    document_contains_external_links: Series[str] = pa.Field(
+        nullable=True,
+        description="Raw indicator for external references provided by ChEMBL",
+    )
+    doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
+    first_page: Series[str] = pa.Field(nullable=True, description="First page of article")
+    is_experimental_doc: Series[str] = pa.Field(
+        nullable=True,
+        description="Whether ChEMBL classifies the document as experimental",
+    )
+    issue: Series[str] = pa.Field(nullable=True, description="Journal issue")
     journal: Series[str] = pa.Field(nullable=True, description="Journal name")
     journal_abbrev: Series[str] = pa.Field(nullable=True, description="Journal abbreviation")
-    volume: Series[str] = pa.Field(nullable=True, description="Journal volume")
-    issue: Series[str] = pa.Field(nullable=True, description="Journal issue")
-    first_page: Series[str] = pa.Field(nullable=True, description="First page of article")
     last_page: Series[str] = pa.Field(nullable=True, description="Last page of article")
-    pubmed_id: Series[pd.Int64Dtype] = pa.Field(
+    month: Series[str] = pa.Field(nullable=True, description="Publication month reported by ChEMBL")
+    pubmed_id: Series[str] = pa.Field(
         nullable=True,
         description="PubMed identifier supplied by ChEMBL",
     )
-    authors: Series[str] = pa.Field(nullable=True, description="Author list from ChEMBL")
+    title: Series[str] = pa.Field(nullable=True, description="Document title from ChEMBL")
+    volume: Series[str] = pa.Field(nullable=True, description="Journal volume")
+    year: Series[str] = pa.Field(
+        nullable=True,
+        description="Publication year reported by ChEMBL",
+    )
     source: Series[str] = pa.Field(
         nullable=True,
         description="Source system providing the document payload",
@@ -40,8 +56,59 @@ class DocumentRawSchema(pa.DataFrameModel):
 
     class Config:
         strict = False
-        ordered = True
+        # Allow Pandera to accept column order permutations that appear in
+        # upstream payloads. The pipeline itself reorders columns deterministically
+        # before validation, but disabling Pandera's order enforcement prevents
+        # false-positive ``COLUMN_NOT_ORDERED`` errors when CSV inputs arrive in a
+        # different order (a common scenario observed by CLI users on Windows).
+        ordered = False
         coerce = True
+
+    @classmethod
+    def validate(  # type: ignore[override]
+        cls,
+        check_obj: pd.DataFrame,
+        *args,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """Validate ``check_obj`` while being resilient to column permutations.
+
+        Some Pandera versions incorrectly trigger ``COLUMN_NOT_ORDERED`` errors
+        even when ``Config.ordered`` is set to ``False`` on the ``DataFrameModel``.
+        To guarantee consistent behaviour across environments (notably on
+        Windows/Python 3.13 where the regression was observed), we normalize the
+        incoming DataFrame prior to delegating to Pandera. Missing optional
+        columns are added as ``pd.NA`` so validation retains deterministic column
+        order, and extra columns are preserved in their original positions after
+        the schema-enforced subset is validated.
+        """
+
+        schema = cls.to_schema()
+        schema._ordered = False  # defensive: ensure ordering is never enforced
+
+        if not isinstance(check_obj, pd.DataFrame):
+            return schema.validate(check_obj, *args, **kwargs)
+
+        original_columns = list(check_obj.columns)
+        expected_columns = list(schema.columns.keys())
+
+        working_df = check_obj.copy()
+        missing_columns = [col for col in expected_columns if col not in working_df.columns]
+
+        for column in missing_columns:
+            working_df[column] = pd.NA
+
+        ordered_df = working_df.reindex(columns=expected_columns)
+        validated_core = schema.validate(ordered_df, *args, **kwargs)
+
+        extra_columns = [col for col in original_columns if col not in expected_columns]
+        if extra_columns:
+            extras = working_df.loc[:, extra_columns]
+            # ``pd.concat`` preserves the deterministic order of the schema
+            # columns while keeping user-supplied extras to the right.
+            return pd.concat([validated_core, extras], axis=1)
+
+        return validated_core
 
 
 class DocumentSchema(BaseSchema):
@@ -58,13 +125,25 @@ class DocumentSchema(BaseSchema):
     )
 
     # Core document information
-    document_pubmed_id: Series[int] = pa.Field(nullable=True, description="Document PubMed ID")
+    document_pubmed_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Document PubMed ID",
+    )
     document_classification: Series[str] = pa.Field(nullable=True, description="Document classification")
-    referenses_on_previous_experiments: Series[bool] = pa.Field(nullable=True, description="References on previous experiments")
-    original_experimental_document: Series[bool] = pa.Field(nullable=True, description="Original experimental document")
+    referenses_on_previous_experiments: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="References on previous experiments",
+    )
+    original_experimental_document: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Original experimental document",
+    )
 
     # Resolved fields with precedence
-    pmid: Series[int] = pa.Field(nullable=True, description="Resolved PMID using precedence")
+    pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved PMID using precedence",
+    )
     pmid_source: Series[str] = pa.Field(nullable=True, description="Source of resolved PMID")
     doi_clean: Series[str] = pa.Field(nullable=True, description="Resolved DOI using precedence")
     doi_clean_source: Series[str] = pa.Field(nullable=True, description="Source of resolved DOI")
@@ -78,7 +157,10 @@ class DocumentSchema(BaseSchema):
     journal_abbrev_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal abbreviation")
     authors: Series[str] = pa.Field(nullable=True, description="Resolved authors")
     authors_source: Series[str] = pa.Field(nullable=True, description="Source of resolved authors")
-    year: Series[int] = pa.Field(nullable=True, description="Resolved publication year")
+    year: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved publication year",
+    )
     year_source: Series[str] = pa.Field(nullable=True, description="Source of resolved publication year")
     volume: Series[str] = pa.Field(nullable=True, description="Resolved journal volume")
     volume_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal volume")
@@ -92,15 +174,24 @@ class DocumentSchema(BaseSchema):
     issn_print_source: Series[str] = pa.Field(nullable=True, description="Source of resolved print ISSN")
     issn_electronic: Series[str] = pa.Field(nullable=True, description="Resolved electronic ISSN")
     issn_electronic_source: Series[str] = pa.Field(nullable=True, description="Source of resolved electronic ISSN")
-    is_oa: Series[bool] = pa.Field(nullable=True, description="Resolved Open Access flag")
+    is_oa: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Resolved Open Access flag",
+    )
     is_oa_source: Series[str] = pa.Field(nullable=True, description="Source of Open Access flag")
     oa_status: Series[str] = pa.Field(nullable=True, description="Resolved OA status")
     oa_status_source: Series[str] = pa.Field(nullable=True, description="Source of OA status")
     oa_url: Series[str] = pa.Field(nullable=True, description="Resolved OA URL")
     oa_url_source: Series[str] = pa.Field(nullable=True, description="Source of OA URL")
-    citation_count: Series[int] = pa.Field(nullable=True, description="Resolved citation count")
+    citation_count: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved citation count",
+    )
     citation_count_source: Series[str] = pa.Field(nullable=True, description="Source of citation count")
-    influential_citations: Series[int] = pa.Field(nullable=True, description="Resolved influential citation count")
+    influential_citations: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved influential citation count",
+    )
     influential_citations_source: Series[str] = pa.Field(nullable=True, description="Source of influential citations")
     fields_of_study: Series[str] = pa.Field(nullable=True, description="Resolved fields of study")
     fields_of_study_source: Series[str] = pa.Field(nullable=True, description="Source of fields of study")
@@ -111,14 +202,32 @@ class DocumentSchema(BaseSchema):
     chemicals: Series[str] = pa.Field(nullable=True, description="Resolved chemicals list")
     chemicals_source: Series[str] = pa.Field(nullable=True, description="Source of chemicals list")
 
-    conflict_doi: Series[bool] = pa.Field(nullable=True, description="Conflict flag for DOI discrepancies")
-    conflict_pmid: Series[bool] = pa.Field(nullable=True, description="Conflict flag for PMID discrepancies")
+    conflict_doi: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Conflict flag for DOI discrepancies",
+    )
+    conflict_pmid: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Conflict flag for PMID discrepancies",
+    )
 
     # PMID fields (4 sources)
-    chembl_pmid: Series[int] = pa.Field(nullable=True, description="PMID из ChEMBL")
-    pubmed_pmid: Series[int] = pa.Field(nullable=True, description="PMID из PubMed")
-    openalex_pmid: Series[int] = pa.Field(nullable=True, description="PMID из OpenAlex")
-    semantic_scholar_pmid: Series[int] = pa.Field(nullable=True, description="PMID из Semantic Scholar")
+    chembl_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из ChEMBL",
+    )
+    pubmed_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из PubMed",
+    )
+    openalex_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из OpenAlex",
+    )
+    semantic_scholar_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из Semantic Scholar",
+    )
 
     # Title fields (5 sources)
     chembl_title: Series[str] = pa.Field(nullable=True, description="Заголовок из ChEMBL")
@@ -159,10 +268,16 @@ class DocumentSchema(BaseSchema):
     semantic_scholar_journal: Series[str] = pa.Field(nullable=True, description="Название журнала из Semantic Scholar")
 
     # Year fields (2 sources)
-    chembl_year: Series[int] = pa.Field(
-        ge=1800, le=2100, nullable=True, description="Год публикации из ChEMBL"
+    chembl_year: Series[pd.Int64Dtype] = pa.Field(
+        ge=1800,
+        le=2100,
+        nullable=True,
+        description="Год публикации из ChEMBL",
     )
-    openalex_year: Series[int] = pa.Field(nullable=True, description="Год публикации из OpenAlex")
+    openalex_year: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Год публикации из OpenAlex",
+    )
 
     # Volume/Issue fields (4 sources)
     chembl_volume: Series[str] = pa.Field(nullable=True, description="Том журнала из ChEMBL")
@@ -183,12 +298,30 @@ class DocumentSchema(BaseSchema):
     pubmed_mesh_descriptors: Series[str] = pa.Field(nullable=True, description="PubMed MeSH descriptors")
     pubmed_mesh_qualifiers: Series[str] = pa.Field(nullable=True, description="PubMed MeSH qualifiers")
     pubmed_chemical_list: Series[str] = pa.Field(nullable=True, description="PubMed chemical list")
-    pubmed_year_completed: Series[int] = pa.Field(nullable=True, description="PubMed year completed")
-    pubmed_month_completed: Series[int] = pa.Field(nullable=True, description="PubMed month completed")
-    pubmed_day_completed: Series[int] = pa.Field(nullable=True, description="PubMed day completed")
-    pubmed_year_revised: Series[int] = pa.Field(nullable=True, description="PubMed year revised")
-    pubmed_month_revised: Series[int] = pa.Field(nullable=True, description="PubMed month revised")
-    pubmed_day_revised: Series[int] = pa.Field(nullable=True, description="PubMed day revised")
+    pubmed_year_completed: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed year completed",
+    )
+    pubmed_month_completed: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed month completed",
+    )
+    pubmed_day_completed: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed day completed",
+    )
+    pubmed_year_revised: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed year revised",
+    )
+    pubmed_month_revised: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed month revised",
+    )
+    pubmed_day_revised: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed day revised",
+    )
 
     # Crossref specific
     crossref_subject: Series[str] = pa.Field(nullable=True, description="Crossref subject")
@@ -200,9 +333,41 @@ class DocumentSchema(BaseSchema):
     semantic_scholar_error: Series[str] = pa.Field(nullable=True, description="Ошибка Semantic Scholar адаптера")
 
     # Fallback level error context
-    error_type: Series[str] = pa.Field(nullable=True, description="Код ошибки для fallback строки")
-    error_message: Series[str] = pa.Field(nullable=True, description="Текст ошибки для fallback строки")
-    attempted_at: Series[str] = pa.Field(nullable=True, description="ISO8601 время последней попытки")
+    fallback_reason: Series[str] = pa.Field(
+        nullable=True,
+        description="Причина генерации fallback записи",
+    )
+    fallback_error_type: Series[str] = pa.Field(
+        nullable=True,
+        description="Класс исключения, инициировавший fallback",
+    )
+    fallback_error_code: Series[str] = pa.Field(
+        nullable=True,
+        description="Нормализованный код ошибки для fallback",
+    )
+    fallback_error_message: Series[str] = pa.Field(
+        nullable=True,
+        description="Текст ошибки для fallback строки",
+    )
+    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="HTTP статус, ассоциированный с fallback",
+    )
+    fallback_retry_after_sec: Series[float] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Retry-After (секунды), предоставленный API",
+    )
+    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Номер попытки, на которой зафиксирован fallback",
+    )
+    fallback_timestamp: Series[str] = pa.Field(
+        nullable=True,
+        description="ISO8601 время создания fallback записи",
+    )
 
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
@@ -210,98 +375,150 @@ class DocumentSchema(BaseSchema):
     # Column order according to IO_SCHEMAS_AND_DIAGRAMS.md line 957
     # Stored as class attribute to avoid Pandera treating it as a custom check
     _column_order = [
-            "index",
-            "extracted_at",
-            "pipeline_version",
-            "source_system",
-            "chembl_release",
-            "hash_business_key",
-            "hash_row",
-            "document_chembl_id",
-            "document_pubmed_id",
-            "document_classification",
-            "referenses_on_previous_experiments",
-            "original_experimental_document",
-            "pubmed_mesh_descriptors",
-            "pubmed_mesh_qualifiers",
-            "pubmed_chemical_list",
-            "crossref_subject",
-            # PMID (4)
-            "chembl_pmid",
-            "openalex_pmid",
-            "pubmed_pmid",
-            "semantic_scholar_pmid",
-            # Title (5)
-            "chembl_title",
-            "crossref_title",
-            "openalex_title",
-            "pubmed_article_title",
-            "semantic_scholar_title",
-            # Abstract (2)
-            "chembl_abstract",
-            "pubmed_abstract",
-            # Authors (5)
-            "chembl_authors",
-            "crossref_authors",
-            "openalex_authors",
-            "pubmed_authors",
-            "semantic_scholar_authors",
-            # DOI (5)
-            "chembl_doi",
-            "crossref_doi",
-            "openalex_doi",
-            "pubmed_doi",
-            "semantic_scholar_doi",
-            # Doc Type (6)
-            "chembl_doc_type",
-            "crossref_doc_type",
-            "openalex_doc_type",
-            "openalex_crossref_doc_type",
-            "pubmed_doc_type",
-            "semantic_scholar_doc_type",
-            # ISSN (3) - in spec comes after Journal, before Year
-            "openalex_issn",
-            "pubmed_issn",
-            "semantic_scholar_issn",
-            # Journal (3)
-            "chembl_journal",
-            "pubmed_journal",
-            "semantic_scholar_journal",
-            # Year (2)
-            "chembl_year",
-            "openalex_year",
-            # Volume/Issue (4)
-            "chembl_volume",
-            "pubmed_volume",
-            "chembl_issue",
-            "pubmed_issue",
-            # Pages (2)
-            "pubmed_first_page",
-            "pubmed_last_page",
-            # Fallback level errors
-            "error_type",
-            "error_message",
-            "attempted_at",
-            # Errors (4) - should be before pubmed dates
-            "crossref_error",
-            "openalex_error",
-            "pubmed_error",
-            "semantic_scholar_error",
-            # PubMed dates (6)
-            "pubmed_year_completed",
-            "pubmed_month_completed",
-            "pubmed_day_completed",
-            "pubmed_year_revised",
-            "pubmed_month_revised",
-            "pubmed_day_revised",
-            # Note: pipeline_version, source_system, chembl_release from BaseSchema
-            # but not in column_order spec line 957
-        ]
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+        "document_chembl_id",
+        "document_pubmed_id",
+        "document_classification",
+        "referenses_on_previous_experiments",
+        "original_experimental_document",
+        "pmid",
+        "pmid_source",
+        "doi_clean",
+        "doi_clean_source",
+        "title",
+        "title_source",
+        "abstract",
+        "abstract_source",
+        "journal",
+        "journal_source",
+        "journal_abbrev",
+        "journal_abbrev_source",
+        "authors",
+        "authors_source",
+        "year",
+        "year_source",
+        "volume",
+        "volume_source",
+        "issue",
+        "issue_source",
+        "first_page",
+        "first_page_source",
+        "last_page",
+        "last_page_source",
+        "issn_print",
+        "issn_print_source",
+        "issn_electronic",
+        "issn_electronic_source",
+        "is_oa",
+        "is_oa_source",
+        "oa_status",
+        "oa_status_source",
+        "oa_url",
+        "oa_url_source",
+        "citation_count",
+        "citation_count_source",
+        "influential_citations",
+        "influential_citations_source",
+        "fields_of_study",
+        "fields_of_study_source",
+        "concepts_top3",
+        "concepts_top3_source",
+        "mesh_terms",
+        "mesh_terms_source",
+        "chemicals",
+        "chemicals_source",
+        "conflict_doi",
+        "conflict_pmid",
+        "chembl_pmid",
+        "pubmed_pmid",
+        "openalex_pmid",
+        "semantic_scholar_pmid",
+        "chembl_title",
+        "crossref_title",
+        "openalex_title",
+        "pubmed_article_title",
+        "semantic_scholar_title",
+        "chembl_abstract",
+        "pubmed_abstract",
+        "chembl_authors",
+        "crossref_authors",
+        "openalex_authors",
+        "pubmed_authors",
+        "semantic_scholar_authors",
+        "chembl_doi",
+        "crossref_doi",
+        "openalex_doi",
+        "pubmed_doi",
+        "semantic_scholar_doi",
+        "chembl_doc_type",
+        "crossref_doc_type",
+        "openalex_doc_type",
+        "openalex_crossref_doc_type",
+        "pubmed_doc_type",
+        "semantic_scholar_doc_type",
+        "chembl_journal",
+        "pubmed_journal",
+        "semantic_scholar_journal",
+        "chembl_year",
+        "openalex_year",
+        "chembl_volume",
+        "pubmed_volume",
+        "chembl_issue",
+        "pubmed_issue",
+        "pubmed_first_page",
+        "pubmed_last_page",
+        "openalex_issn",
+        "pubmed_issn",
+        "semantic_scholar_issn",
+        "pubmed_mesh_descriptors",
+        "pubmed_mesh_qualifiers",
+        "pubmed_chemical_list",
+        "pubmed_year_completed",
+        "pubmed_month_completed",
+        "pubmed_day_completed",
+        "pubmed_year_revised",
+        "pubmed_month_revised",
+        "pubmed_day_revised",
+        "crossref_subject",
+        "crossref_error",
+        "openalex_error",
+        "pubmed_error",
+        "semantic_scholar_error",
+        "fallback_reason",
+        "fallback_error_type",
+        "fallback_error_code",
+        "fallback_error_message",
+        "fallback_http_status",
+        "fallback_retry_after_sec",
+        "fallback_attempt",
+        "fallback_timestamp",
+    ]
 
     class Config:
         strict = True
-        coerce = True
+        # ``coerce`` is deliberately disabled for the normalized document schema.
+        #
+        # Pandera 0.26.x attempts to coerce nullable integer columns (``Int64``)
+        # into the non-nullable ``int64`` numpy dtype when ``coerce=True``.
+        # During document enrichment several external identifiers (e.g. PMIDs)
+        # are absent for the majority of rows, meaning columns such as
+        # ``openalex_pmid`` contain only ``pd.NA`` values even after the
+        # pipeline casts them to ``Int64``.  Pandera then raises a
+        # ``DATATYPE_COERCION`` error because ``pd.NA`` cannot be converted to a
+        # native ``int64``.  The pipeline already normalises dtypes explicitly
+        # via ``DocumentPipeline._enforce_schema_dtypes``, so disabling coercion
+        # keeps validation strict without triggering the Pandera bug.
+        coerce = False
         ordered = True
+
+
+expose_config_column_order(DocumentSchema)
 
 
 class DocumentNormalizedSchema(DocumentSchema):
@@ -309,3 +526,6 @@ class DocumentNormalizedSchema(DocumentSchema):
 
     class Config(DocumentSchema.Config):
         strict = True
+
+
+expose_config_column_order(DocumentNormalizedSchema)

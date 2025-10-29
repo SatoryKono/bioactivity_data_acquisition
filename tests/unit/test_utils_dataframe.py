@@ -4,7 +4,10 @@ import pandas as pd
 
 from bioetl.core.hashing import generate_hash_business_key
 from bioetl.schemas import TargetSchema
-from bioetl.utils import finalize_pipeline_output
+from bioetl.utils import finalize_pipeline_output, resolve_schema_column_order
+from bioetl.schemas.base import BaseSchema
+import pandera.pandas as pa
+from pandera.typing import Series
 
 
 def test_finalize_pipeline_output_applies_metadata_and_order():
@@ -40,3 +43,53 @@ def test_finalize_pipeline_output_applies_metadata_and_order():
     expected_order = TargetSchema.get_column_order()
     assert list(result.columns[:len(expected_order)]) == expected_order
     assert result.columns[-1] == "custom_col"
+
+
+def test_resolve_schema_column_order_prefers_explicit_order():
+    """Explicit column order should be respected when provided."""
+
+    class DemoSchema(BaseSchema):
+        foo: Series[int] = pa.Field()
+
+        class Config(BaseSchema.Config):
+            ordered = True
+
+    DemoSchema._column_order = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+        "foo",
+    ]
+
+    assert resolve_schema_column_order(DemoSchema) == DemoSchema._column_order
+
+
+def test_resolve_schema_column_order_fallbacks_to_materialised_schema():
+    """When no explicit order is defined the Pandera schema order is used."""
+
+    class NoOrderSchema(BaseSchema):
+        bar: Series[int] = pa.Field()
+
+        class Config(BaseSchema.Config):
+            ordered = True
+
+    # Ensure _column_order is missing to exercise the fallback branch.
+    if hasattr(NoOrderSchema, "_column_order"):
+        delattr(NoOrderSchema, "_column_order")
+
+    order = resolve_schema_column_order(NoOrderSchema)
+
+    assert order[:7] == [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+    ]
+    assert order[7] == "bar"

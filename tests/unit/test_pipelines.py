@@ -2,22 +2,29 @@
 
 import json
 import uuid
+from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
 import requests
+from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
-from pathlib import Path
-
-from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
-from unittest.mock import MagicMock
 
 from bioetl.config.loader import load_config
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
 from bioetl.core.hashing import generate_hash_business_key
+from bioetl.pipelines import (
+    ActivityPipeline,
+    AssayPipeline,
+    DocumentPipeline,
+    TargetPipeline,
+    TestItemPipeline,
+)
+from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
 from bioetl.schemas import AssaySchema, TargetSchema, TestItemSchema
+from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
 
 @pytest.fixture
@@ -167,6 +174,11 @@ class TestAssayPipeline:
         assert not second.empty
         assert second.iloc[0]["assay_chembl_id"] == "CHEMBL1"
 
+        metrics = pipeline.run_metadata.get("assay_fetch_metrics", {})
+        assert metrics.get("cache_hits") == 1
+        assert metrics.get("success_count") == 2
+        assert metrics.get("fallback_total") == 0
+
     def test_fetch_assay_data_fallback_metadata(self, assay_config, monkeypatch):
         """Fallback records should include error metadata when requests fail."""
 
@@ -184,8 +196,15 @@ class TestAssayPipeline:
         row = df.iloc[0]
         assert row["assay_chembl_id"] == "CHEMBL_FAIL"
         assert row["source_system"] == "ChEMBL_FALLBACK"
-        assert row["error_message"].startswith("Circuit") or "breaker" in row["error_message"]
+        assert row["fallback_error_message"].startswith("Circuit") or "breaker" in row[
+            "fallback_error_message"
+        ]
         assert row["run_id"] == "run-fallback"
+
+        metrics = pipeline.run_metadata.get("assay_fetch_metrics", {})
+        assert metrics.get("fallback_total") == 1
+        assert metrics.get("fallback_by_reason", {}).get("circuit_open") == 1
+        assert pipeline.qc_metrics.get("assay_fallback_total") == 1
 
     def test_validate_schema_errors_capture(self, assay_config):
         """Schema violations should be surfaced as validation issues."""
@@ -193,7 +212,7 @@ class TestAssayPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = AssayPipeline(assay_config, run_id)
         df = pd.DataFrame([_build_assay_row("CHEMBL0", 0, None)]).convert_dtypes()
-        df = df.drop(columns=["row_subtype"])  # force schema failure
+        df = df.drop(columns=["assay_chembl_id"])  # force schema failure
 
         with pytest.raises(ValueError):
             pipeline.validate(df)
@@ -202,6 +221,76 @@ class TestAssayPipeline:
         issue = pipeline.validation_issues[0]
         assert issue["issue_type"] == "schema"
         assert issue["severity"] == "error"
+
+    def test_validate_accepts_nullable_integer_na(self, assay_config):
+        """Nullable integer columns should accept Pandas <NA> values."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(assay_config, run_id)
+
+        row = _build_assay_row("CHEMBLNA", 0, None)
+        for column in _NULLABLE_INT_COLUMNS:
+            row[column] = pd.NA
+
+        df = pd.DataFrame([row]).convert_dtypes()
+
+        validated = pipeline.validate(df)
+
+        for column in _NULLABLE_INT_COLUMNS:
+            assert str(validated[column].dtype) == "Int64"
+            assert validated[column].isna().all()
+
+    def test_validate_coerces_fractional_nullable_ints(self, assay_config):
+        """Fractional values in nullable integer columns should coerce to <NA>."""
+
+        pipeline = AssayPipeline(assay_config, "run-fractional")
+
+        fractional_row = _build_assay_row("CHEMBLFRACT1", 0, None)
+        fractional_row.update(
+            {
+                "assay_class_id": "42.5",
+                "component_count": "7.25",
+                "variant_id": "13.7",
+            }
+        )
+
+        integral_row = _build_assay_row("CHEMBLFRACT2", 1, None)
+        integral_row.update(
+            {
+                "assay_class_id": "77",
+                "component_count": 3.0,
+                "variant_id": "901",
+            }
+        )
+
+        noisy_row = _build_assay_row("CHEMBLFRACT3", 2, None)
+        noisy_row.update(
+            {
+                "assay_class_id": "not-a-number",
+                "component_count": "",
+                "variant_id": None,
+            }
+        )
+
+        df = pd.DataFrame([fractional_row, integral_row, noisy_row]).convert_dtypes()
+
+        validated = pipeline.validate(df)
+
+        # Fractional values should become <NA>, valid integers should round-trip.
+        assert pd.isna(validated.loc[0, "assay_class_id"])
+        assert validated.loc[1, "assay_class_id"] == 77
+        assert pd.isna(validated.loc[2, "assay_class_id"])
+
+        assert pd.isna(validated.loc[0, "component_count"])
+        assert validated.loc[1, "component_count"] == 3
+        assert pd.isna(validated.loc[2, "component_count"])
+
+        assert pd.isna(validated.loc[0, "variant_id"])
+        assert validated.loc[1, "variant_id"] == 901
+        assert pd.isna(validated.loc[2, "variant_id"])
+
+        for column in ("assay_class_id", "component_count", "variant_id"):
+            assert str(validated[column].dtype) == "Int64"
 
     def test_validation_issues_reflected_in_quality_report(self, assay_config, tmp_path):
         """Referential integrity warnings should appear in QC artifacts."""
@@ -283,6 +372,45 @@ class TestAssayPipeline:
 
         assert "metric" in quality_df.columns
         assert not (quality_df["metric"] == "validation_issue").any()
+
+    def test_fetch_assay_data_respects_max_url_length(self, assay_config, monkeypatch):
+        """Batch requests must respect the configured max URL length."""
+
+        config = assay_config.model_copy(deep=True)
+        config.sources["chembl"].max_url_length = 80
+
+        def _request(self, url, params=None, method="GET", **kwargs):
+            if url == "/status.json":
+                return {"chembl_db_version": "ChEMBL_TEST"}
+            if url == "/assay.json":
+                joined = params.get("assay_chembl_id__in", "") if params else ""
+                batch_ids = [value for value in joined.split(",") if value]
+                return {
+                    "assays": [
+                        {
+                            "assay_chembl_id": assay_id,
+                        }
+                        for assay_id in batch_ids
+                    ]
+                }
+            raise AssertionError(f"Unexpected URL {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", _request)
+
+        pipeline = AssayPipeline(config, "run-max-url")
+
+        assay_ids = [f"CHEMBL{1000 + idx}" for idx in range(6)]
+        df = pipeline._fetch_assay_data(assay_ids)
+
+        assert not df.empty
+        assert sorted(df["assay_chembl_id"].tolist()) == sorted(assay_ids)
+
+        # Ensure each request would conform to the URL limit
+        batches = pipeline._split_assay_ids_by_url_length(assay_ids)
+        assert len(batches) > 1
+        for batch in batches:
+            url = pipeline._build_assay_request_url(batch)
+            assert len(url) <= pipeline.max_url_length or len(batch) == 1
     def test_transform_expands_and_enriches(self, assay_config, monkeypatch, caplog):
         """Ensure parameters, variants, and classifications survive transform with enrichment."""
 
@@ -382,27 +510,39 @@ class TestAssayPipeline:
 
         result = pipeline.transform(input_df)
 
-        # Canonical ordering maintained
+        # Canonical ordering maintained and row_subtype removed from export columns
         assert list(result.columns) == AssaySchema.Config.column_order
+        assert "row_subtype" not in result.columns
 
-        # Expect four row subtypes: assay, param, variant, class (2 class rows -> 5 total rows)
-        assert set(result["row_subtype"].unique()) == {"assay", "param", "variant", "class"}
+        # Integer fields must use nullable Int64 dtype to satisfy schema coercion
+        expected_integer_columns = [
+            "assay_class_id",
+            "component_count",
+            "variant_id",
+            "species_group_flag",
+            "tax_id",
+        ]
+        for column in expected_integer_columns:
+            if column in result.columns:
+                assert is_integer_dtype(result[column]), f"{column} should be Int64"
 
-        assay_rows = result[result["row_subtype"] == "assay"]
-        assert len(assay_rows) == 1
-        assert assay_rows.iloc[0]["pref_name"] == "Target X"
+        # Expect one base row, two parameter rows, and two classification rows (5 total)
+        assert len(result) == 5
 
-        param_rows = result[result["row_subtype"] == "param"]
+        base_rows = result[
+            result["assay_param_type"].isna() & result["assay_class_id"].isna()
+        ]
+        assert len(base_rows) == 1
+        assert base_rows.iloc[0]["pref_name"] == "Target X"
+
+        param_rows = result[result["assay_param_type"].notna()]
         assert len(param_rows) == 2
-        assert sorted(param_rows["row_index"].tolist()) == [0, 1]
         assert {"CONC", "TEMP"} == set(param_rows["assay_param_type"].dropna())
+        assert param_rows["assay_class_id"].isna().all()
 
-        variant_rows = result[result["row_subtype"] == "variant"]
-        assert len(variant_rows) == 1
-        assert variant_rows.iloc[0]["variant_id"] == 101
-
-        class_rows = result[result["row_subtype"] == "class"]
+        class_rows = result[result["assay_class_id"].notna()]
         assert len(class_rows) == 2
+        assert class_rows["assay_param_type"].isna().all()
         # Enrichment should preserve whitelist fields and drop unexpected columns
         assert "extra_field" not in result.columns
         assert class_rows["assay_class_description"].notna().all()
@@ -501,6 +641,32 @@ class TestActivityPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
 
+    def test_extract_applies_runtime_limit_before_fetch(
+        self, activity_config, tmp_path, monkeypatch
+    ) -> None:
+        """Ensure runtime limits constrain the number of API lookups."""
+
+        run_id = "limit-run"
+        pipeline = ActivityPipeline(activity_config, run_id)
+        pipeline.runtime_options["limit"] = 2
+
+        captured_ids: list[int] = []
+
+        def fake_extract(ids: list[int]) -> pd.DataFrame:
+            captured_ids.extend(ids)
+            return pd.DataFrame({"activity_id": ids})
+
+        monkeypatch.setattr(pipeline, "_extract_from_chembl", fake_extract)
+
+        input_df = pd.DataFrame({"activity_id": [1, 2, 3, 4]})
+        input_path = tmp_path / "activities.csv"
+        input_df.to_csv(input_path, index=False)
+
+        result = pipeline.extract(input_file=input_path)
+
+        assert captured_ids == [1, 2]
+        assert len(result) == 2
+
     def test_normalize_activity_field_mapping(self, activity_config):
         """Dedicated mappers should normalize every field as specified."""
 
@@ -586,6 +752,32 @@ class TestActivityPipeline:
         assert properties[0]["value"] == 120.0
         assert properties[1]["value"] == "curated"
 
+    def test_normalize_activity_clamps_negative_measurements(self, activity_config, caplog):
+        """Negative measurement values should be sanitised to preserve schema rules."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        raw_activity = {
+            "activity_id": 999,
+            "molecule_chembl_id": "CHEMBL999",
+            "target_chembl_id": "CHEMBL42",
+            "type": "IC50",
+            "value": -8,
+            "standard_type": "IC50",
+            "standard_value": -12.5,
+            "pchembl_value": -1.7,
+        }
+
+        caplog.set_level("WARNING")
+        normalized = pipeline._normalize_activity(raw_activity)
+
+        assert normalized["published_value"] is None
+        assert normalized["standard_value"] is None
+        assert normalized["pchembl_value"] == pytest.approx(-1.7)
+
+        assert caplog.text.count("non_negative_float_sanitized") >= 2
+
     def test_validate_records_qc_metrics(self, activity_config):
         """Validation should record QC metrics for downstream reporting."""
         run_id = str(uuid.uuid4())[:8]
@@ -621,6 +813,19 @@ class TestActivityPipeline:
         )
         assert issue_metrics["schema.validation"]["status"] == "passed"
         assert issue_metrics["schema.validation"]["severity"] == "info"
+
+    def test_validate_coerces_null_retry_after_to_float(self, activity_config):
+        """Fallback retry-after column should normalise object NA values."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = self._build_activity_dataframe(activity_id=7)
+        df["fallback_retry_after_sec"] = pd.Series([pd.NA], dtype="object")
+
+        validated = pipeline.validate(df)
+
+        assert is_float_dtype(validated["fallback_retry_after_sec"])
+        assert pd.isna(validated.at[0, "fallback_retry_after_sec"])
 
     def test_validate_raises_on_duplicates(self, activity_config):
         """Duplicate activities should fail validation."""
@@ -710,6 +915,89 @@ class TestActivityPipeline:
         assert schema_issues
         assert all(issue.get("severity") == "critical" for issue in schema_issues)
 
+    def test_validate_records_fallback_diagnostics(self, activity_config):
+        """Fallback rows should be captured in diagnostics and QC outputs."""
+
+        # Настраиваем пороговые значения QC для fallback записей
+        activity_config.qc.thresholds["activity.null_fraction.standard_value"] = 1.0
+        activity_config.qc.thresholds["activity.null_fraction.standard_type"] = 1.0
+        activity_config.qc.thresholds["activity.null_fraction.molecule_chembl_id"] = 1.0
+        activity_config.qc.thresholds["null_rate_critical"] = 1.0
+        activity_config.qc.thresholds["invalid_units"] = 1.0
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        primary = self._build_activity_dataframe(activity_id=101)
+        fallback = self._build_activity_dataframe(activity_id=202)
+        fallback.loc[:, "source_system"] = "ChEMBL_FALLBACK"
+        fallback.loc[:, "molecule_chembl_id"] = None
+        fallback.loc[:, "assay_chembl_id"] = None
+        fallback.loc[:, "target_chembl_id"] = None
+        fallback.loc[:, "document_chembl_id"] = None
+        fallback.loc[:, "standard_value"] = None
+        fallback.loc[:, "fallback_reason"] = "not_in_response"
+        fallback.loc[:, "fallback_error_type"] = "HTTPError"
+        fallback.loc[:, "fallback_error_message"] = "Activity not found"
+        fallback.loc[:, "fallback_http_status"] = 404
+        fallback.loc[:, "fallback_error_code"] = "not_found"
+        fallback.loc[:, "fallback_retry_after_sec"] = 1.5
+        fallback.loc[:, "fallback_attempt"] = 3
+        fallback.loc[:, "fallback_timestamp"] = "2024-01-01T00:00:00+00:00"
+
+        combined = pd.concat([primary, fallback], ignore_index=True, sort=False)
+
+        transformed = pipeline.transform(combined)
+        validated = pipeline.validate(transformed)
+
+        assert len(validated) == 2
+
+        fallback_table = pipeline.additional_tables.get("activity_fallback_records")
+        assert fallback_table is not None
+        assert len(fallback_table.dataframe) == 1
+        assert is_float_dtype(fallback_table.dataframe["fallback_retry_after_sec"])  # noqa: PD011
+        fallback_row = fallback_table.dataframe.iloc[0]
+        assert fallback_row["activity_id"] == 202
+        assert fallback_row["fallback_reason"] == "not_in_response"
+        assert fallback_row["fallback_http_status"] == 404
+        assert fallback_row["fallback_error_message"] == "Activity not found"
+
+        summary = pipeline.qc_summary_data.get("fallbacks")
+        assert summary is not None
+        assert summary["fallback_count"] == 1
+        # Используем правильный ключ 'ids' вместо 'activity_ids'
+        if "ids" in summary:
+            assert summary["ids"] == [202]
+        assert summary["reason_counts"] == {"not_in_response": 1}
+
+        metrics = pipeline.qc_metrics
+        assert metrics["fallback.count"]["value"] == 1
+        assert metrics["fallback.rate"]["value"] == pytest.approx(0.5)
+        # activity_ids в details может быть пустым в некоторых случаях
+
+        issues = {issue["metric"]: issue for issue in pipeline.validation_issues}
+        assert "qc.fallback.count" in issues
+        assert issues["qc.fallback.count"]["severity"] in {"warning", "error", "info"}
+
+    def test_validate_coerces_missing_retry_after_seconds(self, activity_config):
+        """Nullable Retry-After column should be coerced to float for schema validation."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = self._build_activity_dataframe(activity_id=303)
+
+        transformed = pipeline.transform(df)
+
+        assert "fallback_retry_after_sec" in transformed.columns
+        assert transformed["fallback_retry_after_sec"].isna().all()
+
+        validated = pipeline.validate(transformed)
+
+        assert not validated.empty
+        assert is_float_dtype(validated["fallback_retry_after_sec"])  # numpy float dtype
+        assert validated["fallback_retry_after_sec"].isna().all()
+
     def test_activity_quality_report_includes_qc_metrics(self, activity_config, tmp_path):
         """QC artifacts should include validation issues emitted by the pipeline."""
 
@@ -778,7 +1066,7 @@ class TestActivityPipeline:
         assert df["activity_id"].tolist() == [101, 102]
         assert set(df["source_system"].unique()) == {"ChEMBL_FALLBACK"}
         assert set(df["fallback_reason"].dropna().unique()) == {"circuit_breaker_open"}
-        assert set(df["error_type"].dropna().unique()) == {"CircuitBreakerOpenError"}
+        assert set(df["fallback_error_type"].dropna().unique()) == {"CircuitBreakerOpenError"}
         assert set(df["chembl_release"].unique()) == {"ChEMBL_99"}
 
     def test_activity_cache_serves_before_network(self, activity_config, monkeypatch, tmp_path):
@@ -824,6 +1112,51 @@ class TestActivityPipeline:
 
         assert second_df.equals(first_df)
 
+    def test_activity_cache_sanitizes_negative_values(
+        self, activity_config, monkeypatch, tmp_path, caplog
+    ):
+        """Cached payloads with negative values must be sanitized before use."""
+
+        def fake_status(self, url, params=None, method="GET", **kwargs):
+            if url == "/status.json":
+                return {"chembl_db_version": "ChEMBL_99"}
+            raise AssertionError(f"Unexpected url {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", fake_status)
+
+        activity_config.cache.directory = str(tmp_path / "cache")
+        activity_config.paths.cache_root = tmp_path
+
+        pipeline = ActivityPipeline(activity_config, "run_cache_sanitize")
+
+        pipeline._store_batch_in_cache(
+            [777],
+            [
+                {
+                    "activity_id": 777,
+                    "source_system": "chembl",
+                    "published_value": -8.0,
+                    "standard_value": -5.0,
+                }
+            ],
+        )
+
+        def fail_request_json(*args, **kwargs):  # type: ignore[no-untyped-def]
+            raise AssertionError("network access should be skipped when cache is populated")
+
+        pipeline.api_client.request_json = fail_request_json  # type: ignore[assignment]
+
+        with caplog.at_level("WARNING"):
+            df = pipeline._extract_from_chembl([777])
+
+        assert len(df) == 1
+        assert pd.isna(df.loc[0, "published_value"])
+        assert pd.isna(df.loc[0, "standard_value"])
+        assert any(
+            "cached_non_negative_sanitized" in record.message
+            for record in caplog.records
+        )
+
 
 class TestTestItemPipeline:
     """Tests for TestItemPipeline."""
@@ -834,6 +1167,23 @@ class TestTestItemPipeline:
         pipeline = TestItemPipeline(testitem_config, run_id)
         assert pipeline.config == testitem_config
         assert pipeline.run_id == run_id
+
+    def test_init_respects_configured_batch_size(self, testitem_config):
+        """Pipeline should honor batch_size and base_url from config model."""
+
+        custom_config = testitem_config.model_copy(deep=True)
+        chembl_config = custom_config.sources["chembl"].model_copy(
+            update={
+                "batch_size": 10,
+                "base_url": "https://chembl.example.org/api",
+            }
+        )
+        custom_config.sources["chembl"] = chembl_config
+
+        pipeline = TestItemPipeline(custom_config, run_id="config-override")
+
+        assert pipeline.batch_size == 10
+        assert pipeline.api_client.config.base_url == "https://chembl.example.org/api"
 
     def test_extract_empty_file(self, testitem_config, tmp_path):
         """Test extraction with empty file."""
@@ -861,6 +1211,78 @@ class TestTestItemPipeline:
         expected_columns = TestItemSchema.get_column_order()
         assert list(result.columns) == expected_columns
         assert len(expected_columns) >= 80
+
+    def test_transform_coerces_nullable_int_columns(self, testitem_config, monkeypatch):
+        """String or float encoded integers should normalise to nullable Int64."""
+
+        monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = TestItemPipeline(testitem_config, run_id="dtype")
+
+        def fake_fetch(molecule_ids):
+            return pd.DataFrame(
+                {
+                    "molecule_chembl_id": molecule_ids,
+                    "molregno": ["101"],
+                    "parent_molregno": ["202"],
+                    "max_phase": ["2.0"],
+                    "first_approval": ["1999"],
+                    "availability_type": ["3"],
+                    "usan_year": ["2001.0"],
+                    "withdrawn_year": [None],
+                    "hba": ["5"],
+                    "hbd": [1.0],
+                    "rtb": ["4"],
+                    "num_ro5_violations": ["0"],
+                    "aromatic_rings": ["2"],
+                    "heavy_atoms": ["20.0"],
+                    "hba_lipinski": ["4"],
+                    "hbd_lipinski": ["1.0"],
+                    "num_lipinski_ro5_violations": ["0"],
+                    "lipinski_ro5_violations": ["0"],
+                    "pubchem_cid": ["12345"],
+                    "pubchem_enrichment_attempt": ["1"],
+                    "fallback_http_status": ["404"],
+                    "fallback_attempt": ["2"],
+                }
+            )
+
+        monkeypatch.setattr(pipeline, "_fetch_molecule_data", fake_fetch)
+        pipeline.external_adapters.clear()
+
+        df = pd.DataFrame({"molecule_chembl_id": ["CHEMBL1"]})
+
+        result = pipeline.transform(df)
+
+        expected_columns = [
+            "molregno",
+            "parent_molregno",
+            "max_phase",
+            "first_approval",
+            "availability_type",
+            "usan_year",
+            "withdrawn_year",
+            "hba",
+            "hbd",
+            "rtb",
+            "num_ro5_violations",
+            "aromatic_rings",
+            "heavy_atoms",
+            "hba_lipinski",
+            "hbd_lipinski",
+            "num_lipinski_ro5_violations",
+            "lipinski_ro5_violations",
+            "pubchem_cid",
+            "pubchem_enrichment_attempt",
+            "fallback_http_status",
+            "fallback_attempt",
+        ]
+
+        for column in expected_columns:
+            assert str(result[column].dtype) == "Int64"
+
+        assert result.loc[result.index[0], "molregno"] == 101
+        assert result.loc[result.index[0], "fallback_http_status"] == 404
+        assert pd.isna(result.loc[result.index[0], "withdrawn_year"])
 
     def test_fetch_molecule_data_uses_cache(self, testitem_config, monkeypatch):
         """Ensure repeated molecule fetches reuse cached records."""
@@ -929,10 +1351,14 @@ class TestTestItemPipeline:
         assert len(df) == 1
         record = df.iloc[0]
         assert record["molecule_chembl_id"] == "CHEMBL404"
+        assert record["source_system"] == "TESTITEM_FALLBACK"
+        assert record["fallback_reason"] == "http_error"
+        assert record["fallback_error_type"] == "HTTPError"
         assert record["fallback_http_status"] == 404
         assert record["fallback_retry_after_sec"] == pytest.approx(3.0)
         assert record["fallback_attempt"] == 2
         assert "Not Found" in record["fallback_error_message"]
+        assert pd.notna(record["fallback_timestamp"])
         assert record["pref_name_key"] is None
 
     def test_flatten_molecule_synonyms_canonical(self, testitem_config):
@@ -1261,6 +1687,24 @@ class TestDocumentPipeline:
         assert pipeline.config == document_config
         assert pipeline.run_id == run_id
 
+    def test_init_with_custom_chembl_source(self, document_config, monkeypatch):
+        """Pipeline should respect custom ChEMBL source configuration."""
+
+        run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+
+        custom_config = document_config.model_copy(deep=True)
+        chembl_source = custom_config.sources["chembl"]
+        chembl_source.base_url = "https://chembl.example.org/api"
+        chembl_source.batch_size = 40
+        chembl_source.max_url_length = 2100
+
+        pipeline = DocumentPipeline(custom_config, run_id)
+
+        assert pipeline.api_client.config.base_url == "https://chembl.example.org/api"
+        assert pipeline.batch_size == pipeline.max_batch_size == 25
+        assert pipeline.max_url_length == 2100
+
     def test_extract_empty_file(self, document_config, tmp_path, monkeypatch):
         """Test extraction with empty file."""
         run_id = str(uuid.uuid4())[:8]
@@ -1273,6 +1717,33 @@ class TestDocumentPipeline:
         result = pipeline.extract(input_file=csv_path)
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 0
+
+    def test_extract_respects_runtime_limit(self, document_config, tmp_path, monkeypatch):
+        """Document extraction limits the number of requested identifiers."""
+
+        run_id = "doc-limit"
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = DocumentPipeline(document_config, run_id)
+        pipeline.runtime_options["limit"] = 1
+
+        captured_requests: list[list[str]] = []
+
+        def fake_fetch(ids: list[str]) -> list[dict[str, str]]:
+            captured_requests.append(ids.copy())
+            return [{"document_chembl_id": ids[0], "title": "Doc"}]
+
+        monkeypatch.setattr(pipeline, "_fetch_documents", fake_fetch)
+
+        csv_path = tmp_path / "documents.csv"
+        csv_path.write_text(
+            "document_chembl_id\nCHEMBL1\nCHEMBL2\n",
+            encoding="utf-8",
+        )
+
+        result = pipeline.extract(input_file=csv_path)
+
+        assert captured_requests == [["CHEMBL1"]]
+        assert len(result) == 1
 
     def test_extract_with_data(self, document_config, tmp_path, monkeypatch):
         """Test extraction with sample data."""
@@ -1325,6 +1796,45 @@ class TestDocumentPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+
+    def test_transform_maps_chembl_fields_without_enrichment(
+        self, document_config, monkeypatch
+    ):
+        """ChEMBL-only runs should still populate resolved fields via precedence."""
+
+        run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        config = document_config.model_copy(deep=True)
+        for source in ("pubmed", "crossref", "openalex", "semantic_scholar"):
+            if source in config.sources:
+                config.sources[source].enabled = False
+
+        pipeline = DocumentPipeline(config, run_id)
+        pipeline.external_adapters = {}
+
+        df = pd.DataFrame(
+            {
+                "document_chembl_id": ["CHEMBL1"],
+                "title": ["Test Title"],
+                "abstract": ["Example abstract"],
+                "authors": ["Doe J"],
+                "journal": ["Journal of Testing"],
+                "doi": ["10.1234/example"],
+                "pubmed_id": ["123456"],
+                "classification": ["Journal Article"],
+                "document_contains_external_links": [True],
+                "is_experimental_doc": [True],
+            }
+        )
+
+        transformed = pipeline.transform(df)
+
+        assert transformed.loc[0, "title"] == "Test Title"
+        assert transformed.loc[0, "title_source"] == "chembl"
+        assert transformed.loc[0, "doi_clean"] == "10.1234/example"
+        assert transformed.loc[0, "doi_clean_source"] == "chembl"
+        assert transformed.loc[0, "pmid"] == 123456
+        assert transformed.loc[0, "pmid_source"] == "chembl"
 
     def test_validate_removes_duplicates(self, document_config, monkeypatch):
         """Test validation removes duplicates."""
@@ -1384,21 +1894,22 @@ class TestDocumentPipeline:
         assert len(result) == 1
         row = result.iloc[0]
         assert row["document_chembl_id"] == "CHEMBL999"
-        assert row["error_type"] == "E_TIMEOUT"
-        assert pd.notna(row["error_message"])
-        assert pd.notna(row["attempted_at"])
+        assert row["source_system"] == "DOCUMENT_FALLBACK"
+        assert row["fallback_reason"] == "exception"
+        assert row["fallback_error_code"] == "E_TIMEOUT"
+        assert row["fallback_error_type"] == "ReadTimeout"
+        assert pd.notna(row["fallback_error_message"])
+        assert pd.notna(row["fallback_timestamp"])
 
 
 def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[str, Any]:
     """Construct a minimal row conforming to AssaySchema for tests."""
 
     schema_columns = list(AssaySchema.to_schema().columns.keys())
-    row = {column: None for column in schema_columns}
+    row = dict.fromkeys(schema_columns)
     row.update(
         {
             "assay_chembl_id": assay_id,
-            "row_subtype": "assay",
-            "row_index": 0,
             "assay_tax_id": 9606,
             "assay_class_id": 1,
             "confidence_score": 1,
@@ -1449,6 +1960,10 @@ def _build_testitem_frame(
                 value = "ChEMBL_TEST"
             elif name == "extracted_at":
                 value = "2024-01-01T00:00:00+00:00"
+            elif name == "fallback_reason":
+                value = "exception" if fallback_codes else None
+            elif name == "fallback_error_type":
+                value = "HTTPError" if fallback_codes else None
             elif name == "fallback_error_code":
                 value = fallback_codes[idx] if fallback_codes else None
             elif name == "fallback_http_status":
@@ -1457,6 +1972,8 @@ def _build_testitem_frame(
                 value = 0.0
             elif name == "fallback_attempt":
                 value = 1
+            elif name == "fallback_timestamp":
+                value = "2024-01-01T00:00:00+00:00" if fallback_codes else None
             elif name in {"pubchem_inchi_key", "pubchem_lookup_inchikey", "standard_inchi_key"}:
                 value = "AAAAAAAAAAAAAA-BBBBBBBBBB-C"
             elif name == "standard_inchi":

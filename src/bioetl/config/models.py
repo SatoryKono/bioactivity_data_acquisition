@@ -19,6 +19,10 @@ class RetryConfig(BaseModel):
     total: int = Field(..., ge=0)
     backoff_multiplier: float = Field(..., gt=0)
     backoff_max: float = Field(..., gt=0)
+    statuses: list[int] = Field(
+        default_factory=list,
+        description="HTTP status codes that should trigger a retry before giving up",
+    )
 
 
 class RateLimitConfig(BaseModel):
@@ -186,6 +190,7 @@ class QCConfig(BaseModel):
     enabled: bool = True
     severity_threshold: str = Field(default="warning")
     thresholds: dict[str, Any] = Field(default_factory=dict)
+    enrichments: dict[str, Any] = Field(default_factory=dict)
 
 
 class PostprocessConfig(BaseModel):
@@ -262,7 +267,7 @@ class PipelineConfig(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _validate_chembl_batch_size(self) -> "PipelineConfig":
+    def _validate_chembl_batch_size(self) -> PipelineConfig:
         """Ensure ChEMBL batch size does not exceed API limits."""
 
         chembl = self.sources.get("chembl") if self.sources else None
@@ -300,7 +305,7 @@ class PipelineConfig(BaseModel):
         return hashlib.sha256(json_str.encode()).hexdigest()
 
     @model_validator(mode="after")
-    def validate_chembl_batch_size(self) -> "PipelineConfig":
+    def validate_chembl_batch_size(self) -> PipelineConfig:
         """Enforce ChEMBL batch size limits at configuration load time."""
         chembl_source = self.sources.get("chembl")
         if chembl_source and chembl_source.batch_size and chembl_source.batch_size > 25:

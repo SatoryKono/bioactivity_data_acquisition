@@ -8,7 +8,7 @@ sources:
   chembl:
     enabled: true
     base_url: "https://www.ebi.ac.uk/chembl/api/data"
-    batch_size: 25
+    batch_size: 20
     max_url_length: 2000
 
 determinism:
@@ -16,7 +16,7 @@ determinism:
   float_precision: 6
   datetime_format: "iso8601"
   sort:
-    by: ["assay_chembl_id", "row_subtype", "row_index"]
+    by: ["assay_chembl_id", "row_subtype"]
     ascending: [true, true, true]
 
 qc:

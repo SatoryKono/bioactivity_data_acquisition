@@ -2,12 +2,11 @@
 
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import pytest
 from pydantic import ValidationError
 
-from bioetl.config import PipelineConfig, load_config, parse_cli_overrides
+from bioetl.config import load_config, parse_cli_overrides
 
 
 def test_load_base_config():
@@ -243,7 +242,7 @@ def test_parse_cli_overrides():
 
 def test_invalid_config():
     """Test invalid configuration raises error."""
-    with pytest.raises(Exception):
+    with pytest.raises(FileNotFoundError):
         load_config(Path("nonexistent.yaml"))
 
 

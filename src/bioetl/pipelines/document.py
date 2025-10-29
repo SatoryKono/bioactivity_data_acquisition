@@ -2,10 +2,11 @@
 
 import os
 import re
+from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -31,11 +32,23 @@ from bioetl.schemas.document import (
 )
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.qc import (
+    compute_field_coverage,
+    duplicate_summary,
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
+from bioetl.utils.io import load_input_frame, resolve_input_path
+
+NAType = type(pd.NA)
 
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-schema_registry.register("document", "1.0.0", DocumentSchema)
+schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
 
 
 class DocumentPipeline(PipelineBase):
@@ -46,19 +59,66 @@ class DocumentPipeline(PipelineBase):
     - all: ChEMBL + PubMed/Crossref/OpenAlex/Semantic Scholar
     """
 
+    _INTEGER_COLUMNS: tuple[str, ...] = (
+        "document_pubmed_id",
+        "pmid",
+        "year",
+        "citation_count",
+        "influential_citations",
+        "chembl_pmid",
+        "pubmed_pmid",
+        "openalex_pmid",
+        "semantic_scholar_pmid",
+        "chembl_year",
+        "openalex_year",
+        "pubmed_year_completed",
+        "pubmed_month_completed",
+        "pubmed_day_completed",
+        "pubmed_year_revised",
+        "pubmed_month_revised",
+        "pubmed_day_revised",
+    )
+
+    _BOOLEAN_COLUMNS: tuple[str, ...] = (
+        "referenses_on_previous_experiments",
+        "original_experimental_document",
+        "is_oa",
+        "conflict_doi",
+        "conflict_pmid",
+    )
+
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
 
         # Initialize ChEMBL API client
         chembl_source = config.sources.get("chembl")
+
+        default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
+        default_batch_size = 10
+        default_max_url_length = 1800
+
         if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = int(chembl_source.get("batch_size", 10) or 10)
-            max_url_length = int(chembl_source.get("max_url_length", 1800) or 1800)
+            base_url = chembl_source.get("base_url", default_base_url) or default_base_url
+            batch_size_value = chembl_source.get("batch_size", default_batch_size)
+            max_url_length_value = chembl_source.get("max_url_length", default_max_url_length)
+        elif chembl_source is not None:
+            base_url = getattr(chembl_source, "base_url", default_base_url) or default_base_url
+            batch_size_value = getattr(chembl_source, "batch_size", default_batch_size)
+            max_url_length_value = getattr(chembl_source, "max_url_length", default_max_url_length)
         else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
-            batch_size = 10
-            max_url_length = 1800
+            base_url = default_base_url
+            batch_size_value = default_batch_size
+            max_url_length_value = default_max_url_length
+
+        try:
+            batch_size = int(batch_size_value)
+        except (TypeError, ValueError):
+            batch_size = default_batch_size
+
+        try:
+            max_url_length = int(max_url_length_value)
+        except (TypeError, ValueError):
+            max_url_length = default_max_url_length
 
         chembl_config = APIConfig(
             name="chembl",
@@ -67,9 +127,9 @@ class DocumentPipeline(PipelineBase):
             cache_ttl=config.cache.ttl,
         )
         self.api_client = UnifiedAPIClient(chembl_config)
-        self.batch_size = batch_size
-        self.max_url_length = max_url_length
         self.max_batch_size = 25
+        self.batch_size = min(self.max_batch_size, max(1, batch_size))
+        self.max_url_length = max(1, max_url_length)
         self._document_cache: dict[str, dict[str, Any]] = {}
 
         # Initialize external adapters if enabled
@@ -81,16 +141,22 @@ class DocumentPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
-        if input_file is None:
-            input_file = Path("data/input/documents.csv")
+        default_filename = Path("document.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            return pd.DataFrame(columns=["document_chembl_id"])
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=["document_chembl_id"],
+            dtype="string",
+        )
 
-        df = pd.read_csv(input_file, dtype="string")
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         valid_ids, rejected_rows = self._prepare_input_ids(df)
         if rejected_rows:
@@ -101,6 +167,15 @@ class DocumentPipeline(PipelineBase):
             return pd.DataFrame(columns=["document_chembl_id"])
 
         logger.info("validated_ids", total=len(valid_ids))
+
+        limit_value = self.get_runtime_limit()
+        if limit_value is not None and len(valid_ids) > limit_value:
+            logger.info(
+                "applying_input_limit",
+                limit=limit_value,
+                original_ids=len(valid_ids),
+            )
+            valid_ids = valid_ids[:limit_value]
 
         records = self._fetch_documents(valid_ids)
         if not records:
@@ -356,8 +431,9 @@ class DocumentPipeline(PipelineBase):
                 logger.debug("duplicate_id_skipped", document_chembl_id=normalized)
                 continue
 
-            seen.add(normalized)
-            valid_ids.append(normalized)
+            if normalized is not None:
+                seen.add(normalized)
+                valid_ids.append(normalized)
 
         if valid_ids:
             DocumentInputSchema.validate(pd.DataFrame({"document_chembl_id": valid_ids}))
@@ -384,12 +460,18 @@ class DocumentPipeline(PipelineBase):
     def _persist_rejected_inputs(self, rows: list[dict[str, str]]) -> None:
         """Persist rejected inputs for auditability."""
 
-        rejected_df = pd.DataFrame(rows)
-        output_dir = Path("data/output/rejected_inputs")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"document_rejected_{self.run_id}.csv"
-        logger.warning("rejected_inputs_found", count=len(rejected_df), path=output_path)
-        self.output_writer.atomic_writer.write(rejected_df, output_path)
+        rejected_df = pd.DataFrame(rows).convert_dtypes()
+        relative_output = Path("qc") / "document_rejected_inputs.csv"
+        logger.warning(
+            "rejected_inputs_found",
+            count=len(rejected_df),
+            path=str(relative_output),
+        )
+        self.add_additional_table(
+            "document_rejected_inputs",
+            rejected_df,
+            relative_path=relative_output,
+        )
 
     def _validate_raw_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate raw payloads against Pandera schema before transformation."""
@@ -401,19 +483,48 @@ class DocumentPipeline(PipelineBase):
         working_df = df.copy()
         schema = DocumentRawSchema.to_schema()
 
-        for column in schema.columns:
-            if column not in working_df.columns:
+        expected_order = list(schema.columns.keys())
+        missing_columns = [column for column in expected_order if column not in working_df.columns]
+        extra_columns = [column for column in working_df.columns if column not in expected_order]
+
+        if missing_columns:
+            for column in missing_columns:
                 working_df[column] = pd.NA
 
-        if "source" not in working_df.columns:
-            working_df["source"] = "ChEMBL"
-        else:
-            working_df["source"] = working_df["source"].fillna("ChEMBL")
+        # Reindex the known columns explicitly to avoid Pandera's COLUMN_NOT_ORDERED
+        # failures when upstream payloads shuffle column order. Using ``reindex`` with
+        # the schema-driven order guarantees determinism while keeping optional fields
+        # (like ``journal_abbrev``) present even when the input payload omits them.
+        ordered_core = working_df.reindex(columns=expected_order)
+        extras_df = working_df.loc[:, extra_columns] if extra_columns else None
 
-        working_df = working_df.convert_dtypes()
+        # Log the ordering context before recombining to simplify troubleshooting of
+        # Pandera validation errors reported by end users.
+        logger.debug(
+            "raw_schema_ordering",
+            expected=expected_order,
+            current=list(df.columns),
+            missing=missing_columns,
+            extra=extra_columns,
+        )
 
         try:
-            validated = DocumentRawSchema.validate(working_df, lazy=True)
+            core_df = ordered_core.copy()
+
+            if "source" not in core_df.columns:
+                core_df["source"] = "ChEMBL"
+            else:
+                core_df["source"] = core_df["source"].fillna("ChEMBL")
+
+            core_df = core_df.convert_dtypes()
+            validated_core = DocumentRawSchema.validate(core_df, lazy=True)
+
+            if extras_df is not None and not extras_df.empty:
+                extras_df = extras_df.convert_dtypes()
+                validated = pd.concat([validated_core, extras_df], axis=1)
+            else:
+                validated = validated_core
+
             logger.info("raw_schema_validation_passed", rows=len(validated))
             return validated
         except SchemaErrors as exc:
@@ -459,7 +570,7 @@ class DocumentPipeline(PipelineBase):
                     error_type=error_type,
                 )
                 for document_id in to_fetch:
-                    fallback = self._create_fallback_row(document_id, error_type, str(exc))
+                    fallback = self._create_fallback_row(document_id, error_type, str(exc), exc)
                     self._document_cache[self._document_cache_key(document_id)] = fallback
                     results.append(fallback)
 
@@ -532,13 +643,25 @@ class DocumentPipeline(PipelineBase):
             return "E_CIRCUIT_BREAKER_OPEN"
         return "E_UNKNOWN"
 
-    def _create_fallback_row(self, document_id: str, error_type: str, error_message: str) -> dict[str, Any]:
-        return {
-            "document_chembl_id": document_id,
-            "error_type": error_type,
-            "error_message": error_message,
-            "attempted_at": datetime.now(timezone.utc).isoformat(),
-        }
+    def _create_fallback_row(
+        self,
+        document_id: str,
+        error_type: str,
+        error_message: str,
+        error: Exception | None = None,
+    ) -> dict[str, Any]:
+        return build_fallback_payload(
+            entity="document",
+            reason="exception",
+            error=error,
+            source="DOCUMENT_FALLBACK",
+            message=error_message,
+            context={
+                "document_chembl_id": document_id,
+                "chembl_release": self._chembl_release,
+                "fallback_error_code": error_type,
+            },
+        )
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from status endpoint.
@@ -574,6 +697,16 @@ class DocumentPipeline(PipelineBase):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform document data with multi-source merge."""
         if df.empty:
+            expected_columns = DocumentSchema.get_column_order()
+
+            if expected_columns:
+                empty_df = pd.DataFrame(columns=expected_columns)
+                logger.info(
+                    "transform_returning_empty_schema",
+                    columns=len(expected_columns),
+                )
+                return empty_df
+
             return df
 
         # Map ChEMBL input fields according to schema
@@ -587,11 +720,15 @@ class DocumentPipeline(PipelineBase):
 
         # Map is_experimental_doc to original_experimental_document (boolean)
         if "is_experimental_doc" in df.columns:
-            df["original_experimental_document"] = df["is_experimental_doc"].apply(lambda x: bool(x) if pd.notna(x) else None)
+            df["original_experimental_document"] = df["is_experimental_doc"].apply(
+                coerce_optional_bool
+            )
 
         # Map document_contains_external_links to referenses_on_previous_experiments
         if "document_contains_external_links" in df.columns:
-            df["referenses_on_previous_experiments"] = df["document_contains_external_links"].apply(lambda x: bool(x) if pd.notna(x) else None)
+            df["referenses_on_previous_experiments"] = df[
+                "document_contains_external_links"
+            ].apply(coerce_optional_bool)
 
         # IMPORTANT: Map pubmed_id to chembl_pmid BEFORE normalization
         # Map pubmed_id -> chembl_pmid (convert to int)
@@ -648,9 +785,15 @@ class DocumentPipeline(PipelineBase):
             if source_name in self.config.sources
         )
 
-        if enrichment_enabled:
+        if enrichment_enabled and self.external_adapters:
             logger.info("enrichment_enabled", note="Fetching data from external sources")
             df = self._enrich_with_external_sources(df)
+        else:
+            logger.info(
+                "enrichment_skipped",
+                reason="no_external_adapters_enabled",
+            )
+            df = merge_with_precedence(df)
 
         # Drop temporary join keys if they exist
         if "pubmed_id" in df.columns:
@@ -659,34 +802,59 @@ class DocumentPipeline(PipelineBase):
             df = df.drop(columns=["_original_title"])
 
         # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
-        df["source_system"] = "chembl"
-        df["chembl_release"] = self._chembl_release
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        df = df.assign(
+            pipeline_version="1.0.0",
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            extracted_at=pd.Timestamp.now(tz="UTC").isoformat(),
+        )
+
+        if "fallback_reason" in df.columns:
+            fallback_mask = df["fallback_reason"].notna()
+            if fallback_mask.any():
+                df.loc[fallback_mask, "source_system"] = "DOCUMENT_FALLBACK"
 
         # Generate hash fields for data integrity
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
         if "document_chembl_id" in df.columns:
-            df["hash_business_key"] = df["document_chembl_id"].apply(generate_hash_business_key)
-            df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+            df["hash_business_key"] = df["document_chembl_id"].apply(
+                generate_hash_business_key
+            )
+            df["hash_row"] = df.apply(
+                lambda row: generate_hash_row(row.to_dict()), axis=1
+            )
 
             # Generate deterministic index
-            df = df.sort_values("document_chembl_id")  # Sort by primary key
+            df = df.sort_values("document_chembl_id").reset_index(drop=True)
             df["index"] = range(len(df))
 
-            # Add all missing columns from schema
-            from bioetl.schemas import DocumentSchema
-
+            # Align to canonical schema order
             expected_cols = DocumentSchema.get_column_order()
 
             if expected_cols:
-                for col in expected_cols:
-                    if col not in df.columns:
-                        df[col] = None
+                df = df.reindex(columns=expected_cols)
 
-                df = df[expected_cols]
+        df = df.convert_dtypes()
+        df = self._enforce_schema_dtypes(df)
 
+        return df
+
+    # _coerce_optional_bool заменена на coerce_optional_bool из bioetl.utils.dtype
+
+    def _enforce_schema_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Cast columns to schema-compatible nullable dtypes."""
+
+        for column in self._INTEGER_COLUMNS:
+            if column in df.columns:
+                numeric_series = pd.to_numeric(df[column], errors="coerce")
+                df[column] = numeric_series.astype("Int64")
+
+        for column in self._BOOLEAN_COLUMNS:
+            if column in df.columns:
+                df[column] = df[column].astype("boolean")
+
+        coerce_retry_after(df)
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -694,9 +862,37 @@ class DocumentPipeline(PipelineBase):
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
             self.qc_metrics = {}
+            update_summary_section(self.qc_summary_data, "row_counts", {"documents": 0})
+            update_summary_section(
+                self.qc_summary_data,
+                "datasets",
+                {"documents": {"rows": 0}},
+            )
+            update_summary_section(
+                self.qc_summary_data,
+                "duplicates",
+                {"documents": duplicate_summary(0, 0, field="document_chembl_id")},
+            )
+            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
             return df
 
         working_df = df.copy().convert_dtypes()
+        initial_rows = int(len(working_df))
+
+        canonical_order = DocumentSchema.get_column_order()
+        if canonical_order:
+            missing_columns = [column for column in canonical_order if column not in working_df.columns]
+            for column in missing_columns:
+                working_df[column] = pd.NA
+
+            extra_columns = [column for column in working_df.columns if column not in canonical_order]
+            if extra_columns:
+                working_df = working_df.drop(columns=extra_columns)
+
+            working_df = working_df.loc[:, canonical_order]
+
+        # Ensure schema-driven dtypes are respected even for newly added columns.
+        working_df = self._enforce_schema_dtypes(working_df)
 
         duplicate_count = (
             working_df["document_chembl_id"].duplicated().sum()
@@ -771,7 +967,46 @@ class DocumentPipeline(PipelineBase):
 
         metrics = self._compute_qc_metrics(validated_df)
         self.qc_metrics = metrics
+        update_summary_metrics(self.qc_summary_data, metrics)
+        row_count = int(len(validated_df))
+        update_summary_section(self.qc_summary_data, "row_counts", {"documents": row_count})
+        update_summary_section(
+            self.qc_summary_data,
+            "datasets",
+            {"documents": {"rows": row_count}},
+        )
+        update_summary_section(
+            self.qc_summary_data,
+            "duplicates",
+            {
+                "documents": duplicate_summary(
+                    initial_rows,
+                    int(duplicate_count),
+                    field="document_chembl_id",
+                )
+            },
+        )
+
+        coverage_columns = {
+            "doi": "doi_clean",
+            "pmid": "pmid" if "pmid" in validated_df.columns else "pubmed_id",
+            "title": "title",
+            "journal": "journal",
+            "authors": "authors",
+        }
+        coverage_stats = compute_field_coverage(validated_df, coverage_columns.values())
+        coverage_payload = {
+            key: coverage_stats.get(column, 0.0)
+            for key, column in coverage_columns.items()
+        }
+        update_summary_section(
+            self.qc_summary_data,
+            "coverage",
+            {"documents": coverage_payload},
+        )
         self._enforce_qc_thresholds(metrics)
+
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
         return validated_df

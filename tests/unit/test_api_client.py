@@ -1,10 +1,13 @@
 """Tests for UnifiedAPIClient."""
 
+import json
 import time
-from unittest.mock import Mock, patch
+from typing import Any
+from unittest.mock import Mock
 
 import pytest
 import requests
+from requests.structures import CaseInsensitiveDict
 
 from bioetl.core.api_client import (
     APIConfig,
@@ -21,19 +24,19 @@ def test_circuit_breaker():
     cb = CircuitBreaker("test", failure_threshold=3, timeout=0.1)
 
     # First 2 failures should not open the circuit
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
     assert cb.failure_count == 1
     assert cb.state == "closed"
 
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
     assert cb.failure_count == 2
     assert cb.state == "closed"
 
     # Third failure should open the circuit
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
     assert cb.failure_count == 3
     assert cb.state == "open"
 
@@ -43,8 +46,8 @@ def test_circuit_breaker():
 
     # After timeout, circuit should go to half-open
     time.sleep(0.15)
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
 
 
 def test_token_bucket_limiter():
@@ -96,6 +99,20 @@ def test_retry_policy_fail_fast_on_4xx():
     assert policy.should_giveup(error500, attempt=1) is False
 
 
+def test_retry_policy_allows_configured_status_retry():
+    """Retry policy should retry for configured status codes like 404."""
+
+    policy = RetryPolicy(total=3, status_codes=[404])
+
+    error404 = requests.exceptions.HTTPError()
+    error404.response = Mock(status_code=404)
+
+    assert policy.should_giveup(error404, attempt=1) is False
+    assert policy.should_giveup(error404, attempt=2) is False
+    # Should still give up once attempts are exhausted
+    assert policy.should_giveup(error404, attempt=3) is True
+
+
 def test_api_client_initialization():
     """Test UnifiedAPIClient initialization."""
     config = APIConfig(
@@ -132,15 +149,151 @@ def test_api_client_cache_key():
 
 def test_retry_policy_wait_time():
     """Test retry policy wait time calculation."""
-    policy = RetryPolicy(total=3, backoff_factor=2.0)
+    policy = RetryPolicy(total=3, backoff_factor=2.0, backoff_max=10.0)
 
     # Should calculate exponential backoff
     assert policy.get_wait_time(0) == 1.0
     assert policy.get_wait_time(1) == 2.0
     assert policy.get_wait_time(2) == 4.0
 
+    # Should cap by backoff_max
+    assert policy.get_wait_time(5) == 10.0
+
     # Should use retry_after if provided
     assert policy.get_wait_time(1, retry_after=10.0) == 10.0
+
+
+def _build_response(
+    status_code: int,
+    payload: dict[str, Any],
+    headers: dict[str, str] | None = None,
+) -> requests.Response:
+    """Construct a minimal Response object for testing."""
+
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = json.dumps(payload).encode("utf-8")
+    response.headers = CaseInsensitiveDict(headers or {})
+    response.url = "https://api.example.com/test"
+    response.encoding = "utf-8"
+    response.reason = requests.status_codes._codes.get(status_code, [""])[0].upper()
+    return response
+
+
+def test_request_json_retries_configured_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    """UnifiedAPIClient should retry configured HTTP status codes like 404."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=3,
+        retry_backoff_factor=1.0,
+        retry_status_codes=[404],
+    )
+
+    client = UnifiedAPIClient(config)
+
+    responses = iter(
+        [
+            _build_response(404, {"error": "missing"}),
+            _build_response(404, {"error": "still missing"}),
+            _build_response(200, {"result": "ok"}),
+        ]
+    )
+
+    call_count = {"count": 0}
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        call_count["count"] += 1
+        return next(responses)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    data = client.request_json("/resource")
+
+    assert data == {"result": "ok"}
+    assert call_count["count"] == 3
+
+
+def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPatch) -> None:
+    """UnifiedAPIClient should expose retry metadata when retries are exhausted."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=2,
+        retry_backoff_factor=1.0,
+        retry_status_codes=[404],
+    )
+
+    client = UnifiedAPIClient(config)
+
+    responses = iter(
+        [
+            _build_response(404, {"error": "missing"}, headers={"Retry-After": "1"}),
+            _build_response(404, {"error": "still missing"}, headers={"Retry-After": "2"}),
+        ]
+    )
+
+    call_count = {"count": 0}
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        call_count["count"] += 1
+        return next(responses)
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+        client.request_json("/resource")
+
+    assert call_count["count"] == 2
+
+    metadata = getattr(excinfo.value, "retry_metadata", None)
+    assert metadata is not None
+    assert metadata["attempt"] == 2
+    assert metadata["status_code"] == 404
+    assert metadata["retry_after"] == "2"
+    assert "still missing" in metadata["error_text"]
+    assert metadata["timestamp"] <= time.time()
+    assert metadata["timestamp"] > 0
+
+
+def test_request_json_base_url_join(monkeypatch: pytest.MonkeyPatch) -> None:
+    """request_json should normalize base URLs with and without trailing slash."""
+
+    observed_urls: list[str] = []
+
+    for base_url in [
+        "https://api.example.com/api",
+        "https://api.example.com/api/",
+    ]:
+        config = APIConfig(name="test", base_url=base_url, rate_limit_jitter=False)
+        client = UnifiedAPIClient(config)
+
+        def fake_request(*_: Any, **kwargs: Any) -> requests.Response:
+            url = kwargs["url"]
+            observed_urls.append(url)
+            response = _build_response(200, {"status": "ok"})
+            response.url = url
+            return response
+
+        monkeypatch.setattr(client.session, "request", fake_request)
+
+        data = client.request_json("/activity.json")
+        assert data == {"status": "ok"}
+
+    assert len(observed_urls) == 2
+    assert observed_urls[0] == observed_urls[1]
 
 
 if __name__ == "__main__":

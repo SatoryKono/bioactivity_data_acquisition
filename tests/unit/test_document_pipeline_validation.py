@@ -5,6 +5,10 @@ import pandas as pd
 import pytest
 from pandera.errors import SchemaErrors
 
+from bioetl.config.loader import load_config
+from bioetl.pipelines.document import DocumentPipeline
+from bioetl.schemas.document import DocumentNormalizedSchema, DocumentRawSchema, DocumentSchema
+
 
 class _DummyTTLCache(dict):
     def __init__(self, maxsize, ttl):  # noqa: D401 - simple test stub
@@ -20,12 +24,8 @@ class _DummySchema:
 
 
 testitem_stub = ModuleType("bioetl.schemas.testitem")
-setattr(testitem_stub, "TestItemSchema", _DummySchema)
+testitem_stub.TestItemSchema = _DummySchema
 sys.modules.setdefault("bioetl.schemas.testitem", testitem_stub)
-
-from bioetl.config.loader import load_config
-from bioetl.pipelines.document import DocumentPipeline
-from bioetl.schemas.document import DocumentNormalizedSchema
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def _build_document_frame(**overrides) -> pd.DataFrame:
     if not schema_columns:
         raise AssertionError("Document schema columns are not defined")
 
-    row = {column: None for column in schema_columns}
+    row = dict.fromkeys(schema_columns)
     row.update(
         {
             "document_chembl_id": "CHEMBL1",
@@ -89,6 +89,26 @@ def _build_document_frame(**overrides) -> pd.DataFrame:
     return df.convert_dtypes()
 
 
+def test_validate_handles_nullable_integer_columns(document_pipeline):
+    """Validation should succeed when optional integer columns contain ``pd.NA``."""
+
+    df = _build_document_frame()
+
+    for column in DocumentPipeline._INTEGER_COLUMNS:
+        if column in df.columns:
+            df[column] = pd.Series([pd.NA], dtype="Int64")
+
+    document_pipeline.config.qc.severity_threshold = "error"
+    document_pipeline.config.qc.thresholds = {}
+
+    validated = document_pipeline.validate(df)
+
+    for column in DocumentPipeline._INTEGER_COLUMNS:
+        if column in validated.columns:
+            assert str(validated[column].dtype) == "Int64"
+            assert validated[column].isna().all()
+
+
 def test_extract_raw_schema_violation(tmp_path, document_pipeline, monkeypatch):
     """Extraction should fail when raw schema constraints are violated."""
 
@@ -99,6 +119,79 @@ def test_extract_raw_schema_violation(tmp_path, document_pipeline, monkeypatch):
 
     with pytest.raises(SchemaErrors):
         document_pipeline.extract(input_file=csv_path)
+
+
+def test_raw_validation_reorders_columns(document_pipeline):
+    """Raw validation should reorder columns to satisfy Pandera when API payloads shuffle fields."""
+
+    unsorted_columns = [
+        "abstract",
+        "authors",
+        "chembl_release",
+        "contact",
+        "doc_type",
+        "document_chembl_id",
+        "doi",
+        "doi_chembl",
+        "first_page",
+        "issue",
+        "journal",
+        "journal_full_title",
+        "last_page",
+        "patent_id",
+        "pubmed_id",
+        "src_id",
+        "title",
+        "volume",
+        "year",
+        "classification",
+        "document_contains_external_links",
+        "is_experimental_doc",
+        "journal_abbrev",
+        "month",
+        "source",
+    ]
+
+    record = {column: None for column in unsorted_columns}
+    record.update(
+        {
+            "document_chembl_id": "CHEMBL999",
+            "abstract": "Example abstract",
+            "source": "ChEMBL",
+        }
+    )
+
+    raw_df = pd.DataFrame([record], columns=unsorted_columns)
+
+    validated = document_pipeline._validate_raw_dataframe(raw_df)
+
+    schema_columns = list(DocumentRawSchema.to_schema().columns.keys())
+    assert list(validated.columns[: len(schema_columns)]) == schema_columns
+
+    extras = [
+        "chembl_release",
+        "contact",
+        "doc_type",
+        "doi_chembl",
+        "journal_full_title",
+        "patent_id",
+        "src_id",
+    ]
+    assert list(validated.columns[len(schema_columns) :]) == extras
+    assert validated.loc[0, "document_chembl_id"] == "CHEMBL999"
+
+
+def test_transform_empty_dataframe_includes_all_columns(document_pipeline):
+    """Transform should return an empty frame with full schema when no rows are present."""
+
+    empty_df = pd.DataFrame(columns=["document_chembl_id"])
+
+    transformed = document_pipeline.transform(empty_df)
+
+    expected_columns = DocumentSchema.get_column_order()
+
+    assert transformed.empty
+    assert list(transformed.columns) == expected_columns
 
 
 def test_validate_enforces_qc_thresholds(document_pipeline, monkeypatch):

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 import pytest
 from typer.testing import CliRunner
@@ -74,7 +74,7 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
 
     assert result.exit_code == 0, result.output
 
-    for flag in (
+    expected_flags = (
         "--config",
         "--golden",
         "--sample",
@@ -84,7 +84,11 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
         "--dry-run",
         "--verbose",
         "--set",
-    ):
+    )
+    if entry.name == "target":
+        expected_flags += ("--limit",)
+
+    for flag in expected_flags:
         assert flag in result.stdout, f"{flag} missing from help for {entry.name}"
 
 
@@ -101,6 +105,8 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
         def __init__(self, config, run_id):  # noqa: D401, ANN001 - signature dictated by Typer wiring
             captured["config"] = config
             captured["run_id"] = run_id
+            self.runtime_options: dict[str, object] = {}
+            captured["runtime_options"] = self.runtime_options
 
     monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline)
 
@@ -131,6 +137,9 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
         "cli.custom_flag='contract'",
     ]
 
+    if entry.name == "target":
+        args.extend(["--limit", "7"])
+
     result = runner.invoke(module.app, args)
 
     assert result.exit_code == 0, result.output
@@ -138,13 +147,13 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     config = captured.get("config")
     assert config is not None, "Pipeline did not receive configuration"
 
-    cache_ttl = getattr(config, "cache").ttl
+    cache_ttl = config.cache.ttl
     assert cache_ttl == 321  # environment overrides CLI --set value
 
-    qc_thresholds = getattr(config, "qc").thresholds
+    qc_thresholds = config.qc.thresholds
     assert qc_thresholds["null_fraction"] == pytest.approx(0.05)
 
-    cli_section = getattr(config, "cli")
+    cli_section = config.cli
     assert cli_section["custom_flag"] == "contract"
     assert cli_section["extended"] is True
     assert cli_section["mode"] == entry.mode
@@ -153,7 +162,65 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     assert cli_section["verbose"] is True
     assert cli_section["sample"] == 5
     assert cli_section["golden"] == str(golden_path)
+    if entry.name == "target":
+        assert cli_section["limit"] == 7
 
     run_id = captured.get("run_id")
     assert isinstance(run_id, str) and run_id.startswith(entry.name)
+
+    runtime_options = captured.get("runtime_options")
+    assert isinstance(runtime_options, dict)
+    if entry.name == "target":
+        assert runtime_options.get("sample") == 5
+        assert runtime_options.get("limit") == 7
+    else:
+        assert runtime_options.get("sample") == 5
+        assert runtime_options.get("limit") == 5
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("entry", ENTRYPOINTS, ids=lambda entry: entry.name)
+def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoint) -> None:
+    """Default CLI invocation applies expected pipeline-specific flags."""
+
+    module = importlib.import_module(entry.module)
+
+    captured: dict[str, object] = {}
+
+    class RecordingPipeline:
+        def __init__(self, config, run_id):  # noqa: D401, ANN001 - Typer contract
+            captured["config"] = config
+            captured["run_id"] = run_id
+            self.runtime_options: dict[str, object] = {}
+            captured["runtime_options"] = self.runtime_options
+
+    monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+
+    config = captured.get("config")
+    assert config is not None, "Pipeline did not receive configuration"
+
+    if entry.name == "document":
+        assert config.cli.get("mode") == "all"
+
+    if entry.name == "target":
+        stages = config.cli.get("stages", {})
+        assert stages.get("uniprot") is True
+        assert stages.get("iuphar") is True
+
+        runtime_options = captured.get("runtime_options")
+        assert isinstance(runtime_options, dict)
+        assert runtime_options.get("with_uniprot") is True
+        assert runtime_options.get("with_iuphar") is True
 

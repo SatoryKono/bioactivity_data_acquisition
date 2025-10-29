@@ -1,10 +1,12 @@
 """Functions for merging enriched document data from multiple sources."""
 
-from typing import Callable, Dict, List, Tuple
+from collections.abc import Callable
 
 import pandas as pd
 
-FIELD_PRECEDENCE: dict[str, List[Tuple[str, str]]] = {
+from bioetl.core.logger import UnifiedLogger
+
+FIELD_PRECEDENCE: dict[str, list[tuple[str, str]]] = {
     "doi_clean": [
         ("crossref", "crossref_doi"),
         ("pubmed", "pubmed_doi"),
@@ -118,7 +120,7 @@ FIELD_PRECEDENCE: dict[str, List[Tuple[str, str]]] = {
     ],
 }
 
-CASTERS: Dict[str, Callable[[pd.Series], pd.Series]] = {
+CASTERS: dict[str, Callable[[pd.Series], pd.Series]] = {
     "pmid": lambda s: pd.to_numeric(s, errors="coerce").astype("Int64"),
     "year": lambda s: pd.to_numeric(s, errors="coerce").astype("Int64"),
     "citation_count": lambda s: pd.to_numeric(s, errors="coerce").astype("Int64"),
@@ -126,14 +128,12 @@ CASTERS: Dict[str, Callable[[pd.Series], pd.Series]] = {
     "is_oa": lambda s: s.astype("boolean"),
 }
 
-from bioetl.core.logger import UnifiedLogger
-
 logger = UnifiedLogger.get(__name__)
 
 
 def _normalize_output_value(value: object) -> object:
     """Normalize complex values (lists, tuples) to a deterministic representation."""
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         filtered = [str(v) for v in value if v not in (None, "")]
         if not filtered:
             return None

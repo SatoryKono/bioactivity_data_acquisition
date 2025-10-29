@@ -35,7 +35,7 @@ def generate_hash_row(row: dict[str, Any]) -> str:
     # Канонизация: JSON с sort_keys=True
     # Убираем None значения для согласованности
     canonical_dict = {k: _canonicalize_value(v) for k, v in row.items() if v is not None}
-    
+
     json_str = json.dumps(canonical_dict, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(json_str.encode("utf-8")).hexdigest()
 
@@ -76,16 +76,16 @@ def _canonicalize_value(value: Any) -> Any:
     # pandas Timestamp или datetime
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
-    
+
     if hasattr(value, "isoformat"):
         try:
             return value.isoformat()
         except (AttributeError, TypeError):
             pass
-    
+
     # float → 6 знаков после запятой
     if isinstance(value, float):
         return round(value, 6)
-    
+
     return value
 
