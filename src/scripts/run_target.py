@@ -13,6 +13,7 @@ import typer
 
 from bioetl.config.loader import load_config, parse_cli_overrides
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.target import TargetPipeline
 
 DEFAULT_CONFIG = Path("configs/pipelines/target.yaml")
@@ -207,7 +208,9 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     if sample is not None:
         original_extract = pipeline.extract
 
-        def limited_extract(*args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
+        def limited_extract(
+            self: PipelineBase, *args: Any, **kwargs: Any
+        ) -> pd.DataFrame:  # type: ignore[misc]
             df = original_extract(*args, **kwargs)
             logger.info(
                 "applying_sample_limit",

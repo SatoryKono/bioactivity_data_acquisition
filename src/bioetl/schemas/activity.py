@@ -69,13 +69,6 @@ STANDARD_UNITS_ALLOWED = {
 }
 
 COLUMN_ORDER = [
-    "index",
-    "hash_row",
-    "hash_business_key",
-    "pipeline_version",
-    "source_system",
-    "chembl_release",
-    "extracted_at",
     "activity_id",
     "molecule_chembl_id",
     "assay_chembl_id",
@@ -99,6 +92,13 @@ COLUMN_ORDER = [
     "bao_endpoint",
     "bao_format",
     "bao_label",
+    "pipeline_version",
+    "source_system",
+    "chembl_release",
+    "extracted_at",
+    "hash_business_key",
+    "hash_row",
+    "index",
     "potential_duplicate",
     "uo_units",
     "qudt_units",
