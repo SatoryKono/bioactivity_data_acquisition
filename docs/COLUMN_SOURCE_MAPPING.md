@@ -39,7 +39,7 @@
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
-| `activity_id` | `/activity.json` | `activity_id` | `int` | `_normalize_int()` | `Series[int]` (NOT NULL) |
+| `activity_id` | `/activity.json` | `activity_id` | `int` | `registry.normalize("numeric", value)` | `Series[int]` (NOT NULL) |
 | `molecule_chembl_id` | `/activity.json` | `molecule_chembl_id` | `str` | `_normalize_chembl_id()` | `Series[str]` (regex: `^CHEMBL\d+$`) |
 | `assay_chembl_id` | `/activity.json` | `assay_chembl_id` | `str` | `_normalize_chembl_id()` | `Series[str]` (regex: `^CHEMBL\d+$`) |
 | `target_chembl_id` | `/activity.json` | `target_chembl_id` | `str` | `_normalize_chembl_id()` | `Series[str]` (regex: `^CHEMBL\d+$`) |
