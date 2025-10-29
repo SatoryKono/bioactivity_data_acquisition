@@ -13,6 +13,8 @@ def test_assay_schema_accepts_nullable_integer_columns() -> None:
     schema_columns = AssaySchema.get_column_order()
     assert schema_columns, "schema column order must not be empty"
 
+    assert "row_subtype" not in schema_columns
+
     row = {column: pd.NA for column in schema_columns}
     row.update(
         {
@@ -24,7 +26,6 @@ def test_assay_schema_accepts_nullable_integer_columns() -> None:
             "chembl_release": "ChEMBL_TEST",
             "extracted_at": "2024-01-01T00:00:00+00:00",
             "assay_chembl_id": "CHEMBL1",
-            "row_subtype": "assay",
         }
     )
 

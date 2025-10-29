@@ -8,7 +8,7 @@ from typing import Any
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers.base import BaseNormalizer
-from bioetl.normalizers.constants import NA_STRINGS
+from bioetl.normalizers.constants import NA_STRINGS, RELATION_ALIASES, UNIT_SYNONYMS
 from bioetl.normalizers.numeric import NumericNormalizer
 
 logger = UnifiedLogger.get(__name__)
@@ -127,6 +127,58 @@ class ChemistryStringNormalizer(BaseNormalizer):
     def validate(self, value: Any) -> bool:
         """Проверяет, что значение можно нормализовать как строку."""
 
+        return _is_na(value) or isinstance(value, str)
+
+
+class ChemistryRelationNormalizer(BaseNormalizer):
+    """Normalize comparison relations used in activity measurements."""
+
+    def normalize(self, value: Any, *, default: str = "=", **_: Any) -> str:
+        if _is_na(value):
+            return default
+
+        text = str(value).strip()
+        if not text:
+            return default
+
+        canonical = RELATION_ALIASES.get(text)
+        if canonical is not None:
+            return canonical
+
+        canonical = RELATION_ALIASES.get(text.lower())
+        if canonical is not None:
+            return canonical
+
+        return text
+
+    def validate(self, value: Any) -> bool:
+        return _is_na(value) or isinstance(value, str)
+
+
+class ChemistryUnitsNormalizer(BaseNormalizer):
+    """Normalize chemistry measurement units with synonym support."""
+
+    def normalize(
+        self,
+        value: Any,
+        *,
+        default: str | None = None,
+        **_: Any,
+    ) -> str | None:
+        if _is_na(value):
+            return default
+
+        text = _canonicalize_whitespace(str(value))
+        if not text:
+            return default
+
+        canonical = UNIT_SYNONYMS.get(text.lower())
+        if canonical is not None:
+            return canonical
+
+        return text
+
+    def validate(self, value: Any) -> bool:
         return _is_na(value) or isinstance(value, str)
 
 

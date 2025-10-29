@@ -590,13 +590,23 @@ class AssayPipeline(PipelineBase):
                     "row_subtype": "param",
                     "row_index": index,
                     "assay_param_type": param.get("type"),
-                    "assay_param_relation": param.get("relation"),
+                    "assay_param_relation": registry.normalize(
+                        "chemistry.relation",
+                        param.get("relation"),
+                        default="=",
+                    ),
                     "assay_param_value": param.get("value"),
-                    "assay_param_units": param.get("units"),
+                    "assay_param_units": registry.normalize(
+                        "chemistry.units",
+                        param.get("units"),
+                    ),
                     "assay_param_text_value": param.get("text_value"),
                     "assay_param_standard_type": param.get("standard_type"),
                     "assay_param_standard_value": param.get("standard_value"),
-                    "assay_param_standard_units": param.get("standard_units"),
+                    "assay_param_standard_units": registry.normalize(
+                        "chemistry.units",
+                        param.get("standard_units"),
+                    ),
                 }
                 records.append(record)
                 index += 1

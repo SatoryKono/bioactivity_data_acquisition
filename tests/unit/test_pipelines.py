@@ -212,7 +212,7 @@ class TestAssayPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = AssayPipeline(assay_config, run_id)
         df = pd.DataFrame([_build_assay_row("CHEMBL0", 0, None)]).convert_dtypes()
-        df = df.drop(columns=["row_subtype"])  # force schema failure
+        df = df.drop(columns=["assay_chembl_id"])  # force schema failure
 
         with pytest.raises(ValueError):
             pipeline.validate(df)
@@ -510,8 +510,9 @@ class TestAssayPipeline:
 
         result = pipeline.transform(input_df)
 
-        # Canonical ordering maintained
+        # Canonical ordering maintained and row_subtype removed from export columns
         assert list(result.columns) == AssaySchema.Config.column_order
+        assert "row_subtype" not in result.columns
 
         # Integer fields must use nullable Int64 dtype to satisfy schema coercion
         expected_integer_columns = [
@@ -525,20 +526,23 @@ class TestAssayPipeline:
             if column in result.columns:
                 assert is_integer_dtype(result[column]), f"{column} should be Int64"
 
-        # Expect three row subtypes: assay, param, class (2 class rows -> 5 total rows)
-        assert set(result["row_subtype"].unique()) == {"assay", "param", "class"}
+        # Expect one base row, two parameter rows, and two classification rows (5 total)
+        assert len(result) == 5
 
-        assay_rows = result[result["row_subtype"] == "assay"]
-        assert len(assay_rows) == 1
-        assert assay_rows.iloc[0]["pref_name"] == "Target X"
+        base_rows = result[
+            result["assay_param_type"].isna() & result["assay_class_id"].isna()
+        ]
+        assert len(base_rows) == 1
+        assert base_rows.iloc[0]["pref_name"] == "Target X"
 
-        param_rows = result[result["row_subtype"] == "param"]
+        param_rows = result[result["assay_param_type"].notna()]
         assert len(param_rows) == 2
-        assert param_rows["assay_param_type"].dropna().tolist() == ["CONC", "TEMP"]
         assert {"CONC", "TEMP"} == set(param_rows["assay_param_type"].dropna())
+        assert param_rows["assay_class_id"].isna().all()
 
-        class_rows = result[result["row_subtype"] == "class"]
+        class_rows = result[result["assay_class_id"].notna()]
         assert len(class_rows) == 2
+        assert class_rows["assay_param_type"].isna().all()
         # Enrichment should preserve whitelist fields and drop unexpected columns
         assert "extra_field" not in result.columns
         assert class_rows["assay_class_description"].notna().all()
@@ -1906,7 +1910,6 @@ def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[s
     row.update(
         {
             "assay_chembl_id": assay_id,
-            "row_subtype": "assay",
             "assay_tax_id": 9606,
             "assay_class_id": 1,
             "confidence_score": 1,
