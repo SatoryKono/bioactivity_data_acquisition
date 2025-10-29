@@ -20,6 +20,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.fallback import build_fallback_payload
 
 logger = UnifiedLogger.get(__name__)
 
@@ -202,11 +203,14 @@ class TestItemPipeline(PipelineBase):
     ]
 
     _FALLBACK_FIELDS: list[str] = [
+        "fallback_reason",
+        "fallback_error_type",
         "fallback_error_code",
         "fallback_http_status",
         "fallback_retry_after_sec",
         "fallback_attempt",
         "fallback_error_message",
+        "fallback_timestamp",
     ]
 
     _NULLABLE_INT_COLUMNS: list[str] = [
@@ -571,6 +575,7 @@ class TestItemPipeline(PipelineBase):
                         missing_id,
                         attempt=1,
                         error=exc,
+                        reason="batch_exception",
                         message="Batch request failed",
                     )
                     results.append(record)
@@ -686,6 +691,7 @@ class TestItemPipeline(PipelineBase):
                 molecule_id,
                 attempt=attempt,
                 error=exc,
+                reason="http_error",
                 retry_after=self._extract_retry_after(exc),
             )
             fallback_message = record.get("fallback_error_message")
@@ -703,6 +709,7 @@ class TestItemPipeline(PipelineBase):
                 molecule_id,
                 attempt=attempt,
                 error=exc,
+                reason="unexpected_error",
             )
             logger.error(
                 "molecule_fallback_unexpected_error",
@@ -717,6 +724,7 @@ class TestItemPipeline(PipelineBase):
             record = self._create_fallback_record(
                 molecule_id,
                 attempt=attempt,
+                reason="missing_from_response",
                 message="Missing molecule in response",
             )
             logger.warning("molecule_missing_in_response", molecule_chembl_id=molecule_id, attempt=attempt)
@@ -734,28 +742,33 @@ class TestItemPipeline(PipelineBase):
         error: Exception | None = None,
         retry_after: float | None = None,
         message: str | None = None,
+        reason: str = "exception",
     ) -> dict[str, Any]:
-        error_code = getattr(error, "code", None)
-        if error_code is None and error is not None:
-            error_code = error.__class__.__name__
-
-        http_status: int | None = None
-        if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
-            http_status = error.response.status_code
-
-        if retry_after is None and isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
+        if retry_after is None and isinstance(error, requests.exceptions.HTTPError):
             retry_after = self._extract_retry_after(error)
 
         fallback_record = self._empty_molecule_record()
         fallback_record["molecule_chembl_id"] = molecule_id
-        fallback_record["fallback_error_code"] = error_code
-        fallback_record["fallback_http_status"] = http_status
-        fallback_record["fallback_retry_after_sec"] = retry_after
-        fallback_record["fallback_attempt"] = attempt
-        fallback_record["fallback_error_message"] = (
-            message or (str(error) if error else "Missing from ChEMBL response")
+
+        metadata = build_fallback_payload(
+            entity="testitem",
+            reason=reason,
+            error=error,
+            source="TESTITEM_FALLBACK",
+            attempt=attempt,
+            message=message,
+            context={
+                "molecule_chembl_id": molecule_id,
+                "chembl_release": self._chembl_release,
+            },
         )
 
+        if retry_after is not None:
+            metadata["fallback_retry_after_sec"] = retry_after
+
+        metadata.setdefault("fallback_error_code", reason if reason else None)
+
+        fallback_record.update(metadata)
         return fallback_record
 
     @staticmethod

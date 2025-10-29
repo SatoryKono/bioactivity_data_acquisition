@@ -333,9 +333,41 @@ class DocumentSchema(BaseSchema):
     semantic_scholar_error: Series[str] = pa.Field(nullable=True, description="Ошибка Semantic Scholar адаптера")
 
     # Fallback level error context
-    error_type: Series[str] = pa.Field(nullable=True, description="Код ошибки для fallback строки")
-    error_message: Series[str] = pa.Field(nullable=True, description="Текст ошибки для fallback строки")
-    attempted_at: Series[str] = pa.Field(nullable=True, description="ISO8601 время последней попытки")
+    fallback_reason: Series[str] = pa.Field(
+        nullable=True,
+        description="Причина генерации fallback записи",
+    )
+    fallback_error_type: Series[str] = pa.Field(
+        nullable=True,
+        description="Класс исключения, инициировавший fallback",
+    )
+    fallback_error_code: Series[str] = pa.Field(
+        nullable=True,
+        description="Нормализованный код ошибки для fallback",
+    )
+    fallback_error_message: Series[str] = pa.Field(
+        nullable=True,
+        description="Текст ошибки для fallback строки",
+    )
+    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="HTTP статус, ассоциированный с fallback",
+    )
+    fallback_retry_after_sec: Series[float] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Retry-After (секунды), предоставленный API",
+    )
+    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Номер попытки, на которой зафиксирован fallback",
+    )
+    fallback_timestamp: Series[str] = pa.Field(
+        nullable=True,
+        description="ISO8601 время создания fallback записи",
+    )
 
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
@@ -458,9 +490,14 @@ class DocumentSchema(BaseSchema):
         "openalex_error",
         "pubmed_error",
         "semantic_scholar_error",
-        "error_type",
-        "error_message",
-        "attempted_at",
+        "fallback_reason",
+        "fallback_error_type",
+        "fallback_error_code",
+        "fallback_error_message",
+        "fallback_http_status",
+        "fallback_retry_after_sec",
+        "fallback_attempt",
+        "fallback_timestamp",
     ]
 
     class Config:

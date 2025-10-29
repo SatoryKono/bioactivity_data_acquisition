@@ -196,7 +196,9 @@ class TestAssayPipeline:
         row = df.iloc[0]
         assert row["assay_chembl_id"] == "CHEMBL_FAIL"
         assert row["source_system"] == "ChEMBL_FALLBACK"
-        assert row["error_message"].startswith("Circuit") or "breaker" in row["error_message"]
+        assert row["fallback_error_message"].startswith("Circuit") or "breaker" in row[
+            "fallback_error_message"
+        ]
         assert row["run_id"] == "run-fallback"
 
         metrics = pipeline.run_metadata.get("assay_fetch_metrics", {})
@@ -851,12 +853,13 @@ class TestActivityPipeline:
         fallback.loc[:, "document_chembl_id"] = None
         fallback.loc[:, "standard_value"] = None
         fallback.loc[:, "fallback_reason"] = "not_in_response"
-        fallback.loc[:, "error_type"] = "HTTPError"
-        fallback.loc[:, "error_message"] = "Activity not found"
-        fallback.loc[:, "http_status"] = 404
-        fallback.loc[:, "error_code"] = "not_found"
-        fallback.loc[:, "retry_after_sec"] = 1.5
-        fallback.loc[:, "attempt"] = 3
+        fallback.loc[:, "fallback_error_type"] = "HTTPError"
+        fallback.loc[:, "fallback_error_message"] = "Activity not found"
+        fallback.loc[:, "fallback_http_status"] = 404
+        fallback.loc[:, "fallback_error_code"] = "not_found"
+        fallback.loc[:, "fallback_retry_after_sec"] = 1.5
+        fallback.loc[:, "fallback_attempt"] = 3
+        fallback.loc[:, "fallback_timestamp"] = "2024-01-01T00:00:00+00:00"
 
         combined = pd.concat([primary, fallback], ignore_index=True, sort=False)
 
@@ -871,8 +874,8 @@ class TestActivityPipeline:
         fallback_row = fallback_table.iloc[0]
         assert fallback_row["activity_id"] == 202
         assert fallback_row["fallback_reason"] == "not_in_response"
-        assert fallback_row["http_status"] == 404
-        assert fallback_row["error_message"] == "Activity not found"
+        assert fallback_row["fallback_http_status"] == 404
+        assert fallback_row["fallback_error_message"] == "Activity not found"
 
         summary = pipeline.qc_summary_data.get("fallbacks")
         assert summary is not None
@@ -957,7 +960,7 @@ class TestActivityPipeline:
         assert df["activity_id"].tolist() == [101, 102]
         assert set(df["source_system"].unique()) == {"ChEMBL_FALLBACK"}
         assert set(df["fallback_reason"].dropna().unique()) == {"circuit_breaker_open"}
-        assert set(df["error_type"].dropna().unique()) == {"CircuitBreakerOpenError"}
+        assert set(df["fallback_error_type"].dropna().unique()) == {"CircuitBreakerOpenError"}
         assert set(df["chembl_release"].unique()) == {"ChEMBL_99"}
 
     def test_activity_cache_serves_before_network(self, activity_config, monkeypatch, tmp_path):
@@ -1197,10 +1200,14 @@ class TestTestItemPipeline:
         assert len(df) == 1
         record = df.iloc[0]
         assert record["molecule_chembl_id"] == "CHEMBL404"
+        assert record["source_system"] == "TESTITEM_FALLBACK"
+        assert record["fallback_reason"] == "http_error"
+        assert record["fallback_error_type"] == "HTTPError"
         assert record["fallback_http_status"] == 404
         assert record["fallback_retry_after_sec"] == pytest.approx(3.0)
         assert record["fallback_attempt"] == 2
         assert "Not Found" in record["fallback_error_message"]
+        assert pd.notna(record["fallback_timestamp"])
         assert record["pref_name_key"] is None
 
     def test_flatten_molecule_synonyms_canonical(self, testitem_config):
@@ -1736,9 +1743,12 @@ class TestDocumentPipeline:
         assert len(result) == 1
         row = result.iloc[0]
         assert row["document_chembl_id"] == "CHEMBL999"
-        assert row["error_type"] == "E_TIMEOUT"
-        assert pd.notna(row["error_message"])
-        assert pd.notna(row["attempted_at"])
+        assert row["source_system"] == "DOCUMENT_FALLBACK"
+        assert row["fallback_reason"] == "exception"
+        assert row["fallback_error_code"] == "E_TIMEOUT"
+        assert row["fallback_error_type"] == "ReadTimeout"
+        assert pd.notna(row["fallback_error_message"])
+        assert pd.notna(row["fallback_timestamp"])
 
 
 def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[str, Any]:
@@ -1801,6 +1811,10 @@ def _build_testitem_frame(
                 value = "ChEMBL_TEST"
             elif name == "extracted_at":
                 value = "2024-01-01T00:00:00+00:00"
+            elif name == "fallback_reason":
+                value = "exception" if fallback_codes else None
+            elif name == "fallback_error_type":
+                value = "HTTPError" if fallback_codes else None
             elif name == "fallback_error_code":
                 value = fallback_codes[idx] if fallback_codes else None
             elif name == "fallback_http_status":
@@ -1809,6 +1823,8 @@ def _build_testitem_frame(
                 value = 0.0
             elif name == "fallback_attempt":
                 value = 1
+            elif name == "fallback_timestamp":
+                value = "2024-01-01T00:00:00+00:00" if fallback_codes else None
             elif name in {"pubchem_inchi_key", "pubchem_lookup_inchikey", "standard_inchi_key"}:
                 value = "AAAAAAAAAAAAAA-BBBBBBBBBB-C"
             elif name == "standard_inchi":
