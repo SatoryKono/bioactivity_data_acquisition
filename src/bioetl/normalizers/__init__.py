@@ -4,7 +4,10 @@ from bioetl.normalizers.base import BaseNormalizer
 from bioetl.normalizers.chemistry import (
     BaoIdNormalizer,
     ChemistryNormalizer,
+    ChemistryBooleanFlagNormalizer,
     ChemistryStringNormalizer,
+    ChemistryRelationNormalizer,
+    ChemistryUnitsNormalizer,
     ChemblIdNormalizer,
     LigandEfficiencyNormalizer,
     NonNegativeFloatNormalizer,
@@ -25,6 +28,9 @@ registry.register("chemistry.bao_id", BaoIdNormalizer())
 registry.register("chemistry.target_organism", TargetOrganismNormalizer())
 registry.register("chemistry.non_negative_float", NonNegativeFloatNormalizer())
 registry.register("chemistry.ligand_efficiency", LigandEfficiencyNormalizer())
+registry.register("chemistry.relation", ChemistryRelationNormalizer())
+registry.register("chemistry.units", ChemistryUnitsNormalizer())
+registry.register("chemistry.boolean_flag", ChemistryBooleanFlagNormalizer())
 registry.register("numeric", NumericNormalizer())
 registry.register("boolean", BooleanNormalizer())
 
@@ -33,6 +39,9 @@ __all__ = [
     "StringNormalizer",
     "IdentifierNormalizer",
     "ChemistryNormalizer",
+    "ChemistryRelationNormalizer",
+    "ChemistryUnitsNormalizer",
+    "ChemistryBooleanFlagNormalizer",
     "ChemistryStringNormalizer",
     "ChemblIdNormalizer",
     "BaoIdNormalizer",

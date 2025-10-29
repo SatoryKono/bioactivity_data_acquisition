@@ -9,7 +9,7 @@ from typing import Any
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers.base import BaseNormalizer
 from bioetl.normalizers.constants import NA_STRINGS
-from bioetl.normalizers.numeric import NumericNormalizer
+from bioetl.normalizers.numeric import BooleanNormalizer, NumericNormalizer
 
 logger = UnifiedLogger.get(__name__)
 
@@ -128,6 +128,62 @@ class ChemistryStringNormalizer(BaseNormalizer):
         """Проверяет, что значение можно нормализовать как строку."""
 
         return _is_na(value) or isinstance(value, str)
+
+
+class ChemistryRelationNormalizer(BaseNormalizer):
+    """Normalize comparison relation symbols used in chemistry payloads."""
+
+    def __init__(self) -> None:
+        self._numeric_normalizer = NumericNormalizer()
+
+    def normalize(self, value: Any, *, default: str = "=", **_: Any) -> str:
+        relation = self._numeric_normalizer.normalize_relation(value, default=default)
+        return relation if isinstance(relation, str) else default
+
+    def validate(self, value: Any) -> bool:
+        if _is_na(value):
+            return True
+        if isinstance(value, str):
+            return True
+        if isinstance(value, (int, float)):
+            return True
+        return False
+
+
+class ChemistryUnitsNormalizer(BaseNormalizer):
+    """Normalize chemistry unit labels with canonical casing."""
+
+    def __init__(self) -> None:
+        self._numeric_normalizer = NumericNormalizer()
+
+    def normalize(
+        self,
+        value: Any,
+        *,
+        default: str | None = None,
+        **_: Any,
+    ) -> str | None:
+        return self._numeric_normalizer.normalize_units(value, default=default)
+
+    def validate(self, value: Any) -> bool:
+        return _is_na(value) or isinstance(value, (str, int, float))
+
+
+class ChemistryBooleanFlagNormalizer(BaseNormalizer):
+    """Normalize truthy/falsy chemistry flags with defaults."""
+
+    def __init__(self) -> None:
+        self._numeric_normalizer = NumericNormalizer()
+        self._boolean_validator = BooleanNormalizer()
+
+    def normalize(self, value: Any, *, default: bool = False, **_: Any) -> bool:
+        result = self._numeric_normalizer.normalize_bool(value, default=default)
+        if isinstance(result, bool):
+            return result
+        return default
+
+    def validate(self, value: Any) -> bool:
+        return self._boolean_validator.validate(value)
 
 
 class ChemblIdNormalizer(BaseNormalizer):

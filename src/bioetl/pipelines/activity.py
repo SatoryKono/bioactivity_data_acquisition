@@ -88,7 +88,7 @@ def _derive_is_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower()
         if label.replace(" ", "_") == "is_citation":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("chemistry.boolean_flag", prop.get("value"), default=False)
     return False
 
 
@@ -105,7 +105,7 @@ def _derive_exact_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "exact_data_citation":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("chemistry.boolean_flag", prop.get("value"), default=False)
     return False
 
 
@@ -122,7 +122,7 @@ def _derive_rounded_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "rounded_data_citation":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("chemistry.boolean_flag", prop.get("value"), default=False)
     return False
 
 
@@ -142,7 +142,7 @@ def _derive_high_citation_rate(properties: Sequence[dict[str, Any]]) -> bool:
         if numeric is not None and numeric >= 50:
             return True
         if label.replace(" ", "_") == "high_citation_rate":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("chemistry.boolean_flag", prop.get("value"), default=False)
     return False
 
 
@@ -409,26 +409,41 @@ class ActivityPipeline(PipelineBase):
             activity.get("type") or activity.get("published_type"),
             uppercase=True,
         )
-        published_relation = registry.get("numeric").normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
+        published_relation = registry.normalize(
+            "chemistry.relation",
+            activity.get("relation") or activity.get("published_relation"),
+            default="=",
+        )
         published_value = registry.normalize(
             "chemistry.non_negative_float",
             activity.get("value") or activity.get("published_value"),
             column="published_value",
         )
-        published_units = registry.get("numeric").normalize_units(activity.get("units") or activity.get("published_units"))
+        published_units = registry.normalize(
+            "chemistry.units",
+            activity.get("units") or activity.get("published_units"),
+        )
 
         standard_type = registry.normalize(
             "chemistry.string",
             activity.get("standard_type"),
             uppercase=True,
         )
-        standard_relation = registry.get("numeric").normalize_relation(activity.get("standard_relation"), default="=")
+        standard_relation = registry.normalize(
+            "chemistry.relation",
+            activity.get("standard_relation"),
+            default="=",
+        )
         standard_value = registry.normalize(
             "chemistry.non_negative_float",
             activity.get("standard_value"),
             column="standard_value",
         )
-        standard_units = registry.get("numeric").normalize_units(activity.get("standard_units"), default="nM")
+        standard_units = registry.normalize(
+            "chemistry.units",
+            activity.get("standard_units"),
+            default="nM",
+        )
         standard_flag = registry.get("numeric").normalize_int(activity.get("standard_flag"))
 
         lower_bound = registry.normalize("numeric", activity.get("standard_lower_value") or activity.get("lower_value"))
