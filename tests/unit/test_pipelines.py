@@ -5,6 +5,7 @@ import uuid
 from typing import Any
 
 import pandas as pd
+from pandas.api.types import is_integer_dtype
 import pytest
 import requests
 from pandera.errors import SchemaErrors
@@ -384,6 +385,19 @@ class TestAssayPipeline:
 
         # Canonical ordering maintained
         assert list(result.columns) == AssaySchema.Config.column_order
+
+        # Integer fields must use nullable Int64 dtype to satisfy schema coercion
+        expected_integer_columns = [
+            "row_index",
+            "assay_class_id",
+            "component_count",
+            "variant_id",
+            "species_group_flag",
+            "tax_id",
+        ]
+        for column in expected_integer_columns:
+            if column in result.columns:
+                assert is_integer_dtype(result[column]), f"{column} should be Int64"
 
         # Expect four row subtypes: assay, param, variant, class (2 class rows -> 5 total rows)
         assert set(result["row_subtype"].unique()) == {"assay", "param", "variant", "class"}
