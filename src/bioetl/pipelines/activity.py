@@ -27,6 +27,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
+from bioetl.utils.fallback import build_fallback_payload
 
 logger = UnifiedLogger.get(__name__)
 
@@ -802,12 +803,13 @@ class ActivityPipeline(PipelineBase):
             "chembl_release": self._chembl_release,
             "source_system": "chembl",
             "fallback_reason": None,
-            "error_type": None,
-            "error_message": None,
-            "http_status": None,
-            "error_code": None,
-            "retry_after_sec": None,
-            "attempt": None,
+            "fallback_error_type": None,
+            "fallback_error_code": None,
+            "fallback_error_message": None,
+            "fallback_http_status": None,
+            "fallback_retry_after_sec": None,
+            "fallback_attempt": None,
+            "fallback_timestamp": None,
             "run_id": self.run_id,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
         }
@@ -822,20 +824,7 @@ class ActivityPipeline(PipelineBase):
     ) -> dict[str, Any]:
         """Create deterministic fallback record enriched with error metadata."""
 
-        http_status = None
-        error_code = None
-        retry_after = None
-
-        if error is not None and hasattr(error, "response") and error.response is not None:
-            http_status = getattr(error.response, "status_code", None)
-
-        if hasattr(error, "code"):
-            error_code = error.code
-
-        if hasattr(error, "retry_after"):
-            retry_after = error.retry_after
-
-        return {
+        record = {
             "activity_id": activity_id,
             "molecule_chembl_id": None,
             "assay_chembl_id": None,
@@ -878,17 +867,29 @@ class ActivityPipeline(PipelineBase):
             "le": None,
             "lle": None,
             "chembl_release": self._chembl_release,
-            "source_system": "ChEMBL_FALLBACK",
-            "fallback_reason": reason,
-            "error_type": type(error).__name__ if error else None,
-            "error_message": str(error) if error else "Fallback: API unavailable",
-            "http_status": http_status,
-            "error_code": error_code,
-            "retry_after_sec": retry_after,
-            "attempt": getattr(error, "attempt", None),
+            "source_system": "chembl",
+            "fallback_reason": None,
+            "fallback_error_type": None,
+            "fallback_error_code": None,
+            "fallback_error_message": None,
+            "fallback_http_status": None,
+            "fallback_retry_after_sec": None,
+            "fallback_attempt": None,
+            "fallback_timestamp": None,
             "run_id": self.run_id,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
         }
+
+        metadata = build_fallback_payload(
+            entity="activity",
+            reason=reason,
+            error=error,
+            source="ChEMBL_FALLBACK",
+            context={"chembl_release": self._chembl_release, "run_id": self.run_id},
+        )
+        record.update(metadata)
+
+        return record
 
     def _cache_key(self, batch_ids: Iterable[int]) -> str:
         """Create deterministic cache key for a batch of IDs."""
@@ -1334,12 +1335,13 @@ class ActivityPipeline(PipelineBase):
             "activity_id",
             "source_system",
             "fallback_reason",
-            "error_type",
-            "error_message",
-            "http_status",
-            "error_code",
-            "retry_after_sec",
-            "attempt",
+            "fallback_error_type",
+            "fallback_error_message",
+            "fallback_http_status",
+            "fallback_error_code",
+            "fallback_retry_after_sec",
+            "fallback_attempt",
+            "fallback_timestamp",
             "chembl_release",
             "run_id",
             "extracted_at",

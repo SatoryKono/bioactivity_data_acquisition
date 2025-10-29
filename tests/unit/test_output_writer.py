@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -48,6 +49,7 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     assert artifacts.qc_summary is None
     assert artifacts.qc_missing_mappings is None
     assert artifacts.qc_enrichment_metrics is None
+    assert artifacts.debug_dataset is None
 
     written_df = pd.read_csv(artifacts.dataset)
     pd.testing.assert_frame_equal(written_df, df)
@@ -143,4 +145,32 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert set(column_profiles["column"]) == set(df.columns)
     assert set(column_profiles["dtype"]) == {"int64", "object"}
     assert column_profiles["null_count"].sum() == 0
+
+
+def test_write_dataframe_json(tmp_path, monkeypatch):
+    """Debug dataframe JSON writer should persist records atomically."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame(
+        {
+            "value": [1, 2],
+            "label": ["a", "b"],
+            "timestamp": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+        }
+    )
+    writer = UnifiedOutputWriter("run-json")
+
+    json_path = tmp_path / "run-json" / "activity" / "datasets" / "activity.json"
+    writer.write_dataframe_json(df, json_path)
+
+    assert json_path.exists()
+
+    with json_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    assert isinstance(payload, list)
+    assert payload[0]["value"] == 1
+    assert payload[0]["label"] == "a"
+    assert payload[0]["timestamp"].startswith("2024-01-01")
 

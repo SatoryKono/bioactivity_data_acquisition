@@ -19,6 +19,10 @@ class RetryConfig(BaseModel):
     total: int = Field(..., ge=0)
     backoff_multiplier: float = Field(..., gt=0)
     backoff_max: float = Field(..., gt=0)
+    statuses: list[int] = Field(
+        default_factory=list,
+        description="HTTP status codes that should trigger a retry before giving up",
+    )
 
 
 class RateLimitConfig(BaseModel):

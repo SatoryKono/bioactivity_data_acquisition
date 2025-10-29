@@ -20,6 +20,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
+from bioetl.utils.fallback import build_fallback_payload
 
 logger = UnifiedLogger.get(__name__)
 
@@ -318,7 +319,7 @@ class AssayPipeline(PipelineBase):
         """Create a fallback payload while recording diagnostic metrics."""
 
         self._assay_fetch_stats["fallback_counts"][reason] += 1
-        fallback = self._create_fallback_record(assay_id, error)
+        fallback = self._create_fallback_record(assay_id, reason, error)
         logger.warning(
             "assay_fallback_created",
             assay_id=assay_id,
@@ -360,40 +361,42 @@ class AssayPipeline(PipelineBase):
         self.qc_metrics["assay_fetch_cache_hits"] = cache_hits
         self.qc_metrics["assay_fetch_cache_fallback_hits"] = cache_fallback_hits
 
-    def _create_fallback_record(self, assay_id: str, error: Exception | None = None) -> dict[str, Any]:
+    def _create_fallback_record(
+        self, assay_id: str, reason: str, error: Exception | None = None
+    ) -> dict[str, Any]:
         """Generate fallback payload when API data cannot be retrieved."""
-        http_status: int | None = None
-        retry_after: float | None = None
-        error_code: Any | None = getattr(error, "code", None)
-        attempt: Any | None = getattr(error, "attempt", None)
-
-        if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
-            http_status = error.response.status_code
-            retry_after_header = error.response.headers.get("Retry-After")
-            if retry_after_header:
-                try:
-                    retry_after = float(retry_after_header)
-                except ValueError:
-                    retry_after = None
-        else:
-            http_status = getattr(error, "status", None)
-            retry_after = getattr(error, "retry_after", None)
-
-        message = str(error) if error else "Fallback: API unavailable"
 
         record: dict[str, Any] = {
             "assay_chembl_id": assay_id,
-            "source_system": "ChEMBL_FALLBACK",
+            "source_system": "chembl",
             "chembl_release": self.chembl_release,
-            "error_code": error_code,
-            "http_status": http_status,
-            "error_message": message,
-            "retry_after_sec": retry_after,
-            "attempt": attempt,
+            "fallback_reason": None,
+            "fallback_error_type": None,
+            "fallback_error_code": None,
+            "fallback_error_message": None,
+            "fallback_http_status": None,
+            "fallback_retry_after_sec": None,
+            "fallback_attempt": None,
+            "fallback_timestamp": None,
             "run_id": self.run_id,
             "git_commit": self.git_commit,
             "config_hash": self.config_hash,
         }
+
+        metadata = build_fallback_payload(
+            entity="assay",
+            reason=reason,
+            error=error,
+            source="ChEMBL_FALLBACK",
+            context={
+                "chembl_release": self.chembl_release,
+                "run_id": self.run_id,
+                "git_commit": self.git_commit,
+                "config_hash": self.config_hash,
+            },
+        )
+        record.update(metadata)
+
         return record
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:

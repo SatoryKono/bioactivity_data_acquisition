@@ -173,6 +173,8 @@ class TargetPipeline(PipelineBase):
             rate_limit_jitter=rate_limit_jitter,
             retry_total=retries.total,
             retry_backoff_factor=retries.backoff_multiplier,
+            retry_backoff_max=retries.backoff_max,
+            retry_status_codes=[int(code) for code in (retries.statuses or [])],
             partial_retry_max=partial_retry_max,
             timeout_connect=connect_timeout,
             timeout_read=read_timeout,

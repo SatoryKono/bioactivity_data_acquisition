@@ -32,6 +32,7 @@ from bioetl.schemas.document import (
 )
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.fallback import build_fallback_payload
 
 NAType = type(pd.NA)
 
@@ -548,7 +549,7 @@ class DocumentPipeline(PipelineBase):
                     error_type=error_type,
                 )
                 for document_id in to_fetch:
-                    fallback = self._create_fallback_row(document_id, error_type, str(exc))
+                    fallback = self._create_fallback_row(document_id, error_type, str(exc), exc)
                     self._document_cache[self._document_cache_key(document_id)] = fallback
                     results.append(fallback)
 
@@ -621,13 +622,25 @@ class DocumentPipeline(PipelineBase):
             return "E_CIRCUIT_BREAKER_OPEN"
         return "E_UNKNOWN"
 
-    def _create_fallback_row(self, document_id: str, error_type: str, error_message: str) -> dict[str, Any]:
-        return {
-            "document_chembl_id": document_id,
-            "error_type": error_type,
-            "error_message": error_message,
-            "attempted_at": datetime.now(timezone.utc).isoformat(),
-        }
+    def _create_fallback_row(
+        self,
+        document_id: str,
+        error_type: str,
+        error_message: str,
+        error: Exception | None = None,
+    ) -> dict[str, Any]:
+        return build_fallback_payload(
+            entity="document",
+            reason="exception",
+            error=error,
+            source="DOCUMENT_FALLBACK",
+            message=error_message,
+            context={
+                "document_chembl_id": document_id,
+                "chembl_release": self._chembl_release,
+                "fallback_error_code": error_type,
+            },
+        )
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from status endpoint.
@@ -774,6 +787,11 @@ class DocumentPipeline(PipelineBase):
             chembl_release=self._chembl_release,
             extracted_at=pd.Timestamp.now(tz="UTC").isoformat(),
         )
+
+        if "fallback_reason" in df.columns:
+            fallback_mask = df["fallback_reason"].notna()
+            if fallback_mask.any():
+                df.loc[fallback_mask, "source_system"] = "DOCUMENT_FALLBACK"
 
         # Generate hash fields for data integrity
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
