@@ -105,6 +105,8 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
         def __init__(self, config, run_id):  # noqa: D401, ANN001 - signature dictated by Typer wiring
             captured["config"] = config
             captured["run_id"] = run_id
+            self.runtime_options: dict[str, object] = {}
+            captured["runtime_options"] = self.runtime_options
 
     monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline)
 
@@ -165,4 +167,13 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
 
     run_id = captured.get("run_id")
     assert isinstance(run_id, str) and run_id.startswith(entry.name)
+
+    runtime_options = captured.get("runtime_options")
+    assert isinstance(runtime_options, dict)
+    if entry.name == "target":
+        assert runtime_options.get("sample") == 5
+        assert runtime_options.get("limit") == 7
+    else:
+        assert runtime_options.get("sample") == 5
+        assert runtime_options.get("limit") == 5
 

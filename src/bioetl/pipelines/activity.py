@@ -465,6 +465,15 @@ class ActivityPipeline(PipelineBase):
         # Extract activity IDs for API call
         activity_ids = df['activity_id'].dropna().astype(int).unique().tolist()
 
+        limit_value = self.get_runtime_limit()
+        if limit_value is not None and len(activity_ids) > limit_value:
+            logger.info(
+                "applying_input_limit",
+                limit=limit_value,
+                original_ids=len(activity_ids),
+            )
+            activity_ids = activity_ids[:limit_value]
+
         if not activity_ids:
             logger.warning("no_activity_ids_found")
             expected_cols = ActivitySchema.get_column_order()

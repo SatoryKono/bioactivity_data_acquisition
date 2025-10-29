@@ -122,6 +122,15 @@ class DocumentPipeline(PipelineBase):
 
         logger.info("validated_ids", total=len(valid_ids))
 
+        limit_value = self.get_runtime_limit()
+        if limit_value is not None and len(valid_ids) > limit_value:
+            logger.info(
+                "applying_input_limit",
+                limit=limit_value,
+                original_ids=len(valid_ids),
+            )
+            valid_ids = valid_ids[:limit_value]
+
         records = self._fetch_documents(valid_ids)
         if not records:
             logger.warning("no_records_fetched", ids=len(valid_ids))
