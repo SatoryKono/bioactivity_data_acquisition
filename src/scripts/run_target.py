@@ -6,6 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from types import MethodType
 
 import pandas as pd
 import typer
@@ -197,7 +198,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
             )
             return df.head(sample)
 
-        pipeline.extract = limited_extract  # type: ignore[assignment]
+        pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
 
     if input_file is None:
         input_file = DEFAULT_INPUT

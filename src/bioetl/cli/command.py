@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from types import MethodType
 
 import pandas as pd
 import typer
@@ -171,7 +172,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                     )
                     return df.head(sample)
 
-                pipeline.extract = limited_extract  # type: ignore[assignment]
+                pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
 
             output_dir.mkdir(parents=True, exist_ok=True)
             dataset_name = f"{config.pipeline_name}_{timestamp}.csv"
