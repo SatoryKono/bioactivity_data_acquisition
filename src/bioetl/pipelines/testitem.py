@@ -20,7 +20,8 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
 
 logger = UnifiedLogger.get(__name__)
 
@@ -35,47 +36,13 @@ def _coerce_nullable_int_columns(
     minimum_values: Mapping[str, int] | None = None,
     default_minimum: int | None = None,
 ) -> None:
-    """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
+    """Compatibility wrapper delegating to :func:`coerce_nullable_int`."""
 
-    The ChEMBL payloads frequently encode optional integer fields using string or
-    floating point representations (for example ``"1.0"``).  Pandera attempts to
-    coerce these values into ``int64`` and raises when encountering ``NaN`` or
-    fractional entries.  To shield the validation layer from these artefacts we
-    coerce to numeric values first, mask non-integral values as ``<NA>``, and
-    finally re-materialise the nullable integer array.
-    """
+    min_spec = None
+    if minimum_values is not None or default_minimum is not None:
+        min_spec = (minimum_values, default_minimum)
 
-    for column in columns:
-        if column not in df.columns:
-            continue
-
-        series = pd.to_numeric(df[column], errors="coerce")
-
-        min_value = None
-        if minimum_values is not None and column in minimum_values:
-            min_value = minimum_values[column]
-        elif default_minimum is not None:
-            min_value = default_minimum
-
-        if min_value is not None:
-            below_min_mask = series < min_value
-            if below_min_mask.any():
-                series.loc[below_min_mask] = pd.NA
-
-        if series.empty:
-            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
-            continue
-
-        non_null = series.notna()
-        fractional_mask = pd.Series(False, index=series.index)
-        if non_null.any():
-            remainders = (series[non_null] % 1).abs()
-            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
-
-        if fractional_mask.any():
-            series.loc[fractional_mask] = pd.NA
-
-        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+    coerce_nullable_int(df, columns, min_values=min_spec)
 
 
 class TestItemPipeline(PipelineBase):
@@ -1086,7 +1053,7 @@ class TestItemPipeline(PipelineBase):
         ):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
         try:
             validated_df = TestItemSchema.validate(df, lazy=True)
         except SchemaErrors as exc:

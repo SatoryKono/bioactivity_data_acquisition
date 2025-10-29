@@ -20,7 +20,8 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
-from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
 
 logger = UnifiedLogger.get(__name__)
 
@@ -63,42 +64,9 @@ _NULLABLE_INT_COLUMNS = (
 
 
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
-    """Coerce selected columns to Pandera-compatible nullable integer dtype.
+    """Compatibility wrapper delegating to :func:`coerce_nullable_int`."""
 
-    Pandera expects nullable integer columns to use Pandas' ``Int64`` dtype. In
-    practice the upstream ChEMBL payloads occasionally encode numeric values as
-    strings or floats (e.g. ``"1.0"``), and in rarer cases contain genuinely
-    non-integral numbers (``1.5``). The previous implementation relied on
-    ``pd.to_numeric`` followed by a direct cast to ``Int64``. While this works
-    for the common cases, attempting to cast non-integral floats raises a
-    ``TypeError`` which ultimately surfaces as a schema validation error. To
-    guarantee deterministic coercion we normalise the series, replace any
-    non-integral values with ``<NA>`` and only then cast to ``Int64``.
-    """
-
-    for column in columns:
-        if column not in df.columns:
-            continue
-
-        series = pd.to_numeric(df[column], errors="coerce")
-
-        target_dtype = pd.Int64Dtype()
-
-        if series.empty:
-            df[column] = pd.Series(pd.array(series, dtype=target_dtype), index=df.index)
-            continue
-
-        non_null = series.notna()
-        fractional_mask = pd.Series(False, index=series.index)
-        if non_null.any():
-            remainders = (series[non_null] % 1).abs()
-            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
-
-        if fractional_mask.any():
-            series.loc[fractional_mask] = pd.NA
-
-        coerced = pd.Series(pd.array(series, dtype=target_dtype), index=df.index)
-        df[column] = coerced
+    coerce_nullable_int(df, columns)
 
 
 class AssayPipeline(PipelineBase):
@@ -990,7 +958,7 @@ class AssayPipeline(PipelineBase):
         # the behaviour consistent for callers that operate on the reordered
         # frame (e.g. QC reporting) before validation happens downstream.
         _coerce_nullable_int_columns(df, nullable_int_columns)
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
 
         return df
 
@@ -1021,7 +989,7 @@ class AssayPipeline(PipelineBase):
                         df[column] = pd.NA
                 df = df.loc[:, schema_columns]
 
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
         # Normalise nullable integer columns once more before validation.
         #
         # Even though ``transform`` already coerces these columns, downstream

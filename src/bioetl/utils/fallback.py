@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from bioetl.utils.dtypes import coerce_retry_after
+
 
 def _extract_http_status(error: Any) -> int | None:
     """Best-effort extraction of HTTP status code from ``error``."""
@@ -131,29 +133,7 @@ def build_fallback_payload(
 def normalise_retry_after_column(
     df: pd.DataFrame, column: str = "fallback_retry_after_sec"
 ) -> None:
-    """Coerce ``column`` to a float dtype compatible with Pandera schemas.
+    """Backward-compatible wrapper around :func:`coerce_retry_after`."""
 
-    Pandera attempts to cast ``fallback_retry_after_sec`` to ``float64`` during
-    schema validation.  When the dataframe contains ``pd.NA`` values and the
-    series dtype is ``object``, the coercion fails with ``TypeError: float()
-    argument must be a string or a real number, not 'NAType'``.  Explicitly
-    normalising the column with :func:`pandas.to_numeric` replaces these
-    ``pd.NA`` placeholders with ``NaN`` and yields a ``float64`` series,
-    restoring deterministic validation behaviour across pipelines.
-    """
-
-    if column not in df.columns:
-        return
-
-    series = df[column]
-    if not isinstance(series, pd.Series):  # pragma: no cover - defensive guard
-        return
-
-    numeric = pd.to_numeric(series, errors="coerce")
-
-    # ``pd.to_numeric`` may yield a nullable ``Float64Dtype`` series when the
-    # input contains ``pd.NA`` values.  Pandera expects a NumPy ``float64``
-    # dtype for ``Series[float]`` fields, therefore we normalise the result to
-    # the concrete ``float64`` dtype in place.
-    df[column] = numeric.astype("float64", copy=False)
+    coerce_retry_after(df, column)
 

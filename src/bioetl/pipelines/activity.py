@@ -27,7 +27,8 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
-from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
 
 logger = UnifiedLogger.get(__name__)
 
@@ -434,44 +435,9 @@ def _derive_is_censored(relation: str | None) -> bool | None:
 
 
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
-    """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
+    """Compatibility wrapper delegating to :func:`coerce_nullable_int`."""
 
-    The upstream ChEMBL payloads occasionally encode boolean or integer flags
-    using float or string representations (for example ``"1.0"``).  In other
-    cases the service returns genuinely non-integral values which cannot be
-    losslessly coerced to integers.  A naive ``astype("Int64")`` call converts
-    ``NaN`` values into ``<NA>`` but raises when encountering fractional
-    numbers.  The schema validation error reported in the CLI logs stems from
-    Pandera attempting to coerce these float columns to ``int64`` and failing
-    on the ``NaN`` placeholders.
-
-    To ensure deterministic behaviour we first coerce everything to numeric,
-    replace any fractional values with ``<NA>``, and only then materialise the
-    nullable integer array.  This mirrors the strategy used in the assay
-    pipeline and guarantees the dataframe presented to Pandera already matches
-    the declared schema.
-    """
-
-    for column in columns:
-        if column not in df.columns:
-            continue
-
-        series = pd.to_numeric(df[column], errors="coerce")
-
-        if series.empty:
-            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
-            continue
-
-        non_null = series.notna()
-        fractional_mask = pd.Series(False, index=series.index)
-        if non_null.any():
-            remainders = (series[non_null] % 1).abs()
-            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
-
-        if fractional_mask.any():
-            series.loc[fractional_mask] = pd.NA
-
-        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+    coerce_nullable_int(df, columns)
 
 
 def _coerce_nullable_float_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
@@ -1084,7 +1050,7 @@ class ActivityPipeline(PipelineBase):
         _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         df = df.convert_dtypes()
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
 
         _coerce_nullable_float_columns(df, FLOAT_COLUMNS)
 
@@ -1138,7 +1104,7 @@ class ActivityPipeline(PipelineBase):
                 )
                 df = df[ordered_columns]
 
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
         _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
         _coerce_nullable_float_columns(df, FLOAT_COLUMNS)
 
@@ -1376,7 +1342,7 @@ class ActivityPipeline(PipelineBase):
 
         if not fallback_records.empty:
             fallback_records = fallback_records.reset_index(drop=True).convert_dtypes()
-            normalise_retry_after_column(fallback_records)
+            coerce_retry_after(fallback_records)
 
         reason_counts: dict[str, int] = {}
         if fallback_count and "fallback_reason" in fallback_records.columns:
