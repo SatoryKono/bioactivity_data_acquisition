@@ -945,9 +945,6 @@ class ActivityPipeline(PipelineBase):
         update_summary_metrics(self.qc_summary_data, qc_metrics)
         self._last_validation_report = {"metrics": qc_metrics}
 
-        severity_threshold = self.config.qc.severity_threshold.lower()
-        severity_level_threshold = self._severity_level(severity_threshold)
-
         failing_metrics: dict[str, Any] = {}
         for metric_name, metric in qc_metrics.items():
             log_method = logger.error if not metric["passed"] else logger.info
@@ -972,7 +969,7 @@ class ActivityPipeline(PipelineBase):
                 issue_payload["details"] = metric["details"]
             self.record_validation_issue(issue_payload)
 
-            if (not metric["passed"]) and self._severity_level(metric["severity"]) >= severity_level_threshold:
+            if (not metric["passed"]) and self._should_fail(metric.get("severity", "info")):
                 failing_metrics[metric_name] = metric
 
         if failing_metrics:
@@ -982,6 +979,7 @@ class ActivityPipeline(PipelineBase):
             logger.error("qc_threshold_exceeded", failing_metrics=failing_metrics)
             raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(failing_metrics.keys()))
 
+        severity_threshold = self.config.qc.severity_threshold
         failure_report: dict[str, Any] | None = None
 
         def _handle_schema_failure(exc: SchemaErrors, should_fail: bool) -> None:
@@ -1249,10 +1247,4 @@ class ActivityPipeline(PipelineBase):
         }
 
         return metrics
-
-    @staticmethod
-    def _severity_level(severity: str) -> int:
-        """Map severity string to comparable level."""
-        levels = {"info": 0, "warning": 1, "error": 2, "critical": 3}
-        return levels.get(severity.lower(), 1)
 
