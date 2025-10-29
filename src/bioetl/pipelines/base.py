@@ -1,10 +1,12 @@
 """Base pipeline class."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
@@ -14,6 +16,7 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.utils.qc import QCMetricsRegistry, update_summary_metrics
 
 logger = UnifiedLogger.get(__name__)
 
@@ -86,6 +89,154 @@ class PipelineBase(ABC):
 
         threshold = self.config.qc.severity_threshold.lower()
         return self._severity_value(severity) >= self._severity_value(threshold)
+
+    def _should_fail_for_dataset(self, severity: str, *, fail_on: str | None = None) -> bool:
+        """Determine if a dataset-level severity should result in failure."""
+
+        if fail_on is not None:
+            return self._severity_value(severity) >= self._severity_value(fail_on)
+        return self._should_fail(severity)
+
+    def _resolve_validation_rule(self, dataset_name: str) -> tuple[str, str | None]:
+        """Fetch schema validation overrides for the dataset."""
+
+        validation_config = getattr(self.config.qc, "validation", {}) or {}
+        rule = validation_config.get(dataset_name)
+        if rule is None:
+            return "error", None
+
+        severity = getattr(rule, "severity", None) or "error"
+        fail_on = getattr(rule, "fail_on", None)
+        if isinstance(fail_on, str):
+            fail_on = fail_on.lower()
+        return str(severity), fail_on
+
+    def finalize_qc_metrics(
+        self,
+        registry: QCMetricsRegistry,
+        *,
+        prefix: str = "qc",
+        raise_on_failure: bool = True,
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        """Persist QC metrics, emit issues, and optionally fail the pipeline."""
+
+        metrics_payload = registry.as_dict()
+        failing: dict[str, dict[str, Any]] = {}
+
+        for name, metric in registry.items():
+            payload = metric.to_payload()
+            log_method = logger.error if not metric.passed else logger.info
+            log_method(
+                "qc_metric",
+                metric=name,
+                value=payload.get("value"),
+                severity=metric.severity,
+                threshold=payload.get("threshold"),
+                threshold_min=metric.threshold_min,
+                threshold_max=metric.threshold_max,
+                details=metric.details,
+            )
+
+            self.record_validation_issue(metric.to_issue_payload(prefix=prefix))
+
+            if (not metric.passed) and self._should_fail(metric.severity):
+                failing[name] = payload
+
+        self.qc_metrics = metrics_payload
+        update_summary_metrics(self.qc_summary_data, metrics_payload)
+
+        if raise_on_failure and failing:
+            logger.error("qc_threshold_exceeded", failing=failing)
+            raise ValueError(
+                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing.keys()))
+            )
+
+        return metrics_payload, failing
+
+    def _validate_with_schema(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        dataset_name: str,
+        *,
+        severity: str | None = None,
+        issue_metric: str | None = None,
+        on_failure: Callable[[SchemaErrors, dict[str, Any]], None] | None = None,
+    ) -> pd.DataFrame:
+        """Validate a dataframe against the provided schema with standardised QC logging."""
+
+        validation_summary = self.qc_summary_data.setdefault("validation", {})
+        metric_name = issue_metric or f"schema.{dataset_name}"
+
+        resolved_severity, fail_on = self._resolve_validation_rule(dataset_name)
+        effective_severity = severity or resolved_severity
+
+        if df is None or (hasattr(df, "empty") and df.empty):
+            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
+            self.record_validation_issue(
+                {
+                    "metric": metric_name,
+                    "issue_type": "schema_validation",
+                    "severity": "info",
+                    "status": "skipped",
+                    "rows": 0,
+                }
+            )
+            return df
+
+        try:
+            validated = schema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count: int | None = None
+            if failure_cases is not None and hasattr(failure_cases, "shape"):
+                try:
+                    error_count = int(failure_cases.shape[0])
+                except (TypeError, ValueError):
+                    error_count = None
+
+            issue_payload: dict[str, Any] = {
+                "metric": metric_name,
+                "issue_type": "schema_validation",
+                "severity": str(effective_severity),
+                "status": "failed",
+                "errors": error_count,
+            }
+
+            if failure_cases is not None:
+                try:
+                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
+                except Exception:  # pragma: no cover - defensive guard
+                    issue_payload["examples"] = "unavailable"
+
+            if on_failure is not None:
+                on_failure(exc, issue_payload)
+
+            self.record_validation_issue(issue_payload)
+            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
+            logger.error(
+                "schema_validation_failed",
+                dataset=dataset_name,
+                errors=error_count,
+                error=str(exc),
+            )
+
+            if self._should_fail_for_dataset(effective_severity, fail_on=fail_on):
+                raise
+            return df
+
+        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
+        self.record_validation_issue(
+            {
+                "metric": metric_name,
+                "issue_type": "schema_validation",
+                "severity": "info",
+                "status": "passed",
+                "rows": int(len(validated)),
+            }
+        )
+
+        return validated  # type: ignore[no-any-return]
 
     @abstractmethod
     def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:

@@ -29,8 +29,8 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
+    QCMetricsRegistry,
     register_fallback_statistics,
-    update_summary_metrics,
     update_validation_issue_summary,
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
@@ -899,7 +899,7 @@ class ActivityPipeline(PipelineBase):
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
         coerce_nullable_float(df, FLOAT_COLUMNS)
 
-        qc_metrics = self._calculate_qc_metrics(df)
+        registry = self._calculate_qc_metrics(df)
         fallback_stats = getattr(self, "_fallback_stats", None) or {}
 
         if fallback_stats:
@@ -922,174 +922,122 @@ class ActivityPipeline(PipelineBase):
             fallback_count = int(fallback_stats.get("fallback_count", 0))
             fallback_rate = float(fallback_stats.get("fallback_rate", 0.0))
 
-            count_severity = "info"
-            if fallback_count > count_threshold:
-                count_severity = "error"
-            elif fallback_count > 0:
-                count_severity = "warning"
-
-            rate_severity = "info"
-            if fallback_rate > rate_threshold:
-                rate_severity = "error"
-            elif fallback_rate > 0:
-                rate_severity = "warning"
-
-            qc_metrics["fallback.count"] = {
-                "value": fallback_count,
-                "threshold": count_threshold,
-                "passed": fallback_count <= count_threshold,
-                "severity": count_severity,
-                "details": {
+            registry.register(
+                "fallback.count",
+                fallback_count,
+                comparison="max",
+                threshold_key="fallback.count",
+                default_threshold=count_threshold,
+                pass_severity="warning" if fallback_count > 0 else "info",
+                fail_severity="error",
+                details={
                     "activity_ids": fallback_stats.get("activity_ids", []),
                     "reason_counts": fallback_stats.get("reason_counts", {}),
                 },
-            }
+            )
 
-            qc_metrics["fallback.rate"] = {
-                "value": fallback_rate,
-                "threshold": rate_threshold,
-                "passed": fallback_rate <= rate_threshold,
-                "severity": rate_severity,
-                "details": {
+            registry.register(
+                "fallback.rate",
+                fallback_rate,
+                comparison="max",
+                threshold_key="fallback.rate",
+                default_threshold=rate_threshold,
+                pass_severity="warning" if fallback_rate > 0 else "info",
+                fail_severity="error",
+                details={
                     "fallback_count": fallback_count,
                     "total_rows": fallback_stats.get("total_rows", len(df)),
                 },
-            }
-
-            self.qc_summary_data.setdefault("metrics", {}).update(
-                {
-                    "fallback.count": qc_metrics["fallback.count"],
-                    "fallback.rate": qc_metrics["fallback.rate"],
-                }
             )
 
-        self.qc_metrics = qc_metrics
-        update_summary_metrics(self.qc_summary_data, qc_metrics)
-        self._last_validation_report = {"metrics": qc_metrics}
-
-        severity_threshold = self.config.qc.severity_threshold.lower()
-        severity_level_threshold = self._severity_level(severity_threshold)
-
-        failing_metrics: dict[str, Any] = {}
-        for metric_name, metric in qc_metrics.items():
-            log_method = logger.error if not metric["passed"] else logger.info
-            log_method(
-                "qc_metric",
-                metric=metric_name,
-                value=metric["value"],
-                threshold=metric["threshold"],
-                severity=metric["severity"],
-                details=metric.get("details"),
-            )
-
-            issue_payload: dict[str, Any] = {
-                "metric": f"qc.{metric_name}",
-                "issue_type": "qc_metric",
-                "severity": metric.get("severity", "info"),
-                "value": metric.get("value"),
-                "threshold": metric.get("threshold"),
-                "passed": metric.get("passed"),
-            }
-            if metric.get("details"):
-                issue_payload["details"] = metric["details"]
-            self.record_validation_issue(issue_payload)
-
-            if (not metric["passed"]) and self._severity_level(metric["severity"]) >= severity_level_threshold:
-                failing_metrics[metric_name] = metric
+        metrics_payload, failing_metrics = self.finalize_qc_metrics(
+            registry, raise_on_failure=False
+        )
+        self._last_validation_report = {"metrics": metrics_payload}
 
         if failing_metrics:
             self._last_validation_report["failing_metrics"] = failing_metrics
-            if self._last_validation_report is not None:
-                self._last_validation_report["issues"] = list(self.validation_issues)
+            self._last_validation_report["issues"] = list(self.validation_issues)
             logger.error("qc_threshold_exceeded", failing_metrics=failing_metrics)
-            raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(failing_metrics.keys()))
-
-        try:
-            validated_df = ActivitySchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
-            error_count = len(failure_cases) if failure_cases is not None else None
-            schema_issue: dict[str, Any] = {
-                "metric": "schema.validation",
-                "issue_type": "schema_validation",
-                "severity": "critical",
-                "status": "failed",
-                "errors": error_count,
-            }
-
-            if failure_cases is not None and not getattr(failure_cases, "empty", False):
-                try:
-                    grouped = failure_cases.groupby("column", dropna=False)
-                    for column, group in grouped:
-                        column_name = (
-                            str(column)
-                            if column is not None and not (isinstance(column, float) and pd.isna(column))
-                            else "<dataframe>"
-                        )
-                        issue_details: dict[str, Any] = {
-                            "metric": "schema.validation",
-                            "issue_type": "schema_validation",
-                            "severity": "critical",
-                            "column": column_name,
-                            "check": ", ".join(
-                                sorted({str(check) for check in group["check"].dropna().unique()})
-                            )
-                            or "<unspecified>",
-                            "count": int(group.shape[0]),
-                        }
-                        failure_examples = (
-                            group["failure_case"].dropna().astype(str).unique().tolist()[:5]
-                        )
-                        if failure_examples:
-                            issue_details["examples"] = failure_examples
-                        self.record_validation_issue(issue_details)
-                except Exception:  # pragma: no cover - defensive grouping fallback
-                    schema_issue["details"] = "failed_to_group_failure_cases"
-
-            self.record_validation_issue(schema_issue)
-
-            if self._last_validation_report is not None:
-                self._last_validation_report["schema_validation"] = {
-                    "status": "failed",
-                    "errors": error_count,
-                    "failure_cases": failure_cases,
-                }
-                self._last_validation_report["issues"] = list(self.validation_issues)
-
-            logger.error(
-                "schema_validation_failed",
-                error=str(exc),
-                failure_count=error_count,
+            raise ValueError(
+                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics.keys()))
             )
 
-            if self._severity_level("critical") >= severity_level_threshold:
-                raise
-
-            logger.warning(
-                "schema_validation_below_threshold", severity_threshold=severity_threshold
-            )
-            return df
-
-        self.record_validation_issue(
-            {
-                "metric": "schema.validation",
-                "issue_type": "schema_validation",
-                "severity": "info",
-                "status": "passed",
-                "errors": 0,
-            }
+        validated_df = self._validate_with_schema(
+            df,
+            ActivitySchema,
+            "activity",
+            severity="critical",
+            issue_metric="schema.validation",
+            on_failure=self._on_activity_schema_failure,
         )
 
         if self._last_validation_report is not None:
-            self._last_validation_report["schema_validation"] = {
-                "status": "passed",
-                "errors": 0,
-            }
+            validation_entry = (
+                self.qc_summary_data.get("validation", {}).get("activity")
+            )
+            if validation_entry is not None:
+                self._last_validation_report["schema_validation"] = dict(validation_entry)
             self._last_validation_report["issues"] = list(self.validation_issues)
 
-        logger.info("schema_validation_passed", rows=len(validated_df))
+        logger.info("schema_validation_completed", rows=len(validated_df))
         update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
+
+    def _on_activity_schema_failure(
+        self,
+        exc: SchemaErrors,
+        issue_payload: dict[str, Any],
+    ) -> None:
+        """Record detailed schema validation diagnostics for activity data."""
+
+        failure_cases = getattr(exc, "failure_cases", None)
+        error_count: int | None = None
+        if failure_cases is not None and hasattr(failure_cases, "shape"):
+            try:
+                error_count = int(failure_cases.shape[0])
+            except (TypeError, ValueError):  # pragma: no cover - defensive guard
+                error_count = None
+
+        if failure_cases is not None and not getattr(failure_cases, "empty", False):
+            try:
+                grouped = failure_cases.groupby("column", dropna=False)
+                for column, group in grouped:
+                    column_name = (
+                        str(column)
+                        if column is not None and not (isinstance(column, float) and pd.isna(column))
+                        else "<dataframe>"
+                    )
+                    issue_details: dict[str, Any] = {
+                        "metric": "schema.validation",
+                        "issue_type": "schema_validation",
+                        "severity": issue_payload.get("severity", "error"),
+                        "column": column_name,
+                        "check": ", ".join(
+                            sorted({str(check) for check in group["check"].dropna().unique()})
+                        )
+                        or "<unspecified>",
+                        "count": int(group.shape[0]),
+                    }
+                    failure_examples = (
+                        group["failure_case"].dropna().astype(str).unique().tolist()[:5]
+                    )
+                    if failure_examples:
+                        issue_details["examples"] = failure_examples
+                    self.record_validation_issue(issue_details)
+            except Exception:  # pragma: no cover - defensive grouping fallback
+                issue_payload["details"] = "failed_to_group_failure_cases"
+
+        if self._last_validation_report is not None:
+            schema_report = self._last_validation_report.setdefault(
+                "schema_validation", {}
+            )
+            schema_report.update({"status": "failed"})
+            if error_count is not None:
+                schema_report["errors"] = error_count
+            if failure_cases is not None:
+                schema_report["failure_cases"] = failure_cases
+            self._last_validation_report["issues"] = list(self.validation_issues)
 
     def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:
         """Capture fallback diagnostics for QC reporting and additional outputs."""
@@ -1140,12 +1088,13 @@ class ActivityPipeline(PipelineBase):
         """Return the most recent validation report."""
         return self._last_validation_report
 
-    def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, Any]:
-        """Compute QC metrics for validation."""
+    def _calculate_qc_metrics(self, df: pd.DataFrame) -> QCMetricsRegistry:
+        """Compute QC metrics for validation using the shared registry."""
+
         qc_config = self.config.qc
         thresholds = qc_config.thresholds or {}
 
-        metrics: dict[str, Any] = {}
+        registry = QCMetricsRegistry(qc_config)
 
         duplicate_threshold = thresholds.get("duplicates")
         duplicate_config = getattr(qc_config, "duplicate_check", None)
@@ -1164,13 +1113,15 @@ class ActivityPipeline(PipelineBase):
             duplicate_count = int(df[duplicate_field].duplicated().sum())
             duplicate_values = df.loc[duplicate_mask, duplicate_field].tolist()
 
-        metrics["duplicates"] = {
-            "value": duplicate_count,
-            "threshold": duplicate_threshold,
-            "passed": duplicate_count <= duplicate_threshold,
-            "severity": "error" if duplicate_count > duplicate_threshold else "info",
-            "details": {"field": duplicate_field, "duplicate_values": duplicate_values},
-        }
+        registry.register(
+            "duplicates",
+            duplicate_count,
+            comparison="max",
+            threshold_key="duplicates",
+            default_threshold=duplicate_threshold,
+            fail_severity="error",
+            details={"field": duplicate_field, "duplicate_values": duplicate_values},
+        )
 
         critical_columns = ["standard_value", "standard_type", "molecule_chembl_id"]
         null_rates: dict[str, float] = {}
@@ -1210,29 +1161,33 @@ class ActivityPipeline(PipelineBase):
             null_rates[column] = null_fraction
             column_thresholds[column] = column_threshold
 
-            metrics[f"null_fraction.{column}"] = {
-                "value": null_fraction,
-                "threshold": column_threshold,
-                "passed": null_fraction <= column_threshold,
-                "severity": "error" if null_fraction > column_threshold else "info",
-                "details": {
+            registry.register(
+                f"null_fraction.{column}",
+                null_fraction,
+                comparison="max",
+                threshold_key=f"activity.null_fraction.{column}",
+                default_threshold=column_threshold,
+                fail_severity="error",
+                details={
                     "column": column,
                     "column_present": column_present,
                     "null_count": null_count,
                 },
-            }
+            )
 
         max_null_rate = max(null_rates.values()) if null_rates else 0.0
-        metrics["null_rate"] = {
-            "value": max_null_rate,
-            "threshold": null_rate_threshold,
-            "passed": max_null_rate <= null_rate_threshold,
-            "severity": "error" if max_null_rate > null_rate_threshold else "info",
-            "details": {
+        registry.register(
+            "null_rate",
+            max_null_rate,
+            comparison="max",
+            threshold_key="null_rate_critical",
+            default_threshold=null_rate_threshold,
+            fail_severity="error",
+            details={
                 "column_null_rates": null_rates,
                 "column_thresholds": column_thresholds,
             },
-        }
+        )
 
         invalid_units_threshold = float(thresholds.get("invalid_units", 0))
         invalid_units_count = 0
@@ -1244,19 +1199,18 @@ class ActivityPipeline(PipelineBase):
             invalid_indices = df.index[mask].tolist()
             invalid_fraction = invalid_units_count / len(df)
 
-        metrics["invalid_units"] = {
-            "value": invalid_units_count,
-            "threshold": invalid_units_threshold,
-            "passed": invalid_units_count <= invalid_units_threshold,
-            "severity": "error" if invalid_units_count > invalid_units_threshold else "info",
-            "details": {"invalid_row_indices": invalid_indices, "invalid_fraction": invalid_fraction},
-        }
+        registry.register(
+            "invalid_units",
+            invalid_units_count,
+            comparison="max",
+            threshold_key="invalid_units",
+            default_threshold=invalid_units_threshold,
+            fail_severity="error",
+            details={
+                "invalid_row_indices": invalid_indices,
+                "invalid_fraction": invalid_fraction,
+            },
+        )
 
-        return metrics
-
-    @staticmethod
-    def _severity_level(severity: str) -> int:
-        """Map severity string to comparable level."""
-        levels = {"info": 0, "warning": 1, "error": 2, "critical": 3}
-        return levels.get(severity.lower(), 1)
+        return registry
 

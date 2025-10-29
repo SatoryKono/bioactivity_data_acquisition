@@ -21,8 +21,8 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
+    QCMetricsRegistry,
     duplicate_summary,
-    update_summary_metrics,
     update_summary_section,
     update_validation_issue_summary,
 )
@@ -406,6 +406,8 @@ class TestItemPipeline(PipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
+
+        self._schema_failure_details: list[dict[str, Any]] | None = None
 
         # Initialize ChEMBL API client
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
@@ -998,6 +1000,7 @@ class TestItemPipeline(PipelineBase):
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate molecule data against schema and QC policies."""
         self.validation_issues.clear()
+        self._schema_failure_details = None
 
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
@@ -1017,46 +1020,17 @@ class TestItemPipeline(PipelineBase):
 
         initial_rows = int(len(df))
 
-        qc_metrics = self._calculate_qc_metrics(df)
-        self.qc_metrics = qc_metrics
-        failing_metrics: list[str] = []
-
-        for metric_name, metric in qc_metrics.items():
-            log_fn = logger.error if not metric["passed"] else logger.info
-            log_fn(
-                "qc_metric",
-                metric=metric_name,
-                value=metric["value"],
-                threshold=metric["threshold"],
-                severity=metric["severity"],
-                count=metric.get("count"),
-                details=metric.get("details"),
-            )
-
-            issue: dict[str, Any] = {
-                "metric": metric_name,
-                "issue_type": "qc_metric",
-                "severity": metric["severity"],
-                "value": metric["value"],
-                "threshold": metric["threshold"],
-            }
-            if "count" in metric:
-                issue["count"] = metric["count"]
-            if metric.get("details") is not None:
-                issue["details"] = metric["details"]
-            self.record_validation_issue(issue)
-
-            if not metric["passed"] and self._should_fail(metric["severity"]):
-                failing_metrics.append(metric_name)
+        registry = self._calculate_qc_metrics(df)
+        metrics_payload, failing_metrics = self.finalize_qc_metrics(
+            registry, raise_on_failure=False
+        )
 
         if failing_metrics:
             raise ValueError(
-                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics))
+                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics.keys()))
             )
 
-        update_summary_metrics(self.qc_summary_data, qc_metrics)
-
-        duplicates_metric = qc_metrics.get("testitem.duplicate_ratio")
+        duplicates_metric = metrics_payload.get("testitem.duplicate_ratio")
         if (
             duplicates_metric
             and duplicates_metric.get("count")
@@ -1066,27 +1040,17 @@ class TestItemPipeline(PipelineBase):
 
         coerce_retry_after(df)
         try:
-            validated_df = TestItemSchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            schema_issues = self._summarize_schema_errors(exc.failure_cases)
-            for issue in schema_issues:
-                self.record_validation_issue(issue)
-                logger.error(
-                    "schema_validation_error",
-                    column=issue.get("column"),
-                    check=issue.get("check"),
-                    count=issue.get("count"),
-                    severity=issue.get("severity"),
-                )
-
-            summary = "; ".join(
-                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
-                for issue in schema_issues
+            validated_df = self._validate_with_schema(
+                df,
+                TestItemSchema,
+                "testitem",
+                issue_metric="schema.validation",
+                severity="error",
+                on_failure=self._on_testitem_schema_failure,
             )
+        except SchemaErrors as exc:
+            summary = self._format_testitem_schema_summary()
             raise ValueError(f"Schema validation failed: {summary}") from exc
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("schema_validation_unexpected_error", error=str(exc))
-            raise
 
         self._validate_identifier_formats(validated_df)
         self._check_referential_integrity(validated_df)
@@ -1099,7 +1063,9 @@ class TestItemPipeline(PipelineBase):
             {"testitems": {"rows": row_count}},
         )
 
-        duplicate_count = int(qc_metrics.get("testitem.duplicate_ratio", {}).get("count", 0) or 0)
+        duplicate_count = int(
+            (metrics_payload.get("testitem.duplicate_ratio", {}) or {}).get("count", 0) or 0
+        )
         update_summary_section(
             self.qc_summary_data,
             "duplicates",
@@ -1108,7 +1074,9 @@ class TestItemPipeline(PipelineBase):
                     initial_rows,
                     duplicate_count,
                     field="molecule_chembl_id",
-                    threshold=qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold"),
+                    threshold=(
+                        metrics_payload.get("testitem.duplicate_ratio", {}) or {}
+                    ).get("threshold"),
                 )
             },
         )
@@ -1121,12 +1089,12 @@ class TestItemPipeline(PipelineBase):
         update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
 
-    def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    def _calculate_qc_metrics(self, df: pd.DataFrame) -> QCMetricsRegistry:
         """Compute QC metrics used to gate validation."""
 
         thresholds = self.config.qc.thresholds or {}
         total_rows = len(df)
-        metrics: dict[str, dict[str, Any]] = {}
+        registry = QCMetricsRegistry(self.config.qc)
 
         duplicate_count = 0
         duplicate_ratio = 0.0
@@ -1145,15 +1113,16 @@ class TestItemPipeline(PipelineBase):
                 duplicate_ratio = duplicate_count / total_rows
 
         duplicate_threshold = float(thresholds.get("testitem.duplicate_ratio", 0.0))
-        duplicate_severity = "error" if duplicate_ratio > duplicate_threshold else "info"
-        metrics["testitem.duplicate_ratio"] = {
-            "count": duplicate_count,
-            "value": duplicate_ratio,
-            "threshold": duplicate_threshold,
-            "passed": duplicate_ratio <= duplicate_threshold,
-            "severity": duplicate_severity,
-            "details": {"duplicate_values": duplicate_values},
-        }
+        registry.register(
+            "testitem.duplicate_ratio",
+            duplicate_ratio,
+            comparison="max",
+            threshold_key="testitem.duplicate_ratio",
+            default_threshold=duplicate_threshold,
+            fail_severity="error",
+            count=duplicate_count,
+            details={"duplicate_values": duplicate_values} if duplicate_values else None,
+        )
 
         fallback_count = 0
         fallback_ratio = 0.0
@@ -1162,17 +1131,57 @@ class TestItemPipeline(PipelineBase):
             fallback_ratio = fallback_count / total_rows
 
         fallback_threshold = float(thresholds.get("testitem.fallback_ratio", 1.0))
-        fallback_severity = "warning" if fallback_ratio > fallback_threshold else "info"
-        metrics["testitem.fallback_ratio"] = {
-            "count": fallback_count,
-            "value": fallback_ratio,
-            "threshold": fallback_threshold,
-            "passed": fallback_ratio <= fallback_threshold,
-            "severity": fallback_severity,
-            "details": None if fallback_count == 0 else {"fallback_count": fallback_count},
-        }
+        registry.register(
+            "testitem.fallback_ratio",
+            fallback_ratio,
+            comparison="max",
+            threshold_key="testitem.fallback_ratio",
+            default_threshold=fallback_threshold,
+            fail_severity="warning",
+            count=fallback_count,
+            details={"fallback_count": fallback_count} if fallback_count else None,
+        )
 
-        return metrics
+        return registry
+
+    def _on_testitem_schema_failure(
+        self,
+        exc: SchemaErrors,
+        issue_payload: dict[str, Any],
+    ) -> None:
+        """Record detailed schema errors for downstream reporting."""
+
+        failure_cases = getattr(exc, "failure_cases", None)
+        schema_issues: list[dict[str, Any]] = []
+        if isinstance(failure_cases, pd.DataFrame):
+            schema_issues = self._summarize_schema_errors(failure_cases)
+            issue_payload["details"] = schema_issues
+
+        self._schema_failure_details = schema_issues
+
+        for issue in schema_issues:
+            self.record_validation_issue(issue)
+            logger.error(
+                "schema_validation_error",
+                column=issue.get("column"),
+                check=issue.get("check"),
+                count=issue.get("count"),
+                severity=issue.get("severity"),
+            )
+
+    def _format_testitem_schema_summary(self) -> str:
+        """Summarise schema issues recorded during validation failure."""
+
+        issues = self._schema_failure_details or []
+        self._schema_failure_details = None
+
+        if not issues:
+            return "see logs for details"
+
+        return "; ".join(
+            f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+            for issue in issues
+        )
 
     def _summarize_schema_errors(self, failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
         """Convert Pandera failure cases to structured validation issues."""

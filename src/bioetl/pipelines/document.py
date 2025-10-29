@@ -35,9 +35,8 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
-    compute_field_coverage,
+    QCMetricsRegistry,
     duplicate_summary,
-    update_summary_metrics,
     update_summary_section,
     update_validation_issue_summary,
 )
@@ -947,27 +946,15 @@ class DocumentPipeline(PipelineBase):
             logger.error("validation_failed", errors=error_msg)
             raise ValueError(f"Валидация не прошла: {error_msg}")
 
-        try:
-            validated_df = DocumentNormalizedSchema.validate(working_df, lazy=True)
-        except SchemaErrors as exc:
-            failure_cases = getattr(exc, "failure_cases", None)
-            details = None
-            if isinstance(failure_cases, pd.DataFrame):
-                details = failure_cases.to_dict(orient="records")
+        validated_df = self._validate_with_schema(
+            working_df,
+            DocumentNormalizedSchema,
+            "document_normalized",
+            issue_metric="normalized_schema_validation",
+            on_failure=self._on_document_schema_failure,
+        )
 
-            self.record_validation_issue(
-                {
-                    "metric": "normalized_schema_validation",
-                    "severity": "error",
-                    "details": details,
-                }
-            )
-            logger.error("schema_validation_failed", error=str(exc))
-            raise
-
-        metrics = self._compute_qc_metrics(validated_df)
-        self.qc_metrics = metrics
-        update_summary_metrics(self.qc_summary_data, metrics)
+        registry, coverage_payload = self._compute_qc_metrics(validated_df)
         row_count = int(len(validated_df))
         update_summary_section(self.qc_summary_data, "row_counts", {"documents": row_count})
         update_summary_section(
@@ -987,52 +974,42 @@ class DocumentPipeline(PipelineBase):
             },
         )
 
-        coverage_columns = {
-            "doi": "doi_clean",
-            "pmid": "pmid" if "pmid" in validated_df.columns else "pubmed_id",
-            "title": "title",
-            "journal": "journal",
-            "authors": "authors",
-        }
-        coverage_stats = compute_field_coverage(validated_df, coverage_columns.values())
-        coverage_payload = {
-            key: coverage_stats.get(column, 0.0)
-            for key, column in coverage_columns.items()
-        }
         update_summary_section(
             self.qc_summary_data,
             "coverage",
             {"documents": coverage_payload},
         )
-        self._enforce_qc_thresholds(metrics)
+
+        self.finalize_qc_metrics(registry)
 
         update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
         return validated_df
 
-    def _compute_qc_metrics(self, df: pd.DataFrame) -> dict[str, float]:
+    def _on_document_schema_failure(
+        self,
+        exc: SchemaErrors,
+        issue_payload: dict[str, Any],
+    ) -> None:
+        """Attach detailed schema validation diagnostics to the issue payload."""
+
+        failure_cases = getattr(exc, "failure_cases", None)
+        if isinstance(failure_cases, pd.DataFrame):
+            issue_payload["details"] = failure_cases.to_dict(orient="records")
+
+    def _compute_qc_metrics(self, df: pd.DataFrame) -> tuple[QCMetricsRegistry, dict[str, float]]:
         """Compute coverage, conflict, and fallback quality metrics."""
 
+        registry = QCMetricsRegistry(self.config.qc)
         total = len(df)
-        if total == 0:
-            return {
-                "doi_coverage": 0.0,
-                "pmid_coverage": 0.0,
-                "title_coverage": 0.0,
-                "journal_coverage": 0.0,
-                "authors_coverage": 0.0,
-                "conflicts_doi": 0.0,
-                "conflicts_pmid": 0.0,
-                "title_fallback_rate": 0.0,
-            }
 
         def _coverage(column: str) -> float:
-            if column not in df.columns:
+            if total == 0 or column not in df.columns:
                 return 0.0
             return float(df[column].notna().sum() / total)
 
-        metrics: dict[str, float] = {
+        coverage_metrics = {
             "doi_coverage": _coverage("doi_clean"),
             "pmid_coverage": _coverage("pmid") if "pmid" in df.columns else _coverage("pubmed_id"),
             "title_coverage": _coverage("title"),
@@ -1040,72 +1017,69 @@ class DocumentPipeline(PipelineBase):
             "authors_coverage": _coverage("authors"),
         }
 
-        if "conflict_doi" in df.columns:
-            conflict_doi = df["conflict_doi"].fillna(False).astype("boolean")
-            metrics["conflicts_doi"] = float(conflict_doi.sum() / total)
-        else:
-            metrics["conflicts_doi"] = 0.0
+        coverage_payload = {
+            "doi": coverage_metrics["doi_coverage"],
+            "pmid": coverage_metrics["pmid_coverage"],
+            "title": coverage_metrics["title_coverage"],
+            "journal": coverage_metrics["journal_coverage"],
+            "authors": coverage_metrics["authors_coverage"],
+        }
 
-        if "conflict_pmid" in df.columns:
-            conflict_pmid = df["conflict_pmid"].fillna(False).astype("boolean")
-            metrics["conflicts_pmid"] = float(conflict_pmid.sum() / total)
-        else:
-            metrics["conflicts_pmid"] = 0.0
-
-        if "title_source" in df.columns:
-            fallback_mask = (
-                df["title_source"]
-                .fillna("")
-                .astype(str)
-                .str.contains("fallback", case=False)
+        for metric_name, value in coverage_metrics.items():
+            registry.register(
+                metric_name,
+                value,
+                comparison="min",
+                threshold_key=metric_name,
+                default_threshold=0.0,
+                fail_severity="warning",
             )
-            metrics["title_fallback_rate"] = float(fallback_mask.sum() / total)
-        else:
-            metrics["title_fallback_rate"] = 0.0
 
-        logger.debug("qc_metrics_computed", metrics=metrics)
-        return metrics
+        conflict_doi = 0.0
+        if "conflict_doi" in df.columns and total:
+            conflict_doi = float(df["conflict_doi"].fillna(False).astype("boolean").sum() / total)
+        registry.register(
+            "conflicts_doi",
+            conflict_doi,
+            comparison="max",
+            threshold_key="conflicts_doi",
+            default_threshold=0.0,
+        )
 
-    def _enforce_qc_thresholds(self, metrics: dict[str, float]) -> None:
-        """Validate QC metrics against configured thresholds."""
+        conflict_pmid = 0.0
+        if "conflict_pmid" in df.columns and total:
+            conflict_pmid = float(df["conflict_pmid"].fillna(False).astype("boolean").sum() / total)
+        registry.register(
+            "conflicts_pmid",
+            conflict_pmid,
+            comparison="max",
+            threshold_key="conflicts_pmid",
+            default_threshold=0.0,
+        )
 
-        thresholds = self.config.qc.thresholds or {}
-        if not thresholds:
-            return
+        fallback_rate = 0.0
+        if "title_source" in df.columns and total:
+            fallback_mask = (
+                df["title_source"].fillna("").astype(str).str.contains("fallback", case=False)
+            )
+            fallback_rate = float(fallback_mask.sum() / total)
+        registry.register(
+            "title_fallback_rate",
+            fallback_rate,
+            comparison="max",
+            threshold_key="title_fallback_rate",
+            default_threshold=0.0,
+        )
 
-        failing: list[str] = []
-        for metric_name, config in thresholds.items():
-            if not isinstance(config, dict):
-                continue
+        logger.debug(
+            "qc_metrics_computed",
+            metrics={
+                **coverage_metrics,
+                "conflicts_doi": conflict_doi,
+                "conflicts_pmid": conflict_pmid,
+                "title_fallback_rate": fallback_rate,
+            },
+        )
 
-            value = metrics.get(metric_name)
-            if value is None:
-                continue
-
-            min_threshold = config.get("min")
-            max_threshold = config.get("max")
-            severity = str(config.get("severity", "warning"))
-
-            passed = True
-            if min_threshold is not None and value < float(min_threshold):
-                passed = False
-            if max_threshold is not None and value > float(max_threshold):
-                passed = False
-
-            issue_payload = {
-                "metric": metric_name,
-                "value": value,
-                "threshold_min": float(min_threshold) if min_threshold is not None else None,
-                "threshold_max": float(max_threshold) if max_threshold is not None else None,
-                "severity": severity if not passed else "info",
-                "passed": passed,
-            }
-            self.record_validation_issue(issue_payload)
-
-            if not passed and self._should_fail(severity):
-                failing.append(metric_name)
-
-        if failing:
-            logger.error("qc_threshold_exceeded", failing=failing)
-            raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(sorted(failing)))
+        return registry, coverage_payload
 
