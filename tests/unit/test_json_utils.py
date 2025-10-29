@@ -216,7 +216,7 @@ class TestNormalizeJsonList:
         
         canonical1, records1 = normalize_json_list(data)
         canonical2, records2 = normalize_json_list(data)
-
+        
         # Результаты должны быть идентичными
         assert canonical1 == canonical2
         assert records1 == records2
