@@ -1115,12 +1115,16 @@ class AssayPipeline(PipelineBase):
 
         values = (
             target_df["target_chembl_id"]
+            .apply(
+                lambda raw: (
+                    registry.normalize("chemistry.chembl_id", raw)
+                    if pd.notna(raw)
+                    else None
+                )
+            )
             .dropna()
-            .astype(str)
-            .str.strip()
-            .str.upper()
         )
-        reference_ids = set(values.tolist())
+        reference_ids = {value for value in values.tolist() if value}
         logger.debug(
             "referential_reference_loaded",
             path=str(target_path),
@@ -1139,7 +1143,13 @@ class AssayPipeline(PipelineBase):
         if not reference_ids:
             return
 
-        target_series = df["target_chembl_id"].astype("string").str.upper()
+        target_series = df["target_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
+        )
         missing_mask = target_series.notna() & ~target_series.isin(reference_ids)
         missing_count = int(missing_mask.sum())
 
