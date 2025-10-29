@@ -850,6 +850,8 @@ class TestItemPipeline(PipelineBase):
                     column for column in normalized_df.columns if column not in {"molecule_chembl_id"}
                 ]
 
+                overlay_updates: dict[str, pd.Series] = {}
+
                 for column in normalized_columns:
                     normalized_series = normalized_df[column]
                     if column in deduplicated_input.columns:
@@ -859,9 +861,17 @@ class TestItemPipeline(PipelineBase):
 
                     overlay = df["molecule_chembl_id"].map(combined_series)
                     if column in df.columns:
-                        df[column] = overlay.combine_first(df[column])
+                        overlay_updates[column] = overlay.combine_first(df[column])
                     else:
-                        df[column] = overlay
+                        overlay_updates[column] = overlay
+
+                if overlay_updates:
+                    overlay_df = pd.DataFrame(overlay_updates, index=df.index)
+                    remaining_columns = df.drop(
+                        columns=[col for col in overlay_updates if col in df.columns],
+                        errors="ignore",
+                    )
+                    df = pd.concat([remaining_columns, overlay_df], axis=1)
 
         # PubChem enrichment (optional)
         if "pubchem" in self.external_adapters:
@@ -873,16 +883,21 @@ class TestItemPipeline(PipelineBase):
                 # Continue with original data - graceful degradation
 
         # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
-        df["source_system"] = "chembl"
-        df["chembl_release"] = self._chembl_release
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        extracted_at = pd.Timestamp.now(tz="UTC").isoformat()
+        df = df.assign(
+            pipeline_version="1.0.0",
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            extracted_at=extracted_at,
+        )
 
         # Generate hash fields for data integrity
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
-        df["hash_business_key"] = df["molecule_chembl_id"].apply(generate_hash_business_key)
-        df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+        df = df.assign(
+            hash_business_key=df["molecule_chembl_id"].apply(generate_hash_business_key),
+            hash_row=df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1),
+        )
 
         # Generate deterministic index
         df = df.sort_values("molecule_chembl_id")  # Sort by primary key
@@ -894,9 +909,9 @@ class TestItemPipeline(PipelineBase):
         expected_cols = TestItemSchema.get_column_order()
         if expected_cols:
             # Add missing columns with None values
-            for col in expected_cols:
-                if col not in df.columns:
-                    df[col] = None
+            missing_columns = [col for col in expected_cols if col not in df.columns]
+            if missing_columns:
+                df = df.assign(**{col: None for col in missing_columns})
 
             _coerce_nullable_int_columns(
                 df,
