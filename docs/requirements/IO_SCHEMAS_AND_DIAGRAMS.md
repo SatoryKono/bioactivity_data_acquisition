@@ -3,10 +3,12 @@
 ## Assay Pipeline
 
 ### A) Паспорт пайплайна
+
 - **Название:** AssayPipeline
 - **Назначение:** детерминированное извлечение, нормализация и выгрузка данных ассая из ChEMBL с whitelist обогащением. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 
 ### B) Диаграмма I/O
+
 ```mermaid
 flowchart TB
   IN["Input: assay_ids.csv<br/>assay_chembl_id, target_chembl_id<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"] --> EX["Extract: ChEMBL /assay.json batch≤25<br/>Cache, Retry, Fallback<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
