@@ -254,6 +254,5 @@ class _ActivityColumnOrderAccessor:
 
 # Mirror behaviour from other schemas: surface column_order via Config without
 # registering it as a Pandera check during model creation.
-ActivitySchema.Config.column_order = _ActivityColumnOrderAccessor()
 ActivitySchema.Config.ordered = False
 

@@ -36,7 +36,8 @@ from bioetl.schemas.registry import schema_registry
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)
+from pandera.pandas import DataFrameModel
+schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
 
 
 class DocumentPipeline(PipelineBase):
