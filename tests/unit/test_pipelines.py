@@ -1261,6 +1261,24 @@ class TestDocumentPipeline:
         assert pipeline.config == document_config
         assert pipeline.run_id == run_id
 
+    def test_init_with_custom_chembl_source(self, document_config, monkeypatch):
+        """Pipeline should respect custom ChEMBL source configuration."""
+
+        run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+
+        custom_config = document_config.model_copy(deep=True)
+        chembl_source = custom_config.sources["chembl"]
+        chembl_source.base_url = "https://chembl.example.org/api"
+        chembl_source.batch_size = 40
+        chembl_source.max_url_length = 2100
+
+        pipeline = DocumentPipeline(custom_config, run_id)
+
+        assert pipeline.api_client.config.base_url == "https://chembl.example.org/api"
+        assert pipeline.batch_size == pipeline.max_batch_size == 25
+        assert pipeline.max_url_length == 2100
+
     def test_extract_empty_file(self, document_config, tmp_path, monkeypatch):
         """Test extraction with empty file."""
         run_id = str(uuid.uuid4())[:8]
