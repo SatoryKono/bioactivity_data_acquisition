@@ -23,6 +23,8 @@
 - `/run_document` - запуск document pipeline
 - `/run_target` - запуск target pipeline
 - `/run_testitem` - запуск testitem pipeline
+- `/validate_columns` - валидация колонок для конкретного pipeline
+- `/validate_all_columns` - валидация колонок для всех pipeline'ов
 
 ## Работа с данными
 - Входные данные в `data/input/`

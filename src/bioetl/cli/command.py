@@ -118,6 +118,12 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             "-v",
             help="Enable verbose logging",
         ),
+        validate_columns: bool = typer.Option(
+            True,
+            "--validate-columns/--no-validate-columns",
+            help="Validate output columns against requirements",
+            show_default=True,
+        ),
         set_values: list[str] = typer.Option(
             [],
             "--set",
@@ -224,6 +230,64 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 typer.echo(
                     f"QC enrichment metrics: {artifacts.qc_enrichment_metrics}"
                 )
+
+            # Валидация колонок
+            if validate_columns:
+                typer.echo()
+                typer.echo("🔍 Валидация колонок...")
+
+                try:
+                    from bioetl.utils.column_validator import ColumnValidator
+
+                    validator = ColumnValidator()
+
+                    # Загрузить выходной файл для валидации
+                    if artifacts.dataset and artifacts.dataset.exists():
+                        df = pd.read_csv(artifacts.dataset)
+                        result = validator.compare_columns(
+                            entity=config.pipeline_name,
+                            actual_df=df,
+                            schema_version="latest",
+                        )
+
+                        if result.overall_match:
+                            typer.echo("✅ Колонки соответствуют требованиям")
+                        else:
+                            typer.echo("❌ Обнаружены несоответствия в колонках:")
+                            if result.missing_columns:
+                                typer.echo(f"   Отсутствуют: {', '.join(result.missing_columns)}")
+                            if result.extra_columns:
+                                typer.echo(f"   Лишние: {', '.join(result.extra_columns)}")
+                            if not result.order_matches:
+                                typer.echo("   Порядок колонок не соответствует требованиям")
+
+                        # Показать информацию о пустых колонках
+                        if result.empty_columns:
+                            typer.echo(f"📊 Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")
+                        else:
+                            typer.echo("📊 Все колонки содержат данные")
+
+                        # Создать отчет о валидации
+                        validation_report_dir = output_dir / "validation_reports"
+                        validation_report_dir.mkdir(parents=True, exist_ok=True)
+                        report_path = validator.generate_report([result], validation_report_dir)
+                        typer.echo(f"📄 Отчет о валидации: {report_path}")
+
+                        # Если есть критические несоответствия, завершить с ошибкой
+                        if result.missing_columns or result.extra_columns:
+                            typer.secho(
+                                "❌ Критические несоответствия в колонках обнаружены!",
+                                fg=typer.colors.RED,
+                            )
+                            raise typer.Exit(1)
+                    else:
+                        typer.echo("⚠️  Выходной файл не найден для валидации")
+
+                except ImportError:
+                    typer.echo("⚠️  Модуль валидации колонок недоступен")
+                except Exception as e:
+                    typer.echo(f"⚠️  Ошибка валидации колонок: {e}")
+                    logger.warning("column_validation_failed", error=str(e))
 
         except typer.BadParameter:
             raise

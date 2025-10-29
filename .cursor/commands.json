@@ -23,6 +23,11 @@
           "name": "limit",
           "description": "Ограничить извлечение первыми N записями",
           "default": 1
+        },
+        {
+          "name": "validate-columns",
+          "description": "Валидировать выходные колонки против требований",
+          "default": true
         }
       ]
     },
@@ -49,6 +54,11 @@
           "name": "limit",
           "description": "Ограничить извлечение первыми N записями",
           "default": 1
+        },
+        {
+          "name": "validate-columns",
+          "description": "Валидировать выходные колонки против требований",
+          "default": true
         }
       ]
     },
@@ -80,6 +90,11 @@
           "name": "limit",
           "description": "Ограничить извлечение первыми N записями",
           "default": 1
+        },
+        {
+          "name": "validate-columns",
+          "description": "Валидировать выходные колонки против требований",
+          "default": true
         }
       ]
     },
@@ -161,6 +176,63 @@
           "name": "limit",
           "description": "Ограничить извлечение первыми N записями",
           "default": 1
+        },
+        {
+          "name": "validate-columns",
+          "description": "Валидировать выходные колонки против требований",
+          "default": true
+        }
+      ]
+    },
+    "validate_columns": {
+      "command": "python src/scripts/validate_columns.py",
+      "description": "Валидировать колонки в выходных данных pipeline",
+      "args": [
+        {
+          "name": "pipeline_name",
+          "description": "Имя pipeline (assay, activity, testitem, target, document)",
+          "required": true
+        },
+        {
+          "name": "output-dir",
+          "description": "Директория с выходными данными",
+          "default": "data/output"
+        },
+        {
+          "name": "schema-version",
+          "description": "Версия схемы для сравнения",
+          "default": "latest"
+        },
+        {
+          "name": "report-dir",
+          "description": "Директория для сохранения отчетов",
+          "default": "data/output/validation_reports"
+        },
+        {
+          "name": "verbose",
+          "description": "Подробный вывод",
+          "default": false
+        }
+      ]
+    },
+    "validate_all_columns": {
+      "command": "python src/scripts/validate_columns.py compare-all",
+      "description": "Валидировать колонки для всех pipeline'ов",
+      "args": [
+        {
+          "name": "output-dir",
+          "description": "Директория с выходными данными",
+          "default": "data/output"
+        },
+        {
+          "name": "schema-version",
+          "description": "Версия схемы для сравнения",
+          "default": "latest"
+        },
+        {
+          "name": "report-dir",
+          "description": "Директория для сохранения отчетов",
+          "default": "data/output/validation_reports"
         }
       ]
     }
