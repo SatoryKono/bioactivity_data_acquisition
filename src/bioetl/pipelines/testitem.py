@@ -239,10 +239,11 @@ class TestItemPipeline(PipelineBase):
     def _normalize_pref_name(pref_name: Any) -> str | None:
         """Normalize preferred name for deterministic keys."""
 
-        if not isinstance(pref_name, str):
+        normalized = registry.normalize("chemistry.string", pref_name)
+        if normalized is None:
             return None
-        normalized = pref_name.strip().lower()
-        return normalized or None
+        lowered = normalized.lower()
+        return lowered or None
 
     @classmethod
     def _flatten_molecule_hierarchy(cls, molecule: dict[str, Any]) -> dict[str, Any]:
