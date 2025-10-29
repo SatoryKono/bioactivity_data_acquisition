@@ -714,6 +714,32 @@ class TestActivityPipeline:
         assert properties[0]["value"] == 120.0
         assert properties[1]["value"] == "curated"
 
+    def test_normalize_activity_clamps_negative_measurements(self, activity_config, caplog):
+        """Negative measurement values should be sanitised to preserve schema rules."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        raw_activity = {
+            "activity_id": 999,
+            "molecule_chembl_id": "CHEMBL999",
+            "target_chembl_id": "CHEMBL42",
+            "type": "IC50",
+            "value": -8,
+            "standard_type": "IC50",
+            "standard_value": -12.5,
+            "pchembl_value": -1.7,
+        }
+
+        caplog.set_level("WARNING")
+        normalized = pipeline._normalize_activity(raw_activity)
+
+        assert normalized["published_value"] is None
+        assert normalized["standard_value"] is None
+        assert normalized["pchembl_value"] == pytest.approx(-1.7)
+
+        assert caplog.text.count("non_negative_float_sanitized") >= 2
+
     def test_validate_records_qc_metrics(self, activity_config):
         """Validation should record QC metrics for downstream reporting."""
         run_id = str(uuid.uuid4())[:8]
