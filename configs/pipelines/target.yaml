@@ -160,7 +160,7 @@ qc:
     iuphar: true
   enrichments:
     uniprot: 0.8
-    iuphar: 0.6
+    iuphar: 0.1
 
 materialization:
   bronze: "data/output/target/targets_bronze.parquet"
