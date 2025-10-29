@@ -72,6 +72,7 @@ def test_validate_with_schema_raises_above_threshold(severity: str) -> None:
 
     summary = pipeline.qc_summary_data["validation"]["dummy"]
     assert summary["status"] == "failed"
+    assert summary["severity"] == severity
     issue = pipeline.validation_issues[-1]
     assert issue["metric"] == "schema.dummy"
     assert issue["status"] == "failed"
@@ -102,6 +103,7 @@ def test_validate_with_schema_records_issue_below_threshold() -> None:
     assert result is frame
     summary = pipeline.qc_summary_data["validation"]["dummy"]
     assert summary["status"] == "failed"
+    assert summary["severity"] == "error"
     issue = pipeline.validation_issues[-1]
     assert issue["status"] == "failed"
     assert issue["severity"] == "error"

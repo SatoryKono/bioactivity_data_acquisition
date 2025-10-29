@@ -235,7 +235,11 @@ class PipelineBase(ABC):
         metric_label = metric_name or f"schema.{dataset_label}"
 
         if df is None or (hasattr(df, "empty") and getattr(df, "empty")):
-            validation_summary[dataset_label] = {"status": "skipped", "rows": 0}
+            validation_summary[dataset_label] = {
+                "status": "skipped",
+                "rows": 0,
+                "severity": "info",
+            }
             self.record_validation_issue(
                 {
                     "metric": metric_label,
@@ -276,12 +280,19 @@ class PipelineBase(ABC):
                     issue_payload["examples"] = "unavailable"
 
             self.record_validation_issue(issue_payload)
-            payload: dict[str, Any] = {"status": "failed"}
+            payload: dict[str, Any] = {"status": "failed", "severity": severity_label}
             if error_count is not None:
                 payload["errors"] = error_count
             validation_summary[dataset_label] = payload
 
-            logger.error(
+            if should_fail:
+                log_method = logger.error
+            elif severity_label != "info":
+                log_method = logger.warning
+            else:
+                log_method = logger.info
+
+            log_method(
                 "schema_validation_failed",
                 dataset=dataset_label,
                 errors=error_count,
@@ -296,6 +307,7 @@ class PipelineBase(ABC):
         validation_summary[dataset_label] = {
             "status": "passed",
             "rows": int(len(validated)),
+            "severity": "info",
         }
         self.record_validation_issue(
             {
