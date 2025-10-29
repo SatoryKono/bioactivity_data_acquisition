@@ -1685,7 +1685,7 @@ class TargetPipeline(PipelineBase):
             logger.info("silver_materialization_skipped", reason="empty_frames")
             return
 
-        silver_path_config = self.config.materialization.silver or Path("data/silver/targets_uniprot.parquet")
+        silver_path_config = self.config.materialization.silver or Path("data/output/target/targets_silver.parquet")
         silver_path = Path(silver_path_config)
         silver_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1721,29 +1721,24 @@ class TargetPipeline(PipelineBase):
             logger.info("iuphar_materialization_skipped", reason="empty_frames")
             return
 
-        silver_base = Path(self.config.materialization.silver or Path("data/silver/targets_uniprot.parquet"))
-        silver_dir = silver_base.parent
-        silver_dir.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(self.config.materialization.gold or Path("data/output/target/targets_final.parquet")).parent
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         if not classification_df.empty:
-            silver_path = silver_dir / "targets_iuphar_classification.parquet"
+            classification_path = output_dir / "targets_iuphar_classification.parquet"
             logger.info(
                 "writing_iuphar_classification",
-                path=str(silver_path),
+                path=str(classification_path),
                 rows=len(classification_df),
             )
             classification_sorted = classification_df.sort_values(
                 by=["target_chembl_id", "iuphar_family_id"],
                 kind="stable",
             )
-            classification_sorted.to_parquet(silver_path, index=False)
-
-        gold_base = Path(self.config.materialization.gold or Path("data/gold/targets_final.parquet"))
-        gold_dir = gold_base.parent
-        gold_dir.mkdir(parents=True, exist_ok=True)
+            classification_sorted.to_parquet(classification_path, index=False)
 
         if not gold_df.empty:
-            gold_path = gold_dir / "targets_iuphar_enrichment.parquet"
+            gold_path = output_dir / "targets_iuphar_enrichment.parquet"
             logger.info(
                 "writing_iuphar_gold",
                 path=str(gold_path),
