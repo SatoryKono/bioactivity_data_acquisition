@@ -4,7 +4,7 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
-from bioetl.schemas.base import BaseSchema
+from bioetl.schemas.base import BaseSchema, expose_config_column_order
 
 
 class AssaySchema(BaseSchema):
@@ -245,14 +245,5 @@ class AssaySchema(BaseSchema):
         ordered = True
 
 
-class _AssayColumnOrderAccessor:
-    """Descriptor returning the canonical column order for backwards compatibility."""
-
-    def __get__(self, instance, owner) -> list[str]:
-        return AssaySchema.get_column_order()
-
-
-# Backwards compatibility shim: expose column_order on Config without
-# registering it as a Pandera check during class creation.
-AssaySchema.Config.column_order = _AssayColumnOrderAccessor()
+expose_config_column_order(AssaySchema)
 
