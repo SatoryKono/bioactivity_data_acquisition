@@ -257,7 +257,7 @@ class ColumnValidator:
             f.write("## Детали по сущностям\n\n")
             for detail in results:
                 f.write(f"### {detail['entity'].upper()}\n\n")
-                f.write(f"**Статус:** {'✅ Соответствует' if detail['overall_match'] else '❌ Не соответствует'}\n\n")
+                f.write(f"**Статус:** {'Соответствует' if detail['overall_match'] else 'Не соответствует'}\n\n")
                 f.write(f"**Количество колонок:** {detail['actual_count']} (ожидается {detail['expected_count']})\n")
                 f.write(f"**Пустые колонки:** {detail['empty_count']} из {detail['actual_count']}\n\n")
 

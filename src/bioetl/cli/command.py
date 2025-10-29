@@ -232,7 +232,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             # Валидация колонок
             if validate_columns:
                 typer.echo()
-                typer.echo("🔍 Валидация колонок...")
+                typer.echo("Валидация колонок...")
 
                 try:
                     from bioetl.utils.column_validator import ColumnValidator
@@ -249,9 +249,9 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                         )
 
                         if result.overall_match:
-                            typer.echo("✅ Колонки соответствуют требованиям")
+                            typer.echo("Колонки соответствуют требованиям")
                         else:
-                            typer.echo("❌ Обнаружены несоответствия в колонках:")
+                            typer.echo("Обнаружены несоответствия в колонках:")
                             if result.missing_columns:
                                 typer.echo(f"   Отсутствуют: {', '.join(result.missing_columns)}")
                             if result.extra_columns:
@@ -261,30 +261,30 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
                         # Показать информацию о пустых колонках
                         if result.empty_columns:
-                            typer.echo(f"📊 Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")
+                            typer.echo(f"Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")
                         else:
-                            typer.echo("📊 Все колонки содержат данные")
+                            typer.echo("Все колонки содержат данные")
 
                         # Создать отчет о валидации
                         validation_report_dir = output_dir / "validation_reports"
                         validation_report_dir.mkdir(parents=True, exist_ok=True)
                         report_path = validator.generate_report([result], validation_report_dir)
-                        typer.echo(f"📄 Отчет о валидации: {report_path}")
+                        typer.echo(f"Отчет о валидации: {report_path}")
 
                         # Если есть критические несоответствия, завершить с ошибкой
                         if result.missing_columns or result.extra_columns:
                             typer.secho(
-                                "❌ Критические несоответствия в колонках обнаружены!",
+                                "Критические несоответствия в колонках обнаружены!",
                                 fg=typer.colors.RED,
                             )
                             raise typer.Exit(1)
                     else:
-                        typer.echo("⚠️  Выходной файл не найден для валидации")
+                        typer.echo("Выходной файл не найден для валидации")
 
                 except ImportError:
-                    typer.echo("⚠️  Модуль валидации колонок недоступен")
+                    typer.echo("Модуль валидации колонок недоступен")
                 except Exception as e:
-                    typer.echo(f"⚠️  Ошибка валидации колонок: {e}")
+                    typer.echo(f"Ошибка валидации колонок: {e}")
                     logger.warning("column_validation_failed", error=str(e))
 
         except typer.BadParameter:

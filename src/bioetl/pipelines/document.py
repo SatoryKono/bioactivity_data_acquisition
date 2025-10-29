@@ -36,7 +36,6 @@ from bioetl.schemas.registry import schema_registry
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-from pandera.pandas import DataFrameModel
 schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
 
 
@@ -103,7 +102,7 @@ class DocumentPipeline(PipelineBase):
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
         if input_file is None:
-            input_file = Path("data/input/documents.csv")
+            input_file = Path("data/input/document.csv")
 
         logger.info("reading_input", path=input_file)
 
