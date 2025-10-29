@@ -1,0 +1,168 @@
+{
+  "commands": {
+    "run_assay": {
+      "command": "python src/scripts/run_assay.py",
+      "description": "Запустить pipeline для обработки assay данных",
+      "args": [
+        {
+          "name": "config",
+          "description": "Путь к конфигурационному файлу",
+          "default": "configs/pipelines/assay.yaml"
+        },
+        {
+          "name": "input",
+          "description": "Путь к входному файлу",
+          "default": "data/input/assay.csv"
+        },
+        {
+          "name": "output-dir",
+          "description": "Директория для выходных файлов",
+          "default": "data/output/assay"
+        },
+        {
+          "name": "limit",
+          "description": "Ограничить извлечение первыми N записями",
+          "default": 1
+        }
+      ]
+    },
+    "run_activity": {
+      "command": "python src/scripts/run_activity.py",
+      "description": "Запустить pipeline для обработки activity данных",
+      "args": [
+        {
+          "name": "config",
+          "description": "Путь к конфигурационному файлу",
+          "default": "configs/pipelines/activity.yaml"
+        },
+        {
+          "name": "input",
+          "description": "Путь к входному файлу",
+          "default": "data/input/activity.csv"
+        },
+        {
+          "name": "output-dir",
+          "description": "Директория для выходных файлов",
+          "default": "data/output/activity"
+        },
+        {
+          "name": "limit",
+          "description": "Ограничить извлечение первыми N записями",
+          "default": 1
+        }
+      ]
+    },
+    "run_document": {
+      "command": "python src/scripts/run_document.py",
+      "description": "Запустить pipeline для обработки document данных",
+      "args": [
+        {
+          "name": "config",
+          "description": "Путь к конфигурационному файлу",
+          "default": "configs/pipelines/document.yaml"
+        },
+        {
+          "name": "input",
+          "description": "Путь к входному файлу",
+          "default": "data/input/documents.csv"
+        },
+        {
+          "name": "output-dir",
+          "description": "Директория для выходных файлов",
+          "default": "data/output/documents"
+        },
+        {
+          "name": "mode",
+          "description": "Режим выполнения (chembl, all)",
+          "default": "chembl"
+        },
+        {
+          "name": "limit",
+          "description": "Ограничить извлечение первыми N записями",
+          "default": 1
+        }
+      ]
+    },
+    "run_target": {
+      "command": "python src/scripts/run_target.py",
+      "description": "Запустить pipeline для обработки target данных",
+      "args": [
+        {
+          "name": "config",
+          "description": "Путь к конфигурационному файлу",
+          "default": "configs/pipelines/target.yaml"
+        },
+        {
+          "name": "input-file",
+          "description": "Путь к входному файлу",
+          "default": "data/input/target.csv"
+        },
+        {
+          "name": "output-root",
+          "description": "Корневая директория для выходных файлов",
+          "default": "data/output"
+        },
+        {
+          "name": "mode",
+          "description": "Режим выполнения",
+          "default": "default"
+        },
+        {
+          "name": "with-uniprot",
+          "description": "Включить обогащение UniProt",
+          "default": true
+        },
+        {
+          "name": "with-iuphar",
+          "description": "Включить обогащение IUPHAR",
+          "default": true
+        },
+        {
+          "name": "sample",
+          "description": "Обработать только первые N записей для тестирования"
+        },
+        {
+          "name": "limit",
+          "description": "Ограничить извлечение первыми N записями",
+          "default": 1
+        },
+        {
+          "name": "dry-run",
+          "description": "Проверить конфигурацию без запуска pipeline",
+          "default": false
+        },
+        {
+          "name": "verbose",
+          "description": "Включить подробное логирование",
+          "default": false
+        }
+      ]
+    },
+    "run_testitem": {
+      "command": "python src/scripts/run_testitem.py",
+      "description": "Запустить pipeline для обработки testitem данных",
+      "args": [
+        {
+          "name": "config",
+          "description": "Путь к конфигурационному файлу",
+          "default": "configs/pipelines/testitem.yaml"
+        },
+        {
+          "name": "input",
+          "description": "Путь к входному файлу",
+          "default": "data/input/testitems.csv"
+        },
+        {
+          "name": "output-dir",
+          "description": "Директория для выходных файлов",
+          "default": "data/output/testitems"
+        },
+        {
+          "name": "limit",
+          "description": "Ограничить извлечение первыми N записями",
+          "default": 1
+        }
+      ]
+    }
+  }
+}
