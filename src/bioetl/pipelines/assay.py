@@ -876,18 +876,15 @@ class AssayPipeline(PipelineBase):
                         df[column] = pd.NA
                 df = df.loc[:, schema_columns]
 
-        for column in _NULLABLE_INT_COLUMNS:
-            if column not in df.columns:
-                continue
-            try:
-                numeric_series = pd.to_numeric(df[column], errors="coerce")
-                df[column] = pd.array(numeric_series, dtype=pd.Int64Dtype())
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.warning(
-                    "nullable_int_cast_failed",
-                    column=column,
-                    error=str(exc),
-                )
+        # Normalise nullable integer columns once more before validation.
+        #
+        # Even though ``transform`` already coerces these columns, downstream
+        # callers (including CLI sampling) may mutate frames in between the
+        # stages.  Pandera raises ``coerce_dtype('int64')`` errors when a single
+        # fractional value (e.g. ``"3.5"``) slips through, so we defensively
+        # reuse the same normalisation helper to guarantee determinism at the
+        # point of validation.
+        _coerce_nullable_int_columns(df, _NULLABLE_INT_COLUMNS)
 
         try:
             validated_df = AssaySchema.validate(df, lazy=True)
