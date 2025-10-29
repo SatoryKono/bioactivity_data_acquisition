@@ -20,7 +20,7 @@ app.command()(
             default_input=Path("data/input/document.csv"),
             default_output_dir=Path("data/output/documents"),
             mode_choices=("chembl", "all"),
-            default_mode="chembl",
+            default_mode="all",
         )
     )
 )

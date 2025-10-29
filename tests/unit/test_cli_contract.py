@@ -177,3 +177,50 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
         assert runtime_options.get("sample") == 5
         assert runtime_options.get("limit") == 5
 
+
+@pytest.mark.unit
+@pytest.mark.parametrize("entry", ENTRYPOINTS, ids=lambda entry: entry.name)
+def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoint) -> None:
+    """Default CLI invocation applies expected pipeline-specific flags."""
+
+    module = importlib.import_module(entry.module)
+
+    captured: dict[str, object] = {}
+
+    class RecordingPipeline:
+        def __init__(self, config, run_id):  # noqa: D401, ANN001 - Typer contract
+            captured["config"] = config
+            captured["run_id"] = run_id
+            self.runtime_options: dict[str, object] = {}
+            captured["runtime_options"] = self.runtime_options
+
+    monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+
+    config = captured.get("config")
+    assert config is not None, "Pipeline did not receive configuration"
+
+    if entry.name == "document":
+        assert config.cli.get("mode") == "all"
+
+    if entry.name == "target":
+        stages = config.cli.get("stages", {})
+        assert stages.get("uniprot") is True
+        assert stages.get("iuphar") is True
+
+        runtime_options = captured.get("runtime_options")
+        assert isinstance(runtime_options, dict)
+        assert runtime_options.get("with_uniprot") is True
+        assert runtime_options.get("with_iuphar") is True
+
