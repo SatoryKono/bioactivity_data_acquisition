@@ -6,7 +6,7 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
-from bioetl.schemas.base import BaseSchema
+from bioetl.schemas.base import BaseSchema, expose_config_column_order
 
 
 class DocumentRawSchema(pa.DataFrameModel):
@@ -402,8 +402,7 @@ class DocumentSchema(BaseSchema):
         ordered = True
 
 
-# Expose column_order on Config for compatibility with column validator utilities.
-DocumentSchema.Config.column_order = DocumentSchema.get_column_order()
+expose_config_column_order(DocumentSchema)
 
 
 class DocumentNormalizedSchema(DocumentSchema):
@@ -411,3 +410,6 @@ class DocumentNormalizedSchema(DocumentSchema):
 
     class Config(DocumentSchema.Config):
         strict = True
+
+
+expose_config_column_order(DocumentNormalizedSchema)
