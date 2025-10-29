@@ -95,7 +95,8 @@ def finalize_pipeline_output(
         for column in expected_columns:
             if column not in result.columns:
                 result[column] = pd.NA
-        extras = [col for col in result.columns if col not in expected_columns]
-        result = result[list(expected_columns) + extras]
+
+        # Drop any columns that are not part of the contract to keep schema strictness
+        result = result[[column for column in expected_columns if column in result.columns]]
 
     return result.convert_dtypes()
