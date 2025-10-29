@@ -445,12 +445,18 @@ class DocumentPipeline(PipelineBase):
     def _persist_rejected_inputs(self, rows: list[dict[str, str]]) -> None:
         """Persist rejected inputs for auditability."""
 
-        rejected_df = pd.DataFrame(rows)
-        output_dir = Path("data/output/rejected_inputs")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"document_rejected_{self.run_id}.csv"
-        logger.warning("rejected_inputs_found", count=len(rejected_df), path=output_path)
-        self.output_writer.atomic_writer.write(rejected_df, output_path)
+        rejected_df = pd.DataFrame(rows).convert_dtypes()
+        relative_output = Path("qc") / "document_rejected_inputs.csv"
+        logger.warning(
+            "rejected_inputs_found",
+            count=len(rejected_df),
+            path=str(relative_output),
+        )
+        self.add_additional_table(
+            "document_rejected_inputs",
+            rejected_df,
+            relative_path=relative_output,
+        )
 
     def _validate_raw_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate raw payloads against Pandera schema before transformation."""

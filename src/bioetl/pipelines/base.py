@@ -9,6 +9,7 @@ import pandas as pd
 from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import (
+    AdditionalTableSpec,
     OutputArtifacts,
     OutputMetadata,
     UnifiedOutputWriter,
@@ -30,7 +31,7 @@ class PipelineBase(ABC):
         self.qc_missing_mappings = pd.DataFrame()
         self.qc_enrichment_metrics = pd.DataFrame()
         self.runtime_options: dict[str, Any] = {}
-        self.additional_tables: dict[str, pd.DataFrame] = {}
+        self.additional_tables: dict[str, AdditionalTableSpec] = {}
         self.export_metadata: OutputMetadata | None = None
         self.debug_dataset_path: Path | None = None
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
@@ -123,6 +124,41 @@ class PipelineBase(ABC):
             runtime_options=self.runtime_options,
             debug_dataset=self.debug_dataset_path,
         )
+
+    def add_additional_table(
+        self,
+        name: str,
+        frame: pd.DataFrame | None,
+        *,
+        relative_path: Path | str | None = None,
+    ) -> None:
+        """Register or remove an additional dataset for export."""
+
+        if frame is None or frame.empty:
+            self.additional_tables.pop(name, None)
+            return
+
+        path_value: Path | None = None
+        if relative_path is not None:
+            candidate = Path(relative_path)
+            if candidate.is_absolute():
+                logger.warning(
+                    "additional_table_absolute_path_ignored",
+                    name=name,
+                    path=str(candidate),
+                )
+            else:
+                path_value = candidate
+
+        self.additional_tables[name] = AdditionalTableSpec(
+            dataframe=frame,
+            relative_path=path_value,
+        )
+
+    def remove_additional_table(self, name: str) -> None:
+        """Remove a previously registered additional dataset."""
+
+        self.additional_tables.pop(name, None)
 
     def _should_emit_debug_artifacts(self) -> bool:
         """Determine whether verbose/debug outputs should be materialised."""
