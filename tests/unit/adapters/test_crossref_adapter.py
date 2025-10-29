@@ -1,7 +1,6 @@
 """Unit tests for CrossrefAdapter."""
 
 import unittest
-from unittest.mock import MagicMock
 
 from bioetl.adapters.base import AdapterConfig
 from bioetl.adapters.crossref import CrossrefAdapter

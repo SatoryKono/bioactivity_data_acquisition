@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping, MutableMapping, Sequence
-
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
+from typing import Any
 
 class PreparedRequest:
     method: str | None

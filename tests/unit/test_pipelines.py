@@ -2,23 +2,28 @@
 
 import json
 import uuid
+from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pandas as pd
-from pandas.api.types import is_integer_dtype
 import pytest
 import requests
+from pandas.api.types import is_integer_dtype
 from pandera.errors import SchemaErrors
-from pathlib import Path
-
-from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
-from unittest.mock import MagicMock
 
 from bioetl.config.loader import load_config
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.pipelines import ActivityPipeline, AssayPipeline, DocumentPipeline, TargetPipeline, TestItemPipeline
 from bioetl.core.hashing import generate_hash_business_key
+from bioetl.pipelines import (
+    ActivityPipeline,
+    AssayPipeline,
+    DocumentPipeline,
+    TargetPipeline,
+    TestItemPipeline,
+)
 from bioetl.schemas import AssaySchema, TargetSchema, TestItemSchema
+from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
 
 @pytest.fixture
@@ -1495,7 +1500,7 @@ def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[s
     """Construct a minimal row conforming to AssaySchema for tests."""
 
     schema_columns = list(AssaySchema.to_schema().columns.keys())
-    row = {column: None for column in schema_columns}
+    row = dict.fromkeys(schema_columns)
     row.update(
         {
             "assay_chembl_id": assay_id,

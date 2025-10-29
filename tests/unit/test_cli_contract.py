@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-import sys
 
 import pytest
 from typer.testing import CliRunner
@@ -147,13 +147,13 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     config = captured.get("config")
     assert config is not None, "Pipeline did not receive configuration"
 
-    cache_ttl = getattr(config, "cache").ttl
+    cache_ttl = config.cache.ttl
     assert cache_ttl == 321  # environment overrides CLI --set value
 
-    qc_thresholds = getattr(config, "qc").thresholds
+    qc_thresholds = config.qc.thresholds
     assert qc_thresholds["null_fraction"] == pytest.approx(0.05)
 
-    cli_section = getattr(config, "cli")
+    cli_section = config.cli
     assert cli_section["custom_flag"] == "contract"
     assert cli_section["extended"] is True
     assert cli_section["mode"] == entry.mode

@@ -24,9 +24,9 @@ logger_module = importlib.util.module_from_spec(spec)
 
 sys.modules.setdefault("bioetl", types.ModuleType("bioetl"))
 core_module = sys.modules.setdefault("bioetl.core", types.ModuleType("bioetl.core"))
-setattr(sys.modules["bioetl"], "core", core_module)
+sys.modules["bioetl"].core = core_module
 sys.modules["bioetl.core.logger"] = logger_module
-setattr(core_module, "logger", logger_module)
+core_module.logger = logger_module
 spec.loader.exec_module(logger_module)
 
 UnifiedLogger = logger_module.UnifiedLogger

@@ -2,12 +2,11 @@
 
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import pytest
 from pydantic import ValidationError
 
-from bioetl.config import PipelineConfig, load_config, parse_cli_overrides
+from bioetl.config import load_config, parse_cli_overrides
 
 
 def test_load_base_config():

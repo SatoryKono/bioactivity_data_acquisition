@@ -13,6 +13,7 @@ from library.target.quality import TargetQualityFilter
 from library.target.validate import TargetValidator
 from library.target.writer import write_target_outputs
 
+
 # Исключения
 class TargetValidationError(Exception):
     """Ошибка валидации данных target."""
@@ -43,13 +44,13 @@ def run_target_etl(config, input_data=None):
 
 __all__ = [
     "ConfigLoadError",
-    "TargetConfig", 
+    "TargetConfig",
     "TargetNormalizer",
     "TargetPipeline",
     "TargetQualityFilter",
     "TargetValidator",
     "TargetValidationError",
-    "TargetHTTPError", 
+    "TargetHTTPError",
     "TargetIOError",
     "TargetQCError",
     "load_target_config",

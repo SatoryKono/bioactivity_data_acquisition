@@ -24,7 +24,7 @@ class _DummySchema:
 
 
 testitem_stub = ModuleType("bioetl.schemas.testitem")
-setattr(testitem_stub, "TestItemSchema", _DummySchema)
+testitem_stub.TestItemSchema = _DummySchema
 sys.modules.setdefault("bioetl.schemas.testitem", testitem_stub)
 
 
@@ -50,7 +50,7 @@ def _build_document_frame(**overrides) -> pd.DataFrame:
     if not schema_columns:
         raise AssertionError("Document schema columns are not defined")
 
-    row = {column: None for column in schema_columns}
+    row = dict.fromkeys(schema_columns)
     row.update(
         {
             "document_chembl_id": "CHEMBL1",
