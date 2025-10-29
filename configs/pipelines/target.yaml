@@ -144,6 +144,16 @@ determinism:
   sort:
     by: ["target_chembl_id"]
     ascending: [true]
+  column_order: [
+    "target_chembl_id", "isoform_ids", "isoform_names", "isoforms", "pref_name", "target_type", "organism", "tax_id",
+    "gene_symbol", "hgnc_id", "lineage", "primaryAccession", "target_names", "target_uniprot_id", "organism_chembl",
+    "species_group_flag", "target_components", "protein_classifications", "cross_references", "target_names_chembl",
+    "pH_dependence", "pH_dependence_chembl", "target_organism", "target_tax_id", "target_uniprot_accession",
+    "target_isoform", "isoform_ids_chembl", "isoform_names_chembl", "isoforms_chembl", "uniprot_accession",
+    "uniprot_id_primary", "uniprot_ids_all", "isoform_count", "has_alternative_products", "has_uniprot", "has_iuphar",
+    "iuphar_type", "iuphar_class", "iuphar_subclass", "data_origin", "pipeline_version", "source_system",
+    "chembl_release", "extracted_at", "hash_business_key", "hash_row", "index"
+  ]
 
 qc:
   enabled: true

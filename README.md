@@ -67,6 +67,10 @@ mypy src/
 
 Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
 
+## Commands
+
+Для быстрого запуска pipeline'ов используйте команды из [docs/COMMANDS.md](docs/COMMANDS.md).
+
 ## License
 
 MIT

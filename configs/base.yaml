@@ -11,7 +11,7 @@ http:
       total: 5
       backoff_multiplier: 2.0
       backoff_max: 120.0
-      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
+      statuses: [408, 425, 429, 500, 502, 503, 504]
     rate_limit:
       max_calls: 5
       period: 15.0

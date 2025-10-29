@@ -10,12 +10,16 @@ sources:
     base_url: "https://www.ebi.ac.uk/chembl/api/data"
     batch_size: 10
     max_url_length: 2000
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-document-pipeline/1.0"
+    rate_limit_jitter: true
   
   pubmed:
     enabled: true  # PubMed enrichment
     base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-    tool: "bioactivity_etl"
-    email: "821311@gmail.com"
+    tool: "${PUBMED_TOOL}"
+    email: "${PUBMED_EMAIL}"
     api_key: "${PUBMED_API_KEY}"
     batch_size: 200
     rate_limit_max_calls: 3  # 10 with API key
@@ -55,6 +59,30 @@ determinism:
   sort:
     by: ["document_chembl_id"]
     ascending: [true]
+  column_order: [
+    "index", "hash_row", "hash_business_key", "pipeline_version", "source_system", "chembl_release", "extracted_at",
+    "document_chembl_id", "document_pubmed_id", "document_classification", "referenses_on_previous_experiments",
+    "original_experimental_document", "pmid", "pmid_source", "doi_clean", "doi_clean_source", "title", "title_source",
+    "abstract", "abstract_source", "journal", "journal_source", "journal_abbrev", "journal_abbrev_source", "authors",
+    "authors_source", "year", "year_source", "volume", "volume_source", "issue", "issue_source", "first_page",
+    "first_page_source", "last_page", "last_page_source", "issn_print", "issn_print_source", "issn_electronic",
+    "issn_electronic_source", "is_oa", "is_oa_source", "oa_status", "oa_status_source", "oa_url", "oa_url_source",
+    "citation_count", "citation_count_source", "influential_citations", "influential_citations_source",
+    "fields_of_study", "fields_of_study_source", "concepts_top3", "concepts_top3_source", "mesh_terms",
+    "mesh_terms_source", "chemicals", "chemicals_source", "conflict_doi", "conflict_pmid", "chembl_pmid",
+    "pubmed_pmid", "openalex_pmid", "semantic_scholar_pmid", "chembl_title", "crossref_title", "openalex_title",
+    "pubmed_article_title", "semantic_scholar_title", "chembl_abstract", "pubmed_abstract", "chembl_authors",
+    "crossref_authors", "openalex_authors", "pubmed_authors", "semantic_scholar_authors", "chembl_doi",
+    "crossref_doi", "openalex_doi", "pubmed_doi", "semantic_scholar_doi", "chembl_doc_type", "crossref_doc_type",
+    "openalex_doc_type", "openalex_crossref_doc_type", "pubmed_doc_type", "semantic_scholar_doc_type",
+    "chembl_journal", "pubmed_journal", "semantic_scholar_journal", "chembl_year", "openalex_year", "chembl_volume",
+    "pubmed_volume", "chembl_issue", "pubmed_issue", "pubmed_first_page", "pubmed_last_page", "openalex_issn",
+    "pubmed_issn", "semantic_scholar_issn", "pubmed_mesh_descriptors", "pubmed_mesh_qualifiers", "pubmed_chemical_list",
+    "pubmed_year_completed", "pubmed_month_completed", "pubmed_day_completed", "pubmed_year_revised",
+    "pubmed_month_revised", "pubmed_day_revised", "crossref_subject", "crossref_error", "openalex_error",
+    "pubmed_error", "semantic_scholar_error", "fallback_reason", "fallback_error_type", "fallback_error_code",
+    "fallback_error_message", "fallback_http_status", "fallback_retry_after_sec", "fallback_attempt", "fallback_timestamp"
+  ]
 
 qc:
   enabled: true

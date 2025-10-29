@@ -1,0 +1,184 @@
+# Build artifacts
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Data directories (large files)
+data/cache/
+data/output/
+data/silver/
+data/gold/
+*.parquet
+*.csv
+*.xlsx
+*.xlsm
+
+# Logs
+logs/
+*.log
+debug.log
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python virtual environment
+venv/
+env/
+ENV/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Documentation build
+docs/_build/
+site/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# mypy cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Large binary files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Node modules (if any)
+node_modules/
+
+# Environment files with secrets
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Cursor specific
+.cursor/
+.vscode/
+.idea/
+
+# Jupyter notebooks (large files)
+*.ipynb
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+
+# Python specific
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Documentation build
+docs/_build/
+site/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Large binary files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Node modules (if any)
+node_modules/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Data directories (large files)
+data/cache/
+data/output/
+data/silver/
+data/gold/
+*.parquet
+*.csv
+*.xlsx
+*.xlsm
+
+# Logs
+logs/
+*.log
+debug.log
