@@ -57,12 +57,46 @@ _NULLABLE_INT_COLUMNS = (
     "variant_id",
     "src_id",
 )
+
+
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
-    """Coerce selected columns to pandas nullable Int64 dtype."""
+    """Coerce selected columns to Pandera-compatible integer dtypes."""
+
+    # Fetch schema metadata once to determine the expected dtype for each
+    # nullable integer column. Accessing ``to_schema`` repeatedly is relatively
+    # expensive and allocating it inside the loop would also make the function
+    # harder to test in isolation, so we resolve it lazily only if we actually
+    # need to coerce at least one column that exists in the frame.
+    schema = None
 
     for column in columns:
-        if column in df.columns:
-            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+        if column not in df.columns:
+            continue
+
+        if schema is None:
+            # Import lazily to avoid circular imports at module load time.
+            from bioetl.schemas.assay import AssaySchema
+
+            schema = AssaySchema.to_schema()
+
+        series = pd.to_numeric(df[column], errors="coerce")
+
+        target_dtype = None
+        if schema is not None:
+            schema_column = schema.columns.get(column)
+            if schema_column is not None:
+                target_dtype = str(schema_column.dtype.type).lower()
+
+        # Pandera represents nullable integer columns as ``Int64`` while the
+        # runtime data coming from the API may already be clean integers. When
+        # the schema expects a strict ``int64`` dtype (non-nullable), we only
+        # cast to the numpy dtype if the series does not contain missing
+        # values; otherwise we fall back to pandas' nullable ``Int64`` dtype so
+        # Pandera can still coerce it successfully during validation.
+        if target_dtype == "int64" and not series.isna().any():
+            df[column] = series.astype("int64", copy=False)
+        else:
+            df[column] = pd.array(series, dtype="Int64")
 
 
 class AssayPipeline(PipelineBase):
@@ -752,22 +786,6 @@ class AssayPipeline(PipelineBase):
         # to coerce values like "501" or NaN into strict integers when the
         # series dtype is ``object``. Explicitly converting here keeps the data
         # model consistent across all row subtypes.
-        nullable_int_columns = [
-            "row_index",
-            "assay_class_id",
-            "component_count",
-            "variant_id",
-            "species_group_flag",
-            "tax_id",
-            "assay_tax_id",
-            "confidence_score",
-            "src_id",
-        ]
-
-        for column in nullable_int_columns:
-            if column in df.columns:
-                df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
-
         if "row_index" in df.columns:
             df["row_index"] = df["row_index"].fillna(0).astype("Int64")
         else:
