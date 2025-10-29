@@ -465,7 +465,19 @@ class DocumentSchema(BaseSchema):
 
     class Config:
         strict = True
-        coerce = True
+        # ``coerce`` is deliberately disabled for the normalized document schema.
+        #
+        # Pandera 0.26.x attempts to coerce nullable integer columns (``Int64``)
+        # into the non-nullable ``int64`` numpy dtype when ``coerce=True``.
+        # During document enrichment several external identifiers (e.g. PMIDs)
+        # are absent for the majority of rows, meaning columns such as
+        # ``openalex_pmid`` contain only ``pd.NA`` values even after the
+        # pipeline casts them to ``Int64``.  Pandera then raises a
+        # ``DATATYPE_COERCION`` error because ``pd.NA`` cannot be converted to a
+        # native ``int64``.  The pipeline already normalises dtypes explicitly
+        # via ``DocumentPipeline._enforce_schema_dtypes``, so disabling coercion
+        # keeps validation strict without triggering the Pandera bug.
+        coerce = False
         ordered = True
 
 
