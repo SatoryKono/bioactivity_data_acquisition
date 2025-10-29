@@ -25,7 +25,7 @@ class TargetInputSettings(BaseModel):
 class TargetOutputSettings(BaseModel):
     """Output configuration for the target pipeline."""
 
-    dir: Path = Field(default=Path("data/output/targets"), description="Output directory")
+    dir: Path = Field(default=Path("data/output/target"), description="Output directory")
     format: str = Field(default="csv", description="Output format")
     csv: dict[str, Any] = Field(default_factory=lambda: {
         "encoding": "utf-8",
