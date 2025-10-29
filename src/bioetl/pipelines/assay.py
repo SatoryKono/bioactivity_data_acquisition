@@ -725,11 +725,33 @@ class AssayPipeline(PipelineBase):
 
         df = pd.concat(frames, ignore_index=True, sort=False)
 
-        # Ensure row_index is deterministic Int64
+        # Normalise nullable integer columns to Pandas' nullable Int64 dtype so
+        # Pandera can coerce them into the expected dtype('int64') during
+        # validation. Mixed object/float columns originating from API payloads
+        # previously triggered schema validation errors because Pandera refuses
+        # to coerce values like "501" or NaN into strict integers when the
+        # series dtype is ``object``. Explicitly converting here keeps the data
+        # model consistent across all row subtypes.
+        nullable_int_columns = [
+            "row_index",
+            "assay_class_id",
+            "component_count",
+            "variant_id",
+            "species_group_flag",
+            "tax_id",
+            "assay_tax_id",
+            "confidence_score",
+            "src_id",
+        ]
+
+        for column in nullable_int_columns:
+            if column in df.columns:
+                df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+
         if "row_index" in df.columns:
             df["row_index"] = df["row_index"].fillna(0).astype("Int64")
         else:
-            df["row_index"] = 0
+            df["row_index"] = pd.Series([0] * len(df), dtype="Int64")
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
