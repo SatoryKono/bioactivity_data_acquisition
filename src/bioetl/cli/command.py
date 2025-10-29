@@ -163,7 +163,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             if sample is not None:
                 original_extract = pipeline.extract
 
-                def limited_extract(*args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
+                def limited_extract(self: PipelineBase, *args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
                     df = original_extract(*args, **kwargs)
                     logger.info(
                         "applying_sample_limit",
