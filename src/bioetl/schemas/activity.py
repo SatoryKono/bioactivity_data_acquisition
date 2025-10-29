@@ -184,7 +184,7 @@ class ActivitySchema(BaseSchema):
         coerce=False,
         description="Флаг стандартизации (0/1)",
     )
-    pchembl_value: Series[float] = pa.Field(nullable=True, ge=0, description="-log10 нормированное значение")
+    pchembl_value: Series[float] = pa.Field(nullable=True,  description="-log10 нормированное значение")
 
     # Boundaries and censorship
     lower_bound: Series[float] = pa.Field(nullable=True, description="Нижняя граница стандартизированного значения")
