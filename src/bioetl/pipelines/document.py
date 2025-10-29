@@ -33,6 +33,8 @@ from bioetl.schemas.document import (
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 
+NAType = type(pd.NA)
+
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
@@ -46,6 +48,34 @@ class DocumentPipeline(PipelineBase):
     - chembl: ChEMBL only
     - all: ChEMBL + PubMed/Crossref/OpenAlex/Semantic Scholar
     """
+
+    _INTEGER_COLUMNS: tuple[str, ...] = (
+        "document_pubmed_id",
+        "pmid",
+        "year",
+        "citation_count",
+        "influential_citations",
+        "chembl_pmid",
+        "pubmed_pmid",
+        "openalex_pmid",
+        "semantic_scholar_pmid",
+        "chembl_year",
+        "openalex_year",
+        "pubmed_year_completed",
+        "pubmed_month_completed",
+        "pubmed_day_completed",
+        "pubmed_year_revised",
+        "pubmed_month_revised",
+        "pubmed_day_revised",
+    )
+
+    _BOOLEAN_COLUMNS: tuple[str, ...] = (
+        "referenses_on_previous_experiments",
+        "original_experimental_document",
+        "is_oa",
+        "conflict_doi",
+        "conflict_pmid",
+    )
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
@@ -656,11 +686,15 @@ class DocumentPipeline(PipelineBase):
 
         # Map is_experimental_doc to original_experimental_document (boolean)
         if "is_experimental_doc" in df.columns:
-            df["original_experimental_document"] = df["is_experimental_doc"].apply(lambda x: bool(x) if pd.notna(x) else None)
+            df["original_experimental_document"] = df["is_experimental_doc"].apply(
+                self._coerce_optional_bool
+            )
 
         # Map document_contains_external_links to referenses_on_previous_experiments
         if "document_contains_external_links" in df.columns:
-            df["referenses_on_previous_experiments"] = df["document_contains_external_links"].apply(lambda x: bool(x) if pd.notna(x) else None)
+            df["referenses_on_previous_experiments"] = df[
+                "document_contains_external_links"
+            ].apply(self._coerce_optional_bool)
 
         # IMPORTANT: Map pubmed_id to chembl_pmid BEFORE normalization
         # Map pubmed_id -> chembl_pmid (convert to int)
@@ -734,31 +768,74 @@ class DocumentPipeline(PipelineBase):
             df = df.drop(columns=["_original_title"])
 
         # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
-        df["source_system"] = "chembl"
-        df["chembl_release"] = self._chembl_release
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+        df = df.assign(
+            pipeline_version="1.0.0",
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            extracted_at=pd.Timestamp.now(tz="UTC").isoformat(),
+        )
 
         # Generate hash fields for data integrity
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
         if "document_chembl_id" in df.columns:
-            df["hash_business_key"] = df["document_chembl_id"].apply(generate_hash_business_key)
-            df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+            df["hash_business_key"] = df["document_chembl_id"].apply(
+                generate_hash_business_key
+            )
+            df["hash_row"] = df.apply(
+                lambda row: generate_hash_row(row.to_dict()), axis=1
+            )
 
             # Generate deterministic index
-            df = df.sort_values("document_chembl_id")  # Sort by primary key
+            df = df.sort_values("document_chembl_id").reset_index(drop=True)
             df["index"] = range(len(df))
 
-            # Add all missing columns from schema
+            # Align to canonical schema order
             expected_cols = DocumentSchema.get_column_order()
 
             if expected_cols:
-                for col in expected_cols:
-                    if col not in df.columns:
-                        df[col] = pd.NA
+                df = df.reindex(columns=expected_cols)
 
-                df = df[expected_cols]
+        df = df.convert_dtypes()
+        df = self._enforce_schema_dtypes(df)
+
+        return df
+
+    @staticmethod
+    def _coerce_optional_bool(value: object) -> bool | NAType:
+        """Convert assorted boolean representations into pandas nullable booleans."""
+
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return pd.NA
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"", "na", "none", "null"}:
+                return pd.NA
+            if normalized in {"true", "1", "yes", "y", "t"}:
+                return True
+            if normalized in {"false", "0", "no", "n", "f"}:
+                return False
+
+        if isinstance(value, (bool, int)):
+            return bool(value)
+
+        if pd.isna(value):
+            return pd.NA
+
+        return bool(value)
+
+    def _enforce_schema_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Cast columns to schema-compatible nullable dtypes."""
+
+        for column in self._INTEGER_COLUMNS:
+            if column in df.columns:
+                numeric_series = pd.to_numeric(df[column], errors="coerce")
+                df[column] = numeric_series.astype("Int64")
+
+        for column in self._BOOLEAN_COLUMNS:
+            if column in df.columns:
+                df[column] = df[column].astype("boolean")
 
         return df
 
