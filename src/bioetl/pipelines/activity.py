@@ -1069,6 +1069,8 @@ class ActivityPipeline(PipelineBase):
                     missing_columns.append(col)
                     if col in INTEGER_COLUMNS_WITH_ID:
                         df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    elif col in FLOAT_COLUMNS:
+                        df[col] = pd.Series(np.nan, index=df.index, dtype="float64")
                     else:
                         df[col] = pd.Series(pd.NA, index=df.index)
             if missing_columns:
@@ -1117,6 +1119,8 @@ class ActivityPipeline(PipelineBase):
                 for column in missing_columns:
                     if column in INTEGER_COLUMNS_WITH_ID:
                         df[column] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    elif column in FLOAT_COLUMNS:
+                        df[column] = pd.Series(np.nan, index=df.index, dtype="float64")
                     else:
                         df[column] = pd.Series(pd.NA, index=df.index)
                 logger.debug(
@@ -1372,6 +1376,7 @@ class ActivityPipeline(PipelineBase):
 
         if not fallback_records.empty:
             fallback_records = fallback_records.reset_index(drop=True).convert_dtypes()
+            normalise_retry_after_column(fallback_records)
 
         reason_counts: dict[str, int] = {}
         if fallback_count and "fallback_reason" in fallback_records.columns:

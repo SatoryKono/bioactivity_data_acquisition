@@ -3,7 +3,7 @@
 import json
 import subprocess
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -109,8 +109,27 @@ class AssayPipeline(PipelineBase):
 
         chembl_source = config.sources.get("chembl")
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
-        base_url = getattr(chembl_source, "base_url", default_base_url)
-        batch_size = getattr(chembl_source, "batch_size", 25) or 25
+        default_batch_size = 25
+        default_max_url_length = 2000
+
+        if isinstance(chembl_source, dict):
+            base_url = chembl_source.get("base_url", default_base_url) or default_base_url
+            batch_size_value = chembl_source.get("batch_size", default_batch_size)
+            max_url_length_value = chembl_source.get("max_url_length", default_max_url_length)
+        else:
+            base_url = getattr(chembl_source, "base_url", default_base_url) or default_base_url
+            batch_size_value = getattr(chembl_source, "batch_size", default_batch_size)
+            max_url_length_value = getattr(chembl_source, "max_url_length", default_max_url_length)
+
+        try:
+            batch_size = int(batch_size_value)
+        except (TypeError, ValueError):
+            batch_size = default_batch_size
+
+        try:
+            max_url_length = int(max_url_length_value)
+        except (TypeError, ValueError):
+            max_url_length = default_max_url_length
 
         chembl_config = APIConfig(
             name="chembl",
@@ -120,7 +139,8 @@ class AssayPipeline(PipelineBase):
         )
         self.api_client = UnifiedAPIClient(chembl_config)
 
-        self.batch_size = batch_size
+        self.batch_size = max(1, batch_size)
+        self.max_url_length = max(1, max_url_length)
         self.chembl_base_url = base_url
         self.chembl_release: str | None = None
         self.git_commit = self._resolve_git_commit()
@@ -131,6 +151,7 @@ class AssayPipeline(PipelineBase):
             "config_hash": self.config_hash,
             "chembl_base_url": self.chembl_base_url,
             "chembl_release": None,
+            "chembl_max_url_length": self.max_url_length,
         }
 
         self._cache_enabled = bool(config.cache.enabled)
@@ -198,6 +219,41 @@ class AssayPipeline(PipelineBase):
         """Compose release-qualified cache key for assay payloads."""
         release = self.chembl_release or "unknown"
         return f"assay:{release}:{assay_id}"
+
+    def _build_assay_request_url(self, assay_ids: Sequence[str]) -> str:
+        """Return the fully qualified URL used for batch fetching."""
+
+        base = self.api_client.config.base_url.rstrip("/")
+        request = requests.Request(
+            method="GET",
+            url=f"{base}/assay.json",
+            params={"assay_chembl_id__in": ",".join(assay_ids)},
+        )
+        prepared = request.prepare()
+        return prepared.url or ""
+
+    def _split_assay_ids_by_url_length(self, assay_ids: Sequence[str]) -> list[list[str]]:
+        """Recursively split identifiers to satisfy the configured URL length."""
+
+        ids = list(assay_ids)
+        if not ids:
+            return []
+
+        full_url = self._build_assay_request_url(ids)
+        if len(full_url) <= self.max_url_length or len(ids) == 1:
+            if len(full_url) > self.max_url_length:
+                logger.warning(
+                    "assay_single_id_exceeds_url_limit",
+                    assay_id=ids[0],
+                    url_length=len(full_url),
+                    max_length=self.max_url_length,
+                )
+            return [ids]
+
+        midpoint = max(1, len(ids) // 2)
+        return self._split_assay_ids_by_url_length(ids[:midpoint]) + self._split_assay_ids_by_url_length(
+            ids[midpoint:]
+        )
 
     def _cache_get(self, assay_id: str) -> dict[str, Any] | None:
         """Return cached assay payload if caching is enabled."""
@@ -449,11 +505,17 @@ class AssayPipeline(PipelineBase):
             self._update_fetch_metrics()
             return pd.DataFrame(results)
 
+        batches: list[list[str]] = []
         for index in range(0, len(pending), self.batch_size):
-            batch_ids = pending[index : index + self.batch_size]
+            chunk = pending[index : index + self.batch_size]
+            if not chunk:
+                continue
+            batches.extend(self._split_assay_ids_by_url_length(chunk))
+
+        for batch_index, batch_ids in enumerate(batches, start=1):
             logger.info(
                 "fetching_batch",
-                batch=index // self.batch_size + 1,
+                batch=batch_index,
                 size=len(batch_ids),
             )
 

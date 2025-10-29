@@ -372,6 +372,45 @@ class TestAssayPipeline:
 
         assert "metric" in quality_df.columns
         assert not (quality_df["metric"] == "validation_issue").any()
+
+    def test_fetch_assay_data_respects_max_url_length(self, assay_config, monkeypatch):
+        """Batch requests must respect the configured max URL length."""
+
+        config = assay_config.model_copy(deep=True)
+        config.sources["chembl"].max_url_length = 80
+
+        def _request(self, url, params=None, method="GET", **kwargs):
+            if url == "/status.json":
+                return {"chembl_db_version": "ChEMBL_TEST"}
+            if url == "/assay.json":
+                joined = params.get("assay_chembl_id__in", "") if params else ""
+                batch_ids = [value for value in joined.split(",") if value]
+                return {
+                    "assays": [
+                        {
+                            "assay_chembl_id": assay_id,
+                        }
+                        for assay_id in batch_ids
+                    ]
+                }
+            raise AssertionError(f"Unexpected URL {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", _request)
+
+        pipeline = AssayPipeline(config, "run-max-url")
+
+        assay_ids = [f"CHEMBL{1000 + idx}" for idx in range(6)]
+        df = pipeline._fetch_assay_data(assay_ids)
+
+        assert not df.empty
+        assert sorted(df["assay_chembl_id"].tolist()) == sorted(assay_ids)
+
+        # Ensure each request would conform to the URL limit
+        batches = pipeline._split_assay_ids_by_url_length(assay_ids)
+        assert len(batches) > 1
+        for batch in batches:
+            url = pipeline._build_assay_request_url(batch)
+            assert len(url) <= pipeline.max_url_length or len(batch) == 1
     def test_transform_expands_and_enriches(self, assay_config, monkeypatch, caplog):
         """Ensure parameters, variants, and classifications survive transform with enrichment."""
 
@@ -884,6 +923,7 @@ class TestActivityPipeline:
         fallback_table = pipeline.additional_tables.get("activity_fallback_records")
         assert fallback_table is not None
         assert len(fallback_table) == 1
+        assert is_float_dtype(fallback_table["fallback_retry_after_sec"])  # noqa: PD011
         fallback_row = fallback_table.iloc[0]
         assert fallback_row["activity_id"] == 202
         assert fallback_row["fallback_reason"] == "not_in_response"
