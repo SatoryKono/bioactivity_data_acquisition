@@ -1212,17 +1212,26 @@ class TestItemPipeline(PipelineBase):
             logger.debug("referential_check_skipped", reason="columns_absent")
             return
 
-        parent_series = (
-            df["parent_chembl_id"].dropna().astype("string").str.strip().str.upper()
+        parent_series = df["parent_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
         )
+        parent_series = parent_series.dropna()
         if parent_series.empty:
             logger.info("referential_integrity_passed", relation="testitem->parent", checked=0)
             return
 
-        molecule_ids = (
-            df["molecule_chembl_id"].astype("string").str.strip().str.upper()
+        molecule_ids = df["molecule_chembl_id"].apply(
+            lambda raw: (
+                registry.normalize("chemistry.chembl_id", raw)
+                if pd.notna(raw)
+                else None
+            )
         )
-        known_ids = set(molecule_ids.tolist())
+        known_ids = {value for value in molecule_ids.tolist() if value}
         missing_mask = ~parent_series.isin(known_ids)
         missing_count = int(missing_mask.sum())
         total_refs = int(parent_series.size)
