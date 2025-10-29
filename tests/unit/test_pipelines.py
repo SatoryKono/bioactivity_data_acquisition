@@ -995,6 +995,78 @@ class TestTestItemPipeline:
         assert list(result.columns) == expected_columns
         assert len(expected_columns) >= 80
 
+    def test_transform_coerces_nullable_int_columns(self, testitem_config, monkeypatch):
+        """String or float encoded integers should normalise to nullable Int64."""
+
+        monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = TestItemPipeline(testitem_config, run_id="dtype")
+
+        def fake_fetch(molecule_ids):
+            return pd.DataFrame(
+                {
+                    "molecule_chembl_id": molecule_ids,
+                    "molregno": ["101"],
+                    "parent_molregno": ["202"],
+                    "max_phase": ["2.0"],
+                    "first_approval": ["1999"],
+                    "availability_type": ["3"],
+                    "usan_year": ["2001.0"],
+                    "withdrawn_year": [None],
+                    "hba": ["5"],
+                    "hbd": [1.0],
+                    "rtb": ["4"],
+                    "num_ro5_violations": ["0"],
+                    "aromatic_rings": ["2"],
+                    "heavy_atoms": ["20.0"],
+                    "hba_lipinski": ["4"],
+                    "hbd_lipinski": ["1.0"],
+                    "num_lipinski_ro5_violations": ["0"],
+                    "lipinski_ro5_violations": ["0"],
+                    "pubchem_cid": ["12345"],
+                    "pubchem_enrichment_attempt": ["1"],
+                    "fallback_http_status": ["404"],
+                    "fallback_attempt": ["2"],
+                }
+            )
+
+        monkeypatch.setattr(pipeline, "_fetch_molecule_data", fake_fetch)
+        pipeline.external_adapters.clear()
+
+        df = pd.DataFrame({"molecule_chembl_id": ["CHEMBL1"]})
+
+        result = pipeline.transform(df)
+
+        expected_columns = [
+            "molregno",
+            "parent_molregno",
+            "max_phase",
+            "first_approval",
+            "availability_type",
+            "usan_year",
+            "withdrawn_year",
+            "hba",
+            "hbd",
+            "rtb",
+            "num_ro5_violations",
+            "aromatic_rings",
+            "heavy_atoms",
+            "hba_lipinski",
+            "hbd_lipinski",
+            "num_lipinski_ro5_violations",
+            "lipinski_ro5_violations",
+            "pubchem_cid",
+            "pubchem_enrichment_attempt",
+            "fallback_http_status",
+            "fallback_attempt",
+        ]
+
+        for column in expected_columns:
+            assert str(result[column].dtype) == "Int64"
+
+        assert result.loc[result.index[0], "molregno"] == 101
+        assert result.loc[result.index[0], "fallback_http_status"] == 404
+        assert pd.isna(result.loc[result.index[0], "withdrawn_year"])
+
     def test_fetch_molecule_data_uses_cache(self, testitem_config, monkeypatch):
         """Ensure repeated molecule fetches reuse cached records."""
 
