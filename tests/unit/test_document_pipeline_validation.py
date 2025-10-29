@@ -89,6 +89,26 @@ def _build_document_frame(**overrides) -> pd.DataFrame:
     return df.convert_dtypes()
 
 
+def test_validate_handles_nullable_integer_columns(document_pipeline):
+    """Validation should succeed when optional integer columns contain ``pd.NA``."""
+
+    df = _build_document_frame()
+
+    for column in DocumentPipeline._INTEGER_COLUMNS:
+        if column in df.columns:
+            df[column] = pd.Series([pd.NA], dtype="Int64")
+
+    document_pipeline.config.qc.severity_threshold = "error"
+    document_pipeline.config.qc.thresholds = {}
+
+    validated = document_pipeline.validate(df)
+
+    for column in DocumentPipeline._INTEGER_COLUMNS:
+        if column in validated.columns:
+            assert str(validated[column].dtype) == "Int64"
+            assert validated[column].isna().all()
+
+
 def test_extract_raw_schema_violation(tmp_path, document_pipeline, monkeypatch):
     """Extraction should fail when raw schema constraints are violated."""
 
