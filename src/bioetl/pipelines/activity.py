@@ -811,7 +811,7 @@ class ActivityPipeline(PipelineBase):
         error_code = None
         retry_after = None
 
-        if hasattr(error, "response") and error.response is not None:
+        if error is not None and hasattr(error, "response") and error.response is not None:
             http_status = getattr(error.response, "status_code", None)
 
         if hasattr(error, "code"):
@@ -1148,7 +1148,7 @@ class ActivityPipeline(PipelineBase):
             validated_df = ActivitySchema.validate(df, lazy=True)
         except SchemaErrors as exc:
             failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
-            error_count = len(failure_cases) if getattr(failure_cases, "__len__", None) else None
+            error_count = len(failure_cases) if failure_cases is not None else None
             schema_issue: dict[str, Any] = {
                 "metric": "schema.validation",
                 "issue_type": "schema_validation",

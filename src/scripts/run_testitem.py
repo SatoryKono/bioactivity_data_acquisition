@@ -11,8 +11,10 @@ from bioetl.pipelines.testitem import TestItemPipeline
 app = typer.Typer(help="Run test item pipeline to extract and transform compound data")
 
 
-app.command()(
-    create_pipeline_command(
+@app.command()
+def run_testitem():
+    """Run test item pipeline to extract and transform compound data."""
+    return create_pipeline_command(
         PipelineCommandConfig(
             pipeline_name="testitem",
             pipeline_factory=lambda: TestItemPipeline,
@@ -20,8 +22,7 @@ app.command()(
             default_input=Path("data/input/testitems.csv"),
             default_output_dir=Path("data/output/testitems"),
         )
-    )
-)
+    )()
 
 
 if __name__ == "__main__":

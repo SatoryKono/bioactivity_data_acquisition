@@ -36,7 +36,7 @@ from bioetl.schemas.registry import schema_registry
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-schema_registry.register("document", "1.0.0", DocumentSchema)
+schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)
 
 
 class DocumentPipeline(PipelineBase):
@@ -385,8 +385,9 @@ class DocumentPipeline(PipelineBase):
                 logger.debug("duplicate_id_skipped", document_chembl_id=normalized)
                 continue
 
-            seen.add(normalized)
-            valid_ids.append(normalized)
+            if normalized is not None:
+                seen.add(normalized)
+                valid_ids.append(normalized)
 
         if valid_ids:
             DocumentInputSchema.validate(pd.DataFrame({"document_chembl_id": valid_ids}))
