@@ -20,8 +20,8 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.dtype import coerce_nullable_int_columns
-from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
     duplicate_summary,
     update_summary_metrics,
@@ -38,7 +38,7 @@ from pandera.pandas import DataFrameModel
 schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
 
 
-# _coerce_nullable_int_columns заменена на coerce_nullable_int_columns из bioetl.utils.dtype
+# _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
 
 
 class TestItemPipeline(PipelineBase):
@@ -891,11 +891,12 @@ class TestItemPipeline(PipelineBase):
             if missing_columns:
                 df = df.assign(**{col: None for col in missing_columns})
 
-            coerce_nullable_int_columns(
+            default_minimums = {column: 0 for column in self._NULLABLE_INT_COLUMNS}
+            default_minimums.update(self._INT_COLUMN_MINIMUMS)
+            coerce_nullable_int(
                 df,
                 self._NULLABLE_INT_COLUMNS,
-                self._INT_COLUMN_MINIMUMS,
-                default_minimum=0,
+                min_values=default_minimums,
             )
 
             # Reorder to match schema column_order
@@ -1057,7 +1058,7 @@ class TestItemPipeline(PipelineBase):
         ):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
         try:
             validated_df = TestItemSchema.validate(df, lazy=True)
         except SchemaErrors as exc:
