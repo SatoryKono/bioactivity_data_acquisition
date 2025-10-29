@@ -1104,6 +1104,51 @@ class TestActivityPipeline:
 
         assert second_df.equals(first_df)
 
+    def test_activity_cache_sanitizes_negative_values(
+        self, activity_config, monkeypatch, tmp_path, caplog
+    ):
+        """Cached payloads with negative values must be sanitized before use."""
+
+        def fake_status(self, url, params=None, method="GET", **kwargs):
+            if url == "/status.json":
+                return {"chembl_db_version": "ChEMBL_99"}
+            raise AssertionError(f"Unexpected url {url}")
+
+        monkeypatch.setattr(UnifiedAPIClient, "request_json", fake_status)
+
+        activity_config.cache.directory = str(tmp_path / "cache")
+        activity_config.paths.cache_root = tmp_path
+
+        pipeline = ActivityPipeline(activity_config, "run_cache_sanitize")
+
+        pipeline._store_batch_in_cache(
+            [777],
+            [
+                {
+                    "activity_id": 777,
+                    "source_system": "chembl",
+                    "published_value": -8.0,
+                    "standard_value": -5.0,
+                }
+            ],
+        )
+
+        def fail_request_json(*args, **kwargs):  # type: ignore[no-untyped-def]
+            raise AssertionError("network access should be skipped when cache is populated")
+
+        pipeline.api_client.request_json = fail_request_json  # type: ignore[assignment]
+
+        with caplog.at_level("WARNING"):
+            df = pipeline._extract_from_chembl([777])
+
+        assert len(df) == 1
+        assert pd.isna(df.loc[0, "published_value"])
+        assert pd.isna(df.loc[0, "standard_value"])
+        assert any(
+            "cached_non_negative_sanitized" in record.message
+            for record in caplog.records
+        )
+
 
 class TestTestItemPipeline:
     """Tests for TestItemPipeline."""
