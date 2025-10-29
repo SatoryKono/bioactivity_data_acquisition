@@ -14,7 +14,8 @@ import requests
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -24,6 +25,7 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.io import load_input_frame, resolve_input_path
+from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 
@@ -74,41 +76,30 @@ class AssayPipeline(PipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
 
-        chembl_source = config.sources.get("chembl")
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         default_batch_size = 25
         default_max_url_length = 2000
 
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", default_base_url) or default_base_url
-            batch_size_value = chembl_source.get("batch_size", default_batch_size)
-            max_url_length_value = chembl_source.get("max_url_length", default_max_url_length)
-        else:
-            base_url = getattr(chembl_source, "base_url", default_base_url) or default_base_url
-            batch_size_value = getattr(chembl_source, "batch_size", default_batch_size)
-            max_url_length_value = getattr(chembl_source, "max_url_length", default_max_url_length)
-
-        try:
-            batch_size = int(batch_size_value)
-        except (TypeError, ValueError):
-            batch_size = default_batch_size
-
-        try:
-            max_url_length = int(max_url_length_value)
-        except (TypeError, ValueError):
-            max_url_length = default_max_url_length
-
-        chembl_config = APIConfig(
-            name="chembl",
-            base_url=base_url,
-            cache_enabled=config.cache.enabled,
-            cache_ttl=config.cache.ttl,
+        factory = APIClientFactory.from_pipeline_config(config)
+        chembl_source = ensure_target_source_config(
+            config.sources.get("chembl"),
+            defaults={
+                "enabled": True,
+                "base_url": default_base_url,
+                "batch_size": default_batch_size,
+                "max_url_length": default_max_url_length,
+            },
         )
+
+        chembl_config = factory.create("chembl", chembl_source)
         self.api_client = UnifiedAPIClient(chembl_config)
 
-        self.batch_size = max(1, batch_size)
-        self.max_url_length = max(1, max_url_length)
-        self.chembl_base_url = base_url
+        batch_size = chembl_source.batch_size or default_batch_size
+        max_url_length = chembl_source.max_url_length or default_max_url_length
+
+        self.batch_size = max(1, int(batch_size))
+        self.max_url_length = max(1, int(max_url_length))
+        self.chembl_base_url = chembl_config.base_url
         self.chembl_release: str | None = None
         self.git_commit = self._resolve_git_commit()
         self.config_hash = config.config_hash
@@ -924,56 +915,52 @@ class AssayPipeline(PipelineBase):
 
         coerce_nullable_int(df, nullable_int_columns)
 
-        # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        default_source = "chembl"
+        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
+
         if "source_system" in df.columns:
-            df["source_system"] = df["source_system"].fillna("chembl")
+            df["source_system"] = df["source_system"].fillna(default_source)
         else:
-            df["source_system"] = "chembl"
-        df["chembl_release"] = self.chembl_release
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+            df["source_system"] = default_source
 
-        # Generate hash fields for data integrity
-        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+        release_value: str | None = self.chembl_release
+        if isinstance(release_value, str):
+            release_value = release_value.strip() or None
 
-        df["hash_business_key"] = df["assay_chembl_id"].apply(generate_hash_business_key)
-        df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+        if release_value is None:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].where(
+                    df["chembl_release"].notna(),
+                    pd.NA,
+                )
+            else:
+                df["chembl_release"] = pd.NA
+        else:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].fillna(release_value)
+            else:
+                df["chembl_release"] = release_value
 
-        # Generate deterministic index
-        df = df.sort_values(["assay_chembl_id", "row_subtype", "row_index"])  # Sort by primary key
-        df["index"] = range(len(df))
+        if "extracted_at" in df.columns:
+            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
+        else:
+            df["extracted_at"] = timestamp_now
 
-        # Reorder columns according to schema and add missing columns with None
-        from bioetl.schemas import AssaySchema
+        df = finalize_output_dataset(
+            df,
+            business_key="assay_chembl_id",
+            sort_by=["assay_chembl_id", "row_subtype", "row_index"],
+            ascending=[True, True, True],
+            schema=AssaySchema,
+            metadata={
+                "pipeline_version": pipeline_version,
+                "source_system": default_source,
+                "chembl_release": release_value,
+                "extracted_at": timestamp_now,
+            },
+        )
 
-        expected_cols = resolve_schema_column_order(AssaySchema)
-        nullable_int_set = set(nullable_int_columns)
-        if expected_cols:
-            # Add missing columns with None values
-            for col in expected_cols:
-                if col not in df.columns:
-                    if col in nullable_int_set:
-                        df[col] = pd.Series(pd.NA, index=df.index, dtype=pd.Int64Dtype())
-                    else:
-                        df[col] = pd.NA
-                elif col in nullable_int_set:
-                    # Ensure dtype stability for columns already present but
-                    # potentially inferred as ``object`` when upstream payloads
-                    # contained stringified numbers or missing values.
-                    numeric_series = pd.to_numeric(df[col], errors="coerce")
-                    df[col] = pd.Series(
-                        pd.array(numeric_series, dtype=pd.Int64Dtype()),
-                        index=df.index,
-                    )
-
-            # Reorder to match schema column_order
-            df = df[expected_cols]
-
-        # Pandera enforces strict column order as part of the schema config. If
-        # new nullable integer columns were added in the previous step they will
-        # currently contain ``Int64`` values, but re-running the coercion keeps
-        # the behaviour consistent for callers that operate on the reordered
-        # frame (e.g. QC reporting) before validation happens downstream.
         coerce_nullable_int(df, nullable_int_columns)
         coerce_retry_after(df)
 
@@ -1017,10 +1004,17 @@ class AssayPipeline(PipelineBase):
         # point of validation.
         coerce_nullable_int(df, _NULLABLE_INT_COLUMNS)
 
-        try:
-            validated_df = AssaySchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            schema_issues = self._summarize_schema_errors(exc.failure_cases)
+        schema_issues: list[dict[str, Any]] = []
+
+        def _handle_schema_failure(exc: SchemaErrors, _: bool) -> None:
+            nonlocal schema_issues
+
+            failure_cases = getattr(exc, "failure_cases", None)
+            if isinstance(failure_cases, pd.DataFrame):
+                schema_issues = self._summarize_schema_errors(failure_cases)
+            else:
+                schema_issues = []
+
             for issue in schema_issues:
                 self.record_validation_issue(issue)
                 logger.error(
@@ -1031,6 +1025,16 @@ class AssayPipeline(PipelineBase):
                     severity=issue.get("severity"),
                 )
 
+        try:
+            validated_df = self._validate_with_schema(
+                df,
+                AssaySchema,
+                dataset_name="assays",
+                severity="error",
+                metric_name="schema.validation",
+                failure_handler=_handle_schema_failure,
+            )
+        except SchemaErrors as exc:
             summary = "; ".join(
                 f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
                 for issue in schema_issues

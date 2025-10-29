@@ -10,16 +10,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import (
-    APIConfig,
-    CircuitBreakerOpenError,
-    UnifiedAPIClient,
-)
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -35,6 +31,7 @@ from bioetl.utils.qc import (
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import normalize_json_list
+from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 
@@ -166,26 +163,20 @@ class ActivityPipeline(PipelineBase):
         self._last_validation_report: dict[str, Any] | None = None
         self._fallback_stats: dict[str, Any] = {}
 
-        # Initialize ChEMBL API client
-        chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = chembl_source.get("batch_size", 25) or 25
-        elif chembl_source is not None:
-            base_url = getattr(chembl_source, "base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = getattr(chembl_source, "batch_size", 25) or 25
-        else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
-            batch_size = 25
-
-        chembl_config = APIConfig(
-            name="chembl",
-            base_url=base_url,
-            cache_enabled=config.cache.enabled,
-            cache_ttl=config.cache.ttl,
+        factory = APIClientFactory.from_pipeline_config(config)
+        chembl_source = ensure_target_source_config(
+            config.sources.get("chembl"),
+            defaults={
+                "enabled": True,
+                "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+                "batch_size": 25,
+            },
         )
+
+        chembl_config = factory.create("chembl", chembl_source)
         self.api_client = UnifiedAPIClient(chembl_config)
-        self.batch_size = min(batch_size, 25)
+        batch_size_value = chembl_source.batch_size or 25
+        self.batch_size = min(batch_size_value, 25)
 
         # Status handshake for release metadata
         self._status_snapshot: dict[str, Any] | None = None
@@ -776,21 +767,22 @@ class ActivityPipeline(PipelineBase):
         df = df.copy()
 
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
-        df["pipeline_version"] = pipeline_version
+        default_source = "chembl"
 
-        if "source_system" not in df.columns:
-            df["source_system"] = "chembl"
+        if "source_system" in df.columns:
+            df["source_system"] = df["source_system"].fillna(default_source)
         else:
-            df["source_system"] = df["source_system"].fillna("chembl")
+            df["source_system"] = default_source
 
-        release_value = self._chembl_release
+        release_value: str | None = self._chembl_release
         if isinstance(release_value, str):
-            release_value = release_value.strip()
+            release_value = release_value.strip() or None
 
-        if not release_value:
+        if release_value is None:
             if "chembl_release" in df.columns:
                 df["chembl_release"] = df["chembl_release"].where(
-                    df["chembl_release"].notna(), pd.NA
+                    df["chembl_release"].notna(),
+                    pd.NA,
                 )
             else:
                 df["chembl_release"] = pd.Series(pd.NA, index=df.index, dtype="string")
@@ -808,35 +800,21 @@ class ActivityPipeline(PipelineBase):
 
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
-        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
-
-        df["hash_business_key"] = df["activity_id"].apply(generate_hash_business_key)
-        df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
-
-        df = df.sort_values(["activity_id", "source_system"])
-        df["index"] = range(len(df))
+        df = finalize_output_dataset(
+            df,
+            business_key="activity_id",
+            sort_by=["activity_id", "source_system"],
+            ascending=[True, True],
+            schema=ActivitySchema,
+            metadata={
+                "pipeline_version": pipeline_version,
+                "source_system": default_source,
+                "chembl_release": release_value,
+                "extracted_at": timestamp_now,
+            },
+        )
 
         self._update_fallback_artifacts(df)
-
-        expected_cols = _get_activity_column_order()
-        if expected_cols:
-            missing_columns: list[str] = []
-            for col in expected_cols:
-                if col not in df.columns:
-                    missing_columns.append(col)
-                    if col in INTEGER_COLUMNS_WITH_ID:
-                        df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
-                    elif col in FLOAT_COLUMNS:
-                        df[col] = pd.Series(np.nan, index=df.index, dtype="float64")
-                    else:
-                        df[col] = pd.Series(pd.NA, index=df.index)
-            if missing_columns:
-                logger.debug(
-                    "transform_missing_columns_filled",
-                    columns=missing_columns,
-                    total=len(missing_columns),
-                )
-            df = df[expected_cols]
 
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
@@ -967,9 +945,6 @@ class ActivityPipeline(PipelineBase):
         update_summary_metrics(self.qc_summary_data, qc_metrics)
         self._last_validation_report = {"metrics": qc_metrics}
 
-        severity_threshold = self.config.qc.severity_threshold.lower()
-        severity_level_threshold = self._severity_level(severity_threshold)
-
         failing_metrics: dict[str, Any] = {}
         for metric_name, metric in qc_metrics.items():
             log_method = logger.error if not metric["passed"] else logger.info
@@ -994,7 +969,7 @@ class ActivityPipeline(PipelineBase):
                 issue_payload["details"] = metric["details"]
             self.record_validation_issue(issue_payload)
 
-            if (not metric["passed"]) and self._severity_level(metric["severity"]) >= severity_level_threshold:
+            if (not metric["passed"]) and self._should_fail(metric.get("severity", "info")):
                 failing_metrics[metric_name] = metric
 
         if failing_metrics:
@@ -1004,26 +979,28 @@ class ActivityPipeline(PipelineBase):
             logger.error("qc_threshold_exceeded", failing_metrics=failing_metrics)
             raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(failing_metrics.keys()))
 
-        try:
-            validated_df = ActivitySchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
-            error_count = len(failure_cases) if failure_cases is not None else None
-            schema_issue: dict[str, Any] = {
-                "metric": "schema.validation",
-                "issue_type": "schema_validation",
-                "severity": "critical",
-                "status": "failed",
-                "errors": error_count,
-            }
+        severity_threshold = self.config.qc.severity_threshold
+        failure_report: dict[str, Any] | None = None
 
-            if failure_cases is not None and not getattr(failure_cases, "empty", False):
+        def _handle_schema_failure(exc: SchemaErrors, should_fail: bool) -> None:
+            nonlocal failure_report
+
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count: int | None = None
+            if failure_cases is not None and hasattr(failure_cases, "shape"):
+                try:
+                    error_count = int(failure_cases.shape[0])
+                except (TypeError, ValueError):
+                    error_count = None
+
+            if isinstance(failure_cases, pd.DataFrame) and not failure_cases.empty:
                 try:
                     grouped = failure_cases.groupby("column", dropna=False)
                     for column, group in grouped:
                         column_name = (
                             str(column)
-                            if column is not None and not (isinstance(column, float) and pd.isna(column))
+                            if column is not None
+                            and not (isinstance(column, float) and pd.isna(column))
                             else "<dataframe>"
                         )
                         issue_details: dict[str, Any] = {
@@ -1044,48 +1021,65 @@ class ActivityPipeline(PipelineBase):
                             issue_details["examples"] = failure_examples
                         self.record_validation_issue(issue_details)
                 except Exception:  # pragma: no cover - defensive grouping fallback
-                    schema_issue["details"] = "failed_to_group_failure_cases"
+                    self.record_validation_issue(
+                        {
+                            "metric": "schema.validation",
+                            "issue_type": "schema_validation",
+                            "severity": "critical",
+                            "details": "failed_to_group_failure_cases",
+                        }
+                    )
 
-            self.record_validation_issue(schema_issue)
+            failure_report = {
+                "status": "failed",
+                "errors": error_count,
+                "failure_cases": failure_cases,
+                "should_fail": should_fail,
+            }
 
+            if not should_fail:
+                logger.warning(
+                    "schema_validation_below_threshold",
+                    severity_threshold=severity_threshold,
+                )
+
+        def _handle_schema_success(validated: pd.DataFrame) -> None:
             if self._last_validation_report is not None:
                 self._last_validation_report["schema_validation"] = {
-                    "status": "failed",
-                    "errors": error_count,
-                    "failure_cases": failure_cases,
+                    "status": "passed",
+                    "errors": 0,
                 }
                 self._last_validation_report["issues"] = list(self.validation_issues)
 
-            logger.error(
-                "schema_validation_failed",
-                error=str(exc),
-                failure_count=error_count,
+        try:
+            validated_df = self._validate_with_schema(
+                df,
+                ActivitySchema,
+                dataset_name="activity",
+                severity="critical",
+                metric_name="schema.validation",
+                failure_handler=_handle_schema_failure,
+                success_handler=_handle_schema_success,
             )
+        except SchemaErrors as exc:
+            if self._last_validation_report is not None and failure_report is not None:
+                self._last_validation_report["schema_validation"] = {
+                    "status": "failed",
+                    "errors": failure_report.get("errors"),
+                    "failure_cases": failure_report.get("failure_cases"),
+                }
+                self._last_validation_report["issues"] = list(self.validation_issues)
+            raise
 
-            if self._severity_level("critical") >= severity_level_threshold:
-                raise
-
-            logger.warning(
-                "schema_validation_below_threshold", severity_threshold=severity_threshold
-            )
-            return df
-
-        self.record_validation_issue(
-            {
-                "metric": "schema.validation",
-                "issue_type": "schema_validation",
-                "severity": "info",
-                "status": "passed",
-                "errors": 0,
-            }
-        )
-
-        if self._last_validation_report is not None:
-            self._last_validation_report["schema_validation"] = {
-                "status": "passed",
-                "errors": 0,
-            }
-            self._last_validation_report["issues"] = list(self.validation_issues)
+        if failure_report and not failure_report.get("should_fail", False):
+            if self._last_validation_report is not None:
+                self._last_validation_report["schema_validation"] = {
+                    "status": "failed",
+                    "errors": failure_report.get("errors"),
+                    "failure_cases": failure_report.get("failure_cases"),
+                }
+                self._last_validation_report["issues"] = list(self.validation_issues)
+            return validated_df
 
         logger.info("schema_validation_passed", rows=len(validated_df))
         update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
@@ -1253,10 +1247,4 @@ class ActivityPipeline(PipelineBase):
         }
 
         return metrics
-
-    @staticmethod
-    def _severity_level(severity: str) -> int:
-        """Map severity string to comparable level."""
-        levels = {"info": 0, "warning": 1, "error": 2, "critical": 3}
-        return levels.get(severity.lower(), 1)
 

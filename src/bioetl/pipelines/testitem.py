@@ -11,8 +11,8 @@ from pandera.errors import SchemaErrors
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
-from bioetl.config.models import TargetSourceConfig
-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
+from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -28,6 +28,7 @@ from bioetl.utils.qc import (
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import canonical_json
+from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 
@@ -409,19 +410,19 @@ class TestItemPipeline(PipelineBase):
 
         # Initialize ChEMBL API client
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
-        chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, TargetSourceConfig):
-            base_url = chembl_source.base_url
-            batch_size_config = chembl_source.batch_size if chembl_source.batch_size is not None else 25
-        elif isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", default_base_url)
-            batch_size_config = chembl_source.get("batch_size", 25)
-        else:
-            base_url = default_base_url
-            batch_size_config = 25
+        factory = APIClientFactory.from_pipeline_config(config)
+        chembl_source = ensure_target_source_config(
+            config.sources.get("chembl"),
+            defaults={
+                "enabled": True,
+                "base_url": default_base_url,
+                "batch_size": 25,
+            },
+        )
 
+        batch_size_value = chembl_source.batch_size if chembl_source.batch_size is not None else 25
         try:
-            batch_size_value = int(batch_size_config)
+            batch_size_value = int(batch_size_value)
         except (TypeError, ValueError) as exc:
             raise ValueError("sources.chembl.batch_size must be an integer") from exc
 
@@ -431,12 +432,7 @@ class TestItemPipeline(PipelineBase):
         if batch_size_value > 25:
             raise ValueError("sources.chembl.batch_size must be <= 25 due to ChEMBL API limits")
 
-        chembl_config = APIConfig(
-            name="chembl",
-            base_url=base_url,
-            cache_enabled=config.cache.enabled,
-            cache_ttl=config.cache.ttl,
-        )
+        chembl_config = factory.create("chembl", chembl_source)
         self.api_client = UnifiedAPIClient(chembl_config)
         self.batch_size = batch_size_value
 
@@ -866,47 +862,58 @@ class TestItemPipeline(PipelineBase):
                 logger.error("pubchem_enrichment_failed", error=str(e))
                 # Continue with original data - graceful degradation
 
-        # Add pipeline metadata
-        extracted_at = pd.Timestamp.now(tz="UTC").isoformat()
-        df = df.assign(
-            pipeline_version="1.0.0",
-            source_system="chembl",
-            chembl_release=self._chembl_release,
-            extracted_at=extracted_at,
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        default_source = "chembl"
+        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
+
+        if "source_system" in df.columns:
+            df["source_system"] = df["source_system"].fillna(default_source)
+        else:
+            df["source_system"] = default_source
+
+        release_value: str | None = self._chembl_release
+        if isinstance(release_value, str):
+            release_value = release_value.strip() or None
+
+        if release_value is None:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].where(
+                    df["chembl_release"].notna(),
+                    pd.NA,
+                )
+            else:
+                df["chembl_release"] = pd.NA
+        else:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].fillna(release_value)
+            else:
+                df["chembl_release"] = release_value
+
+        if "extracted_at" in df.columns:
+            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
+        else:
+            df["extracted_at"] = timestamp_now
+
+        df = finalize_output_dataset(
+            df,
+            business_key="molecule_chembl_id",
+            sort_by=["molecule_chembl_id"],
+            schema=TestItemSchema,
+            metadata={
+                "pipeline_version": pipeline_version,
+                "source_system": default_source,
+                "chembl_release": release_value,
+                "extracted_at": timestamp_now,
+            },
         )
 
-        # Generate hash fields for data integrity
-        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
-
-        df = df.assign(
-            hash_business_key=df["molecule_chembl_id"].apply(generate_hash_business_key),
-            hash_row=df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1),
+        default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
+        default_minimums.update(self._INT_COLUMN_MINIMUMS)
+        coerce_nullable_int(
+            df,
+            self._NULLABLE_INT_COLUMNS,
+            min_values=default_minimums,
         )
-
-        # Generate deterministic index
-        df = df.sort_values("molecule_chembl_id")  # Sort by primary key
-        df["index"] = range(len(df))
-
-        # Reorder columns according to schema and add missing columns with None
-        from bioetl.schemas import TestItemSchema
-
-        expected_cols = TestItemSchema.get_column_order()
-        if expected_cols:
-            # Add missing columns with None values
-            missing_columns = [col for col in expected_cols if col not in df.columns]
-            if missing_columns:
-                df = df.assign(**dict.fromkeys(missing_columns, None))
-
-            default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
-            default_minimums.update(self._INT_COLUMN_MINIMUMS)
-            coerce_nullable_int(
-                df,
-                self._NULLABLE_INT_COLUMNS,
-                min_values=default_minimums,
-            )
-
-            # Reorder to match schema column_order
-            df = df[expected_cols]
 
         return df
 
@@ -1065,10 +1072,17 @@ class TestItemPipeline(PipelineBase):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
         coerce_retry_after(df)
-        try:
-            validated_df = TestItemSchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            schema_issues = self._summarize_schema_errors(exc.failure_cases)
+        schema_issues: list[dict[str, Any]] = []
+
+        def _handle_schema_failure(exc: SchemaErrors, _: bool) -> None:
+            nonlocal schema_issues
+
+            failure_cases = getattr(exc, "failure_cases", None)
+            if isinstance(failure_cases, pd.DataFrame):
+                schema_issues = self._summarize_schema_errors(failure_cases)
+            else:
+                schema_issues = []
+
             for issue in schema_issues:
                 self.record_validation_issue(issue)
                 logger.error(
@@ -1079,6 +1093,16 @@ class TestItemPipeline(PipelineBase):
                     severity=issue.get("severity"),
                 )
 
+        try:
+            validated_df = self._validate_with_schema(
+                df,
+                TestItemSchema,
+                dataset_name="testitems",
+                severity="error",
+                metric_name="schema.validation",
+                failure_handler=_handle_schema_failure,
+            )
+        except SchemaErrors as exc:
             summary = "; ".join(
                 f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
                 for issue in schema_issues
