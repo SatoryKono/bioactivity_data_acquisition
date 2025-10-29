@@ -59,14 +59,44 @@ _NULLABLE_INT_COLUMNS = (
 
 
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
-    """Coerce selected columns to Pandera-compatible nullable integer dtype."""
+    """Coerce selected columns to Pandera-compatible nullable integer dtype.
+
+    Pandera enforces ``dtype('int64')`` when ``Config.coerce`` is enabled, even for
+    nullable integer fields defined with :class:`pandas.Int64Dtype`.  Windows users
+    reported that columns containing a mix of numbers, ``None`` and the string
+    representation of missing values (for example ``"nan"``) triggered schema
+    validation failures because the intermediate pandas ``Series`` retained an
+    ``object`` dtype.  By explicitly funnelling the data through
+    :func:`pandas.to_numeric` and rehydrating it with the ``Int64`` extension dtype
+    we guarantee that Pandera observes a consistent nullable integer column across
+    platforms and pandas versions.
+    """
+
+    nullable_dtype = pd.Int64Dtype()
 
     for column in columns:
         if column not in df.columns:
             continue
 
-        series = pd.to_numeric(df[column], errors="coerce")
-        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+        series = df[column]
+        if isinstance(series.dtype, pd.Int64Dtype):
+            continue
+
+        numeric_series = pd.to_numeric(series, errors="coerce")
+
+        try:
+            df[column] = pd.Series(
+                pd.array(numeric_series, dtype=nullable_dtype),
+                index=df.index,
+                name=column,
+            )
+        except (TypeError, ValueError) as exc:
+            logger.debug(
+                "nullable_int_cast_failed",
+                column=column,
+                error=str(exc),
+            )
+            df[column] = pd.Series(pd.array([pd.NA] * len(df), dtype=nullable_dtype), index=df.index)
 
 
 class AssayPipeline(PipelineBase):
@@ -846,18 +876,7 @@ class AssayPipeline(PipelineBase):
                         df[column] = pd.NA
                 df = df.loc[:, schema_columns]
 
-        for column in _NULLABLE_INT_COLUMNS:
-            if column not in df.columns:
-                continue
-            try:
-                numeric_series = pd.to_numeric(df[column], errors="coerce")
-                df[column] = pd.array(numeric_series, dtype="Int64")
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.warning(
-                    "nullable_int_cast_failed",
-                    column=column,
-                    error=str(exc),
-                )
+        _coerce_nullable_int_columns(df, _NULLABLE_INT_COLUMNS)
 
         try:
             validated_df = AssaySchema.validate(df, lazy=True)
