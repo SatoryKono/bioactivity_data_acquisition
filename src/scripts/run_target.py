@@ -22,11 +22,14 @@ DEFAULT_OUTPUT_ROOT = Path("data/output")
 app = typer.Typer(help="Run target pipeline to extract and transform target data")
 
 
-def _validate_sample(sample: int | None) -> None:
-    """Ensure the provided sample size is valid for smoke tests."""
+def _validate_positive_option(value: int | None, param_name: str) -> None:
+    """Ensure CLI numeric options are positive integers when provided."""
 
-    if sample is not None and sample < 1:
-        raise typer.BadParameter("--sample must be >= 1", param_name="sample")
+    if value is not None and value < 1:
+        raise typer.BadParameter(
+            f"--{param_name} must be >= 1",
+            param_name=param_name,
+        )
 
 
 @app.command()
@@ -57,6 +60,11 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         None,
         "--sample",
         help="Process only the first N records for smoke testing",
+    ),
+    limit: int | None = typer.Option(
+        None,
+        "--limit",
+        help="Restrict extraction to the first N input records",
     ),
     fail_on_schema_drift: bool = typer.Option(
         True,
@@ -115,7 +123,8 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
 ) -> None:
     """Execute the target pipeline with run-scoped materialisation."""
 
-    _validate_sample(sample)
+    _validate_positive_option(sample, "sample")
+    _validate_positive_option(limit, "limit")
 
     UnifiedLogger.setup(mode="development" if verbose else "production")
     logger = UnifiedLogger.get("cli.target")
@@ -135,6 +144,8 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         cli_overrides["golden"] = str(golden)
     if sample is not None:
         cli_overrides["sample"] = sample
+    if limit is not None:
+        cli_overrides["limit"] = limit
 
     config = load_config(config_path, overrides=overrides)
     mode_choices: list[str] | None = None
@@ -173,6 +184,8 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     }
     if sample is not None:
         runtime_flags["sample"] = sample
+    if limit is not None:
+        runtime_flags["limit"] = limit
     if input_file is not None:
         runtime_flags["input_file"] = str(input_file)
 

@@ -74,7 +74,7 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
 
     assert result.exit_code == 0, result.output
 
-    for flag in (
+    expected_flags = (
         "--config",
         "--golden",
         "--sample",
@@ -84,7 +84,11 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
         "--dry-run",
         "--verbose",
         "--set",
-    ):
+    )
+    if entry.name == "target":
+        expected_flags += ("--limit",)
+
+    for flag in expected_flags:
         assert flag in result.stdout, f"{flag} missing from help for {entry.name}"
 
 
@@ -131,6 +135,9 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
         "cli.custom_flag='contract'",
     ]
 
+    if entry.name == "target":
+        args.extend(["--limit", "7"])
+
     result = runner.invoke(module.app, args)
 
     assert result.exit_code == 0, result.output
@@ -153,6 +160,8 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     assert cli_section["verbose"] is True
     assert cli_section["sample"] == 5
     assert cli_section["golden"] == str(golden_path)
+    if entry.name == "target":
+        assert cli_section["limit"] == 7
 
     run_id = captured.get("run_id")
     assert isinstance(run_id, str) and run_id.startswith(entry.name)
