@@ -41,11 +41,20 @@ class SchemaRegistry:
 
         cls._registry[entity][schema_version] = schema
 
+        model_fields = getattr(schema, "model_fields", {})
+        column_count = len(model_fields) if model_fields else 0
+
+        if column_count == 0:
+            try:
+                column_count = len(schema.to_schema().columns)
+            except (AttributeError, TypeError):
+                column_count = 0
+
         logger.info(
             "schema_registered",
             entity=entity,
             version=schema_version,
-            columns=len(schema.__fields__),
+            columns=column_count,
         )
 
     @classmethod
