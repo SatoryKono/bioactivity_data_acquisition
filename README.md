@@ -51,12 +51,21 @@ tests/
 # Run tests
 pytest tests/ -v
 
+# Run with coverage
+pytest tests/ --cov=src/bioetl --cov-report=html
+
+# Run specific test suite
+pytest tests/unit/ -v              # Unit tests only
+pytest tests/integration/ -v       # Integration tests only
+
 # Lint
 ruff check src/ tests/
 
 # Type check
 mypy src/
 ```
+
+Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
 
 ## License
 
