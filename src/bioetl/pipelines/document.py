@@ -717,9 +717,15 @@ class DocumentPipeline(PipelineBase):
             if source_name in self.config.sources
         )
 
-        if enrichment_enabled:
+        if enrichment_enabled and self.external_adapters:
             logger.info("enrichment_enabled", note="Fetching data from external sources")
             df = self._enrich_with_external_sources(df)
+        else:
+            logger.info(
+                "enrichment_skipped",
+                reason="no_external_adapters_enabled",
+            )
+            df = merge_with_precedence(df)
 
         # Drop temporary join keys if they exist
         if "pubmed_id" in df.columns:

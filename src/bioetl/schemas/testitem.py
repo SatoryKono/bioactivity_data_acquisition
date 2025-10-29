@@ -222,6 +222,13 @@ class TestItemSchema(BaseSchema):
     pubchem_lookup_inchikey: Series[str] = pa.Field(nullable=True, description="Lookup InChIKey used for PubChem resolution")
 
     _column_order = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
         "molecule_chembl_id",
         "molregno",
         "pref_name",
@@ -310,6 +317,11 @@ class TestItemSchema(BaseSchema):
         "orphan",
         "veterinary",
         "helm_notation",
+        "fallback_error_code",
+        "fallback_http_status",
+        "fallback_retry_after_sec",
+        "fallback_attempt",
+        "fallback_error_message",
         "pubchem_cid",
         "pubchem_molecular_formula",
         "pubchem_molecular_weight",
@@ -326,18 +338,6 @@ class TestItemSchema(BaseSchema):
         "pubchem_fallback_used",
         "pubchem_enrichment_attempt",
         "pubchem_lookup_inchikey",
-        "fallback_error_code",
-        "fallback_http_status",
-        "fallback_retry_after_sec",
-        "fallback_attempt",
-        "fallback_error_message",
-        "pipeline_version",
-        "source_system",
-        "chembl_release",
-        "extracted_at",
-        "hash_business_key",
-        "hash_row",
-        "index",
     ]
 
     class Config:
