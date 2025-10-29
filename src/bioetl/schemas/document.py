@@ -402,8 +402,17 @@ class DocumentSchema(BaseSchema):
         ordered = True
 
 
-# Expose column_order on Config for compatibility with column validator utilities.
-DocumentSchema.Config.column_order = DocumentSchema.get_column_order()
+class _DocumentColumnOrderAccessor:
+    """Descriptor exposing the canonical column order without Pandera side-effects."""
+
+    def __get__(self, instance, owner) -> list[str]:  # noqa: D401 - simple accessor
+        return DocumentSchema.get_column_order()
+
+
+# Expose column_order on Config for compatibility with column validator utilities
+# without registering it as a Pandera ``Check`` during model materialisation.
+DocumentSchema.__extras__.pop("column_order", None)
+DocumentSchema.Config.column_order = _DocumentColumnOrderAccessor()
 
 
 class DocumentNormalizedSchema(DocumentSchema):
@@ -411,3 +420,10 @@ class DocumentNormalizedSchema(DocumentSchema):
 
     class Config(DocumentSchema.Config):
         strict = True
+
+
+# Pandera stores Config attributes defined on subclasses in ``__extras__`` which are
+# later materialised as ``Check`` instances.  Expose the compatibility accessor on
+# the normalized schema while ensuring it isn't converted into a fake check.
+DocumentNormalizedSchema.__extras__.pop("column_order", None)
+DocumentNormalizedSchema.Config.column_order = _DocumentColumnOrderAccessor()
