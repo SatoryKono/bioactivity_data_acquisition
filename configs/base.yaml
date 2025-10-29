@@ -41,6 +41,7 @@ qc:
   enabled: true
   severity_threshold: "warning"
   thresholds: {}
+  schema_thresholds: {}
 
 cli:
   default_config: "configs/base.yaml"

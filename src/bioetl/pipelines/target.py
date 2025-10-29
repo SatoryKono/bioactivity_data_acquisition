@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.config.models import (
@@ -361,6 +360,7 @@ class TargetPipeline(PipelineBase):
         self.qc_missing_mappings = pd.DataFrame()
         self.qc_enrichment_metrics = pd.DataFrame()
         self.qc_summary_data = {}
+        self.clear_qc_metrics()
 
         # Normalize identifiers
         from bioetl.normalizers import registry
@@ -421,7 +421,7 @@ class TargetPipeline(PipelineBase):
                 }
             else:
                 if enrichment_metrics:
-                    self.qc_metrics.update(enrichment_metrics)
+                    self._register_metrics_from_mapping(enrichment_metrics)
                 if not uniprot_silver.empty or not component_enrichment.empty:
                     self._materialize_silver(uniprot_silver, component_enrichment)
                 stage_summary["uniprot"] = {
@@ -467,10 +467,8 @@ class TargetPipeline(PipelineBase):
                 }
             else:
                 if iuphar_metrics:
-                    self.qc_metrics.update(iuphar_metrics)
-                    coverage_value = iuphar_metrics.get("iuphar_coverage")
-                    if coverage_value is not None:
-                        self._evaluate_iuphar_qc(float(coverage_value))
+                    self._register_metrics_from_mapping(iuphar_metrics)
+                    self._evaluate_iuphar_qc()
                 if not iuphar_classification.empty or not iuphar_gold.empty:
                     self._materialize_iuphar(iuphar_classification, iuphar_gold)
                 stage_summary["iuphar"] = {
@@ -2085,157 +2083,186 @@ class TargetPipeline(PipelineBase):
 
         return working.convert_dtypes()
 
-    def _evaluate_iuphar_qc(self, coverage: float) -> None:
-        """Compare coverage against QC thresholds and log warnings."""
+    def _register_metrics_from_mapping(self, metrics: dict[str, Any]) -> None:
+        """Register QC metrics from a flat mapping."""
 
-        thresholds = self.config.qc.thresholds or {}
-        config: dict[str, Any] | None = None
-        if isinstance(thresholds.get("iuphar_coverage"), dict):
-            config = thresholds.get("iuphar_coverage")
-        elif isinstance(thresholds.get("enrichment_success.iuphar"), dict):
-            config = thresholds.get("enrichment_success.iuphar")
+        for name, value in metrics.items():
+            count: int | None = None
+            if name.endswith(".count"):
+                try:
+                    count = int(value)
+                except (TypeError, ValueError):
+                    count = None
 
-        if not config:
+            self.register_qc_metric(name, value, count=count)
+
+    def _evaluate_iuphar_qc(self) -> None:
+        """Inspect registered IUPHAR coverage metric and emit diagnostics."""
+
+        metric = self.qc_metric_registry.get("iuphar_coverage")
+        if metric is None or metric.passed:
             return
 
-        min_threshold = config.get("min")
-        severity = str(config.get("severity", "warning"))
-
-        issue_payload = {
-            "metric": "iuphar_coverage",
-            "value": coverage,
-            "threshold_min": float(min_threshold) if min_threshold is not None else None,
-            "severity": "info",
-            "passed": True,
-            "issue_type": "qc",
+        summary = metric.to_summary()
+        log_kwargs = {
+            "coverage": summary.get("value"),
+            "threshold_min": summary.get("threshold_min"),
+            "severity": metric.severity,
         }
+        log_kwargs = {key: value for key, value in log_kwargs.items() if value is not None}
 
-        if min_threshold is not None and coverage < float(min_threshold):
-            logger.warning(
-                "iuphar_coverage_below_threshold",
-                coverage=coverage,
-                threshold=min_threshold,
-            )
-            issue_payload.update({"severity": severity, "passed": False})
-
-        self.record_validation_issue(issue_payload)
+        if self._severity_value(metric.severity) >= self._severity_value("error"):
+            logger.error("iuphar_coverage_below_threshold", **log_kwargs)
+        else:
+            logger.warning("iuphar_coverage_below_threshold", **log_kwargs)
 
     def _evaluate_enrichment_thresholds(self) -> None:
-        """Evaluate enrichment coverage against configured thresholds."""
-
-        qc_config = getattr(self.config, "qc", None)
-        thresholds = getattr(qc_config, "enrichments", {}) if qc_config else {}
-        if not thresholds:
-            self.qc_enrichment_metrics = pd.DataFrame()
-            return
+        """Evaluate enrichment metrics stored in the registry."""
 
         records: list[dict[str, Any]] = []
-        failing: list[dict[str, Any]] = []
-        enrichment_summary = self.qc_summary_data.setdefault("enrichment", {})
+        enrichment_summary: dict[str, Any] = {}
 
-        for name, raw_threshold in thresholds.items():
-            if isinstance(raw_threshold, dict):
-                min_threshold = raw_threshold.get("min")
-                severity = str(raw_threshold.get("severity", "error"))
-            else:
-                min_threshold = raw_threshold
-                severity = "error"
+        enrichment_metrics = [
+            metric
+            for metric in self.qc_metric_registry.iter_metrics()
+            if metric.name.startswith("enrichment_success.")
+        ]
 
-            try:
-                min_threshold_value = float(min_threshold) if min_threshold is not None else None
-            except (TypeError, ValueError):
-                min_threshold_value = None
-
-            metric_key = f"enrichment_success.{name}"
-            value = self.qc_metrics.get(metric_key)
-
-            if value is None:
-                enrichment_summary[name] = {
-                    "value": None,
-                    "threshold_min": min_threshold_value,
-                    "passed": False,
-                    "status": "missing",
-                    "severity": severity,
-                }
-                self.record_validation_issue(
-                    {
-                        "metric": f"enrichment.{name}",
-                        "issue_type": "qc_metric",
-                        "severity": "info",
-                        "status": "missing",
-                    }
-                )
-                continue
-
-            try:
-                value_float = float(value)
-            except (TypeError, ValueError):
-                value_float = value
-
-            passed = True
-            if min_threshold_value is not None:
-                passed = value_float >= min_threshold_value
-
+        for metric in enrichment_metrics:
+            summary = metric.to_summary()
+            metric_key = metric.name.split(".", 1)[1] if "." in metric.name else metric.name
             record = {
-                "metric": name,
-                "value": value_float,
-                "threshold_min": min_threshold_value,
-                "passed": passed,
-                "severity": severity,
+                "metric": metric_key,
+                "value": summary.get("value"),
+                "threshold_min": summary.get("threshold_min"),
+                "threshold_max": summary.get("threshold_max"),
+                "threshold": summary.get("threshold"),
+                "passed": summary.get("passed"),
+                "severity": summary.get("severity"),
+                "status": "observed",
             }
             records.append(record)
+            enrichment_summary[metric_key] = {
+                "value": summary.get("value"),
+                "threshold_min": summary.get("threshold_min"),
+                "threshold_max": summary.get("threshold_max"),
+                "passed": summary.get("passed"),
+                "severity": summary.get("severity"),
+                "status": "observed",
+            }
 
-            enrichment_summary[name] = {
-                "value": value_float,
-                "threshold_min": min_threshold_value,
-                "passed": passed,
+        thresholds_config = self.config.qc.thresholds or {}
+
+        def _maybe_float(value: Any) -> float | None:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return None
+
+        expected_metrics = {
+            name
+            for name in thresholds_config
+            if isinstance(name, str) and name.startswith("enrichment_success.")
+        }
+        registered_names = {metric.name for metric in enrichment_metrics}
+        missing_metrics = sorted(expected_metrics - registered_names)
+
+        for full_name in missing_metrics:
+            config_entry = thresholds_config.get(full_name)
+            severity = "info"
+            threshold_min: float | None = None
+            threshold_max: float | None = None
+            threshold: float | None = None
+
+            if isinstance(config_entry, dict):
+                severity = str(config_entry.get("severity", "info"))
+                threshold_min = _maybe_float(config_entry.get("min"))
+                threshold_max = _maybe_float(config_entry.get("max"))
+                threshold = _maybe_float(config_entry.get("threshold"))
+            elif isinstance(config_entry, (int, float)):
+                threshold_max = float(config_entry)
+            elif isinstance(config_entry, str):
+                try:
+                    threshold_max = float(config_entry)
+                except ValueError:
+                    severity = config_entry
+
+            metric_key = full_name.split(".", 1)[1] if "." in full_name else full_name
+            record = {
+                "metric": metric_key,
+                "value": None,
+                "threshold_min": threshold_min,
+                "threshold_max": threshold_max,
+                "threshold": threshold,
+                "passed": False,
                 "severity": severity,
+                "status": "missing",
             }
-
-            issue_payload = {
-                "metric": f"enrichment.{name}",
-                "issue_type": "qc_metric",
-                "severity": severity if not passed else "info",
-                "value": value_float,
-                "threshold_min": min_threshold_value,
-                "passed": passed,
+            records.append(record)
+            enrichment_summary[metric_key] = {
+                "value": None,
+                "threshold_min": threshold_min,
+                "threshold_max": threshold_max,
+                "passed": False,
+                "severity": severity,
+                "status": "missing",
             }
-            self.record_validation_issue(issue_payload)
+            self.record_validation_issue(
+                {
+                    "metric": full_name,
+                    "issue_type": "qc_metric",
+                    "severity": "info",
+                    "status": "missing",
+                }
+            )
 
-            if not passed:
-                failing.append({"metric": name, "severity": severity, "value": value_float, "threshold": min_threshold_value})
+        if records:
+            records.sort(key=lambda item: item.get("metric", ""))
 
         self.qc_enrichment_metrics = (
             pd.DataFrame(records).convert_dtypes() if records else pd.DataFrame()
         )
 
-        blocking: list[dict[str, Any]] = []
-        downgraded: list[dict[str, Any]] = []
-        for failure in failing:
-            severity = failure["severity"]
-            if self._severity_value(severity) >= self._severity_value("error") and self._should_fail(severity):
-                blocking.append(failure)
-            elif self._should_fail(severity):
-                downgraded.append(failure)
+        if enrichment_summary:
+            self.qc_summary_data.setdefault("enrichment", {}).update(enrichment_summary)
+
+        failing_metrics = {
+            name: metric
+            for name, metric in self.qc_metric_registry.failing_metrics(
+                severity_threshold=self.config.qc.severity_threshold,
+                severity_resolver=self._severity_value,
+            ).items()
+            if name.startswith("enrichment_success.")
+        }
+
+        downgraded: list[str] = []
+        blocking: list[str] = []
+        for metric in failing_metrics.values():
+            threshold_value = (
+                metric.threshold_min
+                if metric.threshold_min is not None
+                else metric.threshold_max
+                if metric.threshold_max is not None
+                else metric.threshold
+            )
+            detail = (
+                f"{metric.name} (value={metric.value}, threshold={threshold_value}, severity={metric.severity})"
+            )
+            if self._severity_value(metric.severity) >= self._severity_value("error"):
+                blocking.append(detail)
+            else:
+                downgraded.append(detail)
 
         if downgraded:
-            downgraded_details = ", ".join(
-                f"{item['metric']} (value={item['value']}, threshold={item['threshold']}, severity={item['severity']})"
-                for item in downgraded
-            )
             logger.warning(
                 "enrichment_threshold_below_min_non_blocking",
-                details=downgraded_details,
+                details=", ".join(downgraded),
                 severity_threshold=self.config.qc.severity_threshold,
             )
 
         if blocking:
-            details = ", ".join(
-                f"{item['metric']} (value={item['value']}, threshold={item['threshold']})"
-                for item in blocking
-            )
-            logger.error("enrichment_threshold_failed", details=details)
-            raise ValueError(f"Enrichment thresholds failed: {details}")
+            logger.error("enrichment_threshold_failed", details=", ".join(blocking))
+            raise ValueError(f"Enrichment thresholds failed: {', '.join(blocking)}")
 
     def _update_qc_summary(
         self,
@@ -2255,11 +2282,24 @@ class TargetPipeline(PipelineBase):
         self.qc_summary_data["row_counts"] = dataset_counts
         self.qc_summary_data["datasets"] = dataset_counts
 
-        fallback_counts = {
-            key.split(".")[1]: int(value)
-            for key, value in self.qc_metrics.items()
-            if key.startswith("fallback.") and key.endswith(".count")
-        }
+        fallback_counts: dict[str, int] = {}
+        for key, summary in self.qc_metrics.items():
+            if not (key.startswith("fallback.") and key.endswith(".count")):
+                continue
+
+            metric_value: Any
+            if isinstance(summary, dict):
+                metric_value = summary.get("value")
+            else:
+                metric_value = summary
+
+            if metric_value is None:
+                continue
+
+            try:
+                fallback_counts[key.split(".")[1]] = int(metric_value)
+            except (TypeError, ValueError):
+                continue
         if fallback_counts:
             self.qc_summary_data["fallback_counts"] = fallback_counts
 
@@ -2278,78 +2318,4 @@ class TargetPipeline(PipelineBase):
                 "records": int(len(self.qc_missing_mappings)),
                 "stages": sorted(self.qc_missing_mappings["stage"].dropna().unique().tolist()),
             }
-
-    def _validate_with_schema(
-        self,
-        df: pd.DataFrame,
-        schema: Any,
-        dataset_name: str,
-        *,
-        severity: str = "error",
-    ) -> pd.DataFrame:
-        """Validate a dataframe against the provided Pandera schema."""
-
-        validation_summary = self.qc_summary_data.setdefault("validation", {})
-
-        if df is None or (hasattr(df, "empty") and df.empty):
-            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
-            self.record_validation_issue(
-                {
-                    "metric": f"schema.{dataset_name}",
-                    "issue_type": "schema_validation",
-                    "severity": "info",
-                    "status": "skipped",
-                    "rows": 0,
-                }
-            )
-            return df
-
-        try:
-            validated = schema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            failure_cases = getattr(exc, "failure_cases", None)
-            error_count: int | None = None
-            if failure_cases is not None and hasattr(failure_cases, "shape"):
-                try:
-                    error_count = int(failure_cases.shape[0])
-                except (TypeError, ValueError):
-                    error_count = None
-
-            issue_payload: dict[str, Any] = {
-                "metric": f"schema.{dataset_name}",
-                "issue_type": "schema_validation",
-                "severity": severity,
-                "status": "failed",
-                "errors": error_count,
-            }
-            if failure_cases is not None:
-                try:
-                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
-                except Exception:  # pragma: no cover - defensive guard
-                    issue_payload["examples"] = "unavailable"
-
-            self.record_validation_issue(issue_payload)
-            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
-            logger.error(
-                "schema_validation_failed",
-                dataset=dataset_name,
-                errors=error_count,
-                error=str(exc),
-            )
-            if self._should_fail(severity):
-                raise
-            return df
-
-        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
-        self.record_validation_issue(
-            {
-                "metric": f"schema.{dataset_name}",
-                "issue_type": "schema_validation",
-                "severity": "info",
-                "status": "passed",
-                "rows": int(len(validated)),
-            }
-        )
-
-        return validated  # type: ignore[no-any-return]
 

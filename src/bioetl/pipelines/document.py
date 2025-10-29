@@ -24,6 +24,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
+from bioetl.qc import QcMetric
 from bioetl.pipelines.document_enrichment import merge_with_precedence
 from bioetl.schemas.document import (
     DocumentNormalizedSchema,
@@ -959,108 +960,124 @@ class DocumentPipeline(PipelineBase):
             logger.error("schema_validation_failed", error=str(exc))
             raise
 
+
+        self.clear_qc_metrics()
         metrics = self._compute_qc_metrics(validated_df)
-        self.qc_metrics = metrics
-        self._enforce_qc_thresholds(metrics)
+        metrics_summary = {name: metric.to_summary() for name, metric in metrics.items()}
+        self.qc_metrics = metrics_summary
+        self.qc_summary_data.setdefault("metrics", {}).update(metrics_summary)
+
+        for metric_name, summary in metrics_summary.items():
+            log_method = logger.error if not summary.get("passed", True) else logger.info
+            log_method(
+                "qc_metric",
+                metric=metric_name,
+                value=summary.get("value"),
+                severity=summary.get("severity"),
+                details=summary.get("details"),
+            )
+
+        failing_metrics = self.enforce_qc_metrics(raise_exception=False)
+        if failing_metrics:
+            failing_summary = {name: metric.to_summary() for name, metric in failing_metrics.items()}
+            logger.error("qc_threshold_exceeded", failing=failing_summary)
+            metric_names = ", ".join(sorted(failing_metrics))
+            raise ValueError(f"QC thresholds exceeded for metrics: {metric_names}")
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
         return validated_df
 
-    def _compute_qc_metrics(self, df: pd.DataFrame) -> dict[str, float]:
+    def _compute_qc_metrics(self, df: pd.DataFrame) -> dict[str, QcMetric]:
         """Compute coverage, conflict, and fallback quality metrics."""
 
+        metrics: dict[str, QcMetric] = {}
         total = len(df)
+
+        def _register(name: str, value: float, *, details: dict[str, Any] | None = None) -> None:
+            metrics[name] = self.register_qc_metric(name, value=value, severity="info", details=details)
+
         if total == 0:
-            return {
-                "doi_coverage": 0.0,
-                "pmid_coverage": 0.0,
-                "title_coverage": 0.0,
-                "journal_coverage": 0.0,
-                "authors_coverage": 0.0,
-                "conflicts_doi": 0.0,
-                "conflicts_pmid": 0.0,
-                "title_fallback_rate": 0.0,
-            }
+            _register("doi_coverage", 0.0)
+            _register("pmid_coverage", 0.0)
+            _register("title_coverage", 0.0)
+            _register("journal_coverage", 0.0)
+            _register("authors_coverage", 0.0)
+            _register("conflicts_doi", 0.0)
+            _register("conflicts_pmid", 0.0)
+            _register("title_fallback_rate", 0.0)
+            return metrics
 
         def _coverage(column: str) -> float:
             if column not in df.columns:
                 return 0.0
             return float(df[column].notna().sum() / total)
 
-        metrics: dict[str, float] = {
-            "doi_coverage": _coverage("doi_clean"),
-            "pmid_coverage": _coverage("pmid") if "pmid" in df.columns else _coverage("pubmed_id"),
-            "title_coverage": _coverage("title"),
-            "journal_coverage": _coverage("journal"),
-            "authors_coverage": _coverage("authors"),
-        }
+        metrics["doi_coverage"] = self.register_qc_metric(
+            "doi_coverage",
+            value=_coverage("doi_clean"),
+            severity="info",
+        )
+        pmid_column = "pmid" if "pmid" in df.columns else "pubmed_id"
+        metrics["pmid_coverage"] = self.register_qc_metric(
+            "pmid_coverage",
+            value=_coverage(pmid_column),
+            severity="info",
+        )
+        metrics["title_coverage"] = self.register_qc_metric(
+            "title_coverage",
+            value=_coverage("title"),
+            severity="info",
+        )
+        metrics["journal_coverage"] = self.register_qc_metric(
+            "journal_coverage",
+            value=_coverage("journal"),
+            severity="info",
+        )
+        metrics["authors_coverage"] = self.register_qc_metric(
+            "authors_coverage",
+            value=_coverage("authors"),
+            severity="info",
+        )
 
         if "conflict_doi" in df.columns:
             conflict_doi = df["conflict_doi"].fillna(False).astype("boolean")
-            metrics["conflicts_doi"] = float(conflict_doi.sum() / total)
+            value = float(conflict_doi.sum() / total)
         else:
-            metrics["conflicts_doi"] = 0.0
+            value = 0.0
+        metrics["conflicts_doi"] = self.register_qc_metric(
+            "conflicts_doi",
+            value=value,
+            severity="info",
+        )
 
         if "conflict_pmid" in df.columns:
             conflict_pmid = df["conflict_pmid"].fillna(False).astype("boolean")
-            metrics["conflicts_pmid"] = float(conflict_pmid.sum() / total)
+            value = float(conflict_pmid.sum() / total)
         else:
-            metrics["conflicts_pmid"] = 0.0
+            value = 0.0
+        metrics["conflicts_pmid"] = self.register_qc_metric(
+            "conflicts_pmid",
+            value=value,
+            severity="info",
+        )
 
         if "title_source" in df.columns:
             fallback_mask = (
-                df["title_source"]
-                .fillna("")
+                df["title_source"].fillna("")
                 .astype(str)
                 .str.contains("fallback", case=False)
             )
-            metrics["title_fallback_rate"] = float(fallback_mask.sum() / total)
+            fallback_rate = float(fallback_mask.sum() / total)
         else:
-            metrics["title_fallback_rate"] = 0.0
+            fallback_rate = 0.0
+        metrics["title_fallback_rate"] = self.register_qc_metric(
+            "title_fallback_rate",
+            value=fallback_rate,
+            severity="info",
+        )
 
-        logger.debug("qc_metrics_computed", metrics=metrics)
+        logger.debug(
+            "qc_metrics_computed",
+            metrics={name: metric.to_summary() for name, metric in metrics.items()},
+        )
         return metrics
-
-    def _enforce_qc_thresholds(self, metrics: dict[str, float]) -> None:
-        """Validate QC metrics against configured thresholds."""
-
-        thresholds = self.config.qc.thresholds or {}
-        if not thresholds:
-            return
-
-        failing: list[str] = []
-        for metric_name, config in thresholds.items():
-            if not isinstance(config, dict):
-                continue
-
-            value = metrics.get(metric_name)
-            if value is None:
-                continue
-
-            min_threshold = config.get("min")
-            max_threshold = config.get("max")
-            severity = str(config.get("severity", "warning"))
-
-            passed = True
-            if min_threshold is not None and value < float(min_threshold):
-                passed = False
-            if max_threshold is not None and value > float(max_threshold):
-                passed = False
-
-            issue_payload = {
-                "metric": metric_name,
-                "value": value,
-                "threshold_min": float(min_threshold) if min_threshold is not None else None,
-                "threshold_max": float(max_threshold) if max_threshold is not None else None,
-                "severity": severity if not passed else "info",
-                "passed": passed,
-            }
-            self.record_validation_issue(issue_payload)
-
-            if not passed and self._should_fail(severity):
-                failing.append(metric_name)
-
-        if failing:
-            logger.error("qc_threshold_exceeded", failing=failing)
-            raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(sorted(failing)))
-

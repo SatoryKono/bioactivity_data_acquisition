@@ -2,9 +2,10 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
@@ -14,6 +15,7 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.qc import QcMetric, QcMetricsRegistry
 
 logger = UnifiedLogger.get(__name__)
 
@@ -28,6 +30,7 @@ class PipelineBase(ABC):
         self.validation_issues: list[dict[str, Any]] = []
         self.qc_metrics: dict[str, Any] = {}
         self.qc_summary_data: dict[str, Any] = {}
+        self.qc_metric_registry = QcMetricsRegistry(config.qc.thresholds)
         self.qc_missing_mappings = pd.DataFrame()
         self.qc_enrichment_metrics = pd.DataFrame()
         self.runtime_options: dict[str, Any] = {}
@@ -81,11 +84,86 @@ class PipelineBase(ABC):
 
         return self._SEVERITY_LEVELS.get(severity.lower(), 0)
 
-    def _should_fail(self, severity: str) -> bool:
+    def _should_fail(self, severity: str, *, threshold: str | None = None) -> bool:
         """Determine if the given severity breaches the configured threshold."""
 
-        threshold = self.config.qc.severity_threshold.lower()
-        return self._severity_value(severity) >= self._severity_value(threshold)
+        threshold_label = threshold or self.config.qc.severity_threshold
+        return self._severity_value(severity) >= self._severity_value(threshold_label)
+
+    def clear_qc_metrics(self) -> None:
+        """Reset QC metrics prior to a fresh validation pass."""
+
+        self.qc_metrics.clear()
+        self.qc_metric_registry.clear()
+        self.qc_summary_data.setdefault("metrics", {})
+        self.qc_summary_data["metrics"] = {}
+
+    def register_qc_metric(
+        self,
+        name: str,
+        value: Any,
+        *,
+        passed: bool | None = None,
+        severity: str = "info",
+        threshold: float | None = None,
+        threshold_min: float | None = None,
+        threshold_max: float | None = None,
+        count: int | None = None,
+        details: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
+        fail_severity: str | None = None,
+    ) -> QcMetric:
+        """Normalise and persist QC metric state for downstream reporting."""
+
+        metric = QcMetric(
+            name=name,
+            value=value,
+            passed=True if passed is None else bool(passed),
+            severity=severity,
+            threshold=threshold,
+            threshold_min=threshold_min,
+            threshold_max=threshold_max,
+            count=count,
+            details=details,
+            metadata=metadata or {},
+            fail_severity=fail_severity,
+        )
+        metric = self.qc_metric_registry.register(metric)
+        summary = metric.to_summary()
+        self.qc_metrics[name] = summary
+        self.qc_summary_data.setdefault("metrics", {})[name] = summary
+        self.record_validation_issue(metric.to_issue_payload())
+        logger.debug(
+            "qc_metric_registered",
+            metric=name,
+            value=value,
+            passed=metric.passed,
+            severity=metric.severity,
+        )
+        return metric
+
+    def enforce_qc_metrics(
+        self,
+        *,
+        severity_threshold: str | None = None,
+        raise_exception: bool = True,
+    ) -> dict[str, QcMetric]:
+        """Return failing metrics and optionally raise when the severity threshold is hit."""
+
+        effective_threshold = severity_threshold or self.config.qc.severity_threshold
+        failing = self.qc_metric_registry.failing_metrics(
+            severity_threshold=effective_threshold,
+            severity_resolver=self._severity_value,
+        )
+        if failing and raise_exception:
+            logger.error(
+                "qc_threshold_exceeded",
+                failing={name: metric.to_summary() for name, metric in failing.items()},
+                threshold=effective_threshold,
+            )
+            metric_list = ", ".join(sorted(failing))
+            raise ValueError(f"QC thresholds exceeded for metrics: {metric_list}")
+        return failing
 
     @abstractmethod
     def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
@@ -101,6 +179,116 @@ class PipelineBase(ABC):
         """Валидирует данные через Pandera."""
         # Placeholder for now
         return df
+
+    def _resolve_schema_policy(
+        self, dataset_name: str, *, severity: str
+    ) -> tuple[str, str | None]:
+        """Return severity override and fail threshold for schema validation."""
+
+        policy = self.config.qc.schema_thresholds.get(dataset_name, {})
+        severity_override = severity
+        fail_threshold: str | None = None
+
+        if isinstance(policy, str):
+            severity_override = policy
+            fail_threshold = policy
+        elif isinstance(policy, dict):
+            if "severity" in policy:
+                severity_override = str(policy["severity"])
+            candidate = policy.get("fail_severity") or policy.get("raise_on")
+            if isinstance(candidate, str):
+                fail_threshold = candidate
+
+        return severity_override, fail_threshold
+
+    def _validate_with_schema(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        dataset_name: str,
+        *,
+        severity: str = "error",
+        on_error: Callable[[SchemaErrors], None] | None = None,
+    ) -> pd.DataFrame:
+        """Validate a dataframe against the provided Pandera schema."""
+
+        validation_summary = self.qc_summary_data.setdefault("validation", {})
+
+        if df is None or (hasattr(df, "empty") and df.empty):
+            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
+            self.record_validation_issue(
+                {
+                    "metric": f"schema.{dataset_name}",
+                    "issue_type": "schema_validation",
+                    "severity": "info",
+                    "status": "skipped",
+                    "rows": 0,
+                }
+            )
+            return df
+
+        severity_override, fail_threshold = self._resolve_schema_policy(
+            dataset_name, severity=severity
+        )
+
+        try:
+            validated = schema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            if on_error is not None:
+                try:
+                    on_error(exc)
+                except Exception:  # pragma: no cover - defensive hook guard
+                    logger.exception("schema_validation_error_hook_failed", dataset=dataset_name)
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count: int | None = None
+            if failure_cases is not None and hasattr(failure_cases, "shape"):
+                try:
+                    error_count = int(failure_cases.shape[0])
+                except (TypeError, ValueError):
+                    error_count = None
+
+            issue_payload: dict[str, Any] = {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": severity_override,
+                "status": "failed",
+                "errors": error_count,
+            }
+            if fail_threshold:
+                issue_payload["fail_severity"] = fail_threshold
+            if failure_cases is not None:
+                try:
+                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
+                except Exception:  # pragma: no cover - defensive guard
+                    issue_payload["examples"] = "unavailable"
+
+            self.record_validation_issue(issue_payload)
+            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
+            logger.error(
+                "schema_validation_failed",
+                dataset=dataset_name,
+                errors=error_count,
+                error=str(exc),
+            )
+            if self._should_fail(severity_override, threshold=fail_threshold):
+                raise
+            return df
+
+        validation_summary[dataset_name] = {
+            "status": "passed",
+            "rows": int(len(validated)),
+        }
+        self.record_validation_issue(
+            {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": "info",
+                "status": "passed",
+                "rows": int(len(validated)),
+            }
+        )
+
+        return validated  # type: ignore[no-any-return]
 
     def export(
         self,
