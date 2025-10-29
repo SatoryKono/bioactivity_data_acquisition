@@ -11,7 +11,7 @@ from pandera.errors import SchemaErrors
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
+from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry

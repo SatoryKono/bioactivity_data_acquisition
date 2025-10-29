@@ -521,7 +521,6 @@ class ActivityPipeline(PipelineBase):
             "fallback_retry_after_sec": None,
             "fallback_attempt": None,
             "fallback_timestamp": None,
-            "run_id": self.run_id,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -587,7 +586,6 @@ class ActivityPipeline(PipelineBase):
             "fallback_retry_after_sec": None,
             "fallback_attempt": None,
             "fallback_timestamp": None,
-            "run_id": self.run_id,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
         }
 
@@ -596,7 +594,7 @@ class ActivityPipeline(PipelineBase):
             reason=reason,
             error=error,
             source="ChEMBL_FALLBACK",
-            context={"chembl_release": self._chembl_release, "run_id": self.run_id},
+            context={"chembl_release": self._chembl_release},
         )
         record.update(metadata)
 
@@ -1101,7 +1099,6 @@ class ActivityPipeline(PipelineBase):
             "fallback_attempt",
             "fallback_timestamp",
             "chembl_release",
-            "run_id",
             "extracted_at",
         ]
         fallback_records = register_fallback_statistics(
