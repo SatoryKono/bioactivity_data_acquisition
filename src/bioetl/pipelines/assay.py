@@ -21,6 +21,7 @@ from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
@@ -457,16 +458,26 @@ class AssayPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract assay data from input file."""
-        if input_file is None:
-            # Default to data/input/assay.csv
-            input_file = Path("data/input/assay.csv")
+        default_filename = Path("assay.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
-        df = pd.read_csv(input_file)  # Read all records
+        logger.info("reading_input", path=resolved_path)
 
-        # Create output DataFrame with just assay_chembl_id for API lookup
-        result = pd.DataFrame()
-        result["assay_chembl_id"] = df["assay_chembl_id"] if "assay_chembl_id" in df.columns else df["assay_chembl_id"]
+        limit_value = self.get_runtime_limit()
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=["assay_chembl_id"],
+            limit=limit_value,
+            dtype="string",
+        )
+
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
+
+        result = pd.DataFrame({"assay_chembl_id": df.get("assay_chembl_id", pd.Series(dtype="string"))})
 
         logger.info("extraction_completed", rows=len(result))
         return result

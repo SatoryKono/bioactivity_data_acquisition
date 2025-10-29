@@ -33,6 +33,7 @@ from bioetl.schemas.document import (
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 NAType = type(pd.NA)
 
@@ -132,16 +133,22 @@ class DocumentPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
-        if input_file is None:
-            input_file = Path("data/input/document.csv")
+        default_filename = Path("document.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            return pd.DataFrame(columns=["document_chembl_id"])
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=["document_chembl_id"],
+            dtype="string",
+        )
 
-        df = pd.read_csv(input_file, dtype="string")
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         valid_ids, rejected_rows = self._prepare_input_ids(df)
         if rejected_rows:
