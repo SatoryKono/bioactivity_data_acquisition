@@ -1,1 +1,1 @@
- 
+"""Тесты для ColumnValidator."""
