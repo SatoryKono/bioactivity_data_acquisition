@@ -1,6 +1,5 @@
 """Pandera schemas for Target data."""
 
-import pandas as pd
 import pandera as pa
 from pandera.typing import Series
 
@@ -16,7 +15,7 @@ class TargetSchema(BaseSchema):
     target_type: Series[str] = pa.Field(nullable=True)
 
     organism: Series[str] = pa.Field(nullable=True)
-    tax_id: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1)
+    tax_id: Series[pa.Int64] = pa.Field(nullable=True, ge=1)
     gene_symbol: Series[str] = pa.Field(nullable=True)
     hgnc_id: Series[str] = pa.Field(nullable=True)
     lineage: Series[str] = pa.Field(nullable=True)
