@@ -1072,10 +1072,17 @@ class TestItemPipeline(PipelineBase):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
         coerce_retry_after(df)
-        try:
-            validated_df = TestItemSchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            schema_issues = self._summarize_schema_errors(exc.failure_cases)
+        schema_issues: list[dict[str, Any]] = []
+
+        def _handle_schema_failure(exc: SchemaErrors, _: bool) -> None:
+            nonlocal schema_issues
+
+            failure_cases = getattr(exc, "failure_cases", None)
+            if isinstance(failure_cases, pd.DataFrame):
+                schema_issues = self._summarize_schema_errors(failure_cases)
+            else:
+                schema_issues = []
+
             for issue in schema_issues:
                 self.record_validation_issue(issue)
                 logger.error(
@@ -1086,6 +1093,16 @@ class TestItemPipeline(PipelineBase):
                     severity=issue.get("severity"),
                 )
 
+        try:
+            validated_df = self._validate_with_schema(
+                df,
+                TestItemSchema,
+                dataset_name="testitems",
+                severity="error",
+                metric_name="schema.validation",
+                failure_handler=_handle_schema_failure,
+            )
+        except SchemaErrors as exc:
             summary = "; ".join(
                 f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
                 for issue in schema_issues
