@@ -408,6 +408,14 @@ def _derive_is_censored(relation: str | None) -> bool | None:
     return relation != "="
 
 
+def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
+    """Coerce columns with optional integers to pandas nullable Int64."""
+
+    for column in columns:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+
+
 class ActivityPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL activity data."""
 
@@ -582,6 +590,8 @@ class ActivityPipeline(PipelineBase):
         )
 
         df = pd.DataFrame(results_sorted)
+        if not df.empty:
+            df = df.reindex(sorted(df.columns), axis=1)
         logger.info("extraction_completed", rows=len(df), from_api=True)
         return df
 
@@ -923,6 +933,17 @@ class ActivityPipeline(PipelineBase):
             df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
         else:
             df["extracted_at"] = timestamp_now
+
+        _coerce_nullable_int_columns(
+            df,
+            [
+                "activity_id",
+                "standard_flag",
+                "potential_duplicate",
+                "src_id",
+                "target_tax_id",
+            ],
+        )
 
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 

@@ -147,8 +147,15 @@ class AssaySchema(BaseSchema):
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
 
-    # Column order: business fields first, then system fields, then hash fields
+    # Column order: system/hash fields first (per BaseSchema), then business fields
     _column_order = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
         "assay_chembl_id",
         "row_subtype",
         "row_index",
@@ -167,25 +174,25 @@ class AssaySchema(BaseSchema):
         "assay_type_description",
         "bao_format",
         "bao_label",
+        "bao_endpoint",
         "cell_chembl_id",
         "confidence_description",
         "confidence_score",
         "assay_description",
-        "bao_endpoint",
         "document_chembl_id",
         "relationship_description",
         "relationship_type",
         "src_assay_id",
         "src_id",
         "target_chembl_id",
+        "tissue_chembl_id",
+        "variant_sequence_json",
         "pref_name",
         "organism",
         "target_type",
         "species_group_flag",
         "tax_id",
         "component_count",
-        "tissue_chembl_id",
-        "variant_sequence_json",
         "assay_param_type",
         "assay_param_relation",
         "assay_param_value",
@@ -206,13 +213,6 @@ class AssaySchema(BaseSchema):
         "variant_mutation",
         "variant_sequence",
         "variant_accession_reported",
-        "pipeline_version",
-        "source_system",
-        "chembl_release",
-        "extracted_at",
-        "hash_business_key",
-        "hash_row",
-        "index",
     ]
 
     class Config:
