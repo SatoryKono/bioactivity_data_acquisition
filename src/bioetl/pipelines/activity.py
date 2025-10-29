@@ -647,7 +647,21 @@ class ActivityPipeline(PipelineBase):
 
         df = pd.DataFrame(results_sorted)
         if not df.empty:
-            df = df.reindex(sorted(df.columns), axis=1)
+            expected_columns = _get_activity_column_order()
+            if expected_columns:
+                extra_columns = [column for column in df.columns if column not in expected_columns]
+
+                for column in expected_columns:
+                    if column not in df.columns:
+                        if column in INTEGER_COLUMNS_WITH_ID:
+                            df[column] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                        else:
+                            df[column] = pd.Series(pd.NA, index=df.index)
+
+                ordered_columns = [column for column in expected_columns if column in df.columns]
+                df = df[ordered_columns + extra_columns]
+
+            _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
         logger.info("extraction_completed", rows=len(df), from_api=True)
         return df
 
