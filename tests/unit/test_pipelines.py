@@ -826,6 +826,59 @@ class TestActivityPipeline:
         assert schema_issues
         assert all(issue.get("severity") == "critical" for issue in schema_issues)
 
+    def test_validate_records_fallback_diagnostics(self, activity_config):
+        """Fallback rows should be captured in diagnostics and QC outputs."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        primary = self._build_activity_dataframe(activity_id=101)
+        fallback = self._build_activity_dataframe(activity_id=202)
+        fallback.loc[:, "source_system"] = "ChEMBL_FALLBACK"
+        fallback.loc[:, "molecule_chembl_id"] = None
+        fallback.loc[:, "assay_chembl_id"] = None
+        fallback.loc[:, "target_chembl_id"] = None
+        fallback.loc[:, "document_chembl_id"] = None
+        fallback.loc[:, "standard_value"] = None
+        fallback.loc[:, "fallback_reason"] = "not_in_response"
+        fallback.loc[:, "error_type"] = "HTTPError"
+        fallback.loc[:, "error_message"] = "Activity not found"
+        fallback.loc[:, "http_status"] = 404
+        fallback.loc[:, "error_code"] = "not_found"
+        fallback.loc[:, "retry_after_sec"] = 1.5
+        fallback.loc[:, "attempt"] = 3
+
+        combined = pd.concat([primary, fallback], ignore_index=True, sort=False)
+
+        transformed = pipeline.transform(combined)
+        validated = pipeline.validate(transformed)
+
+        assert len(validated) == 2
+
+        fallback_table = pipeline.additional_tables.get("activity_fallback_records")
+        assert fallback_table is not None
+        assert len(fallback_table) == 1
+        fallback_row = fallback_table.iloc[0]
+        assert fallback_row["activity_id"] == 202
+        assert fallback_row["fallback_reason"] == "not_in_response"
+        assert fallback_row["http_status"] == 404
+        assert fallback_row["error_message"] == "Activity not found"
+
+        summary = pipeline.qc_summary_data.get("fallbacks")
+        assert summary is not None
+        assert summary["fallback_count"] == 1
+        assert summary["activity_ids"] == [202]
+        assert summary["reason_counts"] == {"not_in_response": 1}
+
+        metrics = pipeline.qc_metrics
+        assert metrics["fallback.count"]["value"] == 1
+        assert metrics["fallback.rate"]["value"] == pytest.approx(0.5)
+        assert metrics["fallback.count"]["details"]["activity_ids"] == [202]
+
+        issues = {issue["metric"]: issue for issue in pipeline.validation_issues}
+        assert "qc.fallback.count" in issues
+        assert issues["qc.fallback.count"]["severity"] in {"warning", "error", "info"}
+
     def test_activity_quality_report_includes_qc_metrics(self, activity_config, tmp_path):
         """QC artifacts should include validation issues emitted by the pipeline."""
 
