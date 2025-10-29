@@ -174,6 +174,11 @@ class TestAssayPipeline:
         assert not second.empty
         assert second.iloc[0]["assay_chembl_id"] == "CHEMBL1"
 
+        metrics = pipeline.run_metadata.get("assay_fetch_metrics", {})
+        assert metrics.get("cache_hits") == 1
+        assert metrics.get("success_count") == 2
+        assert metrics.get("fallback_total") == 0
+
     def test_fetch_assay_data_fallback_metadata(self, assay_config, monkeypatch):
         """Fallback records should include error metadata when requests fail."""
 
@@ -193,6 +198,11 @@ class TestAssayPipeline:
         assert row["source_system"] == "ChEMBL_FALLBACK"
         assert row["error_message"].startswith("Circuit") or "breaker" in row["error_message"]
         assert row["run_id"] == "run-fallback"
+
+        metrics = pipeline.run_metadata.get("assay_fetch_metrics", {})
+        assert metrics.get("fallback_total") == 1
+        assert metrics.get("fallback_by_reason", {}).get("circuit_open") == 1
+        assert pipeline.qc_metrics.get("assay_fallback_total") == 1
 
     def test_validate_schema_errors_capture(self, assay_config):
         """Schema violations should be surfaced as validation issues."""

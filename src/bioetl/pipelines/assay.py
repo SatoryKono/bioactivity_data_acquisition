@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+from collections import Counter
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -134,6 +135,14 @@ class AssayPipeline(PipelineBase):
         self._cache_enabled = bool(config.cache.enabled)
         self._assay_cache: dict[str, dict[str, Any]] = {}
         self._status_payload: dict[str, Any] | None = None
+
+        self._assay_fetch_stats: dict[str, Any] = {
+            "requested": 0,
+            "success_count": 0,
+            "cache_hits": 0,
+            "cache_fallback_hits": 0,
+            "fallback_counts": Counter(),
+        }
 
         self._initialize_status()
 
@@ -300,6 +309,57 @@ class AssayPipeline(PipelineBase):
         record["chembl_release"] = self.chembl_release
         return record
 
+    def _register_fallback(
+        self,
+        assay_id: str,
+        reason: str,
+        error: Exception | None = None,
+    ) -> dict[str, Any]:
+        """Create a fallback payload while recording diagnostic metrics."""
+
+        self._assay_fetch_stats["fallback_counts"][reason] += 1
+        fallback = self._create_fallback_record(assay_id, error)
+        logger.warning(
+            "assay_fallback_created",
+            assay_id=assay_id,
+            reason=reason,
+            error=str(error) if error else None,
+        )
+        return fallback
+
+    def _update_fetch_metrics(self) -> None:
+        """Persist aggregated fetch metrics for observability and QC."""
+
+        stats = self._assay_fetch_stats
+        fallback_counts: Counter[str] = stats["fallback_counts"]
+        fallback_total = int(sum(fallback_counts.values()))
+        requested = int(stats["requested"])
+        success_count = int(stats["success_count"])
+        cache_hits = int(stats["cache_hits"])
+        cache_fallback_hits = int(stats["cache_fallback_hits"])
+
+        success_rate = 0.0
+        if requested:
+            success_rate = (success_count + fallback_total) / requested
+
+        metrics_payload = {
+            "requested": requested,
+            "success_count": success_count,
+            "fallback_total": fallback_total,
+            "fallback_by_reason": dict(fallback_counts),
+            "cache_hits": cache_hits,
+            "cache_fallback_hits": cache_fallback_hits,
+            "success_rate": success_rate,
+        }
+
+        logger.info("assay_fetch_metrics", **metrics_payload)
+
+        self.run_metadata["assay_fetch_metrics"] = metrics_payload
+        self.qc_metrics["assay_fetch_success_count"] = success_count
+        self.qc_metrics["assay_fallback_total"] = fallback_total
+        self.qc_metrics["assay_fetch_cache_hits"] = cache_hits
+        self.qc_metrics["assay_fetch_cache_fallback_hits"] = cache_fallback_hits
+
     def _create_fallback_record(self, assay_id: str, error: Exception | None = None) -> dict[str, Any]:
         """Generate fallback payload when API data cannot be retrieved."""
         http_status: int | None = None
@@ -360,19 +420,30 @@ class AssayPipeline(PipelineBase):
         results: list[dict[str, Any]] = []
         pending: list[str] = []
         seen: set[str] = set()
+        unique_requested = 0
 
         for assay_id in assay_ids:
             if not assay_id or assay_id in seen:
                 continue
             seen.add(assay_id)
+            unique_requested += 1
             cached = self._cache_get(assay_id)
             if cached is not None:
+                self._assay_fetch_stats["cache_hits"] += 1
+                if cached.get("source_system") == "ChEMBL_FALLBACK":
+                    self._assay_fetch_stats["cache_fallback_hits"] += 1
+                    self._assay_fetch_stats["fallback_counts"]["cache_hit"] += 1
+                else:
+                    self._assay_fetch_stats["success_count"] += 1
                 results.append(cached)
             else:
                 pending.append(assay_id)
 
+        self._assay_fetch_stats["requested"] += unique_requested
+
         if not pending:
             logger.info("assay_fetch_served_from_cache", count=len(results))
+            self._update_fetch_metrics()
             return pd.DataFrame(results)
 
         for index in range(0, len(pending), self.batch_size):
@@ -391,21 +462,21 @@ class AssayPipeline(PipelineBase):
             except CircuitBreakerOpenError as exc:
                 logger.error("assay_fetch_circuit_open", error=str(exc), batch_ids=batch_ids)
                 for assay_id in batch_ids:
-                    fallback = self._create_fallback_record(assay_id, exc)
+                    fallback = self._register_fallback(assay_id, "circuit_open", exc)
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
                 continue
             except requests.exceptions.RequestException as exc:
                 logger.error("assay_fetch_request_exception", error=str(exc), batch_ids=batch_ids)
                 for assay_id in batch_ids:
-                    fallback = self._create_fallback_record(assay_id, exc)
+                    fallback = self._register_fallback(assay_id, "request_exception", exc)
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
                 continue
             except Exception as exc:  # noqa: BLE001 - capture for fallback creation
                 logger.error("assay_fetch_failed", error=str(exc), batch_ids=batch_ids)
                 for assay_id in batch_ids:
-                    fallback = self._create_fallback_record(assay_id, exc)
+                    fallback = self._register_fallback(assay_id, "unexpected_error", exc)
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
                 continue
@@ -428,18 +499,21 @@ class AssayPipeline(PipelineBase):
                     normalized = self._normalize_assay_record(payload)
                     self._cache_set(assay_id, normalized)
                     results.append(normalized)
+                    self._assay_fetch_stats["success_count"] += 1
                 else:
                     logger.warning("assay_missing_from_response", assay_id=assay_id)
-                    fallback = self._create_fallback_record(assay_id)
+                    fallback = self._register_fallback(assay_id, "missing_from_response")
                     self._cache_set(assay_id, fallback)
                     results.append(fallback)
 
         if not results:
             logger.warning("no_results_from_api")
+            self._update_fetch_metrics()
             return pd.DataFrame()
 
         df = pd.DataFrame(results)
         logger.info("api_extraction_completed", rows=len(df))
+        self._update_fetch_metrics()
         return df
 
     def _expand_assay_parameters_long(self, df: pd.DataFrame) -> pd.DataFrame:
