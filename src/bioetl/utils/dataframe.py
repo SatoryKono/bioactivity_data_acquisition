@@ -34,6 +34,59 @@ def _ensure_sequence(values: Sequence[bool] | bool | None, length: int) -> list[
     return values_list
 
 
+def resolve_schema_column_order(schema: type[BaseSchema] | None) -> list[str]:
+    """Return the canonical column order for a schema.
+
+    Pandera's :class:`~pandera.api.pandas.model.DataFrameModel` exposes a
+    ``get_column_order`` helper in our ``BaseSchema`` subclasses, but in
+    practice some schemas may not populate ``_column_order`` (for example when
+    the contract was imported from an external source).  Historically this led
+    to callers receiving an empty list, skipping reordering logic and letting
+    Pandera enforce its own field order.  On certain environments this surfaced
+    as ``column '...' out-of-order`` validation failures.
+
+    This helper normalises the behaviour by preferring the explicit
+    ``get_column_order`` value and falling back to the concrete DataFrameSchema
+    definition so that callers can deterministically align their dataframe
+    columns with the schema contract.
+    """
+
+    if schema is None:
+        return []
+
+    try:
+        explicit_order = schema.get_column_order()
+    except AttributeError:
+        explicit_order = []
+
+    if explicit_order:
+        return list(explicit_order)
+
+    try:
+        materialised = schema.to_schema()
+    except Exception:  # pragma: no cover - defensive fallback
+        materialised = None
+
+    if materialised is not None:
+        try:
+            columns = list(materialised.columns.keys())
+        except AttributeError:  # pragma: no cover - legacy Pandera versions
+            columns = list(materialised.columns)
+        if columns:
+            return columns
+
+    # Final fallback: rely on Pydantic's field order if available.
+    model_fields = getattr(schema, "model_fields", None)
+    if isinstance(model_fields, dict) and model_fields:
+        return list(model_fields.keys())
+
+    fields = getattr(schema, "__fields__", None)
+    if isinstance(fields, dict) and fields:
+        return list(fields.keys())
+
+    return []
+
+
 def finalize_pipeline_output(
     df: DataFrameT,
     *,
@@ -88,15 +141,18 @@ def finalize_pipeline_output(
 
     expected_columns: Iterable[str] = []
     if schema is not None:
-        expected_columns = schema.get_column_order()
+        expected_columns = resolve_schema_column_order(schema)
 
     if expected_columns:
-        # Ensure all expected columns exist
+        # Preserve original order for any additional columns while ensuring the
+        # schema-defined ones appear first.
+        extra_columns = [column for column in result.columns if column not in expected_columns]
+
         for column in expected_columns:
             if column not in result.columns:
                 result[column] = pd.NA
 
-        # Drop any columns that are not part of the contract to keep schema strictness
-        result = result[[column for column in expected_columns if column in result.columns]]
+        ordered_columns = [column for column in expected_columns if column in result.columns]
+        result = result[ordered_columns + extra_columns]
 
     return result.convert_dtypes()

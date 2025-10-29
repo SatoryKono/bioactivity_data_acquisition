@@ -6,6 +6,7 @@ import pandera as pa
 from packaging import version
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.utils.dataframe import resolve_schema_column_order
 
 logger = UnifiedLogger.get(__name__)
 
@@ -51,12 +52,10 @@ class SchemaRegistry:
                 column_count = 0
 
         if column_count == 0:
-            get_order = getattr(schema, "get_column_order", None)
-            if callable(get_order):
-                try:
-                    column_count = len(get_order())
-                except Exception:  # pragma: no cover - defensive fallback
-                    column_count = 0
+            try:
+                column_count = len(resolve_schema_column_order(schema))
+            except Exception:  # pragma: no cover - defensive fallback
+                column_count = 0
 
         logger.info(
             "schema_registered",

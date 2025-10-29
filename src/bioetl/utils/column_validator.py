@@ -11,6 +11,7 @@ import pandera as pa
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.registry import SchemaRegistry
+from bioetl.utils.dataframe import resolve_schema_column_order
 
 logger = UnifiedLogger.get(__name__)
 
@@ -140,14 +141,7 @@ class ColumnValidator:
 
     def _get_expected_columns(self, schema: pa.DataFrameModel) -> list[str]:
         """Получить ожидаемые колонки из схемы."""
-        # Попробовать получить column_order из Config
-        if hasattr(schema.Config, "column_order"):
-            column_order = schema.Config.column_order
-            if isinstance(column_order, list):
-                return column_order
-
-        # Если нет column_order, использовать порядок полей
-        return list(schema.__fields__.keys())
+        return resolve_schema_column_order(schema)
 
     def _analyze_column_data(self, df: pd.DataFrame) -> tuple[list[str], list[str]]:
         """

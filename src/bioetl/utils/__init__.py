@@ -6,6 +6,6 @@
 при импортировании ``finalize_pipeline_output`` напрямую из пакета.
 """
 
-from bioetl.utils.dataframe import finalize_pipeline_output
+from bioetl.utils.dataframe import finalize_pipeline_output, resolve_schema_column_order
 
-__all__ = ["finalize_pipeline_output"]
+__all__ = ["finalize_pipeline_output", "resolve_schema_column_order"]

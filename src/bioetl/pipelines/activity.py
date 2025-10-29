@@ -24,6 +24,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dataframe import resolve_schema_column_order
 
 logger = UnifiedLogger.get(__name__)
 
@@ -991,7 +992,7 @@ class ActivityPipeline(PipelineBase):
 
         from bioetl.schemas import ActivitySchema
 
-        expected_cols = ActivitySchema.get_column_order()
+        expected_cols = resolve_schema_column_order(ActivitySchema)
         if expected_cols:
             for col in expected_cols:
                 if col not in df.columns:
@@ -1024,7 +1025,7 @@ class ActivityPipeline(PipelineBase):
 
         df = df.copy()
 
-        expected_columns = ActivitySchema.get_column_order()
+        expected_columns = resolve_schema_column_order(ActivitySchema)
         if expected_columns:
             missing_columns = [column for column in expected_columns if column not in df.columns]
             if missing_columns:
