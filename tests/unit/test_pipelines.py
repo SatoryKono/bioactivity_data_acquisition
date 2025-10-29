@@ -1876,6 +1876,53 @@ class TestDocumentPipeline:
         assert sorted(call_sizes) == [1, 1, 2]
         assert set(result["document_chembl_id"]) == {"CHEMBL1", "CHEMBL2"}
 
+    def test_external_adapters_respect_overrides_and_env(self, document_config, monkeypatch):
+        """Adapters should honour configuration overrides and resolve env placeholders."""
+
+        run_id = "doc-env"
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        monkeypatch.setenv("PUBMED_EMAIL", "env@example.org")
+        monkeypatch.setenv("PUBMED_TOOL", "env-tool")
+        monkeypatch.setenv("PUBMED_API_KEY", "pubmed-key")
+        monkeypatch.setenv("CROSSREF_MAILTO", "mailto@example.org")
+        monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "semantic-key")
+
+        config = document_config.model_copy(deep=True)
+        config.sources["pubmed"].batch_size = 321
+        config.sources["pubmed"].tool = "override-tool"
+        config.sources["crossref"].workers = 5
+
+        pipeline = DocumentPipeline(config, run_id)
+
+        pubmed_adapter = pipeline.external_adapters["pubmed"]
+        assert pubmed_adapter.adapter_config.batch_size == 321
+        assert pubmed_adapter.adapter_config.tool == "override-tool"
+        assert pubmed_adapter.adapter_config.email == "env@example.org"
+        assert pubmed_adapter.adapter_config.api_key == "pubmed-key"
+
+        crossref_adapter = pipeline.external_adapters["crossref"]
+        assert crossref_adapter.adapter_config.mailto == "mailto@example.org"
+        assert crossref_adapter.adapter_config.workers == 5
+
+        semantic_adapter = pipeline.external_adapters["semantic_scholar"]
+        assert semantic_adapter.adapter_config.api_key == "semantic-key"
+
+    def test_external_adapters_skip_disabled_sources(self, document_config, monkeypatch):
+        """Disabled sources should not create enrichment adapters."""
+
+        run_id = "doc-disabled"
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        config = document_config.model_copy(deep=True)
+        config.sources["pubmed"].enabled = False
+        config.sources["semantic_scholar"].enabled = False
+
+        pipeline = DocumentPipeline(config, run_id)
+
+        assert "pubmed" not in pipeline.external_adapters
+        assert "semantic_scholar" not in pipeline.external_adapters
+        assert "crossref" in pipeline.external_adapters
+        assert "openalex" in pipeline.external_adapters
+
     def test_fallback_row_includes_error_context(self, document_config, tmp_path, monkeypatch):
         """Ensure fallback rows contain error context fields when retries exhaust."""
         run_id = str(uuid.uuid4())[:8]
