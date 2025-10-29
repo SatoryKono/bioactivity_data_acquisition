@@ -12,7 +12,7 @@ class BaseNormalizer(ABC):
     """Базовый класс для нормализаторов."""
 
     @abstractmethod
-    def normalize(self, value: Any) -> Any:
+    def normalize(self, value: Any, **kwargs: Any) -> Any:
         """Нормализует значение."""
         pass
 
@@ -21,10 +21,10 @@ class BaseNormalizer(ABC):
         """Проверяет корректность значения."""
         pass
 
-    def safe_normalize(self, value: Any) -> Any:
+    def safe_normalize(self, value: Any, **kwargs: Any) -> Any:
         """Безопасная нормализация с обработкой ошибок."""
         try:
-            return self.normalize(value)
+            return self.normalize(value, **kwargs)
         except Exception as e:
             logger.warning("normalization_failed", error=str(e), value=value)
             return None

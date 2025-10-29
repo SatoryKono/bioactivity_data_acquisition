@@ -23,10 +23,10 @@ class NormalizerRegistry:
         return cls._registry[name]
 
     @classmethod
-    def normalize(cls, name: str, value: Any) -> Any:
+    def normalize(cls, name: str, value: Any, **kwargs: Any) -> Any:
         """Нормализует значение через нормализатор."""
         normalizer = cls.get(name)
-        return normalizer.safe_normalize(value)
+        return normalizer.safe_normalize(value, **kwargs)
 
 
 # Инициализация

@@ -16,6 +16,7 @@ from pandera.errors import SchemaErrors
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
@@ -261,7 +262,7 @@ class AssayPipeline(PipelineBase):
         params_json = json.dumps(params, ensure_ascii=False) if params is not None else None
 
         record: dict[str, Any] = {
-            "assay_chembl_id": assay.get("assay_chembl_id"),
+            "assay_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("assay_chembl_id")),
             "assay_type": assay.get("assay_type"),
             "assay_category": assay.get("assay_category"),
             "assay_cell_type": assay.get("assay_cell_type"),
@@ -275,27 +276,27 @@ class AssayPipeline(PipelineBase):
             "assay_test_type": assay.get("assay_test_type"),
             "assay_tissue": assay.get("assay_tissue"),
             "assay_type_description": assay.get("assay_type_description"),
-            "bao_format": assay.get("bao_format"),
-            "bao_label": assay.get("bao_label"),
-            "bao_endpoint": assay.get("bao_endpoint"),
-            "cell_chembl_id": assay.get("cell_chembl_id"),
+            "bao_format": registry.normalize("chemistry.bao_id", assay.get("bao_format")),
+            "bao_label": registry.normalize("chemistry.string", assay.get("bao_label"), max_length=128),
+            "bao_endpoint": registry.normalize("chemistry.bao_id", assay.get("bao_endpoint")),
+            "cell_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("cell_chembl_id")),
             "confidence_description": assay.get("confidence_description"),
             "confidence_score": assay.get("confidence_score"),
-            "assay_description": assay.get("description"),
-            "document_chembl_id": assay.get("document_chembl_id"),
+            "assay_description": registry.normalize("chemistry.string", assay.get("description")),
+            "document_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("document_chembl_id")),
             "relationship_description": assay.get("relationship_description"),
             "relationship_type": assay.get("relationship_type"),
             "src_assay_id": assay.get("src_assay_id"),
             "src_id": assay.get("src_id"),
-            "target_chembl_id": assay.get("target_chembl_id"),
-            "tissue_chembl_id": assay.get("tissue_chembl_id"),
+            "target_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("target_chembl_id")),
+            "tissue_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("tissue_chembl_id")),
         }
 
         assay_class = assay.get("assay_class")
         if isinstance(assay_class, dict):
             record.update({
                 "assay_class_id": assay_class.get("assay_class_id"),
-                "assay_class_bao_id": assay_class.get("bao_id"),
+                "assay_class_bao_id": registry.normalize("chemistry.bao_id", assay_class.get("bao_id")),
                 "assay_class_type": assay_class.get("assay_class_type"),
                 "assay_class_l1": assay_class.get("class_level_1"),
                 "assay_class_l2": assay_class.get("class_level_2"),
@@ -783,8 +784,6 @@ class AssayPipeline(PipelineBase):
             # Return empty DataFrame with all required columns from schema
             from bioetl.schemas.assay import AssaySchema
             return pd.DataFrame(columns=resolve_schema_column_order(AssaySchema))
-
-        from bioetl.normalizers import registry
 
         # Fetch assay data from ChEMBL API
         assay_ids = df["assay_chembl_id"].unique().tolist()
