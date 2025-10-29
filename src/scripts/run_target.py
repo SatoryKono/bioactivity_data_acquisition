@@ -16,7 +16,12 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.target import TargetPipeline
 
 DEFAULT_CONFIG = Path("configs/pipelines/target.yaml")
-DEFAULT_INPUT = Path("data/input/targets.csv")
+# The canonical bootstrap dataset bundled with the repository is singular
+# (``target.csv``). A typo in the original CLI default pointed to
+# ``targets.csv`` which does not exist and caused the pipeline to emit empty
+# outputs on a fresh checkout. Align the default with the actual fixture so
+# running the command works out-of-the-box.
+DEFAULT_INPUT = Path("data/input/target.csv")
 DEFAULT_OUTPUT_ROOT = Path("data/output")
 
 app = typer.Typer(help="Run target pipeline to extract and transform target data")
