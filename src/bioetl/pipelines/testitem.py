@@ -855,13 +855,24 @@ class TestItemPipeline(PipelineBase):
                 for column in normalized_columns:
                     normalized_series = normalized_df[column]
                     if column in deduplicated_input.columns:
-                        combined_series = normalized_series.combine_first(deduplicated_input[column])
+                        if normalized_series.empty:
+                            combined_series = deduplicated_input[column]
+                        else:
+                            normalized_aligned = normalized_series.reindex(
+                                deduplicated_input.index
+                            )
+                            combined_series = normalized_aligned.fillna(
+                                deduplicated_input[column]
+                            )
                     else:
                         combined_series = normalized_series
 
                     overlay = df["molecule_chembl_id"].map(combined_series)
                     if column in df.columns:
-                        overlay_updates[column] = overlay.combine_first(df[column])
+                        if overlay.empty:
+                            overlay_updates[column] = df[column]
+                        else:
+                            overlay_updates[column] = overlay.fillna(df[column])
                     else:
                         overlay_updates[column] = overlay
 
