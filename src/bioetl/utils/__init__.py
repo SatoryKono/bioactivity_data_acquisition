@@ -7,7 +7,6 @@
 """
 
 __all__ = [
-    "finalize_output_dataset",
     "finalize_pipeline_output",
     "load_input_frame",
     "resolve_input_path",
@@ -22,11 +21,6 @@ def __getattr__(name: str):
         from bioetl.utils import dataframe as dataframe_module
 
         return getattr(dataframe_module, name)
-
-    if name in {"finalize_output_dataset"}:
-        from bioetl.utils import output as output_module
-
-        return getattr(output_module, name)
 
     if name in {"load_input_frame", "resolve_input_path"}:
         from bioetl.utils import io as io_module

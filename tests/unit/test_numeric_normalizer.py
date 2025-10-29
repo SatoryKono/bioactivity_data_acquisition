@@ -63,6 +63,42 @@ class TestNumericNormalizer:
         assert self.normalizer.normalize_bool("", default=False) is False
         assert self.normalizer.normalize_bool("unknown", default=True) is True
 
+    def test_normalize_relation(self):
+        """Тест нормализации знаков сравнения."""
+        # Валидные знаки
+        assert self.normalizer.normalize_relation("=") == "="
+        assert self.normalizer.normalize_relation("==") == "="
+        assert self.normalizer.normalize_relation("≤") == "<="
+        assert self.normalizer.normalize_relation("⩽") == "<="
+        assert self.normalizer.normalize_relation("≥") == ">="
+        assert self.normalizer.normalize_relation("⩾") == ">="
+
+        # NA значения
+        assert self.normalizer.normalize_relation(None) == "="
+        assert self.normalizer.normalize_relation("") == "="
+
+        # Неизвестные знаки
+        assert self.normalizer.normalize_relation("unknown") == "="
+        assert self.normalizer.normalize_relation("unknown", default="~") == "~"
+
+    def test_normalize_units(self):
+        """Тест нормализации единиц измерения."""
+        # Синонимы
+        assert self.normalizer.normalize_units("nm") == "nM"
+        assert self.normalizer.normalize_units("nanomolar") == "nM"
+        assert self.normalizer.normalize_units("μm") == "µM"
+        assert self.normalizer.normalize_units("um") == "µM"
+        assert self.normalizer.normalize_units("μg/ml") == "µg/mL"
+
+        # NA значения
+        assert self.normalizer.normalize_units(None) is None
+        assert self.normalizer.normalize_units("") is None
+        assert self.normalizer.normalize_units(None, default="nM") == "nM"
+
+        # Неизвестные единицы
+        assert self.normalizer.normalize_units("unknown") == "unknown"
+        assert self.normalizer.normalize_units("kg") == "kg"
+
     def test_validate(self):
         """Тест валидации значений."""
         assert self.normalizer.validate(42) is True

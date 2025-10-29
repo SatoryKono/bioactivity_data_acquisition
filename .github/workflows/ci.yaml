@@ -36,12 +36,12 @@ jobs:
     
     - name: Lint with ruff
       run: |
-        ruff check src/bioetl src/library tests
-        ruff format --check src/bioetl src/library tests
+        ruff check src/ tests/
+        ruff format --check src/ tests/
     
     - name: Type check with mypy
       run: |
-        mypy src/bioetl src/library
+        mypy src/
     
     - name: Security check with bandit
       run: |
@@ -55,7 +55,7 @@ jobs:
     
     - name: Test with pytest
       run: |
-        pytest tests/unit tests/integration tests/schemas
+        pytest --cov=library --cov=tests --cov-report=xml --cov-report=html --cov-report=term-missing
       env:
         BIOACTIVITY__LOGGING__LEVEL: DEBUG
         BIOACTIVITY__LOGGING__FILE__ENABLED: true
