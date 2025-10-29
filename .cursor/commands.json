@@ -165,7 +165,7 @@
         {
           "name": "input",
           "description": "Путь к входному файлу",
-          "default": "data/input/testitems.csv"
+          "default": "data/input/testitem.csv"
         },
         {
           "name": "output-dir",
