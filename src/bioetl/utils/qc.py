@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from bioetl.utils.fallback import normalise_retry_after_column
+from bioetl.utils.dtypes import coerce_retry_after
 
 __all__ = [
     "compute_field_coverage",
@@ -202,7 +202,7 @@ def register_fallback_statistics(
             .convert_dtypes()
         )
 
-        normalise_retry_after_column(fallback_records)
+        coerce_retry_after(fallback_records)
 
         if reason_column in fallback_records.columns:
             counts = (

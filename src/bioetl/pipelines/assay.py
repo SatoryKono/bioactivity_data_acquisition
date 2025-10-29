@@ -20,8 +20,8 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
-from bioetl.utils.dtype import coerce_nullable_int_columns
-from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
@@ -64,7 +64,7 @@ _NULLABLE_INT_COLUMNS = (
 )
 
 
-# _coerce_nullable_int_columns заменена на coerce_nullable_int_columns из bioetl.utils.dtype
+# _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
 
 
 class AssayPipeline(PipelineBase):
@@ -913,7 +913,7 @@ class AssayPipeline(PipelineBase):
 
         nullable_int_columns = list(_NULLABLE_INT_COLUMNS)
 
-        coerce_nullable_int_columns(df, nullable_int_columns)
+        coerce_nullable_int(df, nullable_int_columns)
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
@@ -965,8 +965,8 @@ class AssayPipeline(PipelineBase):
         # currently contain ``Int64`` values, but re-running the coercion keeps
         # the behaviour consistent for callers that operate on the reordered
         # frame (e.g. QC reporting) before validation happens downstream.
-        coerce_nullable_int_columns(df, nullable_int_columns)
-        normalise_retry_after_column(df)
+        coerce_nullable_int(df, nullable_int_columns)
+        coerce_retry_after(df)
 
         return df
 
@@ -997,7 +997,7 @@ class AssayPipeline(PipelineBase):
                         df[column] = pd.NA
                 df = df.loc[:, schema_columns]
 
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
         # Normalise nullable integer columns once more before validation.
         #
         # Even though ``transform`` already coerces these columns, downstream
@@ -1006,7 +1006,7 @@ class AssayPipeline(PipelineBase):
         # fractional value (e.g. ``"3.5"``) slips through, so we defensively
         # reuse the same normalisation helper to guarantee determinism at the
         # point of validation.
-        coerce_nullable_int_columns(df, _NULLABLE_INT_COLUMNS)
+        coerce_nullable_int(df, _NULLABLE_INT_COLUMNS)
 
         try:
             validated_df = AssaySchema.validate(df, lazy=True)
