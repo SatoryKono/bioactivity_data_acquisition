@@ -7,6 +7,7 @@ import json
 import math
 import re
 from collections.abc import Iterable, Sequence
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -83,6 +84,19 @@ INTEGER_COLUMNS: tuple[str, ...] = (
     "target_tax_id",
 )
 INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
+
+
+@lru_cache(maxsize=1)
+def _get_activity_column_order() -> list[str]:
+    """Return the canonical Activity schema column order with robust fallbacks."""
+
+    columns = resolve_schema_column_order(ActivitySchema)
+    if not columns:
+        try:
+            columns = ActivitySchema.get_column_order()
+        except AttributeError:  # pragma: no cover - defensive safeguard
+            columns = []
+    return list(columns)
 
 
 def _is_na(value: Any) -> bool:
@@ -1018,7 +1032,7 @@ class ActivityPipeline(PipelineBase):
 
         from bioetl.schemas import ActivitySchema
 
-        expected_cols = resolve_schema_column_order(ActivitySchema)
+        expected_cols = _get_activity_column_order()
         if expected_cols:
             missing_columns: list[str] = []
             for col in expected_cols:
@@ -1064,7 +1078,7 @@ class ActivityPipeline(PipelineBase):
 
         df = df.copy()
 
-        expected_columns = resolve_schema_column_order(ActivitySchema)
+        expected_columns = _get_activity_column_order()
         if expected_columns:
             missing_columns = [column for column in expected_columns if column not in df.columns]
             if missing_columns:
@@ -1088,7 +1102,7 @@ class ActivityPipeline(PipelineBase):
                 )
                 df = df[ordered_columns]
 
-            _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+        _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         qc_metrics = self._calculate_qc_metrics(df)
         self._last_validation_report = {"metrics": qc_metrics}

@@ -62,6 +62,10 @@ def resolve_schema_column_order(schema: type[BaseSchema] | None) -> list[str]:
     if explicit_order:
         return list(explicit_order)
 
+    fallback_order = getattr(schema, "_column_order", None)
+    if fallback_order:
+        return list(fallback_order)
+
     try:
         materialised = schema.to_schema()
     except Exception:  # pragma: no cover - defensive fallback
