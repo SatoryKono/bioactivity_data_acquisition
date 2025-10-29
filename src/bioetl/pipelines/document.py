@@ -435,12 +435,26 @@ class DocumentPipeline(PipelineBase):
                 working_df[column] = pd.NA
 
         # Reorder DataFrame columns to match schema definition for deterministic validation
-        expected_order = [column for column in schema.columns.keys()]
+        expected_order = list(schema.columns.keys())
         ordered_columns = [column for column in expected_order if column in working_df.columns]
-        extra_columns = [
-            column for column in working_df.columns if column not in ordered_columns
-        ]
-        working_df = working_df[ordered_columns + extra_columns]
+        extra_columns = [column for column in working_df.columns if column not in ordered_columns]
+
+        # Log the ordering context before reindexing to simplify troubleshooting of
+        # Pandera's COLUMN_NOT_ORDERED failures in production runs.
+        logger.debug(
+            "raw_schema_ordering",
+            expected=expected_order,
+            current=list(working_df.columns),
+            ordered=ordered_columns,
+            extra=extra_columns,
+        )
+
+        # Reindex known columns first to guarantee Pandera's ordered validation and
+        # then append any additional fields emitted by upstream APIs to the tail to
+        # preserve them for downstream enrichment/auditing workflows.
+        aligned_df = working_df.reindex(columns=ordered_columns)
+        extras_df = working_df.loc[:, extra_columns] if extra_columns else pd.DataFrame(index=working_df.index)
+        working_df = pd.concat([aligned_df, extras_df], axis=1)
 
         if "source" not in working_df.columns:
             working_df["source"] = "ChEMBL"

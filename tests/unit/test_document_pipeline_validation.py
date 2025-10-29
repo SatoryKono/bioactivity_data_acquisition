@@ -7,7 +7,7 @@ from pandera.errors import SchemaErrors
 
 from bioetl.config.loader import load_config
 from bioetl.pipelines.document import DocumentPipeline
-from bioetl.schemas.document import DocumentNormalizedSchema
+from bioetl.schemas.document import DocumentNormalizedSchema, DocumentRawSchema
 
 
 class _DummyTTLCache(dict):
@@ -99,6 +99,67 @@ def test_extract_raw_schema_violation(tmp_path, document_pipeline, monkeypatch):
 
     with pytest.raises(SchemaErrors):
         document_pipeline.extract(input_file=csv_path)
+
+
+def test_raw_validation_reorders_columns(document_pipeline):
+    """Raw validation should reorder columns to satisfy Pandera when API payloads shuffle fields."""
+
+    unsorted_columns = [
+        "abstract",
+        "authors",
+        "chembl_release",
+        "contact",
+        "doc_type",
+        "document_chembl_id",
+        "doi",
+        "doi_chembl",
+        "first_page",
+        "issue",
+        "journal",
+        "journal_full_title",
+        "last_page",
+        "patent_id",
+        "pubmed_id",
+        "src_id",
+        "title",
+        "volume",
+        "year",
+        "classification",
+        "document_contains_external_links",
+        "is_experimental_doc",
+        "journal_abbrev",
+        "month",
+        "source",
+    ]
+
+    record = {column: None for column in unsorted_columns}
+    record.update(
+        {
+            "document_chembl_id": "CHEMBL999",
+            "abstract": "Example abstract",
+            "source": "ChEMBL",
+        }
+    )
+
+    raw_df = pd.DataFrame([record], columns=unsorted_columns)
+
+    validated = document_pipeline._validate_raw_dataframe(raw_df)
+
+    schema_columns = list(DocumentRawSchema.to_schema().columns.keys())
+    assert list(validated.columns[: len(schema_columns)]) == schema_columns
+
+    extras = [
+        "chembl_release",
+        "contact",
+        "doc_type",
+        "doi_chembl",
+        "journal_full_title",
+        "patent_id",
+        "src_id",
+    ]
+    assert list(validated.columns[len(schema_columns) :]) == extras
+
+    assert validated.loc[0, "document_chembl_id"] == "CHEMBL999"
 
 
 def test_validate_enforces_qc_thresholds(document_pipeline, monkeypatch):
