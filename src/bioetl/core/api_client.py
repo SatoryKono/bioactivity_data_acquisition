@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
+from urllib.parse import urljoin
 
 import requests
 from cachetools import TTLCache  # type: ignore
@@ -285,7 +286,9 @@ class UnifiedAPIClient:
         """
         # Build full URL
         if not url.startswith("http"):
-            url = f"{self.config.base_url}{url}"
+            base_url = self.config.base_url.rstrip("/") + "/"
+            relative_path = url.lstrip("/")
+            url = urljoin(base_url, relative_path)
 
         # Check cache for GET requests
         cache_key: str | None = None
