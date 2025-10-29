@@ -104,6 +104,8 @@ class TargetPipeline(PipelineBase[TargetConfig]):
             rate_limit_jitter=bool(rate_limit_jitter),
             retry_total=retries.get("total", 3),
             retry_backoff_factor=retries.get("backoff_multiplier", 2.0),
+            retry_backoff_max=retries.get("backoff_max"),
+            retry_status_codes=[int(code) for code in (retries.get("statuses") or [])],
             timeout_connect=timeout_connect,
             timeout_read=timeout_read,
             cb_failure_threshold=source_config.get("circuit_breaker", {}).get("failure_threshold", 5),
@@ -236,7 +238,12 @@ class TargetPipeline(PipelineBase[TargetConfig]):
                 "backoff_max": getattr(retries, "backoff_max", 60.0),
             }
 
-        return {"total": 3, "backoff_multiplier": 2.0, "backoff_max": 60.0}
+        return {
+            "total": 3,
+            "backoff_multiplier": 2.0,
+            "backoff_max": 60.0,
+            "statuses": [404, 408, 409, 425, 429, 500, 502, 503, 504],
+        }
 
     def _extract_headers(self, source: Any) -> dict[str, str]:
         """Extract headers mapping from arbitrary configuration objects."""
