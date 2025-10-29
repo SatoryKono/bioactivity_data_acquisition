@@ -149,5 +149,11 @@ def normalise_retry_after_column(
     if not isinstance(series, pd.Series):  # pragma: no cover - defensive guard
         return
 
-    df[column] = pd.to_numeric(series, errors="coerce")
+    numeric = pd.to_numeric(series, errors="coerce")
+
+    # ``pd.to_numeric`` may yield a nullable ``Float64Dtype`` series when the
+    # input contains ``pd.NA`` values.  Pandera expects a NumPy ``float64``
+    # dtype for ``Series[float]`` fields, therefore we normalise the result to
+    # the concrete ``float64`` dtype in place.
+    df[column] = numeric.astype("float64", copy=False)
 

@@ -884,6 +884,7 @@ class TestActivityPipeline:
         fallback_table = pipeline.additional_tables.get("activity_fallback_records")
         assert fallback_table is not None
         assert len(fallback_table) == 1
+        assert is_float_dtype(fallback_table["fallback_retry_after_sec"])  # noqa: PD011
         fallback_row = fallback_table.iloc[0]
         assert fallback_row["activity_id"] == 202
         assert fallback_row["fallback_reason"] == "not_in_response"
