@@ -21,6 +21,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
@@ -488,22 +489,22 @@ class TestItemPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract molecule data from input file."""
-        if input_file is None:
-            # Default to data/input/testitem.csv
-            input_file = Path("data/input/testitem.csv")
+        default_filename = Path("testitem.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        # Read input file with molecule IDs
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=TestItemSchema.get_column_order())
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=TestItemSchema.get_column_order(),
+            limit=self.get_runtime_limit(),
+        )
 
-        df = pd.read_csv(input_file)  # Read all records
-
-        # Don't filter - keep all fields from input file
-        # They will be matched against schema column_order in transform()
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         logger.info("extraction_completed", rows=len(df), columns=len(df.columns))
         return df
