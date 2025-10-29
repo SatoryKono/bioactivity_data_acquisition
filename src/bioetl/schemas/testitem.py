@@ -178,6 +178,11 @@ class TestItemSchema(BaseSchema):
     veterinary: Series[str] = pa.Field(nullable=True, description="Veterinary JSON")
     helm_notation: Series[str] = pa.Field(nullable=True, description="HELM notation JSON")
 
+    fallback_reason: Series[str] = pa.Field(nullable=True, description="Fallback reason label")
+    fallback_error_type: Series[str] = pa.Field(
+        nullable=True,
+        description="Exception class that triggered the fallback",
+    )
     fallback_error_code: Series[str] = pa.Field(nullable=True, description="Fallback error code")
     fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
@@ -191,6 +196,10 @@ class TestItemSchema(BaseSchema):
         description="Fallback attempt",
     )
     fallback_error_message: Series[str] = pa.Field(nullable=True, description="Fallback error message")
+    fallback_timestamp: Series[str] = pa.Field(
+        nullable=True,
+        description="UTC timestamp when the fallback was materialised",
+    )
 
     pubchem_cid: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
@@ -317,11 +326,14 @@ class TestItemSchema(BaseSchema):
         "orphan",
         "veterinary",
         "helm_notation",
+        "fallback_reason",
+        "fallback_error_type",
         "fallback_error_code",
         "fallback_http_status",
         "fallback_retry_after_sec",
         "fallback_attempt",
         "fallback_error_message",
+        "fallback_timestamp",
         "pubchem_cid",
         "pubchem_molecular_formula",
         "pubchem_molecular_weight",
