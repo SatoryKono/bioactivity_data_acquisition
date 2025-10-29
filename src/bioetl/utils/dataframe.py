@@ -34,7 +34,7 @@ def _ensure_sequence(values: Sequence[bool] | bool | None, length: int) -> list[
     return values_list
 
 
-def resolve_schema_column_order(schema: type[BaseSchema] | None) -> list[str]:
+def resolve_schema_column_order(schema: type | None) -> list[str]:
     """Return the canonical column order for a schema.
 
     Pandera's :class:`~pandera.api.pandas.model.DataFrameModel` exposes a
@@ -85,6 +85,47 @@ def resolve_schema_column_order(schema: type[BaseSchema] | None) -> list[str]:
         return list(fields.keys())
 
     return []
+
+
+def align_dataframe_columns(df: pd.DataFrame, schema: type | None) -> pd.DataFrame:
+    """Return a copy of *df* with columns aligned to *schema* order.
+
+    Pandera's ``DataFrameModel`` raises ``column '...' out-of-order`` errors
+    when ``Config.ordered`` is enabled and the dataframe columns are not
+    arranged identically to the schema declaration.  In practice upstream APIs
+    may reshuffle fields or omit optional columns entirely which previously led
+    to flaky validation behaviour across operating systems.
+
+    This helper deterministically materialises the schema column order (using
+    :func:`resolve_schema_column_order`) and rearranges the dataframe so that
+    schema-defined columns appear first while preserving any additional
+    payload columns after the contract-defined fields.  Missing schema columns
+    are appended with ``pd.NA`` to satisfy ``column_in_dataframe`` checks.
+    """
+
+    if df.empty:
+        return df.copy()
+
+    expected_order = resolve_schema_column_order(schema) if schema else []
+    if not expected_order:
+        return df.copy()
+
+    result = df.copy()
+
+    missing = [column for column in expected_order if column not in result.columns]
+    if missing:
+        # ``assign`` preserves the dataframe's existing column order while
+        # appending the new columns to the tail so that we can reindex them in a
+        # deterministic block afterwards.
+        result = result.assign(**{column: pd.NA for column in missing})
+
+    ordered_columns = [column for column in expected_order if column in result.columns]
+    extra_columns = [column for column in result.columns if column not in expected_order]
+
+    if extra_columns:
+        ordered_columns.extend(extra_columns)
+
+    return result.loc[:, ordered_columns]
 
 
 def finalize_pipeline_output(
@@ -144,15 +185,6 @@ def finalize_pipeline_output(
         expected_columns = resolve_schema_column_order(schema)
 
     if expected_columns:
-        # Preserve original order for any additional columns while ensuring the
-        # schema-defined ones appear first.
-        extra_columns = [column for column in result.columns if column not in expected_columns]
-
-        for column in expected_columns:
-            if column not in result.columns:
-                result[column] = pd.NA
-
-        ordered_columns = [column for column in expected_columns if column in result.columns]
-        result = result[ordered_columns + extra_columns]
+        result = align_dataframe_columns(result, schema)
 
     return result.convert_dtypes()

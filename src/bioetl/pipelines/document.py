@@ -32,6 +32,7 @@ from bioetl.schemas.document import (
 )
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dataframe import align_dataframe_columns
 
 logger = UnifiedLogger.get(__name__)
 
@@ -428,23 +429,11 @@ class DocumentPipeline(PipelineBase):
             return df
 
         working_df = df.copy()
-        schema = DocumentRawSchema.to_schema()
-
-        for column in schema.columns:
-            if column not in working_df.columns:
-                working_df[column] = pd.NA
+        schema = DocumentRawSchema
 
         # Reorder DataFrame columns to match schema definition for deterministic validation
-        expected_order = list(schema.columns.keys())
-        extra_columns = [column for column in working_df.columns if column not in expected_order]
-        ordered_columns: list[str] = []
-        seen: set[str] = set()
-        for column in expected_order + extra_columns:
-            if column in seen:
-                continue
-            if column in working_df.columns:
-                ordered_columns.append(column)
-                seen.add(column)
+        expected_order = list(DocumentRawSchema.to_schema().columns.keys())
+        reordered_df = align_dataframe_columns(working_df, schema)
 
         # Log the ordering context before reindexing to simplify troubleshooting of
         # Pandera's COLUMN_NOT_ORDERED failures in production runs.
@@ -452,14 +441,11 @@ class DocumentPipeline(PipelineBase):
             "raw_schema_ordering",
             expected=expected_order,
             current=list(working_df.columns),
-            ordered=ordered_columns,
-            extra=extra_columns,
+            ordered=list(reordered_df.columns),
+            extra=[column for column in reordered_df.columns if column not in expected_order],
         )
 
-        # Reindex known columns first to guarantee Pandera's ordered validation and
-        # then append any additional fields emitted by upstream APIs to the tail to
-        # preserve them for downstream enrichment/auditing workflows.
-        working_df = working_df.loc[:, ordered_columns]
+        working_df = reordered_df
 
         if "source" not in working_df.columns:
             working_df["source"] = "ChEMBL"
