@@ -860,6 +860,9 @@ class DocumentPipeline(PipelineBase):
 
             working_df = working_df.loc[:, canonical_order]
 
+        # Ensure schema-driven dtypes are respected even for newly added columns.
+        working_df = self._enforce_schema_dtypes(working_df)
+
         duplicate_count = (
             working_df["document_chembl_id"].duplicated().sum()
             if "document_chembl_id" in working_df.columns

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pandera.pandas as pa
+from pandera.engines import pandas_engine
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema, expose_config_column_order
@@ -126,8 +127,12 @@ class DocumentSchema(BaseSchema):
     # Core document information
     document_pubmed_id: Series[int] = pa.Field(nullable=True, description="Document PubMed ID")
     document_classification: Series[str] = pa.Field(nullable=True, description="Document classification")
-    referenses_on_previous_experiments: Series[bool] = pa.Field(nullable=True, description="References on previous experiments")
-    original_experimental_document: Series[bool] = pa.Field(nullable=True, description="Original experimental document")
+    referenses_on_previous_experiments: Series[pandas_engine.BOOL] = pa.Field(
+        nullable=True, description="References on previous experiments"
+    )
+    original_experimental_document: Series[pandas_engine.BOOL] = pa.Field(
+        nullable=True, description="Original experimental document"
+    )
 
     # Resolved fields with precedence
     pmid: Series[int] = pa.Field(nullable=True, description="Resolved PMID using precedence")
@@ -158,7 +163,9 @@ class DocumentSchema(BaseSchema):
     issn_print_source: Series[str] = pa.Field(nullable=True, description="Source of resolved print ISSN")
     issn_electronic: Series[str] = pa.Field(nullable=True, description="Resolved electronic ISSN")
     issn_electronic_source: Series[str] = pa.Field(nullable=True, description="Source of resolved electronic ISSN")
-    is_oa: Series[bool] = pa.Field(nullable=True, description="Resolved Open Access flag")
+    is_oa: Series[pandas_engine.BOOL] = pa.Field(
+        nullable=True, description="Resolved Open Access flag"
+    )
     is_oa_source: Series[str] = pa.Field(nullable=True, description="Source of Open Access flag")
     oa_status: Series[str] = pa.Field(nullable=True, description="Resolved OA status")
     oa_status_source: Series[str] = pa.Field(nullable=True, description="Source of OA status")
@@ -177,8 +184,12 @@ class DocumentSchema(BaseSchema):
     chemicals: Series[str] = pa.Field(nullable=True, description="Resolved chemicals list")
     chemicals_source: Series[str] = pa.Field(nullable=True, description="Source of chemicals list")
 
-    conflict_doi: Series[bool] = pa.Field(nullable=True, description="Conflict flag for DOI discrepancies")
-    conflict_pmid: Series[bool] = pa.Field(nullable=True, description="Conflict flag for PMID discrepancies")
+    conflict_doi: Series[pandas_engine.BOOL] = pa.Field(
+        nullable=True, description="Conflict flag for DOI discrepancies"
+    )
+    conflict_pmid: Series[pandas_engine.BOOL] = pa.Field(
+        nullable=True, description="Conflict flag for PMID discrepancies"
+    )
 
     # PMID fields (4 sources)
     chembl_pmid: Series[int] = pa.Field(nullable=True, description="PMID из ChEMBL")
