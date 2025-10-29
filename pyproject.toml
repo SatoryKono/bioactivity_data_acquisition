@@ -89,6 +89,7 @@ warn_return_any = true
 warn_unused_configs = true
 strict_optional = true
 strict_equality = true
+mypy_path = ["stubs"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
