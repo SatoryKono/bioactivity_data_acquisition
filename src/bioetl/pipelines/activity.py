@@ -23,12 +23,16 @@ from bioetl.core.api_client import (
     UnifiedAPIClient,
 )
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers import registry
+from bioetl.normalizers.constants import NA_STRINGS
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
+from bioetl.utils.dtype import coerce_nullable_float_columns, coerce_nullable_int_columns
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
 from bioetl.utils.io import load_input_frame, resolve_input_path
+from bioetl.utils.json import normalize_json_list
 
 logger = UnifiedLogger.get(__name__)
 
@@ -36,49 +40,6 @@ logger = UnifiedLogger.get(__name__)
 schema_registry.register("activity", "1.0.0", ActivitySchema)
 
 
-NA_STRINGS = {"", "na", "n/a", "none", "null", "nan"}
-RELATION_ALIASES = {
-    "==": "=",
-    "=": "=",
-    "≡": "=",
-    "<": "<",
-    "≤": "<=",
-    "⩽": "<=",
-    "⩾": ">=",
-    "≥": ">=",
-    ">": ">",
-    "~": "~",
-}
-UNIT_SYNONYMS = {
-    "nm": "nM",
-    "nanomolar": "nM",
-    "μm": "µM",
-    "µm": "µM",
-    "um": "µM",
-    "μmolar": "µM",
-    "µmolar": "µM",
-    "mum": "µM",
-    "μmol/l": "µmol/L",
-    "µmol/l": "µmol/L",
-    "umol/l": "µmol/L",
-    "mmol/l": "mmol/L",
-    "mol/l": "mol/L",
-    "μg/ml": "µg/mL",
-    "μg/mL": "µg/mL",
-    "µg/ml": "µg/mL",
-    "µg/mL": "µg/mL",
-    "ug/ml": "µg/mL",
-    "ug/mL": "µg/mL",
-    "ng/ml": "ng/mL",
-    "pg/ml": "pg/mL",
-    "mg/ml": "mg/mL",
-    "mg/l": "mg/L",
-    "ug/l": "µg/L",
-    "μg/l": "µg/L",
-    "µg/l": "µg/L",
-}
-BOOLEAN_TRUE = {"true", "1", "yes", "y", "t"}
-BOOLEAN_FALSE = {"false", "0", "no", "n", "f"}
 INTEGER_COLUMNS: tuple[str, ...] = (
     "standard_flag",
     "potential_duplicate",
@@ -176,49 +137,19 @@ def _normalize_bao_id(value: Any) -> str | None:
     return normalized
 
 
-def _normalize_units(value: Any, default: str | None = None) -> str | None:
-    """Normalize measurement units using known synonyms."""
-
-    if _is_na(value):
-        return default
-
-    text = _canonicalize_whitespace(str(value))
-    key = text.lower()
-    canonical = UNIT_SYNONYMS.get(key)
-    if canonical is not None:
-        return canonical
-    return text
+# _normalize_units заменена на registry.get("numeric").normalize_units()
 
 
-def _normalize_relation(value: Any, default: str = "=") -> str:
-    """Normalize inequality relations to ASCII equivalents."""
-
-    if _is_na(value):
-        return default
-    relation = str(value).strip()
-    if relation == "":
-        return default
-    return RELATION_ALIASES.get(relation, RELATION_ALIASES.get(relation.lower(), default))
+# _normalize_relation заменена на registry.get("numeric").normalize_relation()
 
 
-def _normalize_float(value: Any) -> float | None:
-    """Convert values to float when possible."""
-
-    if _is_na(value):
-        return None
-    try:
-        result = float(str(value).strip())
-    except (TypeError, ValueError):
-        return None
-    if math.isnan(result):
-        return None
-    return result
+# _normalize_float заменена на registry.normalize("numeric", value)
 
 
 def _normalize_non_negative_float(value: Any, *, column: str) -> float | None:
     """Convert to float and drop negative values with a structured log entry."""
 
-    result = _normalize_float(value)
+    result = registry.normalize("numeric", value)
     if result is None:
         return None
     if result < 0:
@@ -232,32 +163,10 @@ def _normalize_non_negative_float(value: Any, *, column: str) -> float | None:
     return result
 
 
-def _normalize_int(value: Any) -> int | None:
-    """Convert values to integers when possible."""
-
-    if _is_na(value):
-        return None
-    try:
-        return int(str(value).strip())
-    except (TypeError, ValueError):
-        return None
+# _normalize_int заменена на registry.get("numeric").normalize_int(value)
 
 
-def _normalize_bool(value: Any, *, default: bool = False) -> bool:
-    """Normalize boolean-like values to strict bools."""
-
-    if _is_na(value):
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, int | float):
-        return bool(value)
-    text = str(value).strip().lower()
-    if text in BOOLEAN_TRUE:
-        return True
-    if text in BOOLEAN_FALSE:
-        return False
-    return default
+# _normalize_bool заменена на registry.get("numeric").normalize_bool(value, default=default)
 
 
 def _normalize_target_organism(value: Any) -> str | None:
@@ -279,71 +188,7 @@ def _parse_numeric(value: Any) -> float | None:
     return None
 
 
-def _normalize_activity_properties(
-    raw: Any,
-) -> tuple[str | None, list[dict[str, Any]]]:
-    """Canonicalize activity properties preserving all entries."""
-
-    if _is_na(raw):
-        return None, []
-
-    parsed: Any = raw
-    if isinstance(raw, str):
-        text = raw.strip()
-        if not text:
-            return None, []
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            return None, []
-
-    if isinstance(parsed, dict):
-        parsed = [parsed]
-
-    if not isinstance(parsed, list):
-        return None, []
-
-    normalized_records: list[dict[str, Any]] = []
-    for entry in parsed:
-        if not isinstance(entry, dict):
-            continue
-        normalized_entry: dict[str, Any] = {}
-        for key, value in entry.items():
-            if isinstance(value, str):
-                text_value = _normalize_string(value)
-                if text_value is None:
-                    normalized_entry[key] = None
-                else:
-                    numeric = _parse_numeric(text_value)
-                    normalized_entry[key] = numeric if numeric is not None else text_value
-            elif isinstance(value, int | float):
-                if isinstance(value, float) and math.isnan(value):
-                    normalized_entry[key] = None
-                else:
-                    normalized_entry[key] = value
-            elif isinstance(value, bool) or value is None:
-                normalized_entry[key] = value
-            else:
-                normalized_entry[key] = value
-        if normalized_entry:
-            normalized_records.append(dict(sorted(normalized_entry.items())))
-
-    if not normalized_records:
-        return None, []
-
-    normalized_records.sort(
-        key=lambda item: (
-            str(
-                item.get("name")
-                or item.get("type")
-                or item.get("property_name")
-                or ""
-            ).lower(),
-            json.dumps(item, ensure_ascii=False, sort_keys=True),
-        )
-    )
-    canonical = json.dumps(normalized_records, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-    return canonical, normalized_records
+# _normalize_activity_properties заменена на normalize_json_list из bioetl.utils.json
 
 
 def _normalize_ligand_efficiency(
@@ -354,10 +199,10 @@ def _normalize_ligand_efficiency(
     if not isinstance(ligand_efficiency, dict):
         return None, None, None, None
 
-    bei = _normalize_float(ligand_efficiency.get("bei"))
-    sei = _normalize_float(ligand_efficiency.get("sei"))
-    le = _normalize_float(ligand_efficiency.get("le"))
-    lle = _normalize_float(ligand_efficiency.get("lle"))
+    bei = registry.normalize("numeric", ligand_efficiency.get("bei"))
+    sei = registry.normalize("numeric", ligand_efficiency.get("sei"))
+    le = registry.normalize("numeric", ligand_efficiency.get("le"))
+    lle = registry.normalize("numeric", ligand_efficiency.get("lle"))
     return bei, sei, le, lle
 
 
@@ -385,7 +230,7 @@ def _derive_is_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower()
         if label.replace(" ", "_") == "is_citation":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -402,7 +247,7 @@ def _derive_exact_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "exact_data_citation":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -419,7 +264,7 @@ def _derive_rounded_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "rounded_data_citation":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -439,7 +284,7 @@ def _derive_high_citation_rate(properties: Sequence[dict[str, Any]]) -> bool:
         if numeric is not None and numeric >= 50:
             return True
         if label.replace(" ", "_") == "high_citation_rate":
-            return _normalize_bool(prop.get("value"), default=False)
+            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
     return False
 
 
@@ -451,55 +296,8 @@ def _derive_is_censored(relation: str | None) -> bool | None:
     return relation != "="
 
 
-def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
-    """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
-
-    The upstream ChEMBL payloads occasionally encode boolean or integer flags
-    using float or string representations (for example ``"1.0"``).  In other
-    cases the service returns genuinely non-integral values which cannot be
-    losslessly coerced to integers.  A naive ``astype("Int64")`` call converts
-    ``NaN`` values into ``<NA>`` but raises when encountering fractional
-    numbers.  The schema validation error reported in the CLI logs stems from
-    Pandera attempting to coerce these float columns to ``int64`` and failing
-    on the ``NaN`` placeholders.
-
-    To ensure deterministic behaviour we first coerce everything to numeric,
-    replace any fractional values with ``<NA>``, and only then materialise the
-    nullable integer array.  This mirrors the strategy used in the assay
-    pipeline and guarantees the dataframe presented to Pandera already matches
-    the declared schema.
-    """
-
-    for column in columns:
-        if column not in df.columns:
-            continue
-
-        series = pd.to_numeric(df[column], errors="coerce")
-
-        if series.empty:
-            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
-            continue
-
-        non_null = series.notna()
-        fractional_mask = pd.Series(False, index=series.index)
-        if non_null.any():
-            remainders = (series[non_null] % 1).abs()
-            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
-
-        if fractional_mask.any():
-            series.loc[fractional_mask] = pd.NA
-
-        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
-
-
-def _coerce_nullable_float_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
-    """Normalise optional float columns to ``float64`` with ``NaN`` placeholders."""
-
-    for column in columns:
-        if column not in df.columns:
-            continue
-
-        df[column] = pd.to_numeric(df[column], errors="coerce")
+# _coerce_nullable_int_columns и _coerce_nullable_float_columns заменены на
+# coerce_nullable_int_columns и coerce_nullable_float_columns из bioetl.utils.dtype
 
 
 class ActivityPipeline(PipelineBase):
@@ -696,7 +494,7 @@ class ActivityPipeline(PipelineBase):
                 ordered_columns = [column for column in expected_columns if column in df.columns]
                 df = df[ordered_columns + extra_columns]
 
-            _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+            coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
         logger.info("extraction_completed", rows=len(df), from_api=True)
         return df
 
@@ -742,34 +540,34 @@ class ActivityPipeline(PipelineBase):
     def _normalize_activity(self, activity: dict[str, Any]) -> dict[str, Any]:
         """Normalize raw activity payload into a flat record."""
 
-        activity_id = _normalize_int(activity.get("activity_id"))
+        activity_id = registry.get("numeric").normalize_int(activity.get("activity_id"))
         molecule_id = _normalize_chembl_id(activity.get("molecule_chembl_id"))
         assay_id = _normalize_chembl_id(activity.get("assay_chembl_id"))
         target_id = _normalize_chembl_id(activity.get("target_chembl_id"))
         document_id = _normalize_chembl_id(activity.get("document_chembl_id"))
 
         published_type = _normalize_string(activity.get("type") or activity.get("published_type"), uppercase=True)
-        published_relation = _normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
+        published_relation = registry.get("numeric").normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
         published_value = _normalize_non_negative_float(
             activity.get("value") or activity.get("published_value"),
             column="published_value",
         )
-        published_units = _normalize_units(activity.get("units") or activity.get("published_units"))
+        published_units = registry.get("numeric").normalize_units(activity.get("units") or activity.get("published_units"))
 
         standard_type = _normalize_string(activity.get("standard_type"), uppercase=True)
-        standard_relation = _normalize_relation(activity.get("standard_relation"), default="=")
+        standard_relation = registry.get("numeric").normalize_relation(activity.get("standard_relation"), default="=")
         standard_value = _normalize_non_negative_float(
             activity.get("standard_value"),
             column="standard_value",
         )
-        standard_units = _normalize_units(activity.get("standard_units"), default="nM")
-        standard_flag = _normalize_int(activity.get("standard_flag"))
+        standard_units = registry.get("numeric").normalize_units(activity.get("standard_units"), default="nM")
+        standard_flag = registry.get("numeric").normalize_int(activity.get("standard_flag"))
 
-        lower_bound = _normalize_float(activity.get("standard_lower_value") or activity.get("lower_value"))
-        upper_bound = _normalize_float(activity.get("standard_upper_value") or activity.get("upper_value"))
+        lower_bound = registry.normalize("numeric", activity.get("standard_lower_value") or activity.get("lower_value"))
+        upper_bound = registry.normalize("numeric", activity.get("standard_upper_value") or activity.get("upper_value"))
         is_censored = _derive_is_censored(standard_relation)
 
-        pchembl_value = _normalize_float(activity.get("pchembl_value"))
+        pchembl_value = registry.normalize("numeric", activity.get("pchembl_value"))
         activity_comment = _normalize_string(activity.get("activity_comment"))
         data_validity_comment = _normalize_string(activity.get("data_validity_comment"))
 
@@ -779,15 +577,15 @@ class ActivityPipeline(PipelineBase):
 
         canonical_smiles = _normalize_string(activity.get("canonical_smiles"))
         target_organism = _normalize_target_organism(activity.get("target_organism"))
-        target_tax_id = _normalize_int(activity.get("target_tax_id"))
+        target_tax_id = registry.get("numeric").normalize_int(activity.get("target_tax_id"))
 
-        potential_duplicate = _normalize_int(activity.get("potential_duplicate"))
+        potential_duplicate = registry.get("numeric").normalize_int(activity.get("potential_duplicate"))
         uo_units = _normalize_string(activity.get("uo_units"), uppercase=True)
         qudt_units = _normalize_string(activity.get("qudt_units"))
-        src_id = _normalize_int(activity.get("src_id"))
+        src_id = registry.get("numeric").normalize_int(activity.get("src_id"))
         action_type = _normalize_string(activity.get("action_type"))
 
-        properties_str, properties = _normalize_activity_properties(activity.get("activity_properties"))
+        properties_str, properties = normalize_json_list(activity.get("activity_properties"))
         ligand_efficiency = activity.get("ligand_efficiency") or activity.get("ligand_eff")
         bei, sei, le, lle = _normalize_ligand_efficiency(ligand_efficiency)
 
@@ -1075,7 +873,7 @@ class ActivityPipeline(PipelineBase):
         else:
             df["extracted_at"] = timestamp_now
 
-        _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+        coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
@@ -1109,12 +907,12 @@ class ActivityPipeline(PipelineBase):
                 )
             df = df[expected_cols]
 
-        _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+        coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         df = df.convert_dtypes()
         normalise_retry_after_column(df)
 
-        _coerce_nullable_float_columns(df, FLOAT_COLUMNS)
+        coerce_nullable_float_columns(df, FLOAT_COLUMNS)
 
         if "is_censored" in df.columns:
             df["is_censored"] = df["is_censored"].astype("boolean")
@@ -1167,8 +965,8 @@ class ActivityPipeline(PipelineBase):
                 df = df[ordered_columns]
 
         normalise_retry_after_column(df)
-        _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
-        _coerce_nullable_float_columns(df, FLOAT_COLUMNS)
+        coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+        coerce_nullable_float_columns(df, FLOAT_COLUMNS)
 
         qc_metrics = self._calculate_qc_metrics(df)
         fallback_stats = getattr(self, "_fallback_stats", None) or {}

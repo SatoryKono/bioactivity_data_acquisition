@@ -20,8 +20,10 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dtype import coerce_nullable_int_columns
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
 from bioetl.utils.io import load_input_frame, resolve_input_path
+from bioetl.utils.json import canonical_json
 
 logger = UnifiedLogger.get(__name__)
 
@@ -30,53 +32,7 @@ from pandera.pandas import DataFrameModel
 schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
 
 
-def _coerce_nullable_int_columns(
-    df: pd.DataFrame,
-    columns: Sequence[str],
-    minimum_values: Mapping[str, int] | None = None,
-    default_minimum: int | None = None,
-) -> None:
-    """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
-
-    The ChEMBL payloads frequently encode optional integer fields using string or
-    floating point representations (for example ``"1.0"``).  Pandera attempts to
-    coerce these values into ``int64`` and raises when encountering ``NaN`` or
-    fractional entries.  To shield the validation layer from these artefacts we
-    coerce to numeric values first, mask non-integral values as ``<NA>``, and
-    finally re-materialise the nullable integer array.
-    """
-
-    for column in columns:
-        if column not in df.columns:
-            continue
-
-        series = pd.to_numeric(df[column], errors="coerce")
-
-        min_value = None
-        if minimum_values is not None and column in minimum_values:
-            min_value = minimum_values[column]
-        elif default_minimum is not None:
-            min_value = default_minimum
-
-        if min_value is not None:
-            below_min_mask = series < min_value
-            if below_min_mask.any():
-                series.loc[below_min_mask] = pd.NA
-
-        if series.empty:
-            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
-            continue
-
-        non_null = series.notna()
-        fractional_mask = pd.Series(False, index=series.index)
-        if non_null.any():
-            remainders = (series[non_null] % 1).abs()
-            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
-
-        if fractional_mask.any():
-            series.loc[fractional_mask] = pd.NA
-
-        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+# _coerce_nullable_int_columns заменена на coerce_nullable_int_columns из bioetl.utils.dtype
 
 
 class TestItemPipeline(PipelineBase):
@@ -267,16 +223,7 @@ class TestItemPipeline(PipelineBase):
         ordered.extend(cls._FALLBACK_FIELDS)
         return ordered
 
-    @staticmethod
-    def _canonical_json(value: Any) -> str | None:
-        """Serialize value to canonical JSON string."""
-
-        if value in (None, ""):
-            return None
-        try:
-            return json.dumps(value, sort_keys=True, separators=(",", ":"))
-        except (TypeError, ValueError):
-            return None
+    # _canonical_json заменена на canonical_json из bioetl.utils.json
 
     @classmethod
     def _empty_molecule_record(cls) -> dict[str, Any]:
@@ -308,7 +255,7 @@ class TestItemPipeline(PipelineBase):
         if isinstance(hierarchy, dict) and hierarchy:
             flattened["parent_chembl_id"] = hierarchy.get("parent_chembl_id")
             flattened["parent_molregno"] = hierarchy.get("parent_molregno")
-            flattened["molecule_hierarchy"] = cls._canonical_json(hierarchy)
+            flattened["molecule_hierarchy"] = canonical_json(hierarchy)
 
         return flattened
 
@@ -356,7 +303,7 @@ class TestItemPipeline(PipelineBase):
             if flattened["rtb"] is None and "num_rotatable_bonds" in props:
                 flattened["rtb"] = props.get("num_rotatable_bonds")
 
-            flattened["molecule_properties"] = cls._canonical_json(props)
+            flattened["molecule_properties"] = canonical_json(props)
 
         return flattened
 
@@ -376,7 +323,7 @@ class TestItemPipeline(PipelineBase):
             flattened["standardized_smiles"] = structures.get("canonical_smiles")
             flattened["standard_inchi"] = structures.get("standard_inchi")
             flattened["standard_inchi_key"] = structures.get("standard_inchi_key")
-            flattened["molecule_structures"] = cls._canonical_json(structures)
+            flattened["molecule_structures"] = canonical_json(structures)
 
         return flattened
 
@@ -429,7 +376,7 @@ class TestItemPipeline(PipelineBase):
 
             if normalized_entries:
                 sorted_entries = cls._sorted_synonym_entries(normalized_entries)
-                flattened["molecule_synonyms"] = cls._canonical_json(sorted_entries)
+                flattened["molecule_synonyms"] = canonical_json(sorted_entries)
 
         return flattened
 
@@ -440,7 +387,7 @@ class TestItemPipeline(PipelineBase):
         value = molecule.get(field_name)
         if value in (None, ""):
             return None
-        return cls._canonical_json(value)
+        return canonical_json(value)
 
 
     def __init__(self, config: PipelineConfig, run_id: str):
@@ -938,7 +885,7 @@ class TestItemPipeline(PipelineBase):
             if missing_columns:
                 df = df.assign(**{col: None for col in missing_columns})
 
-            _coerce_nullable_int_columns(
+            coerce_nullable_int_columns(
                 df,
                 self._NULLABLE_INT_COLUMNS,
                 self._INT_COLUMN_MINIMUMS,

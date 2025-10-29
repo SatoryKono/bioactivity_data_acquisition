@@ -32,6 +32,7 @@ from bioetl.schemas.document import (
 )
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dtype import coerce_optional_bool
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
 from bioetl.utils.io import load_input_frame, resolve_input_path
 
@@ -713,7 +714,7 @@ class DocumentPipeline(PipelineBase):
         # Map is_experimental_doc to original_experimental_document (boolean)
         if "is_experimental_doc" in df.columns:
             df["original_experimental_document"] = df["is_experimental_doc"].apply(
-                self._coerce_optional_bool
+                coerce_optional_bool
             )
 
         # Map document_contains_external_links to referenses_on_previous_experiments
@@ -832,29 +833,7 @@ class DocumentPipeline(PipelineBase):
 
         return df
 
-    @staticmethod
-    def _coerce_optional_bool(value: object) -> bool | NAType:
-        """Convert assorted boolean representations into pandas nullable booleans."""
-
-        if value is None or (isinstance(value, float) and pd.isna(value)):
-            return pd.NA
-
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized in {"", "na", "none", "null"}:
-                return pd.NA
-            if normalized in {"true", "1", "yes", "y", "t"}:
-                return True
-            if normalized in {"false", "0", "no", "n", "f"}:
-                return False
-
-        if isinstance(value, (bool, int)):
-            return bool(value)
-
-        if pd.isna(value):
-            return pd.NA
-
-        return bool(value)
+    # _coerce_optional_bool заменена на coerce_optional_bool из bioetl.utils.dtype
 
     def _enforce_schema_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
         """Cast columns to schema-compatible nullable dtypes."""
