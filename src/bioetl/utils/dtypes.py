@@ -84,11 +84,12 @@ def coerce_nullable_float(df: pd.DataFrame, columns: Sequence[str]) -> None:
     for column in columns:
         if column not in df.columns:
             continue
-        df[column] = pd.to_numeric(df[column], errors="coerce")
+        numeric = pd.to_numeric(df[column], errors="coerce")
+        df[column] = pd.Series(pd.array(numeric, dtype="Float64"), index=df.index)
 
 
-def coerce_optional_bool(value: object) -> bool | NAType:
-    """Best-effort coercion of optional booleans preserving ``pd.NA``."""
+def _coerce_optional_bool_scalar(value: object) -> bool | NAType:
+    """Coerce a scalar value to a pandas ``boolean`` compatible value."""
 
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return pd.NA
@@ -97,18 +98,56 @@ def coerce_optional_bool(value: object) -> bool | NAType:
         normalized = value.strip().lower()
         if normalized in {"", "na", "none", "null"}:
             return pd.NA
-        if normalized in {"true", "1", "yes", "y", "t"}:
+        if normalized in {"true", "t"}:
             return True
-        if normalized in {"false", "0", "no", "n", "f"}:
+        if normalized in {"false", "f", "0"}:
             return False
+        return pd.NA
 
-    if isinstance(value, (bool, int)):
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, int):
         return bool(value)
 
     if pd.isna(value):  # type: ignore[arg-type]
         return pd.NA
 
     return bool(value)
+
+
+def coerce_optional_bool(
+    value: object, columns: Sequence[str] | None = None
+) -> bool | NAType | pd.Series | pd.DataFrame | None:
+    """Best-effort coercion of optional booleans preserving ``pd.NA``.
+
+    The helper accepts several input types for backwards compatibility:
+
+    * When ``value`` is a scalar, the coerced scalar is returned.
+    * When ``value`` is a :class:`pandas.Series`, the coerced series with
+      ``boolean`` dtype is returned.
+    * When ``value`` is a :class:`pandas.DataFrame`, the provided ``columns``
+      are coerced in-place and the dataframe is returned.
+    """
+
+    if isinstance(value, pd.DataFrame):
+        if columns is None:
+            raise TypeError(
+                "'columns' must be provided when coercing a DataFrame with "
+                "coerce_optional_bool."
+            )
+        for column in columns:
+            if column not in value.columns:
+                continue
+            coerced = value[column].apply(_coerce_optional_bool_scalar)
+            value[column] = pd.Series(coerced, dtype="boolean", index=value.index)
+        return value
+
+    if isinstance(value, pd.Series):
+        coerced_series = value.apply(_coerce_optional_bool_scalar)
+        return pd.Series(coerced_series, dtype="boolean", index=value.index)
+
+    return _coerce_optional_bool_scalar(value)
 
 
 def coerce_retry_after(df: pd.DataFrame, column: str = "fallback_retry_after_sec") -> None:
@@ -130,14 +169,25 @@ def coerce_nullable_int_columns(
     columns: Sequence[str],
     minimum_values: Mapping[str, Any] | None = None,
     default_minimum: int | float | None = None,
+    *,
+    minimums: Mapping[str, Any] | None = None,
 ) -> None:
     """Backwards compatible wrapper around :func:`coerce_nullable_int`."""
 
-    min_values: Mapping[str, Any] | int | float | None = minimum_values
+    if minimum_values is not None and minimums is not None:
+        raise TypeError(
+            "'minimum_values' and 'minimums' are aliases; provide only one of them."
+        )
+
+    min_values: Mapping[str, Any] | int | float | None = (
+        minimum_values if minimum_values is not None else minimums
+    )
     if default_minimum is not None:
         base: dict[str, Any] = {}
         if isinstance(minimum_values, Mapping):
             base.update(minimum_values)
+        elif isinstance(minimums, Mapping):
+            base.update(minimums)
         base[_DEFAULT_MINIMUM_KEYS[0]] = default_minimum
         min_values = base
     coerce_nullable_int(df, columns, min_values=min_values)
