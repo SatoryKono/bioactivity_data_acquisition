@@ -125,17 +125,25 @@ class DocumentSchema(BaseSchema):
     )
 
     # Core document information
-    document_pubmed_id: Series[int] = pa.Field(nullable=True, description="Document PubMed ID")
-    document_classification: Series[str] = pa.Field(nullable=True, description="Document classification")
-    referenses_on_previous_experiments: Series[pandas_engine.BOOL] = pa.Field(
-        nullable=True, description="References on previous experiments"
+    document_pubmed_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Document PubMed ID",
     )
-    original_experimental_document: Series[pandas_engine.BOOL] = pa.Field(
-        nullable=True, description="Original experimental document"
+    document_classification: Series[str] = pa.Field(nullable=True, description="Document classification")
+    referenses_on_previous_experiments: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="References on previous experiments",
+    )
+    original_experimental_document: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Original experimental document",
     )
 
     # Resolved fields with precedence
-    pmid: Series[int] = pa.Field(nullable=True, description="Resolved PMID using precedence")
+    pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved PMID using precedence",
+    )
     pmid_source: Series[str] = pa.Field(nullable=True, description="Source of resolved PMID")
     doi_clean: Series[str] = pa.Field(nullable=True, description="Resolved DOI using precedence")
     doi_clean_source: Series[str] = pa.Field(nullable=True, description="Source of resolved DOI")
@@ -149,7 +157,10 @@ class DocumentSchema(BaseSchema):
     journal_abbrev_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal abbreviation")
     authors: Series[str] = pa.Field(nullable=True, description="Resolved authors")
     authors_source: Series[str] = pa.Field(nullable=True, description="Source of resolved authors")
-    year: Series[int] = pa.Field(nullable=True, description="Resolved publication year")
+    year: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved publication year",
+    )
     year_source: Series[str] = pa.Field(nullable=True, description="Source of resolved publication year")
     volume: Series[str] = pa.Field(nullable=True, description="Resolved journal volume")
     volume_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal volume")
@@ -163,17 +174,24 @@ class DocumentSchema(BaseSchema):
     issn_print_source: Series[str] = pa.Field(nullable=True, description="Source of resolved print ISSN")
     issn_electronic: Series[str] = pa.Field(nullable=True, description="Resolved electronic ISSN")
     issn_electronic_source: Series[str] = pa.Field(nullable=True, description="Source of resolved electronic ISSN")
-    is_oa: Series[pandas_engine.BOOL] = pa.Field(
-        nullable=True, description="Resolved Open Access flag"
+    is_oa: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Resolved Open Access flag",
     )
     is_oa_source: Series[str] = pa.Field(nullable=True, description="Source of Open Access flag")
     oa_status: Series[str] = pa.Field(nullable=True, description="Resolved OA status")
     oa_status_source: Series[str] = pa.Field(nullable=True, description="Source of OA status")
     oa_url: Series[str] = pa.Field(nullable=True, description="Resolved OA URL")
     oa_url_source: Series[str] = pa.Field(nullable=True, description="Source of OA URL")
-    citation_count: Series[int] = pa.Field(nullable=True, description="Resolved citation count")
+    citation_count: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved citation count",
+    )
     citation_count_source: Series[str] = pa.Field(nullable=True, description="Source of citation count")
-    influential_citations: Series[int] = pa.Field(nullable=True, description="Resolved influential citation count")
+    influential_citations: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Resolved influential citation count",
+    )
     influential_citations_source: Series[str] = pa.Field(nullable=True, description="Source of influential citations")
     fields_of_study: Series[str] = pa.Field(nullable=True, description="Resolved fields of study")
     fields_of_study_source: Series[str] = pa.Field(nullable=True, description="Source of fields of study")
@@ -184,18 +202,32 @@ class DocumentSchema(BaseSchema):
     chemicals: Series[str] = pa.Field(nullable=True, description="Resolved chemicals list")
     chemicals_source: Series[str] = pa.Field(nullable=True, description="Source of chemicals list")
 
-    conflict_doi: Series[pandas_engine.BOOL] = pa.Field(
-        nullable=True, description="Conflict flag for DOI discrepancies"
+    conflict_doi: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Conflict flag for DOI discrepancies",
     )
-    conflict_pmid: Series[pandas_engine.BOOL] = pa.Field(
-        nullable=True, description="Conflict flag for PMID discrepancies"
+    conflict_pmid: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Conflict flag for PMID discrepancies",
     )
 
     # PMID fields (4 sources)
-    chembl_pmid: Series[int] = pa.Field(nullable=True, description="PMID из ChEMBL")
-    pubmed_pmid: Series[int] = pa.Field(nullable=True, description="PMID из PubMed")
-    openalex_pmid: Series[int] = pa.Field(nullable=True, description="PMID из OpenAlex")
-    semantic_scholar_pmid: Series[int] = pa.Field(nullable=True, description="PMID из Semantic Scholar")
+    chembl_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из ChEMBL",
+    )
+    pubmed_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из PubMed",
+    )
+    openalex_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из OpenAlex",
+    )
+    semantic_scholar_pmid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PMID из Semantic Scholar",
+    )
 
     # Title fields (5 sources)
     chembl_title: Series[str] = pa.Field(nullable=True, description="Заголовок из ChEMBL")
@@ -236,10 +268,16 @@ class DocumentSchema(BaseSchema):
     semantic_scholar_journal: Series[str] = pa.Field(nullable=True, description="Название журнала из Semantic Scholar")
 
     # Year fields (2 sources)
-    chembl_year: Series[int] = pa.Field(
-        ge=1800, le=2100, nullable=True, description="Год публикации из ChEMBL"
+    chembl_year: Series[pd.Int64Dtype] = pa.Field(
+        ge=1800,
+        le=2100,
+        nullable=True,
+        description="Год публикации из ChEMBL",
     )
-    openalex_year: Series[int] = pa.Field(nullable=True, description="Год публикации из OpenAlex")
+    openalex_year: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Год публикации из OpenAlex",
+    )
 
     # Volume/Issue fields (4 sources)
     chembl_volume: Series[str] = pa.Field(nullable=True, description="Том журнала из ChEMBL")
@@ -260,12 +298,30 @@ class DocumentSchema(BaseSchema):
     pubmed_mesh_descriptors: Series[str] = pa.Field(nullable=True, description="PubMed MeSH descriptors")
     pubmed_mesh_qualifiers: Series[str] = pa.Field(nullable=True, description="PubMed MeSH qualifiers")
     pubmed_chemical_list: Series[str] = pa.Field(nullable=True, description="PubMed chemical list")
-    pubmed_year_completed: Series[int] = pa.Field(nullable=True, description="PubMed year completed")
-    pubmed_month_completed: Series[int] = pa.Field(nullable=True, description="PubMed month completed")
-    pubmed_day_completed: Series[int] = pa.Field(nullable=True, description="PubMed day completed")
-    pubmed_year_revised: Series[int] = pa.Field(nullable=True, description="PubMed year revised")
-    pubmed_month_revised: Series[int] = pa.Field(nullable=True, description="PubMed month revised")
-    pubmed_day_revised: Series[int] = pa.Field(nullable=True, description="PubMed day revised")
+    pubmed_year_completed: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed year completed",
+    )
+    pubmed_month_completed: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed month completed",
+    )
+    pubmed_day_completed: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed day completed",
+    )
+    pubmed_year_revised: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed year revised",
+    )
+    pubmed_month_revised: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed month revised",
+    )
+    pubmed_day_revised: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="PubMed day revised",
+    )
 
     # Crossref specific
     crossref_subject: Series[str] = pa.Field(nullable=True, description="Crossref subject")
