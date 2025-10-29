@@ -15,11 +15,8 @@ import pandas as pd
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import (
-    APIConfig,
-    CircuitBreakerOpenError,
-    UnifiedAPIClient,
-)
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -166,26 +163,20 @@ class ActivityPipeline(PipelineBase):
         self._last_validation_report: dict[str, Any] | None = None
         self._fallback_stats: dict[str, Any] = {}
 
-        # Initialize ChEMBL API client
-        chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = chembl_source.get("batch_size", 25) or 25
-        elif chembl_source is not None:
-            base_url = getattr(chembl_source, "base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = getattr(chembl_source, "batch_size", 25) or 25
-        else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
-            batch_size = 25
-
-        chembl_config = APIConfig(
-            name="chembl",
-            base_url=base_url,
-            cache_enabled=config.cache.enabled,
-            cache_ttl=config.cache.ttl,
+        factory = APIClientFactory.from_pipeline_config(config)
+        chembl_source = ensure_target_source_config(
+            config.sources.get("chembl"),
+            defaults={
+                "enabled": True,
+                "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+                "batch_size": 25,
+            },
         )
+
+        chembl_config = factory.create("chembl", chembl_source)
         self.api_client = UnifiedAPIClient(chembl_config)
-        self.batch_size = min(batch_size, 25)
+        batch_size_value = chembl_source.batch_size or 25
+        self.batch_size = min(batch_size_value, 25)
 
         # Status handshake for release metadata
         self._status_snapshot: dict[str, Any] | None = None
