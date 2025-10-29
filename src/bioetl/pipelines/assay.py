@@ -47,7 +47,6 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = {
 
 # Nullable integer columns that require explicit coercion before schema validation.
 _NULLABLE_INT_COLUMNS = (
-    "row_index",
     "assay_tax_id",
     "confidence_score",
     "species_group_flag",
@@ -60,43 +59,14 @@ _NULLABLE_INT_COLUMNS = (
 
 
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
-    """Coerce selected columns to Pandera-compatible integer dtypes."""
-
-    # Fetch schema metadata once to determine the expected dtype for each
-    # nullable integer column. Accessing ``to_schema`` repeatedly is relatively
-    # expensive and allocating it inside the loop would also make the function
-    # harder to test in isolation, so we resolve it lazily only if we actually
-    # need to coerce at least one column that exists in the frame.
-    schema = None
+    """Coerce selected columns to Pandera-compatible nullable integer dtype."""
 
     for column in columns:
         if column not in df.columns:
             continue
 
-        if schema is None:
-            # Import lazily to avoid circular imports at module load time.
-            from bioetl.schemas.assay import AssaySchema
-
-            schema = AssaySchema.to_schema()
-
         series = pd.to_numeric(df[column], errors="coerce")
-
-        target_dtype = None
-        if schema is not None:
-            schema_column = schema.columns.get(column)
-            if schema_column is not None:
-                target_dtype = str(schema_column.dtype.type).lower()
-
-        # Pandera represents nullable integer columns as ``Int64`` while the
-        # runtime data coming from the API may already be clean integers. When
-        # the schema expects a strict ``int64`` dtype (non-nullable), we only
-        # cast to the numpy dtype if the series does not contain missing
-        # values; otherwise we fall back to pandas' nullable ``Int64`` dtype so
-        # Pandera can still coerce it successfully during validation.
-        if target_dtype == "int64" and not series.isna().any():
-            df[column] = series.astype("int64", copy=False)
-        else:
-            df[column] = pd.array(series, dtype="Int64")
+        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
 
 
 class AssayPipeline(PipelineBase):
@@ -791,17 +761,7 @@ class AssayPipeline(PipelineBase):
         else:
             df["row_index"] = pd.Series([0] * len(df), dtype="Int64")
 
-        nullable_int_columns = [
-            "row_index",
-            "assay_tax_id",
-            "confidence_score",
-            "src_id",
-            "species_group_flag",
-            "tax_id",
-            "component_count",
-            "assay_class_id",
-            "variant_id",
-        ]
+        nullable_int_columns = list(_NULLABLE_INT_COLUMNS)
 
         _coerce_nullable_int_columns(df, nullable_int_columns)
 
