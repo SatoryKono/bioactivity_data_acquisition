@@ -905,6 +905,25 @@ class TestActivityPipeline:
         assert "qc.fallback.count" in issues
         assert issues["qc.fallback.count"]["severity"] in {"warning", "error", "info"}
 
+    def test_validate_coerces_missing_retry_after_seconds(self, activity_config):
+        """Nullable Retry-After column should be coerced to float for schema validation."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = self._build_activity_dataframe(activity_id=303)
+
+        transformed = pipeline.transform(df)
+
+        assert "fallback_retry_after_sec" in transformed.columns
+        assert transformed["fallback_retry_after_sec"].isna().all()
+
+        validated = pipeline.validate(transformed)
+
+        assert not validated.empty
+        assert is_float_dtype(validated["fallback_retry_after_sec"])  # numpy float dtype
+        assert validated["fallback_retry_after_sec"].isna().all()
+
     def test_activity_quality_report_includes_qc_metrics(self, activity_config, tmp_path):
         """QC artifacts should include validation issues emitted by the pipeline."""
 
