@@ -654,6 +654,9 @@ class TargetPipeline(PipelineBase):
                     self._severity_value(severity)
                     >= self._severity_value("error")
                 ):
+                    self._severity_value(severity)
+                    >= self._severity_value("error")
+                ):
                     failing.append(key)
 
         for metric_name, metric_value in self.qc_metrics.items():
