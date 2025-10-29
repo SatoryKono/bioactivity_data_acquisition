@@ -77,6 +77,12 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             "--golden",
             help="Optional golden dataset for deterministic comparisons",
         ),
+        limit: int | None = typer.Option(
+            None,
+            "--limit",
+            help="Deprecated alias for --sample",
+            hidden=True,
+        ),
         sample: int | None = typer.Option(
             None,
             "--sample",
@@ -122,11 +128,26 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
     ) -> None:
         """Execute the configured pipeline."""
 
-        _validate_sample(sample)
+        if sample is not None and limit is not None and sample != limit:
+            raise typer.BadParameter(
+                "--sample and --limit must match when both are provided",
+                param_name="sample",
+            )
+
+        sample_limit = sample if sample is not None else limit
+
+        _validate_sample(sample_limit)
         _validate_mode(mode, config.mode_choices)
 
         UnifiedLogger.setup(mode="development" if verbose else "production")
         logger = UnifiedLogger.get(f"cli.{config.pipeline_name}")
+
+        if limit is not None and sample is None:
+            logger.warning(
+                "deprecated_cli_option_used",
+                option="--limit",
+                replacement="--sample",
+            )
 
         try:
             overrides = parse_cli_overrides(set_values)
@@ -144,8 +165,8 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
             if golden is not None:
                 cli_overrides["golden"] = str(golden)
-            if sample is not None:
-                cli_overrides["sample"] = sample
+            if sample_limit is not None:
+                cli_overrides["sample"] = sample_limit
 
             config_obj = load_config(config_path, overrides=overrides)
 
@@ -160,17 +181,17 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 typer.echo(f"Config hash: {config_obj.config_hash}")
                 return
 
-            if sample is not None:
+            if sample_limit is not None:
                 original_extract = pipeline.extract
 
                 def limited_extract(*args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
                     df = original_extract(*args, **kwargs)
                     logger.info(
                         "applying_sample_limit",
-                        limit=sample,
+                        limit=sample_limit,
                         original_rows=len(df),
                     )
-                    return df.head(sample)
+                    return df.head(sample_limit)
 
                 pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
 
