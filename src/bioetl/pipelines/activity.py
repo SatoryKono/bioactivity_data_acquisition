@@ -28,6 +28,7 @@ from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
@@ -210,6 +211,23 @@ def _normalize_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     if math.isnan(result):
+        return None
+    return result
+
+
+def _normalize_non_negative_float(value: Any, *, column: str) -> float | None:
+    """Convert to float and drop negative values with a structured log entry."""
+
+    result = _normalize_float(value)
+    if result is None:
+        return None
+    if result < 0:
+        logger.warning(
+            "non_negative_float_sanitized",
+            column=column,
+            original_value=result,
+            sanitized_value=None,
+        )
         return None
     return result
 
@@ -519,20 +537,25 @@ class ActivityPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract activity data from input file."""
-        if input_file is None:
-            # Default to data/input/activity.csv
-            input_file = Path("data/input/activity.csv")
+        default_filename = Path("activity.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        # Read input file with activity IDs
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            expected_cols = ActivitySchema.get_column_order()
-            return pd.DataFrame(columns=expected_cols if expected_cols else [])
+        expected_cols = ActivitySchema.get_column_order() or []
+        limit_value = self.get_runtime_limit()
 
-        # Read CSV file
-        df = pd.read_csv(input_file)
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=expected_cols,
+            limit=limit_value,
+        )
+
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         # Map activity_chembl_id to activity_id if needed
         if 'activity_chembl_id' in df.columns:
@@ -542,7 +565,6 @@ class ActivityPipeline(PipelineBase):
         # Extract activity IDs for API call
         activity_ids = df['activity_id'].dropna().astype(int).unique().tolist()
 
-        limit_value = self.get_runtime_limit()
         if limit_value is not None and len(activity_ids) > limit_value:
             logger.info(
                 "applying_input_limit",
@@ -728,12 +750,18 @@ class ActivityPipeline(PipelineBase):
 
         published_type = _normalize_string(activity.get("type") or activity.get("published_type"), uppercase=True)
         published_relation = _normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
-        published_value = _normalize_float(activity.get("value") or activity.get("published_value"))
+        published_value = _normalize_non_negative_float(
+            activity.get("value") or activity.get("published_value"),
+            column="published_value",
+        )
         published_units = _normalize_units(activity.get("units") or activity.get("published_units"))
 
         standard_type = _normalize_string(activity.get("standard_type"), uppercase=True)
         standard_relation = _normalize_relation(activity.get("standard_relation"), default="=")
-        standard_value = _normalize_float(activity.get("standard_value"))
+        standard_value = _normalize_non_negative_float(
+            activity.get("standard_value"),
+            column="standard_value",
+        )
         standard_units = _normalize_units(activity.get("standard_units"), default="nM")
         standard_flag = _normalize_int(activity.get("standard_flag"))
 
@@ -1339,7 +1367,7 @@ class ActivityPipeline(PipelineBase):
         self._fallback_stats = {}
 
         if "source_system" not in df.columns:
-            self.additional_tables.pop("activity_fallback_records", None)
+            self.remove_additional_table("activity_fallback_records")
             self.qc_summary_data.pop("fallbacks", None)
             return
 
@@ -1416,9 +1444,13 @@ class ActivityPipeline(PipelineBase):
                 activity_ids=fallback_ids,
                 reasons=reason_counts,
             )
-            self.additional_tables["activity_fallback_records"] = fallback_records
+            self.add_additional_table(
+                "activity_fallback_records",
+                fallback_records,
+                relative_path=Path("qc") / "activity_fallback_records.csv",
+            )
         else:
-            self.additional_tables.pop("activity_fallback_records", None)
+            self.remove_additional_table("activity_fallback_records")
 
     @property
     def last_validation_report(self) -> dict[str, Any] | None:

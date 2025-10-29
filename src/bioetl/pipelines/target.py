@@ -41,6 +41,7 @@ from bioetl.schemas import (
 )
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils import finalize_pipeline_output
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
@@ -314,39 +315,35 @@ class TargetPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract target data from input file."""
-        if input_file is None:
-            # Default to data/input/target.csv
-            input_file = Path("data/input/target.csv")
+        default_filename = Path("target.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        # Read input file with target IDs
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            # Return empty DataFrame with schema structure
-            return pd.DataFrame(columns=[
-                "target_chembl_id", "pref_name", "target_type", "organism",
-                "taxonomy", "hgnc_id", "uniprot_accession",
-                "iuphar_type", "iuphar_class", "iuphar_subclass",
-            ])
+        expected_columns = [
+            "target_chembl_id",
+            "pref_name",
+            "target_type",
+            "organism",
+            "taxonomy",
+            "hgnc_id",
+            "uniprot_accession",
+            "iuphar_type",
+            "iuphar_class",
+            "iuphar_subclass",
+        ]
 
-        df = pd.read_csv(input_file)  # Read all records
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=expected_columns,
+            limit=self.get_runtime_limit(),
+        )
 
-        limit = self.runtime_options.get("limit")
-        if limit is not None:
-            try:
-                limit_value = int(limit)
-            except (TypeError, ValueError):  # pragma: no cover - defensive guard
-                logger.warning("invalid_limit_option", limit=limit)
-            else:
-                if limit_value > 0:
-                    logger.info(
-                        "applying_input_limit",
-                        limit=limit_value,
-                        original_rows=len(df),
-                    )
-                    df = df.head(limit_value)
-                    self.runtime_options["limit"] = limit_value
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         logger.info("extraction_completed", rows=len(df))
         return df
@@ -520,21 +517,28 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class = gold_protein_class
         self.gold_xref = gold_xref
 
-        additional_tables: dict[str, pd.DataFrame] = {}
+        self.additional_tables.clear()
         if not gold_components.empty:
-            additional_tables["target_components"] = gold_components
+            self.add_additional_table("target_components", gold_components)
         if not gold_protein_class.empty:
-            additional_tables["target_protein_classifications"] = gold_protein_class
+            self.add_additional_table(
+                "target_protein_classifications",
+                gold_protein_class,
+            )
         if not gold_xref.empty:
-            additional_tables["target_xrefs"] = gold_xref
+            self.add_additional_table("target_xrefs", gold_xref)
         if not component_enrichment.empty:
-            additional_tables["target_component_enrichment"] = component_enrichment
+            self.add_additional_table(
+                "target_component_enrichment",
+                component_enrichment,
+            )
         if not iuphar_classification.empty:
-            additional_tables["target_iuphar_classification"] = iuphar_classification
+            self.add_additional_table(
+                "target_iuphar_classification",
+                iuphar_classification,
+            )
         if not iuphar_gold.empty:
-            additional_tables["target_iuphar_enrichment"] = iuphar_gold
-
-        self.additional_tables = additional_tables
+            self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
 
         self.export_metadata = OutputMetadata.from_dataframe(
             gold_targets,

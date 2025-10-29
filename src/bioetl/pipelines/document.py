@@ -33,6 +33,7 @@ from bioetl.schemas.document import (
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 NAType = type(pd.NA)
 
@@ -132,16 +133,22 @@ class DocumentPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
-        if input_file is None:
-            input_file = Path("data/input/document.csv")
+        default_filename = Path("document.csv")
+        input_path = Path(input_file) if input_file is not None else default_filename
+        resolved_path = resolve_input_path(self.config, input_path)
 
-        logger.info("reading_input", path=input_file)
+        logger.info("reading_input", path=resolved_path)
 
-        if not input_file.exists():
-            logger.warning("input_file_not_found", path=input_file)
-            return pd.DataFrame(columns=["document_chembl_id"])
+        df = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=["document_chembl_id"],
+            dtype="string",
+        )
 
-        df = pd.read_csv(input_file, dtype="string")
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return df
 
         valid_ids, rejected_rows = self._prepare_input_ids(df)
         if rejected_rows:
@@ -445,12 +452,18 @@ class DocumentPipeline(PipelineBase):
     def _persist_rejected_inputs(self, rows: list[dict[str, str]]) -> None:
         """Persist rejected inputs for auditability."""
 
-        rejected_df = pd.DataFrame(rows)
-        output_dir = Path("data/output/rejected_inputs")
-        output_dir.mkdir(parents=True, exist_ok=True)
-        output_path = output_dir / f"document_rejected_{self.run_id}.csv"
-        logger.warning("rejected_inputs_found", count=len(rejected_df), path=output_path)
-        self.output_writer.atomic_writer.write(rejected_df, output_path)
+        rejected_df = pd.DataFrame(rows).convert_dtypes()
+        relative_output = Path("qc") / "document_rejected_inputs.csv"
+        logger.warning(
+            "rejected_inputs_found",
+            count=len(rejected_df),
+            path=str(relative_output),
+        )
+        self.add_additional_table(
+            "document_rejected_inputs",
+            rejected_df,
+            relative_path=relative_output,
+        )
 
     def _validate_raw_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate raw payloads against Pandera schema before transformation."""
