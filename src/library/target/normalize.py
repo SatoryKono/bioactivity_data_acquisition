@@ -10,6 +10,46 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+CHEMBL_TARGET_PREFIX = "CHEMBL.TARGETS."
+SYSTEM_COLUMNS = {
+    "pipeline_version",
+    "source_system",
+    "chembl_release",
+    "extracted_at",
+    "hash_row",
+    "hash_business_key",
+    "index",
+}
+
+DEFAULT_TARGET_COLUMNS = {
+    "target_chembl_id",
+    "isoform_ids",
+    "isoform_names",
+    "isoforms",
+    "organism",
+    "pH_dependence",
+    "primaryAccession",
+    "target_names",
+    "target_uniprot_id",
+    "pref_name",
+    "target_type",
+    "organism_chembl",
+    "tax_id",
+    "species_group_flag",
+    "target_components",
+    "protein_classifications",
+    "cross_references",
+    "target_names_chembl",
+    "pH_dependence_chembl",
+    "target_organism",
+    "target_tax_id",
+    "target_uniprot_accession",
+    "target_isoform",
+    "isoform_ids_chembl",
+    "isoform_names_chembl",
+    "isoforms_chembl",
+}
+
 
 class TargetNormalizer:
     """Normalizer for target data."""
@@ -161,15 +201,30 @@ class TargetNormalizer:
                 mapping[column_name] = column_name
 
         logger.info(f"Loaded column mapping: {mapping}")
+        if not mapping:
+            mapping = {
+                column: f"{CHEMBL_TARGET_PREFIX}{column}"
+                for column in DEFAULT_TARGET_COLUMNS
+            }
+            logger.info(
+                "column_mapping_default_prefix_applied",
+                mapped_columns=len(mapping),
+            )
+
         return mapping
 
     def _load_expected_columns(self) -> list[str]:
         """Load expected columns from config."""
         # Handle both dict and object config
         if hasattr(self.config, 'determinism'):
-            return self.config.determinism.column_order if hasattr(self.config.determinism, 'column_order') else []
+            columns = self.config.determinism.column_order if hasattr(self.config.determinism, 'column_order') else []
         else:
-            return self.config.get("determinism", {}).get("column_order", [])
+            columns = self.config.get("determinism", {}).get("column_order", [])
+
+        if not columns and self.column_mapping:
+            columns = list(self.column_mapping.values())
+
+        return columns
 
     def _map_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """Map column names to schema format."""
@@ -181,9 +236,23 @@ class TargetNormalizer:
         # Apply column mapping
         for simple_name, prefixed_name in self.column_mapping.items():
             if simple_name in mapped_df.columns and simple_name != prefixed_name:
-                # Rename the column
                 mapped_df = mapped_df.rename(columns={simple_name: prefixed_name})
                 logger.debug(f"Mapped {simple_name} -> {prefixed_name}")
+
+        dynamic_mapping = {
+            column: f"{CHEMBL_TARGET_PREFIX}{column}"
+            for column in mapped_df.columns
+            if "." not in column
+            and column not in SYSTEM_COLUMNS
+            and column not in self.column_mapping
+        }
+        if dynamic_mapping:
+            mapped_df = mapped_df.rename(columns=dynamic_mapping)
+            self.column_mapping.update(dynamic_mapping)
+            logger.info(
+                "column_mapping_dynamic_prefix_applied",
+                mapped_columns=len(dynamic_mapping),
+            )
 
         logger.info(f"Column mapping completed. Columns: {list(mapped_df.columns)}")
         return mapped_df
@@ -198,7 +267,7 @@ class TargetNormalizer:
         # Add missing columns with None values
         for column_name in self.expected_columns:
             if column_name not in filled_df.columns:
-                filled_df[column_name] = None
+                filled_df[column_name] = pd.NA
                 logger.debug(f"Added missing column: {column_name}")
 
         logger.info(f"Missing columns filled. Total columns: {len(filled_df.columns)}")
