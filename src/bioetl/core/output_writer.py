@@ -29,6 +29,7 @@ class OutputArtifacts:
     qc_summary: Path | None = None
     qc_missing_mappings: Path | None = None
     qc_enrichment_metrics: Path | None = None
+    debug_dataset: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -171,6 +172,7 @@ class UnifiedOutputWriter:
         qc_enrichment_metrics: pd.DataFrame | None = None,
         additional_tables: dict[str, pd.DataFrame] | None = None,
         runtime_options: dict[str, Any] | None = None,
+        debug_dataset: Path | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -321,7 +323,36 @@ class UnifiedOutputWriter:
             qc_summary=qc_summary_path,
             qc_missing_mappings=missing_mappings_path,
             qc_enrichment_metrics=enrichment_metrics_path,
+            debug_dataset=debug_dataset,
         )
+
+    def write_dataframe_json(
+        self,
+        df: pd.DataFrame,
+        json_path: Path,
+        *,
+        orient: str = "records",
+        date_format: str = "iso",
+    ) -> None:
+        """Serialize ``df`` to JSON using the same atomic guarantees as CSV writes."""
+
+        logger.info(
+            "writing_dataframe_json",
+            path=str(json_path),
+            rows=len(df),
+            orient=orient,
+            date_format=date_format,
+        )
+
+        json_payload = df.to_json(
+            orient=orient,
+            force_ascii=False,
+            date_format=date_format,
+        )
+        parsed_payload = json.loads(json_payload) if json_payload else []
+
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        self._write_json_atomic(json_path, parsed_payload)
 
     def _calculate_checksums(self, *paths: Path) -> dict[str, str]:
         """Вычисляет checksums для файлов."""

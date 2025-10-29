@@ -32,6 +32,7 @@ class PipelineBase(ABC):
         self.runtime_options: dict[str, Any] = {}
         self.additional_tables: dict[str, pd.DataFrame] = {}
         self.export_metadata: OutputMetadata | None = None
+        self.debug_dataset_path: Path | None = None
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -120,7 +121,52 @@ class PipelineBase(ABC):
             qc_enrichment_metrics=self.qc_enrichment_metrics,
             additional_tables=self.additional_tables,
             runtime_options=self.runtime_options,
+            debug_dataset=self.debug_dataset_path,
         )
+
+    def _should_emit_debug_artifacts(self) -> bool:
+        """Determine whether verbose/debug outputs should be materialised."""
+
+        cli_options = getattr(self.config, "cli", None)
+        verbose = False
+        debug = False
+        debug_mode = False
+
+        if isinstance(cli_options, dict):
+            verbose = bool(cli_options.get("verbose"))
+            debug = bool(cli_options.get("debug"))
+            mode = cli_options.get("mode")
+            if isinstance(mode, str):
+                debug_mode = mode.lower() == "debug"
+
+        runtime_verbose = bool(self.runtime_options.get("verbose"))
+        runtime_debug = bool(self.runtime_options.get("debug"))
+
+        return verbose or debug or runtime_verbose or runtime_debug or debug_mode
+
+    def _dump_debug_output(self, df: pd.DataFrame, output_path: Path) -> Path | None:
+        """Persist the final dataframe as JSON when debug artefacts are enabled."""
+
+        if not self._should_emit_debug_artifacts():
+            return None
+
+        dataset_path = output_path
+        if dataset_path.suffix != ".csv":
+            dataset_path = dataset_path.with_suffix(".csv")
+
+        json_path = dataset_path.with_suffix(".json")
+
+        try:
+            self.output_writer.write_dataframe_json(df, json_path)
+        except Exception as exc:  # noqa: BLE001 - surface context in logs
+            logger.warning(
+                "debug_dataset_write_failed",
+                path=str(json_path),
+                error=str(exc),
+            )
+            return None
+
+        return json_path
 
     def run(
         self, output_path: Path, extended: bool = False, *args: Any, **kwargs: Any
@@ -131,6 +177,7 @@ class PipelineBase(ABC):
         try:
             self.additional_tables = {}
             self.export_metadata = None
+            self.debug_dataset_path = None
             # Extract
             df = self.extract(*args, **kwargs)
             logger.info("extraction_completed", rows=len(df))
@@ -142,6 +189,8 @@ class PipelineBase(ABC):
             # Validate
             df = self.validate(df)
             logger.info("validation_completed", rows=len(df))
+
+            self.debug_dataset_path = self._dump_debug_output(df, output_path)
 
             # Export
             artifacts = self.export(df, output_path, extended=extended)
