@@ -45,6 +45,18 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = {
 }
 
 
+# Nullable integer columns that require explicit coercion before schema validation.
+_NULLABLE_INT_COLUMNS = (
+    "row_index",
+    "assay_tax_id",
+    "confidence_score",
+    "species_group_flag",
+    "tax_id",
+    "component_count",
+    "assay_class_id",
+    "variant_id",
+    "src_id",
+)
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
     """Coerce selected columns to pandas nullable Int64 dtype."""
 
@@ -818,13 +830,32 @@ class AssayPipeline(PipelineBase):
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        if "confidence_score" in df.columns:
+        schema_columns = list(AssaySchema.to_schema().columns.keys())
+        if schema_columns:
+            for column in schema_columns:
+                if column not in df.columns:
+                    df[column] = pd.NA
+            df = df[schema_columns]
+        else:  # pragma: no cover - defensive fallback
+            expected_cols = AssaySchema.get_column_order()
+            if expected_cols:
+                for column in expected_cols:
+                    if column not in df.columns:
+                        df[column] = pd.NA
+                df = df[expected_cols]
+
+        for column in _NULLABLE_INT_COLUMNS:
+            if column not in df.columns:
+                continue
             try:
-                df["confidence_score"] = pd.to_numeric(
-                    df["confidence_score"], errors="coerce"
-                ).astype("Int64")
+                numeric_series = pd.to_numeric(df[column], errors="coerce")
+                df[column] = pd.array(numeric_series, dtype="Int64")
             except Exception as exc:  # pragma: no cover - defensive
-                logger.warning("confidence_score_cast_failed", error=str(exc))
+                logger.warning(
+                    "nullable_int_cast_failed",
+                    column=column,
+                    error=str(exc),
+                )
 
         try:
             validated_df = AssaySchema.validate(df, lazy=True)
@@ -848,6 +879,14 @@ class AssayPipeline(PipelineBase):
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("schema_validation_unexpected_error", error=str(exc))
             raise
+
+        output_order = AssaySchema.get_column_order()
+        if output_order:
+            missing_output = [col for col in output_order if col not in validated_df.columns]
+            if missing_output:  # pragma: no cover - defensive
+                for column in missing_output:
+                    validated_df[column] = pd.NA
+            validated_df = validated_df.reindex(columns=output_order)
 
         self._check_referential_integrity(validated_df)
 
