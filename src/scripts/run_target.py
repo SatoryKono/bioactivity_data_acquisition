@@ -23,7 +23,9 @@ DEFAULT_CONFIG = Path("configs/pipelines/target.yaml")
 # outputs on a fresh checkout. Align the default with the actual fixture so
 # running the command works out-of-the-box.
 DEFAULT_INPUT = Path("data/input/target.csv")
-DEFAULT_OUTPUT_ROOT = Path("data/output")
+# Persist all target pipeline artefacts underneath the dedicated
+# ``data/output/target`` directory to align with repository conventions.
+DEFAULT_OUTPUT_ROOT = Path("data/output/target")
 
 app = typer.Typer(help="Run target pipeline to extract and transform target data")
 
