@@ -55,6 +55,11 @@ def test_validate_with_schema_raises_above_threshold(severity: str) -> None:
     pipeline = _make_pipeline(severity_threshold="warning")
     schema = pa.DataFrameSchema({"value": pa.Column(int)})
     frame = pd.DataFrame({"value": ["oops"]})
+    failure_flags: list[bool] = []
+
+    def _failure_handler(exc: SchemaErrors, should_fail: bool) -> None:
+        assert isinstance(exc, SchemaErrors)
+        failure_flags.append(should_fail)
 
     with pytest.raises(SchemaErrors):
         pipeline._validate_with_schema(
@@ -62,6 +67,7 @@ def test_validate_with_schema_raises_above_threshold(severity: str) -> None:
             schema,
             dataset_name="dummy",
             severity=severity,
+            failure_handler=_failure_handler,
         )
 
     summary = pipeline.qc_summary_data["validation"]["dummy"]
@@ -70,6 +76,7 @@ def test_validate_with_schema_raises_above_threshold(severity: str) -> None:
     assert issue["metric"] == "schema.dummy"
     assert issue["status"] == "failed"
     assert issue["severity"] == severity
+    assert failure_flags == [True]
 
 
 def test_validate_with_schema_records_issue_below_threshold() -> None:
@@ -78,12 +85,18 @@ def test_validate_with_schema_records_issue_below_threshold() -> None:
     pipeline = _make_pipeline(severity_threshold="critical")
     schema = pa.DataFrameSchema({"value": pa.Column(int)})
     frame = pd.DataFrame({"value": ["oops"]})
+    failure_flags: list[bool] = []
+
+    def _failure_handler(exc: SchemaErrors, should_fail: bool) -> None:
+        assert isinstance(exc, SchemaErrors)
+        failure_flags.append(should_fail)
 
     result = pipeline._validate_with_schema(
         frame,
         schema,
         dataset_name="dummy",
         severity="error",
+        failure_handler=_failure_handler,
     )
 
     assert result is frame
@@ -93,4 +106,5 @@ def test_validate_with_schema_records_issue_below_threshold() -> None:
     assert issue["status"] == "failed"
     assert issue["severity"] == "error"
     assert issue["metric"] == "schema.dummy"
+    assert failure_flags == [False]
 

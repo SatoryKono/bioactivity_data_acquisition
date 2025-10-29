@@ -228,11 +228,14 @@ class PipelineBase(ABC):
     ) -> pd.DataFrame:
         """Validate a dataframe using a Pandera schema with QC reporting hooks."""
 
+        dataset_label = str(dataset_name)
+        severity_label = str(severity).lower()
+
         validation_summary = self.qc_summary_data.setdefault("validation", {})
-        metric_label = metric_name or f"schema.{dataset_name}"
+        metric_label = metric_name or f"schema.{dataset_label}"
 
         if df is None or (hasattr(df, "empty") and getattr(df, "empty")):
-            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
+            validation_summary[dataset_label] = {"status": "skipped", "rows": 0}
             self.record_validation_issue(
                 {
                     "metric": metric_label,
@@ -255,14 +258,14 @@ class PipelineBase(ABC):
                 except (TypeError, ValueError):
                     error_count = None
 
-            should_fail = self._should_fail(severity)
+            should_fail = self._should_fail(severity_label)
             if failure_handler is not None:
                 failure_handler(exc, should_fail)
 
             issue_payload: dict[str, Any] = {
                 "metric": metric_label,
                 "issue_type": "schema_validation",
-                "severity": severity,
+                "severity": severity_label,
                 "status": "failed",
                 "errors": error_count,
             }
@@ -276,11 +279,11 @@ class PipelineBase(ABC):
             payload: dict[str, Any] = {"status": "failed"}
             if error_count is not None:
                 payload["errors"] = error_count
-            validation_summary[dataset_name] = payload
+            validation_summary[dataset_label] = payload
 
             logger.error(
                 "schema_validation_failed",
-                dataset=dataset_name,
+                dataset=dataset_label,
                 errors=error_count,
                 error=str(exc),
             )
@@ -290,7 +293,10 @@ class PipelineBase(ABC):
 
             return df
 
-        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
+        validation_summary[dataset_label] = {
+            "status": "passed",
+            "rows": int(len(validated)),
+        }
         self.record_validation_issue(
             {
                 "metric": metric_label,
