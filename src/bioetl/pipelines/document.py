@@ -23,7 +23,11 @@ from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import (
+    EnrichmentStage,
+    PipelineBase,
+    enrichment_stage_registry,
+)
 from bioetl.pipelines.document_enrichment import merge_with_precedence
 from bioetl.schemas.document import (
     DocumentNormalizedSchema,
@@ -777,22 +781,23 @@ class DocumentPipeline(PipelineBase):
 
         # Keep pubmed_id and doi with original names for enrichment (chembl_pmid already created above)
 
-        # Check if enrichment is enabled and apply AFTER renaming
-        enrichment_enabled = any(
-            hasattr(self.config.sources.get(source_name), "enabled")
-            and self.config.sources[source_name].enabled
-            for source_name in ["pubmed", "crossref", "openalex", "semantic_scholar"]
-            if source_name in self.config.sources
+        with_pubmed = bool(self.runtime_options.get("with_pubmed", True))
+        self.runtime_options["with_pubmed"] = with_pubmed
+
+        logger.info(
+            "external_enrichment_configured",
+            with_pubmed=with_pubmed,
+            adapters=len(self.external_adapters),
         )
 
-        if enrichment_enabled and self.external_adapters:
-            logger.info("enrichment_enabled", note="Fetching data from external sources")
-            df = self._enrich_with_external_sources(df)
-        else:
-            logger.info(
-                "enrichment_skipped",
-                reason="no_external_adapters_enabled",
-            )
+        self.reset_stage_context()
+        df = self.execute_enrichment_stages(df)
+
+        if "pubmed" not in self.stage_context:
+            reason = "disabled" if not with_pubmed else "no_external_adapters_enabled"
+            if self.external_adapters:
+                reason = "stage_not_executed" if with_pubmed else reason
+            logger.info("enrichment_skipped", reason=reason)
             df = merge_with_precedence(df)
 
         # Drop temporary join keys if they exist
@@ -1108,4 +1113,69 @@ class DocumentPipeline(PipelineBase):
         if failing:
             logger.error("qc_threshold_exceeded", failing=failing)
             raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(sorted(failing)))
+
+
+def _document_should_run_pubmed(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> tuple[bool, str | None]:
+    """Decide whether the document pipeline should execute the PubMed stage."""
+
+    if not isinstance(pipeline, DocumentPipeline):
+        return False, "unsupported_pipeline"
+    if df.empty:
+        return False, "empty_frame"
+
+    with_pubmed = bool(pipeline.runtime_options.get("with_pubmed", True))
+    pipeline.runtime_options["with_pubmed"] = with_pubmed
+    if not with_pubmed:
+        return False, "disabled"
+
+    if not pipeline.external_adapters:
+        return False, "no_external_adapters"
+
+    return True, None
+
+
+def _document_run_pubmed_stage(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> pd.DataFrame:
+    """Run external enrichment for the document pipeline."""
+
+    if not isinstance(pipeline, DocumentPipeline):  # pragma: no cover - defensive
+        return df
+
+    try:
+        enriched_df = pipeline._enrich_with_external_sources(df)
+    except Exception as exc:
+        pipeline.record_validation_issue(
+            {
+                "metric": "enrichment.pubmed",
+                "issue_type": "enrichment",
+                "severity": "warning",
+                "status": "failed",
+                "error": str(exc),
+            }
+        )
+        raise
+
+    pipeline.stage_context["pubmed"] = {"executed": True}
+    pipeline.set_stage_summary("pubmed", "completed", rows=int(len(enriched_df)))
+
+    return enriched_df
+
+
+def _register_document_enrichment_stages() -> None:
+    """Register enrichment stages for the document pipeline."""
+
+    enrichment_stage_registry.register(
+        DocumentPipeline,
+        EnrichmentStage(
+            name="pubmed",
+            include_if=_document_should_run_pubmed,
+            handler=_document_run_pubmed_stage,
+        ),
+    )
+
+
+_register_document_enrichment_stages()
 
