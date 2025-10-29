@@ -721,7 +721,7 @@ class DocumentPipeline(PipelineBase):
         if "document_contains_external_links" in df.columns:
             df["referenses_on_previous_experiments"] = df[
                 "document_contains_external_links"
-            ].apply(self._coerce_optional_bool)
+            ].apply(coerce_optional_bool)
 
         # IMPORTANT: Map pubmed_id to chembl_pmid BEFORE normalization
         # Map pubmed_id -> chembl_pmid (convert to int)
