@@ -18,6 +18,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.dataframe import resolve_schema_column_order
 
 logger = UnifiedLogger.get(__name__)
 
@@ -658,7 +659,7 @@ class AssayPipeline(PipelineBase):
         if df.empty:
             # Return empty DataFrame with all required columns from schema
             from bioetl.schemas.assay import AssaySchema
-            return pd.DataFrame(columns=AssaySchema.get_column_order())
+            return pd.DataFrame(columns=resolve_schema_column_order(AssaySchema))
 
         from bioetl.normalizers import registry
 
@@ -814,7 +815,7 @@ class AssayPipeline(PipelineBase):
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import AssaySchema
 
-        expected_cols = AssaySchema.get_column_order()
+        expected_cols = resolve_schema_column_order(AssaySchema)
         nullable_int_set = set(nullable_int_columns)
         if expected_cols:
             # Add missing columns with None values
@@ -828,11 +829,8 @@ class AssayPipeline(PipelineBase):
                     # Ensure dtype stability for columns already present but
                     # potentially inferred as ``object`` when upstream payloads
                     # contained stringified numbers or missing values.
-                    df[col] = pd.to_numeric(df[col], errors="coerce")
-                    if df[col].isna().any():
-                        df[col] = pd.array(df[col], dtype="Int64")
-                    else:
-                        df[col] = df[col].astype("int64", copy=False)
+                    numeric_series = pd.to_numeric(df[col], errors="coerce")
+                    df[col] = pd.Series(pd.array(numeric_series, dtype="Int64"), index=df.index)
 
             # Reorder to match schema column_order
             df = df[expected_cols]
@@ -854,7 +852,7 @@ class AssayPipeline(PipelineBase):
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        canonical_order = list(AssaySchema.get_column_order())
+        canonical_order = resolve_schema_column_order(AssaySchema)
         if canonical_order:
             missing_columns = [column for column in canonical_order if column not in df.columns]
             for column in missing_columns:
@@ -909,7 +907,7 @@ class AssayPipeline(PipelineBase):
             logger.error("schema_validation_unexpected_error", error=str(exc))
             raise
 
-        output_order = AssaySchema.get_column_order()
+        output_order = resolve_schema_column_order(AssaySchema)
         if output_order:
             missing_output = [col for col in output_order if col not in validated_df.columns]
             if missing_output:  # pragma: no cover - defensive
