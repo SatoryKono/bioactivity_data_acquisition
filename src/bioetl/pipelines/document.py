@@ -51,14 +51,33 @@ class DocumentPipeline(PipelineBase):
 
         # Initialize ChEMBL API client
         chembl_source = config.sources.get("chembl")
+
+        default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
+        default_batch_size = 10
+        default_max_url_length = 1800
+
         if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = int(chembl_source.get("batch_size", 10) or 10)
-            max_url_length = int(chembl_source.get("max_url_length", 1800) or 1800)
+            base_url = chembl_source.get("base_url", default_base_url) or default_base_url
+            batch_size_value = chembl_source.get("batch_size", default_batch_size)
+            max_url_length_value = chembl_source.get("max_url_length", default_max_url_length)
+        elif chembl_source is not None:
+            base_url = getattr(chembl_source, "base_url", default_base_url) or default_base_url
+            batch_size_value = getattr(chembl_source, "batch_size", default_batch_size)
+            max_url_length_value = getattr(chembl_source, "max_url_length", default_max_url_length)
         else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
-            batch_size = 10
-            max_url_length = 1800
+            base_url = default_base_url
+            batch_size_value = default_batch_size
+            max_url_length_value = default_max_url_length
+
+        try:
+            batch_size = int(batch_size_value)
+        except (TypeError, ValueError):
+            batch_size = default_batch_size
+
+        try:
+            max_url_length = int(max_url_length_value)
+        except (TypeError, ValueError):
+            max_url_length = default_max_url_length
 
         chembl_config = APIConfig(
             name="chembl",
@@ -67,9 +86,9 @@ class DocumentPipeline(PipelineBase):
             cache_ttl=config.cache.ttl,
         )
         self.api_client = UnifiedAPIClient(chembl_config)
-        self.batch_size = batch_size
-        self.max_url_length = max_url_length
         self.max_batch_size = 25
+        self.batch_size = min(self.max_batch_size, max(1, batch_size))
+        self.max_url_length = max(1, max_url_length)
         self._document_cache: dict[str, dict[str, Any]] = {}
 
         # Initialize external adapters if enabled
