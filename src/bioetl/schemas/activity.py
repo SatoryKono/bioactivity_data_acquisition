@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema
@@ -173,6 +173,7 @@ class ActivitySchema(BaseSchema):
     )
     standard_flag: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
+        coerce=False,
         description="Флаг стандартизации (0/1)",
     )
     pchembl_value: Series[float] = pa.Field(nullable=True, ge=0, description="-log10 нормированное значение")
@@ -197,6 +198,7 @@ class ActivitySchema(BaseSchema):
     # Ontologies and metadata
     potential_duplicate: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
+        coerce=False,
         isin=[0, 1],
         description="Возможный дубликат активности",
     )
@@ -204,6 +206,7 @@ class ActivitySchema(BaseSchema):
     qudt_units: Series[str] = pa.Field(nullable=True, description="QUDT URI для единиц измерения")
     src_id: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
+        coerce=False,
         description="ID источника данных",
     )
     action_type: Series[str] = pa.Field(nullable=True, description="Тип действия лиганда")
@@ -213,6 +216,7 @@ class ActivitySchema(BaseSchema):
     target_organism: Series[str] = pa.Field(nullable=True, description="Организм таргета")
     target_tax_id: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
+        coerce=False,
         ge=1,
         description="NCBI Taxonomy ID таргета",
     )
@@ -235,7 +239,7 @@ class ActivitySchema(BaseSchema):
     # Column order: system/hash fields first (per BaseSchema), then business fields
     _column_order = COLUMN_ORDER
 
-    class Config:
+    class Config(BaseSchema.Config):
         strict = True
         coerce = True
         ordered = False  # Column order enforced via pipeline determinism utilities
