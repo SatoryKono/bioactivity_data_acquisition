@@ -1,5 +1,6 @@
 """Assay schema for ChEMBL data according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
+import pandas as pd
 import pandera as pa
 from pandera.typing import Series
 
@@ -42,7 +43,7 @@ class AssaySchema(BaseSchema):
     assay_parameters_json: Series[str] = pa.Field(nullable=True, description="Параметры ассая (JSON)")
     assay_strain: Series[str] = pa.Field(nullable=True, description="Штамм организма")
     assay_subcellular_fraction: Series[str] = pa.Field(nullable=True, description="Субклеточная фракция")
-    assay_tax_id: Series[pa.INT64] = pa.Field(
+    assay_tax_id: Series[pd.Int64Dtype] = pa.Field(
         ge=0,
         nullable=True,
         description="Таксономический ID организма",
@@ -67,7 +68,7 @@ class AssaySchema(BaseSchema):
     # Связи
     cell_chembl_id: Series[str] = pa.Field(nullable=True, description="ChEMBL ID клетки")
     confidence_description: Series[str] = pa.Field(nullable=True, description="Описание уверенности")
-    confidence_score: Series[pa.INT64] = pa.Field(
+    confidence_score: Series[pd.Int64Dtype] = pa.Field(
         ge=0,
         le=9,
         nullable=True,
@@ -82,7 +83,7 @@ class AssaySchema(BaseSchema):
     relationship_description: Series[str] = pa.Field(nullable=True, description="Описание связи")
     relationship_type: Series[str] = pa.Field(nullable=True, description="Тип связи с таргетом")
     src_assay_id: Series[str] = pa.Field(nullable=True, description="ID ассая в источнике")
-    src_id: Series[pa.INT64] = pa.Field(
+    src_id: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         description="ID источника",
     )
@@ -98,18 +99,18 @@ class AssaySchema(BaseSchema):
     pref_name: Series[str] = pa.Field(nullable=True, description="Whitelisted target preferred name")
     organism: Series[str] = pa.Field(nullable=True, description="Whitelisted organism name")
     target_type: Series[str] = pa.Field(nullable=True, description="Whitelisted target type")
-    species_group_flag: Series[pa.INT64] = pa.Field(
+    species_group_flag: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
         le=1,
         description="Whitelisted species group flag",
     )
-    tax_id: Series[pa.INT64] = pa.Field(
+    tax_id: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
         description="Whitelisted NCBI taxonomy ID",
     )
-    component_count: Series[pa.INT64] = pa.Field(
+    component_count: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
         description="Whitelisted component count",
@@ -121,15 +122,21 @@ class AssaySchema(BaseSchema):
         nullable=True,
         description="Отношение параметра",
     )
-    assay_param_value: Series[float] = pa.Field(nullable=True, description="Значение параметра")
+    assay_param_value: Series[pd.Float64Dtype] = pa.Field(
+        nullable=True,
+        description="Значение параметра",
+    )
     assay_param_units: Series[str] = pa.Field(nullable=True, description="Единицы параметра")
     assay_param_text_value: Series[str] = pa.Field(nullable=True, description="Текстовое значение параметра")
     assay_param_standard_type: Series[str] = pa.Field(nullable=True, description="Стандартизованный тип параметра")
-    assay_param_standard_value: Series[float] = pa.Field(nullable=True, description="Стандартизованное значение параметра")
+    assay_param_standard_value: Series[pd.Float64Dtype] = pa.Field(
+        nullable=True,
+        description="Стандартизованное значение параметра",
+    )
     assay_param_standard_units: Series[str] = pa.Field(nullable=True, description="Единицы стандартизованного параметра")
 
     # ASSAY_CLASS (из /assay_class endpoint)
-    assay_class_id: Series[pa.INT64] = pa.Field(
+    assay_class_id: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         description="Идентификатор класса ассея",
     )
@@ -145,7 +152,7 @@ class AssaySchema(BaseSchema):
     assay_class_description: Series[str] = pa.Field(nullable=True, description="Описание класса ассея")
 
     # VARIANT_SEQUENCES (развернутые из JSON)
-    variant_id: Series[pa.INT64] = pa.Field(
+    variant_id: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         description="Идентификатор варианта",
     )
