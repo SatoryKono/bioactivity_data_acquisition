@@ -29,8 +29,8 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
-from bioetl.utils.dtype import coerce_nullable_float_columns, coerce_nullable_int_columns
-from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
+from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
     register_fallback_statistics,
     update_summary_metrics,
@@ -302,7 +302,7 @@ def _derive_is_censored(relation: str | None) -> bool | None:
 
 
 # _coerce_nullable_int_columns и _coerce_nullable_float_columns заменены на
-# coerce_nullable_int_columns и coerce_nullable_float_columns из bioetl.utils.dtype
+# coerce_nullable_int и coerce_nullable_float из bioetl.utils.dtypes
 
 
 class ActivityPipeline(PipelineBase):
@@ -499,7 +499,7 @@ class ActivityPipeline(PipelineBase):
                 ordered_columns = [column for column in expected_columns if column in df.columns]
                 df = df[ordered_columns + extra_columns]
 
-            coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+            coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
         logger.info("extraction_completed", rows=len(df), from_api=True)
         return df
 
@@ -878,7 +878,7 @@ class ActivityPipeline(PipelineBase):
         else:
             df["extracted_at"] = timestamp_now
 
-        coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+        coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
@@ -912,12 +912,12 @@ class ActivityPipeline(PipelineBase):
                 )
             df = df[expected_cols]
 
-        coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+        coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
         df = df.convert_dtypes()
-        normalise_retry_after_column(df)
+        coerce_retry_after(df)
 
-        coerce_nullable_float_columns(df, FLOAT_COLUMNS)
+        coerce_nullable_float(df, FLOAT_COLUMNS)
 
         if "is_censored" in df.columns:
             df["is_censored"] = df["is_censored"].astype("boolean")
@@ -969,9 +969,9 @@ class ActivityPipeline(PipelineBase):
                 )
                 df = df[ordered_columns]
 
-        normalise_retry_after_column(df)
-        coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
-        coerce_nullable_float_columns(df, FLOAT_COLUMNS)
+        coerce_retry_after(df)
+        coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
+        coerce_nullable_float(df, FLOAT_COLUMNS)
 
         qc_metrics = self._calculate_qc_metrics(df)
         fallback_stats = getattr(self, "_fallback_stats", None) or {}
