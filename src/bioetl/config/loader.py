@@ -88,11 +88,25 @@ def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Any:
 
     # Resolve extends recursively
     if "extends" in data:
-        extends_path = Path(data.pop("extends"))
-        if not extends_path.is_absolute():
-            extends_path = path.parent / extends_path
+        extends_value = data.pop("extends")
+        if isinstance(extends_value, (str, Path)):
+            extends_iterable = [extends_value]
+        elif isinstance(extends_value, list):
+            extends_iterable = extends_value
+        else:
+            raise TypeError(
+                "'extends' must be a string, Path, or list of those values"
+            )
 
-        base_data = _load_with_extends(extends_path, visited)
+        base_data: dict[str, Any] = {}
+        for extends_entry in extends_iterable:
+            extends_path = Path(extends_entry)
+            if not extends_path.is_absolute():
+                extends_path = path.parent / extends_path
+
+            inherited_data = _load_with_extends(extends_path, visited)
+            base_data = deep_merge(base_data, inherited_data)
+
         data = deep_merge(base_data, data)
 
     return data

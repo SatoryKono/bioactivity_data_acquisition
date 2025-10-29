@@ -1,4 +1,6 @@
-extends: ../base.yaml
+extends:
+  - ../base.yaml
+  - ../includes/chembl_source.yaml
 
 pipeline:
   name: testitem
@@ -6,14 +8,9 @@ pipeline:
 
 sources:
   chembl:
-    enabled: true
-    base_url: "https://www.ebi.ac.uk/chembl/api/data"
     batch_size: 25
-    max_url_length: 2000
     headers:
-      Accept: "application/json"
       User-Agent: "bioetl-testitem-pipeline/1.0"
-    rate_limit_jitter: true
   pubchem:
     enabled: true  # PubChem enrichment enabled
     base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
@@ -63,4 +60,3 @@ qc:
     testitem.duplicate_ratio: 0.5
     testitem.fallback_ratio: 0.2
     testitem.parent_missing_ratio: 0.0
-

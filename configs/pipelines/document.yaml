@@ -1,4 +1,6 @@
-extends: ../base.yaml
+extends:
+  - ../base.yaml
+  - ../includes/chembl_source.yaml
 
 pipeline:
   name: document
@@ -6,15 +8,10 @@ pipeline:
 
 sources:
   chembl:
-    enabled: true
-    base_url: "https://www.ebi.ac.uk/chembl/api/data"
     batch_size: 10
-    max_url_length: 2000
     headers:
-      Accept: "application/json"
       User-Agent: "bioetl-document-pipeline/1.0"
-    rate_limit_jitter: true
-  
+
   pubmed:
     enabled: true  # PubMed enrichment
     base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
@@ -25,7 +22,7 @@ sources:
     rate_limit_max_calls: 3  # 10 with API key
     rate_limit_period: 1.0
     workers: 1
-  
+
   crossref:
     enabled: true  # Crossref enrichment
     base_url: "https://api.crossref.org"
@@ -34,7 +31,7 @@ sources:
     rate_limit_max_calls: 2
     rate_limit_period: 1.0
     workers: 2
-  
+
   openalex:
     enabled: true  # OpenAlex enrichment
     base_url: "https://api.openalex.org"
@@ -42,7 +39,7 @@ sources:
     rate_limit_max_calls: 10
     rate_limit_period: 1.0
     workers: 4
-  
+
   semantic_scholar:
     enabled: true  # Semantic Scholar enrichment
     base_url: "https://api.semanticscholar.org/graph/v1"
@@ -100,4 +97,3 @@ qc:
     title_fallback_rate:
       max: 0.25
       severity: warning
-

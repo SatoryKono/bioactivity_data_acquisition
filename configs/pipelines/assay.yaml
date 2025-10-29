@@ -1,4 +1,6 @@
-extends: ../base.yaml
+extends:
+  - ../base.yaml
+  - ../includes/chembl_source.yaml
 
 pipeline:
   name: assay
@@ -6,14 +8,9 @@ pipeline:
 
 sources:
   chembl:
-    enabled: true
-    base_url: "https://www.ebi.ac.uk/chembl/api/data"
     batch_size: 20
-    max_url_length: 2000
     headers:
-      Accept: "application/json"
       User-Agent: "bioetl-assay-pipeline/1.0"
-    rate_limit_jitter: true
 
 determinism:
   hash_algorithm: "sha256"
@@ -45,4 +42,3 @@ qc:
     null_rate_critical: 0.3
     duplicates: 0
     fallback_usage_rate: 0.1
-

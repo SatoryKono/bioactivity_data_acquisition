@@ -1,0 +1,49 @@
+# Configuration Patterns for ChEMBL Pipelines
+
+To keep ChEMBL-specific configuration consistent across pipelines, reuse the shared include defined in `configs/includes/chembl_source.yaml`.
+
+## Shared include
+
+The include provides baseline values for the primary ChEMBL source:
+
+```yaml
+# configs/includes/chembl_source.yaml
+sources:
+  chembl:
+    enabled: true
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    batch_size: 20
+    max_url_length: 2000
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-chembl-default/1.0"
+    rate_limit_jitter: true
+```
+
+These defaults cover the API endpoint, deterministic request headers, and common throttling behaviour. Individual pipelines only override the pieces that differ.
+
+## Referencing the include
+
+Pipeline YAML files should extend both the global base configuration and the shared ChEMBL include:
+
+```yaml
+extends:
+  - ../base.yaml
+  - ../includes/chembl_source.yaml
+```
+
+Inside the `sources.chembl` block override only the parameters that vary per pipeline, typically `batch_size` and the pipeline-specific `headers.User-Agent`:
+
+```yaml
+sources:
+  chembl:
+    batch_size: 10
+    headers:
+      User-Agent: "bioetl-document-pipeline/1.0"
+```
+
+Additional ChEMBL options (e.g. cache settings, circuit breakers) may be added in the pipeline file as needed, but the shared defaults should remain untouched.
+
+## Validating merges
+
+Configuration loading resolves all `extends` entries recursively. Unit tests under `tests/unit/test_config_loader.py` ensure that multiple `extends` blocks merge correctly and that per-pipeline overrides are applied without losing the shared defaults. If you introduce new includes, add similar tests to guard against regression.
