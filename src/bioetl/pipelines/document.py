@@ -455,20 +455,23 @@ class DocumentPipeline(PipelineBase):
             extra=extra_columns,
         )
 
-        if extras_df is not None:
-            working_df = pd.concat([ordered_core, extras_df], axis=1)
-        else:
-            working_df = ordered_core
-
-        if "source" not in working_df.columns:
-            working_df["source"] = "ChEMBL"
-        else:
-            working_df["source"] = working_df["source"].fillna("ChEMBL")
-
-        working_df = working_df.convert_dtypes()
-
         try:
-            validated = DocumentRawSchema.validate(working_df, lazy=True)
+            core_df = ordered_core.copy()
+
+            if "source" not in core_df.columns:
+                core_df["source"] = "ChEMBL"
+            else:
+                core_df["source"] = core_df["source"].fillna("ChEMBL")
+
+            core_df = core_df.convert_dtypes()
+            validated_core = DocumentRawSchema.validate(core_df, lazy=True)
+
+            if extras_df is not None and not extras_df.empty:
+                extras_df = extras_df.convert_dtypes()
+                validated = pd.concat([validated_core, extras_df], axis=1)
+            else:
+                validated = validated_core
+
             logger.info("raw_schema_validation_passed", rows=len(validated))
             return validated
         except SchemaErrors as exc:
