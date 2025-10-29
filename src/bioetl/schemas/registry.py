@@ -50,6 +50,14 @@ class SchemaRegistry:
             except (AttributeError, TypeError):
                 column_count = 0
 
+        if column_count == 0:
+            get_order = getattr(schema, "get_column_order", None)
+            if callable(get_order):
+                try:
+                    column_count = len(get_order())
+                except Exception:  # pragma: no cover - defensive fallback
+                    column_count = 0
+
         logger.info(
             "schema_registered",
             entity=entity,
