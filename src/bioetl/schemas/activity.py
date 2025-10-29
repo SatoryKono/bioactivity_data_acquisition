@@ -180,7 +180,10 @@ class ActivitySchema(BaseSchema):
     # Boundaries and censorship
     lower_bound: Series[float] = pa.Field(nullable=True, description="Нижняя граница стандартизированного значения")
     upper_bound: Series[float] = pa.Field(nullable=True, description="Верхняя граница стандартизированного значения")
-    is_censored: Series[bool] = pa.Field(nullable=True, description="Флаг цензурирования данных")
+    is_censored: Series[pd.BooleanDtype] = pa.Field(
+        nullable=True,
+        description="Флаг цензурирования данных",
+    )
 
     # Comments
     activity_comment: Series[str] = pa.Field(nullable=True, description="Комментарий к активности")

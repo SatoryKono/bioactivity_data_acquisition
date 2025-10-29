@@ -990,6 +990,9 @@ class ActivityPipeline(PipelineBase):
 
         df = df.convert_dtypes()
 
+        if "is_censored" in df.columns:
+            df["is_censored"] = df["is_censored"].astype("boolean")
+
         for column in INTEGER_COLUMNS:
             if column in df.columns:
                 df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
