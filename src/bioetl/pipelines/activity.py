@@ -10,7 +10,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 from pandera.errors import SchemaErrors
 
@@ -32,6 +31,7 @@ from bioetl.utils.qc import (
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import normalize_json_list
+from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 
@@ -767,21 +767,22 @@ class ActivityPipeline(PipelineBase):
         df = df.copy()
 
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
-        df["pipeline_version"] = pipeline_version
+        default_source = "chembl"
 
-        if "source_system" not in df.columns:
-            df["source_system"] = "chembl"
+        if "source_system" in df.columns:
+            df["source_system"] = df["source_system"].fillna(default_source)
         else:
-            df["source_system"] = df["source_system"].fillna("chembl")
+            df["source_system"] = default_source
 
-        release_value = self._chembl_release
+        release_value: str | None = self._chembl_release
         if isinstance(release_value, str):
-            release_value = release_value.strip()
+            release_value = release_value.strip() or None
 
-        if not release_value:
+        if release_value is None:
             if "chembl_release" in df.columns:
                 df["chembl_release"] = df["chembl_release"].where(
-                    df["chembl_release"].notna(), pd.NA
+                    df["chembl_release"].notna(),
+                    pd.NA,
                 )
             else:
                 df["chembl_release"] = pd.Series(pd.NA, index=df.index, dtype="string")
@@ -799,35 +800,21 @@ class ActivityPipeline(PipelineBase):
 
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
-        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
-
-        df["hash_business_key"] = df["activity_id"].apply(generate_hash_business_key)
-        df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
-
-        df = df.sort_values(["activity_id", "source_system"])
-        df["index"] = range(len(df))
+        df = finalize_output_dataset(
+            df,
+            business_key="activity_id",
+            sort_by=["activity_id", "source_system"],
+            ascending=[True, True],
+            schema=ActivitySchema,
+            metadata={
+                "pipeline_version": pipeline_version,
+                "source_system": default_source,
+                "chembl_release": release_value,
+                "extracted_at": timestamp_now,
+            },
+        )
 
         self._update_fallback_artifacts(df)
-
-        expected_cols = _get_activity_column_order()
-        if expected_cols:
-            missing_columns: list[str] = []
-            for col in expected_cols:
-                if col not in df.columns:
-                    missing_columns.append(col)
-                    if col in INTEGER_COLUMNS_WITH_ID:
-                        df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
-                    elif col in FLOAT_COLUMNS:
-                        df[col] = pd.Series(np.nan, index=df.index, dtype="float64")
-                    else:
-                        df[col] = pd.Series(pd.NA, index=df.index)
-            if missing_columns:
-                logger.debug(
-                    "transform_missing_columns_filled",
-                    columns=missing_columns,
-                    total=len(missing_columns),
-                )
-            df = df[expected_cols]
 
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
