@@ -158,6 +158,9 @@ qc:
     uniprot: true
     uniprot_idmapping: true
     iuphar: true
+  enrichments:
+    uniprot: 0.8
+    iuphar: 0.6
 
 materialization:
   bronze: "data/bronze/targets.parquet"

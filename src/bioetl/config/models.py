@@ -186,6 +186,7 @@ class QCConfig(BaseModel):
     enabled: bool = True
     severity_threshold: str = Field(default="warning")
     thresholds: dict[str, Any] = Field(default_factory=dict)
+    enrichments: dict[str, Any] = Field(default_factory=dict)
 
 
 class PostprocessConfig(BaseModel):

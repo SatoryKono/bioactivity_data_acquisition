@@ -185,6 +185,16 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 typer.echo(f"Correlation report: {artifacts.correlation_report}")
             if artifacts.metadata:
                 typer.echo(f"Metadata: {artifacts.metadata}")
+            if artifacts.qc_summary:
+                typer.echo(f"QC summary: {artifacts.qc_summary}")
+            if artifacts.qc_missing_mappings:
+                typer.echo(
+                    f"QC missing mappings: {artifacts.qc_missing_mappings}"
+                )
+            if artifacts.qc_enrichment_metrics:
+                typer.echo(
+                    f"QC enrichment metrics: {artifacts.qc_enrichment_metrics}"
+                )
 
         except typer.BadParameter:
             raise
