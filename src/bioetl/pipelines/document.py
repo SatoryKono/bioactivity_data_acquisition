@@ -10,7 +10,6 @@ from urllib.parse import urlencode
 
 import pandas as pd
 import requests
-from pandera.errors import SchemaErrors
 
 from bioetl.adapters import (
     CrossrefAdapter,
@@ -952,23 +951,13 @@ class DocumentPipeline(PipelineBase):
             logger.error("validation_failed", errors=error_msg)
             raise ValueError(f"Валидация не прошла: {error_msg}")
 
-        try:
-            validated_df = DocumentNormalizedSchema.validate(working_df, lazy=True)
-        except SchemaErrors as exc:
-            failure_cases = getattr(exc, "failure_cases", None)
-            details = None
-            if isinstance(failure_cases, pd.DataFrame):
-                details = failure_cases.to_dict(orient="records")
-
-            self.record_validation_issue(
-                {
-                    "metric": "normalized_schema_validation",
-                    "severity": "error",
-                    "details": details,
-                }
-            )
-            logger.error("schema_validation_failed", error=str(exc))
-            raise
+        validated_df = self._validate_with_schema(
+            working_df,
+            DocumentNormalizedSchema,
+            dataset_name="documents",
+            severity="error",
+            metric_name="normalized_schema_validation",
+        )
 
         metrics = self._compute_qc_metrics(validated_df)
         self.qc_metrics = metrics

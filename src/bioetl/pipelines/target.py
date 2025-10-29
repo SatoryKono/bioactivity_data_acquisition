@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.config.models import TargetSourceConfig
@@ -391,7 +390,7 @@ class TargetPipeline(PipelineBase):
         validated_targets = self._validate_with_schema(
             df,
             TargetSchema,
-            "targets",
+            dataset_name="targets",
             severity="critical",
         )
         self.gold_targets = validated_targets
@@ -399,19 +398,19 @@ class TargetPipeline(PipelineBase):
         self.gold_components = self._validate_with_schema(
             self.gold_components,
             TargetComponentSchema,
-            "target_components",
+            dataset_name="target_components",
         )
 
         self.gold_protein_class = self._validate_with_schema(
             self.gold_protein_class,
             ProteinClassSchema,
-            "protein_classifications",
+            dataset_name="protein_classifications",
         )
 
         self.gold_xref = self._validate_with_schema(
             self.gold_xref,
             XrefSchema,
-            "target_xrefs",
+            dataset_name="target_xrefs",
         )
 
         self._update_qc_summary(
@@ -2063,81 +2062,6 @@ class TargetPipeline(PipelineBase):
                 },
                 merge=False,
             )
-
-    def _validate_with_schema(
-        self,
-        df: pd.DataFrame,
-        schema: Any,
-        dataset_name: str,
-        *,
-        severity: str = "error",
-    ) -> pd.DataFrame:
-        """Validate a dataframe against the provided Pandera schema."""
-
-        validation_summary = self.qc_summary_data.setdefault("validation", {})
-
-        if df is None or (hasattr(df, "empty") and df.empty):
-            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
-            self.record_validation_issue(
-                {
-                    "metric": f"schema.{dataset_name}",
-                    "issue_type": "schema_validation",
-                    "severity": "info",
-                    "status": "skipped",
-                    "rows": 0,
-                }
-            )
-            return df
-
-        try:
-            validated = schema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            failure_cases = getattr(exc, "failure_cases", None)
-            error_count: int | None = None
-            if failure_cases is not None and hasattr(failure_cases, "shape"):
-                try:
-                    error_count = int(failure_cases.shape[0])
-                except (TypeError, ValueError):
-                    error_count = None
-
-            issue_payload: dict[str, Any] = {
-                "metric": f"schema.{dataset_name}",
-                "issue_type": "schema_validation",
-                "severity": severity,
-                "status": "failed",
-                "errors": error_count,
-            }
-            if failure_cases is not None:
-                try:
-                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
-                except Exception:  # pragma: no cover - defensive guard
-                    issue_payload["examples"] = "unavailable"
-
-            self.record_validation_issue(issue_payload)
-            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
-            logger.error(
-                "schema_validation_failed",
-                dataset=dataset_name,
-                errors=error_count,
-                error=str(exc),
-            )
-            if self._should_fail(severity):
-                raise
-            return df
-
-        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
-        self.record_validation_issue(
-            {
-                "metric": f"schema.{dataset_name}",
-                "issue_type": "schema_validation",
-                "severity": "info",
-                "status": "passed",
-                "rows": int(len(validated)),
-            }
-        )
-
-        return validated  # type: ignore[no-any-return]
-
 
 def _target_should_run_uniprot(
     pipeline: PipelineBase, df: pd.DataFrame

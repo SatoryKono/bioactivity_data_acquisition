@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
@@ -213,6 +214,97 @@ class PipelineBase(ABC):
 
         threshold = self.config.qc.severity_threshold.lower()
         return self._severity_value(severity) >= self._severity_value(threshold)
+
+    def _validate_with_schema(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        *,
+        dataset_name: str,
+        severity: str = "error",
+        metric_name: str | None = None,
+        failure_handler: Callable[[SchemaErrors, bool], None] | None = None,
+        success_handler: Callable[[pd.DataFrame], None] | None = None,
+    ) -> pd.DataFrame:
+        """Validate a dataframe using a Pandera schema with QC reporting hooks."""
+
+        validation_summary = self.qc_summary_data.setdefault("validation", {})
+        metric_label = metric_name or f"schema.{dataset_name}"
+
+        if df is None or (hasattr(df, "empty") and getattr(df, "empty")):
+            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
+            self.record_validation_issue(
+                {
+                    "metric": metric_label,
+                    "issue_type": "schema_validation",
+                    "severity": "info",
+                    "status": "skipped",
+                    "rows": 0,
+                }
+            )
+            return df
+
+        try:
+            validated = schema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count: int | None = None
+            if failure_cases is not None and hasattr(failure_cases, "shape"):
+                try:
+                    error_count = int(failure_cases.shape[0])
+                except (TypeError, ValueError):
+                    error_count = None
+
+            should_fail = self._should_fail(severity)
+            if failure_handler is not None:
+                failure_handler(exc, should_fail)
+
+            issue_payload: dict[str, Any] = {
+                "metric": metric_label,
+                "issue_type": "schema_validation",
+                "severity": severity,
+                "status": "failed",
+                "errors": error_count,
+            }
+            if failure_cases is not None:
+                try:
+                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
+                except Exception:  # pragma: no cover - defensive guard
+                    issue_payload["examples"] = "unavailable"
+
+            self.record_validation_issue(issue_payload)
+            payload: dict[str, Any] = {"status": "failed"}
+            if error_count is not None:
+                payload["errors"] = error_count
+            validation_summary[dataset_name] = payload
+
+            logger.error(
+                "schema_validation_failed",
+                dataset=dataset_name,
+                errors=error_count,
+                error=str(exc),
+            )
+
+            if should_fail:
+                raise
+
+            return df
+
+        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
+        self.record_validation_issue(
+            {
+                "metric": metric_label,
+                "issue_type": "schema_validation",
+                "severity": "info",
+                "status": "passed",
+                "rows": int(len(validated)),
+            }
+        )
+
+        if success_handler is not None:
+            success_handler(validated)
+
+        return validated
 
     @abstractmethod
     def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
