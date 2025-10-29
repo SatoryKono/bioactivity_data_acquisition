@@ -746,8 +746,6 @@ class DocumentPipeline(PipelineBase):
             df["index"] = range(len(df))
 
             # Add all missing columns from schema
-            from bioetl.schemas import DocumentSchema
-
             expected_cols = DocumentSchema.get_column_order()
 
             if expected_cols:
