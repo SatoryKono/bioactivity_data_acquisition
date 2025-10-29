@@ -750,6 +750,19 @@ class TestActivityPipeline:
         assert issue_metrics["schema.validation"]["status"] == "passed"
         assert issue_metrics["schema.validation"]["severity"] == "info"
 
+    def test_validate_coerces_null_retry_after_to_float(self, activity_config):
+        """Fallback retry-after column should normalise object NA values."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = ActivityPipeline(activity_config, run_id)
+
+        df = self._build_activity_dataframe(activity_id=7)
+        df["fallback_retry_after_sec"] = pd.Series([pd.NA], dtype="object")
+
+        validated = pipeline.validate(df)
+
+        assert is_float_dtype(validated["fallback_retry_after_sec"])
+        assert pd.isna(validated.at[0, "fallback_retry_after_sec"])
+
     def test_validate_raises_on_duplicates(self, activity_config):
         """Duplicate activities should fail validation."""
         run_id = str(uuid.uuid4())[:8]
