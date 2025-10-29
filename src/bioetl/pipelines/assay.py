@@ -873,8 +873,11 @@ class AssayPipeline(PipelineBase):
             for column in missing_columns:
                 df[column] = pd.NA
 
-            ordered_columns = canonical_order + [column for column in df.columns if column not in canonical_order]
-            df = df.loc[:, ordered_columns]
+            extra_columns = [column for column in df.columns if column not in canonical_order]
+            if extra_columns:
+                df = df.drop(columns=extra_columns)
+
+            df = df.loc[:, canonical_order]
         else:  # pragma: no cover - defensive fallback
             schema_columns = list(AssaySchema.to_schema().columns.keys())
             if schema_columns:

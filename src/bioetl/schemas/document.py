@@ -348,6 +348,10 @@ class DocumentSchema(BaseSchema):
         ordered = True
 
 
+# Expose column_order on Config for compatibility with column validator utilities.
+DocumentSchema.Config.column_order = DocumentSchema.get_column_order()
+
+
 class DocumentNormalizedSchema(DocumentSchema):
     """Alias schema for normalized document outputs."""
 

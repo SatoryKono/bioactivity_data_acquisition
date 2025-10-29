@@ -720,7 +720,7 @@ class DocumentPipeline(PipelineBase):
             if expected_cols:
                 for col in expected_cols:
                     if col not in df.columns:
-                        df[col] = None
+                        df[col] = pd.NA
 
                 df = df[expected_cols]
 
@@ -734,6 +734,18 @@ class DocumentPipeline(PipelineBase):
             return df
 
         working_df = df.copy().convert_dtypes()
+
+        canonical_order = DocumentSchema.get_column_order()
+        if canonical_order:
+            missing_columns = [column for column in canonical_order if column not in working_df.columns]
+            for column in missing_columns:
+                working_df[column] = pd.NA
+
+            extra_columns = [column for column in working_df.columns if column not in canonical_order]
+            if extra_columns:
+                working_df = working_df.drop(columns=extra_columns)
+
+            working_df = working_df.loc[:, canonical_order]
 
         duplicate_count = (
             working_df["document_chembl_id"].duplicated().sum()

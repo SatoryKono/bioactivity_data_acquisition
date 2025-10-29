@@ -947,12 +947,22 @@ class ActivityPipeline(PipelineBase):
         else:
             df["source_system"] = df["source_system"].fillna("chembl")
 
-        if "chembl_release" not in df.columns:
-            df["chembl_release"] = (
-                self._chembl_release if self._chembl_release is not None else pd.NA
-            )
-        elif self._chembl_release is not None:
-            df["chembl_release"] = df["chembl_release"].fillna(self._chembl_release)
+        release_value = self._chembl_release
+        if isinstance(release_value, str):
+            release_value = release_value.strip()
+
+        if not release_value:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].where(
+                    df["chembl_release"].notna(), pd.NA
+                )
+            else:
+                df["chembl_release"] = pd.Series(pd.NA, index=df.index, dtype="string")
+        else:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].fillna(release_value)
+            else:
+                df["chembl_release"] = release_value
 
         timestamp_now = datetime.now(timezone.utc).isoformat()
         if "extracted_at" in df.columns:
