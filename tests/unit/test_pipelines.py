@@ -835,6 +835,23 @@ class TestTestItemPipeline:
         assert pipeline.config == testitem_config
         assert pipeline.run_id == run_id
 
+    def test_init_respects_configured_batch_size(self, testitem_config):
+        """Pipeline should honor batch_size and base_url from config model."""
+
+        custom_config = testitem_config.model_copy(deep=True)
+        chembl_config = custom_config.sources["chembl"].model_copy(
+            update={
+                "batch_size": 10,
+                "base_url": "https://chembl.example.org/api",
+            }
+        )
+        custom_config.sources["chembl"] = chembl_config
+
+        pipeline = TestItemPipeline(custom_config, run_id="config-override")
+
+        assert pipeline.batch_size == 10
+        assert pipeline.api_client.config.base_url == "https://chembl.example.org/api"
+
     def test_extract_empty_file(self, testitem_config, tmp_path):
         """Test extraction with empty file."""
         run_id = str(uuid.uuid4())[:8]
