@@ -1,6 +1,6 @@
 """Pandera schemas for Target data."""
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import BaseSchema
