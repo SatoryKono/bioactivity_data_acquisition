@@ -53,6 +53,7 @@ INTEGER_COLUMNS: tuple[str, ...] = (
 )
 INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
 FLOAT_COLUMNS: tuple[str, ...] = ("fallback_retry_after_sec",)
+NON_NEGATIVE_CACHE_COLUMNS: tuple[str, ...] = ("published_value", "standard_value")
 
 
 @lru_cache(maxsize=1)
@@ -792,7 +793,57 @@ class ActivityPipeline(PipelineBase):
 
             ordered_records.append(dict(raw_record))
 
-        return ordered_records
+        return self._sanitize_cached_records(ordered_records)
+
+    def _sanitize_cached_records(
+        self, records: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Ensure cached payloads respect non-negative numeric constraints."""
+
+        if not records:
+            return records
+
+        sanitized_records: list[dict[str, Any]] = []
+        for record in records:
+            sanitized = dict(record)
+            activity_id = sanitized.get("activity_id")
+
+            for column in NON_NEGATIVE_CACHE_COLUMNS:
+                if column in sanitized:
+                    sanitized[column] = self._sanitize_cached_non_negative(
+                        sanitized.get(column),
+                        column=column,
+                        activity_id=activity_id,
+                    )
+
+            sanitized_records.append(sanitized)
+
+        return sanitized_records
+
+    def _sanitize_cached_non_negative(
+        self,
+        value: Any,
+        *,
+        column: str,
+        activity_id: Any,
+    ) -> float | None:
+        """Normalise cached numeric values and drop negatives with observability."""
+
+        result = registry.normalize("numeric", value)
+        if result is None:
+            return None
+
+        if result < 0:
+            logger.warning(
+                "cached_non_negative_sanitized",
+                column=column,
+                original_value=result,
+                sanitized_value=None,
+                activity_id=activity_id,
+            )
+            return None
+
+        return result
 
     def _store_batch_in_cache(self, batch_ids: Iterable[int], records: list[dict[str, Any]]) -> None:
         """Persist batch records into the local cache."""
