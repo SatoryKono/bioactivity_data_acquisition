@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 from pydantic import ValidationError
@@ -23,6 +24,98 @@ def test_inheritance():
     assert config.pipeline.name == "dev"
     assert config.http["global"].retries.total == 2  # From dev
     assert config.cache.enabled is True
+
+
+def test_multiple_extends_and_overrides(tmp_path):
+    """Multiple extends blocks should merge with overrides correctly."""
+
+    base_file = tmp_path / "base.yaml"
+    base_file.write_text(
+        dedent(
+            """
+            version: 1
+            pipeline:
+              name: base
+              entity: base
+            http:
+              global:
+                timeout_sec: 60.0
+                retries:
+                  total: 5
+                  backoff_multiplier: 2.0
+                  backoff_max: 120.0
+                rate_limit:
+                  max_calls: 5
+                  period: 15.0
+            cache:
+              enabled: true
+              directory: "data/cache"
+              ttl: 86400
+              release_scoped: true
+            paths:
+              input_root: "data/input"
+              output_root: "data/output"
+            determinism:
+              sort:
+                by: []
+                ascending: []
+              column_order: []
+            postprocess: {}
+            qc:
+              enabled: true
+              severity_threshold: warning
+            cli: {}
+            """
+        )
+    )
+
+    include_file = tmp_path / "chembl.yaml"
+    include_file.write_text(
+        dedent(
+            """
+            sources:
+              chembl:
+                enabled: true
+                base_url: "https://www.ebi.ac.uk/chembl/api/data"
+                batch_size: 20
+                max_url_length: 2000
+                headers:
+                  Accept: "application/json"
+                  User-Agent: "bioetl-chembl-default/1.0"
+                rate_limit_jitter: true
+            """
+        )
+    )
+
+    child_file = tmp_path / "child.yaml"
+    child_file.write_text(
+        dedent(
+            """
+            extends:
+              - base.yaml
+              - chembl.yaml
+
+            pipeline:
+              name: chembl-child
+              entity: child
+
+            sources:
+              chembl:
+                batch_size: 15
+                headers:
+                  User-Agent: "custom-agent/1.0"
+            """
+        )
+    )
+
+    config = load_config(child_file)
+
+    chembl = config.sources["chembl"]
+    assert chembl.base_url == "https://www.ebi.ac.uk/chembl/api/data"
+    assert chembl.batch_size == 15
+    assert chembl.max_url_length == 2000
+    assert chembl.headers["Accept"] == "application/json"
+    assert chembl.headers["User-Agent"] == "custom-agent/1.0"
 
 
 def test_cli_overrides(tmp_path):

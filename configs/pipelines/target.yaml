@@ -1,4 +1,6 @@
-extends: ../base.yaml
+extends:
+  - ../base.yaml
+  - ../includes/chembl_source.yaml
 
 pipeline:
   name: target
@@ -88,10 +90,9 @@ http:
 
 sources:
   chembl:
-    enabled: true
-    base_url: "https://www.ebi.ac.uk/chembl/api/data"
     batch_size: 25
-    max_url_length: 2000
+    headers:
+      User-Agent: "bioetl-target-pipeline/1.0"
     http_profile: chembl
     stage: primary
     cache_enabled: true
