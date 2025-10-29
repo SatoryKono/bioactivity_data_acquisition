@@ -7,6 +7,38 @@
 
 Документ содержит детальное сопоставление колонок выходных таблиц с источниками данных, запросами, извлекаемыми параметрами, типами данных, нормализацией и валидацией для всех 5 пайплайнов проекта BioETL.
 
+## Общие нормализаторы
+
+Проект использует унифицированную систему нормализации через `NormalizerRegistry`:
+
+### NumericNormalizer (`registry.normalize("numeric", value)`)
+- **normalize_int()** - приведение к целым числам
+- **normalize_float()** - приведение к числам с плавающей точкой  
+- **normalize_bool()** - нормализация булевых значений
+- **normalize_units()** - стандартизация единиц измерения
+- **normalize_relation()** - нормализация операторов сравнения
+
+### BooleanNormalizer (`registry.normalize("boolean", value)`)
+- **normalize()** - строгая нормализация булевых значений
+- **normalize_with_default()** - нормализация с значением по умолчанию
+
+### StringNormalizer (`registry.normalize("string", value)`)
+- **normalize()** - базовая нормализация строк
+- Поддержка параметров: `uppercase`, `max_length`, `trim`
+
+### IdentifierNormalizer (`registry.normalize("identifier", value)`)
+- **normalize()** - нормализация идентификаторов (ChEMBL ID, DOI, etc.)
+
+### ChemistryNormalizer (`registry.normalize("chemistry", value)`)
+- **normalize()** - нормализация химических представлений (SMILES, InChI)
+
+### Общие утилиты
+- **coerce_nullable_int_columns()** - приведение к nullable integer типам
+- **coerce_nullable_float_columns()** - приведение к nullable float типам  
+- **coerce_optional_bool()** - приведение к nullable boolean типам
+- **canonical_json()** - каноническая сериализация JSON
+- **normalize_json_list()** - нормализация списков JSON объектов
+
 ## Структура документа
 
 - [Activity Pipeline](#activity-pipeline)
@@ -111,10 +143,10 @@
 | `high_citation_rate` | Вычисляется | - | `bool` | `_derive_high_citation_rate()` | `Series[bool]` |
 | `exact_data_citation` | Вычисляется | - | `bool` | `_derive_exact_data_citation()` | `Series[bool]` |
 | `rounded_data_citation` | Вычисляется | - | `bool` | `_derive_rounded_data_citation()` | `Series[bool]` |
-| `bei` | `/activity.json` | `ligand_efficiency.bei` | `float` | `_normalize_ligand_efficiency()` | `Series[float]` |
-| `sei` | `/activity.json` | `ligand_efficiency.sei` | `float` | `_normalize_ligand_efficiency()` | `Series[float]` |
-| `le` | `/activity.json` | `ligand_efficiency.le` | `float` | `_normalize_ligand_efficiency()` | `Series[float]` |
-| `lle` | `/activity.json` | `ligand_efficiency.lle` | `float` | `_normalize_ligand_efficiency()` | `Series[float]` |
+| `bei` | `/activity.json` | `ligand_efficiency.bei` | `float` | `registry.normalize("numeric", value)` | `Series[float]` |
+| `sei` | `/activity.json` | `ligand_efficiency.sei` | `float` | `registry.normalize("numeric", value)` | `Series[float]` |
+| `le` | `/activity.json` | `ligand_efficiency.le` | `float` | `registry.normalize("numeric", value)` | `Series[float]` |
+| `lle` | `/activity.json` | `ligand_efficiency.lle` | `float` | `registry.normalize("numeric", value)` | `Series[float]` |
 
 ---
 
@@ -144,7 +176,7 @@
 | `assay_chembl_id` | `/assay.json` | `assay_chembl_id` | `str` | Прямое извлечение | `Series[str]` (NOT NULL, regex: `^CHEMBL\d+$`) |
 | `row_subtype` | Генерируется | - | `str` | "assay" | `Series[str]` (NOT NULL) |
 | `row_index` | Генерируется | - | `int` | Индекс для детерминизма | `Series[pd.Int64Dtype]` (NOT NULL, ge=0) |
-| `assay_type` | `/assay.json` | `assay_type` | `str` | Прямое извлечение | `Series[str]` |
+| `assay_type` | `/assay.json` | `assay_type` | `str` | `registry.normalize("string", value)` | `Series[str]` |
 | `assay_category` | `/assay.json` | `assay_category` | `str` | Прямое извлечение | `Series[str]` |
 | `assay_cell_type` | `/assay.json` | `assay_cell_type` | `str` | Прямое извлечение | `Series[str]` |
 | `assay_classifications` | `/assay.json` | `assay_classifications` | `str` | JSON сериализация | `Series[str]` |
@@ -153,7 +185,7 @@
 | `assay_parameters_json` | `/assay.json` | `assay_parameters` | `str` | JSON сериализация | `Series[str]` |
 | `assay_strain` | `/assay.json` | `assay_strain` | `str` | Прямое извлечение | `Series[str]` |
 | `assay_subcellular_fraction` | `/assay.json` | `assay_subcellular_fraction` | `str` | Прямое извлечение | `Series[str]` |
-| `assay_tax_id` | `/assay.json` | `assay_tax_id` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=0) |
+| `assay_tax_id` | `/assay.json` | `assay_tax_id` | `int` | `coerce_nullable_int_columns()` | `Series[pd.Int64Dtype]` (ge=0) |
 | `assay_test_type` | `/assay.json` | `assay_test_type` | `str` | Прямое извлечение | `Series[str]` |
 | `assay_tissue` | `/assay.json` | `assay_tissue` | `str` | Прямое извлечение | `Series[str]` |
 | `assay_type_description` | `/assay.json` | `assay_type_description` | `str` | Прямое извлечение | `Series[str]` |
@@ -163,7 +195,7 @@
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `bao_format` | `/assay.json` | `bao_format` | `str` | Прямое извлечение | `Series[str]` (regex: `^BAO_\d+$`) |
-| `bao_label` | `/assay.json` | `bao_label` | `str` | Прямое извлечение | `Series[str]` |
+| `bao_label` | `/assay.json` | `bao_label` | `str` | `registry.normalize("chemistry.string", value, max_length=128)` | `Series[str]` |
 | `bao_endpoint` | `/assay.json` | `bao_endpoint` | `str` | Прямое извлечение | `Series[str]` (regex: `^BAO_\d{7}$`) |
 
 ### Связи
@@ -172,13 +204,13 @@
 |---------|--------|-----------|-----|--------------|-----------|
 | `cell_chembl_id` | `/assay.json` | `cell_chembl_id` | `str` | Прямое извлечение | `Series[str]` |
 | `confidence_description` | `/assay.json` | `confidence_description` | `str` | Прямое извлечение | `Series[str]` |
-| `confidence_score` | `/assay.json` | `confidence_score` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=0, le=9) |
-| `assay_description` | `/assay.json` | `description` | `str` | Прямое извлечение | `Series[str]` |
+| `confidence_score` | `/assay.json` | `confidence_score` | `int` | `coerce_nullable_int_columns()` | `Series[pd.Int64Dtype]` (ge=0, le=9) |
+| `assay_description` | `/assay.json` | `description` | `str` | `registry.normalize("chemistry.string", value)` | `Series[str]` |
 | `document_chembl_id` | `/assay.json` | `document_chembl_id` | `str` | Прямое извлечение | `Series[str]` (regex: `^CHEMBL\d+$`) |
 | `relationship_description` | `/assay.json` | `relationship_description` | `str` | Прямое извлечение | `Series[str]` |
 | `relationship_type` | `/assay.json` | `relationship_type` | `str` | Прямое извлечение | `Series[str]` |
 | `src_assay_id` | `/assay.json` | `src_assay_id` | `str` | Прямое извлечение | `Series[str]` |
-| `src_id` | `/assay.json` | `src_id` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` |
+| `src_id` | `/assay.json` | `src_id` | `int` | `coerce_nullable_int_columns()` | `Series[pd.Int64Dtype]` |
 | `target_chembl_id` | `/assay.json` | `target_chembl_id` | `str` | Прямое извлечение | `Series[str]` (regex: `^CHEMBL\d+$`) |
 | `tissue_chembl_id` | `/assay.json` | `tissue_chembl_id` | `str` | Прямое извлечение | `Series[str]` |
 | `variant_sequence_json` | `/assay.json` | `variant_sequence` | `str` | JSON сериализация | `Series[str]` |
@@ -256,7 +288,7 @@
 |---------|--------|-----------|-----|--------------|-----------|
 | `molecule_chembl_id` | `/molecule.json` | `molecule_chembl_id` | `str` | Прямое извлечение | `Series[str]` (NOT NULL, regex: `^CHEMBL\d+$`) |
 | `molregno` | `/molecule.json` | `molregno` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=1) |
-| `pref_name` | `/molecule.json` | `pref_name` | `str` | `_normalize_pref_name()` | `Series[str]` |
+| `pref_name` | `/molecule.json` | `pref_name` | `str` | `registry.normalize("chemistry.string", value)` | `Series[str]` |
 | `pref_name_key` | Вычисляется | - | `str` | Нормализованный ключ | `Series[str]` |
 | `parent_chembl_id` | `/molecule.json` | `parent_chembl_id` | `str` | Прямое извлечение | `Series[str]` (regex: `^CHEMBL\d+$`) |
 | `parent_molregno` | `/molecule.json` | `parent_molregno` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=1) |
@@ -376,10 +408,10 @@
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `all_names` | `/molecule.json` | `all_names` | `str` | Прямое извлечение | `Series[str]` |
-| `molecule_hierarchy` | `/molecule.json` | `molecule_hierarchy` | `str` | JSON сериализация | `Series[str]` |
-| `molecule_properties` | `/molecule.json` | `molecule_properties` | `str` | JSON сериализация | `Series[str]` |
-| `molecule_structures` | `/molecule.json` | `molecule_structures` | `str` | JSON сериализация | `Series[str]` |
-| `molecule_synonyms` | `/molecule.json` | `molecule_synonyms` | `str` | JSON сериализация | `Series[str]` |
+| `molecule_hierarchy` | `/molecule.json` | `molecule_hierarchy` | `str` | `canonical_json()` | `Series[str]` |
+| `molecule_properties` | `/molecule.json` | `molecule_properties` | `str` | `canonical_json()` | `Series[str]` |
+| `molecule_structures` | `/molecule.json` | `molecule_structures` | `str` | `canonical_json()` | `Series[str]` |
+| `molecule_synonyms` | `/molecule.json` | `molecule_synonyms` | `str` | `canonical_json()` | `Series[str]` |
 | `atc_classifications` | `/molecule.json` | `atc_classifications` | `str` | JSON сериализация | `Series[str]` |
 | `cross_references` | `/molecule.json` | `cross_references` | `str` | JSON сериализация | `Series[str]` |
 | `biotherapeutic` | `/molecule.json` | `biotherapeutic` | `str` | JSON сериализация | `Series[str]` |
@@ -447,8 +479,8 @@
 | `document_chembl_id` | `/document.json` | `document_chembl_id` | `str` | Прямое извлечение | `Series[str]` (NOT NULL) |
 | `document_pubmed_id` | `/document.json` | `pubmed_id` | `int` | `int()` преобразование | `Series[int]` |
 | `document_classification` | `/document.json` | `classification` | `str` | Прямое извлечение | `Series[str]` |
-| `referenses_on_previous_experiments` | `/document.json` | `document_contains_external_links` | `bool` | `bool()` преобразование | `Series[bool]` |
-| `original_experimental_document` | `/document.json` | `is_experimental_doc` | `bool` | `bool()` преобразование | `Series[bool]` |
+| `referenses_on_previous_experiments` | `/document.json` | `document_contains_external_links` | `bool` | `coerce_optional_bool()` | `Series[bool]` |
+| `original_experimental_document` | `/document.json` | `is_experimental_doc` | `bool` | `coerce_optional_bool()` | `Series[bool]` |
 
 ### Resolved поля (с precedence)
 
