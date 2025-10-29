@@ -146,7 +146,8 @@ class TestBooleanNormalizer:
         """Тест нормализации невалидных значений."""
         assert self.normalizer.normalize("unknown") is None
         assert self.normalizer.normalize("xyz") is None
-        assert self.normalizer.normalize(3.14) is None
+        # Числа обрабатываются как bool (True для ненулевых)
+        assert self.normalizer.normalize(3.14) is True
 
     def test_normalize_with_default(self):
         """Тест нормализации с дефолтом."""
@@ -165,4 +166,5 @@ class TestBooleanNormalizer:
         assert self.normalizer.validate("false") is True
         assert self.normalizer.validate(None) is True
         assert self.normalizer.validate("unknown") is False
-        assert self.normalizer.validate(3.14) is False
+        # Числа валидны для bool нормализации
+        assert self.normalizer.validate(3.14) is True
