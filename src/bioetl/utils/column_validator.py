@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 import pandas as pd
 import pandera as pa
-from packaging import version
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.registry import SchemaRegistry
@@ -22,14 +21,14 @@ class ColumnComparisonResult:
     def __init__(
         self,
         entity: str,
-        expected_columns: List[str],
-        actual_columns: List[str],
-        missing_columns: List[str],
-        extra_columns: List[str],
+        expected_columns: list[str],
+        actual_columns: list[str],
+        missing_columns: list[str],
+        extra_columns: list[str],
         order_matches: bool,
         column_count_matches: bool,
-        empty_columns: List[str],
-        non_empty_columns: List[str],
+        empty_columns: list[str],
+        non_empty_columns: list[str],
     ):
         self.entity = entity
         self.expected_columns = expected_columns
@@ -47,7 +46,7 @@ class ColumnComparisonResult:
             and column_count_matches
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Преобразовать результат в словарь."""
         return {
             "entity": self.entity,
@@ -139,7 +138,7 @@ class ColumnValidator:
             )
             raise
 
-    def _get_expected_columns(self, schema: pa.DataFrameModel) -> List[str]:
+    def _get_expected_columns(self, schema: pa.DataFrameModel) -> list[str]:
         """Получить ожидаемые колонки из схемы."""
         # Попробовать получить column_order из Config
         if hasattr(schema.Config, "column_order"):
@@ -150,7 +149,7 @@ class ColumnValidator:
         # Если нет column_order, использовать порядок полей
         return list(schema.__fields__.keys())
 
-    def _analyze_column_data(self, df: pd.DataFrame) -> Tuple[List[str], List[str]]:
+    def _analyze_column_data(self, df: pd.DataFrame) -> tuple[list[str], list[str]]:
         """
         Анализировать данные в колонках и определить пустые/непустые.
 
@@ -166,7 +165,7 @@ class ColumnValidator:
         for column in df.columns:
             # Проверить, есть ли непустые значения
             non_null_count = df[column].notna().sum()
-            
+
             if non_null_count == 0:
                 empty_columns.append(column)
             else:
@@ -176,7 +175,7 @@ class ColumnValidator:
 
     def generate_report(
         self,
-        results: List[ColumnComparisonResult],
+        results: list[ColumnComparisonResult],
         output_path: Path,
     ) -> Path:
         """
@@ -212,7 +211,7 @@ class ColumnValidator:
 
         return md_path
 
-    def _generate_summary(self, results: List[ColumnComparisonResult]) -> Dict[str, Any]:
+    def _generate_summary(self, results: list[ColumnComparisonResult]) -> dict[str, Any]:
         """Сгенерировать сводку результатов."""
         total_entities = len(results)
         matching_entities = sum(1 for r in results if r.overall_match)
@@ -234,11 +233,11 @@ class ColumnValidator:
 
     def _generate_markdown_report(
         self,
-        report_data: Dict[str, Any],
+        report_data: dict[str, Any],
         output_path: Path,
     ) -> None:
         """Сгенерировать Markdown отчет."""
-        results: List[Dict[str, Any]] = report_data["details"]
+        results: list[dict[str, Any]] = report_data["details"]
         with open(output_path, "w", encoding="utf-8") as f:
             f.write("# Отчет о сравнении колонок\n\n")
             f.write(f"**Дата:** {report_data['timestamp']}\n\n")
@@ -296,7 +295,7 @@ class ColumnValidator:
         pipeline_name: str,
         output_dir: Path,
         schema_version: str = "latest",
-    ) -> List[ColumnComparisonResult]:
+    ) -> list[ColumnComparisonResult]:
         """
         Валидировать выходные данные pipeline.
 
@@ -308,11 +307,11 @@ class ColumnValidator:
         Returns:
             Список результатов сравнения
         """
-        results: List[ColumnComparisonResult] = []
+        results: list[ColumnComparisonResult] = []
 
         # Найти CSV файлы в выходной директории
         csv_files = list(output_dir.glob("**/*.csv"))
-        
+
         if not csv_files:
             self.logger.warning(
                 "no_csv_files_found",
@@ -325,10 +324,10 @@ class ColumnValidator:
             try:
                 # Загрузить DataFrame
                 df = pd.read_csv(csv_file)
-                
+
                 # Определить сущность по имени файла
                 entity = self._extract_entity_from_filename(csv_file.name)
-                
+
                 # Сравнить колонки
                 result = self.compare_columns(entity, df, schema_version)
                 results.append(result)
@@ -346,11 +345,11 @@ class ColumnValidator:
         """Извлечь имя сущности из имени файла."""
         # Убрать расширение и путь
         name = Path(filename).stem
-        
+
         # Маппинг имен файлов на сущности
         entity_mapping = {
             "assay": "assay",
-            "activity": "activity", 
+            "activity": "activity",
             "testitem": "testitem",
             "testitems": "testitem",
             "target": "target",
@@ -358,5 +357,5 @@ class ColumnValidator:
             "document": "document",
             "documents": "document",
         }
-        
+
         return entity_mapping.get(name, name)

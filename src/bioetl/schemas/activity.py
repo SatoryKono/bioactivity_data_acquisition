@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import pandera as pa
 from pandera.typing import Series
 
@@ -170,7 +171,10 @@ class ActivitySchema(BaseSchema):
         isin=STANDARD_UNITS_ALLOWED,
         description="Единицы стандартизированного значения",
     )
-    standard_flag: Series[int] = pa.Field(nullable=True, description="Флаг стандартизации (0/1)")
+    standard_flag: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Флаг стандартизации (0/1)",
+    )
     pchembl_value: Series[float] = pa.Field(nullable=True, ge=0, description="-log10 нормированное значение")
 
     # Boundaries and censorship
@@ -188,16 +192,27 @@ class ActivitySchema(BaseSchema):
     bao_label: Series[str] = pa.Field(nullable=True, description="BAO label (Bioassay Ontology)")
 
     # Ontologies and metadata
-    potential_duplicate: Series[int] = pa.Field(nullable=True, isin=[0, 1], description="Возможный дубликат активности")
+    potential_duplicate: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        isin=[0, 1],
+        description="Возможный дубликат активности",
+    )
     uo_units: Series[str] = pa.Field(nullable=True, regex=r'^UO_\d{7}$', description="Unit Ontology ID")
     qudt_units: Series[str] = pa.Field(nullable=True, description="QUDT URI для единиц измерения")
-    src_id: Series[int] = pa.Field(nullable=True, description="ID источника данных")
+    src_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="ID источника данных",
+    )
     action_type: Series[str] = pa.Field(nullable=True, description="Тип действия лиганда")
 
     # Activity properties (JSON string)
     canonical_smiles: Series[str] = pa.Field(nullable=True, description="Канонический SMILES лиганда")
     target_organism: Series[str] = pa.Field(nullable=True, description="Организм таргета")
-    target_tax_id: Series[int] = pa.Field(nullable=True, ge=1, description="NCBI Taxonomy ID таргета")
+    target_tax_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=1,
+        description="NCBI Taxonomy ID таргета",
+    )
     activity_properties: Series[str] = pa.Field(nullable=True, description="Свойства активности в каноническом виде")
     compound_key: Series[str] = pa.Field(nullable=True, description="Бизнес-ключ для связывания активности")
     is_citation: Series[bool] = pa.Field(nullable=True, description="Флаг наличия цитирования")
@@ -220,5 +235,17 @@ class ActivitySchema(BaseSchema):
     class Config:
         strict = True
         coerce = True
-        ordered = True
+        ordered = False  # Column order enforced via pipeline determinism utilities
+
+
+class _ActivityColumnOrderAccessor:
+    """Descriptor exposing column order for backwards compatibility."""
+
+    def __get__(self, instance, owner) -> list[str]:  # noqa: D401 - short accessor
+        return ActivitySchema.get_column_order()
+
+
+# Mirror behaviour from other schemas: surface column_order via Config without
+# registering it as a Pandera check during model creation.
+ActivitySchema.Config.column_order = _ActivityColumnOrderAccessor()
 
