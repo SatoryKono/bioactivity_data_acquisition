@@ -330,6 +330,22 @@ class TargetPipeline(PipelineBase):
 
         df = pd.read_csv(input_file)  # Read all records
 
+        limit = self.runtime_options.get("limit")
+        if limit is not None:
+            try:
+                limit_value = int(limit)
+            except (TypeError, ValueError):  # pragma: no cover - defensive guard
+                logger.warning("invalid_limit_option", limit=limit)
+            else:
+                if limit_value > 0:
+                    logger.info(
+                        "applying_input_limit",
+                        limit=limit_value,
+                        original_rows=len(df),
+                    )
+                    df = df.head(limit_value)
+                    self.runtime_options["limit"] = limit_value
+
         logger.info("extraction_completed", rows=len(df))
         return df
 
