@@ -81,6 +81,7 @@ INTEGER_COLUMNS: tuple[str, ...] = (
     "src_id",
     "target_tax_id",
 )
+INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
 
 
 def _is_na(value: Any) -> bool:
@@ -420,7 +421,8 @@ def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> No
 
     for column in columns:
         if column in df.columns:
-            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+            coerced = pd.to_numeric(df[column], errors="coerce")
+            df[column] = coerced.astype("Int64")
 
 
 class ActivityPipeline(PipelineBase):
@@ -971,16 +973,7 @@ class ActivityPipeline(PipelineBase):
         else:
             df["extracted_at"] = timestamp_now
 
-        _coerce_nullable_int_columns(
-            df,
-            [
-                "activity_id",
-                "standard_flag",
-                "potential_duplicate",
-                "src_id",
-                "target_tax_id",
-            ],
-        )
+        _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 
@@ -994,10 +987,23 @@ class ActivityPipeline(PipelineBase):
 
         expected_cols = resolve_schema_column_order(ActivitySchema)
         if expected_cols:
+            missing_columns: list[str] = []
             for col in expected_cols:
                 if col not in df.columns:
-                    df[col] = None
+                    missing_columns.append(col)
+                    if col in INTEGER_COLUMNS_WITH_ID:
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    else:
+                        df[col] = pd.Series(pd.NA, index=df.index)
+            if missing_columns:
+                logger.debug(
+                    "transform_missing_columns_filled",
+                    columns=missing_columns,
+                    total=len(missing_columns),
+                )
             df = df[expected_cols]
+
+        _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         df = df.convert_dtypes()
 
@@ -1030,7 +1036,10 @@ class ActivityPipeline(PipelineBase):
             missing_columns = [column for column in expected_columns if column not in df.columns]
             if missing_columns:
                 for column in missing_columns:
-                    df[column] = pd.NA
+                    if column in INTEGER_COLUMNS_WITH_ID:
+                        df[column] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    else:
+                        df[column] = pd.Series(pd.NA, index=df.index)
                 logger.debug(
                     "validation_missing_columns_filled",
                     columns=missing_columns,
@@ -1045,6 +1054,8 @@ class ActivityPipeline(PipelineBase):
                     extras=extra_columns,
                 )
                 df = df[ordered_columns]
+
+            _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         qc_metrics = self._calculate_qc_metrics(df)
         self._last_validation_report = {"metrics": qc_metrics}
