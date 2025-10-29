@@ -85,6 +85,7 @@ INTEGER_COLUMNS: tuple[str, ...] = (
     "target_tax_id",
 )
 INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
+FLOAT_COLUMNS: tuple[str, ...] = ("fallback_retry_after_sec",)
 
 
 @lru_cache(maxsize=1)
@@ -471,6 +472,16 @@ def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> No
             series.loc[fractional_mask] = pd.NA
 
         df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+
+
+def _coerce_nullable_float_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
+    """Normalise optional float columns to ``float64`` with ``NaN`` placeholders."""
+
+    for column in columns:
+        if column not in df.columns:
+            continue
+
+        df[column] = pd.to_numeric(df[column], errors="coerce")
 
 
 class ActivityPipeline(PipelineBase):
@@ -1072,6 +1083,8 @@ class ActivityPipeline(PipelineBase):
 
         df = df.convert_dtypes()
 
+        _coerce_nullable_float_columns(df, FLOAT_COLUMNS)
+
         if "is_censored" in df.columns:
             df["is_censored"] = df["is_censored"].astype("boolean")
 
@@ -1121,6 +1134,7 @@ class ActivityPipeline(PipelineBase):
                 df = df[ordered_columns]
 
         _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
+        _coerce_nullable_float_columns(df, FLOAT_COLUMNS)
 
         qc_metrics = self._calculate_qc_metrics(df)
         fallback_stats = getattr(self, "_fallback_stats", None) or {}
