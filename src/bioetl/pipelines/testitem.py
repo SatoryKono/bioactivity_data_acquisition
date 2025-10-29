@@ -2,7 +2,7 @@
 
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
@@ -28,7 +28,12 @@ from pandera.pandas import DataFrameModel
 schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
 
 
-def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
+def _coerce_nullable_int_columns(
+    df: pd.DataFrame,
+    columns: Sequence[str],
+    minimum_values: Mapping[str, int] | None = None,
+    default_minimum: int | None = None,
+) -> None:
     """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
 
     The ChEMBL payloads frequently encode optional integer fields using string or
@@ -44,6 +49,17 @@ def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> No
             continue
 
         series = pd.to_numeric(df[column], errors="coerce")
+
+        min_value = None
+        if minimum_values is not None and column in minimum_values:
+            min_value = minimum_values[column]
+        elif default_minimum is not None:
+            min_value = default_minimum
+
+        if min_value is not None:
+            below_min_mask = series < min_value
+            if below_min_mask.any():
+                series.loc[below_min_mask] = pd.NA
 
         if series.empty:
             df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
@@ -216,6 +232,12 @@ class TestItemPipeline(PipelineBase):
         "fallback_http_status",
         "fallback_attempt",
     ]
+
+    _INT_COLUMN_MINIMUMS: dict[str, int] = {
+        "molregno": 1,
+        "parent_molregno": 1,
+        "pubchem_cid": 1,
+    }
 
     @classmethod
     def _expected_columns(cls) -> list[str]:
@@ -876,7 +898,12 @@ class TestItemPipeline(PipelineBase):
                 if col not in df.columns:
                     df[col] = None
 
-            _coerce_nullable_int_columns(df, self._NULLABLE_INT_COLUMNS)
+            _coerce_nullable_int_columns(
+                df,
+                self._NULLABLE_INT_COLUMNS,
+                self._INT_COLUMN_MINIMUMS,
+                default_minimum=0,
+            )
 
             # Reorder to match schema column_order
             df = df[expected_cols]
