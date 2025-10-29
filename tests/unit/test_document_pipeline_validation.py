@@ -5,6 +5,10 @@ import pandas as pd
 import pytest
 from pandera.errors import SchemaErrors
 
+from bioetl.config.loader import load_config
+from bioetl.pipelines.document import DocumentPipeline
+from bioetl.schemas.document import DocumentNormalizedSchema
+
 
 class _DummyTTLCache(dict):
     def __init__(self, maxsize, ttl):  # noqa: D401 - simple test stub
@@ -22,10 +26,6 @@ class _DummySchema:
 testitem_stub = ModuleType("bioetl.schemas.testitem")
 setattr(testitem_stub, "TestItemSchema", _DummySchema)
 sys.modules.setdefault("bioetl.schemas.testitem", testitem_stub)
-
-from bioetl.config.loader import load_config
-from bioetl.pipelines.document import DocumentPipeline
-from bioetl.schemas.document import DocumentNormalizedSchema
 
 
 @pytest.fixture

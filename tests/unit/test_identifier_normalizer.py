@@ -28,9 +28,9 @@ class _DummyTTLCache(dict):
 # Ensure the API client can import cachetools even if it's missing in test envs
 sys.modules.setdefault("cachetools", SimpleNamespace(TTLCache=_DummyTTLCache))
 
+from bioetl.config.loader import load_config
 from bioetl.normalizers.identifier import IdentifierNormalizer
-from bioetl.config.loader import load_config  # noqa: E402  (after cachetools stub)
-from bioetl.pipelines.document import DocumentPipeline  # noqa: E402
+from bioetl.pipelines.document import DocumentPipeline
 
 
 @pytest.fixture

@@ -21,19 +21,19 @@ def test_circuit_breaker():
     cb = CircuitBreaker("test", failure_threshold=3, timeout=0.1)
 
     # First 2 failures should not open the circuit
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
     assert cb.failure_count == 1
     assert cb.state == "closed"
 
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
     assert cb.failure_count == 2
     assert cb.state == "closed"
 
     # Third failure should open the circuit
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
     assert cb.failure_count == 3
     assert cb.state == "open"
 
@@ -43,8 +43,8 @@ def test_circuit_breaker():
 
     # After timeout, circuit should go to half-open
     time.sleep(0.15)
-    with pytest.raises(Exception):
-        cb.call(lambda: (_ for _ in ()).throw(Exception("error")))
+    with pytest.raises(RuntimeError):
+        cb.call(lambda: (_ for _ in ()).throw(RuntimeError("error")))
 
 
 def test_token_bucket_limiter():

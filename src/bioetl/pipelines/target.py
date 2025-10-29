@@ -38,7 +38,7 @@ from bioetl.utils import finalize_pipeline_output
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-schema_registry.register("target", "1.0.0", TargetSchema)
+schema_registry.register("target", "1.0.0", TargetSchema)  # type: ignore[arg-type]
 
 
 class TargetPipeline(PipelineBase):
@@ -228,11 +228,11 @@ class TargetPipeline(PipelineBase):
 
         profile_value = getattr(http_profile, attr) if http_profile else None
         if profile_value is not None:
-            return profile_value
+            return float(profile_value)
 
         global_value = getattr(global_http, attr) if global_http else None
         if global_value is not None:
-            return global_value
+            return float(global_value)
 
         return default
 
@@ -680,13 +680,13 @@ class TargetPipeline(PipelineBase):
 
         entries = self._fetch_uniprot_entries(accessions)
         secondary_index: dict[str, dict[str, Any]] = {}
-        for entry in entries.values():
+        for uniprot_entry in entries.values():
             for field in ("secondaryAccession", "secondaryAccessions"):
-                secondary_values = entry.get(field, [])
+                secondary_values = uniprot_entry.get(field, [])
                 if isinstance(secondary_values, str):
                     secondary_values = [secondary_values]
                 for secondary in secondary_values or []:
-                    secondary_index[str(secondary)] = entry
+                    secondary_index[str(secondary)] = uniprot_entry
 
         used_entries: dict[str, dict[str, Any]] = {}
         unresolved: dict[int, str] = {}
@@ -702,7 +702,7 @@ class TargetPipeline(PipelineBase):
 
             accession_str = str(accession).strip()
             total_with_accession += 1
-            entry = entries.get(accession_str)
+            entry: dict[str, Any] | None = entries.get(accession_str)
             merge_strategy = "direct"
 
             if entry is None:
@@ -726,7 +726,8 @@ class TargetPipeline(PipelineBase):
 
             resolved_rows += 1
             canonical = entry.get("primaryAccession") or entry.get("accession")
-            used_entries[canonical] = entry
+            if canonical:
+                used_entries[str(canonical)] = entry
             self._apply_entry_enrichment(working_df, idx, entry, merge_strategy)
 
         # Attempt ID mapping for unresolved accessions
@@ -743,7 +744,7 @@ class TargetPipeline(PipelineBase):
                     if not canonical_acc:
                         continue
 
-                    entry = entries.get(canonical_acc)
+                    entry: dict[str, Any] | None = entries.get(canonical_acc)
                     if entry is None:
                         if canonical_acc not in used_entries:
                             extra_entries = self._fetch_uniprot_entries([canonical_acc])
@@ -754,7 +755,7 @@ class TargetPipeline(PipelineBase):
                         continue
 
                     fallback_counts["idmapping"] += 1
-                    used_entries[canonical_acc] = entry
+                    used_entries[str(canonical_acc)] = entry
                     self._record_missing_mapping(
                         stage="uniprot",
                         target_id=working_df.at[idx, "target_chembl_id"],
@@ -789,7 +790,7 @@ class TargetPipeline(PipelineBase):
                     continue
 
                 fallback_counts["gene_symbol"] += 1
-                used_entries[canonical_acc] = entry
+                used_entries[str(canonical_acc)] = entry
                 self._record_missing_mapping(
                     stage="uniprot",
                     target_id=working_df.at[idx, "target_chembl_id"],
@@ -823,7 +824,7 @@ class TargetPipeline(PipelineBase):
                 if not ortholog_acc:
                     continue
 
-                entry = entries.get(ortholog_acc)
+                entry: dict[str, Any] | None = entries.get(ortholog_acc)
                 if entry is None:
                     extra_entries = self._fetch_uniprot_entries([ortholog_acc])
                     if extra_entries:
@@ -834,7 +835,7 @@ class TargetPipeline(PipelineBase):
                     continue
 
                 fallback_counts["ortholog"] += 1
-                used_entries[ortholog_acc] = entry
+                used_entries[str(ortholog_acc)] = entry
                 self._record_missing_mapping(
                     stage="uniprot",
                     target_id=working_df.at[idx, "target_chembl_id"],
@@ -912,7 +913,7 @@ class TargetPipeline(PipelineBase):
 
             isoform_df = self._expand_isoforms(entry)
             if not isoform_df.empty:
-                component_records.extend(isoform_df.to_dict("records"))
+                component_records.extend(isoform_df.to_dict("records"))  # type: ignore[arg-type]
 
         uniprot_silver_df = pd.DataFrame(uniprot_silver_records).convert_dtypes()
         component_enrichment_df = pd.DataFrame(component_records).convert_dtypes()
@@ -953,7 +954,7 @@ class TargetPipeline(PipelineBase):
         family_index: dict[int, dict[str, Any]] = {}
         for raw_family in families:
             try:
-                family_id = int(raw_family.get("familyId"))
+                family_id = int(raw_family.get("familyId") or 0)
             except (TypeError, ValueError):
                 continue
             family_index[family_id] = raw_family
@@ -1549,7 +1550,7 @@ class TargetPipeline(PipelineBase):
         results = payload.get("results") or payload.get("entries") or []
         if not results:
             return None
-        return results[0]
+        return results[0]  # type: ignore[no-any-return]
 
     def _extract_gene_primary(self, entry: dict[str, Any]) -> str | None:
         genes = entry.get("genes") or []
@@ -1954,7 +1955,7 @@ class TargetPipeline(PipelineBase):
             )
         else:
             isoform_counts = pd.Series(dtype="Int64")
-            isoform_map: dict[str, list[str]] = {}
+            isoform_map = {}
 
         working["isoform_count"] = (
             working["target_chembl_id"].map(isoform_counts).fillna(0).astype("Int64")
@@ -2314,5 +2315,5 @@ class TargetPipeline(PipelineBase):
             }
         )
 
-        return validated
+        return validated  # type: ignore[no-any-return]
 

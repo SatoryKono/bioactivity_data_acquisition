@@ -243,7 +243,7 @@ def test_parse_cli_overrides():
 
 def test_invalid_config():
     """Test invalid configuration raises error."""
-    with pytest.raises(Exception):
+    with pytest.raises(FileNotFoundError):
         load_config(Path("nonexistent.yaml"))
 
 
