@@ -1007,6 +1007,32 @@ class ActivityPipeline(PipelineBase):
             }
             return df
 
+        expected_cols = ActivitySchema.get_column_order()
+        if expected_cols:
+            current_cols = list(df.columns)
+            if current_cols != expected_cols:
+                missing_cols = [col for col in expected_cols if col not in df.columns]
+                extra_cols = [col for col in df.columns if col not in expected_cols]
+                logger.warning(
+                    "column_order_mismatch_before_validation",
+                    expected_first=expected_cols[:5],
+                    actual_first=current_cols[:5],
+                    missing=missing_cols or None,
+                    extra=extra_cols or None,
+                )
+                self.record_validation_issue(
+                    {
+                        "metric": "schema.column_order",
+                        "issue_type": "schema_alignment",
+                        "severity": "warning",
+                        "expected_first": expected_cols[:5],
+                        "actual_first": current_cols[:5],
+                        "missing": missing_cols,
+                        "extra": extra_cols,
+                    }
+                )
+                df = df.reindex(columns=expected_cols)
+
         qc_metrics = self._calculate_qc_metrics(df)
         self._last_validation_report = {"metrics": qc_metrics}
 
