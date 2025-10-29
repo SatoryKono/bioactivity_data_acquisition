@@ -22,6 +22,7 @@ from bioetl.adapters import (
 from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
@@ -95,45 +96,28 @@ class DocumentPipeline(PipelineBase):
         super().__init__(config, run_id)
 
         # Initialize ChEMBL API client
-        chembl_source = config.sources.get("chembl")
-
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         default_batch_size = 10
         default_max_url_length = 1800
 
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", default_base_url) or default_base_url
-            batch_size_value = chembl_source.get("batch_size", default_batch_size)
-            max_url_length_value = chembl_source.get("max_url_length", default_max_url_length)
-        elif chembl_source is not None:
-            base_url = getattr(chembl_source, "base_url", default_base_url) or default_base_url
-            batch_size_value = getattr(chembl_source, "batch_size", default_batch_size)
-            max_url_length_value = getattr(chembl_source, "max_url_length", default_max_url_length)
-        else:
-            base_url = default_base_url
-            batch_size_value = default_batch_size
-            max_url_length_value = default_max_url_length
-
-        try:
-            batch_size = int(batch_size_value)
-        except (TypeError, ValueError):
-            batch_size = default_batch_size
-
-        try:
-            max_url_length = int(max_url_length_value)
-        except (TypeError, ValueError):
-            max_url_length = default_max_url_length
-
-        chembl_config = APIConfig(
-            name="chembl",
-            base_url=base_url,
-            cache_enabled=config.cache.enabled,
-            cache_ttl=config.cache.ttl,
+        factory = APIClientFactory.from_pipeline_config(config)
+        chembl_source = ensure_target_source_config(
+            config.sources.get("chembl"),
+            defaults={
+                "enabled": True,
+                "base_url": default_base_url,
+                "batch_size": default_batch_size,
+                "max_url_length": default_max_url_length,
+            },
         )
+
+        chembl_config = factory.create("chembl", chembl_source)
         self.api_client = UnifiedAPIClient(chembl_config)
         self.max_batch_size = 25
-        self.batch_size = min(self.max_batch_size, max(1, batch_size))
-        self.max_url_length = max(1, max_url_length)
+        batch_size = chembl_source.batch_size or default_batch_size
+        max_url_length = chembl_source.max_url_length or default_max_url_length
+        self.batch_size = min(self.max_batch_size, max(1, int(batch_size)))
+        self.max_url_length = max(1, int(max_url_length))
         self._document_cache: dict[str, dict[str, Any]] = {}
 
         # Initialize external adapters if enabled
