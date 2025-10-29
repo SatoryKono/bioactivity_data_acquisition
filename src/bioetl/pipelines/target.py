@@ -17,7 +17,6 @@ from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.output_writer import OutputMetadata
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
@@ -305,7 +304,7 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class = gold_protein_class
         self.gold_xref = gold_xref
 
-        self.additional_tables.clear()
+        self.reset_additional_tables()
         if not gold_components.empty:
             self.add_additional_table("target_components", gold_components)
         if not gold_protein_class.empty:
@@ -328,13 +327,12 @@ class TargetPipeline(PipelineBase):
         if not iuphar_gold.empty:
             self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
 
-        self.export_metadata = OutputMetadata.from_dataframe(
+        self.set_export_metadata_from_dataframe(
             gold_targets,
             pipeline_version=pipeline_version,
             source_system=source_system,
             chembl_release=self._chembl_release,
             column_order=list(gold_targets.columns),
-            run_id=self.run_id,
         )
 
         if self._qc_missing_mapping_records:
