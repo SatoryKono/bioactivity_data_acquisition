@@ -449,12 +449,13 @@ class DocumentPipeline(PipelineBase):
             extra=extra_columns,
         )
 
-        # Reindex known columns first to guarantee Pandera's ordered validation and
-        # then append any additional fields emitted by upstream APIs to the tail to
-        # preserve them for downstream enrichment/auditing workflows.
-        aligned_df = working_df.reindex(columns=ordered_columns)
-        extras_df = working_df.loc[:, extra_columns] if extra_columns else pd.DataFrame(index=working_df.index)
-        working_df = pd.concat([aligned_df, extras_df], axis=1)
+        # Align columns explicitly to avoid pandas concatenation edge cases that
+        # can surface as Pandera COLUMN_NOT_ORDERED errors when upstream payloads
+        # introduce duplicate labels or mixed casing. We deterministically project
+        # the DataFrame to the schema order followed by any extra columns emitted
+        # by partner APIs.
+        aligned_columns = ordered_columns + extra_columns
+        working_df = working_df.loc[:, aligned_columns]
 
         if "source" not in working_df.columns:
             working_df["source"] = "ChEMBL"
