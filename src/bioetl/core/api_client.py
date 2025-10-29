@@ -405,7 +405,7 @@ class UnifiedAPIClient:
                     "error_text": last_error_text or str(last_exc),
                     "retry_after": last_retry_after_header,
                 }
-                setattr(last_exc, "retry_metadata", metadata)
+                last_exc.retry_metadata = metadata
             raise last_exc
         raise RuntimeError("Request failed with no exception captured")
 

@@ -1,7 +1,6 @@
 """Тесты для JSON утилит."""
 
 import json
-import pytest
 
 from bioetl.utils.json import canonical_json, normalize_json_list
 
@@ -55,10 +54,10 @@ class TestCanonicalJson:
         # Функции, которые не сериализуются в JSON
         def test_func():
             pass
-        
+
         class TestClass:
             pass
-        
+
         assert canonical_json(test_func) is None
         assert canonical_json(TestClass()) is None
 
@@ -148,7 +147,7 @@ class TestNormalizeJsonList:
         import math
         data = [{"value": math.nan, "normal": 42}]
         canonical, records = normalize_json_list(data)
-        
+
         assert len(records) == 1
         assert records[0]["value"] is None
         assert records[0]["normal"] == 42
@@ -178,9 +177,8 @@ class TestNormalizeJsonList:
         
         def sort_by_value(record):
             return record.get("value", 0)
-        
+
         canonical, records = normalize_json_list(data, sort_fn=sort_by_value)
-        
         assert len(records) == 3
         # Записи должны быть отсортированы по value
         assert records[0]["value"] == 1

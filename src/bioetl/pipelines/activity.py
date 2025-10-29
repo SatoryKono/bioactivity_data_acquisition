@@ -7,8 +7,8 @@ import json
 import math
 import re
 from collections.abc import Iterable, Sequence
-from functools import lru_cache
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -889,8 +889,6 @@ class ActivityPipeline(PipelineBase):
         df["index"] = range(len(df))
 
         self._update_fallback_artifacts(df)
-
-        from bioetl.schemas import ActivitySchema
 
         expected_cols = _get_activity_column_order()
         if expected_cols:

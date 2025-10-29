@@ -1,12 +1,9 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
-import json
 import re
-from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
-import numpy as np
 import pandas as pd
 import requests  # type: ignore[import-untyped]
 from pandera.errors import SchemaErrors
@@ -34,7 +31,6 @@ from bioetl.utils.json import canonical_json
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-from pandera.pandas import DataFrameModel
 schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
 
 

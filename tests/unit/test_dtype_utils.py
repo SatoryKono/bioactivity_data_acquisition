@@ -1,7 +1,6 @@
 """Тесты для утилит dtype."""
 
 import pandas as pd
-import pytest
 
 from bioetl.utils.dtype import (
     coerce_nullable_float_columns,
