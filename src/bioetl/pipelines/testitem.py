@@ -957,6 +957,18 @@ class TestItemPipeline(PipelineBase):
                 rate_limit_period = getattr(pubchem, "rate_limit_period", 1.0)
                 batch_size = pubchem.batch_size or 100
 
+            # NOTE:
+            # -----
+            # ``enabled`` defaults to ``False`` because pipeline profiles (for example
+            # ``configs/profiles/dev.yaml``) intentionally omit the PubChem source
+            # block.  When those profiles are used directly with the CLI the
+            # enrichment adapter is not constructed and the downstream dataframe
+            # retains ``pubchem_*`` columns filled with ``None``.
+            #
+            # To activate enrichment, make sure the effective configuration merges in
+            # ``configs/pipelines/testitem.yaml`` (or sets ``sources.pubchem.enabled``
+            # to ``true``) so that we drop into this branch and actually instantiate
+            # the adapter.
             if enabled:
                 pubchem_config = APIConfig(
                     name="pubchem",
