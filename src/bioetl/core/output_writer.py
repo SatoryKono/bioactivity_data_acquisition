@@ -3,7 +3,7 @@
 import hashlib
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,6 +21,8 @@ class OutputArtifacts:
 
     dataset: Path
     quality_report: Path
+    run_directory: Path
+    additional_datasets: dict[str, Path] = field(default_factory=dict)
     correlation_report: Path | None = None
     metadata: Path | None = None
     manifest: Path | None = None
@@ -41,6 +43,7 @@ class OutputMetadata:
     column_count: int
     column_order: list[str]
     checksums: dict[str, str]
+    run_id: str | None = None
 
     @classmethod
     def from_dataframe(
@@ -50,6 +53,7 @@ class OutputMetadata:
         source_system: str = "unified",
         chembl_release: str | None = None,
         column_order: list[str] | None = None,
+        run_id: str | None = None,
     ) -> "OutputMetadata":
         """Создает метаданные из DataFrame."""
         return cls(
@@ -61,6 +65,7 @@ class OutputMetadata:
             column_count=len(df.columns),
             column_order=column_order or list(df.columns),
             checksums={},
+            run_id=run_id,
         )
 
 
@@ -164,6 +169,8 @@ class UnifiedOutputWriter:
         qc_summary: dict[str, Any] | None = None,
         qc_missing_mappings: pd.DataFrame | None = None,
         qc_enrichment_metrics: pd.DataFrame | None = None,
+        additional_tables: dict[str, pd.DataFrame] | None = None,
+        runtime_options: dict[str, Any] | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -177,27 +184,55 @@ class UnifiedOutputWriter:
         Returns:
             OutputArtifacts с путями к созданным файлам
         """
+        dataset_path = output_path
+        if dataset_path.suffix != ".csv":
+            dataset_path = dataset_path.with_suffix(".csv")
+
+        dataset_dir = dataset_path.parent
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+
+        run_directory = dataset_dir
+        if dataset_dir.name.lower() in {"datasets", "tables", "csv"}:
+            run_directory = dataset_dir.parent
+
+        qc_dir = run_directory / "qc"
+        qc_dir.mkdir(parents=True, exist_ok=True)
+
+        quality_path = qc_dir / f"{dataset_path.stem}_quality_report.csv"
+
         # Generate metadata if not provided
         if metadata is None:
-            metadata = OutputMetadata.from_dataframe(df)
+            metadata = OutputMetadata.from_dataframe(
+                df,
+                run_id=self.run_id,
+                column_order=list(df.columns),
+            )
+        elif metadata.run_id is None:
+            metadata = OutputMetadata(
+                pipeline_version=metadata.pipeline_version,
+                source_system=metadata.source_system,
+                chembl_release=metadata.chembl_release,
+                generated_at=metadata.generated_at,
+                row_count=metadata.row_count,
+                column_count=metadata.column_count,
+                column_order=metadata.column_order,
+                checksums=metadata.checksums,
+                run_id=self.run_id,
+            )
 
-        # Create base paths
-        # Use the path as-is if it already contains a date
-        # Otherwise add current date tag
-        base_name = output_path.stem
-        if not base_name.endswith(datetime.now(timezone.utc).strftime("%Y%m%d")):
-            date_tag = datetime.now(timezone.utc).strftime("%Y%m%d")
-            base_name = f"{base_name}_{date_tag}"
-
-        dataset_path = output_path.parent / f"{base_name}.csv"
-        quality_path = output_path.parent / f"{base_name}_quality_report.csv"
-
-        # Write main dataset
-        logger.info("writing_dataset", path=dataset_path, rows=len(df))
+        logger.info(
+            "writing_dataset",
+            path=str(dataset_path),
+            rows=len(df),
+            run_directory=str(run_directory),
+        )
         self.atomic_writer.write(df, dataset_path)
 
-        # Generate and write quality report
-        logger.info("generating_quality_report")
+        logger.info(
+            "generating_quality_report",
+            path=str(quality_path),
+            rows=len(df.columns),
+        )
         quality_df = self.quality_generator.generate(
             df,
             issues=issues,
@@ -207,15 +242,13 @@ class UnifiedOutputWriter:
 
         qc_summary_path: Path | None = None
         if qc_summary:
-            qc_summary_path = output_path.parent / f"{base_name}_qc_summary.json"
+            qc_summary_path = qc_dir / "qc_summary.json"
             logger.info("writing_qc_summary", path=str(qc_summary_path))
             self._write_json_atomic(qc_summary_path, qc_summary)
 
         missing_mappings_path: Path | None = None
         if qc_missing_mappings is not None and not qc_missing_mappings.empty:
-            missing_mappings_path = (
-                output_path.parent / f"{base_name}_qc_missing_mappings.csv"
-            )
+            missing_mappings_path = qc_dir / "qc_missing_mappings.csv"
             logger.info(
                 "writing_qc_missing_mappings",
                 path=str(missing_mappings_path),
@@ -225,9 +258,7 @@ class UnifiedOutputWriter:
 
         enrichment_metrics_path: Path | None = None
         if qc_enrichment_metrics is not None and not qc_enrichment_metrics.empty:
-            enrichment_metrics_path = (
-                output_path.parent / f"{base_name}_qc_enrichment_metrics.csv"
-            )
+            enrichment_metrics_path = qc_dir / "qc_enrichment_metrics.csv"
             logger.info(
                 "writing_qc_enrichment_metrics",
                 path=str(enrichment_metrics_path),
@@ -235,37 +266,57 @@ class UnifiedOutputWriter:
             )
             self.atomic_writer.write(qc_enrichment_metrics, enrichment_metrics_path)
 
-        # Calculate checksums
+        additional_paths: dict[str, Path] = {}
+        if additional_tables:
+            for name, table in additional_tables.items():
+                if table is None or table.empty:
+                    continue
+                safe_name = name.replace(" ", "_").lower()
+                table_path = dataset_dir / f"{safe_name}.csv"
+                logger.info(
+                    "writing_additional_dataset",
+                    name=name,
+                    path=str(table_path),
+                    rows=len(table),
+                )
+                self.atomic_writer.write(table, table_path)
+                additional_paths[name] = table_path
+
         checksums = self._calculate_checksums(
             dataset_path,
             quality_path,
+            *(additional_paths.values()),
             missing_mappings_path,
             enrichment_metrics_path,
             qc_summary_path,
         )
 
-        # Write metadata if extended
-        metadata_path = None
-        if extended:
-            metadata_path = output_path.parent / f"{base_name}_meta.yaml"
-            qc_artifact_paths = {
-                "qc_summary": qc_summary_path,
-                "qc_missing_mappings": missing_mappings_path,
-                "qc_enrichment_metrics": enrichment_metrics_path,
-            }
-            self._write_metadata(
-                metadata_path,
-                metadata,
-                checksums,
-                qc_summary=qc_summary,
-                qc_metrics=qc_metrics,
-                issues=issues,
-                qc_artifacts=qc_artifact_paths,
-            )
+        metadata_path = run_directory / "meta.yaml"
+        qc_artifact_paths = {
+            "qc_summary": qc_summary_path,
+            "qc_missing_mappings": missing_mappings_path,
+            "qc_enrichment_metrics": enrichment_metrics_path,
+        }
+
+        self._write_metadata(
+            metadata_path,
+            metadata,
+            checksums,
+            dataset_path=dataset_path,
+            quality_path=quality_path,
+            additional_paths=additional_paths,
+            qc_summary=qc_summary,
+            qc_metrics=qc_metrics,
+            issues=issues,
+            qc_artifacts=qc_artifact_paths,
+            runtime_options=runtime_options,
+        )
 
         return OutputArtifacts(
             dataset=dataset_path,
             quality_report=quality_path,
+            run_directory=run_directory,
+            additional_datasets=additional_paths,
             metadata=metadata_path,
             qc_summary=qc_summary_path,
             qc_missing_mappings=missing_mappings_path,
@@ -290,15 +341,20 @@ class UnifiedOutputWriter:
         metadata: OutputMetadata,
         checksums: dict[str, str],
         *,
+        dataset_path: Path,
+        quality_path: Path,
+        additional_paths: dict[str, Path] | None = None,
         qc_summary: dict[str, Any] | None = None,
         qc_metrics: dict[str, Any] | None = None,
         issues: list[dict[str, Any]] | None = None,
         qc_artifacts: dict[str, Path | None] | None = None,
+        runtime_options: dict[str, Any] | None = None,
     ) -> None:
         """Записывает метаданные в YAML."""
         import yaml
 
         meta_dict = {
+            "run_id": metadata.run_id,
             "pipeline_version": metadata.pipeline_version,
             "source_system": metadata.source_system,
             "chembl_release": metadata.chembl_release,
@@ -307,14 +363,23 @@ class UnifiedOutputWriter:
             "column_count": metadata.column_count,
             "column_order": metadata.column_order,
             "file_checksums": checksums,
+            "artifacts": {
+                "dataset": str(dataset_path),
+                "quality_report": str(quality_path),
+            },
         }
+
+        if additional_paths:
+            meta_dict.setdefault("artifacts", {})["additional_datasets"] = {
+                name: str(path) for name, path in additional_paths.items()
+            }
 
         if qc_artifacts:
             artifact_paths = {
                 name: str(path) for name, path in qc_artifacts.items() if path is not None
             }
             if artifact_paths:
-                meta_dict["qc_artifacts"] = artifact_paths
+                meta_dict.setdefault("artifacts", {})["qc"] = artifact_paths
 
         if qc_summary:
             meta_dict["qc_summary"] = qc_summary
@@ -324,6 +389,9 @@ class UnifiedOutputWriter:
 
         if issues:
             meta_dict["validation_issues"] = issues
+
+        if runtime_options:
+            meta_dict["runtime_options"] = runtime_options
 
         with path.open("w") as f:
             yaml.dump(meta_dict, f, default_flow_style=False, sort_keys=True)

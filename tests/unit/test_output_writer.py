@@ -35,14 +35,16 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     df = pd.DataFrame({"value": [1, 2], "label": ["a", "b"]})
     writer = UnifiedOutputWriter("run-test")
 
-    output_path = tmp_path / "dataset.csv"
+    output_path = tmp_path / "run-test" / "target" / "datasets" / "targets.csv"
     artifacts = writer.write(df, output_path)
 
-    expected_dataset_name = "dataset_20240102.csv"
-    expected_quality_name = "dataset_20240102_quality_report.csv"
-
-    assert artifacts.dataset.name == expected_dataset_name
-    assert artifacts.quality_report.name == expected_quality_name
+    assert artifacts.dataset == output_path
+    assert (
+        artifacts.quality_report
+        == tmp_path / "run-test" / "target" / "qc" / "targets_quality_report.csv"
+    )
+    assert artifacts.run_directory == tmp_path / "run-test" / "target"
+    assert artifacts.metadata == tmp_path / "run-test" / "target" / "meta.yaml"
     assert artifacts.qc_summary is None
     assert artifacts.qc_missing_mappings is None
     assert artifacts.qc_enrichment_metrics is None
@@ -76,14 +78,17 @@ def test_unified_output_writer_cleans_up_on_failure(tmp_path, monkeypatch):
     writer = UnifiedOutputWriter("run-test")
 
     with pytest.raises(RuntimeError):
-        writer.write(pd.DataFrame({"value": [1]}), tmp_path / "dataset.csv")
+        writer.write(
+            pd.DataFrame({"value": [1]}),
+            tmp_path / "run-test" / "target" / "datasets" / "targets.csv",
+        )
 
     tmp_dirs = list(tmp_path.glob(".tmp_run_run-test"))
     tmp_files = list(tmp_path.rglob("*.tmp"))
 
     assert not tmp_dirs, "temporary run directory should be removed"
     assert not tmp_files, "temporary files should be removed"
-    assert not any(tmp_path.rglob("*_20240102.csv")), "no dataset files should remain"
+    assert not any(tmp_path.rglob("targets.csv")), "no dataset files should remain"
 
 
 def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
@@ -99,23 +104,25 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         pipeline_version="2.0.0",
         source_system="chembl",
         chembl_release="34",
+        run_id="run-test",
     )
 
     artifacts = writer.write(
         df,
-        tmp_path / "dataset.csv",
+        tmp_path / "run-test" / "target" / "datasets" / "targets.csv",
         extended=True,
         metadata=metadata,
     )
 
     assert artifacts.metadata is not None
-    assert artifacts.metadata.name == "dataset_20240102_meta.yaml"
+    assert artifacts.metadata == tmp_path / "run-test" / "target" / "meta.yaml"
 
     with artifacts.metadata.open() as fh:
         import yaml
 
         contents = yaml.safe_load(fh)
 
+    assert contents["run_id"] == "run-test"
     assert contents["row_count"] == len(df)
     assert contents["column_count"] == len(df.columns)
     assert contents["column_order"] == list(df.columns)
@@ -127,7 +134,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         ).hexdigest(),
     }
     assert contents["file_checksums"] == expected_checksums
-    assert "qc_artifacts" not in contents
+    assert contents["artifacts"]["dataset"] == str(artifacts.dataset)
+    assert contents["artifacts"]["quality_report"] == str(artifacts.quality_report)
+    assert "qc" not in contents.get("artifacts", {})
 
     quality_df = pd.read_csv(artifacts.quality_report)
     column_profiles = quality_df[quality_df["metric"] == "column_profile"]
