@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
@@ -88,6 +89,20 @@ class BaseSchema(pa.DataFrameModel):
             cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor
         ):
             expose_config_column_order(cls)
+
+    @classmethod
+    def validate(  # type: ignore[override]
+        cls,
+        check_obj: pd.DataFrame | object,
+        *args,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """Validate ``check_obj`` ensuring the column accessor stays patched."""
+
+        if not isinstance(cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor):
+            expose_config_column_order(cls)
+
+        return super().validate(check_obj, *args, **kwargs)
 
     @classmethod
     def get_column_order(cls) -> list[str]:
