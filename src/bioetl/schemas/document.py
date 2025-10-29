@@ -1,6 +1,5 @@
 """Document schema for multi-source enrichment according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
-import pandas as pd
 import pandera as pa
 from pandera.typing import Series
 
@@ -15,24 +14,37 @@ class DocumentRawSchema(pa.DataFrameModel):
         nullable=False,
         description="Primary identifier for the document record",
     )
-    title: Series[str] = pa.Field(nullable=True, description="Document title from ChEMBL")
     abstract: Series[str] = pa.Field(nullable=True, description="Abstract text from ChEMBL")
-    doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
-    year: Series[pd.Int64Dtype] = pa.Field(
+    authors: Series[str] = pa.Field(nullable=True, description="Author list from ChEMBL")
+    classification: Series[str] = pa.Field(
         nullable=True,
-        description="Publication year reported by ChEMBL",
+        description="Document classification flag provided by ChEMBL",
     )
+    document_contains_external_links: Series[str] = pa.Field(
+        nullable=True,
+        description="Raw indicator for external references provided by ChEMBL",
+    )
+    doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
+    first_page: Series[str] = pa.Field(nullable=True, description="First page of article")
+    is_experimental_doc: Series[str] = pa.Field(
+        nullable=True,
+        description="Whether ChEMBL classifies the document as experimental",
+    )
+    issue: Series[str] = pa.Field(nullable=True, description="Journal issue")
     journal: Series[str] = pa.Field(nullable=True, description="Journal name")
     journal_abbrev: Series[str] = pa.Field(nullable=True, description="Journal abbreviation")
-    volume: Series[str] = pa.Field(nullable=True, description="Journal volume")
-    issue: Series[str] = pa.Field(nullable=True, description="Journal issue")
-    first_page: Series[str] = pa.Field(nullable=True, description="First page of article")
     last_page: Series[str] = pa.Field(nullable=True, description="Last page of article")
-    pubmed_id: Series[pd.Int64Dtype] = pa.Field(
+    month: Series[str] = pa.Field(nullable=True, description="Publication month reported by ChEMBL")
+    pubmed_id: Series[str] = pa.Field(
         nullable=True,
         description="PubMed identifier supplied by ChEMBL",
     )
-    authors: Series[str] = pa.Field(nullable=True, description="Author list from ChEMBL")
+    title: Series[str] = pa.Field(nullable=True, description="Document title from ChEMBL")
+    volume: Series[str] = pa.Field(nullable=True, description="Journal volume")
+    year: Series[str] = pa.Field(
+        nullable=True,
+        description="Publication year reported by ChEMBL",
+    )
     source: Series[str] = pa.Field(
         nullable=True,
         description="Source system providing the document payload",

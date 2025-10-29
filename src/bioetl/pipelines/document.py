@@ -434,6 +434,14 @@ class DocumentPipeline(PipelineBase):
             if column not in working_df.columns:
                 working_df[column] = pd.NA
 
+        # Reorder DataFrame columns to match schema definition for deterministic validation
+        expected_order = [column for column in schema.columns.keys()]
+        ordered_columns = [column for column in expected_order if column in working_df.columns]
+        extra_columns = [
+            column for column in working_df.columns if column not in ordered_columns
+        ]
+        working_df = working_df[ordered_columns + extra_columns]
+
         if "source" not in working_df.columns:
             working_df["source"] = "ChEMBL"
         else:
