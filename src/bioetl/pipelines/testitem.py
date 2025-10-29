@@ -12,6 +12,7 @@ from pandera.errors import SchemaErrors
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
+from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
@@ -359,12 +360,16 @@ class TestItemPipeline(PipelineBase):
         super().__init__(config, run_id)
 
         # Initialize ChEMBL API client
+        default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
+        if isinstance(chembl_source, TargetSourceConfig):
+            base_url = chembl_source.base_url
+            batch_size_config = chembl_source.batch_size if chembl_source.batch_size is not None else 25
+        elif isinstance(chembl_source, dict):
+            base_url = chembl_source.get("base_url", default_base_url)
             batch_size_config = chembl_source.get("batch_size", 25)
         else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
+            base_url = default_base_url
             batch_size_config = 25
 
         try:
