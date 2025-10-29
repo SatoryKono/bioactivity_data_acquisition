@@ -34,7 +34,7 @@ def _validate_sample(sample: int | None) -> None:
     """Raise a user-facing error when sample is invalid."""
 
     if sample is not None and sample < 1:
-        raise typer.BadParameter("--sample must be >= 1", param_name="sample")
+        raise typer.BadParameter("--sample must be >= 1")
 
 
 def _validate_mode(mode: str, choices: Sequence[str] | None) -> None:
@@ -46,8 +46,7 @@ def _validate_mode(mode: str, choices: Sequence[str] | None) -> None:
     if mode not in choices:
         allowed = ", ".join(choices)
         raise typer.BadParameter(
-            f"Mode must be one of: {allowed}",
-            param_name="mode",
+            f"Mode must be one of: {allowed}"
         )
 
 
@@ -136,8 +135,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
         if sample is not None and limit is not None and sample != limit:
             raise typer.BadParameter(
-                "--sample and --limit must match when both are provided",
-                param_name="sample",
+                "--sample and --limit must match when both are provided"
             )
 
         sample_limit = sample if sample is not None else limit

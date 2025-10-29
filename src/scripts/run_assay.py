@@ -11,8 +11,7 @@ from bioetl.pipelines.assay import AssayPipeline
 app = typer.Typer(help="Run assay pipeline to extract and transform assay data")
 
 
-@app.command()
-def run():
+app.command()(
     create_pipeline_command(
         PipelineCommandConfig(
             pipeline_name="assay",
@@ -21,7 +20,8 @@ def run():
             default_input=Path("data/input/assay.csv"),
             default_output_dir=Path("data/output/assay"),
         )
-    )()
+    )
+)
 
 
 if __name__ == "__main__":

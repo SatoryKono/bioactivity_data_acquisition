@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
-import requests
+import requests  # type: ignore[import-untyped]
 from pandera.errors import SchemaErrors
 
 from bioetl.adapters import PubChemAdapter
@@ -22,7 +22,8 @@ from bioetl.schemas.registry import schema_registry
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
-schema_registry.register("testitem", "1.0.0", TestItemSchema)
+from pandera.pandas import DataFrameModel
+schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
 
 
 class TestItemPipeline(PipelineBase):
@@ -211,7 +212,7 @@ class TestItemPipeline(PipelineBase):
     def _flatten_molecule_hierarchy(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Flatten molecule_hierarchy node with canonical JSON."""
 
-        flattened = {
+        flattened: dict[str, Any] = {
             "parent_chembl_id": None,
             "parent_molregno": None,
             "molecule_hierarchy": None,
@@ -277,7 +278,7 @@ class TestItemPipeline(PipelineBase):
     def _flatten_molecule_structures(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Extract canonical molecular structures."""
 
-        flattened = {
+        flattened: dict[str, Any] = {
             "standardized_smiles": None,
             "standard_inchi": None,
             "standard_inchi_key": None,
@@ -312,7 +313,7 @@ class TestItemPipeline(PipelineBase):
     def _flatten_molecule_synonyms(cls, molecule: dict[str, Any]) -> dict[str, Any]:
         """Extract synonyms with canonical serialization."""
 
-        flattened = {
+        flattened: dict[str, Any] = {
             "all_names": None,
             "molecule_synonyms": None,
         }
@@ -677,10 +678,10 @@ class TestItemPipeline(PipelineBase):
         return fallback_record
 
     @staticmethod
-    def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:
-        if error.response is None:
+    def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:  # type: ignore[valid-type]
+        if not hasattr(error, 'response') or error.response is None:  # type: ignore[attr-defined]
             return None
-        retry_after = error.response.headers.get("Retry-After")
+        retry_after = error.response.headers.get("Retry-After")  # type: ignore[attr-defined]
         if retry_after is None:
             return None
         try:
@@ -888,7 +889,7 @@ class TestItemPipeline(PipelineBase):
         try:
             # Type cast to PubChemAdapter for specific method access
             enriched_df = cast(PubChemAdapter, pubchem_adapter).enrich_with_pubchem(df, inchi_key_col="standard_inchi_key")
-            return enriched_df
+            return enriched_df  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("pubchem_enrichment_error", error=str(e))
             # Return original dataframe on error - graceful degradation
