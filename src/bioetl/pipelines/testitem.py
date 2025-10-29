@@ -20,7 +20,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
 
 logger = UnifiedLogger.get(__name__)
 
@@ -1086,6 +1086,7 @@ class TestItemPipeline(PipelineBase):
         ):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
+        normalise_retry_after_column(df)
         try:
             validated_df = TestItemSchema.validate(df, lazy=True)
         except SchemaErrors as exc:

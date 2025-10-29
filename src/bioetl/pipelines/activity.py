@@ -27,7 +27,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
 
 logger = UnifiedLogger.get(__name__)
 
@@ -1071,6 +1071,7 @@ class ActivityPipeline(PipelineBase):
         _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         df = df.convert_dtypes()
+        normalise_retry_after_column(df)
 
         if "is_censored" in df.columns:
             df["is_censored"] = df["is_censored"].astype("boolean")
@@ -1120,6 +1121,7 @@ class ActivityPipeline(PipelineBase):
                 )
                 df = df[ordered_columns]
 
+        normalise_retry_after_column(df)
         _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         qc_metrics = self._calculate_qc_metrics(df)

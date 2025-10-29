@@ -32,7 +32,7 @@ from bioetl.schemas.document import (
 )
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
 
 NAType = type(pd.NA)
 
@@ -855,6 +855,7 @@ class DocumentPipeline(PipelineBase):
             if column in df.columns:
                 df[column] = df[column].astype("boolean")
 
+        normalise_retry_after_column(df)
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:

@@ -20,7 +20,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
 
 logger = UnifiedLogger.get(__name__)
 
@@ -923,6 +923,7 @@ class AssayPipeline(PipelineBase):
         # the behaviour consistent for callers that operate on the reordered
         # frame (e.g. QC reporting) before validation happens downstream.
         _coerce_nullable_int_columns(df, nullable_int_columns)
+        normalise_retry_after_column(df)
 
         return df
 
@@ -953,6 +954,7 @@ class AssayPipeline(PipelineBase):
                         df[column] = pd.NA
                 df = df.loc[:, schema_columns]
 
+        normalise_retry_after_column(df)
         # Normalise nullable integer columns once more before validation.
         #
         # Even though ``transform`` already coerces these columns, downstream
