@@ -650,7 +650,10 @@ class TargetPipeline(PipelineBase):
                         "threshold": float(threshold),
                     }
                 )
-                if self._should_fail(severity):
+                if self._should_fail(severity) and (
+                    self._severity_value(severity)
+                    >= self._severity_value("error")
+                ):
                     failing.append(key)
 
         for metric_name, metric_value in self.qc_metrics.items():
