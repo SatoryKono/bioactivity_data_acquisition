@@ -478,6 +478,7 @@ class ActivityPipeline(PipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         self._last_validation_report: dict[str, Any] | None = None
+        self._fallback_stats: dict[str, Any] = {}
 
         # Initialize ChEMBL API client
         chembl_source = config.sources.get("chembl")
@@ -1044,6 +1045,8 @@ class ActivityPipeline(PipelineBase):
         df = df.sort_values(["activity_id", "source_system"])
         df["index"] = range(len(df))
 
+        self._update_fallback_artifacts(df)
+
         from bioetl.schemas import ActivitySchema
 
         expected_cols = _get_activity_column_order()
@@ -1119,6 +1122,71 @@ class ActivityPipeline(PipelineBase):
         _coerce_nullable_int_columns(df, INTEGER_COLUMNS_WITH_ID)
 
         qc_metrics = self._calculate_qc_metrics(df)
+        fallback_stats = getattr(self, "_fallback_stats", None) or {}
+
+        if fallback_stats:
+            thresholds = getattr(self.config.qc, "thresholds", {}) or {}
+
+            raw_count_threshold = thresholds.get("fallback.count")
+            try:
+                count_threshold = int(raw_count_threshold) if raw_count_threshold is not None else int(
+                    fallback_stats.get("total_rows", len(df))
+                )
+            except (TypeError, ValueError):
+                count_threshold = int(fallback_stats.get("total_rows", len(df)))
+
+            raw_rate_threshold = thresholds.get("fallback.rate")
+            try:
+                rate_threshold = float(raw_rate_threshold) if raw_rate_threshold is not None else 1.0
+            except (TypeError, ValueError):
+                rate_threshold = 1.0
+
+            fallback_count = int(fallback_stats.get("fallback_count", 0))
+            fallback_rate = float(fallback_stats.get("fallback_rate", 0.0))
+
+            count_severity = "info"
+            if fallback_count > count_threshold:
+                count_severity = "error"
+            elif fallback_count > 0:
+                count_severity = "warning"
+
+            rate_severity = "info"
+            if fallback_rate > rate_threshold:
+                rate_severity = "error"
+            elif fallback_rate > 0:
+                rate_severity = "warning"
+
+            qc_metrics["fallback.count"] = {
+                "value": fallback_count,
+                "threshold": count_threshold,
+                "passed": fallback_count <= count_threshold,
+                "severity": count_severity,
+                "details": {
+                    "activity_ids": fallback_stats.get("activity_ids", []),
+                    "reason_counts": fallback_stats.get("reason_counts", {}),
+                },
+            }
+
+            qc_metrics["fallback.rate"] = {
+                "value": fallback_rate,
+                "threshold": rate_threshold,
+                "passed": fallback_rate <= rate_threshold,
+                "severity": rate_severity,
+                "details": {
+                    "fallback_count": fallback_count,
+                    "total_rows": fallback_stats.get("total_rows", len(df)),
+                },
+            }
+
+            self.qc_summary_data.setdefault("metrics", {}).update(
+                {
+                    "fallback.count": qc_metrics["fallback.count"],
+                    "fallback.rate": qc_metrics["fallback.rate"],
+                }
+            )
+
+        self.qc_metrics = qc_metrics
+        self.qc_summary_data.setdefault("metrics", {}).update(qc_metrics)
         self._last_validation_report = {"metrics": qc_metrics}
 
         severity_threshold = self.config.qc.severity_threshold.lower()
@@ -1243,6 +1311,91 @@ class ActivityPipeline(PipelineBase):
 
         logger.info("schema_validation_passed", rows=len(validated_df))
         return validated_df
+
+    def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:
+        """Capture fallback diagnostics for QC reporting and additional outputs."""
+
+        self._fallback_stats = {}
+
+        if "source_system" not in df.columns:
+            self.additional_tables.pop("activity_fallback_records", None)
+            self.qc_summary_data.pop("fallbacks", None)
+            return
+
+        source_series = df["source_system"].astype("string")
+        fallback_mask = source_series.str.upper() == "CHEMBL_FALLBACK"
+
+        total_rows = int(len(df))
+        fallback_count = int(fallback_mask.sum())
+        success_count = int(total_rows - fallback_count)
+        fallback_rate = float(fallback_count / total_rows) if total_rows else 0.0
+
+        fallback_columns = [
+            "activity_id",
+            "source_system",
+            "fallback_reason",
+            "error_type",
+            "error_message",
+            "http_status",
+            "error_code",
+            "retry_after_sec",
+            "attempt",
+            "chembl_release",
+            "run_id",
+            "extracted_at",
+        ]
+        available_columns = [column for column in fallback_columns if column in df.columns]
+
+        fallback_records = (
+            df.loc[fallback_mask, available_columns].copy()
+            if fallback_count and available_columns
+            else pd.DataFrame(columns=available_columns)
+        )
+
+        if not fallback_records.empty:
+            fallback_records = fallback_records.reset_index(drop=True).convert_dtypes()
+
+        reason_counts: dict[str, int] = {}
+        if fallback_count and "fallback_reason" in fallback_records.columns:
+            counts = (
+                fallback_records["fallback_reason"].fillna("<missing>")
+                .value_counts(dropna=False)
+                .to_dict()
+            )
+            reason_counts = {str(reason): int(count) for reason, count in counts.items()}
+
+        fallback_ids: list[int] = []
+        if "activity_id" in fallback_records.columns and not fallback_records.empty:
+            id_series = pd.to_numeric(fallback_records["activity_id"], errors="coerce")
+            fallback_ids = sorted({int(value) for value in id_series.dropna().astype(int).tolist()})
+
+        fallback_summary = {
+            "total_rows": total_rows,
+            "success_count": success_count,
+            "fallback_count": fallback_count,
+            "fallback_rate": fallback_rate,
+            "activity_ids": fallback_ids,
+            "reason_counts": reason_counts,
+        }
+
+        self._fallback_stats = fallback_summary
+        self.qc_summary_data["row_counts"] = {
+            "total": total_rows,
+            "success": success_count,
+            "fallback": fallback_count,
+        }
+        self.qc_summary_data["fallbacks"] = fallback_summary
+
+        if fallback_count:
+            logger.warning(
+                "chembl_fallback_records_detected",
+                count=fallback_count,
+                activity_ids=fallback_ids,
+                reasons=reason_counts,
+            )
+            self.additional_tables["activity_fallback_records"] = fallback_records
+        else:
+            self.additional_tables.pop("activity_fallback_records", None)
 
     @property
     def last_validation_report(self) -> dict[str, Any] | None:
