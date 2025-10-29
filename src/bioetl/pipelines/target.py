@@ -2099,7 +2099,26 @@ class TargetPipeline(PipelineBase):
             pd.DataFrame(records).convert_dtypes() if records else pd.DataFrame()
         )
 
-        blocking = [failure for failure in failing if self._should_fail(failure["severity"])]
+        blocking: list[dict[str, Any]] = []
+        downgraded: list[dict[str, Any]] = []
+        for failure in failing:
+            severity = failure["severity"]
+            if self._severity_value(severity) >= self._severity_value("error") and self._should_fail(severity):
+                blocking.append(failure)
+            elif self._should_fail(severity):
+                downgraded.append(failure)
+
+        if downgraded:
+            downgraded_details = ", ".join(
+                f"{item['metric']} (value={item['value']}, threshold={item['threshold']}, severity={item['severity']})"
+                for item in downgraded
+            )
+            logger.warning(
+                "enrichment_threshold_below_min_non_blocking",
+                details=downgraded_details,
+                severity_threshold=self.config.qc.severity_threshold,
+            )
+
         if blocking:
             details = ", ".join(
                 f"{item['metric']} (value={item['value']}, threshold={item['threshold']})"
