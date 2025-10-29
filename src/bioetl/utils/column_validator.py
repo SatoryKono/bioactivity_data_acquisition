@@ -304,7 +304,11 @@ class ColumnValidator:
         results: list[ColumnComparisonResult] = []
 
         # Найти CSV файлы в выходной директории
-        csv_files = list(output_dir.glob("**/*.csv"))
+        csv_files = [
+            csv_file
+            for csv_file in output_dir.glob("**/*.csv")
+            if not self._should_skip_file(csv_file)
+        ]
 
         if not csv_files:
             self.logger.warning(
@@ -314,8 +318,19 @@ class ColumnValidator:
             )
             return results
 
+        git_lfs_pointers: list[Path] = []
+
         for csv_file in csv_files:
             try:
+                if self._is_git_lfs_pointer(csv_file):
+                    git_lfs_pointers.append(csv_file)
+                    self.logger.warning(
+                        "git_lfs_pointer_detected",
+                        file=str(csv_file),
+                        hint="Fetch real artifacts with `git lfs pull` or rerun the pipeline.",
+                    )
+                    continue
+
                 # Загрузить DataFrame
                 df = pd.read_csv(csv_file)
 
@@ -332,6 +347,14 @@ class ColumnValidator:
                     file=str(csv_file),
                     error=str(e),
                 )
+
+        if git_lfs_pointers and not results:
+            pointer_list = ", ".join(str(path) for path in git_lfs_pointers)
+            raise ValueError(
+                "Не удалось валидировать колонки: обнаружены только Git LFS pointer файлы. "
+                "Загрузите реальные артефакты (git lfs pull) или перезапустите пайплайн. "
+                f"Файлы: {pointer_list}"
+            )
 
         return results
 
@@ -353,3 +376,27 @@ class ColumnValidator:
         }
 
         return entity_mapping.get(name, name)
+
+    def _should_skip_file(self, path: Path) -> bool:
+        """Определить, следует ли пропустить CSV файл при валидации."""
+
+        filename = path.name.lower()
+        skip_suffixes = (
+            "_quality_report.csv",
+            "_correlation_report.csv",
+            "_qc.csv",
+            "_metadata.csv",
+        )
+
+        return filename.endswith(skip_suffixes)
+
+    def _is_git_lfs_pointer(self, path: Path) -> bool:
+        """Проверить, представляет ли файл указатель Git LFS."""
+
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                first_line = handle.readline().strip()
+        except OSError:
+            return False
+
+        return first_line.startswith("version https://git-lfs.github.com/spec/")
