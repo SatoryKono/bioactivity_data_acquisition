@@ -14,19 +14,21 @@ _DEFAULT_MINIMUM_KEYS = ("*", "__default__")
 
 def _normalise_minimum_config(
     minimums: Mapping[str, Any] | int | float | None,
-) -> tuple[dict[str, float], float | None]:
+) -> tuple[dict[str, float | None], float | None]:
     """Return per-column and default minimum thresholds."""
 
     if minimums is None:
         return {}, None
 
     if isinstance(minimums, Mapping):
-        resolved: dict[str, float] = {}
+        resolved: dict[str, float | None] = {}
         for key, value in minimums.items():
+            key_str = str(key)
             if value is None:
+                resolved[key_str] = None
                 continue
             try:
-                resolved[str(key)] = float(value)
+                resolved[key_str] = float(value)
             except (TypeError, ValueError) as exc:  # pragma: no cover - defensive
                 raise TypeError(
                     f"Minimum value for column '{key}' must be numeric, got {value!r}."
@@ -61,7 +63,10 @@ def coerce_nullable_int(
 
         series = pd.to_numeric(df[column], errors="coerce")
 
-        min_threshold = per_column_minimums.get(column, default_minimum)
+        if column in per_column_minimums:
+            min_threshold = per_column_minimums[column]
+        else:
+            min_threshold = default_minimum
         if min_threshold is not None:
             below_min_mask = series < min_threshold
             if below_min_mask.any():
