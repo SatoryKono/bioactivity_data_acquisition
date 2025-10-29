@@ -11,8 +11,8 @@ from pandera.errors import SchemaErrors
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.config.models import TargetSourceConfig
+from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -21,14 +21,13 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
+    QCMetricsRegistry,
     duplicate_summary,
-    update_summary_metrics,
     update_summary_section,
     update_validation_issue_summary,
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import canonical_json
-from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 
@@ -408,21 +407,23 @@ class TestItemPipeline(PipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
 
+        self._schema_failure_details: list[dict[str, Any]] | None = None
+
         # Initialize ChEMBL API client
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
-        factory = APIClientFactory.from_pipeline_config(config)
-        chembl_source = ensure_target_source_config(
-            config.sources.get("chembl"),
-            defaults={
-                "enabled": True,
-                "base_url": default_base_url,
-                "batch_size": 25,
-            },
-        )
+        chembl_source = config.sources.get("chembl")
+        if isinstance(chembl_source, TargetSourceConfig):
+            base_url = chembl_source.base_url
+            batch_size_config = chembl_source.batch_size if chembl_source.batch_size is not None else 25
+        elif isinstance(chembl_source, dict):
+            base_url = chembl_source.get("base_url", default_base_url)
+            batch_size_config = chembl_source.get("batch_size", 25)
+        else:
+            base_url = default_base_url
+            batch_size_config = 25
 
-        batch_size_value = chembl_source.batch_size if chembl_source.batch_size is not None else 25
         try:
-            batch_size_value = int(batch_size_value)
+            batch_size_value = int(batch_size_config)
         except (TypeError, ValueError) as exc:
             raise ValueError("sources.chembl.batch_size must be an integer") from exc
 
@@ -432,7 +433,12 @@ class TestItemPipeline(PipelineBase):
         if batch_size_value > 25:
             raise ValueError("sources.chembl.batch_size must be <= 25 due to ChEMBL API limits")
 
-        chembl_config = factory.create("chembl", chembl_source)
+        chembl_config = APIConfig(
+            name="chembl",
+            base_url=base_url,
+            cache_enabled=config.cache.enabled,
+            cache_ttl=config.cache.ttl,
+        )
         self.api_client = UnifiedAPIClient(chembl_config)
         self.batch_size = batch_size_value
 
@@ -862,58 +868,47 @@ class TestItemPipeline(PipelineBase):
                 logger.error("pubchem_enrichment_failed", error=str(e))
                 # Continue with original data - graceful degradation
 
-        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
-        default_source = "chembl"
-        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
-
-        if "source_system" in df.columns:
-            df["source_system"] = df["source_system"].fillna(default_source)
-        else:
-            df["source_system"] = default_source
-
-        release_value: str | None = self._chembl_release
-        if isinstance(release_value, str):
-            release_value = release_value.strip() or None
-
-        if release_value is None:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].where(
-                    df["chembl_release"].notna(),
-                    pd.NA,
-                )
-            else:
-                df["chembl_release"] = pd.NA
-        else:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].fillna(release_value)
-            else:
-                df["chembl_release"] = release_value
-
-        if "extracted_at" in df.columns:
-            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
-        else:
-            df["extracted_at"] = timestamp_now
-
-        df = finalize_output_dataset(
-            df,
-            business_key="molecule_chembl_id",
-            sort_by=["molecule_chembl_id"],
-            schema=TestItemSchema,
-            metadata={
-                "pipeline_version": pipeline_version,
-                "source_system": default_source,
-                "chembl_release": release_value,
-                "extracted_at": timestamp_now,
-            },
+        # Add pipeline metadata
+        extracted_at = pd.Timestamp.now(tz="UTC").isoformat()
+        df = df.assign(
+            pipeline_version="1.0.0",
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            extracted_at=extracted_at,
         )
 
-        default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
-        default_minimums.update(self._INT_COLUMN_MINIMUMS)
-        coerce_nullable_int(
-            df,
-            self._NULLABLE_INT_COLUMNS,
-            min_values=default_minimums,
+        # Generate hash fields for data integrity
+        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+
+        df = df.assign(
+            hash_business_key=df["molecule_chembl_id"].apply(generate_hash_business_key),
+            hash_row=df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1),
         )
+
+        # Generate deterministic index
+        df = df.sort_values("molecule_chembl_id")  # Sort by primary key
+        df["index"] = range(len(df))
+
+        # Reorder columns according to schema and add missing columns with None
+        from bioetl.schemas import TestItemSchema
+
+        expected_cols = TestItemSchema.get_column_order()
+        if expected_cols:
+            # Add missing columns with None values
+            missing_columns = [col for col in expected_cols if col not in df.columns]
+            if missing_columns:
+                df = df.assign(**dict.fromkeys(missing_columns, None))
+
+            default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
+            default_minimums.update(self._INT_COLUMN_MINIMUMS)
+            coerce_nullable_int(
+                df,
+                self._NULLABLE_INT_COLUMNS,
+                min_values=default_minimums,
+            )
+
+            # Reorder to match schema column_order
+            df = df[expected_cols]
 
         return df
 
@@ -1005,6 +1000,7 @@ class TestItemPipeline(PipelineBase):
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate molecule data against schema and QC policies."""
         self.validation_issues.clear()
+        self._schema_failure_details = None
 
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
@@ -1024,46 +1020,17 @@ class TestItemPipeline(PipelineBase):
 
         initial_rows = int(len(df))
 
-        qc_metrics = self._calculate_qc_metrics(df)
-        self.qc_metrics = qc_metrics
-        failing_metrics: list[str] = []
-
-        for metric_name, metric in qc_metrics.items():
-            log_fn = logger.error if not metric["passed"] else logger.info
-            log_fn(
-                "qc_metric",
-                metric=metric_name,
-                value=metric["value"],
-                threshold=metric["threshold"],
-                severity=metric["severity"],
-                count=metric.get("count"),
-                details=metric.get("details"),
-            )
-
-            issue: dict[str, Any] = {
-                "metric": metric_name,
-                "issue_type": "qc_metric",
-                "severity": metric["severity"],
-                "value": metric["value"],
-                "threshold": metric["threshold"],
-            }
-            if "count" in metric:
-                issue["count"] = metric["count"]
-            if metric.get("details") is not None:
-                issue["details"] = metric["details"]
-            self.record_validation_issue(issue)
-
-            if not metric["passed"] and self._should_fail(metric["severity"]):
-                failing_metrics.append(metric_name)
+        registry = self._calculate_qc_metrics(df)
+        metrics_payload, failing_metrics = self.finalize_qc_metrics(
+            registry, raise_on_failure=False
+        )
 
         if failing_metrics:
             raise ValueError(
-                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics))
+                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics.keys()))
             )
 
-        update_summary_metrics(self.qc_summary_data, qc_metrics)
-
-        duplicates_metric = qc_metrics.get("testitem.duplicate_ratio")
+        duplicates_metric = metrics_payload.get("testitem.duplicate_ratio")
         if (
             duplicates_metric
             and duplicates_metric.get("count")
@@ -1072,45 +1039,18 @@ class TestItemPipeline(PipelineBase):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
         coerce_retry_after(df)
-        schema_issues: list[dict[str, Any]] = []
-
-        def _handle_schema_failure(exc: SchemaErrors, _: bool) -> None:
-            nonlocal schema_issues
-
-            failure_cases = getattr(exc, "failure_cases", None)
-            if isinstance(failure_cases, pd.DataFrame):
-                schema_issues = self._summarize_schema_errors(failure_cases)
-            else:
-                schema_issues = []
-
-            for issue in schema_issues:
-                self.record_validation_issue(issue)
-                logger.error(
-                    "schema_validation_error",
-                    column=issue.get("column"),
-                    check=issue.get("check"),
-                    count=issue.get("count"),
-                    severity=issue.get("severity"),
-                )
-
         try:
             validated_df = self._validate_with_schema(
                 df,
                 TestItemSchema,
-                dataset_name="testitems",
+                "testitem",
+                issue_metric="schema.validation",
                 severity="error",
-                metric_name="schema.validation",
-                failure_handler=_handle_schema_failure,
+                on_failure=self._on_testitem_schema_failure,
             )
         except SchemaErrors as exc:
-            summary = "; ".join(
-                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
-                for issue in schema_issues
-            )
+            summary = self._format_testitem_schema_summary()
             raise ValueError(f"Schema validation failed: {summary}") from exc
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("schema_validation_unexpected_error", error=str(exc))
-            raise
 
         self._validate_identifier_formats(validated_df)
         self._check_referential_integrity(validated_df)
@@ -1123,7 +1063,9 @@ class TestItemPipeline(PipelineBase):
             {"testitems": {"rows": row_count}},
         )
 
-        duplicate_count = int(qc_metrics.get("testitem.duplicate_ratio", {}).get("count", 0) or 0)
+        duplicate_count = int(
+            (metrics_payload.get("testitem.duplicate_ratio", {}) or {}).get("count", 0) or 0
+        )
         update_summary_section(
             self.qc_summary_data,
             "duplicates",
@@ -1132,7 +1074,9 @@ class TestItemPipeline(PipelineBase):
                     initial_rows,
                     duplicate_count,
                     field="molecule_chembl_id",
-                    threshold=qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold"),
+                    threshold=(
+                        metrics_payload.get("testitem.duplicate_ratio", {}) or {}
+                    ).get("threshold"),
                 )
             },
         )
@@ -1145,12 +1089,12 @@ class TestItemPipeline(PipelineBase):
         update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
 
-    def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    def _calculate_qc_metrics(self, df: pd.DataFrame) -> QCMetricsRegistry:
         """Compute QC metrics used to gate validation."""
 
         thresholds = self.config.qc.thresholds or {}
         total_rows = len(df)
-        metrics: dict[str, dict[str, Any]] = {}
+        registry = QCMetricsRegistry(self.config.qc)
 
         duplicate_count = 0
         duplicate_ratio = 0.0
@@ -1169,15 +1113,16 @@ class TestItemPipeline(PipelineBase):
                 duplicate_ratio = duplicate_count / total_rows
 
         duplicate_threshold = float(thresholds.get("testitem.duplicate_ratio", 0.0))
-        duplicate_severity = "error" if duplicate_ratio > duplicate_threshold else "info"
-        metrics["testitem.duplicate_ratio"] = {
-            "count": duplicate_count,
-            "value": duplicate_ratio,
-            "threshold": duplicate_threshold,
-            "passed": duplicate_ratio <= duplicate_threshold,
-            "severity": duplicate_severity,
-            "details": {"duplicate_values": duplicate_values},
-        }
+        registry.register(
+            "testitem.duplicate_ratio",
+            duplicate_ratio,
+            comparison="max",
+            threshold_key="testitem.duplicate_ratio",
+            default_threshold=duplicate_threshold,
+            fail_severity="error",
+            count=duplicate_count,
+            details={"duplicate_values": duplicate_values} if duplicate_values else None,
+        )
 
         fallback_count = 0
         fallback_ratio = 0.0
@@ -1186,17 +1131,57 @@ class TestItemPipeline(PipelineBase):
             fallback_ratio = fallback_count / total_rows
 
         fallback_threshold = float(thresholds.get("testitem.fallback_ratio", 1.0))
-        fallback_severity = "warning" if fallback_ratio > fallback_threshold else "info"
-        metrics["testitem.fallback_ratio"] = {
-            "count": fallback_count,
-            "value": fallback_ratio,
-            "threshold": fallback_threshold,
-            "passed": fallback_ratio <= fallback_threshold,
-            "severity": fallback_severity,
-            "details": None if fallback_count == 0 else {"fallback_count": fallback_count},
-        }
+        registry.register(
+            "testitem.fallback_ratio",
+            fallback_ratio,
+            comparison="max",
+            threshold_key="testitem.fallback_ratio",
+            default_threshold=fallback_threshold,
+            fail_severity="warning",
+            count=fallback_count,
+            details={"fallback_count": fallback_count} if fallback_count else None,
+        )
 
-        return metrics
+        return registry
+
+    def _on_testitem_schema_failure(
+        self,
+        exc: SchemaErrors,
+        issue_payload: dict[str, Any],
+    ) -> None:
+        """Record detailed schema errors for downstream reporting."""
+
+        failure_cases = getattr(exc, "failure_cases", None)
+        schema_issues: list[dict[str, Any]] = []
+        if isinstance(failure_cases, pd.DataFrame):
+            schema_issues = self._summarize_schema_errors(failure_cases)
+            issue_payload["details"] = schema_issues
+
+        self._schema_failure_details = schema_issues
+
+        for issue in schema_issues:
+            self.record_validation_issue(issue)
+            logger.error(
+                "schema_validation_error",
+                column=issue.get("column"),
+                check=issue.get("check"),
+                count=issue.get("count"),
+                severity=issue.get("severity"),
+            )
+
+    def _format_testitem_schema_summary(self) -> str:
+        """Summarise schema issues recorded during validation failure."""
+
+        issues = self._schema_failure_details or []
+        self._schema_failure_details = None
+
+        if not issues:
+            return "see logs for details"
+
+        return "; ".join(
+            f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+            for issue in issues
+        )
 
     def _summarize_schema_errors(self, failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
         """Convert Pandera failure cases to structured validation issues."""
@@ -1236,26 +1221,17 @@ class TestItemPipeline(PipelineBase):
             logger.debug("referential_check_skipped", reason="columns_absent")
             return
 
-        parent_series = df["parent_chembl_id"].apply(
-            lambda raw: (
-                registry.normalize("chemistry.chembl_id", raw)
-                if pd.notna(raw)
-                else None
-            )
+        parent_series = (
+            df["parent_chembl_id"].dropna().astype("string").str.strip().str.upper()
         )
-        parent_series = parent_series.dropna()
         if parent_series.empty:
             logger.info("referential_integrity_passed", relation="testitem->parent", checked=0)
             return
 
-        molecule_ids = df["molecule_chembl_id"].apply(
-            lambda raw: (
-                registry.normalize("chemistry.chembl_id", raw)
-                if pd.notna(raw)
-                else None
-            )
+        molecule_ids = (
+            df["molecule_chembl_id"].astype("string").str.strip().str.upper()
         )
-        known_ids = {value for value in molecule_ids.tolist() if value}
+        known_ids = set(molecule_ids.tolist())
         missing_mask = ~parent_series.isin(known_ids)
         missing_count = int(missing_mask.sum())
         total_refs = int(parent_series.size)

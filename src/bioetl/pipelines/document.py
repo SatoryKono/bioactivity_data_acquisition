@@ -4,12 +4,14 @@ import os
 import re
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
 import pandas as pd
 import requests
+from pandera.errors import SchemaErrors
 
 from bioetl.adapters import (
     CrossrefAdapter,
@@ -20,13 +22,8 @@ from bioetl.adapters import (
 from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
-from bioetl.pipelines.base import (
-    EnrichmentStage,
-    PipelineBase,
-    enrichment_stage_registry,
-)
+from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.document_enrichment import merge_with_precedence
 from bioetl.schemas.document import (
     DocumentNormalizedSchema,
@@ -38,14 +35,12 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import (
-    compute_field_coverage,
+    QCMetricsRegistry,
     duplicate_summary,
-    update_summary_metrics,
     update_summary_section,
     update_validation_issue_summary,
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
-from bioetl.utils.output import finalize_output_dataset
 
 NAType = type(pd.NA)
 
@@ -95,28 +90,45 @@ class DocumentPipeline(PipelineBase):
         super().__init__(config, run_id)
 
         # Initialize ChEMBL API client
+        chembl_source = config.sources.get("chembl")
+
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         default_batch_size = 10
         default_max_url_length = 1800
 
-        factory = APIClientFactory.from_pipeline_config(config)
-        chembl_source = ensure_target_source_config(
-            config.sources.get("chembl"),
-            defaults={
-                "enabled": True,
-                "base_url": default_base_url,
-                "batch_size": default_batch_size,
-                "max_url_length": default_max_url_length,
-            },
-        )
+        if isinstance(chembl_source, dict):
+            base_url = chembl_source.get("base_url", default_base_url) or default_base_url
+            batch_size_value = chembl_source.get("batch_size", default_batch_size)
+            max_url_length_value = chembl_source.get("max_url_length", default_max_url_length)
+        elif chembl_source is not None:
+            base_url = getattr(chembl_source, "base_url", default_base_url) or default_base_url
+            batch_size_value = getattr(chembl_source, "batch_size", default_batch_size)
+            max_url_length_value = getattr(chembl_source, "max_url_length", default_max_url_length)
+        else:
+            base_url = default_base_url
+            batch_size_value = default_batch_size
+            max_url_length_value = default_max_url_length
 
-        chembl_config = factory.create("chembl", chembl_source)
+        try:
+            batch_size = int(batch_size_value)
+        except (TypeError, ValueError):
+            batch_size = default_batch_size
+
+        try:
+            max_url_length = int(max_url_length_value)
+        except (TypeError, ValueError):
+            max_url_length = default_max_url_length
+
+        chembl_config = APIConfig(
+            name="chembl",
+            base_url=base_url,
+            cache_enabled=config.cache.enabled,
+            cache_ttl=config.cache.ttl,
+        )
         self.api_client = UnifiedAPIClient(chembl_config)
         self.max_batch_size = 25
-        batch_size = chembl_source.batch_size or default_batch_size
-        max_url_length = chembl_source.max_url_length or default_max_url_length
-        self.batch_size = min(self.max_batch_size, max(1, int(batch_size)))
-        self.max_url_length = max(1, int(max_url_length))
+        self.batch_size = min(self.max_batch_size, max(1, batch_size))
+        self.max_url_length = max(1, max_url_length)
         self._document_cache: dict[str, dict[str, Any]] = {}
 
         # Initialize external adapters if enabled
@@ -764,23 +776,22 @@ class DocumentPipeline(PipelineBase):
 
         # Keep pubmed_id and doi with original names for enrichment (chembl_pmid already created above)
 
-        with_pubmed = bool(self.runtime_options.get("with_pubmed", True))
-        self.runtime_options["with_pubmed"] = with_pubmed
-
-        logger.info(
-            "external_enrichment_configured",
-            with_pubmed=with_pubmed,
-            adapters=len(self.external_adapters),
+        # Check if enrichment is enabled and apply AFTER renaming
+        enrichment_enabled = any(
+            hasattr(self.config.sources.get(source_name), "enabled")
+            and self.config.sources[source_name].enabled
+            for source_name in ["pubmed", "crossref", "openalex", "semantic_scholar"]
+            if source_name in self.config.sources
         )
 
-        self.reset_stage_context()
-        df = self.execute_enrichment_stages(df)
-
-        if "pubmed" not in self.stage_context:
-            reason = "disabled" if not with_pubmed else "no_external_adapters_enabled"
-            if self.external_adapters:
-                reason = "stage_not_executed" if with_pubmed else reason
-            logger.info("enrichment_skipped", reason=reason)
+        if enrichment_enabled and self.external_adapters:
+            logger.info("enrichment_enabled", note="Fetching data from external sources")
+            df = self._enrich_with_external_sources(df)
+        else:
+            logger.info(
+                "enrichment_skipped",
+                reason="no_external_adapters_enabled",
+            )
             df = merge_with_precedence(df)
 
         # Drop temporary join keys if they exist
@@ -789,55 +800,39 @@ class DocumentPipeline(PipelineBase):
         if "_original_title" in df.columns:
             df = df.drop(columns=["_original_title"])
 
-        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
-        default_source = "chembl"
-        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
-
-        if "source_system" in df.columns:
-            df["source_system"] = df["source_system"].fillna(default_source)
-        else:
-            df["source_system"] = default_source
-
-        release_value: str | None = self._chembl_release
-        if isinstance(release_value, str):
-            release_value = release_value.strip() or None
-
-        if release_value is None:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].where(
-                    df["chembl_release"].notna(),
-                    pd.NA,
-                )
-            else:
-                df["chembl_release"] = pd.NA
-        else:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].fillna(release_value)
-            else:
-                df["chembl_release"] = release_value
-
-        if "extracted_at" in df.columns:
-            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
-        else:
-            df["extracted_at"] = timestamp_now
+        # Add pipeline metadata
+        df = df.assign(
+            pipeline_version="1.0.0",
+            source_system="chembl",
+            chembl_release=self._chembl_release,
+            extracted_at=pd.Timestamp.now(tz="UTC").isoformat(),
+        )
 
         if "fallback_reason" in df.columns:
             fallback_mask = df["fallback_reason"].notna()
             if fallback_mask.any():
                 df.loc[fallback_mask, "source_system"] = "DOCUMENT_FALLBACK"
 
-        df = finalize_output_dataset(
-            df,
-            business_key="document_chembl_id",
-            sort_by=["document_chembl_id"],
-            schema=DocumentSchema,
-            metadata={
-                "pipeline_version": pipeline_version,
-                "source_system": default_source,
-                "chembl_release": release_value,
-                "extracted_at": timestamp_now,
-            },
-        )
+        # Generate hash fields for data integrity
+        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+
+        if "document_chembl_id" in df.columns:
+            df["hash_business_key"] = df["document_chembl_id"].apply(
+                generate_hash_business_key
+            )
+            df["hash_row"] = df.apply(
+                lambda row: generate_hash_row(row.to_dict()), axis=1
+            )
+
+            # Generate deterministic index
+            df = df.sort_values("document_chembl_id").reset_index(drop=True)
+            df["index"] = range(len(df))
+
+            # Align to canonical schema order
+            expected_cols = DocumentSchema.get_column_order()
+
+            if expected_cols:
+                df = df.reindex(columns=expected_cols)
 
         df = df.convert_dtypes()
         df = self._enforce_schema_dtypes(df)
@@ -954,14 +949,12 @@ class DocumentPipeline(PipelineBase):
         validated_df = self._validate_with_schema(
             working_df,
             DocumentNormalizedSchema,
-            dataset_name="documents",
-            severity="error",
-            metric_name="normalized_schema_validation",
+            "document_normalized",
+            issue_metric="normalized_schema_validation",
+            on_failure=self._on_document_schema_failure,
         )
 
-        metrics = self._compute_qc_metrics(validated_df)
-        self.qc_metrics = metrics
-        update_summary_metrics(self.qc_summary_data, metrics)
+        registry, coverage_payload = self._compute_qc_metrics(validated_df)
         row_count = int(len(validated_df))
         update_summary_section(self.qc_summary_data, "row_counts", {"documents": row_count})
         update_summary_section(
@@ -981,52 +974,42 @@ class DocumentPipeline(PipelineBase):
             },
         )
 
-        coverage_columns = {
-            "doi": "doi_clean",
-            "pmid": "pmid" if "pmid" in validated_df.columns else "pubmed_id",
-            "title": "title",
-            "journal": "journal",
-            "authors": "authors",
-        }
-        coverage_stats = compute_field_coverage(validated_df, coverage_columns.values())
-        coverage_payload = {
-            key: coverage_stats.get(column, 0.0)
-            for key, column in coverage_columns.items()
-        }
         update_summary_section(
             self.qc_summary_data,
             "coverage",
             {"documents": coverage_payload},
         )
-        self._enforce_qc_thresholds(metrics)
+
+        self.finalize_qc_metrics(registry)
 
         update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
         return validated_df
 
-    def _compute_qc_metrics(self, df: pd.DataFrame) -> dict[str, float]:
+    def _on_document_schema_failure(
+        self,
+        exc: SchemaErrors,
+        issue_payload: dict[str, Any],
+    ) -> None:
+        """Attach detailed schema validation diagnostics to the issue payload."""
+
+        failure_cases = getattr(exc, "failure_cases", None)
+        if isinstance(failure_cases, pd.DataFrame):
+            issue_payload["details"] = failure_cases.to_dict(orient="records")
+
+    def _compute_qc_metrics(self, df: pd.DataFrame) -> tuple[QCMetricsRegistry, dict[str, float]]:
         """Compute coverage, conflict, and fallback quality metrics."""
 
+        registry = QCMetricsRegistry(self.config.qc)
         total = len(df)
-        if total == 0:
-            return {
-                "doi_coverage": 0.0,
-                "pmid_coverage": 0.0,
-                "title_coverage": 0.0,
-                "journal_coverage": 0.0,
-                "authors_coverage": 0.0,
-                "conflicts_doi": 0.0,
-                "conflicts_pmid": 0.0,
-                "title_fallback_rate": 0.0,
-            }
 
         def _coverage(column: str) -> float:
-            if column not in df.columns:
+            if total == 0 or column not in df.columns:
                 return 0.0
             return float(df[column].notna().sum() / total)
 
-        metrics: dict[str, float] = {
+        coverage_metrics = {
             "doi_coverage": _coverage("doi_clean"),
             "pmid_coverage": _coverage("pmid") if "pmid" in df.columns else _coverage("pubmed_id"),
             "title_coverage": _coverage("title"),
@@ -1034,137 +1017,69 @@ class DocumentPipeline(PipelineBase):
             "authors_coverage": _coverage("authors"),
         }
 
-        if "conflict_doi" in df.columns:
-            conflict_doi = df["conflict_doi"].fillna(False).astype("boolean")
-            metrics["conflicts_doi"] = float(conflict_doi.sum() / total)
-        else:
-            metrics["conflicts_doi"] = 0.0
+        coverage_payload = {
+            "doi": coverage_metrics["doi_coverage"],
+            "pmid": coverage_metrics["pmid_coverage"],
+            "title": coverage_metrics["title_coverage"],
+            "journal": coverage_metrics["journal_coverage"],
+            "authors": coverage_metrics["authors_coverage"],
+        }
 
-        if "conflict_pmid" in df.columns:
-            conflict_pmid = df["conflict_pmid"].fillna(False).astype("boolean")
-            metrics["conflicts_pmid"] = float(conflict_pmid.sum() / total)
-        else:
-            metrics["conflicts_pmid"] = 0.0
-
-        if "title_source" in df.columns:
-            fallback_mask = (
-                df["title_source"]
-                .fillna("")
-                .astype(str)
-                .str.contains("fallback", case=False)
+        for metric_name, value in coverage_metrics.items():
+            registry.register(
+                metric_name,
+                value,
+                comparison="min",
+                threshold_key=metric_name,
+                default_threshold=0.0,
+                fail_severity="warning",
             )
-            metrics["title_fallback_rate"] = float(fallback_mask.sum() / total)
-        else:
-            metrics["title_fallback_rate"] = 0.0
 
-        logger.debug("qc_metrics_computed", metrics=metrics)
-        return metrics
-
-    def _enforce_qc_thresholds(self, metrics: dict[str, float]) -> None:
-        """Validate QC metrics against configured thresholds."""
-
-        thresholds = self.config.qc.thresholds or {}
-        if not thresholds:
-            return
-
-        failing: list[str] = []
-        for metric_name, config in thresholds.items():
-            if not isinstance(config, dict):
-                continue
-
-            value = metrics.get(metric_name)
-            if value is None:
-                continue
-
-            min_threshold = config.get("min")
-            max_threshold = config.get("max")
-            severity = str(config.get("severity", "warning"))
-
-            passed = True
-            if min_threshold is not None and value < float(min_threshold):
-                passed = False
-            if max_threshold is not None and value > float(max_threshold):
-                passed = False
-
-            issue_payload = {
-                "metric": metric_name,
-                "value": value,
-                "threshold_min": float(min_threshold) if min_threshold is not None else None,
-                "threshold_max": float(max_threshold) if max_threshold is not None else None,
-                "severity": severity if not passed else "info",
-                "passed": passed,
-            }
-            self.record_validation_issue(issue_payload)
-
-            if not passed and self._should_fail(severity):
-                failing.append(metric_name)
-
-        if failing:
-            logger.error("qc_threshold_exceeded", failing=failing)
-            raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(sorted(failing)))
-
-
-def _document_should_run_pubmed(
-    pipeline: PipelineBase, df: pd.DataFrame
-) -> tuple[bool, str | None]:
-    """Decide whether the document pipeline should execute the PubMed stage."""
-
-    if not isinstance(pipeline, DocumentPipeline):
-        return False, "unsupported_pipeline"
-    if df.empty:
-        return False, "empty_frame"
-
-    with_pubmed = bool(pipeline.runtime_options.get("with_pubmed", True))
-    pipeline.runtime_options["with_pubmed"] = with_pubmed
-    if not with_pubmed:
-        return False, "disabled"
-
-    if not pipeline.external_adapters:
-        return False, "no_external_adapters"
-
-    return True, None
-
-
-def _document_run_pubmed_stage(
-    pipeline: PipelineBase, df: pd.DataFrame
-) -> pd.DataFrame:
-    """Run external enrichment for the document pipeline."""
-
-    if not isinstance(pipeline, DocumentPipeline):  # pragma: no cover - defensive
-        return df
-
-    try:
-        enriched_df = pipeline._enrich_with_external_sources(df)
-    except Exception as exc:
-        pipeline.record_validation_issue(
-            {
-                "metric": "enrichment.pubmed",
-                "issue_type": "enrichment",
-                "severity": "warning",
-                "status": "failed",
-                "error": str(exc),
-            }
+        conflict_doi = 0.0
+        if "conflict_doi" in df.columns and total:
+            conflict_doi = float(df["conflict_doi"].fillna(False).astype("boolean").sum() / total)
+        registry.register(
+            "conflicts_doi",
+            conflict_doi,
+            comparison="max",
+            threshold_key="conflicts_doi",
+            default_threshold=0.0,
         )
-        raise
 
-    pipeline.stage_context["pubmed"] = {"executed": True}
-    pipeline.set_stage_summary("pubmed", "completed", rows=int(len(enriched_df)))
+        conflict_pmid = 0.0
+        if "conflict_pmid" in df.columns and total:
+            conflict_pmid = float(df["conflict_pmid"].fillna(False).astype("boolean").sum() / total)
+        registry.register(
+            "conflicts_pmid",
+            conflict_pmid,
+            comparison="max",
+            threshold_key="conflicts_pmid",
+            default_threshold=0.0,
+        )
 
-    return enriched_df
+        fallback_rate = 0.0
+        if "title_source" in df.columns and total:
+            fallback_mask = (
+                df["title_source"].fillna("").astype(str).str.contains("fallback", case=False)
+            )
+            fallback_rate = float(fallback_mask.sum() / total)
+        registry.register(
+            "title_fallback_rate",
+            fallback_rate,
+            comparison="max",
+            threshold_key="title_fallback_rate",
+            default_threshold=0.0,
+        )
 
+        logger.debug(
+            "qc_metrics_computed",
+            metrics={
+                **coverage_metrics,
+                "conflicts_doi": conflict_doi,
+                "conflicts_pmid": conflict_pmid,
+                "title_fallback_rate": fallback_rate,
+            },
+        )
 
-def _register_document_enrichment_stages() -> None:
-    """Register enrichment stages for the document pipeline."""
-
-    enrichment_stage_registry.register(
-        DocumentPipeline,
-        EnrichmentStage(
-            name="pubmed",
-            include_if=_document_should_run_pubmed,
-            handler=_document_run_pubmed_stage,
-        ),
-    )
-
-
-_register_document_enrichment_stages()
+        return registry, coverage_payload
 

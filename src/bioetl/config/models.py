@@ -182,6 +182,18 @@ class DeterminismConfig(BaseModel):
     column_order: list[str] = Field(default_factory=list)
 
 
+class SchemaValidationConfig(BaseModel):
+    """Per-dataset schema validation overrides."""
+
+    model_config = ConfigDict(extra="allow")
+
+    severity: str = Field(default="error")
+    fail_on: str | None = Field(
+        default=None,
+        description="Override of the severity threshold that should trigger a failure.",
+    )
+
+
 class QCConfig(BaseModel):
     """Quality control configuration."""
 
@@ -191,6 +203,7 @@ class QCConfig(BaseModel):
     severity_threshold: str = Field(default="warning")
     thresholds: dict[str, Any] = Field(default_factory=dict)
     enrichments: dict[str, Any] = Field(default_factory=dict)
+    validation: dict[str, SchemaValidationConfig] = Field(default_factory=dict)
 
 
 class PostprocessConfig(BaseModel):

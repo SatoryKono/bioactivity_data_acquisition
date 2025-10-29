@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,8 @@ import pandas as pd
 from bioetl.utils.dtypes import coerce_retry_after
 
 __all__ = [
+    "QCMetric",
+    "QCMetricsRegistry",
     "compute_field_coverage",
     "duplicate_summary",
     "prepare_enrichment_metrics",
@@ -49,6 +52,226 @@ def _to_builtin(value: Any) -> Any:
 
     return value
 
+
+@dataclass(slots=True)
+class QCMetric:
+    """Canonical representation of a QC metric evaluation."""
+
+    name: str
+    value: Any
+    passed: bool
+    severity: str
+    threshold: Any | None = None
+    threshold_min: float | int | None = None
+    threshold_max: float | int | None = None
+    count: int | None = None
+    details: Mapping[str, Any] | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        """Return a JSON-serialisable payload for summaries and reports."""
+
+        payload: dict[str, Any] = {
+            "value": _convert_nested(self.value),
+            "passed": bool(self.passed),
+            "severity": str(self.severity),
+        }
+
+        if self.threshold is not None:
+            payload["threshold"] = _convert_nested(self.threshold)
+
+        if self.threshold_min is not None:
+            payload["threshold_min"] = _to_builtin(self.threshold_min)
+
+        if self.threshold_max is not None:
+            payload["threshold_max"] = _to_builtin(self.threshold_max)
+
+        if self.count is not None:
+            payload["count"] = _to_builtin(self.count)
+
+        if self.details:
+            payload["details"] = _convert_nested(self.details)
+
+        return payload
+
+    def to_issue_payload(self, *, prefix: str = "qc") -> dict[str, Any]:
+        """Convert the metric into the payload used by validation issues."""
+
+        metric_name = f"{prefix}.{self.name}" if prefix else self.name
+        issue: dict[str, Any] = {
+            "metric": metric_name,
+            "issue_type": "qc_metric",
+            "severity": str(self.severity),
+            "value": _convert_nested(self.value),
+            "passed": bool(self.passed),
+        }
+
+        if self.threshold is not None:
+            issue["threshold"] = _convert_nested(self.threshold)
+
+        if self.threshold_min is not None:
+            issue["threshold_min"] = _to_builtin(self.threshold_min)
+
+        if self.threshold_max is not None:
+            issue["threshold_max"] = _to_builtin(self.threshold_max)
+
+        if self.count is not None:
+            issue["count"] = _to_builtin(self.count)
+
+        if self.details:
+            issue["details"] = _convert_nested(self.details)
+
+        return issue
+
+
+class QCMetricsRegistry:
+    """Utility for normalising QC metrics against configuration thresholds."""
+
+    def __init__(self, qc_config: Any | None = None):
+        thresholds: Mapping[str, Any] | None = None
+        if qc_config is None:
+            thresholds = None
+        elif isinstance(qc_config, Mapping):
+            thresholds = qc_config
+        else:
+            thresholds = getattr(qc_config, "thresholds", None)
+
+        self._thresholds: dict[str, Any] = dict(thresholds or {})
+        self._metrics: dict[str, QCMetric] = {}
+
+    @staticmethod
+    def _coerce_number(value: Any) -> float | None:
+        """Safely convert a threshold-like value to float."""
+
+        if value is None:
+            return None
+
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        try:
+            return float(value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return None
+
+    def register(
+        self,
+        name: str,
+        value: Any,
+        *,
+        comparison: str = "max",
+        threshold_key: str | None = None,
+        default_threshold: float | int | None = None,
+        default_min: float | int | None = None,
+        default_max: float | int | None = None,
+        pass_severity: str | None = None,
+        fail_severity: str | None = None,
+        count: int | None = None,
+        details: Mapping[str, Any] | None = None,
+        passed: bool | None = None,
+    ) -> QCMetric:
+        """Register a QC metric applying configuration thresholds when available."""
+
+        config_key = threshold_key or name
+        config_entry = self._thresholds.get(config_key)
+
+        fail_level = str(fail_severity or "error")
+        threshold: Any | None = None
+        threshold_min: float | int | None = None
+        threshold_max: float | int | None = None
+
+        if isinstance(config_entry, Mapping):
+            entry_min = self._coerce_number(config_entry.get("min"))
+            entry_max = self._coerce_number(config_entry.get("max"))
+            if entry_min is not None:
+                threshold_min = entry_min
+            if entry_max is not None:
+                threshold_max = entry_max
+            if "value" in config_entry:
+                threshold = config_entry["value"]
+            if config_entry.get("severity") is not None:
+                fail_level = str(config_entry["severity"])
+        elif config_entry is not None:
+            numeric = self._coerce_number(config_entry)
+            if numeric is not None:
+                if comparison == "min":
+                    threshold_min = numeric
+                elif comparison == "range":
+                    threshold_max = numeric if threshold_max is None else threshold_max
+                    threshold_min = threshold_min
+                else:
+                    threshold_max = numeric
+                threshold = numeric
+
+        if comparison == "min" and threshold_min is None and default_threshold is not None:
+            threshold_min = self._coerce_number(default_threshold)
+            threshold = threshold_min
+        elif comparison == "max" and threshold_max is None and default_threshold is not None:
+            threshold_max = self._coerce_number(default_threshold)
+            threshold = threshold_max
+        elif comparison == "range":
+            if threshold_min is None and default_min is not None:
+                threshold_min = self._coerce_number(default_min)
+            if threshold_max is None and default_max is not None:
+                threshold_max = self._coerce_number(default_max)
+
+        pass_level = str(pass_severity or "info")
+
+        metric_passed = passed
+        if metric_passed is None:
+            if comparison == "min":
+                metric_passed = True
+                if threshold_min is not None and value is not None:
+                    metric_passed = bool(value >= threshold_min)
+            elif comparison == "range":
+                metric_passed = True
+                if threshold_min is not None and value is not None:
+                    metric_passed = metric_passed and bool(value >= threshold_min)
+                if threshold_max is not None and value is not None:
+                    metric_passed = metric_passed and bool(value <= threshold_max)
+            elif comparison == "none":
+                metric_passed = bool(value)
+            else:  # default to max comparison
+                metric_passed = True
+                if threshold_max is not None and value is not None:
+                    metric_passed = bool(value <= threshold_max)
+
+        severity = pass_level if metric_passed else fail_level
+
+        metric = QCMetric(
+            name=name,
+            value=value,
+            passed=metric_passed,
+            severity=severity,
+            threshold=threshold,
+            threshold_min=threshold_min,
+            threshold_max=threshold_max,
+            count=count,
+            details=dict(details) if details else None,
+        )
+
+        self._metrics[name] = metric
+        return metric
+
+    def as_dict(self) -> dict[str, dict[str, Any]]:
+        """Return metrics as JSON-friendly dictionaries."""
+
+        return {name: metric.to_payload() for name, metric in self._metrics.items()}
+
+    def items(self) -> Iterable[tuple[str, QCMetric]]:
+        """Iterate over registered metrics."""
+
+        return self._metrics.items()
+
+    def values(self) -> Iterable[QCMetric]:
+        """Iterate over registered metric objects."""
+
+        return self._metrics.values()
+
+    def __contains__(self, item: str) -> bool:  # pragma: no cover - trivial
+        return item in self._metrics
+
+    def __len__(self) -> int:  # pragma: no cover - trivial
+        return len(self._metrics)
 
 def _convert_nested(value: Any) -> Any:
     """Recursively coerce nested structures to JSON-serialisable primitives."""

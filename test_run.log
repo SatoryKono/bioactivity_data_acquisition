@@ -1,0 +1,545 @@
+﻿python : c:\Users\Fedor\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandera\_pandas_deprecated.py:160: 
+FutureWarning: Importing pandas-specific classes and functions from the
+At C:\Users\Fedor\AppData\Local\Temp\ps-script-5b05b120-1255-477d-a45c-54089f420461.ps1:81 char:1
++ python src/scripts/run_testitem.py --limit 100 --verbose 2>&1 | Out-F ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (c:\Users\Fedor\...ctions from the:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+top-level pandera module will be **removed in a future version of pandera**.
+If you're using pandera to validate pandas objects, we highly recommend updating
+your import:
+
+```
+# old import
+import pandera as pa
+
+# new import
+import pandera.pandas as pa
+```
+
+If you're using pandera to validate objects from other compatible libraries
+like pyspark or polars, see the supported libraries section of the documentation
+for more information on how to import pandera:
+
+https://pandera.readthedocs.io/en/stable/supported_libraries.html
+
+To disable this warning, set the environment variable:
+
+```
+export DISABLE_PANDERA_IMPORT_WARNING=True
+```
+
+  warnings.warn(_future_warning, FutureWarning)
+2025-10-28T16:41:01.013994+00:00 [info     ] schema_registered              [bioetl.schemas.registry] columns=0 
+entity=activity version=1.0.0
+2025-10-28T16:41:01.014805+00:00 [info     ] schema_registered              [bioetl.schemas.registry] columns=0 
+entity=assay version=1.0.0
+2025-10-28T16:41:01.027343+00:00 [info     ] schema_registered              [bioetl.schemas.registry] columns=0 
+entity=document version=1.0.0
+2025-10-28T16:41:01.028015+00:00 [info     ] schema_registered              [bioetl.schemas.registry] columns=0 
+entity=target version=1.0.0
+2025-10-28T16:41:01.028726+00:00 [info     ] schema_registered              [bioetl.schemas.registry] columns=0 
+entity=testitem version=1.0.0
+2025-10-28T16:41:01.030474+00:00 [info     ] script_started                 [__main__] dry_run=False limit=100 
+profile=dev
+2025-10-28T16:41:01.030759+00:00 [info     ] loading_config                 [__main__] 
+profile=WindowsPath('configs/profiles/dev.yaml')
+2025-10-28T16:41:01.038139+00:00 [info     ] config_loaded                  [__main__] pipeline=testitem
+2025-10-28T16:41:01.038418+00:00 [info     ] output_path                    [__main__] 
+path=WindowsPath('data/output/testitem/testitem_20251028.csv')
+2025-10-28T16:41:01.038600+00:00 [info     ] pipeline_initialized           [bioetl.pipelines.base] pipeline=testitem 
+run_id=testitem_20251028
+2025-10-28T16:41:01.038926+00:00 [info     ] pubchem_adapter_initialized    [bioetl.pipelines.testitem] 
+base_url=https://pubchem.ncbi.nlm.nih.gov/rest/pug batch_size=100
+2025-10-28T16:41:01.039087+00:00 [info     ] adapters_initialized           [bioetl.pipelines.testitem] count=1
+2025-10-28T16:41:01.039209+00:00 [info     ] pipeline_execution_start       [__main__]
+Starting pipeline execution...
+2025-10-28T16:41:01.039391+00:00 [info     ] pipeline_started               [bioetl.pipelines.base] pipeline=testitem
+2025-10-28T16:41:01.039519+00:00 [info     ] reading_input                  [bioetl.pipelines.testitem] 
+path=WindowsPath('data/input/testitem.csv')
+E:\github\bioactivity_data_acquisition\src\bioetl\pipelines\testitem.py:72: DtypeWarning: Columns (1) have mixed 
+types. Specify dtype option on import or set low_memory=False.
+  df = pd.read_csv(input_file)  # Read all records
+2025-10-28T16:41:01.195040+00:00 [info     ] extraction_completed           [bioetl.pipelines.testitem] columns=17 
+rows=41383
+2025-10-28T16:41:01.195343+00:00 [info     ] applying_row_limit             [__main__] limit=100 original_rows=41383
+2025-10-28T16:41:01.195623+00:00 [info     ] extraction_completed           [bioetl.pipelines.base] rows=100
+2025-10-28T16:41:01.196430+00:00 [info     ] fetching_batch                 [bioetl.pipelines.testitem] batch=1 size=25
+urllib3: urllib3: Starting new HTTPS connection (1): www.ebi.ac.uk:443
+urllib3: urllib3: https://www.ebi.ac.uk:443 "GET /chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL129530%2CC
+HEMBL81421%2CCHEMBL283509%2CCHEMBL508781%2CCHEMBL1255588%2CCHEMBL267447%2CCHEMBL105457%2CCHEMBL296435%2CCHEMBL129482%2C
+CHEMBL2021616%2CCHEMBL465365%2CCHEMBL448072%2CCHEMBL60542%2CCHEMBL66%2CCHEMBL257990%2CCHEMBL140476%2CCHEMBL380456%2CCHE
+MBL200715%2CCHEMBL129451%2CCHEMBL475816%2CCHEMBL448891%2CCHEMBL417915%2CCHEMBL583912%2CCHEMBL2007996%2CCHEMBL2172394&li
+mit=25 HTTP/1.1" 200 99277
+2025-10-28T16:41:03.684351+00:00 [info     ] batch_fetched                  [bioetl.pipelines.testitem] count=25
+2025-10-28T16:41:03.684557+00:00 [info     ] fetching_batch                 [bioetl.pipelines.testitem] batch=2 size=25
+urllib3: urllib3: https://www.ebi.ac.uk:443 "GET /chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL54727%2CCH
+EMBL430893%2CCHEMBL300143%2CCHEMBL58033%2CCHEMBL382127%2CCHEMBL475904%2CCHEMBL472662%2CCHEMBL284994%2CCHEMBL474488%2CCH
+EMBL472661%2CCHEMBL485369%2CCHEMBL230156%2CCHEMBL86513%2CCHEMBL1083646%2CCHEMBL1083619%2CCHEMBL190870%2CCHEMBL1084820%2
+CCHEMBL46005%2CCHEMBL198618%2CCHEMBL381004%2CCHEMBL372124%2CCHEMBL197176%2CCHEMBL58027%2CCHEMBL61997%2CCHEMBL199564&lim
+it=25 HTTP/1.1" 200 87971
+2025-10-28T16:41:04.180779+00:00 [info     ] batch_fetched                  [bioetl.pipelines.testitem] count=25
+2025-10-28T16:41:04.180980+00:00 [info     ] fetching_batch                 [bioetl.pipelines.testitem] batch=3 size=25
+2025-10-28T16:41:04.181151+00:00 [debug    ] rate_limit_wait                [bioetl.core.api_client] 
+wait_seconds=0.5036419000243768
+urllib3: urllib3: https://www.ebi.ac.uk:443 "GET /chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL191947%2CC
+HEMBL2262744%2CCHEMBL370662%2CCHEMBL519344%2CCHEMBL1077979%2CCHEMBL241902%2CCHEMBL181902%2CCHEMBL504816%2CCHEMBL268229%
+2CCHEMBL2114397%2CCHEMBL63560%2CCHEMBL3798017%2CCHEMBL1236788%2CCHEMBL264931%2CCHEMBL522806%2CCHEMBL77575%2CCHEMBL40096
+4%2CCHEMBL27559%2CCHEMBL139000%2CCHEMBL24077%2CCHEMBL427215%2CCHEMBL416715%2CCHEMBL388570%2CCHEMBL13378%2CCHEMBL229476&
+limit=25 HTTP/1.1" 200 80107
+2025-10-28T16:41:05.068433+00:00 [warning  ] incomplete_batch_response      [bioetl.pipelines.testitem] 
+missing=['CHEMBL519344'] requested=25 returned=24
+2025-10-28T16:41:05.068722+00:00 [info     ] batch_fetched                  [bioetl.pipelines.testitem] count=24
+2025-10-28T16:41:05.068868+00:00 [info     ] fetching_batch                 [bioetl.pipelines.testitem] batch=4 size=24
+2025-10-28T16:41:05.069016+00:00 [debug    ] rate_limit_wait                [bioetl.core.api_client] 
+wait_seconds=0.6165520999347791
+urllib3: urllib3: https://www.ebi.ac.uk:443 "GET /chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL49623%2CCH
+EMBL411329%2CCHEMBL76658%2CCHEMBL2057446%2CCHEMBL2057445%2CCHEMBL1084328%2CCHEMBL276815%2CCHEMBL11919%2CCHEMBL1213955%2
+CCHEMBL1213954%2CCHEMBL1673303%2CCHEMBL319706%2CCHEMBL491384%2CCHEMBL77484%2CCHEMBL51697%2CCHEMBL420705%2CCHEMBL298827%
+2CCHEMBL252720%2CCHEMBL229477%2CCHEMBL113830%2CCHEMBL389390%2CCHEMBL14346%2CCHEMBL1668603%2CCHEMBL1458&limit=24 
+HTTP/1.1" 200 82709
+2025-10-28T16:41:06.072593+00:00 [info     ] batch_fetched                  [bioetl.pipelines.testitem] count=24
+2025-10-28T16:41:06.073666+00:00 [info     ] api_extraction_completed       [bioetl.pipelines.testitem] rows=98
+2025-10-28T16:41:06.076207+00:00 [info     ] pubchem_enrichment_enabled     [bioetl.pipelines.testitem]
+2025-10-28T16:41:06.076571+00:00 [info     ] starting_enrichment            [PubChemAdapter] inchi_keys_count=100
+2025-10-28T16:41:06.076715+00:00 [info     ] starting_fetch                 [PubChemAdapter] adapter=PubChemAdapter 
+count=100
+urllib3: urllib3: Starting new HTTPS connection (1): pubchem.ncbi.nlm.nih.gov:443
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/HPZHSYBCGLDRCT-DHIUTWEWSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:07.022466+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9999116 
+identifier=HPZHSYBCGLDRCT-DHIUT
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/IELOKBJPULMYRW-NJQVLOCASA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:07.386835+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=20353 
+identifier=IELOKBJPULMYRW-NJQVL
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/MIHBCQWIBJDVPX-JUDWXZBOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:07.661516+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=10255275 
+identifier=MIHBCQWIBJDVPX-JUDWX
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LFFQVHXIFJLJSP-IZLXSDGUSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:08.121264+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=362574 
+identifier=LFFQVHXIFJLJSP-IZLXS
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ZZJYIKPMDIWRSN-TZBSWOFLSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:08.363065+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=37461 
+identifier=ZZJYIKPMDIWRSN-TZBSW
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/NIDRYBLTWYFCFV-FMTVUPSXSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:08.653335+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=64972 
+identifier=NIDRYBLTWYFCFV-FMTVU
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XFHBFOSBGWDTRO-KZYPOYLOSA-M/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:08.864348+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=657346 
+identifier=XFHBFOSBGWDTRO-KZYPO
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/IOSAAWHGJUZBOG-WDEREUQCSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:09.385083+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=149790 
+identifier=IOSAAWHGJUZBOG-WDERE
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PFTAWBLQPZVEMU-ZFWWWQNUSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:09.844907+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=182232 
+identifier=PFTAWBLQPZVEMU-ZFWWW
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PIFZZHUTNUAVBT-DHXVBOOMSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:10.141705+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=70680998 
+identifier=PIFZZHUTNUAVBT-DHXVB
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/JGXZVDAPLSTBGZ-IRPSRAIASA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:10.476175+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=497359 
+identifier=JGXZVDAPLSTBGZ-IRPSR
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/NWJOIWGNEIDTTG-NSJVFKKDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:10.756397+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=497362 
+identifier=NWJOIWGNEIDTTG-NSJVF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/VOKSWYLNZZRQPF-CCKFTAQKSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:10.943364+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=12259685 
+identifier=VOKSWYLNZZRQPF-CCKFT
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/CXQWRCVTCMQVQX-LSDHHAIUSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:11.150721+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=439533 
+identifier=CXQWRCVTCMQVQX-LSDHH
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/AELCINSCMGFISI-BDAKNGLRSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:11.424829+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=26070 
+identifier=AELCINSCMGFISI-BDAKN
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PIFZZHUTNUAVBT-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:11.653955+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=45263259 
+identifier=PIFZZHUTNUAVBT-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/QFUCSEIKNTUPPA-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:11.919561+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=14539884 
+identifier=QFUCSEIKNTUPPA-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PFTAWBLQPZVEMU-HIFRSBDPSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:12.187525+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=73160 
+identifier=PFTAWBLQPZVEMU-HIFRS
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LSHVYAFMTMFKBA-CTNGQTDRSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:12.411125+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=6419835 
+identifier=LSHVYAFMTMFKBA-CTNGQ
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/GEWLYFZWVLXQME-MRXNPFEDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:12.659912+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=131379 
+identifier=GEWLYFZWVLXQME-MRXNP
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/DIHXHTWYVOYYDC-INIZCTEOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:12.869623+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=161665 
+identifier=DIHXHTWYVOYYDC-INIZC
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/NKJRRVBTMYRXRB-YANBTOMASA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:13.091410+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9864626 
+identifier=NKJRRVBTMYRXRB-YANBT
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PFTAWBLQPZVEMU-UKRRQHHQSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:13.314380+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=72276 
+identifier=PFTAWBLQPZVEMU-UKRRQ
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PIFZZHUTNUAVBT-VZXYPILPSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:13.542948+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=54608866 
+identifier=PIFZZHUTNUAVBT-VZXYP
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/VPOVFCBNUOUZGG-VAKDEWRISA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:13.789405+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11652416 
+identifier=VPOVFCBNUOUZGG-VAKDE
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PBHFNBQPZCRWQP-IJHRGXPZSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:13.992883+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9905831 
+identifier=PBHFNBQPZCRWQP-IJHRG
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/HJORMJIFDVBMOB-LBPRGKRZSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:14.178788+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=448055 
+identifier=HJORMJIFDVBMOB-LBPRG
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/JGAGHIIOCADQOV-QWAKEFERSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:14.530310+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9906452 
+identifier=JGAGHIIOCADQOV-QWAKE
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/KGMMGVIYOHGOKQ-APTPAJQOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:14.896019+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9931141 
+identifier=KGMMGVIYOHGOKQ-APTPA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/VQLPLYSROCPWFF-ROUUACIJSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:15.115780+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=6604724 
+identifier=VQLPLYSROCPWFF-ROUUA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/SJWOFBVBNFLWLP-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:15.412229+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=205131 
+identifier=SJWOFBVBNFLWLP-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LZHCSJBKBARIFQ-OXAAUTCPSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:15.589874+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=42617984 
+identifier=LZHCSJBKBARIFQ-OXAAU
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/VCMSNKIQHBVCSW-BHGRFLGOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:16.027971+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=42617986 
+identifier=VCMSNKIQHBVCSW-BHGRF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/VGKDLMBJGBXTGI-YVEFUNNKSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:16.205676+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9882979 
+identifier=VGKDLMBJGBXTGI-YVEFU
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LZHCSJBKBARIFQ-NFCFDWBMSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:16.463887+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=42617983 
+identifier=LZHCSJBKBARIFQ-NFCFD
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/VCMSNKIQHBVCSW-VSEBXTFHSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:16.697027+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=42617985 
+identifier=VCMSNKIQHBVCSW-VSEBX
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LZHCSJBKBARIFQ-NILUWUTCSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:16.987461+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=42617990 
+identifier=LZHCSJBKBARIFQ-NILUW
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PIAOLBVUVDXHHL-VOTSOKGWSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:17.350248+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=5284459 
+identifier=PIAOLBVUVDXHHL-VOTSO
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/QBAOBDKNTDWTHR-YFVJMOTDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:17.569550+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9871730 
+identifier=QBAOBDKNTDWTHR-YFVJM
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XCFWDLWOCXSJOK-ILRUXTBWSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:17.831031+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=25059294 
+identifier=XCFWDLWOCXSJOK-ILRUX
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/CBNQOXMUNJAOJO-BPNWFJGMSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:18.037880+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=24995603 
+identifier=CBNQOXMUNJAOJO-BPNWF
+urllib3: urllib3: Resetting dropped connection: pubchem.ncbi.nlm.nih.gov
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ISVBJSRQEBWKPB-FGZHOGPDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:18.892622+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11255261 
+identifier=ISVBJSRQEBWKPB-FGZHO
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/CBNQOXMUNJAOJO-KEJDIYNNSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:19.107263+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=24995604 
+identifier=CBNQOXMUNJAOJO-KEJDI
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/SOAPXKSPJAZNGO-WDSKDSINSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:19.317969+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9797132 
+identifier=SOAPXKSPJAZNGO-WDSKD
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ATCFYQUZTYQTJN-ZJUUUORDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:19.586541+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=7016554 
+identifier=ATCFYQUZTYQTJN-ZJUUU
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/IMGQZBSGZRAKSV-RQJHMYQMSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:19.812850+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11651356 
+identifier=IMGQZBSGZRAKSV-RQJHM
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/JPMICTZIAZZHCD-UHNVWZDZSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:20.016036+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9920506 
+identifier=JPMICTZIAZZHCD-UHNVW
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/SBLWSMSFRMKPMN-SFYZADRCSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:20.340795+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11629898 
+identifier=SBLWSMSFRMKPMN-SFYZA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/BKBDKDBPUAZQBT-SFYZADRCSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:20.592087+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=10680281 
+identifier=BKBDKDBPUAZQBT-SFYZA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/KXVTWKUIWACPEZ-RITPCOANSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:20.829862+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11745400 
+identifier=KXVTWKUIWACPEZ-RITPC
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/KPRDXJJAACANAI-WDSKDSINSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:21.035142+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=44405320 
+identifier=KPRDXJJAACANAI-WDSKD
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ISVBJSRQEBWKPB-VXKWHMMOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:21.242752+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11150958 
+identifier=ISVBJSRQEBWKPB-VXKWH
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/UGCXYBULZQHULY-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:21.518421+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=895402 
+identifier=UGCXYBULZQHULY-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/SYHPXVAOJHTCRU-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:21.714674+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=5277481 
+identifier=SYHPXVAOJHTCRU-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/MKJIEFSOBYUXJB-HOCLYGCPSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:21.973323+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11634155 
+identifier=MKJIEFSOBYUXJB-HOCLY
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/NEQZWEXWOFPKOT-BYRRXHGESA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:22.165696+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9863776 
+identifier=NEQZWEXWOFPKOT-BYRRX
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/MUDHKEQEBJQRRG-KPKJPENVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:22.440892+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=6436743 
+identifier=MUDHKEQEBJQRRG-KPKJP
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/HWVNPMGPQVXXSC-QGOAFFKASA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:22.691949+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=44391902 
+identifier=HWVNPMGPQVXXSC-QGOAF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ZADWXFSZEAPBJS-JTQLQIEISA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:22.944337+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=676159 
+identifier=ZADWXFSZEAPBJS-JTQLQ
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XNQIOISZPFVUFG-RXMQYKEDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:23.142582+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=156615 
+identifier=XNQIOISZPFVUFG-RXMQY
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/DAWBGYHPBBDHMQ-ZCFIWIBFSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:23.355902+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=121830 
+identifier=DAWBGYHPBBDHMQ-ZCFIW
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LKJPYSCBVHEWIU-KRWDZBQOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:23.614885+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=56069 
+identifier=LKJPYSCBVHEWIU-KRWDZ
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/OGHNVEJMJSYVRP-QGZVFWFLSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:23.805798+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=185394 
+identifier=OGHNVEJMJSYVRP-QGZVF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/HWJPWWYTGBZDEG-AWEZNQCLSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:24.041203+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=10247560 
+identifier=HWJPWWYTGBZDEG-AWEZN
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/RJMIEHBSYVWVIN-LLVKDONJSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:24.230154+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=93283 
+identifier=RJMIEHBSYVWVIN-LLVKD
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/JGBBILLMZPWNFU-QGZVFWFLSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:24.515655+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=15942673 
+identifier=JGBBILLMZPWNFU-QGZVF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XJLSEXAGTJCILF-RXMQYKEDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:24.699012+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=1796509 
+identifier=XJLSEXAGTJCILF-RXMQY
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XXPANQJNYNUNES-CQSZACIVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:24.951767+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=12884652 
+identifier=XXPANQJNYNUNES-CQSZA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/WZJSIHGOLMMBAL-MRXNPFEDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:25.229344+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=10333842 
+identifier=WZJSIHGOLMMBAL-MRXNP
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/RIRGCFBBHQEQQH-SSFGXONLSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:25.542168+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=93205 
+identifier=RIRGCFBBHQEQQH-SSFGX
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/JUDKOGFHZYMDMF-CQSZACIVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:25.853720+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=6852376 
+identifier=JUDKOGFHZYMDMF-CQSZA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/KIXBFSFRCBHKLN-INIZCTEOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:26.120597+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=9948049 
+identifier=KIXBFSFRCBHKLN-INIZC
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/RAVIZVQZGXBOQO-CQSZACIVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:26.304346+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=24839733 
+identifier=RAVIZVQZGXBOQO-CQSZA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LSLYOANBFKQKPT-DIFFPNOSSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:26.586619+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=688468 
+identifier=LSLYOANBFKQKPT-DIFFP
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/UUDAMDVQRQNNHZ-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:26.821898+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=1221 
+identifier=UUDAMDVQRQNNHZ-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LSLYOANBFKQKPT-GTNSWQLSSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:27.087001+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=688467 
+identifier=LSLYOANBFKQKPT-GTNSW
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/UYNVMODNBIQBMV-KKSFZXQISA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:27.528842+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=6604117 
+identifier=UYNVMODNBIQBMV-KKSFZ
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XEEQGYMUWCZPDN-SWLSCSKDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:28.057444+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=456309 
+identifier=XEEQGYMUWCZPDN-SWLSC
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ROTFGKJJMRTWBD-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:28.475027+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=10028957 
+identifier=ROTFGKJJMRTWBD-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/OWQWXZCNCVEPNZ-KRWDZBQOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:28.680985+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=70682088 
+identifier=OWQWXZCNCVEPNZ-KRWDZ
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/HFKSXXFKEYZDQL-SFHVURJKSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:28.863159+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=70690498 
+identifier=HFKSXXFKEYZDQL-SFHVU
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/QAOGQNRLWKYNAK-QVNUIZJESA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:29.118665+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=46871848 
+identifier=QAOGQNRLWKYNAK-QVNUI
+urllib3: urllib3: Resetting dropped connection: pubchem.ncbi.nlm.nih.gov
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/UUDAMDVQRQNNHZ-YFKPBYRVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:29.919857+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=158397 
+identifier=UUDAMDVQRQNNHZ-YFKPB
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XNQIOISZPFVUFG-YFKPBYRVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:30.267616+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=6603865 
+identifier=XNQIOISZPFVUFG-YFKPB
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/RUOOPLOUUAYNPY-AWEZNQCLSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:30.726842+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=49863704 
+identifier=RUOOPLOUUAYNPY-AWEZN
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/BJTGVSGWTIUCSM-ZDUSSCGKSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:31.118244+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=757000 
+identifier=BJTGVSGWTIUCSM-ZDUSS
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/HWJPWWYTGBZDEG-CQSZACIVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:31.320650+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=44141864 
+identifier=HWJPWWYTGBZDEG-CQSZA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/UYNVMODNBIQBMV-HRAATJIYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:31.550515+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11771731 
+identifier=UYNVMODNBIQBMV-HRAAT
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/JGBBILLMZPWNFU-KRWDZBQOSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:31.822450+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=44576259 
+identifier=JGBBILLMZPWNFU-KRWDZ
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XJLSEXAGTJCILF-YFKPBYRVSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:32.003653+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=6575388 
+identifier=XJLSEXAGTJCILF-YFKPB
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/XXPANQJNYNUNES-AWEZNQCLSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:32.273502+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=55993 
+identifier=XXPANQJNYNUNES-AWEZN
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/RIRGCFBBHQEQQH-KFAHYOAQSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:32.539763+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=5312112 
+identifier=RIRGCFBBHQEQQH-KFAHY
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LJJKNPQAGWVLDQ-SNVBAGLBSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:32.722864+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=4369380 
+identifier=LJJKNPQAGWVLDQ-SNVBA
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/PNVNVHUZROJLTJ-MRXNPFEDSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:32.944633+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11846746 
+identifier=PNVNVHUZROJLTJ-MRXNP
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LSLYOANBFKQKPT-PIGZYNQJSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:33.215062+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=667688 
+identifier=LSLYOANBFKQKPT-PIGZY
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/UYNVMODNBIQBMV-IIBYNOLFSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:33.427009+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=11198145 
+identifier=UYNVMODNBIQBMV-IIBYN
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/LSLYOANBFKQKPT-APPDUMDISA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:33.628080+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=688469 
+identifier=LSLYOANBFKQKPT-APPDU
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/UWYZHKAOTLEWKK-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:33.879913+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=7046 
+identifier=UWYZHKAOTLEWKK-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ABDKAPXRBAPSQN-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:34.100433+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=7043 
+identifier=ABDKAPXRBAPSQN-UHFFF
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET 
+/rest/pug/compound/inchikey/ADFXKUOMJKEIND-UHFFFAOYSA-N/cids/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:34.342816+00:00 [debug    ] cid_resolved                   [PubChemAdapter] cid=4277 
+identifier=ADFXKUOMJKEIND-UHFFF
+2025-10-28T16:41:34.342998+00:00 [info     ] cid_resolution_completed       [PubChemAdapter] resolved=100 total=100
+urllib3: urllib3: https://pubchem.ncbi.nlm.nih.gov:443 "GET /rest/pug/compound/cid/9999116,20353,10255275,362574,37461,
+64972,657346,149790,182232,70680998,497359,497362,12259685,439533,26070,45263259,14539884,73160,6419835,131379,161665,9
+864626,72276,54608866,11652416,9905831,448055,9906452,9931141,6604724,205131,42617984,42617986,9882979,42617983,4261798
+5,42617990,5284459,9871730,25059294,24995603,11255261,24995604,9797132,7016554,11651356,9920506,11629898,10680281,11745
+400,44405320,11150958,895402,5277481,11634155,9863776,6436743,44391902,676159,156615,121830,56069,185394,10247560,93283
+,15942673,1796509,12884652,10333842,93205,6852376,9948049,24839733,688468,1221,688467,6604117,456309,10028957,70682088,
+70690498,46871848,158397,6603865,49863704,757000,44141864,11771731,44576259,6575388,55993,5312112,4369380,11846746,6676
+88,11198145,688469,7046,7043,4277/property/MolecularFormula,MolecularWeight,SMILES,ConnectivitySMILES,InChI,InChIKey,IU
+PACName/JSON HTTP/1.1" 200 None
+2025-10-28T16:41:35.219057+00:00 [info     ] fetch_completed                [PubChemAdapter] adapter=PubChemAdapter 
+fetched=100 normalized=100
+2025-10-28T16:41:35.222424+00:00 [info     ] enrichment_completed           [PubChemAdapter] 
+enriched_rows=np.int64(100) enrichment_rate=np.float64(1.0) total_rows=100
+2025-10-28T16:41:35.237413+00:00 [info     ] transformation_completed       [bioetl.pipelines.base] rows=100
+2025-10-28T16:41:35.237791+00:00 [warning  ] duplicates_found               [bioetl.pipelines.testitem] 
+count=np.int64(1)
+2025-10-28T16:41:35.238360+00:00 [info     ] validation_completed           [bioetl.pipelines.testitem] 
+duplicates_removed=np.int64(1) rows=99
+2025-10-28T16:41:35.238538+00:00 [info     ] validation_completed           [bioetl.pipelines.base] rows=99
+2025-10-28T16:41:35.238661+00:00 [info     ] exporting_data                 [bioetl.pipelines.base] 
+path=WindowsPath('data/output/testitem/testitem_20251028.csv') rows=99
+2025-10-28T16:41:35.238934+00:00 [info     ] writing_dataset                [bioetl.core.output_writer] 
+path=WindowsPath('data/output/testitem/testitem_20251028.csv') rows=99
+2025-10-28T16:41:35.243487+00:00 [info     ] generating_quality_report      [bioetl.core.output_writer]
+2025-10-28T16:41:35.261038+00:00 [info     ] pipeline_completed             [bioetl.pipelines.base] 
+artifacts=data\output\testitem\testitem_20251028.csv
+
+=== Pipeline Execution Summary ===
+[OK] Dataset: data\output\testitem\testitem_20251028.csv
+[OK] Quality report: data\output\testitem\testitem_20251028_quality_report.csv
+2025-10-28T16:41:35.261365+00:00 [info     ] script_completed               [__main__] 
+output_path=WindowsPath('data/output/testitem/testitem_20251028.csv')
+
+[OK] Pipeline completed successfully!

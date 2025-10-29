@@ -6,23 +6,25 @@ import json
 import re
 import time
 from collections import defaultdict
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import TargetSourceConfig
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.config.models import (
+    CircuitBreakerConfig,
+    HttpConfig,
+    RateLimitConfig,
+    RetryConfig,
+    TargetSourceConfig,
+)
+from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import OutputMetadata
-from bioetl.pipelines.base import (
-    EnrichmentStage,
-    PipelineBase,
-    enrichment_stage_registry,
-)
+from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
     annotate_source_rank,
@@ -40,6 +42,7 @@ from bioetl.schemas import (
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils import finalize_pipeline_output
 from bioetl.utils.qc import (
+    QCMetricsRegistry,
     prepare_enrichment_metrics,
     prepare_missing_mappings,
     update_summary_metrics,
@@ -87,18 +90,13 @@ class TargetPipeline(PipelineBase):
         self.source_configs: dict[str, TargetSourceConfig] = {}
         self.api_clients: dict[str, UnifiedAPIClient] = {}
 
-        factory = APIClientFactory.from_pipeline_config(config)
-
         for source_name, source in config.sources.items():
-            if source is None:
-                continue
-
-            source_config = ensure_target_source_config(source, defaults={})
+            source_config = source if isinstance(source, TargetSourceConfig) else TargetSourceConfig.model_validate(source)
             if not source_config.enabled:
                 continue
 
             self.source_configs[source_name] = source_config
-            api_client_config = factory.create(source_name, source_config)
+            api_client_config = self._build_api_client_config(source_name, source_config)
             self.api_clients[source_name] = UnifiedAPIClient(api_client_config)
 
         self.chembl_client = self.api_clients.get("chembl")
@@ -119,6 +117,81 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class: pd.DataFrame = pd.DataFrame()
         self.gold_xref: pd.DataFrame = pd.DataFrame()
         self._qc_missing_mapping_records: list[dict[str, Any]] = []
+
+    def _build_api_client_config(
+        self,
+        source_name: str,
+        source_config: TargetSourceConfig,
+    ) -> APIConfig:
+        """Create API client configuration for the given source."""
+
+        http_profile = self._resolve_http_profile(source_name, source_config)
+        global_http = self.config.http.get("global")
+
+        timeout_sec = source_config.timeout_sec
+        if timeout_sec is None and http_profile is not None:
+            timeout_sec = http_profile.timeout_sec
+        if timeout_sec is None and global_http is not None:
+            timeout_sec = global_http.timeout_sec
+        if timeout_sec is None:
+            timeout_sec = 60.0
+
+        connect_timeout = self._resolve_timeout(http_profile, global_http, "connect_timeout_sec", timeout_sec)
+        read_timeout = self._resolve_timeout(http_profile, global_http, "read_timeout_sec", timeout_sec)
+
+        retries = self._resolve_retries(http_profile, global_http)
+        rate_limit = self._resolve_rate_limit(source_config, http_profile, global_http)
+        rate_limit_jitter = self._resolve_rate_limit_jitter(http_profile, global_http)
+
+        cache_enabled = source_config.cache_enabled if source_config.cache_enabled is not None else self.config.cache.enabled
+        cache_ttl = source_config.cache_ttl if source_config.cache_ttl is not None else self.config.cache.ttl
+        cache_maxsize = (
+            source_config.cache_maxsize
+            if source_config.cache_maxsize is not None
+            else getattr(self.config.cache, "maxsize", 1024)
+        )
+
+        fallback_config = self.config.fallbacks
+        fallback_enabled = fallback_config.enabled
+        fallback_strategies = source_config.fallback_strategies or fallback_config.strategies
+        partial_retry_max = (
+            source_config.partial_retry_max
+            if source_config.partial_retry_max is not None
+            else fallback_config.partial_retry_max
+        )
+        circuit_breaker: CircuitBreakerConfig = (
+            source_config.circuit_breaker or fallback_config.circuit_breaker
+        )
+
+        headers: dict[str, str] = {}
+        if global_http:
+            headers.update(global_http.headers)
+        if http_profile:
+            headers.update(http_profile.headers)
+        headers.update(source_config.headers)
+
+        return APIConfig(
+            name=source_name,
+            base_url=source_config.base_url,
+            headers=headers,
+            cache_enabled=cache_enabled,
+            cache_ttl=cache_ttl,
+            cache_maxsize=cache_maxsize,
+            rate_limit_max_calls=rate_limit.max_calls,
+            rate_limit_period=rate_limit.period,
+            rate_limit_jitter=rate_limit_jitter,
+            retry_total=retries.total,
+            retry_backoff_factor=retries.backoff_multiplier,
+            retry_backoff_max=retries.backoff_max,
+            retry_status_codes=[int(code) for code in (retries.statuses or [])],
+            partial_retry_max=partial_retry_max,
+            timeout_connect=connect_timeout,
+            timeout_read=read_timeout,
+            cb_failure_threshold=circuit_breaker.failure_threshold,
+            cb_timeout=circuit_breaker.timeout_sec,
+            fallback_enabled=fallback_enabled,
+            fallback_strategies=fallback_strategies,
+        )
 
     def _record_missing_mapping(
         self,
@@ -149,6 +222,79 @@ class TargetPipeline(PipelineBase):
                 record["details"] = str(details)
 
         self._qc_missing_mapping_records.append(record)
+
+    def _resolve_http_profile(
+        self,
+        source_name: str,
+        source_config: TargetSourceConfig,
+    ) -> HttpConfig | None:
+        """Resolve HTTP profile configuration for a source."""
+
+        profile_name = source_config.http_profile or source_name
+        if profile_name and profile_name in self.config.http:
+            return self.config.http[profile_name]
+        return None
+
+    def _resolve_timeout(
+        self,
+        http_profile: HttpConfig | None,
+        global_http: HttpConfig | None,
+        attr: str,
+        default: float,
+    ) -> float:
+        """Resolve timeout value using profile, global configuration, or default."""
+
+        profile_value = getattr(http_profile, attr) if http_profile else None
+        if profile_value is not None:
+            return float(profile_value)
+
+        global_value = getattr(global_http, attr) if global_http else None
+        if global_value is not None:
+            return float(global_value)
+
+        return default
+
+    def _resolve_retries(
+        self,
+        http_profile: HttpConfig | None,
+        global_http: HttpConfig | None,
+    ) -> RetryConfig:
+        """Resolve retry configuration with sensible defaults."""
+
+        if http_profile is not None:
+            return http_profile.retries
+        if global_http is not None:
+            return global_http.retries
+        raise ValueError("Retry configuration is required for API clients")
+
+    def _resolve_rate_limit(
+        self,
+        source_config: TargetSourceConfig,
+        http_profile: HttpConfig | None,
+        global_http: HttpConfig | None,
+    ) -> RateLimitConfig:
+        """Resolve rate limit configuration for a source."""
+
+        if source_config.rate_limit is not None:
+            return source_config.rate_limit
+        if http_profile is not None:
+            return http_profile.rate_limit
+        if global_http is not None:
+            return global_http.rate_limit
+        raise ValueError("Rate limit configuration is required for API clients")
+
+    def _resolve_rate_limit_jitter(
+        self,
+        http_profile: HttpConfig | None,
+        global_http: HttpConfig | None,
+    ) -> bool:
+        """Resolve rate limit jitter flag."""
+
+        if http_profile is not None:
+            return http_profile.rate_limit_jitter
+        if global_http is not None:
+            return global_http.rate_limit_jitter
+        return True
 
     def _get_chembl_release(self) -> str | None:
         """Fetch the ChEMBL database release identifier."""
@@ -221,6 +367,9 @@ class TargetPipeline(PipelineBase):
         self.qc_enrichment_metrics = pd.DataFrame()
         self.qc_summary_data = {}
 
+        registry = QCMetricsRegistry(self.config.qc)
+        collected_metrics: dict[str, Any] = {}
+
         # Normalize identifiers
         from bioetl.normalizers import registry
 
@@ -247,24 +396,96 @@ class TargetPipeline(PipelineBase):
             with_iuphar=with_iuphar,
         )
 
-        self.reset_stage_context()
-        df = self.execute_enrichment_stages(df)
+        uniprot_metrics: dict[str, Any] = {}
+        uniprot_silver = pd.DataFrame()
+        component_enrichment = pd.DataFrame()
 
-        uniprot_context = self.stage_context.get("uniprot", {})
-        uniprot_silver = uniprot_context.get("silver")
-        if not isinstance(uniprot_silver, pd.DataFrame):
-            uniprot_silver = pd.DataFrame()
-        component_enrichment = uniprot_context.get("component_enrichment")
-        if not isinstance(component_enrichment, pd.DataFrame):
-            component_enrichment = pd.DataFrame()
+        stage_summary = self.qc_summary_data.setdefault("stages", {})
 
-        iuphar_context = self.stage_context.get("iuphar", {})
-        iuphar_classification = iuphar_context.get("classification")
-        if not isinstance(iuphar_classification, pd.DataFrame):
-            iuphar_classification = pd.DataFrame()
-        iuphar_gold = iuphar_context.get("gold")
-        if not isinstance(iuphar_gold, pd.DataFrame):
-            iuphar_gold = pd.DataFrame()
+        if not with_uniprot:
+            logger.info("uniprot_enrichment_skipped", reason="disabled")
+            stage_summary["uniprot"] = {"status": "skipped", "reason": "disabled"}
+        elif (
+            self.uniprot_client is not None
+            and "uniprot_accession" in df.columns
+            and df["uniprot_accession"].notna().any()
+        ):
+            try:
+                df, uniprot_silver, component_enrichment, uniprot_metrics = self._enrich_uniprot(df)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.error("uniprot_enrichment_failed", error=str(exc))
+                self.record_validation_issue(
+                    {
+                        "metric": "enrichment.uniprot",
+                        "issue_type": "enrichment",
+                        "severity": "warning",
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+                stage_summary["uniprot"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            else:
+                if uniprot_metrics:
+                    collected_metrics.update(uniprot_metrics)
+                if not uniprot_silver.empty or not component_enrichment.empty:
+                    self._materialize_silver(uniprot_silver, component_enrichment)
+                stage_summary["uniprot"] = {
+                    "status": "completed",
+                    "rows": int(len(df)),
+                }
+        else:
+            logger.info(
+                "uniprot_enrichment_skipped",
+                reason="no_accessions" if "uniprot_accession" not in df.columns else "no_client",
+            )
+            stage_summary["uniprot"] = {
+                "status": "skipped",
+                "reason": (
+                    "missing_column"
+                    if "uniprot_accession" not in df.columns
+                    else "client_unavailable"
+                ),
+            }
+
+        iuphar_classification = pd.DataFrame()
+        iuphar_gold = pd.DataFrame()
+        iuphar_metrics: dict[str, Any] = {}
+        if not with_iuphar:
+            logger.info("iuphar_enrichment_skipped", reason="disabled")
+            stage_summary["iuphar"] = {"status": "skipped", "reason": "disabled"}
+        elif self.iuphar_client is not None:
+            try:
+                df, iuphar_classification, iuphar_gold, iuphar_metrics = self._enrich_iuphar(df)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.error("iuphar_enrichment_failed", error=str(exc))
+                self.record_validation_issue(
+                    {
+                        "metric": "enrichment.iuphar",
+                        "issue_type": "enrichment",
+                        "severity": "warning",
+                        "status": "failed",
+                        "error": str(exc),
+                    }
+                )
+                stage_summary["iuphar"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            else:
+                if iuphar_metrics:
+                    collected_metrics.update(iuphar_metrics)
+                if not iuphar_classification.empty or not iuphar_gold.empty:
+                    self._materialize_iuphar(iuphar_classification, iuphar_gold)
+                stage_summary["iuphar"] = {
+                    "status": "completed",
+                    "rows": int(len(df)),
+                }
+        else:
+            logger.info("iuphar_enrichment_skipped", reason="no_client")
+            stage_summary["iuphar"] = {"status": "skipped", "reason": "client_unavailable"}
 
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
@@ -342,7 +563,9 @@ class TargetPipeline(PipelineBase):
         else:
             self.qc_missing_mappings = pd.DataFrame()
 
-        self._evaluate_enrichment_thresholds()
+        self._register_qc_metrics(registry, collected_metrics)
+        metrics_payload, _ = self.finalize_qc_metrics(registry)
+
         self._update_qc_summary(
             gold_targets,
             gold_components,
@@ -350,8 +573,8 @@ class TargetPipeline(PipelineBase):
             gold_xref,
         )
 
-        if self.qc_metrics:
-            logger.info("qc_metrics_collected", metrics=self.qc_metrics)
+        if metrics_payload:
+            logger.info("qc_metrics_collected", metrics=metrics_payload)
 
         self._materialize_gold_outputs(
             gold_targets,
@@ -390,7 +613,7 @@ class TargetPipeline(PipelineBase):
         validated_targets = self._validate_with_schema(
             df,
             TargetSchema,
-            dataset_name="targets",
+            "targets",
             severity="critical",
         )
         self.gold_targets = validated_targets
@@ -398,19 +621,19 @@ class TargetPipeline(PipelineBase):
         self.gold_components = self._validate_with_schema(
             self.gold_components,
             TargetComponentSchema,
-            dataset_name="target_components",
+            "target_components",
         )
 
         self.gold_protein_class = self._validate_with_schema(
             self.gold_protein_class,
             ProteinClassSchema,
-            dataset_name="protein_classifications",
+            "protein_classifications",
         )
 
         self.gold_xref = self._validate_with_schema(
             self.gold_xref,
             XrefSchema,
-            dataset_name="target_xrefs",
+            "target_xrefs",
         )
 
         self._update_qc_summary(
@@ -1870,155 +2093,149 @@ class TargetPipeline(PipelineBase):
 
         return working.convert_dtypes()
 
-    def _evaluate_iuphar_qc(self, coverage: float) -> None:
-        """Compare coverage against QC thresholds and log warnings."""
+    def _register_qc_metrics(
+        self,
+        registry: QCMetricsRegistry,
+        metrics_map: Mapping[str, Any],
+    ) -> None:
+        """Register collected QC metrics using the shared registry."""
 
-        thresholds = self.config.qc.thresholds or {}
-        config: dict[str, Any] | None = None
-        if isinstance(thresholds.get("iuphar_coverage"), dict):
-            config = thresholds.get("iuphar_coverage")
-        elif isinstance(thresholds.get("enrichment_success.iuphar"), dict):
-            config = thresholds.get("enrichment_success.iuphar")
+        self._register_enrichment_metrics(registry, metrics_map)
 
-        if not config:
-            return
+        for key, value in metrics_map.items():
+            if key.startswith("enrichment_success."):
+                continue
 
-        min_threshold = config.get("min")
-        severity = str(config.get("severity", "warning"))
+            comparison = "none"
+            pass_severity = "info"
+            fail_severity = "error"
+            passed: bool | None = None
 
-        issue_payload = {
-            "metric": "iuphar_coverage",
-            "value": coverage,
-            "threshold_min": float(min_threshold) if min_threshold is not None else None,
-            "severity": "info",
-            "passed": True,
-            "issue_type": "qc",
-        }
+            if key == "iuphar_coverage":
+                comparison = "min"
+                fail_severity = "warning"
+            elif key.startswith("enrichment.") and key.endswith(".rate"):
+                comparison = "max"
+            elif key.startswith("enrichment.") and key.endswith(".unresolved"):
+                comparison = "max"
+            elif key.startswith("enrichment.") and key.endswith(".count"):
+                comparison = "max"
+            elif key.startswith("fallback."):
+                comparison = "max"
+                if isinstance(value, (int, float)) and float(value) > 0.0:
+                    pass_severity = "warning"
+            else:
+                comparison = "none"
+                passed = True
+                fail_severity = pass_severity
 
-        if min_threshold is not None and coverage < float(min_threshold):
-            logger.warning(
-                "iuphar_coverage_below_threshold",
-                coverage=coverage,
-                threshold=min_threshold,
+            registry.register(
+                key,
+                value,
+                comparison=comparison,
+                threshold_key=key,
+                pass_severity=pass_severity,
+                fail_severity=fail_severity,
+                passed=passed,
             )
-            issue_payload.update({"severity": severity, "passed": False})
 
-        self.record_validation_issue(issue_payload)
-
-    def _evaluate_enrichment_thresholds(self) -> None:
-        """Evaluate enrichment coverage against configured thresholds."""
+    def _register_enrichment_metrics(
+        self,
+        registry: QCMetricsRegistry,
+        metrics_map: Mapping[str, Any],
+    ) -> None:
+        """Register enrichment success metrics and prepare summary artefacts."""
 
         qc_config = getattr(self.config, "qc", None)
-        thresholds = getattr(qc_config, "enrichments", {}) if qc_config else {}
-        if not thresholds:
+        thresholds_config = getattr(qc_config, "enrichments", {}) if qc_config else {}
+
+        stage_names: set[str] = set()
+        stage_names.update(str(name) for name in thresholds_config.keys())
+        for key in metrics_map:
+            if key.startswith("enrichment_success."):
+                stage_names.add(key.split(".", 1)[1])
+
+        if not stage_names:
             self.qc_enrichment_metrics = pd.DataFrame()
             return
 
         records: list[dict[str, Any]] = []
-        failing: list[dict[str, Any]] = []
-        enrichment_summary = self.qc_summary_data.setdefault("enrichment", {})
+        enrichment_summary: dict[str, Any] = {}
 
-        for name, raw_threshold in thresholds.items():
-            if isinstance(raw_threshold, dict):
-                min_threshold = raw_threshold.get("min")
-                severity = str(raw_threshold.get("severity", "error"))
+        for name in sorted(stage_names):
+            config_entry = thresholds_config.get(name)
+            default_min: Any | None = None
+            fail_severity = "error"
+
+            if isinstance(config_entry, Mapping):
+                default_min = config_entry.get("min")
+                fail_severity = str(config_entry.get("severity", "error"))
+            elif config_entry is not None:
+                default_min = config_entry
+                fail_severity = "error"
             else:
-                min_threshold = raw_threshold
-                severity = "error"
+                fail_severity = "info"
 
-            try:
-                min_threshold_value = float(min_threshold) if min_threshold is not None else None
-            except (TypeError, ValueError):
-                min_threshold_value = None
+            threshold_value: float | None = None
+            if default_min is not None:
+                try:
+                    threshold_value = float(default_min)
+                except (TypeError, ValueError):
+                    threshold_value = None
 
             metric_key = f"enrichment_success.{name}"
-            value = self.qc_metrics.get(metric_key)
+            value = metrics_map.get(metric_key)
 
-            if value is None:
-                enrichment_summary[name] = {
-                    "value": None,
-                    "threshold_min": min_threshold_value,
-                    "passed": False,
-                    "status": "missing",
-                    "severity": severity,
-                }
-                self.record_validation_issue(
-                    {
-                        "metric": f"enrichment.{name}",
-                        "issue_type": "qc_metric",
-                        "severity": "info",
-                        "status": "missing",
-                    }
-                )
+            if value is None and config_entry is None:
                 continue
 
-            try:
-                value_float = float(value)
-            except (TypeError, ValueError):
-                value_float = value
-
-            passed = True
-            if min_threshold_value is not None:
-                passed = value_float >= min_threshold_value
+            if value is None:
+                metric = registry.register(
+                    metric_key,
+                    value,
+                    comparison="min",
+                    threshold_key=metric_key,
+                    default_threshold=threshold_value,
+                    pass_severity="info",
+                    fail_severity="info",
+                    passed=False,
+                    details={"status": "missing"},
+                )
+            else:
+                metric = registry.register(
+                    metric_key,
+                    value,
+                    comparison="min",
+                    threshold_key=metric_key,
+                    default_threshold=threshold_value,
+                    pass_severity="info",
+                    fail_severity=fail_severity,
+                )
 
             record = {
                 "metric": name,
-                "value": value_float,
-                "threshold_min": min_threshold_value,
-                "passed": passed,
-                "severity": severity,
+                "value": metric.value if metric.value is not None else None,
+                "threshold_min": metric.threshold_min,
+                "passed": metric.passed,
+                "severity": metric.severity,
             }
+            if metric.details:
+                record["details"] = metric.details
             records.append(record)
 
-            enrichment_summary[name] = {
-                "value": value_float,
-                "threshold_min": min_threshold_value,
-                "passed": passed,
-                "severity": severity,
+            summary_entry: dict[str, Any] = {
+                "value": record["value"],
+                "threshold_min": record["threshold_min"],
+                "passed": metric.passed,
+                "severity": metric.severity,
             }
-
-            issue_payload = {
-                "metric": f"enrichment.{name}",
-                "issue_type": "qc_metric",
-                "severity": severity if not passed else "info",
-                "value": value_float,
-                "threshold_min": min_threshold_value,
-                "passed": passed,
-            }
-            self.record_validation_issue(issue_payload)
-
-            if not passed:
-                failing.append({"metric": name, "severity": severity, "value": value_float, "threshold": min_threshold_value})
+            if metric.details and "status" in metric.details:
+                summary_entry["status"] = metric.details["status"]
+            enrichment_summary[name] = summary_entry
 
         self.qc_enrichment_metrics = prepare_enrichment_metrics(records)
-
-        blocking: list[dict[str, Any]] = []
-        downgraded: list[dict[str, Any]] = []
-        for failure in failing:
-            severity = failure["severity"]
-            if self._severity_value(severity) >= self._severity_value("error") and self._should_fail(severity):
-                blocking.append(failure)
-            elif self._should_fail(severity):
-                downgraded.append(failure)
-
-        if downgraded:
-            downgraded_details = ", ".join(
-                f"{item['metric']} (value={item['value']}, threshold={item['threshold']}, severity={item['severity']})"
-                for item in downgraded
-            )
-            logger.warning(
-                "enrichment_threshold_below_min_non_blocking",
-                details=downgraded_details,
-                severity_threshold=self.config.qc.severity_threshold,
-            )
-
-        if blocking:
-            details = ", ".join(
-                f"{item['metric']} (value={item['value']}, threshold={item['threshold']})"
-                for item in blocking
-            )
-            logger.error("enrichment_threshold_failed", details=details)
-            raise ValueError(f"Enrichment thresholds failed: {details}")
+        if enrichment_summary:
+            update_summary_section(self.qc_summary_data, "enrichment", enrichment_summary)
 
     def _update_qc_summary(
         self,
@@ -2038,11 +2255,19 @@ class TargetPipeline(PipelineBase):
         update_summary_section(self.qc_summary_data, "row_counts", dataset_counts)
         update_summary_section(self.qc_summary_data, "datasets", dataset_counts)
 
-        fallback_counts = {
-            key.split(".")[1]: int(value)
-            for key, value in self.qc_metrics.items()
-            if key.startswith("fallback.") and key.endswith(".count")
-        }
+        fallback_counts: dict[str, int] = {}
+        for key, payload in self.qc_metrics.items():
+            if not (key.startswith("fallback.") and key.endswith(".count")):
+                continue
+            if not isinstance(payload, Mapping):
+                continue
+            value = payload.get("value")
+            if value is None:
+                continue
+            try:
+                fallback_counts[key.split(".")[1]] = int(value)
+            except (TypeError, ValueError):
+                continue
         if fallback_counts:
             update_summary_section(self.qc_summary_data, "fallback_counts", fallback_counts)
 
@@ -2063,154 +2288,77 @@ class TargetPipeline(PipelineBase):
                 merge=False,
             )
 
-def _target_should_run_uniprot(
-    pipeline: PipelineBase, df: pd.DataFrame
-) -> tuple[bool, str | None]:
-    """Determine if the UniProt stage should run for the given pipeline."""
+    def _validate_with_schema(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        dataset_name: str,
+        *,
+        severity: str = "error",
+    ) -> pd.DataFrame:
+        """Validate a dataframe against the provided Pandera schema."""
 
-    if not isinstance(pipeline, TargetPipeline):
-        return False, "unsupported_pipeline"
-    if df.empty:
-        return False, "empty_frame"
+        validation_summary = self.qc_summary_data.setdefault("validation", {})
 
-    with_uniprot = bool(pipeline.runtime_options.get("with_uniprot", True))
-    pipeline.runtime_options["with_uniprot"] = with_uniprot
-    if not with_uniprot:
-        return False, "disabled"
+        if df is None or (hasattr(df, "empty") and df.empty):
+            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
+            self.record_validation_issue(
+                {
+                    "metric": f"schema.{dataset_name}",
+                    "issue_type": "schema_validation",
+                    "severity": "info",
+                    "status": "skipped",
+                    "rows": 0,
+                }
+            )
+            return df
 
-    if pipeline.uniprot_client is None:
-        return False, "client_unavailable"
+        try:
+            validated = schema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count: int | None = None
+            if failure_cases is not None and hasattr(failure_cases, "shape"):
+                try:
+                    error_count = int(failure_cases.shape[0])
+                except (TypeError, ValueError):
+                    error_count = None
 
-    if "uniprot_accession" not in df.columns:
-        return False, "missing_column"
-
-    if not df["uniprot_accession"].notna().any():
-        return False, "no_accessions"
-
-    return True, None
-
-
-def _target_run_uniprot_stage(
-    pipeline: PipelineBase, df: pd.DataFrame
-) -> pd.DataFrame:
-    """Execute UniProt enrichment for the target pipeline."""
-
-    if not isinstance(pipeline, TargetPipeline):  # pragma: no cover - defensive
-        return df
-
-    try:
-        enriched_df, silver_df, component_df, metrics = pipeline._enrich_uniprot(df)
-    except Exception as exc:
-        pipeline.record_validation_issue(
-            {
-                "metric": "enrichment.uniprot",
-                "issue_type": "enrichment",
-                "severity": "warning",
+            issue_payload: dict[str, Any] = {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": severity,
                 "status": "failed",
-                "error": str(exc),
+                "errors": error_count,
+            }
+            if failure_cases is not None:
+                try:
+                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
+                except Exception:  # pragma: no cover - defensive guard
+                    issue_payload["examples"] = "unavailable"
+
+            self.record_validation_issue(issue_payload)
+            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
+            logger.error(
+                "schema_validation_failed",
+                dataset=dataset_name,
+                errors=error_count,
+                error=str(exc),
+            )
+            if self._should_fail(severity):
+                raise
+            return df
+
+        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
+        self.record_validation_issue(
+            {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": "info",
+                "status": "passed",
+                "rows": int(len(validated)),
             }
         )
-        raise
 
-    if metrics:
-        pipeline.qc_metrics.update(metrics)
-
-    if not silver_df.empty or not component_df.empty:
-        pipeline._materialize_silver(silver_df, component_df)
-
-    pipeline.stage_context["uniprot"] = {
-        "silver": silver_df,
-        "component_enrichment": component_df,
-    }
-    pipeline.set_stage_summary("uniprot", "completed", rows=int(len(enriched_df)))
-
-    return enriched_df
-
-
-def _target_should_run_iuphar(
-    pipeline: PipelineBase, df: pd.DataFrame
-) -> tuple[bool, str | None]:
-    """Determine if the IUPHAR stage should run for the given pipeline."""
-
-    if not isinstance(pipeline, TargetPipeline):
-        return False, "unsupported_pipeline"
-    if df.empty:
-        return False, "empty_frame"
-
-    with_iuphar = bool(pipeline.runtime_options.get("with_iuphar", True))
-    pipeline.runtime_options["with_iuphar"] = with_iuphar
-    if not with_iuphar:
-        return False, "disabled"
-
-    if pipeline.iuphar_client is None:
-        return False, "client_unavailable"
-
-    return True, None
-
-
-def _target_run_iuphar_stage(
-    pipeline: PipelineBase, df: pd.DataFrame
-) -> pd.DataFrame:
-    """Execute IUPHAR enrichment for the target pipeline."""
-
-    if not isinstance(pipeline, TargetPipeline):  # pragma: no cover - defensive
-        return df
-
-    try:
-        enriched_df, classification_df, gold_df, metrics = pipeline._enrich_iuphar(df)
-    except Exception as exc:
-        pipeline.record_validation_issue(
-            {
-                "metric": "enrichment.iuphar",
-                "issue_type": "enrichment",
-                "severity": "warning",
-                "status": "failed",
-                "error": str(exc),
-            }
-        )
-        raise
-
-    if metrics:
-        pipeline.qc_metrics.update(metrics)
-        coverage_value = metrics.get("iuphar_coverage")
-        if coverage_value is not None:
-            try:
-                pipeline._evaluate_iuphar_qc(float(coverage_value))
-            except (TypeError, ValueError):  # pragma: no cover - defensive
-                pipeline._evaluate_iuphar_qc(0.0)
-
-    if not classification_df.empty or not gold_df.empty:
-        pipeline._materialize_iuphar(classification_df, gold_df)
-
-    pipeline.stage_context["iuphar"] = {
-        "classification": classification_df,
-        "gold": gold_df,
-    }
-    pipeline.set_stage_summary("iuphar", "completed", rows=int(len(enriched_df)))
-
-    return enriched_df
-
-
-def _register_target_enrichment_stages() -> None:
-    """Register enrichment stages for the target pipeline."""
-
-    enrichment_stage_registry.register(
-        TargetPipeline,
-        EnrichmentStage(
-            name="uniprot",
-            include_if=_target_should_run_uniprot,
-            handler=_target_run_uniprot_stage,
-        ),
-    )
-    enrichment_stage_registry.register(
-        TargetPipeline,
-        EnrichmentStage(
-            name="iuphar",
-            include_if=_target_should_run_iuphar,
-            handler=_target_run_iuphar_stage,
-        ),
-    )
-
-
-_register_target_enrichment_stages()
+        return validated  # type: ignore[no-any-return]
 

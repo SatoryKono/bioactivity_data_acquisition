@@ -1,11 +1,9 @@
-"""Base pipeline class and enrichment stage registry helpers."""
-
-from __future__ import annotations
+"""Base pipeline class."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any
 
 import pandas as pd
 from pandera.errors import SchemaErrors
@@ -18,61 +16,9 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.utils.qc import QCMetricsRegistry, update_summary_metrics
 
 logger = UnifiedLogger.get(__name__)
-
-
-PredicateResult = bool | tuple[bool, str | None]
-
-
-@dataclass(frozen=True)
-class EnrichmentStage:
-    """Definition of an enrichment stage executed during transformation."""
-
-    name: str
-    include_if: Callable[["PipelineBase", pd.DataFrame], PredicateResult]
-    handler: Callable[["PipelineBase", pd.DataFrame], pd.DataFrame | None]
-
-    def should_run(self, pipeline: "PipelineBase", df: pd.DataFrame) -> tuple[bool, str | None]:
-        """Evaluate the inclusion predicate and normalise the response."""
-
-        result = self.include_if(pipeline, df)
-        if isinstance(result, tuple):
-            include, reason = result
-        else:
-            include, reason = bool(result), None
-        return bool(include), reason
-
-    def execute(self, pipeline: "PipelineBase", df: pd.DataFrame) -> pd.DataFrame | None:
-        """Invoke the stage handler."""
-
-        return self.handler(pipeline, df)
-
-
-class EnrichmentStageRegistry:
-    """Global registry storing enrichment stages per pipeline class."""
-
-    def __init__(self) -> None:
-        self._registry: dict[type["PipelineBase"], list[EnrichmentStage]] = {}
-
-    def register(self, pipeline_cls: type["PipelineBase"], stage: EnrichmentStage) -> None:
-        """Register or replace an enrichment stage for the given pipeline class."""
-
-        stages = self._registry.setdefault(pipeline_cls, [])
-        for index, existing in enumerate(stages):
-            if existing.name == stage.name:
-                stages[index] = stage
-                break
-        else:
-            stages.append(stage)
-
-    def get(self, pipeline_cls: type["PipelineBase"]) -> Iterable[EnrichmentStage]:
-        """Return the registered stages for the pipeline class."""
-
-        return tuple(self._registry.get(pipeline_cls, ()))
-
-
-enrichment_stage_registry = EnrichmentStageRegistry()
 
 
 class PipelineBase(ABC):
@@ -91,7 +37,6 @@ class PipelineBase(ABC):
         self.additional_tables: dict[str, AdditionalTableSpec] = {}
         self.export_metadata: OutputMetadata | None = None
         self.debug_dataset_path: Path | None = None
-        self.stage_context: dict[str, Any] = {}
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -103,76 +48,6 @@ class PipelineBase(ABC):
         issue.setdefault("metric", "validation_issue")
         issue.setdefault("severity", "info")
         self.validation_issues.append(issue)
-
-    def reset_stage_context(self) -> None:
-        """Clear any data cached by enrichment stages."""
-
-        self.stage_context.clear()
-
-    def get_stage_summary(self, name: str) -> dict[str, Any] | None:
-        """Return the summary payload for a specific stage if present."""
-
-        stages = self.qc_summary_data.get("stages")
-        if not isinstance(stages, dict):
-            return None
-        payload = stages.get(name)
-        return payload if isinstance(payload, dict) else None
-
-    def set_stage_summary(self, name: str, status: str, **details: Any) -> None:
-        """Record the execution summary for an enrichment stage."""
-
-        payload = {"status": status}
-        payload.update({key: value for key, value in details.items() if value is not None})
-        stages = self.qc_summary_data.setdefault("stages", {})
-        stages[name] = payload
-
-    def execute_enrichment_stages(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Execute registered enrichment stages in sequence for the pipeline."""
-
-        stages = tuple(enrichment_stage_registry.get(type(self)))
-        if not stages:
-            return df
-
-        working_df = df
-        for stage in stages:
-            include, reason = stage.should_run(self, working_df)
-            if not include:
-                logger.info(
-                    "enrichment_stage_skipped",
-                    stage=stage.name,
-                    reason=reason,
-                )
-                if self.get_stage_summary(stage.name) is None:
-                    metadata = {"reason": reason} if reason else {}
-                    self.set_stage_summary(stage.name, "skipped", **metadata)
-                continue
-
-            logger.info("enrichment_stage_started", stage=stage.name)
-            try:
-                result = stage.execute(self, working_df)
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.error(
-                    "enrichment_stage_failed",
-                    stage=stage.name,
-                    error=str(exc),
-                )
-                if self.get_stage_summary(stage.name) is None:
-                    self.set_stage_summary(stage.name, "failed", error=str(exc))
-                continue
-
-            if result is not None:
-                working_df = result
-
-            if self.get_stage_summary(stage.name) is None:
-                self.set_stage_summary(stage.name, "completed", rows=int(len(working_df)))
-
-            logger.info(
-                "enrichment_stage_completed",
-                stage=stage.name,
-                rows=len(working_df),
-            )
-
-        return working_df
 
     def get_runtime_limit(self) -> int | None:
         """Return a positive runtime limit if configured, normalising the value."""
@@ -215,30 +90,109 @@ class PipelineBase(ABC):
         threshold = self.config.qc.severity_threshold.lower()
         return self._severity_value(severity) >= self._severity_value(threshold)
 
+    def _should_fail_for_dataset(self, severity: str, *, fail_on: str | None = None) -> bool:
+        """Determine if a dataset-level severity should result in failure."""
+
+        if fail_on is not None:
+            return self._severity_value(severity) >= self._severity_value(fail_on)
+        return self._should_fail(severity)
+
+    def _resolve_validation_rule(self, dataset_name: str) -> tuple[str, str | None]:
+        """Fetch schema validation overrides for the dataset."""
+
+        validation_config = getattr(self.config.qc, "validation", {}) or {}
+        rule = validation_config.get(dataset_name)
+        if rule is None:
+            return "error", None
+
+        severity = getattr(rule, "severity", None) or "error"
+        fail_on = getattr(rule, "fail_on", None)
+        if isinstance(fail_on, str):
+            fail_on = fail_on.lower()
+        return str(severity), fail_on
+
+    def finalize_qc_metrics(
+        self,
+        registry: QCMetricsRegistry,
+        *,
+        prefix: str = "qc",
+        raise_on_failure: bool = True,
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        """Persist QC metrics, emit issues, and optionally fail the pipeline."""
+
+        metrics_payload = registry.as_dict()
+        failing: dict[str, dict[str, Any]] = {}
+        downgraded: dict[str, dict[str, Any]] = {}
+
+        for name, metric in registry.items():
+            payload = metric.to_payload()
+            log_method = logger.error if not metric.passed else logger.info
+            log_method(
+                "qc_metric",
+                metric=name,
+                value=payload.get("value"),
+                severity=metric.severity,
+                threshold=payload.get("threshold"),
+                threshold_min=metric.threshold_min,
+                threshold_max=metric.threshold_max,
+                details=metric.details,
+            )
+
+            self.record_validation_issue(metric.to_issue_payload(prefix=prefix))
+
+            if not metric.passed and self._should_fail(metric.severity):
+                severity_level = self._severity_value(metric.severity)
+                if severity_level >= self._severity_value("error"):
+                    failing[name] = payload
+                else:
+                    downgraded[name] = payload
+
+        self.qc_metrics = metrics_payload
+        update_summary_metrics(self.qc_summary_data, metrics_payload)
+
+        if downgraded:
+            downgraded_details = ", ".join(
+                f"{metric_name} (value={details.get('value')}, "
+                f"threshold={details.get('threshold')}, severity={details.get('severity')})"
+                for metric_name, details in sorted(downgraded.items())
+            )
+            logger.warning(
+                "qc_metric_threshold_breach_non_blocking",
+                details=downgraded_details,
+                severity_threshold=self.config.qc.severity_threshold,
+            )
+
+        if raise_on_failure and failing:
+            logger.error("qc_threshold_exceeded", failing=failing)
+            raise ValueError(
+                "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing.keys()))
+            )
+
+        return metrics_payload, failing
+
     def _validate_with_schema(
         self,
         df: pd.DataFrame,
         schema: Any,
-        *,
         dataset_name: str,
-        severity: str = "error",
-        metric_name: str | None = None,
-        failure_handler: Callable[[SchemaErrors, bool], None] | None = None,
-        success_handler: Callable[[pd.DataFrame], None] | None = None,
+        *,
+        severity: str | None = None,
+        issue_metric: str | None = None,
+        on_failure: Callable[[SchemaErrors, dict[str, Any]], None] | None = None,
     ) -> pd.DataFrame:
-        """Validate a dataframe using a Pandera schema with QC reporting hooks."""
-
-        dataset_label = str(dataset_name)
-        severity_label = str(severity).lower()
+        """Validate a dataframe against the provided schema with standardised QC logging."""
 
         validation_summary = self.qc_summary_data.setdefault("validation", {})
-        metric_label = metric_name or f"schema.{dataset_label}"
+        metric_name = issue_metric or f"schema.{dataset_name}"
 
-        if df is None or (hasattr(df, "empty") and getattr(df, "empty")):
-            validation_summary[dataset_label] = {"status": "skipped", "rows": 0}
+        resolved_severity, fail_on = self._resolve_validation_rule(dataset_name)
+        effective_severity = severity or resolved_severity
+
+        if df is None or (hasattr(df, "empty") and df.empty):
+            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
             self.record_validation_issue(
                 {
-                    "metric": metric_label,
+                    "metric": metric_name,
                     "issue_type": "schema_validation",
                     "severity": "info",
                     "status": "skipped",
@@ -258,48 +212,40 @@ class PipelineBase(ABC):
                 except (TypeError, ValueError):
                     error_count = None
 
-            should_fail = self._should_fail(severity_label)
-            if failure_handler is not None:
-                failure_handler(exc, should_fail)
-
             issue_payload: dict[str, Any] = {
-                "metric": metric_label,
+                "metric": metric_name,
                 "issue_type": "schema_validation",
-                "severity": severity_label,
+                "severity": str(effective_severity),
                 "status": "failed",
                 "errors": error_count,
             }
+
             if failure_cases is not None:
                 try:
                     issue_payload["examples"] = failure_cases.head(5).to_dict("records")
                 except Exception:  # pragma: no cover - defensive guard
                     issue_payload["examples"] = "unavailable"
 
-            self.record_validation_issue(issue_payload)
-            payload: dict[str, Any] = {"status": "failed"}
-            if error_count is not None:
-                payload["errors"] = error_count
-            validation_summary[dataset_label] = payload
+            if on_failure is not None:
+                on_failure(exc, issue_payload)
 
+            self.record_validation_issue(issue_payload)
+            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
             logger.error(
                 "schema_validation_failed",
-                dataset=dataset_label,
+                dataset=dataset_name,
                 errors=error_count,
                 error=str(exc),
             )
 
-            if should_fail:
+            if self._should_fail_for_dataset(effective_severity, fail_on=fail_on):
                 raise
-
             return df
 
-        validation_summary[dataset_label] = {
-            "status": "passed",
-            "rows": int(len(validated)),
-        }
+        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
         self.record_validation_issue(
             {
-                "metric": metric_label,
+                "metric": metric_name,
                 "issue_type": "schema_validation",
                 "severity": "info",
                 "status": "passed",
@@ -307,10 +253,7 @@ class PipelineBase(ABC):
             }
         )
 
-        if success_handler is not None:
-            success_handler(validated)
-
-        return validated
+        return validated  # type: ignore[no-any-return]
 
     @abstractmethod
     def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
