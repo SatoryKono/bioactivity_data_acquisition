@@ -14,7 +14,11 @@ NORMALIZER_STRING = registry.get("string")
 
 
 class SemanticScholarAdapter(ExternalAdapter):
-    """Adapter for Semantic Scholar Graph API."""
+    """Adapter for Semantic Scholar Graph API.
+
+    Override :meth:`_fetch_batch` to integrate with the shared batching helper
+    for ID-based retrieval.
+    """
 
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize Semantic Scholar adapter."""
@@ -29,22 +33,8 @@ class SemanticScholarAdapter(ExternalAdapter):
 
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by identifiers (DOI, PMID, ArXiv)."""
-        if not ids:
-            return []
-
         batch_size = self.adapter_config.batch_size or 50
-        all_records = []
-
-        # Process in batches
-        for i in range(0, len(ids), batch_size):
-            batch_ids = ids[i : i + batch_size]
-            try:
-                records = self._fetch_batch(batch_ids)
-                all_records.extend(records)
-            except Exception as e:
-                self.logger.error("batch_fetch_failed", batch=i, error=str(e))
-
-        return all_records
+        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of papers by their IDs."""
