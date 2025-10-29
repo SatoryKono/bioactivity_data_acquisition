@@ -122,7 +122,8 @@ class TargetNormalizer:
 
         # Normalize tax_id
         if "tax_id" in df.columns:
-            df["tax_id"] = pd.to_numeric(df["tax_id"], errors="coerce")
+            tax_series = pd.to_numeric(df["tax_id"], errors="coerce")
+            df["tax_id"] = tax_series.astype("Int64")
 
         return df
 

@@ -9,8 +9,11 @@ from bioetl.schemas.base import BaseSchema
 class TargetSchema(BaseSchema):
     """Schema for ChEMBL Target data."""
 
-    # ChEMBL identifiers
+    # ChEMBL identifiers and isoform level details
     target_chembl_id: Series[str] = pa.Field(nullable=False)
+    isoform_ids: Series[str] = pa.Field(nullable=True)
+    isoform_names: Series[str] = pa.Field(nullable=True)
+    isoforms: Series[str] = pa.Field(nullable=True)
     pref_name: Series[str] = pa.Field(nullable=True)
     target_type: Series[str] = pa.Field(nullable=True)
 
@@ -20,13 +23,32 @@ class TargetSchema(BaseSchema):
     hgnc_id: Series[str] = pa.Field(nullable=True)
     lineage: Series[str] = pa.Field(nullable=True)
 
+    primaryAccession: Series[str] = pa.Field(nullable=True)
+    target_names: Series[str] = pa.Field(nullable=True)
+    target_uniprot_id: Series[str] = pa.Field(nullable=True)
+    organism_chembl: Series[str] = pa.Field(nullable=True)
+    species_group_flag: Series[str] = pa.Field(nullable=True)
+    target_components: Series[str] = pa.Field(nullable=True)
+    protein_classifications: Series[str] = pa.Field(nullable=True)
+    cross_references: Series[str] = pa.Field(nullable=True)
+    target_names_chembl: Series[str] = pa.Field(nullable=True)
+    pH_dependence: Series[str] = pa.Field(nullable=True)
+    pH_dependence_chembl: Series[str] = pa.Field(nullable=True)
+    target_organism: Series[str] = pa.Field(nullable=True)
+    target_tax_id: Series[str] = pa.Field(nullable=True)
+    target_uniprot_accession: Series[str] = pa.Field(nullable=True)
+    target_isoform: Series[str] = pa.Field(nullable=True)
+    isoform_ids_chembl: Series[str] = pa.Field(nullable=True)
+    isoform_names_chembl: Series[str] = pa.Field(nullable=True)
+    isoforms_chembl: Series[str] = pa.Field(nullable=True)
+
+    uniprot_accession: Series[str] = pa.Field(nullable=True)
     uniprot_id_primary: Series[str] = pa.Field(nullable=True)
     uniprot_ids_all: Series[str] = pa.Field(nullable=True)
     isoform_count: Series[int] = pa.Field(nullable=True, ge=0)
     has_alternative_products: Series[bool] = pa.Field(nullable=True)
     has_uniprot: Series[bool] = pa.Field(nullable=True)
     has_iuphar: Series[bool] = pa.Field(nullable=True)
-    uniprot_accession: Series[str] = pa.Field(nullable=True)
 
     iuphar_type: Series[str] = pa.Field(nullable=True)
     iuphar_class: Series[str] = pa.Field(nullable=True)
@@ -40,6 +62,9 @@ class TargetSchema(BaseSchema):
 
     _column_order = [
         "target_chembl_id",
+        "isoform_ids",
+        "isoform_names",
+        "isoforms",
         "pref_name",
         "target_type",
         "organism",
@@ -47,6 +72,24 @@ class TargetSchema(BaseSchema):
         "gene_symbol",
         "hgnc_id",
         "lineage",
+        "primaryAccession",
+        "target_names",
+        "target_uniprot_id",
+        "organism_chembl",
+        "species_group_flag",
+        "target_components",
+        "protein_classifications",
+        "cross_references",
+        "target_names_chembl",
+        "pH_dependence",
+        "pH_dependence_chembl",
+        "target_organism",
+        "target_tax_id",
+        "target_uniprot_accession",
+        "target_isoform",
+        "isoform_ids_chembl",
+        "isoform_names_chembl",
+        "isoforms_chembl",
         "uniprot_accession",
         "uniprot_id_primary",
         "uniprot_ids_all",
