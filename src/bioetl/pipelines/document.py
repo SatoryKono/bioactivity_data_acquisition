@@ -430,36 +430,35 @@ class DocumentPipeline(PipelineBase):
         working_df = df.copy()
         schema = DocumentRawSchema.to_schema()
 
-        for column in schema.columns:
-            if column not in working_df.columns:
+        expected_order = list(schema.columns.keys())
+        missing_columns = [column for column in expected_order if column not in working_df.columns]
+        extra_columns = [column for column in working_df.columns if column not in expected_order]
+
+        if missing_columns:
+            for column in missing_columns:
                 working_df[column] = pd.NA
 
-        # Reorder DataFrame columns to match schema definition for deterministic validation
-        expected_order = list(schema.columns.keys())
-        extra_columns = [column for column in working_df.columns if column not in expected_order]
-        ordered_columns: list[str] = []
-        seen: set[str] = set()
-        for column in expected_order + extra_columns:
-            if column in seen:
-                continue
-            if column in working_df.columns:
-                ordered_columns.append(column)
-                seen.add(column)
+        # Reindex the known columns explicitly to avoid Pandera's COLUMN_NOT_ORDERED
+        # failures when upstream payloads shuffle column order. Using ``reindex`` with
+        # the schema-driven order guarantees determinism while keeping optional fields
+        # (like ``journal_abbrev``) present even when the input payload omits them.
+        ordered_core = working_df.reindex(columns=expected_order)
+        extras_df = working_df.loc[:, extra_columns] if extra_columns else None
 
-        # Log the ordering context before reindexing to simplify troubleshooting of
-        # Pandera's COLUMN_NOT_ORDERED failures in production runs.
+        # Log the ordering context before recombining to simplify troubleshooting of
+        # Pandera validation errors reported by end users.
         logger.debug(
             "raw_schema_ordering",
             expected=expected_order,
-            current=list(working_df.columns),
-            ordered=ordered_columns,
+            current=list(df.columns),
+            missing=missing_columns,
             extra=extra_columns,
         )
 
-        # Reindex known columns first to guarantee Pandera's ordered validation and
-        # then append any additional fields emitted by upstream APIs to the tail to
-        # preserve them for downstream enrichment/auditing workflows.
-        working_df = working_df.loc[:, ordered_columns]
+        if extras_df is not None:
+            working_df = pd.concat([ordered_core, extras_df], axis=1)
+        else:
+            working_df = ordered_core
 
         if "source" not in working_df.columns:
             working_df["source"] = "ChEMBL"
