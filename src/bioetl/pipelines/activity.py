@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from pandera.errors import SchemaErrors
 
@@ -417,12 +418,44 @@ def _derive_is_censored(relation: str | None) -> bool | None:
 
 
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
-    """Coerce columns with optional integers to pandas nullable Int64."""
+    """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
+
+    The upstream ChEMBL payloads occasionally encode boolean or integer flags
+    using float or string representations (for example ``"1.0"``).  In other
+    cases the service returns genuinely non-integral values which cannot be
+    losslessly coerced to integers.  A naive ``astype("Int64")`` call converts
+    ``NaN`` values into ``<NA>`` but raises when encountering fractional
+    numbers.  The schema validation error reported in the CLI logs stems from
+    Pandera attempting to coerce these float columns to ``int64`` and failing
+    on the ``NaN`` placeholders.
+
+    To ensure deterministic behaviour we first coerce everything to numeric,
+    replace any fractional values with ``<NA>``, and only then materialise the
+    nullable integer array.  This mirrors the strategy used in the assay
+    pipeline and guarantees the dataframe presented to Pandera already matches
+    the declared schema.
+    """
 
     for column in columns:
-        if column in df.columns:
-            coerced = pd.to_numeric(df[column], errors="coerce")
-            df[column] = coerced.astype("Int64")
+        if column not in df.columns:
+            continue
+
+        series = pd.to_numeric(df[column], errors="coerce")
+
+        if series.empty:
+            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+            continue
+
+        non_null = series.notna()
+        fractional_mask = pd.Series(False, index=series.index)
+        if non_null.any():
+            remainders = (series[non_null] % 1).abs()
+            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
+
+        if fractional_mask.any():
+            series.loc[fractional_mask] = pd.NA
+
+        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
 
 
 class ActivityPipeline(PipelineBase):
