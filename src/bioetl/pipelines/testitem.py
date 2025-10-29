@@ -14,6 +14,7 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
@@ -322,9 +323,19 @@ class TestItemPipeline(PipelineBase):
 
         structures = molecule.get("molecule_structures")
         if isinstance(structures, dict) and structures:
-            flattened["standardized_smiles"] = structures.get("canonical_smiles")
-            flattened["standard_inchi"] = structures.get("standard_inchi")
-            flattened["standard_inchi_key"] = structures.get("standard_inchi_key")
+            flattened["standardized_smiles"] = registry.normalize(
+                "chemistry",
+                structures.get("canonical_smiles"),
+            )
+            flattened["standard_inchi"] = registry.normalize(
+                "chemistry",
+                structures.get("standard_inchi"),
+            )
+            flattened["standard_inchi_key"] = registry.normalize(
+                "chemistry.string",
+                structures.get("standard_inchi_key"),
+                uppercase=True,
+            )
             flattened["molecule_structures"] = canonical_json(structures)
 
         return flattened
@@ -770,8 +781,6 @@ class TestItemPipeline(PipelineBase):
             return df
 
         # Normalize identifiers
-        from bioetl.normalizers import registry
-
         for col in ["molecule_chembl_id", "parent_chembl_id"]:
             if col in df.columns:
                 df[col] = df[col].apply(

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
-import re
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -24,7 +22,6 @@ from bioetl.core.api_client import (
 )
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.normalizers.constants import NA_STRINGS
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
@@ -67,151 +64,6 @@ def _get_activity_column_order() -> list[str]:
         except AttributeError:  # pragma: no cover - defensive safeguard
             columns = []
     return list(columns)
-
-
-def _is_na(value: Any) -> bool:
-    """Return True if the provided value should be treated as NA."""
-
-    if value is None:
-        return True
-    if isinstance(value, float) and math.isnan(value):
-        return True
-    if isinstance(value, str):
-        if value.strip() == "":
-            return True
-        return value.strip().lower() in NA_STRINGS
-    return False
-
-
-def _canonicalize_whitespace(text: str) -> str:
-    """Collapse consecutive whitespace into single spaces."""
-
-    return re.sub(r"\s+", " ", text.strip())
-
-
-def _normalize_string(
-    value: Any,
-    *,
-    uppercase: bool = False,
-    title_case: bool = False,
-    max_length: int | None = None,
-) -> str | None:
-    """Normalize textual values with canonical whitespace and casing."""
-
-    if _is_na(value):
-        return None
-
-    text = str(value)
-    text = _canonicalize_whitespace(text)
-    if not text:
-        return None
-
-    if uppercase:
-        text = text.upper()
-    elif title_case:
-        tokens = text.split(" ")
-        normalized_tokens: list[str] = []
-        for token in tokens:
-            if token.isupper() and len(token) <= 4:
-                normalized_tokens.append(token)
-            elif token.lower() in {"sp.", "spp.", "cf."}:
-                normalized_tokens.append(token.lower())
-            else:
-                normalized_tokens.append(token.capitalize())
-        text = " ".join(normalized_tokens)
-
-    if max_length is not None:
-        text = text[:max_length]
-    return text
-
-
-def _normalize_chembl_id(value: Any) -> str | None:
-    """Normalize ChEMBL identifiers to uppercase canonical form."""
-
-    normalized = _normalize_string(value, uppercase=True)
-    if normalized is None:
-        return None
-    return normalized
-
-
-def _normalize_bao_id(value: Any) -> str | None:
-    """Normalize BAO identifiers."""
-
-    normalized = _normalize_string(value, uppercase=True)
-    if normalized is None:
-        return None
-    return normalized
-
-
-# _normalize_units заменена на registry.get("numeric").normalize_units()
-
-
-# _normalize_relation заменена на registry.get("numeric").normalize_relation()
-
-
-# _normalize_float заменена на registry.normalize("numeric", value)
-
-
-def _normalize_non_negative_float(value: Any, *, column: str) -> float | None:
-    """Convert to float and drop negative values with a structured log entry."""
-
-    result = registry.normalize("numeric", value)
-    if result is None:
-        return None
-    if result < 0:
-        logger.warning(
-            "non_negative_float_sanitized",
-            column=column,
-            original_value=result,
-            sanitized_value=None,
-        )
-        return None
-    return result
-
-
-# _normalize_int заменена на registry.get("numeric").normalize_int(value)
-
-
-# _normalize_bool заменена на registry.get("numeric").normalize_bool(value, default=default)
-
-
-def _normalize_target_organism(value: Any) -> str | None:
-    """Normalize organism names to title case with canonical whitespace."""
-
-    return _normalize_string(value, title_case=True)
-
-
-def _parse_numeric(value: Any) -> float | None:
-    """Best-effort conversion to float for property parsing."""
-
-    if isinstance(value, int | float) and not (isinstance(value, float) and math.isnan(value)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value.strip())
-        except (TypeError, ValueError):
-            return None
-    return None
-
-
-# _normalize_activity_properties заменена на normalize_json_list из bioetl.utils.json
-
-
-def _normalize_ligand_efficiency(
-    ligand_efficiency: Any,
-) -> tuple[float | None, float | None, float | None, float | None]:
-    """Normalize ligand efficiency metrics once."""
-
-    if not isinstance(ligand_efficiency, dict):
-        return None, None, None, None
-
-    bei = registry.normalize("numeric", ligand_efficiency.get("bei"))
-    sei = registry.normalize("numeric", ligand_efficiency.get("sei"))
-    le = registry.normalize("numeric", ligand_efficiency.get("le"))
-    lle = registry.normalize("numeric", ligand_efficiency.get("lle"))
-    return bei, sei, le, lle
-
-
 def _derive_compound_key(
     molecule_id: str | None,
     standard_type: str | None,
@@ -284,7 +136,7 @@ def _derive_high_citation_rate(properties: Sequence[dict[str, Any]]) -> bool:
         numeric = None
         for candidate in ("value", "num_value", "property_value", "count"):
             if candidate in prop:
-                numeric = _parse_numeric(prop.get(candidate))
+                numeric = registry.normalize("numeric", prop.get(candidate))
                 if numeric is not None:
                     break
         if numeric is not None and numeric >= 50:
@@ -547,22 +399,32 @@ class ActivityPipeline(PipelineBase):
         """Normalize raw activity payload into a flat record."""
 
         activity_id = registry.get("numeric").normalize_int(activity.get("activity_id"))
-        molecule_id = _normalize_chembl_id(activity.get("molecule_chembl_id"))
-        assay_id = _normalize_chembl_id(activity.get("assay_chembl_id"))
-        target_id = _normalize_chembl_id(activity.get("target_chembl_id"))
-        document_id = _normalize_chembl_id(activity.get("document_chembl_id"))
+        molecule_id = registry.normalize("chemistry.chembl_id", activity.get("molecule_chembl_id"))
+        assay_id = registry.normalize("chemistry.chembl_id", activity.get("assay_chembl_id"))
+        target_id = registry.normalize("chemistry.chembl_id", activity.get("target_chembl_id"))
+        document_id = registry.normalize("chemistry.chembl_id", activity.get("document_chembl_id"))
 
-        published_type = _normalize_string(activity.get("type") or activity.get("published_type"), uppercase=True)
+        published_type = registry.normalize(
+            "chemistry.string",
+            activity.get("type") or activity.get("published_type"),
+            uppercase=True,
+        )
         published_relation = registry.get("numeric").normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
-        published_value = _normalize_non_negative_float(
+        published_value = registry.normalize(
+            "chemistry.non_negative_float",
             activity.get("value") or activity.get("published_value"),
             column="published_value",
         )
         published_units = registry.get("numeric").normalize_units(activity.get("units") or activity.get("published_units"))
 
-        standard_type = _normalize_string(activity.get("standard_type"), uppercase=True)
+        standard_type = registry.normalize(
+            "chemistry.string",
+            activity.get("standard_type"),
+            uppercase=True,
+        )
         standard_relation = registry.get("numeric").normalize_relation(activity.get("standard_relation"), default="=")
-        standard_value = _normalize_non_negative_float(
+        standard_value = registry.normalize(
+            "chemistry.non_negative_float",
             activity.get("standard_value"),
             column="standard_value",
         )
@@ -574,26 +436,26 @@ class ActivityPipeline(PipelineBase):
         is_censored = _derive_is_censored(standard_relation)
 
         pchembl_value = registry.normalize("numeric", activity.get("pchembl_value"))
-        activity_comment = _normalize_string(activity.get("activity_comment"))
-        data_validity_comment = _normalize_string(activity.get("data_validity_comment"))
+        activity_comment = registry.normalize("chemistry.string", activity.get("activity_comment"))
+        data_validity_comment = registry.normalize("chemistry.string", activity.get("data_validity_comment"))
 
-        bao_endpoint = _normalize_bao_id(activity.get("bao_endpoint"))
-        bao_format = _normalize_bao_id(activity.get("bao_format"))
-        bao_label = _normalize_string(activity.get("bao_label"), max_length=128)
+        bao_endpoint = registry.normalize("chemistry.bao_id", activity.get("bao_endpoint"))
+        bao_format = registry.normalize("chemistry.bao_id", activity.get("bao_format"))
+        bao_label = registry.normalize("chemistry.string", activity.get("bao_label"), max_length=128)
 
-        canonical_smiles = _normalize_string(activity.get("canonical_smiles"))
-        target_organism = _normalize_target_organism(activity.get("target_organism"))
+        canonical_smiles = registry.normalize("chemistry.string", activity.get("canonical_smiles"))
+        target_organism = registry.normalize("chemistry.target_organism", activity.get("target_organism"))
         target_tax_id = registry.get("numeric").normalize_int(activity.get("target_tax_id"))
 
         potential_duplicate = registry.get("numeric").normalize_int(activity.get("potential_duplicate"))
-        uo_units = _normalize_string(activity.get("uo_units"), uppercase=True)
-        qudt_units = _normalize_string(activity.get("qudt_units"))
+        uo_units = registry.normalize("chemistry.string", activity.get("uo_units"), uppercase=True)
+        qudt_units = registry.normalize("chemistry.string", activity.get("qudt_units"))
         src_id = registry.get("numeric").normalize_int(activity.get("src_id"))
-        action_type = _normalize_string(activity.get("action_type"))
+        action_type = registry.normalize("chemistry.string", activity.get("action_type"))
 
         properties_str, properties = normalize_json_list(activity.get("activity_properties"))
         ligand_efficiency = activity.get("ligand_efficiency") or activity.get("ligand_eff")
-        bei, sei, le, lle = _normalize_ligand_efficiency(ligand_efficiency)
+        bei, sei, le, lle = registry.normalize("chemistry.ligand_efficiency", ligand_efficiency)
 
         compound_key = _derive_compound_key(molecule_id, standard_type, target_id)
         is_citation = _derive_is_citation(document_id, properties)
