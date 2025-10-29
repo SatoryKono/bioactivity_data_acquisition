@@ -781,6 +781,8 @@ class AssayPipeline(PipelineBase):
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform assay data and expand nested parameter/class payloads."""
+        from bioetl.schemas.assay import AssaySchema
+        
         if df.empty:
             # Return empty DataFrame with all required columns from schema
             return pd.DataFrame(columns=resolve_schema_column_order(AssaySchema))
@@ -954,6 +956,7 @@ class AssayPipeline(PipelineBase):
             schema=AssaySchema,
             metadata={
                 "pipeline_version": pipeline_version,
+                "run_id": self.run_id,
                 "source_system": default_source,
                 "chembl_release": release_value,
                 "extracted_at": timestamp_now,
@@ -967,6 +970,8 @@ class AssayPipeline(PipelineBase):
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate assay data against schema and referential integrity."""
+        from bioetl.schemas.assay import AssaySchema
+        
         self.validation_issues.clear()
 
         if df.empty:

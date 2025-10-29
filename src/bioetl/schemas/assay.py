@@ -196,7 +196,7 @@ class AssaySchema(BaseSchema):
     )
 
     # System fields (from BaseSchema)
-    # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
+    # index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at
 
     # Column order: system/hash fields first (per BaseSchema), then business fields
     _column_order = [
@@ -204,6 +204,7 @@ class AssaySchema(BaseSchema):
         "hash_row",
         "hash_business_key",
         "pipeline_version",
+        "run_id",
         "source_system",
         "chembl_release",
         "extracted_at",
