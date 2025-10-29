@@ -904,7 +904,6 @@ class ActivityPipeline(PipelineBase):
 
         if fallback_stats:
             thresholds = getattr(self.config.qc, "thresholds", {}) or {}
-
             raw_count_threshold = thresholds.get("fallback.count")
             try:
                 count_threshold = int(raw_count_threshold) if raw_count_threshold is not None else int(
@@ -968,7 +967,7 @@ class ActivityPipeline(PipelineBase):
         self._last_validation_report = {"metrics": qc_metrics}
 
         severity_threshold = self.config.qc.severity_threshold.lower()
-        severity_level_threshold = self._severity_level(severity_threshold)
+        severity_level_threshold = self._severity_value(severity_threshold)
 
         failing_metrics: dict[str, Any] = {}
         for metric_name, metric in qc_metrics.items():
@@ -994,7 +993,7 @@ class ActivityPipeline(PipelineBase):
                 issue_payload["details"] = metric["details"]
             self.record_validation_issue(issue_payload)
 
-            if (not metric["passed"]) and self._severity_level(metric["severity"]) >= severity_level_threshold:
+            if (not metric["passed"]) and self._severity_value(metric["severity"]) >= severity_level_threshold:
                 failing_metrics[metric_name] = metric
 
         if failing_metrics:
@@ -1004,20 +1003,13 @@ class ActivityPipeline(PipelineBase):
             logger.error("qc_threshold_exceeded", failing_metrics=failing_metrics)
             raise ValueError("QC thresholds exceeded for metrics: " + ", ".join(failing_metrics.keys()))
 
-        try:
-            validated_df = ActivitySchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            failure_cases = exc.failure_cases if hasattr(exc, "failure_cases") else None
-            error_count = len(failure_cases) if failure_cases is not None else None
-            schema_issue: dict[str, Any] = {
-                "metric": "schema.validation",
-                "issue_type": "schema_validation",
-                "severity": "critical",
-                "status": "failed",
-                "errors": error_count,
-            }
+        schema_error_state: dict[str, Any] = {}
 
-            if failure_cases is not None and not getattr(failure_cases, "empty", False):
+        def _capture_schema_error(exc: SchemaErrors) -> None:
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count = None
+            if isinstance(failure_cases, pd.DataFrame):
+                error_count = int(failure_cases.shape[0])
                 try:
                     grouped = failure_cases.groupby("column", dropna=False)
                     for column, group in grouped:
@@ -1044,9 +1036,10 @@ class ActivityPipeline(PipelineBase):
                             issue_details["examples"] = failure_examples
                         self.record_validation_issue(issue_details)
                 except Exception:  # pragma: no cover - defensive grouping fallback
-                    schema_issue["details"] = "failed_to_group_failure_cases"
+                    schema_error_state["details"] = "failed_to_group_failure_cases"
 
-            self.record_validation_issue(schema_issue)
+            schema_error_state["errors"] = error_count
+            schema_error_state["failure_cases"] = failure_cases
 
             if self._last_validation_report is not None:
                 self._last_validation_report["schema_validation"] = {
@@ -1056,29 +1049,33 @@ class ActivityPipeline(PipelineBase):
                 }
                 self._last_validation_report["issues"] = list(self.validation_issues)
 
+        try:
+            validated_df = self._validate_with_schema(
+                df,
+                ActivitySchema,
+                "activity",
+                severity="critical",
+                metric_name="validation",
+                on_error=_capture_schema_error,
+            )
+        except SchemaErrors as exc:
+            error_count = schema_error_state.get("errors")
             logger.error(
                 "schema_validation_failed",
                 error=str(exc),
                 failure_count=error_count,
             )
+            raise
 
-            if self._severity_level("critical") >= severity_level_threshold:
-                raise
+        validation_section = self.qc_summary_data.get("validation", {})
+        activity_summary = validation_section.get("activity", {})
 
+        if activity_summary.get("status") == "failed":
             logger.warning(
                 "schema_validation_below_threshold", severity_threshold=severity_threshold
             )
+            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
             return df
-
-        self.record_validation_issue(
-            {
-                "metric": "schema.validation",
-                "issue_type": "schema_validation",
-                "severity": "info",
-                "status": "passed",
-                "errors": 0,
-            }
-        )
 
         if self._last_validation_report is not None:
             self._last_validation_report["schema_validation"] = {
@@ -1253,10 +1250,4 @@ class ActivityPipeline(PipelineBase):
         }
 
         return metrics
-
-    @staticmethod
-    def _severity_level(severity: str) -> int:
-        """Map severity string to comparable level."""
-        levels = {"info": 0, "warning": 1, "error": 2, "critical": 3}
-        return levels.get(severity.lower(), 1)
 

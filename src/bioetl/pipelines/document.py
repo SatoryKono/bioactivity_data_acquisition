@@ -947,21 +947,30 @@ class DocumentPipeline(PipelineBase):
             logger.error("validation_failed", errors=error_msg)
             raise ValueError(f"Валидация не прошла: {error_msg}")
 
-        try:
-            validated_df = DocumentNormalizedSchema.validate(working_df, lazy=True)
-        except SchemaErrors as exc:
+        def _capture_normalized_schema_error(exc: SchemaErrors) -> None:
             failure_cases = getattr(exc, "failure_cases", None)
             details = None
             if isinstance(failure_cases, pd.DataFrame):
                 details = failure_cases.to_dict(orient="records")
-
             self.record_validation_issue(
                 {
                     "metric": "normalized_schema_validation",
+                    "issue_type": "schema_validation",
                     "severity": "error",
                     "details": details,
                 }
             )
+
+        try:
+            validated_df = self._validate_with_schema(
+                working_df,
+                DocumentNormalizedSchema,
+                "documents",
+                severity="error",
+                metric_name="documents",
+                on_error=_capture_normalized_schema_error,
+            )
+        except SchemaErrors as exc:
             logger.error("schema_validation_failed", error=str(exc))
             raise
 

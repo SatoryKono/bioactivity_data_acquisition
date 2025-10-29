@@ -1017,11 +1017,18 @@ class AssayPipeline(PipelineBase):
         # point of validation.
         coerce_nullable_int(df, _NULLABLE_INT_COLUMNS)
 
-        try:
-            validated_df = AssaySchema.validate(df, lazy=True)
-        except SchemaErrors as exc:
-            schema_issues = self._summarize_schema_errors(exc.failure_cases)
+        schema_issues: list[dict[str, Any]] = []
+
+        def _capture_schema_error(exc: SchemaErrors) -> None:
+            failure_cases = getattr(exc, "failure_cases", None)
+            issues: list[dict[str, Any]] = []
+            if isinstance(failure_cases, pd.DataFrame):
+                issues = self._summarize_schema_errors(failure_cases)
+            schema_issues.clear()
+            schema_issues.extend(issues)
             for issue in schema_issues:
+                issue.setdefault("issue_type", "schema_validation")
+                issue.setdefault("severity", "error")
                 self.record_validation_issue(issue)
                 logger.error(
                     "schema_validation_error",
@@ -1031,10 +1038,23 @@ class AssayPipeline(PipelineBase):
                     severity=issue.get("severity"),
                 )
 
-            summary = "; ".join(
-                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
-                for issue in schema_issues
+        try:
+            validated_df = self._validate_with_schema(
+                df,
+                AssaySchema,
+                "assay",
+                severity="error",
+                metric_name="assay",
+                on_error=_capture_schema_error,
             )
+        except SchemaErrors as exc:
+            if schema_issues:
+                summary = "; ".join(
+                    f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+                    for issue in schema_issues
+                )
+            else:
+                summary = str(exc)
             raise ValueError(f"Schema validation failed: {summary}") from exc
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("schema_validation_unexpected_error", error=str(exc))
