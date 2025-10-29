@@ -22,6 +22,7 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
+from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
 from bioetl.schemas import AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
@@ -208,6 +209,24 @@ class TestAssayPipeline:
         issue = pipeline.validation_issues[0]
         assert issue["issue_type"] == "schema"
         assert issue["severity"] == "error"
+
+    def test_validate_accepts_nullable_integer_na(self, assay_config):
+        """Nullable integer columns should accept Pandas <NA> values."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(assay_config, run_id)
+
+        row = _build_assay_row("CHEMBLNA", 0, None)
+        for column in _NULLABLE_INT_COLUMNS:
+            row[column] = pd.NA
+
+        df = pd.DataFrame([row]).convert_dtypes()
+
+        validated = pipeline.validate(df)
+
+        for column in _NULLABLE_INT_COLUMNS:
+            assert str(validated[column].dtype) == "Int64"
+            assert validated[column].isna().all()
 
     def test_validation_issues_reflected_in_quality_report(self, assay_config, tmp_path):
         """Referential integrity warnings should appear in QC artifacts."""
