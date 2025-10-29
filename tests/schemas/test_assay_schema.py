@@ -25,7 +25,6 @@ def test_assay_schema_accepts_nullable_integer_columns() -> None:
             "extracted_at": "2024-01-01T00:00:00+00:00",
             "assay_chembl_id": "CHEMBL1",
             "row_subtype": "assay",
-            "row_index": 0,
         }
     )
 
@@ -45,6 +44,16 @@ def test_assay_schema_accepts_nullable_integer_columns() -> None:
     for column in nullable_integer_columns:
         if column in df.columns:
             df[column] = pd.Series(pd.array([pd.NA], dtype=pd.Int64Dtype()))
+
+    nullable_float_columns = [
+        "assay_param_value",
+        "assay_param_standard_value",
+        "fallback_retry_after_sec",
+    ]
+
+    for column in nullable_float_columns:
+        if column in df.columns:
+            df[column] = pd.Series(pd.array([pd.NA], dtype=pd.Float64Dtype()))
 
     validated = AssaySchema.validate(df, lazy=True)
 

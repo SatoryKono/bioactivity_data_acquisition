@@ -515,7 +515,6 @@ class TestAssayPipeline:
 
         # Integer fields must use nullable Int64 dtype to satisfy schema coercion
         expected_integer_columns = [
-            "row_index",
             "assay_class_id",
             "component_count",
             "variant_id",
@@ -526,8 +525,8 @@ class TestAssayPipeline:
             if column in result.columns:
                 assert is_integer_dtype(result[column]), f"{column} should be Int64"
 
-        # Expect four row subtypes: assay, param, variant, class (2 class rows -> 5 total rows)
-        assert set(result["row_subtype"].unique()) == {"assay", "param", "variant", "class"}
+        # Expect three row subtypes: assay, param, class (2 class rows -> 5 total rows)
+        assert set(result["row_subtype"].unique()) == {"assay", "param", "class"}
 
         assay_rows = result[result["row_subtype"] == "assay"]
         assert len(assay_rows) == 1
@@ -535,12 +534,8 @@ class TestAssayPipeline:
 
         param_rows = result[result["row_subtype"] == "param"]
         assert len(param_rows) == 2
-        assert sorted(param_rows["row_index"].tolist()) == [0, 1]
+        assert param_rows["assay_param_type"].dropna().tolist() == ["CONC", "TEMP"]
         assert {"CONC", "TEMP"} == set(param_rows["assay_param_type"].dropna())
-
-        variant_rows = result[result["row_subtype"] == "variant"]
-        assert len(variant_rows) == 1
-        assert variant_rows.iloc[0]["variant_id"] == 101
 
         class_rows = result[result["row_subtype"] == "class"]
         assert len(class_rows) == 2
@@ -1910,7 +1905,6 @@ def _build_assay_row(assay_id: str, index: int, target_id: str | None) -> dict[s
         {
             "assay_chembl_id": assay_id,
             "row_subtype": "assay",
-            "row_index": 0,
             "assay_tax_id": 9606,
             "assay_class_id": 1,
             "confidence_score": 1,
