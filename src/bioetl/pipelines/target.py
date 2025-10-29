@@ -2070,6 +2070,14 @@ class TargetPipeline(PipelineBase):
         working["has_iuphar"] = working["has_iuphar"].astype("boolean")
         working["isoform_count"] = working["isoform_count"].astype("Int64")
 
+        if "tax_id" in working.columns:
+            working["tax_id"] = pd.to_numeric(working["tax_id"], errors="coerce").astype("Int64")
+
+        allowed_columns = set(expected_columns)
+        extra_columns = [column for column in working.columns if column not in allowed_columns]
+        if extra_columns:
+            working = working.drop(columns=extra_columns)
+
         return working.convert_dtypes()
 
     def _evaluate_iuphar_qc(self, coverage: float) -> None:
