@@ -885,9 +885,9 @@ class TestItemPipeline(PipelineBase):
             # Add missing columns with None values
             missing_columns = [col for col in expected_cols if col not in df.columns]
             if missing_columns:
-                df = df.assign(**{col: None for col in missing_columns})
+                df = df.assign(**dict.fromkeys(missing_columns, None))
 
-            default_minimums = {column: 0 for column in self._NULLABLE_INT_COLUMNS}
+            default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
             default_minimums.update(self._INT_COLUMN_MINIMUMS)
             coerce_nullable_int(
                 df,

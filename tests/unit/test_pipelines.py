@@ -920,10 +920,10 @@ class TestActivityPipeline:
         """Fallback rows should be captured in diagnostics and QC outputs."""
 
         # Настраиваем пороговые значения QC для fallback записей
-        activity_config.qc.thresholds["null_fraction.standard_value"] = 1.0
-        activity_config.qc.thresholds["null_fraction.standard_type"] = 1.0
-        activity_config.qc.thresholds["null_fraction.molecule_chembl_id"] = 1.0
-        activity_config.qc.thresholds["null_rate"] = 1.0
+        activity_config.qc.thresholds["activity.null_fraction.standard_value"] = 1.0
+        activity_config.qc.thresholds["activity.null_fraction.standard_type"] = 1.0
+        activity_config.qc.thresholds["activity.null_fraction.molecule_chembl_id"] = 1.0
+        activity_config.qc.thresholds["null_rate_critical"] = 1.0
         activity_config.qc.thresholds["invalid_units"] = 1.0
 
         run_id = str(uuid.uuid4())[:8]
