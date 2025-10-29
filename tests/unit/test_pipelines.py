@@ -228,6 +228,58 @@ class TestAssayPipeline:
             assert str(validated[column].dtype) == "Int64"
             assert validated[column].isna().all()
 
+    def test_validate_coerces_fractional_nullable_ints(self, assay_config):
+        """Fractional values in nullable integer columns should coerce to <NA>."""
+
+        pipeline = AssayPipeline(assay_config, "run-fractional")
+
+        fractional_row = _build_assay_row("CHEMBLFRACT1", 0, None)
+        fractional_row.update(
+            {
+                "assay_class_id": "42.5",
+                "component_count": "7.25",
+                "variant_id": "13.7",
+            }
+        )
+
+        integral_row = _build_assay_row("CHEMBLFRACT2", 1, None)
+        integral_row.update(
+            {
+                "assay_class_id": "77",
+                "component_count": 3.0,
+                "variant_id": "901",
+            }
+        )
+
+        noisy_row = _build_assay_row("CHEMBLFRACT3", 2, None)
+        noisy_row.update(
+            {
+                "assay_class_id": "not-a-number",
+                "component_count": "",
+                "variant_id": None,
+            }
+        )
+
+        df = pd.DataFrame([fractional_row, integral_row, noisy_row]).convert_dtypes()
+
+        validated = pipeline.validate(df)
+
+        # Fractional values should become <NA>, valid integers should round-trip.
+        assert pd.isna(validated.loc[0, "assay_class_id"])
+        assert validated.loc[1, "assay_class_id"] == 77
+        assert pd.isna(validated.loc[2, "assay_class_id"])
+
+        assert pd.isna(validated.loc[0, "component_count"])
+        assert validated.loc[1, "component_count"] == 3
+        assert pd.isna(validated.loc[2, "component_count"])
+
+        assert pd.isna(validated.loc[0, "variant_id"])
+        assert validated.loc[1, "variant_id"] == 901
+        assert pd.isna(validated.loc[2, "variant_id"])
+
+        for column in ("assay_class_id", "component_count", "variant_id"):
+            assert str(validated[column].dtype) == "Int64"
+
     def test_validation_issues_reflected_in_quality_report(self, assay_config, tmp_path):
         """Referential integrity warnings should appear in QC artifacts."""
 
