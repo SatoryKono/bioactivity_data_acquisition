@@ -42,14 +42,31 @@ class SchemaRegistry:
 
         cls._registry[entity][schema_version] = schema
 
-        model_fields = getattr(schema, "model_fields", {})
-        column_count = len(model_fields) if model_fields else 0
+        column_count = 0
+
+        try:
+            column_order = resolve_schema_column_order(schema)
+        except Exception:  # pragma: no cover - defensive fallback
+            column_order = []
+
+        if column_order:
+            column_count = len(column_order)
+        else:
+            model_fields = getattr(schema, "model_fields", {})
+            if model_fields:
+                column_count = len(model_fields)
 
         if column_count == 0:
             try:
-                column_count = len(schema.to_schema().columns)
+                materialised = schema.to_schema()
             except (AttributeError, TypeError):
-                column_count = 0
+                materialised = None
+
+            if materialised is not None:
+                try:
+                    column_count = len(materialised.columns)
+                except AttributeError:
+                    column_count = len(list(materialised.columns or []))
 
         if column_count == 0:
             try:

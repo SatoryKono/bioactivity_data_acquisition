@@ -80,8 +80,10 @@ def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> No
 
         series = pd.to_numeric(df[column], errors="coerce")
 
+        target_dtype = pd.Int64Dtype()
+
         if series.empty:
-            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+            df[column] = pd.Series(pd.array(series, dtype=target_dtype), index=df.index)
             continue
 
         non_null = series.notna()
@@ -93,7 +95,7 @@ def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> No
         if fractional_mask.any():
             series.loc[fractional_mask] = pd.NA
 
-        coerced = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+        coerced = pd.Series(pd.array(series, dtype=target_dtype), index=df.index)
         df[column] = coerced
 
 
@@ -822,7 +824,7 @@ class AssayPipeline(PipelineBase):
             for col in expected_cols:
                 if col not in df.columns:
                     if col in nullable_int_set:
-                        df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype=pd.Int64Dtype())
                     else:
                         df[col] = pd.NA
                 elif col in nullable_int_set:
@@ -830,7 +832,10 @@ class AssayPipeline(PipelineBase):
                     # potentially inferred as ``object`` when upstream payloads
                     # contained stringified numbers or missing values.
                     numeric_series = pd.to_numeric(df[col], errors="coerce")
-                    df[col] = pd.Series(pd.array(numeric_series, dtype="Int64"), index=df.index)
+                    df[col] = pd.Series(
+                        pd.array(numeric_series, dtype=pd.Int64Dtype()),
+                        index=df.index,
+                    )
 
             # Reorder to match schema column_order
             df = df[expected_cols]
@@ -876,7 +881,7 @@ class AssayPipeline(PipelineBase):
                 continue
             try:
                 numeric_series = pd.to_numeric(df[column], errors="coerce")
-                df[column] = pd.array(numeric_series, dtype="Int64")
+                df[column] = pd.array(numeric_series, dtype=pd.Int64Dtype())
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning(
                     "nullable_int_cast_failed",
