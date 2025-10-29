@@ -268,6 +268,34 @@ def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPat
     assert metadata["timestamp"] > 0
 
 
+def test_request_json_base_url_join(monkeypatch: pytest.MonkeyPatch) -> None:
+    """request_json should normalize base URLs with and without trailing slash."""
+
+    observed_urls: list[str] = []
+
+    for base_url in [
+        "https://api.example.com/api",
+        "https://api.example.com/api/",
+    ]:
+        config = APIConfig(name="test", base_url=base_url, rate_limit_jitter=False)
+        client = UnifiedAPIClient(config)
+
+        def fake_request(*_: Any, **kwargs: Any) -> requests.Response:
+            url = kwargs["url"]
+            observed_urls.append(url)
+            response = _build_response(200, {"status": "ok"})
+            response.url = url
+            return response
+
+        monkeypatch.setattr(client.session, "request", fake_request)
+
+        data = client.request_json("/activity.json")
+        assert data == {"status": "ok"}
+
+    assert len(observed_urls) == 2
+    assert observed_urls[0] == observed_urls[1]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
