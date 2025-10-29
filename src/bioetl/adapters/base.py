@@ -26,7 +26,12 @@ class AdapterConfig:
 
 
 class ExternalAdapter(ABC):
-    """Base class for external API adapters."""
+    """Base class for external API adapters.
+
+    Subclasses are expected to implement :meth:`_fetch_batch` for fetching a
+    batch of identifiers. The :meth:`_fetch_in_batches` helper coordinates
+    validation, batching, and logging for the common ``fetch_by_ids`` workflow.
+    """
 
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize adapter with API client."""
@@ -42,6 +47,65 @@ class ExternalAdapter(ABC):
     @abstractmethod
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize a single record from the external source."""
+
+    @abstractmethod
+    def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch a batch of identifiers from the upstream API."""
+
+    def _fetch_in_batches(
+        self,
+        ids: list[str],
+        *,
+        batch_size: int | None = None,
+        log_event: str = "batch_fetch_failed",
+    ) -> list[dict[str, Any]]:
+        """Fetch identifiers in batches using :meth:`_fetch_batch`.
+
+        Args:
+            ids: Identifiers to fetch from the external source.
+            batch_size: Explicit batch size override. When ``None`` the helper
+                falls back to ``adapter_config.batch_size`` and finally to the
+                total number of identifiers.
+            log_event: Structured logging event name for batch failures.
+
+        Returns:
+            Aggregated list of records fetched by :meth:`_fetch_batch`.
+        """
+
+        if not ids:
+            return []
+
+        sanitized_ids = [identifier for identifier in ids if isinstance(identifier, str) and identifier]
+        filtered = len(ids) - len(sanitized_ids)
+
+        if filtered:
+            self.logger.warning("invalid_ids_filtered", dropped=filtered)
+
+        if not sanitized_ids:
+            return []
+
+        effective_batch_size = batch_size or self.adapter_config.batch_size or len(sanitized_ids)
+        if effective_batch_size <= 0:
+            effective_batch_size = len(sanitized_ids)
+
+        all_records: list[dict[str, Any]] = []
+        for index, start in enumerate(range(0, len(sanitized_ids), effective_batch_size)):
+            batch_ids = sanitized_ids[start : start + effective_batch_size]
+            try:
+                batch_records = self._fetch_batch(batch_ids)
+            except Exception as exc:
+                self.logger.error(
+                    log_event,
+                    batch=start,
+                    batch_index=index,
+                    error=str(exc),
+                )
+                continue
+
+            if batch_records:
+                all_records.extend(batch_records)
+
+        return all_records
 
     def to_dataframe(self, records: list[dict[str, Any]]) -> pd.DataFrame:
         """Convert list of normalized records to DataFrame."""

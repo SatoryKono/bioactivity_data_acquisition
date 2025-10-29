@@ -12,7 +12,11 @@ NORMALIZER_STRING = registry.get("string")
 
 
 class CrossrefAdapter(ExternalAdapter):
-    """Adapter for Crossref REST API."""
+    """Adapter for Crossref REST API.
+
+    The :meth:`_fetch_batch` method serves as the extension point for batch
+    retrieval when combined with :meth:`ExternalAdapter._fetch_in_batches`.
+    """
 
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize Crossref adapter."""
@@ -26,22 +30,8 @@ class CrossrefAdapter(ExternalAdapter):
 
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by DOIs using batch API."""
-        if not ids:
-            return []
-
         batch_size = self.adapter_config.batch_size or 100
-        all_records = []
-
-        # Process in batches
-        for i in range(0, len(ids), batch_size):
-            batch_ids = ids[i : i + batch_size]
-            try:
-                records = self._fetch_batch(batch_ids)
-                all_records.extend(records)
-            except Exception as e:
-                self.logger.error("batch_fetch_failed", batch=i, error=str(e))
-
-        return all_records
+        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, dois: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of DOIs."""
