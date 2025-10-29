@@ -43,6 +43,9 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
 
     assert artifacts.dataset.name == expected_dataset_name
     assert artifacts.quality_report.name == expected_quality_name
+    assert artifacts.qc_summary is None
+    assert artifacts.qc_missing_mappings is None
+    assert artifacts.qc_enrichment_metrics is None
 
     written_df = pd.read_csv(artifacts.dataset)
     pd.testing.assert_frame_equal(written_df, df)
@@ -114,6 +117,8 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         contents = yaml.safe_load(fh)
 
     assert contents["row_count"] == len(df)
+    assert contents["column_count"] == len(df.columns)
+    assert contents["column_order"] == list(df.columns)
 
     expected_checksums = {
         artifacts.dataset.name: hashlib.sha256(artifacts.dataset.read_bytes()).hexdigest(),
@@ -122,6 +127,7 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         ).hexdigest(),
     }
     assert contents["file_checksums"] == expected_checksums
+    assert "qc_artifacts" not in contents
 
     quality_df = pd.read_csv(artifacts.quality_report)
     column_profiles = quality_df[quality_df["metric"] == "column_profile"]

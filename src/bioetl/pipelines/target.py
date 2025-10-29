@@ -10,13 +10,19 @@ from typing import Any, Iterable, Iterator
 
 import pandas as pd
 import re
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.config.models import CircuitBreakerConfig, HttpConfig, RateLimitConfig, RetryConfig, TargetSourceConfig
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas import TargetSchema
+from bioetl.schemas import (
+    ProteinClassSchema,
+    TargetComponentSchema,
+    TargetSchema,
+    XrefSchema,
+)
 from bioetl.schemas.registry import schema_registry
 from bioetl.pipelines.target_gold import (
     annotate_source_rank,
@@ -88,6 +94,12 @@ class TargetPipeline(PipelineBase):
         chembl_source = self.source_configs.get("chembl")
         self.batch_size = chembl_source.batch_size if chembl_source and chembl_source.batch_size else 25
         self._chembl_release = self._get_chembl_release() if self.chembl_client else None
+
+        self.gold_targets: pd.DataFrame = pd.DataFrame()
+        self.gold_components: pd.DataFrame = pd.DataFrame()
+        self.gold_protein_class: pd.DataFrame = pd.DataFrame()
+        self.gold_xref: pd.DataFrame = pd.DataFrame()
+        self._qc_missing_mapping_records: list[dict[str, Any]] = []
 
     def _build_api_client_config(
         self,
@@ -161,6 +173,36 @@ class TargetPipeline(PipelineBase):
             fallback_enabled=fallback_enabled,
             fallback_strategies=fallback_strategies,
         )
+
+    def _record_missing_mapping(
+        self,
+        *,
+        stage: str,
+        target_id: Any | None,
+        accession: Any | None,
+        resolution: str,
+        status: str,
+        resolved_accession: Any | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Capture missing mapping events for QC artifacts."""
+
+        record: dict[str, Any] = {
+            "stage": stage,
+            "target_chembl_id": target_id,
+            "input_accession": accession,
+            "resolved_accession": resolved_accession,
+            "resolution": resolution,
+            "status": status,
+        }
+
+        if details:
+            try:
+                record["details"] = json.dumps(details, ensure_ascii=False, sort_keys=True)
+            except TypeError:
+                record["details"] = str(details)
+
+        self._qc_missing_mapping_records.append(record)
 
     def _resolve_http_profile(
         self,
@@ -289,6 +331,10 @@ class TargetPipeline(PipelineBase):
             return df
 
         df = df.copy()
+        self._qc_missing_mapping_records = []
+        self.qc_missing_mappings = pd.DataFrame()
+        self.qc_enrichment_metrics = pd.DataFrame()
+        self.qc_summary_data = {}
 
         # Normalize identifiers
         from bioetl.normalizers import registry
@@ -404,6 +450,19 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class = gold_protein_class
         self.gold_xref = gold_xref
 
+        if self._qc_missing_mapping_records:
+            self.qc_missing_mappings = pd.DataFrame(self._qc_missing_mapping_records).convert_dtypes()
+        else:
+            self.qc_missing_mappings = pd.DataFrame()
+
+        self._evaluate_enrichment_thresholds()
+        self._update_qc_summary(
+            gold_targets,
+            gold_components,
+            gold_protein_class,
+            gold_xref,
+        )
+
         self._materialize_gold_outputs(
             gold_targets,
             gold_components,
@@ -417,21 +476,66 @@ class TargetPipeline(PipelineBase):
         """Validate target data against schema."""
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
+            self.qc_summary_data.setdefault("validation", {})["targets"] = {
+                "status": "skipped",
+                "rows": 0,
+            }
             return df
 
-        try:
-            # Check for duplicates
-            duplicate_count = df["target_chembl_id"].duplicated().sum() if "target_chembl_id" in df.columns else 0
+        duplicate_count = 0
+        if "target_chembl_id" in df.columns:
+            duplicate_count = int(df["target_chembl_id"].duplicated().sum())
             if duplicate_count > 0:
                 logger.warning("duplicates_found", count=duplicate_count)
-                # Remove duplicates, keeping first occurrence
                 df = df.drop_duplicates(subset=["target_chembl_id"], keep="first")
+                self.record_validation_issue(
+                    {
+                        "metric": "targets.duplicates_removed",
+                        "issue_type": "deduplication",
+                        "severity": "warning",
+                        "count": duplicate_count,
+                    }
+                )
 
-            logger.info("validation_completed", rows=len(df), duplicates_removed=duplicate_count)
-            return df
-        except Exception as e:
-            logger.error("validation_failed", error=str(e))
-            raise
+        validated_targets = self._validate_with_schema(
+            df,
+            TargetSchema,
+            "targets",
+            severity="critical",
+        )
+        self.gold_targets = validated_targets
+
+        self.gold_components = self._validate_with_schema(
+            self.gold_components,
+            TargetComponentSchema,
+            "target_components",
+        )
+
+        self.gold_protein_class = self._validate_with_schema(
+            self.gold_protein_class,
+            ProteinClassSchema,
+            "protein_classifications",
+        )
+
+        self.gold_xref = self._validate_with_schema(
+            self.gold_xref,
+            XrefSchema,
+            "target_xrefs",
+        )
+
+        self._update_qc_summary(
+            self.gold_targets,
+            self.gold_components,
+            self.gold_protein_class,
+            self.gold_xref,
+        )
+
+        logger.info(
+            "validation_completed",
+            rows=len(self.gold_targets),
+            duplicates_removed=duplicate_count,
+        )
+        return self.gold_targets
 
     @staticmethod
     def _chunked(values: Iterable[str], size: int) -> Iterator[list[str]]:
@@ -533,6 +637,15 @@ class TargetPipeline(PipelineBase):
                 if entry is not None:
                     merge_strategy = "secondary_accession"
                     fallback_counts["secondary_accession"] += 1
+                    resolved = entry.get("primaryAccession") or entry.get("accession")
+                    self._record_missing_mapping(
+                        stage="uniprot",
+                        target_id=row.get("target_chembl_id"),
+                        accession=accession_str,
+                        resolved_accession=resolved,
+                        resolution="secondary_accession",
+                        status="resolved",
+                    )
 
             if entry is None:
                 unresolved[idx] = accession_str
@@ -569,6 +682,14 @@ class TargetPipeline(PipelineBase):
 
                     fallback_counts["idmapping"] += 1
                     used_entries[canonical_acc] = entry
+                    self._record_missing_mapping(
+                        stage="uniprot",
+                        target_id=working_df.at[idx, "target_chembl_id"],
+                        accession=submitted,
+                        resolved_accession=canonical_acc,
+                        resolution="idmapping",
+                        status="resolved",
+                    )
                     self._apply_entry_enrichment(working_df, idx, entry, "idmapping")
                     resolved_rows += 1
                     unresolved.pop(idx, None)
@@ -596,6 +717,18 @@ class TargetPipeline(PipelineBase):
 
                 fallback_counts["gene_symbol"] += 1
                 used_entries[canonical_acc] = entry
+                self._record_missing_mapping(
+                    stage="uniprot",
+                    target_id=working_df.at[idx, "target_chembl_id"],
+                    accession=accession,
+                    resolved_accession=canonical_acc,
+                    resolution="gene_symbol",
+                    status="resolved",
+                    details={
+                        "gene_symbol": gene_symbol,
+                        "organism": organism,
+                    },
+                )
                 self._apply_entry_enrichment(working_df, idx, entry, "gene_symbol")
                 resolved_rows += 1
                 unresolved.pop(idx, None)
@@ -629,6 +762,15 @@ class TargetPipeline(PipelineBase):
 
                 fallback_counts["ortholog"] += 1
                 used_entries[ortholog_acc] = entry
+                self._record_missing_mapping(
+                    stage="uniprot",
+                    target_id=working_df.at[idx, "target_chembl_id"],
+                    accession=accession,
+                    resolved_accession=ortholog_acc,
+                    resolution="ortholog",
+                    status="resolved",
+                    details={"ortholog_source": best.get("organism")},
+                )
                 self._apply_entry_enrichment(working_df, idx, entry, "ortholog")
                 working_df.at[idx, "ortholog_source"] = best.get("organism")
                 resolved_rows += 1
@@ -637,11 +779,34 @@ class TargetPipeline(PipelineBase):
         if unresolved:
             for idx, accession in unresolved.items():
                 logger.warning("uniprot_enrichment_unresolved", accession=accession)
+                target_id = working_df.at[idx, "target_chembl_id"] if idx in working_df.index else None
+                self._record_missing_mapping(
+                    stage="uniprot",
+                    target_id=target_id,
+                    accession=accession,
+                    resolution="unresolved",
+                    status="unresolved",
+                )
+                self.record_validation_issue(
+                    {
+                        "metric": "enrichment.uniprot.unresolved",
+                        "issue_type": "missing_mapping",
+                        "severity": "warning",
+                        "target_chembl_id": target_id,
+                        "accession": accession,
+                    }
+                )
 
         coverage = resolved_rows / total_with_accession if total_with_accession else 0.0
         metrics["enrichment_success.uniprot"] = coverage
         metrics["enrichment.total_with_accession"] = total_with_accession
         metrics["enrichment.resolved"] = resolved_rows
+        unresolved_count = len(unresolved)
+        if unresolved_count:
+            metrics["enrichment.uniprot.unresolved"] = unresolved_count
+            metrics["enrichment.uniprot.unresolved_rate"] = (
+                unresolved_count / total_with_accession if total_with_accession else 0.0
+            )
 
         for fallback_name, count in fallback_counts.items():
             metrics[f"fallback.{fallback_name}.count"] = count
@@ -799,6 +964,14 @@ class TargetPipeline(PipelineBase):
                     "iuphar_subclass": None,
                     "classification_source": "chembl",
                 })
+                self._record_missing_mapping(
+                    stage="iuphar",
+                    target_id=row.get("target_chembl_id"),
+                    accession=None,
+                    resolution="chembl_fallback",
+                    status="fallback",
+                    details={"reason": "no_candidate_names"},
+                )
                 continue
 
             total_candidates += 1
@@ -824,6 +997,14 @@ class TargetPipeline(PipelineBase):
                     "iuphar_subclass": None,
                     "classification_source": "chembl",
                 })
+                self._record_missing_mapping(
+                    stage="iuphar",
+                    target_id=row.get("target_chembl_id"),
+                    accession=None,
+                    resolution="chembl_fallback",
+                    status="fallback",
+                    details={"candidates": candidate_names},
+                )
                 continue
 
             matched += 1
@@ -1828,4 +2009,218 @@ class TargetPipeline(PipelineBase):
             issue_payload.update({"severity": severity, "passed": False})
 
         self.record_validation_issue(issue_payload)
+
+    def _evaluate_enrichment_thresholds(self) -> None:
+        """Evaluate enrichment coverage against configured thresholds."""
+
+        qc_config = getattr(self.config, "qc", None)
+        thresholds = getattr(qc_config, "enrichments", {}) if qc_config else {}
+        if not thresholds:
+            self.qc_enrichment_metrics = pd.DataFrame()
+            return
+
+        records: list[dict[str, Any]] = []
+        failing: list[dict[str, Any]] = []
+        enrichment_summary = self.qc_summary_data.setdefault("enrichment", {})
+
+        for name, raw_threshold in thresholds.items():
+            if isinstance(raw_threshold, dict):
+                min_threshold = raw_threshold.get("min")
+                severity = str(raw_threshold.get("severity", "error"))
+            else:
+                min_threshold = raw_threshold
+                severity = "error"
+
+            try:
+                min_threshold_value = float(min_threshold) if min_threshold is not None else None
+            except (TypeError, ValueError):
+                min_threshold_value = None
+
+            metric_key = f"enrichment_success.{name}"
+            value = self.qc_metrics.get(metric_key)
+
+            if value is None:
+                enrichment_summary[name] = {
+                    "value": None,
+                    "threshold_min": min_threshold_value,
+                    "passed": False,
+                    "status": "missing",
+                    "severity": severity,
+                }
+                self.record_validation_issue(
+                    {
+                        "metric": f"enrichment.{name}",
+                        "issue_type": "qc_metric",
+                        "severity": "info",
+                        "status": "missing",
+                    }
+                )
+                continue
+
+            try:
+                value_float = float(value)
+            except (TypeError, ValueError):
+                value_float = value
+
+            passed = True
+            if min_threshold_value is not None:
+                passed = value_float >= min_threshold_value
+
+            record = {
+                "metric": name,
+                "value": value_float,
+                "threshold_min": min_threshold_value,
+                "passed": passed,
+                "severity": severity,
+            }
+            records.append(record)
+
+            enrichment_summary[name] = {
+                "value": value_float,
+                "threshold_min": min_threshold_value,
+                "passed": passed,
+                "severity": severity,
+            }
+
+            issue_payload = {
+                "metric": f"enrichment.{name}",
+                "issue_type": "qc_metric",
+                "severity": severity if not passed else "info",
+                "value": value_float,
+                "threshold_min": min_threshold_value,
+                "passed": passed,
+            }
+            self.record_validation_issue(issue_payload)
+
+            if not passed:
+                failing.append({"metric": name, "severity": severity, "value": value_float, "threshold": min_threshold_value})
+
+        self.qc_enrichment_metrics = (
+            pd.DataFrame(records).convert_dtypes() if records else pd.DataFrame()
+        )
+
+        blocking = [failure for failure in failing if self._should_fail(failure["severity"])]
+        if blocking:
+            details = ", ".join(
+                f"{item['metric']} (value={item['value']}, threshold={item['threshold']})"
+                for item in blocking
+            )
+            logger.error("enrichment_threshold_failed", details=details)
+            raise ValueError(f"Enrichment thresholds failed: {details}")
+
+    def _update_qc_summary(
+        self,
+        targets_df: pd.DataFrame,
+        components_df: pd.DataFrame,
+        protein_class_df: pd.DataFrame,
+        xref_df: pd.DataFrame,
+    ) -> None:
+        """Populate QC summary structure with dataset statistics."""
+
+        dataset_counts = {
+            "targets": int(len(targets_df)),
+            "components": int(len(components_df)),
+            "classifications": int(len(protein_class_df)),
+            "xrefs": int(len(xref_df)),
+        }
+        self.qc_summary_data["row_counts"] = dataset_counts
+        self.qc_summary_data["datasets"] = dataset_counts
+
+        fallback_counts = {
+            key.split(".")[1]: int(value)
+            for key, value in self.qc_metrics.items()
+            if key.startswith("fallback.") and key.endswith(".count")
+        }
+        if fallback_counts:
+            self.qc_summary_data["fallback_counts"] = fallback_counts
+
+        self.qc_summary_data.setdefault("metrics", {}).update(self.qc_metrics)
+
+        severity_counts: dict[str, int] = {}
+        for issue in self.validation_issues:
+            severity = str(issue.get("severity", "info")).lower()
+            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+
+        self.qc_summary_data["validation_issue_counts"] = severity_counts
+        self.qc_summary_data["validation_issue_total"] = len(self.validation_issues)
+
+        if not self.qc_missing_mappings.empty:
+            self.qc_summary_data["missing_mappings"] = {
+                "records": int(len(self.qc_missing_mappings)),
+                "stages": sorted(self.qc_missing_mappings["stage"].dropna().unique().tolist()),
+            }
+
+    def _validate_with_schema(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        dataset_name: str,
+        *,
+        severity: str = "error",
+    ) -> pd.DataFrame:
+        """Validate a dataframe against the provided Pandera schema."""
+
+        validation_summary = self.qc_summary_data.setdefault("validation", {})
+
+        if df is None or (hasattr(df, "empty") and df.empty):
+            validation_summary[dataset_name] = {"status": "skipped", "rows": 0}
+            self.record_validation_issue(
+                {
+                    "metric": f"schema.{dataset_name}",
+                    "issue_type": "schema_validation",
+                    "severity": "info",
+                    "status": "skipped",
+                    "rows": 0,
+                }
+            )
+            return df
+
+        try:
+            validated = schema.validate(df, lazy=True)
+        except SchemaErrors as exc:
+            failure_cases = getattr(exc, "failure_cases", None)
+            error_count: int | None = None
+            if failure_cases is not None and hasattr(failure_cases, "shape"):
+                try:
+                    error_count = int(failure_cases.shape[0])
+                except (TypeError, ValueError):
+                    error_count = None
+
+            issue_payload: dict[str, Any] = {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": severity,
+                "status": "failed",
+                "errors": error_count,
+            }
+            if failure_cases is not None:
+                try:
+                    issue_payload["examples"] = failure_cases.head(5).to_dict("records")
+                except Exception:  # pragma: no cover - defensive guard
+                    issue_payload["examples"] = "unavailable"
+
+            self.record_validation_issue(issue_payload)
+            validation_summary[dataset_name] = {"status": "failed", "errors": error_count}
+            logger.error(
+                "schema_validation_failed",
+                dataset=dataset_name,
+                errors=error_count,
+                error=str(exc),
+            )
+            if self._should_fail(severity):
+                raise
+            return df
+
+        validation_summary[dataset_name] = {"status": "passed", "rows": int(len(validated))}
+        self.record_validation_issue(
+            {
+                "metric": f"schema.{dataset_name}",
+                "issue_type": "schema_validation",
+                "severity": "info",
+                "status": "passed",
+                "rows": int(len(validated)),
+            }
+        )
+
+        return validated
 

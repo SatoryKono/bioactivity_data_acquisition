@@ -22,6 +22,9 @@ class PipelineBase(ABC):
         self.output_writer = UnifiedOutputWriter(run_id)
         self.validation_issues: list[dict[str, Any]] = []
         self.qc_metrics: dict[str, Any] = {}
+        self.qc_summary_data: dict[str, Any] = {}
+        self.qc_missing_mappings = pd.DataFrame()
+        self.qc_enrichment_metrics = pd.DataFrame()
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -74,6 +77,9 @@ class PipelineBase(ABC):
             extended=extended,
             issues=self.validation_issues,
             qc_metrics=self.qc_metrics,
+            qc_summary=self.qc_summary_data,
+            qc_missing_mappings=self.qc_missing_mappings,
+            qc_enrichment_metrics=self.qc_enrichment_metrics,
         )
 
     def run(
