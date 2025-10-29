@@ -22,6 +22,12 @@ from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtype import coerce_nullable_int_columns
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.qc import (
+    duplicate_summary,
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import canonical_json
 
@@ -988,9 +994,24 @@ class TestItemPipeline(PipelineBase):
 
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
+            update_summary_section(self.qc_summary_data, "row_counts", {"testitems": 0})
+            update_summary_section(
+                self.qc_summary_data,
+                "datasets",
+                {"testitems": {"rows": 0}},
+            )
+            update_summary_section(
+                self.qc_summary_data,
+                "duplicates",
+                {"testitems": duplicate_summary(0, 0, field="molecule_chembl_id")},
+            )
+            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
             return df
 
+        initial_rows = int(len(df))
+
         qc_metrics = self._calculate_qc_metrics(df)
+        self.qc_metrics = qc_metrics
         failing_metrics: list[str] = []
 
         for metric_name, metric in qc_metrics.items():
@@ -1025,6 +1046,8 @@ class TestItemPipeline(PipelineBase):
             raise ValueError(
                 "QC thresholds exceeded for metrics: " + ", ".join(sorted(failing_metrics))
             )
+
+        update_summary_metrics(self.qc_summary_data, qc_metrics)
 
         duplicates_metric = qc_metrics.get("testitem.duplicate_ratio")
         if (
@@ -1061,11 +1084,34 @@ class TestItemPipeline(PipelineBase):
         self._validate_identifier_formats(validated_df)
         self._check_referential_integrity(validated_df)
 
+        row_count = int(len(validated_df))
+        update_summary_section(self.qc_summary_data, "row_counts", {"testitems": row_count})
+        update_summary_section(
+            self.qc_summary_data,
+            "datasets",
+            {"testitems": {"rows": row_count}},
+        )
+
+        duplicate_count = int(qc_metrics.get("testitem.duplicate_ratio", {}).get("count", 0) or 0)
+        update_summary_section(
+            self.qc_summary_data,
+            "duplicates",
+            {
+                "testitems": duplicate_summary(
+                    initial_rows,
+                    duplicate_count,
+                    field="molecule_chembl_id",
+                    threshold=qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold"),
+                )
+            },
+        )
+
         logger.info(
             "validation_completed",
             rows=len(validated_df),
             issues=len(self.validation_issues),
         )
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
 
     def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, dict[str, Any]]:
