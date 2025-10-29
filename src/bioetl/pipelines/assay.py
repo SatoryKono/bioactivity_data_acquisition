@@ -848,19 +848,21 @@ class AssayPipeline(PipelineBase):
             logger.info("validation_skipped_empty", rows=0)
             return df
 
-        schema_columns = list(AssaySchema.to_schema().columns.keys())
-        if schema_columns:
-            for column in schema_columns:
-                if column not in df.columns:
-                    df[column] = pd.NA
-            df = df[schema_columns]
+        canonical_order = list(AssaySchema.get_column_order())
+        if canonical_order:
+            missing_columns = [column for column in canonical_order if column not in df.columns]
+            for column in missing_columns:
+                df[column] = pd.NA
+
+            ordered_columns = canonical_order + [column for column in df.columns if column not in canonical_order]
+            df = df.loc[:, ordered_columns]
         else:  # pragma: no cover - defensive fallback
-            expected_cols = AssaySchema.get_column_order()
-            if expected_cols:
-                for column in expected_cols:
+            schema_columns = list(AssaySchema.to_schema().columns.keys())
+            if schema_columns:
+                for column in schema_columns:
                     if column not in df.columns:
                         df[column] = pd.NA
-                df = df[expected_cols]
+                df = df.loc[:, schema_columns]
 
         for column in _NULLABLE_INT_COLUMNS:
             if column not in df.columns:
