@@ -24,7 +24,11 @@ from bioetl.config.models import (
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import OutputMetadata
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import (
+    EnrichmentStage,
+    PipelineBase,
+    enrichment_stage_registry,
+)
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
     annotate_source_rank,
@@ -392,98 +396,24 @@ class TargetPipeline(PipelineBase):
             with_iuphar=with_iuphar,
         )
 
-        enrichment_metrics: dict[str, Any] = {}
-        uniprot_silver = pd.DataFrame()
-        component_enrichment = pd.DataFrame()
+        self.reset_stage_context()
+        df = self.execute_enrichment_stages(df)
 
-        stage_summary = self.qc_summary_data.setdefault("stages", {})
+        uniprot_context = self.stage_context.get("uniprot", {})
+        uniprot_silver = uniprot_context.get("silver")
+        if not isinstance(uniprot_silver, pd.DataFrame):
+            uniprot_silver = pd.DataFrame()
+        component_enrichment = uniprot_context.get("component_enrichment")
+        if not isinstance(component_enrichment, pd.DataFrame):
+            component_enrichment = pd.DataFrame()
 
-        if not with_uniprot:
-            logger.info("uniprot_enrichment_skipped", reason="disabled")
-            stage_summary["uniprot"] = {"status": "skipped", "reason": "disabled"}
-        elif (
-            self.uniprot_client is not None
-            and "uniprot_accession" in df.columns
-            and df["uniprot_accession"].notna().any()
-        ):
-            try:
-                df, uniprot_silver, component_enrichment, enrichment_metrics = self._enrich_uniprot(df)
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.error("uniprot_enrichment_failed", error=str(exc))
-                self.record_validation_issue(
-                    {
-                        "metric": "enrichment.uniprot",
-                        "issue_type": "enrichment",
-                        "severity": "warning",
-                        "status": "failed",
-                        "error": str(exc),
-                    }
-                )
-                stage_summary["uniprot"] = {
-                    "status": "failed",
-                    "error": str(exc),
-                }
-            else:
-                if enrichment_metrics:
-                    self.qc_metrics.update(enrichment_metrics)
-                if not uniprot_silver.empty or not component_enrichment.empty:
-                    self._materialize_silver(uniprot_silver, component_enrichment)
-                stage_summary["uniprot"] = {
-                    "status": "completed",
-                    "rows": int(len(df)),
-                }
-        else:
-            logger.info(
-                "uniprot_enrichment_skipped",
-                reason="no_accessions" if "uniprot_accession" not in df.columns else "no_client",
-            )
-            stage_summary["uniprot"] = {
-                "status": "skipped",
-                "reason": (
-                    "missing_column"
-                    if "uniprot_accession" not in df.columns
-                    else "client_unavailable"
-                ),
-            }
-
-        iuphar_classification = pd.DataFrame()
-        iuphar_gold = pd.DataFrame()
-        if not with_iuphar:
-            logger.info("iuphar_enrichment_skipped", reason="disabled")
-            stage_summary["iuphar"] = {"status": "skipped", "reason": "disabled"}
-        elif self.iuphar_client is not None:
-            try:
-                df, iuphar_classification, iuphar_gold, iuphar_metrics = self._enrich_iuphar(df)
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.error("iuphar_enrichment_failed", error=str(exc))
-                self.record_validation_issue(
-                    {
-                        "metric": "enrichment.iuphar",
-                        "issue_type": "enrichment",
-                        "severity": "warning",
-                        "status": "failed",
-                        "error": str(exc),
-                    }
-                )
-                stage_summary["iuphar"] = {
-                    "status": "failed",
-                    "error": str(exc),
-                }
-            else:
-                if iuphar_metrics:
-                    self.qc_metrics.update(iuphar_metrics)
-                    coverage_value = iuphar_metrics.get("iuphar_coverage")
-                    if coverage_value is not None:
-                        self._evaluate_iuphar_qc(float(coverage_value))
-                if not iuphar_classification.empty or not iuphar_gold.empty:
-                    self._materialize_iuphar(iuphar_classification, iuphar_gold)
-                stage_summary["iuphar"] = {
-                    "status": "completed",
-                    "rows": int(len(df)),
-                }
-        else:
-            logger.info("iuphar_enrichment_skipped", reason="no_client")
-            stage_summary["iuphar"] = {"status": "skipped", "reason": "client_unavailable"}
+        iuphar_context = self.stage_context.get("iuphar", {})
+        iuphar_classification = iuphar_context.get("classification")
+        if not isinstance(iuphar_classification, pd.DataFrame):
+            iuphar_classification = pd.DataFrame()
+        iuphar_gold = iuphar_context.get("gold")
+        if not isinstance(iuphar_gold, pd.DataFrame):
+            iuphar_gold = pd.DataFrame()
 
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
@@ -2355,4 +2285,156 @@ class TargetPipeline(PipelineBase):
         )
 
         return validated  # type: ignore[no-any-return]
+
+
+def _target_should_run_uniprot(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> tuple[bool, str | None]:
+    """Determine if the UniProt stage should run for the given pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):
+        return False, "unsupported_pipeline"
+    if df.empty:
+        return False, "empty_frame"
+
+    with_uniprot = bool(pipeline.runtime_options.get("with_uniprot", True))
+    pipeline.runtime_options["with_uniprot"] = with_uniprot
+    if not with_uniprot:
+        return False, "disabled"
+
+    if pipeline.uniprot_client is None:
+        return False, "client_unavailable"
+
+    if "uniprot_accession" not in df.columns:
+        return False, "missing_column"
+
+    if not df["uniprot_accession"].notna().any():
+        return False, "no_accessions"
+
+    return True, None
+
+
+def _target_run_uniprot_stage(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> pd.DataFrame:
+    """Execute UniProt enrichment for the target pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):  # pragma: no cover - defensive
+        return df
+
+    try:
+        enriched_df, silver_df, component_df, metrics = pipeline._enrich_uniprot(df)
+    except Exception as exc:
+        pipeline.record_validation_issue(
+            {
+                "metric": "enrichment.uniprot",
+                "issue_type": "enrichment",
+                "severity": "warning",
+                "status": "failed",
+                "error": str(exc),
+            }
+        )
+        raise
+
+    if metrics:
+        pipeline.qc_metrics.update(metrics)
+
+    if not silver_df.empty or not component_df.empty:
+        pipeline._materialize_silver(silver_df, component_df)
+
+    pipeline.stage_context["uniprot"] = {
+        "silver": silver_df,
+        "component_enrichment": component_df,
+    }
+    pipeline.set_stage_summary("uniprot", "completed", rows=int(len(enriched_df)))
+
+    return enriched_df
+
+
+def _target_should_run_iuphar(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> tuple[bool, str | None]:
+    """Determine if the IUPHAR stage should run for the given pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):
+        return False, "unsupported_pipeline"
+    if df.empty:
+        return False, "empty_frame"
+
+    with_iuphar = bool(pipeline.runtime_options.get("with_iuphar", True))
+    pipeline.runtime_options["with_iuphar"] = with_iuphar
+    if not with_iuphar:
+        return False, "disabled"
+
+    if pipeline.iuphar_client is None:
+        return False, "client_unavailable"
+
+    return True, None
+
+
+def _target_run_iuphar_stage(
+    pipeline: PipelineBase, df: pd.DataFrame
+) -> pd.DataFrame:
+    """Execute IUPHAR enrichment for the target pipeline."""
+
+    if not isinstance(pipeline, TargetPipeline):  # pragma: no cover - defensive
+        return df
+
+    try:
+        enriched_df, classification_df, gold_df, metrics = pipeline._enrich_iuphar(df)
+    except Exception as exc:
+        pipeline.record_validation_issue(
+            {
+                "metric": "enrichment.iuphar",
+                "issue_type": "enrichment",
+                "severity": "warning",
+                "status": "failed",
+                "error": str(exc),
+            }
+        )
+        raise
+
+    if metrics:
+        pipeline.qc_metrics.update(metrics)
+        coverage_value = metrics.get("iuphar_coverage")
+        if coverage_value is not None:
+            try:
+                pipeline._evaluate_iuphar_qc(float(coverage_value))
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                pipeline._evaluate_iuphar_qc(0.0)
+
+    if not classification_df.empty or not gold_df.empty:
+        pipeline._materialize_iuphar(classification_df, gold_df)
+
+    pipeline.stage_context["iuphar"] = {
+        "classification": classification_df,
+        "gold": gold_df,
+    }
+    pipeline.set_stage_summary("iuphar", "completed", rows=int(len(enriched_df)))
+
+    return enriched_df
+
+
+def _register_target_enrichment_stages() -> None:
+    """Register enrichment stages for the target pipeline."""
+
+    enrichment_stage_registry.register(
+        TargetPipeline,
+        EnrichmentStage(
+            name="uniprot",
+            include_if=_target_should_run_uniprot,
+            handler=_target_run_uniprot_stage,
+        ),
+    )
+    enrichment_stage_registry.register(
+        TargetPipeline,
+        EnrichmentStage(
+            name="iuphar",
+            include_if=_target_should_run_iuphar,
+            handler=_target_run_iuphar_stage,
+        ),
+    )
+
+
+_register_target_enrichment_stages()
 
