@@ -1639,6 +1639,45 @@ class TestDocumentPipeline:
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
 
+    def test_transform_maps_chembl_fields_without_enrichment(
+        self, document_config, monkeypatch
+    ):
+        """ChEMBL-only runs should still populate resolved fields via precedence."""
+
+        run_id = str(uuid.uuid4())[:8]
+        monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        config = document_config.model_copy(deep=True)
+        for source in ("pubmed", "crossref", "openalex", "semantic_scholar"):
+            if source in config.sources:
+                config.sources[source].enabled = False
+
+        pipeline = DocumentPipeline(config, run_id)
+        pipeline.external_adapters = {}
+
+        df = pd.DataFrame(
+            {
+                "document_chembl_id": ["CHEMBL1"],
+                "title": ["Test Title"],
+                "abstract": ["Example abstract"],
+                "authors": ["Doe J"],
+                "journal": ["Journal of Testing"],
+                "doi": ["10.1234/example"],
+                "pubmed_id": ["123456"],
+                "classification": ["Journal Article"],
+                "document_contains_external_links": [True],
+                "is_experimental_doc": [True],
+            }
+        )
+
+        transformed = pipeline.transform(df)
+
+        assert transformed.loc[0, "title"] == "Test Title"
+        assert transformed.loc[0, "title_source"] == "chembl"
+        assert transformed.loc[0, "doi_clean"] == "10.1234/example"
+        assert transformed.loc[0, "doi_clean_source"] == "chembl"
+        assert transformed.loc[0, "pmid"] == 123456
+        assert transformed.loc[0, "pmid_source"] == "chembl"
+
     def test_validate_removes_duplicates(self, document_config, monkeypatch):
         """Test validation removes duplicates."""
         run_id = str(uuid.uuid4())[:8]
