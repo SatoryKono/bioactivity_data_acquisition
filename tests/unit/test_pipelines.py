@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
+import numpy as np
 import pandas as pd
 import pytest
 import requests
@@ -22,6 +23,7 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
+from bioetl.pipelines.assay import _coerce_nullable_int_columns
 from bioetl.schemas import AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
@@ -147,6 +149,34 @@ class TestAssayPipeline:
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
+
+    def test_nullable_int_coercion_handles_invalid_numeric_payloads(self):
+        """Ensure nullable integer coercion guards against floats and overflow."""
+
+        overflow = str(np.iinfo(np.int64).max + 1)
+        underflow = str(np.iinfo(np.int64).min - 1)
+
+        df = pd.DataFrame(
+            {
+                "row_index": ["5", "invalid", None, "-2"],
+                "assay_class_id": ["123", "inf", overflow, None],
+                "component_count": ["9.5", "7", "-3", None],
+                "variant_id": ["NaN", "42", "1.2", underflow],
+            }
+        )
+
+        _coerce_nullable_int_columns(
+            df,
+            ["row_index", "assay_class_id", "component_count", "variant_id"],
+        )
+
+        assert list(df["row_index"]) == [5, pd.NA, pd.NA, -2]
+        assert list(df["assay_class_id"]) == [123, pd.NA, pd.NA, pd.NA]
+        assert list(df["component_count"]) == [pd.NA, 7, -3, pd.NA]
+        assert list(df["variant_id"]) == [pd.NA, 42, pd.NA, pd.NA]
+
+        for column in ("row_index", "assay_class_id", "component_count", "variant_id"):
+            assert df[column].dtype == "Int64"
 
     def test_fetch_assay_data_uses_cache(self, assay_config, monkeypatch):
         """Assay payloads should be cached by release-qualified key."""

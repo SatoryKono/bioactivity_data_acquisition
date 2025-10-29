@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
@@ -57,12 +58,52 @@ _NULLABLE_INT_COLUMNS = (
     "variant_id",
     "src_id",
 )
+
+_INT64_LIMITS = np.iinfo(np.int64)
+
+
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
     """Coerce selected columns to pandas nullable Int64 dtype."""
 
     for column in columns:
-        if column in df.columns:
-            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+        if column not in df.columns:
+            continue
+
+        numeric = pd.to_numeric(df[column], errors="coerce")
+        numeric = pd.Series(numeric, index=df.index, dtype="Float64")
+
+        finite_mask = np.isfinite(numeric.to_numpy(dtype=float, copy=False))
+        numeric = numeric.mask(~finite_mask, pd.NA)
+
+        valid_mask = numeric.notna()
+        if valid_mask.any():
+            fractional_mask = np.zeros(len(numeric), dtype=bool)
+            fractional_values = np.modf(numeric[valid_mask].to_numpy(dtype=float, copy=False))[0]
+            if fractional_values.size:
+                non_integer = np.abs(fractional_values) > np.finfo(float).eps
+                if np.any(non_integer):
+                    fractional_mask[valid_mask.to_numpy(copy=False)] = non_integer
+                    numeric = numeric.mask(fractional_mask, pd.NA)
+                    valid_mask = numeric.notna()
+
+        if valid_mask.any():
+            overflow_mask = np.zeros(len(numeric), dtype=bool)
+            constrained_values = numeric[valid_mask].to_numpy(dtype=float, copy=False)
+            if constrained_values.size:
+                exceeds = (constrained_values > _INT64_LIMITS.max) | (
+                    constrained_values < _INT64_LIMITS.min
+                )
+                if np.any(exceeds):
+                    overflow_mask[valid_mask.to_numpy(copy=False)] = exceeds
+                    numeric = numeric.mask(overflow_mask, pd.NA)
+
+        df[column] = pd.Series(pd.array(numeric, dtype="Int64"), index=df.index)
+        logger.debug(
+            "nullable_int_coerced",
+            column=column,
+            dtype=str(df[column].dtype),
+            non_null=int(df[column].notna().sum()),
+        )
 
 
 class AssayPipeline(PipelineBase):
@@ -764,29 +805,12 @@ class AssayPipeline(PipelineBase):
             "src_id",
         ]
 
-        for column in nullable_int_columns:
-            if column in df.columns:
-                df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
-
         if "row_index" in df.columns:
-            df["row_index"] = df["row_index"].fillna(0).astype("Int64")
+            df["row_index"] = df["row_index"].fillna(0)
         else:
-            df["row_index"] = pd.Series([0] * len(df), dtype="Int64")
+            df["row_index"] = 0
 
-        _coerce_nullable_int_columns(
-            df,
-            [
-                "row_index",
-                "assay_tax_id",
-                "confidence_score",
-                "src_id",
-                "species_group_flag",
-                "tax_id",
-                "component_count",
-                "assay_class_id",
-                "variant_id",
-            ],
-        )
+        _coerce_nullable_int_columns(df, nullable_int_columns)
 
         # Add pipeline metadata
         df["pipeline_version"] = "1.0.0"
@@ -844,18 +868,10 @@ class AssayPipeline(PipelineBase):
                         df[column] = pd.NA
                 df = df[expected_cols]
 
-        for column in _NULLABLE_INT_COLUMNS:
-            if column not in df.columns:
-                continue
-            try:
-                numeric_series = pd.to_numeric(df[column], errors="coerce")
-                df[column] = pd.array(numeric_series, dtype="Int64")
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.warning(
-                    "nullable_int_cast_failed",
-                    column=column,
-                    error=str(exc),
-                )
+        try:
+            _coerce_nullable_int_columns(df, _NULLABLE_INT_COLUMNS)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("nullable_int_cast_failed", error=str(exc))
 
         try:
             validated_df = AssaySchema.validate(df, lazy=True)
