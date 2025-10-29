@@ -3,8 +3,9 @@
 import json
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Iterable, Mapping, cast
 
+import numpy as np
 import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
@@ -23,6 +24,54 @@ logger = UnifiedLogger.get(__name__)
 
 # Register schema
 schema_registry.register("testitem", "1.0.0", TestItemSchema)
+
+
+def _coerce_nullable_int_columns(
+    df: pd.DataFrame,
+    columns: Iterable[str],
+    minimums: Mapping[str, int] | None = None,
+) -> None:
+    """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
+
+    The ChEMBL API occasionally returns numeric identifiers and categorical
+    flags encoded as floats or strings (e.g. ``"1.0"``). Pandas therefore
+    infers ``float`` dtypes to accommodate ``NaN`` placeholders which Pandera
+    later rejects when coercing to ``int64``. By forcing the values through a
+    numeric conversion, replacing fractional values with ``<NA>`` and
+    materialising a nullable integer array we present Pandera with data that
+    already honours the schema contracts.
+    """
+
+    min_lookup = dict(minimums or {})
+    for column in columns:
+        if column not in df.columns:
+            continue
+
+        series = pd.to_numeric(df[column], errors="coerce")
+
+        min_value = min_lookup.get(column)
+        if min_value is None and column in columns:
+            min_value = 0
+
+        if min_value is not None:
+            below_min = series < min_value
+            if below_min.any():
+                series.loc[below_min] = pd.NA
+
+        if series.empty:
+            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+            continue
+
+        non_null = series.notna()
+        fractional_mask = pd.Series(False, index=series.index)
+        if non_null.any():
+            remainders = (series[non_null] % 1).abs()
+            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
+
+        if fractional_mask.any():
+            series.loc[fractional_mask] = pd.NA
+
+        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
 
 
 class TestItemPipeline(PipelineBase):
@@ -156,6 +205,36 @@ class TestItemPipeline(PipelineBase):
         "fallback_attempt",
         "fallback_error_message",
     ]
+
+    _NULLABLE_INT_COLUMNS: list[str] = [
+        "molregno",
+        "parent_molregno",
+        "max_phase",
+        "first_approval",
+        "availability_type",
+        "usan_year",
+        "withdrawn_year",
+        "hba",
+        "hbd",
+        "rtb",
+        "num_ro5_violations",
+        "aromatic_rings",
+        "heavy_atoms",
+        "hba_lipinski",
+        "hbd_lipinski",
+        "num_lipinski_ro5_violations",
+        "lipinski_ro5_violations",
+        "fallback_http_status",
+        "fallback_attempt",
+        "pubchem_cid",
+        "pubchem_enrichment_attempt",
+    ]
+
+    _INTEGER_COLUMN_MINIMUMS: dict[str, int] = {
+        "molregno": 1,
+        "parent_molregno": 1,
+        "pubchem_cid": 1,
+    }
 
     @classmethod
     def _expected_columns(cls) -> list[str]:
@@ -805,6 +884,13 @@ class TestItemPipeline(PipelineBase):
         # Generate deterministic index
         df = df.sort_values("molecule_chembl_id")  # Sort by primary key
         df["index"] = range(len(df))
+
+        # Normalise nullable integer columns for Pandera validation
+        _coerce_nullable_int_columns(
+            df,
+            self._NULLABLE_INT_COLUMNS,
+            self._INTEGER_COLUMN_MINIMUMS,
+        )
 
         # Reorder columns according to schema and add missing columns with None
         from bioetl.schemas import TestItemSchema
