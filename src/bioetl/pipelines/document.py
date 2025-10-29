@@ -634,6 +634,16 @@ class DocumentPipeline(PipelineBase):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform document data with multi-source merge."""
         if df.empty:
+            expected_columns = DocumentSchema.get_column_order()
+
+            if expected_columns:
+                empty_df = pd.DataFrame(columns=expected_columns)
+                logger.info(
+                    "transform_returning_empty_schema",
+                    columns=len(expected_columns),
+                )
+                return empty_df
+
             return df
 
         # Map ChEMBL input fields according to schema

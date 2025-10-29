@@ -7,7 +7,7 @@ from pandera.errors import SchemaErrors
 
 from bioetl.config.loader import load_config
 from bioetl.pipelines.document import DocumentPipeline
-from bioetl.schemas.document import DocumentNormalizedSchema, DocumentRawSchema
+from bioetl.schemas.document import DocumentNormalizedSchema, DocumentRawSchema, DocumentSchema
 
 
 class _DummyTTLCache(dict):
@@ -158,8 +158,20 @@ def test_raw_validation_reorders_columns(document_pipeline):
         "src_id",
     ]
     assert list(validated.columns[len(schema_columns) :]) == extras
-
     assert validated.loc[0, "document_chembl_id"] == "CHEMBL999"
+
+
+def test_transform_empty_dataframe_includes_all_columns(document_pipeline):
+    """Transform should return an empty frame with full schema when no rows are present."""
+
+    empty_df = pd.DataFrame(columns=["document_chembl_id"])
+
+    transformed = document_pipeline.transform(empty_df)
+
+    expected_columns = DocumentSchema.get_column_order()
+
+    assert transformed.empty
+    assert list(transformed.columns) == expected_columns
 
 
 def test_validate_enforces_qc_thresholds(document_pipeline, monkeypatch):
