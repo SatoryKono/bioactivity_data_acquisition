@@ -244,6 +244,8 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     typer.echo(f"Quality report: {artifacts.quality_report}")
     if artifacts.metadata is not None:
         typer.echo(f"Metadata: {artifacts.metadata}")
+    if artifacts.debug_dataset:
+        typer.echo(f"Debug dataset: {artifacts.debug_dataset}")
     if artifacts.qc_summary:
         typer.echo(f"QC summary: {artifacts.qc_summary}")
     if artifacts.qc_missing_mappings:
