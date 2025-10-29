@@ -41,6 +41,13 @@ from bioetl.schemas import (
 )
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils import finalize_pipeline_output
+from bioetl.utils.qc import (
+    prepare_enrichment_metrics,
+    prepare_missing_mappings,
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
 from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
@@ -550,7 +557,7 @@ class TargetPipeline(PipelineBase):
         )
 
         if self._qc_missing_mapping_records:
-            self.qc_missing_mappings = pd.DataFrame(self._qc_missing_mapping_records).convert_dtypes()
+            self.qc_missing_mappings = prepare_missing_mappings(self._qc_missing_mapping_records)
         else:
             self.qc_missing_mappings = pd.DataFrame()
 
@@ -2202,9 +2209,7 @@ class TargetPipeline(PipelineBase):
             if not passed:
                 failing.append({"metric": name, "severity": severity, "value": value_float, "threshold": min_threshold_value})
 
-        self.qc_enrichment_metrics = (
-            pd.DataFrame(records).convert_dtypes() if records else pd.DataFrame()
-        )
+        self.qc_enrichment_metrics = prepare_enrichment_metrics(records)
 
         blocking: list[dict[str, Any]] = []
         downgraded: list[dict[str, Any]] = []
@@ -2249,8 +2254,8 @@ class TargetPipeline(PipelineBase):
             "classifications": int(len(protein_class_df)),
             "xrefs": int(len(xref_df)),
         }
-        self.qc_summary_data["row_counts"] = dataset_counts
-        self.qc_summary_data["datasets"] = dataset_counts
+        update_summary_section(self.qc_summary_data, "row_counts", dataset_counts)
+        update_summary_section(self.qc_summary_data, "datasets", dataset_counts)
 
         fallback_counts = {
             key.split(".")[1]: int(value)
@@ -2258,23 +2263,24 @@ class TargetPipeline(PipelineBase):
             if key.startswith("fallback.") and key.endswith(".count")
         }
         if fallback_counts:
-            self.qc_summary_data["fallback_counts"] = fallback_counts
+            update_summary_section(self.qc_summary_data, "fallback_counts", fallback_counts)
 
-        self.qc_summary_data.setdefault("metrics", {}).update(self.qc_metrics)
+        update_summary_metrics(self.qc_summary_data, self.qc_metrics)
 
-        severity_counts: dict[str, int] = {}
-        for issue in self.validation_issues:
-            severity = str(issue.get("severity", "info")).lower()
-            severity_counts[severity] = severity_counts.get(severity, 0) + 1
-
-        self.qc_summary_data["validation_issue_counts"] = severity_counts
-        self.qc_summary_data["validation_issue_total"] = len(self.validation_issues)
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
 
         if not self.qc_missing_mappings.empty:
-            self.qc_summary_data["missing_mappings"] = {
-                "records": int(len(self.qc_missing_mappings)),
-                "stages": sorted(self.qc_missing_mappings["stage"].dropna().unique().tolist()),
-            }
+            update_summary_section(
+                self.qc_summary_data,
+                "missing_mappings",
+                {
+                    "records": int(len(self.qc_missing_mappings)),
+                    "stages": sorted(
+                        self.qc_missing_mappings["stage"].dropna().unique().tolist()
+                    ),
+                },
+                merge=False,
+            )
 
     def _validate_with_schema(
         self,

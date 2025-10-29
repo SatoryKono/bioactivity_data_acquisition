@@ -28,6 +28,11 @@ from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.qc import (
+    register_fallback_statistics,
+    update_summary_metrics,
+    update_validation_issue_summary,
+)
 from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
@@ -1235,7 +1240,7 @@ class ActivityPipeline(PipelineBase):
             )
 
         self.qc_metrics = qc_metrics
-        self.qc_summary_data.setdefault("metrics", {}).update(qc_metrics)
+        update_summary_metrics(self.qc_summary_data, qc_metrics)
         self._last_validation_report = {"metrics": qc_metrics}
 
         severity_threshold = self.config.qc.severity_threshold.lower()
@@ -1359,25 +1364,11 @@ class ActivityPipeline(PipelineBase):
             self._last_validation_report["issues"] = list(self.validation_issues)
 
         logger.info("schema_validation_passed", rows=len(validated_df))
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
 
     def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:
         """Capture fallback diagnostics for QC reporting and additional outputs."""
-
-        self._fallback_stats = {}
-
-        if "source_system" not in df.columns:
-            self.remove_additional_table("activity_fallback_records")
-            self.qc_summary_data.pop("fallbacks", None)
-            return
-
-        source_series = df["source_system"].astype("string")
-        fallback_mask = source_series.str.upper() == "CHEMBL_FALLBACK"
-
-        total_rows = int(len(df))
-        fallback_count = int(fallback_mask.sum())
-        success_count = int(total_rows - fallback_count)
-        fallback_rate = float(fallback_count / total_rows) if total_rows else 0.0
 
         fallback_columns = [
             "activity_id",
@@ -1394,55 +1385,23 @@ class ActivityPipeline(PipelineBase):
             "run_id",
             "extracted_at",
         ]
-        available_columns = [column for column in fallback_columns if column in df.columns]
-
-        fallback_records = (
-            df.loc[fallback_mask, available_columns].copy()
-            if fallback_count and available_columns
-            else pd.DataFrame(columns=available_columns)
+        fallback_records = register_fallback_statistics(
+            df,
+            summary=self.qc_summary_data,
+            id_column="activity_id",
+            fallback_columns=fallback_columns,
         )
 
-        if not fallback_records.empty:
-            fallback_records = fallback_records.reset_index(drop=True).convert_dtypes()
-            normalise_retry_after_column(fallback_records)
+        self._fallback_stats = self.qc_summary_data.get("fallbacks", {})
 
-        reason_counts: dict[str, int] = {}
-        if fallback_count and "fallback_reason" in fallback_records.columns:
-            counts = (
-                fallback_records["fallback_reason"].fillna("<missing>")
-                .value_counts(dropna=False)
-                .to_dict()
-            )
-            reason_counts = {str(reason): int(count) for reason, count in counts.items()}
-
-        fallback_ids: list[int] = []
-        if "activity_id" in fallback_records.columns and not fallback_records.empty:
-            id_series = pd.to_numeric(fallback_records["activity_id"], errors="coerce")
-            fallback_ids = sorted({int(value) for value in id_series.dropna().astype(int).tolist()})
-
-        fallback_summary = {
-            "total_rows": total_rows,
-            "success_count": success_count,
-            "fallback_count": fallback_count,
-            "fallback_rate": fallback_rate,
-            "activity_ids": fallback_ids,
-            "reason_counts": reason_counts,
-        }
-
-        self._fallback_stats = fallback_summary
-        self.qc_summary_data["row_counts"] = {
-            "total": total_rows,
-            "success": success_count,
-            "fallback": fallback_count,
-        }
-        self.qc_summary_data["fallbacks"] = fallback_summary
+        fallback_count = int(self._fallback_stats.get("fallback_count", 0))
 
         if fallback_count:
             logger.warning(
                 "chembl_fallback_records_detected",
                 count=fallback_count,
-                activity_ids=fallback_ids,
-                reasons=reason_counts,
+                activity_ids=self._fallback_stats.get("ids"),
+                reasons=self._fallback_stats.get("reason_counts"),
             )
             self.add_additional_table(
                 "activity_fallback_records",

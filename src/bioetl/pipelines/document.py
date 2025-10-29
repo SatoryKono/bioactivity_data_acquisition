@@ -33,6 +33,13 @@ from bioetl.schemas.document import (
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.fallback import build_fallback_payload, normalise_retry_after_column
+from bioetl.utils.qc import (
+    compute_field_coverage,
+    duplicate_summary,
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
 from bioetl.utils.io import load_input_frame, resolve_input_path
 
 NAType = type(pd.NA)
@@ -876,9 +883,22 @@ class DocumentPipeline(PipelineBase):
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
             self.qc_metrics = {}
+            update_summary_section(self.qc_summary_data, "row_counts", {"documents": 0})
+            update_summary_section(
+                self.qc_summary_data,
+                "datasets",
+                {"documents": {"rows": 0}},
+            )
+            update_summary_section(
+                self.qc_summary_data,
+                "duplicates",
+                {"documents": duplicate_summary(0, 0, field="document_chembl_id")},
+            )
+            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
             return df
 
         working_df = df.copy().convert_dtypes()
+        initial_rows = int(len(working_df))
 
         canonical_order = DocumentSchema.get_column_order()
         if canonical_order:
@@ -968,7 +988,46 @@ class DocumentPipeline(PipelineBase):
 
         metrics = self._compute_qc_metrics(validated_df)
         self.qc_metrics = metrics
+        update_summary_metrics(self.qc_summary_data, metrics)
+        row_count = int(len(validated_df))
+        update_summary_section(self.qc_summary_data, "row_counts", {"documents": row_count})
+        update_summary_section(
+            self.qc_summary_data,
+            "datasets",
+            {"documents": {"rows": row_count}},
+        )
+        update_summary_section(
+            self.qc_summary_data,
+            "duplicates",
+            {
+                "documents": duplicate_summary(
+                    initial_rows,
+                    int(duplicate_count),
+                    field="document_chembl_id",
+                )
+            },
+        )
+
+        coverage_columns = {
+            "doi": "doi_clean",
+            "pmid": "pmid" if "pmid" in validated_df.columns else "pubmed_id",
+            "title": "title",
+            "journal": "journal",
+            "authors": "authors",
+        }
+        coverage_stats = compute_field_coverage(validated_df, coverage_columns.values())
+        coverage_payload = {
+            key: coverage_stats.get(column, 0.0)
+            for key, column in coverage_columns.items()
+        }
+        update_summary_section(
+            self.qc_summary_data,
+            "coverage",
+            {"documents": coverage_payload},
+        )
         self._enforce_qc_thresholds(metrics)
+
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
         return validated_df
