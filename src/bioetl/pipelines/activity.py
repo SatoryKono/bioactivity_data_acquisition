@@ -74,6 +74,12 @@ UNIT_SYNONYMS = {
 }
 BOOLEAN_TRUE = {"true", "1", "yes", "y", "t"}
 BOOLEAN_FALSE = {"false", "0", "no", "n", "f"}
+INTEGER_COLUMNS: tuple[str, ...] = (
+    "standard_flag",
+    "potential_duplicate",
+    "src_id",
+    "target_tax_id",
+)
 
 
 def _is_na(value: Any) -> bool:
@@ -866,7 +872,19 @@ class ActivityPipeline(PipelineBase):
             cache_path.unlink(missing_ok=True)
             return None
 
-        return [dict(record) for record in data]
+        if not isinstance(data, list):
+            logger.warning("cache_payload_unexpected", path=str(cache_path))
+            return None
+
+        ordered_records: list[dict[str, Any]] = []
+        for raw_record in data:
+            if not isinstance(raw_record, dict):
+                logger.warning("cache_record_invalid", path=str(cache_path))
+                return None
+
+            ordered_records.append(dict(raw_record))
+
+        return ordered_records
 
     def _store_batch_in_cache(self, batch_ids: Iterable[int], records: list[dict[str, Any]]) -> None:
         """Persist batch records into the local cache."""
@@ -877,9 +895,15 @@ class ActivityPipeline(PipelineBase):
         cache_path = self._cache_path(batch_ids)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
 
-        serializable = [dict(record) for record in sorted(records, key=lambda row: (row.get("activity_id") or 0, row.get("source_system", "")))]
+        serializable = [
+            dict(record)
+            for record in sorted(
+                records,
+                key=lambda row: (row.get("activity_id") or 0, row.get("source_system", "")),
+            )
+        ]
         with cache_path.open("w", encoding="utf-8") as handle:
-            json.dump(serializable, handle, ensure_ascii=False, sort_keys=True)
+            json.dump(serializable, handle, ensure_ascii=False)
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
@@ -961,6 +985,12 @@ class ActivityPipeline(PipelineBase):
                 if col not in df.columns:
                     df[col] = None
             df = df[expected_cols]
+
+        df = df.convert_dtypes()
+
+        for column in INTEGER_COLUMNS:
+            if column in df.columns:
+                df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
 
         return df
 

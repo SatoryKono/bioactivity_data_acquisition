@@ -235,5 +235,17 @@ class ActivitySchema(BaseSchema):
     class Config:
         strict = True
         coerce = True
-        ordered = True
+        ordered = False  # Column order enforced via pipeline determinism utilities
+
+
+class _ActivityColumnOrderAccessor:
+    """Descriptor exposing column order for backwards compatibility."""
+
+    def __get__(self, instance, owner) -> list[str]:  # noqa: D401 - short accessor
+        return ActivitySchema.get_column_order()
+
+
+# Mirror behaviour from other schemas: surface column_order via Config without
+# registering it as a Pandera check during model creation.
+ActivitySchema.Config.column_order = _ActivityColumnOrderAccessor()
 
