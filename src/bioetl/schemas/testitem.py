@@ -16,7 +16,9 @@ class TestItemSchema(BaseSchema):
         description="Primary identifier",
     )
     molregno: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=1, description="Internal ChEMBL registry number"
+        nullable=True,
+        ge=1,
+        description="Internal ChEMBL registry number",
     )
     pref_name: Series[str] = pa.Field(nullable=True, description="Preferred name")
     pref_name_key: Series[str] = pa.Field(nullable=True, description="Normalized preferred name key")
@@ -26,21 +28,29 @@ class TestItemSchema(BaseSchema):
         description="Parent molecule ChEMBL ID",
     )
     parent_molregno: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=1, description="Parent molregno"
+        nullable=True,
+        ge=1,
+        description="Parent molregno",
     )
     therapeutic_flag: Series[bool] = pa.Field(nullable=True, description="Therapeutic flag")
     structure_type: Series[str] = pa.Field(nullable=True, description="Structure type")
     molecule_type: Series[str] = pa.Field(nullable=True, description="Molecule type")
     molecule_type_chembl: Series[str] = pa.Field(nullable=True, description="Molecule type from ChEMBL")
     max_phase: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Maximum clinical phase"
+        nullable=True,
+        ge=0,
+        description="Maximum clinical phase",
     )
     first_approval: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="First approval year"
+        nullable=True,
+        ge=0,
+        description="First approval year",
     )
     dosed_ingredient: Series[bool] = pa.Field(nullable=True, description="Dosed ingredient flag")
     availability_type: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Availability type"
+        nullable=True,
+        ge=0,
+        description="Availability type",
     )
     chirality: Series[str] = pa.Field(nullable=True, description="Chirality descriptor")
     chirality_chembl: Series[str] = pa.Field(nullable=True, description="ChEMBL chirality descriptor")
@@ -56,14 +66,20 @@ class TestItemSchema(BaseSchema):
     prodrug: Series[bool] = pa.Field(nullable=True, description="Prodrug flag")
     inorganic_flag: Series[bool] = pa.Field(nullable=True, description="Inorganic flag")
     polymer_flag: Series[bool] = pa.Field(nullable=True, description="Polymer flag")
-    usan_year: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0, description="USAN year")
+    usan_year: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="USAN year",
+    )
     usan_stem: Series[str] = pa.Field(nullable=True, description="USAN stem")
     usan_substem: Series[str] = pa.Field(nullable=True, description="USAN substem")
     usan_stem_definition: Series[str] = pa.Field(nullable=True, description="USAN stem definition")
     indication_class: Series[str] = pa.Field(nullable=True, description="Indication class")
     withdrawn_flag: Series[bool] = pa.Field(nullable=True, description="Withdrawn flag")
     withdrawn_year: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Withdrawal year"
+        nullable=True,
+        ge=0,
+        description="Withdrawal year",
     )
     withdrawn_country: Series[str] = pa.Field(nullable=True, description="Withdrawal country")
     withdrawn_reason: Series[str] = pa.Field(nullable=True, description="Withdrawal reason")
@@ -82,13 +98,27 @@ class TestItemSchema(BaseSchema):
 
     mw_freebase: Series[float] = pa.Field(nullable=True, ge=0, description="Free base molecular weight")
     alogp: Series[float] = pa.Field(nullable=True, description="ALogP")
-    hba: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0, description="Hydrogen bond acceptors")
-    hbd: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0, description="Hydrogen bond donors")
+    hba: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Hydrogen bond acceptors",
+    )
+    hbd: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Hydrogen bond donors",
+    )
     psa: Series[float] = pa.Field(nullable=True, ge=0, description="Polar surface area")
-    rtb: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=0, description="Rotatable bonds (rtb)")
+    rtb: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Rotatable bonds (rtb)",
+    )
     ro3_pass: Series[bool] = pa.Field(nullable=True, description="Rule of three pass flag")
     num_ro5_violations: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Number of RO5 violations"
+        nullable=True,
+        ge=0,
+        description="Number of RO5 violations",
     )
     acd_most_apka: Series[float] = pa.Field(nullable=True, description="ACD most acidic pKa")
     acd_most_bpka: Series[float] = pa.Field(nullable=True, description="ACD most basic pKa")
@@ -97,25 +127,37 @@ class TestItemSchema(BaseSchema):
     molecular_species: Series[str] = pa.Field(nullable=True, description="Molecular species")
     full_mwt: Series[float] = pa.Field(nullable=True, ge=0, description="Full molecular weight")
     aromatic_rings: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Aromatic ring count"
+        nullable=True,
+        ge=0,
+        description="Aromatic ring count",
     )
     heavy_atoms: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Heavy atom count"
+        nullable=True,
+        ge=0,
+        description="Heavy atom count",
     )
     qed_weighted: Series[float] = pa.Field(nullable=True, description="QED weighted score")
     mw_monoisotopic: Series[float] = pa.Field(nullable=True, ge=0, description="Monoisotopic molecular weight")
     full_molformula: Series[str] = pa.Field(nullable=True, description="Full molecular formula")
     hba_lipinski: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Lipinski H-bond acceptors"
+        nullable=True,
+        ge=0,
+        description="Lipinski H-bond acceptors",
     )
     hbd_lipinski: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Lipinski H-bond donors"
+        nullable=True,
+        ge=0,
+        description="Lipinski H-bond donors",
     )
     num_lipinski_ro5_violations: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Lipinski RO5 violation count"
+        nullable=True,
+        ge=0,
+        description="Lipinski RO5 violation count",
     )
     lipinski_ro5_violations: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Alias for Lipinski RO5 violations"
+        nullable=True,
+        ge=0,
+        description="Alias for Lipinski RO5 violations",
     )
     lipinski_ro5_pass: Series[bool] = pa.Field(nullable=True, description="Lipinski RO5 pass flag")
 
@@ -138,17 +180,23 @@ class TestItemSchema(BaseSchema):
 
     fallback_error_code: Series[str] = pa.Field(nullable=True, description="Fallback error code")
     fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Fallback HTTP status"
+        nullable=True,
+        ge=0,
+        description="Fallback HTTP status",
     )
-    fallback_retry_after_sec: Series[float] = pa.Field(
-        nullable=True, ge=0, description="Fallback Retry-After seconds"
-    )
+    fallback_retry_after_sec: Series[float] = pa.Field(nullable=True, ge=0, description="Fallback Retry-After seconds")
     fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="Fallback attempt"
+        nullable=True,
+        ge=0,
+        description="Fallback attempt",
     )
     fallback_error_message: Series[str] = pa.Field(nullable=True, description="Fallback error message")
 
-    pubchem_cid: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1, description="PubChem CID")
+    pubchem_cid: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=1,
+        description="PubChem CID",
+    )
     pubchem_molecular_formula: Series[str] = pa.Field(nullable=True, description="PubChem molecular formula")
     pubchem_molecular_weight: Series[float] = pa.Field(nullable=True, ge=0, description="PubChem molecular weight")
     pubchem_canonical_smiles: Series[str] = pa.Field(nullable=True, description="PubChem canonical SMILES")
@@ -167,7 +215,9 @@ class TestItemSchema(BaseSchema):
     pubchem_cid_source: Series[str] = pa.Field(nullable=True, description="PubChem CID source")
     pubchem_fallback_used: Series[bool] = pa.Field(nullable=True, description="PubChem fallback used flag")
     pubchem_enrichment_attempt: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True, ge=0, description="PubChem enrichment attempt"
+        nullable=True,
+        ge=0,
+        description="PubChem enrichment attempt",
     )
     pubchem_lookup_inchikey: Series[str] = pa.Field(nullable=True, description="Lookup InChIKey used for PubChem resolution")
 
