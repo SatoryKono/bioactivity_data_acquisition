@@ -214,6 +214,23 @@ def _normalize_float(value: Any) -> float | None:
     return result
 
 
+def _normalize_non_negative_float(value: Any, *, column: str) -> float | None:
+    """Convert to float and drop negative values with a structured log entry."""
+
+    result = _normalize_float(value)
+    if result is None:
+        return None
+    if result < 0:
+        logger.warning(
+            "non_negative_float_sanitized",
+            column=column,
+            original_value=result,
+            sanitized_value=None,
+        )
+        return None
+    return result
+
+
 def _normalize_int(value: Any) -> int | None:
     """Convert values to integers when possible."""
 
@@ -728,12 +745,18 @@ class ActivityPipeline(PipelineBase):
 
         published_type = _normalize_string(activity.get("type") or activity.get("published_type"), uppercase=True)
         published_relation = _normalize_relation(activity.get("relation") or activity.get("published_relation"), default="=")
-        published_value = _normalize_float(activity.get("value") or activity.get("published_value"))
+        published_value = _normalize_non_negative_float(
+            activity.get("value") or activity.get("published_value"),
+            column="published_value",
+        )
         published_units = _normalize_units(activity.get("units") or activity.get("published_units"))
 
         standard_type = _normalize_string(activity.get("standard_type"), uppercase=True)
         standard_relation = _normalize_relation(activity.get("standard_relation"), default="=")
-        standard_value = _normalize_float(activity.get("standard_value"))
+        standard_value = _normalize_non_negative_float(
+            activity.get("standard_value"),
+            column="standard_value",
+        )
         standard_units = _normalize_units(activity.get("standard_units"), default="nM")
         standard_flag = _normalize_int(activity.get("standard_flag"))
 
