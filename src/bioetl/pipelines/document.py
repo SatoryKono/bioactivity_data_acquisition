@@ -2,8 +2,10 @@
 
 import os
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -50,6 +52,105 @@ from bioetl.utils.output import finalize_output_dataset
 NAType = type(pd.NA)
 
 logger = UnifiedLogger.get(__name__)
+
+# ---------------------------------------------------------------------------
+# External adapter configuration profiles
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """Specification describing how to resolve a configuration attribute."""
+
+    default: Any | None = None
+    default_factory: Callable[[], Any] | None = None
+    env: str | None = None
+    coalesce_default_on_blank: bool = False
+
+    def get_default(self) -> Any:
+        """Return a copy of the default value for this field."""
+
+        if self.default_factory is not None:
+            return self.default_factory()
+        return deepcopy(self.default)
+
+
+@dataclass(frozen=True)
+class AdapterDefinition:
+    """Definition for constructing external enrichment adapters."""
+
+    adapter_cls: type[Any]
+    api_fields: dict[str, FieldSpec]
+    adapter_fields: dict[str, FieldSpec]
+
+
+_ADAPTER_DEFINITIONS: dict[str, AdapterDefinition] = {
+    "pubmed": AdapterDefinition(
+        adapter_cls=PubMedAdapter,
+        api_fields={
+            "base_url": FieldSpec(default="https://eutils.ncbi.nlm.nih.gov/entrez/eutils"),
+            "rate_limit_max_calls": FieldSpec(default=3),
+            "rate_limit_period": FieldSpec(default=1.0),
+            "rate_limit_jitter": FieldSpec(default=True),
+            "headers": FieldSpec(default_factory=dict),
+        },
+        adapter_fields={
+            "batch_size": FieldSpec(default=200),
+            "workers": FieldSpec(default=1),
+            "tool": FieldSpec(
+                default="bioactivity_etl",
+                env="PUBMED_TOOL",
+                coalesce_default_on_blank=True,
+            ),
+            "email": FieldSpec(default="", env="PUBMED_EMAIL"),
+            "api_key": FieldSpec(default="", env="PUBMED_API_KEY"),
+        },
+    ),
+    "crossref": AdapterDefinition(
+        adapter_cls=CrossrefAdapter,
+        api_fields={
+            "base_url": FieldSpec(default="https://api.crossref.org"),
+            "rate_limit_max_calls": FieldSpec(default=2),
+            "rate_limit_period": FieldSpec(default=1.0),
+            "rate_limit_jitter": FieldSpec(default=True),
+            "headers": FieldSpec(default_factory=dict),
+        },
+        adapter_fields={
+            "batch_size": FieldSpec(default=100),
+            "workers": FieldSpec(default=2),
+            "mailto": FieldSpec(default="", env="CROSSREF_MAILTO"),
+        },
+    ),
+    "openalex": AdapterDefinition(
+        adapter_cls=OpenAlexAdapter,
+        api_fields={
+            "base_url": FieldSpec(default="https://api.openalex.org"),
+            "rate_limit_max_calls": FieldSpec(default=10),
+            "rate_limit_period": FieldSpec(default=1.0),
+            "rate_limit_jitter": FieldSpec(default=True),
+            "headers": FieldSpec(default_factory=dict),
+        },
+        adapter_fields={
+            "batch_size": FieldSpec(default=100),
+            "workers": FieldSpec(default=4),
+        },
+    ),
+    "semantic_scholar": AdapterDefinition(
+        adapter_cls=SemanticScholarAdapter,
+        api_fields={
+            "base_url": FieldSpec(default="https://api.semanticscholar.org/graph/v1"),
+            "rate_limit_max_calls": FieldSpec(default=1),
+            "rate_limit_period": FieldSpec(default=1.25),
+            "rate_limit_jitter": FieldSpec(default=True),
+            "headers": FieldSpec(default_factory=dict),
+        },
+        adapter_fields={
+            "batch_size": FieldSpec(default=50),
+            "workers": FieldSpec(default=1),
+            "api_key": FieldSpec(default="", env="SEMANTIC_SCHOLAR_API_KEY"),
+        },
+    ),
+}
 
 # Register schema
 schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
@@ -179,104 +280,127 @@ class DocumentPipeline(PipelineBase):
         return validated
 
     def _init_external_adapters(self) -> None:
-        """Initialize external API adapters."""
+        """Initialize external API adapters using structured definitions."""
+
+        self.external_adapters.clear()
         sources = self.config.sources
 
-        # PubMed adapter
-        if "pubmed" in sources and hasattr(sources["pubmed"], "enabled") and sources["pubmed"].enabled:
-            pubmed = sources["pubmed"]
-            pubmed_config = APIConfig(
-                name="pubmed",
-                base_url=getattr(pubmed, "base_url", "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"),
-                rate_limit_max_calls=getattr(pubmed, "rate_limit_max_calls", 3),
-                rate_limit_period=getattr(pubmed, "rate_limit_period", 1.0),
-                cache_enabled=self.config.cache.enabled,
-                cache_ttl=self.config.cache.ttl,
-            )
-            adapter_config = AdapterConfig(
-                enabled=True,
-                batch_size=getattr(pubmed, "batch_size", 200),
-                workers=getattr(pubmed, "workers", 1),
-            )
-            adapter_config.tool = getattr(pubmed, "tool", "bioactivity_etl")
-            email = getattr(pubmed, "email", os.getenv("PUBMED_EMAIL", ""))
-            # Resolve environment variables in config
-            if email.startswith("${") and email.endswith("}"):
-                env_var = email[2:-1]
-                email = os.getenv(env_var, "")
-            adapter_config.email = email
-            api_key = getattr(pubmed, "api_key", os.getenv("PUBMED_API_KEY", ""))
-            if api_key.startswith("${") and api_key.endswith("}"):
-                env_var = api_key[2:-1]
-                api_key = os.getenv(env_var, "")
-            adapter_config.api_key = api_key
-            self.external_adapters["pubmed"] = PubMedAdapter(pubmed_config, adapter_config)
+        for source_name, definition in _ADAPTER_DEFINITIONS.items():
+            source_cfg = sources.get(source_name)
+            if source_cfg is None:
+                continue
 
-        # Crossref adapter
-        if "crossref" in sources and hasattr(sources["crossref"], "enabled") and sources["crossref"].enabled:
-            crossref = sources["crossref"]
-            crossref_config = APIConfig(
-                name="crossref",
-                base_url=getattr(crossref, "base_url", "https://api.crossref.org"),
-                rate_limit_max_calls=getattr(crossref, "rate_limit_max_calls", 2),
-                rate_limit_period=getattr(crossref, "rate_limit_period", 1.0),
-                cache_enabled=self.config.cache.enabled,
-                cache_ttl=self.config.cache.ttl,
-            )
-            adapter_config = AdapterConfig(
-                enabled=True,
-                batch_size=getattr(crossref, "batch_size", 100),
-                workers=getattr(crossref, "workers", 2),
-            )
-            mailto = getattr(crossref, "mailto", os.getenv("CROSSREF_MAILTO", ""))
-            if mailto.startswith("${") and mailto.endswith("}"):
-                env_var = mailto[2:-1]
-                mailto = os.getenv(env_var, "")
-            adapter_config.mailto = mailto
-            self.external_adapters["crossref"] = CrossrefAdapter(crossref_config, adapter_config)
+            enabled = bool(self._get_source_attribute(source_cfg, "enabled", True))
+            if not enabled:
+                logger.info("adapter_skipped", source=source_name, reason="disabled")
+                continue
 
-        # OpenAlex adapter
-        if "openalex" in sources and hasattr(sources["openalex"], "enabled") and sources["openalex"].enabled:
-            openalex = sources["openalex"]
-            openalex_config = APIConfig(
-                name="openalex",
-                base_url=getattr(openalex, "base_url", "https://api.openalex.org"),
-                rate_limit_max_calls=getattr(openalex, "rate_limit_max_calls", 10),
-                rate_limit_period=getattr(openalex, "rate_limit_period", 1.0),
-                cache_enabled=self.config.cache.enabled,
-                cache_ttl=self.config.cache.ttl,
+            api_config, adapter_config = self._build_adapter_configs(
+                source_name, source_cfg, definition
             )
-            adapter_config = AdapterConfig(
-                enabled=True,
-                batch_size=getattr(openalex, "batch_size", 100),
-                workers=getattr(openalex, "workers", 4),
-            )
-            self.external_adapters["openalex"] = OpenAlexAdapter(openalex_config, adapter_config)
-
-        # Semantic Scholar adapter
-        if "semantic_scholar" in sources and hasattr(sources["semantic_scholar"], "enabled") and sources["semantic_scholar"].enabled:
-            s2 = sources["semantic_scholar"]
-            s2_config = APIConfig(
-                name="semantic_scholar",
-                base_url=getattr(s2, "base_url", "https://api.semanticscholar.org/graph/v1"),
-                rate_limit_max_calls=getattr(s2, "rate_limit_max_calls", 1),
-                rate_limit_period=getattr(s2, "rate_limit_period", 1.25),
-                cache_enabled=self.config.cache.enabled,
-                cache_ttl=self.config.cache.ttl,
-            )
-            adapter_config = AdapterConfig(
-                enabled=True,
-                batch_size=getattr(s2, "batch_size", 50),
-                workers=getattr(s2, "workers", 1),
-            )
-            api_key = getattr(s2, "api_key", os.getenv("SEMANTIC_SCHOLAR_API_KEY", ""))
-            if api_key.startswith("${") and api_key.endswith("}"):
-                env_var = api_key[2:-1]
-                api_key = os.getenv(env_var, "")
-            adapter_config.api_key = api_key
-            self.external_adapters["semantic_scholar"] = SemanticScholarAdapter(s2_config, adapter_config)
+            adapter = definition.adapter_cls(api_config, adapter_config)
+            self.external_adapters[source_name] = adapter
 
         logger.info("adapters_initialized", count=len(self.external_adapters))
+
+    def _build_adapter_configs(
+        self,
+        source_name: str,
+        source_cfg: Any,
+        definition: AdapterDefinition,
+    ) -> tuple[APIConfig, AdapterConfig]:
+        """Construct API and adapter configuration objects for a source."""
+
+        cache_maxsize = getattr(self.config.cache, "maxsize", None)
+        if cache_maxsize is None:
+            cache_maxsize = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
+
+        api_kwargs: dict[str, Any] = {
+            "name": source_name,
+            "cache_enabled": self.config.cache.enabled,
+            "cache_ttl": self.config.cache.ttl,
+            "cache_maxsize": cache_maxsize,
+        }
+
+        for field_name, spec in definition.api_fields.items():
+            raw_value = self._get_source_attribute(source_cfg, field_name)
+            value = self._resolve_field_value(raw_value, spec)
+            api_kwargs[field_name] = value
+
+        adapter_kwargs: dict[str, Any] = {"enabled": True}
+        for field_name, spec in definition.adapter_fields.items():
+            raw_value = self._get_source_attribute(source_cfg, field_name)
+            value = self._resolve_field_value(raw_value, spec)
+            adapter_kwargs[field_name] = value
+
+        api_config = APIConfig(**api_kwargs)
+        adapter_config = AdapterConfig(**adapter_kwargs)
+        return api_config, adapter_config
+
+    @staticmethod
+    def _get_source_attribute(source_cfg: Any, attr: str, default: Any = None) -> Any:
+        """Retrieve attribute from a TargetSourceConfig or mapping."""
+
+        if isinstance(source_cfg, dict):
+            return source_cfg.get(attr, default)
+        return getattr(source_cfg, attr, default)
+
+    def _resolve_field_value(self, raw_value: Any, spec: FieldSpec) -> Any:
+        """Resolve value from configuration applying env substitutions and defaults."""
+
+        default_value = spec.get_default()
+        value = default_value if raw_value is None else raw_value
+        value = self._apply_env_substitutions(value)
+
+        if (value is None or (isinstance(value, str) and value == "")) and spec.env:
+            env_value = os.getenv(spec.env)
+            if env_value is not None:
+                value = env_value
+
+        if (
+            isinstance(default_value, (int, float))
+            and not isinstance(default_value, bool)
+            and isinstance(value, str)
+            and value
+        ):
+            try:
+                value = type(default_value)(value)
+            except ValueError:
+                pass
+
+        if spec.coalesce_default_on_blank and isinstance(value, str) and not value.strip():
+            value = default_value
+
+        if value is None:
+            value = default_value
+
+        return value
+
+    def _apply_env_substitutions(self, value: Any) -> Any:
+        """Recursively resolve environment placeholders in configuration values."""
+
+        if isinstance(value, str):
+            return self._resolve_env_reference(value)
+        if isinstance(value, dict):
+            return {key: self._apply_env_substitutions(val) for key, val in value.items()}
+        if isinstance(value, list):
+            return [self._apply_env_substitutions(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(self._apply_env_substitutions(item) for item in value)
+        return value
+
+    @staticmethod
+    def _resolve_env_reference(value: str) -> str:
+        """Resolve env-style placeholders like ``${VAR}`` or ``env:VAR``."""
+
+        candidate = value.strip()
+        if candidate.startswith("env:"):
+            env_name = candidate.split(":", 1)[1]
+            return os.getenv(env_name, "")
+        if candidate.startswith("${") and candidate.endswith("}"):
+            env_name = candidate[2:-1]
+            return os.getenv(env_name, "")
+        return value
 
     def _enrich_with_external_sources(self, chembl_df: pd.DataFrame) -> pd.DataFrame:
         """Enrich ChEMBL data with external sources."""

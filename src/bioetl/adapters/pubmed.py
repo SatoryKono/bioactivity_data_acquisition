@@ -14,7 +14,11 @@ NORMALIZER_STRING = registry.get("string")
 
 
 class PubMedAdapter(ExternalAdapter):
-    """Adapter for PubMed E-utilities API."""
+    """Adapter for PubMed E-utilities API.
+
+    :meth:`_fetch_batch` implements the PubMed-specific fetching that is reused
+    via the shared batching helper.
+    """
 
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize PubMed adapter."""
@@ -39,23 +43,8 @@ class PubMedAdapter(ExternalAdapter):
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by PMIDs using EPost + EFetch."""
 
-        if not ids:
-            return []
-
         batch_size = self.adapter_config.batch_size or 200
-        all_records = []
-
-        # Process in batches
-        for i in range(0, len(ids), batch_size):
-            batch_ids = ids[i : i + batch_size]
-            try:
-                records = self._fetch_batch(batch_ids)
-                all_records.extend(records)
-            except Exception as e:
-                self.logger.error("batch_fetch_failed", batch=i, error=str(e))
-                # Continue with next batch
-
-        return all_records
+        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, pmids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of PMIDs using EFetch directly."""

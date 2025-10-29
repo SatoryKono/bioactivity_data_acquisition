@@ -10,26 +10,15 @@ NORMALIZER_STRING = registry.get("string")
 
 
 class OpenAlexAdapter(ExternalAdapter):
-    """Adapter for OpenAlex Works API."""
+    """Adapter for OpenAlex Works API.
+
+    Override :meth:`_fetch_batch` to plug into the shared batching helper.
+    """
 
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by identifiers (DOI, PMID, or OpenAlex ID)."""
-        if not ids:
-            return []
-
         batch_size = self.adapter_config.batch_size or 100
-        all_records = []
-
-        # Process in batches
-        for i in range(0, len(ids), batch_size):
-            batch_ids = ids[i : i + batch_size]
-            try:
-                records = self._fetch_batch(batch_ids)
-                all_records.extend(records)
-            except Exception as e:
-                self.logger.error("batch_fetch_failed", batch=i, error=str(e))
-
-        return all_records
+        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of works."""
