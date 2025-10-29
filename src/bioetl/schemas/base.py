@@ -1,6 +1,6 @@
 """Base Pandera schemas."""
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series
 
 
