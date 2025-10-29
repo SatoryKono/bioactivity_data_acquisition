@@ -1,8 +1,22 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping, MutableMapping, Sequence
+from typing import Any, Mapping, MutableMapping, Sequence
 
-from . import exceptions as exceptions
+from .exceptions import (
+    ConnectionError,
+    HTTPError,
+    InvalidSchema,
+    InvalidURL,
+    JSONDecodeError,
+    MissingSchema,
+    ReadTimeout,
+    RequestException,
+    RetryError,
+    Timeout,
+    TooManyRedirects,
+    URLRequired,
+)
+from .models import PreparedRequest, Request, Response
 
 __all__ = [
     "PreparedRequest",
@@ -10,42 +24,27 @@ __all__ = [
     "Response",
     "Session",
     "exceptions",
+    "delete",
     "get",
+    "head",
+    "options",
+    "patch",
     "post",
+    "put",
     "request",
+    "ConnectionError",
+    "HTTPError",
+    "InvalidSchema",
+    "InvalidURL",
+    "JSONDecodeError",
+    "MissingSchema",
+    "ReadTimeout",
+    "RequestException",
+    "RetryError",
+    "Timeout",
+    "TooManyRedirects",
+    "URLRequired",
 ]
-
-
-class PreparedRequest:
-    method: str | None
-    url: str | None
-    headers: MutableMapping[str, str]
-    body: bytes | str | None
-
-    def prepare(self, method: str, url: str, **kwargs: Any) -> None: ...
-
-
-class Response:
-    status_code: int
-    headers: MutableMapping[str, str]
-    text: str
-    content: bytes
-    url: str
-    reason: str
-    request: PreparedRequest
-
-    def json(self, **kwargs: Any) -> Any: ...
-    def raise_for_status(self) -> None: ...
-
-
-class Request:
-    method: str
-    url: str
-    headers: MutableMapping[str, str]
-    params: Mapping[str, str] | Sequence[tuple[str, str]] | None
-    data: Any
-
-    def prepare(self) -> PreparedRequest: ...
 
 
 class Session:
@@ -53,13 +52,57 @@ class Session:
 
     def __init__(self) -> None: ...
     def prepare_request(self, request: Request) -> PreparedRequest: ...
-    def request(self, method: str, url: str, **kwargs: Any) -> Response: ...
+    def request(
+        self,
+        method: str,
+        url: str,
+        params: Mapping[str, str] | Sequence[tuple[str, str]] | None = ...,
+        data: Any | None = ...,
+        headers: Mapping[str, str] | None = ...,
+        timeout: float | tuple[float, float] | None = ...,
+        **kwargs: Any,
+    ) -> Response: ...
     def get(self, url: str, **kwargs: Any) -> Response: ...
     def post(self, url: str, **kwargs: Any) -> Response: ...
+    def put(self, url: str, **kwargs: Any) -> Response: ...
+    def delete(self, url: str, **kwargs: Any) -> Response: ...
+    def head(self, url: str, **kwargs: Any) -> Response: ...
+    def options(self, url: str, **kwargs: Any) -> Response: ...
+    def patch(self, url: str, **kwargs: Any) -> Response: ...
     def close(self) -> None: ...
+    def __enter__(self) -> Session: ...
+    def __exit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: Any) -> bool | None: ...
 
 
-def request(method: str, url: str, **kwargs: Any) -> Response: ...
+class exceptions:
+    RequestException = RequestException
+    HTTPError = HTTPError
+    ConnectionError = ConnectionError
+    Timeout = Timeout
+    ReadTimeout = ReadTimeout
+    TooManyRedirects = TooManyRedirects
+    URLRequired = URLRequired
+    MissingSchema = MissingSchema
+    InvalidSchema = InvalidSchema
+    InvalidURL = InvalidURL
+    JSONDecodeError = JSONDecodeError
+    RetryError = RetryError
+
+
+def request(
+    method: str,
+    url: str,
+    params: Mapping[str, str] | Sequence[tuple[str, str]] | None = ...,
+    data: Any | None = ...,
+    headers: Mapping[str, str] | None = ...,
+    timeout: float | tuple[float, float] | None = ...,
+    **kwargs: Any,
+) -> Response: ...
+
 def get(url: str, **kwargs: Any) -> Response: ...
 def post(url: str, **kwargs: Any) -> Response: ...
-
+def put(url: str, **kwargs: Any) -> Response: ...
+def delete(url: str, **kwargs: Any) -> Response: ...
+def head(url: str, **kwargs: Any) -> Response: ...
+def options(url: str, **kwargs: Any) -> Response: ...
+def patch(url: str, **kwargs: Any) -> Response: ...
