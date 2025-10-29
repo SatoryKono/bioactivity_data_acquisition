@@ -24,6 +24,7 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.io import load_input_frame, resolve_input_path
+from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 
@@ -924,56 +925,52 @@ class AssayPipeline(PipelineBase):
 
         coerce_nullable_int(df, nullable_int_columns)
 
-        # Add pipeline metadata
-        df["pipeline_version"] = "1.0.0"
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        default_source = "chembl"
+        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
+
         if "source_system" in df.columns:
-            df["source_system"] = df["source_system"].fillna("chembl")
+            df["source_system"] = df["source_system"].fillna(default_source)
         else:
-            df["source_system"] = "chembl"
-        df["chembl_release"] = self.chembl_release
-        df["extracted_at"] = pd.Timestamp.now(tz="UTC").isoformat()
+            df["source_system"] = default_source
 
-        # Generate hash fields for data integrity
-        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+        release_value: str | None = self.chembl_release
+        if isinstance(release_value, str):
+            release_value = release_value.strip() or None
 
-        df["hash_business_key"] = df["assay_chembl_id"].apply(generate_hash_business_key)
-        df["hash_row"] = df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+        if release_value is None:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].where(
+                    df["chembl_release"].notna(),
+                    pd.NA,
+                )
+            else:
+                df["chembl_release"] = pd.NA
+        else:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].fillna(release_value)
+            else:
+                df["chembl_release"] = release_value
 
-        # Generate deterministic index
-        df = df.sort_values(["assay_chembl_id", "row_subtype", "row_index"])  # Sort by primary key
-        df["index"] = range(len(df))
+        if "extracted_at" in df.columns:
+            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
+        else:
+            df["extracted_at"] = timestamp_now
 
-        # Reorder columns according to schema and add missing columns with None
-        from bioetl.schemas import AssaySchema
+        df = finalize_output_dataset(
+            df,
+            business_key="assay_chembl_id",
+            sort_by=["assay_chembl_id", "row_subtype", "row_index"],
+            ascending=[True, True, True],
+            schema=AssaySchema,
+            metadata={
+                "pipeline_version": pipeline_version,
+                "source_system": default_source,
+                "chembl_release": release_value,
+                "extracted_at": timestamp_now,
+            },
+        )
 
-        expected_cols = resolve_schema_column_order(AssaySchema)
-        nullable_int_set = set(nullable_int_columns)
-        if expected_cols:
-            # Add missing columns with None values
-            for col in expected_cols:
-                if col not in df.columns:
-                    if col in nullable_int_set:
-                        df[col] = pd.Series(pd.NA, index=df.index, dtype=pd.Int64Dtype())
-                    else:
-                        df[col] = pd.NA
-                elif col in nullable_int_set:
-                    # Ensure dtype stability for columns already present but
-                    # potentially inferred as ``object`` when upstream payloads
-                    # contained stringified numbers or missing values.
-                    numeric_series = pd.to_numeric(df[col], errors="coerce")
-                    df[col] = pd.Series(
-                        pd.array(numeric_series, dtype=pd.Int64Dtype()),
-                        index=df.index,
-                    )
-
-            # Reorder to match schema column_order
-            df = df[expected_cols]
-
-        # Pandera enforces strict column order as part of the schema config. If
-        # new nullable integer columns were added in the previous step they will
-        # currently contain ``Int64`` values, but re-running the coercion keeps
-        # the behaviour consistent for callers that operate on the reordered
-        # frame (e.g. QC reporting) before validation happens downstream.
         coerce_nullable_int(df, nullable_int_columns)
         coerce_retry_after(df)
 

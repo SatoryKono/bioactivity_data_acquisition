@@ -28,6 +28,7 @@ from bioetl.utils.qc import (
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import canonical_json
+from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 
@@ -866,47 +867,58 @@ class TestItemPipeline(PipelineBase):
                 logger.error("pubchem_enrichment_failed", error=str(e))
                 # Continue with original data - graceful degradation
 
-        # Add pipeline metadata
-        extracted_at = pd.Timestamp.now(tz="UTC").isoformat()
-        df = df.assign(
-            pipeline_version="1.0.0",
-            source_system="chembl",
-            chembl_release=self._chembl_release,
-            extracted_at=extracted_at,
+        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        default_source = "chembl"
+        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
+
+        if "source_system" in df.columns:
+            df["source_system"] = df["source_system"].fillna(default_source)
+        else:
+            df["source_system"] = default_source
+
+        release_value: str | None = self._chembl_release
+        if isinstance(release_value, str):
+            release_value = release_value.strip() or None
+
+        if release_value is None:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].where(
+                    df["chembl_release"].notna(),
+                    pd.NA,
+                )
+            else:
+                df["chembl_release"] = pd.NA
+        else:
+            if "chembl_release" in df.columns:
+                df["chembl_release"] = df["chembl_release"].fillna(release_value)
+            else:
+                df["chembl_release"] = release_value
+
+        if "extracted_at" in df.columns:
+            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
+        else:
+            df["extracted_at"] = timestamp_now
+
+        df = finalize_output_dataset(
+            df,
+            business_key="molecule_chembl_id",
+            sort_by=["molecule_chembl_id"],
+            schema=TestItemSchema,
+            metadata={
+                "pipeline_version": pipeline_version,
+                "source_system": default_source,
+                "chembl_release": release_value,
+                "extracted_at": timestamp_now,
+            },
         )
 
-        # Generate hash fields for data integrity
-        from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
-
-        df = df.assign(
-            hash_business_key=df["molecule_chembl_id"].apply(generate_hash_business_key),
-            hash_row=df.apply(lambda row: generate_hash_row(row.to_dict()), axis=1),
+        default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
+        default_minimums.update(self._INT_COLUMN_MINIMUMS)
+        coerce_nullable_int(
+            df,
+            self._NULLABLE_INT_COLUMNS,
+            min_values=default_minimums,
         )
-
-        # Generate deterministic index
-        df = df.sort_values("molecule_chembl_id")  # Sort by primary key
-        df["index"] = range(len(df))
-
-        # Reorder columns according to schema and add missing columns with None
-        from bioetl.schemas import TestItemSchema
-
-        expected_cols = TestItemSchema.get_column_order()
-        if expected_cols:
-            # Add missing columns with None values
-            missing_columns = [col for col in expected_cols if col not in df.columns]
-            if missing_columns:
-                df = df.assign(**dict.fromkeys(missing_columns, None))
-
-            default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
-            default_minimums.update(self._INT_COLUMN_MINIMUMS)
-            coerce_nullable_int(
-                df,
-                self._NULLABLE_INT_COLUMNS,
-                min_values=default_minimums,
-            )
-
-            # Reorder to match schema column_order
-            df = df[expected_cols]
 
         return df
 
