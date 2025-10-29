@@ -4,9 +4,11 @@ import json
 import subprocess
 from collections.abc import Iterable
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
@@ -57,6 +59,62 @@ _NULLABLE_INT_COLUMNS = (
     "src_id",
 )
 
+_INT64_BOUNDS = np.iinfo(np.int64)
+
+
+def _parse_nullable_int_value(value: Any) -> int | None:
+    """Parse arbitrary input into a bounded 64-bit integer or ``None``."""
+
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        return int(value)
+
+    if isinstance(value, (int, np.integer)):
+        int_value = int(value)
+        if _INT64_BOUNDS.min <= int_value <= _INT64_BOUNDS.max:
+            return int_value
+        return None
+
+    if isinstance(value, (float, np.floating)):
+        if not np.isfinite(value) or not float(value).is_integer():
+            return None
+        int_value = int(value)
+        if _INT64_BOUNDS.min <= int_value <= _INT64_BOUNDS.max:
+            return int_value
+        return None
+
+    try:
+        text = str(value).strip()
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+    if not text:
+        return None
+
+    try:
+        decimal_value = Decimal(text)
+    except InvalidOperation:
+        return None
+
+    if decimal_value.is_nan() or decimal_value.is_infinite():
+        return None
+
+    integral = decimal_value.to_integral_value()
+    if integral != decimal_value:
+        return None
+
+    try:
+        int_value = int(integral)
+    except (OverflowError, ValueError):
+        return None
+
+    if _INT64_BOUNDS.min <= int_value <= _INT64_BOUNDS.max:
+        return int_value
+
+    return None
+
 
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
     """Coerce selected columns to Pandera-compatible nullable integer dtype."""
@@ -65,8 +123,29 @@ def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> No
         if column not in df.columns:
             continue
 
-        series = pd.to_numeric(df[column], errors="coerce")
-        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+        numeric_series = pd.to_numeric(df[column], errors="coerce")
+        values = numeric_series.to_numpy(dtype="float64", copy=False)
+        parsed = [_parse_nullable_int_value(value) for value in df[column]]
+        parsed_series = pd.Series(parsed, index=df.index, dtype="object")
+
+        if numeric_series.empty:
+            df[column] = pd.Series(pd.array(parsed, dtype="Int64"), index=df.index)
+            continue
+
+        finite_mask = np.isfinite(values)
+        fractional_mask = finite_mask & ~np.isclose(values, np.trunc(values)) & pd.isna(parsed_series)
+        if fractional_mask.any():
+            logger.warning(
+                "nullable_int_fractional_values", column=column, count=int(fractional_mask.sum())
+            )
+
+        overflow_mask = finite_mask & np.isclose(values, np.trunc(values)) & pd.isna(parsed_series)
+        if overflow_mask.any():
+            logger.warning(
+                "nullable_int_out_of_bounds", column=column, count=int(overflow_mask.sum())
+            )
+
+        df[column] = pd.Series(pd.array(parsed, dtype="Int64"), index=df.index)
 
 
 class AssayPipeline(PipelineBase):

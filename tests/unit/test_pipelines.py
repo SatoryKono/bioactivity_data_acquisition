@@ -22,7 +22,7 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
-from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
+from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS, _coerce_nullable_int_columns
 from bioetl.schemas import AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
@@ -227,6 +227,48 @@ class TestAssayPipeline:
         for column in _NULLABLE_INT_COLUMNS:
             assert str(validated[column].dtype) == "Int64"
             assert validated[column].isna().all()
+
+    def test_nullable_integer_coercion_handles_fractional_and_overflow(self, caplog):
+        """Fractional/overflowing nullable integers should be nulled during coercion."""
+
+        df = pd.DataFrame(
+            {
+                "component_count": [1.5, "2", 3.0, 4],
+                "assay_class_id": ["84", 93.0, 1.2, None],
+                "variant_id": [2**63, 5, "not-an-int", 7],
+                "src_id": ["999", -1.0, 0.0, 42],
+            }
+        )
+
+        caplog.set_level("WARNING")
+        _coerce_nullable_int_columns(
+            df,
+            ["component_count", "assay_class_id", "variant_id", "src_id"],
+        )
+
+        # Fractional values should become <NA>, integral strings should survive.
+        assert df["component_count"].dtype == "Int64"
+        assert pd.isna(df.loc[0, "component_count"])
+        assert df.loc[1, "component_count"] == 2
+        assert df.loc[3, "component_count"] == 4
+
+        assert df["assay_class_id"].dtype == "Int64"
+        assert df.loc[0, "assay_class_id"] == 84
+        assert pd.isna(df.loc[2, "assay_class_id"])
+
+        # Values outside the int64 range or not parseable become <NA>.
+        assert df["variant_id"].dtype == "Int64"
+        assert pd.isna(df.loc[0, "variant_id"])
+        assert df.loc[1, "variant_id"] == 5
+        assert pd.isna(df.loc[2, "variant_id"])
+
+        assert df["src_id"].dtype == "Int64"
+        assert df.loc[0, "src_id"] == 999
+        assert df.loc[1, "src_id"] == -1
+
+        warning_messages = [record.getMessage() for record in caplog.records]
+        assert any("nullable_int_fractional_values" in msg for msg in warning_messages)
+        assert any("nullable_int_out_of_bounds" in msg for msg in warning_messages)
 
     def test_validation_issues_reflected_in_quality_report(self, assay_config, tmp_path):
         """Referential integrity warnings should appear in QC artifacts."""
