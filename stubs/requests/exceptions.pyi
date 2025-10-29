@@ -4,7 +4,6 @@ from typing import Any
 
 from .models import Request, Response
 
-
 class RequestException(OSError):
     response: Response | None
     request: Request | None

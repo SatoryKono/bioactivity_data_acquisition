@@ -1,8 +1,7 @@
 """Minimal PyYAML stub definitions used for type checking."""
 
 from collections.abc import Iterable
-from typing import Any, IO
-
+from typing import IO, Any
 
 class Loader: ...
 

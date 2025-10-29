@@ -8,17 +8,15 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from library.config import (
-    HTTPGlobalSettings,
     HTTPSettings,
     LoggingSettings,
-    RetrySettings,
     ValidationSettings,
 )
 
 
 class TargetInputSettings(BaseModel):
     """Input configuration for the target pipeline."""
-    
+
     path: Path = Field(default=Path("data/input/targets.csv"), description="Path to input CSV file")
     encoding: str = Field(default="utf-8", description="File encoding")
     required_columns: list[str] = Field(default_factory=lambda: ["target_chembl_id"], description="Required columns")
@@ -26,7 +24,7 @@ class TargetInputSettings(BaseModel):
 
 class TargetOutputSettings(BaseModel):
     """Output configuration for the target pipeline."""
-    
+
     dir: Path = Field(default=Path("data/output/targets"), description="Output directory")
     format: str = Field(default="csv", description="Output format")
     csv: dict[str, Any] = Field(default_factory=lambda: {
@@ -40,14 +38,14 @@ class TargetOutputSettings(BaseModel):
 
 class TargetIOSettings(BaseModel):
     """Container for I/O configuration."""
-    
+
     input: TargetInputSettings = Field(default_factory=TargetInputSettings)
     output: TargetOutputSettings = Field(default_factory=TargetOutputSettings)
 
 
 class TargetRuntimeSettings(BaseModel):
     """Runtime settings for target pipeline."""
-    
+
     limit: int | None = Field(None, description="Limit number of targets to process")
     dry_run: bool = Field(False, description="Run without writing output files")
     dev_mode: bool = Field(False, description="Enable development mode")
@@ -57,7 +55,7 @@ class TargetRuntimeSettings(BaseModel):
 
 class TargetConfig(BaseModel):
     """Configuration for target ETL pipeline."""
-    
+
     # Core settings
     http: HTTPSettings = Field(default_factory=HTTPSettings)
     io: TargetIOSettings = Field(default_factory=TargetIOSettings)
@@ -65,19 +63,19 @@ class TargetConfig(BaseModel):
     runtime: TargetRuntimeSettings = Field(default_factory=TargetRuntimeSettings)
     validation: ValidationSettings = Field(default_factory=ValidationSettings)
     sources: dict[str, Any] = Field(default_factory=dict, description="Data sources configuration")
-    
+
     @classmethod
     def from_yaml(cls, config_path: Path | str, overrides: dict[str, Any] | None = None) -> TargetConfig:
         """Load configuration from YAML file."""
         import yaml
-        
+
         config_path = Path(config_path)
         if not config_path.exists():
             raise ConfigLoadError(f"Configuration file not found: {config_path}")
-        
-        with open(config_path, 'r', encoding='utf-8') as f:
+
+        with open(config_path, encoding='utf-8') as f:
             config_data = yaml.safe_load(f)
-        
+
         if overrides:
             # Apply overrides recursively
             def apply_overrides(data: dict, overrides: dict) -> dict:
@@ -87,13 +85,13 @@ class TargetConfig(BaseModel):
                     else:
                         data[key] = value
                 return data
-            
+
             config_data = apply_overrides(config_data, overrides)
-        
+
         try:
             return cls(**config_data)
         except Exception as e:
-            raise ConfigLoadError(f"Failed to load configuration: {e}")
+            raise ConfigLoadError(f"Failed to load configuration: {e}") from e
 
 
 class ConfigLoadError(Exception):

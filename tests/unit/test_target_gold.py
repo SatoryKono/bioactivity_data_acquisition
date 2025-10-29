@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Load target_gold helpers without importing the full bioetl package.
 # The production package depends on optional third-party libraries (e.g.

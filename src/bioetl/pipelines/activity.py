@@ -207,7 +207,7 @@ def _normalize_bool(value: Any, *, default: bool = False) -> bool:
         return default
     if isinstance(value, bool):
         return value
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return bool(value)
     text = str(value).strip().lower()
     if text in BOOLEAN_TRUE:
@@ -226,7 +226,7 @@ def _normalize_target_organism(value: Any) -> str | None:
 def _parse_numeric(value: Any) -> float | None:
     """Best-effort conversion to float for property parsing."""
 
-    if isinstance(value, (int, float)) and not (isinstance(value, float) and math.isnan(value)):
+    if isinstance(value, int | float) and not (isinstance(value, float) and math.isnan(value)):
         return float(value)
     if isinstance(value, str):
         try:
@@ -273,7 +273,7 @@ def _normalize_activity_properties(
                 else:
                     numeric = _parse_numeric(text_value)
                     normalized_entry[key] = numeric if numeric is not None else text_value
-            elif isinstance(value, (int, float)):
+            elif isinstance(value, int | float):
                 if isinstance(value, float) and math.isnan(value):
                     normalized_entry[key] = None
                 else:

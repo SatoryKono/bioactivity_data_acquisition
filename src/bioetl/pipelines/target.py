@@ -1845,7 +1845,7 @@ class TargetPipeline(PipelineBase):
                 continue
             if isinstance(payload, str) and payload.strip() in {"", "[]"}:
                 continue
-            if isinstance(payload, (list, tuple)) and not payload:
+            if isinstance(payload, list | tuple) and not payload:
                 continue
 
             if isinstance(payload, str):

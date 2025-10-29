@@ -26,7 +26,7 @@ def _normalise_value(value: Any) -> Any:
         if stripped == "" or stripped.lower() == "nan":
             return pd.NA
         return stripped
-    if isinstance(value, (float, np.floating)) and np.isnan(value):
+    if isinstance(value, float | np.floating) and np.isnan(value):
         return pd.NA
     return value
 
@@ -41,7 +41,7 @@ def _split_accession_field(value: Any) -> list[str]:
         tokens = value.replace(";", " ").replace(",", " ").split()
         return [token.strip() for token in tokens if token.strip()]
 
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         return [str(item).strip() for item in value if item not in {None, "", pd.NA}]
 
     return [str(value).strip()]
@@ -363,7 +363,7 @@ def expand_xrefs(
             continue
         if isinstance(raw, str) and raw.strip() in {"", "[]"}:
             continue
-        if isinstance(raw, (list, tuple)) and not raw:
+        if isinstance(raw, list | tuple) and not raw:
             continue
 
         if isinstance(raw, str):

@@ -133,7 +133,7 @@ logger = UnifiedLogger.get(__name__)
 
 def _normalize_output_value(value: object) -> object:
     """Normalize complex values (lists, tuples) to a deterministic representation."""
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list | tuple):
         filtered = [str(v) for v in value if v not in (None, "")]
         if not filtered:
             return None

@@ -9,7 +9,6 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
@@ -28,9 +27,16 @@ class _DummyTTLCache(dict):
 # Ensure the API client can import cachetools even if it's missing in test envs
 sys.modules.setdefault("cachetools", SimpleNamespace(TTLCache=_DummyTTLCache))
 
-from bioetl.config.loader import load_config
-from bioetl.normalizers.identifier import IdentifierNormalizer
-from bioetl.pipelines.document import DocumentPipeline
+
+def _import_pipeline_dependencies():
+    from bioetl.config.loader import load_config as _load_config
+    from bioetl.normalizers.identifier import IdentifierNormalizer as _IdentifierNormalizer
+    from bioetl.pipelines.document import DocumentPipeline as _DocumentPipeline
+
+    return _load_config, _IdentifierNormalizer, _DocumentPipeline
+
+
+load_config, IdentifierNormalizer, DocumentPipeline = _import_pipeline_dependencies()
 
 
 @pytest.fixture

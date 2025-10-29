@@ -6,8 +6,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 from types import MethodType
+from typing import Any
 
 import pandas as pd
 import typer

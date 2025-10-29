@@ -3,8 +3,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
-
 from bioetl.adapters.base import AdapterConfig
 from bioetl.adapters.pubmed import PubMedAdapter
 from bioetl.core.api_client import APIConfig
