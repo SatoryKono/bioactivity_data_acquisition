@@ -294,6 +294,7 @@ class TargetPipeline(PipelineBase):
             sort_by=sort_columns,
             ascending=ascending_param,
             pipeline_version=pipeline_version,
+            run_id=self.run_id,
             source_system=source_system,
             chembl_release=self._chembl_release,
             extracted_at=timestamp,

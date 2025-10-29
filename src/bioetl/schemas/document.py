@@ -370,7 +370,7 @@ class DocumentSchema(BaseSchema):
     )
 
     # System fields (from BaseSchema)
-    # index, hash_row, hash_business_key, pipeline_version, source_system, chembl_release, extracted_at
+    # index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at
 
     # Column order according to IO_SCHEMAS_AND_DIAGRAMS.md line 957
     # Stored as class attribute to avoid Pandera treating it as a custom check
@@ -379,6 +379,7 @@ class DocumentSchema(BaseSchema):
         "hash_row",
         "hash_business_key",
         "pipeline_version",
+        "run_id",
         "source_system",
         "chembl_release",
         "extracted_at",

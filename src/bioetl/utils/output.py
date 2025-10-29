@@ -11,7 +11,7 @@ from bioetl.schemas.base import BaseSchema
 
 from .dataframe import finalize_pipeline_output
 
-DEFAULT_METADATA_OVERWRITE: tuple[str, ...] = ("pipeline_version", "extracted_at")
+DEFAULT_METADATA_OVERWRITE: tuple[str, ...] = ("pipeline_version", "run_id", "extracted_at")
 
 
 def _prepare_metadata(
@@ -64,11 +64,13 @@ def _prepare_metadata(
     # Extract canonical metadata fields but still apply them locally so that the
     # caller can control how values are propagated (fill vs overwrite).
     pipeline_version = metadata_values.pop("pipeline_version", None)
+    run_id = metadata_values.pop("run_id", None)
     source_system = metadata_values.pop("source_system", None)
     chembl_release = metadata_values.pop("chembl_release", None)
     extracted_at = metadata_values.pop("extracted_at", None)
 
     apply("pipeline_version", pipeline_version)
+    apply("run_id", run_id)
     apply("source_system", source_system)
     apply("chembl_release", chembl_release)
     apply("extracted_at", extracted_at)
@@ -78,6 +80,7 @@ def _prepare_metadata(
 
     forwarded: dict[str, Any] = {
         "pipeline_version": pipeline_version,
+        "run_id": run_id,
         "source_system": source_system if "source_system" in overwrite_set else None,
         "chembl_release": chembl_release if "chembl_release" in overwrite_set else None,
         "extracted_at": extracted_at,
@@ -123,6 +126,7 @@ def finalize_output_dataset(
         sort_by=sort_by,
         ascending=ascending,
         pipeline_version=forwarded_metadata.get("pipeline_version"),
+        run_id=forwarded_metadata.get("run_id"),
         source_system=forwarded_metadata.get("source_system"),
         chembl_release=forwarded_metadata.get("chembl_release"),
         extracted_at=forwarded_metadata.get("extracted_at"),

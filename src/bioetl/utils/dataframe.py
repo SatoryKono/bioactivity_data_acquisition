@@ -101,6 +101,7 @@ def finalize_pipeline_output(
     source_system: str | None = None,
     chembl_release: str | None = None,
     extracted_at: str | None = None,
+    run_id: str | None = None,
     schema: type[BaseSchema] | None = None,
 ) -> DataFrameT:
     """Apply deterministic metadata, hashing and ordering to a dataframe."""
@@ -113,6 +114,14 @@ def finalize_pipeline_output(
     if pipeline_version is None:
         pipeline_version = "1.0.0"
     result["pipeline_version"] = pipeline_version
+
+    if run_id is not None:
+        result["run_id"] = run_id
+    elif "run_id" not in result.columns:
+        raise KeyError("run_id column is required for deterministic outputs")
+    else:
+        if result["run_id"].isna().any():
+            raise ValueError("run_id column contains null values")
 
     if source_system is not None:
         result["source_system"] = source_system

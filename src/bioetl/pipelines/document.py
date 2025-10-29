@@ -2,7 +2,7 @@
 
 import os
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -81,6 +81,8 @@ class DocumentPipeline(PipelineBase):
         "pubmed_year_revised",
         "pubmed_month_revised",
         "pubmed_day_revised",
+        "fallback_http_status",
+        "fallback_attempt",
     )
 
     _BOOLEAN_COLUMNS: tuple[str, ...] = (
@@ -615,6 +617,36 @@ class DocumentPipeline(PipelineBase):
         release = self._chembl_release or "unknown"
         return f"document:{release}:{document_id}"
 
+    @staticmethod
+    def _normalise_chembl_release_value(value: Any) -> str | None:
+        """Return a canonical ChEMBL release string or ``None`` for missing values."""
+
+        if value is None:
+            return None
+
+        if value is pd.NA:  # type: ignore[comparison-overlap]
+            return None
+
+        try:
+            if pd.isna(value):
+                return None
+        except TypeError:
+            pass
+
+        if isinstance(value, str):
+            stripped = value.strip()
+            return stripped or None
+
+        if isinstance(value, Mapping):
+            candidate = value.get("chembl_release") or value.get("version") or value.get("name")
+            if isinstance(candidate, str):
+                stripped_candidate = candidate.strip()
+                return stripped_candidate or None
+            return None
+
+        normalised = str(value).strip()
+        return normalised or None
+
     def _classify_error(self, exc: Exception) -> str:
         if isinstance(exc, requests.exceptions.ReadTimeout):
             return "E_TIMEOUT"
@@ -798,9 +830,10 @@ class DocumentPipeline(PipelineBase):
         else:
             df["source_system"] = default_source
 
-        release_value: str | None = self._chembl_release
-        if isinstance(release_value, str):
-            release_value = release_value.strip() or None
+        if "chembl_release" in df.columns:
+            df["chembl_release"] = df["chembl_release"].apply(self._normalise_chembl_release_value)
+
+        release_value = self._normalise_chembl_release_value(self._chembl_release)
 
         if release_value is None:
             if "chembl_release" in df.columns:
@@ -833,6 +866,7 @@ class DocumentPipeline(PipelineBase):
             schema=DocumentSchema,
             metadata={
                 "pipeline_version": pipeline_version,
+                "run_id": self.run_id,
                 "source_system": default_source,
                 "chembl_release": release_value,
                 "extracted_at": timestamp_now,

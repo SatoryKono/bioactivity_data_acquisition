@@ -901,6 +901,7 @@ class TestItemPipeline(PipelineBase):
             schema=TestItemSchema,
             metadata={
                 "pipeline_version": pipeline_version,
+                "run_id": self.run_id,
                 "source_system": default_source,
                 "chembl_release": release_value,
                 "extracted_at": timestamp_now,

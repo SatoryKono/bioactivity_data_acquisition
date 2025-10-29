@@ -103,6 +103,7 @@ class TargetSchema(BaseSchema):
         "iuphar_subclass",
         "data_origin",
         "pipeline_version",
+        "run_id",
         "source_system",
         "chembl_release",
         "extracted_at",

@@ -53,6 +53,7 @@ class BaseSchema(pa.DataFrameModel):
     - hash_row: SHA256 от канонической строки (для проверки целостности)
     - hash_business_key: SHA256 от бизнес-ключа (для дедупликации)
     - pipeline_version: версия пайплайна
+    - run_id: идентификатор конкретного запуска пайплайна
     - source_system: источник данных
     - chembl_release: версия ChEMBL
     - extracted_at: метка времени извлечения (ISO8601)
@@ -73,6 +74,7 @@ class BaseSchema(pa.DataFrameModel):
 
     # Системные поля
     pipeline_version: Series[str] = pa.Field(nullable=False, description="Версия пайплайна")
+    run_id: Series[str] = pa.Field(nullable=False, description="Идентификатор запуска пайплайна")
     source_system: Series[str] = pa.Field(nullable=False, description="Источник данных")
     chembl_release: Series[str] = pa.Field(nullable=True, description="Версия ChEMBL")
     extracted_at: Series[str] = pa.Field(nullable=False, description="ISO8601 UTC метка времени")

@@ -235,6 +235,7 @@ class TestItemSchema(BaseSchema):
         "hash_row",
         "hash_business_key",
         "pipeline_version",
+        "run_id",
         "source_system",
         "chembl_release",
         "extracted_at",
