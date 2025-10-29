@@ -520,21 +520,28 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class = gold_protein_class
         self.gold_xref = gold_xref
 
-        additional_tables: dict[str, pd.DataFrame] = {}
+        self.additional_tables.clear()
         if not gold_components.empty:
-            additional_tables["target_components"] = gold_components
+            self.add_additional_table("target_components", gold_components)
         if not gold_protein_class.empty:
-            additional_tables["target_protein_classifications"] = gold_protein_class
+            self.add_additional_table(
+                "target_protein_classifications",
+                gold_protein_class,
+            )
         if not gold_xref.empty:
-            additional_tables["target_xrefs"] = gold_xref
+            self.add_additional_table("target_xrefs", gold_xref)
         if not component_enrichment.empty:
-            additional_tables["target_component_enrichment"] = component_enrichment
+            self.add_additional_table(
+                "target_component_enrichment",
+                component_enrichment,
+            )
         if not iuphar_classification.empty:
-            additional_tables["target_iuphar_classification"] = iuphar_classification
+            self.add_additional_table(
+                "target_iuphar_classification",
+                iuphar_classification,
+            )
         if not iuphar_gold.empty:
-            additional_tables["target_iuphar_enrichment"] = iuphar_gold
-
-        self.additional_tables = additional_tables
+            self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
 
         self.export_metadata = OutputMetadata.from_dataframe(
             gold_targets,

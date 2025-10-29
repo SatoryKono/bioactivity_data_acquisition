@@ -1339,7 +1339,7 @@ class ActivityPipeline(PipelineBase):
         self._fallback_stats = {}
 
         if "source_system" not in df.columns:
-            self.additional_tables.pop("activity_fallback_records", None)
+            self.remove_additional_table("activity_fallback_records")
             self.qc_summary_data.pop("fallbacks", None)
             return
 
@@ -1416,9 +1416,13 @@ class ActivityPipeline(PipelineBase):
                 activity_ids=fallback_ids,
                 reasons=reason_counts,
             )
-            self.additional_tables["activity_fallback_records"] = fallback_records
+            self.add_additional_table(
+                "activity_fallback_records",
+                fallback_records,
+                relative_path=Path("qc") / "activity_fallback_records.csv",
+            )
         else:
-            self.additional_tables.pop("activity_fallback_records", None)
+            self.remove_additional_table("activity_fallback_records")
 
     @property
     def last_validation_report(self) -> dict[str, Any] | None:

@@ -33,6 +33,14 @@ class OutputArtifacts:
 
 
 @dataclass(frozen=True)
+class AdditionalTableSpec:
+    """Описание дополнительной таблицы для экспорта."""
+
+    dataframe: pd.DataFrame
+    relative_path: Path | None = None
+
+
+@dataclass(frozen=True)
 class OutputMetadata:
     """Метаданные выходного файла."""
 
@@ -170,7 +178,7 @@ class UnifiedOutputWriter:
         qc_summary: dict[str, Any] | None = None,
         qc_missing_mappings: pd.DataFrame | None = None,
         qc_enrichment_metrics: pd.DataFrame | None = None,
-        additional_tables: dict[str, pd.DataFrame] | None = None,
+        additional_tables: dict[str, "AdditionalTableSpec"] | None = None,
         runtime_options: dict[str, Any] | None = None,
         debug_dataset: Path | None = None,
     ) -> OutputArtifacts:
@@ -270,11 +278,27 @@ class UnifiedOutputWriter:
 
         additional_paths: dict[str, Path] = {}
         if additional_tables:
-            for name, table in additional_tables.items():
+            for name, table_spec in additional_tables.items():
+                if table_spec is None:
+                    continue
+
+                table = table_spec.dataframe
                 if table is None or table.empty:
                     continue
-                safe_name = name.replace(" ", "_").lower()
-                table_path = dataset_dir / f"{safe_name}.csv"
+
+                table_relative_path = table_spec.relative_path
+                if table_relative_path is not None:
+                    relative_path = Path(table_relative_path)
+                    if relative_path.is_absolute():
+                        table_path = relative_path
+                    else:
+                        if relative_path.suffix != ".csv":
+                            relative_path = relative_path.with_suffix(".csv")
+                        table_path = run_directory / relative_path
+                else:
+                    safe_name = name.replace(" ", "_").lower()
+                    table_path = dataset_dir / f"{safe_name}.csv"
+
                 logger.info(
                     "writing_additional_dataset",
                     name=name,
