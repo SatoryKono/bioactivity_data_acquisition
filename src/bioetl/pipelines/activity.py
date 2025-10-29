@@ -996,7 +996,12 @@ class ActivityPipeline(PipelineBase):
         if expected_cols:
             for col in expected_cols:
                 if col not in df.columns:
-                    df[col] = None
+                    if col in INTEGER_COLUMNS:
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    elif col == "is_censored":
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype="boolean")
+                    else:
+                        df[col] = pd.Series(pd.NA, index=df.index, dtype="object")
             df = df[expected_cols]
 
         df = df.convert_dtypes()
@@ -1007,6 +1012,9 @@ class ActivityPipeline(PipelineBase):
         for column in INTEGER_COLUMNS:
             if column in df.columns:
                 df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+
+        # Ensure any columns introduced during reordering are normalised
+        _coerce_nullable_int_columns(df, INTEGER_COLUMNS)
 
         return df
 
@@ -1030,7 +1038,12 @@ class ActivityPipeline(PipelineBase):
             missing_columns = [column for column in expected_columns if column not in df.columns]
             if missing_columns:
                 for column in missing_columns:
-                    df[column] = pd.NA
+                    if column in INTEGER_COLUMNS:
+                        df[column] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+                    elif column == "is_censored":
+                        df[column] = pd.Series(pd.NA, index=df.index, dtype="boolean")
+                    else:
+                        df[column] = pd.Series(pd.NA, index=df.index, dtype="object")
                 logger.debug(
                     "validation_missing_columns_filled",
                     columns=missing_columns,
@@ -1045,6 +1058,8 @@ class ActivityPipeline(PipelineBase):
                     extras=extra_columns,
                 )
                 df = df[ordered_columns]
+
+        _coerce_nullable_int_columns(df, INTEGER_COLUMNS)
 
         qc_metrics = self._calculate_qc_metrics(df)
         self._last_validation_report = {"metrics": qc_metrics}
