@@ -783,7 +783,6 @@ class AssayPipeline(PipelineBase):
         """Transform assay data and expand nested parameter/class payloads."""
         if df.empty:
             # Return empty DataFrame with all required columns from schema
-            from bioetl.schemas.assay import AssaySchema
             return pd.DataFrame(columns=resolve_schema_column_order(AssaySchema))
 
         # Fetch assay data from ChEMBL API
