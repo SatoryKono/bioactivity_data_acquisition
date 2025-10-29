@@ -57,8 +57,10 @@ _NULLABLE_INT_COLUMNS = (
     "variant_id",
     "src_id",
 )
+
+
 def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Iterable[str]) -> None:
-    """Coerce selected columns to pandas nullable Int64 dtype."""
+    """Coerce selected columns to pandas nullable Int64 dtype (compatible with ``pa.Int64``)."""
 
     for column in columns:
         if column in df.columns:
