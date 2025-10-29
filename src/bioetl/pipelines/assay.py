@@ -629,50 +629,56 @@ class AssayPipeline(PipelineBase):
 
         return pd.DataFrame(records)
 
-    def _expand_variant_sequences(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Expand variant sequences JSON into long-format rows."""
-
-        if "variant_sequence_json" not in df.columns:
-            return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
-
-        records: list[dict[str, object]] = []
-
-        for _, row in df.iterrows():
-            variant_raw = row.get("variant_sequence_json")
-            if not variant_raw or (isinstance(variant_raw, float) and pd.isna(variant_raw)):
-                continue
-
-            try:
-                variants = json.loads(variant_raw) if isinstance(variant_raw, str) else variant_raw
-            except (TypeError, ValueError):
-                logger.warning("variant_parse_failed", assay_chembl_id=row.get("assay_chembl_id"))
-                continue
-
-            if not isinstance(variants, Iterable):
-                continue
-
-            index = 0
-            for variant in variants:
-                if not isinstance(variant, dict):
-                    continue
-
-                record = {
-                    "assay_chembl_id": row.get("assay_chembl_id"),
-                    "row_subtype": "variant",
-                    "row_index": index,
-                    "variant_id": variant.get("variant_id"),
-                    "variant_base_accession": variant.get("base_accession"),
-                    "variant_mutation": variant.get("mutation"),
-                    "variant_sequence": variant.get("variant_seq"),
-                    "variant_accession_reported": variant.get("accession_reported"),
-                }
-                records.append(record)
-                index += 1
-
-        if not records:
-            return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
-
-        return pd.DataFrame(records)
+    # NOTE:
+    #     Variant sequence details remain embedded within the
+    #     ``variant_sequence_json`` column of the base assay row. Expanding
+    #     these entries into dedicated ``row_subtype="variant"`` records led to
+    #     duplicate assay rows after concatenation. The helper below is kept as
+    #     historical reference but intentionally disabled.
+    # def _expand_variant_sequences(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     """Expand variant sequences JSON into long-format rows."""
+    #
+    #     if "variant_sequence_json" not in df.columns:
+    #         return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
+    #
+    #     records: list[dict[str, object]] = []
+    #
+    #     for _, row in df.iterrows():
+    #         variant_raw = row.get("variant_sequence_json")
+    #         if not variant_raw or (isinstance(variant_raw, float) and pd.isna(variant_raw)):
+    #             continue
+    #
+    #         try:
+    #             variants = json.loads(variant_raw) if isinstance(variant_raw, str) else variant_raw
+    #         except (TypeError, ValueError):
+    #             logger.warning("variant_parse_failed", assay_chembl_id=row.get("assay_chembl_id"))
+    #             continue
+    #
+    #         if not isinstance(variants, Iterable):
+    #             continue
+    #
+    #         index = 0
+    #         for variant in variants:
+    #             if not isinstance(variant, dict):
+    #                 continue
+    #
+    #             record = {
+    #                 "assay_chembl_id": row.get("assay_chembl_id"),
+    #                 "row_subtype": "variant",
+    #                 "row_index": index,
+    #                 "variant_id": variant.get("variant_id"),
+    #                 "variant_base_accession": variant.get("base_accession"),
+    #                 "variant_mutation": variant.get("mutation"),
+    #                 "variant_sequence": variant.get("variant_seq"),
+    #                 "variant_accession_reported": variant.get("accession_reported"),
+    #             }
+    #             records.append(record)
+    #             index += 1
+    #
+    #     if not records:
+    #         return pd.DataFrame(columns=["assay_chembl_id", "row_subtype", "row_index"])
+    #
+    #     return pd.DataFrame(records)
 
     def _expand_assay_classifications(self, df: pd.DataFrame) -> pd.DataFrame:
         """Expand assay classifications JSON into long-format rows."""
@@ -796,7 +802,7 @@ class AssayPipeline(PipelineBase):
         return pd.DataFrame(records)
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform assay data with explode functionality."""
+        """Transform assay data and expand nested parameter/class payloads."""
         if df.empty:
             # Return empty DataFrame with all required columns from schema
             from bioetl.schemas.assay import AssaySchema
@@ -866,7 +872,6 @@ class AssayPipeline(PipelineBase):
 
         # Explode nested structures into long format dataframes
         params_df = self._expand_assay_parameters_long(base_df)
-        variants_df = self._expand_variant_sequences(base_df)
         classes_df = self._expand_assay_classifications(base_df)
 
         # Assay class enrichment applied to classification rows
@@ -912,7 +917,7 @@ class AssayPipeline(PipelineBase):
                     logger.warning("assay_class_enrichment_join_loss", missing_count=missing_count)
 
         frames = [base_df]
-        for expanded in (params_df, variants_df, classes_df):
+        for expanded in (params_df, classes_df):
             if not expanded.empty:
                 frames.append(expanded)
 
