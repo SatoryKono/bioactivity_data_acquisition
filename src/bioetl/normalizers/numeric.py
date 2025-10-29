@@ -35,7 +35,7 @@ def _canonicalize_whitespace(text: str) -> str:
 class NumericNormalizer(BaseNormalizer):
     """Нормализатор числовых значений."""
 
-    def normalize(self, value: Any) -> Any:
+    def normalize(self, value: Any, **_: Any) -> Any:
         """Основная нормализация - возвращает float."""
         return self.normalize_float(value)
 
@@ -76,8 +76,12 @@ class NumericNormalizer(BaseNormalizer):
             return default
         if isinstance(value, bool):
             return value
-        if isinstance(value, int | float):
+        if isinstance(value, int) and not isinstance(value, bool):
             return bool(value)
+        if isinstance(value, float):
+            if value.is_integer():
+                return bool(int(value))
+            return None
         text = str(value).strip().lower()
         if text in BOOLEAN_TRUE:
             return True
@@ -109,14 +113,18 @@ class NumericNormalizer(BaseNormalizer):
 class BooleanNormalizer(BaseNormalizer):
     """Нормализатор булевых значений."""
 
-    def normalize(self, value: Any) -> bool | None:
+    def normalize(self, value: Any, **_: Any) -> bool | None:
         """Нормализует булево значение, возвращая None для NA."""
         if _is_na(value):
             return None
         if isinstance(value, bool):
             return value
-        if isinstance(value, int | float):
+        if isinstance(value, int) and not isinstance(value, bool):
             return bool(value)
+        if isinstance(value, float):
+            if value.is_integer():
+                return bool(int(value))
+            return None
         text = str(value).strip().lower()
         if text in BOOLEAN_TRUE:
             return True
@@ -130,8 +138,10 @@ class BooleanNormalizer(BaseNormalizer):
             return True
         if isinstance(value, bool):
             return True
-        if isinstance(value, int | float):
+        if isinstance(value, int) and not isinstance(value, bool):
             return True
+        if isinstance(value, float):
+            return value.is_integer()
         if isinstance(value, str):
             text = str(value).strip().lower()
             return text in BOOLEAN_TRUE or text in BOOLEAN_FALSE
@@ -143,8 +153,12 @@ class BooleanNormalizer(BaseNormalizer):
             return default
         if isinstance(value, bool):
             return value
-        if isinstance(value, int | float):
+        if isinstance(value, int) and not isinstance(value, bool):
             return bool(value)
+        if isinstance(value, float):
+            if value.is_integer():
+                return bool(int(value))
+            return default
         text = str(value).strip().lower()
         if text in BOOLEAN_TRUE:
             return True
