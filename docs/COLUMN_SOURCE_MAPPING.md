@@ -49,36 +49,36 @@
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
-| `published_type` | `/activity.json` | `type` или `published_type` | `str` | `_normalize_string(uppercase=True)` | `Series[str]` |
-| `published_relation` | `/activity.json` | `relation` или `published_relation` | `str` | `_normalize_relation()` | `Series[str]` (isin: `["=", ">", "<", ">=", "<="]`) |
-| `published_value` | `/activity.json` | `value` или `published_value` | `float` | `_normalize_float()` | `Series[float]` (ge=0) |
-| `published_units` | `/activity.json` | `units` или `published_units` | `str` | `_normalize_units()` | `Series[str]` |
+| `published_type` | `/activity.json` | `type` или `published_type` | `str` | `registry.normalize("string", value, uppercase=True)` | `Series[str]` |
+| `published_relation` | `/activity.json` | `relation` или `published_relation` | `str` | `registry.normalize("numeric", value).normalize_relation()` | `Series[str]` (isin: `["=", ">", "<", ">=", "<="]`) |
+| `published_value` | `/activity.json` | `value` или `published_value` | `float` | `registry.normalize("numeric", value)` | `Series[float]` (ge=0) |
+| `published_units` | `/activity.json` | `units` или `published_units` | `str` | `registry.normalize("numeric", value).normalize_units()` | `Series[str]` |
 
 ### Стандартизированные данные активности
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
-| `standard_type` | `/activity.json` | `standard_type` | `str` | `_normalize_string(uppercase=True)` | `Series[str]` |
-| `standard_relation` | `/activity.json` | `standard_relation` | `str` | `_normalize_relation()` | `Series[str]` (isin: `["=", ">", "<", ">=", "<="]`) |
-| `standard_value` | `/activity.json` | `standard_value` | `float` | `_normalize_float()` | `Series[float]` (ge=0) |
-| `standard_units` | `/activity.json` | `standard_units` | `str` | `_normalize_units(default="nM")` | `Series[str]` (isin: `STANDARD_UNITS_ALLOWED`) |
-| `standard_flag` | `/activity.json` | `standard_flag` | `int` | `_normalize_int()` | `Series[pd.Int64Dtype]` |
-| `pchembl_value` | `/activity.json` | `pchembl_value` | `float` | `_normalize_float()` | `Series[float]` (ge=0) |
+| `standard_type` | `/activity.json` | `standard_type` | `str` | `registry.normalize("string", value, uppercase=True)` | `Series[str]` |
+| `standard_relation` | `/activity.json` | `standard_relation` | `str` | `registry.normalize("numeric", value).normalize_relation()` | `Series[str]` (isin: `["=", ">", "<", ">=", "<="]`) |
+| `standard_value` | `/activity.json` | `standard_value` | `float` | `registry.normalize("numeric", value)` | `Series[float]` (ge=0) |
+| `standard_units` | `/activity.json` | `standard_units` | `str` | `registry.normalize("numeric", value).normalize_units(default="nM")` | `Series[str]` (isin: `STANDARD_UNITS_ALLOWED`) |
+| `standard_flag` | `/activity.json` | `standard_flag` | `int` | `registry.normalize("numeric", value)` | `Series[pd.Int64Dtype]` |
+| `pchembl_value` | `/activity.json` | `pchembl_value` | `float` | `registry.normalize("numeric", value)` | `Series[float]` (ge=0) |
 
 ### Границы и цензурирование
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
-| `lower_bound` | `/activity.json` | `standard_lower_value` или `lower_value` | `float` | `_normalize_float()` | `Series[float]` |
-| `upper_bound` | `/activity.json` | `standard_upper_value` или `upper_value` | `float` | `_normalize_float()` | `Series[float]` |
+| `lower_bound` | `/activity.json` | `standard_lower_value` или `lower_value` | `float` | `registry.normalize("numeric", value)` | `Series[float]` |
+| `upper_bound` | `/activity.json` | `standard_upper_value` или `upper_value` | `float` | `registry.normalize("numeric", value)` | `Series[float]` |
 | `is_censored` | Вычисляется | - | `bool` | `_derive_is_censored(standard_relation)` | `Series[pd.BooleanDtype]` |
 
 ### Комментарии и метаданные
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
-| `activity_comment` | `/activity.json` | `activity_comment` | `str` | `_normalize_string()` | `Series[str]` |
-| `data_validity_comment` | `/activity.json` | `data_validity_comment` | `str` | `_normalize_string()` | `Series[str]` |
+| `activity_comment` | `/activity.json` | `activity_comment` | `str` | `registry.normalize("string", value)` | `Series[str]` |
+| `data_validity_comment` | `/activity.json` | `data_validity_comment` | `str` | `registry.normalize("string", value)` | `Series[str]` |
 
 ### BAO аннотации
 
@@ -86,26 +86,26 @@
 |---------|--------|-----------|-----|--------------|-----------|
 | `bao_endpoint` | `/activity.json` | `bao_endpoint` | `str` | `_normalize_bao_id()` | `Series[str]` |
 | `bao_format` | `/activity.json` | `bao_format` | `str` | `_normalize_bao_id()` | `Series[str]` |
-| `bao_label` | `/activity.json` | `bao_label` | `str` | `_normalize_string(max_length=128)` | `Series[str]` |
+| `bao_label` | `/activity.json` | `bao_label` | `str` | `registry.normalize("string", value, max_length=128)` | `Series[str]` |
 
 ### Дополнительные поля
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
-| `canonical_smiles` | `/activity.json` | `canonical_smiles` | `str` | `_normalize_string()` | `Series[str]` |
+| `canonical_smiles` | `/activity.json` | `canonical_smiles` | `str` | `registry.normalize("string", value)` | `Series[str]` |
 | `target_organism` | `/activity.json` | `target_organism` | `str` | `_normalize_target_organism()` | `Series[str]` |
-| `target_tax_id` | `/activity.json` | `target_tax_id` | `int` | `_normalize_int()` | `Series[pd.Int64Dtype]` (ge=1) |
-| `potential_duplicate` | `/activity.json` | `potential_duplicate` | `int` | `_normalize_int()` | `Series[pd.Int64Dtype]` (isin: `[0, 1]`) |
-| `uo_units` | `/activity.json` | `uo_units` | `str` | `_normalize_string(uppercase=True)` | `Series[str]` (regex: `^UO_\d{7}$`) |
-| `qudt_units` | `/activity.json` | `qudt_units` | `str` | `_normalize_string()` | `Series[str]` |
-| `src_id` | `/activity.json` | `src_id` | `int` | `_normalize_int()` | `Series[pd.Int64Dtype]` |
-| `action_type` | `/activity.json` | `action_type` | `str` | `_normalize_string()` | `Series[str]` |
+| `target_tax_id` | `/activity.json` | `target_tax_id` | `int` | `registry.normalize("numeric", value)` | `Series[pd.Int64Dtype]` (ge=1) |
+| `potential_duplicate` | `/activity.json` | `potential_duplicate` | `int` | `registry.normalize("numeric", value)` | `Series[pd.Int64Dtype]` (isin: `[0, 1]`) |
+| `uo_units` | `/activity.json` | `uo_units` | `str` | `registry.normalize("string", value, uppercase=True)` | `Series[str]` (regex: `^UO_\d{7}$`) |
+| `qudt_units` | `/activity.json` | `qudt_units` | `str` | `registry.normalize("string", value)` | `Series[str]` |
+| `src_id` | `/activity.json` | `src_id` | `int` | `registry.normalize("numeric", value)` | `Series[pd.Int64Dtype]` |
+| `action_type` | `/activity.json` | `action_type` | `str` | `registry.normalize("string", value)` | `Series[str]` |
 
 ### Свойства активности и эффективность лиганда
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
-| `activity_properties` | `/activity.json` | `activity_properties` | `str` | `_normalize_activity_properties()` | `Series[str]` |
+| `activity_properties` | `/activity.json` | `activity_properties` | `str` | `normalize_json_list()` | `Series[str]` |
 | `compound_key` | Вычисляется | - | `str` | `_derive_compound_key()` | `Series[str]` |
 | `is_citation` | Вычисляется | - | `bool` | `_derive_is_citation()` | `Series[bool]` |
 | `high_citation_rate` | Вычисляется | - | `bool` | `_derive_high_citation_rate()` | `Series[bool]` |
