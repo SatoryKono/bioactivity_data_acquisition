@@ -107,6 +107,7 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--cov=src/bioetl",
+    "--cov-report=xml",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-fail-under=50",
