@@ -2,9 +2,11 @@
 
 import json
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
 import pandas as pd
 import requests  # type: ignore[import-untyped]
 from pandera.errors import SchemaErrors
@@ -24,6 +26,39 @@ logger = UnifiedLogger.get(__name__)
 # Register schema
 from pandera.pandas import DataFrameModel
 schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
+
+
+def _coerce_nullable_int_columns(df: pd.DataFrame, columns: Sequence[str]) -> None:
+    """Normalise optional integer columns to Pandas' nullable ``Int64`` dtype.
+
+    The ChEMBL payloads frequently encode optional integer fields using string or
+    floating point representations (for example ``"1.0"``).  Pandera attempts to
+    coerce these values into ``int64`` and raises when encountering ``NaN`` or
+    fractional entries.  To shield the validation layer from these artefacts we
+    coerce to numeric values first, mask non-integral values as ``<NA>``, and
+    finally re-materialise the nullable integer array.
+    """
+
+    for column in columns:
+        if column not in df.columns:
+            continue
+
+        series = pd.to_numeric(df[column], errors="coerce")
+
+        if series.empty:
+            df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
+            continue
+
+        non_null = series.notna()
+        fractional_mask = pd.Series(False, index=series.index)
+        if non_null.any():
+            remainders = (series[non_null] % 1).abs()
+            fractional_mask.loc[non_null] = ~np.isclose(remainders, 0.0)
+
+        if fractional_mask.any():
+            series.loc[fractional_mask] = pd.NA
+
+        df[column] = pd.Series(pd.array(series, dtype="Int64"), index=df.index)
 
 
 class TestItemPipeline(PipelineBase):
@@ -156,6 +191,30 @@ class TestItemPipeline(PipelineBase):
         "fallback_retry_after_sec",
         "fallback_attempt",
         "fallback_error_message",
+    ]
+
+    _NULLABLE_INT_COLUMNS: list[str] = [
+        "molregno",
+        "parent_molregno",
+        "max_phase",
+        "first_approval",
+        "availability_type",
+        "usan_year",
+        "withdrawn_year",
+        "hba",
+        "hbd",
+        "rtb",
+        "num_ro5_violations",
+        "aromatic_rings",
+        "heavy_atoms",
+        "hba_lipinski",
+        "hbd_lipinski",
+        "num_lipinski_ro5_violations",
+        "lipinski_ro5_violations",
+        "pubchem_cid",
+        "pubchem_enrichment_attempt",
+        "fallback_http_status",
+        "fallback_attempt",
     ]
 
     @classmethod
@@ -816,6 +875,8 @@ class TestItemPipeline(PipelineBase):
             for col in expected_cols:
                 if col not in df.columns:
                     df[col] = None
+
+            _coerce_nullable_int_columns(df, self._NULLABLE_INT_COLUMNS)
 
             # Reorder to match schema column_order
             df = df[expected_cols]
