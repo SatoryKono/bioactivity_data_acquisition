@@ -44,6 +44,36 @@ class PipelineBase(ABC):
         issue.setdefault("severity", "info")
         self.validation_issues.append(issue)
 
+    def get_runtime_limit(self) -> int | None:
+        """Return a positive runtime limit if configured, normalising the value."""
+
+        raw_limit = self.runtime_options.get("limit")
+        if raw_limit is None:
+            raw_limit = self.runtime_options.get("sample")
+        if raw_limit is None:
+            return None
+
+        try:
+            limit_value = int(raw_limit)
+        except (TypeError, ValueError):
+            logger.warning(
+                "invalid_runtime_limit",
+                pipeline=self.config.pipeline.name,
+                limit=raw_limit,
+            )
+            return None
+
+        if limit_value < 1:
+            logger.warning(
+                "non_positive_runtime_limit",
+                pipeline=self.config.pipeline.name,
+                limit=limit_value,
+            )
+            return None
+
+        self.runtime_options["limit"] = limit_value
+        return limit_value
+
     def _severity_value(self, severity: str) -> int:
         """Convert severity label to comparable integer."""
 
