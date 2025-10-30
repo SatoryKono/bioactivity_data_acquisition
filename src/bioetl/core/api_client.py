@@ -635,7 +635,7 @@ class UnifiedAPIClient:
         )(_request_operation)
 
         try:
-            payload = cast(dict[str, Any], backoff_decorated())
+            payload = backoff_decorated()
         except RequestException as exc:
             if not (self.config.fallback_enabled and self.config.fallback_strategies):
                 raise
@@ -670,7 +670,7 @@ class UnifiedAPIClient:
         """Execute configured fallback strategies in order."""
 
         strategies: Sequence[str] = self.config.fallback_strategies
-        cache: TTLCache[str, Any] | None = cast(TTLCache[str, Any] | None, self.cache)
+        cache: TTLCache[str, Any] | None = self.cache
         last_error: RequestException = last_exception
 
         for strategy in strategies:
