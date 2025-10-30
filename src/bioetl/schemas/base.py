@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypedDict, cast
+from typing import Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -211,12 +211,9 @@ class BaseSchema(DataFrameModel):
     # статических анализаторов, поскольку Pandera регистрирует все рантайм
     # аннотации как потенциальные колонки и выбрасывает ``SchemaInitError`` при
     # обнаружении обычного строкового значения вместо ``Field``.  Чтобы избежать
-    # побочных эффектов, аннотация объявляется под ``TYPE_CHECKING``, а само
-    # значение хранится как обычный атрибут класса.
-    if TYPE_CHECKING:  # pragma: no cover - выполняется только для type checker'ов
-        hash_policy_version: ClassVar[str]
-
-    hash_policy_version = "1.0.0"
+    # побочных эффектов, атрибут объявляется как ``ClassVar`` и исключается из
+    # рассмотрения Pandera через ``_get_model_attrs``.
+    hash_policy_version: ClassVar[str] = "1.0.0"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
