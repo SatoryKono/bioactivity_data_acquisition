@@ -2,12 +2,12 @@
 
 ## Assay Pipeline
 
-### A) Паспорт пайплайна (Activity)
+### A) Паспорт пайплайна (Assay)
 
 - **Название:** AssayPipeline
 - **Назначение:** детерминированное извлечение, нормализация и выгрузка данных ассая из ChEMBL с whitelist обогащением. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 
-### B) Диаграмма I/O (Activity)
+### B) Диаграмма I/O (Assay)
 
 ```mermaid
 flowchart TB
@@ -622,12 +622,12 @@ schema:
 
 ## Activity Pipeline
 
-### A) Паспорт пайплайна (Testitem)
+### A) Паспорт пайплайна (Activity)
 
 - **Название:** ActivityPipeline
 - **Назначение:** извлечение и нормализация ChEMBL activity c детерминированной выгрузкой и QC. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 
-### B) Диаграмма I/O (Testitem)
+### B) Диаграмма I/O (Activity)
 
 ```mermaid
 flowchart TB
@@ -1262,7 +1262,6 @@ schema:
 - **Назначение:** объединение ChEMBL таргетов с UniProt и IUPHAR enrichment в четыре согласованные таблицы. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 
 ### B) Диаграмма I/O (Target)
-
 
 ```mermaid
 flowchart TB
