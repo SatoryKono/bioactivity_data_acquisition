@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the assay pipeline."""
 
-import typer
+from scripts import create_pipeline_app
 
-from scripts import register_pipeline_command
-
-app = typer.Typer(help="Run assay pipeline to extract and transform assay data")
-
-
-register_pipeline_command(app, "assay")
+app = create_pipeline_app(
+    "assay",
+    "Run assay pipeline to extract and transform assay data",
+)
 
 
 if __name__ == "__main__":
