@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -554,6 +554,134 @@ class FallbackOptions(BaseModel):
         return _normalise_fallback_strategies(value)
 
 
+class CliConfig(BaseModel):
+    """Captured CLI flags and runtime toggles for pipeline executions."""
+
+    model_config = ConfigDict(extra="allow", validate_assignment=True)
+
+    default_config: str | None = None
+    mode_choices: list[str] | None = None
+    fail_on_schema_drift: bool = True
+    extended: bool = False
+    mode: str = "default"
+    dry_run: bool = False
+    verbose: bool = False
+    validate_columns: bool = True
+    sample: int | None = None
+    limit: int | None = None
+    golden: str | None = None
+    run_id: str | None = None
+    output_root: str | None = None
+    stages: dict[str, bool] = Field(default_factory=dict)
+
+    @field_validator("mode_choices", mode="before")
+    @classmethod
+    def validate_mode_choices(cls, value: Any) -> list[str] | None:
+        """Ensure ``mode_choices`` is a sequence of unique strings."""
+
+        if value is None:
+            return None
+
+        if isinstance(value, (list, tuple, set)):
+            sequence = list(value)
+        elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
+            sequence = list(value)
+        else:
+            raise TypeError("cli.mode_choices must be a sequence of strings")
+
+        normalised: list[str] = []
+        seen: set[str] = set()
+        for item in sequence:
+            if not isinstance(item, str):
+                raise TypeError("cli.mode_choices entries must be strings")
+            if item not in seen:
+                seen.add(item)
+                normalised.append(item)
+        return normalised
+
+    @field_validator("stages", mode="before")
+    @classmethod
+    def normalise_stages(cls, value: Any) -> dict[str, bool]:
+        """Validate that stage toggles are expressed as a mapping of booleans."""
+
+        if value is None:
+            return {}
+
+        if not isinstance(value, Mapping):
+            raise TypeError("cli.stages must be a mapping")
+
+        normalised: dict[str, bool] = {}
+        for key, raw in value.items():
+            if not isinstance(key, str):
+                raise TypeError("cli.stages keys must be strings")
+            normalised[key] = bool(raw)
+        return normalised
+
+    def __getitem__(self, key: str) -> Any:
+        """Dictionary-style access for compatibility with legacy consumers."""
+
+        if key in self.model_fields:
+            return getattr(self, key)
+
+        extras = self.model_extra or {}
+        if key in extras:
+            return extras[key]
+
+        raise KeyError(key)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Dictionary-style assignment for compatibility with legacy consumers."""
+
+        setattr(self, key, value)
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str):  # pragma: no cover - defensive branch
+            return False
+
+        if key in self.model_fields:
+            return True
+
+        extras = self.model_extra or {}
+        return key in extras
+
+    def get(self, key: str, default: Any | None = None) -> Any:
+        """Replicate ``dict.get`` semantics."""
+
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def setdefault(self, key: str, default: Any | None = None) -> Any:
+        """Replicate ``dict.setdefault`` semantics."""
+
+        try:
+            return self[key]
+        except KeyError:
+            self[key] = default
+            return default
+
+    def update(
+        self,
+        other: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Replicate ``dict.update`` semantics for convenience."""
+
+        if other is None:
+            items: Iterable[tuple[str, Any]] = ()
+        elif isinstance(other, Mapping):
+            items = other.items()
+        else:
+            items = other
+
+        for key, value in items:
+            self[key] = value
+
+        if kwargs:
+            self.update(kwargs)
+
+
 class PipelineConfig(BaseModel):
     """Root pipeline configuration model."""
 
@@ -570,7 +698,7 @@ class PipelineConfig(BaseModel):
     qc: QCConfig = Field(default_factory=QCConfig)
     materialization: MaterializationPaths = Field(default_factory=MaterializationPaths)
     fallbacks: FallbackOptions = Field(default_factory=FallbackOptions)
-    cli: dict[str, Any] = Field(default_factory=dict)
+    cli: CliConfig = Field(default_factory=CliConfig)
 
     _source_path: Path | None = PrivateAttr(default=None)
 

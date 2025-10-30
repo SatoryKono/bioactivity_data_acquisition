@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from bioetl.config import load_config, parse_cli_overrides
+from bioetl.config.models import CliConfig
 
 
 def test_load_base_config():
@@ -16,6 +17,14 @@ def test_load_base_config():
     assert config.version == 1
     assert config.pipeline.name == "base"
     assert config.http["global"].timeout_sec == 60.0
+    assert isinstance(config.cli, CliConfig)
+    assert config.cli.default_config == "configs/base.yaml"
+    assert config.cli.mode_choices == ["default"]
+    assert config.cli.fail_on_schema_drift is True
+    assert config.cli.extended is False
+    assert config.cli.dry_run is False
+    assert config.cli.verbose is False
+    assert config.cli.validate_columns is True
 
 
 def test_inheritance():
@@ -194,6 +203,106 @@ def test_source_rate_limit_jitter_override(tmp_path):
 
     chembl = config.sources["chembl"]
     assert chembl.rate_limit_jitter is False
+
+
+def test_cli_config_validation(tmp_path):
+    """CLI section should enforce strict typing for known keys."""
+
+    invalid_config = tmp_path / "invalid_cli.yaml"
+    invalid_config.write_text(
+        dedent(
+            """
+            version: 1
+            pipeline:
+              name: test
+              entity: test
+            http:
+              global:
+                timeout_sec: 60.0
+                retries:
+                  total: 5
+                  backoff_multiplier: 2.0
+                  backoff_max: 120.0
+                rate_limit:
+                  max_calls: 5
+                  period: 15.0
+            sources: {}
+            cache:
+              enabled: true
+              directory: data/cache
+              ttl: 1
+              release_scoped: false
+            paths:
+              input_root: data/input
+              output_root: data/output
+            determinism:
+              sort:
+                by: []
+                ascending: []
+              column_order: []
+            postprocess: {}
+            qc:
+              enabled: true
+              severity_threshold: warning
+            cli:
+              mode_choices: "chembl"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        load_config(invalid_config)
+
+    valid_config = tmp_path / "valid_cli.yaml"
+    valid_config.write_text(
+        dedent(
+            """
+            version: 1
+            pipeline:
+              name: test
+              entity: test
+            http:
+              global:
+                timeout_sec: 60.0
+                retries:
+                  total: 5
+                  backoff_multiplier: 2.0
+                  backoff_max: 120.0
+                rate_limit:
+                  max_calls: 5
+                  period: 15.0
+            sources: {}
+            cache:
+              enabled: true
+              directory: data/cache
+              ttl: 1
+              release_scoped: false
+            paths:
+              input_root: data/input
+              output_root: data/output
+            determinism:
+              sort:
+                by: []
+                ascending: []
+              column_order: []
+            postprocess: {}
+            qc:
+              enabled: true
+              severity_threshold: warning
+            cli:
+              mode_choices: ["chembl", "all"]
+              fail_on_schema_drift: false
+              extended: true
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(valid_config)
+    assert config.cli.mode_choices == ["chembl", "all"]
+    assert config.cli.fail_on_schema_drift is False
+    assert config.cli.extended is True
 
 
 def _write_minimal_config(tmp_path, sources_block: str) -> Path:
