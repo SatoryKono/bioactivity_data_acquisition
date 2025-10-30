@@ -25,6 +25,7 @@ from bioetl.normalizers.chemistry import (
         ("  mixed   case  ", {}, "mixed case"),
         ("N/A", {}, None),
         (None, {}, None),
+        ("   ", {}, None),
         ("truncate", {"max_length": 4}, "trun"),
     ],
 )

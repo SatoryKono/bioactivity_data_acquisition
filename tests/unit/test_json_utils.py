@@ -1,6 +1,9 @@
 """Тесты для JSON утилит."""
 
 import json
+import math
+
+import pytest
 
 from bioetl.utils.json import canonical_json, normalize_json_list
 
@@ -192,3 +195,12 @@ class TestNormalizeJsonList:
         parsed1 = json.loads(canonical1)
         parsed2 = json.loads(canonical2)
         assert parsed1 == parsed2
+    @pytest.mark.parametrize("raw", [None, "", "   ", "NA", " n/a ", math.nan])
+    def test_na_inputs_return_empty_payload(self, raw):
+        """NA inputs should short-circuit to empty canonical payload."""
+
+        canonical, records = normalize_json_list(raw)
+
+        assert canonical is None
+        assert records == []
+

@@ -2,31 +2,16 @@
 
 from __future__ import annotations
 
-import math
 import re
 from typing import Any
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers.base import BaseNormalizer
-from bioetl.normalizers.constants import NA_STRINGS, RELATION_ALIASES, UNIT_SYNONYMS
+from bioetl.normalizers.constants import RELATION_ALIASES, UNIT_SYNONYMS
+from bioetl.normalizers.helpers import _is_na
 from bioetl.normalizers.numeric import NumericNormalizer
 
 logger = UnifiedLogger.get(__name__)
-
-
-def _is_na(value: Any) -> bool:
-    """Return True if the provided value should be treated as NA."""
-
-    if value is None:
-        return True
-    if isinstance(value, float) and math.isnan(value):
-        return True
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped == "":
-            return True
-        return stripped.lower() in NA_STRINGS
-    return False
 
 
 def _canonicalize_whitespace(text: str) -> str:

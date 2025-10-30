@@ -24,6 +24,7 @@ class TestNumericNormalizer:
         assert self.normalizer.normalize_int(None) is None
         assert self.normalizer.normalize_int("") is None
         assert self.normalizer.normalize_int("abc") is None
+        assert self.normalizer.normalize_int(" n/a ") is None
         assert self.normalizer.normalize_int(3.14) is None
         assert self.normalizer.normalize_int(math.nan) is None
 
@@ -39,6 +40,7 @@ class TestNumericNormalizer:
         assert self.normalizer.normalize_float(None) is None
         assert self.normalizer.normalize_float("") is None
         assert self.normalizer.normalize_float("abc") is None
+        assert self.normalizer.normalize_float(" NaN ") is None
         assert self.normalizer.normalize_float(math.nan) is None
 
     def test_normalize_bool_with_default(self):
@@ -61,6 +63,7 @@ class TestNumericNormalizer:
         assert self.normalizer.normalize_bool(None, default=True) is True
         assert self.normalizer.normalize_bool("", default=False) is False
         assert self.normalizer.normalize_bool("unknown", default=True) is True
+        assert self.normalizer.normalize_bool(" n/a ", default=True) is True
 
     def test_validate(self):
         """Тест валидации значений."""
