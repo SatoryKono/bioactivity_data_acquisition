@@ -6,6 +6,11 @@ from typing import Any
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers import registry
+from bioetl.normalizers.bibliography import (
+    normalize_authors,
+    normalize_doi,
+    normalize_title,
+)
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -54,22 +59,20 @@ class CrossrefAdapter(ExternalAdapter):
         normalized = {}
 
         # DOI
-        if "DOI" in record:
-            normalized["doi_clean"] = NORMALIZER_ID.normalize(record["DOI"])
-            # Also add crossref_doi field
-            normalized["crossref_doi"] = normalized["doi_clean"]
+        doi_clean = normalize_doi(record.get("DOI"))
+        if doi_clean:
+            normalized["doi_clean"] = doi_clean
+            normalized["crossref_doi"] = doi_clean
 
         # Title - Crossref returns list
-        if "title" in record and record["title"]:
-            titles = [t for t in record["title"] if t]
-            if titles:
-                normalized["title"] = NORMALIZER_STRING.normalize(titles[0])
+        title = normalize_title(record.get("title"))
+        if title:
+            normalized["title"] = title
 
         # Container title (journal)
-        if "container-title" in record and record["container-title"]:
-            container_titles = [t for t in record["container-title"] if t]
-            if container_titles:
-                normalized["journal"] = NORMALIZER_STRING.normalize(container_titles[0])
+        journal = normalize_title(record.get("container-title"))
+        if journal:
+            normalized["journal"] = journal
 
         # Publication dates - priority: published-print > published-online > issued > created
         date_field = None
@@ -116,28 +119,19 @@ class CrossrefAdapter(ExternalAdapter):
                     normalized["issn_electronic"] = issn_value
 
         # Authors
-        if "author" in record and record["author"]:
-            authors = []
-            for author in record["author"]:
-                given = author.get("given", "")
-                family = author.get("family", "")
-                if family:
-                    author_name = f"{family}"
-                    if given:
-                        author_name = f"{family}, {given}"
-                    authors.append(author_name)
+        authors_raw = record.get("author")
+        authors = normalize_authors(authors_raw)
+        if authors:
+            normalized["authors"] = authors
 
-                    # Add ORCID if available
-                    orcid = author.get("ORCID")
-                    if orcid:
-                        orcid_normalized = NORMALIZER_ID.normalize_orcid(orcid)
-                        if orcid_normalized:
-                            # Store ORCID for first author only for simplicity
-                            if len(authors) == 1:
-                                normalized["orcid"] = orcid_normalized
-
-            if authors:
-                normalized["authors"] = "; ".join(authors)
+        if isinstance(authors_raw, list):
+            for author in authors_raw:
+                orcid = author.get("ORCID") if isinstance(author, dict) else None
+                if orcid:
+                    orcid_normalized = NORMALIZER_ID.normalize_orcid(orcid)
+                    if orcid_normalized:
+                        normalized.setdefault("orcid", orcid_normalized)
+                        break
 
         # Publisher
         if "publisher" in record:

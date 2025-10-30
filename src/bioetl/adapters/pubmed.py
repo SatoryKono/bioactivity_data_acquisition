@@ -8,6 +8,11 @@ from xml.etree import ElementTree as ET
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers import registry
+from bioetl.normalizers.bibliography import (
+    normalize_authors,
+    normalize_doi,
+    normalize_title,
+)
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -302,14 +307,15 @@ class PubMedAdapter(ExternalAdapter):
             normalized["pubmed_pmid"] = int(record["pmid"]) if record["pmid"] else None
 
         # DOI
-        if "doi" in record:
-            normalized["doi_clean"] = NORMALIZER_ID.normalize(record["doi"])
-            # Also add pubmed_doi field
-            normalized["pubmed_doi"] = normalized["doi_clean"]
+        doi_clean = normalize_doi(record.get("doi"))
+        if doi_clean:
+            normalized["doi_clean"] = doi_clean
+            normalized["pubmed_doi"] = doi_clean
 
         # Title
-        if "title" in record:
-            normalized["title"] = NORMALIZER_STRING.normalize(record["title"])
+        title = normalize_title(record.get("title"))
+        if title:
+            normalized["title"] = title
 
         # Abstract
         if "abstract" in record:
@@ -353,8 +359,9 @@ class PubMedAdapter(ExternalAdapter):
             normalized["year"] = record["year"]
 
         # Authors
-        if "authors" in record:
-            normalized["authors"] = NORMALIZER_STRING.normalize(record["authors"])
+        authors = normalize_authors(record.get("authors"))
+        if authors:
+            normalized["authors"] = authors
 
         # MeSH descriptors
         if "mesh_descriptors" in record:

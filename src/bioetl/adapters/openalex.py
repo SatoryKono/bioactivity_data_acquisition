@@ -4,6 +4,11 @@ from typing import Any
 
 from bioetl.adapters.base import ExternalAdapter
 from bioetl.normalizers import registry
+from bioetl.normalizers.bibliography import (
+    normalize_authors,
+    normalize_doi,
+    normalize_title,
+)
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -86,11 +91,10 @@ class OpenAlexAdapter(ExternalAdapter):
             normalized["openalex_id"] = NORMALIZER_ID.normalize_openalex_id(record["id"])
 
         # DOI
-        if "doi" in record:
-            doi_clean = record["doi"].replace("https://doi.org/", "") if record["doi"] else None
-            normalized["doi_clean"] = NORMALIZER_ID.normalize(doi_clean)
-            # Also add openalex_doi field
-            normalized["openalex_doi"] = normalized["doi_clean"]
+        doi_clean = normalize_doi(record.get("doi"))
+        if doi_clean:
+            normalized["doi_clean"] = doi_clean
+            normalized["openalex_doi"] = doi_clean
 
         # PMID from ids
         if "ids" in record:
@@ -100,8 +104,9 @@ class OpenAlexAdapter(ExternalAdapter):
                 normalized["openalex_pmid"] = int(pmid) if pmid.isdigit() else None
 
         # Title
-        if "title" in record:
-            normalized["title"] = NORMALIZER_STRING.normalize(record["title"])
+        title = normalize_title(record.get("title"))
+        if title:
+            normalized["title"] = title
 
         # Publication date
         if "publication_date" in record:
@@ -170,16 +175,9 @@ class OpenAlexAdapter(ExternalAdapter):
             normalized["doc_type"] = normalized["type"]
 
         # Authors
-        if "authorships" in record and record["authorships"]:
-            authors = []
-            for authorship in record["authorships"]:
-                author = authorship.get("author")
-                if author and isinstance(author, dict):
-                    display_name = author.get("display_name")
-                    if display_name:
-                        authors.append(display_name)
-            if authors:
-                normalized["authors"] = "; ".join(authors)
+        authors = normalize_authors(record.get("authorships"))
+        if authors:
+            normalized["authors"] = authors
 
         return normalized
 
