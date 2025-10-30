@@ -145,6 +145,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         source_system="chembl",
         chembl_release="34",
         run_id="run-test",
+        config_hash="sha256:deadbeef",
+        git_commit="abc123def",
+        sources=["chembl", "pubchem"],
     )
 
     artifacts = writer.write(
@@ -166,6 +169,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert contents["row_count"] == len(df)
     assert contents["column_count"] == len(df.columns)
     assert contents["column_order"] == list(df.columns)
+    assert contents["config_hash"] == "sha256:deadbeef"
+    assert contents["git_commit"] == "abc123def"
+    assert contents["sources"] == ["chembl", "pubchem"]
 
     expected_checksums = {
         artifacts.dataset.name: hashlib.sha256(artifacts.dataset.read_bytes()).hexdigest(),
@@ -376,6 +382,7 @@ def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monke
 
         metadata = yaml.safe_load(handle)
 
+    assert metadata.get("sources") == []
     checksums = metadata["file_checksums"]
     assert "qc_missing_mappings.csv" not in checksums
     assert "qc_enrichment_metrics.csv" not in checksums
