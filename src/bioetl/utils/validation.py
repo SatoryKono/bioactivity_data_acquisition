@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
-from pandas.errors import EmptyDataError
 
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import SchemaRegistry
@@ -289,9 +288,9 @@ class ColumnValidator:
                 for idx in range(available_columns):
                     series = chunk.iloc[:, idx]
                     counts[idx] += int(series.notna().sum())
-        except EmptyDataError:
+        except ValueError:
             return [(column, 0) for column in column_names]
-        except ValueError as exc:  # pragma: no cover - защитный случай
+        except Exception as exc:  # pragma: no cover - защитный случай
             self.logger.warning(
                 "column_non_null_count_failed",
                 file=str(csv_file),
@@ -479,7 +478,7 @@ class ColumnValidator:
 
                 try:
                     header_df = pd.read_csv(csv_file, nrows=0)
-                except pd.errors.EmptyDataError:
+                except ValueError:
                     header_df = pd.DataFrame()
 
                 column_names = list(header_df.columns)
