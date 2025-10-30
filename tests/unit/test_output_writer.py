@@ -49,6 +49,9 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     assert artifacts.qc_summary is None
     assert artifacts.qc_missing_mappings is None
     assert artifacts.qc_enrichment_metrics is None
+    assert artifacts.correlation_report is None
+    assert artifacts.qc_summary_statistics is None
+    assert artifacts.qc_dataset_metrics is None
     assert artifacts.debug_dataset is None
 
     written_df = pd.read_csv(artifacts.dataset)
@@ -135,16 +138,49 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
             artifacts.quality_report.read_bytes()
         ).hexdigest(),
     }
+    for extra_artifact in (
+        artifacts.correlation_report,
+        artifacts.qc_summary_statistics,
+        artifacts.qc_dataset_metrics,
+    ):
+        if extra_artifact is not None:
+            expected_checksums[extra_artifact.name] = hashlib.sha256(
+                extra_artifact.read_bytes()
+            ).hexdigest()
     assert contents["file_checksums"] == expected_checksums
     assert contents["artifacts"]["dataset"] == str(artifacts.dataset)
     assert contents["artifacts"]["quality_report"] == str(artifacts.quality_report)
-    assert "qc" not in contents.get("artifacts", {})
+    qc_artifacts = contents["artifacts"].get("qc", {})
+    assert qc_artifacts["correlation_report"] == str(artifacts.correlation_report)
+    assert qc_artifacts["summary_statistics"] == str(artifacts.qc_summary_statistics)
+    assert qc_artifacts["dataset_metrics"] == str(artifacts.qc_dataset_metrics)
 
     quality_df = pd.read_csv(artifacts.quality_report)
     column_profiles = quality_df[quality_df["metric"] == "column_profile"]
     assert set(column_profiles["column"]) == set(df.columns)
     assert set(column_profiles["dtype"]) == {"int64", "object"}
     assert column_profiles["null_count"].sum() == 0
+
+    assert artifacts.correlation_report is not None
+    correlation_df = pd.read_csv(artifacts.correlation_report)
+    assert set(correlation_df.columns) == {"feature_x", "feature_y", "correlation"}
+    pivot = correlation_df.pivot_table(
+        index="feature_x", columns="feature_y", values="correlation"
+    )
+    assert pytest.approx(pivot.loc["value", "value"], rel=1e-6) == 1.0
+
+    assert artifacts.qc_summary_statistics is not None
+    summary_df = pd.read_csv(artifacts.qc_summary_statistics)
+    assert "column" in summary_df.columns
+    assert set(summary_df["column"]) == set(df.columns)
+
+    assert artifacts.qc_dataset_metrics is not None
+    metrics_df = pd.read_csv(artifacts.qc_dataset_metrics)
+    assert set(metrics_df.columns) >= {"metric", "value"}
+    row_count_value = metrics_df.loc[
+        metrics_df["metric"] == "row_count", "value"
+    ].iloc[0]
+    assert int(row_count_value) == len(df)
 
 
 def test_unified_output_writer_emits_qc_artifacts(tmp_path, monkeypatch):
@@ -208,6 +244,10 @@ def test_unified_output_writer_emits_qc_artifacts(tmp_path, monkeypatch):
         metadata = yaml.safe_load(handle)
 
     assert "qc" in metadata["artifacts"]
+    qc_artifacts = metadata["artifacts"]["qc"]
+    assert "correlation_report" not in qc_artifacts
+    assert "summary_statistics" not in qc_artifacts
+    assert "dataset_metrics" not in qc_artifacts
     assert metadata.get("qc_summary", {}).get("row_counts", {}).get("total") == 2
 
 
@@ -242,6 +282,9 @@ def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monke
     assert "qc_missing_mappings" not in qc_artifacts
     assert "qc_enrichment_metrics" not in qc_artifacts
     assert qc_artifacts.get("qc_summary") == str(artifacts.qc_summary)
+    assert "correlation_report" not in qc_artifacts
+    assert "summary_statistics" not in qc_artifacts
+    assert "dataset_metrics" not in qc_artifacts
 
 
 def test_write_dataframe_json_uses_atomic_write(tmp_path, monkeypatch):
