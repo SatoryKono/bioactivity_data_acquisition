@@ -7,7 +7,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import pandas as pd
@@ -113,6 +113,9 @@ class OutputMetadata:
     column_order: list[str]
     checksums: dict[str, str]
     run_id: str | None = None
+    config_hash: str | None = None
+    git_commit: str | None = None
+    sources: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
     def from_dataframe(
@@ -123,8 +126,27 @@ class OutputMetadata:
         chembl_release: str | None = None,
         column_order: list[str] | None = None,
         run_id: str | None = None,
+        *,
+        config_hash: str | None = None,
+        git_commit: str | None = None,
+        sources: Sequence[str] | None = None,
     ) -> "OutputMetadata":
         """Создает метаданные из DataFrame."""
+
+        normalised_sources: tuple[str, ...] = tuple()
+        if sources:
+            seen: set[str] = set()
+            ordered: list[str] = []
+            for source in sources:
+                if not source:
+                    continue
+                key = str(source)
+                if key in seen:
+                    continue
+                seen.add(key)
+                ordered.append(key)
+            normalised_sources = tuple(ordered)
+
         return cls(
             pipeline_version=pipeline_version,
             source_system=source_system,
@@ -135,6 +157,9 @@ class OutputMetadata:
             column_order=column_order or list(df.columns),
             checksums={},
             run_id=run_id,
+            config_hash=config_hash,
+            git_commit=git_commit,
+            sources=normalised_sources,
         )
 
 
@@ -755,6 +780,9 @@ class UnifiedOutputWriter:
             "column_count": metadata.column_count,
             "column_order": metadata.column_order,
             "file_checksums": checksums,
+            "config_hash": metadata.config_hash,
+            "git_commit": metadata.git_commit,
+            "sources": sorted(metadata.sources) if metadata.sources else [],
         }
 
         artifacts: dict[str, Any] = {

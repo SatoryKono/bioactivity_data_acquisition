@@ -372,6 +372,14 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
 
     assert metadata["column_order"] == exported_df.columns.tolist()
     assert metadata["column_count"] == len(exported_df.columns)
+    expected_sources = sorted(
+        name
+        for name, source in pipeline.config.sources.items()
+        if getattr(source, "enabled", True)
+    )
+    assert metadata["config_hash"] == pipeline.config.config_hash
+    assert metadata.get("git_commit") is None
+    assert metadata["sources"] == expected_sources
 
 
 def test_export_uses_deterministic_float_format(tmp_path, assay_config):
@@ -417,6 +425,14 @@ def test_export_uses_deterministic_float_format(tmp_path, assay_config):
 
     assert metadata["column_order"] == header
     assert metadata["column_count"] == len(header)
+    expected_sources = sorted(
+        name
+        for name, source in pipeline.config.sources.items()
+        if getattr(source, "enabled", True)
+    )
+    assert metadata["config_hash"] == pipeline.config.config_hash
+    assert metadata.get("git_commit") is None
+    assert metadata["sources"] == expected_sources
 
 
 def test_export_applies_configured_sorting(tmp_path, assay_config):

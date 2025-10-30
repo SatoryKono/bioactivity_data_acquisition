@@ -4,6 +4,7 @@ import types
 from pathlib import Path
 
 import pandas as pd
+import yaml
 
 from bioetl.pipelines.base import PipelineBase
 
@@ -30,7 +31,24 @@ class _ExtendedArtifactsPipeline(PipelineBase):
 def _make_config() -> types.SimpleNamespace:
     pipeline_section = types.SimpleNamespace(name="integration", entity="integration")
     qc_section = types.SimpleNamespace(severity_threshold="error")
-    return types.SimpleNamespace(pipeline=pipeline_section, qc=qc_section, cli={})
+    determinism_section = types.SimpleNamespace(
+        column_order=[],
+        float_precision=6,
+        datetime_format="iso8601",
+        sort=types.SimpleNamespace(by=[], ascending=[]),
+    )
+    sources = {
+        "chembl": types.SimpleNamespace(enabled=True),
+        "pubchem": types.SimpleNamespace(enabled=False),
+    }
+    return types.SimpleNamespace(
+        pipeline=pipeline_section,
+        qc=qc_section,
+        cli={},
+        determinism=determinism_section,
+        config_hash="integration-hash",
+        sources=sources,
+    )
 
 
 def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
@@ -63,7 +81,14 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
 
     meta_path = artifacts.metadata
     assert meta_path is not None and meta_path.exists()
-    metadata = meta_path.read_text(encoding="utf-8")
-    assert "correlation_report" in metadata
-    assert "summary_statistics" in metadata
-    assert "dataset_metrics" in metadata
+    with meta_path.open("r", encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    assert metadata["config_hash"] == config.config_hash
+    assert metadata.get("git_commit") is None
+    assert metadata["sources"] == ["chembl"]
+
+    qc_artifacts = metadata["artifacts"].get("qc", {})
+    assert "correlation_report" in qc_artifacts
+    assert "summary_statistics" in qc_artifacts
+    assert "dataset_metrics" in qc_artifacts
