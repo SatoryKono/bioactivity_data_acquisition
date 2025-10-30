@@ -2,7 +2,7 @@
 
 import re
 
-import pandera.pandas as pa
+from bioetl.pandera_pandas import pa
 from packaging import version
 
 from bioetl.core.logger import UnifiedLogger

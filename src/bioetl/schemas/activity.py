@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import pandas as pd
-import pandera.pandas as pa
+
+from bioetl.pandera_pandas import pa
 
 from bioetl.pandera_typing import Series
 
