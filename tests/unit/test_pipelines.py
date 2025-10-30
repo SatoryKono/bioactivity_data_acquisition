@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 import requests
 import yaml
+import pandera as pa
 from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
 
@@ -2796,4 +2797,110 @@ def test_schema_validation_failures(monkeypatch, assay_config, testitem_config):
 
     assert assay_payload == expected_payload
     assert testitem_payload == expected_payload
+
+    assay_summary = (
+        assay_pipeline.qc_summary_data.get("validation", {}).get("assays")
+        if isinstance(assay_pipeline.qc_summary_data.get("validation"), dict)
+        else None
+    )
+    testitem_summary = (
+        testitem_pipeline.qc_summary_data.get("validation", {}).get("testitems")
+        if isinstance(testitem_pipeline.qc_summary_data.get("validation"), dict)
+        else None
+    )
+
+    assert assay_summary == testitem_summary
+
+
+def test_run_schema_validation_callbacks(assay_config):
+    """Common schema helper should invoke QC callbacks and adapters."""
+
+    class CallbackPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            return pd.DataFrame()
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def export(
+            self,
+            df: pd.DataFrame,
+            output_path: Path,
+            *,
+            extended: bool = False,
+        ) -> OutputArtifacts:  # noqa: D401 - test stub
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=output_path.with_suffix(".qc.csv"),
+                run_directory=output_path.parent,
+            )
+
+    pipeline = CallbackPipeline(assay_config, "schema-callbacks")
+
+    schema = pa.DataFrameSchema({"value": pa.Column(pa.Int64)})
+    df_valid = pd.DataFrame({"value": [1, 2, 3]})
+
+    success_calls: list[int] = []
+
+    pipeline.run_schema_validation(
+        df_valid,
+        schema,
+        dataset_name="dummy",
+        severity="error",
+        success_callbacks=(lambda validated: success_calls.append(len(validated)),),
+    )
+
+    assert success_calls == [3]
+    validation_summary = pipeline.qc_summary_data.get("validation", {}).get("dummy", {})
+    assert validation_summary.get("status") == "passed"
+    assert validation_summary.get("rows") == 3
+
+    pipeline.reset_run_state()
+
+    df_invalid = pd.DataFrame({"value": ["invalid"]})
+    failure_callbacks_called: list[bool] = []
+    adapter_calls: list[bool] = []
+
+    def _failure_callback(
+        issues: list[dict[str, Any]],
+        exc: Exception,
+        should_fail: bool,
+    ) -> None:
+        failure_callbacks_called.append(should_fail)
+        assert issues
+        assert isinstance(exc, Exception)
+
+    def _error_adapter(
+        issues: list[dict[str, Any]],
+        exc: Exception,
+        should_fail: bool,
+    ) -> Exception | None:
+        adapter_calls.append(should_fail)
+        if not should_fail:
+            return None
+
+        summary = "; ".join(
+            f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+            for issue in issues
+        )
+        return ValueError(f"Schema validation failed: {summary}")
+
+    with pytest.raises(ValueError) as exc_info:
+        pipeline.run_schema_validation(
+            df_invalid,
+            schema,
+            dataset_name="dummy",
+            severity="error",
+            failure_callbacks=(_failure_callback,),
+            error_adapter=_error_adapter,
+        )
+
+    assert "Schema validation failed" in str(exc_info.value)
+    assert failure_callbacks_called == [True]
+    assert adapter_calls == [True]
+    failure_summary = pipeline.qc_summary_data.get("validation", {}).get("dummy", {})
+    assert failure_summary.get("status") == "failed"
 
