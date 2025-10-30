@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, IO
 
 import pandas as pd
 
@@ -133,8 +133,11 @@ class ColumnValidator:
     def compare_columns(
         self,
         entity: str,
-        actual_df: pd.DataFrame,
+        actual_df: pd.DataFrame | Sequence[str],
         schema_version: str = "latest",
+        *,
+        empty_columns: Sequence[str] | None = None,
+        non_empty_columns: Sequence[str] | None = None,
     ) -> ColumnComparisonResult:
         """
         Сравнить колонки в DataFrame с ожидаемой схемой.
@@ -153,7 +156,24 @@ class ColumnValidator:
             expected_columns = self._get_expected_columns(schema)
 
             # Получить фактические колонки
-            actual_columns = list(actual_df.columns)
+            if isinstance(actual_df, pd.DataFrame):
+                actual_columns = list(actual_df.columns)
+                if empty_columns is None or non_empty_columns is None:
+                    empty_columns, non_empty_columns = self._analyze_column_data(actual_df)
+                else:
+                    empty_columns = list(empty_columns)
+                    non_empty_columns = list(non_empty_columns)
+            else:
+                actual_columns = list(actual_df)
+                if empty_columns is None or non_empty_columns is None:
+                    raise ValueError(
+                        "empty_columns и non_empty_columns должны быть переданы при использовании "
+                        "списка колонок"
+                    )
+
+                empty_columns = list(empty_columns)
+                non_empty_columns = list(non_empty_columns)
+
             duplicates_counter = Counter(actual_columns)
             duplicate_columns = {
                 column: count
@@ -167,9 +187,6 @@ class ColumnValidator:
             order_matches = expected_columns == actual_columns
             column_count_matches = len(expected_columns) == len(actual_columns)
 
-            # Проверить пустые колонки
-            empty_columns, non_empty_columns = self._analyze_column_data(actual_df)
-
             result = ColumnComparisonResult(
                 entity=entity,
                 expected_columns=expected_columns,
@@ -178,8 +195,8 @@ class ColumnValidator:
                 extra_columns=extra_columns,
                 order_matches=order_matches,
                 column_count_matches=column_count_matches,
-                empty_columns=empty_columns,
-                non_empty_columns=non_empty_columns,
+                empty_columns=list(empty_columns),
+                non_empty_columns=list(non_empty_columns),
                 duplicate_columns=duplicate_columns,
             )
 
@@ -230,6 +247,57 @@ class ColumnValidator:
                 empty_columns.append(column)
             else:
                 non_empty_columns.append(column)
+
+        return empty_columns, non_empty_columns
+
+    def _analyze_file_column_data(
+        self,
+        file_obj: Path | IO[str],
+        columns: Sequence[str],
+        chunk_size: int = 100_000,
+    ) -> tuple[list[str], list[str]]:
+        """Определить пустые и непустые колонки на основании чтения файла по частям."""
+
+        column_list = list(columns)
+        if not column_list:
+            return [], []
+
+        non_null_totals: dict[str, int] = {column: 0 for column in column_list}
+
+        if hasattr(file_obj, "seek"):
+            try:
+                file_obj.seek(0)
+            except (OSError, ValueError):
+                pass
+
+        try:
+            reader = pd.read_csv(
+                file_obj,
+                usecols=column_list,
+                chunksize=chunk_size,
+            )
+        except pd.errors.EmptyDataError:
+            return column_list, []
+
+        try:
+            for chunk in reader:
+                if chunk.empty:
+                    continue
+                chunk_non_null = chunk.notna().sum()
+                for column, count in chunk_non_null.items():
+                    non_null_totals[column] += int(count)
+        finally:
+            try:
+                reader.close()
+            except AttributeError:
+                pass
+
+        empty_columns = [
+            column for column, count in non_null_totals.items() if count == 0
+        ]
+        non_empty_columns = [
+            column for column, count in non_null_totals.items() if count > 0
+        ]
 
         return empty_columns, non_empty_columns
 
@@ -410,14 +478,27 @@ class ColumnValidator:
                     )
                     continue
 
-                # Загрузить DataFrame
-                df = pd.read_csv(csv_file)
+                # Прочитать только заголовок для определения колонок
+                header_df = pd.read_csv(csv_file, nrows=0)
+                actual_columns = list(header_df.columns)
 
                 # Определить сущность по имени файла
                 entity = self._extract_entity_from_filename(csv_file.name)
 
+                # Проанализировать непустые/пустые колонки, читая файл по частям
+                empty_columns, non_empty_columns = self._analyze_file_column_data(
+                    csv_file,
+                    actual_columns,
+                )
+
                 # Сравнить колонки
-                result = self.compare_columns(entity, df, schema_version)
+                result = self.compare_columns(
+                    entity,
+                    actual_columns,
+                    schema_version,
+                    empty_columns=empty_columns,
+                    non_empty_columns=non_empty_columns,
+                )
                 results.append(result)
 
             except Exception as e:
