@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, IO
 
 import pandas as pd
 
@@ -76,16 +77,25 @@ class ColumnValidator:
     def compare_columns(
         self,
         entity: str,
-        actual_df: pd.DataFrame,
+        actual_df: pd.DataFrame | None = None,
         schema_version: str = "latest",
+        *,
+        actual_columns: Sequence[str] | None = None,
+        empty_columns: Sequence[str] | None = None,
+        non_empty_columns: Sequence[str] | None = None,
     ) -> ColumnComparisonResult:
         """
         Сравнить колонки в DataFrame с ожидаемой схемой.
 
         Args:
             entity: Имя сущности (assay, activity, testitem, target, document)
-            actual_df: DataFrame для проверки
+            actual_df: DataFrame для проверки. Если не указан, необходимо передать
+                ``actual_columns`` вместе с информацией о пустых колонках.
             schema_version: Версия схемы для сравнения
+            actual_columns: Явно переданный список колонок. Используется при
+                потоковой обработке файлов.
+            empty_columns: Колонки, полностью состоящие из пустых значений.
+            non_empty_columns: Колонки, содержащие данные.
 
         Returns:
             ColumnComparisonResult с результатами сравнения
@@ -95,8 +105,27 @@ class ColumnValidator:
             schema = SchemaRegistry.get(entity, schema_version)
             expected_columns = self._get_expected_columns(schema)
 
+            if actual_columns is None:
+                if actual_df is None:
+                    raise ValueError(
+                        "Нужно передать DataFrame или список колонок для сравнения",
+                    )
+                resolved_columns = list(actual_df.columns)
+            else:
+                resolved_columns = list(actual_columns)
+
+            if actual_df is not None and actual_columns is not None:
+                df_columns = list(actual_df.columns)
+                if df_columns != resolved_columns:
+                    self.logger.warning(
+                        "column_list_mismatch",
+                        entity=entity,
+                        df_columns=df_columns,
+                        provided_columns=resolved_columns,
+                    )
+
             # Получить фактические колонки
-            actual_columns = list(actual_df.columns)
+            actual_columns = resolved_columns
 
             # Сравнить колонки
             missing_columns = list(set(expected_columns) - set(actual_columns))
@@ -104,8 +133,22 @@ class ColumnValidator:
             order_matches = expected_columns == actual_columns
             column_count_matches = len(expected_columns) == len(actual_columns)
 
-            # Проверить пустые колонки
-            empty_columns, non_empty_columns = self._analyze_column_data(actual_df)
+            if empty_columns is None or non_empty_columns is None:
+                if actual_df is None:
+                    raise ValueError(
+                        "Нужно передать информацию о пустых колонках при "
+                        "потоковой обработке файла",
+                    )
+                empty_columns, non_empty_columns = self._analyze_column_data(
+                    actual_df,
+                )
+            else:
+                empty_columns = [
+                    column for column in empty_columns if column in actual_columns
+                ]
+                non_empty_columns = [
+                    column for column in non_empty_columns if column in actual_columns
+                ]
 
             result = ColumnComparisonResult(
                 entity=entity,
@@ -164,6 +207,53 @@ class ColumnValidator:
                 empty_columns.append(column)
             else:
                 non_empty_columns.append(column)
+
+        return empty_columns, non_empty_columns
+
+    def _analyze_csv_column_data(
+        self,
+        csv_source: Path | IO[str],
+        columns: Sequence[str],
+        *,
+        chunksize: int = 100_000,
+    ) -> tuple[list[str], list[str]]:
+        """Определить пустые и непустые колонки, обрабатывая CSV потоково."""
+
+        if not columns:
+            return [], []
+
+        try:
+            csv_source.seek(0)
+        except AttributeError:
+            pass
+        except OSError:
+            pass
+
+        non_null_presence = {column: False for column in columns}
+
+        try:
+            chunk_reader = pd.read_csv(csv_source, chunksize=chunksize)
+        except pd.errors.EmptyDataError:
+            return list(columns), []
+
+        for chunk in chunk_reader:
+            if chunk.empty:
+                continue
+
+            non_null_any = chunk.notna().any()
+            for column, has_non_null in non_null_any.items():
+                if has_non_null and column in non_null_presence:
+                    non_null_presence[column] = True
+
+            if all(non_null_presence.values()):
+                break
+
+        empty_columns = [
+            column for column, has_values in non_null_presence.items() if not has_values
+        ]
+        non_empty_columns = [
+            column for column, has_values in non_null_presence.items() if has_values
+        ]
 
         return empty_columns, non_empty_columns
 
@@ -331,14 +421,29 @@ class ColumnValidator:
                     )
                     continue
 
-                # Загрузить DataFrame
-                df = pd.read_csv(csv_file)
+                # Прочитать только заголовок файла
+                try:
+                    header_df = pd.read_csv(csv_file, nrows=0)
+                    actual_columns = list(header_df.columns)
+                except pd.errors.EmptyDataError:
+                    actual_columns = []
 
                 # Определить сущность по имени файла
                 entity = self._extract_entity_from_filename(csv_file.name)
 
+                empty_columns, non_empty_columns = self._analyze_csv_column_data(
+                    csv_file,
+                    actual_columns,
+                )
+
                 # Сравнить колонки
-                result = self.compare_columns(entity, df, schema_version)
+                result = self.compare_columns(
+                    entity,
+                    schema_version=schema_version,
+                    actual_columns=actual_columns,
+                    empty_columns=empty_columns,
+                    non_empty_columns=non_empty_columns,
+                )
                 results.append(result)
 
             except Exception as e:

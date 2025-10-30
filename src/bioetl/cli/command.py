@@ -232,11 +232,25 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
                     # Загрузить выходной файл для валидации
                     if artifacts.dataset and artifacts.dataset.exists():
-                        df = pd.read_csv(artifacts.dataset)
+                        try:
+                            header_df = pd.read_csv(artifacts.dataset, nrows=0)
+                            actual_columns = list(header_df.columns)
+                        except pd.errors.EmptyDataError:
+                            actual_columns = []
+
+                        empty_columns, non_empty_columns = (
+                            validator._analyze_csv_column_data(
+                                artifacts.dataset,
+                                actual_columns,
+                            )
+                        )
+
                         result = validator.compare_columns(
                             entity=config.pipeline_name,
-                            actual_df=df,
                             schema_version="latest",
+                            actual_columns=actual_columns,
+                            empty_columns=empty_columns,
+                            non_empty_columns=non_empty_columns,
                         )
 
                         if result.overall_match:
