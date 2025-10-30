@@ -306,17 +306,291 @@ class PipelineMetadata(BaseModel):
     release_scope: bool = True
 
 
+class MaterializationStageTemplate(BaseModel):
+    """Template describing a materialization stage."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: str = Field(default="parquet")
+    filename: str | None = None
+    description: str | None = None
+
+
+class MaterializationStage(BaseModel):
+    """Concrete materialization stage settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: str | None = None
+    path: Path | str | None = None
+    filename: str | None = None
+    description: str | None = None
+
+    @field_validator("path", mode="before")
+    @classmethod
+    def coerce_path(cls, value: Path | str | None) -> Path | str | None:
+        """Allow plain strings to be used as direct stage paths."""
+
+        if value is None:
+            return None
+        if isinstance(value, Path):
+            return value
+        if isinstance(value, str):
+            return value
+        raise TypeError("Stage path must be a string or Path")
+
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_from_scalar(cls, value: Any) -> Any:
+        """Permit shorthand strings when defining stage paths."""
+
+        if isinstance(value, (str, Path)):
+            return {"path": value}
+        return value
+
+    def with_defaults(self, template: MaterializationStageTemplate | None) -> MaterializationStage:
+        """Return a copy of the stage, enriched with template defaults."""
+
+        if template is None:
+            return MaterializationStage(**self.model_dump())
+        stage_data = {
+            key: value for key, value in self.model_dump().items() if value is not None
+        }
+        template_data = template.model_dump()
+        merged = {**template_data, **stage_data}
+        return MaterializationStage(**merged)
+
+
+class MaterializationDataset(BaseModel):
+    """Collection of stage settings for a named dataset."""
+
+    model_config = ConfigDict(extra="allow")
+
+    root: Path | str | None = None
+    bronze: MaterializationStage | None = None
+    silver: MaterializationStage | None = None
+    gold: MaterializationStage | None = None
+    qc_report: MaterializationStage | None = None
+    staging: MaterializationStage | None = None
+    checkpoints: dict[str, Path | str] = Field(default_factory=dict)
+
+    @field_validator("root", mode="before")
+    @classmethod
+    def coerce_root(cls, value: Path | str | None) -> Path | str | None:
+        """Normalise dataset root representation."""
+
+        if value is None or isinstance(value, (Path, str)):
+            return value
+        raise TypeError("Dataset root must be a string or Path")
+
+
+class MaterializationDefaults(BaseModel):
+    """Default values applied to materialization datasets."""
+
+    model_config = ConfigDict(extra="allow")
+
+    dataset: str | None = None
+    root: Path | str | None = None
+
+
 class MaterializationPaths(BaseModel):
     """Paths used for materialization stages."""
 
     model_config = ConfigDict(extra="allow")
 
-    bronze: Path | str | None = None
-    silver: Path | str | None = None
-    gold: Path | str | None = None
-    qc_report: Path | str | None = None
-    staging: Path | str | None = None
+    bronze: MaterializationStage | None = None
+    silver: MaterializationStage | None = None
+    gold: MaterializationStage | None = None
+    qc_report: MaterializationStage | None = None
+    staging: MaterializationStage | None = None
     checkpoints: dict[str, Path | str] = Field(default_factory=dict)
+    stages: dict[str, MaterializationStageTemplate] = Field(default_factory=dict)
+    datasets: dict[str, MaterializationDataset] = Field(default_factory=dict)
+    defaults: MaterializationDefaults = Field(default_factory=MaterializationDefaults)
+
+    @field_validator("bronze", "silver", "gold", "qc_report", "staging", mode="before")
+    @classmethod
+    def coerce_stage(cls, value: Any) -> Any:
+        """Allow shorthand definitions for top-level stages."""
+
+        if isinstance(value, (str, Path)):
+            return {"path": value}
+        return value
+
+    @field_validator("checkpoints", mode="before")
+    @classmethod
+    def coerce_checkpoints(cls, value: Any) -> dict[str, Path | str]:
+        """Ensure checkpoints resolve to simple path mappings."""
+
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise TypeError("checkpoints must be a mapping of names to paths")
+        return value
+
+    def _format_with_context(
+        self,
+        value: str,
+        dataset: str | None,
+        pipeline: PipelineMetadata | None,
+    ) -> str:
+        """Substitute well-known placeholders within strings."""
+
+        context: dict[str, str] = {}
+        if dataset:
+            context["dataset"] = dataset
+        if pipeline is not None:
+            context.setdefault("entity", pipeline.entity)
+            context.setdefault("pipeline", pipeline.name)
+
+        try:
+            return value.format(**context)
+        except KeyError:
+            return value
+
+    def _resolve_dataset_key(
+        self, dataset: str | None, pipeline: PipelineMetadata | None
+    ) -> str | None:
+        """Determine the dataset identifier when omitted."""
+
+        if dataset:
+            return dataset
+        default_dataset = self.defaults.dataset
+        if isinstance(default_dataset, str):
+            return self._format_with_context(default_dataset, dataset=None, pipeline=pipeline)
+        if pipeline is not None:
+            return pipeline.entity
+        return None
+
+    def _resolve_dataset_root(
+        self,
+        dataset: str | None,
+        paths: PathConfig | None,
+        pipeline: PipelineMetadata | None,
+    ) -> Path | None:
+        """Compute the on-disk directory for a dataset."""
+
+        base_root = Path(paths.output_root) if paths is not None else None
+        dataset_key = self._resolve_dataset_key(dataset, pipeline)
+        dataset_config = self.datasets.get(dataset_key) if dataset_key else None
+
+        root_value: Path | str | None = None
+        if dataset_config and dataset_config.root is not None:
+            root_value = dataset_config.root
+        elif self.defaults.root is not None:
+            root_value = self.defaults.root
+
+        if root_value is None:
+            return base_root
+
+        root_str = str(root_value)
+        formatted = self._format_with_context(root_str, dataset_key, pipeline)
+        resolved_root = Path(formatted)
+
+        if resolved_root.is_absolute():
+            return resolved_root
+        if base_root is not None:
+            return base_root / resolved_root
+        return resolved_root
+
+    def _resolve_value_path(
+        self,
+        value: Path | str,
+        dataset: str | None,
+        pipeline: PipelineMetadata | None,
+        paths: PathConfig | None,
+    ) -> Path:
+        """Normalise potentially relative path specifications."""
+
+        value_str = str(value)
+        formatted = self._format_with_context(value_str, dataset, pipeline)
+        candidate = Path(formatted)
+        if candidate.is_absolute():
+            return candidate
+        root = self._resolve_dataset_root(dataset, paths, pipeline)
+        if root is not None:
+            return root / candidate
+        if paths is not None:
+            return Path(paths.output_root) / candidate
+        return candidate
+
+    def get_stage(
+        self,
+        stage: str,
+        dataset: str | None = None,
+        *,
+        pipeline: PipelineMetadata | None = None,
+    ) -> MaterializationStage | None:
+        """Retrieve a materialization stage configuration."""
+
+        dataset_key = self._resolve_dataset_key(dataset, pipeline)
+        stage_template = self.stages.get(stage)
+
+        if dataset_key and dataset_key in self.datasets:
+            dataset_cfg = self.datasets[dataset_key]
+            stage_cfg = getattr(dataset_cfg, stage, None)
+            if stage_cfg is not None:
+                return stage_cfg.with_defaults(stage_template)
+
+        stage_cfg = getattr(self, stage, None)
+        if stage_cfg is not None:
+            return stage_cfg.with_defaults(stage_template)
+
+        if stage_template is not None:
+            return MaterializationStage(**stage_template.model_dump())
+        return None
+
+    def resolve_stage_path(
+        self,
+        stage: str,
+        dataset: str | None = None,
+        *,
+        pipeline: PipelineMetadata | None = None,
+        paths: PathConfig | None = None,
+    ) -> Path | None:
+        """Resolve a fully-qualified path for a materialization stage."""
+
+        dataset_key = self._resolve_dataset_key(dataset, pipeline)
+        stage_cfg = self.get_stage(stage, dataset_key, pipeline=pipeline)
+        if stage_cfg is None:
+            return None
+
+        if stage_cfg.path is not None:
+            return self._resolve_value_path(stage_cfg.path, dataset_key, pipeline, paths)
+
+        if stage_cfg.filename is None:
+            return None
+
+        filename = self._format_with_context(stage_cfg.filename, dataset_key, pipeline)
+        root = self._resolve_dataset_root(dataset_key, paths, pipeline)
+
+        if root is None:
+            return Path(filename)
+        return root / filename
+
+    def resolve_checkpoint_path(
+        self,
+        name: str,
+        dataset: str | None = None,
+        *,
+        pipeline: PipelineMetadata | None = None,
+        paths: PathConfig | None = None,
+    ) -> Path | None:
+        """Resolve a checkpoint path, preferring dataset-level overrides."""
+
+        dataset_key = self._resolve_dataset_key(dataset, pipeline)
+        if dataset_key and dataset_key in self.datasets:
+            dataset_cfg = self.datasets[dataset_key]
+            if name in dataset_cfg.checkpoints:
+                return self._resolve_value_path(
+                    dataset_cfg.checkpoints[name], dataset_key, pipeline, paths
+                )
+
+        if name in self.checkpoints:
+            return self._resolve_value_path(
+                self.checkpoints[name], dataset_key, pipeline, paths
+            )
+        return None
 
 
 class FallbackOptions(BaseModel):
@@ -389,6 +663,24 @@ class PipelineConfig(BaseModel):
             )
 
         return self
+
+    def resolve_materialization_path(
+        self, stage: str, dataset: str | None = None
+    ) -> Path | None:
+        """Resolve the absolute path for a materialization stage."""
+
+        return self.materialization.resolve_stage_path(
+            stage, dataset, pipeline=self.pipeline, paths=self.paths
+        )
+
+    def resolve_checkpoint_path(
+        self, name: str, dataset: str | None = None
+    ) -> Path | None:
+        """Resolve the absolute path for a materialization checkpoint."""
+
+        return self.materialization.resolve_checkpoint_path(
+            name, dataset, pipeline=self.pipeline, paths=self.paths
+        )
 
     def model_dump_canonical(self) -> dict[str, Any]:
         """

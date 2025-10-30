@@ -89,3 +89,7 @@ qc:
     null_rate_critical: 0.3
     duplicates: 0
     fallback_usage_rate: 0.1
+
+materialization:
+  datasets:
+    assay: {}

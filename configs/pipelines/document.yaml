@@ -188,3 +188,7 @@ qc:
     title_fallback_rate:
       max: 0.25
       severity: warning
+
+materialization:
+  datasets:
+    document: {}

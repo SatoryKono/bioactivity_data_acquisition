@@ -38,6 +38,10 @@ from bioetl.schemas import (
     XrefSchema,
 )
 from bioetl.schemas.registry import schema_registry
+
+TARGET_DATASET_NAME = "targets"
+DEFAULT_TARGET_SILVER_PATH = Path("data/output/target/targets_silver.parquet")
+DEFAULT_TARGET_GOLD_PATH = Path("data/output/target/targets_final.parquet")
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     prepare_enrichment_metrics,
@@ -1473,8 +1477,13 @@ class TargetPipeline(PipelineBase):
             logger.info("silver_materialization_skipped", reason="empty_frames")
             return
 
-        silver_path_config = self.config.materialization.silver or Path("data/output/target/targets_silver.parquet")
-        silver_path = Path(silver_path_config)
+        silver_path = self.config.resolve_materialization_path(
+            "silver", dataset=TARGET_DATASET_NAME
+        )
+        if silver_path is None:
+            silver_path = DEFAULT_TARGET_SILVER_PATH
+        else:
+            silver_path = Path(silver_path)
         silver_path.parent.mkdir(parents=True, exist_ok=True)
 
         if not uniprot_df.empty:
@@ -1509,7 +1518,15 @@ class TargetPipeline(PipelineBase):
             logger.info("iuphar_materialization_skipped", reason="empty_frames")
             return
 
-        output_dir = Path(self.config.materialization.gold or Path("data/output/target/targets_final.parquet")).parent
+        gold_path = self.config.resolve_materialization_path(
+            "gold", dataset=TARGET_DATASET_NAME
+        )
+        if gold_path is None:
+            gold_path = DEFAULT_TARGET_GOLD_PATH
+        else:
+            gold_path = Path(gold_path)
+
+        output_dir = gold_path.parent
         output_dir.mkdir(parents=True, exist_ok=True)
 
         if not classification_df.empty:
@@ -1606,7 +1623,11 @@ class TargetPipeline(PipelineBase):
             logger.info("gold_materialization_skipped", reason="dry_run")
             return
 
-        gold_path = getattr(self.config.materialization, "gold", Path("data/output/target/targets_final.parquet"))
+        gold_path = self.config.resolve_materialization_path(
+            "gold", dataset=TARGET_DATASET_NAME
+        )
+        if gold_path is None:
+            gold_path = DEFAULT_TARGET_GOLD_PATH
         materialize_gold(
             Path(gold_path),
             targets=targets_df,

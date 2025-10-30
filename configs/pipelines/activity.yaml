@@ -80,3 +80,7 @@ qc:
     duplicates: 0
     null_rate_critical: 0.3
     invalid_units: 0
+
+materialization:
+  datasets:
+    activity: {}

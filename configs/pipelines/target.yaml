@@ -177,13 +177,11 @@ qc:
     iuphar: 0.1
 
 materialization:
-  bronze: "data/output/target/targets_bronze.parquet"
-  silver: "data/output/target/targets_silver.parquet"
-  gold: "data/output/target/targets_final.parquet"
-  qc_report: "data/output/target/targets_qc.csv"
-  checkpoints:
-    chembl: "data/output/target/checkpoints/chembl_targets.json"
-    enrichment: "data/output/target/checkpoints/targets_enrichment.json"
+  datasets:
+    targets:
+      checkpoints:
+        chembl: "checkpoints/chembl_targets.json"
+        enrichment: "checkpoints/targets_enrichment.json"
 
 fallbacks:
   enabled: true

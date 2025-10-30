@@ -58,3 +58,7 @@ qc:
     testitem.duplicate_ratio: 0.5
     testitem.fallback_ratio: 0.2
     testitem.parent_missing_ratio: 0.0
+
+materialization:
+  datasets:
+    testitem: {}
