@@ -17,6 +17,9 @@ from bioetl.pipelines.document import (
 )
 
 
+pytestmark = pytest.mark.integration
+
+
 @pytest.fixture
 def sample_documents_data():
     """Sample document data for testing."""
@@ -122,6 +125,7 @@ def mock_external_enrichment(
     if configured["value"]:
         httpserver.check_assertions()
 
+@pytest.mark.integration
 class TestDocumentPipelineEnrichment:
     """Test DocumentPipeline with external enrichment."""
 

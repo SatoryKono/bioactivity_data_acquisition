@@ -4,9 +4,13 @@ import types
 from pathlib import Path
 
 import pandas as pd
+import pytest
 import yaml
 
 from bioetl.pipelines.base import PipelineBase
+
+
+pytestmark = pytest.mark.integration
 
 
 class _ExtendedArtifactsPipeline(PipelineBase):
@@ -51,6 +55,7 @@ def _make_config() -> types.SimpleNamespace:
     )
 
 
+@pytest.mark.integration
 def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     """Running with ``extended=True`` should persist correlation and QC artefacts."""
 
