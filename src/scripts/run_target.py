@@ -3,10 +3,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from types import MethodType
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import typer
@@ -36,7 +37,7 @@ def _validate_positive_option(value: int | None, param_name: str) -> None:
     if value is not None and value < 1:
         raise typer.BadParameter(
             f"--{param_name} must be >= 1",
-            param_hint=[f"--{param_name}"],
+            param_hint=f"--{param_name}",
         )
 
 
@@ -163,7 +164,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         allowed = ", ".join(mode_choices)
         raise typer.BadParameter(
             f"Mode must be one of: {allowed}",
-            param_hint=["--mode"],
+            param_hint="--mode",
         )
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -208,11 +209,11 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         return
 
     if sample is not None:
-        original_extract = pipeline.extract
+        original_extract = cast(Callable[..., pd.DataFrame], pipeline.extract)
 
         def limited_extract(
             self: PipelineBase, *args: Any, **kwargs: Any
-        ) -> pd.DataFrame:  # type: ignore[misc]
+        ) -> pd.DataFrame:
             df = original_extract(*args, **kwargs)
             logger.info(
                 "applying_sample_limit",
@@ -221,7 +222,11 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
             )
             return df.head(sample)
 
-        pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
+        limited_method = cast(
+            Callable[..., pd.DataFrame],
+            MethodType(limited_extract, pipeline),
+        )
+        setattr(pipeline, "extract", limited_method)
 
     if input_file is None:
         input_file = DEFAULT_INPUT
