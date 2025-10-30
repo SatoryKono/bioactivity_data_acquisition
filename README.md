@@ -25,6 +25,22 @@ UnifiedLogger.setup('development', 'test'); \
 UnifiedLogger.get('test').info('Hello World')"
 ```
 
+## CLI Usage
+
+Команды Typer регистрируются автоматически на основе `scripts.PIPELINE_COMMAND_REGISTRY`,
+поэтому консольный интерфейс всегда отражает актуальные пайплайны.
+
+```bash
+# Просмотреть доступные команды и флаги
+python -m bioetl.cli.main --help
+
+# Список зарегистрированных пайплайнов
+python -m bioetl.cli.main list
+
+# Пример запуска пайплайна в режиме dry-run
+python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml --dry-run --verbose
+```
+
 ## Structure
 
 ```text
