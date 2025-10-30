@@ -37,6 +37,7 @@ from bioetl.schemas.document import (
 )
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.config import coerce_float_config, coerce_int_config
 from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.output import finalize_output_dataset
@@ -320,35 +321,8 @@ class DocumentPipeline(PipelineBase):
     ) -> tuple[APIConfig, AdapterConfig]:
         """Construct API and adapter configuration objects for a source."""
 
-        def _coerce_int(value: Any, default: int, *, field: str) -> int:
-            if value is None:
-                return default
-            try:
-                return int(value)
-            except (TypeError, ValueError):
-                logger.warning(
-                    "adapter_config_invalid_int",
-                    source=source_name,
-                    field=field,
-                    value=value,
-                    default=default,
-                )
-                return default
-
-        def _coerce_float(value: Any, default: float, *, field: str) -> float:
-            if value is None:
-                return default
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                logger.warning(
-                    "adapter_config_invalid_float",
-                    source=source_name,
-                    field=field,
-                    value=value,
-                    default=default,
-                )
-                return default
+        def _log(event: str, **kwargs: Any) -> None:
+            logger.warning(event, source=source_name, **kwargs)
 
         cache_enabled = bool(self.config.cache.enabled)
         cache_enabled_raw = self._get_source_attribute(source_cfg, "cache_enabled")
@@ -359,14 +333,24 @@ class DocumentPipeline(PipelineBase):
 
         cache_ttl_default = int(self.config.cache.ttl)
         cache_ttl_raw = self._get_source_attribute(source_cfg, "cache_ttl")
-        cache_ttl = _coerce_int(cache_ttl_raw, cache_ttl_default, field="cache_ttl")
+        cache_ttl = coerce_int_config(
+            cache_ttl_raw,
+            cache_ttl_default,
+            field="cache_ttl",
+            log=_log,
+            invalid_event="adapter_config_invalid_int",
+        )
 
         cache_maxsize_default = getattr(self.config.cache, "maxsize", None)
         if cache_maxsize_default is None:
             cache_maxsize_default = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
         cache_maxsize_raw = self._get_source_attribute(source_cfg, "cache_maxsize")
-        cache_maxsize = _coerce_int(
-            cache_maxsize_raw, int(cache_maxsize_default), field="cache_maxsize"
+        cache_maxsize = coerce_int_config(
+            cache_maxsize_raw,
+            int(cache_maxsize_default),
+            field="cache_maxsize",
+            log=_log,
+            invalid_event="adapter_config_invalid_int",
         )
 
         http_profiles = getattr(self.config, "http", None)
@@ -409,26 +393,36 @@ class DocumentPipeline(PipelineBase):
         if timeout_override is None:
             timeout_override = self._get_source_attribute(source_cfg, "timeout_sec")
 
-        timeout_value = _coerce_float(timeout_override, float(timeout_default), field="timeout")
+        timeout_value = coerce_float_config(
+            timeout_override,
+            float(timeout_default),
+            field="timeout",
+            log=_log,
+            invalid_event="adapter_config_invalid_float",
+        )
 
         connect_override = self._get_source_attribute(source_cfg, "connect_timeout_sec")
         connect_default_final = (
             float(timeout_value) if timeout_override is not None else float(connect_default)
         )
-        timeout_connect = _coerce_float(
+        timeout_connect = coerce_float_config(
             connect_override,
             connect_default_final,
             field="connect_timeout_sec",
+            log=_log,
+            invalid_event="adapter_config_invalid_float",
         )
 
         read_override = self._get_source_attribute(source_cfg, "read_timeout_sec")
         read_default_final = (
             float(timeout_value) if timeout_override is not None else float(read_default)
         )
-        timeout_read = _coerce_float(
+        timeout_read = coerce_float_config(
             read_override,
             read_default_final,
             field="read_timeout_sec",
+            log=_log,
+            invalid_event="adapter_config_invalid_float",
         )
 
         api_kwargs: dict[str, Any] = {

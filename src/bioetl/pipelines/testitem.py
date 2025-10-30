@@ -18,6 +18,7 @@ from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.config import coerce_float_config, coerce_int_config
 from bioetl.utils.dtypes import (
     coerce_nullable_int,
     coerce_optional_bool,
@@ -1036,43 +1037,8 @@ class TestItemPipeline(PipelineBase):
                 return default
             return getattr(source, attr, default)
 
-        def _coerce_int(value: Any, default: int, *, minimum: int = 1, field: str) -> int:
-            if value is None:
-                return default
-            try:
-                candidate = int(value)
-            except (TypeError, ValueError):
-                logger.warning("pubchem_config_invalid_int", field=field, value=value, default=default)
-                return default
-            if candidate < minimum:
-                logger.warning(
-                    "pubchem_config_out_of_range",
-                    field=field,
-                    value=candidate,
-                    minimum=minimum,
-                    default=default,
-                )
-                return default
-            return candidate
-
-        def _coerce_float(value: Any, default: float, *, minimum: float = 0.0, field: str) -> float:
-            if value is None:
-                return default
-            try:
-                candidate = float(value)
-            except (TypeError, ValueError):
-                logger.warning("pubchem_config_invalid_float", field=field, value=value, default=default)
-                return default
-            if candidate <= minimum:
-                logger.warning(
-                    "pubchem_config_out_of_range",
-                    field=field,
-                    value=candidate,
-                    minimum=minimum,
-                    default=default,
-                )
-                return default
-            return candidate
+        def _log(event: str, **kwargs: Any) -> None:
+            logger.warning(event, source="pubchem", **kwargs)
 
         pubchem_source = sources.get("pubchem") if sources is not None else None
 
@@ -1116,22 +1082,45 @@ class TestItemPipeline(PipelineBase):
         if cache_maxsize is None:
             cache_maxsize = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
 
-        rate_limit_max_calls = _coerce_int(
+        rate_limit_max_calls = coerce_int_config(
             rate_limit_max_calls_raw,
             default_rate_limit_max_calls,
-            minimum=1,
             field="rate_limit_max_calls",
+            minimum=1,
+            log=_log,
+            invalid_event="pubchem_config_invalid_int",
+            out_of_range_event="pubchem_config_out_of_range",
         )
-        rate_limit_period = _coerce_float(
+        rate_limit_period = coerce_float_config(
             rate_limit_period_raw,
             default_rate_limit_period,
-            minimum=0.0,
             field="rate_limit_period",
+            minimum=0.0,
+            exclusive_minimum=True,
+            log=_log,
+            invalid_event="pubchem_config_invalid_float",
+            out_of_range_event="pubchem_config_out_of_range",
         )
-        batch_size = _coerce_int(batch_size_raw, default_batch_size, minimum=1, field="batch_size")
+        batch_size = coerce_int_config(
+            batch_size_raw,
+            default_batch_size,
+            field="batch_size",
+            minimum=1,
+            log=_log,
+            invalid_event="pubchem_config_invalid_int",
+            out_of_range_event="pubchem_config_out_of_range",
+        )
 
         workers_raw = _source_attr(pubchem_source, "workers", 1)
-        workers = _coerce_int(workers_raw, 1, minimum=1, field="workers")
+        workers = coerce_int_config(
+            workers_raw,
+            1,
+            field="workers",
+            minimum=1,
+            log=_log,
+            invalid_event="pubchem_config_invalid_int",
+            out_of_range_event="pubchem_config_out_of_range",
+        )
 
         adapter_kwargs: dict[str, Any] = {
             "enabled": True,
