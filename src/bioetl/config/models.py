@@ -147,24 +147,43 @@ class TargetSourceConfig(SourceConfig):
         if isinstance(value, str):
             candidate = value.strip()
             if candidate.startswith("env:"):
-                env_name = candidate.split(":", 1)[1]
-                env_value = os.getenv(env_name)
+                reference = candidate.split(":", 1)[1]
+                env_value = cls._resolve_api_key_reference(reference)
                 if env_value is None:
                     raise ValueError(
-                        f"Environment variable '{env_name}' referenced for api_key is not set"
+                        f"Environment variable '{reference.split(':', 1)[0]}' referenced for api_key is not set"
                     )
                 return env_value
 
             if candidate.startswith("${") and candidate.endswith("}"):
-                env_name = candidate[2:-1]
-                env_value = os.getenv(env_name)
+                reference = candidate[2:-1]
+                env_value = cls._resolve_api_key_reference(reference)
                 if env_value is None:
                     raise ValueError(
-                        f"Environment variable '{env_name}' referenced for api_key is not set"
+                        f"Environment variable '{reference.split(':', 1)[0]}' referenced for api_key is not set"
                     )
                 return env_value
 
         return value
+
+    @staticmethod
+    def _resolve_api_key_reference(reference: str) -> str | None:
+        """Resolve ``ENV`` style references allowing optional defaults."""
+
+        parts = reference.split(":", 1)
+        env_name = parts[0].strip()
+        if not env_name:
+            raise ValueError("Environment reference missing variable name for api_key")
+
+        default_value: str | None = None
+        if len(parts) == 2:
+            default_value = parts[1]
+
+        env_value = os.getenv(env_name)
+        if env_value is not None:
+            return env_value
+
+        return default_value
 
     @field_validator("headers", mode="after")
     @classmethod
