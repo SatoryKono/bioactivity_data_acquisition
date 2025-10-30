@@ -211,6 +211,39 @@ def test_unified_output_writer_emits_qc_artifacts(tmp_path, monkeypatch):
     assert metadata.get("qc_summary", {}).get("row_counts", {}).get("total") == 2
 
 
+def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monkeypatch):
+    """Absent optional QC artefacts should not be included in metadata checksums."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1, 2], "label": ["x", "y"]})
+    writer = UnifiedOutputWriter("run-qc-optional")
+
+    qc_summary = {"row_counts": {"total": 2}}
+
+    output_path = tmp_path / "run-qc-optional" / "target" / "datasets" / "targets.csv"
+    artifacts = writer.write(df, output_path, qc_summary=qc_summary)
+
+    assert artifacts.qc_summary is not None
+    assert artifacts.qc_missing_mappings is None
+    assert artifacts.qc_enrichment_metrics is None
+
+    with artifacts.metadata.open("r", encoding="utf-8") as handle:
+        import yaml
+
+        metadata = yaml.safe_load(handle)
+
+    checksums = metadata["file_checksums"]
+    assert "qc_missing_mappings.csv" not in checksums
+    assert "qc_enrichment_metrics.csv" not in checksums
+    assert "qc_summary.json" in checksums
+
+    qc_artifacts = metadata["artifacts"].get("qc", {})
+    assert "qc_missing_mappings" not in qc_artifacts
+    assert "qc_enrichment_metrics" not in qc_artifacts
+    assert qc_artifacts.get("qc_summary") == str(artifacts.qc_summary)
+
+
 def test_write_dataframe_json_uses_atomic_write(tmp_path, monkeypatch):
     """JSON exports rely on atomic writes and produce sorted keys."""
 

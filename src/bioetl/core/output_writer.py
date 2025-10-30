@@ -353,14 +353,19 @@ class UnifiedOutputWriter:
                 self.atomic_writer.write(table, table_path)
                 additional_paths[name] = table_path
 
-        checksums = self._calculate_checksums(
+        checksum_targets: list[Path] = [
             dataset_path,
             quality_path,
-            *(additional_paths.values()),
+            *additional_paths.values(),
+        ]
+        optional_targets: tuple[Path | None, ...] = (
             missing_mappings_path,
             enrichment_metrics_path,
             qc_summary_path,
         )
+        checksum_targets.extend(path for path in optional_targets if path is not None)
+
+        checksums = self._calculate_checksums(*checksum_targets)
 
         metadata_path = run_directory / "meta.yaml"
         qc_artifact_paths = {
@@ -422,7 +427,7 @@ class UnifiedOutputWriter:
 
         self._write_json_atomic(json_path, parsed_payload)
 
-    def _calculate_checksums(self, *paths: Path) -> dict[str, str]:
+    def _calculate_checksums(self, *paths: Path | None) -> dict[str, str]:
         """Вычисляет checksums для файлов."""
         checksums = {}
         for path in paths:
