@@ -853,6 +853,26 @@ class TestItemPipeline(PipelineBase):
                     )
                     df = pd.concat([remaining_columns, overlay_df], axis=1)
 
+        canonical_column = "canonical_smiles"
+        standardized_column = "standardized_smiles"
+
+        if canonical_column in df.columns:
+            canonical_series = df[canonical_column]
+            normalized_canonical = canonical_series.apply(
+                lambda value: registry.normalize("chemistry", value)
+                if pd.notna(value)
+                else None
+            )
+
+            if standardized_column in df.columns:
+                missing_mask = df[standardized_column].isna()
+                if missing_mask.any():
+                    df.loc[missing_mask, standardized_column] = normalized_canonical[missing_mask]
+            else:
+                df[standardized_column] = normalized_canonical
+
+            df = df.drop(columns=[canonical_column], errors="ignore")
+
         # PubChem enrichment (optional)
         if "pubchem" in self.external_adapters:
             logger.info("pubchem_enrichment_enabled")

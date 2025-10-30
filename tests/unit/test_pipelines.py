@@ -1212,6 +1212,25 @@ class TestTestItemPipeline:
         assert list(result.columns) == expected_columns
         assert len(expected_columns) >= 80
 
+    def test_transform_backfills_standardized_smiles_from_canonical(self, testitem_config, monkeypatch):
+        """Legacy canonical_smiles input should populate standardized_smiles and be dropped."""
+
+        monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+        pipeline = TestItemPipeline(testitem_config, run_id="canonical")
+        pipeline.external_adapters.clear()
+
+        monkeypatch.setattr(pipeline, "_fetch_molecule_data", lambda ids: pd.DataFrame())
+
+        df = pd.DataFrame({
+            "molecule_chembl_id": ["CHEMBL1"],
+            "canonical_smiles": [" CCO "],
+        })
+
+        result = pipeline.transform(df)
+
+        assert "canonical_smiles" not in result.columns
+        assert result.loc[result.index[0], "standardized_smiles"] == "CCO"
+
     def test_transform_coerces_nullable_int_columns(self, testitem_config, monkeypatch):
         """String or float encoded integers should normalise to nullable Int64."""
 
