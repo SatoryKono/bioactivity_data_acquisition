@@ -79,11 +79,11 @@ def test_multiple_extends_and_overrides(tmp_path):
                 by: []
                 ascending: []
               column_order: []
-            postprocess: {{}}
+            postprocess: {}
             qc:
               enabled: true
               severity_threshold: warning
-            cli: {{}}
+            cli: {}
             """
         )
     )
@@ -178,11 +178,11 @@ def test_source_rate_limit_jitter_override(tmp_path):
                 by: []
                 ascending: []
               column_order: []
-            postprocess: {{}}
+            postprocess: {}
             qc:
               enabled: true
               severity_threshold: warning
-            cli: {{}}
+            cli: {}
             """
         )
     )
@@ -325,11 +325,11 @@ determinism:
     by: []
     ascending: []
   column_order: []
-postprocess: {{}}
+postprocess: {}
 qc:
   enabled: true
   severity_threshold: warning
-cli: {{}}
+cli: {}
 """
     )
 
@@ -370,11 +370,11 @@ determinism:
     by: []
     ascending: []
   column_order: []
-postprocess: {{}}
+postprocess: {}
 qc:
   enabled: true
   severity_threshold: warning
-cli: {{}}
+cli: {}
 """
     )
 
@@ -420,7 +420,7 @@ determinism:
     by: []
     ascending: []
   column_order: []
-postprocess: {{}}
+postprocess: {}
 qc:
   enabled: true
   severity_threshold: warning
@@ -476,11 +476,11 @@ determinism:
     by: []
     ascending: []
   column_order: []
-postprocess: {{}}
+postprocess: {}
 qc:
   enabled: true
   severity_threshold: warning
-cli: {{}}
+cli: {}
 """
     )
 
