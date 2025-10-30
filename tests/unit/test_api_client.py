@@ -318,11 +318,18 @@ def test_request_json_uses_cache_for_idempotent_get(
 
     call_count = {"count": 0}
 
-    def fake_request(*_: Any, **__: Any) -> requests.Response:
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
         call_count["count"] += 1
         return _build_response(200, {"result": "ok"})
 
-    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client, "_execute", fake_execute)
 
     first_payload = client.request_json("/resource")
     second_payload = client.request_json("/resource")
@@ -390,11 +397,18 @@ def test_request_json_retries_configured_status(monkeypatch: pytest.MonkeyPatch)
 
     call_count = {"count": 0}
 
-    def fake_request(*_: Any, **__: Any) -> requests.Response:
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
         call_count["count"] += 1
         return next(responses)
 
-    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client, "_execute", fake_execute)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
 
     data = client.request_json("/resource")
@@ -421,15 +435,21 @@ def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
 
     call_count = {"count": 0}
 
-    def fake_request(*_: Any, **__: Any) -> requests.Response:
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
         call_count["count"] += 1
         if call_count["count"] < 3:
             raise requests.exceptions.Timeout("timeout occurred")
         return _build_response(200, {"result": "ok"})
 
-    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client, "_execute", fake_execute)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
-    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
 
     data = client.request_json("/resource")
 
@@ -455,12 +475,18 @@ def test_request_json_timeout_metadata_on_exhaustion(
 
     client = UnifiedAPIClient(config)
 
-    def fake_request(*_: Any, **__: Any) -> requests.Response:
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
         raise requests.exceptions.Timeout("timeout occurred")
 
-    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client, "_execute", fake_execute)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
-    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
 
     with pytest.raises(requests.exceptions.Timeout) as excinfo:
         client.request_json("/resource")
@@ -516,15 +542,21 @@ def test_request_json_connection_error_metadata(
         ]
     )
 
-    def fake_request(*_: Any, **__: Any) -> requests.Response:
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
         response = next(error_responses)
         exc = requests.exceptions.ConnectionError("connection issue")
         exc.response = response
         raise exc
 
-    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client, "_execute", fake_execute)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
-    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
 
     with pytest.raises(requests.exceptions.ConnectionError) as excinfo:
         client.request_json("/resource")
@@ -563,11 +595,18 @@ def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPat
 
     call_count = {"count": 0}
 
-    def fake_request(*_: Any, **__: Any) -> requests.Response:
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
         call_count["count"] += 1
         return next(responses)
 
-    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client, "_execute", fake_execute)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
 
     with pytest.raises(requests.exceptions.HTTPError) as excinfo:
@@ -597,14 +636,20 @@ def test_request_json_base_url_join(monkeypatch: pytest.MonkeyPatch) -> None:
         config = APIConfig(name="test", base_url=base_url, rate_limit_jitter=False)
         client = UnifiedAPIClient(config)
 
-        def fake_request(*_: Any, **kwargs: Any) -> requests.Response:
-            url = kwargs["url"]
+        def fake_execute(
+            *,
+            method: str,
+            url: str,
+            params: dict[str, Any] | None = None,
+            data: dict[str, Any] | None = None,
+            json: dict[str, Any] | None = None,
+        ) -> requests.Response:
             observed_urls.append(url)
             response = _build_response(200, {"status": "ok"})
             response.url = url
             return response
 
-        monkeypatch.setattr(client.session, "request", fake_request)
+        monkeypatch.setattr(client, "_execute", fake_execute)
 
         data = client.request_json("/activity.json")
         assert data == {"status": "ok"}

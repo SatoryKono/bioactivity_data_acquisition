@@ -13,7 +13,6 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urljoin
 
-import backoff
 import requests
 from cachetools import TTLCache  # type: ignore
 
@@ -388,34 +387,6 @@ class UnifiedAPIClient:
                 return copy.deepcopy(cached_value)
 
         # Execute with circuit breaker
-        def _log_backoff(details: dict[str, Any]) -> None:
-            exception = details.get("exception")
-            wait = details.get("wait")
-            tries = details.get("tries")
-            logger.warning(
-                "request_exception_retrying",
-                url=url,
-                method=method,
-                params=params,
-                tries=tries,
-                max_tries=self.config.retry_total,
-                wait_seconds=wait,
-                error=str(exception) if exception else None,
-            )
-
-        def _log_giveup(details: dict[str, Any]) -> None:
-            exception = details.get("exception")
-            tries = details.get("tries")
-            logger.error(
-                "request_exception_giveup",
-                url=url,
-                method=method,
-                params=params,
-                tries=tries,
-                max_tries=self.config.retry_total,
-                error=str(exception) if exception else None,
-            )
-
         def _perform_request() -> requests.Response:
             return self._execute(
                 method=method,
@@ -424,17 +395,6 @@ class UnifiedAPIClient:
                 data=data_payload,
                 json=json_payload,
             )
-
-        wrapped_request = backoff.on_exception(
-            backoff.expo,
-            requests.exceptions.RequestException,
-            max_tries=self.config.retry_total,
-            jitter=backoff.full_jitter,
-            on_backoff=_log_backoff,
-            on_giveup=_log_giveup,
-            factor=self.retry_policy.backoff_factor,
-            max_value=self.retry_policy.backoff_max,
-        )(_perform_request)
 
         # Retry logic
         last_exc: Exception | None = None
@@ -446,7 +406,7 @@ class UnifiedAPIClient:
 
         for attempt in range(1, self.retry_policy.total + 1):
             try:
-                response = self.circuit_breaker.call(wrapped_request)
+                response = self.circuit_breaker.call(_perform_request)
                 response.raise_for_status()
 
                 # Parse JSON
