@@ -12,7 +12,8 @@ import pandas as pd
 import pytest
 import typer
 from click.testing import CliRunner
-from pandera.typing import Series
+
+from bioetl.pandera_typing import Series
 from typer.main import get_command
 
 from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command

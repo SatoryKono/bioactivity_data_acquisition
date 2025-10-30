@@ -1,7 +1,8 @@
 """Pandera schema for document pipeline inputs."""
 
 import pandera.pandas as pa
-from pandera.typing import Series
+
+from bioetl.pandera_typing import Series
 
 
 class DocumentInputSchema(pa.DataFrameModel):

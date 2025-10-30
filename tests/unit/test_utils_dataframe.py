@@ -2,7 +2,8 @@
 
 import pandas as pd
 import pandera.pandas as pa
-from pandera.typing import Series
+
+from bioetl.pandera_typing import Series
 
 from bioetl.core.hashing import generate_hash_business_key
 from bioetl.schemas import TargetSchema
