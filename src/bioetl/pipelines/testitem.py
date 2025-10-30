@@ -974,6 +974,15 @@ class TestItemPipeline(PipelineBase):
 
         logger.info("adapters_initialized", count=len(self.external_adapters))
 
+    def close_resources(self) -> None:
+        """Close the PubChem adapter alongside inherited resources."""
+
+        try:
+            for name, adapter in getattr(self, "external_adapters", {}).items():
+                self._close_resource(adapter, resource_name=f"external_adapter.{name}")
+        finally:
+            super().close_resources()
+
     def _enrich_with_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich testitem data with PubChem properties.
 

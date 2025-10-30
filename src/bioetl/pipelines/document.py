@@ -287,6 +287,15 @@ class DocumentPipeline(PipelineBase):
 
         logger.info("adapters_initialized", count=len(self.external_adapters))
 
+    def close_resources(self) -> None:
+        """Close external adapters and the primary API client."""
+
+        try:
+            for name, adapter in getattr(self, "external_adapters", {}).items():
+                self._close_resource(adapter, resource_name=f"external_adapter.{name}")
+        finally:
+            super().close_resources()
+
     def _build_adapter_configs(
         self,
         source_name: str,

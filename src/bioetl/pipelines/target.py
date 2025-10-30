@@ -129,6 +129,15 @@ class TargetPipeline(PipelineBase):
         self.gold_xref: pd.DataFrame = pd.DataFrame()
         self._qc_missing_mapping_records: list[dict[str, Any]] = []
 
+    def close_resources(self) -> None:
+        """Close API clients constructed by the target pipeline."""
+
+        try:
+            for name, client in getattr(self, "api_clients", {}).items():
+                self._close_resource(client, resource_name=f"api_client.{name}")
+        finally:
+            super().close_resources()
+
     def _record_missing_mapping(
         self,
         *,

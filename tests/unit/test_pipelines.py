@@ -13,7 +13,7 @@ from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
 
 from bioetl.config.loader import load_config
-from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.hashing import generate_hash_business_key
 from bioetl.core.output_writer import OutputArtifacts
 from bioetl.pipelines import (
@@ -121,6 +121,50 @@ def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     assert list(pipeline.qc_missing_mappings["call"]) == [1]
     assert list(pipeline.qc_enrichment_metrics["call"]) == [1]
     assert pipeline.stage_context["transform_call"] == 1
+
+
+def test_pipeline_run_closes_api_client(monkeypatch, assay_config, tmp_path):
+    """``run`` should close UnifiedAPIClient instances when execution completes."""
+
+    close_calls: list[UnifiedAPIClient] = []
+    original_close = UnifiedAPIClient.close
+
+    def _recording_close(self: UnifiedAPIClient) -> None:
+        close_calls.append(self)
+        original_close(self)
+
+    monkeypatch.setattr(UnifiedAPIClient, "close", _recording_close)
+
+    class ClosingPipeline(PipelineBase):
+        def __init__(self, config, run_id):
+            super().__init__(config, run_id)
+            self.api_client = UnifiedAPIClient(APIConfig(name="test", base_url="https://example.org"))
+
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            return pd.DataFrame({"value": [1]})
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def export(
+            self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
+        ) -> OutputArtifacts:  # noqa: D401 - test stub
+            self.output_writer.write_dataframe_csv(df, output_path)
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=output_path.with_suffix(".qc.csv"),
+                run_directory=output_path.parent,
+            )
+
+    pipeline = ClosingPipeline(assay_config, "close-test")
+    output_path = tmp_path / "dataset.csv"
+
+    pipeline.run(output_path)
+
+    assert close_calls, "UnifiedAPIClient.close should be invoked during pipeline teardown"
 
 
 def test_export_prioritises_configured_column_order(tmp_path, assay_config):
