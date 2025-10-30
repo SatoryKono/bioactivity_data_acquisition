@@ -12,6 +12,7 @@ import pytest
 from bioetl.config.models import DeterminismConfig
 from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
 from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase
 
 
 class _FixedDateTime:
@@ -114,13 +115,21 @@ def test_atomic_writer_respects_float_precision(tmp_path):
     assert content[1] == "1.234568"
 
 
-def test_unified_output_writer_respects_float_precision(tmp_path, monkeypatch):
-    """Unified writer propagates determinism float precision to CSV outputs."""
+    raw_sources = {
+        "chembl": {
+            "base_url": "https://chembl.example/api",
+            "stage": "primary",
+            "headers": {"Accept": "application/json"},
+        }
+    }
+    normalised_sources = {
+        name: PipelineBase._normalise_metadata_value(source)
+        for name, source in raw_sources.items()
+    }
 
-    _freeze_datetime(monkeypatch)
-
-    df = pd.DataFrame({"value": [1.23456789]})
-    determinism = DeterminismConfig(float_precision=6, datetime_format="iso8601")
+        sources=normalised_sources,
+    header_payload = contents["sources"]["chembl"]["headers"]
+    assert header_payload["Accept"] == PipelineBase._REDACTED_METADATA_VALUE
     writer = UnifiedOutputWriter("run-precision", determinism=determinism)
 
     output_path = tmp_path / "run-precision" / "target" / "datasets" / "targets.csv"

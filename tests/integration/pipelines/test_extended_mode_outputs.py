@@ -45,6 +45,17 @@ def _make_config() -> types.SimpleNamespace:
                 "Authorization": "Bearer integration-token",
                 "X-Test": "test",
             },
+    expected_sources = {
+        name: PipelineBase._normalise_metadata_value(source)
+        for name, source in pipeline.config.sources.items()
+    }
+    assert metadata["sources"] == expected_sources
+    headers_payload = metadata["sources"]["chembl"]["headers"]
+    assert headers_payload["Authorization"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert headers_payload["X-Test"] == PipelineBase._REDACTED_METADATA_VALUE
+                "Authorization": "Bearer integration-token",
+                "X-Test": "test",
+            },
         }
     }
     return types.SimpleNamespace(

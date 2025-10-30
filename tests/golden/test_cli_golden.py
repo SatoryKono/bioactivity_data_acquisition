@@ -128,6 +128,8 @@ def _expected_sources(config_obj) -> dict[str, object]:
         name: PipelineBase._normalise_metadata_value(
             source.model_dump(mode="json", exclude_none=True)
         )
+            source.model_dump(mode="json", exclude_none=True)
+        )
         for name, source in sources.items()
     }
 

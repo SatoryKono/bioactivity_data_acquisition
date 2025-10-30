@@ -94,6 +94,40 @@ def test_normalise_metadata_value_redacts_sensitive_fields():
     assert normalised["nested"][0] == {}
 
 
+def test_normalise_metadata_value_redacts_sensitive_fields():
+    """Source snapshots in metadata should exclude secrets and headers."""
+
+    payload = {
+        "api_key": "top-secret",
+        "token": "abc123",
+        "client-secret": "shh",
+        "headers": {
+            "Authorization": "Bearer token",
+            "X-Id": "123",
+        },
+        "http": {
+            "headers": {"X-Feature": "on"},
+            "timeout": 30,
+        },
+        "nested": [
+            {"refresh_token": "refresh-me"},
+            {"headers": {"X-Trace": "trace"}},
+        ],
+    }
+
+    normalised = PipelineBase._normalise_metadata_value(payload)
+
+    assert "api_key" not in normalised
+    assert "token" not in normalised
+    assert "client-secret" not in normalised
+    assert normalised["headers"]["Authorization"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert normalised["headers"]["X-Id"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert normalised["http"]["headers"]["X-Feature"] == PipelineBase._REDACTED_METADATA_VALUE
+    nested_headers = normalised["nested"][1]["headers"]
+    assert nested_headers["X-Trace"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert normalised["nested"][0] == {}
+
+
 def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     """Calling ``run`` twice should not accumulate QC records from previous runs."""
 
@@ -316,7 +350,9 @@ def test_pipeline_base_validate_without_primary_schema(monkeypatch, assay_config
         def close_resources(self) -> None:  # pragma: no cover - unused
             return None
 
-    pipeline = DefaultPipeline(assay_config, "base-validate-none")
+        name: PipelineBase._normalise_metadata_value(
+            source.model_dump(mode="json", exclude_none=True)
+        )
 
     def _failing_validate(*args: Any, **kwargs: Any) -> pd.DataFrame:  # pragma: no cover - guard
         raise AssertionError("_validate_with_schema should not be called")

@@ -276,6 +276,70 @@ class PipelineBase(ABC):
     @classmethod
     def _normalise_metadata_value(cls, value: Any) -> Any:
         """Coerce metadata payloads into YAML-friendly primitives with redaction."""
+                dumped = model_dump(
+                    mode="json",
+                    exclude_none=True,
+                    exclude=cls._MODEL_DUMP_EXCLUDE_KEYS,
+                )
+            return cls._normalise_metadata_value(dumped)
+            normalised: dict[str, Any] = {}
+            for key, val in value.items():
+                key_str = str(key)
+                key_normalised = key_str.lower().replace("-", "_")
+
+                if key_normalised in cls._SENSITIVE_FIELD_NAMES:
+                    continue
+
+                if key_normalised in cls._HEADER_CONTAINER_NAMES:
+                    normalised[key_str] = cls._redact_header_values(val)
+                    continue
+
+                normalised[key_str] = cls._normalise_metadata_value(val)
+
+            return normalised
+            return [cls._normalise_metadata_value(item) for item in value]
+    @classmethod
+    def _redact_header_values(cls, value: Any) -> Any:
+        """Return a header mapping with sensitive values removed."""
+
+        if value is None:
+            return {}
+
+        if isinstance(value, Mapping):
+            return {str(header): cls._REDACTED_METADATA_VALUE for header in value.keys()}
+
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return [cls._REDACTED_METADATA_VALUE for _ in value]
+
+        return cls._REDACTED_METADATA_VALUE
+
+            "bearer_token",
+            "client_secret",
+            "clientsecret",
+            "password",
+            "passphrase",
+            "private_key",
+            "refresh_token",
+            "secret",
+            "secret_key",
+            "shared_secret",
+            "token",
+            "x_api_key",
+        }
+    )
+    _HEADER_CONTAINER_NAMES: frozenset[str] = frozenset(
+        {
+            "headers",
+            "http_headers",
+            "extra_headers",
+            "default_headers",
+            "custom_headers",
+        }
+    )
+
+    @classmethod
+    def _normalise_metadata_value(cls, value: Any) -> Any:
+        """Coerce metadata payloads into YAML-friendly primitives with redaction."""
 
         model_dump = getattr(value, "model_dump", None)
         if callable(model_dump):
