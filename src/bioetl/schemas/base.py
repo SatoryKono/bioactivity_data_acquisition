@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Protocol, TypedDict, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -206,8 +206,13 @@ class BaseSchema(DataFrameModel):
         coerce = True
         ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
-    # Версия политики хеширования; не является колонкой датафрейма
-    hash_policy_version: ClassVar[str] = "1.0.0"
+    # Версия политики хеширования; не является колонкой датафрейма.  ``ClassVar``
+    # объявлен только для статических анализаторов, чтобы Pandera не пыталась
+    # интерпретировать ``hash_policy_version`` как колонку при регистрации
+    # ``DataFrameModel``.
+    if TYPE_CHECKING:  # pragma: no cover - typing aid only
+        hash_policy_version: ClassVar[str]
+    hash_policy_version = "1.0.0"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
