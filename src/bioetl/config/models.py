@@ -267,18 +267,22 @@ class PipelineConfig(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def _validate_chembl_batch_size(self) -> PipelineConfig:
-        """Ensure ChEMBL batch size does not exceed API limits."""
+    def validate_chembl_batch_size(self) -> PipelineConfig:
+        """Ensure ChEMBL batch size has a sensible default and stays within limits."""
 
         chembl = self.sources.get("chembl") if self.sources else None
-        if chembl is not None:
-            batch_size = getattr(chembl, "batch_size", None)
-            if batch_size is None:
-                chembl.batch_size = 25
-            elif batch_size > 25:
-                raise ValueError(
-                    "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit",
-                )
+        if chembl is None:
+            return self
+
+        batch_size = getattr(chembl, "batch_size", None)
+        if batch_size is None:
+            chembl.batch_size = 25
+            return self
+
+        if batch_size > 25:
+            raise ValueError(
+                "sources.chembl.batch_size must be <= 25 due to ChEMBL API constraints",
+            )
 
         return self
 
@@ -303,15 +307,4 @@ class PipelineConfig(BaseModel):
         canonical = self.model_dump_canonical()
         json_str = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(json_str.encode()).hexdigest()
-
-    @model_validator(mode="after")
-    def validate_chembl_batch_size(self) -> PipelineConfig:
-        """Enforce ChEMBL batch size limits at configuration load time."""
-        chembl_source = self.sources.get("chembl")
-        if chembl_source and chembl_source.batch_size and chembl_source.batch_size > 25:
-            raise ValueError(
-                "sources.chembl.batch_size must be <= 25 due to ChEMBL API constraints",
-            )
-        return self
-
 
