@@ -66,7 +66,7 @@ jobs:
 
       - name: Type check with mypy
         run: |
-          mypy --strict --config-file=pyproject.toml
+          mypy --strict --config-file=pyproject.toml src/bioetl src/scripts src/library
 
   security:
     runs-on: ubuntu-latest

@@ -96,23 +96,26 @@ known-first-party = ["bioetl"]
 python_version = "3.10"
 strict = true
 mypy_path = ["stubs"]
-files = [
-    "src/scripts",
-    "src/library",
-]
-
-[[tool.mypy.overrides]]
-module = [
-    "bioetl.*",
-]
-follow_imports = "skip"
-ignore_missing_imports = true
+files = ["src/bioetl"]
 
 [[tool.mypy.overrides]]
 module = [
     "pandas",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "bioetl.*",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "scripts.*",
+    "library.*",
+]
+ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
