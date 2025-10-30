@@ -61,3 +61,31 @@ def test_load_input_frame_applies_limit(tmp_path: Path) -> None:
     assert len(limited) == 2
     assert list(limited.columns) == ["id", "value"]
     assert limited["id"].tolist() == [1, 2]
+
+
+def test_load_input_frame_passes_limit_to_read_csv(tmp_path: Path, monkeypatch) -> None:
+    """``limit`` should be translated into ``nrows`` for ``pandas.read_csv``."""
+
+    config = _build_config(tmp_path)
+    source_path = config.paths.input_root / "data.csv"
+    source_path.write_text("id,value\n1,a\n2,b\n3,c\n")
+
+    captured_kwargs: dict[str, object] = {}
+
+    def _fake_read_csv(path: Path, *, dtype=None, **kwargs):  # type: ignore[override]
+        captured_kwargs.update(kwargs)
+        nrows = int(kwargs.get("nrows", 0))
+        return pd.DataFrame({"id": list(range(1, nrows + 1)), "value": ["x"] * nrows})
+
+    monkeypatch.setattr(pd, "read_csv", _fake_read_csv)
+
+    limited = load_input_frame(
+        config,
+        Path("data.csv"),
+        expected_columns=["id", "value"],
+        limit=3,
+    )
+
+    assert captured_kwargs["nrows"] == 3
+    assert len(limited) == 3
+    assert list(limited.columns) == ["id", "value"]

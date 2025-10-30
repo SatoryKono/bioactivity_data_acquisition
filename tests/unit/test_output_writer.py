@@ -134,7 +134,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
 
     _freeze_datetime(monkeypatch)
 
-    df = pd.DataFrame({"value": [10, 20, 30], "category": ["x", "y", "z"]})
+    df = pd.DataFrame(
+        {"value": [10, 20, 10, 30], "category": ["x", "y", "x", "z"]}
+    )
     writer = UnifiedOutputWriter("run-test")
 
     metadata = OutputMetadata.from_dataframe(
@@ -214,6 +216,11 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         metrics_df["metric"] == "row_count", "value"
     ].iloc[0]
     assert int(row_count_value) == len(df)
+
+    duplicate_value = metrics_df.loc[
+        metrics_df["metric"] == "duplicate_rows", "value"
+    ].iloc[0]
+    assert int(duplicate_value) == 2
 
 
 def test_unified_output_writer_metadata_write_is_atomic(tmp_path, monkeypatch):

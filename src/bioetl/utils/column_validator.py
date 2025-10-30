@@ -183,7 +183,7 @@ class ColumnValidator:
             Путь к созданному отчету
         """
         report_data = {
-            "timestamp": pd.Timestamp.now().isoformat(),
+            "timestamp": pd.Timestamp.now(tz="UTC").isoformat(),
             "summary": self._generate_summary(results),
             "details": [result.to_dict() for result in results],
         }
