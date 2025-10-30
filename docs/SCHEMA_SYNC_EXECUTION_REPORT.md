@@ -83,6 +83,7 @@ if "column_order" in ActivitySchema.Config.__dict__:
 **Запуск:** `python src/scripts/run_assay.py --profile dev --limit 10`
 
 **Результат:**
+
 ```
 Columns: ['assay_chembl_id', 'row_subtype', 'row_index', 'hash_row', 'hash_business_key', 'chembl_release']
 Row count: 10
@@ -100,6 +101,7 @@ Row count: 10
 **Запуск:** `python src/scripts/run_activity.py --profile dev --limit 10`
 
 **Результат:**
+
 ```
 Columns count: 37
 Has hash fields: False
@@ -116,6 +118,7 @@ Has index: False
 **Запуск:** `python src/scripts/run_testitem.py --profile dev --limit 10`
 
 **Результат:**
+
 ```
 Columns count: 21
 Has hash fields: False
@@ -191,11 +194,11 @@ Has standardized_smiles: False
 
 ### Продолжить работу
 
-4. Реализовать Target schemas (4 таблицы)
-5. Реализовать DocumentSchema (unified multi-source)
-6. Создать тесты для схем
-7. Создать интеграционные тесты
-8. Обновить документацию
+1. Реализовать Target schemas (4 таблицы)
+2. Реализовать DocumentSchema (unified multi-source)
+3. Создать тесты для схем
+4. Создать интеграционные тесты
+5. Обновить документацию
 
 ---
 
@@ -207,4 +210,3 @@ Has standardized_smiles: False
 - Тесты отсутствуют
 
 **Следующий шаг:** Исправить column_order для Activity и TestItem, добавив системные поля и все поля схемы.
-

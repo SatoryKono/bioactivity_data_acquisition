@@ -17,6 +17,7 @@
 **Соответствие:** 100%
 
 **Заголовки:**
+
 ```
 assay_chembl_id,row_subtype,row_index,assay_type,description,target_chembl_id,confidence_score,pipeline_version,source_system,chembl_release,extracted_at,hash_business_key,hash_row,index
 ```
@@ -31,6 +32,7 @@ assay_chembl_id,row_subtype,row_index,assay_type,description,target_chembl_id,co
 **Соответствие:** 100%
 
 **Заголовки:**
+
 ```
 activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_id,published_type,published_relation,published_value,published_units,standard_type,standard_relation,standard_value,standard_units,standard_flag,lower_bound,upper_bound,is_censored,pchembl_value,activity_comment,data_validity_comment,bao_endpoint,bao_format,bao_label,pipeline_version,source_system,chembl_release,extracted_at,hash_business_key,hash_row,index
 ```
@@ -45,6 +47,7 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 **Соответствие:** 100%
 
 **Заголовки:**
+
 ```
 molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,molecule_type,mw_freebase,qed_weighted,standardized_smiles,standard_inchi,standard_inchi_key,heavy_atoms,aromatic_rings,rotatable_bonds,hba,hbd,lipinski_ro5_violations,lipinski_ro5_pass,all_names,molecule_synonyms,atc_classifications,pubchem_cid,pubchem_synonyms,pipeline_version,source_system,chembl_release,extracted_at,hash_business_key,hash_row,index
 ```
@@ -59,19 +62,20 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 
 **Проблема:** Выходной файл содержал только 8 колонок вместо требуемых 31.
 
-**Причина:** 
+**Причина:**
 - В `extract()` фильтровались поля входного файла
 - В `transform()` добавлялись только существующие колонки
 
 **Решение:**
 1. Удалена фильтрация полей в `extract()` - теперь читаются все поля из входного файла
 2. Добавлено автоматическое создание недостающих колонок со значениями None в `transform()`:
-   ```python
+  
+```python
    # Add missing columns with None values
    for col in expected_cols:
        if col not in df.columns:
            df[col] = None
-   
+  
    # Reorder to match schema column_order
    df = df[expected_cols]
    ```
@@ -105,4 +109,3 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 ---
 
 **Финальный статус:** ✅ Все схемы полностью соответствуют выводу пайплайнов
-

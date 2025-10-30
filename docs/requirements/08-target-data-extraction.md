@@ -446,19 +446,19 @@ class IUPHARData:
 
 **Приоритет 2 (High):**
 
-4. Реализовать multi-source merge с priority handling
+1. Реализовать multi-source merge с priority handling
 
-5. Добавить materialization checkpoints для resume capability
+2. Добавить materialization checkpoints для resume capability
 
-6. Усилить детерминизм через стабильную сортировку и хэши
+3. Усилить детерминизм через стабильную сортировку и хэши
 
 **Приоритет 3 (Medium):**
 
-7. Улучшить post-processing (genus derivation, cellularity classification)
+1. Улучшить post-processing (genus derivation, cellularity classification)
 
-8. Добавить correlation reports для validation
+2. Добавить correlation reports для validation
 
-9. Реализовать landing zone для сырых API ответов
+3. Реализовать landing zone для сырых API ответов
 
 ---
 
@@ -1001,4 +1001,3 @@ print(f"Errors: {result.errors}")
 - [08c-target-iuphar-extraction.md](./08c-target-iuphar-extraction.md) - IUPHAR/GtoPdb классификация
 
 - [08d-target-orthologs-isoforms.md](./08d-target-orthologs-isoforms.md) - Ортологи и изоформы
-

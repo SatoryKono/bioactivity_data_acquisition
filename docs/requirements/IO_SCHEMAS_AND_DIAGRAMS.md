@@ -623,6 +623,7 @@ schema:
 - **Назначение:** извлечение и нормализация ChEMBL activity c детерминированной выгрузкой и QC. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 
 ### B) Диаграмма I/O
+
 ```mermaid
 flowchart TB
   IN["Input: filters/activity_id list<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"] --> EX["Extract: /activity.json activity_id__in batch≤25<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
@@ -1061,6 +1062,7 @@ schema:
 - **Назначение:** извлечение молекул ChEMBL с опциональным PubChem enrichment и строгой нормализацией. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
 
 ### B) Диаграмма I/O
+
 ```mermaid
 flowchart TB
   IN["Input: testitem_ids.csv<br/>molecule_chembl_id (+nstereo, salt_chembl_id)<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"] --> EX["Extract: ChEMBL /molecule.json batch≤25<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
@@ -1245,6 +1247,7 @@ schema:
 - **Назначение:** объединение ChEMBL таргетов с UniProt и IUPHAR enrichment в четыре согласованные таблицы. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 
 ### B) Диаграмма I/O
+
 ```mermaid
 flowchart TB
   IN["Input: target_ids.csv<br/>target_chembl_id (+filters)<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"] --> EX["Stage1: ChEMBL /target,* resources<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
@@ -1483,6 +1486,7 @@ schema:
 - **Назначение:** извлечение метаданных документов из ChEMBL и внешних источников с детерминированным экспортом. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 
 ### B) Диаграмма I/O
+
 ```mermaid
 flowchart TB
   IN["Input: document_ids.csv<br/>document_chembl_id<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"] --> EX["Extract: ChEMBL /document.json batch≤25<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]

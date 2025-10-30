@@ -94,6 +94,7 @@
 - Лимит: 10 записей
 
 **Выходные артефакты:**
+
 ```
 data/output/assay/
   ├── assay_20251028.csv (1855 bytes, 10 rows)
@@ -230,4 +231,3 @@ print(f"Created: {artifacts.dataset}")
 - Система готова к расширению
 
 **Статус:** ✅ Production Ready для базовой функциональности
-

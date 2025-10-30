@@ -156,12 +156,14 @@ docs/
 ## Примеры использования
 
 ### Загрузка конфигурации
+
 ```python
 from bioetl.config import load_config
 config = load_config('configs/profiles/dev.yaml')
 ```
 
 ### Настройка логгера
+
 ```python
 from bioetl.core.logger import UnifiedLogger
 UnifiedLogger.setup('development', run_id='test-123')
@@ -170,6 +172,7 @@ log.info('Hello World')
 ```
 
 ### Использование API клиента
+
 ```python
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
 config = APIConfig(name='test', base_url='https://api.example.com')
@@ -178,6 +181,7 @@ result = client.request_json('/endpoint')
 ```
 
 ### Нормализация данных
+
 ```python
 from bioetl.normalizers import registry
 result = registry.normalize('string', '  test  ')
@@ -185,6 +189,7 @@ result = registry.normalize('string', '  test  ')
 ```
 
 ### Запись данных
+
 ```python
 from bioetl.core.output_writer import UnifiedOutputWriter
 writer = UnifiedOutputWriter(run_id='test')
@@ -234,4 +239,3 @@ python -m bioetl.cli.main --help
 Базовая инфраструктура полностью реализована, протестирована и готова к использованию. Все компоненты соответствуют спецификации из `docs/requirements/` и принципам детерминизма, безопасности и воспроизводимости.
 
 **Следующий этап:** Реализация конкретных пайплайнов на базе созданной инфраструктуры.
-

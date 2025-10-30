@@ -26,6 +26,7 @@
 **Output файл:** `data/output/assay/assay_20251028_20251028.csv`
 
 **Колонки (14):**
+
 ```
 assay_chembl_id, row_subtype, row_index, assay_type, description,
 target_chembl_id, confidence_score, pipeline_version, source_system,
@@ -41,6 +42,7 @@ chembl_release, extracted_at, hash_business_key, hash_row, index
 - ✅ Порядок колонок соответствует schema.Config.column_order
 
 **Пример записи:**
+
 ```csv
 assay_chembl_id: CHEMBL1000139
 row_subtype: assay
@@ -68,6 +70,7 @@ index: 0
 - ✅ Порядок колонок соответствует schema.Config.column_order
 
 **Пример записи:**
+
 ```csv
 activity_id: 33279
 hash_row: <64-char SHA256>
@@ -94,6 +97,7 @@ index: 0
 - ✅ Порядок колонок соответствует schema.Config.column_order
 
 **Пример записи:**
+
 ```csv
 molecule_chembl_id: CHEMBL105457
 standardized_smiles: <present>
@@ -224,4 +228,3 @@ index: 0
 **Осталось:**
 - ❌ Target schemas (4 таблицы)
 - ❌ DocumentSchema (unified multi-source)
-

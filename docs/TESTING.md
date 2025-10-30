@@ -3,6 +3,7 @@
 ## Быстрый старт
 
 ### Запуск всех тестов
+
 ```bash
 # Linux/Mac
 ./run_tests.sh
@@ -17,16 +18,19 @@ python -m pytest tests/ -v
 ## Запуск отдельных групп тестов
 
 ### Unit тесты
+
 ```bash
 pytest tests/unit/ -v -m unit
 ```
 
 ### Integration тесты
+
 ```bash
 pytest tests/integration/ -v -m integration
 ```
 
 ### Конкретный тест
+
 ```bash
 pytest tests/unit/test_pipelines.py::TestActivityPipeline::test_init -v
 ```
@@ -34,16 +38,19 @@ pytest tests/unit/test_pipelines.py::TestActivityPipeline::test_init -v
 ## Флаги и опции
 
 ### С покрытием кода
+
 ```bash
 pytest tests/ --cov=src/bioetl --cov-report=html
 ```
 
 ### Пропуск медленных тестов
+
 ```bash
 pytest tests/ -v -m "not slow"
 ```
 
 ### Только быстрые тесты
+
 ```bash
 pytest tests/ -v -m unit
 ```
@@ -80,19 +87,21 @@ tests/
 
 ### Импорты не работают
 Убедитесь, что `src` добавлен в `PYTHONPATH`:
+
 ```bash
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 ```
 
 ### Тесты падают с ImportError
 Переустановите пакет:
+
 ```bash
 pip install -e ".[dev]"
 ```
 
 ### Низкое покрытие кода
 Добавьте больше тестов для недостающих модулей:
+
 ```bash
 pytest --cov=src/bioetl --cov-report=term-missing
 ```
-

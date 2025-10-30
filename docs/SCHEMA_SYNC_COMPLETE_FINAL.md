@@ -110,7 +110,7 @@
    - Сортировка согласно Config.column_order из Pandera схем
    - Поддержка nullable полей
 
-3. **Hash Fields:**
+4. **Hash Fields:**
    - Все три пайплайна генерируют `hash_business_key`, `hash_row`, `index`
    - Детерминированный порядок через sort_values
    - Канонический serialization для hash
@@ -132,6 +132,7 @@
 ## Тестирование
 
 **Команды для запуска:**
+
 ```bash
 python src/scripts/run_assay.py --limit 10
 python src/scripts/run_activity.py --limit 10
@@ -155,4 +156,3 @@ python src/scripts/run_testitem.py --limit 10
 - [x] Assay Pipeline - 10 строк, 58 колонок, API integration
 
 **Вывод:** Все три пайплайна полностью синхронизированы с IO_SCHEMAS_AND_DIAGRAMS.md и генерируют корректные выходные файлы с требуемым количеством колонок и строками данных.
-

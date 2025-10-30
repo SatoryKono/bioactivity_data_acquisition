@@ -772,7 +772,7 @@ def _enrich_with_pubchem(
 > - Service outage detection & cooldown
 > - Comprehensive error handling matrix
 > - Monitoring & alerting setup
-> 
+>
 > См. [`07b-testitem-data-extraction.md`](./07b-testitem-data-extraction.md) для деталей.
 
 ---

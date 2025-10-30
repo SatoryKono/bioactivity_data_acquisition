@@ -215,7 +215,7 @@ print(resp)
 
 - Тест DOI: `https://doi.org/10.1234/test` → `10.1234/test`
 - Тест SMILES canonicalization (если RDKit доступен)
-- Тест StringNormalizer: `  Test  ` → `test`
+- Тест StringNormalizer: ` Test ` → `test`
 
 **Файл:** `tests/unit/test_schemas.py`
 
@@ -733,4 +733,3 @@ python scripts/verify_golden_checksums.py
 - ✓ NA-policy: строки→"", числа→pd.NA
 - ✓ Precision-policy: %.6f для standard_value
 - ✓ Checksums совпадают при повторных прогонах
-

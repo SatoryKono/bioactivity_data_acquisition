@@ -131,11 +131,13 @@ chembl_base_url: str  # URL для воспроизводимости
 - **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
 
 - **Валидация конфига:**
+  
   ```python
-  if batch_size > 25:
+if batch_size > 25:
       raise ConfigValidationError(
           "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
       )
+
   ```
 
 **Алгоритм:**
@@ -1051,4 +1053,3 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 8. **Atomic writes:** Run-scoped temp dirs, os.replace() для Windows compatibility
 
 Все изменения направлены на обеспечение **детерминизма**, **воспроизводимости** и **полной прослеживаемости** данных.
-

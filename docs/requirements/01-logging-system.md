@@ -328,7 +328,7 @@ SENSITIVE_KEYS = [
 
 ```
 
-2. **Паттерны для маскирования:**
+1. **Паттерны для маскирования:**
 
 ```python
 REDACT_PATTERNS = [
@@ -340,7 +340,7 @@ REDACT_PATTERNS = [
 
 ```
 
-3. **Применение маскирования:**
+1. **Применение маскирования:**
 
 ```python
 
@@ -587,17 +587,17 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 
 ## Best Practices
 
-1.  **Всегда используйте context manager для stages**: `with bind_stage(logger, "stage_name"):`
+1. **Всегда используйте context manager для stages**: `with bind_stage(logger, "stage_name"):`
 
-2.  **Добавляйте структурированные поля**: `logger.info("message", key1=value1, key2=value2)`
+2. **Добавляйте структурированные поля**: `logger.info("message", key1=value1, key2=value2)`
 
-3.  **Используйте exc_info для исключений**: `logger.error("message", exc_info=True)`
+3. **Используйте exc_info для исключений**: `logger.error("message", exc_info=True)`
 
-4.  **Не логируйте секреты**: они автоматически редактируются
+4. **Не логируйте секреты**: они автоматически редактируются
 
-5.  **Выбирайте адекватный уровень**: DEBUG для разработки, INFO для production
+5. **Выбирайте адекватный уровень**: DEBUG для разработки, INFO для production
 
-6.  **Используйте JSON в production**: для парсинга и анализа
+6. **Используйте JSON в production**: для парсинга и анализа
 
 ## Acceptance Criteria (AUD-5)
 

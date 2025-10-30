@@ -12,6 +12,7 @@
 
 ### Текущее состояние
 **Файл:** `src/bioetl/schemas/base.py`
+
 ```python
 class BaseSchema(pa.DataFrameModel):
     pipeline_version: str
@@ -465,6 +466,7 @@ class BaseSchema(pa.DataFrameModel):
 ### Требуется
 
 **Добавить в каждый config:**
+
 ```yaml
 determinism:
   hash_algorithm: "sha256"
@@ -526,4 +528,3 @@ determinism:
 4. ⏭️ Последовательно обновить все пайплайны
 5. ⏭️ Обновить configs
 6. ⏭️ Тесты и документация
-

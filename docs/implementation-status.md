@@ -94,7 +94,7 @@
 
 **Реализовано:**
 - `src/bioetl/schemas/base.py`: `BaseSchema` (base class для Pandera)
-- `src/bioetl/schemas/document.py`: 
+- `src/bioetl/schemas/document.py`:
   - `ChEMBLDocumentSchema`, `PubMedDocumentSchema`
 - `src/bioetl/schemas/registry.py`: `SchemaRegistry`
   - Регистрация схем с семантическим версионированием
@@ -256,4 +256,3 @@ python -c "from bioetl.core.api_client import UnifiedAPIClient, APIConfig; confi
 ## Заключение
 
 Базовая инфраструктура полностью готова и протестирована. Основные компоненты (logger, config, API client, normalizers) работают корректно. Следующий шаг - реализация Pandera схем и Schema Registry для валидации данных.
-

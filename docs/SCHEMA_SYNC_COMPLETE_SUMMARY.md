@@ -32,7 +32,7 @@
 
 ### Не выполнено
 
-5. **Target schemas** ❌ 0%
+1. **Target schemas** ❌ 0%
    - 4 схемы требуют обновления
    - Multi-stage enrichment не реализован
 
@@ -90,6 +90,7 @@ Has row_index: True ✅
 ```
 
 **Sample:**
+
 ```
 assay_chembl_id: CHEMBL1000139
 row_subtype: assay
@@ -128,6 +129,7 @@ Has chembl_doi: True ✅
 ```
 
 **Sample columns:**
+
 ```
 index, extracted_at, hash_business_key, hash_row, document_chembl_id,
 chembl_title, chembl_abstract, chembl_authors, chembl_doi, chembl_journal,
@@ -205,4 +207,3 @@ chembl_year, ...
 
 ### Осталось:
 - Target schemas (4 таблицы) - ~20% работы
-

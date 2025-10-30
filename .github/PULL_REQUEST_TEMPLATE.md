@@ -12,5 +12,5 @@
 
 ## Links
 
-- Issue/Task: 
+- Issue/Task:
 - Preview (если есть):
