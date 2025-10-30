@@ -343,6 +343,10 @@ class MaterializationManager:
         if format == "csv" and determinism is not None:
             write_kwargs["float_format"] = f"%.{determinism.float_precision}f"
 
+            datetime_format = getattr(determinism, "datetime_format", None)
+            if datetime_format and datetime_format.lower() != "iso8601":
+                write_kwargs["date_format"] = datetime_format
+
         atomic_writer.write(df, path, format=format, **write_kwargs)
 
     def _should_materialize(self, stage: str) -> bool:

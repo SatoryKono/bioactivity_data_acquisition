@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
 import pandas as pd
 import pytest
 
-from bioetl.config.models import MaterializationPaths
+from bioetl.config.models import DeterminismConfig, MaterializationPaths
 from bioetl.core.materialization import MaterializationManager
 
 
@@ -70,6 +71,52 @@ def test_materialization_manager_creates_expected_csv_files(tmp_path) -> None:
     materialization_ctx = stage_context.get("materialization", {})
     assert "silver" in materialization_ctx
     assert materialization_ctx["silver"].get("outputs") == outputs
+
+
+def test_materialization_manager_respects_determinism(tmp_path) -> None:
+    """CSV materialization should respect determinism float/date formats."""
+
+    determinism = DeterminismConfig(
+        float_precision=4,
+        datetime_format="%Y/%m/%d %H:%M:%S",
+    )
+
+    paths = MaterializationPaths.model_validate(
+        {
+            "root": tmp_path,
+            "stages": {
+                "silver": {
+                    "directory": "silver",
+                    "datasets": {
+                        "uniprot": {"filename": "targets_silver"},
+                    },
+                }
+            },
+        }
+    )
+
+    manager = MaterializationManager(
+        paths,
+        runtime=None,
+        stage_context={},
+        determinism=determinism,
+    )
+
+    uniprot_df = pd.DataFrame(
+        {
+            "canonical_accession": ["P99999", "A00001"],
+            "measurement_value": [3.1415926535, 2.5],
+            "recorded_at": pd.to_datetime(
+                ["2024-03-01 10:15:30", "2024-03-01 11:45:00"]
+            ),
+        }
+    )
+
+    outputs = manager.materialize_silver(uniprot_df, pd.DataFrame(), format="csv")
+    uniprot_path = outputs["uniprot"]
+
+    expected = Path(__file__).with_name("golden") / "silver_uniprot_deterministic.csv"
+    assert uniprot_path.read_text(encoding="utf-8") == expected.read_text(encoding="utf-8")
 
 
 def test_materialization_manager_respects_dry_run(tmp_path) -> None:
