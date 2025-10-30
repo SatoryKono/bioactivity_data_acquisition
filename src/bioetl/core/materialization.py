@@ -10,7 +10,12 @@ import pandas as pd
 
 from bioetl.config.models import MaterializationPaths
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.output_writer import OutputMetadata, UnifiedOutputWriter
+from bioetl.core.output_writer import (
+    OutputMetadata,
+    UnifiedOutputWriter,
+    extension_for_format,
+    normalise_output_format,
+)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -50,7 +55,7 @@ class MaterializationManager:
             self._update_stage_context("silver", {"status": "skipped", "reason": "empty_frames"})
             return {}
 
-        resolved_format = self._normalise_format(format)
+        resolved_format = normalise_output_format(format)
 
         silver_override = Path(output_path) if output_path is not None else None
         silver_path = (
@@ -133,7 +138,7 @@ class MaterializationManager:
             self._update_stage_context("iuphar", {"status": "skipped", "reason": "empty_frames"})
             return {}
 
-        resolved_format = self._normalise_format(format)
+        resolved_format = normalise_output_format(format)
         configured_dir: Path | None = None
         if output_directory is not None:
             configured_dir = Path(output_directory)
@@ -218,7 +223,7 @@ class MaterializationManager:
         if not self._should_materialize("gold"):
             return {}
 
-        resolved_format = self._normalise_format(format)
+        resolved_format = normalise_output_format(format)
 
         targets_override = Path(output_path) if output_path is not None else None
         targets_path = (
@@ -363,32 +368,17 @@ class MaterializationManager:
 
     @staticmethod
     def _resolve_sibling_path(directory: Path, stem: str, format: str) -> Path:
-        return directory / f"{stem}{MaterializationManager._extension_for(format)}"
-
-    @staticmethod
-    def _extension_for(format: str) -> str:
-        if format == "parquet":
-            return ".parquet"
-        if format == "csv":
-            return ".csv"
-        raise ValueError(f"Unsupported format: {format}")
+        return directory / f"{stem}{extension_for_format(format)}"
 
     @staticmethod
     def _resolve_default_stage_path(base: Path, format: str, *, fallback_stem: str | None = None) -> Path:
         base = Path(base)
-        extension = MaterializationManager._extension_for(format)
+        extension = extension_for_format(format)
         if base.suffix:
             stem = fallback_stem or base.stem
             return base.with_name(f"{stem}{extension}")
         stem = fallback_stem or base.name
         return base / f"{stem}{extension}"
-
-    @staticmethod
-    def _normalise_format(format: str) -> str:
-        value = format.lower().strip()
-        if value not in {"csv", "parquet"}:
-            raise ValueError(f"Unsupported materialization format: {format}")
-        return value
 
     def _update_stage_context(self, stage: str, payload: dict[str, Any]) -> None:
         if self.stage_context is None:
