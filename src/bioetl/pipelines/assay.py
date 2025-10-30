@@ -86,7 +86,7 @@ ASSAY_FALLBACK_BUSINESS_COLUMNS: tuple[str, ...] = (
 # _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
 
 
-class AssayPipeline(PipelineBase):
+class AssayPipeline(PipelineBase):  # type: ignore[misc]
     """Pipeline for extracting ChEMBL assay data."""
 
     def __init__(self, config: PipelineConfig, run_id: str):
@@ -520,9 +520,9 @@ class AssayPipeline(PipelineBase):
 
             assays_by_id: dict[str, dict[str, Any]] = {}
             for assay in assays_payload:
-                assay_id = assay.get("assay_chembl_id")
-                if assay_id:
-                    assays_by_id[str(assay_id)] = assay
+                assay_id_value = assay.get("assay_chembl_id")
+                if assay_id_value:
+                    assays_by_id[str(assay_id_value)] = assay
 
             for assay_id in batch_ids:
                 payload = assays_by_id.get(assay_id)
