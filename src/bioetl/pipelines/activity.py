@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -15,6 +15,7 @@ import pandas as pd
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
+from bioetl.config.models import CircuitBreakerConfig, HttpConfig, RateLimitConfig
 from bioetl.core.api_client import (
     APIConfig,
     CircuitBreakerOpenError,
@@ -51,6 +52,142 @@ INTEGER_COLUMNS: tuple[str, ...] = (
 INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
 FLOAT_COLUMNS: tuple[str, ...] = ("fallback_retry_after_sec",)
 NON_NEGATIVE_CACHE_COLUMNS: tuple[str, ...] = ("published_value", "standard_value")
+
+
+def _attr_from(candidate: Any, attr: str) -> Any:
+    """Safely retrieve attribute or mapping key from a candidate object."""
+
+    if candidate is None:
+        return None
+
+    if hasattr(candidate, attr):
+        return getattr(candidate, attr)
+
+    if isinstance(candidate, Mapping):
+        return candidate.get(attr)
+
+    return None
+
+
+def _first_not_none(*values: Any) -> Any:
+    """Return the first value that is not None."""
+
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def _to_int(value: Any, default: int | None = None) -> int | None:
+    """Convert a value to int when possible."""
+
+    if value is None:
+        return default
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_float(value: Any, default: float | None = None) -> float | None:
+    """Convert a value to float when possible."""
+
+    if value is None:
+        return default
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_bool(value: Any, default: bool) -> bool:
+    """Convert value to boolean with fallback."""
+
+    if value is None:
+        return default
+
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "yes", "1"}:
+            return True
+        if lowered in {"false", "no", "0"}:
+            return False
+
+    return default
+
+
+def _to_str_list(value: Any, default: list[str]) -> list[str]:
+    """Ensure value is a list of strings."""
+
+    if value is None:
+        return list(default)
+
+    if isinstance(value, str):
+        return [value]
+
+    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
+        result: list[str] = []
+        for item in value:
+            if item is None:
+                continue
+            result.append(str(item))
+        if result:
+            return result
+
+    return list(default)
+
+
+def _coerce_rate_limit(value: Any) -> RateLimitConfig | None:
+    """Coerce mapping-like value to RateLimitConfig."""
+
+    if value is None:
+        return None
+
+    if isinstance(value, RateLimitConfig):
+        return value
+
+    if isinstance(value, Mapping):
+        return RateLimitConfig.model_validate(value)
+
+    return None
+
+
+def _coerce_http(value: Any) -> HttpConfig | None:
+    """Coerce mapping-like value to HttpConfig."""
+
+    if value is None:
+        return None
+
+    if isinstance(value, HttpConfig):
+        return value
+
+    if isinstance(value, Mapping):
+        return HttpConfig.model_validate(value)
+
+    return None
+
+
+def _coerce_circuit_breaker(value: Any) -> CircuitBreakerConfig | None:
+    """Coerce mapping-like value to CircuitBreakerConfig."""
+
+    if value is None:
+        return None
+
+    if isinstance(value, CircuitBreakerConfig):
+        return value
+
+    if isinstance(value, Mapping):
+        return CircuitBreakerConfig.model_validate(value)
+
+    return None
 
 
 @lru_cache(maxsize=1)
@@ -166,26 +303,180 @@ class ActivityPipeline(PipelineBase):
         self._last_validation_report: dict[str, Any] | None = None
         self._fallback_stats: dict[str, Any] = {}
 
-        # Initialize ChEMBL API client
+        # Initialize ChEMBL API client with full HTTP configuration support
         chembl_source = config.sources.get("chembl")
-        if isinstance(chembl_source, dict):
-            base_url = chembl_source.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = chembl_source.get("batch_size", 25) or 25
-        elif chembl_source is not None:
-            base_url = getattr(chembl_source, "base_url", "https://www.ebi.ac.uk/chembl/api/data")
-            batch_size = getattr(chembl_source, "batch_size", 25) or 25
-        else:
-            base_url = "https://www.ebi.ac.uk/chembl/api/data"
-            batch_size = 25
+        default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
+        source_base_url = _attr_from(chembl_source, "base_url")
+        base_url = str(source_base_url or default_base_url)
+
+        source_batch_size = _attr_from(chembl_source, "batch_size")
+        batch_size_value = _to_int(source_batch_size)
+        if batch_size_value is None or batch_size_value <= 0:
+            batch_size_value = 25
+
+        profile_name = _attr_from(chembl_source, "http_profile") or "chembl"
+        http_profile: HttpConfig | None = None
+        if isinstance(profile_name, str) and profile_name in config.http:
+            http_profile = config.http[profile_name]
+
+        global_http = config.http.get("global")
+        source_http = _coerce_http(_attr_from(chembl_source, "http"))
+
+        timeout_sec = _to_float(
+            _attr_from(chembl_source, "timeout_sec"),
+            default=_to_float(_attr_from(source_http, "timeout_sec")),
+        )
+        if timeout_sec is None:
+            timeout_sec = _to_float(_attr_from(http_profile, "timeout_sec"))
+        if timeout_sec is None:
+            timeout_sec = _to_float(_attr_from(global_http, "timeout_sec"), default=60.0)
+        timeout_sec = timeout_sec or 60.0
+
+        connect_timeout = _to_float(_attr_from(chembl_source, "connect_timeout_sec"))
+        if connect_timeout is None:
+            connect_timeout = _to_float(_attr_from(source_http, "connect_timeout_sec"))
+        if connect_timeout is None:
+            connect_timeout = _to_float(_attr_from(http_profile, "connect_timeout_sec"))
+        if connect_timeout is None:
+            connect_timeout = _to_float(_attr_from(global_http, "connect_timeout_sec"), default=timeout_sec)
+        connect_timeout = connect_timeout or timeout_sec
+
+        read_timeout = _to_float(_attr_from(chembl_source, "read_timeout_sec"))
+        if read_timeout is None:
+            read_timeout = _to_float(_attr_from(source_http, "read_timeout_sec"))
+        if read_timeout is None:
+            read_timeout = _to_float(_attr_from(http_profile, "read_timeout_sec"))
+        if read_timeout is None:
+            read_timeout = _to_float(_attr_from(global_http, "read_timeout_sec"), default=timeout_sec)
+        read_timeout = read_timeout or timeout_sec
+
+        retries = _attr_from(source_http, "retries") or _attr_from(http_profile, "retries")
+        if retries is None:
+            retries = _attr_from(global_http, "retries")
+
+        retry_total = _to_int(_attr_from(retries, "total"), default=APIConfig.retry_total)
+        if retry_total is None:
+            retry_total = APIConfig.retry_total
+
+        retry_backoff_factor = _to_float(
+            _attr_from(retries, "backoff_multiplier"),
+            default=APIConfig.retry_backoff_factor,
+        )
+        if retry_backoff_factor is None:
+            retry_backoff_factor = APIConfig.retry_backoff_factor
+
+        retry_backoff_max = _to_float(_attr_from(retries, "backoff_max"), default=APIConfig.retry_backoff_max)
+        retry_status_codes_raw = _attr_from(retries, "statuses")
+        retry_status_codes: list[int] = []
+        if isinstance(retry_status_codes_raw, Iterable) and not isinstance(
+            retry_status_codes_raw, (bytes, bytearray, str)
+        ):
+            retry_status_codes = [code for code in (_to_int(value) for value in retry_status_codes_raw) if code is not None]
+
+        rate_limit = _coerce_rate_limit(_attr_from(chembl_source, "rate_limit"))
+        if rate_limit is None:
+            rate_limit = _coerce_rate_limit(_attr_from(source_http, "rate_limit"))
+        if rate_limit is None:
+            rate_limit = _coerce_rate_limit(_attr_from(http_profile, "rate_limit"))
+        if rate_limit is None:
+            rate_limit = _coerce_rate_limit(_attr_from(global_http, "rate_limit"))
+
+        rate_limit_max_calls = _to_int(
+            _attr_from(rate_limit, "max_calls"),
+            default=APIConfig.rate_limit_max_calls,
+        )
+        if rate_limit_max_calls is None:
+            rate_limit_max_calls = APIConfig.rate_limit_max_calls
+
+        rate_limit_period = _to_float(
+            _attr_from(rate_limit, "period"),
+            default=APIConfig.rate_limit_period,
+        )
+        if rate_limit_period is None:
+            rate_limit_period = APIConfig.rate_limit_period
+
+        rate_limit_jitter_value = _first_not_none(
+            _attr_from(chembl_source, "rate_limit_jitter"),
+            _attr_from(source_http, "rate_limit_jitter"),
+            _attr_from(http_profile, "rate_limit_jitter"),
+            _attr_from(global_http, "rate_limit_jitter"),
+        )
+        rate_limit_jitter = _to_bool(rate_limit_jitter_value, default=APIConfig.rate_limit_jitter)
+
+        cache_enabled = _to_bool(
+            _attr_from(chembl_source, "cache_enabled"),
+            default=config.cache.enabled,
+        )
+        cache_ttl = _to_int(_attr_from(chembl_source, "cache_ttl"), default=config.cache.ttl)
+        if cache_ttl is None:
+            cache_ttl = config.cache.ttl
+
+        cache_maxsize = _to_int(_attr_from(chembl_source, "cache_maxsize"), default=config.cache.maxsize)
+        if cache_maxsize is None:
+            cache_maxsize = config.cache.maxsize
+
+        fallback_config = config.fallbacks
+        fallback_strategies = _to_str_list(
+            _attr_from(chembl_source, "fallback_strategies"),
+            default=fallback_config.strategies,
+        )
+        partial_retry_max = _to_int(
+            _attr_from(chembl_source, "partial_retry_max"),
+            default=fallback_config.partial_retry_max,
+        )
+        if partial_retry_max is None:
+            partial_retry_max = fallback_config.partial_retry_max
+
+        circuit_breaker = _coerce_circuit_breaker(_attr_from(chembl_source, "circuit_breaker"))
+        if circuit_breaker is None:
+            circuit_breaker = fallback_config.circuit_breaker
+        cb_failure_threshold = _to_int(
+            _attr_from(circuit_breaker, "failure_threshold"),
+            default=APIConfig.cb_failure_threshold,
+        )
+        if cb_failure_threshold is None:
+            cb_failure_threshold = APIConfig.cb_failure_threshold
+
+        cb_timeout = _to_float(
+            _attr_from(circuit_breaker, "timeout_sec"),
+            default=APIConfig.cb_timeout,
+        )
+        if cb_timeout is None:
+            cb_timeout = APIConfig.cb_timeout
+
+        headers: dict[str, str] = {}
+        for candidate in (global_http, http_profile, source_http, chembl_source):
+            candidate_headers = _attr_from(candidate, "headers")
+            if isinstance(candidate_headers, Mapping):
+                for key, value in candidate_headers.items():
+                    if value is None:
+                        continue
+                    headers[str(key)] = str(value)
 
         chembl_config = APIConfig(
             name="chembl",
             base_url=base_url,
-            cache_enabled=config.cache.enabled,
-            cache_ttl=config.cache.ttl,
+            headers=headers,
+            cache_enabled=cache_enabled,
+            cache_ttl=cache_ttl,
+            cache_maxsize=cache_maxsize,
+            rate_limit_max_calls=rate_limit_max_calls,
+            rate_limit_period=rate_limit_period,
+            rate_limit_jitter=rate_limit_jitter,
+            retry_total=retry_total,
+            retry_backoff_factor=retry_backoff_factor,
+            retry_backoff_max=retry_backoff_max,
+            retry_status_codes=retry_status_codes,
+            partial_retry_max=partial_retry_max,
+            timeout_connect=connect_timeout,
+            timeout_read=read_timeout,
+            cb_failure_threshold=cb_failure_threshold,
+            cb_timeout=cb_timeout,
+            fallback_enabled=fallback_config.enabled,
+            fallback_strategies=fallback_strategies,
         )
         self.api_client = UnifiedAPIClient(chembl_config)
-        self.batch_size = min(batch_size, 25)
+        self.batch_size = min(batch_size_value, 25)
 
         # Status handshake for release metadata
         self._status_snapshot: dict[str, Any] | None = None
