@@ -154,6 +154,10 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     if entry.name == "target":
         args.extend(["--limit", "7"])
 
+    if entry.name == "document":
+        monkeypatch.setenv("PUBMED_API_KEY", "contract")
+        monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "contract")
+
     result = runner.invoke(module.app, args)
 
     assert result.exit_code == 0, result.output
@@ -236,6 +240,12 @@ def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoin
 
     monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline, raising=False)
 
+    if entry.name == "target":
+        monkeypatch.setenv("IUPHAR_API_KEY", "contract")
+    if entry.name == "document":
+        monkeypatch.setenv("PUBMED_API_KEY", "contract")
+        monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "contract")
+
     runner = CliRunner()
     result = runner.invoke(
         module.app,
@@ -264,3 +274,78 @@ def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoin
         assert runtime_options.get("with_uniprot") is True
         assert runtime_options.get("with_iuphar") is True
 
+@pytest.mark.unit
+def test_target_cli_auto_disables_iuphar_when_api_key_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Target CLI should disable IUPHAR stage when API key is absent."""
+
+    entry = next(ep for ep in ENTRYPOINTS if ep.name == "target")
+
+    captured: dict[str, object] = {}
+
+    class RecordingPipeline:
+        def __init__(self, config, run_id):  # noqa: D401, ANN001 - Typer contract
+            captured["config"] = config
+            captured["run_id"] = run_id
+            self.runtime_options: dict[str, object] = {}
+            captured["runtime_options"] = self.runtime_options
+
+    monkeypatch.delenv("IUPHAR_API_KEY", raising=False)
+
+    module = _load_entry_module(entry, monkeypatch, pipeline_override=RecordingPipeline)
+    monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline, raising=False)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+
+    config = captured.get("config")
+    assert config is not None
+
+    stages = config.cli.get("stages", {})
+    assert stages.get("iuphar") is False
+
+    source_cfg = config.sources.get("iuphar")
+    assert source_cfg is not None and source_cfg.enabled is False
+    assert source_cfg.api_key is None
+    assert source_cfg.headers.get("x-api-key") == ""
+
+    runtime_options = captured.get("runtime_options")
+    assert isinstance(runtime_options, dict)
+    assert runtime_options.get("with_iuphar") is False
+
+
+@pytest.mark.unit
+def test_target_cli_requires_api_key_when_stage_forced(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicitly enabling IUPHAR without API key should error out."""
+
+    entry = next(ep for ep in ENTRYPOINTS if ep.name == "target")
+
+    monkeypatch.delenv("IUPHAR_API_KEY", raising=False)
+
+    module = _load_entry_module(entry, monkeypatch)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--dry-run",
+            "--with-iuphar",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "IUPHAR_API_KEY" in result.stderr
