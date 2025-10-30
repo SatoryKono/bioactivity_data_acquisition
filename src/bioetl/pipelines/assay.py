@@ -11,7 +11,6 @@ from typing import Any
 
 import pandas as pd
 import requests
-from pandera.errors import SchemaErrors
 from urllib.parse import urlencode
 
 from bioetl.config import PipelineConfig
@@ -682,7 +681,7 @@ class AssayPipeline(PipelineBase):
                         assay_chembl_id=row.get("assay_chembl_id"),
                     )
             elif isinstance(class_raw, Iterable):
-                parsed = class_raw  # type: ignore[assignment]
+                parsed = class_raw
 
             if not parsed:
                 continue
@@ -1009,7 +1008,7 @@ class AssayPipeline(PipelineBase):
 
         schema_issues: list[dict[str, Any]] = []
 
-        def _handle_schema_failure(exc: SchemaErrors, _: bool) -> None:
+        def _handle_schema_failure(exc: Exception, _: bool) -> None:
             nonlocal schema_issues
 
             failure_cases = getattr(exc, "failure_cases", None)
@@ -1037,7 +1036,7 @@ class AssayPipeline(PipelineBase):
                 metric_name="schema.validation",
                 failure_handler=_handle_schema_failure,
             )
-        except SchemaErrors as exc:
+        except Exception as exc:
             summary = "; ".join(
                 f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
                 for issue in schema_issues

@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.config.models import TargetSourceConfig
@@ -491,7 +490,7 @@ class PipelineBase(ABC):
         dataset_name: str,
         severity: str = "error",
         metric_name: str | None = None,
-        failure_handler: Callable[[SchemaErrors, bool], None] | None = None,
+        failure_handler: Callable[[Exception, bool], None] | None = None,
         success_handler: Callable[[pd.DataFrame], None] | None = None,
     ) -> pd.DataFrame:
         """Validate a dataframe using a Pandera schema with QC reporting hooks."""
@@ -521,7 +520,7 @@ class PipelineBase(ABC):
 
         try:
             validated = schema.validate(df, lazy=True)
-        except SchemaErrors as exc:
+        except Exception as exc:
             failure_cases = getattr(exc, "failure_cases", None)
             error_count: int | None = None
             if failure_cases is not None and hasattr(failure_cases, "shape"):

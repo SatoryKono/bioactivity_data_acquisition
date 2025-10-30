@@ -9,11 +9,10 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlencode
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
-from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -640,7 +639,9 @@ class ActivityPipeline(PipelineBase):
     ) -> dict[str, Any]:
         """Create deterministic fallback record enriched with error metadata."""
 
-        record = self._fallback_builder.record(
+        record = cast(
+            dict[str, Any],
+            self._fallback_builder.record(
             overrides={
                 "activity_id": activity_id,
                 "published_relation": "=",
@@ -651,7 +652,8 @@ class ActivityPipeline(PipelineBase):
                 "exact_data_citation": False,
                 "rounded_data_citation": False,
                 "extracted_at": datetime.now(timezone.utc).isoformat(),
-            }
+                },
+            ),
         )
         metadata = build_fallback_payload(
             entity="activity",
@@ -675,7 +677,7 @@ class ActivityPipeline(PipelineBase):
 
         cache_dir = self._cache_base_dir()
         cache_dir.mkdir(parents=True, exist_ok=True)
-        return cache_dir / f"{self._cache_key(batch_ids)}.json"
+        return cast(Path, cache_dir / f"{self._cache_key(batch_ids)}.json")
 
     def _cache_base_dir(self) -> Path:
         """Build the base directory for cached responses."""
@@ -690,8 +692,8 @@ class ActivityPipeline(PipelineBase):
         entity_dir = base_dir / self.config.pipeline.entity
         if self.config.cache.release_scoped:
             release = self._chembl_release or "unknown"
-            return entity_dir / release
-        return entity_dir
+            return cast(Path, entity_dir / release)
+        return cast(Path, entity_dir)
 
     def _load_batch_from_cache(self, batch_ids: Iterable[int]) -> list[dict[str, Any]] | None:
         """Load cached batch if available."""
@@ -815,7 +817,7 @@ class ActivityPipeline(PipelineBase):
         else:
             self._status_snapshot = None
 
-        return release.version
+        return cast(str | None, release.version)
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform activity data."""
@@ -1126,7 +1128,7 @@ class ActivityPipeline(PipelineBase):
                 failure_handler=_handle_schema_failure,
                 success_handler=_handle_schema_success,
             )
-        except SchemaErrors:
+        except Exception:
             if self._last_validation_report is not None and failure_report is not None:
                 self._last_validation_report["schema_validation"] = {
                     "status": "failed",
