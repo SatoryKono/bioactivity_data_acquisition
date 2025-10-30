@@ -105,6 +105,7 @@ class AssayPipeline(PipelineBase):
         )
 
         self.api_client = chembl_context.client
+        self.register_client(self.api_client)
 
         self.batch_size = chembl_context.batch_size
         resolved_max_url_length = chembl_context.max_url_length or default_max_url_length

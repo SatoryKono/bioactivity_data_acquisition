@@ -139,6 +139,7 @@ def test_pipeline_run_closes_api_client(monkeypatch, assay_config, tmp_path):
         def __init__(self, config, run_id):
             super().__init__(config, run_id)
             self.api_client = UnifiedAPIClient(APIConfig(name="test", base_url="https://example.org"))
+            self.register_client(self.api_client)
 
         def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
             return pd.DataFrame({"value": [1]})
@@ -165,6 +166,46 @@ def test_pipeline_run_closes_api_client(monkeypatch, assay_config, tmp_path):
     pipeline.run(output_path)
 
     assert close_calls, "UnifiedAPIClient.close should be invoked during pipeline teardown"
+
+
+def test_pipeline_run_invokes_close(monkeypatch, assay_config, tmp_path):
+    """``run`` should invoke ``close`` during teardown regardless of success."""
+
+    class ClosingPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            return pd.DataFrame({"value": [1]})
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def export(
+            self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
+        ) -> OutputArtifacts:  # noqa: D401 - test stub
+            self.output_writer.write_dataframe_csv(df, output_path)
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=output_path.with_suffix(".qc.csv"),
+                run_directory=output_path.parent,
+            )
+
+    close_calls: list[PipelineBase] = []
+    original_close = ClosingPipeline.close
+
+    def _wrapped_close(self: PipelineBase) -> None:
+        close_calls.append(self)
+        original_close(self)
+
+    monkeypatch.setattr(ClosingPipeline, "close", _wrapped_close)
+
+    pipeline = ClosingPipeline(assay_config, "close-hook-test")
+    output_path = tmp_path / "dataset.csv"
+
+    pipeline.run(output_path)
+
+    assert close_calls and close_calls[0] is pipeline
 
 
 def test_export_prioritises_configured_column_order(tmp_path, assay_config):

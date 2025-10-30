@@ -435,6 +435,7 @@ class TestItemPipeline(PipelineBase):
             raise ValueError("sources.chembl.batch_size must be <= 25 due to ChEMBL API limits")
 
         self.api_client = chembl_context.client
+        self.register_client(self.api_client)
         self.batch_size = batch_size_value
         self.configured_max_url_length = chembl_context.max_url_length
 
