@@ -25,17 +25,20 @@
 **Цель:** Все логи содержат минимальный набор полей для трассируемости.
 
 ```python
+
 # Проверка обязательных полей
+
 def test_mandatory_log_fields():
     with capture_logs() as logs:
         logger.info("test message")
-    
+
     log = logs[0]
     mandatory = ["run_id", "stage", "actor", "source", "generated_at"]
-    
+
     for field in mandatory:
         assert field in log, f"Missing field: {field}"
-```
+
+```text
 
 **Артефакт:** Логи должны проходить статическую проверку обязательных полей.
 
@@ -72,11 +75,12 @@ def test_deterministic_output():
 
     # python -m pipeline run --golden data/golden/assay.csv
 
-```
+```text
 
 #### AC3: hash_row стабилен
 
 ```python
+
 def canonicalize_row_for_hash(row: dict) -> str:
     """JSON c sort_keys=True, ISO8601 для дат, float формат %.6f, NA-policy: None→null."""
     def _normalize(v):
@@ -88,7 +92,7 @@ def canonicalize_row_for_hash(row: dict) -> str:
     return json.dumps({k: _normalize(v) for k, v in sorted(row.items())},
                       sort_keys=True, separators=(",", ":"))
 
-```
+```text
 
 #### AC4: Нет partial artifacts
 
@@ -100,27 +104,29 @@ assert output_file.exists()
 assert meta_file.exists()
 assert not is_partial_file(output_file)  # по размеру, заголовкам
 
-```
+```text
 
 #### AC6: Activity сортировка
 
 ```python
+
 df_final = df.sort_values(["activity_id"], kind="mergesort")
 
 # mergesort гарантирует стабильность
 
-```
+```text
 
 ### Схемы и валидация (AC2, AC10)
 
 #### AC2: column_order=схеме
 
 ```python
+
 schema = get_schema("ActivitySchema")
 df_validated = schema.validate(df)
 assert list(df_validated.columns) == schema.column_order
 
-```
+```text
 
 #### AC10: Schema drift fail-fast
 
@@ -128,7 +134,7 @@ assert list(df_validated.columns) == schema.column_order
 
 ```python
 
-# CLI
+# CLI (continued)
 
 # python -m pipeline run --fail-on-schema-drift  # default=True в production
 
@@ -140,13 +146,14 @@ new_schema = schema_registry.get("ActivitySchema", "2.0.0")  # major bump
 if not current_schema.compatible_with(new_schema):
     raise SchemaDriftError(f"Incompatible schema: {current_schema} -> {new_schema}")
 
-```
+```text
 
 ### API клиенты и отказоустойчивость (AC5, AC11)
 
 #### AC5: Respect Retry-After
 
 ```python
+
 if response.status_code == 429:
     retry_after = response.headers.get('Retry-After')
     if retry_after:
@@ -166,13 +173,14 @@ def test_respect_retry_after():
         assert elapsed >= 5.0
         assert elapsed <= 60.0  # Cap инвариант
 
-```
+```text
 
 ### Assay и трансформации (AC7, AC8)
 
 #### AC7: Assay batch≤25
 
 ```python
+
 @dataclass
 class AssayConfig:
     batch_size: int = field(default=25)
@@ -181,11 +189,12 @@ class AssayConfig:
         if self.batch_size > 25:
             raise ValueError(f"batch_size must be ≤ 25, got {self.batch_size}")
 
-```
+```text
 
 #### AC8: Long-format nested
 
 ```python
+
 def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
     """
     Превращает массив parameters в long-format с полями:
@@ -203,13 +212,14 @@ def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
             })
     return pd.DataFrame(rows, columns=["assay_chembl_id","param_index","param_name","param_value","row_subtype"])
 
-```
+```text
 
 ### QC и качество (AC9)
 
 #### AC9: QC duplicates=0
 
 ```python
+
 duplicate_count = df["activity_id"].duplicated().sum()
 assert duplicate_count == 0, f"Found {duplicate_count} duplicate activity_id entries"
 
@@ -221,7 +231,7 @@ qc_report = {
     "passed": duplicate_count == 0
 }
 
-```
+```text
 
 ## Связи с Gap-листом
 
@@ -273,3 +283,4 @@ qc_report = {
 - Зелёный CI pipeline
 
 - Golden-run проходит бит-в-бит
+

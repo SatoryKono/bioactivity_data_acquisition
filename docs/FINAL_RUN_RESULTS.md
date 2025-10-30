@@ -12,15 +12,18 @@
 **Время:** 18:08:26
 
 **Статистика:**
+
 - Колонок: **14** ✅
 - Строк данных: **10** ✅
 - Hash поля: ✅ присутствуют
 
 **Заголовки:**
 
-```
+```text
+
 assay_chembl_id,row_subtype,row_index,assay_type,description,target_chembl_id,confidence_score,pipeline_version,source_system,chembl_release,extracted_at,hash_business_key,hash_row,index
-```
+
+```text
 
 **Соответствие схеме:** ✅ 100% - полностью совпадает с AssaySchema.Config.column_order
 
@@ -33,15 +36,18 @@ assay_chembl_id,row_subtype,row_index,assay_type,description,target_chembl_id,co
 **Время:** 18:08:31
 
 **Статистика:**
+
 - Колонок: **30** ✅
 - Строк данных: **4** ✅ (входной файл содержал 4 записи)
 - Hash поля: ✅ присутствуют
 
 **Заголовки:**
 
-```
+```text
+
 activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_id,published_type,published_relation,published_value,published_units,standard_type,standard_relation,standard_value,standard_units,standard_flag,lower_bound,upper_bound,is_censored,pchembl_value,activity_comment,data_validity_comment,bao_endpoint,bao_format,bao_label,pipeline_version,source_system,chembl_release,extracted_at,hash_business_key,hash_row,index
-```
+
+```text
 
 **Соответствие схеме:** ✅ 100% - полностью совпадает с ActivitySchema.Config.column_order
 
@@ -54,15 +60,18 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 **Время:** 18:08:36
 
 **Статистика:**
+
 - Колонок: **31** ✅
 - Строк данных: **10** ✅
 - Hash поля: ✅ присутствуют
 
 **Заголовки:**
 
-```
+```text
+
 molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,molecule_type,mw_freebase,qed_weighted,standardized_smiles,standard_inchi,standard_inchi_key,heavy_atoms,aromatic_rings,rotatable_bonds,hba,hbd,lipinski_ro5_violations,lipinski_ro5_pass,all_names,molecule_synonyms,atc_classifications,pubchem_cid,pubchem_synonyms,pipeline_version,source_system,chembl_release,extracted_at,hash_business_key,hash_row,index
-```
+
+```text
 
 **Соответствие схеме:** ✅ 100% - полностью совпадает с TestItemSchema.Config.column_order
 
@@ -83,6 +92,7 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 ✅ **Все три пайплайна генерируют выходные файлы с точным соответствием ожидаемым схемам**
 
 ✅ **Все выходные файлы содержат обязательные hash поля:**
+
 - `hash_business_key` - SHA256 от первичного ключа
 - `hash_row` - SHA256 канонической строки
 - `index` - детерминированный индекс
@@ -94,3 +104,4 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 ---
 
 **Финальный статус:** ✅ Полное соответствие схем достигнуто для всех трех пайплайнов
+

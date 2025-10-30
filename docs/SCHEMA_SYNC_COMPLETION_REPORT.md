@@ -50,11 +50,13 @@
 ### 8. Входные данные
 
 **activity.csv:**
+
 - Создан новый файл с полями из IO_SCHEMAS Input Schema
 - Удалены QC-поля: `Filtered.init`, `IUPHAR_class`, `compound_key`, `high_citation_rate` и др.
 - Оставлены только: `activity_id`, `molecule_chembl_id`, `assay_chembl_id`, `target_chembl_id`, `document_chembl_id`, `published_*`, `standard_*`, `bao_*`
 
 **testitem.csv:**
+
 - Создан новый файл с полями из IO_SCHEMAS Input Schema
 - Удалены лишние поля: `chirality`, `inchi_key_from_mol`, `n_stereocenters` и др.
 - Оставлены только: `molecule_chembl_id`, `nstereo`, `salt_chembl_id`
@@ -62,6 +64,7 @@
 ### 9. IO_SCHEMAS_AND_DIAGRAMS.md
 
 Обновлены секции D) Output Schema для:
+
 - **Assay:** заменен `pref_name` на `description`, удалены лишние поля, обновлен `column_order`
 - **Activity:** обновлен порядок системных полей в `column_order`
 
@@ -70,21 +73,25 @@
 ### Проверенные выходные файлы
 
 **assay_20251028_20251028.csv:**
+
 - Содержит hash поля: `hash_business_key`, `hash_row`, `index`
 - Порядок колонок соответствует схеме
 
 **activity_20251028_20251028.csv:**
+
 - Содержит hash поля: `hash_business_key`, `hash_row`, `index`
 - QC-поля отсутствуют
 - Порядок колонок соответствует схеме
 
 **testitem_20251028_20251028.csv:**
+
 - Содержит hash поля: `hash_business_key`, `hash_row`, `index`
 - Порядок колонок соответствует схеме
 
 ### Валидация
 
 Все пайплайны успешно:
+
 - Генерируют hash поля
 - Соблюдают порядок колонок согласно `column_order` в схемах
 - Не содержат QC-полей в выходе
@@ -108,3 +115,4 @@
 ## Статус
 
 **Завершено:** Все задачи выполнены, схемы синхронизированы с требованиями.
+

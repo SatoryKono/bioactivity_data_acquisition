@@ -16,13 +16,15 @@
 Перед запуском необходимо установить следующие переменные окружения (опционально):
 
 ```bash
+
 export PUBMED_EMAIL="your-email@example.com"
 export PUBMED_API_KEY="your-pubmed-api-key"  # optional, для увеличения лимитов
 
 export CROSSREF_MAILTO="your-email@example.com"  # для polite pool
 
 export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для production
-```
+
+```text
 
 > **Примечание.** Синтаксис `${VAR:}` указывает конфигуратор использовать пустую строку,
 > если переменная окружения `VAR` не определена. Это удобно для опциональных ключей API,
@@ -34,6 +36,7 @@ export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для
 Файл `configs/pipelines/document.yaml`:
 
 ```yaml
+
 sources:
   pubmed:
     enabled: true
@@ -45,7 +48,7 @@ sources:
     rate_limit_max_calls: 3  # 10 with API key
     rate_limit_period: 1.0
     workers: 1
-  
+
   crossref:
     enabled: true
     base_url: "https://api.crossref.org"
@@ -54,7 +57,7 @@ sources:
     rate_limit_max_calls: 2
     rate_limit_period: 1.0
     workers: 2
-  
+
   openalex:
     enabled: true
     base_url: "https://api.openalex.org"
@@ -62,7 +65,7 @@ sources:
     rate_limit_max_calls: 10
     rate_limit_period: 1.0
     workers: 4
-  
+
   semantic_scholar:
     enabled: true
     base_url: "https://api.semanticscholar.org/graph/v1"
@@ -71,7 +74,8 @@ sources:
     rate_limit_max_calls: 1  # 10 with API key
     rate_limit_period: 1.25
     workers: 1
-```
+
+```text
 
 ## Использование
 
@@ -80,6 +84,7 @@ sources:
 Адаптеры автоматически интегрированы в `DocumentPipeline`:
 
 ```python
+
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.document import DocumentPipeline
 
@@ -87,17 +92,21 @@ config = PipelineConfig.from_yaml("configs/pipelines/document.yaml")
 pipeline = DocumentPipeline(config, run_id="test")
 
 # Извлечение с автоматическим обогащением
+
 df = pipeline.extract("data/input/documents.csv")
-```
+
+```text
 
 ### Прямое использование
 
 ```python
+
 from bioetl.adapters import PubMedAdapter, CrossrefAdapter
 from bioetl.adapters.base import AdapterConfig
 from bioetl.core.api_client import APIConfig
 
 # Настройка PubMed
+
 pubmed_config = APIConfig(
     name="pubmed",
     base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
@@ -111,11 +120,13 @@ adapter_config.email = "test@example.com"
 pubmed = PubMedAdapter(pubmed_config, adapter_config)
 
 # Получение данных по PMIDs
+
 pmids = ["12345678", "87654321"]
 df = pubmed.process(pmids)
 
 pubmed.close()
-```
+
+```text
 
 ## Приоритеты источников
 
@@ -144,13 +155,16 @@ pubmed.close()
 ## Получение API ключей
 
 ### PubMed API Key
+
 1. Зарегистрироваться на https://www.ncbi.nlm.nih.gov/account/settings/
 2. Найти API Key в настройках аккаунта
 
 ### Crossref (не требуется)
+
 Crossref не требует API ключ, но рекомендуется указать `mailto` для polite pool
 
 ### Semantic Scholar API Key
+
 1. Зарегистрироваться на https://www.semanticscholar.org/
 2. Перейти в Developer API settings
 3. Создать API ключ
@@ -158,13 +172,17 @@ Crossref не требует API ключ, но рекомендуется ук�
 ## Troubleshooting
 
 ### PubMed: "Required parameter 'email' missing"
+
 - Установите переменную окружения `PUBMED_EMAIL`
 - Или укажите в конфиге `email`
 
 ### Semantic Scholar: Rate limit exceeded
+
 - Получите API ключ для увеличения лимитов
 - Установите `SEMANTIC_SCHOLAR_API_KEY`
 
 ### Connection timeout
+
 - Проверьте настройки `timeout_connect` и `timeout_read` в конфиге
 - Увеличьте значения для медленных источников
+

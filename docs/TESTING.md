@@ -5,61 +5,80 @@
 ### Запуск всех тестов
 
 ```bash
+
 # Linux/Mac
+
 ./run_tests.sh
 
 # Windows PowerShell
+
 .\run_tests.ps1
 
 # Или напрямую через pytest
+
 python -m pytest tests/ -v
-```
+
+```text
 
 ## Запуск отдельных групп тестов
 
 ### Unit тесты
 
 ```bash
+
 pytest tests/unit/ -v -m unit
-```
+
+```text
 
 ### Integration тесты
 
 ```bash
+
 pytest tests/integration/ -v -m integration
-```
+
+```text
 
 ### Golden и smoke тесты CLI
 
 ```bash
+
 pytest tests/golden/ -v -m golden
-```
+
+```text
 
 ### Конкретный тест
 
 ```bash
+
 pytest tests/unit/test_pipelines.py::TestActivityPipeline::test_init -v
-```
+
+```text
 
 ## Флаги и опции
 
 ### С покрытием кода
 
 ```bash
+
 pytest tests/ --cov=src/bioetl --cov-report=html
-```
+
+```text
 
 ### Пропуск медленных тестов
 
 ```bash
+
 pytest tests/ -v -m "not slow"
-```
+
+```text
 
 ### Только быстрые тесты
 
 ```bash
+
 pytest tests/ -v -m unit
-```
+
+```text
 
 ## Конфигурация
 
@@ -69,7 +88,8 @@ pytest tests/ -v -m unit
 
 ## Структура тестов
 
-```
+```text
+
 tests/
 ├── conftest.py                 # Общие фикстуры
 ├── unit/                       # Юнит-тесты
@@ -81,7 +101,8 @@ tests/
 │   └── adapters/               # Тесты адаптеров
 └── integration/                # Интеграционные тесты
     └── test_document_pipeline_enrichment.py
-```
+
+```text
 
 ## Требования
 
@@ -93,22 +114,32 @@ tests/
 ## Troubleshooting
 
 ### Импорты не работают
+
 Убедитесь, что `src` добавлен в `PYTHONPATH`:
 
 ```bash
+
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
-```
+
+```text
 
 ### Тесты падают с ImportError
+
 Переустановите пакет:
 
 ```bash
+
 pip install -e ".[dev]"
-```
+
+```text
 
 ### Низкое покрытие кода
+
 Добавьте больше тестов для недостающих модулей:
 
 ```bash
+
 pytest --cov=src/bioetl --cov-report=term-missing
-```
+
+```text
+

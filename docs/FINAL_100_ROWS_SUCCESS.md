@@ -15,6 +15,7 @@
 **Статус:** Успешно завершен
 
 **Что исправлено:**
+
 - Убрано жесткое ограничение `nrows=10` в `extract()`
 - Теперь обрабатывает все данные из входного файла
 - ChEMBL API batch requests работают корректно
@@ -29,6 +30,7 @@
 **Статус:** Успешно завершен
 
 **Что исправлено:**
+
 - Убрано жесткое ограничение `nrows=10` в `extract()`
 - Обрабатывает все записи из входного файла
 - Все поля корректно обрабатываются
@@ -43,6 +45,7 @@
 **Статус:** Успешно завершен
 
 **Что исправлено:**
+
 - Убрано жесткое ограничение `nrows=10` в `extract()`
 - Читает все molecule_chembl_id из входного файла
 - ChEMBL API обрабатывает их по 25 ID за batch
@@ -63,54 +66,68 @@
 
 ## Технические изменения
 
-### Файлы изменены:
+### Файлы изменены
 
 1. **src/bioetl/pipelines/assay.py:**
 
    ```python
-   # Было:
+
+   # Было
+
    df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
-  
-   # Стало:
+
+   # Стало
+
    df = pd.read_csv(input_file)  # Read all records
-   ```
+
+```text
 
 2. **src/bioetl/pipelines/activity.py:**
-  
+
 ```python
-   # Было:
+
+   # Было (continued)
+
    df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
-  
-   # Стало:
+
+   # Стало (continued)
+
    df = pd.read_csv(input_file)  # Read all records
-   ```
+
+```text
 
 1. **src/bioetl/pipelines/testitem.py:**
-  
+
    ```python
-# Было:
+
+# Было (continued) (continued)
+
    df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
-  
-# Стало:
+
+# Стало (continued) (continued)
+
    df = pd.read_csv(input_file)  # Read all records
 
-   ```
+```text
 
 ---
 
 ## Проверка качества данных
 
-### Assay (100 строк, 58 колонок):
+### Assay (100 строк, 58 колонок)
+
 - Все необходимые поля из ChEMBL API извлечены
 - Nested fields обработаны корректно
 - List fields преобразованы в string для избежания ошибок
 
-### Activity (100 строк, 30 колонок):
+### Activity (100 строк, 30 колонок)
+
 - Все IO_SCHEMAS поля присутствуют
 - Значения `published_value` и `standard_value` корректны
 - Boolean и numeric поля обработаны правильно
 
-### Testitem (99 строк, 31 колонка):
+### Testitem (99 строк, 31 колонка)
+
 - Данные из ChEMBL API успешно получены
 - Все бизнес-поля заполнены
 - Merge с входными данными работает корректно
@@ -128,3 +145,4 @@
 **Статус:** ✅ ПОЛНОСТЬЮ РЕАЛИЗОВАНО
 
 **Следующий шаг:** Для обработки еще большего количества данных просто увеличьте количество записей во входных CSV файлах. Пайплайны будут автоматически обрабатывать все записи.
+

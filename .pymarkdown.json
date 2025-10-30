@@ -1,4 +1,11 @@
 {
+  "plugins": {
+    "md013": {
+      "enabled": false
+    }
+  }
+}
+{
   "plugins": {},
   "extensions": {},
   "md013": {

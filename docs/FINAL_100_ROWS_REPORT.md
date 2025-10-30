@@ -71,14 +71,17 @@
 ### Решение для увеличения числа строк
 
 1. **ASSAY:**
+
    - Увеличить количество строк в `data/input/assay.csv`
    - Или запрашивать больше assay_chembl_id через ChEMBL API filters
 
 2. **ACTIVITY:**
+
    - Добавить больше строк в `data/input/activity.csv` (сейчас 10)
    - Формат: каждая строка - одна activity_id с данными
 
 3. **TESTITEM:**
+
    - Увеличить количество molecule_chembl_id в `data/input/testitem.csv`
    - API автоматически обработает batch по 25 ID
 
@@ -121,3 +124,4 @@
 ---
 
 **Статус:** ✅ Полностью реализовано и протестировано
+

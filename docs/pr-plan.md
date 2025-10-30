@@ -182,6 +182,7 @@
 ## Последовательность применения
 
 ```mermaid
+
 graph TD
     PR1[PR-1: IO & Determinism] --> PR2[PR-2: Schema & Precision]
     PR1 --> PR3[PR-3: API Client]
@@ -189,7 +190,7 @@ graph TD
     PR3 --> PR4
     PR4 --> PR5[PR-5: Activity]
 
-```
+```text
 
 **Порядок**:
 
@@ -219,6 +220,7 @@ graph TD
 ### Формат commit message
 
 ```text
+
 type(scope): краткое описание
 
 - Детали изменений
@@ -228,7 +230,7 @@ type(scope): краткое описание
 
 Refs: #issue-number
 
-```
+```text
 
 ### Типы commits
 
@@ -287,7 +289,7 @@ git checkout -b hotfix/pr-X-rollback
 
 git push origin hotfix/pr-X-rollback
 
-```
+```text
 
 ## Метрики успеха
 
@@ -310,3 +312,4 @@ git push origin hotfix/pr-X-rollback
 - [implementation-examples.md](implementation-examples.md) — патчи кода
 
 - `CHANGELOG.md` — фиксация изменений
+

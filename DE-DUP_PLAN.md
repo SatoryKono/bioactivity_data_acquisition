@@ -10,6 +10,7 @@ components, so the older modules are no longer required.
 
 - `bioetl.pipelines.target` is the maintained pipeline and replaces the
   legacy `library.target.pipeline` implementation.
+
 - Supporting functionality (normalisation, validation, quality checks, and I/O)
   is served by the cohesive `bioetl` package and associated schemas.
 
@@ -19,6 +20,7 @@ components, so the older modules are no longer required.
   removal. Existing tooling (for example, `src/scripts/run_target.py` and the
   consolidated `bioetl.cli.main` application) already use the `bioetl` pipeline
   stack, so no additional CLI work was required.
+
 - Consolidated the boilerplate Typer wiring for activity-like pipelines into
   the shared `scripts` registry. The helper now exposes a single
   `register_pipeline_command(app, key)` call that reads defaults from a central
@@ -36,6 +38,7 @@ components, so the older modules are no longer required.
 
 - Introduced `configs/includes/determinism.yaml` to centralize determinism
   defaults for all pipelines extending ChEMBL sources.
+
 - Updated activity, assay, document, target, and testitem pipeline configs to
   extend the shared include instead of duplicating the determinism defaults.
 
@@ -44,11 +47,14 @@ components, so the older modules are no longer required.
 - Pipelines that communicate with the ChEMBL API must call
   `PipelineBase._init_chembl_client()` during construction (legacy call sites
   may continue using `bioetl.pipelines.base.create_chembl_client`).
+
 - The helper applies the canonical defaults (base URL, batch sizing,
   URL-length guards) via `ensure_target_source_config` and materialises a
   `UnifiedAPIClient` using `APIClientFactory.from_pipeline_config` before
   returning the resolved context.
+
 - Callers must persist the returned client alongside the resolved batch and
   limit metadata to honour the shared runtime contract, and tests should
   monkeypatch `_init_chembl_client` to intercept client creation in a single
   location.
+

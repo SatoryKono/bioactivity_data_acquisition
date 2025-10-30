@@ -18,6 +18,7 @@
 
 1. Добавлены 6 дополнительных строк в `data/input/activity.csv` (строки 6-11)
 2. Исправлена обработка CSV в `src/bioetl/pipelines/activity.py`:
+
    - Добавлен mapping `activity_chembl_id` → `activity_id`
    - Добавлены недостающие IO_SCHEMAS колонки
    - Установлены значения по умолчанию для отсутствующих полей
@@ -38,10 +39,12 @@
 **Решение:**
 
 1. Реализован метод `_fetch_molecule_data()` в `src/bioetl/pipelines/testitem.py`:
+
    - Запросы к ChEMBL API `/molecule.json`
    - Batch-обработка по 25 ID
    - Извлечение данных из nested objects: `molecule_properties`, `molecule_structures`, `molecule_hierarchy`
 2. Интегрирован в `transform()`:
+
    - Merge с данными из API
    - Сохранение существующих полей
 
@@ -96,3 +99,4 @@
 ---
 
 **Прогресс:** 2 из 3 пайплайнов полностью реализованы (67% готовности)
+
