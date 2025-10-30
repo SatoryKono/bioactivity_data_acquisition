@@ -6,19 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from bioetl.normalizers.constants import NA_STRINGS
-
-
-def _is_na(value: Any) -> bool:
-    """Проверяет, является ли значение NA/пустым."""
-    if value is None:
-        return True
-    if isinstance(value, float) and math.isnan(value):
-        return True
-    if isinstance(value, str):
-        if value.strip() == "":
-            return True
-        return value.strip().lower() in NA_STRINGS
-    return False
+from bioetl.normalizers.helpers import _is_na
 
 
 def canonical_json(value: Any, sort_keys: bool = True) -> str | None:
