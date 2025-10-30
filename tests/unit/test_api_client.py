@@ -499,6 +499,47 @@ def test_request_json_timeout_metadata_on_exhaustion(
     assert metadata["error_text"] == "timeout occurred"
 
 
+def test_request_json_respects_retry_total(monkeypatch: pytest.MonkeyPatch) -> None:
+    """request_json should perform at most retry_total attempts."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=100,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=2,
+        retry_backoff_factor=0.0,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    call_count = {"count": 0}
+
+    def fake_execute(
+        self,
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        call_count["count"] += 1
+        raise requests.exceptions.ConnectionError("network down")
+
+    monkeypatch.setattr(UnifiedAPIClient, "_execute", fake_execute)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        client.request_json("/resource")
+
+    assert call_count["count"] == 2
+
+    client.close()
+
+
 def test_request_json_connection_error_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

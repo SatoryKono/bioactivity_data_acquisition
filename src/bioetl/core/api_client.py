@@ -13,6 +13,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urljoin
 
+import backoff
 import requests
 from cachetools import TTLCache  # type: ignore
 
@@ -249,13 +250,13 @@ class RetryPolicy:
             else set()
         )
 
-    def should_giveup(self, exc: Exception, attempt: int) -> bool:
-        """Определяет, нужно ли прекратить попытки."""
-        if attempt >= self.total:
-            return True
+    def is_retryable_exception(
+        self, exc: Exception, *, attempt: int | None = None
+    ) -> bool:
+        """Определяет, можно ли повторить попытку после исключения."""
 
         if type(exc) in self.giveup_on:
-            return True
+            return False
 
         if isinstance(exc, requests.exceptions.HTTPError):
             response = getattr(exc, "response", None)
@@ -268,21 +269,32 @@ class RetryPolicy:
                 )
 
                 if 500 <= status_code < 600:
-                    return False
-
-                if status_code in retryable_statuses:
-                    return False
-
-                if 400 <= status_code < 500:
-                    logger.error(
-                        "client_error_giving_up",
-                        code=status_code,
-                        attempt=attempt,
-                        error=str(exc),
-                    )
                     return True
 
-        return False
+                if status_code in retryable_statuses:
+                    return True
+
+                if 400 <= status_code < 500:
+                    log_kwargs: dict[str, Any] = {
+                        "code": status_code,
+                        "error": str(exc),
+                    }
+                    if attempt is not None:
+                        log_kwargs["attempt"] = attempt
+
+                    logger.error("client_error_giving_up", **log_kwargs)
+                    return False
+
+                return False
+
+        return True
+
+    def should_giveup(self, exc: Exception, attempt: int) -> bool:
+        """Определяет, нужно ли прекратить попытки."""
+        if attempt >= self.total:
+            return True
+
+        return not self.is_retryable_exception(exc, attempt=attempt)
 
     def get_wait_time(
         self, attempt: int, retry_after: float | int | str | None = None
@@ -397,141 +409,137 @@ class UnifiedAPIClient:
             )
 
         # Retry logic
-        last_exc: Exception | None = None
-        last_response: requests.Response | None = None
-        last_attempt_timestamp: float | None = None
-        last_retry_after_header: str | None = None
-        last_error_text: str | None = None
-        last_attempt = 0
+        max_tries = max(1, self.retry_policy.total)
+        last_error_state: dict[str, Any] = {}
 
-        for attempt in range(1, self.retry_policy.total + 1):
-            try:
-                response = self.circuit_breaker.call(_perform_request)
-                response.raise_for_status()
+        def _update_error_state(exc: Exception, attempt: int) -> None:
+            response = getattr(exc, "response", None)
+            retry_after_header = (
+                response.headers.get("Retry-After")
+                if response is not None and response.headers
+                else None
+            )
+            last_error_state.update(
+                {
+                    "exception": exc,
+                    "attempt": attempt,
+                    "timestamp": time.time(),
+                    "response": response,
+                    "retry_after": retry_after_header,
+                    "error_text": (
+                        response.text if response is not None else str(exc)
+                    ),
+                }
+            )
 
-                # Parse JSON
-                response_payload: dict[str, Any] = response.json()
+        def _should_giveup(exc: Exception) -> bool:
+            return not self.retry_policy.is_retryable_exception(exc)
 
-                # Cache result
-                if (
-                    self.cache
-                    and cache_key
-                    and method == "GET"
-                    and request_has_no_body
-                ):
-                    self.cache[cache_key] = copy.deepcopy(response_payload)
+        def _on_backoff(details: dict[str, Any]) -> None:
+            exc = details["exception"]
+            attempt = details["tries"]
+            _update_error_state(exc, attempt)
 
-                return response_payload
+            response_obj = last_error_state.get("response")
+            retry_after_header = last_error_state.get("retry_after")
+            retry_after_seconds = self._retry_after_seconds(response_obj)
+            wait_time = self.retry_policy.get_wait_time(
+                attempt,
+                retry_after=retry_after_seconds,
+            )
+            details["wait"] = wait_time
 
-            except requests.exceptions.HTTPError as e:
-                last_exc = e
-                last_attempt = attempt
-                last_attempt_timestamp = time.time()
-                last_response = getattr(e, "response", None)
-                last_retry_after_header = (
-                    last_response.headers.get("Retry-After")
-                    if last_response is not None and last_response.headers
-                    else None
-                )
-                last_error_text = (
-                    last_response.text if last_response is not None else str(e)
-                )
+            status_code = (
+                response_obj.status_code if response_obj is not None else None
+            )
 
-                if self.retry_policy.should_giveup(e, attempt):
-                    break
-
-                retry_after_seconds = self._retry_after_seconds(last_response)
-                wait_time = self.retry_policy.get_wait_time(
-                    attempt,
-                    retry_after=retry_after_seconds,
-                )
+            if isinstance(exc, requests.exceptions.HTTPError):
                 logger.warning(
                     "retrying_request",
                     attempt=attempt,
                     wait_seconds=wait_time,
-                    error=str(e),
-                    status_code=(
-                        last_response.status_code if last_response is not None else None
-                    ),
-                    retry_after=last_retry_after_header,
+                    error=str(exc),
+                    status_code=status_code,
+                    retry_after=retry_after_header,
                 )
-                if retry_after_seconds is not None and wait_time > 0:
-                    time.sleep(wait_time)
-
-            except requests.exceptions.RequestException as e:
-                last_exc = e
-                last_attempt = attempt
-                last_attempt_timestamp = time.time()
-                last_response = getattr(e, "response", None)
-                last_retry_after_header = (
-                    last_response.headers.get("Retry-After")
-                    if last_response is not None and last_response.headers
-                    else None
-                )
-                last_error_text = (
-                    last_response.text if last_response is not None else str(e)
-                )
-
-                if self.retry_policy.should_giveup(e, attempt):
-                    logger.error(
-                        "request_exception_giveup",
-                        attempt=attempt,
-                        url=url,
-                        method=method,
-                        params=params,
-                        error=str(e),
-                        exception_type=type(e).__name__,
-                        status_code=(
-                            last_response.status_code
-                            if last_response is not None
-                            else None
-                        ),
-                    )
-                    break
-
-                retry_after_seconds = self._retry_after_seconds(last_response)
-                wait_time = self.retry_policy.get_wait_time(
-                    attempt,
-                    retry_after=retry_after_seconds,
-                )
+            else:
                 logger.warning(
                     "retrying_request_exception",
                     attempt=attempt,
                     wait_seconds=wait_time,
-                    error=str(e),
-                    exception_type=type(e).__name__,
-                    status_code=(
-                        last_response.status_code if last_response is not None else None
-                    ),
-                    retry_after=last_retry_after_header,
+                    error=str(exc),
+                    exception_type=type(exc).__name__,
+                    status_code=status_code,
+                    retry_after=retry_after_header,
                 )
-                if retry_after_seconds is not None and wait_time > 0:
-                    time.sleep(wait_time)
 
-            except Exception as e:
-                last_exc = e
+            if wait_time > 0:
+                time.sleep(wait_time)
+
+        def _on_giveup(details: dict[str, Any]) -> None:
+            exc = details["exception"]
+            attempt = details["tries"]
+            _update_error_state(exc, attempt)
+
+            if attempt < max_tries and not isinstance(
+                exc, requests.exceptions.HTTPError
+            ):
+                response_obj = last_error_state.get("response")
+                retry_after_header = last_error_state.get("retry_after")
+                status_code = (
+                    response_obj.status_code if response_obj is not None else None
+                )
                 logger.error(
-                    "request_error",
+                    "request_exception_giveup",
                     attempt=attempt,
                     url=url,
                     method=method,
                     params=params,
-                    error=str(e),
+                    error=str(exc),
+                    exception_type=type(exc).__name__,
+                    status_code=status_code,
+                    retry_after=retry_after_header,
                 )
-                raise
 
-        if last_exc:
-            if not hasattr(last_exc, "retry_metadata"):
-                metadata = {
-                    "attempt": last_attempt,
-                    "timestamp": last_attempt_timestamp or time.time(),
-                    "status_code": (
-                        last_response.status_code if last_response is not None else None
-                    ),
-                    "error_text": last_error_text or str(last_exc),
-                    "retry_after": last_retry_after_header,
+        @backoff.on_exception(
+            wait_gen=backoff.constant(interval=0),
+            exception=(requests.exceptions.RequestException,),
+            max_tries=max_tries,
+            giveup=_should_giveup,
+            on_backoff=_on_backoff,
+            on_giveup=_on_giveup,
+            jitter=None,
+        )
+        def _request_with_backoff() -> requests.Response:
+            response = self.circuit_breaker.call(_perform_request)
+            response.raise_for_status()
+            return response
+
+        try:
+            response = _request_with_backoff()
+        except requests.exceptions.RequestException as exc:
+            if "attempt" not in last_error_state:
+                _update_error_state(exc, max_tries)
+
+            attempt = last_error_state.get("attempt", max_tries)
+            timestamp = last_error_state.get("timestamp", time.time())
+            response_obj = last_error_state.get("response")
+            retry_after_header = last_error_state.get("retry_after")
+            error_text = last_error_state.get("error_text", str(exc))
+
+            status_code = (
+                response_obj.status_code if response_obj is not None else None
+            )
+
+            if not hasattr(exc, "retry_metadata"):
+                exc.retry_metadata = {
+                    "attempt": attempt,
+                    "timestamp": timestamp,
+                    "status_code": status_code,
+                    "error_text": error_text,
+                    "retry_after": retry_after_header,
                 }
-                last_exc.retry_metadata = metadata
+
             logger.error(
                 "request_failed_after_retries",
                 url=url,
@@ -539,17 +547,35 @@ class UnifiedAPIClient:
                 params=params,
                 data_present=data_payload is not None,
                 json_present=json_payload is not None,
-                attempt=last_attempt,
-                status_code=(
-                    last_response.status_code if last_response is not None else None
-                ),
-                retry_after=last_retry_after_header,
-                error=str(last_exc),
-                exception_type=type(last_exc).__name__,
-                timestamp=last_attempt_timestamp or time.time(),
+                attempt=attempt,
+                status_code=status_code,
+                retry_after=retry_after_header,
+                error=str(exc),
+                exception_type=type(exc).__name__,
+                timestamp=timestamp,
             )
-            raise last_exc
-        raise RuntimeError("Request failed with no exception captured")
+            raise
+        except Exception as exc:
+            logger.error(
+                "request_error",
+                url=url,
+                method=method,
+                params=params,
+                error=str(exc),
+            )
+            raise
+
+        response_payload = response.json()
+
+        if (
+            self.cache
+            and cache_key
+            and method == "GET"
+            and request_has_no_body
+        ):
+            self.cache[cache_key] = copy.deepcopy(response_payload)
+
+        return response_payload
 
     @staticmethod
     def _retry_after_seconds(response: requests.Response | None) -> float | None:
