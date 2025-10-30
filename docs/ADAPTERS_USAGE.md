@@ -24,6 +24,11 @@ export CROSSREF_MAILTO="your-email@example.com"  # для polite pool
 export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для production
 ```
 
+> **Примечание.** Синтаксис `${VAR:}` указывает конфигуратор использовать пустую строку,
+> если переменная окружения `VAR` не определена. Это удобно для опциональных ключей API,
+> вроде `PUBMED_API_KEY` или `SEMANTIC_SCHOLAR_API_KEY`, которые повышают лимиты, но не
+> требуются для локальных прогонов.
+
 ### Конфигурация YAML
 
 Файл `configs/pipelines/document.yaml`:
@@ -35,7 +40,7 @@ sources:
     base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
     tool: "bioactivity_etl"
     email: "${PUBMED_EMAIL}"
-    api_key: "${PUBMED_API_KEY}"
+    api_key: "${PUBMED_API_KEY:}"
     batch_size: 200
     rate_limit_max_calls: 3  # 10 with API key
     rate_limit_period: 1.0
@@ -61,7 +66,7 @@ sources:
   semantic_scholar:
     enabled: true
     base_url: "https://api.semanticscholar.org/graph/v1"
-    api_key: "${SEMANTIC_SCHOLAR_API_KEY}"
+    api_key: "${SEMANTIC_SCHOLAR_API_KEY:}"
     batch_size: 50
     rate_limit_max_calls: 1  # 10 with API key
     rate_limit_period: 1.25
