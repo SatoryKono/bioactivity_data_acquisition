@@ -473,7 +473,7 @@ class _RequestRetryContext:
                 else str(exc),
                 "retry_after": self.last_retry_after_header,
             }
-            exc.retry_metadata = metadata
+            setattr(exc, "retry_metadata", metadata)
 
         logger.error(
             "request_failed_after_retries",
@@ -583,7 +583,10 @@ class UnifiedAPIClient:
                     response.encoding = "utf-8"
 
             if stream:
-                return response.iter_lines(decode_unicode=True, chunk_size=chunk_size)
+                line_iterator = response.iter_lines(
+                    decode_unicode=True, chunk_size=chunk_size
+                )
+                return iter(line_iterator)
 
             return response.text
 
@@ -627,9 +630,10 @@ class UnifiedAPIClient:
         request_has_body = bool(data_payload or json_payload)
         request_has_no_body = not request_has_body
 
+        cache = self.cache
         use_cache = (
             cacheable
-            and self.cache is not None
+            and cache is not None
             and method == "GET"
             and request_has_no_body
             and not stream
@@ -637,10 +641,11 @@ class UnifiedAPIClient:
 
         cache_key: str | None = None
         if use_cache:
+            assert cache is not None
             cache_key = self._cache_key(url, query_params)
-            if cache_key in self.cache:
+            if cache_key in cache:
                 logger.debug("cache_hit", url=url)
-                cached_value: PayloadT = cast(PayloadT, self.cache[cache_key])
+                cached_value: PayloadT = cast(PayloadT, cache[cache_key])
                 return self._clone_payload(cached_value)
 
         context = _RequestRetryContext(
@@ -714,8 +719,8 @@ class UnifiedAPIClient:
                 last_exception=exc,
             )
 
-        if use_cache and cache_key is not None and self.cache is not None:
-            self.cache[cache_key] = self._clone_payload(payload)
+        if use_cache and cache_key is not None and cache is not None:
+            cache[cache_key] = self._clone_payload(payload)
 
         return payload
 
