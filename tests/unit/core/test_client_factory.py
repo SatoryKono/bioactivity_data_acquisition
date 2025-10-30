@@ -66,7 +66,7 @@ def _build_pipeline_config(tmp_path: Path) -> PipelineConfig:
         },
         "fallbacks": {
             "enabled": False,
-            "strategies": ["network"],
+            "strategies": ["partial_retry"],
             "partial_retry_max": 4,
             "circuit_breaker": {"failure_threshold": 6, "timeout_sec": 180.0},
         },
@@ -110,7 +110,7 @@ def test_factory_merges_http_profiles(tmp_path: Path) -> None:
     assert api_config.cb_failure_threshold == 6
     assert api_config.cb_timeout == 180.0
     assert api_config.fallback_enabled is False
-    assert api_config.fallback_strategies == ["network"]
+    assert api_config.fallback_strategies == ["partial_retry"]
     assert api_config.partial_retry_max == 4
 
 

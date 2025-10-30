@@ -106,7 +106,9 @@ class APIConfig:
     cb_failure_threshold: int = 5
     cb_timeout: float = 60.0
     fallback_enabled: bool = True
-    fallback_strategies: list[str] = field(default_factory=lambda: ["network", "timeout"])
+    fallback_strategies: list[str] = field(
+        default_factory=lambda: ["cache", "partial_retry"]
+    )
 
 
 class CircuitBreaker:

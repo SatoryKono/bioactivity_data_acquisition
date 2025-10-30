@@ -64,3 +64,30 @@ def test_pipeline_config_rejects_batch_size_exceeding_limit(tmp_path: Path) -> N
     with pytest.raises(ValueError, match="batch_size must be <= 25"):
         PipelineConfig.model_validate(payload)
 
+
+def test_pipeline_config_rejects_unknown_fallback_strategy(tmp_path: Path) -> None:
+    """Unsupported fallback strategies should be rejected during validation."""
+
+    payload = _base_config(tmp_path)
+    payload["fallbacks"] = {"strategies": ["cache", "network"]}
+
+    with pytest.raises(ValueError, match="Unknown fallback strategy 'network'"):
+        PipelineConfig.model_validate(payload)
+
+
+def test_pipeline_config_normalizes_fallback_strategies(tmp_path: Path) -> None:
+    """Global and source-level fallback strategies should be de-duplicated."""
+
+    payload = _base_config(tmp_path)
+    payload["fallbacks"] = {"strategies": ["cache", "partial_retry", "cache"]}
+    payload["sources"]["chembl"]["fallback_strategies"] = [
+        "partial_retry",
+        "cache",
+        "partial_retry",
+    ]
+
+    config = PipelineConfig.model_validate(payload)
+
+    assert config.fallbacks.strategies == ["cache", "partial_retry"]
+    assert config.sources["chembl"].fallback_strategies == ["partial_retry", "cache"]
+
