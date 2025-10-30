@@ -399,6 +399,14 @@ class DocumentPipeline(PipelineBase):
 
     def _enrich_with_external_sources(self, chembl_df: pd.DataFrame) -> pd.DataFrame:
         """Enrich ChEMBL data with external sources."""
+        if not self.external_adapters:
+            logger.info(
+                "external_enrichment_skipped",
+                reason="no_external_adapters",
+                chembl_rows=len(chembl_df),
+            )
+            return chembl_df
+
         # Extract PMIDs and DOIs from ChEMBL data
         pmids = []
         dois = []

@@ -185,6 +185,17 @@ def test_transform_empty_dataframe_includes_all_columns(document_pipeline):
     assert list(transformed.columns) == expected_columns
 
 
+def test_enrich_skips_when_no_external_adapters(document_pipeline):
+    """Enrichment should be skipped gracefully when no external adapters are configured."""
+
+    chembl_df = _build_document_frame()
+    document_pipeline.external_adapters.clear()
+
+    enriched = document_pipeline._enrich_with_external_sources(chembl_df)
+
+    pd.testing.assert_frame_equal(enriched, chembl_df)
+
+
 def test_validate_enforces_qc_thresholds(document_pipeline, monkeypatch):
     """QC threshold breaches with error severity should raise."""
 
