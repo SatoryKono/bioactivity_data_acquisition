@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,10 @@ import pandas as pd
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pandera_pandas import pa
 from bioetl.schemas.registry import SchemaRegistry
+from bioetl.utils.column_validation import (
+    DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES,
+    normalise_ignore_suffixes,
+)
 from bioetl.utils.dataframe import resolve_schema_column_order
 
 logger = UnifiedLogger.get(__name__)
@@ -70,8 +75,11 @@ class ColumnComparisonResult:
 class ColumnValidator:
     """Валидатор колонок для сравнения с требованиями."""
 
-    def __init__(self):
+    def __init__(self, skip_suffixes: Iterable[str] | None = None):
         self.logger = UnifiedLogger.get(__name__)
+        if skip_suffixes is None:
+            skip_suffixes = DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES
+        self._skip_suffixes = normalise_ignore_suffixes(skip_suffixes)
 
     def compare_columns(
         self,
@@ -396,14 +404,8 @@ class ColumnValidator:
         """Определить, следует ли пропустить CSV файл при валидации."""
 
         filename = path.name.lower()
-        skip_suffixes = (
-            "_quality_report.csv",
-            "_correlation_report.csv",
-            "_qc.csv",
-            "_metadata.csv",
-        )
 
-        return filename.endswith(skip_suffixes)
+        return filename.endswith(self._skip_suffixes)
 
     def _is_git_lfs_pointer(self, path: Path) -> bool:
         """Проверить, представляет ли файл указатель Git LFS."""
