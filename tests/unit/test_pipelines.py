@@ -124,6 +124,58 @@ def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     assert pipeline.stage_context["transform_call"] == 1
 
 
+def test_pipeline_run_does_not_reuse_runtime_limit(assay_config, tmp_path):
+    """Runtime limits applied to one run should not constrain subsequent runs."""
+
+    class LimitRecordingPipeline(PipelineBase):
+        def __init__(self, config, run_id):  # noqa: D401, ANN001 - test stub signature
+            super().__init__(config, run_id)
+            self.observed_limits: list[int | None] = []
+
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            limit = self.get_runtime_limit()
+            self.observed_limits.append(limit)
+            rows = int(limit) if isinstance(limit, int) else 4
+            return pd.DataFrame({"value": list(range(rows))})
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def export(
+            self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
+        ) -> OutputArtifacts:  # noqa: D401 - test stub
+            self.output_writer.write_dataframe_csv(df, output_path)
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=output_path.with_suffix(".qc.csv"),
+                run_directory=output_path.parent,
+            )
+
+        def close_resources(self) -> None:  # pragma: no cover - test stub
+            return None
+
+    pipeline = LimitRecordingPipeline(assay_config, "runtime-limit-reset")
+    output_path = tmp_path / "dataset.csv"
+
+    pipeline.runtime_options["limit"] = 2
+    pipeline.runtime_options["sample"] = 2
+
+    pipeline.run(output_path)
+
+    assert pipeline.observed_limits == [2]
+    assert "limit" not in pipeline.runtime_options
+    assert "sample" not in pipeline.runtime_options
+
+    pipeline.run(output_path)
+
+    assert pipeline.observed_limits == [2, None]
+    assert "limit" not in pipeline.runtime_options
+    assert "sample" not in pipeline.runtime_options
+
+
 def test_pipeline_run_closes_api_client(monkeypatch, assay_config, tmp_path):
     """``run`` should close UnifiedAPIClient instances when execution completes."""
 
