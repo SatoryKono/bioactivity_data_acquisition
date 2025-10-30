@@ -3,6 +3,8 @@
 import unittest
 from unittest.mock import patch
 
+import pandas as pd
+
 from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
 
 from tests.unit.adapters._mixins import AdapterTestMixin
@@ -80,4 +82,50 @@ class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
         remainder = total % adapter.DEFAULT_BATCH_SIZE
         expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
         self.assertEqual(len(batch_mock.call_args_list[-1].args[1]), expected_last)
+
+    def test_process_uses_shared_helper(self) -> None:
+        """``process`` delegates to :meth:`_process_collection`."""
+
+        adapter = self.adapter
+
+        with patch.object(
+            SemanticScholarAdapter,
+            "_process_collection",
+            autospec=True,
+            return_value=pd.DataFrame(),
+        ) as helper_mock:
+            result = adapter.process(["id-1", "id-2"])
+
+        self.assertIsInstance(result, pd.DataFrame)
+        helper_mock.assert_called_once()
+        args, kwargs = helper_mock.call_args
+        self.assertIs(args[0], adapter)
+        self.assertEqual(list(args[1]), ["id-1", "id-2"])
+        self.assertIs(args[2], adapter.fetch_by_ids)
+        self.assertEqual(kwargs["start_event"], "starting_fetch")
+        self.assertEqual(kwargs["no_items_event"], "no_ids_provided")
+        self.assertEqual(kwargs["empty_event"], "no_records_fetched")
+
+    def test_process_titles_uses_shared_helper(self) -> None:
+        """``process_titles`` delegates to :meth:`_process_collection`."""
+
+        adapter = self.adapter
+
+        with patch.object(
+            SemanticScholarAdapter,
+            "_process_collection",
+            autospec=True,
+            return_value=pd.DataFrame(),
+        ) as helper_mock:
+            result = adapter.process_titles(["A title"])
+
+        self.assertIsInstance(result, pd.DataFrame)
+        helper_mock.assert_called_once()
+        args, kwargs = helper_mock.call_args
+        self.assertIs(args[0], adapter)
+        self.assertEqual(list(args[1]), ["A title"])
+        self.assertIs(args[2], adapter.fetch_by_titles)
+        self.assertEqual(kwargs["start_event"], "starting_fetch_by_titles")
+        self.assertEqual(kwargs["no_items_event"], "no_titles_provided")
+        self.assertEqual(kwargs["empty_event"], "no_records_fetched")
 
