@@ -732,7 +732,12 @@ class DocumentPipeline(PipelineBase):
 
         if missing_columns:
             for column in missing_columns:
-                working_df[column] = pd.NA
+                if column == "fallback_retry_after_sec":
+                    working_df[column] = pd.Series(
+                        pd.array([pd.NA] * len(working_df), dtype="Float64"), index=working_df.index
+                    )
+                else:
+                    working_df[column] = pd.NA
 
         # Reindex the known columns explicitly to avoid Pandera's COLUMN_NOT_ORDERED
         # failures when upstream payloads shuffle column order. Using ``reindex`` with
