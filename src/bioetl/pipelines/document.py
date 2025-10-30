@@ -795,30 +795,8 @@ class DocumentPipeline(PipelineBase):
         Returns:
             Version string (e.g., 'ChEMBL_36') or None
         """
-        try:
-            url = f"{self.api_client.config.base_url}/status.json"
-            response = self.api_client.request_json(url)
-
-            # Extract version info from status endpoint
-            version = response.get("chembl_db_version")
-            release_date = response.get("chembl_release_date")
-            activities = response.get("activities")
-
-            if version:
-                logger.info(
-                    "chembl_version_fetched",
-                    version=version,
-                    release_date=release_date,
-                    activities=activities
-                )
-                return str(version)
-
-            logger.warning("chembl_version_not_in_status_response")
-            return None
-
-        except Exception as e:
-            logger.warning("failed_to_get_chembl_version", error=str(e))
-            return None
+        release = self._fetch_chembl_release_info(self.api_client)
+        return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform document data with multi-source merge."""

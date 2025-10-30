@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
@@ -714,29 +714,14 @@ class ActivityPipeline(PipelineBase):
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
 
-        try:
-            url = f"{self.api_client.config.base_url}/status.json"
-            response = self.api_client.request_json(url)
-            self._status_snapshot = response
+        release = self._fetch_chembl_release_info(self.api_client)
+        status = release.status
+        if isinstance(status, Mapping):
+            self._status_snapshot = dict(status) if not isinstance(status, dict) else status
+        else:
+            self._status_snapshot = None
 
-            version = response.get("chembl_db_version")
-            release_date = response.get("chembl_release_date")
-            activities = response.get("activities")
-
-            if version:
-                logger.info(
-                    "chembl_version_fetched",
-                    version=version,
-                    release_date=release_date,
-                    activities=activities,
-                )
-                return str(version)
-
-            logger.warning("chembl_version_not_in_status_response")
-        except Exception as error:  # noqa: BLE001 - handshake errors are non-fatal
-            logger.warning("failed_to_get_chembl_version", error=str(error))
-
-        return None
+        return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform activity data."""
