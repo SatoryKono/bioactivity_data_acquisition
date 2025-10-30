@@ -18,6 +18,7 @@ from bioetl.core.api_client import (
     RetryPolicy,
     TokenBucketLimiter,
     UnifiedAPIClient,
+    _RequestRetryContext,
 )
 
 
