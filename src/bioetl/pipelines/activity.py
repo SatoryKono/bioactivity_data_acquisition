@@ -14,11 +14,10 @@ import pandas as pd
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase, create_chembl_client
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
@@ -158,20 +157,17 @@ class ActivityPipeline(PipelineBase):
         self._last_validation_report: dict[str, Any] | None = None
         self._fallback_stats: dict[str, Any] = {}
 
-        factory = APIClientFactory.from_pipeline_config(config)
-        chembl_source = ensure_target_source_config(
-            config.sources.get("chembl"),
+        chembl_context = create_chembl_client(
+            config,
             defaults={
                 "enabled": True,
                 "base_url": "https://www.ebi.ac.uk/chembl/api/data",
                 "batch_size": 25,
             },
+            batch_size_cap=25,
         )
-
-        chembl_config = factory.create("chembl", chembl_source)
-        self.api_client = UnifiedAPIClient(chembl_config)
-        batch_size_value = chembl_source.batch_size or 25
-        self.batch_size = min(batch_size_value, 25)
+        self.api_client = chembl_context.client
+        self.batch_size = chembl_context.batch_size
 
         # Status handshake for release metadata
         self._status_snapshot: dict[str, Any] | None = None
