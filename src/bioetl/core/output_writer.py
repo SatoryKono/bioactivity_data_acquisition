@@ -7,7 +7,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 import pandas as pd
 
@@ -111,6 +111,9 @@ class OutputMetadata:
     column_count: int
     column_order: list[str]
     checksums: dict[str, str]
+    config_hash: str | None = None
+    git_commit: str | None = None
+    sources: dict[str, Any] = field(default_factory=dict)
     run_id: str | None = None
 
     @classmethod
@@ -122,8 +125,12 @@ class OutputMetadata:
         chembl_release: str | None = None,
         column_order: list[str] | None = None,
         run_id: str | None = None,
+        config_hash: str | None = None,
+        git_commit: str | None = None,
+        sources: Mapping[str, Any] | None = None,
     ) -> "OutputMetadata":
         """Создает метаданные из DataFrame."""
+        sources_dict = dict(sources) if sources else {}
         return cls(
             pipeline_version=pipeline_version,
             source_system=source_system,
@@ -133,6 +140,9 @@ class OutputMetadata:
             column_count=len(df.columns),
             column_order=column_order or list(df.columns),
             checksums={},
+            config_hash=config_hash,
+            git_commit=git_commit,
+            sources=sources_dict,
             run_id=run_id,
         )
 
@@ -741,6 +751,8 @@ class UnifiedOutputWriter:
             "pipeline_version": metadata.pipeline_version,
             "source_system": metadata.source_system,
             "chembl_release": metadata.chembl_release,
+            "config_hash": metadata.config_hash,
+            "git_commit": metadata.git_commit,
             "extraction_timestamp": metadata.generated_at,
             "row_count": metadata.row_count,
             "column_count": metadata.column_count,
@@ -750,6 +762,7 @@ class UnifiedOutputWriter:
                 "dataset": str(dataset_path),
                 "quality_report": str(quality_path),
             },
+            "sources": metadata.sources,
         }
 
         if additional_paths:

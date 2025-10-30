@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -13,7 +14,7 @@ import pandas as pd
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import TargetSourceConfig
+from bioetl.config.models import DeterminismConfig, TargetSourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
@@ -35,6 +36,28 @@ logger = UnifiedLogger.get(__name__)
 
 
 PredicateResult = bool | tuple[bool, str | None]
+
+
+_GIT_COMMIT_CACHE: str | None = None
+
+
+def _resolve_git_commit() -> str:
+    """Return the repository HEAD commit, caching the value for subsequent calls."""
+
+    global _GIT_COMMIT_CACHE
+    if _GIT_COMMIT_CACHE is not None:
+        return _GIT_COMMIT_CACHE
+
+    try:
+        output = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL,
+        )
+        _GIT_COMMIT_CACHE = output.decode().strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        _GIT_COMMIT_CACHE = "unknown"
+
+    return _GIT_COMMIT_CACHE
 
 
 @dataclass
@@ -170,7 +193,10 @@ class PipelineBase(ABC):
     def __init__(self, config: PipelineConfig, run_id: str):
         self.config = config
         self.run_id = run_id
-        self.determinism = config.determinism
+        determinism = getattr(config, "determinism", DeterminismConfig())
+        if not hasattr(config, "determinism"):
+            setattr(config, "determinism", determinism)
+        self.determinism = determinism
         self.output_writer = UnifiedOutputWriter(run_id, determinism=self.determinism)
         self.primary_schema: Any | None = None
         self.validation_issues: list[dict[str, Any]] = []
@@ -184,6 +210,8 @@ class PipelineBase(ABC):
         self.debug_dataset_path: Path | None = None
         self.stage_context: dict[str, Any] = {}
         self._clients: list[UnifiedAPIClient] = []
+        self.config_hash = getattr(config, "config_hash", None)
+        self.git_commit = _resolve_git_commit()
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -209,6 +237,63 @@ class PipelineBase(ABC):
         issue.setdefault("metric", "validation_issue")
         issue.setdefault("severity", "info")
         self.validation_issues.append(issue)
+
+    @staticmethod
+    def _normalise_metadata_value(value: Any) -> Any:
+        """Coerce metadata payloads into YAML-friendly primitives."""
+
+        model_dump = getattr(value, "model_dump", None)
+        if callable(model_dump):
+            try:
+                dumped = model_dump(mode="json", exclude_none=True, exclude={"api_key"})
+            except TypeError:  # pragma: no cover - defensive for unexpected signatures
+                dumped = model_dump()  # type: ignore[call-arg]
+            return PipelineBase._normalise_metadata_value(dumped)
+
+        if isinstance(value, Mapping):
+            return {
+                str(key): PipelineBase._normalise_metadata_value(val)
+                for key, val in value.items()
+                if key != "api_key"
+            }
+
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return [PipelineBase._normalise_metadata_value(item) for item in value]
+
+        if isinstance(value, Path):
+            return str(value)
+
+        isoformat = getattr(value, "isoformat", None)
+        if callable(isoformat):
+            try:
+                return isoformat()
+            except Exception:  # pragma: no cover - best effort conversion guard
+                return str(value)
+
+        return value
+
+    def _normalise_sources_for_metadata(
+        self, sources: Mapping[str, Any] | None
+    ) -> dict[str, Any]:
+        """Convert configured sources into a serialisable mapping."""
+
+        if not sources:
+            return {}
+
+        normalised: dict[str, Any] = {}
+        for name, raw in sources.items():
+            if raw is None:
+                continue
+            normalised[str(name)] = self._normalise_metadata_value(raw)
+        return normalised
+
+    def _serialise_config_sources(self) -> dict[str, Any]:
+        """Return the pipeline's configured sources as plain data."""
+
+        config_sources = getattr(self.config, "sources", None)
+        if isinstance(config_sources, Mapping):
+            return self._normalise_sources_for_metadata(config_sources)
+        return {}
 
     def reset_stage_context(self) -> None:
         """Clear any data cached by enrichment stages."""
@@ -379,8 +464,23 @@ class PipelineBase(ABC):
         source_system: str,
         chembl_release: str | None = None,
         column_order: list[str] | None = None,
+        config_hash: str | None = None,
+        git_commit: str | None = None,
+        sources: Mapping[str, Any] | None = None,
     ) -> OutputMetadata:
         """Create and assign :class:`OutputMetadata` from a dataframe."""
+
+        resolved_config_hash = (
+            config_hash
+            or getattr(self, "config_hash", None)
+            or getattr(self.config, "config_hash", None)
+        )
+        resolved_git_commit = git_commit or getattr(self, "git_commit", None)
+        resolved_sources = (
+            self._normalise_sources_for_metadata(sources)
+            if sources is not None
+            else self._serialise_config_sources()
+        )
 
         metadata = OutputMetadata.from_dataframe(
             df,
@@ -389,6 +489,9 @@ class PipelineBase(ABC):
             chembl_release=chembl_release,
             column_order=column_order or list(df.columns),
             run_id=self.run_id,
+            config_hash=resolved_config_hash,
+            git_commit=resolved_git_commit,
+            sources=resolved_sources,
         )
 
         self.set_export_metadata(metadata)

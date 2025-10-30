@@ -145,6 +145,15 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         source_system="chembl",
         chembl_release="34",
         run_id="run-test",
+        config_hash="sha256:abc",
+        git_commit="deadbeefcafebabe",
+        sources={
+            "chembl": {
+                "base_url": "https://chembl.example/api",
+                "stage": "primary",
+                "headers": {"Accept": "application/json"},
+            }
+        },
     )
 
     artifacts = writer.write(
@@ -166,6 +175,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert contents["row_count"] == len(df)
     assert contents["column_count"] == len(df.columns)
     assert contents["column_order"] == list(df.columns)
+    assert contents["config_hash"] == "sha256:abc"
+    assert contents["git_commit"] == "deadbeefcafebabe"
+    assert contents["sources"] == metadata.sources
 
     expected_checksums = {
         artifacts.dataset.name: hashlib.sha256(artifacts.dataset.read_bytes()).hexdigest(),

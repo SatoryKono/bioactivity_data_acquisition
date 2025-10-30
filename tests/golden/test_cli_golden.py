@@ -10,6 +10,7 @@ import click
 import pandas as pd
 import pytest
 import typer
+import yaml
 from click.testing import CliRunner
 from typer.main import get_command
 
@@ -119,6 +120,16 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _expected_sources(config_obj) -> dict[str, object]:
+    sources = getattr(config_obj, "sources", None)
+    if not sources:
+        return {}
+    return {
+        name: source.model_dump(mode="json", exclude_none=True, exclude={"api_key"})
+        for name, source in sources.items()
+    }
+
+
 @pytest.mark.integration
 @pytest.mark.golden
 def test_cli_run_matches_expected_csv_hash(tmp_path: Path) -> None:
@@ -149,7 +160,19 @@ def test_cli_run_matches_expected_csv_hash(tmp_path: Path) -> None:
     artifacts = pipeline.run(expected_dir / "expected.csv")
     expected_hash = _sha256(artifacts.dataset)
 
+    with artifacts.metadata.open("r", encoding="utf-8") as handle:
+        expected_meta = yaml.safe_load(handle)
+    assert expected_meta["config_hash"] == config_obj.config_hash
+    assert expected_meta["git_commit"] == pipeline.git_commit
+    assert expected_meta["sources"] == _expected_sources(config_obj)
+
     assert actual_hash == expected_hash
+
+    actual_meta_path = next(output_dir.glob("*_meta.yaml"))
+    actual_meta = yaml.safe_load(actual_meta_path.read_text(encoding="utf-8"))
+    assert actual_meta["config_hash"] == config_obj.config_hash
+    assert actual_meta["git_commit"] == pipeline.git_commit
+    assert actual_meta["sources"] == _expected_sources(config_obj)
 
 
 @pytest.mark.integration

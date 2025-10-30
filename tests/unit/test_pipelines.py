@@ -340,6 +340,13 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
 
     assert metadata["column_order"] == exported_df.columns.tolist()
     assert metadata["column_count"] == len(exported_df.columns)
+    expected_sources = {
+        name: source.model_dump(mode="json", exclude_none=True, exclude={"api_key"})
+        for name, source in config.sources.items()
+    }
+    assert metadata["config_hash"] == pipeline.config_hash
+    assert metadata["git_commit"] == pipeline.git_commit
+    assert metadata["sources"] == expected_sources
 
 
 def test_export_uses_deterministic_float_format(tmp_path, assay_config):
