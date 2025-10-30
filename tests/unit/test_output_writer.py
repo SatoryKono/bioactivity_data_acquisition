@@ -200,6 +200,22 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert int(row_count_value) == len(df)
 
 
+def test_calculate_checksums_supports_multi_chunk_files(tmp_path):
+    """Checksum calculation should stream large files in multiple chunks."""
+
+    writer = UnifiedOutputWriter("run-checksums")
+    large_file = tmp_path / "large.bin"
+
+    content = b"abc123" * (1024 * 1024) + b"tail"
+    large_file.write_bytes(content)
+
+    expected_checksum = hashlib.sha256(content).hexdigest()
+
+    checksums = writer._calculate_checksums(large_file)
+
+    assert checksums == {large_file.name: expected_checksum}
+
+
 def test_unified_output_writer_emits_qc_artifacts(tmp_path, monkeypatch):
     """QC summary JSON and related CSV artefacts should be written when provided."""
 

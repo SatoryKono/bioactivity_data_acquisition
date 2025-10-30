@@ -563,8 +563,10 @@ class UnifiedOutputWriter:
                 continue
             if path.exists():
                 with path.open("rb") as f:
-                    content = f.read()
-                    checksums[path.name] = hashlib.sha256(content).hexdigest()
+                    digest = hashlib.sha256()
+                    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                    checksums[path.name] = digest.hexdigest()
         return checksums
 
     def _build_correlation_report(self, df: pd.DataFrame) -> pd.DataFrame | None:
