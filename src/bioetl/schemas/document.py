@@ -17,7 +17,7 @@ from bioetl.schemas.base import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
-    from pandera.pandas import DataFrameModel as _DataFrameModelBase
+    from bioetl.pandera_pandas import DataFrameModel as _DataFrameModelBase
 else:
     _DataFrameModelBase = _RuntimeDataFrameModel
 

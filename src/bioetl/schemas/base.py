@@ -6,18 +6,8 @@ from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
 import pandas as pd
 
-from bioetl.pandera_pandas import DataFrameModel as _RuntimeDataFrameModel
-from bioetl.pandera_pandas import Field
+from bioetl.pandera_pandas import DataFrameModel, Field
 from bioetl.pandera_typing import DataFrame, Series
-
-if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
-    from bioetl.pandera_pandas import DataFrameModel as _DataFrameModelBase
-else:
-    _DataFrameModelBase = _RuntimeDataFrameModel
-
-# Use runtime-compatible Pandera shim for subclassing with precise type for checkers
-DataFrameModel = _RuntimeDataFrameModel
-
 # Shared column order for fallback metadata columns.  Exposed as a module level
 # constant so downstream schemas can reference it without importing the mixin
 # (which would re-export the Pandera ``Series`` annotations).
