@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypedDict, cast
+from typing import Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -200,6 +200,13 @@ class BaseSchema(DataFrameModel):
     chembl_release: Series[str] = Field(nullable=True, description="Версия ChEMBL")
     extracted_at: Series[str] = Field(nullable=False, description="ISO8601 UTC метка времени")
 
+    # ``DataFrameModel`` interprets annotated attributes as dataframe columns
+    # unless they are marked as :class:`typing.ClassVar`.  ``hash_policy_version``
+    # is schema metadata rather than a column definition, so declare it as a
+    # class variable to keep Pandera from registering it as a field while still
+    # exposing the value for pipeline components that rely on the attribute.
+    hash_policy_version: ClassVar[str | None] = "1.0.0"
+
     class Config:
         strict = True
         coerce = True
@@ -250,8 +257,3 @@ class BaseSchema(DataFrameModel):
         return list(order) if order else []
 
 
-# ``DataFrameModel`` forbids assigning plain values to annotated attributes during
-# class creation.  Assign the default ``hash_policy_version`` after the class is
-# defined so Pandera doesn't treat it as a schema field, while keeping the
-# attribute available for runtime code and subclasses.
-BaseSchema.hash_policy_version = "1.0.0"
