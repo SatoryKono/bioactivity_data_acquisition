@@ -72,31 +72,6 @@ class PubChemAdapter(ExternalAdapter):
         )
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
-        """Fetch and resolve a batch of identifiers.
-
-        The implementation mirrors the previous ``fetch_by_ids`` logic but is scoped
-        to a single batch so that :meth:`_fetch_in_batches` can orchestrate the
-        workflow and satisfy the :class:`ExternalAdapter` contract.
-        """
-
-        if not ids:
-            return []
-
-        unique_ids = list(dict.fromkeys(identifier for identifier in ids if identifier))
-        if not unique_ids:
-            return []
-
-        batch_size = self.adapter_config.batch_size or 50
-        if batch_size <= 0:
-            batch_size = len(unique_ids)
-
-        return self._fetch_in_batches(
-            unique_ids,
-            batch_size=batch_size,
-            log_event="pubchem_batch_fetch_failed",
-        )
-
-    def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of identifiers from PubChem."""
 
         if not ids:

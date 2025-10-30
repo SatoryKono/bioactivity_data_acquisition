@@ -6,11 +6,11 @@ import json
 import random
 import threading
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 import backoff
 import requests
@@ -20,6 +20,8 @@ from requests.exceptions import HTTPError, RequestException
 from bioetl.core.logger import UnifiedLogger
 
 logger = UnifiedLogger.get(__name__)
+
+PayloadT = TypeVar("PayloadT")
 
 
 def _current_utc_time() -> datetime:
@@ -538,23 +540,78 @@ class UnifiedAPIClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Выполняет JSON-запрос с защитами: CB, rate-limit, retry, Retry-After и fallback.
+        """Выполняет JSON-запрос с защитами: CB, rate-limit, retry, Retry-After и fallback."""
 
-        Порядок:
-        1) Построение URL, проверка кэша для GET без тела.
-        2) Запрос с учётом circuit breaker и rate limiter.
-        3) Повторы по политике `RetryPolicy` (429: учитывается Retry-After).
-        4) Если повторы исчерпаны и `config.fallback_enabled=True`, запускаются стратегии
-           по порядку из `config.fallback_strategies`:
-           - "cache": вернуть ответ из кэша (только для GET без тела), если доступен.
-           - "partial_retry": выполнить до `config.partial_retry_max` дополнительных попыток
-             с той же семантикой ожиданий (Retry-After, backoff). При успехе — кэшировать.
-        5) При неудаче после всех стратегий пробрасывается исходное исключение.
+        def _parse_json(response: requests.Response) -> dict[str, Any]:
+            payload = response.json()
+            if isinstance(payload, dict):
+                return payload
+            return cast(dict[str, Any], payload)
 
-        Возвращает:
-            dict: разобранный JSON-ответ.
-        """
-        # Build full URL
+        return self._request(
+            url=url,
+            params=params,
+            method=method,
+            data=data,
+            json_payload=json,
+            cacheable=True,
+            response_parser=_parse_json,
+            stream=False,
+        )
+
+    def request_text(
+        self,
+        url: str,
+        params: dict[str, Any] | None = None,
+        method: str = "GET",
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        *,
+        stream: bool = False,
+        encoding: str | None = None,
+        chunk_size: int = 8192,
+    ) -> str | Iterator[str]:
+        """Выполняет запрос и возвращает текстовый ответ либо поток строк."""
+
+        def _parse_text(response: requests.Response) -> str | Iterator[str]:
+            if encoding:
+                response.encoding = encoding
+            elif response.encoding is None:
+                try:
+                    response.encoding = response.apparent_encoding
+                except Exception:
+                    response.encoding = "utf-8"
+
+            if stream:
+                return response.iter_lines(decode_unicode=True, chunk_size=chunk_size)
+
+            return response.text
+
+        return self._request(
+            url=url,
+            params=params,
+            method=method,
+            data=data,
+            json_payload=json,
+            cacheable=not stream,
+            response_parser=_parse_text,
+            stream=stream,
+        )
+
+    def _request(
+        self,
+        *,
+        url: str,
+        params: dict[str, Any] | None,
+        method: str,
+        data: dict[str, Any] | None,
+        json_payload: dict[str, Any] | None,
+        cacheable: bool,
+        response_parser: Callable[[requests.Response], PayloadT],
+        stream: bool,
+    ) -> PayloadT:
+        """Generic request helper with shared retry, fallback and caching logic."""
+
         if not url.startswith("http"):
             base_url = self.config.base_url.rstrip("/")
             relative_path = url.lstrip("/")
@@ -567,17 +624,23 @@ class UnifiedAPIClient:
 
         query_params = copy.deepcopy(params) if params is not None else None
         data_payload = data
-        json_payload = json
         request_has_body = bool(data_payload or json_payload)
         request_has_no_body = not request_has_body
 
-        # Check cache for GET requests
+        use_cache = (
+            cacheable
+            and self.cache is not None
+            and method == "GET"
+            and request_has_no_body
+            and not stream
+        )
+
         cache_key: str | None = None
-        if self.cache and method == "GET" and request_has_no_body:
+        if use_cache:
             cache_key = self._cache_key(url, query_params)
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
-                cached_value: dict[str, Any] = self.cache[cache_key]
+                cached_value: PayloadT = cast(PayloadT, self.cache[cache_key])
                 return self._clone_payload(cached_value)
 
         context = _RequestRetryContext(
@@ -596,9 +659,10 @@ class UnifiedAPIClient:
                 params=query_params,
                 data=data_payload,
                 json=json_payload,
+                stream=stream,
             )
 
-        def _request_operation() -> dict[str, Any]:
+        def _request_operation() -> PayloadT:
             context.start_attempt()
             try:
                 try:
@@ -614,7 +678,7 @@ class UnifiedAPIClient:
                     raise
 
                 try:
-                    payload: dict[str, Any] = response.json()
+                    payload = response_parser(response)
                 except Exception as exc:
                     context.record_unhandled_exception(exc)
                     raise
@@ -650,12 +714,7 @@ class UnifiedAPIClient:
                 last_exception=exc,
             )
 
-        if (
-            self.cache
-            and cache_key
-            and method == "GET"
-            and request_has_no_body
-        ):
+        if use_cache and cache_key is not None and self.cache is not None:
             self.cache[cache_key] = self._clone_payload(payload)
 
         return payload
@@ -666,9 +725,9 @@ class UnifiedAPIClient:
         context: _RequestRetryContext,
         cache_key: str | None,
         request_has_no_body: bool,
-        request_operation: Callable[[], dict[str, Any]],
+        request_operation: Callable[[], PayloadT],
         last_exception: RequestException,
-    ) -> dict[str, Any]:
+    ) -> PayloadT:
         """Execute configured fallback strategies in order."""
 
         strategies: Sequence[str] = self.config.fallback_strategies
@@ -683,7 +742,7 @@ class UnifiedAPIClient:
                         url=context.url,
                         method=context.method,
                     )
-                    cached_value: dict[str, Any] = cache[cache_key]
+                    cached_value: PayloadT = cast(PayloadT, cache[cache_key])
                     return self._clone_payload(cached_value)
 
                 logger.debug(
@@ -720,10 +779,10 @@ class UnifiedAPIClient:
         self,
         *,
         context: _RequestRetryContext,
-        request_operation: Callable[[], dict[str, Any]],
+        request_operation: Callable[[], PayloadT],
         max_attempts: int,
         last_exception: RequestException,
-    ) -> dict[str, Any]:
+    ) -> PayloadT:
         """Perform partial retry attempts after primary retries are exhausted."""
 
         if max_attempts <= 0:
@@ -824,6 +883,7 @@ class UnifiedAPIClient:
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         """Execute a single HTTP request respecting Retry-After semantics."""
 
@@ -836,6 +896,7 @@ class UnifiedAPIClient:
             "data": data,
             "json": json,
             "timeout": (self.config.timeout_connect, self.config.timeout_read),
+            "stream": stream,
         }
 
         response = self.session.request(**request_kwargs)
@@ -870,15 +931,21 @@ class UnifiedAPIClient:
         return response
 
     @staticmethod
-    def _clone_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    def _clone_payload(payload: PayloadT) -> PayloadT:
         """Return a deep copy of payload, avoiding shared mutable state."""
+
+        if isinstance(payload, (str, bytes, int, float, bool)) or payload is None:
+            return payload
 
         try:
             return copy.deepcopy(payload)
         except Exception:
-            # ``requests`` can sometimes return objects that are not fully deepcopyable.
-            # Fall back to JSON round-trip cloning as a safe guard.
-            return cast(dict[str, Any], json.loads(json.dumps(payload)))
+            try:
+                cloned = json.loads(json.dumps(payload))
+            except Exception:
+                return payload
+
+            return cast(PayloadT, cloned)
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
