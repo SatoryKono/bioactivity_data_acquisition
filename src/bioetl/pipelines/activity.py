@@ -221,6 +221,9 @@ class ActivityPipeline(PipelineBase):
             },
             batch_size_cap=25,
         )
+        # ``_init_chembl_client`` materializes a ``UnifiedAPIClient`` via ``APIClientFactory``
+        # so that HTTP profiles, retry policies, rate limiting, circuit breaker tuning and
+        # fallback behaviour from ``PipelineConfig`` are fully honoured.
         self.api_client = chembl_context.client
         self.batch_size = chembl_context.batch_size
 

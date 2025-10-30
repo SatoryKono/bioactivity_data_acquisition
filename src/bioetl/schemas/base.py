@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
@@ -24,41 +26,85 @@ FALLBACK_METADATA_COLUMN_ORDER = [
 class FallbackMetadataMixin:
     """Reusable Pandera column definitions for fallback metadata fields."""
 
-    fallback_reason: Series[str] = pa.Field(
-        nullable=True,
-        description="Reason why the fallback record was generated",
-    )
-    fallback_error_type: Series[str] = pa.Field(
-        nullable=True,
-        description="Exception class that triggered the fallback",
-    )
-    fallback_error_code: Series[str] = pa.Field(
-        nullable=True,
-        description="Normalized error code captured for the fallback",
-    )
-    fallback_error_message: Series[str] = pa.Field(
-        nullable=True,
-        description="Human readable error message captured for the fallback",
-    )
-    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="HTTP status associated with the fallback (if any)",
-    )
-    fallback_retry_after_sec: Series[float] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="Retry-After header (seconds) returned by the upstream API",
-    )
-    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="Attempt number when the fallback was emitted",
-    )
-    fallback_timestamp: Series[str] = pa.Field(
-        nullable=True,
-        description="UTC timestamp when the fallback record was materialised",
-    )
+    _FIELD_SPECS = {
+        "fallback_reason": {
+            "nullable": True,
+            "description": "Reason why the fallback record was generated",
+        },
+        "fallback_error_type": {
+            "nullable": True,
+            "description": "Exception class that triggered the fallback",
+        },
+        "fallback_error_code": {
+            "nullable": True,
+            "description": "Normalized error code captured for the fallback",
+        },
+        "fallback_error_message": {
+            "nullable": True,
+            "description": "Human readable error message captured for the fallback",
+        },
+        "fallback_http_status": {
+            "nullable": True,
+            "ge": 0,
+            "description": "HTTP status associated with the fallback (if any)",
+        },
+        "fallback_retry_after_sec": {
+            "nullable": True,
+            "ge": 0,
+            "description": "Retry-After header (seconds) returned by the upstream API",
+        },
+        "fallback_attempt": {
+            "nullable": True,
+            "ge": 0,
+            "description": "Attempt number when the fallback was emitted",
+        },
+        "fallback_timestamp": {
+            "nullable": True,
+            "description": "UTC timestamp when the fallback record was materialised",
+        },
+    }
+
+    fallback_reason: Series[str]
+    fallback_error_type: Series[str]
+    fallback_error_code: Series[str]
+    fallback_error_message: Series[str]
+    fallback_http_status: Series[pd.Int64Dtype]
+    fallback_retry_after_sec: Series[float]
+    fallback_attempt: Series[pd.Int64Dtype]
+    fallback_timestamp: Series[str]
+
+    # Populate class attributes with Field definitions so that the mixin can be
+    # used directly in schemas. Pandera replaces these attributes with string
+    # sentinels during class creation, therefore the original ``FieldInfo``
+    # instances are recreated as needed when propagating to subclasses.
+    for _name, _spec in _FIELD_SPECS.items():
+        locals()[_name] = pa.Field(**_spec)
+    del _name, _spec
+
+    def __init_subclass__(cls, **kwargs):  # pragma: no cover - executed on subclass creation
+        """Ensure mixin annotations propagate to subclasses for Pandera."""
+
+        super().__init_subclass__(**kwargs)
+
+        # The hook also executes for the mixin itself. Only propagate the
+        # annotations when a concrete schema inherits from the mixin.
+        if cls is FallbackMetadataMixin:
+            return
+
+        mixin_annotations = getattr(FallbackMetadataMixin, "__annotations__", {})
+        if not isinstance(mixin_annotations, dict) or not mixin_annotations:
+            return
+
+        target_annotations = dict(getattr(cls, "__annotations__", {}))
+
+        for name, annotation in mixin_annotations.items():
+            target_annotations.setdefault(name, annotation)
+            if name not in cls.__dict__:
+                field = FallbackMetadataMixin.__dict__.get(name)
+                if field is not None:
+                    setattr(cls, name, field)
+
+        cls.__annotations__ = target_annotations
 
 
 class _ColumnOrderAccessor:
