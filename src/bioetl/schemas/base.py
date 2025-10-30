@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, Protocol, TypedDict, cast
 
 import pandas as pd
+from pandera.pandas import DataFrameModel, Field
 
 from bioetl.pandera_pandas import DataFrameModel as _RuntimeDataFrameModel
 from bioetl.pandera_pandas import Field
@@ -29,11 +30,24 @@ FALLBACK_METADATA_COLUMN_ORDER = [
     "fallback_timestamp",
 ]
 
+class _SchemaConfigProtocol(Protocol):
+    """Protocol describing the dynamic Pandera ``Config`` object."""
+
+    _schema_cls: type[BaseSchema]
+    column_order: Any
+
+
+class _FieldSpec(TypedDict, total=False):
+    nullable: bool
+    description: str
+    regex: str
+    ge: float | int
+
 
 class FallbackMetadataMixin:
     """Reusable Pandera column definitions for fallback metadata fields."""
 
-    _FIELD_SPECS = {
+    _FIELD_SPECS: dict[str, _FieldSpec] = {
         "fallback_reason": {
             "nullable": True,
             "description": "Reason why the fallback record was generated",
@@ -122,10 +136,10 @@ class _ColumnOrderAccessor:
 
     def __get__(
         self,
-        instance: Any | None,
-        owner: type[BaseSchema] | None,
-        ) -> list[str]:  # noqa: D401 - standard descriptor signature
-        schema_cls = getattr(owner or self._schema_cls, "_schema_cls", self._schema_cls)
+        instance: Any,
+        owner: type[BaseSchema],
+    ) -> list[str]:  # noqa: D401 - standard descriptor signature
+        schema_cls = getattr(owner, "_schema_cls", self._schema_cls)
         return schema_cls.get_column_order()
 
 
@@ -144,8 +158,9 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
     """
 
     accessor = _ColumnOrderAccessor(schema_cls)
-    setattr(schema_cls.Config, "_schema_cls", schema_cls)  # noqa: B010
-    setattr(schema_cls.Config, "column_order", accessor)  # noqa: B010
+    config = cast(_SchemaConfigProtocol, schema_cls.Config)
+    config._schema_cls = schema_cls
+    config.column_order = accessor
 
     extras = getattr(schema_cls, "__extras__", None)
     if isinstance(extras, dict) and "column_order" in extras:
@@ -156,7 +171,7 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
         schema_cls.__extras__ = updated
 
 
-class BaseSchema(_DataFrameModelBase):
+class BaseSchema(DataFrameModel):
     """Базовый класс для Pandera схем.
 
     Содержит обязательные системные поля для всех пайплайнов:
@@ -221,6 +236,6 @@ class BaseSchema(_DataFrameModelBase):
     def get_column_order(cls) -> list[str]:
         """Return schema column order if defined."""
 
-        order = getattr(cls, "_column_order", None)
+        order: list[str] | None = getattr(cls, "_column_order", None)
         return list(order) if order else []
 
