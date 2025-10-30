@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
+from typing import Any, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -163,7 +163,7 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
         schema_cls.__extras__ = updated
 
 
-class BaseSchema(DataFrameModel):  # type: ignore
+class BaseSchema(DataFrameModel):
     """Базовый класс для Pandera схем.
 
     Содержит обязательные системные поля для всех пайплайнов:

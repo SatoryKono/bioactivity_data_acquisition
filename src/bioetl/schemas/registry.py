@@ -2,10 +2,10 @@
 
 import re
 
-from bioetl.pandera_pandas import pa
 from packaging import version
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pandera_pandas import DataFrameModel
 from bioetl.utils.dataframe import resolve_schema_column_order
 
 logger = UnifiedLogger.get(__name__)
@@ -14,14 +14,14 @@ logger = UnifiedLogger.get(__name__)
 class SchemaRegistry:
     """Реестр Pandera схем с версионированием."""
 
-    _registry: dict[str, dict[str, pa.DataFrameModel]] = {}
+    _registry: dict[str, dict[str, DataFrameModel]] = {}
 
     @classmethod
     def register(
         cls,
         entity: str,
         schema_version: str,
-        schema: pa.DataFrameModel,
+        schema: DataFrameModel,
         column_order: list[str] | None = None,
     ) -> None:
         """
@@ -82,7 +82,7 @@ class SchemaRegistry:
         )
 
     @classmethod
-    def get(cls, entity: str, schema_version: str = "latest") -> pa.DataFrameModel:
+    def get(cls, entity: str, schema_version: str = "latest") -> DataFrameModel:
         """
         Получает схему из реестра.
 
