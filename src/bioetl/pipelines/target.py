@@ -82,6 +82,7 @@ class TargetPipeline(PipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
+        self.primary_schema = TargetSchema
 
         self.source_configs: dict[str, TargetSourceConfig] = {}
         self.api_clients: dict[str, UnifiedAPIClient] = {}

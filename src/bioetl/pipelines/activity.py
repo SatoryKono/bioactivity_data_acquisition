@@ -222,6 +222,7 @@ class ActivityPipeline(PipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
+        self.primary_schema = ActivitySchema
         self._last_validation_report: dict[str, Any] | None = None
         self._fallback_stats: dict[str, Any] = {}
 

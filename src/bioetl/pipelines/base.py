@@ -172,6 +172,7 @@ class PipelineBase(ABC):
         self.run_id = run_id
         self.determinism = config.determinism
         self.output_writer = UnifiedOutputWriter(run_id, determinism=self.determinism)
+        self.primary_schema: Any | None = None
         self.validation_issues: list[dict[str, Any]] = []
         self.qc_metrics: dict[str, Any] = {}
         self.qc_summary_data: dict[str, Any] = {}
@@ -603,8 +604,21 @@ class PipelineBase(ABC):
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Валидирует данные через Pandera."""
-        # Placeholder for now
-        return df
+        schema = getattr(self, "primary_schema", None)
+        if schema is None:
+            return df
+
+        pipeline_config = getattr(self.config, "pipeline", None)
+        dataset_name = getattr(pipeline_config, "name", None) or type(self).__name__
+        dataset_label = str(dataset_name)
+
+        return self._validate_with_schema(
+            df,
+            schema,
+            dataset_name=dataset_label,
+            severity="error",
+            metric_name=f"schema.{dataset_label}",
+        )
 
     def export(
         self,

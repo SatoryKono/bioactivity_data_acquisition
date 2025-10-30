@@ -189,6 +189,7 @@ class DocumentPipeline(PipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
+        self.primary_schema = DocumentNormalizedSchema
 
         # Initialize ChEMBL API client
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"

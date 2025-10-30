@@ -91,6 +91,7 @@ class AssayPipeline(PipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
+        self.primary_schema = AssaySchema
 
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         default_batch_size = 25
