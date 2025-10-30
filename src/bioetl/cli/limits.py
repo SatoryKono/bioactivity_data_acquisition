@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from types import MethodType
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
+from pandas import DataFrame
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
@@ -52,8 +53,8 @@ def apply_sample_limit(pipeline: PipelineBase, limit: int | None) -> None:
 
     logger = _resolve_logger(pipeline)
 
-    def limited_extract(self: PipelineBase, *args: Any, **kwargs: Any) -> pd.DataFrame:
-        df = original_extract(*args, **kwargs)
+    def limited_extract(self: PipelineBase, *args: Any, **kwargs: Any) -> DataFrame:
+        df = cast(DataFrame, original_extract(*args, **kwargs))
         logger.info(
             "applying_sample_limit",
             limit=limit,

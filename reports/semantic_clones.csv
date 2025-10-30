@@ -1,0 +1,8 @@
+clone_id,signature,member_index,file,qualified_name,kind,lineno,end_lineno
+1,0c7dbc4838c79de50db204909e67591a26e344a7e71ea1ede3794642f7b1e7b1,1,src/bioetl/pipelines/__init__.py,bioetl.pipelines.__dir__,function,52,55
+1,0c7dbc4838c79de50db204909e67591a26e344a7e71ea1ede3794642f7b1e7b1,2,src/bioetl/schemas/__init__.py,bioetl.schemas.__dir__,function,73,76
+2,0becc924485cbc23a4f8397df2a0e235736a3d6a0341b8b2f0669ada00eb5aa1,1,src/bioetl/pipelines/__init__.py,bioetl.pipelines.__getattr__,function,35,49
+2,0becc924485cbc23a4f8397df2a0e235736a3d6a0341b8b2f0669ada00eb5aa1,2,src/bioetl/schemas/__init__.py,bioetl.schemas.__getattr__,function,62,70
+3,0cd8ae7fede36f63b09a9b289687e1e45d223eff5dcc6300e9ae6d6652e3bc88,1,tests/unit/test_document_pipeline_validation.py,tests.unit.test_document_pipeline_validation.document_config,function,23,25
+3,0cd8ae7fede36f63b09a9b289687e1e45d223eff5dcc6300e9ae6d6652e3bc88,2,tests/unit/test_identifier_normalizer.py,tests.unit.test_identifier_normalizer.document_config,function,126,129
+3,0cd8ae7fede36f63b09a9b289687e1e45d223eff5dcc6300e9ae6d6652e3bc88,3,tests/unit/test_pipelines.py,tests.unit.test_pipelines.document_config,function,78,80

@@ -3,6 +3,8 @@
 import unittest
 from unittest.mock import patch
 
+import bioetl.adapters.openalex as openalex_module
+from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.openalex import OpenAlexAdapter
 from tests.unit.adapters._mixins import AdapterTestMixin
 
@@ -91,6 +93,14 @@ class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(normalized["doi_clean"], "10.2000/common")
         self.assertEqual(normalized["openalex_doi"], "10.2000/common")
         self.assertEqual(normalized["title"], "OA Title")
+
+    def test_uses_shared_bibliography_normalizers(self) -> None:
+        """Module-level normalizers come from the shared helper."""
+
+        identifier, string = get_bibliography_normalizers()
+
+        self.assertIs(openalex_module.NORMALIZER_ID, identifier)
+        self.assertIs(openalex_module.NORMALIZER_STRING, string)
 
     def test_fetch_by_ids_batches_using_class_default(self) -> None:
         """Batch helper falls back to ``DEFAULT_BATCH_SIZE``."""

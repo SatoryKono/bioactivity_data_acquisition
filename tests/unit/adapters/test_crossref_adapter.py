@@ -3,6 +3,8 @@
 import unittest
 from unittest.mock import patch
 
+import bioetl.adapters.crossref as crossref_module
+from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.crossref import CrossrefAdapter
 from tests.unit.adapters._mixins import AdapterTestMixin
 
@@ -78,6 +80,14 @@ class TestCrossrefAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(normalized["doi_clean"], "10.1000/common")
         self.assertEqual(normalized["crossref_doi"], "10.1000/common")
         self.assertEqual(normalized["title"], "Common Title")
+
+    def test_uses_shared_bibliography_normalizers(self) -> None:
+        """Module-level normalizers come from the shared helper."""
+
+        identifier, string = get_bibliography_normalizers()
+
+        self.assertIs(crossref_module.NORMALIZER_ID, identifier)
+        self.assertIs(crossref_module.NORMALIZER_STRING, string)
 
     def test_fetch_by_ids_batches_using_class_default(self) -> None:
         """Batch helper respects ``DEFAULT_BATCH_SIZE`` fallback."""

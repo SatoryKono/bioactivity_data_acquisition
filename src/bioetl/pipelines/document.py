@@ -37,9 +37,9 @@ from bioetl.schemas.document import (
 )
 from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.config import coerce_float_config, coerce_int_config
 from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
 NAType = type(pd.NA)
@@ -320,35 +320,8 @@ class DocumentPipeline(PipelineBase):
     ) -> tuple[APIConfig, AdapterConfig]:
         """Construct API and adapter configuration objects for a source."""
 
-        def _coerce_int(value: Any, default: int, *, field: str) -> int:
-            if value is None:
-                return default
-            try:
-                return int(value)
-            except (TypeError, ValueError):
-                logger.warning(
-                    "adapter_config_invalid_int",
-                    source=source_name,
-                    field=field,
-                    value=value,
-                    default=default,
-                )
-                return default
-
-        def _coerce_float(value: Any, default: float, *, field: str) -> float:
-            if value is None:
-                return default
-            try:
-                return float(value)
-            except (TypeError, ValueError):
-                logger.warning(
-                    "adapter_config_invalid_float",
-                    source=source_name,
-                    field=field,
-                    value=value,
-                    default=default,
-                )
-                return default
+        def _log(event: str, **kwargs: Any) -> None:
+            logger.warning(event, source=source_name, **kwargs)
 
         cache_enabled = bool(self.config.cache.enabled)
         cache_enabled_raw = self._get_source_attribute(source_cfg, "cache_enabled")
@@ -359,14 +332,24 @@ class DocumentPipeline(PipelineBase):
 
         cache_ttl_default = int(self.config.cache.ttl)
         cache_ttl_raw = self._get_source_attribute(source_cfg, "cache_ttl")
-        cache_ttl = _coerce_int(cache_ttl_raw, cache_ttl_default, field="cache_ttl")
+        cache_ttl = coerce_int_config(
+            cache_ttl_raw,
+            cache_ttl_default,
+            field="cache_ttl",
+            log=_log,
+            invalid_event="adapter_config_invalid_int",
+        )
 
         cache_maxsize_default = getattr(self.config.cache, "maxsize", None)
         if cache_maxsize_default is None:
             cache_maxsize_default = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
         cache_maxsize_raw = self._get_source_attribute(source_cfg, "cache_maxsize")
-        cache_maxsize = _coerce_int(
-            cache_maxsize_raw, int(cache_maxsize_default), field="cache_maxsize"
+        cache_maxsize = coerce_int_config(
+            cache_maxsize_raw,
+            int(cache_maxsize_default),
+            field="cache_maxsize",
+            log=_log,
+            invalid_event="adapter_config_invalid_int",
         )
 
         http_profiles = getattr(self.config, "http", None)
@@ -409,26 +392,36 @@ class DocumentPipeline(PipelineBase):
         if timeout_override is None:
             timeout_override = self._get_source_attribute(source_cfg, "timeout_sec")
 
-        timeout_value = _coerce_float(timeout_override, float(timeout_default), field="timeout")
+        timeout_value = coerce_float_config(
+            timeout_override,
+            float(timeout_default),
+            field="timeout",
+            log=_log,
+            invalid_event="adapter_config_invalid_float",
+        )
 
         connect_override = self._get_source_attribute(source_cfg, "connect_timeout_sec")
         connect_default_final = (
             float(timeout_value) if timeout_override is not None else float(connect_default)
         )
-        timeout_connect = _coerce_float(
+        timeout_connect = coerce_float_config(
             connect_override,
             connect_default_final,
             field="connect_timeout_sec",
+            log=_log,
+            invalid_event="adapter_config_invalid_float",
         )
 
         read_override = self._get_source_attribute(source_cfg, "read_timeout_sec")
         read_default_final = (
             float(timeout_value) if timeout_override is not None else float(read_default)
         )
-        timeout_read = _coerce_float(
+        timeout_read = coerce_float_config(
             read_override,
             read_default_final,
             field="read_timeout_sec",
+            log=_log,
+            invalid_event="adapter_config_invalid_float",
         )
 
         api_kwargs: dict[str, Any] = {
@@ -1062,54 +1055,24 @@ class DocumentPipeline(PipelineBase):
 
         pipeline_version = self.config.pipeline.version
         default_source = "chembl"
-        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
-
-        if "source_system" in df.columns:
-            df["source_system"] = df["source_system"].fillna(default_source)
-        else:
-            df["source_system"] = default_source
 
         if "chembl_release" in df.columns:
             df["chembl_release"] = df["chembl_release"].apply(self._normalise_chembl_release_value)
 
         release_value = self._normalise_chembl_release_value(self._chembl_release)
 
-        if release_value is None:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].where(
-                    df["chembl_release"].notna(),
-                    pd.NA,
-                )
-            else:
-                df["chembl_release"] = pd.NA
-        else:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].fillna(release_value)
-            else:
-                df["chembl_release"] = release_value
-
-        if "extracted_at" in df.columns:
-            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
-        else:
-            df["extracted_at"] = timestamp_now
-
         if "fallback_reason" in df.columns:
             fallback_mask = df["fallback_reason"].notna()
             if fallback_mask.any():
                 df.loc[fallback_mask, "source_system"] = "DOCUMENT_FALLBACK"
 
-        df = finalize_output_dataset(
+        df = self.finalize_with_standard_metadata(
             df,
             business_key="document_chembl_id",
             sort_by=["document_chembl_id"],
             schema=DocumentSchema,
-            metadata={
-                "pipeline_version": pipeline_version,
-                "run_id": self.run_id,
-                "source_system": default_source,
-                "chembl_release": release_value,
-                "extracted_at": timestamp_now,
-            },
+            default_source=default_source,
+            chembl_release=release_value,
         )
 
         self.set_export_metadata_from_dataframe(

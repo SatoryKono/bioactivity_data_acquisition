@@ -10,6 +10,7 @@ import pandas as pd
 import typer
 
 from bioetl.config.loader import load_config, parse_cli_overrides
+from bioetl.config.models import DeterminismConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.cli.limits import apply_sample_limit
@@ -27,6 +28,7 @@ class PipelineCommandConfig:
     mode_choices: Sequence[str] | None = None
     default_mode: str = "default"
     description: str | None = None
+    determinism: DeterminismConfig | None = None
 
 
 def _validate_sample(sample: int | None) -> None:
@@ -229,9 +231,11 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 try:
                     from bioetl.utils.validation import ColumnValidator
 
-                    validator = ColumnValidator(
-                        skip_suffixes=config.determinism.column_validation_ignore_suffixes
-                    )
+                    suffixes: tuple[str, ...] = ()
+                    if config.determinism is not None:
+                        suffixes = tuple(config.determinism.column_validation_ignore_suffixes)
+
+                    validator = ColumnValidator(skip_suffixes=suffixes)
 
                     # Загрузить выходной файл для валидации
                     if artifacts.dataset and artifacts.dataset.exists():
