@@ -1235,6 +1235,55 @@ def test_fallback_partial_retry_stops_after_max_attempts(
     assert call_count["n"] == config.retry_total + config.partial_retry_max
 
 
+def test_fallback_partial_retry_attempt_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure partial retry performs exactly the configured number of extra attempts."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        retry_total=0,
+        fallback_enabled=True,
+        fallback_strategies=["partial_retry"],
+        partial_retry_max=3,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    context = _RequestRetryContext(
+        client=client,
+        url="https://api.example.com/resource",
+        method="GET",
+        params=None,
+        data_present=False,
+        json_present=False,
+    )
+
+    initial_exc = requests.exceptions.Timeout("initial failure")
+    context.last_exc = initial_exc
+
+    attempts: dict[str, int] = {"count": 0}
+
+    def failing_operation() -> dict[str, Any]:
+        context.start_attempt()
+        attempts["count"] += 1
+        exc = requests.exceptions.Timeout("retry failure")
+        context.record_failure(exc)
+        raise exc
+
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda *_: None)
+
+    with pytest.raises(requests.exceptions.Timeout):
+        client._fallback_partial_retry(
+            context=context,
+            request_operation=failing_operation,
+            max_attempts=config.partial_retry_max,
+            last_exception=initial_exc,
+        )
+
+    assert attempts["count"] == config.partial_retry_max
+
+
 def test_fallback_enabled_without_strategies_raises(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

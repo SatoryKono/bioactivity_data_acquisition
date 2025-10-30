@@ -222,6 +222,7 @@ class PipelineBase(ABC):
         self.qc_summary_data = {}
         self.qc_missing_mappings = pd.DataFrame()
         self.qc_enrichment_metrics = pd.DataFrame()
+        self.runtime_options.clear()
         self.reset_stage_context()
 
     def get_stage_summary(self, name: str) -> dict[str, Any] | None:
@@ -861,9 +862,13 @@ class PipelineBase(ABC):
         """Запускает полный пайплайн: extract → transform → validate → export."""
         logger.info("pipeline_started", pipeline=self.config.pipeline.name)
 
+        previous_runtime_options = dict(self.runtime_options)
+
         try:
             self.reset_run_state()
             self.reset_additional_tables()
+            if previous_runtime_options:
+                self.runtime_options.update(previous_runtime_options)
             self.export_metadata = None
             self.debug_dataset_path = None
             # Extract
@@ -888,7 +893,9 @@ class PipelineBase(ABC):
             return artifacts
 
         except Exception as e:
-            logger.error("pipeline_failed", error=str(e))
+            logger.error("pipeline_failed", error=str(e), exc_info=True)
             raise
         finally:
+            self.runtime_options.pop("limit", None)
+            self.runtime_options.pop("sample", None)
             self.close()
