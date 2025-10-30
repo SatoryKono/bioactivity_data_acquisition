@@ -166,7 +166,12 @@ class AssaySchema(FallbackMetadataMixin, BaseSchema):
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at
 
-    # Column order: system/hash fields first (per BaseSchema), then business fields
+    # Column order matches the DataFrameModel materialisation: system/hash
+    # fields first, followed by fallback metadata columns from
+    # ``FallbackMetadataMixin`` and finally the business fields. Pandera enforces
+    # ``Config.ordered = True`` against the materialised schema, so the
+    # canonical ordering we expose must mirror that structure exactly to avoid
+    # false-positive ``column_ordered`` violations during validation.
     _column_order = [
         "index",
         "hash_row",
@@ -176,6 +181,7 @@ class AssaySchema(FallbackMetadataMixin, BaseSchema):
         "source_system",
         "chembl_release",
         "extracted_at",
+        *FALLBACK_METADATA_COLUMN_ORDER,
         "assay_chembl_id",
         "assay_type",
         "assay_category",
@@ -231,7 +237,7 @@ class AssaySchema(FallbackMetadataMixin, BaseSchema):
         "variant_mutation",
         "variant_sequence",
         "variant_accession_reported",
-    ] + FALLBACK_METADATA_COLUMN_ORDER
+    ]
 
     class Config:
         strict = True
