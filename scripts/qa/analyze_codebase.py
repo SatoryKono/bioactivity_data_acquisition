@@ -34,7 +34,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 from collections.abc import Iterator, Sequence
 
 try:  # pragma: no cover - optional dependency

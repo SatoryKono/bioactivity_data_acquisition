@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Protocol, TypedDict, cast
+from typing import Any, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -207,10 +207,15 @@ class BaseSchema(DataFrameModel):
         ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
     # Версия политики хеширования; не является колонкой датафрейма
-    hash_policy_version: ClassVar[str] = "1.0.0"
+    # ВАЖНО: не объявляем через аннотацию, чтобы Pandera не трактовала
+    # как поле схемы. Значение устанавливается динамически в __init_subclass__.
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
+        # Гарантируем наличие неизменяемого атрибута версии политики хеширования
+        # на классе схемы без аннотаций типов, чтобы Pandera его игнорировала.
+        if "hash_policy_version" not in cls.__dict__:
+            cls.hash_policy_version = "1.0.0"
         # Ensure Config exposes column_order via descriptor, unless overridden explicitly.
         if getattr(cls.Config, "column_order", None) is None or not isinstance(
             cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor
