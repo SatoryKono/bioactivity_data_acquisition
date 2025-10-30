@@ -149,6 +149,8 @@ class TargetPipeline(PipelineBase):
             runtime=runtime_config,
             stage_context=self.stage_context,
             output_writer_factory=lambda: self.materialization_writer,
+            run_id=self.run_id,
+            determinism=self.determinism,
         )
 
     def close_resources(self) -> None:

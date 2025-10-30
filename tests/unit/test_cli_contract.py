@@ -109,6 +109,7 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
         "--config",
         "--golden",
         "--sample",
+        "--limit",
         "--fail-on-schema-drift",
         "--extended",
         "--mode",
@@ -116,11 +117,13 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
         "--verbose",
         "--set",
     )
-    if entry.name == "target":
-        expected_flags += ("--limit",)
 
     for flag in expected_flags:
         assert flag in result.stdout, f"{flag} missing from help for {entry.name}"
+
+    if entry.name != "target":
+        assert "Legacy alias for --sample" in result.stdout
+        assert "Process only the first N records for smoke testing (preferred)" in result.stdout
 
 
 @pytest.mark.unit
@@ -170,6 +173,8 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
 
     if entry.name == "target":
         args.extend(["--limit", "7"])
+    else:
+        args.extend(["--limit", "5"])
 
     if entry.name == "document":
         monkeypatch.setenv("PUBMED_API_KEY", "contract")
@@ -199,6 +204,8 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     assert cli_section["golden"] == str(golden_path)
     if entry.name == "target":
         assert cli_section["limit"] == 7
+    else:
+        assert cli_section["limit"] == 5
 
     run_id = captured.get("run_id")
     assert isinstance(run_id, str) and run_id.startswith(entry.name)
@@ -302,6 +309,56 @@ def test_cli_sample_limit_applies_and_does_not_leak_state(
     assert second_pipeline.runtime_options.get("sample") is None
     assert second_pipeline.source_rows == 10
     assert second_pipeline.limited_rows == 10
+
+
+@pytest.mark.unit
+def test_cli_rejects_mismatched_limit_and_sample(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Providing conflicting limit/sample values should surface an error."""
+
+    entry = _get_entry_by_name("assay")
+    module = _load_entry_module(entry, monkeypatch)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--dry-run",
+            "--sample",
+            "3",
+            "--limit",
+            "4",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--sample and --limit must match" in result.stderr
+
+
+@pytest.mark.unit
+def test_cli_limit_alias_emits_hint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Using the legacy --limit flag should guide the user towards --sample."""
+
+    entry = _get_entry_by_name("assay")
+    module = _load_entry_module(entry, monkeypatch)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--dry-run",
+            "--limit",
+            "5",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Hint: --limit is deprecated; prefer --sample for new workflows." in result.stderr
 
 @pytest.mark.unit
 def test_cli_main_registers_pipeline_commands() -> None:
@@ -509,7 +566,7 @@ def test_cli_validate_columns_success(monkeypatch: pytest.MonkeyPatch, tmp_path:
         def __init__(self) -> None:
             calls["validator_created"] = True
 
-        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest") -> DummyResult:  # type: ignore[override]
+        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest", **kwargs) -> DummyResult:  # type: ignore[override]
             calls["entity"] = entity
             calls["schema_version"] = schema_version
             calls["columns"] = list(actual_df.columns)
@@ -565,7 +622,7 @@ def test_cli_validate_columns_failure(monkeypatch: pytest.MonkeyPatch, tmp_path:
             self.empty_columns: list[str] = []
 
     class DummyValidator:
-        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest") -> DummyResult:  # type: ignore[override]
+        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest", **kwargs) -> DummyResult:  # type: ignore[override]
             return DummyResult()
 
         def generate_report(self, results, output_dir: Path) -> Path:  # type: ignore[override]

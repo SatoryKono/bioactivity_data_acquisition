@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 from bioetl.pandera_pandas import pa
@@ -11,6 +13,12 @@ from bioetl.schemas.base import (
     BaseSchema,
     FallbackMetadataMixin,
 )
+
+# NOTE: ``typing.get_type_hints`` evaluates postponed annotations when Pandera
+# registers the schema.  Python 3.13+ expects ``Any`` to be present in the module
+# globals during this resolution, otherwise ``NameError`` is raised.  The sentinel
+# keeps the imported ``Any`` referenced without affecting runtime behaviour.
+_TYPING_ANY_SENTINEL: Any | None = None
 
 
 class TestItemSchema(FallbackMetadataMixin, BaseSchema):

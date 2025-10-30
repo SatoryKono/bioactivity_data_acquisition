@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the document pipeline."""
 
-import typer
+from scripts import create_pipeline_app
 
-from scripts import register_pipeline_command
-
-app = typer.Typer(help="Run document pipeline to extract and transform document data")
-
-
-register_pipeline_command(app, "document")
+app = create_pipeline_app(
+    "document",
+    "Run document pipeline to extract and transform document data",
+)
 
 
 if __name__ == "__main__":
