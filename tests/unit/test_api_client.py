@@ -238,6 +238,57 @@ def test_request_json_preserves_embedded_scheme_paths(
     )
 
 
+def test_request_text_retries_after_429_and_500(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """request_text should honour Retry-After and retry on transient server errors."""
+
+    config = APIConfig(
+        name="pubmed",
+        base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+        retry_total=3,
+        rate_limit_jitter=False,
+    )
+    client = UnifiedAPIClient(config)
+
+    responses = iter(
+        [
+            _build_text_response(
+                429,
+                "<Error>rate limited</Error>",
+                headers={"Retry-After": "1"},
+            ),
+            _build_text_response(500, "<Error>server error</Error>"),
+            _build_text_response(200, "<Result>ok</Result>"),
+        ]
+    )
+
+    request_calls: list[dict[str, Any]] = []
+
+    def fake_request(**kwargs: Any) -> requests.Response:
+        request_calls.append(dict(kwargs))
+        return next(responses)
+
+    acquire_calls: list[object] = []
+
+    def fake_acquire() -> None:
+        acquire_calls.append(object())
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client.rate_limiter, "acquire", fake_acquire)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda seconds: sleep_calls.append(seconds))
+
+    result = client.request_text("/efetch.fcgi", params={"id": "1"})
+
+    assert isinstance(result, str)
+    assert result == "<Result>ok</Result>"
+    assert len(request_calls) == 3
+    assert len(acquire_calls) == 3
+    assert sleep_calls == [pytest.approx(1.0)]
+
+
 def test_retry_policy_wait_time():
     """Test retry policy wait time calculation."""
     policy = RetryPolicy(total=3, backoff_factor=2.0, backoff_max=10.0)
@@ -383,6 +434,23 @@ def _build_response(
     response = requests.Response()
     response.status_code = status_code
     response._content = json.dumps(payload).encode("utf-8")
+    response.headers = CaseInsensitiveDict(headers or {})
+    response.url = "https://api.example.com/test"
+    response.encoding = "utf-8"
+    response.reason = requests.status_codes._codes.get(status_code, [""])[0].upper()
+    return response
+
+
+def _build_text_response(
+    status_code: int,
+    payload: str,
+    headers: dict[str, str] | None = None,
+) -> requests.Response:
+    """Construct a minimal Response object with text content for testing."""
+
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = payload.encode("utf-8")
     response.headers = CaseInsensitiveDict(headers or {})
     response.url = "https://api.example.com/test"
     response.encoding = "utf-8"
