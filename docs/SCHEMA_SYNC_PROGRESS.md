@@ -21,11 +21,13 @@
 - ✅ Тесты: 14/14 пройдено, coverage 82%
 
 ### 3. BaseSchema
+
 - ✅ Добавлены системные поля: `index`, `hash_row`, `hash_business_key`
 - ✅ `Config.ordered = True` для enforcement column order
 - ✅ Аннотации типов и descriptions
 
 ### 4. ActivitySchema
+
 - ✅ Удалены лишние поля: `canonical_smiles`, `target_organism`, `target_tax_id`, `activity_properties`
 - ✅ Добавлены published fields: `published_type`, `published_relation`, `published_value`, `published_units`
 - ✅ Добавлены boundary fields: `lower_bound`, `upper_bound`, `is_censored`, `standard_flag`
@@ -33,12 +35,14 @@
 - ✅ `Config.column_order` установлен согласно спецификации (29 полей)
 
 ### 5. ActivityPipeline
+
 - ✅ Генерация `hash_row`, `hash_business_key`, `index`
 - ✅ Сортировка по `activity_id` для детерминизма
 - ✅ Column order enforcement
 - ✅ Normalization для `published_units`
 
 ### 6. Config Files
+
 - ✅ Обновлены все 5 config файлов:
   - `assay.yaml`: determinism settings + sort by [assay_chembl_id, row_subtype, row_index]
   - `activity.yaml`: determinism settings + sort by [activity_id]
@@ -50,6 +54,7 @@
   - Значения по умолчанию: sha256, 6, iso8601
 
 ### 7. Tests
+
 - ✅ Создан `tests/unit/test_hashing.py` (14 тестов)
 - ✅ Покрытие: determinism, canonical serialization, hash length, type handling
 
@@ -58,6 +63,7 @@
 ## В процессе ⏳
 
 ### 8. AssaySchema ✅
+
 - ✅ Добавить `row_subtype` (nullable=False)
 - ✅ Добавить `row_index` (>=0, nullable=False)
 - ✅ Добавить поля: pref_name, assay_class_id, src_id, src_name, assay_organism, assay_tax_id
@@ -67,6 +73,7 @@
 - ✅ Hash generation, sorting
 
 ### 9. TestItemSchema ✅
+
 - ✅ Переименовать `canonical_smiles` → `standardized_smiles`
 - ✅ Переименовать `molecular_weight` → `mw_freebase`
 - ✅ Добавить: pref_name, max_phase, structure_type, molecule_type, qed_weighted
@@ -74,12 +81,14 @@
 - ✅ Pipeline: hash generation, field renaming, sorting
 
 ### 10. Target schemas (pending)
+
 - [ ] 4 схемы: TargetSchema, TargetComponentSchema, ProteinClassSchema, XrefSchema
 - [ ] Переименования полей
 - [ ] Enrichment fields (UniProt, IUPHAR)
 - [ ] Protein class restructuring
 
 ### 11. DocumentSchema ✅
+
 - ✅ Unified multi-source schema (~70 полей с префиксами)
 - ✅ Удалены старые схемы (ChEMBLDocument, PubMedDocument)
 - ✅ Префиксные поля для 5 источников (ChEMBL, PubMed, Crossref, OpenAlex, Semantic Scholar)
@@ -88,17 +97,20 @@
 - ✅ Pipeline: multi-source rename, hash generation, sorting
 
 ### 12. Pipeline updates ✅
+
 - ✅ AssayPipeline: explode functionality
 - ✅ TestItemPipeline: hash generation, flatten
 - ✅ DocumentPipeline: multi-source merge, hash generation
 - ⏳ TargetPipeline: multi-stage enrichment (pending)
 
 ### 13. Additional tests (pending)
+
 - [ ] `tests/unit/test_schemas.py`
 - [ ] `tests/integration/test_pipelines_e2e.py`
 - [ ] Обновить `tests/unit/test_pipelines.py`
 
 ### 14. Documentation (pending)
+
 - [ ] `docs/SCHEMA_IMPLEMENTATION_GUIDE.md`
 - [ ] Обновить `docs/SCHEMA_COMPLIANCE_REPORT.md`
 
@@ -107,6 +119,7 @@
 ## Статистика
 
 ### Compliance
+
 | Pipeline | Текущее состояние | Целевое состояние |
 |----------|-------------------|-------------------|
 | BaseSchema | 100% ✅ | 100% ✅ |
@@ -118,6 +131,7 @@
 | **Overall** | **~80%** | **100%** |
 
 ### Тесты
+
 - ✅ 14 тестов пройдено
 - ✅ 82% coverage для hashing.py
 - ⏳ Тесты для схем и пайплайнов (pending)

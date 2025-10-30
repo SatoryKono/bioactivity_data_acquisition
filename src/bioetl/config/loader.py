@@ -3,9 +3,14 @@
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
+
+if TYPE_CHECKING:
+    YamlNode = Any
+
+from bioetl.config.models import PipelineConfig
 
 
 class _IncludedList(list):
@@ -19,15 +24,15 @@ def _config_loader_factory(
 
     class ConfigLoader(yaml.SafeLoader):
         def __init__(self, stream: Any) -> None:  # type: ignore[override]
-            super().__init__(stream)
+            super().__init__(stream)  # type: ignore[misc]
             self._root = base_path
             self._include_stack = include_stack
 
-    def construct_include(loader: ConfigLoader, node: yaml.Node) -> Any:
+    def construct_include(loader: ConfigLoader, node: "YamlNode") -> Any:
         """Load referenced YAML content relative to the current file."""
 
-        if isinstance(node, yaml.ScalarNode):
-            relative_path = loader.construct_scalar(node)
+        if isinstance(node, yaml.nodes.ScalarNode):  # type: ignore[attr-defined]
+            relative_path = loader.construct_scalar(node)  # type: ignore[attr-defined]
         else:
             raise TypeError("!include only supports scalar values with file paths")
 
@@ -37,16 +42,14 @@ def _config_loader_factory(
 
         resolved_include = include_path.resolve()
         if resolved_include in loader._include_stack:
-            raise ValueError(
-                f"Circular !include detected involving {resolved_include}"
-            )
+            raise ValueError(f"Circular !include detected involving {resolved_include}")
 
         value = load_yaml(include_path, _include_stack=loader._include_stack)
         if isinstance(value, list):
             return _IncludedList(value)
         return value
 
-    ConfigLoader.add_constructor("!include", construct_include)
+    ConfigLoader.add_constructor("!include", construct_include)  # type: ignore[arg-type, attr-defined]
     return ConfigLoader
 
 
@@ -62,7 +65,9 @@ def _resolve_includes(data: Any) -> Any:
             if isinstance(item, _IncludedList):
                 included_values = _resolve_includes(list(item))
                 if not isinstance(included_values, list):
-                    raise TypeError("Included value must resolve to a list when used in a list context")
+                    raise TypeError(
+                        "Included value must resolve to a list when used in a list context"
+                    )
                 resolved_list.extend(included_values)
             else:
                 resolved_list.append(_resolve_includes(item))
@@ -72,8 +77,6 @@ def _resolve_includes(data: Any) -> Any:
         return {key: _resolve_includes(value) for key, value in data.items()}
 
     return data
-
-from bioetl.config.models import PipelineConfig
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -95,13 +98,11 @@ def load_yaml(path: Path, *, _include_stack: tuple[Path, ...] | None = None) -> 
     """Load YAML file, resolving anchors, aliases, and custom includes."""
 
     resolved_path = path.resolve()
-    include_stack = _include_stack or tuple()
+    include_stack = _include_stack or ()
     if resolved_path in include_stack:
         raise ValueError(f"Circular !include detected involving {resolved_path}")
 
-    loader_cls = _config_loader_factory(
-        resolved_path.parent, include_stack + (resolved_path,)
-    )
+    loader_cls = _config_loader_factory(resolved_path.parent, include_stack + (resolved_path,))
     with resolved_path.open("r", encoding="utf-8") as f:
         data = yaml.load(f, Loader=loader_cls)
     return _resolve_includes(data)
@@ -170,9 +171,7 @@ def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Any:
         elif isinstance(extends_value, list):
             extends_iterable = extends_value
         else:
-            raise TypeError(
-                "'extends' must be a string, Path, or list of those values"
-            )
+            raise TypeError("'extends' must be a string, Path, or list of those values")
 
         base_data: dict[str, Any] = {}
         for extends_entry in extends_iterable:
@@ -252,4 +251,3 @@ def parse_cli_overrides(overrides: list[str]) -> dict[str, Any]:
         current[path_parts[-1]] = value
 
     return result
-

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import abc
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -307,7 +308,9 @@ class PipelineBase(ABC):
         version = release.version.strip() if isinstance(release.version, str) else None
 
         if version:
-            release_date = status.get("chembl_release_date") if isinstance(status, Mapping) else None
+            release_date = (
+                status.get("chembl_release_date") if isinstance(status, Mapping) else None
+            )
             activities = status.get("activities") if isinstance(status, Mapping) else None
             logger.info(
                 "chembl_version_fetched",
@@ -724,6 +727,7 @@ class PipelineBase(ABC):
                 error=str(exc),
             )
 
+    @abc.abstractmethod
     def close_resources(self) -> None:
         """Close non-API resources held by the pipeline instance."""
 
@@ -834,4 +838,3 @@ class PipelineBase(ABC):
             raise
         finally:
             self.close()
-

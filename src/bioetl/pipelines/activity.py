@@ -1133,6 +1133,12 @@ class ActivityPipeline(PipelineBase):
         self.refresh_validation_issue_summary()
         return validated_df
 
+    def close_resources(self) -> None:
+        """Закрытие дополнительных ресурсов (отсутствуют для Activity)."""
+        # Здесь нет дополнительных ресурсов кроме зарегистрированных API‑клиентов.
+        # Базовый ``close`` их закроет через ``register_client``.
+        return None
+
     def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:
         """Capture fallback diagnostics for QC reporting and additional outputs."""
 

@@ -1,8 +1,10 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence, cast
+from typing import Any, cast
+from urllib.parse import urlencode
 
 import pandas as pd
 import requests  # type: ignore[import-untyped]
@@ -402,7 +404,6 @@ class TestItemPipeline(PipelineBase):
             return None
         return canonical_json(value)
 
-
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
 
@@ -504,7 +505,9 @@ class TestItemPipeline(PipelineBase):
                 response = self.api_client.request_json("/molecule.json", params=params)
                 molecules = response.get("molecules", [])
 
-                returned_ids = {m.get("molecule_chembl_id") for m in molecules if m.get("molecule_chembl_id")}
+                returned_ids = {
+                    m.get("molecule_chembl_id") for m in molecules if m.get("molecule_chembl_id")
+                }
                 missing_ids = [mol_id for mol_id in batch_ids if mol_id not in returned_ids]
 
                 for mol in molecules:
@@ -587,25 +590,21 @@ class TestItemPipeline(PipelineBase):
             return [ids]
 
         midpoint = max(1, len(ids) // 2)
-        return self._split_molecule_ids_by_url_length(ids[:midpoint]) + self._split_molecule_ids_by_url_length(
-            ids[midpoint:]
-        )
+        return self._split_molecule_ids_by_url_length(
+            ids[:midpoint]
+        ) + self._split_molecule_ids_by_url_length(ids[midpoint:])
 
     def _build_molecule_request_url(self, molecule_ids: Sequence[str]) -> str:
         """Construct the request URL for the given molecule identifiers."""
 
         base = str(self.api_client.config.base_url).rstrip("/")
+        url = f"{base}/molecule.json"
         params = {
             "molecule_chembl_id__in": ",".join(molecule_ids),
             "limit": min(len(molecule_ids), self.batch_size),
         }
-        request = requests.Request(
-            method="GET",
-            url=f"{base}/molecule.json",
-            params=params,
-        )
-        prepared = request.prepare()
-        return prepared.url or ""
+        query_string = urlencode(params)
+        return f"{url}?{query_string}"
 
     def _cache_key(self, molecule_id: str) -> str:
         release = self._chembl_release or "unversioned"
@@ -737,7 +736,9 @@ class TestItemPipeline(PipelineBase):
                 reason="missing_from_response",
                 message="Missing molecule in response",
             )
-            logger.warning("molecule_missing_in_response", molecule_chembl_id=molecule_id, attempt=attempt)
+            logger.warning(
+                "molecule_missing_in_response", molecule_chembl_id=molecule_id, attempt=attempt
+            )
             self._store_in_cache(record)
             return record
 
@@ -779,7 +780,7 @@ class TestItemPipeline(PipelineBase):
 
     @staticmethod
     def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:  # type: ignore[valid-type]
-        if not hasattr(error, 'response') or error.response is None:  # type: ignore[attr-defined]
+        if not hasattr(error, "response") or error.response is None:  # type: ignore[attr-defined]
             return None
         retry_after = error.response.headers.get("Retry-After")  # type: ignore[attr-defined]
         if retry_after is None:
@@ -795,7 +796,11 @@ class TestItemPipeline(PipelineBase):
         Returns:
             Version string (e.g., 'ChEMBL_36') or None
         """
-        release = self._fetch_chembl_release_info(self.api_client)
+        from bioetl.utils.chembl import SupportsRequestJson
+
+        # Type cast to satisfy protocol compatibility
+        client: SupportsRequestJson = cast(SupportsRequestJson, self.api_client)
+        release = self._fetch_chembl_release_info(client)
         return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -822,8 +827,8 @@ class TestItemPipeline(PipelineBase):
                     available_columns=list(molecule_data.columns),
                 )
             else:
-                normalized_df = (
-                    molecule_data.drop_duplicates("molecule_chembl_id").set_index("molecule_chembl_id")
+                normalized_df = molecule_data.drop_duplicates("molecule_chembl_id").set_index(
+                    "molecule_chembl_id"
                 )
 
                 input_indexed = df.set_index("molecule_chembl_id")
@@ -838,11 +843,15 @@ class TestItemPipeline(PipelineBase):
                         count=len(duplicated_ids),
                         sample=[str(mol_id) for mol_id in duplicated_ids[:5]],
                     )
-                    deduplicated_input = input_indexed[~input_indexed.index.duplicated(keep="first")]
+                    deduplicated_input = input_indexed[
+                        ~input_indexed.index.duplicated(keep="first")
+                    ]
 
                 # Overlay normalized values while falling back to the original input when needed
                 normalized_columns = [
-                    column for column in normalized_df.columns if column not in {"molecule_chembl_id"}
+                    column
+                    for column in normalized_df.columns
+                    if column not in {"molecule_chembl_id"}
                 ]
 
                 overlay_updates: dict[str, pd.Series] = {}
@@ -853,12 +862,8 @@ class TestItemPipeline(PipelineBase):
                         if normalized_series.empty:
                             combined_series = deduplicated_input[column]
                         else:
-                            normalized_aligned = normalized_series.reindex(
-                                deduplicated_input.index
-                            )
-                            combined_series = normalized_aligned.fillna(
-                                deduplicated_input[column]
-                            )
+                            normalized_aligned = normalized_series.reindex(deduplicated_input.index)
+                            combined_series = normalized_aligned.fillna(deduplicated_input[column])
                     else:
                         combined_series = normalized_series
 
@@ -885,9 +890,7 @@ class TestItemPipeline(PipelineBase):
         if canonical_column in df.columns:
             canonical_series = df[canonical_column]
             normalized_canonical = canonical_series.apply(
-                lambda value: registry.normalize("chemistry", value)
-                if pd.notna(value)
-                else None
+                lambda value: registry.normalize("chemistry", value) if pd.notna(value) else None
             )
 
             if standardized_column in df.columns:
@@ -1032,11 +1035,8 @@ class TestItemPipeline(PipelineBase):
     def close_resources(self) -> None:
         """Close the PubChem adapter alongside inherited resources."""
 
-        try:
-            for name, adapter in getattr(self, "external_adapters", {}).items():
-                self._close_resource(adapter, resource_name=f"external_adapter.{name}")
-        finally:
-            super().close_resources()
+        for name, adapter in getattr(self, "external_adapters", {}).items():
+            self._close_resource(adapter, resource_name=f"external_adapter.{name}")
 
     def _enrich_with_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich testitem data with PubChem properties.
@@ -1064,7 +1064,9 @@ class TestItemPipeline(PipelineBase):
 
         try:
             # Type cast to PubChemAdapter for specific method access
-            enriched_df = cast(PubChemAdapter, pubchem_adapter).enrich_with_pubchem(df, inchi_key_col="standard_inchi_key")
+            enriched_df = cast(PubChemAdapter, pubchem_adapter).enrich_with_pubchem(
+                df, inchi_key_col="standard_inchi_key"
+            )
             return enriched_df  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("pubchem_enrichment_error", error=str(e))
@@ -1281,9 +1283,7 @@ class TestItemPipeline(PipelineBase):
                 else "<dataframe>"
             )
             checks = sorted({str(check) for check in group["check"].dropna().unique()})
-            details = ", ".join(
-                group["failure_case"].dropna().astype(str).unique().tolist()[:5]
-            )
+            details = ", ".join(group["failure_case"].dropna().astype(str).unique().tolist()[:5])
             issues.append(
                 {
                     "issue_type": "schema",
@@ -1306,11 +1306,7 @@ class TestItemPipeline(PipelineBase):
             return
 
         parent_series = df["parent_chembl_id"].apply(
-            lambda raw: (
-                registry.normalize("chemistry.chembl_id", raw)
-                if pd.notna(raw)
-                else None
-            )
+            lambda raw: (registry.normalize("chemistry.chembl_id", raw) if pd.notna(raw) else None)
         )
         parent_series = parent_series.dropna()
         if parent_series.empty:
@@ -1318,11 +1314,7 @@ class TestItemPipeline(PipelineBase):
             return
 
         molecule_ids = df["molecule_chembl_id"].apply(
-            lambda raw: (
-                registry.normalize("chemistry.chembl_id", raw)
-                if pd.notna(raw)
-                else None
-            )
+            lambda raw: (registry.normalize("chemistry.chembl_id", raw) if pd.notna(raw) else None)
         )
         known_ids = {value for value in molecule_ids.tolist() if value}
         missing_mask = ~parent_series.isin(known_ids)
@@ -1404,4 +1396,3 @@ class TestItemPipeline(PipelineBase):
         raise ValueError(
             "Schema validation failed: molecule_chembl_id does not match CHEMBL pattern"
         )
-

@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 import requests
+import yaml
 from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
 
@@ -23,8 +24,8 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
-from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
+from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
@@ -138,7 +139,9 @@ def test_pipeline_run_closes_api_client(monkeypatch, assay_config, tmp_path):
     class ClosingPipeline(PipelineBase):
         def __init__(self, config, run_id):
             super().__init__(config, run_id)
-            self.api_client = UnifiedAPIClient(APIConfig(name="test", base_url="https://example.org"))
+            self.api_client = UnifiedAPIClient(
+                APIConfig(name="test", base_url="https://example.org")
+            )
             self.register_client(self.api_client)
 
         def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
@@ -237,10 +240,11 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
     artifacts = pipeline.export(source_df, output_path)
 
     exported_df = pd.read_csv(artifacts.dataset)
-    assert exported_df.columns.tolist()[: len(config.determinism.column_order)] == config.determinism.column_order
+    assert (
+        exported_df.columns.tolist()[: len(config.determinism.column_order)]
+        == config.determinism.column_order
+    )
     assert exported_df["alpha"].isna().all()
-
-    import yaml
 
     with artifacts.metadata.open("r", encoding="utf-8") as handle:
         metadata = yaml.safe_load(handle)
@@ -286,8 +290,6 @@ def test_export_uses_deterministic_float_format(tmp_path, assay_config):
     assert row[0] == "x"
     assert row[1] == "1.2346"
     assert row[2] == "0.1111"
-
-    import yaml
 
     with artifacts.metadata.open("r", encoding="utf-8") as handle:
         metadata = yaml.safe_load(handle)
@@ -367,21 +369,27 @@ class TestAssayPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = AssayPipeline(assay_config, run_id)
 
-        df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL1"],
-            "description": ["  Test Assay  "],
-        })
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+                "description": ["  Test Assay  "],
+            }
+        )
 
-        mock_assay_data = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL1"],
-            "assay_parameters_json": [None],
-            "variant_sequence_json": [None],
-            "assay_classifications": [None],
-        })
+        mock_assay_data = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+                "assay_parameters_json": [None],
+                "variant_sequence_json": [None],
+                "assay_classifications": [None],
+            }
+        )
 
         monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: mock_assay_data)
         monkeypatch.setattr(pipeline, "_fetch_target_reference_data", lambda ids: pd.DataFrame())
-        monkeypatch.setattr(pipeline, "_fetch_assay_class_reference_data", lambda ids: pd.DataFrame())
+        monkeypatch.setattr(
+            pipeline, "_fetch_assay_class_reference_data", lambda ids: pd.DataFrame()
+        )
 
         result = pipeline.transform(df)
         assert "pipeline_version" in result.columns
@@ -438,9 +446,10 @@ class TestAssayPipeline:
         assert row["chembl_release"] == "ChEMBL_F"
         assert row["git_commit"] == pipeline.git_commit
         assert row["config_hash"] == pipeline.config_hash
-        assert row["fallback_error_message"].startswith("Circuit") or "breaker" in row[
-            "fallback_error_message"
-        ]
+        assert (
+            row["fallback_error_message"].startswith("Circuit")
+            or "breaker" in row["fallback_error_message"]
+        )
         assert row["run_id"] == "run-fallback"
 
         metrics = pipeline.run_metadata.get("assay_fetch_metrics", {})
@@ -574,9 +583,7 @@ class TestAssayPipeline:
         validation_rows = quality_df[quality_df["metric"] == "validation_issue"]
 
         assert not validation_rows.empty
-        assert (
-            validation_rows["issue_type"].fillna("").str.contains("referential_integrity").any()
-        )
+        assert validation_rows["issue_type"].fillna("").str.contains("referential_integrity").any()
 
     def test_quality_report_without_validation_issues(self, assay_config, tmp_path):
         """A clean dataset should not emit validation_issue rows in QC."""
@@ -653,91 +660,112 @@ class TestAssayPipeline:
         for batch in batches:
             url = pipeline._build_assay_request_url(batch)
             assert len(url) <= pipeline.max_url_length or len(batch) == 1
+
     def test_transform_expands_and_enriches(self, assay_config, monkeypatch, caplog):
         """Ensure parameters, variants, and classifications survive transform with enrichment."""
 
         run_id = str(uuid.uuid4())[:8]
         pipeline = AssayPipeline(assay_config, run_id)
 
-        input_df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL1"],
-        })
+        input_df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+            }
+        )
 
-        assay_payload = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL1"],
-            "target_chembl_id": ["CHEMBL2"],
-            "assay_parameters_json": [json.dumps([
-                {
-                    "type": "CONC",
-                    "relation": ">",
-                    "value": 1.5,
-                    "units": "nM",
-                    "text_value": "1.5",
-                    "standard_type": "IC50",
-                    "standard_value": 1.5,
-                    "standard_units": "nM",
-                },
-                {
-                    "type": "TEMP",
-                    "relation": "=",
-                    "value": 37,
-                    "units": "C",
-                },
-            ])],
-            "variant_sequence_json": [json.dumps([
-                {
-                    "variant_id": 101,
-                    "base_accession": "P12345",
-                    "mutation": "A50T",
-                    "variant_seq": "MTEYKLVVVG",
-                    "accession_reported": "Q99999",
-                }
-            ])],
-            "assay_classifications": [json.dumps([
-                {
-                    "assay_class_id": 501,
-                    "bao_id": "BAO_0000001",
-                    "class_type": "primary",
-                    "l1": "Level1",
-                    "l2": "Level2",
-                    "l3": "Level3",
-                    "description": "Example class",
-                },
-                {
-                    "assay_class_id": 502,
-                    "bao_id": "BAO_0000002",
-                    "class_type": "secondary",
-                    "l1": "L1",
-                    "l2": "L2",
-                    "l3": "L3",
-                    "description": "Another class",
-                },
-            ])],
-        })
+        assay_payload = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+                "target_chembl_id": ["CHEMBL2"],
+                "assay_parameters_json": [
+                    json.dumps(
+                        [
+                            {
+                                "type": "CONC",
+                                "relation": ">",
+                                "value": 1.5,
+                                "units": "nM",
+                                "text_value": "1.5",
+                                "standard_type": "IC50",
+                                "standard_value": 1.5,
+                                "standard_units": "nM",
+                            },
+                            {
+                                "type": "TEMP",
+                                "relation": "=",
+                                "value": 37,
+                                "units": "C",
+                            },
+                        ]
+                    )
+                ],
+                "variant_sequence_json": [
+                    json.dumps(
+                        [
+                            {
+                                "variant_id": 101,
+                                "base_accession": "P12345",
+                                "mutation": "A50T",
+                                "variant_seq": "MTEYKLVVVG",
+                                "accession_reported": "Q99999",
+                            }
+                        ]
+                    )
+                ],
+                "assay_classifications": [
+                    json.dumps(
+                        [
+                            {
+                                "assay_class_id": 501,
+                                "bao_id": "BAO_0000001",
+                                "class_type": "primary",
+                                "l1": "Level1",
+                                "l2": "Level2",
+                                "l3": "Level3",
+                                "description": "Example class",
+                            },
+                            {
+                                "assay_class_id": 502,
+                                "bao_id": "BAO_0000002",
+                                "class_type": "secondary",
+                                "l1": "L1",
+                                "l2": "L2",
+                                "l3": "L3",
+                                "description": "Another class",
+                            },
+                        ]
+                    )
+                ],
+            }
+        )
 
         monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: assay_payload)
 
-        target_reference = pd.DataFrame({
-            "target_chembl_id": ["CHEMBL2"],
-            "pref_name": ["Target X"],
-            "organism": ["Homo sapiens"],
-            "target_type": ["SINGLE PROTEIN"],
-            "species_group_flag": [1],
-            "tax_id": [9606],
-            "component_count": [1],
-            "unexpected_column": ["drop"],
-        })
+        target_reference = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL2"],
+                "pref_name": ["Target X"],
+                "organism": ["Homo sapiens"],
+                "target_type": ["SINGLE PROTEIN"],
+                "species_group_flag": [1],
+                "tax_id": [9606],
+                "component_count": [1],
+                "unexpected_column": ["drop"],
+            }
+        )
 
-        assay_class_reference = pd.DataFrame({
-            "assay_class_id": [501, 502],
-            "assay_class_bao_id": ["BAO_0000001", "BAO_0000002"],
-            "assay_class_type": ["primary", "secondary"],
-            "assay_class_l1": ["Level1", "L1"],
-            "assay_class_l2": ["Level2", "L2"],
-            "assay_class_l3": ["Level3", "L3"],
-            "assay_class_description": ["Example class", "Another class"],
-            "extra_field": ["drop", "drop"],
-        })
+        assay_class_reference = pd.DataFrame(
+            {
+                "assay_class_id": [501, 502],
+                "assay_class_bao_id": ["BAO_0000001", "BAO_0000002"],
+                "assay_class_type": ["primary", "secondary"],
+                "assay_class_l1": ["Level1", "L1"],
+                "assay_class_l2": ["Level2", "L2"],
+                "assay_class_l3": ["Level3", "L3"],
+                "assay_class_description": ["Example class", "Another class"],
+                "extra_field": ["drop", "drop"],
+            }
+        )
 
         monkeypatch.setattr(
             pipeline,
@@ -771,9 +799,7 @@ class TestAssayPipeline:
         # Expect one base row, two parameter rows, and two classification rows (5 total)
         assert len(result) == 5
 
-        base_rows = result[
-            result["assay_param_type"].isna() & result["assay_class_id"].isna()
-        ]
+        base_rows = result[result["assay_param_type"].isna() & result["assay_class_id"].isna()]
         assert len(base_rows) == 1
         assert base_rows.iloc[0]["pref_name"] == "Target X"
 
@@ -790,17 +816,21 @@ class TestAssayPipeline:
         assert class_rows["assay_class_description"].notna().all()
 
         # Join loss logging triggered when enrichment loses records (simulate by clearing target data)
-        join_loss_payload = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL9"],
-            "target_chembl_id": ["CHEMBL_NOPE"],
-            "assay_parameters_json": [None],
-            "variant_sequence_json": [None],
-            "assay_classifications": [None],
-        })
+        join_loss_payload = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL9"],
+                "target_chembl_id": ["CHEMBL_NOPE"],
+                "assay_parameters_json": [None],
+                "variant_sequence_json": [None],
+                "assay_classifications": [None],
+            }
+        )
         monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: join_loss_payload)
         monkeypatch.setattr(pipeline, "_fetch_target_reference_data", lambda ids: pd.DataFrame())
         with caplog.at_level("WARNING"):
-            pipeline.transform(pd.DataFrame({"assay_chembl_id": ["CHEMBL9"], "target_chembl_id": ["CHEMBL_NOPE"]}))
+            pipeline.transform(
+                pd.DataFrame({"assay_chembl_id": ["CHEMBL9"], "target_chembl_id": ["CHEMBL_NOPE"]})
+            )
         assert any("target_enrichment_join_loss" in rec.message for rec in caplog.records)
 
 
@@ -925,7 +955,9 @@ class TestActivityPipeline:
 
         recorded_calls: list[str] = []
 
-        def fake_request(url: str, params: dict[str, Any] | None = None, **_: Any) -> dict[str, Any]:
+        def fake_request(
+            url: str, params: dict[str, Any] | None = None, **_: Any
+        ) -> dict[str, Any]:
             assert params is not None
             recorded_calls.append(params.get("activity_id__in", ""))
             ids = [int(value) for value in params.get("activity_id__in", "").split(",") if value]
@@ -1079,9 +1111,7 @@ class TestActivityPipeline:
             "qc.null_fraction.molecule_chembl_id",
             "qc.invalid_units",
             "schema.validation",
-        }.issubset(
-            issue_metrics.keys()
-        )
+        }.issubset(issue_metrics.keys())
         assert issue_metrics["schema.validation"]["status"] == "passed"
         assert issue_metrics["schema.validation"]["severity"] == "info"
 
@@ -1159,7 +1189,9 @@ class TestActivityPipeline:
         assert schema_report is not None
         assert schema_report.get("status") == "failed"
         schema_issues = [
-            issue for issue in pipeline.validation_issues if issue.get("metric") == "schema.validation"
+            issue
+            for issue in pipeline.validation_issues
+            if issue.get("metric") == "schema.validation"
         ]
         assert schema_issues
         assert all(issue.get("severity") == "critical" for issue in schema_issues)
@@ -1181,7 +1213,9 @@ class TestActivityPipeline:
         assert schema_report is not None
         assert schema_report.get("status") == "failed"
         schema_issues = [
-            issue for issue in pipeline.validation_issues if issue.get("metric") == "schema.validation"
+            issue
+            for issue in pipeline.validation_issues
+            if issue.get("metric") == "schema.validation"
         ]
         assert schema_issues
         assert all(issue.get("severity") == "critical" for issue in schema_issues)
@@ -1431,10 +1465,7 @@ class TestActivityPipeline:
         assert len(df) == 1
         assert pd.isna(df.loc[0, "published_value"])
         assert pd.isna(df.loc[0, "standard_value"])
-        assert any(
-            "cached_non_negative_sanitized" in record.message
-            for record in caplog.records
-        )
+        assert any("cached_non_negative_sanitized" in record.message for record in caplog.records)
 
 
 class TestTestItemPipeline:
@@ -1481,17 +1512,21 @@ class TestTestItemPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = TestItemPipeline(testitem_config, run_id)
 
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "canonical_smiles": ["CC(=O)O"],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "canonical_smiles": ["CC(=O)O"],
+            }
+        )
 
         result = pipeline.transform(df)
         expected_columns = TestItemSchema.get_column_order()
         assert list(result.columns) == expected_columns
         assert len(expected_columns) >= 80
 
-    def test_transform_backfills_standardized_smiles_from_canonical(self, testitem_config, monkeypatch):
+    def test_transform_backfills_standardized_smiles_from_canonical(
+        self, testitem_config, monkeypatch
+    ):
         """Legacy canonical_smiles input should populate standardized_smiles and be dropped."""
 
         monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
@@ -1500,10 +1535,12 @@ class TestTestItemPipeline:
 
         monkeypatch.setattr(pipeline, "_fetch_molecule_data", lambda ids: pd.DataFrame())
 
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "canonical_smiles": [" CCO "],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "canonical_smiles": [" CCO "],
+            }
+        )
 
         result = pipeline.transform(df)
 
@@ -1736,9 +1773,7 @@ class TestTestItemPipeline:
         config.qc.thresholds["testitem.parent_missing_ratio"] = 0.0
         pipeline = TestItemPipeline(config, run_id="parent-breach")
 
-        df = _build_testitem_frame(
-            ["CHEMBL1", "CHEMBL2"], parent_ids=[None, "CHEMBL999"]
-        )
+        df = _build_testitem_frame(["CHEMBL1", "CHEMBL2"], parent_ids=[None, "CHEMBL999"])
 
         with pytest.raises(ValueError) as excinfo:
             pipeline.validate(df)
@@ -1789,10 +1824,7 @@ class TestTargetPipeline:
         pipeline = TargetPipeline(target_config, run_id)
 
         csv_path = tmp_path / "target.csv"
-        csv_path.write_text(
-            "target_chembl_id,pref_name,target_type\n"
-            "CHEMBL1,Test Target,PROTEIN\n"
-        )
+        csv_path.write_text("target_chembl_id,pref_name,target_type\nCHEMBL1,Test Target,PROTEIN\n")
 
         result = pipeline.extract(input_file=csv_path)
         assert isinstance(result, pd.DataFrame)
@@ -1806,13 +1838,19 @@ class TestTargetPipeline:
         pipeline.uniprot_idmapping_client = None
         pipeline.uniprot_orthologs_client = None
         pipeline.iuphar_client = None
-        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
-        monkeypatch.setattr(TargetPipeline, "_materialize_silver", lambda self, *args, **kwargs: None)
+        monkeypatch.setattr(
+            TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None
+        )
+        monkeypatch.setattr(
+            TargetPipeline, "_materialize_silver", lambda self, *args, **kwargs: None
+        )
 
-        df = pd.DataFrame({
-            "target_chembl_id": ["CHEMBL1"],
-            "pref_name": ["Test Target"],
-        })
+        df = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL1"],
+                "pref_name": ["Test Target"],
+            }
+        )
 
         result = pipeline.transform(df)
         assert result.loc[0, "pipeline_version"] == "1.0.0"
@@ -1836,13 +1874,19 @@ class TestTargetPipeline:
         pipeline.uniprot_idmapping_client = None
         pipeline.uniprot_orthologs_client = None
         pipeline.iuphar_client = None
-        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
-        monkeypatch.setattr(TargetPipeline, "_materialize_silver", lambda self, *args, **kwargs: None)
+        monkeypatch.setattr(
+            TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None
+        )
+        monkeypatch.setattr(
+            TargetPipeline, "_materialize_silver", lambda self, *args, **kwargs: None
+        )
 
-        df = pd.DataFrame({
-            "target_chembl_id": ["CHEMBL1"],
-            "pref_name": ["Test Target"],
-        })
+        df = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL1"],
+                "pref_name": ["Test Target"],
+            }
+        )
 
         result = pipeline.transform(df)
         metadata_prefix = ActivitySchema.get_column_order()[:8]
@@ -1853,10 +1897,12 @@ class TestTargetPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = TargetPipeline(target_config, run_id)
 
-        df = pd.DataFrame({
-            "target_chembl_id": ["CHEMBL1", "CHEMBL1"],
-            "pref_name": ["Target 1", "Target 2"],
-        })
+        df = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL1", "CHEMBL1"],
+                "pref_name": ["Target 1", "Target 2"],
+            }
+        )
 
         result = pipeline.validate(df)
         assert len(result) == 1
@@ -1874,7 +1920,9 @@ class TestTargetPipeline:
             component_path = silver_path.parent / "component_enrichment.parquet"
             component_path.write_text("dummy")
 
-        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
+        monkeypatch.setattr(
+            TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None
+        )
         monkeypatch.setattr(TargetPipeline, "_materialize_silver", _fake_materialize_silver)
 
         class DummyUniProtClient:
@@ -1925,12 +1973,14 @@ class TestTargetPipeline:
         pipeline.iuphar_client = None
         pipeline.config.materialization.silver = tmp_path / "targets_uniprot.parquet"
 
-        df = pd.DataFrame({
-            "target_chembl_id": ["CHEMBL1"],
-            "pref_name": ["EGFR"],
-            "uniprot_accession": ["P12345"],
-            "gene_symbol": ["EGFR"],
-        })
+        df = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL1"],
+                "pref_name": ["EGFR"],
+                "uniprot_accession": ["P12345"],
+                "gene_symbol": ["EGFR"],
+            }
+        )
 
         enriched = pipeline.transform(df)
 
@@ -1952,7 +2002,9 @@ class TestTargetPipeline:
         pipeline.uniprot_client = None
         pipeline.uniprot_idmapping_client = None
         pipeline.uniprot_orthologs_client = None
-        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
+        monkeypatch.setattr(
+            TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None
+        )
 
         class DummyIupharClient:
             def request_json(self, url, params=None, method="GET", **kwargs):
@@ -1966,9 +2018,24 @@ class TestTargetPipeline:
                     ]
                 if url == "/targets/families":
                     return [
-                        {"familyId": 1, "name": "GPCRs", "parentFamilyIds": [], "subFamilyIds": [10]},
-                        {"familyId": 10, "name": "Class A GPCRs", "parentFamilyIds": [1], "subFamilyIds": [11]},
-                        {"familyId": 11, "name": "Adenosine receptors", "parentFamilyIds": [10], "subFamilyIds": []},
+                        {
+                            "familyId": 1,
+                            "name": "GPCRs",
+                            "parentFamilyIds": [],
+                            "subFamilyIds": [10],
+                        },
+                        {
+                            "familyId": 10,
+                            "name": "Class A GPCRs",
+                            "parentFamilyIds": [1],
+                            "subFamilyIds": [11],
+                        },
+                        {
+                            "familyId": 11,
+                            "name": "Adenosine receptors",
+                            "parentFamilyIds": [10],
+                            "subFamilyIds": [],
+                        },
                     ]
                 raise AssertionError(f"Unexpected URL {url}")
 
@@ -1982,10 +2049,12 @@ class TestTargetPipeline:
 
         monkeypatch.setattr(TargetPipeline, "_materialize_iuphar", _capture_materialization)
 
-        df = pd.DataFrame({
-            "target_chembl_id": ["CHEMBL1"],
-            "pref_name": ["Test Target"],
-        })
+        df = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL1"],
+                "pref_name": ["Test Target"],
+            }
+        )
 
         enriched = pipeline.transform(df)
 
@@ -2109,19 +2178,19 @@ class TestDocumentPipeline:
         monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = DocumentPipeline(document_config, run_id)
 
-        df = pd.DataFrame({
-            "document_chembl_id": ["CHEMBL1"],
-            "title": ["Test Article"],
-        })
+        df = pd.DataFrame(
+            {
+                "document_chembl_id": ["CHEMBL1"],
+                "title": ["Test Article"],
+            }
+        )
 
         result = pipeline.transform(df)
         assert "pipeline_version" in result.columns
         assert "source_system" in result.columns
         assert "extracted_at" in result.columns
 
-    def test_transform_maps_chembl_fields_without_enrichment(
-        self, document_config, monkeypatch
-    ):
+    def test_transform_maps_chembl_fields_without_enrichment(self, document_config, monkeypatch):
         """ChEMBL-only runs should still populate resolved fields via precedence."""
 
         run_id = str(uuid.uuid4())[:8]
@@ -2164,10 +2233,12 @@ class TestDocumentPipeline:
         monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = DocumentPipeline(document_config, run_id)
 
-        df = pd.DataFrame({
-            "document_chembl_id": ["CHEMBL1", "CHEMBL1"],
-            "title": ["Article 1", "Article 2"],
-        })
+        df = pd.DataFrame(
+            {
+                "document_chembl_id": ["CHEMBL1", "CHEMBL1"],
+                "title": ["Article 1", "Article 2"],
+            }
+        )
 
         result = pipeline.validate(df)
         assert len(result) == 1
@@ -2398,4 +2469,3 @@ def _build_testitem_frame(
 
     df = pd.DataFrame(rows, columns=columns).convert_dtypes()
     return df
-
