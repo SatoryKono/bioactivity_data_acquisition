@@ -4,20 +4,15 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from types import MethodType
-from typing import Any, cast
-
-import pandas as pd
 import typer
 from click import get_current_context
 from click.core import ParameterSource
 
 from bioetl.config.loader import load_config, parse_cli_overrides
 from bioetl.core.logger import UnifiedLogger
-from bioetl.pipelines.base import PipelineBase
+from bioetl.cli.limits import apply_sample_limit
 from bioetl.pipelines.target import TargetPipeline
 
 DEFAULT_CONFIG = Path("configs/pipelines/target.yaml")
@@ -217,7 +212,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
 
     pipeline = TargetPipeline(config, resolved_run_id)
 
-    runtime_flags: dict[str, Any] = {
+    runtime_flags: dict[str, object] = {
         "with_uniprot": with_uniprot,
         "with_iuphar": with_iuphar,
         "dry_run": dry_run,
@@ -232,6 +227,10 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
 
     pipeline.runtime_options.update(runtime_flags)
 
+    extraction_limit = sample if sample is not None else limit
+    if extraction_limit is not None:
+        apply_sample_limit(pipeline, extraction_limit)
+
     if dry_run:
         typer.echo("[DRY-RUN] Configuration loaded successfully.")
         typer.echo(f"Run ID: {resolved_run_id}")
@@ -239,26 +238,6 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         typer.echo(f"Config hash: {config.config_hash}")
         typer.echo(f"Stages: UniProt={with_uniprot}, IUPHAR={with_iuphar}")
         return
-
-    if sample is not None:
-        original_extract = cast(Callable[..., pd.DataFrame], pipeline.extract)
-
-        def limited_extract(
-            self: PipelineBase, *args: Any, **kwargs: Any
-        ) -> pd.DataFrame:
-            df = original_extract(*args, **kwargs)
-            logger.info(
-                "applying_sample_limit",
-                limit=sample,
-                original_rows=len(df),
-            )
-            return df.head(sample)
-
-        limited_method = cast(
-            Callable[..., pd.DataFrame],
-            MethodType(limited_extract, pipeline),
-        )
-        setattr(pipeline, "extract", limited_method)
 
     if input_file is None:
         input_file = DEFAULT_INPUT
