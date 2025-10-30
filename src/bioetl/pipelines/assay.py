@@ -418,7 +418,7 @@ class AssayPipeline(PipelineBase):
         )
         record.update(metadata)
 
-        return record
+        return dict(record)
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract assay data from input file."""

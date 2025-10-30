@@ -215,7 +215,7 @@ def _derive_is_censored(relation: str | None) -> bool | None:
 # coerce_nullable_int и coerce_nullable_float из bioetl.utils.dtypes
 
 
-class ActivityPipeline(PipelineBase):
+class ActivityPipeline(PipelineBase):  # type: ignore[misc]
     """Pipeline for extracting ChEMBL activity data."""
 
     def __init__(self, config: PipelineConfig, run_id: str):
@@ -677,7 +677,7 @@ class ActivityPipeline(PipelineBase):
 
         cache_dir = self._cache_base_dir()
         cache_dir.mkdir(parents=True, exist_ok=True)
-        return cast(Path, cache_dir / f"{self._cache_key(batch_ids)}.json")
+        return cache_dir / f"{self._cache_key(batch_ids)}.json"
 
     def _cache_base_dir(self) -> Path:
         """Build the base directory for cached responses."""
@@ -1049,7 +1049,7 @@ class ActivityPipeline(PipelineBase):
         severity_threshold = self.config.qc.severity_threshold
         failure_report: dict[str, Any] | None = None
 
-        def _handle_schema_failure(exc: SchemaErrors, should_fail: bool) -> None:
+        def _handle_schema_failure(exc: Exception, should_fail: bool) -> None:
             nonlocal failure_report
 
             failure_cases = getattr(exc, "failure_cases", None)
