@@ -149,6 +149,30 @@ def test_api_client_cache_key():
     assert key1 != key3
 
 
+def test_api_client_cache_key_supports_datetime_and_sets():
+    """Cache key generation should normalise datetime and set values."""
+
+    config = APIConfig(name="test", base_url="https://api.example.com")
+    client = UnifiedAPIClient(config)
+
+    url = "https://api.example.com/endpoint"
+    timestamp = datetime(2024, 1, 1, 12, 30, tzinfo=timezone.utc)
+
+    params_a = {"timestamp": timestamp, "tags": {"chembl", "assay"}}
+    params_b = {"tags": {"assay", "chembl"}, "timestamp": datetime(2024, 1, 1, 12, 30, tzinfo=timezone.utc)}
+
+    key_a = client._cache_key(url, params_a)
+    key_b = client._cache_key(url, params_b)
+
+    assert key_a == key_b
+
+    params_c = {"timestamp": timestamp + timedelta(minutes=5), "tags": {"chembl", "assay"}}
+
+    key_c = client._cache_key(url, params_c)
+
+    assert key_c != key_a
+
+
 def test_retry_policy_wait_time():
     """Test retry policy wait time calculation."""
     policy = RetryPolicy(total=3, backoff_factor=2.0, backoff_max=10.0)

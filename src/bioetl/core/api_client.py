@@ -632,10 +632,37 @@ class UnifiedAPIClient:
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
+
+        def _stringify(value: Any) -> str:
+            try:
+                if isinstance(value, datetime):
+                    return value.isoformat()
+
+                if isinstance(value, set):
+                    normalized_items = sorted(_stringify(item) for item in value)
+                    return json.dumps(normalized_items, separators=(",", ":"))
+
+                if isinstance(value, (list, tuple)):
+                    return json.dumps([_stringify(item) for item in value], separators=(",", ":"))
+
+                if isinstance(value, dict):
+                    normalized_dict = {
+                        str(key): _stringify(item)
+                        for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+                    }
+                    return json.dumps(normalized_dict, sort_keys=True, separators=(",", ":"))
+
+                return str(value)
+            except Exception:  # pragma: no cover - defensive fallback
+                return repr(value)
+
         key_parts = [url]
         if params:
-            sorted_params = sorted(params.items())
-            params_str = json.dumps(sorted_params, sort_keys=True)
+            normalized_params = {
+                str(key): _stringify(value)
+                for key, value in sorted(params.items(), key=lambda pair: str(pair[0]))
+            }
+            params_str = json.dumps(normalized_params, sort_keys=True, separators=(",", ":"))
             key_parts.append(params_str)
         return hashlib.sha256("|".join(key_parts).encode()).hexdigest()
 
