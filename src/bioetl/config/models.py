@@ -6,7 +6,24 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
+
+SUPPORTED_FALLBACK_STRATEGIES: tuple[str, ...] = ("cache", "partial_retry")
+
+
+def _normalise_fallback_strategies(strategies: Iterable[str]) -> list[str]:
+    """Validate and de-duplicate fallback strategies while preserving order."""
+
+    normalised: list[str] = []
+    for strategy in strategies:
+        if strategy not in SUPPORTED_FALLBACK_STRATEGIES:
+            supported = ", ".join(SUPPORTED_FALLBACK_STRATEGIES)
+            raise ValueError(
+                f"Unknown fallback strategy '{strategy}'. Supported strategies: {supported}"
+            )
+        if strategy not in normalised:
+            normalised.append(strategy)
+    return normalised
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -162,6 +179,13 @@ class TargetSourceConfig(SourceConfig):
 
         return resolved
 
+    @field_validator("fallback_strategies")
+    @classmethod
+    def validate_fallback_strategies(cls, value: list[str]) -> list[str]:
+        """Ensure source-level fallback strategies are supported."""
+
+        return _normalise_fallback_strategies(value)
+
 
 class CacheConfig(BaseModel):
     """Cache configuration."""
@@ -259,9 +283,18 @@ class FallbackOptions(BaseModel):
     prefer_cache: bool = True
     allow_partial_materialization: bool = False
     use_materialized_outputs: bool = True
-    strategies: list[str] = Field(default_factory=lambda: ["cache", "network"])
+    strategies: list[str] = Field(
+        default_factory=lambda: list(SUPPORTED_FALLBACK_STRATEGIES)
+    )
     partial_retry_max: int = Field(default=3, ge=0)
     circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+
+    @field_validator("strategies")
+    @classmethod
+    def validate_strategies(cls, value: list[str]) -> list[str]:
+        """Ensure global fallback strategies are supported."""
+
+        return _normalise_fallback_strategies(value)
 
 
 class PipelineConfig(BaseModel):
@@ -331,4 +364,3 @@ class PipelineConfig(BaseModel):
         canonical = self.model_dump_canonical()
         json_str = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(json_str.encode()).hexdigest()
-
