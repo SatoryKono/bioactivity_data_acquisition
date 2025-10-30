@@ -82,29 +82,49 @@ class PubChemAdapter(ExternalAdapter):
         if not ids:
             return []
 
-        unique_ids = list(dict.fromkeys([identifier for identifier in ids if identifier]))
+        unique_ids = list(dict.fromkeys(identifier for identifier in ids if identifier))
         if not unique_ids:
             return []
 
-        resolution = self._resolve_cids_batch(unique_ids)
+        batch_size = self.adapter_config.batch_size or 50
+        if batch_size <= 0:
+            batch_size = len(unique_ids)
 
-        # Fetch properties in batch (max 100 CIDs per request)
+        return self._fetch_in_batches(
+            unique_ids,
+            batch_size=batch_size,
+            log_event="pubchem_batch_fetch_failed",
+        )
+
+    def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch a batch of identifiers from PubChem."""
+
+        if not ids:
+            return []
+
+        resolution = self._resolve_cids_batch(ids)
+
         cid_to_properties: dict[int, dict[str, Any]] = {}
-        resolved_cids = [info["cid"] for info in resolution.values() if info.get("cid")]
+        resolved_cids = [info.get("cid") for info in resolution.values() if info.get("cid")]
         if resolved_cids:
-            batch_size = self.adapter_config.batch_size or 100
-            for i in range(0, len(resolved_cids), batch_size):
-                batch_cids = resolved_cids[i : i + batch_size]
+            property_batch_size = self.adapter_config.batch_size or 100
+            if property_batch_size <= 0:
+                property_batch_size = len(resolved_cids)
+            property_batch_size = min(property_batch_size, 100)
+            property_batch_size = max(property_batch_size, 1)
+
+            for index in range(0, len(resolved_cids), property_batch_size):
+                batch_cids = resolved_cids[index : index + property_batch_size]
                 try:
                     for record in self._fetch_properties_batch(batch_cids):
                         cid = record.get("CID")
                         if cid is not None:
                             cid_to_properties[int(cid)] = record
                 except Exception as exc:  # noqa: BLE001
-                    self.logger.error("batch_properties_failed", batch=i, error=str(exc))
+                    self.logger.error("batch_properties_failed", batch=index, error=str(exc))
 
         results: list[dict[str, Any]] = []
-        for identifier in unique_ids:
+        for identifier in ids:
             info = resolution.get(
                 identifier,
                 {"cid": None, "cid_source": "failed", "attempt": 1, "fallback_used": False},
