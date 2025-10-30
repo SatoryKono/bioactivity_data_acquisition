@@ -115,7 +115,7 @@
 Все зависимости установлены и работают:
 - pandas, pandera, requests
 - structlog, typer, pydantic, pyyaml
-- cachetools, tenacity
+- cachetools
 - pytest, pytest-cov, mypy, ruff, pre-commit
 
 ## Структура проекта

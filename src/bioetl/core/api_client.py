@@ -356,11 +356,7 @@ class _RequestRetryContext:
             self.attempt,
             retry_after=self.last_retry_after_seconds,
         )
-        if (
-            self.last_retry_after_seconds is not None
-            and self.wait_time is not None
-            and self.wait_time > 0
-        ):
+        if self.wait_time > 0:
             self.sleep_wait = float(self.wait_time)
         else:
             self.sleep_wait = 0.0
@@ -438,8 +434,16 @@ class _RequestRetryContext:
                 retry_after=self.last_retry_after_header,
             )
 
-        if self.sleep_wait > 0:
-            time.sleep(self.sleep_wait)
+        if self.wait_time > 0:
+            actual_sleep = float(self.wait_time)
+            logger.debug(
+                "retry_wait_sleep",
+                attempt=self.attempt,
+                sleep_seconds=actual_sleep,
+                status_code=status_code,
+                retry_after=self.last_retry_after_header,
+            )
+            time.sleep(actual_sleep)
 
     def on_giveup(self, details: dict[str, Any]) -> None:
         """Attach retry metadata and log final failure when retries exhausted."""

@@ -387,6 +387,45 @@ def test_export_uses_deterministic_float_format(tmp_path, assay_config):
     assert metadata["column_count"] == len(header)
 
 
+def test_export_applies_configured_sorting(tmp_path, assay_config):
+    """Export should apply configured sort order using stable sorting semantics."""
+
+    class SortingPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+    config = assay_config.model_copy(deep=True)
+    config.determinism.sort.by = ["value", "missing"]
+    config.determinism.sort.ascending = [False, True]
+
+    pipeline = SortingPipeline(config, "run-sort")
+
+    source_df = pd.DataFrame(
+        {
+            "value": [2, 2, 1, 2],
+            "label": ["first", "second", "third", "fourth"],
+        }
+    )
+    pipeline.set_export_metadata_from_dataframe(
+        source_df,
+        pipeline_version="1.0.0",
+        source_system="test-system",
+    )
+
+    output_path = tmp_path / "sorted.csv"
+    artifacts = pipeline.export(source_df, output_path)
+
+    exported_df = pd.read_csv(artifacts.dataset)
+    assert exported_df["value"].tolist() == [2, 2, 2, 1]
+    assert exported_df["label"].tolist()[:3] == ["first", "second", "fourth"]
+
+
 class TestAssayPipeline:
     """Tests for AssayPipeline."""
 
