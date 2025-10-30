@@ -25,7 +25,6 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import register_fallback_statistics
-from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import normalize_json_list
 from bioetl.utils.output import finalize_output_dataset
 
@@ -180,24 +179,14 @@ class ActivityPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract activity data from input file."""
-        default_filename = Path("activity.csv")
-        input_path = Path(input_file) if input_file is not None else default_filename
-        resolved_path = resolve_input_path(self.config, input_path)
-
-        logger.info("reading_input", path=resolved_path)
-
         expected_cols = ActivitySchema.get_column_order() or []
-        limit_value = self.get_runtime_limit()
-
-        df = load_input_frame(
-            self.config,
-            resolved_path,
+        df, resolved_path = self.read_input_table(
+            default_filename=Path("activity.csv"),
             expected_columns=expected_cols,
-            limit=limit_value,
+            input_file=input_file,
         )
 
         if not resolved_path.exists():
-            logger.warning("input_file_not_found", path=resolved_path)
             return df
 
         # Map activity_chembl_id to activity_id if needed
@@ -208,6 +197,7 @@ class ActivityPipeline(PipelineBase):
         # Extract activity IDs for API call
         activity_ids = df['activity_id'].dropna().astype(int).unique().tolist()
 
+        limit_value = self.get_runtime_limit()
         if limit_value is not None and len(activity_ids) > limit_value:
             logger.info(
                 "applying_input_limit",

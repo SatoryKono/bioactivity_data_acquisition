@@ -24,7 +24,6 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
@@ -415,23 +414,14 @@ class AssayPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract assay data from input file."""
-        default_filename = Path("assay.csv")
-        input_path = Path(input_file) if input_file is not None else default_filename
-        resolved_path = resolve_input_path(self.config, input_path)
-
-        logger.info("reading_input", path=resolved_path)
-
-        limit_value = self.get_runtime_limit()
-        df = load_input_frame(
-            self.config,
-            resolved_path,
+        df, resolved_path = self.read_input_table(
+            default_filename=Path("assay.csv"),
             expected_columns=["assay_chembl_id"],
-            limit=limit_value,
             dtype="string",
+            input_file=input_file,
         )
 
         if not resolved_path.exists():
-            logger.warning("input_file_not_found", path=resolved_path)
             return df
 
         result = pd.DataFrame({"assay_chembl_id": df.get("assay_chembl_id", pd.Series(dtype="string"))})
