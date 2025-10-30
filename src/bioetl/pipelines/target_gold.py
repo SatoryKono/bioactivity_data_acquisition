@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+from pandas import DataFrame, Series, concat, isna, to_numeric
+from pandas import NA as PD_NA
 
 from bioetl.core.logger import UnifiedLogger
 
@@ -20,21 +22,21 @@ def _normalise_value(value: Any) -> Any:
     """Convert null-like values to ``pd.NA`` for stable operations."""
 
     if value is None:
-        return pd.NA
+        return PD_NA
     if isinstance(value, str):
         stripped = value.strip()
         if stripped == "" or stripped.lower() == "nan":
-            return pd.NA
+            return PD_NA
         return stripped
     if isinstance(value, float | np.floating) and np.isnan(value):
-        return pd.NA
+        return PD_NA
     return value
 
 
 def _split_accession_field(value: Any) -> list[str]:
     """Normalise accession strings to a list of unique identifiers."""
 
-    if value is None or value is pd.NA:
+    if value is None or value is PD_NA:
         return []
 
     if isinstance(value, str):
@@ -42,17 +44,17 @@ def _split_accession_field(value: Any) -> list[str]:
         return [token.strip() for token in tokens if token.strip()]
 
     if isinstance(value, list | tuple | set):
-        return [str(item).strip() for item in value if item not in {None, "", pd.NA}]
+        return [str(item).strip() for item in value if item not in {None, "", PD_NA}]
 
     return [str(value).strip()]
 
 
 def coalesce_by_priority(
-    df: pd.DataFrame,
+    df: DataFrame,
     mapping: Mapping[str, Sequence[str | tuple[str, str]]],
     *,
     source_suffix: str = "_source",
-) -> pd.DataFrame:
+) -> DataFrame:
     """Populate output columns using values from multiple sources.
 
     The ``mapping`` argument describes priority for every resulting column.  Each
@@ -65,9 +67,9 @@ def coalesce_by_priority(
 
     for output_column, candidates in mapping.items():
         if not candidates:
-            result[output_column] = pd.NA
+            result[output_column] = PD_NA
             if source_suffix is not None:
-                result[f"{output_column}{source_suffix}"] = pd.NA
+                result[f"{output_column}{source_suffix}"] = PD_NA
             continue
 
         column_names: list[str] = []
@@ -79,7 +81,7 @@ def coalesce_by_priority(
                 column_name, label = candidate, str(candidate)
 
             if column_name not in result.columns:
-                result[column_name] = pd.NA
+                result[column_name] = PD_NA
             column_names.append(column_name)
             column_sources.append(label)
 
@@ -87,15 +89,15 @@ def coalesce_by_priority(
         if not candidate_frame.empty:
             merged = candidate_frame.bfill(axis=1).iloc[:, 0]
         else:
-            merged = pd.Series(pd.NA, index=result.index)
+            merged = Series(PD_NA, index=result.index)
         result[output_column] = merged
 
         if source_suffix is not None:
-            def resolve_source(row: pd.Series, sources: list[str] = column_sources) -> Any:
+            def resolve_source(row: Series, sources: list[str] = column_sources) -> Any:
                 for idx, value in enumerate(row):
-                    if value is not pd.NA and not pd.isna(value):
+                    if value is not PD_NA and not isna(value):
                         return sources[idx]
-                return pd.NA
+                return PD_NA
 
             result[f"{output_column}{source_suffix}"] = candidate_frame.apply(
                 resolve_source, axis=1
@@ -104,7 +106,7 @@ def coalesce_by_priority(
     return result
 
 
-def _component_id_generator(existing: pd.Series) -> Iterable[Any]:
+def _component_id_generator(existing: Series) -> Iterator[Any]:
     """Yield deterministic component identifiers for newly created rows."""
 
     used: set[str] = {
@@ -113,11 +115,11 @@ def _component_id_generator(existing: pd.Series) -> Iterable[Any]:
         if str(value) not in {"", "<NA>"}
     }
 
-    numeric = pd.to_numeric(existing, errors="coerce")
+    numeric = to_numeric(existing, errors="coerce")
     if numeric.notna().any():
         start = int(numeric.max()) + 1
 
-        def generator() -> Iterable[Any]:
+        def generator() -> Iterator[Any]:
             nonlocal start
             while True:
                 candidate = start
@@ -130,7 +132,7 @@ def _component_id_generator(existing: pd.Series) -> Iterable[Any]:
     else:
         counter = 1
 
-        def generator() -> Iterable[Any]:
+        def generator() -> Iterator[Any]:
             nonlocal counter
             while True:
                 candidate = f"auto_{counter}"
@@ -144,8 +146,8 @@ def _component_id_generator(existing: pd.Series) -> Iterable[Any]:
 
 
 def _resolve_target_lookup(
-    chembl_components: pd.DataFrame,
-    targets: pd.DataFrame | None,
+    chembl_components: DataFrame,
+    targets: DataFrame | None,
     canonical_column: str,
 ) -> dict[str, list[str]]:
     """Build a mapping of canonical accession to owning targets."""
@@ -156,7 +158,7 @@ def _resolve_target_lookup(
         grouped = (
             chembl_components.dropna(subset=[canonical_column, "target_chembl_id"])
             .groupby(canonical_column)["target_chembl_id"]
-            .agg(lambda items: sorted({str(value) for value in items if value not in {pd.NA, None}}))
+            .agg(lambda items: sorted({str(value) for value in items if value not in {PD_NA, None}}))
         )
         lookup.update(grouped.to_dict())
 
@@ -173,7 +175,7 @@ def _resolve_target_lookup(
             grouped = (
                 targets.dropna(subset=[canonical_col, "target_chembl_id"])
                 .groupby(canonical_col)["target_chembl_id"]
-                .agg(lambda items: sorted({str(value) for value in items if value not in {pd.NA, None}}))
+                .agg(lambda items: sorted({str(value) for value in items if value not in {PD_NA, None}}))
             )
             for key, values in grouped.to_dict().items():
                 existing = lookup.setdefault(str(key), [])
@@ -199,29 +201,29 @@ class MergeComponentsConfig:
 
 
 def merge_components(
-    chembl_components: pd.DataFrame,
-    enrichment_components: pd.DataFrame | None = None,
+    chembl_components: DataFrame,
+    enrichment_components: DataFrame | None = None,
     *,
-    targets: pd.DataFrame | None = None,
+    targets: DataFrame | None = None,
     config: MergeComponentsConfig | None = None,
-) -> pd.DataFrame:
+) -> DataFrame:
     """Combine component payloads originating from different sources."""
 
     cfg = config or MergeComponentsConfig()
 
     chembl_df = chembl_components.copy()
     if chembl_df.empty:
-        chembl_df = pd.DataFrame(
+        chembl_df = DataFrame(
             columns=[cfg.target_column, cfg.component_id_column, cfg.accession_column]
         )
 
     for column, default in (
-        (cfg.component_id_column, pd.NA),
-        (cfg.accession_column, pd.NA),
-        (cfg.canonical_column, pd.NA),
-        (cfg.isoform_column, pd.NA),
-        (cfg.name_column, pd.NA),
-        (cfg.length_column, pd.NA),
+        (cfg.component_id_column, PD_NA),
+        (cfg.accession_column, PD_NA),
+        (cfg.canonical_column, PD_NA),
+        (cfg.isoform_column, PD_NA),
+        (cfg.name_column, PD_NA),
+        (cfg.length_column, PD_NA),
         (cfg.source_column, "chembl"),
         ("is_canonical", True),
     ):
@@ -244,11 +246,11 @@ def merge_components(
     if enrichment_components is not None and not enrichment_components.empty:
         enrichment = enrichment_components.copy()
         for column, default in (
-            (cfg.canonical_column, pd.NA),
-            (cfg.isoform_column, pd.NA),
-            (cfg.name_column, pd.NA),
-            (cfg.length_column, pd.NA),
-            ("is_canonical", pd.NA),
+            (cfg.canonical_column, PD_NA),
+            (cfg.isoform_column, PD_NA),
+            (cfg.name_column, PD_NA),
+            (cfg.length_column, PD_NA),
+            ("is_canonical", PD_NA),
             ("source", "uniprot"),
         ):
             if column not in enrichment.columns:
@@ -260,7 +262,7 @@ def merge_components(
         )
 
         for canonical, group in enrichment.groupby(cfg.canonical_column):
-            if pd.isna(canonical):
+            if isna(canonical):
                 continue
             canonical_key = str(canonical)
             target_ids = lookup.get(canonical_key, [])
@@ -280,13 +282,13 @@ def merge_components(
                         cfg.accession_column: canonical,
                         cfg.canonical_column: canonical,
                         cfg.isoform_column: canonical,
-                        cfg.name_column: pd.NA,
-                        cfg.length_column: pd.NA,
+                        cfg.name_column: PD_NA,
+                        cfg.length_column: PD_NA,
                         cfg.source_column: "uniprot",
                         "is_canonical": True,
                     }
-                    chembl_df = pd.concat(
-                        [chembl_df, pd.DataFrame([new_canonical])],
+                    chembl_df = concat(
+                        [chembl_df, DataFrame([new_canonical])],
                         ignore_index=True,
                     )
                     canonical_mask = (
@@ -295,7 +297,7 @@ def merge_components(
 
                 for _, iso_row in group.iterrows():
                     isoform_accession = iso_row.get(cfg.isoform_column)
-                    if pd.isna(isoform_accession):
+                    if isna(isoform_accession):
                         isoform_accession = canonical
                     isoform_accession = _normalise_value(isoform_accession)
 
@@ -337,29 +339,29 @@ def merge_components(
                     new_rows.append(template)
 
     if new_rows:
-        chembl_df = pd.concat([chembl_df, pd.DataFrame(new_rows)], ignore_index=True)
+        chembl_df = concat([chembl_df, DataFrame(new_rows)], ignore_index=True)
 
     chembl_df = chembl_df.convert_dtypes()
     return chembl_df
 
 
 def expand_xrefs(
-    targets_df: pd.DataFrame,
+    targets_df: DataFrame,
     *,
     column: str = "component_xrefs",
     target_column: str = "target_chembl_id",
-) -> pd.DataFrame:
+) -> DataFrame:
     """Expand a nested xref collection attached to target rows."""
 
     records: list[dict[str, Any]] = []
 
     if column not in targets_df.columns:
-        return pd.DataFrame(columns=[target_column, "xref_src_db", "xref_id", "component_id"])
+        return DataFrame(columns=[target_column, "xref_src_db", "xref_id", "component_id"])
 
     for row in targets_df.itertuples(index=False):
         target_id = getattr(row, target_column, None)
         raw = getattr(row, column, None)
-        if raw is None or raw is pd.NA:
+        if raw is None or raw is PD_NA:
             continue
         if isinstance(raw, str) and raw.strip() in {"", "[]"}:
             continue
@@ -390,23 +392,23 @@ def expand_xrefs(
                 "xref_id": _normalise_value(item.get("xref_id") or item.get("xref_acc")),
                 "component_id": _normalise_value(item.get("component_id")),
             }
-            if record["xref_src_db"] is pd.NA or record["xref_id"] is pd.NA:
+            if record["xref_src_db"] is PD_NA or record["xref_id"] is PD_NA:
                 continue
             records.append(record)
 
     if not records:
-        return pd.DataFrame(columns=[target_column, "xref_src_db", "xref_id", "component_id"])
+        return DataFrame(columns=[target_column, "xref_src_db", "xref_id", "component_id"])
 
-    return pd.DataFrame(records).convert_dtypes()
+    return DataFrame(records).convert_dtypes()
 
 
 def annotate_source_rank(
-    df: pd.DataFrame,
+    df: DataFrame,
     *,
     source_column: str = "data_origin",
     output_column: str = "merge_rank",
     priority: Sequence[str] | None = None,
-) -> pd.DataFrame:
+) -> DataFrame:
     """Assign a deterministic rank based on the origin of the record."""
 
     if priority is None:
@@ -427,10 +429,10 @@ def annotate_source_rank(
 def materialize_gold(
     output_path: Path,
     *,
-    targets: pd.DataFrame,
-    components: pd.DataFrame,
-    protein_class: pd.DataFrame,
-    xref: pd.DataFrame,
+    targets: DataFrame,
+    components: DataFrame,
+    protein_class: DataFrame,
+    xref: DataFrame,
     format: str = "parquet",
 ) -> dict[str, Path]:
     """Persist deterministic gold-layer artefacts."""
@@ -447,7 +449,7 @@ def materialize_gold(
 
     outputs: dict[str, Path] = {}
 
-    def _write(df: pd.DataFrame, path: Path, name: str) -> None:
+    def _write(df: DataFrame, path: Path, name: str) -> None:
         if df.empty:
             logger.info("gold_materialization_skipped", dataset=name, reason="empty_dataframe")
             return
