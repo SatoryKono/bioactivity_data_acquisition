@@ -382,6 +382,7 @@ class PipelineBase(ABC):
         config_hash: str | None = None,
         git_commit: str | None = None,
         sources: Sequence[str] | None = None,
+        schema: type[Any] | None = None,
     ) -> OutputMetadata:
         """Create and assign :class:`OutputMetadata` from a dataframe."""
 
@@ -392,6 +393,12 @@ class PipelineBase(ABC):
         resolved_git_commit = git_commit
         if resolved_git_commit is None:
             resolved_git_commit = getattr(self, "git_commit", None)
+
+        resolved_schema = schema
+        if resolved_schema is None:
+            candidate_schema = getattr(self, "primary_schema", None)
+            if isinstance(candidate_schema, type):
+                resolved_schema = candidate_schema
 
         resolved_sources: Sequence[str] | None = sources
         if resolved_sources is None:
@@ -413,6 +420,7 @@ class PipelineBase(ABC):
             config_hash=resolved_config_hash,
             git_commit=resolved_git_commit,
             sources=resolved_sources,
+            schema=resolved_schema,
         )
 
         self.set_export_metadata(metadata)

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, Type
 
 import pandas as pd
 
@@ -116,6 +116,11 @@ class OutputMetadata:
     config_hash: str | None = None
     git_commit: str | None = None
     sources: tuple[str, ...] = field(default_factory=tuple)
+    schema_id: str | None = None
+    schema_version: str | None = None
+    column_order_source: str | None = None
+    na_policy: str | None = None
+    precision_policy: str | None = None
 
     @classmethod
     def from_dataframe(
@@ -130,6 +135,7 @@ class OutputMetadata:
         config_hash: str | None = None,
         git_commit: str | None = None,
         sources: Sequence[str] | None = None,
+        schema: Type["BaseSchema"] | None = None,
     ) -> "OutputMetadata":
         """Создает метаданные из DataFrame."""
 
@@ -147,6 +153,34 @@ class OutputMetadata:
                 ordered.append(key)
             normalised_sources = tuple(ordered)
 
+        schema_id: str | None = None
+        schema_version: str | None = None
+        column_order_source = "dataframe"
+        na_policy: str | None = None
+        precision_policy: str | None = None
+
+        if schema is not None:
+            from bioetl.schemas.registry import SchemaRegistry
+
+            if not isinstance(schema, type):
+                schema_cls = type(schema)
+            else:
+                schema_cls = schema
+
+            registration = SchemaRegistry.find_registration(schema_cls)
+            if registration is not None:
+                schema_id = registration.schema_id
+                schema_version = registration.version
+                column_order_source = registration.column_order_source
+                na_policy = registration.na_policy
+                precision_policy = registration.precision_policy
+            else:
+                schema_id = getattr(schema_cls, "schema_id", None)
+                schema_version = getattr(schema_cls, "schema_version", None)
+                column_order_source = "schema"
+                na_policy = getattr(schema_cls, "na_policy", None)
+                precision_policy = getattr(schema_cls, "precision_policy", None)
+
         return cls(
             pipeline_version=pipeline_version,
             source_system=source_system,
@@ -160,6 +194,11 @@ class OutputMetadata:
             config_hash=config_hash,
             git_commit=git_commit,
             sources=normalised_sources,
+            schema_id=schema_id,
+            schema_version=schema_version,
+            column_order_source=column_order_source,
+            na_policy=na_policy,
+            precision_policy=precision_policy,
         )
 
 
@@ -783,6 +822,11 @@ class UnifiedOutputWriter:
             "config_hash": metadata.config_hash,
             "git_commit": metadata.git_commit,
             "sources": sorted(metadata.sources) if metadata.sources else [],
+            "schema_id": metadata.schema_id,
+            "schema_version": metadata.schema_version,
+            "column_order_source": metadata.column_order_source,
+            "na_policy": metadata.na_policy,
+            "precision_policy": metadata.precision_policy,
         }
 
         artifacts: dict[str, Any] = {

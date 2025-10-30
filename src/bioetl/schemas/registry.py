@@ -1,5 +1,6 @@
-"""Schema Registry with versioning."""
+"""Schema Registry with versioning and descriptive metadata."""
 
+from dataclasses import dataclass
 import re
 
 from packaging import version
@@ -11,10 +12,24 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 logger = UnifiedLogger.get(__name__)
 
 
+@dataclass(frozen=True)
+class SchemaRegistration:
+    """Container describing a schema registration entry."""
+
+    entity: str
+    version: str
+    schema: DataFrameModel
+    schema_id: str
+    column_order_source: str
+    na_policy: str
+    precision_policy: str
+
+
 class SchemaRegistry:
     """Реестр Pandera схем с версионированием."""
 
     _registry: dict[str, dict[str, DataFrameModel]] = {}
+    _metadata: dict[tuple[str, str], SchemaRegistration] = {}
 
     @classmethod
     def register(
@@ -23,6 +38,11 @@ class SchemaRegistry:
         schema_version: str,
         schema: DataFrameModel,
         column_order: list[str] | None = None,
+        *,
+        schema_id: str | None = None,
+        column_order_source: str | None = None,
+        na_policy: str | None = None,
+        precision_policy: str | None = None,
     ) -> None:
         """
         Регистрирует схему в реестре.
@@ -74,6 +94,17 @@ class SchemaRegistry:
             except Exception:  # pragma: no cover - defensive fallback
                 column_count = 0
 
+        registration = SchemaRegistration(
+            entity=entity,
+            version=schema_version,
+            schema=schema,
+            schema_id=schema_id or f"{entity}.output",
+            column_order_source=column_order_source or "schema_registry",
+            na_policy=na_policy or "schema_defined",
+            precision_policy=precision_policy or "%.6f",
+        )
+        cls._metadata[(entity, schema_version)] = registration
+
         logger.info(
             "schema_registered",
             entity=entity,
@@ -115,6 +146,39 @@ class SchemaRegistry:
             raise ValueError(f"Schema version {schema_version} not found for entity {entity}")
 
         return cls._registry[entity][schema_version]
+
+    @classmethod
+    def get_metadata(
+        cls,
+        entity: str,
+        schema_version: str = "latest",
+    ) -> SchemaRegistration | None:
+        """Return descriptive metadata for a registered schema."""
+
+        if entity not in cls._registry:
+            return None
+
+        resolved_version = schema_version
+        if schema_version == "latest":
+            versions = cls._registry[entity].keys()
+            if not versions:
+                return None
+            resolved_version = max(versions, key=lambda v: version.parse(v))
+
+        return cls._metadata.get((entity, resolved_version))
+
+    @classmethod
+    def find_registration(
+        cls,
+        schema: DataFrameModel,
+    ) -> SchemaRegistration | None:
+        """Return the registration metadata matching ``schema`` if available."""
+
+        for (entity, schema_version), registration in cls._metadata.items():
+            registered_schema = cls._registry.get(entity, {}).get(schema_version)
+            if registered_schema is schema:
+                return registration
+        return None
 
     @classmethod
     def validate_compatibility(cls, entity: str, old_version: str, new_version: str) -> bool:

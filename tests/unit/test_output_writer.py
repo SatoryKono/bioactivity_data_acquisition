@@ -11,6 +11,9 @@ import pytest
 
 from bioetl.config.models import DeterminismConfig
 from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
+from bioetl.pandera_typing import Series
+from bioetl.schemas.base import BaseSchema
+from bioetl.schemas.registry import schema_registry
 
 
 class _FixedDateTime:
@@ -195,6 +198,11 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert qc_artifacts["correlation_report"] == str(artifacts.correlation_report)
     assert qc_artifacts["summary_statistics"] == str(artifacts.qc_summary_statistics)
     assert qc_artifacts["dataset_metrics"] == str(artifacts.qc_dataset_metrics)
+    assert contents["schema_id"] is None
+    assert contents["schema_version"] is None
+    assert contents["column_order_source"] == "dataframe"
+    assert contents.get("na_policy") is None
+    assert contents.get("precision_policy") is None
 
     quality_df = pd.read_csv(artifacts.quality_report)
     column_profiles = quality_df[quality_df["metric"] == "column_profile"]
@@ -395,6 +403,73 @@ def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monke
     assert "correlation_report" not in qc_artifacts
     assert "summary_statistics" not in qc_artifacts
     assert "dataset_metrics" not in qc_artifacts
+
+
+def test_meta_yaml_matches_schema_registry(tmp_path, monkeypatch):
+    """meta.yaml should mirror schema registry metadata when available."""
+
+    _freeze_datetime(monkeypatch)
+
+    class StubSchema(BaseSchema):
+        value: Series[str]
+
+        _column_order = [
+            "index",
+            "hash_row",
+            "hash_business_key",
+            "pipeline_version",
+            "run_id",
+            "source_system",
+            "chembl_release",
+            "extracted_at",
+            "value",
+        ]
+
+    schema_registry.register(
+        "stub",
+        "1.2.3",
+        StubSchema,
+        schema_id="stub.output",
+        na_policy="forbid",
+        precision_policy="%.4f",
+    )
+
+    try:
+        df = pd.DataFrame({"value": ["a", "b"]})
+        writer = UnifiedOutputWriter("run-schema")
+        metadata = OutputMetadata.from_dataframe(
+            df,
+            pipeline_version="9.9.9",
+            source_system="unit-test",
+            schema=StubSchema,
+            run_id="run-schema",
+        )
+
+        artifacts = writer.write(
+            df,
+            tmp_path / "run-schema" / "stub" / "datasets" / "stub.csv",
+            metadata=metadata,
+        )
+
+        assert artifacts.metadata is not None
+
+        import yaml
+
+        with artifacts.metadata.open(encoding="utf-8") as handle:
+            contents = yaml.safe_load(handle)
+
+        assert contents["schema_id"] == "stub.output"
+        assert contents["schema_version"] == "1.2.3"
+        assert contents["column_order_source"] == "schema_registry"
+        assert contents["na_policy"] == "forbid"
+        assert contents["precision_policy"] == "%.4f"
+    finally:
+        stub_versions = schema_registry._registry.get("stub")
+        if stub_versions is not None:
+            stub_versions.pop("1.2.3", None)
+            if not stub_versions:
+                schema_registry._registry.pop("stub", None)
+        schema_registry._metadata.pop(("stub", "1.2.3"), None)
 
 
 def test_write_dataframe_json_uses_atomic_write(tmp_path, monkeypatch):
