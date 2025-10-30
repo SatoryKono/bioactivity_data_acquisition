@@ -9,6 +9,10 @@ The legacy `library.target` package has been fully removed. The modern `bioetl` 
 
 ## CLI Hooks
 - No CLI entry points referenced `library.target` directly at the time of removal. Existing tooling (for example, `src/scripts/run_target.py` and the consolidated `bioetl.cli.main` application) already use the `bioetl` pipeline stack, so no additional CLI work was required.
+- Consolidated the boilerplate Typer wiring for activity-like pipelines into the shared `scripts` registry.  The helper now exposes a
+  single `register_pipeline_command(app, key)` call that reads defaults from a central map.  This keeps default paths, bespoke
+  options (such as the document mode choices), and test fixtures synchronised while avoiding future copy/paste drift across the
+  individual `run_*.py` modules.
 
 ## Follow-up
 - Monitor downstream documentation or deployment scripts for any references to the removed modules and update them to point to the `bioetl` equivalents if discovered.

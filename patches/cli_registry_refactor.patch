@@ -1,0 +1,213 @@
+diff --git a/src/scripts/__init__.py b/src/scripts/__init__.py
+index ad39776..d5843f2 100644
+--- a/src/scripts/__init__.py
++++ b/src/scripts/__init__.py
+@@ -1,2 +1,67 @@
+-"""Scripts package for pipeline execution."""
++"""Shared registry and helpers for CLI pipeline entrypoints."""
+ 
++from __future__ import annotations
++
++from dataclasses import replace
++from pathlib import Path
++
++import typer
++
++from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
++from bioetl.pipelines.activity import ActivityPipeline
++from bioetl.pipelines.assay import AssayPipeline
++from bioetl.pipelines.document import DocumentPipeline
++from bioetl.pipelines.testitem import TestItemPipeline
++
++PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
++    "activity": PipelineCommandConfig(
++        pipeline_name="activity",
++        pipeline_factory=lambda: ActivityPipeline,
++        default_config=Path("configs/pipelines/activity.yaml"),
++        default_input=Path("data/input/activity.csv"),
++        default_output_dir=Path("data/output/activity"),
++    ),
++    "assay": PipelineCommandConfig(
++        pipeline_name="assay",
++        pipeline_factory=lambda: AssayPipeline,
++        default_config=Path("configs/pipelines/assay.yaml"),
++        default_input=Path("data/input/assay.csv"),
++        default_output_dir=Path("data/output/assay"),
++    ),
++    "document": PipelineCommandConfig(
++        pipeline_name="document",
++        pipeline_factory=lambda: DocumentPipeline,
++        default_config=Path("configs/pipelines/document.yaml"),
++        default_input=Path("data/input/document.csv"),
++        default_output_dir=Path("data/output/documents"),
++        mode_choices=("chembl", "all"),
++        default_mode="all",
++    ),
++    "testitem": PipelineCommandConfig(
++        pipeline_name="testitem",
++        pipeline_factory=lambda: TestItemPipeline,
++        default_config=Path("configs/pipelines/testitem.yaml"),
++        default_input=Path("data/input/testitem.csv"),
++        default_output_dir=Path("data/output/testitems"),
++    ),
++}
++
++
++def get_pipeline_command_config(key: str) -> PipelineCommandConfig:
++    try:
++        config = PIPELINE_COMMAND_REGISTRY[key]
++    except KeyError as exc:  # pragma: no cover - defensive branch
++        raise KeyError(f"Unknown pipeline registry key: {key}") from exc
++    return replace(config)
++
++
++def register_pipeline_command(app: typer.Typer, key: str) -> None:
++    command = create_pipeline_command(get_pipeline_command_config(key))
++    app.command()(command)
++
++
++__all__ = [
++    "PIPELINE_COMMAND_REGISTRY",
++    "get_pipeline_command_config",
++    "register_pipeline_command",
++]
+diff --git a/src/scripts/run_activity.py b/src/scripts/run_activity.py
+index f8341ed..32ad684 100644
+--- a/src/scripts/run_activity.py
++++ b/src/scripts/run_activity.py
+@@ -1,27 +1,14 @@
+ #!/usr/bin/env python3
+ """CLI entrypoint for executing the activity pipeline."""
+ 
+-from pathlib import Path
+-
+ import typer
+ 
+-from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
+-from bioetl.pipelines.activity import ActivityPipeline
++from scripts import register_pipeline_command
+ 
+ app = typer.Typer(help="Run activity pipeline to extract and transform activity data")
+ 
+ 
+-app.command()(
+-    create_pipeline_command(
+-        PipelineCommandConfig(
+-            pipeline_name="activity",
+-            pipeline_factory=lambda: ActivityPipeline,
+-            default_config=Path("configs/pipelines/activity.yaml"),
+-            default_input=Path("data/input/activity.csv"),
+-            default_output_dir=Path("data/output/activity"),
+-        )
+-    )
+-)
++register_pipeline_command(app, "activity")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/src/scripts/run_assay.py b/src/scripts/run_assay.py
+index 92ac3e6..25da81e 100644
+--- a/src/scripts/run_assay.py
++++ b/src/scripts/run_assay.py
+@@ -1,27 +1,14 @@
+ #!/usr/bin/env python3
+ """CLI entrypoint for executing the assay pipeline."""
+ 
+-from pathlib import Path
+-
+ import typer
+ 
+-from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
+-from bioetl.pipelines.assay import AssayPipeline
++from scripts import register_pipeline_command
+ 
+ app = typer.Typer(help="Run assay pipeline to extract and transform assay data")
+ 
+ 
+-app.command()(
+-    create_pipeline_command(
+-        PipelineCommandConfig(
+-            pipeline_name="assay",
+-            pipeline_factory=lambda: AssayPipeline,
+-            default_config=Path("configs/pipelines/assay.yaml"),
+-            default_input=Path("data/input/assay.csv"),
+-            default_output_dir=Path("data/output/assay"),
+-        )
+-    )
+-)
++register_pipeline_command(app, "assay")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/src/scripts/run_document.py b/src/scripts/run_document.py
+index 7de101c..a2863d0 100644
+--- a/src/scripts/run_document.py
++++ b/src/scripts/run_document.py
+@@ -1,29 +1,14 @@
+ #!/usr/bin/env python3
+ """CLI entrypoint for executing the document pipeline."""
+ 
+-from pathlib import Path
+-
+ import typer
+ 
+-from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
+-from bioetl.pipelines.document import DocumentPipeline
++from scripts import register_pipeline_command
+ 
+ app = typer.Typer(help="Run document pipeline to extract and transform document data")
+ 
+ 
+-app.command()(
+-    create_pipeline_command(
+-        PipelineCommandConfig(
+-            pipeline_name="document",
+-            pipeline_factory=lambda: DocumentPipeline,
+-            default_config=Path("configs/pipelines/document.yaml"),
+-            default_input=Path("data/input/document.csv"),
+-            default_output_dir=Path("data/output/documents"),
+-            mode_choices=("chembl", "all"),
+-            default_mode="all",
+-        )
+-    )
+-)
++register_pipeline_command(app, "document")
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/src/scripts/run_testitem.py b/src/scripts/run_testitem.py
+index f7b3de7..dcbe5d5 100644
+--- a/src/scripts/run_testitem.py
++++ b/src/scripts/run_testitem.py
+@@ -1,29 +1,14 @@
+ #!/usr/bin/env python3
+ """CLI entrypoint for executing the test item pipeline."""
+ 
+-from pathlib import Path
+-
+ import typer
+ 
+-from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
+-from bioetl.pipelines.testitem import TestItemPipeline
++from scripts import register_pipeline_command
+ 
+ app = typer.Typer(help="Run test item pipeline to extract and transform compound data")
+ 
+ 
+-# Создаем команду pipeline
+-pipeline_command = create_pipeline_command(
+-    PipelineCommandConfig(
+-        pipeline_name="testitem",
+-        pipeline_factory=lambda: TestItemPipeline,
+-        default_config=Path("configs/pipelines/testitem.yaml"),
+-            default_input=Path("data/input/testitem.csv"),
+-        default_output_dir=Path("data/output/testitems"),
+-    )
+-)
+-
+-# Добавляем команду в typer app
+-app.command()(pipeline_command)
++register_pipeline_command(app, "testitem")
+ 
+ 
+ if __name__ == "__main__":
