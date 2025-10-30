@@ -212,10 +212,6 @@ class BaseSchema(DataFrameModel):
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
-        # Гарантируем наличие неизменяемого атрибута версии политики хеширования
-        # на классе схемы без аннотаций типов, чтобы Pandera его игнорировала.
-        if "hash_policy_version" not in cls.__dict__:
-            cls.hash_policy_version = "1.0.0"
         # Ensure Config exposes column_order via descriptor, unless overridden explicitly.
         if getattr(cls.Config, "column_order", None) is None or not isinstance(
             cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor
@@ -238,7 +234,7 @@ class BaseSchema(DataFrameModel):
         if not isinstance(cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor):
             expose_config_column_order(cls)
 
-        return cast(
+        validated = cast(
             DataFrame[BaseSchema],
             super().validate(
                 check_obj,
@@ -250,6 +246,11 @@ class BaseSchema(DataFrameModel):
                 inplace=inplace,
             ),
         )
+        # Безопасно добавляем служебную версию политики хеширования после
+        # материализации схемы Pandera, чтобы не вмешиваться в сбор полей.
+        if "hash_policy_version" not in cls.__dict__:
+            cls.hash_policy_version = "1.0.0"
+        return validated
 
     @classmethod
     def get_column_order(cls) -> list[str]:
