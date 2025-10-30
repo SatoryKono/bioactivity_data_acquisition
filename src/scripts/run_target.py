@@ -36,7 +36,7 @@ def _validate_positive_option(value: int | None, param_name: str) -> None:
     if value is not None and value < 1:
         raise typer.BadParameter(
             f"--{param_name} must be >= 1",
-            param_name=param_name,
+            param_hint=[f"--{param_name}"],
         )
 
 
@@ -163,7 +163,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         allowed = ", ".join(mode_choices)
         raise typer.BadParameter(
             f"Mode must be one of: {allowed}",
-            param_name="mode",
+            param_hint=["--mode"],
         )
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
