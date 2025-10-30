@@ -1,14 +1,24 @@
-"""Helpers for deterministic dataframe post-processing."""
+"""Helpers for deterministic dataframe post-processing.
+
+This module focuses on deterministic augmentation of dataframe outputs.  The
+hashing logic in :func:`finalize_pipeline_output` relies on
+``pandas.util.hash_pandas_object`` so that row level hashes are computed without
+row-wise ``DataFrame.apply`` calls.  The resulting SHA256 digests are stable
+because the hashing input is derived from a sorted projection of the dataframe
+columns.
+"""
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from typing import TypeVar
 
 import pandas as pd
+from pandas.util import hash_pandas_object
 
-from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+from bioetl.core.hashing import generate_hash_business_key
 from bioetl.schemas.base import BaseSchema
 
 DataFrameT = TypeVar("DataFrameT", bound=pd.DataFrame)
@@ -104,7 +114,15 @@ def finalize_pipeline_output(
     run_id: str | None = None,
     schema: type[BaseSchema] | None = None,
 ) -> DataFrameT:
-    """Apply deterministic metadata, hashing and ordering to a dataframe."""
+    """Apply deterministic metadata, hashing and ordering to a dataframe.
+
+    The helper enriches the dataframe with metadata columns, calculates the
+    ``hash_business_key`` and ``hash_row`` digests and finally enforces a
+    canonical ordering.  ``hash_row`` values are generated via
+    :func:`pandas.util.hash_pandas_object` on the dataframe columns sorted by
+    name which guarantees deterministic SHA256 digests regardless of platform or
+    dataframe row ordering.
+    """
 
     if df.empty:
         return df.copy()
@@ -141,7 +159,17 @@ def finalize_pipeline_output(
         raise KeyError(f"business key column '{business_key}' is missing")
 
     result["hash_business_key"] = result[business_key].apply(generate_hash_business_key)
-    result["hash_row"] = result.apply(lambda row: generate_hash_row(row.to_dict()), axis=1)
+
+    hash_source_columns = sorted(result.columns)
+    hash_frame = result[hash_source_columns]
+    hash_vector = hash_pandas_object(hash_frame, index=False)
+
+    hash_bytes = hash_vector.to_numpy(dtype="uint64", copy=False)
+    row_hashes = [
+        hashlib.sha256(int(value).to_bytes(8, byteorder="little", signed=False)).hexdigest()
+        for value in hash_bytes
+    ]
+    result["hash_row"] = pd.Series(row_hashes, index=result.index, dtype="string")
 
     if sort_by:
         sort_columns = [column for column in sort_by if column in result.columns]
