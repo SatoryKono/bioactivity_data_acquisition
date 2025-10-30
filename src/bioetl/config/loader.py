@@ -7,6 +7,72 @@ from typing import Any
 
 import yaml
 
+
+class _IncludedList(list):
+    """Marker type for sequences that should be spliced into parent lists."""
+
+
+def _config_loader_factory(
+    base_path: Path, include_stack: tuple[Path, ...]
+) -> type[yaml.SafeLoader]:
+    """Create a YAML loader class bound to a specific base path."""
+
+    class ConfigLoader(yaml.SafeLoader):
+        def __init__(self, stream: Any) -> None:  # type: ignore[override]
+            super().__init__(stream)
+            self._root = base_path
+            self._include_stack = include_stack
+
+    def construct_include(loader: ConfigLoader, node: yaml.Node) -> Any:
+        """Load referenced YAML content relative to the current file."""
+
+        if isinstance(node, yaml.ScalarNode):
+            relative_path = loader.construct_scalar(node)
+        else:
+            raise TypeError("!include only supports scalar values with file paths")
+
+        include_path = Path(relative_path)
+        if not include_path.is_absolute():
+            include_path = loader._root / include_path
+
+        resolved_include = include_path.resolve()
+        if resolved_include in loader._include_stack:
+            raise ValueError(
+                f"Circular !include detected involving {resolved_include}"
+            )
+
+        value = load_yaml(include_path, _include_stack=loader._include_stack)
+        if isinstance(value, list):
+            return _IncludedList(value)
+        return value
+
+    ConfigLoader.add_constructor("!include", construct_include)
+    return ConfigLoader
+
+
+def _resolve_includes(data: Any) -> Any:
+    """Recursively resolve include markers and splice lists."""
+
+    if isinstance(data, _IncludedList):
+        return _resolve_includes(list(data))
+
+    if isinstance(data, list):
+        resolved_list: list[Any] = []
+        for item in data:
+            if isinstance(item, _IncludedList):
+                included_values = _resolve_includes(list(item))
+                if not isinstance(included_values, list):
+                    raise TypeError("Included value must resolve to a list when used in a list context")
+                resolved_list.extend(included_values)
+            else:
+                resolved_list.append(_resolve_includes(item))
+        return resolved_list
+
+    if isinstance(data, dict):
+        return {key: _resolve_includes(value) for key, value in data.items()}
+
+    return data
+
 from bioetl.config.models import PipelineConfig
 
 
@@ -25,10 +91,20 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     return result
 
 
-def load_yaml(path: Path) -> Any:
-    """Load YAML file and resolve anchors/aliases."""
-    with path.open("r") as f:
-        return yaml.safe_load(f)
+def load_yaml(path: Path, *, _include_stack: tuple[Path, ...] | None = None) -> Any:
+    """Load YAML file, resolving anchors, aliases, and custom includes."""
+
+    resolved_path = path.resolve()
+    include_stack = _include_stack or tuple()
+    if resolved_path in include_stack:
+        raise ValueError(f"Circular !include detected involving {resolved_path}")
+
+    loader_cls = _config_loader_factory(
+        resolved_path.parent, include_stack + (resolved_path,)
+    )
+    with resolved_path.open("r", encoding="utf-8") as f:
+        data = yaml.load(f, Loader=loader_cls)
+    return _resolve_includes(data)
 
 
 def load_config(
