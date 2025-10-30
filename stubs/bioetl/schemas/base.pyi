@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pandas as pd
-import pandera.pandas as pa
 
 from bioetl.pandera_typing import Series
 
@@ -21,7 +18,11 @@ class FallbackMetadataMixin:
     fallback_timestamp: Series[str]
 
 
-class BaseSchema(pa.DataFrameModel):
+class _DataFrameModel:
+    ...
+
+
+class BaseSchema(_DataFrameModel):
     index: Series[int]
     hash_row: Series[str]
     hash_business_key: Series[str]
