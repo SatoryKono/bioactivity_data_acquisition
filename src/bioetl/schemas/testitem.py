@@ -212,15 +212,10 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
     pubchem_lookup_inchikey: Series[str] = pa.Field(nullable=True, description="Lookup InChIKey used for PubChem resolution")
 
     _column_order = [
-        "index",
-        "hash_row",
-        "hash_business_key",
-        "pipeline_version",
-        "run_id",
-        "source_system",
-        "chembl_release",
-        "extracted_at",
+        # Primary/business keys first
         "molecule_chembl_id",
+        
+        # Core ChEMBL business fields
         "molregno",
         "pref_name",
         "pref_name_key",
@@ -269,6 +264,8 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "drug_antineoplastic_flag",
         "drug_immunosuppressant_flag",
         "drug_antiinflammatory_flag",
+        
+        # Properties
         "mw_freebase",
         "alogp",
         "hba",
@@ -293,10 +290,14 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "num_lipinski_ro5_violations",
         "lipinski_ro5_violations",
         "lipinski_ro5_pass",
+        
+        # Structures and text
         "standardized_smiles",
         "standard_inchi",
         "standard_inchi_key",
         "all_names",
+        
+        # Nested JSON blobs
         "molecule_hierarchy",
         "molecule_properties",
         "molecule_structures",
@@ -308,7 +309,8 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "orphan",
         "veterinary",
         "helm_notation",
-    ] + FALLBACK_METADATA_COLUMN_ORDER + [
+    ] + [
+        # PubChem enrichment fields
         "pubchem_cid",
         "pubchem_molecular_formula",
         "pubchem_molecular_weight",
@@ -325,6 +327,18 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "pubchem_fallback_used",
         "pubchem_enrichment_attempt",
         "pubchem_lookup_inchikey",
+    ] + FALLBACK_METADATA_COLUMN_ORDER + [
+        # Canonical pipeline metadata
+        "pipeline_version",
+        "run_id",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+        
+        # Hashes and deterministic index last
+        "hash_business_key",
+        "hash_row",
+        "index",
     ]
 
     class Config:

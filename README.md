@@ -1,6 +1,7 @@
 # BioETL
 
-Unified ETL framework for bioactivity data extraction from ChEMBL and external sources with full determinism and reproducibility.
+Unified ETL framework for bioactivity data extraction from ChEMBL and
+external sources with full determinism and reproducibility.
 
 ## Installation
 
@@ -19,7 +20,9 @@ pre-commit install
 python -c "from bioetl.config import load_config; print(load_config('configs/profiles/dev.yaml'))"
 
 # Test logger
-python -c "from bioetl.core.logger import UnifiedLogger; UnifiedLogger.setup('development', 'test'); UnifiedLogger.get('test').info('Hello World')"
+python -c "from bioetl.core.logger import UnifiedLogger; \
+UnifiedLogger.setup('development', 'test'); \
+UnifiedLogger.get('test').info('Hello World')"
 ```
 
 ## Structure
