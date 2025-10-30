@@ -362,11 +362,15 @@ class QualityReportGenerator:
     ) -> pd.DataFrame:
         """Создает QC отчет."""
         rows: list[dict[str, Any]] = []
+        row_count = len(df)
+        null_counts = df.isna().sum()
+        unique_counts = df.nunique(dropna=True)
+        dtype_strings = df.dtypes.astype(str)
 
         for column in df.columns:
-            null_count = df[column].isna().sum()
-            null_fraction = null_count / len(df) if len(df) > 0 else 0
-            unique_count = df[column].nunique()
+            null_count = int(null_counts[column])
+            null_fraction = null_count / row_count if row_count > 0 else 0
+            unique_count = int(unique_counts[column])
 
             rows.append(
                 {
@@ -375,7 +379,7 @@ class QualityReportGenerator:
                     "null_count": null_count,
                     "null_fraction": null_fraction,
                     "unique_count": unique_count,
-                    "dtype": str(df[column].dtype),
+                    "dtype": dtype_strings[column],
                 }
             )
 
