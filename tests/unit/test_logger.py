@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 from structlog.testing import capture_logs
+from logging.handlers import RotatingFileHandler
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOGGER_PATH = PROJECT_ROOT / "src" / "bioetl" / "core" / "logger.py"
@@ -219,6 +220,60 @@ def test_file_handler_creates_log_and_redacts(tmp_path):
     contents = log_file.read_text(encoding="utf-8")
     assert "***REDACTED***" in contents
     assert "supersecret" not in contents
+
+
+def _get_rotating_file_handlers() -> list[RotatingFileHandler]:
+    """Return all rotating file handlers attached to the root logger."""
+
+    root_logger = logging.getLogger()
+    return [
+        handler
+        for handler in root_logger.handlers
+        if isinstance(handler, RotatingFileHandler)
+    ]
+
+
+def test_setup_logger_adds_single_file_handler(tmp_path):
+    """Initial setup attaches a single file handler for the configured path."""
+
+    log_file = tmp_path / "logs" / "app.log"
+    config = LoggerConfig(
+        level="INFO",
+        file_enabled=True,
+        file_path=log_file,
+        file_format="text",
+        max_bytes=1024,
+        backup_count=1,
+    )
+
+    logger_module.setup_logger(mode="development", run_id="file-test", config=config)
+
+    handlers = _get_rotating_file_handlers()
+    assert len(handlers) == 1
+    assert Path(handlers[0].baseFilename) == log_file.resolve()
+
+
+def test_setup_logger_reinitialization_is_idempotent(tmp_path):
+    """Repeated setup does not accumulate duplicate file handlers."""
+
+    log_file = tmp_path / "logs" / "app.log"
+    config = LoggerConfig(
+        level="INFO",
+        file_enabled=True,
+        file_path=log_file,
+        file_format="text",
+        max_bytes=1024,
+        backup_count=1,
+    )
+
+    logger_module.setup_logger(mode="development", run_id="file-test", config=config)
+    first_handlers = _get_rotating_file_handlers()
+    assert len(first_handlers) == 1
+
+    logger_module.setup_logger(mode="development", run_id="file-test", config=config)
+    second_handlers = _get_rotating_file_handlers()
+    assert len(second_handlers) == 1
+    assert Path(second_handlers[0].baseFilename) == log_file.resolve()
 
 
 if __name__ == "__main__":
