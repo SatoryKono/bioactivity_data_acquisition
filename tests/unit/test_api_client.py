@@ -724,6 +724,70 @@ def test_request_json_respects_retry_total(monkeypatch: pytest.MonkeyPatch) -> N
     assert call_count["count"] == 2
 
 
+def test_request_json_server_error_without_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Server errors without Retry-After should sleep between retries and then raise."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=3,
+        retry_backoff_factor=1.5,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    responses = iter(
+        [
+            _build_response(500, {"error": f"server error #{idx}"})
+            for idx in range(config.retry_total)
+        ]
+    )
+
+    call_count = {"count": 0}
+
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        call_count["count"] += 1
+        return next(responses)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+    monkeypatch.setattr(
+        "bioetl.core.api_client.time.sleep",
+        lambda seconds: sleep_calls.append(seconds),
+    )
+
+    with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+        client.request_json("/resource")
+
+    assert call_count["count"] == config.retry_total
+
+    expected_waits = [
+        config.retry_backoff_factor**attempt
+        for attempt in range(1, config.retry_total)
+    ]
+    assert len(sleep_calls) == len(expected_waits)
+    for actual, expected in zip(sleep_calls, expected_waits):
+        assert actual == pytest.approx(expected)
+
+    metadata = getattr(excinfo.value, "retry_metadata", None)
+    assert metadata is not None
+    assert metadata["attempt"] == config.retry_total
+    assert metadata["status_code"] == 500
+    assert metadata["retry_after"] is None
+
+
 def test_request_json_timeout_metadata_on_exhaustion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
