@@ -1,13 +1,13 @@
 """Tests for dataframe utility helpers."""
 
 import pandas as pd
+import pandera.pandas as pa
+from pandera.typing import Series
 
 from bioetl.core.hashing import generate_hash_business_key
 from bioetl.schemas import TargetSchema
-from bioetl.utils import finalize_pipeline_output, resolve_schema_column_order
 from bioetl.schemas.base import BaseSchema
-import pandera.pandas as pa
-from pandera.typing import Series
+from bioetl.utils import finalize_pipeline_output, resolve_schema_column_order
 
 
 def test_finalize_pipeline_output_applies_metadata_and_order():

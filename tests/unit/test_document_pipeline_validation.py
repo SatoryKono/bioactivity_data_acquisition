@@ -152,7 +152,7 @@ def test_raw_validation_reorders_columns(document_pipeline):
         "source",
     ]
 
-    record = {column: None for column in unsorted_columns}
+    record = dict.fromkeys(unsorted_columns)
     record.update(
         {
             "document_chembl_id": "CHEMBL999",

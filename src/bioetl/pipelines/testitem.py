@@ -19,14 +19,14 @@ from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
+from bioetl.utils.json import canonical_json
+from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     duplicate_summary,
     update_summary_metrics,
     update_summary_section,
     update_validation_issue_summary,
 )
-from bioetl.utils.json import canonical_json
-from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
 

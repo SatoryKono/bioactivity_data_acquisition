@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import patch
 
 from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
-
 from tests.unit.adapters._mixins import AdapterTestMixin
 
 

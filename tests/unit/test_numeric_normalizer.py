@@ -1,7 +1,6 @@
 """Тесты для NumericNormalizer и BooleanNormalizer."""
 
 import math
-import pytest
 
 from bioetl.normalizers.numeric import BooleanNormalizer, NumericNormalizer
 

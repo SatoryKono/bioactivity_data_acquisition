@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import patch
 
 from bioetl.adapters.openalex import OpenAlexAdapter
-
 from tests.unit.adapters._mixins import AdapterTestMixin
 
 

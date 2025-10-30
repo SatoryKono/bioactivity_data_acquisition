@@ -7,8 +7,8 @@ import pandera.pandas as pa
 from pandera.typing import Series
 
 from bioetl.schemas.base import (
-    BaseSchema,
     FALLBACK_METADATA_COLUMN_ORDER,
+    BaseSchema,
     FallbackMetadataMixin,
 )
 

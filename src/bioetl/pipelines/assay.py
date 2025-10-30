@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
@@ -773,7 +772,7 @@ class AssayPipeline(PipelineBase):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform assay data and expand nested parameter/class payloads."""
         from bioetl.schemas.assay import AssaySchema
-        
+
         if df.empty:
             # Return empty DataFrame with all required columns from schema
             return pd.DataFrame(columns=resolve_schema_column_order(AssaySchema))
@@ -962,7 +961,7 @@ class AssayPipeline(PipelineBase):
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate assay data against schema and referential integrity."""
         from bioetl.schemas.assay import AssaySchema
-        
+
         self.validation_issues.clear()
 
         if df.empty:

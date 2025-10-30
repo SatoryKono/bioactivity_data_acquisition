@@ -46,7 +46,7 @@ def _prepare_metadata(
     if metadata is None:
         return df.copy(), {}
 
-    overwrite_set = set(str(column) for column in (overwrite or ()))
+    overwrite_set = {str(column) for column in (overwrite or ())}
     working = df.copy()
     metadata_values = dict(metadata)
 

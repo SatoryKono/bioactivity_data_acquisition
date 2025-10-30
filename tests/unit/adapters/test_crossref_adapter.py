@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import patch
 
 from bioetl.adapters.crossref import CrossrefAdapter
-
 from tests.unit.adapters._mixins import AdapterTestMixin
 
 

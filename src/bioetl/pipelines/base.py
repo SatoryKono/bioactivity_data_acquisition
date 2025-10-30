@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Mapping, Sequence
-from typing import Any, Callable, Iterable
+from typing import Any
 
 import pandas as pd
 from pandera.errors import SchemaErrors
@@ -112,10 +112,10 @@ class EnrichmentStage:
     """Definition of an enrichment stage executed during transformation."""
 
     name: str
-    include_if: Callable[["PipelineBase", pd.DataFrame], PredicateResult]
-    handler: Callable[["PipelineBase", pd.DataFrame], pd.DataFrame | None]
+    include_if: Callable[[PipelineBase, pd.DataFrame], PredicateResult]
+    handler: Callable[[PipelineBase, pd.DataFrame], pd.DataFrame | None]
 
-    def should_run(self, pipeline: "PipelineBase", df: pd.DataFrame) -> tuple[bool, str | None]:
+    def should_run(self, pipeline: PipelineBase, df: pd.DataFrame) -> tuple[bool, str | None]:
         """Evaluate the inclusion predicate and normalise the response."""
 
         result = self.include_if(pipeline, df)
@@ -125,7 +125,7 @@ class EnrichmentStage:
             include, reason = bool(result), None
         return bool(include), reason
 
-    def execute(self, pipeline: "PipelineBase", df: pd.DataFrame) -> pd.DataFrame | None:
+    def execute(self, pipeline: PipelineBase, df: pd.DataFrame) -> pd.DataFrame | None:
         """Invoke the stage handler."""
 
         return self.handler(pipeline, df)
@@ -135,9 +135,9 @@ class EnrichmentStageRegistry:
     """Global registry storing enrichment stages per pipeline class."""
 
     def __init__(self) -> None:
-        self._registry: dict[type["PipelineBase"], list[EnrichmentStage]] = {}
+        self._registry: dict[type[PipelineBase], list[EnrichmentStage]] = {}
 
-    def register(self, pipeline_cls: type["PipelineBase"], stage: EnrichmentStage) -> None:
+    def register(self, pipeline_cls: type[PipelineBase], stage: EnrichmentStage) -> None:
         """Register or replace an enrichment stage for the given pipeline class."""
 
         stages = self._registry.setdefault(pipeline_cls, [])
@@ -148,7 +148,7 @@ class EnrichmentStageRegistry:
         else:
             stages.append(stage)
 
-    def get(self, pipeline_cls: type["PipelineBase"]) -> Iterable[EnrichmentStage]:
+    def get(self, pipeline_cls: type[PipelineBase]) -> Iterable[EnrichmentStage]:
         """Return the registered stages for the pipeline class."""
 
         return tuple(self._registry.get(pipeline_cls, ()))
@@ -486,7 +486,7 @@ class PipelineBase(ABC):
         validation_summary = self.qc_summary_data.setdefault("validation", {})
         metric_label = metric_name or f"schema.{dataset_label}"
 
-        if df is None or (hasattr(df, "empty") and getattr(df, "empty")):
+        if df is None or (hasattr(df, "empty") and df.empty):
             validation_summary[dataset_label] = {
                 "status": "skipped",
                 "rows": 0,

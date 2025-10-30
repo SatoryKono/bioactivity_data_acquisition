@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from bioetl.adapters.pubmed import PubMedAdapter
-
 from tests.unit.adapters._mixins import AdapterTestMixin
 
 

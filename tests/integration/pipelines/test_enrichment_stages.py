@@ -1,10 +1,11 @@
 """Tests for enrichment stage inclusion logic via the global registry."""
+# ruff: noqa: E402  # allow path tweaks before imports in this test module
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
 import types
+from pathlib import Path
 
 import pandas as pd
 

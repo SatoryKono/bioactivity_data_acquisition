@@ -20,8 +20,8 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
-    enrichment_stage_registry,
     create_chembl_client,
+    enrichment_stage_registry,
 )
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
@@ -167,7 +167,7 @@ class TargetPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract target data from input file."""
-        default_filename = Path("target.csv")
+        Path("target.csv")
         expected_columns = [
             "target_chembl_id",
             "pref_name",
