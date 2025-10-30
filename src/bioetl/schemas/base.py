@@ -11,9 +11,13 @@ from bioetl.pandera_pandas import Field
 from bioetl.pandera_typing import DataFrame, Series
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
-    from pandera.pandas import DataFrameModel as _DataFrameModelBase
+    # Use project shim for static typing to match runtime behavior
+    from bioetl.pandera_pandas import DataFrameModel as _DataFrameModelBase
 else:
     _DataFrameModelBase = _RuntimeDataFrameModel
+
+# Use runtime-compatible Pandera shim for subclassing with precise type for checkers
+DataFrameModel: type[_DataFrameModelBase] = _RuntimeDataFrameModel
 
 # Shared column order for fallback metadata columns.  Exposed as a module level
 # constant so downstream schemas can reference it without importing the mixin

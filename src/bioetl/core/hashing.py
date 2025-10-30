@@ -8,8 +8,6 @@ import hashlib
 import json
 from typing import Any
 
-from pandas import Timestamp
-
 
 def generate_hash_row(row: dict[str, Any]) -> str:
     """Сгенерировать SHA256 хеш от канонической строки row.
@@ -73,10 +71,6 @@ def _canonicalize_value(value: Any) -> Any:
     Returns:
         Канонизированное значение
     """
-    # pandas Timestamp или datetime
-    if isinstance(value, Timestamp):
-        return value.isoformat()
-
     if hasattr(value, "isoformat"):
         try:
             return value.isoformat()
