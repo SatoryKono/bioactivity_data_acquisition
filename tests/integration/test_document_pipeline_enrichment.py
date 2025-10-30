@@ -48,8 +48,8 @@ def sample_documents_data():
 
 @pytest.fixture
 def document_config():
-    """Use real document config with all adapters enabled."""
-    config_path = Path("configs/pipelines/document.yaml")
+    """Use test profile with external sources disabled and dummy secrets."""
+    config_path = Path("configs/profiles/document_test.yaml")
     return config_path
 
 
