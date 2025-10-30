@@ -25,6 +25,18 @@ UnifiedLogger.setup('development', 'test'); \
 UnifiedLogger.get('test').info('Hello World')"
 ```
 
+## Environment variables
+
+Некоторые пайплайны требуют секретов из переменных окружения. Для доступа к IUPHAR
+необходимо установить API-ключ до запуска конфигурации или CLI:
+
+```bash
+export IUPHAR_API_KEY="your-iuphar-token"
+```
+
+Если переменная не задана, загрузчик конфигурации завершится ошибкой, предотвращая
+случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
+
 ## CLI Usage
 
 Команды Typer регистрируются автоматически на основе `scripts.PIPELINE_COMMAND_REGISTRY`,

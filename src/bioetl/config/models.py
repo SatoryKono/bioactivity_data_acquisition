@@ -141,12 +141,20 @@ class TargetSourceConfig(SourceConfig):
             if candidate.startswith("env:"):
                 env_name = candidate.split(":", 1)[1]
                 env_value = os.getenv(env_name)
-                return env_value if env_value is not None else value
+                if env_value is None:
+                    raise ValueError(
+                        f"Environment variable '{env_name}' referenced for api_key is not set"
+                    )
+                return env_value
 
             if candidate.startswith("${") and candidate.endswith("}"):
                 env_name = candidate[2:-1]
                 env_value = os.getenv(env_name)
-                return env_value if env_value is not None else value
+                if env_value is None:
+                    raise ValueError(
+                        f"Environment variable '{env_name}' referenced for api_key is not set"
+                    )
+                return env_value
 
         return value
 
@@ -162,16 +170,22 @@ class TargetSourceConfig(SourceConfig):
                 if candidate.startswith("env:"):
                     env_name = candidate.split(":", 1)[1]
                     env_value = os.getenv(env_name)
-                    if env_value is not None:
-                        resolved[key] = env_value
-                        continue
+                    if env_value is None:
+                        raise ValueError(
+                            f"Environment variable '{env_name}' required for header '{key}' is not set"
+                        )
+                    resolved[key] = env_value
+                    continue
 
                 if candidate.startswith("${") and candidate.endswith("}"):
                     env_name = candidate[2:-1]
                     env_value = os.getenv(env_name)
-                    if env_value is not None:
-                        resolved[key] = env_value
-                        continue
+                    if env_value is None:
+                        raise ValueError(
+                            f"Environment variable '{env_name}' required for header '{key}' is not set"
+                        )
+                    resolved[key] = env_value
+                    continue
 
                 resolved[key] = header_value
             else:

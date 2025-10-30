@@ -193,6 +193,92 @@ def test_source_rate_limit_jitter_override(tmp_path):
     assert chembl.rate_limit_jitter is False
 
 
+def _write_minimal_config(tmp_path, sources_block: str) -> Path:
+    """Helper to create a minimal config file with custom sources."""
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        dedent(
+            f"""
+            version: 1
+            pipeline:
+              name: test
+              entity: test
+            http:
+              global:
+                timeout_sec: 60.0
+                retries:
+                  total: 5
+                  backoff_multiplier: 2.0
+                  backoff_max: 120.0
+                rate_limit:
+                  max_calls: 5
+                  period: 15.0
+            sources:
+            {sources_block}
+            cache:
+              enabled: true
+              directory: data/cache
+              ttl: 1
+              release_scoped: false
+            paths:
+              input_root: data/input
+              output_root: data/output
+            determinism:
+              sort:
+                by: []
+                ascending: []
+              column_order: []
+            postprocess: {}
+            qc:
+              enabled: true
+              severity_threshold: warning
+            cli: {}
+            """
+        )
+    )
+    return config_file
+
+
+def test_source_api_key_requires_env_variable(tmp_path, monkeypatch):
+    """Environment references for API keys should fail fast when missing."""
+
+    config_file = _write_minimal_config(
+        tmp_path,
+        dedent(
+            """
+              iuphar:
+                base_url: "https://example.org"
+                api_key: "${IUPHAR_API_KEY}"
+            """
+        ),
+    )
+    monkeypatch.delenv("IUPHAR_API_KEY", raising=False)
+
+    with pytest.raises(ValidationError, match="IUPHAR_API_KEY"):
+        load_config(config_file)
+
+
+def test_source_header_requires_env_variable(tmp_path, monkeypatch):
+    """Environment references in headers should fail fast when missing."""
+
+    config_file = _write_minimal_config(
+        tmp_path,
+        dedent(
+            """
+              iuphar:
+                base_url: "https://example.org"
+                headers:
+                  x-api-key: "env:IUPHAR_API_KEY"
+            """
+        ),
+    )
+    monkeypatch.delenv("IUPHAR_API_KEY", raising=False)
+
+    with pytest.raises(ValidationError, match="IUPHAR_API_KEY"):
+        load_config(config_file)
+
+
 def test_pipeline_include_merges_determinism_defaults():
     """Pipeline configs should inherit determinism defaults from shared include."""
 
