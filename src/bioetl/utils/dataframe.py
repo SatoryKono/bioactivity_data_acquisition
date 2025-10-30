@@ -11,9 +11,9 @@ columns.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import pandas as pd
 from pandas.util import hash_pandas_object
@@ -22,6 +22,72 @@ from bioetl.core.hashing import generate_hash_business_key
 from bioetl.schemas.base import BaseSchema
 
 DataFrameT = TypeVar("DataFrameT", bound=pd.DataFrame)
+
+
+def _normalise_hashable(value: Any) -> Any:
+    """Coerce nested containers to hash-friendly immutable equivalents."""
+
+    if value is None or value is pd.NA:
+        return value
+
+    if isinstance(value, Mapping):
+        return tuple(
+            (str(key), _normalise_hashable(item))
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        )
+
+    if isinstance(value, (list, tuple)):
+        return tuple(_normalise_hashable(item) for item in value)
+
+    if isinstance(value, set):
+        return tuple(sorted(_normalise_hashable(item) for item in value))
+
+    if isinstance(value, pd.Series):
+        return tuple(_normalise_hashable(item) for item in value.tolist())
+
+    if isinstance(value, pd.Index):
+        return tuple(_normalise_hashable(item) for item in value.tolist())
+
+    if isinstance(value, pd.DataFrame):  # pragma: no cover - defensive guard
+        return tuple(
+            (
+                str(column),
+                tuple(_normalise_hashable(item) for item in value[column].tolist()),
+            )
+            for column in value.columns
+        )
+
+    try:  # numpy is an optional dependency at runtime
+        import numpy as np
+
+        if isinstance(value, np.ndarray):
+            return tuple(_normalise_hashable(item) for item in value.tolist())
+    except Exception:  # pragma: no cover - guard for environments without numpy
+        pass
+
+    return value
+
+
+def _requires_normalisation(series: pd.Series) -> bool:
+    """Return True if the series contains containers that need coercion."""
+
+    if series.dtype != "object":
+        return False
+
+    sample = series.dropna().head(5)
+    if sample.empty:
+        return False
+
+    container_types: tuple[type[Any], ...] = (list, tuple, set, dict, pd.Series, pd.Index)
+
+    try:
+        import numpy as np
+
+        container_types = container_types + (np.ndarray,)
+    except Exception:  # pragma: no cover - numpy optional in typing contexts
+        pass
+
+    return any(isinstance(value, container_types) for value in sample)
 
 
 def _ensure_sequence(values: Sequence[bool] | bool | None, length: int) -> list[bool]:
@@ -161,7 +227,13 @@ def finalize_pipeline_output(
     result["hash_business_key"] = result[business_key].apply(generate_hash_business_key)
 
     hash_source_columns = sorted(result.columns)
-    hash_frame = result[hash_source_columns]
+    hash_frame = result[hash_source_columns].copy()
+
+    for column in hash_frame.columns:
+        series = hash_frame[column]
+        if _requires_normalisation(series):
+            hash_frame[column] = series.map(_normalise_hashable)
+
     hash_vector = hash_pandas_object(hash_frame, index=False)
 
     hash_bytes = hash_vector.to_numpy(dtype="uint64", copy=False)

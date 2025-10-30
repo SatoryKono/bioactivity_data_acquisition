@@ -45,6 +45,46 @@ def test_finalize_pipeline_output_applies_metadata_and_order():
     assert result.columns[-1] == "custom_col"
 
 
+def test_finalize_pipeline_output_handles_nested_iterables():
+    """Hash computation should tolerate list, dict and set values."""
+
+    df = pd.DataFrame(
+        [
+            {
+                "target_chembl_id": "CHEMBL3",
+                "authors": ["Alice", "Bob"],
+                "metrics": {"citations": 3, "year": 2024},
+                "tags": {"oa", "biology"},
+            },
+            {
+                "target_chembl_id": "CHEMBL4",
+                "authors": ["Carol"],
+                "metrics": {"citations": 5, "year": 2023},
+                "tags": {"chemistry"},
+            },
+        ]
+    )
+
+    result = finalize_pipeline_output(
+        df,
+        business_key="target_chembl_id",
+        sort_by=["target_chembl_id"],
+        ascending=True,
+        pipeline_version="1.0.0",
+        source_system="chembl",
+        chembl_release="ChEMBL_TEST",
+        extracted_at="2024-01-01T00:00:00+00:00",
+        run_id="demo-run",
+    )
+
+    assert list(result["target_chembl_id"]) == ["CHEMBL3", "CHEMBL4"]
+    assert result["hash_row"].notna().all()
+    # Ensure original list/dict/set structures are preserved after hashing
+    assert result.loc[0, "authors"] == ["Alice", "Bob"]
+    assert result.loc[0, "metrics"] == {"citations": 3, "year": 2024}
+    assert result.loc[0, "tags"] == {"oa", "biology"}
+
+
 def test_resolve_schema_column_order_prefers_explicit_order():
     """Explicit column order should be respected when provided."""
 
