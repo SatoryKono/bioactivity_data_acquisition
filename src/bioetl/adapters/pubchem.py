@@ -1,12 +1,12 @@
 """PubChem PUG-REST API adapter for molecular data enrichment."""
 
-import json
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
+from bioetl.utils.json import canonical_json
 
 
 class PubChemAdapter(ExternalAdapter):
@@ -43,17 +43,6 @@ class PubChemAdapter(ExternalAdapter):
         super().__init__(api_config, adapter_config)
         self.last_request_time = 0.0
         self.min_request_interval = 0.2  # 5 requests per second
-
-    @staticmethod
-    def _canonical_json(value: Any) -> str | None:
-        """Serialize value to canonical JSON string."""
-
-        if value in (None, ""):
-            return None
-        try:
-            return json.dumps(value, sort_keys=True, separators=(",", ":"))
-        except (TypeError, ValueError):
-            return None
 
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by identifiers.
@@ -285,9 +274,9 @@ class PubChemAdapter(ExternalAdapter):
             normalized["pubchem_rn"] = str(record["RN"])
 
         if "Synonym" in record:
-            normalized["pubchem_synonyms"] = self._canonical_json(record["Synonym"])
+            normalized["pubchem_synonyms"] = canonical_json(record["Synonym"])
         elif "Synonyms" in record:
-            normalized["pubchem_synonyms"] = self._canonical_json(record["Synonyms"])
+            normalized["pubchem_synonyms"] = canonical_json(record["Synonyms"])
 
         normalized["pubchem_lookup_inchikey"] = record.get("_source_identifier")
 

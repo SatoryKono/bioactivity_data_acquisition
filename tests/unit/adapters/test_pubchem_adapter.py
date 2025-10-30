@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from bioetl.adapters.pubchem import PubChemAdapter
+from bioetl.utils.json import canonical_json
 from tests.unit.adapters._mixins import AdapterTestMixin
 
 
@@ -69,4 +70,23 @@ class TestPubChemAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(len(results), len(identifiers))
         self.assertEqual(results[0]["CID"], 123)
         self.assertEqual(results[1]["_source_identifier"], "BBB")
+
+    def test_normalize_record_serializes_synonyms_with_canonical_json(self) -> None:
+        """Synonym collections should be serialized deterministically."""
+
+        adapter = self.adapter
+        synonyms = [
+            {"name": "beta", "type": "primary"},
+            {"name": "alpha", "type": "alternate"},
+        ]
+        record = {
+            "Synonyms": synonyms,
+            "CID": 42,
+            "_source_identifier": "ABC",
+        }
+
+        normalized = adapter.normalize_record(record)
+
+        expected = canonical_json(synonyms)
+        self.assertEqual(normalized["pubchem_synonyms"], expected)
 
