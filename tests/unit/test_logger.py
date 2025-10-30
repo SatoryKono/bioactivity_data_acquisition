@@ -32,6 +32,7 @@ spec.loader.exec_module(logger_module)
 UnifiedLogger = logger_module.UnifiedLogger
 RedactSecretsFilter = logger_module.RedactSecretsFilter
 SafeFormattingFilter = logger_module.SafeFormattingFilter
+LoggerConfig = logger_module.LoggerConfig
 
 
 def _apply_core_processors(log, method_name: str, event_dict: dict[str, object]) -> dict[str, object]:
@@ -189,6 +190,35 @@ def test_get_run_id():
     """Test getting current run ID."""
     UnifiedLogger.setup(mode="development", run_id="run-id-789")
     assert UnifiedLogger.get_run_id() == "run-id-789"
+
+
+def test_file_handler_creates_log_and_redacts(tmp_path):
+    """Ensure file handler writes logs and redacts secrets."""
+
+    log_file = tmp_path / "logs" / "app.log"
+    config = LoggerConfig(
+        level="INFO",
+        file_enabled=True,
+        file_path=log_file,
+        file_format="text",
+        max_bytes=1024,
+        backup_count=1,
+    )
+
+    logger_module.setup_logger(mode="development", run_id="file-test", config=config)
+
+    std_logger = logging.getLogger("file-handler-test")
+    std_logger.info("token=supersecret")
+
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        if hasattr(handler, "flush"):
+            handler.flush()
+
+    assert log_file.exists()
+    contents = log_file.read_text(encoding="utf-8")
+    assert "***REDACTED***" in contents
+    assert "supersecret" not in contents
 
 
 if __name__ == "__main__":
