@@ -44,6 +44,21 @@ sources:
 
 Additional ChEMBL options (e.g. cache settings, circuit breakers) may be added in the pipeline file as needed, but the shared defaults should remain untouched.
 
+## External adapter overrides
+
+Document enrichment adapters (PubMed, Crossref, OpenAlex, Semantic Scholar) inherit global cache and HTTP defaults. When a specific source needs different behaviour, override the fields directly inside the corresponding `sources.<adapter>` block:
+
+```yaml
+sources:
+  pubmed:
+    cache_enabled: false
+    cache_ttl: 3600        # seconds
+    cache_maxsize: 2048    # entries in the TTL cache
+    timeout_sec: 15.0      # applies to both connect/read timeouts
+```
+
+All overrides are optional; unset values fall back to the global `cache` and `http.global` configuration. Use `timeout_sec` to adjust both connect and read timeouts together, or provide the more granular `connect_timeout_sec` / `read_timeout_sec` keys when an API needs asymmetric limits.
+
 ## Validating merges
 
 Configuration loading resolves all `extends` entries recursively. Unit tests under `tests/unit/test_config_loader.py` ensure that multiple `extends` blocks merge correctly and that per-pipeline overrides are applied without losing the shared defaults. If you introduce new includes, add similar tests to guard against regression.

@@ -320,15 +320,124 @@ class DocumentPipeline(PipelineBase):
     ) -> tuple[APIConfig, AdapterConfig]:
         """Construct API and adapter configuration objects for a source."""
 
-        cache_maxsize = getattr(self.config.cache, "maxsize", None)
-        if cache_maxsize is None:
-            cache_maxsize = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
+        def _coerce_int(value: Any, default: int, *, field: str) -> int:
+            if value is None:
+                return default
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "adapter_config_invalid_int",
+                    source=source_name,
+                    field=field,
+                    value=value,
+                    default=default,
+                )
+                return default
+
+        def _coerce_float(value: Any, default: float, *, field: str) -> float:
+            if value is None:
+                return default
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "adapter_config_invalid_float",
+                    source=source_name,
+                    field=field,
+                    value=value,
+                    default=default,
+                )
+                return default
+
+        cache_enabled = bool(self.config.cache.enabled)
+        cache_enabled_raw = self._get_source_attribute(source_cfg, "cache_enabled")
+        if cache_enabled_raw is not None:
+            coerced = coerce_optional_bool(cache_enabled_raw)
+            if coerced is not pd.NA:
+                cache_enabled = bool(coerced)
+
+        cache_ttl_default = int(self.config.cache.ttl)
+        cache_ttl_raw = self._get_source_attribute(source_cfg, "cache_ttl")
+        cache_ttl = _coerce_int(cache_ttl_raw, cache_ttl_default, field="cache_ttl")
+
+        cache_maxsize_default = getattr(self.config.cache, "maxsize", None)
+        if cache_maxsize_default is None:
+            cache_maxsize_default = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
+        cache_maxsize_raw = self._get_source_attribute(source_cfg, "cache_maxsize")
+        cache_maxsize = _coerce_int(
+            cache_maxsize_raw, int(cache_maxsize_default), field="cache_maxsize"
+        )
+
+        http_profiles = getattr(self.config, "http", None)
+        global_http = None
+        if isinstance(http_profiles, Mapping):
+            global_http = http_profiles.get("global")
+
+        timeout_default: float | None = None
+        connect_default: float | None = None
+        read_default: float | None = None
+        if global_http is not None:
+            timeout_default = getattr(global_http, "timeout_sec", None)
+            if timeout_default is not None:
+                timeout_default = float(timeout_default)
+            connect_default = getattr(global_http, "connect_timeout_sec", None)
+            if connect_default is not None:
+                connect_default = float(connect_default)
+            read_default = getattr(global_http, "read_timeout_sec", None)
+            if read_default is not None:
+                read_default = float(read_default)
+
+        if connect_default is None:
+            connect_default = (
+                timeout_default
+                if timeout_default is not None
+                else float(APIConfig.__dataclass_fields__["timeout_connect"].default)  # type: ignore[index]
+            )
+
+        if read_default is None:
+            read_default = (
+                timeout_default
+                if timeout_default is not None
+                else float(APIConfig.__dataclass_fields__["timeout_read"].default)  # type: ignore[index]
+            )
+
+        if timeout_default is None:
+            timeout_default = read_default
+
+        timeout_override = self._get_source_attribute(source_cfg, "timeout")
+        if timeout_override is None:
+            timeout_override = self._get_source_attribute(source_cfg, "timeout_sec")
+
+        timeout_value = _coerce_float(timeout_override, float(timeout_default), field="timeout")
+
+        connect_override = self._get_source_attribute(source_cfg, "connect_timeout_sec")
+        connect_default_final = (
+            float(timeout_value) if timeout_override is not None else float(connect_default)
+        )
+        timeout_connect = _coerce_float(
+            connect_override,
+            connect_default_final,
+            field="connect_timeout_sec",
+        )
+
+        read_override = self._get_source_attribute(source_cfg, "read_timeout_sec")
+        read_default_final = (
+            float(timeout_value) if timeout_override is not None else float(read_default)
+        )
+        timeout_read = _coerce_float(
+            read_override,
+            read_default_final,
+            field="read_timeout_sec",
+        )
 
         api_kwargs: dict[str, Any] = {
             "name": source_name,
-            "cache_enabled": self.config.cache.enabled,
-            "cache_ttl": self.config.cache.ttl,
+            "cache_enabled": cache_enabled,
+            "cache_ttl": cache_ttl,
             "cache_maxsize": cache_maxsize,
+            "timeout_connect": timeout_connect,
+            "timeout_read": timeout_read,
         }
 
         for field_name, spec in definition.api_fields.items():

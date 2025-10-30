@@ -248,3 +248,24 @@ def test_qc_threshold_severity_policy(document_pipeline, monkeypatch):
         and issue["passed"] is False
         for issue in document_pipeline.validation_issues
     )
+
+
+def test_external_adapter_cache_timeout_overrides(document_config, monkeypatch):
+    """Source-level cache and timeout overrides should update APIConfig."""
+
+    source_cfg = document_config.sources["pubmed"]
+    source_cfg.cache_enabled = False
+    source_cfg.cache_ttl = 42
+    source_cfg.cache_maxsize = 2048
+    source_cfg.timeout_sec = 12.5
+
+    monkeypatch.setattr(DocumentPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+
+    pipeline = DocumentPipeline(document_config, run_id="test-run")
+    api_config = pipeline.external_adapters["pubmed"].api_config
+
+    assert api_config.cache_enabled is False
+    assert api_config.cache_ttl == 42
+    assert api_config.cache_maxsize == 2048
+    assert api_config.timeout_connect == pytest.approx(12.5)
+    assert api_config.timeout_read == pytest.approx(12.5)
