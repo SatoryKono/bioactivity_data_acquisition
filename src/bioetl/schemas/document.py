@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Mapping, Protocol, cast
 
 import pandas as pd
 
@@ -17,7 +17,15 @@ from bioetl.schemas.base import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
-    from bioetl.pandera_pandas import DataFrameModel as _DataFrameModelBase
+    class _DataFrameModelBase(Protocol):
+        Config: type[Any]
+        __extras__: Mapping[str, Any]
+
+        @classmethod
+        def to_schema(cls) -> Any: ...
+
+        @classmethod
+        def validate(cls, check_obj: Any, *args: Any, **kwargs: Any) -> Any: ...
 else:
     _DataFrameModelBase = _RuntimeDataFrameModel
 
