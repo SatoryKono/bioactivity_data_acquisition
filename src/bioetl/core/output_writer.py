@@ -693,7 +693,7 @@ class UnifiedOutputWriter:
 
         null_cells = int(df.isna().sum().sum()) if total_cells else 0
         null_fraction = (null_cells / total_cells) if total_cells else 0.0
-        duplicate_rows = int(df.duplicated().sum()) if row_count else 0
+        duplicate_rows = int(df.duplicated(keep=False).sum()) if row_count else 0
         numeric_columns = int(df.select_dtypes(include="number").shape[1])
         categorical_columns = int(
             df.select_dtypes(include=["object", "string", "category"]).shape[1]
