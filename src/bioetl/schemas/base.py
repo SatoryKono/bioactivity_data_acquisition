@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypedDict, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
 import pandas as pd
 
 from bioetl.pandera_pandas import DataFrameModel as _RuntimeDataFrameModel
 from bioetl.pandera_pandas import Field
-from bioetl.pandera_typing import Series
+from bioetl.pandera_typing import DataFrame, Series
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
     from bioetl.pandera_pandas import DataFrameModel as _DataFrameModelBase
@@ -173,7 +173,7 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
         schema_cls.__extras__ = updated
 
 
-class BaseSchema(DataFrameModel):  # type: ignore
+class BaseSchema(_DataFrameModelBase):
     """Базовый класс для Pandera схем.
 
     Содержит обязательные системные поля для всех пайплайнов:
@@ -213,7 +213,7 @@ class BaseSchema(DataFrameModel):  # type: ignore
         ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
-        super().__init_subclass__(**kwargs)
+        cast("type[Any]", super()).__init_subclass__(**kwargs)
         # Ensure Config exposes column_order via descriptor, unless overridden explicitly.
         if getattr(cls.Config, "column_order", None) is None or not isinstance(
             cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor
@@ -223,16 +223,31 @@ class BaseSchema(DataFrameModel):  # type: ignore
     @classmethod
     def validate(
         cls,
-        check_obj: pd.DataFrame | object,
-        *args: Any,
-        **kwargs: Any,
-    ) -> pd.DataFrame:
+        check_obj: pd.DataFrame,
+        head: int | None = None,
+        tail: int | None = None,
+        sample: int | None = None,
+        random_state: int | None = None,
+        lazy: bool = False,
+        inplace: bool = False,
+    ) -> DataFrame[BaseSchema]:
         """Validate ``check_obj`` ensuring the column accessor stays patched."""
 
         if not isinstance(cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor):
             expose_config_column_order(cls)
 
-        return cast(pd.DataFrame, super().validate(check_obj, *args, **kwargs))
+        return cast(
+            DataFrame[BaseSchema],
+            super().validate(
+                check_obj,
+                head=head,
+                tail=tail,
+                sample=sample,
+                random_state=random_state,
+                lazy=lazy,
+                inplace=inplace,
+            ),
+        )
 
     @classmethod
     def get_column_order(cls) -> list[str]:

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.pandera_typing import Series
+from pandera.typing.pandas import DataFrame as PanderaDataFrame
+from pandera.typing.pandas import Series
 
 FALLBACK_METADATA_COLUMN_ORDER: list[str]
 
@@ -40,10 +41,14 @@ class BaseSchema(_DataFrameModel):
     @classmethod
     def validate(
         cls,
-        check_obj: pd.DataFrame | object,
-        *args: object,
-        **kwargs: object,
-    ) -> pd.DataFrame:
+        check_obj: pd.DataFrame,
+        head: int | None = ...,
+        tail: int | None = ...,
+        sample: int | None = ...,
+        random_state: int | None = ...,
+        lazy: bool = ...,
+        inplace: bool = ...,
+    ) -> PanderaDataFrame[BaseSchema]:
         ...
 
     @classmethod
