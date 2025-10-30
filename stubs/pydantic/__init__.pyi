@@ -9,6 +9,7 @@ __all__ = [
     "Field",
     "field_validator",
     "model_validator",
+    "PrivateAttr",
 ]
 
 P = ParamSpec("P")
@@ -31,6 +32,9 @@ class BaseModel:
     ) -> dict[str, Any]: ...
 
     def model_dump_json(self, *, indent: int | None = ...) -> str: ...
+
+    @classmethod
+    def model_validate(cls: Type[ModelT], obj: Any) -> ModelT: ...
 
 def Field(
     default: Any = ...,
@@ -57,3 +61,6 @@ def model_validator(
     *,
     mode: str | None = ...,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
+
+
+def PrivateAttr(default: Any = ...) -> Any: ...

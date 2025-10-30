@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 import pandas as pd
 from pandas.util import hash_pandas_object
@@ -192,9 +192,9 @@ def finalize_pipeline_output(
     """
 
     if df.empty:
-        return df.copy()
+        return cast(DataFrameT, df.copy())
 
-    result = df.copy()
+    result = cast(DataFrameT, df.copy())
 
     if pipeline_version is None:
         pipeline_version = "1.0.0"
@@ -248,9 +248,12 @@ def finalize_pipeline_output(
         sort_columns = [column for column in sort_by if column in result.columns]
         if sort_columns:
             sort_flags = _ensure_sequence(ascending, len(sort_columns))
-            result = result.sort_values(sort_columns, ascending=sort_flags, kind="stable")
+            result = cast(
+                DataFrameT,
+                result.sort_values(sort_columns, ascending=sort_flags, kind="stable"),
+            )
 
-    result = result.reset_index(drop=True)
+    result = cast(DataFrameT, result.reset_index(drop=True))
     result["index"] = range(len(result))
 
     expected_columns: Iterable[str] = []
@@ -267,6 +270,6 @@ def finalize_pipeline_output(
                 result[column] = pd.NA
 
         ordered_columns = [column for column in expected_columns if column in result.columns]
-        result = result[ordered_columns + extra_columns]
+        result = cast(DataFrameT, result[ordered_columns + extra_columns])
 
-    return result.convert_dtypes()
+    return cast(DataFrameT, result.convert_dtypes())

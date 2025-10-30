@@ -3,17 +3,19 @@
 import json
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, IO
 
 import yaml
 
 if TYPE_CHECKING:
+    from yaml import Node as YamlNode
+else:
     YamlNode = Any
 
 from bioetl.config.models import PipelineConfig
 
 
-class _IncludedList(list):
+class _IncludedList(list[Any]):
     """Marker type for sequences that should be spliced into parent lists."""
 
 
@@ -23,16 +25,19 @@ def _config_loader_factory(
     """Create a YAML loader class bound to a specific base path."""
 
     class ConfigLoader(yaml.SafeLoader):
-        def __init__(self, stream: Any) -> None:  # type: ignore[override]
-            super().__init__(stream)  # type: ignore[misc]
+        def __init__(self, stream: IO[str] | IO[bytes]) -> None:
+            super().__init__(stream)
             self._root = base_path
             self._include_stack = include_stack
 
-    def construct_include(loader: ConfigLoader, node: "YamlNode") -> Any:
+    def construct_include(loader: yaml.Loader, node: "YamlNode") -> Any:
         """Load referenced YAML content relative to the current file."""
 
-        if isinstance(node, yaml.nodes.ScalarNode):  # type: ignore[attr-defined]
-            relative_path = loader.construct_scalar(node)  # type: ignore[attr-defined]
+        if not isinstance(loader, ConfigLoader):
+            raise TypeError("!include constructor received unexpected loader instance")
+
+        if isinstance(node, yaml.nodes.ScalarNode):
+            relative_path = loader.construct_scalar(node)
         else:
             raise TypeError("!include only supports scalar values with file paths")
 
@@ -49,7 +54,7 @@ def _config_loader_factory(
             return _IncludedList(value)
         return value
 
-    ConfigLoader.add_constructor("!include", construct_include)  # type: ignore[arg-type, attr-defined]
+    ConfigLoader.add_constructor("!include", construct_include)
     return ConfigLoader
 
 
