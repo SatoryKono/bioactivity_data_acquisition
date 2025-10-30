@@ -1,7 +1,9 @@
 {
+  "plugins": {},
+  "extensions": {},
   "md013": {
-    "line_length": 120,
-    "code_block_line_length": 120,
+    "line_length": 9999,
+    "code_block_line_length": 9999,
     "tables": false
   }
 }
