@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from packaging.version import InvalidVersion, Version
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -318,8 +319,28 @@ class PipelineMetadata(BaseModel):
 
     name: str
     entity: str
-    version: str
+    version: str = Field(
+        default="1.0.0",
+        description="Semantic version of the pipeline definition",
+    )
     release_scope: bool = True
+
+    @field_validator("version")
+    @classmethod
+    def validate_version(cls, value: str) -> str:
+        """Ensure the configured pipeline version is a valid semantic version."""
+
+        candidate = value.strip()
+        if not candidate:
+            raise ValueError("Pipeline version cannot be empty")
+
+        try:
+            # ``Version`` enforces PEP 440 / semantic-style version strings.
+            Version(candidate)
+        except InvalidVersion as exc:  # pragma: no cover - defensive guard
+            raise ValueError(f"Invalid pipeline version '{candidate}'") from exc
+
+        return candidate
 
 
 class MaterializationFormatConfig(BaseModel):
