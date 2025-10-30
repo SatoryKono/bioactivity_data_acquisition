@@ -11,6 +11,7 @@ from typing import Any
 
 import pandas as pd
 import requests
+from pandera.errors import SchemaErrors
 from urllib.parse import urlencode
 
 from bioetl.config import PipelineConfig
@@ -1006,42 +1007,40 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
         # point of validation.
         coerce_nullable_int(df, _NULLABLE_INT_COLUMNS)
 
-        schema_issues: list[dict[str, Any]] = []
+        def _log_schema_issue(issue: dict[str, Any]) -> None:
+            logger.error(
+                "schema_validation_error",
+                column=issue.get("column"),
+                check=issue.get("check"),
+                count=issue.get("count"),
+                severity=issue.get("severity"),
+            )
 
-        def _handle_schema_failure(exc: Exception, _: bool) -> None:
-            nonlocal schema_issues
-
-            failure_cases = getattr(exc, "failure_cases", None)
-            if isinstance(failure_cases, pd.DataFrame):
-                schema_issues = self._summarize_schema_errors(failure_cases)
-            else:
-                schema_issues = []
-
-            for issue in schema_issues:
-                self.record_validation_issue(issue)
-                logger.error(
-                    "schema_validation_error",
-                    column=issue.get("column"),
-                    check=issue.get("check"),
-                    count=issue.get("count"),
-                    severity=issue.get("severity"),
-                )
+        def _exception_factory(
+            issues: list[dict[str, Any]], exc: SchemaErrors
+        ) -> Exception:
+            summary = "; ".join(
+                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+                for issue in issues
+            )
+            message = "Schema validation failed"
+            if summary:
+                message = f"{message}: {summary}"
+            return ValueError(message)
 
         try:
-            validated_df = self._validate_with_schema(
+            validated_df = self.run_schema_validation(
                 df,
-                AssaySchema,
+                schema=AssaySchema,
                 dataset_name="assays",
                 severity="error",
                 metric_name="schema.validation",
-                failure_handler=_handle_schema_failure,
+                summarize_failures=self._summarize_schema_errors,
+                issue_logger=_log_schema_issue,
+                exception_factory=_exception_factory,
             )
-        except Exception as exc:
-            summary = "; ".join(
-                f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
-                for issue in schema_issues
-            )
-            raise ValueError(f"Schema validation failed: {summary}") from exc
+        except ValueError:
+            raise
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("schema_validation_unexpected_error", error=str(exc))
             raise

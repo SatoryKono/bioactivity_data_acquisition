@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
 from bioetl.config.models import TargetSourceConfig
@@ -369,6 +370,67 @@ class PipelineBase(ABC):
         """Recompute validation issue counters inside the QC summary."""
 
         update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+
+    def run_schema_validation(
+        self,
+        df: pd.DataFrame,
+        *,
+        schema: Any,
+        dataset_name: str,
+        severity: str = "error",
+        metric_name: str | None = None,
+        summarize_failures: Callable[[pd.DataFrame], Iterable[dict[str, Any]]] | None = None,
+        issue_callback: Callable[[dict[str, Any]], None] | None = None,
+        issue_logger: Callable[[dict[str, Any]], None] | None = None,
+        success_handler: Callable[[pd.DataFrame], None] | None = None,
+        exception_factory: Callable[[list[dict[str, Any]], SchemaErrors], Exception] | None = None,
+    ) -> pd.DataFrame:
+        """Validate ``df`` with ``schema`` and aggregate schema issues consistently."""
+
+        captured_issues: list[dict[str, Any]] = []
+
+        def _handle_failure(exc: Exception, _: bool) -> None:
+            failure_cases = getattr(exc, "failure_cases", None)
+            issues: list[dict[str, Any]] = []
+            if summarize_failures is not None and isinstance(failure_cases, pd.DataFrame):
+                try:
+                    issues = list(summarize_failures(failure_cases))
+                except Exception as summary_exc:  # pragma: no cover - defensive logging
+                    logger.warning(
+                        "schema_issue_summary_failed",
+                        error=str(summary_exc),
+                        dataset=dataset_name,
+                    )
+                    issues = []
+
+            captured_issues.clear()
+            captured_issues.extend(issues)
+
+            for issue in issues:
+                self.record_validation_issue(issue)
+                if issue_callback is not None:
+                    issue_callback(issue)
+                if issue_logger is not None:
+                    issue_logger(issue)
+
+        failure_handler: Callable[[Exception, bool], None] | None = None
+        if summarize_failures is not None or issue_callback is not None or issue_logger is not None:
+            failure_handler = _handle_failure
+
+        try:
+            return self._validate_with_schema(
+                df,
+                schema,
+                dataset_name=dataset_name,
+                severity=severity,
+                metric_name=metric_name,
+                failure_handler=failure_handler,
+                success_handler=success_handler,
+            )
+        except SchemaErrors as exc:
+            if exception_factory is not None:
+                raise exception_factory(list(captured_issues), exc) from exc
+            raise
 
     def set_export_metadata(self, metadata: OutputMetadata | None) -> None:
         """Assign export metadata for downstream materialisation."""

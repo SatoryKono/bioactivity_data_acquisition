@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pandas as pd
+import pandera as pa
 import pytest
 import requests
 import yaml
@@ -60,6 +61,122 @@ def document_config():
     return load_config("configs/pipelines/document.yaml")
 
 
+def _summarize_failure_cases(failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
+    """Utility summariser mirroring production schema issue aggregation."""
+
+    issues: list[dict[str, Any]] = []
+    if failure_cases.empty:
+        return issues
+
+    for column, group in failure_cases.groupby("column", dropna=False):
+        column_name = (
+            str(column)
+            if column is not None and not (isinstance(column, float) and pd.isna(column))
+            else "<dataframe>"
+        )
+        checks = sorted({str(check) for check in group["check"].dropna().unique()})
+        issues.append(
+            {
+                "issue_type": "schema",
+                "severity": "error",
+                "column": column_name,
+                "check": ", ".join(checks) if checks else "<unspecified>",
+                "count": int(group.shape[0]),
+            }
+        )
+
+    return issues
+
+
+def test_run_schema_validation_success_updates_summary(assay_config):
+    """Helper should populate validation summary for passing datasets."""
+
+    pipeline = _SchemaValidationPipeline(assay_config, "schema-success")
+    schema = pa.DataFrameSchema({"value": pa.Column(pa.Int)})
+    df = pd.DataFrame({"value": [1, 2, 3]})
+
+    result = pipeline.run_schema_validation(
+        df,
+        schema=schema,
+        dataset_name="dummy",
+        severity="error",
+        metric_name="dummy.schema",
+    )
+
+    pd.testing.assert_frame_equal(result, df)
+
+    validation_summary = pipeline.qc_summary_data.get("validation")
+    assert validation_summary is not None
+
+    dataset_summary = validation_summary.get("dummy")
+    assert dataset_summary == {"status": "passed", "rows": 3, "severity": "info"}
+
+    metric_issue = next(
+        issue for issue in pipeline.validation_issues if issue.get("metric") == "dummy.schema"
+    )
+    assert metric_issue["status"] == dataset_summary["status"]
+    assert metric_issue["rows"] == dataset_summary["rows"]
+    assert metric_issue["severity"] == dataset_summary["severity"]
+
+
+def test_run_schema_validation_failure_records_issues(assay_config):
+    """Helper should collect schema issues and propagate custom exceptions."""
+
+    pipeline = _SchemaValidationPipeline(assay_config, "schema-failure")
+    schema = pa.DataFrameSchema({"value": pa.Column(pa.Int)})
+    df = pd.DataFrame({"value": ["invalid"]})
+
+    logged_issues: list[dict[str, Any]] = []
+
+    def _exception_factory(issues: list[dict[str, Any]], exc: SchemaErrors) -> Exception:
+        summary = "; ".join(
+            f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+            for issue in issues
+        )
+        message = "Schema validation failed"
+        if summary:
+            message = f"{message}: {summary}"
+        return ValueError(message)
+
+    with pytest.raises(ValueError):
+        pipeline.run_schema_validation(
+            df,
+            schema=schema,
+            dataset_name="dummy",
+            severity="error",
+            metric_name="dummy.schema",
+            summarize_failures=_summarize_failure_cases,
+            issue_logger=lambda issue: logged_issues.append(dict(issue)),
+            exception_factory=_exception_factory,
+        )
+
+    validation_summary = pipeline.qc_summary_data.get("validation")
+    assert validation_summary is not None
+
+    dataset_summary = validation_summary.get("dummy")
+    assert dataset_summary is not None
+    assert dataset_summary["status"] == "failed"
+    assert dataset_summary["severity"] == "error"
+    assert dataset_summary.get("errors") is not None
+
+    metric_issue = next(
+        issue for issue in pipeline.validation_issues if issue.get("metric") == "dummy.schema"
+    )
+    assert metric_issue["status"] == dataset_summary["status"]
+    assert metric_issue["severity"] == dataset_summary["severity"]
+    assert metric_issue["errors"] == dataset_summary["errors"]
+
+    schema_issues = [
+        issue for issue in pipeline.validation_issues if issue.get("issue_type") == "schema"
+    ]
+    assert schema_issues
+
+    normalised_schema_issues = [
+        {key: value for key, value in issue.items() if key != "metric"}
+        for issue in schema_issues
+    ]
+    assert logged_issues == normalised_schema_issues
+
 def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     """Calling ``run`` twice should not accumulate QC records from previous runs."""
 
@@ -101,6 +218,9 @@ def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
                 quality_report=output_path.with_suffix(".qc.csv"),
                 run_directory=output_path.parent,
             )
+
+        def close_resources(self) -> None:  # pragma: no cover - test stub
+            return None
 
     pipeline = RecordingPipeline(assay_config, "run-state-test")
     output_path = tmp_path / "dataset.csv"
@@ -147,7 +267,7 @@ def test_pipeline_run_does_not_reuse_runtime_limit(assay_config, tmp_path):
         def export(
             self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
         ) -> OutputArtifacts:  # noqa: D401 - test stub
-            self.output_writer.write_dataframe_csv(df, output_path)
+            self.output_writer.write(df, output_path, extended=extended)
             return OutputArtifacts(
                 dataset=output_path,
                 quality_report=output_path.with_suffix(".qc.csv"),
@@ -208,12 +328,15 @@ def test_pipeline_run_closes_api_client(monkeypatch, assay_config, tmp_path):
         def export(
             self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
         ) -> OutputArtifacts:  # noqa: D401 - test stub
-            self.output_writer.write_dataframe_csv(df, output_path)
+            self.output_writer.write(df, output_path, extended=extended)
             return OutputArtifacts(
                 dataset=output_path,
                 quality_report=output_path.with_suffix(".qc.csv"),
                 run_directory=output_path.parent,
             )
+
+        def close_resources(self) -> None:  # pragma: no cover - test stub
+            return None
 
     pipeline = ClosingPipeline(assay_config, "close-test")
     output_path = tmp_path / "dataset.csv"
@@ -239,12 +362,15 @@ def test_pipeline_run_invokes_close(monkeypatch, assay_config, tmp_path):
         def export(
             self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
         ) -> OutputArtifacts:  # noqa: D401 - test stub
-            self.output_writer.write_dataframe_csv(df, output_path)
+            self.output_writer.write(df, output_path, extended=extended)
             return OutputArtifacts(
                 dataset=output_path,
                 quality_report=output_path.with_suffix(".qc.csv"),
                 run_directory=output_path.parent,
             )
+
+        def close_resources(self) -> None:  # pragma: no cover - test stub
+            return None
 
     close_calls: list[PipelineBase] = []
     original_close = ClosingPipeline.close
@@ -2722,3 +2848,19 @@ def _build_testitem_frame(
 
     df = pd.DataFrame(rows, columns=columns).convert_dtypes()
     return df
+class _SchemaValidationPipeline(PipelineBase):
+    """Minimal pipeline to exercise schema validation helpers."""
+
+    def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+        return pd.DataFrame()
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+        return df
+
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+        return df
+
+    def close_resources(self) -> None:  # noqa: D401 - test stub
+        return None
+
+

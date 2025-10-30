@@ -1,5 +1,7 @@
 """UnifiedOutputWriter: deterministic data writing with quality metrics and atomic writes."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os

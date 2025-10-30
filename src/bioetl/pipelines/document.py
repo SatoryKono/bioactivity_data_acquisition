@@ -1226,9 +1226,9 @@ class DocumentPipeline(PipelineBase):
             logger.error("validation_failed", errors=error_msg)
             raise ValueError(f"Валидация не прошла: {error_msg}")
 
-        validated_df = self._validate_with_schema(
+        validated_df = self.run_schema_validation(
             working_df,
-            DocumentNormalizedSchema,
+            schema=DocumentNormalizedSchema,
             dataset_name="documents",
             severity="error",
             metric_name="normalized_schema_validation",

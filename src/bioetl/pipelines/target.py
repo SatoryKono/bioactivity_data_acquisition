@@ -381,29 +381,29 @@ class TargetPipeline(PipelineBase):
                     }
                 )
 
-        validated_targets = self._validate_with_schema(
+        validated_targets = self.run_schema_validation(
             df,
-            TargetSchema,
+            schema=TargetSchema,
             dataset_name="targets",
             severity="critical",
         )
         self.gold_targets = validated_targets
 
-        self.gold_components = self._validate_with_schema(
+        self.gold_components = self.run_schema_validation(
             self.gold_components,
-            TargetComponentSchema,
+            schema=TargetComponentSchema,
             dataset_name="target_components",
         )
 
-        self.gold_protein_class = self._validate_with_schema(
+        self.gold_protein_class = self.run_schema_validation(
             self.gold_protein_class,
-            ProteinClassSchema,
+            schema=ProteinClassSchema,
             dataset_name="protein_classifications",
         )
 
-        self.gold_xref = self._validate_with_schema(
+        self.gold_xref = self.run_schema_validation(
             self.gold_xref,
-            XrefSchema,
+            schema=XrefSchema,
             dataset_name="target_xrefs",
         )
 
