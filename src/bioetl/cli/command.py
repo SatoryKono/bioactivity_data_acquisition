@@ -6,15 +6,13 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from types import MethodType
-from typing import Any
-
 import pandas as pd
 import typer
 
 from bioetl.config.loader import load_config, parse_cli_overrides
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
+from bioetl.cli.limits import apply_sample_limit
 
 
 @dataclass(frozen=True)
@@ -180,30 +178,13 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             pipeline = pipeline_cls(config_obj, run_id)
 
             if sample_limit is not None:
-                runtime_options = getattr(pipeline, "runtime_options", None)
-                if isinstance(runtime_options, dict):
-                    runtime_options["limit"] = sample_limit
-                    runtime_options.setdefault("sample", sample_limit)
+                apply_sample_limit(pipeline, sample_limit)
 
             if dry_run:
                 typer.echo("[DRY-RUN] Configuration loaded successfully.")
                 typer.echo(f"Config path: {config_path}")
                 typer.echo(f"Config hash: {config_obj.config_hash}")
                 return
-
-            if sample_limit is not None:
-                original_extract = pipeline.extract
-
-                def limited_extract(self: PipelineBase, *args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
-                    df = original_extract(*args, **kwargs)
-                    logger.info(
-                        "applying_sample_limit",
-                        limit=sample_limit,
-                        original_rows=len(df),
-                    )
-                    return df.head(sample_limit)
-
-                pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
 
             output_dir.mkdir(parents=True, exist_ok=True)
             dataset_name = f"{config.pipeline_name}_{timestamp}.csv"
