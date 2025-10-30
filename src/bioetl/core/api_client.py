@@ -355,8 +355,16 @@ class UnifiedAPIClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Make JSON request with all protections.
+        """Make a JSON request with resiliency features and fallbacks.
+
+        The method performs the following steps:
+
+        1. Build the absolute URL and reuse cached responses when available.
+        2. Execute the HTTP call guarded by the circuit breaker, rate limiter,
+           and retry policy.
+        3. When the retry budget is exhausted, attempt the configured fallback
+           strategies in order (for example ``cache`` or ``partial``) before
+           surfacing the final exception.
 
         Args:
             url: Request URL
@@ -413,13 +421,12 @@ class UnifiedAPIClient:
                 response_payload: dict[str, Any] = response.json()
 
                 # Cache result
-                if (
-                    self.cache
-                    and cache_key
-                    and method == "GET"
-                    and request_has_no_body
-                ):
-                    self.cache[cache_key] = copy.deepcopy(response_payload)
+                self._maybe_store_in_cache(
+                    cache_key=cache_key,
+                    method=method,
+                    request_has_no_body=request_has_no_body,
+                    payload=response_payload,
+                )
 
                 return response_payload
 
@@ -508,6 +515,21 @@ class UnifiedAPIClient:
                 if retry_after_seconds is not None and wait_time > 0:
                     time.sleep(wait_time)
 
+            except PartialFailure as e:
+                last_exc = e
+                last_attempt = attempt
+                last_attempt_timestamp = time.time()
+                logger.warning(
+                    "partial_failure_detected",
+                    attempt=attempt,
+                    url=url,
+                    method=method,
+                    params=params,
+                    received=getattr(e, "received", None),
+                    expected=getattr(e, "expected", None),
+                )
+                break
+
             except Exception as e:
                 last_exc = e
                 logger.error(
@@ -521,6 +543,25 @@ class UnifiedAPIClient:
                 raise
 
         if last_exc:
+            if self.config.fallback_enabled and self.config.fallback_strategies:
+                logger.info(
+                    "fallback_sequence_evaluated",
+                    strategies=list(self.config.fallback_strategies),
+                    url=url,
+                    method=method,
+                )
+                fallback_payload, last_exc = self._apply_fallback_strategies(
+                    strategies=self.config.fallback_strategies,
+                    last_exc=last_exc,
+                    cache_key=cache_key,
+                    method=method,
+                    request_has_no_body=request_has_no_body,
+                    url=url,
+                    perform_request=_perform_request,
+                )
+                if fallback_payload is not None:
+                    return fallback_payload
+
             if not hasattr(last_exc, "retry_metadata"):
                 metadata = {
                     "attempt": last_attempt,
@@ -576,6 +617,201 @@ class UnifiedAPIClient:
             wait_seconds=parsed_seconds,
         )
         return parsed_seconds
+
+    def _maybe_store_in_cache(
+        self,
+        *,
+        cache_key: str | None,
+        method: str,
+        request_has_no_body: bool,
+        payload: dict[str, Any],
+    ) -> None:
+        """Persist a successful response in the cache when applicable."""
+
+        if (
+            self.cache
+            and cache_key
+            and method == "GET"
+            and request_has_no_body
+        ):
+            self.cache[cache_key] = copy.deepcopy(payload)
+
+    def _apply_fallback_strategies(
+        self,
+        *,
+        strategies: Iterable[str],
+        last_exc: Exception,
+        cache_key: str | None,
+        method: str,
+        request_has_no_body: bool,
+        url: str,
+        perform_request: Callable[[], requests.Response],
+    ) -> tuple[dict[str, Any] | None, Exception]:
+        """Iterate through configured fallback strategies."""
+
+        current_exc = last_exc
+        for strategy in strategies:
+            normalized = strategy.lower().strip()
+            if normalized == "cache":
+                cached = self._fallback_from_cache(cache_key)
+                if cached is not None:
+                    logger.warning(
+                        "fallback_strategy_applied",
+                        strategy="cache",
+                        url=url,
+                        method=method,
+                    )
+                    return cached, current_exc
+                logger.debug(
+                    "fallback_strategy_unavailable",
+                    strategy="cache",
+                    reason="cache_miss",
+                    url=url,
+                    method=method,
+                )
+                continue
+
+            if normalized == "partial":
+                payload, current_exc = self._fallback_partial_retry(
+                    cache_key=cache_key,
+                    method=method,
+                    request_has_no_body=request_has_no_body,
+                    perform_request=perform_request,
+                    last_exc=current_exc,
+                    url=url,
+                )
+                if payload is not None:
+                    return payload, current_exc
+                continue
+
+            logger.debug(
+                "fallback_strategy_unknown",
+                strategy=strategy,
+                url=url,
+                method=method,
+            )
+
+        return None, current_exc
+
+    def _fallback_from_cache(self, cache_key: str | None) -> dict[str, Any] | None:
+        """Return a cached response snapshot for fallback usage."""
+
+        if not self.cache or cache_key is None:
+            return None
+
+        cached_payload = self.cache.get(cache_key)
+        if cached_payload is None:
+            return None
+
+        return copy.deepcopy(cached_payload)
+
+    def _fallback_partial_retry(
+        self,
+        *,
+        cache_key: str | None,
+        method: str,
+        request_has_no_body: bool,
+        perform_request: Callable[[], requests.Response],
+        last_exc: Exception,
+        url: str,
+    ) -> tuple[dict[str, Any] | None, Exception]:
+        """Attempt to recover from a ``PartialFailure`` using bounded retries."""
+
+        if not isinstance(last_exc, PartialFailure):
+            logger.debug(
+                "fallback_partial_inapplicable",
+                reason="last_error_not_partial_failure",
+                url=url,
+                method=method,
+            )
+            return None, last_exc
+
+        max_attempts = max(int(self.config.partial_retry_max), 0)
+        if max_attempts == 0:
+            logger.debug(
+                "fallback_partial_inapplicable",
+                reason="partial_retry_max_zero",
+                url=url,
+                method=method,
+            )
+            return None, last_exc
+
+        current_exc: Exception = last_exc
+        for attempt in range(1, max_attempts + 1):
+            try:
+                logger.warning(
+                    "fallback_partial_retry_attempt",
+                    attempt=attempt,
+                    expected=getattr(current_exc, "expected", None),
+                    received=getattr(current_exc, "received", None),
+                    strategy="partial",
+                    url=url,
+                    method=method,
+                )
+                response = self.circuit_breaker.call(perform_request)
+                response.raise_for_status()
+                payload: dict[str, Any] = response.json()
+                self._maybe_store_in_cache(
+                    cache_key=cache_key,
+                    method=method,
+                    request_has_no_body=request_has_no_body,
+                    payload=payload,
+                )
+                logger.warning(
+                    "fallback_partial_retry_success",
+                    attempt=attempt,
+                    strategy="partial",
+                    url=url,
+                    method=method,
+                )
+                return payload, current_exc
+            except PartialFailure as exc:
+                current_exc = exc
+                logger.warning(
+                    "fallback_partial_retry_failure",
+                    attempt=attempt,
+                    expected=getattr(exc, "expected", None),
+                    received=getattr(exc, "received", None),
+                    strategy="partial",
+                    url=url,
+                    method=method,
+                )
+                continue
+            except requests.exceptions.HTTPError as exc:
+                current_exc = exc
+                logger.warning(
+                    "fallback_partial_retry_http_error",
+                    attempt=attempt,
+                    error=str(exc),
+                    strategy="partial",
+                    url=url,
+                    method=method,
+                )
+                break
+            except requests.exceptions.RequestException as exc:
+                current_exc = exc
+                logger.warning(
+                    "fallback_partial_retry_request_error",
+                    attempt=attempt,
+                    error=str(exc),
+                    strategy="partial",
+                    url=url,
+                    method=method,
+                )
+                break
+            except Exception as exc:  # pragma: no cover - defensive
+                current_exc = exc
+                logger.error(
+                    "fallback_partial_retry_unexpected_error",
+                    attempt=attempt,
+                    error=str(exc),
+                    strategy="partial",
+                    url=url,
+                    method=method,
+                )
+                break
+
+        return None, current_exc
 
     def _execute(
         self,
