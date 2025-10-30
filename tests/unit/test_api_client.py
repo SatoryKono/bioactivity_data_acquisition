@@ -332,6 +332,37 @@ def test_request_json_uses_cache_for_idempotent_get(
     assert call_count["count"] == 1
 
 
+def test_request_json_cache_returns_deepcopy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cached responses should not be mutated by callers."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=True,
+        cache_ttl=60,
+        cache_maxsize=32,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    call_count = {"count": 0}
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        call_count["count"] += 1
+        return _build_response(200, {"result": "ok"})
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    first_payload = client.request_json("/resource")
+    first_payload["result"] = "mutated"
+
+    second_payload = client.request_json("/resource")
+
+    assert second_payload == {"result": "ok"}
+    assert second_payload is not first_payload
+    assert call_count["count"] == 1
+
+
 def test_request_json_retries_configured_status(monkeypatch: pytest.MonkeyPatch) -> None:
     """UnifiedAPIClient should retry configured HTTP status codes like 404."""
 
