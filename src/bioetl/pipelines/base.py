@@ -436,7 +436,7 @@ class PipelineBase(ABC):
             config_hash=resolved_config_hash,
             git_commit=resolved_git_commit,
             sources=resolved_sources,
- 
+
             schema=resolved_schema,
             hash_policy_version=resolved_hash_policy_version,
         )

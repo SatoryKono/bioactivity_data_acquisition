@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from collections.abc import Callable, Sequence
-from typing import Any, TYPE_CHECKING, Type
+from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 
@@ -17,6 +17,7 @@ from bioetl.config.models import DeterminismConfig
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
     from bioetl.config import PipelineConfig
+    from bioetl.schemas.base import BaseSchema
 
 logger = UnifiedLogger.get(__name__)
 
@@ -140,13 +141,12 @@ class OutputMetadata:
         config_hash: str | None = None,
         git_commit: str | None = None,
         sources: Sequence[str] | None = None,
-
-        schema: Type["BaseSchema"] | None = None,
+        schema: type[BaseSchema] | None = None,
         hash_policy_version: str | None = None,
     ) -> "OutputMetadata":
         """Создает метаданные из DataFrame."""
 
-        normalised_sources: tuple[str, ...] = tuple()
+        normalised_sources: tuple[str, ...] = ()
         if sources:
             seen: set[str] = set()
             ordered: list[str] = []
