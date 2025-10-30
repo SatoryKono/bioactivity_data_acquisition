@@ -5,8 +5,9 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
-from bioetl.core.api_client import APIConfig
+from bioetl.adapters.base import ExternalAdapter
+
+from tests.unit.adapters._mixins import AdapterTestMixin
 
 
 class DummyAdapter(ExternalAdapter):
@@ -22,18 +23,12 @@ class DummyAdapter(ExternalAdapter):
         return [{"id": identifier} for identifier in ids]
 
 
-class TestExternalAdapterHelper(unittest.TestCase):
+class TestExternalAdapterHelper(AdapterTestMixin, unittest.TestCase):
     """Tests for :meth:`ExternalAdapter._fetch_in_batches`."""
 
-    def setUp(self) -> None:
-        api_config = APIConfig(
-            name="dummy",
-            base_url="https://example.org",
-            rate_limit_max_calls=1,
-            rate_limit_period=1.0,
-        )
-        adapter_config = AdapterConfig(batch_size=2)
-        self.adapter = DummyAdapter(api_config, adapter_config)
+    ADAPTER_CLASS = DummyAdapter
+    API_CONFIG_OVERRIDES = {"name": "dummy"}
+    ADAPTER_CONFIG_OVERRIDES = {"batch_size": 2}
 
     def test_fetch_in_batches_empty_ids(self) -> None:
         """Helper returns empty list and skips batch calls for empty input."""

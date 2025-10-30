@@ -3,32 +3,26 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from bioetl.adapters.base import AdapterConfig
 from bioetl.adapters.pubmed import PubMedAdapter
-from bioetl.core.api_client import APIConfig
+
+from tests.unit.adapters._mixins import AdapterTestMixin
 
 
-class TestPubMedAdapter(unittest.TestCase):
+class TestPubMedAdapter(AdapterTestMixin, unittest.TestCase):
     """Test PubMedAdapter."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        api_config = APIConfig(
-            name="pubmed",
-            base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
-            rate_limit_max_calls=3,
-            rate_limit_period=1.0,
-        )
-        adapter_config = AdapterConfig(
-            enabled=True,
-            batch_size=200,
-            workers=1,
-        )
-        adapter_config.tool = "bioactivity_etl"
-        adapter_config.email = "test@example.com"
-        adapter_config.api_key = "test_key"
-
-        self.adapter = PubMedAdapter(api_config, adapter_config)
+    ADAPTER_CLASS = PubMedAdapter
+    API_CONFIG_OVERRIDES = {
+        "name": "pubmed",
+        "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+        "rate_limit_max_calls": 3,
+    }
+    ADAPTER_CONFIG_OVERRIDES = {
+        "batch_size": 200,
+        "workers": 1,
+        "email": "test@example.com",
+        "api_key": "test_key",
+    }
 
     @patch("bioetl.adapters.pubmed.ET.fromstring")
     def test_parse_xml(self, mock_et):

@@ -2,30 +2,25 @@
 
 import unittest
 
-from bioetl.adapters.base import AdapterConfig
 from bioetl.adapters.crossref import CrossrefAdapter
-from bioetl.core.api_client import APIConfig
+
+from tests.unit.adapters._mixins import AdapterTestMixin
 
 
-class TestCrossrefAdapter(unittest.TestCase):
+class TestCrossrefAdapter(AdapterTestMixin, unittest.TestCase):
     """Test CrossrefAdapter."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        api_config = APIConfig(
-            name="crossref",
-            base_url="https://api.crossref.org",
-            rate_limit_max_calls=2,
-            rate_limit_period=1.0,
-        )
-        adapter_config = AdapterConfig(
-            enabled=True,
-            batch_size=100,
-            workers=2,
-        )
-        adapter_config.mailto = "test@example.com"
-
-        self.adapter = CrossrefAdapter(api_config, adapter_config)
+    ADAPTER_CLASS = CrossrefAdapter
+    API_CONFIG_OVERRIDES = {
+        "name": "crossref",
+        "base_url": "https://api.crossref.org",
+        "rate_limit_max_calls": 2,
+    }
+    ADAPTER_CONFIG_OVERRIDES = {
+        "batch_size": 100,
+        "workers": 2,
+        "mailto": "test@example.com",
+    }
 
     def test_normalize_record(self):
         """Test record normalization."""
