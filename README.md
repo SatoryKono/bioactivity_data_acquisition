@@ -12,8 +12,7 @@ pip install -e ".[dev]"
 # Install pre-commit hooks
 
 pre-commit install
-
-```
+ 
 ### Install test dependencies only
 ```bash
 pip install -r requirements.txt

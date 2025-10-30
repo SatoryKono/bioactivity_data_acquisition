@@ -1,4 +1,5 @@
 # REQUIREMENTS UPDATED
+
 | ID    | Обновление | Доказательство | Ссылки |
 |-------|------------|----------------|--------|
 | REQ-5 | QC отчёты фиксируют coverage, duplicates и fallback для всех пайплайнов | QC regression тесты, анализ CSV sidecars | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
