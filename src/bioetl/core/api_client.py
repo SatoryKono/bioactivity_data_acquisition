@@ -411,50 +411,13 @@ class UnifiedAPIClient:
             )
 
         def _perform_request() -> requests.Response:
-            # Rate limit
-            self.rate_limiter.acquire()
-
-            # Make request
-            response = self.session.request(
+            return self._execute(
                 method=method,
                 url=url,
                 params=params,
                 data=data,
                 json=json,
-                timeout=(self.config.timeout_connect, self.config.timeout_read),
             )
-
-            # Check for retry-after header
-            if response.status_code == 429:
-                retry_after = response.headers.get("Retry-After")
-                if retry_after:
-                    wait_time = parse_retry_after(retry_after)
-                    if wait_time is None:
-                        logger.warning(
-                            "retry_after_header_invalid",
-                            retry_after_raw=retry_after,
-                        )
-                    else:
-                        logger.warning(
-                            "retry_after_header",
-                            wait_seconds=wait_time,
-                            retry_after_raw=retry_after,
-                        )
-                        time.sleep(wait_time)
-                        # Retry once after waiting
-                        response = self.session.request(
-                            method=method,
-                            url=url,
-                            params=params,
-                            data=data,
-                            json=json,
-                            timeout=(
-                                self.config.timeout_connect,
-                                self.config.timeout_read,
-                            ),
-                        )
-
-            return response
 
         wrapped_request = backoff.on_exception(
             backoff.expo,
@@ -606,6 +569,59 @@ class UnifiedAPIClient:
             wait_seconds=parsed_seconds,
         )
         return parsed_seconds
+
+    def _execute(
+        self,
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        """Execute a single HTTP request respecting Retry-After semantics."""
+
+        self.rate_limiter.acquire()
+
+        request_kwargs: dict[str, Any] = {
+            "method": method,
+            "url": url,
+            "params": params,
+            "data": data,
+            "json": json,
+            "timeout": (self.config.timeout_connect, self.config.timeout_read),
+        }
+
+        response = self.session.request(**request_kwargs)
+
+        if response.status_code != 429:
+            return response
+
+        retry_after_seconds = self._retry_after_seconds(response)
+        retry_after_raw = response.headers.get("Retry-After") if response.headers else None
+
+        if retry_after_seconds is None:
+            if retry_after_raw:
+                logger.warning(
+                    "retry_after_header_invalid",
+                    retry_after_raw=retry_after_raw,
+                )
+            return response
+
+        logger.warning(
+            "retry_after_header",
+            wait_seconds=retry_after_seconds,
+            retry_after_raw=retry_after_raw,
+        )
+
+        time.sleep(retry_after_seconds)
+
+        # Re-acquire the limiter token before the follow-up request.
+        self.rate_limiter.acquire()
+
+        retry_request_kwargs = request_kwargs.copy()
+        response = self.session.request(**retry_request_kwargs)
+        return response
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
