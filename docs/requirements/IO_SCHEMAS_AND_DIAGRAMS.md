@@ -2,12 +2,12 @@
 
 ## Assay Pipeline
 
-### A) Паспорт пайплайна
+### A) Паспорт пайплайна (Activity)
 
 - **Название:** AssayPipeline
 - **Назначение:** детерминированное извлечение, нормализация и выгрузка данных ассая из ChEMBL с whitelist обогащением. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 
-### B) Диаграмма I/O
+### B) Диаграмма I/O (Activity)
 
 ```mermaid
 flowchart TB
@@ -622,12 +622,12 @@ schema:
 
 ## Activity Pipeline
 
-### A) Паспорт пайплайна
+### A) Паспорт пайплайна (Testitem)
 
 - **Название:** ActivityPipeline
 - **Назначение:** извлечение и нормализация ChEMBL activity c детерминированной выгрузкой и QC. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 
-### B) Диаграмма I/O
+### B) Диаграмма I/O (Testitem)
 
 ```mermaid
 flowchart TB
@@ -1066,12 +1066,12 @@ schema:
 
 ## Testitem Pipeline
 
-### A) Паспорт пайплайна
+### A) Паспорт пайплайна (Testitem)
 
 - **Название:** TestitemPipeline
 - **Назначение:** извлечение молекул ChEMBL с опциональным PubChem enrichment и строгой нормализацией. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
 
-### B) Диаграмма I/O
+### B) Диаграмма I/O (Testitem)
 
 ```mermaid
 flowchart TB
@@ -1256,11 +1256,13 @@ schema:
 
 ## Target Pipeline
 
-### A) Паспорт пайплайна
+### A) Паспорт пайплайна (Target)
+
 - **Название:** TargetPipeline
 - **Назначение:** объединение ChEMBL таргетов с UniProt и IUPHAR enrichment в четыре согласованные таблицы. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 
-### B) Диаграмма I/O
+### B) Диаграмма I/O (Target)
+
 
 ```mermaid
 flowchart TB
@@ -1385,8 +1387,8 @@ schema:
       na_policy: forbid
       notes: "Версия источника"
       evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+schema:
 
- 
 schema:
   name: target/target_components
   primary_key: [target_chembl_id, component_id]
@@ -1424,8 +1426,8 @@ schema:
       na_policy: forbid
       notes: "Источник компонента"
       evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+schema:
 
- 
 schema:
   name: target/protein_class
   primary_key: [target_chembl_id, class_level, class_name]
@@ -1453,8 +1455,8 @@ schema:
       na_policy: forbid
       notes: "Полный путь классификации"
       evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+schema:
 
- 
 schema:
   name: target/xref
   primary_key: [target_chembl_id, xref_src_db, xref_id]
@@ -1502,7 +1504,8 @@ schema:
 
 ## Document Pipeline
 
-### A) Паспорт пайплайна
+### A) Паспорт пайплайна (Document)
+
 - **Название:** DocumentPipeline
 - **Назначение:** извлечение метаданных документов из ChEMBL и внешних источников с детерминированным экспортом. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 
