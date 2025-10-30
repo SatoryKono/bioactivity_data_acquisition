@@ -14,6 +14,7 @@ import yaml
 
 from bioetl.config.loader import load_config
 from bioetl.config.models import DeterminismConfig
+from bioetl.config.paths import get_config_path
 from bioetl.core.output_writer import (
     AdditionalTableSpec,
     AtomicWriter,
@@ -181,8 +182,7 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     df = pd.DataFrame(
         {"value": [10, 20, 10, 30], "category": ["x", "y", "x", "z"]}
     )
-    repo_root = Path(__file__).resolve().parents[2]
-    config_path = repo_root / "configs" / "base.yaml"
+    config_path = get_config_path("base.yaml")
     writer = UnifiedOutputWriter(
         "run-test",
         pipeline_config=SimpleNamespace(source_path=config_path),

@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from bioetl.config.loader import load_config
+from bioetl.config.paths import get_configs_root
 
 SPEC_PATH = Path("99-data-sources-and-data-spec.md")
 
@@ -120,7 +121,8 @@ def labels_present(text: str, expected: set[str]) -> set[str]:
 def test_pipeline_sources_documented():
     spec_rows = parse_sources_table()
 
-    pipeline_paths = sorted(Path("configs/pipelines").glob("*.yaml"))
+    pipeline_dir = get_configs_root() / "pipelines"
+    pipeline_paths = sorted(pipeline_dir.glob("*.yaml"))
     assert pipeline_paths, "No pipeline configurations discovered"
 
     pipeline_configs = [(path, load_config(path)) for path in pipeline_paths]

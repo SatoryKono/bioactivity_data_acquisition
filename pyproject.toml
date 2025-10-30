@@ -67,6 +67,7 @@ bioetl = "bioetl.cli.main:app"
 where = ["src"]
 
 [tool.setuptools.package-data]
+"bioetl" = ["configs/**/*.yaml"]
 "*" = ["py.typed"]
 
 [tool.ruff]

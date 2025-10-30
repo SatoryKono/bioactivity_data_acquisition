@@ -156,7 +156,7 @@ def test_pipeline_configs_expose_materialization_paths(
     """All pipeline configs should expose resolvable materialization datasets."""
 
     monkeypatch.setenv("IUPHAR_API_KEY", "test-key")
-    config = load_config(Path(f"configs/pipelines/{pipeline_name}.yaml"))
+    config = load_config(f"configs/pipelines/{pipeline_name}.yaml")
     materialization = config.materialization
 
     for stage_name, stage in materialization.stages.items():

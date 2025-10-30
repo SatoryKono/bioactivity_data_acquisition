@@ -10,6 +10,7 @@ import requests
 from pytest_httpserver import HTTPServer
 
 from bioetl.config.loader import load_config
+from bioetl.config.paths import get_config_path
 from bioetl.pipelines.document import (
     DocumentPipeline,
     ExternalEnrichmentResult,
@@ -49,8 +50,7 @@ def sample_documents_data():
 @pytest.fixture
 def document_config():
     """Use test profile with external sources disabled and dummy secrets."""
-    config_path = Path("configs/profiles/document_test.yaml")
-    return config_path
+    return get_config_path("profiles/document_test.yaml")
 
 
 @pytest.fixture(autouse=True)

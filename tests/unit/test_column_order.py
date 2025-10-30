@@ -1,12 +1,11 @@
 """Tests for deterministic column ordering across pipeline configs."""
 
-from pathlib import Path
-
 import yaml
 
 from bioetl.config import load_config
+from bioetl.config.paths import get_config_path
 
-FALLBACK_COLUMNS_PATH = Path("configs/includes/fallback_columns.yaml")
+FALLBACK_COLUMNS_PATH = get_config_path("includes/fallback_columns.yaml")
 FALLBACK_COLUMNS_RAW = yaml.safe_load(FALLBACK_COLUMNS_PATH.read_text())
 if not isinstance(FALLBACK_COLUMNS_RAW, list):  # pragma: no cover - guard clause
     raise AssertionError("Fallback columns include must define a list")
@@ -15,7 +14,7 @@ FALLBACK_COLUMNS: list[str] = list(FALLBACK_COLUMNS_RAW)
 
 
 def _load_pipeline_config(name: str):
-    return load_config(Path(f"configs/pipelines/{name}.yaml"))
+    return load_config(f"configs/pipelines/{name}.yaml")
 
 
 def test_fallback_columns_tail_activity():

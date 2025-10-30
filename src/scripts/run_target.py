@@ -17,11 +17,12 @@ from click.core import ParameterSource
 
 from bioetl.cli.limits import apply_sample_limit
 from bioetl.config.loader import load_config, parse_cli_overrides
+from bioetl.config.paths import get_config_path
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.target import TargetPipeline
 
-DEFAULT_CONFIG = Path("configs/pipelines/target.yaml")
+DEFAULT_CONFIG = get_config_path("pipelines/target.yaml")
 # The canonical bootstrap dataset bundled with the repository is singular
 # (``target.csv``). A typo in the original CLI default pointed to
 # ``targets.csv`` which does not exist and caused the pipeline to emit empty

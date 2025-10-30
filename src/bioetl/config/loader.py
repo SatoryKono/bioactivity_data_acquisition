@@ -14,6 +14,7 @@ else:
     YamlNode = Any
 
 from bioetl.config.models import PipelineConfig
+from bioetl.config.paths import resolve_config_path
 
 
 class _IncludedList(list[Any]):
@@ -137,6 +138,9 @@ def load_config(
     # Convert to Path if string
     if isinstance(config_path, str):
         config_path = Path(config_path)
+
+    if not config_path.is_absolute():
+        config_path = resolve_config_path(config_path)
 
     # Load config file and resolve extends
     config_data = _load_with_extends(config_path)

@@ -46,6 +46,12 @@ try:  # pragma: no cover - optional dependency
 except ModuleNotFoundError:  # pragma: no cover
     yaml = None  # type: ignore
 
+try:  # pragma: no cover - runtime convenience when executed via ``python scripts/...``
+    from bioetl.config.paths import get_configs_root
+except ModuleNotFoundError:  # pragma: no cover - fallback for repo-local execution
+    sys.path.append(str(Path(__file__).resolve().parents[2] / "src"))
+    from bioetl.config.paths import get_configs_root
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -538,7 +544,7 @@ def run(repo_root: Path, artifacts_dir: Path, reports_dir: Path) -> None:
     write_clone_report(reports_dir / "ast_clones.csv", ast_groups, repo_root)
     write_clone_report(reports_dir / "semantic_clones.csv", semantic_groups, repo_root)
 
-    duplicates = detect_config_duplicates(repo_root / "configs", repo_root)
+    duplicates = detect_config_duplicates(get_configs_root(), repo_root)
     write_config_duplicates(reports_dir / "config_duplicates.csv", duplicates)
 
 
