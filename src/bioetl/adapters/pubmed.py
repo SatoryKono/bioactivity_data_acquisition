@@ -8,11 +8,7 @@ from xml.etree import ElementTree as ET
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers import registry
-from bioetl.normalizers.bibliography import (
-    normalize_authors,
-    normalize_doi,
-    normalize_title,
-)
+from bioetl.normalizers.bibliography import normalize_common_bibliography
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -293,7 +289,18 @@ class PubMedAdapter(ExternalAdapter):
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize PubMed record."""
-        normalized = {}
+        common = normalize_common_bibliography(
+            record,
+            doi="doi",
+            title="title",
+            journal="journal",
+            authors="authors",
+            journal_normalizer=lambda value: (
+                NORMALIZER_STRING.normalize(value) if value is not None else None
+            ),
+        )
+
+        normalized = dict(common)
 
         # PMID
         if "pmid" in record:
@@ -302,24 +309,13 @@ class PubMedAdapter(ExternalAdapter):
             # Also add pubmed_pmid field (duplicate for merge logic)
             normalized["pubmed_pmid"] = int(record["pmid"]) if record["pmid"] else None
 
-        # DOI
-        doi_clean = normalize_doi(record.get("doi"))
+        doi_clean = common.get("doi_clean")
         if doi_clean:
-            normalized["doi_clean"] = doi_clean
             normalized["pubmed_doi"] = doi_clean
-
-        # Title
-        title = normalize_title(record.get("title"))
-        if title:
-            normalized["title"] = title
 
         # Abstract
         if "abstract" in record:
             normalized["abstract"] = NORMALIZER_STRING.normalize(record["abstract"])
-
-        # Journal
-        if "journal" in record:
-            normalized["journal"] = NORMALIZER_STRING.normalize(record["journal"])
 
         if "journal_abbrev" in record:
             normalized["journal_abbrev"] = NORMALIZER_STRING.normalize(record["journal_abbrev"])
@@ -353,11 +349,6 @@ class PubMedAdapter(ExternalAdapter):
             normalized["year"] = record.get("year")
         if "year" in record:
             normalized["year"] = record["year"]
-
-        # Authors
-        authors = normalize_authors(record.get("authors"))
-        if authors:
-            normalized["authors"] = authors
 
         # MeSH descriptors
         if "mesh_descriptors" in record:

@@ -4,11 +4,7 @@ from typing import Any
 
 from bioetl.adapters.base import ExternalAdapter
 from bioetl.normalizers import registry
-from bioetl.normalizers.bibliography import (
-    normalize_authors,
-    normalize_doi,
-    normalize_title,
-)
+from bioetl.normalizers.bibliography import normalize_common_bibliography
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -81,16 +77,34 @@ class OpenAlexAdapter(ExternalAdapter):
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize OpenAlex record."""
-        normalized = {}
+        common = normalize_common_bibliography(
+            record,
+            doi="doi",
+            title="title",
+            journal=lambda rec: (
+                (rec.get("primary_location") or {})
+                .get("source", {})
+                .get("display_name")
+            )
+            or (
+                (rec.get("primary_location") or {})
+                .get("source", {})
+                .get("name")
+            ),
+            authors="authorships",
+            journal_normalizer=lambda value: (
+                NORMALIZER_STRING.normalize(value) if value is not None else None
+            ),
+        )
+
+        normalized = dict(common)
 
         # OpenAlex ID
         if "id" in record:
             normalized["openalex_id"] = NORMALIZER_ID.normalize_openalex_id(record["id"])
 
-        # DOI
-        doi_clean = normalize_doi(record.get("doi"))
+        doi_clean = common.get("doi_clean")
         if doi_clean:
-            normalized["doi_clean"] = doi_clean
             normalized["openalex_doi"] = doi_clean
 
         # PMID from ids
@@ -99,11 +113,6 @@ class OpenAlexAdapter(ExternalAdapter):
             if "pmid" in ids:
                 pmid = ids["pmid"].replace("https://pubmed.ncbi.nlm.nih.gov/", "")
                 normalized["openalex_pmid"] = int(pmid) if pmid.isdigit() else None
-
-        # Title
-        title = normalize_title(record.get("title"))
-        if title:
-            normalized["title"] = title
 
         # Publication date
         if "publication_date" in record:
@@ -146,10 +155,6 @@ class OpenAlexAdapter(ExternalAdapter):
         if "primary_location" in record and record["primary_location"]:
             source = record["primary_location"].get("source")
             if source and isinstance(source, dict):
-                venue = source.get("display_name") or source.get("name")
-                if venue:
-                    normalized["journal"] = NORMALIZER_STRING.normalize(venue)
-
                 # ISSN
                 if "issn_l" in source and source["issn_l"]:
                     normalized["openalex_issn"] = source["issn_l"]
@@ -170,11 +175,6 @@ class OpenAlexAdapter(ExternalAdapter):
         # Doc type from record
         if "type" in normalized:
             normalized["doc_type"] = normalized["type"]
-
-        # Authors
-        authors = normalize_authors(record.get("authorships"))
-        if authors:
-            normalized["authors"] = authors
 
         return normalized
 

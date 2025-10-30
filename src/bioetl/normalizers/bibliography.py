@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from bioetl.normalizers.registry import registry
@@ -125,4 +125,90 @@ def normalize_authors(value: Any) -> str | None:
 
     joined = "; ".join(names)
     return registry.normalize("string", joined)
+
+
+FieldExtractor = (
+    str
+    | Callable[[Mapping[str, Any]], Any]
+    | Iterable[str | Callable[[Mapping[str, Any]], Any]]
+)
+
+
+def _resolve_field(record: Mapping[str, Any], spec: FieldExtractor | None) -> Any:
+    """Resolve *spec* against *record* and return the resulting value."""
+
+    if spec is None:
+        return None
+
+    if callable(spec):
+        return spec(record)
+
+    if isinstance(spec, str):
+        return record.get(spec)
+
+    if isinstance(spec, Iterable):
+        for candidate in spec:
+            value = _resolve_field(record, candidate)
+            if value is not None:
+                return value
+
+    return None
+
+
+def normalize_common_bibliography(
+    record: Mapping[str, Any],
+    *,
+    doi: FieldExtractor | None = ("doi", "DOI"),
+    title: FieldExtractor | None = ("title",),
+    journal: FieldExtractor | None = ("journal", "container-title", "venue"),
+    authors: FieldExtractor | None = ("authors", "author"),
+    doi_normalizer: Callable[[Any], str | None] = normalize_doi,
+    title_normalizer: Callable[[Any], str | None] = normalize_title,
+    journal_normalizer: Callable[[Any], str | None] = normalize_title,
+    authors_normalizer: Callable[[Any], str | None] = normalize_authors,
+) -> dict[str, Any]:
+    """Normalize common bibliographic fields for *record*.
+
+    Parameters
+    ----------
+    record:
+        The source mapping containing bibliographic metadata.
+    doi, title, journal, authors:
+        Field selectors that specify how to extract the raw value from
+        *record*. Selectors may be:
+
+        * A direct key name (``str``)
+        * A callable accepting the full record and returning a value
+        * An iterable of either of the above which is processed in order
+
+    ``*_normalizer``
+        Callbacks used to normalize the extracted values.
+    """
+
+    if not isinstance(record, Mapping):
+        return {}
+
+    normalized: dict[str, Any] = {}
+
+    raw_doi = _resolve_field(record, doi)
+    doi_clean = doi_normalizer(raw_doi)
+    if doi_clean:
+        normalized["doi_clean"] = doi_clean
+
+    raw_title = _resolve_field(record, title)
+    title_clean = title_normalizer(raw_title)
+    if title_clean:
+        normalized["title"] = title_clean
+
+    raw_journal = _resolve_field(record, journal)
+    journal_clean = journal_normalizer(raw_journal)
+    if journal_clean:
+        normalized["journal"] = journal_clean
+
+    raw_authors = _resolve_field(record, authors)
+    authors_clean = authors_normalizer(raw_authors)
+    if authors_clean:
+        normalized["authors"] = authors_clean
+
+    return normalized
 

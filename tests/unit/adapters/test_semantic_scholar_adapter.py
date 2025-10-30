@@ -61,6 +61,38 @@ class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertIn("fields_of_study", normalized)
         self.assertEqual(len(normalized["fields_of_study"]), 2)
 
+    @patch("bioetl.adapters.semantic_scholar.normalize_common_bibliography", autospec=True)
+    def test_common_helper_invoked(self, helper_mock):
+        """The shared bibliography helper is used for normalization."""
+
+        helper_mock.return_value = {
+            "doi_clean": "10.4000/common",
+            "title": "SS Title",
+            "journal": "SS Journal",
+            "authors": "Author One",
+        }
+
+        record = {
+            "paperId": "id1",
+            "externalIds": {},
+            "authors": [],
+        }
+
+        normalized = self.adapter.normalize_record(record)
+
+        helper_mock.assert_called_once()
+        args, kwargs = helper_mock.call_args
+        self.assertIs(args[0], record)
+        self.assertTrue(callable(kwargs["doi"]))
+        self.assertEqual(kwargs["title"], "title")
+        self.assertEqual(kwargs["journal"], "venue")
+        self.assertEqual(kwargs["authors"], "authors")
+        self.assertIn("journal_normalizer", kwargs)
+
+        self.assertEqual(normalized["doi_clean"], "10.4000/common")
+        self.assertEqual(normalized["title"], "SS Title")
+        self.assertEqual(normalized["_title_for_join"], "SS Title")
+
     def test_fetch_by_ids_batches_using_class_default(self) -> None:
         """Batch helper respects ``DEFAULT_BATCH_SIZE`` fallback."""
 
