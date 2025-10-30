@@ -1564,11 +1564,7 @@ class TargetPipeline(PipelineBase):
         """Persist gold-level DataFrames respecting runtime configuration."""
 
         format_name = self._resolve_materialization_format()
-        gold_path = getattr(
-            self.config.materialization,
-            "gold",
-            Path("data/output/target/targets_final.parquet"),
-        )
+        gold_path = self.config.materialization.resolve_dataset_path("gold", "targets", format_name)
         self.materialization_manager.materialize_gold(
             targets_df,
             components_df,
@@ -1595,11 +1591,12 @@ class TargetPipeline(PipelineBase):
             )
 
         materialization_paths = getattr(self.config, "materialization", None)
-        gold_path = getattr(materialization_paths, "gold", None)
-        if gold_path:
-            suffix = Path(gold_path).suffix.lower()
-            if suffix in {".csv", ".parquet"}:
-                return suffix.lstrip(".")
+        if materialization_paths:
+            inferred = materialization_paths.infer_dataset_format("gold", "targets")
+            if inferred:
+                normalised = str(inferred).strip().lower()
+                if normalised in {"csv", "parquet"}:
+                    return normalised
 
         return "parquet"
 

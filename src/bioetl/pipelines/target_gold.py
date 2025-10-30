@@ -444,7 +444,22 @@ def materialize_gold(
     """Persist deterministic gold-layer artefacts."""
 
     manager = MaterializationManager(
-        MaterializationPaths(gold=output_path),
+        MaterializationPaths.model_validate(
+            {
+                "root": output_path.parent,
+                "stages": {
+                    "gold": {
+                        "directory": ".",
+                        "datasets": {
+                            "targets": {"path": output_path},
+                            "target_components": {"directory": ".", "filename": "target_components"},
+                            "protein_class": {"directory": ".", "filename": "protein_class"},
+                            "target_xref": {"directory": ".", "filename": "target_xref"},
+                        },
+                    }
+                },
+            }
+        ),
         runtime=None,
         stage_context=None,
     )

@@ -177,13 +177,14 @@ qc:
     iuphar: 0.1
 
 materialization:
-  bronze: "data/output/target/targets_bronze.parquet"
-  silver: "data/output/target/targets_silver.parquet"
-  gold: "data/output/target/targets_final.parquet"
-  qc_report: "data/output/target/targets_qc.csv"
-  checkpoints:
-    chembl: "data/output/target/checkpoints/chembl_targets.json"
-    enrichment: "data/output/target/checkpoints/targets_enrichment.json"
+  pipeline_subdir: "target"
+  stages:
+    gold:
+      datasets:
+        targets:
+          formats:
+            parquet: "targets_final.parquet"
+            csv: "targets_final.csv"
 
 fallbacks:
   enabled: true

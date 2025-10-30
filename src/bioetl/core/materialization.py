@@ -44,9 +44,17 @@ class MaterializationManager:
             return {}
 
         resolved_format = self._normalise_format(format)
-        configured = output_path if output_path is not None else self.paths.silver
-        base_path = self._resolve_configured_path(configured, DEFAULT_SILVER_PATH)
-        silver_path = self._resolve_dataset_path(base_path, "targets_silver", resolved_format)
+
+        silver_override = Path(output_path) if output_path is not None else None
+        silver_path = (
+            silver_override
+            or self.paths.resolve_dataset_path("silver", "uniprot", resolved_format)
+            or self._resolve_default_stage_path(
+                DEFAULT_SILVER_PATH,
+                resolved_format,
+                fallback_stem="targets_silver",
+            )
+        )
         silver_path.parent.mkdir(parents=True, exist_ok=True)
 
         outputs: dict[str, Path] = {}
@@ -61,10 +69,13 @@ class MaterializationManager:
             self._write_dataframe(sorted_uniprot, silver_path, resolved_format)
             outputs["uniprot"] = silver_path
 
-        component_path = self._resolve_sibling_path(
-            silver_path.parent,
-            "component_enrichment",
-            resolved_format,
+        component_path = (
+            self.paths.resolve_dataset_path("silver", "component_enrichment", resolved_format)
+            or self._resolve_sibling_path(
+                silver_path.parent,
+                "component_enrichment",
+                resolved_format,
+            )
         )
         if not component_df.empty:
             sorted_components = component_df.sort_values(
@@ -105,45 +116,69 @@ class MaterializationManager:
             return {}
 
         resolved_format = self._normalise_format(format)
-        configured = output_directory if output_directory is not None else self.paths.gold
-        gold_base = self._resolve_configured_path(configured, DEFAULT_GOLD_PATH)
-        output_dir = gold_base.parent if gold_base.suffix else gold_base
+        configured_dir: Path | None = None
+        if output_directory is not None:
+            configured_dir = Path(output_directory)
+            if configured_dir.suffix:
+                configured_dir = configured_dir.parent
+
+        classification_path = self.paths.resolve_dataset_path("iuphar", "classification", resolved_format)
+        gold_path = self.paths.resolve_dataset_path("iuphar", "iuphar_gold", resolved_format)
+
+        output_dir = configured_dir
+        if output_dir is None:
+            if classification_path is not None:
+                output_dir = classification_path.parent
+            elif gold_path is not None:
+                output_dir = gold_path.parent
+
+        if output_dir is None:
+            gold_base = self._resolve_default_stage_path(
+                DEFAULT_GOLD_PATH,
+                resolved_format,
+                fallback_stem=DEFAULT_GOLD_PATH.stem,
+            )
+            output_dir = gold_base.parent
+
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        classification_path = classification_path or self._resolve_sibling_path(
+            output_dir,
+            "targets_iuphar_classification",
+            resolved_format,
+        )
+        gold_path = gold_path or self._resolve_sibling_path(
+            output_dir,
+            "targets_iuphar_enrichment",
+            resolved_format,
+        )
 
         outputs: dict[str, Path] = {}
 
         if not classification_df.empty:
-            classification_path = self._resolve_sibling_path(
-                output_dir,
-                "targets_iuphar_classification",
-                resolved_format,
-            )
             sorted_classification = classification_df.sort_values(
                 ["target_chembl_id", "iuphar_family_id"],
                 kind="stable",
             )
-            logger.info(
-                "writing_iuphar_classification",
-                path=str(classification_path),
-                rows=len(sorted_classification),
+            outputs.update(
+                self._write_stage_dataset(
+                    sorted_classification,
+                    classification_path,
+                    resolved_format,
+                    dataset="classification",
+                )
             )
-            self._write_dataframe(sorted_classification, classification_path, resolved_format)
-            outputs["classification"] = classification_path
 
         if not gold_df.empty:
-            gold_path = self._resolve_sibling_path(
-                output_dir,
-                "targets_iuphar_enrichment",
-                resolved_format,
-            )
             sorted_gold = gold_df.sort_values(["target_chembl_id"], kind="stable")
-            logger.info(
-                "writing_iuphar_gold",
-                path=str(gold_path),
-                rows=len(sorted_gold),
+            outputs.update(
+                self._write_stage_dataset(
+                    sorted_gold,
+                    gold_path,
+                    resolved_format,
+                    dataset="iuphar_gold",
+                )
             )
-            self._write_dataframe(sorted_gold, gold_path, resolved_format)
-            outputs["iuphar_gold"] = gold_path
 
         if outputs:
             self._update_stage_context("iuphar", {"outputs": outputs})
@@ -166,16 +201,18 @@ class MaterializationManager:
             return {}
 
         resolved_format = self._normalise_format(format)
-        configured = output_path if output_path is not None else self.paths.gold
-        base_path = self._resolve_configured_path(configured, DEFAULT_GOLD_PATH)
 
-        if base_path.suffix:
-            base_dir = base_path.parent
-            targets_path = base_path.with_suffix(self._extension_for(resolved_format))
-        else:
-            base_dir = base_path
-            targets_path = self._resolve_sibling_path(base_dir, "targets", resolved_format)
-
+        targets_override = Path(output_path) if output_path is not None else None
+        targets_path = (
+            targets_override
+            or self.paths.resolve_dataset_path("gold", "targets", resolved_format)
+            or self._resolve_default_stage_path(
+                DEFAULT_GOLD_PATH,
+                resolved_format,
+                fallback_stem=DEFAULT_GOLD_PATH.stem,
+            )
+        )
+        base_dir = targets_path.parent
         base_dir.mkdir(parents=True, exist_ok=True)
 
         outputs: dict[str, Path] = {}
@@ -192,7 +229,13 @@ class MaterializationManager:
         outputs.update(
             self._write_stage_dataset(
                 components,
-                self._resolve_sibling_path(base_dir, "target_components", resolved_format),
+                self._resolve_dataset_output_path(
+                    base_dir,
+                    "gold",
+                    "target_components",
+                    resolved_format,
+                    fallback_stem="target_components",
+                ),
                 resolved_format,
                 dataset="target_components",
             )
@@ -200,7 +243,13 @@ class MaterializationManager:
         outputs.update(
             self._write_stage_dataset(
                 protein_class,
-                self._resolve_sibling_path(base_dir, "protein_class", resolved_format),
+                self._resolve_dataset_output_path(
+                    base_dir,
+                    "gold",
+                    "protein_class",
+                    resolved_format,
+                    fallback_stem="protein_class",
+                ),
                 resolved_format,
                 dataset="protein_class",
             )
@@ -208,7 +257,13 @@ class MaterializationManager:
         outputs.update(
             self._write_stage_dataset(
                 xref,
-                self._resolve_sibling_path(base_dir, "target_xref", resolved_format),
+                self._resolve_dataset_output_path(
+                    base_dir,
+                    "gold",
+                    "target_xref",
+                    resolved_format,
+                    fallback_stem="target_xref",
+                ),
                 resolved_format,
                 dataset="target_xref",
             )
@@ -233,6 +288,7 @@ class MaterializationManager:
             logger.info("gold_materialization_skipped", dataset=dataset, reason="empty_dataframe")
             return {}
 
+        path.parent.mkdir(parents=True, exist_ok=True)
         logger.info("writing_gold_dataset", dataset=dataset, path=str(path), rows=len(df))
         self._write_dataframe(df, path, format)
         return {dataset: path}
@@ -253,17 +309,19 @@ class MaterializationManager:
             return False
         return True
 
-    @staticmethod
-    def _resolve_configured_path(value: Path | str | None, default: Path) -> Path:
-        if value is None:
-            return default
-        return Path(value)
-
-    @staticmethod
-    def _resolve_dataset_path(base: Path, stem: str, format: str) -> Path:
-        if base.suffix:
-            return base.with_suffix(MaterializationManager._extension_for(format))
-        return base / f"{stem}{MaterializationManager._extension_for(format)}"
+    def _resolve_dataset_output_path(
+        self,
+        base_dir: Path,
+        stage: str,
+        dataset: str,
+        format: str,
+        *,
+        fallback_stem: str,
+    ) -> Path:
+        configured = self.paths.resolve_dataset_path(stage, dataset, format)
+        if configured is not None:
+            return configured
+        return self._resolve_sibling_path(base_dir, fallback_stem, format)
 
     @staticmethod
     def _resolve_sibling_path(directory: Path, stem: str, format: str) -> Path:
@@ -276,6 +334,16 @@ class MaterializationManager:
         if format == "csv":
             return ".csv"
         raise ValueError(f"Unsupported format: {format}")
+
+    @staticmethod
+    def _resolve_default_stage_path(base: Path, format: str, *, fallback_stem: str | None = None) -> Path:
+        base = Path(base)
+        extension = MaterializationManager._extension_for(format)
+        if base.suffix:
+            stem = fallback_stem or base.stem
+            return base.with_name(f"{stem}{extension}")
+        stem = fallback_stem or base.name
+        return base / f"{stem}{extension}"
 
     @staticmethod
     def _normalise_format(format: str) -> str:

@@ -16,9 +16,28 @@ pytestmark = pytest.mark.integration
 def test_materialization_manager_creates_expected_csv_files(tmp_path) -> None:
     """Silver stage materialization should sort data and emit CSV artefacts."""
 
-    paths = MaterializationPaths(
-        silver=tmp_path / "silver" / "targets_silver.parquet",
-        gold=tmp_path / "gold" / "targets_final.parquet",
+    paths = MaterializationPaths.model_validate(
+        {
+            "root": tmp_path,
+            "stages": {
+                "silver": {
+                    "directory": "silver",
+                    "datasets": {
+                        "uniprot": {"filename": "targets_silver"},
+                        "component_enrichment": {"filename": "component_enrichment"},
+                    },
+                },
+                "gold": {
+                    "directory": "gold",
+                    "datasets": {
+                        "targets": {"filename": "targets_final"},
+                        "target_components": {"filename": "target_components"},
+                        "protein_class": {"filename": "protein_class"},
+                        "target_xref": {"filename": "target_xref"},
+                    },
+                },
+            },
+        }
     )
     stage_context: dict[str, Any] = {}
     manager = MaterializationManager(paths, runtime=None, stage_context=stage_context)
@@ -57,7 +76,22 @@ def test_materialization_manager_respects_dry_run(tmp_path) -> None:
     """Dry-run runtime option should prevent writing any gold artefacts."""
 
     runtime = SimpleNamespace(dry_run=True)
-    paths = MaterializationPaths(gold=tmp_path / "gold" / "targets_final.parquet")
+    paths = MaterializationPaths.model_validate(
+        {
+            "root": tmp_path,
+            "stages": {
+                "gold": {
+                    "directory": "gold",
+                    "datasets": {
+                        "targets": {"filename": "targets_final"},
+                        "target_components": {"filename": "target_components"},
+                        "protein_class": {"filename": "protein_class"},
+                        "target_xref": {"filename": "target_xref"},
+                    },
+                }
+            },
+        }
+    )
     stage_context: dict[str, Any] = {}
     manager = MaterializationManager(paths, runtime=runtime, stage_context=stage_context)
 
