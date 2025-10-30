@@ -90,9 +90,35 @@ def load_input_frame(
             if effective_limit < 0:
                 effective_limit = None
 
-    dataframe = pd.read_csv(resolved_path, dtype=dtype, **read_csv_kwargs)
+    read_csv_params = dict(read_csv_kwargs)
+    use_head_fallback = False
 
-    if effective_limit is not None:
+    if effective_limit is not None and "nrows" not in read_csv_params:
+        if "chunksize" in read_csv_params:
+            # ``read_csv`` does not allow combining ``nrows`` with ``chunksize``.
+            use_head_fallback = True
+        else:
+            read_csv_params["nrows"] = effective_limit
+
+    try:
+        dataframe = pd.read_csv(resolved_path, dtype=dtype, **read_csv_params)
+    except TypeError as exc:  # pragma: no cover - compatibility for older pandas
+        if (
+            effective_limit is None
+            or "nrows" not in read_csv_params
+            or "nrows" not in str(exc)
+        ):
+            raise
+
+        # Older pandas releases raise a ``TypeError`` when ``nrows`` is provided
+        # alongside other arguments (notably ``chunksize``). When this happens we
+        # retry without ``nrows`` and fall back to truncating the resulting
+        # frame, matching the behaviour used prior to optimising this helper.
+        read_csv_params.pop("nrows", None)
+        dataframe = pd.read_csv(resolved_path, dtype=dtype, **read_csv_params)
+        use_head_fallback = True
+
+    if effective_limit is not None and use_head_fallback:
         dataframe = dataframe.head(effective_limit)
 
     if dataframe.empty and expected_columns is not None:
