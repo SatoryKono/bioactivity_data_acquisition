@@ -24,6 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
+    # HTTP retry logic for resilient API clients
     "backoff>=2.2.1",
     "cachetools>=5.3.0",
     "click>=8.1.0",
