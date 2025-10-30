@@ -206,12 +206,16 @@ class BaseSchema(DataFrameModel):
         coerce = True
         ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
-    # Версия политики хеширования; не является колонкой датафрейма.  ``ClassVar``
-    # объявлен только для статических анализаторов, чтобы Pandera не пыталась
-    # интерпретировать ``hash_policy_version`` как колонку при регистрации
-    # ``DataFrameModel``.
-    if TYPE_CHECKING:  # pragma: no cover - typing aid only
+    # ``hash_policy_version`` используется в метаданных writer'а и не является
+    # колонкой датафрейма.  Аннотация ``ClassVar`` объявляется только для
+    # статических анализаторов, поскольку Pandera регистрирует все рантайм
+    # аннотации как потенциальные колонки и выбрасывает ``SchemaInitError`` при
+    # обнаружении обычного строкового значения вместо ``Field``.  Чтобы избежать
+    # побочных эффектов, аннотация объявляется под ``TYPE_CHECKING``, а само
+    # значение хранится как обычный атрибут класса.
+    if TYPE_CHECKING:  # pragma: no cover - выполняется только для type checker'ов
         hash_policy_version: ClassVar[str]
+
     hash_policy_version = "1.0.0"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
@@ -259,3 +263,11 @@ class BaseSchema(DataFrameModel):
         return list(order) if order else []
 
     # Note: ``hash_policy_version`` объявлен как ClassVar и игнорируется Pandera.
+
+    @classmethod
+    def _get_model_attrs(cls) -> dict[str, Any]:  # pragma: no cover - Pandera internal hook
+        """Hide служебные атрибуты от Pandera при сборе колонок."""
+
+        attrs = super()._get_model_attrs()
+        attrs.pop("hash_policy_version", None)
+        return attrs
