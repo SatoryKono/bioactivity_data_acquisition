@@ -96,7 +96,11 @@ known-first-party = ["bioetl"]
 python_version = "3.10"
 strict = true
 mypy_path = ["stubs"]
-files = ["src/bioetl"]
+files = [
+    "src/bioetl",
+    "src/scripts",
+    "src/library",
+]
 
 [[tool.mypy.overrides]]
 module = [

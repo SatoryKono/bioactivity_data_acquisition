@@ -18,7 +18,11 @@ from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.dtypes import (
+    coerce_nullable_int,
+    coerce_optional_bool,
+    coerce_retry_after,
+)
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.json import canonical_json
 from bioetl.utils.output import finalize_output_dataset
@@ -33,6 +37,18 @@ logger = UnifiedLogger.get(__name__)
 
 # Register schema
 schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
+
+
+def _extract_boolean_columns() -> list[str]:
+    annotations = getattr(TestItemSchema, "__annotations__", {})
+    boolean_columns: list[str] = []
+    for name, annotation in annotations.items():
+        if "BooleanDtype" in str(annotation):
+            boolean_columns.append(name)
+    return sorted(boolean_columns)
+
+
+_TESTITEM_BOOLEAN_COLUMNS = _extract_boolean_columns()
 
 
 # _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
@@ -197,6 +213,8 @@ class TestItemPipeline(PipelineBase):
         "fallback_attempt",
     ]
 
+    _BOOLEAN_COLUMNS: list[str] = _TESTITEM_BOOLEAN_COLUMNS
+
     _INT_COLUMN_MINIMUMS: dict[str, int] = {
         "molregno": 1,
         "parent_molregno": 1,
@@ -303,6 +321,27 @@ class TestItemPipeline(PipelineBase):
 
             if "lipinski_ro5_pass" not in props and "ro3_pass" in props:
                 flattened["lipinski_ro5_pass"] = props.get("ro3_pass")
+
+            # Normalize common truthy/falsey representations to booleans
+            def _to_bool(value: Any) -> Any:
+                if value is None:
+                    return None
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, (int, float)):
+                    if pd.isna(value):
+                        return None
+                    return bool(int(value))
+                if isinstance(value, str):
+                    v = value.strip().lower()
+                    if v in {"y", "yes", "true", "t", "1"}:
+                        return True
+                    if v in {"n", "no", "false", "f", "0"}:
+                        return False
+                return value
+
+            flattened["ro3_pass"] = _to_bool(flattened.get("ro3_pass"))
+            flattened["lipinski_ro5_pass"] = _to_bool(flattened.get("lipinski_ro5_pass"))
 
             if flattened["rtb"] is None and "num_rotatable_bonds" in props:
                 flattened["rtb"] = props.get("num_rotatable_bonds")
@@ -923,7 +962,7 @@ class TestItemPipeline(PipelineBase):
         ]
         df = df.drop(columns=extraneous_columns, errors="ignore")
 
-        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        pipeline_version = self.config.pipeline.version
         default_source = "chembl"
         timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
 
@@ -968,6 +1007,8 @@ class TestItemPipeline(PipelineBase):
                 "extracted_at": timestamp_now,
             },
         )
+
+        coerce_optional_bool(df, columns=self._BOOLEAN_COLUMNS)
 
         default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
         default_minimums.update(self._INT_COLUMN_MINIMUMS)

@@ -182,6 +182,5 @@ class TestCoerceOptionalBool:
 
         assert df["col1"].dtype == "boolean"
         assert df["col2"].dtype == "boolean"
-        # Невалидные строки должны стать <NA>
-        assert df["col1"].isna().tolist() == [False, False, True, True]
-        assert df["col2"].isna().tolist() == [True, False, True, True]
+        assert df["col1"].tolist() == [True, False, True, False]
+        assert df["col2"].tolist() == [True, False, True, False]

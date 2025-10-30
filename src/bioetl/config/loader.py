@@ -2,6 +2,7 @@
 
 import json
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, IO
 
@@ -116,7 +117,7 @@ def load_yaml(path: Path, *, _include_stack: tuple[Path, ...] | None = None) -> 
 def load_config(
     config_path: Path | str,
     overrides: dict[str, Any] | None = None,
-    env_prefix: str = "BIOETL_",
+    env_prefix: str | Sequence[str] = ("BIOETL_", "BIOACTIVITY_"),
 ) -> PipelineConfig:
     """
     Load configuration from YAML file with inheritance and overrides.
@@ -126,7 +127,7 @@ def load_config(
     Args:
         config_path: Path to configuration file
         overrides: CLI overrides as dict
-        env_prefix: Prefix for environment variables
+        env_prefix: Prefix (or prefixes) for environment variables
 
     Returns:
         Validated PipelineConfig
@@ -145,7 +146,12 @@ def load_config(
         config_data = deep_merge(config_data, overrides)
 
     # Apply environment variables
-    env_overrides = _load_env_overrides(env_prefix)
+    if isinstance(env_prefix, str):
+        env_prefixes: tuple[str, ...] = (env_prefix,)
+    else:
+        env_prefixes = tuple(env_prefix)
+
+    env_overrides = _load_env_overrides(env_prefixes)
     if env_overrides:
         config_data = deep_merge(config_data, env_overrides)
 
@@ -193,16 +199,31 @@ def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Any:
     return data
 
 
-def _load_env_overrides(prefix: str) -> dict[str, Any]:
+def _load_env_overrides(prefixes: Sequence[str]) -> dict[str, Any]:
     """Load environment variable overrides."""
+
+    normalized_prefixes = tuple(prefixes)
+    if not normalized_prefixes:
+        return {}
+
     overrides: dict[str, Any] = {}
 
     for key, value in os.environ.items():
-        if not key.startswith(prefix):
+        matched_prefix = None
+        for prefix in normalized_prefixes:
+            if key.startswith(prefix):
+                matched_prefix = prefix
+                break
+
+        if matched_prefix is None:
             continue
 
         # Remove prefix and split by double underscore
-        path_parts = key[len(prefix) :].lower().split("__")
+        raw_path = key[len(matched_prefix) :]
+        if not raw_path:
+            continue
+
+        path_parts = raw_path.lower().split("__")
         if len(path_parts) < 1:
             continue
 
