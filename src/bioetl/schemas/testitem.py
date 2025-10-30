@@ -220,6 +220,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "source_system",
         "chembl_release",
         "extracted_at",
+        *FALLBACK_METADATA_COLUMN_ORDER,
         "molecule_chembl_id",
         "molregno",
         "pref_name",
@@ -308,7 +309,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "orphan",
         "veterinary",
         "helm_notation",
-    ] + FALLBACK_METADATA_COLUMN_ORDER + [
+    ] + [
         "pubchem_cid",
         "pubchem_molecular_formula",
         "pubchem_molecular_weight",
