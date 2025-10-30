@@ -306,17 +306,192 @@ class PipelineMetadata(BaseModel):
     release_scope: bool = True
 
 
+class MaterializationFormatConfig(BaseModel):
+    """Declarative description of a supported materialization format."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    extension: str = Field(default=".parquet", description="File extension for the format")
+
+    @field_validator("extension")
+    @classmethod
+    def validate_extension(cls, value: str) -> str:
+        """Ensure extensions include a leading dot for compatibility with Path.suffix."""
+
+        value = value.strip()
+        if not value:
+            raise ValueError("Materialization format extension cannot be empty")
+        if not value.startswith("."):
+            raise ValueError("Materialization format extension must start with '.'")
+        return value
+
+
+class MaterializationDatasetPaths(BaseModel):
+    """Per-dataset materialization configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: Path | str | None = None
+    filename: str | None = None
+    directory: str | None = None
+    formats: dict[str, Path | str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def normalise_formats(self) -> "MaterializationDatasetPaths":
+        """Normalise format keys to lower-case for consistent lookups."""
+
+        if self.formats:
+            normalised = {str(key).strip().lower(): value for key, value in self.formats.items()}
+            object.__setattr__(self, "formats", normalised)
+        return self
+
+    def resolve(
+        self,
+        *,
+        stage: "MaterializationStagePaths",
+        registry: "MaterializationPaths",
+        dataset: str,
+        format: str,
+    ) -> Path | None:
+        """Resolve the on-disk path for the dataset in the requested format."""
+
+        format_key = format.strip().lower()
+
+        candidate: Path | str | None = self.formats.get(format_key)
+        if candidate is not None:
+            return registry._normalise_path(candidate)
+
+        if self.path is not None:
+            return registry._normalise_path(self.path)
+
+        directory = self.directory or stage.directory
+        filename = self.filename or dataset
+
+        tentative = Path(directory) / filename if directory else Path(filename)
+
+        if not tentative.suffix:
+            tentative = tentative.with_suffix(registry.extension_for(format))
+
+        return registry._normalise_path(tentative)
+
+    def infer_default_format(
+        self,
+        *,
+        stage: "MaterializationStagePaths",
+        registry: "MaterializationPaths",
+    ) -> str | None:
+        """Infer the preferred format for the dataset from config state."""
+
+        if self.formats:
+            if stage.format and stage.format in self.formats:
+                return stage.format
+            if registry.default_format in self.formats:
+                return registry.default_format
+            return next(iter(self.formats.keys()))
+
+        for candidate in (self.path, self.filename):
+            if candidate is None:
+                continue
+            suffix = Path(candidate).suffix
+            if suffix:
+                return suffix.lstrip(".")
+
+        return stage.format or registry.default_format
+
+
+class MaterializationStagePaths(BaseModel):
+    """Stage-level configuration for materialized artefacts."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: str | None = None
+    directory: str | None = None
+    datasets: dict[str, MaterializationDatasetPaths] = Field(default_factory=dict)
+
+    @field_validator("format")
+    @classmethod
+    def normalise_format(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip().lower()
+
+
 class MaterializationPaths(BaseModel):
-    """Paths used for materialization stages."""
+    """Registry describing how pipeline artefacts should be materialized."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
-    bronze: Path | str | None = None
-    silver: Path | str | None = None
-    gold: Path | str | None = None
-    qc_report: Path | str | None = None
-    staging: Path | str | None = None
-    checkpoints: dict[str, Path | str] = Field(default_factory=dict)
+    root: Path = Field(default=Path("data/output"))
+    pipeline_subdir: str | None = None
+    default_format: str = Field(default="parquet")
+    formats: dict[str, MaterializationFormatConfig] = Field(default_factory=dict)
+    stages: dict[str, MaterializationStagePaths] = Field(default_factory=dict)
+
+    @field_validator("default_format")
+    @classmethod
+    def normalise_default_format(cls, value: str) -> str:
+        return value.strip().lower()
+
+    @model_validator(mode="after")
+    def normalise_format_registry(self) -> "MaterializationPaths":
+        if self.formats:
+            normalised = {str(key).strip().lower(): value for key, value in self.formats.items()}
+            object.__setattr__(self, "formats", normalised)
+        return self
+
+    def extension_for(self, format_name: str) -> str:
+        """Return the configured file extension for the given format."""
+
+        key = format_name.strip().lower()
+        if key in self.formats:
+            return self.formats[key].extension
+        return f".{key}"
+
+    def resolve_dataset_path(self, stage: str, dataset: str, format: str) -> Path | None:
+        """Resolve a dataset path for the requested stage and format."""
+
+        stage_config = self.stages.get(stage)
+        if not stage_config:
+            return None
+
+        dataset_config = stage_config.datasets.get(dataset)
+        if not dataset_config:
+            return None
+
+        return dataset_config.resolve(
+            stage=stage_config,
+            registry=self,
+            dataset=dataset,
+            format=format,
+        )
+
+    def infer_dataset_format(self, stage: str, dataset: str) -> str | None:
+        """Infer preferred materialization format for a dataset."""
+
+        stage_config = self.stages.get(stage)
+        if not stage_config:
+            return None
+
+        dataset_config = stage_config.datasets.get(dataset)
+        if not dataset_config:
+            candidate = stage_config.format or self.default_format
+            return candidate.strip().lower() if candidate else None
+
+        inferred = dataset_config.infer_default_format(stage=stage_config, registry=self)
+        return inferred.strip().lower() if inferred else None
+
+    def _normalise_path(self, candidate: Path | str) -> Path:
+        """Normalise relative paths against the configured materialization root."""
+
+        path = Path(candidate)
+        if path.is_absolute():
+            return path
+
+        base = Path(self.root)
+        if self.pipeline_subdir:
+            base = base / self.pipeline_subdir
+
+        return (base / path).resolve()
 
 
 class FallbackOptions(BaseModel):

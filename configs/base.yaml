@@ -27,6 +27,50 @@ paths:
   input_root: "data/input"
   output_root: "data/output"
 
+materialization:
+  root: "data/output"
+  default_format: "parquet"
+  formats:
+    parquet:
+      extension: ".parquet"
+    csv:
+      extension: ".csv"
+  stages:
+    silver:
+      format: "parquet"
+      directory: "."
+      datasets:
+        uniprot:
+          filename: "targets_silver"
+        component_enrichment:
+          filename: "component_enrichment"
+    iuphar:
+      format: "parquet"
+      directory: "."
+      datasets:
+        classification:
+          filename: "targets_iuphar_classification"
+        iuphar_gold:
+          filename: "targets_iuphar_enrichment"
+    gold:
+      format: "parquet"
+      directory: "."
+      datasets:
+        targets:
+          filename: "targets_final"
+        target_components:
+          filename: "target_components"
+        protein_class:
+          filename: "protein_class"
+        target_xref:
+          filename: "target_xref"
+    qc:
+      format: "csv"
+      directory: "."
+      datasets:
+        qc_report:
+          filename: "targets_qc"
+
 determinism:
   sort:
     by: []

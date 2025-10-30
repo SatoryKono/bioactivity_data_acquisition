@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from bioetl.config import load_config
 from bioetl.config.models import PipelineConfig
 
 
@@ -90,4 +91,50 @@ def test_pipeline_config_normalizes_fallback_strategies(tmp_path: Path) -> None:
 
     assert config.fallbacks.strategies == ["cache", "partial_retry"]
     assert config.sources["chembl"].fallback_strategies == ["partial_retry", "cache"]
+
+
+def test_materialization_resolves_relative_dataset_paths(tmp_path: Path) -> None:
+    """Materialization config should combine root, subdir, and filenames into paths."""
+
+    payload = _base_config(tmp_path)
+    payload["materialization"] = {
+        "root": str(tmp_path / "output"),
+        "pipeline_subdir": "demo",
+        "stages": {
+            "gold": {
+                "datasets": {
+                    "targets": {"filename": "targets_final"},
+                }
+            }
+        },
+    }
+
+    config = PipelineConfig.model_validate(payload)
+
+    resolved = config.materialization.resolve_dataset_path("gold", "targets", "parquet")
+    assert resolved == (tmp_path / "output" / "demo" / "targets_final.parquet")
+    assert config.materialization.infer_dataset_format("gold", "targets") == "parquet"
+
+
+@pytest.mark.parametrize(
+    "pipeline_name",
+    ["activity", "assay", "document", "target", "testitem"],
+)
+def test_pipeline_configs_expose_materialization_paths(
+    pipeline_name: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """All pipeline configs should expose resolvable materialization datasets."""
+
+    monkeypatch.setenv("IUPHAR_API_KEY", "test-key")
+    config = load_config(Path(f"configs/pipelines/{pipeline_name}.yaml"))
+    materialization = config.materialization
+
+    for stage_name, stage in materialization.stages.items():
+        for dataset_name in stage.datasets:
+            default_format = materialization.infer_dataset_format(stage_name, dataset_name)
+            if default_format is None:
+                continue
+            resolved = materialization.resolve_dataset_path(stage_name, dataset_name, default_format)
+            assert resolved is not None
+            assert resolved.suffix
 

@@ -7,6 +7,9 @@ pipeline:
   name: activity
   entity: activity
 
+materialization:
+  pipeline_subdir: "activity"
+
 sources:
   chembl:
     batch_size: 20
