@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Sequence, cast
 
 import pandas as pd
 import requests  # type: ignore[import-untyped]
@@ -436,6 +436,7 @@ class TestItemPipeline(PipelineBase):
 
         self.api_client = chembl_context.client
         self.batch_size = batch_size_value
+        self.configured_max_url_length = chembl_context.max_url_length
 
         # Initialize external adapters (PubChem)
         self.external_adapters: dict[str, ExternalAdapter] = {}
@@ -484,9 +485,15 @@ class TestItemPipeline(PipelineBase):
             else:
                 ids_to_fetch.append(molecule_id)
 
-        for i in range(0, len(ids_to_fetch), self.batch_size):
-            batch_ids = ids_to_fetch[i : i + self.batch_size]
-            logger.info("fetching_batch", batch=i // self.batch_size + 1, size=len(batch_ids))
+        batches: list[list[str]] = []
+        for index in range(0, len(ids_to_fetch), self.batch_size):
+            chunk = ids_to_fetch[index : index + self.batch_size]
+            if not chunk:
+                continue
+            batches.extend(self._split_molecule_ids_by_url_length(chunk))
+
+        for batch_index, batch_ids in enumerate(batches, start=1):
+            logger.info("fetching_batch", batch=batch_index, size=len(batch_ids))
 
             try:
                 params = {
@@ -551,6 +558,53 @@ class TestItemPipeline(PipelineBase):
         )
 
         return pd.DataFrame(results)
+
+    def _split_molecule_ids_by_url_length(self, candidate_ids: Sequence[str]) -> list[list[str]]:
+        """Recursively split molecule identifiers honoring the configured URL limit."""
+
+        ids = [molid for molid in candidate_ids if molid]
+        if not ids:
+            return []
+
+        limit = self.configured_max_url_length
+        if limit is None:
+            return [ids]
+
+        limit_value = int(limit)
+        url = self._build_molecule_request_url(ids)
+        if not url:
+            return [ids]
+
+        if len(url) <= limit_value or len(ids) == 1:
+            if len(url) > limit_value:
+                logger.warning(
+                    "testitem_single_id_exceeds_url_limit",
+                    molecule_id=ids[0],
+                    url_length=len(url),
+                    max_length=limit_value,
+                )
+            return [ids]
+
+        midpoint = max(1, len(ids) // 2)
+        return self._split_molecule_ids_by_url_length(ids[:midpoint]) + self._split_molecule_ids_by_url_length(
+            ids[midpoint:]
+        )
+
+    def _build_molecule_request_url(self, molecule_ids: Sequence[str]) -> str:
+        """Construct the request URL for the given molecule identifiers."""
+
+        base = str(self.api_client.config.base_url).rstrip("/")
+        params = {
+            "molecule_chembl_id__in": ",".join(molecule_ids),
+            "limit": min(len(molecule_ids), self.batch_size),
+        }
+        request = requests.Request(
+            method="GET",
+            url=f"{base}/molecule.json",
+            params=params,
+        )
+        prepared = request.prepare()
+        return prepared.url or ""
 
     def _cache_key(self, molecule_id: str) -> str:
         release = self._chembl_release or "unversioned"
