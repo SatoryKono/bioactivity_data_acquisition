@@ -217,7 +217,7 @@ def merge_components(
 
     chembl_df = chembl_components.copy()
     if chembl_df.empty:
-        chembl_df = DataFrame(
+        chembl_df = pd.DataFrame(
             columns=[cfg.target_column, cfg.component_id_column, cfg.accession_column]
         )
 

@@ -12,22 +12,25 @@ keep downstream schema modules clean and type-checker friendly.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from importlib import import_module
+from typing import TYPE_CHECKING, Any, cast
 
 
-try:  # pragma: no cover - exercised implicitly by import behaviour.
-    from pandera.typing import Series as _Series
-except (ImportError, AttributeError):  # pragma: no cover
-    # Fallback for older Pandera releases (<0.17) where the alias lives inside
-    # the pandas backend module.
-    from pandera.typing.pandas import Series as _Series  # type: ignore[attr-defined]
+def _resolve_series() -> type[Any]:
+    """Return the ``pandera.typing.Series`` alias across Pandera versions."""
 
+    typing_module = import_module("pandera.typing")
+    series = getattr(typing_module, "Series", None)
+    if series is not None:
+        return cast("type[Any]", series)
 
-Series = _Series
-
-__all__ = ["Series"]
+    pandas_typing = import_module("pandera.typing.pandas")
+    return cast("type[Any]", pandas_typing.Series)
 
 
 if TYPE_CHECKING:  # pragma: no cover - assists IDEs and static analysers.
-    # Re-export ``Series`` for tools that inspect TYPE_CHECKING blocks.
-    from pandera.typing import Series as _SeriesCheck  # noqa: F401
+    from pandera.typing import Series as _SeriesType
+
+Series = cast("type[_SeriesType[Any]]", _resolve_series())
+
+__all__ = ["Series"]

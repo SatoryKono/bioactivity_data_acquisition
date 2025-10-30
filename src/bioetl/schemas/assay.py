@@ -1,7 +1,8 @@
 """Assay schema for ChEMBL data according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
 import pandas as pd
-import pandera.pandas as pa
+
+from bioetl.pandera_pandas import pa
 
 from bioetl.pandera_typing import Series
 
