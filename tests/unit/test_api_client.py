@@ -1020,6 +1020,48 @@ def test_no_fallback_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
         client.request_json("/endpoint")
 
 
+def test_client_warns_about_unknown_fallback_strategies(caplog: pytest.LogCaptureFixture) -> None:
+    """Unsupported fallback strategies should be ignored with a warning."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        fallback_enabled=True,
+        fallback_strategies=["cache", "network", "partial_retry", "cache", ""],
+        rate_limit_jitter=False,
+    )
+
+    with caplog.at_level("WARNING"):
+        client = UnifiedAPIClient(config)
+
+    assert client.config.fallback_strategies == ["cache", "partial_retry"]
+    assert client.config.fallback_enabled is True
+    messages = {record.msg for record in caplog.records}
+    assert "fallback_strategies_unsupported" in messages
+
+
+def test_client_disables_fallback_without_valid_strategies(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Fallback should be disabled if no valid strategies remain after filtering."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        fallback_enabled=True,
+        fallback_strategies=["network", "timeout"],
+        rate_limit_jitter=False,
+    )
+
+    with caplog.at_level("WARNING"):
+        client = UnifiedAPIClient(config)
+
+    assert client.config.fallback_strategies == []
+    assert client.config.fallback_enabled is False
+    messages = {record.msg for record in caplog.records}
+    assert "fallback_disabled_no_valid_strategies" in messages
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

@@ -11,6 +11,45 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+SUPPORTED_FALLBACK_STRATEGIES: tuple[str, ...] = ("cache", "partial_retry")
+
+
+def _normalize_fallback_strategies(strategies: list[str] | None) -> list[str]:
+    """Validate and normalize fallback strategy names."""
+
+    if not strategies:
+        return []
+
+    normalized: list[str] = []
+    unsupported: set[str] = set()
+
+    for raw_strategy in strategies:
+        if not isinstance(raw_strategy, str):
+            unsupported.add(repr(raw_strategy))
+            continue
+
+        candidate = raw_strategy.strip().lower()
+        if not candidate:
+            unsupported.add(repr(raw_strategy))
+            continue
+
+        if candidate not in SUPPORTED_FALLBACK_STRATEGIES:
+            unsupported.add(candidate)
+            continue
+
+        if candidate not in normalized:
+            normalized.append(candidate)
+
+    if unsupported:
+        supported = ", ".join(SUPPORTED_FALLBACK_STRATEGIES)
+        invalid = ", ".join(sorted(unsupported))
+        raise ValueError(
+            f"Unsupported fallback strategies: {invalid}. Supported strategies: {supported}."
+        )
+
+    return normalized
+
+
 class RetryConfig(BaseModel):
     """Retry policy configuration."""
 
@@ -162,6 +201,13 @@ class TargetSourceConfig(SourceConfig):
 
         return resolved
 
+    @field_validator("fallback_strategies", mode="after")
+    @classmethod
+    def validate_fallback_strategies(cls, value: list[str]) -> list[str]:
+        """Ensure only supported fallback strategies are used."""
+
+        return _normalize_fallback_strategies(value)
+
 
 class CacheConfig(BaseModel):
     """Cache configuration."""
@@ -259,9 +305,18 @@ class FallbackOptions(BaseModel):
     prefer_cache: bool = True
     allow_partial_materialization: bool = False
     use_materialized_outputs: bool = True
-    strategies: list[str] = Field(default_factory=lambda: ["cache", "network"])
+    strategies: list[str] = Field(
+        default_factory=lambda: list(SUPPORTED_FALLBACK_STRATEGIES)
+    )
     partial_retry_max: int = Field(default=3, ge=0)
     circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+
+    @field_validator("strategies", mode="after")
+    @classmethod
+    def validate_strategies(cls, value: list[str]) -> list[str]:
+        """Normalize configured strategies and ensure they are supported."""
+
+        return _normalize_fallback_strategies(value)
 
 
 class PipelineConfig(BaseModel):

@@ -99,7 +99,7 @@ sources:
     cache_enabled: true
     cache_ttl: 43200
     cache_maxsize: 4096
-    fallback_strategies: ["cache", "network"]
+    fallback_strategies: ["cache", "partial_retry"]
     circuit_breaker:
       failure_threshold: 5
       timeout_sec: 90.0

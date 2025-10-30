@@ -18,6 +18,7 @@ import requests
 from cachetools import TTLCache  # type: ignore
 from requests.exceptions import HTTPError, RequestException
 
+from bioetl.config.models import SUPPORTED_FALLBACK_STRATEGIES
 from bioetl.core.logger import UnifiedLogger
 
 logger = UnifiedLogger.get(__name__)
@@ -107,7 +108,9 @@ class APIConfig:
     cb_failure_threshold: int = 5
     cb_timeout: float = 60.0
     fallback_enabled: bool = True
-    fallback_strategies: list[str] = field(default_factory=lambda: ["network", "timeout"])
+    fallback_strategies: list[str] = field(
+        default_factory=lambda: list(SUPPORTED_FALLBACK_STRATEGIES)
+    )
 
 
 class CircuitBreaker:
@@ -498,6 +501,29 @@ class UnifiedAPIClient:
         self.session = requests.Session()
         self.session.headers.update(config.headers)
 
+        original_strategies = list(config.fallback_strategies)
+        sanitized_strategies, unsupported = self._sanitize_fallback_strategies(
+            original_strategies
+        )
+
+        if unsupported:
+            logger.warning(
+                "fallback_strategies_unsupported",
+                requested=original_strategies,
+                unsupported=sorted(set(unsupported)),
+                supported=list(SUPPORTED_FALLBACK_STRATEGIES),
+            )
+
+        config.fallback_strategies = sanitized_strategies
+        if config.fallback_enabled and not sanitized_strategies:
+            logger.warning(
+                "fallback_disabled_no_valid_strategies",
+                requested=original_strategies,
+            )
+            config.fallback_enabled = False
+
+        self._fallback_strategies = sanitized_strategies
+
         # Initialize circuit breaker
         self.circuit_breaker = CircuitBreaker(
             name=config.name,
@@ -779,6 +805,35 @@ class UnifiedAPIClient:
             params_str = json.dumps(normalized_params, sort_keys=True, separators=(",", ":"))
             key_parts.append(params_str)
         return hashlib.sha256("|".join(key_parts).encode()).hexdigest()
+
+    @staticmethod
+    def _sanitize_fallback_strategies(
+        strategies: Iterable[str],
+    ) -> tuple[list[str], list[str]]:
+        """Return supported fallback strategies and collect unsupported entries."""
+
+        normalized: list[str] = []
+        unsupported: list[str] = []
+        supported = set(SUPPORTED_FALLBACK_STRATEGIES)
+
+        for raw in strategies:
+            if not isinstance(raw, str):
+                unsupported.append(repr(raw))
+                continue
+
+            candidate = raw.strip().lower()
+            if not candidate:
+                unsupported.append(repr(raw))
+                continue
+
+            if candidate not in supported:
+                unsupported.append(candidate)
+                continue
+
+            if candidate not in normalized:
+                normalized.append(candidate)
+
+        return normalized, unsupported
 
     def close(self) -> None:
         """Close session and cleanup resources."""
