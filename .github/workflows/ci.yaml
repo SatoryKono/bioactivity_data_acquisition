@@ -143,7 +143,7 @@ jobs:
           BIOACTIVITY__LOGGING__LEVEL: DEBUG
           BIOACTIVITY__LOGGING__FILE__ENABLED: true
         run: |
-          pytest tests/unit tests/integration tests/schemas
+          pytest tests/unit tests/integration tests/golden tests/schemas
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
