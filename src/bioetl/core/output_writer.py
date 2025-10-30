@@ -12,6 +12,7 @@ from typing import Any, Callable
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.config.models import DeterminismConfig
 
 logger = UnifiedLogger.get(__name__)
 
@@ -207,10 +208,78 @@ class QualityReportGenerator:
 class UnifiedOutputWriter:
     """Unified output writer with atomic writes and QC reports."""
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str, determinism: DeterminismConfig | None = None):
         self.run_id = run_id
+        self.determinism = determinism or DeterminismConfig()
         self.atomic_writer = AtomicWriter(run_id)
         self.quality_generator = QualityReportGenerator()
+
+    def _resolve_float_format(self) -> str | None:
+        precision = getattr(self.determinism, "float_precision", None)
+        if precision is None:
+            return None
+        try:
+            precision_value = int(precision)
+        except (TypeError, ValueError):  # pragma: no cover - configuration guarded elsewhere
+            return None
+        return f"%.{precision_value}f"
+
+    def _resolve_datetime_format(self) -> str | None:
+        fmt = getattr(self.determinism, "datetime_format", None)
+        if fmt is None:
+            return None
+        normalized = str(fmt).strip()
+        if not normalized or normalized.lower() == "iso8601":
+            return None
+        return normalized
+
+    def _csv_serialization_kwargs(self) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {}
+        float_format = self._resolve_float_format()
+        if float_format is not None:
+            kwargs["float_format"] = float_format
+        date_format = self._resolve_datetime_format()
+        if date_format is not None:
+            kwargs["date_format"] = date_format
+        return kwargs
+
+    def _format_datetime_series(self, series: pd.Series, fmt: str) -> pd.Series:
+        if pd.api.types.is_datetime64_any_dtype(series):
+            return series.dt.strftime(fmt)
+        if pd.api.types.is_object_dtype(series):
+            return series.map(
+                lambda value: value.strftime(fmt)
+                if isinstance(value, (datetime, pd.Timestamp))
+                else value
+            )
+        return series
+
+    def _prepare_json_frame(
+        self, df: pd.DataFrame, configured_format: str | None
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        json_kwargs: dict[str, Any] = {}
+        float_precision = getattr(self.determinism, "float_precision", None)
+        if float_precision is not None:
+            try:
+                json_kwargs["double_precision"] = int(float_precision)
+            except (TypeError, ValueError):  # pragma: no cover - validated upstream
+                pass
+
+        if configured_format is None or configured_format.lower() == "iso8601":
+            json_kwargs["date_format"] = "iso"
+            return df, json_kwargs
+
+        normalized = configured_format.lower()
+        if normalized in {"iso", "epoch", "mixed", "mixed_iso"}:
+            json_kwargs["date_format"] = normalized
+            return df, json_kwargs
+
+        formatted_df = df.copy()
+        for column in formatted_df.columns:
+            formatted_df[column] = self._format_datetime_series(
+                formatted_df[column], configured_format
+            )
+        return formatted_df, json_kwargs
 
     def write(
         self,
@@ -281,7 +350,8 @@ class UnifiedOutputWriter:
             rows=len(df),
             run_directory=str(run_directory),
         )
-        self.atomic_writer.write(df, dataset_path)
+        csv_kwargs = self._csv_serialization_kwargs()
+        self.atomic_writer.write(df, dataset_path, **csv_kwargs)
 
         logger.info(
             "generating_quality_report",
@@ -293,7 +363,7 @@ class UnifiedOutputWriter:
             issues=issues,
             qc_metrics=qc_metrics,
         )
-        self.atomic_writer.write(quality_df, quality_path)
+        self.atomic_writer.write(quality_df, quality_path, **csv_kwargs)
 
         qc_summary_path: Path | None = None
         if qc_summary:
@@ -309,7 +379,9 @@ class UnifiedOutputWriter:
                 path=str(missing_mappings_path),
                 rows=len(qc_missing_mappings),
             )
-            self.atomic_writer.write(qc_missing_mappings, missing_mappings_path)
+            self.atomic_writer.write(
+                qc_missing_mappings, missing_mappings_path, **csv_kwargs
+            )
 
         enrichment_metrics_path: Path | None = None
         if qc_enrichment_metrics is not None and not qc_enrichment_metrics.empty:
@@ -319,7 +391,9 @@ class UnifiedOutputWriter:
                 path=str(enrichment_metrics_path),
                 rows=len(qc_enrichment_metrics),
             )
-            self.atomic_writer.write(qc_enrichment_metrics, enrichment_metrics_path)
+            self.atomic_writer.write(
+                qc_enrichment_metrics, enrichment_metrics_path, **csv_kwargs
+            )
 
         additional_paths: dict[str, Path] = {}
         if additional_tables:
@@ -350,7 +424,7 @@ class UnifiedOutputWriter:
                     path=str(table_path),
                     rows=len(table),
                 )
-                self.atomic_writer.write(table, table_path)
+                self.atomic_writer.write(table, table_path, **csv_kwargs)
                 additional_paths[name] = table_path
 
         checksum_targets: list[Path] = [
@@ -406,22 +480,29 @@ class UnifiedOutputWriter:
         json_path: Path,
         *,
         orient: str = "records",
-        date_format: str = "iso",
+        date_format: str | None = None,
     ) -> None:
         """Serialize ``df`` to JSON using the same atomic guarantees as CSV writes."""
+
+        configured_format = (
+            date_format
+            if date_format is not None
+            else getattr(self.determinism, "datetime_format", "iso8601")
+        )
+        frame, json_kwargs = self._prepare_json_frame(df, configured_format)
 
         logger.info(
             "writing_dataframe_json",
             path=str(json_path),
             rows=len(df),
             orient=orient,
-            date_format=date_format,
+            date_format=configured_format,
         )
 
-        json_payload = df.to_json(
+        json_payload = frame.to_json(
             orient=orient,
             force_ascii=False,
-            date_format=date_format,
+            **json_kwargs,
         )
         parsed_payload = json.loads(json_payload) if json_payload else []
 

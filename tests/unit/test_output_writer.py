@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
+from bioetl.config.models import DeterminismConfig
 from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
 
 
@@ -310,4 +311,22 @@ def test_write_dataframe_json(tmp_path, monkeypatch):
     assert payload[0]["value"] == 1
     assert payload[0]["label"] == "a"
     assert payload[0]["timestamp"].startswith("2024-01-01")
+
+
+def test_unified_output_writer_respects_float_precision(tmp_path, monkeypatch):
+    """Float precision from determinism config should drive CSV serialization."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1.23456789]})
+    writer = UnifiedOutputWriter(
+        "run-precision",
+        determinism=DeterminismConfig(float_precision=6),
+    )
+
+    output_path = tmp_path / "run-precision" / "activity" / "datasets" / "activity.csv"
+    writer.write(df, output_path)
+
+    contents = output_path.read_text(encoding="utf-8")
+    assert "1.234568" in contents
 
