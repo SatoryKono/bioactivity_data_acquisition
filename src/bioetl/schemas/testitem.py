@@ -36,10 +36,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         ge=1,
         description="Parent molregno",
     )
-    therapeutic_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Therapeutic flag",
-    )
+    therapeutic_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Therapeutic flag")
     structure_type: Series[str] = pa.Field(nullable=True, description="Structure type")
     molecule_type: Series[str] = pa.Field(nullable=True, description="Molecule type")
     molecule_type_chembl: Series[str] = pa.Field(nullable=True, description="Molecule type from ChEMBL")
@@ -53,10 +50,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         ge=0,
         description="First approval year",
     )
-    dosed_ingredient: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Dosed ingredient flag",
-    )
+    dosed_ingredient: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Dosed ingredient flag")
     availability_type: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
@@ -65,50 +59,17 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
     chirality: Series[str] = pa.Field(nullable=True, description="Chirality descriptor")
     chirality_chembl: Series[str] = pa.Field(nullable=True, description="ChEMBL chirality descriptor")
     mechanism_of_action: Series[str] = pa.Field(nullable=True, description="Mechanism of action")
-    direct_interaction: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Direct interaction flag",
-    )
-    molecular_mechanism: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Molecular mechanism flag",
-    )
-    oral: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Oral administration flag",
-    )
-    parenteral: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Parenteral administration flag",
-    )
-    topical: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Topical administration flag",
-    )
-    black_box_warning: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Black box warning flag",
-    )
-    natural_product: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Natural product flag",
-    )
-    first_in_class: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="First-in-class flag",
-    )
-    prodrug: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Prodrug flag",
-    )
-    inorganic_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Inorganic flag",
-    )
-    polymer_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Polymer flag",
-    )
+    direct_interaction: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Direct interaction flag")
+    molecular_mechanism: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Molecular mechanism flag")
+    oral: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Oral administration flag")
+    parenteral: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Parenteral administration flag")
+    topical: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Topical administration flag")
+    black_box_warning: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Black box warning flag")
+    natural_product: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Natural product flag")
+    first_in_class: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="First-in-class flag")
+    prodrug: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Prodrug flag")
+    inorganic_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Inorganic flag")
+    polymer_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Polymer flag")
     usan_year: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
@@ -118,10 +79,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
     usan_substem: Series[str] = pa.Field(nullable=True, description="USAN substem")
     usan_stem_definition: Series[str] = pa.Field(nullable=True, description="USAN stem definition")
     indication_class: Series[str] = pa.Field(nullable=True, description="Indication class")
-    withdrawn_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Withdrawn flag",
-    )
+    withdrawn_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Withdrawn flag")
     withdrawn_year: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
@@ -132,42 +90,15 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
     drug_chembl_id: Series[str] = pa.Field(nullable=True, description="Drug ChEMBL ID")
     drug_name: Series[str] = pa.Field(nullable=True, description="Drug name")
     drug_type: Series[str] = pa.Field(nullable=True, description="Drug type")
-    drug_substance_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug substance flag",
-    )
-    drug_indication_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug indication flag",
-    )
-    drug_antibacterial_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug antibacterial flag",
-    )
-    drug_antiviral_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug antiviral flag",
-    )
-    drug_antifungal_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug antifungal flag",
-    )
-    drug_antiparasitic_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug antiparasitic flag",
-    )
-    drug_antineoplastic_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug antineoplastic flag",
-    )
-    drug_immunosuppressant_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug immunosuppressant flag",
-    )
-    drug_antiinflammatory_flag: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Drug anti-inflammatory flag",
-    )
+    drug_substance_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug substance flag")
+    drug_indication_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug indication flag")
+    drug_antibacterial_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug antibacterial flag")
+    drug_antiviral_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug antiviral flag")
+    drug_antifungal_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug antifungal flag")
+    drug_antiparasitic_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug antiparasitic flag")
+    drug_antineoplastic_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug antineoplastic flag")
+    drug_immunosuppressant_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug immunosuppressant flag")
+    drug_antiinflammatory_flag: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Drug anti-inflammatory flag")
 
     mw_freebase: Series[float] = pa.Field(nullable=True, ge=0, description="Free base molecular weight")
     alogp: Series[float] = pa.Field(nullable=True, description="ALogP")
@@ -187,10 +118,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         ge=0,
         description="Rotatable bonds (rtb)",
     )
-    ro3_pass: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Rule of three pass flag",
-    )
+    ro3_pass: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Rule of three pass flag")
     num_ro5_violations: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,
@@ -235,10 +163,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         ge=0,
         description="Alias for Lipinski RO5 violations",
     )
-    lipinski_ro5_pass: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="Lipinski RO5 pass flag",
-    )
+    lipinski_ro5_pass: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="Lipinski RO5 pass flag")
 
     standardized_smiles: Series[str] = pa.Field(nullable=True, description="Standardized SMILES")
     standard_inchi: Series[str] = pa.Field(nullable=True, description="Standard InChI")
@@ -278,10 +203,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
     pubchem_synonyms: Series[str] = pa.Field(nullable=True, description="PubChem synonyms JSON")
     pubchem_enriched_at: Series[str] = pa.Field(nullable=True, description="PubChem enrichment timestamp")
     pubchem_cid_source: Series[str] = pa.Field(nullable=True, description="PubChem CID source")
-    pubchem_fallback_used: Series[pd.BooleanDtype] = pa.Field(
-        nullable=True,
-        description="PubChem fallback used flag",
-    )
+    pubchem_fallback_used: Series[pd.BooleanDtype] = pa.Field(nullable=True, dtype=pd.BooleanDtype(), description="PubChem fallback used flag")
     pubchem_enrichment_attempt: Series[pd.Int64Dtype] = pa.Field(
         nullable=True,
         ge=0,

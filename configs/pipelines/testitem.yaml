@@ -6,6 +6,7 @@ extends:
 pipeline:
   name: testitem
   entity: testitem
+  version: "1.0.0"
 
 materialization:
   pipeline_subdir: "testitem"

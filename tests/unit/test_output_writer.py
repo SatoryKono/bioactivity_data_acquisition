@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 import yaml
 
+from bioetl.config.loader import load_config
 from bioetl.config.models import DeterminismConfig
 from bioetl.core.output_writer import (
     AdditionalTableSpec,
@@ -19,6 +20,7 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.pipelines.base import PipelineBase
 from bioetl.pandera_typing import Series
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
@@ -345,6 +347,55 @@ def test_unified_output_writer_metadata_write_is_atomic(tmp_path, monkeypatch):
 
     assert metadata_path.read_text(encoding="utf-8") == baseline_contents
     assert not list((tmp_path / "run-atomic").rglob("*.tmp"))
+
+
+def test_pipeline_export_metadata_receives_checksums(tmp_path, monkeypatch):
+    """Pipeline export should persist checksum metadata on the pipeline instance."""
+
+    _freeze_datetime(monkeypatch)
+
+    class _StubPipeline(PipelineBase):
+        def extract(self, *args, **kwargs):  # noqa: D401, ANN001 - abstract implementation for tests
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+    config = load_config("configs/pipelines/assay.yaml")
+    pipeline = _StubPipeline(config, "run-pipeline-meta")
+
+    df = pd.DataFrame({"value": [1, 2], "label": ["a", "b"]})
+    pipeline.set_export_metadata_from_dataframe(
+        df,
+        pipeline_version="1.0.0",
+        source_system="unit-test",
+    )
+
+    output_path = (
+        tmp_path
+        / "run-pipeline-meta"
+        / "assay"
+        / "datasets"
+        / "assay_export.csv"
+    )
+
+    artifacts = pipeline.export(df, output_path)
+
+    assert artifacts.metadata is not None
+    assert artifacts.metadata_model is not None
+    assert pipeline.export_metadata is artifacts.metadata_model
+
+    with artifacts.metadata.open("r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle)
+
+    checksums = payload["file_checksums"]
+    assert artifacts.dataset.name in checksums
+    assert artifacts.quality_report.name in checksums
+    assert pipeline.export_metadata.checksums == checksums
+    assert pipeline.export_metadata.checksums
 
 
 def test_calculate_checksums_supports_multi_chunk_files(tmp_path):

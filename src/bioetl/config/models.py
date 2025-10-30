@@ -318,6 +318,7 @@ class PipelineMetadata(BaseModel):
 
     name: str
     entity: str
+    version: str
     release_scope: bool = True
 
 

@@ -103,9 +103,9 @@ def _coerce_optional_bool_scalar(value: object) -> bool | NAType:
         normalized = value.strip().lower()
         if normalized in {"", "na", "none", "null"}:
             return cast(NAType, pd.NA)
-        if normalized in {"true", "t"}:
+        if normalized in {"true", "t", "yes", "y", "1", "on"}:
             return True
-        if normalized in {"false", "f", "0"}:
+        if normalized in {"false", "f", "0", "no", "n", "off"}:
             return False
         return cast(NAType, pd.NA)
 

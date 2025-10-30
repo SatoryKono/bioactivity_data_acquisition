@@ -6,6 +6,7 @@ extends:
 pipeline:
   name: activity
   entity: activity
+  version: "1.0.0"
 
 materialization:
   pipeline_subdir: "activity"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -35,6 +36,7 @@ class ColumnComparisonResult:
         column_count_matches: bool,
         empty_columns: list[str],
         non_empty_columns: list[str],
+        duplicate_columns: dict[str, int],
     ):
         self.entity = entity
         self.expected_columns = expected_columns
@@ -45,6 +47,7 @@ class ColumnComparisonResult:
         self.column_count_matches = column_count_matches
         self.empty_columns = empty_columns
         self.non_empty_columns = non_empty_columns
+        self.duplicate_columns = duplicate_columns
         self.overall_match = (
             len(missing_columns) == 0
             and len(extra_columns) == 0
@@ -65,10 +68,13 @@ class ColumnComparisonResult:
             "column_count_matches": self.column_count_matches,
             "empty_columns": self.empty_columns,
             "non_empty_columns": self.non_empty_columns,
+            "duplicate_columns": self.duplicate_columns,
             "expected_count": len(self.expected_columns),
             "actual_count": len(self.actual_columns),
             "empty_count": len(self.empty_columns),
             "non_empty_count": len(self.non_empty_columns),
+            "duplicate_unique_count": len(self.duplicate_columns),
+            "duplicate_total": sum(count - 1 for count in self.duplicate_columns.values()),
         }
 
 
@@ -105,6 +111,12 @@ class ColumnValidator:
 
             # Получить фактические колонки
             actual_columns = list(actual_df.columns)
+            duplicates_counter = Counter(actual_columns)
+            duplicate_columns = {
+                column: count
+                for column, count in duplicates_counter.items()
+                if count > 1
+            }
 
             # Сравнить колонки
             missing_columns = list(set(expected_columns) - set(actual_columns))
@@ -125,6 +137,7 @@ class ColumnValidator:
                 column_count_matches=column_count_matches,
                 empty_columns=empty_columns,
                 non_empty_columns=non_empty_columns,
+                duplicate_columns=duplicate_columns,
             )
 
             self.logger.info(
@@ -135,6 +148,7 @@ class ColumnValidator:
                 actual_count=len(actual_columns),
                 missing_count=len(missing_columns),
                 extra_count=len(extra_columns),
+                duplicate_unique_count=len(duplicate_columns),
             )
 
             return result
@@ -164,9 +178,10 @@ class ColumnValidator:
         empty_columns = []
         non_empty_columns = []
 
-        for column in df.columns:
+        for idx, column in enumerate(df.columns):
             # Проверить, есть ли непустые значения
-            non_null_count = df[column].notna().sum()
+            series = df.iloc[:, idx]
+            non_null_count = series.notna().sum()
 
             if non_null_count == 0:
                 empty_columns.append(column)
@@ -230,6 +245,10 @@ class ColumnValidator:
                 "order_mismatches": sum(1 for r in results if not r.order_matches),
                 "count_mismatches": sum(1 for r in results if not r.column_count_matches),
                 "empty_columns": sum(len(r.empty_columns) for r in results),
+                "duplicate_columns": sum(
+                    sum(count - 1 for count in r.duplicate_columns.values())
+                    for r in results
+                ),
             },
         }
 
@@ -260,6 +279,7 @@ class ColumnValidator:
             f.write(f"- **Несоответствие порядка:** {issues['order_mismatches']}\n")
             f.write(f"- **Несоответствие количества:** {issues['count_mismatches']}\n")
             f.write(f"- **Пустые колонки:** {issues['empty_columns']}\n\n")
+            f.write(f"- **Дубликаты колонок:** {issues['duplicate_columns']}\n\n")
 
             # Детали по каждой сущности
             f.write("## Детали по сущностям\n\n")
@@ -279,6 +299,12 @@ class ColumnValidator:
                     f.write("**Лишние колонки:**\n")
                     for col in detail["extra_columns"]:
                         f.write(f"- `{col}`\n")
+                    f.write("\n")
+
+                if detail["duplicate_columns"]:
+                    f.write("**Дубликаты колонок:**\n")
+                    for col, count in detail["duplicate_columns"].items():
+                        f.write(f"- `{col}` — {count} раз(а)\n")
                     f.write("\n")
 
                 if not detail["order_matches"]:
@@ -312,11 +338,13 @@ class ColumnValidator:
         results: list[ColumnComparisonResult] = []
 
         # Найти CSV файлы в выходной директории
-        csv_files = [
-            csv_file
-            for csv_file in output_dir.glob("**/*.csv")
-            if not self._should_skip_file(csv_file)
-        ]
+        csv_files = sorted(
+            [
+                csv_file
+                for csv_file in output_dir.glob("**/*.csv")
+                if not self._should_skip_file(csv_file)
+            ]
+        )
 
         if not csv_files:
             self.logger.warning(

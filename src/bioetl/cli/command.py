@@ -26,6 +26,7 @@ class PipelineCommandConfig:
     default_output_dir: Path
     mode_choices: Sequence[str] | None = None
     default_mode: str = "default"
+    description: str | None = None
 
 
 def _validate_sample(sample: int | None) -> None:

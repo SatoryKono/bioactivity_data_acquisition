@@ -46,17 +46,29 @@ UnifiedLogger.get('test').info('Hello World')"
 
 ## Environment variables
 
-Некоторые пайплайны требуют секретов из переменных окружения. Для доступа к IUPHAR
-необходимо установить API-ключ до запуска конфигурации или CLI:
+Все обязательные переменные перечислены в файле [`.env.example`](.env.example) с
+комментариями по формату значений. Скопируйте его и заполните реальные данные:
 
 ```bash
+cp .env.example .env
+${SHELL:-bash} -lc 'set -a; source .env; set +a'
+```
 
-export IUPHAR_API_KEY="your-iuphar-token"
+Команда `set -a` экспортирует все переменные из `.env` в текущую сессию. В
+CI/CD можно использовать аналогичный подход (например, `python -m dotenv load`
+или встроенные менеджеры секретов) до вызова CLI.
 
-```text
+| Переменная | Назначение | Обязательность |
+| --- | --- | --- |
+| `PUBMED_TOOL` | Значение параметра `tool` для обращения к NCBI E-utilities. | Да — требуется документному пайплайну. |
+| `PUBMED_EMAIL` | Контактный e-mail для PubMed, который указывается в запросах. | Да — требуется документному пайплайну. |
+| `PUBMED_API_KEY` | Повышает PubMed rate limit с 3 до 10 запросов/сек. | Необязательная, но рекомендована для production. |
+| `CROSSREF_MAILTO` | E-mail для polite pool Crossref API. | Да — требуется документному пайплайну. |
+| `SEMANTIC_SCHOLAR_API_KEY` | Токен Semantic Scholar Graph API. | Необязательная локально, обязательна для production. |
+| `IUPHAR_API_KEY` | Ключ доступа к Guide to Pharmacology API. | Да — требуется target-пайплайну. |
 
-Если переменная не задана, загрузчик конфигурации завершится ошибкой, предотвращая
-случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
+Если `IUPHAR_API_KEY` не задан, загрузчик конфигурации завершится ошибкой,
+предотвращая случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
 
 ## CLI Usage
 
@@ -149,6 +161,16 @@ pre-commit run --all-files
 ```text
 
 Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
+
+### Continuous Integration setup
+
+CI workflows rely on the same configuration loader that powers the CLI. To
+customise logging or other runtime options in GitHub Actions, use
+double-underscore separated environment variables with the `BIOETL__` prefix.
+For example, the default workflow sets `BIOETL__LOGGING__LEVEL=DEBUG` and
+`BIOETL__LOGGING__FILE__ENABLED=true` before running `pytest`. The loader also
+accepts the legacy `BIOACTIVITY__` prefix to keep existing secrets working
+while pipelines migrate to the new namespace.
 
 ### Extract-stage conventions
 

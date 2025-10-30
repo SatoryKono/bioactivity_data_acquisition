@@ -140,8 +140,8 @@ jobs:
 
       - name: Test with pytest
         env:
-          BIOACTIVITY__LOGGING__LEVEL: DEBUG
-          BIOACTIVITY__LOGGING__FILE__ENABLED: true
+          BIOETL__LOGGING__LEVEL: DEBUG
+          BIOETL__LOGGING__FILE__ENABLED: true
         run: |
           pytest tests/unit tests/integration tests/golden tests/schemas
 
