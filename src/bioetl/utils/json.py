@@ -37,7 +37,7 @@ def canonical_json(value: Any, sort_keys: bool = True, ensure_ascii: bool = True
 
 def normalize_json_list(
     raw: Any,
-    sort_fn: Callable[[dict], Any] | None = None,
+    sort_fn: Callable[[dict[str, Any]], Any] | None = None,
 ) -> tuple[str | None, list[dict[str, Any]]]:
     """Нормализует и канонизирует список словарей.
 

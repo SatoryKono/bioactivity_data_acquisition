@@ -7,7 +7,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from logging.handlers import RotatingFileHandler
 
@@ -218,7 +218,8 @@ def set_context(context: dict[str, Any]) -> None:
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """Get structured logger instance."""
-    return structlog.get_logger(name)
+    logger = structlog.get_logger(name)
+    return cast(structlog.stdlib.BoundLogger, logger)
 
 
 class UnifiedLogger:
