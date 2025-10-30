@@ -752,6 +752,130 @@ def test_request_json_base_url_join(monkeypatch: pytest.MonkeyPatch) -> None:
     assert observed_urls[0] == observed_urls[1]
 
 
+def test_fallback_cache_after_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """После исчерпания ретраев возвращается кэш при стратегии 'cache'."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=True,
+        cache_ttl=60,
+        retry_total=2,
+        fallback_enabled=True,
+        # Стратегии: сначала cache
+        fallback_strategies=["cache"],
+    )
+
+    client = UnifiedAPIClient(config)
+
+    # Заполним кэш значением для нужного ключа
+    key = client._cache_key("https://api.example.com/resource", {"q": "x"})
+    assert client.cache is not None
+    client.cache[key] = {"cached": True}
+
+    # Сделать так, чтобы обычные попытки всегда падали
+    def always_fail(**_: Any) -> requests.Response:
+        raise requests.exceptions.Timeout("timeout")
+
+    monkeypatch.setattr(client, "_execute", always_fail)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    result = client.request_json("/resource", params={"q": "x"})
+    assert result == {"cached": True}
+
+
+def test_fallback_partial_retry_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """После исчерпания ретраев partial_retry выполняет дополнительные попытки и успешен."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        retry_total=2,
+        fallback_enabled=True,
+        fallback_strategies=["partial_retry"],
+        partial_retry_max=2,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    calls = {"n": 0}
+
+    def flaky_execute(**_: Any) -> requests.Response:
+        calls["n"] += 1
+        # Первые 2 (основные ретраи) и ещё 1 extra — фейлимся; затем успех
+        if calls["n"] <= 3:
+            raise requests.exceptions.ReadTimeout("rt")
+        return _build_response(200, {"ok": 1})
+
+    monkeypatch.setattr(client, "_execute", flaky_execute)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    result = client.request_json("/endpoint")
+    assert result == {"ok": 1}
+    # Всего 4 вызова _execute: 2 базовых + 2 extra (успех на 4-м)
+    assert calls["n"] == 4
+
+
+def test_fallback_order_cache_then_partial_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Порядок стратегий соблюдается: cache miss → partial_retry успех."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=True,
+        retry_total=1,
+        fallback_enabled=True,
+        fallback_strategies=["cache", "partial_retry"],
+        partial_retry_max=1,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    # Кэша нет под ключ
+    # Первый базовый вызов упадёт, затем partial_retry пройдёт
+    calls = {"n": 0}
+
+    def flaky_execute(**_: Any) -> requests.Response:
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise requests.exceptions.ReadTimeout("rt")
+        return _build_response(200, {"ok": True})
+
+    monkeypatch.setattr(client, "_execute", flaky_execute)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    result = client.request_json("/endpoint", params={"p": 1})
+    assert result == {"ok": True}
+    # 1 базовая + 1 extra + 1 успех = 3 вызова
+    assert calls["n"] == 3
+
+
+def test_no_fallback_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Когда fallback выключен, по исчерпании ретраев выбрасывается исключение."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        retry_total=2,
+        fallback_enabled=False,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    def always_fail(**_: Any) -> requests.Response:
+        raise requests.exceptions.ConnectionError("down")
+
+    monkeypatch.setattr(client, "_execute", always_fail)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        client.request_json("/endpoint")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

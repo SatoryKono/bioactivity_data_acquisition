@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urljoin
 
 import requests
@@ -355,16 +355,21 @@ class UnifiedAPIClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Make JSON request with all protections.
+        """Выполняет JSON-запрос с защитами: CB, rate-limit, retry, Retry-After и fallback.
 
-        Args:
-            url: Request URL
-            params: Query parameters
-            method: HTTP method
+        Порядок:
+        1) Построение URL, проверка кэша для GET без тела.
+        2) Запрос с учётом circuit breaker и rate limiter.
+        3) Повторы по политике `RetryPolicy` (429: учитывается Retry-After).
+        4) Если повторы исчерпаны и `config.fallback_enabled=True`, запускаются стратегии
+           по порядку из `config.fallback_strategies`:
+           - "cache": вернуть ответ из кэша (только для GET без тела), если доступен.
+           - "partial_retry": выполнить до `config.partial_retry_max` дополнительных попыток
+             с той же семантикой ожиданий (Retry-After, backoff). При успехе — кэшировать.
+        5) При неудаче после всех стратегий пробрасывается исходное исключение.
 
-        Returns:
-            JSON response as dict
+        Возвращает:
+            dict: разобранный JSON-ответ.
         """
         # Build full URL
         if not url.startswith("http"):
@@ -522,6 +527,151 @@ class UnifiedAPIClient:
                 raise
 
         if last_exc:
+            # Попытка fallback-стратегий после исчерпания основных ретраев
+            if self.config.fallback_enabled:
+                strategies = list(self.config.fallback_strategies or [])
+                for strategy in strategies:
+                    # Стратегия: cache
+                    if strategy == "cache":
+                        if (
+                            self.cache
+                            and cache_key
+                            and method == "GET"
+                            and request_has_no_body
+                            and cache_key in self.cache
+                        ):
+                            logger.info(
+                                "fallback_strategy_selected",
+                                strategy="cache",
+                                url=url,
+                                method=method,
+                                attempt=last_attempt,
+                                status_code=(
+                                    last_response.status_code if last_response is not None else None
+                                ),
+                                reason="cache_hit",
+                            )
+                            cached_value_fb: dict[str, Any] = self.cache[cache_key]
+                            return self._clone_payload(cached_value_fb)
+                        else:
+                            logger.info(
+                                "fallback_strategy_skipped",
+                                strategy="cache",
+                                url=url,
+                                method=method,
+                                attempt=last_attempt,
+                                status_code=(
+                                    last_response.status_code if last_response is not None else None
+                                ),
+                                reason="cache_miss_or_not_applicable",
+                            )
+
+                    # Стратегия: partial_retry
+                    elif strategy == "partial_retry":
+                        max_extra = int(max(0, self.config.partial_retry_max))
+                        if max_extra <= 0:
+                            logger.info(
+                                "fallback_strategy_skipped",
+                                strategy="partial_retry",
+                                url=url,
+                                method=method,
+                                attempt=last_attempt,
+                                status_code=(
+                                    last_response.status_code if last_response is not None else None
+                                ),
+                                reason="partial_retry_max=0",
+                            )
+                        else:
+                            logger.info(
+                                "fallback_strategy_selected",
+                                strategy="partial_retry",
+                                url=url,
+                                method=method,
+                                attempt=last_attempt,
+                                status_code=(
+                                    last_response.status_code if last_response is not None else None
+                                ),
+                                reason="extra_attempts",
+                                extra_attempts=max_extra,
+                            )
+
+                            # Выполняем дополнительные попытки
+                            for extra_idx in range(1, max_extra + 1):
+                                try:
+                                    response = self.circuit_breaker.call(_perform_request)
+                                    response.raise_for_status()
+                                    payload = response.json()
+                                    if (
+                                        self.cache
+                                        and cache_key
+                                        and method == "GET"
+                                        and request_has_no_body
+                                    ):
+                                        self.cache[cache_key] = self._clone_payload(payload)
+                                    return payload
+                                except requests.exceptions.HTTPError as e:
+                                    last_exc = e
+                                    last_response = getattr(e, "response", None)
+                                    retry_after_seconds = self._retry_after_seconds(last_response)
+                                    wait_time = self.retry_policy.get_wait_time(
+                                        extra_idx,
+                                        retry_after=retry_after_seconds,
+                                    )
+                                    logger.warning(
+                                        "partial_retry_http_error",
+                                        extra_attempt=extra_idx,
+                                        wait_seconds=wait_time,
+                                        error=str(e),
+                                        status_code=(
+                                            last_response.status_code if last_response is not None else None
+                                        ),
+                                        retry_after=(
+                                            last_response.headers.get("Retry-After")
+                                            if last_response is not None and last_response.headers
+                                            else None
+                                        ),
+                                    )
+                                    if retry_after_seconds is not None and wait_time > 0:
+                                        time.sleep(wait_time)
+                                    continue
+                                except requests.exceptions.RequestException as e:
+                                    last_exc = e
+                                    retry_after_seconds = self._retry_after_seconds(
+                                        getattr(e, "response", None)
+                                    )
+                                    wait_time = self.retry_policy.get_wait_time(
+                                        extra_idx,
+                                        retry_after=retry_after_seconds,
+                                    )
+                                    logger.warning(
+                                        "partial_retry_request_exception",
+                                        extra_attempt=extra_idx,
+                                        wait_seconds=wait_time,
+                                        error=str(e),
+                                        exception_type=type(e).__name__,
+                                    )
+                                    if retry_after_seconds is not None and wait_time > 0:
+                                        time.sleep(wait_time)
+                                    continue
+                                except Exception as e:
+                                    last_exc = e
+                                    logger.error(
+                                        "partial_retry_unexpected_error",
+                                        extra_attempt=extra_idx,
+                                        error=str(e),
+                                    )
+                                    break
+
+                    else:
+                        # Неизвестная стратегия — пропускаем с логом
+                        logger.info(
+                            "fallback_strategy_unknown",
+                            strategy=strategy,
+                            url=url,
+                            method=method,
+                            attempt=last_attempt,
+                        )
+
             if not hasattr(last_exc, "retry_metadata"):
                 metadata = {
                     "attempt": last_attempt,
@@ -532,7 +682,7 @@ class UnifiedAPIClient:
                     "error_text": last_error_text or str(last_exc),
                     "retry_after": last_retry_after_header,
                 }
-                last_exc.retry_metadata = metadata
+                last_exc.retry_metadata = metadata  # type: ignore[attr-defined]
             logger.error(
                 "request_failed_after_retries",
                 url=url,
@@ -640,7 +790,7 @@ class UnifiedAPIClient:
         except Exception:
             # ``requests`` can sometimes return objects that are not fully deepcopyable.
             # Fall back to JSON round-trip cloning as a safe guard.
-            return json.loads(json.dumps(payload))
+            return cast(dict[str, Any], json.loads(json.dumps(payload)))
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
@@ -661,10 +811,17 @@ class UnifiedAPIClient:
                     return [_stringify(item) for item in value]
 
                 if isinstance(value, dict):
-                    return {
-                        str(key): _stringify(val)
-                        for key, val in sorted(value.items(), key=lambda item: str(item[0]))
-                    }
+                    def _sort_key_dict_item(item: tuple[Any, Any]) -> tuple[str, str]:
+                        key_obj = item[0]
+                        # Детерминированная сортировка: тип + repr
+                        return (type(key_obj).__name__, repr(key_obj))
+
+                    # Представляем словарь как список пар [key, value] с сохранением типов ключей
+                    items = [
+                        [_stringify(k), _stringify(v)] for k, v in value.items()
+                    ]
+                    items.sort(key=lambda pair: (type(pair[0]).__name__, repr(pair[0])))
+                    return items
 
                 return value
             except Exception:
@@ -672,10 +829,15 @@ class UnifiedAPIClient:
 
         key_parts = [url]
         if params:
+            def _sort_key_top(item: tuple[Any, Any]) -> tuple[str, str]:
+                k = item[0]
+                return (type(k).__name__, repr(k))
+
+            # Нормализуем ключи и значения с сохранением типов ключей
             normalized_params = [
-                (key, _stringify(value))
-                for key, value in sorted(params.items(), key=lambda item: item[0])
+                (_stringify(key), _stringify(value)) for key, value in params.items()
             ]
+            normalized_params.sort(key=lambda item: (type(item[0]).__name__, repr(item[0])))
             params_str = json.dumps(normalized_params, sort_keys=True, separators=(",", ":"))
             key_parts.append(params_str)
         return hashlib.sha256("|".join(key_parts).encode()).hexdigest()

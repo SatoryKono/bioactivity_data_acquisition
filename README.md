@@ -38,7 +38,10 @@ python -m bioetl.cli.main --help
 python -m bioetl.cli.main list
 
 # Пример запуска пайплайна в режиме dry-run
-python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml --dry-run --verbose
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/activity.yaml \
+  --dry-run \
+  --verbose
 ```
 
 ## Structure
