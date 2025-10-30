@@ -15,7 +15,14 @@ __all__ = ["ChemblRelease", "SupportsRequestJson", "fetch_chembl_release"]
 class SupportsRequestJson(Protocol):
     """Protocol describing the minimal ``request_json`` capability we rely on."""
 
-    def request_json(self, url: str, /, **kwargs: Any) -> Mapping[str, Any]:
+    def request_json(
+        self,
+        url: str,
+        params: Mapping[str, Any] | None = ...,
+        method: str = ...,
+        data: Mapping[str, Any] | None = ...,
+        json: Mapping[str, Any] | None = ...,
+    ) -> Mapping[str, Any]:
         """Perform an HTTP request and return the parsed JSON payload."""
 
 

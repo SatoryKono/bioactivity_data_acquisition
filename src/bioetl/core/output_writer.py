@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+from pandas import DataFrame
 
 from bioetl.config.models import DeterminismConfig
 from bioetl.core.logger import UnifiedLogger
@@ -128,7 +129,7 @@ def _extension_for_format(format_name: str) -> str:
 class AdditionalTableSpec:
     """Описание дополнительной таблицы для экспорта."""
 
-    dataframe: pd.DataFrame
+    dataframe: DataFrame
     relative_path: Path | None = None
     formats: tuple[str, ...] = ("csv",)
 
@@ -160,7 +161,7 @@ class OutputMetadata:
     @classmethod
     def from_dataframe(
         cls,
-        df: pd.DataFrame,
+        df: DataFrame,
         pipeline_version: str = "1.0.0",
         source_system: str = "unified",
         chembl_release: str | None = None,
@@ -284,11 +285,11 @@ class AtomicWriter:
 
     def write(
         self,
-        data: pd.DataFrame,
+        data: DataFrame,
         path: Path,
         *,
         format: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Записывает data в path атомарно через run-scoped temp directory."""
 
@@ -305,6 +306,8 @@ class AtomicWriter:
         resolved_date_format = _resolve_date_format(
             self.determinism, kwargs.pop("date_format", None)
         )
+
+        assert resolved_format is not None
 
         def write_payload() -> None:
             temp_path = _get_active_atomic_temp_path()
@@ -324,13 +327,13 @@ class AtomicWriter:
 
     def _write_to_file(
         self,
-        data: pd.DataFrame,
+        data: DataFrame,
         path: Path,
         *,
         format: str,
         float_format: str | None = None,
         date_format: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Записывает DataFrame в файл."""
 
@@ -357,10 +360,10 @@ class QualityReportGenerator:
 
     def generate(
         self,
-        df: pd.DataFrame,
+        df: DataFrame,
         issues: list[dict[str, Any]] | None = None,
         qc_metrics: dict[str, Any] | None = None,
-    ) -> pd.DataFrame:
+    ) -> DataFrame:
         """Создает QC отчет."""
         rows: list[dict[str, Any]] = []
         row_count = len(df)
@@ -399,7 +402,8 @@ class QualityReportGenerator:
                 }
                 rows.append(entry)
 
-        return pd.DataFrame(rows)
+        result_df: DataFrame = DataFrame(rows)
+        return result_df
 
 
 class UnifiedOutputWriter:
@@ -417,7 +421,7 @@ class UnifiedOutputWriter:
         self.quality_generator = QualityReportGenerator()
         self.pipeline_config: PipelineConfig | None = pipeline_config
 
-    def _apply_column_order(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _apply_column_order(self, df: DataFrame) -> DataFrame:
         """Return a dataframe matching the configured deterministic column order."""
 
         configured_order = [column for column in self.determinism.column_order if column]
@@ -435,7 +439,9 @@ class UnifiedOutputWriter:
             ordered[column] = pd.NA
 
         remaining_columns = [column for column in ordered.columns if column not in configured_order]
-        return ordered[configured_order + remaining_columns]
+        new_order = configured_order + remaining_columns
+        ordered_view: DataFrame = ordered[new_order]
+        return ordered_view
 
     def _resolve_dataset_location(self, output_path: Path) -> tuple[Path, str]:
         """Return the concrete dataset path and serialisation format."""
@@ -448,15 +454,15 @@ class UnifiedOutputWriter:
 
     def write(
         self,
-        df: pd.DataFrame,
+        df: DataFrame,
         output_path: Path,
         metadata: OutputMetadata | None = None,
         extended: bool = False,
         issues: list[dict[str, Any]] | None = None,
         qc_metrics: dict[str, Any] | None = None,
         qc_summary: dict[str, Any] | None = None,
-        qc_missing_mappings: pd.DataFrame | None = None,
-        qc_enrichment_metrics: pd.DataFrame | None = None,
+        qc_missing_mappings: DataFrame | None = None,
+        qc_enrichment_metrics: DataFrame | None = None,
         additional_tables: dict[str, "AdditionalTableSpec"] | None = None,
         runtime_options: dict[str, Any] | None = None,
         debug_dataset: Path | None = None,
@@ -475,7 +481,9 @@ class UnifiedOutputWriter:
         Returns:
             OutputArtifacts с путями к созданным файлам
         """
-        dataset_df = df.copy() if not apply_column_order else self._apply_column_order(df)
+        dataset_df: DataFrame = (
+            df.copy() if not apply_column_order else self._apply_column_order(df)
+        )
         column_order = list(dataset_df.columns)
         dataset_path, dataset_format = self._resolve_dataset_location(output_path)
 
@@ -773,7 +781,7 @@ class UnifiedOutputWriter:
 
     def write_dataframe_json(
         self,
-        df: pd.DataFrame,
+        df: DataFrame,
         json_path: Path,
         *,
         orient: str = "records",
@@ -853,31 +861,31 @@ class UnifiedOutputWriter:
                     checksums[path.name] = digest.hexdigest()
         return checksums
 
-    def _build_correlation_report(self, df: pd.DataFrame) -> pd.DataFrame | None:
+    def _build_correlation_report(self, df: DataFrame) -> DataFrame | None:
         """Prepare a tidy correlation report for numeric columns."""
 
         if df.empty:
             return None
 
-        numeric_df = df.select_dtypes(include="number")
+        numeric_df: DataFrame = df.select_dtypes(include="number")
         if numeric_df.empty:
             return None
 
-        correlation = numeric_df.corr(numeric_only=True)
+        correlation: DataFrame = numeric_df.corr(numeric_only=True)
         if correlation.empty:
             return None
 
         correlation = correlation.round(6)
-        tidy = (
+        tidy_any = (
             correlation.reset_index()
             .rename(columns={"index": "feature_x"})
             .melt(id_vars="feature_x", var_name="feature_y", value_name="correlation")
         )
-        tidy = tidy.dropna(subset=["correlation"])
-        tidy = tidy.sort_values(["feature_x", "feature_y"]).reset_index(drop=True)
-        return tidy
+        tidy_df: DataFrame = tidy_any.dropna(subset=["correlation"])
+        tidy_df = tidy_df.sort_values(["feature_x", "feature_y"]).reset_index(drop=True)
+        return tidy_df
 
-    def _build_summary_statistics(self, df: pd.DataFrame) -> pd.DataFrame | None:
+    def _build_summary_statistics(self, df: DataFrame) -> DataFrame | None:
         """Build descriptive statistics for all columns."""
 
         if df.empty:
@@ -891,11 +899,13 @@ class UnifiedOutputWriter:
         if summary.empty:
             return None
 
-        summary = summary.transpose().reset_index().rename(columns={"index": "column"})
-        summary = summary.convert_dtypes()
-        return summary
+        summary_df: DataFrame = summary.transpose().reset_index().rename(
+            columns={"index": "column"}
+        )
+        summary_df = summary_df.convert_dtypes()
+        return summary_df
 
-    def _build_dataset_metrics(self, df: pd.DataFrame) -> pd.DataFrame | None:
+    def _build_dataset_metrics(self, df: DataFrame) -> DataFrame | None:
         """Compute dataset-level QC metrics."""
 
         row_count = int(len(df))
@@ -926,8 +936,9 @@ class UnifiedOutputWriter:
             {"metric": "memory_usage_bytes", "value": memory_usage},
         ]
 
-        metrics_df = pd.DataFrame(metrics)
-        return metrics_df.convert_dtypes()
+        metrics_df: DataFrame = DataFrame(metrics)
+        metrics_df = metrics_df.convert_dtypes()
+        return metrics_df
 
     def _write_metadata(
         self,

@@ -71,6 +71,9 @@ class Series:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         ...
 
+    def __getattr__(self, name: str) -> Any:
+        ...
+
     def map(self, *args: Any, **kwargs: Any) -> Series:
         ...
 
@@ -175,6 +178,9 @@ class DataFrame:
     shape: tuple[int, int]
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        ...
+
+    def __getattr__(self, name: str) -> Any:
         ...
 
     def copy(self, *args: Any, **kwargs: Any) -> DataFrame:

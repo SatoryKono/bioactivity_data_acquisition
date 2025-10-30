@@ -118,13 +118,10 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = [
-    "bioetl.core.api_client",
-    "bioetl.core.output_writer",
     "bioetl.normalizers.*",
     "bioetl.pandera_pandas",
     "bioetl.utils.column_validator",
     "bioetl.utils",
-    "bioetl.cli.*",
 ]
 ignore_errors = true
 
