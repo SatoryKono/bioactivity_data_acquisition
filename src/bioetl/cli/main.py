@@ -14,15 +14,14 @@ for key in sorted(PIPELINE_COMMAND_REGISTRY):
 
 
 @app.command(name="list")
-def list():
+def list_pipelines() -> None:
     """List available pipelines."""
     UnifiedLogger.setup(mode="production")
     typer.echo("Available pipelines:")
-    typer.echo("  - assay (ChEMBL assay data)")
-    typer.echo("  - activity (ChEMBL activity data)")
-    typer.echo("  - testitem (ChEMBL molecules + PubChem)")
-    typer.echo("  - target (ChEMBL + UniProt + IUPHAR)")
-    typer.echo("  - document (ChEMBL + external sources)")
+    for key in sorted(PIPELINE_COMMAND_REGISTRY):
+        config = PIPELINE_COMMAND_REGISTRY[key]
+        description = config.description or config.pipeline_name
+        typer.echo(f"  - {key} ({description})")
 
 
 if __name__ == "__main__":
