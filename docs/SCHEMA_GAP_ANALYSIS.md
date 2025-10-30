@@ -48,7 +48,7 @@ class BaseSchema(pa.DataFrameModel):
 
 ## 2. AssaySchema - Full Specification
 
-### Текущее состояние (continued)
+### Текущее состояние (continued 1)
 
 **Файл:** `src/bioetl/schemas/assay.py`
 
@@ -86,7 +86,7 @@ class BaseSchema(pa.DataFrameModel):
 
 **Column Order:** `[assay_chembl_id, row_subtype, row_index, pref_name, hash_row, hash_business_key, chembl_release]`
 
-### Чеклист изменений (continued)
+### Чеклист изменений (continued 1)
 
 - [ ] Добавить `row_subtype: Series[str]` (allowed: ["assay", "param", "variant"], nullable=False)
 - [ ] Добавить `row_index: Series[int]` (>=0, nullable=False)
@@ -178,7 +178,7 @@ class BaseSchema(pa.DataFrameModel):
 
 ## 4. TestItemSchema - Extended Fields
 
-### Текущее состояние (continued) (continued)
+### Текущее состояние (continued) (continued) (continued)
 
 **Файл:** `src/bioetl/schemas/testitem.py`
 
@@ -220,7 +220,7 @@ class BaseSchema(pa.DataFrameModel):
 
 **Column Order:** `[molecule_chembl_id, molregno, pref_name, parent_chembl_id, max_phase, structure_type, molecule_type, mw_freebase, qed_weighted, pubchem_cid, standardized_smiles, hash_row, hash_business_key, chembl_release]`
 
-### Чеклист изменений (continued) (continued)
+### Чеклист изменений (continued) (continued) (continued)
 
 - [ ] Переименовать `canonical_smiles` → `standardized_smiles`
 - [ ] Переименовать `molecular_weight` → `mw_freebase`
@@ -243,7 +243,7 @@ class BaseSchema(pa.DataFrameModel):
 
 ## 5. TargetSchema - Multi-Table Enrichment
 
-### Текущее состояние (continued) (continued)
+### Текущее состояние (continued) (continued) (continued) (continued)
 
 **Файл:** `src/bioetl/schemas/target.py`
 
@@ -323,7 +323,7 @@ class BaseSchema(pa.DataFrameModel):
 - Удалить `xref_id` (int) ✗
 - `xref_src_db, xref_src_id: Series[str]` (nullable=False) ✗
 
-### Чеклист изменений (continued) (continued)
+### Чеклист изменений (continued) (continued) (continued) (continued)
 
 **TargetSchema:**
 
@@ -366,7 +366,7 @@ class BaseSchema(pa.DataFrameModel):
 
 ## 6. DocumentSchema - Multi-Source Unified
 
-### Текущее состояние (continued) (continued)
+### Текущее состояние (continued) (continued) (continued) (continued) (continued)
 
 **Файл:** `src/bioetl/schemas/document.py`
 
@@ -491,7 +491,7 @@ class BaseSchema(pa.DataFrameModel):
 - `publication_date: Series[str]` ✗
 - `document_sortorder: Series[int]` ✗
 
-### Чеклист изменений (continued) (continued)
+### Чеклист изменений (continued) (continued) (continued) (continued) (continued)
 
 - [ ] Удалить `ChEMBLDocumentSchema`
 - [ ] Удалить `PubMedDocumentSchema`
@@ -516,7 +516,7 @@ class BaseSchema(pa.DataFrameModel):
 
 ## 7. Config Files - Determinism Settings
 
-### Текущее состояние (continued) (continued)
+### Текущее состояние (continued) (continued) (continued) (continued) (continued 1)
 
 **Файлы:** `configs/pipelines/*.yaml`
 
@@ -547,7 +547,7 @@ determinism:
 - `target.yaml`: добавить `determinism.*`, `sort.by: [target_chembl_id]`
 - `document.yaml`: добавить `determinism.*`, `sort.by: [document_chembl_id]`
 
-### Чеклист изменений (continued) (continued)
+### Чеклист изменений (continued) (continued) (continued) (continued) (continued 1)
 
 - [ ] Добавить `determinism.hash_algorithm: "sha256"` во все configs
 - [ ] Добавить `determinism.float_precision: 6`

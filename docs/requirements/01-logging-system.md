@@ -714,13 +714,13 @@ logger.info("message")
 
 ```python
 
-# Было (continued)
+# Было (continued 1)
 
 import structlog
 logger = structlog.get_logger()
 logger.info("message")
 
-# Стало (continued)
+# Стало (continued 1)
 
 from unified_logger import configure_logging, get_logger
 configure_logging(LoggerConfig(level="INFO"))

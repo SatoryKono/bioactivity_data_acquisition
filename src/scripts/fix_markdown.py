@@ -55,14 +55,18 @@ def fix_file(path: Path) -> bool:
                 line = stripped
                 changed = True
 
-            # deduplicate identical headings by appending marker
+            # deduplicate identical headings by appending stable index
             parts = line.lstrip().split(" ", 1)
             heading_text = parts[1] if len(parts) > 1 else ""
-            if heading_text in seen_headings:
-                line = f"{line} (continued)"
+            base_text = heading_text.rsplit(" (continued", 1)[0]
+            count = 0
+            for h in seen_headings:
+                if h == base_text:
+                    count += 1
+            if count > 0:
+                line = f"{parts[0]} {base_text} (continued {count})"
                 changed = True
-            else:
-                seen_headings.add(heading_text)
+            seen_headings.add(base_text)
 
             if prev.strip() != "":
                 result.append("")
@@ -88,20 +92,16 @@ def fix_file(path: Path) -> bool:
             i += 1
             continue
 
-        # Ensure blank lines around fenced code blocks
-        if line.strip().startswith("```"):
-            if prev.strip() != "":
-                result.append("")
-                changed = True
-            result.append(line)
-            # add blank line after fence start or end if needed will be handled when next_line consumed
-            if next_line.strip() != "":
-                # only add blank after closing fence; we don't know here, but safe to add and collapse later
-                result.append("")
-                changed = True
-            i += 1
-            continue
+        # Ensure blank line BEFORE any fence line if needed
+        if line.strip().startswith("```") and prev.strip() != "" and not prev.strip().startswith("```"):
+            result.append("")
+            changed = True
+            # fall through to append line below
 
+        # Ensure blank line AFTER closing fence: if previous was fence and current is not fence or blank
+        if prev.strip().startswith("```") and line.strip() != "" and not line.strip().startswith("```"):
+            result.append("")
+            changed = True
         result.append(line)
         i += 1
 

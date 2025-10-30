@@ -163,7 +163,7 @@
 **Enrichment endpoints:** `/target/{id}.json`, `/assay_class/{id}.json`  
 **Batch size:** 25 записей
 
-### Системные поля (continued)
+### Системные поля (continued 1)
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
@@ -466,7 +466,7 @@
 **Enrichment:** PubMed, Crossref, OpenAlex, Semantic Scholar  
 **Batch size:** 10 записей (ChEMBL), 200 записей (PubMed), 100 записей (Crossref), 100 записей (OpenAlex), 50 записей (Semantic Scholar)
 
-### Системные поля (continued) (continued)
+### Системные поля (continued) (continued) (continued)
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
@@ -643,7 +643,7 @@
 **IUPHAR endpoint:** `/services/targets`  
 **Batch size:** 25 записей (ChEMBL), 50 записей (UniProt), 200 записей (IUPHAR)
 
-### Системные поля (continued) (continued)
+### Системные поля (continued) (continued) (continued) (continued)
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|

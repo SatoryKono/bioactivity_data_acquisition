@@ -634,7 +634,7 @@ class UnifiedAPIClient:
 
                 if self.retry_policy.should_giveup(e, attempt):
 
-                    # Fallback (continued)
+# Fallback (continued 1)
 
                     if self.fallback_manager:
                         return self.fallback_manager.execute_with_fallback(
@@ -1268,7 +1268,7 @@ assert "attempt=1" in log_output
 
 response.status_code = 400
 
-# Запрос (continued)
+# Запрос (continued 1)
 
 try:
     result = client.get("/api/data", params={"invalid": "param"})

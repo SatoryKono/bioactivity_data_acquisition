@@ -897,7 +897,7 @@ class SchemaRegistry:
 
         return schema
 
-# Инициализация (continued)
+# Инициализация (continued 1)
 
 SchemaRegistry.register(DocumentSchema)
 SchemaRegistry.register(ActivitySchema)
@@ -976,7 +976,7 @@ class MyCustomSchema(BaseSchema):
     custom_field: str = pa.Field(nullable=False)
     other_field: int | None = pa.Field(ge=0, nullable=True)
 
-    # Регистрация (continued)
+# Регистрация (continued 1)
 
     SchemaRegistry.register(MyCustomSchema)
 

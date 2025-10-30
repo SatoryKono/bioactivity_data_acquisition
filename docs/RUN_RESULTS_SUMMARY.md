@@ -54,7 +54,7 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 
 ```text
 
-### Пример данных (continued)
+### Пример данных (continued 1)
 
 ```text
 
@@ -62,7 +62,7 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 
 ```text
 
-### Результаты (continued)
+### Результаты (continued 1)
 
 - ✅ Содержит hash поля: `hash_business_key`, `hash_row`, `index`
 - ✅ QC-поля отсутствуют (Filtered.init, IUPHAR_class и др. удалены)

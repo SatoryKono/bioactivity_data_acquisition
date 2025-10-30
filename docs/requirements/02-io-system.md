@@ -785,7 +785,7 @@ def canonicalize_row_for_hash(
 
     return json.dumps(canonical, sort_keys=True, ensure_ascii=False)
 
-# Использование (continued)
+# Использование (continued 1)
 
 STRING_COLUMNS = {
     name
@@ -859,7 +859,7 @@ lineage:
 
 ```python
 
-# Run-scoped temp directory (continued)
+# Run-scoped temp directory (continued 1)
 
 temp_dir = output_path.parent / f".tmp_run_{run_id}"
 temp_dir.mkdir(parents=True, exist_ok=True)
@@ -1309,12 +1309,12 @@ writer.write(df, table_name="documents", date_tag="20250128")
 
 ```python
 
-# Было (continued)
+# Было (continued 1)
 
 from library.io.output_writer import save_standard_outputs
 save_standard_outputs(df, qc_df, corr_df, "documents", "20250128")
 
-# Стало (continued)
+# Стало (continued 1)
 
 from unified_output import UnifiedOutputWriter
 

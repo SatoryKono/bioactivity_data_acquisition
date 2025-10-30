@@ -1334,7 +1334,7 @@ curl "https://api.openalex.org/works?filter=title.search:prostaglandin"
 
 ```bash
 
-# Первый запрос (continued)
+# Первый запрос (continued 1)
 
 curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=*"
 
@@ -2363,7 +2363,7 @@ class DocumentNormalizedSchema(DocumentRawSchema):
         ge=0, nullable=True, description="Number of authors"
     )
 
-    # Метаданные от внешних источников (continued)
+# Метаданные от внешних источников (continued 1)
 
     mesh_terms: Series[str] = pa.Field(nullable=True, description="MeSH terms")
     chemicals: Series[str] = pa.Field(nullable=True, description="Chemical substances")
@@ -2378,7 +2378,7 @@ class DocumentNormalizedSchema(DocumentRawSchema):
     oa_status: Series[str] = pa.Field(nullable=True, description="OA status")
     oa_url: Series[str] = pa.Field(nullable=True, description="OA URL")
 
-    # Источники полей (continued)
+# Источники полей (continued 1)
 
     title_source: Series[str] = pa.Field(nullable=True, description="Source of title")
     abstract_source: Series[str] = pa.Field(nullable=True, description="Source of abstract")
@@ -2387,12 +2387,12 @@ class DocumentNormalizedSchema(DocumentRawSchema):
     issn_print_source: Series[str] = pa.Field(nullable=True, description="Source of ISSN print")
     issn_electronic_source: Series[str] = pa.Field(nullable=True, description="Source of ISSN electronic")
 
-    # Конфликты (continued)
+# Конфликты (continued 1)
 
     conflict_doi: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="DOI conflict flag")
     conflict_pmid: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="PMID conflict flag")
 
-    # QC флаги (continued)
+# QC флаги (continued 1)
 
     qc_flag_invalid_doi: Series[pd.Int64Dtype] = pa.Field(
         isin=[0, 1], nullable=True, description="Invalid DOI flag"
@@ -2412,7 +2412,7 @@ class DocumentNormalizedSchema(DocumentRawSchema):
     hash_business_key: Series[str] = pa.Field(nullable=False, description="Business key hash")
     hash_row: Series[str] = pa.Field(nullable=False, description="Row hash")
 
-    # Системные (continued)
+# Системные (continued 1)
 
     chembl_release: Series[str] = pa.Field(nullable=True, description="ChEMBL release")
     run_id: Series[str] = pa.Field(nullable=True, description="Run ID")
@@ -2968,7 +2968,7 @@ if not result:
 result = s2_client.fetch_by_pmid(f"PMID:{pmid}")
 if not result:
 
-    # Fallback to title search (continued)
+# Fallback to title search (continued 1)
 
     title = get_title_from_chEMBL(chembl_id)
     results = s2_client.search_by_title(title)

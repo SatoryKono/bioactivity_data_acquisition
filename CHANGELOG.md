@@ -1,30 +1,17 @@
 # Changelog
 
+Все заметные изменения проекта фиксируются в этом файле.
+
 ## [Unreleased]
 
 ### Changed
 
-- Синхронизированы схемы assay, activity, testitem с
-  IO_SCHEMAS_AND_DIAGRAMS.md
+- Стандартизированы правила логирования и уровни логов
+- Обновлены схемы Pandera для всех итоговых таблиц
+- Уточнены контракты UnifiedAPIClient (таймауты, ретраи, QPS)
 
-- Удалены QC-поля из activity входа/выхода
-- Добавлены обязательные hash поля (hash_row, hash_business_key, index) во все
-  пайплайны
+### Fixed
 
-- Обновлены Pandera схемы с regex валидацией для ChEMBL ID и hash полей
-- Обновлен BaseSchema: добавлена regex валидация для hash полей, исправлены
-  типы системных полей
-
-- Обновлена AssaySchema: заменено поле pref_name на description, удалены лишние
-  поля, добавлена regex валидация
-
-- Обновлена ActivitySchema: добавлена regex валидация для всех ChEMBL ID полей
-- Обновлена TestItemSchema: добавлена regex валидация, обновлен column_order
-- Очищены входные CSV файлы (activity.csv, testitem.csv) - оставлены только
-  IO_SCHEMAS Input Schema поля
-
-- Добавлена фильтрация входных данных в пайплайнах для исключения QC-полей
-- Удалена зависимость `tenacity` из runtime-окружения
 - Исправлено количество попыток в fallback-стратегии `partial_retry`
 
 ### Added

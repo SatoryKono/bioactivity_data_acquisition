@@ -244,7 +244,7 @@
    - Компромисс: Жёсткость валидации
    - **Статус**: Обязательные поля lineage добавлены в meta.yaml (R2), см. [02-io-system.md](requirements/02-io-system.md#обязательные-поля-meta-yaml)
 
-4. **Целостность данных (G7, G8)**
+4. Целостность данных (G7, G8)
 
    - Риск: Потеря nested data, шум в output
    - Mitigation: AC8, strict-enrichment

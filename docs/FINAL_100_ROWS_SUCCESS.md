@@ -70,43 +70,43 @@
 
 1. **src/bioetl/pipelines/assay.py:**
 
-   ```python
+```python
 
-   # Было
+# Было
 
-   df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
+df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
 
-   # Стало
+# Стало
 
-   df = pd.read_csv(input_file)  # Read all records
+df = pd.read_csv(input_file)  # Read all records
 
 ```text
 
-2. **src/bioetl/pipelines/activity.py:**
+1. **src/bioetl/pipelines/activity.py:**
 
 ```python
 
-   # Было (continued)
+**Было:**
 
-   df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
+df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
 
-   # Стало (continued)
+**Стало:**
 
-   df = pd.read_csv(input_file)  # Read all records
+df = pd.read_csv(input_file)  # Read all records
 
 ```text
 
 1. **src/bioetl/pipelines/testitem.py:**
 
-   ```python
+```python
 
-# Было (continued) (continued)
+**Было:**
 
-   df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
+df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
 
-# Стало (continued) (continued)
+**Стало:**
 
-   df = pd.read_csv(input_file)  # Read all records
+df = pd.read_csv(input_file)  # Read all records
 
 ```text
 

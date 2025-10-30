@@ -1871,7 +1871,7 @@ class PubChemEnricher:
         total = stats['total_molecules']
         resolved = stats['cid_resolved']
 
-        # Add computed metrics (continued)
+# Add computed metrics (continued 1)
 
         stats['cid_resolution_rate'] = resolved / total if total > 0 else 0.0
         stats['enrichment_rate'] = stats['properties_enriched'] / total if total > 0 else 0.0
@@ -2437,7 +2437,7 @@ class PubChemErrorHandler:
             context=context
         )
 
-        # Should retry after cooldown (continued)
+# Should retry after cooldown (continued 1)
 
         return (PubChemErrorType.SERVICE_ERROR, True)
 
@@ -2742,7 +2742,7 @@ def fetch_properties_optimized(
 
             response = client._request(path)
 
-            # Parse batch results (continued)
+# Parse batch results (continued 1)
 
             if "PropertyTable" in response and "Properties" in response["PropertyTable"]:
                 for prop_data in response["PropertyTable"]["Properties"]:
@@ -3174,13 +3174,13 @@ class PerformanceTracker:
 
 performance_targets:
 
-  # Throughput (continued)
+# Throughput (continued 1)
 
   molecules_per_second: 10.0        # 10 molecules/sec
 
   requests_per_second: 4.5          # Under API limit (5/sec)
 
-  # Timing (continued)
+# Timing (continued 1)
 
   avg_cid_resolution_time: 0.5      # 0.5s per CID
 
@@ -3188,17 +3188,17 @@ performance_targets:
 
   total_duration_1000_mols: 180     # 3 minutes for 1000 molecules
 
-  # Success rates (continued)
+# Success rates (continued 1)
 
   cid_resolution_rate: 0.85         # 85% успех
 
   properties_enrichment_rate: 0.80  # 80% успех
 
-  # Cache (continued)
+# Cache (continued 1)
 
   cache_hit_rate: 0.60              # 60% из cache
 
-  # Errors (continued)
+# Errors (continued 1)
 
   rate_limit_hits_per_1000: 2       # Max 2 на 1000 молекул
 

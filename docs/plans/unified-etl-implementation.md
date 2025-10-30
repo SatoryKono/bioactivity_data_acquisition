@@ -732,7 +732,7 @@ pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adap
 
 ```bash
 
-# Pre-commit hooks (continued)
+# Pre-commit hooks (continued 1)
 
 pre-commit run --all-files
 

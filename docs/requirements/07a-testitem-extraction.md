@@ -466,7 +466,7 @@ def _flatten_molecule_structures(molecule: dict) -> dict:
         flattened["standard_inchi"] = structures.get("standard_inchi")
         flattened["standard_inchi_key"] = structures.get("standard_inchi_key")
 
-        # Сохраняем JSON (continued)
+# Сохраняем JSON (continued 1)
 
         flattened["molecule_structures"] = json.dumps(
             structures,
@@ -1482,7 +1482,7 @@ checksums:
   qc:
     sha256: "def456789abc..."
 
-  # correlation: опционально, только при postprocess.correlation.enabled: true (continued)
+# correlation: опционально, только при postprocess.correlation.enabled: true (continued 1)
 
 ```text
 

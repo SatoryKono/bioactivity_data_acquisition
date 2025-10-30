@@ -134,7 +134,7 @@ assert list(df_validated.columns) == schema.column_order
 
 ```python
 
-# CLI (continued)
+# CLI (continued 1)
 
 # python -m pipeline run --fail-on-schema-drift  # default=True в production
 
