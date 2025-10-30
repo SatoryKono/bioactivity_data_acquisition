@@ -11,13 +11,12 @@ from bioetl.pandera_pandas import Field
 from bioetl.pandera_typing import Series
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
-    # Use project shim for static typing to match runtime behavior
     from bioetl.pandera_pandas import DataFrameModel as _DataFrameModelBase
 else:
     _DataFrameModelBase = _RuntimeDataFrameModel
 
 # Use runtime-compatible Pandera shim for subclassing with precise type for checkers
-DataFrameModel: type[_DataFrameModelBase] = _RuntimeDataFrameModel
+DataFrameModel = _RuntimeDataFrameModel
 
 # Shared column order for fallback metadata columns.  Exposed as a module level
 # constant so downstream schemas can reference it without importing the mixin
@@ -174,7 +173,7 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
         schema_cls.__extras__ = updated
 
 
-class BaseSchema(DataFrameModel):
+class BaseSchema(DataFrameModel):  # type: ignore
     """Базовый класс для Pandera схем.
 
     Содержит обязательные системные поля для всех пайплайнов:
