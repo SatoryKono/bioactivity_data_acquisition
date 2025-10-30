@@ -191,9 +191,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
             headers_override["x-api-key"] = ""
 
     config = load_config(config_path, overrides=overrides)
-    mode_choices: list[str] | None = None
-    if isinstance(config.cli, dict):
-        mode_choices = config.cli.get("mode_choices")
+    mode_choices = config.cli.mode_choices
     if mode_choices and mode not in mode_choices:
         allowed = ", ".join(mode_choices)
         raise typer.BadParameter(
