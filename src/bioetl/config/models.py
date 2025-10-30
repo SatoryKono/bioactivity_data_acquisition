@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    field_validator,
+    model_validator,
+)
 
 SUPPORTED_FALLBACK_STRATEGIES: tuple[str, ...] = ("cache", "partial_retry")
 
@@ -24,15 +34,6 @@ def _normalise_fallback_strategies(strategies: Iterable[str]) -> list[str]:
         if strategy not in normalised:
             normalised.append(strategy)
     return normalised
-
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    PrivateAttr,
-    field_validator,
-    model_validator,
-)
 
 
 class RetryConfig(BaseModel):
