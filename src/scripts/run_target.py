@@ -15,6 +15,7 @@ import typer
 from click import get_current_context
 from click.core import ParameterSource
 
+from bioetl.cli.limits import apply_sample_limit
 from bioetl.config.loader import load_config, parse_cli_overrides
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
@@ -217,7 +218,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
 
     pipeline = TargetPipeline(config, resolved_run_id)
 
-    runtime_flags: dict[str, Any] = {
+    runtime_flags: dict[str, object] = {
         "with_uniprot": with_uniprot,
         "with_iuphar": with_iuphar,
         "dry_run": dry_run,
@@ -231,6 +232,10 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         runtime_flags["input_file"] = str(input_file)
 
     pipeline.runtime_options.update(runtime_flags)
+
+    extraction_limit = sample if sample is not None else limit
+    if extraction_limit is not None:
+        apply_sample_limit(pipeline, extraction_limit)
 
     if dry_run:
         typer.echo("[DRY-RUN] Configuration loaded successfully.")

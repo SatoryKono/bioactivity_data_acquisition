@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType
 
+import pandas as pd
 import pytest
 from typer.testing import CliRunner
 
@@ -189,13 +190,103 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
 
     runtime_options = captured.get("runtime_options")
     assert isinstance(runtime_options, dict)
-    if entry.name == "target":
-        assert runtime_options.get("sample") == 5
-        assert runtime_options.get("limit") == 7
-    else:
-        assert runtime_options.get("sample") == 5
-        assert runtime_options.get("limit") == 5
+    assert runtime_options.get("sample") == 5
+    assert runtime_options.get("limit") == 5
 
+
+@pytest.mark.unit
+def test_cli_sample_limit_applies_and_does_not_leak_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Limiting one invocation should not affect subsequent runs."""
+
+    entry = _get_entry_by_name("assay")
+
+    pipelines: list[object] = []
+
+    class _LimitAwarePipeline:
+        def __init__(self, config, run_id):  # noqa: D401, ANN001 - Typer wiring
+            self.config = config
+            self.run_id = run_id
+            self.runtime_options: dict[str, object] = {}
+            self.source_rows: int | None = None
+            self.limited_rows: int | None = None
+            pipelines.append(self)
+
+        def extract(self, *args, **kwargs):  # noqa: ANN001 - interface defined by PipelineBase
+            df = pd.DataFrame({"value": range(10)})
+            self.source_rows = len(df)
+            return df
+
+        def run(
+            self,
+            output_path: Path,
+            *,
+            extended: bool = False,
+            input_file: Path | None = None,
+            **kwargs,
+        ) -> OutputArtifacts:  # noqa: ANN003 - signature mirrors pipeline contract
+            df = self.extract()
+            self.limited_rows = len(df)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(
+                "value\n" + "\n".join(str(value) for value in df["value"]),
+                encoding="utf-8",
+            )
+            quality_path = output_path.parent / "quality_report.csv"
+            quality_path.write_text("metric,value\nrows,1\n", encoding="utf-8")
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=quality_path,
+                run_directory=output_path.parent,
+            )
+
+    module = _load_entry_module(entry, monkeypatch, pipeline_override=_LimitAwarePipeline)
+    monkeypatch.setattr(module, entry.pipeline_attr, _LimitAwarePipeline, raising=False)
+
+    runner = CliRunner()
+    limited_output = tmp_path / "limited"
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--output-dir",
+            str(limited_output),
+            "--sample",
+            "3",
+            "--no-validate-columns",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    first_pipeline = pipelines.pop(0)
+    assert isinstance(first_pipeline, _LimitAwarePipeline)
+    assert first_pipeline.runtime_options.get("limit") == 3
+    assert first_pipeline.runtime_options.get("sample") == 3
+    assert first_pipeline.source_rows == 10
+    assert first_pipeline.limited_rows == 3
+
+    second_output = tmp_path / "default"
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--output-dir",
+            str(second_output),
+            "--no-validate-columns",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    second_pipeline = pipelines.pop(0)
+    assert isinstance(second_pipeline, _LimitAwarePipeline)
+    assert second_pipeline.runtime_options.get("limit") is None
+    assert second_pipeline.runtime_options.get("sample") is None
+    assert second_pipeline.source_rows == 10
+    assert second_pipeline.limited_rows == 10
 
 @pytest.mark.unit
 def test_cli_main_registers_pipeline_commands() -> None:
