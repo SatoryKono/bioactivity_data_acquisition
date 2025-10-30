@@ -1,15 +1,11 @@
 # План тестирования
-
 Покрытие тестами для validation правок из [gaps.md](gaps.md) и [acceptance-criteria.md](acceptance-criteria.md).
 
 ## Категории тестов
-
 ### 1. Юнит-тесты
-
 **Назначение**: Проверка изолированных компонентов (функций, классов).
 
 #### 1.1 Нормализаторы
-
 ```python
 
 # tests/unit/test_normalizers.py
@@ -37,11 +33,9 @@ def test_precision_map():
     assert get_precision("activity_id") is None  # string
 
 ```
-
 **Покрытие**: AC3, G5
 
 #### 1.2 Schema drift detection
-
 ```python
 
 # tests/unit/test_schema_drift.py
@@ -64,11 +58,9 @@ def test_schema_drift_minor_compatible():
     assert check_schema_compatibility(schema_v1, schema_v1_1) is None
 
 ```
-
 **Покрытие**: AC10, G4
 
 #### 1.3 Column order validation
-
 ```python
 
 # tests/unit/test_column_order.py
@@ -82,15 +74,12 @@ def test_column_order_from_schema():
     assert list(df_validated.columns) == schema.column_order
 
 ```
-
 **Покрытие**: AC2, G4
 
 ### 2. Интеграционные тесты
-
 **Назначение**: Проверка взаимодействия компонентов.
 
 #### 2.1 Offset-only pagination
-
 ```python
 
 # tests/integration/test_pagination.py
@@ -118,11 +107,9 @@ def test_activity_offset_only():
         client.fetch_activities(offset=0, cursor="abc123")  # смешивание
 
 ```
-
 **Покрытие**: G2
 
 #### 2.2 Mock 429 Retry-After
-
 ```python
 
 # tests/integration/test_retry_after.py
@@ -164,11 +151,9 @@ def test_no_retry_on_4xx_except_429():
     assert requests.get.call_count == 1
 
 ```
-
 **Покрытие**: AC5, G11
 
 #### 2.3 POST+X-HTTP-Method-Override
-
 ```python
 
 # tests/integration/test_chembl_post.py
@@ -188,15 +173,12 @@ def test_chembl_post_override():
     assert response.request.headers.get("X-HTTP-Method-Override") == "GET"
 
 ```
-
 **Покрытие**: [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md)
 
 ### 3. Golden-run тесты
-
 **Назначение**: Бит-в-бит детерминизм.
 
 #### 3.1 Bit-exact сравнение
-
 ```python
 
 # tests/golden/test_golden_run.py
@@ -237,7 +219,6 @@ def test_golden_run_assay():
     # (continued)
 
 ```
-
 **CLI команда**:
 
 ```bash
@@ -245,15 +226,12 @@ def test_golden_run_assay():
 python -m pipeline run --golden data/golden/activity.csv
 
 ```
-
 **Покрытие**: AC1, G1, G13
 
 ### 4. Нагрузочные тесты и лимиты
-
 **Назначение**: Определение "безопасных" лимитов API.
 
 #### 4.1 Бинарный поиск limit
-
 ```python
 
 # tests/load/test_limit_search.py
@@ -291,11 +269,9 @@ def test_binary_search_limit():
     assert ActivityConfig.max_limit == safe_limit
 
 ```
-
 **Покрытие**: G3
 
 #### 4.2 Метрики частоты 429
-
 ```python
 
 # tests/load/test_rate_limit_metrics.py
@@ -330,13 +306,10 @@ def test_track_429_rate():
     }
 
 ```
-
 **Покрытие**: G11
 
 ## Тестовые сценарии
-
 ### Сценарий 1: Полный пайплайн Activity
-
 ```python
 
 def test_full_activity_pipeline():
@@ -369,11 +342,9 @@ def test_full_activity_pipeline():
     assert not is_partial_file(output.csv)
 
 ```
-
 **Покрытие**: AC6, AC9, AC4
 
 ### Сценарий 2: Assay с long-format
-
 ```python
 
 def test_assay_long_format():
@@ -396,11 +367,9 @@ def test_assay_long_format():
               for p in parameters.itertuples())
 
 ```
-
 **Покрытие**: AC8, G7
 
 ### Сценарий 3: Atomic write failure recovery
-
 ```python
 
 def test_atomic_write_failure():
@@ -417,11 +386,9 @@ def test_atomic_write_failure():
     assert not (path.parent / ".tmp" / run_id / f"{path.name}.tmp").exists()
 
 ```
-
 **Покрытие**: AC4, G1
 
 ## Метрики покрытия
-
 - **Юнит-тесты**: >90% для нормализаторов, схем, hash utils
 
 - **Интеграционные**: >80% для пагинации, retry, clients
@@ -431,7 +398,6 @@ def test_atomic_write_failure():
 - **Нагрузочные**: 100% для limit discovery
 
 ## Инструменты
-
 - **pytest**: основная платформа
 
 - **pytest-mock**: mock-ing зависимостей
@@ -441,7 +407,6 @@ def test_atomic_write_failure():
 - **pytest-cov**: измерение покрытия кода
 
 ## CI Integration
-
 ```yaml
 
 # .github/workflows/test.yml
@@ -454,9 +419,7 @@ def test_atomic_write_failure():
     pytest tests/load/ -v --slow
 
 ```
-
 ## Связи с документами
-
 - [acceptance-criteria.md](acceptance-criteria.md) — критерии для валидации
 
 - [gaps.md](gaps.md) — пробелы, которые закрывают тесты
@@ -468,4 +431,3 @@ def test_atomic_write_failure():
 - [04-normalization-validation.md](requirements/04-normalization-validation.md) — тесты schema drift
 
 - [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md) — тесты activity пайплайна
-

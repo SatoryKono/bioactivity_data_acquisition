@@ -1,9 +1,7 @@
 # План серии PR
-
 Серия Pull Requests для внедрения правок из [gaps.md](gaps.md).
 
 ## PR-1: IO-протокол и детерминизм
-
 **Цель**: Единый atomic write, запрет partial artifacts, golden-run.
 
 **Файлы**:
@@ -36,7 +34,6 @@
 ---
 
 ## PR-2: Schema-registry/NA/precision
-
 **Цель**: column_order как источник истины, семантика drift, NA-policy.
 
 **Файлы**:
@@ -73,7 +70,6 @@
 ---
 
 ## PR-3: Клиент API (429/Retry-After, limiter)
-
 **Цель**: AC5, логирование retry_after, respect Retry-After инвариант.
 
 **Файлы**:
@@ -110,7 +106,6 @@
 ---
 
 ## PR-4: Assay long-format и whitelist
-
 **Цель**: AC7, AC8 — batch≤25, long-format обязателен, whitelist enrichment.
 
 **Файлы**:
@@ -145,7 +140,6 @@
 ---
 
 ## PR-5: Activity pagination/QC/sort
-
 **Цель**: AC6, AC9 + фиксация лимита, offset-only pagination.
 
 **Файлы**:
@@ -180,7 +174,6 @@
 ---
 
 ## Последовательность применения
-
 ```mermaid
 
 graph TD
@@ -191,7 +184,6 @@ graph TD
     PR4 --> PR5[PR-5: Activity]
 
 ```
-
 **Порядок**:
 
 1. **PR-1** (основа детерминизма)
@@ -205,9 +197,7 @@ graph TD
 5. **PR-5** (activity, финальный)
 
 ## Общие требования к PR
-
 ### Чеклист PR
-
 - [ ] Код покрыт тестами (>80%)
 - [ ] Все AC пройдены
 
@@ -218,7 +208,6 @@ graph TD
 - [ ] Code review одобрен
 
 ### Формат commit message
-
 ```text
 
 type(scope): краткое описание
@@ -231,9 +220,7 @@ type(scope): краткое описание
 Refs: #issue-number
 
 ```
-
 ### Типы commits
-
 - `feat`: новая функциональность
 - `fix`: исправление бага
 
@@ -243,14 +230,12 @@ Refs: #issue-number
 - `refactor`: рефакторинг без изменения функциональности
 
 ### Размер PR
-
 - Оптимально: 300-500 строк изменений
 - Максимум: 1000 строк
 
 - Если больше — разбить на несколько PR
 
 ## Дефолтные reviewers
-
 - **Архитектор**: PR-1, PR-2, PR-3
 - **Data Eng**: PR-2, PR-5
 
@@ -258,7 +243,6 @@ Refs: #issue-number
 - **Вед. инженер**: все PR (финальный approval)
 
 ## Критерии готовности к merge
-
 1. Все автоматические проверки пройдены (lint, test, format)
 
 2. Code review одобрен минимум 2 reviewers
@@ -272,7 +256,6 @@ Refs: #issue-number
 6. Gap закрыт (см. gaps.md)
 
 ## Роллбэк план
-
 Если PR вызвал проблемы в production:
 
 ```bash
@@ -290,9 +273,7 @@ git checkout -b hotfix/pr-X-rollback
 git push origin hotfix/pr-X-rollback
 
 ```
-
 ## Метрики успеха
-
 После merge всех PR:
 
 - Средний балл ISO/IEC 25010 ≥ 4.0
@@ -304,7 +285,6 @@ git push origin hotfix/pr-X-rollback
 - Golden-run stable
 
 ## Связи с документами
-
 - [gaps.md](gaps.md) — описание проблем
 - [acceptance-criteria.md](acceptance-criteria.md) — критерии проверки
 
@@ -312,4 +292,3 @@ git push origin hotfix/pr-X-rollback
 - [implementation-examples.md](implementation-examples.md) — патчи кода
 
 - `CHANGELOG.md` — фиксация изменений
-

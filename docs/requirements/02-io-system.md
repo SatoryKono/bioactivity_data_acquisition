@@ -1,7 +1,5 @@
 # 2. Система ввода-вывода (UnifiedOutputWriter)
-
 ## Обзор
-
 UnifiedOutputWriter — детерминированная система записи данных, объединяющая:
 
 - **Атомарную запись** через временные файлы (bioactivity_data_acquisition5)
@@ -13,7 +11,6 @@ UnifiedOutputWriter — детерминированная система зап
 - **Run manifests** для отслеживания пайплайнов
 
 ## Архитектура
-
 ```text
 
 UnifiedOutputWriter
@@ -32,11 +29,8 @@ UnifiedOutputWriter
     └── AtomicWriter (temporary files + rename)
 
 ```
-
 ## Компоненты
-
 ### 1. OutputArtifacts (dataclass)
-
 Стандартизированные пути к выходным артефактам:
 
 ```python
@@ -56,7 +50,6 @@ class OutputArtifacts:
     manifest: Path | None  # Run manifest (опционально)
 
 ```
-
 **Формат имен**:
 
 ```text
@@ -69,9 +62,7 @@ output.{table_name}_{date_tag}.meta.yaml  # если extended
 run_manifest_{timestamp}.json  # если extended
 
 ```
-
 ### 2. AtomicWriter
-
 Безопасная атомарная запись через run-scoped временные директории с использованием `os.replace` и явным управлением `run_id`:
 
 ```python
@@ -132,7 +123,6 @@ class AtomicWriter:
                 pass
 
 ```
-
 **Ключевые принципы атомарной записи:**
 
 - **os.replace() вместо Path.rename()**: гарантирует атомарность на POSIX и Windows
@@ -152,7 +142,6 @@ class AtomicWriter:
 - Run-scoped временные директории `.tmp_run_{run_id}` обеспечивают принцип «всё или ничего» из AC (см. раздел *Standard (2 файла, без correlation по умолчанию)* в [00-architecture-overview.md](00-architecture-overview.md#2-unifiedoutputwriter-%E2%80%94-%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B2%D0%B2%D0%BE%D0%B4%D0%B0-%D0%B2%D1%8B%D0%B2%D0%BE%D0%B4%D0%B0)).
 
 ### 3. OutputMetadata (dataclass)
-
 Метаданные экспорта для воспроизводимости:
 
 ```python
@@ -189,9 +178,7 @@ class OutputMetadata:
         )
 
 ```
-
 ### 4. FormatHandler
-
 Универсальный обработчик форматов:
 
 ```python
@@ -240,9 +227,7 @@ class FormatHandler:
         )
 
 ```
-
 ### 5. QualityReportGenerator
-
 Автоматическая генерация QC метрик:
 
 ```python
@@ -274,9 +259,7 @@ class QualityReportGenerator:
         return pd.DataFrame(metrics)
 
 ```
-
 ### 6. CorrelationReportGenerator
-
 Корреляционный анализ:
 
 ```python
@@ -312,9 +295,7 @@ class CorrelationReportGenerator:
         return pd.DataFrame(correlations)
 
 ```
-
 ### 6.1 Условная генерация корреляций
-
 Согласно инвариантам режима *Standard* из [00-architecture-overview.md](00-architecture-overview.md#2-unifiedoutputwriter-%E2%80%94-%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B2%D0%B2%D0%BE%D0%B4%D0%B0-%D0%B2%D1%8B%D0%B2%D0%BE%D0%B4%D0%B0), корреляционные отчёты выключены по умолчанию, чтобы сохранить детерминизм и минимальный AC-профиль (нет лишних файлов, нет нестабильных статистик). Генерация привязана к конфигурации `postprocess.correlation.enabled` и должна явно ветвиться в коде:
 
 ```python
@@ -353,11 +334,9 @@ def maybe_write_correlation(
     return correlation_path
 
 ```
-
 Такое ветвление делает зависимость от конфигурации явной, подчёркивая влияние на детерминизм (константный набор артефактов) и соответствие AC «всё или ничего»: если отчёт выключен, он не появляется вовсе, что предотвращает дрейф структуры выпуска.
 
 ### 7. ManifestWriter
-
 Запись run manifest для отслеживания:
 
 ```python
@@ -396,9 +375,7 @@ class ManifestWriter:
             json.dump(asdict(manifest), f, indent=2, ensure_ascii=False)
 
 ```
-
 ## Основной класс: UnifiedOutputWriter
-
 ```python
 
 class UnifiedOutputWriter:
@@ -499,11 +476,8 @@ class UnifiedOutputWriter:
         return df
 
 ```
-
 ## Использование
-
 ### Basic Usage
-
 ```python
 
 from unified_output import UnifiedOutputWriter
@@ -525,9 +499,7 @@ print(f"Quality: {artifacts.quality_report}")
 print(f"Correlation: {artifacts.correlation_report}")
 
 ```
-
 ### Extended Mode с метаданными
-
 ```python
 
 writer = UnifiedOutputWriter(
@@ -546,9 +518,7 @@ print(f"Metadata: {artifacts.metadata}")
 print(f"Manifest: {artifacts.manifest}")
 
 ```
-
 ### Parquet формат
-
 ```python
 
 writer = UnifiedOutputWriter(
@@ -561,13 +531,10 @@ writer = UnifiedOutputWriter(
 artifacts = writer.write(df, table_name="activities", date_tag="20250128")
 
 ```
-
 ## Deterministic Output
-
 Детерминированный вывод обеспечивает воспроизводимость результатов.
 
 ### Column Order
-
 **Критический принцип:** Источник истины для `column_order` — только Schema Registry (Pandera схема).
 
 `meta.yaml` содержит **копию** `column_order` из схемы для справки и воспроизводимости, но **не является** источником истины.
@@ -590,7 +557,6 @@ class DocumentSchema(BaseSchema):
     ]
 
 ```
-
 При экспорте:
 
 ```python
@@ -600,7 +566,6 @@ class DocumentSchema(BaseSchema):
 df = df[schema.column_order]  # Используется порядок из схемы
 
 ```
-
 В `meta.yaml` (только для справки):
 
 ```yaml
@@ -622,11 +587,9 @@ schema_id: "document.chembl"
 schema_version: "2.1.0"
 
 ```
-
 **Acceptance Criteria AC-03:** При валидации `df.columns.tolist() == schema.column_order` должно быть истиной.
 
 ### NA Policy
-
 **Критический инвариант (v3.0):** Политика пропусков опирается на Pandera-тип колонки.
 
 **Правила для пропущенных значений:**
@@ -646,13 +609,11 @@ non_string = df.columns.difference(string_columns)
 df[non_string] = df[non_string].astype(schema.to_schema().dtype)
 
 ```
-
 **Обоснование:** Типовая политика сохраняет семантику `null` для числовых/булевых колонок и предотвращает дрейф хешей для строк.
 
 **См. также**: [00-architecture-overview.md](00-architecture-overview.md) — NA-policy: "" для строк, null для чисел.
 
 ### Точность чисел
-
 **Критический инвариант (v3.0):** Единый формат `%.6f` для всех float значений.
 
 **Правило:**
@@ -679,9 +640,7 @@ class ActivitySchema(BaseSchema):
     molecular_weight: float = pa.Field()  # Используется %.6f при сериализации
 
 ```
-
 ### Сортировка
-
 Стандартный порядок для фактовых таблиц:
 
 ```python
@@ -700,9 +659,7 @@ sort_order = [
 df = df.sort_values(sort_order, ascending=True, na_position='last')
 
 ```
-
 ### Хеши
-
 Для отслеживания изменений строк:
 
 **hash_business_key**: хеш от business key
@@ -714,7 +671,6 @@ bk = "|".join([row.document_id, row.target_id, row.testitem_id])
 hash_bk = hashlib.sha256(bk.encode()).hexdigest()
 
 ```
-
 **hash_row**: хеш от всей строки (ordered, typed, normalized)
 
 ```python
@@ -723,7 +679,6 @@ row_str = "|".join([str(v) for v in df.loc[idx].values])
 hash_row = hashlib.sha256(row_str.encode()).hexdigest()
 
 ```
-
 > **Determinism guarantee**: ``finalize_pipeline_output`` теперь использует ``pandas.util.hash_pandas_object`` поверх отсортированной проекции колонок для вычисления стабильного базового значения, которое затем хешируется в SHA256.  Такой подход устраняет зависимость от ``DataFrame.apply(axis=1)`` и гарантирует идентичные ``hash_row`` значения при повторных запусках на любых платформах при условии одинакового содержимого таблицы.
 
 Правила:
@@ -797,13 +752,10 @@ canonicalize_row_for_hash(row, schema.column_order, string_columns=STRING_COLUMN
 # Здесь `schema` — Pandera DataFrameModel; `string_columns` используется при вычислении `hash_row`
 
 ```
-
 ## Manifest & Atomic Write
-
 Схема `meta.yaml` и протокол записи.
 
 ### Обязательные поля meta.yaml
-
 ```yaml
 
 # meta.yaml
@@ -840,7 +792,6 @@ lineage:
     - "validate_dois"
 
 ```
-
 **Обязательные поля lineage конфигурации:**
 
 - `run_id`: уникальный идентификатор запуска (UUID8 или timestamp-based)
@@ -852,7 +803,6 @@ lineage:
 **См. также**: [09-document-chembl-extraction.md](09-document-chembl-extraction.md) — примеры использования `config_hash`.
 
 ### Протокол Atomic Write
-
 Протокол гарантирует отсутствие partial артефактов:
 
 1. **Запись во временный файл в run-scoped директории**
@@ -870,7 +820,6 @@ temp_path = temp_dir / f"{output_path.name}.tmp"
 df.to_csv(temp_path, index=False)
 
 ```
-
 1. **Валидация checksums (опционально, для критичных данных)**
 
 ```python
@@ -880,7 +829,6 @@ checksum = compute_checksum(temp_path)
 # Запись checksum в метаданные
 
 ```
-
 1. **Атомарный replace**
 
 ```python
@@ -891,7 +839,6 @@ output_path.parent.mkdir(parents=True, exist_ok=True)
 os.replace(str(temp_path), str(output_path))  # Atomic операция
 
 ```
-
 1. **Guaranteed cleanup при любой ошибке**
 
 ```python
@@ -920,11 +867,9 @@ finally:
             pass
 
 ```
-
 **Инвариант атомарности:** Либо все артефакты записаны, либо ни один (нет partial файлов в финальной директории).
 
 ### Единый протокол записи (норматив)
-
 **Обязательное требование для всех пайплайнов**: Запись только через run-scoped temp dir; валидация checksum до rename; `os.replace/rename` атомарен; при исключении temp удаляется; запрет частичных артефактов обязателен.
 
 **Все пайплайны обязаны ссылаться на этот раздел и не переопределять поведение.**
@@ -932,7 +877,6 @@ finally:
 **См. также**: [gaps.md](../gaps.md) (G1, G13, G15), [acceptance-criteria.md](../acceptance-criteria.md) (AC1, AC4), [implementation-examples.md](../implementation-examples.md) (патч 5).
 
 ### Запрет частичных артефактов
-
 **Критический инвариант:** Частичные артефакты в финальной директории недопустимы.
 
 **Недопустимо:**
@@ -985,15 +929,12 @@ def validate_artifacts_completeness(artifacts: OutputArtifacts, mode: str) -> No
             raise IOError(f"Missing checksums in {artifacts.metadata}")
 
 ```
-
 **Acceptance Criteria AC-02:** При вызове этой функции после записи не должно быть частичных артефактов.
 
 ## CLI & Scenarios
-
 Интерфейс командной строки и сценарии запуска.
 
 ### Флаги
-
 ```bash
 
 # Dry run (валидация без записи)
@@ -1017,29 +958,23 @@ python pipeline.py --golden data/output/golden/documents_20250115.csv
 python pipeline.py --output-format parquet  # csv или parquet
 
 ```
-
 ### Сценарий: Golden Run
-
 Контрольный прогон для проверки детерминизма.
 
 ### Этап 1: Создание golden
-
 ```bash
 
 python pipeline.py --input data/input/documents.csv \
                    --output data/output/golden/
 
 ```
-
 ### Этап 2: Сравнение с golden
-
 ```bash
 
 python pipeline.py --input data/input/documents.csv \
                    --golden data/output/golden/documents_20250115.csv
 
 ```
-
 **Результат:**
 
 - При совпадении: `✅ Deterministic output confirmed`
@@ -1059,9 +994,7 @@ Row 123: Hash mismatch
   actual_hash: "def456..."
 
 ```
-
 ### Сценарий: Sampling для тестов
-
 Быстрая проверка на малой выборке:
 
 ```bash
@@ -1069,11 +1002,8 @@ Row 123: Hash mismatch
 python pipeline.py --sample 0.01 --limit 100  # 1% или 100 строк
 
 ```
-
 ## Режимы работы
-
 ### Correlation Analysis Configuration
-
 **Критическое изменение:** Корреляционный анализ является **опциональным** и по умолчанию **выключен**.
 
 ```yaml
@@ -1090,13 +1020,11 @@ postprocess:
         enabled: false
 
 ```
-
 **Обоснование:** Корреляции не являются частью ETL-контракта и создают риск недетерминизма из-за численных алгоритмов.
 
 **Включение корреляций:** Только явным флагом `postprocess.correlation.enabled: true` или параметром `--correlation` в CLI.
 
 ### Standard (без correlation по умолчанию)
-
 ```text
 
 # Создает основные артефакты без correlation
@@ -1105,7 +1033,6 @@ output.documents_20250128.csv
 output.documents_20250128_quality_report_table.csv
 
 ```
-
 **При включении correlation (опционально):**
 
 ```text
@@ -1113,7 +1040,6 @@ output.documents_20250128_quality_report_table.csv
 output.documents_20250128_data_correlation_report_table.csv
 
 ```
-
 **Инварианты:**
 
 - Checksums стабильны при одинаковом вводе (SHA256)
@@ -1127,7 +1053,6 @@ output.documents_20250128_data_correlation_report_table.csv
 - Correlation опциональный (по умолчанию выключен)
 
 ### Extended (+ metadata и manifest)
-
 ```text
 
 # Добавляет метаданные и manifest
@@ -1136,7 +1061,6 @@ output.documents_20250128.meta.yaml
 reports/run_manifest_20250128142315.json
 
 ```
-
 **Инварианты:**
 
 - `meta.yaml` валиден по YAML schema
@@ -1152,11 +1076,9 @@ reports/run_manifest_20250128142315.json
 - `column_order` копируется из Schema Registry (не источник истины)
 
 ## Acceptance Criteria
-
 Матрица проверяемых инвариантов для всех пайплайнов:
 
 ### AC-01: Golden Compare Детерминизма
-
 **Цель:** Проверка бит-в-бит воспроизводимости вывода.
 
 **Команда:**
@@ -1166,13 +1088,11 @@ reports/run_manifest_20250128142315.json
 python pipeline.py --input X --golden data/output/golden/Y.csv
 
 ```
-
 **Ожидаемый результат:** "✅ Deterministic output confirmed" или пустой `diff.txt`.
 
 **Артефакт:** Отчет `diff.txt` с различиями (если есть).
 
 ### AC-02: Запрет Частичных Артефактов
-
 **Цель:** Гарантировать, что все файлы записаны полностью или не записаны вообще.
 
 **Проверка:**
@@ -1186,11 +1106,9 @@ for artifact in [artifacts.dataset, artifacts.quality_report, ...]:
     assert artifact.stat().st_size > 0, f"Empty: {artifact}"
 
 ```
-
 **Порог:** Нет частичных файлов в финальной директории.
 
 ### AC-03: Column Order из Схемы
-
 **Цель:** Гарантировать, что порядок колонок соответствует Schema Registry.
 
 **Момент проверки:** Проверка выполняется **после** Pandera валидации схемы, **перед** атомарной записью.
@@ -1212,11 +1130,9 @@ df = df[schema.column_order]
 assert list(df.columns) == schema.column_order
 
 ```
-
 **Ожидаемое:** Полное совпадение порядка колонок.
 
 ### AC-05: NA-Policy в Сериализации
-
 **Цель:** Проверка применения канонической политики NA.
 
 **Тестовые данные:**
@@ -1237,9 +1153,7 @@ assert '"string_field": ""' in serialized_row  # пустая строка
 assert '"numeric_field": null' in serialized_row  # null
 
 ```
-
 ## Best Practices
-
 1. **Всегда используйте schema**: валидация перед записью предотвращает ошибки
 
 1. **Фиксируйте column_order**: для воспроизводимости
@@ -1255,7 +1169,6 @@ assert '"numeric_field": null' in serialized_row  # null
 1. **Проверяйте artifacts перед использованием**: существование файлов
 
 ## Обработка ошибок
-
 ```python
 
 try:
@@ -1268,9 +1181,7 @@ except IOError as e:
     raise
 
 ```
-
 ## Интеграция с UnifiedLogger
-
 ```python
 
 writer = UnifiedOutputWriter(...)
@@ -1285,11 +1196,8 @@ with bind_stage(logger, "write_output"):
     )
 
 ```
-
 ## Миграция
-
 ### Из bioactivity_data_acquisition5
-
 ```python
 
 # Было
@@ -1304,9 +1212,7 @@ writer = UnifiedOutputWriter()
 writer.write(df, table_name="documents", date_tag="20250128")
 
 ```
-
 ### Из ChEMBL_data_acquisition6
-
 ```python
 
 # Было (continued 1)
@@ -1336,10 +1242,8 @@ artifacts = writer.write(df, table_name="documents", date_tag="20250128")
 # Или через CLI: --set postprocess.correlation.enabled=true
 
 ```
-
 **Важно**: UnifiedOutputWriter генерирует correlation отчёт только при явном `config.postprocess.correlation.enabled=true`. По умолчанию создаются только 2 файла (dataset + quality_report), что обеспечивает детерминизм и минимальный AC-профиль.
 
 ---
 
 **Следующий раздел**: [03-data-extraction.md](03-data-extraction.md)
-

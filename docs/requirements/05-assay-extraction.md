@@ -1,11 +1,8 @@
 # 5. Извлечение данных для assay из ChEMBL
-
 ## Обзор
-
 Документ описывает спецификацию извлечения данных ассаев (assay) из ChEMBL API с детерминированностью, полной воспроизводимостью результатов и защитой от потери данных.
 
 ## Архитектура
-
 ```text
 
 AssayPipeline
@@ -33,11 +30,8 @@ AssayPipeline
     └── MetadataBuilder (full provenance)
 
 ```
-
 ## 1. Входные данные
-
 ### 1.1 Формат входных данных
-
 **Файл:** CSV или DataFrame
 
 **Обязательные поля:**
@@ -63,9 +57,7 @@ class AssayInputSchema(pa.DataFrameModel):
         coerce = True
 
 ```
-
 ### 1.2 Конфигурация
-
 **Базовый стандарт:** см. `docs/requirements/10-configuration.md` (§2–§6).
 
 **Профильный файл:** `configs/pipelines/assay.yaml`, который объявляет `extends: "../base.yaml"` и проходит валидацию `PipelineConfig`.
@@ -85,9 +77,7 @@ class AssayInputSchema(pa.DataFrameModel):
 Секреты (API ключи) прокидываются через переменные окружения `BIOETL_SOURCES__CHEMBL__API_KEY` и `BIOETL_HTTP__GLOBAL__HEADERS__AUTHORIZATION`. Для быстрой настройки допускается использование CLI-переопределений, например `--set sources.chembl.batch_size=20`, однако изменения должны сопровождаться обоснованием в run metadata.
 
 ## 2. Процесс извлечения (Extract)
-
 ### 2.1 Инициализация пайплайна
-
 **Класс:** `AssayPipeline` (`src/library/assay/pipeline.py`)
 
 **Наследование:** `PipelineBase[AssayConfig]`
@@ -109,7 +99,6 @@ chembl_release: str = None  # Фиксируется один раз в нача
 chembl_base_url: str  # URL для воспроизводимости
 
 ```
-
 **КРИТИЧЕСКИ ВАЖНО:**
 
 1. Снимок `/status` выполняется **один раз** в начале run
@@ -121,7 +110,6 @@ chembl_base_url: str  # URL для воспроизводимости
 4. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release: `assay:{release}:{assay_chembl_id}`
 
 ### 2.2 Батчевое извлечение из ChEMBL API
-
 **Метод:** `AssayPipeline._extract_from_chembl()`
 
 **Эндпоинт ChEMBL:** `/assay.json?assay_chembl_id__in={ids}`
@@ -142,7 +130,6 @@ if batch_size > 25:
       )
 
 ```
-
 **Алгоритм:**
 
 ```python
@@ -225,9 +212,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
     return extracted_dataframe
 
 ```
-
 ### 2.3 Fallback механизм
-
 **Условия активации:**
 
 - HTTP 5xx ошибки
@@ -265,13 +250,10 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
     }
 
 ```
-
 ### 2.4 Развертывание вложенных структур
-
 **ВАЖНО:** Текущая реализация "берет первый параметр" **НЕВЕРНА** и приводит к потере данных. Требуется рефакторинг.
 
 #### 2.4.1 Assay Parameters (ПРАВИЛЬНАЯ СПЕЦИФИКАЦИЯ)
-
 **Источник:** Поле `assay_parameters` (массив объектов)
 
 **Проблема:** Текущий код берет только `first_param = params[0]` - **ПОТЕРЯ ДАННЫХ**
@@ -329,7 +311,6 @@ df["row_subtype"] = "assay"  # или "param" при explode
 df["row_index"] = df.groupby("assay_chembl_id").cumcount()
 
 ```
-
 **Вариант B: Широкий формат с индексацией** (опционально)
 
 ```python
@@ -352,13 +333,11 @@ def _expand_assay_parameters_wide(self, assay_data: dict, max_params: int = 5) -
     return result
 
 ```
-
 **Рекомендация:** Использовать **Вариант A (long format)** как основной, с опциональным pivot в wide при необходимости.
 
 **Инвариант G7:** Расширение вложенных массивов только в long-format (parameters, variant_sequences, classifications); при невозможности — error; включить RI-чек "assay→target".
 
 #### 2.4.2 Variant Sequences (ПРАВИЛЬНАЯ СПЕЦИФИКАЦИЯ)
-
 **Источник:** Поле `variant_sequence` (может быть объект ИЛИ массив)
 
 **Проблема:** Код предполагает только объект - **Риск потери данных при наличии списка**
@@ -406,9 +385,7 @@ def _expand_variant_sequences(self, assay_data: dict) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 ```
-
 #### 2.4.3 Assay Classifications
-
 **Источник:** Поле `assay_classifications` (JSON строка с массивом)
 
 **Текущая логика:** Извлекается **только первый** assay_class_id
@@ -451,13 +428,10 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
     return pd.DataFrame()
 
 ```
-
 ### 2.5 Обогащение данными (Enrichment)
-
 **См. также**: [gaps.md](../gaps.md) (G6, G7, G8), [acceptance-criteria.md](../acceptance-criteria.md) (AC7, AC8), [implementation-examples.md](../implementation-examples.md) (патч 2).
 
 #### 2.5.1 Обогащение Target данными
-
 **Метод:** `AssayPipeline._enrich_with_target_data()`
 
 **Эндпоинт:** `/target/{target_chembl_id}`
@@ -546,11 +520,9 @@ def _merge_target_data(self, assay_df: pd.DataFrame, target_df: pd.DataFrame) ->
     return result
 
 ```
-
 **Инвариант G8:** --strict-enrichment + schema check; whitelist-enrichment обязателен; запрет лишних полей при enrichment.
 
 #### 2.5.2 Обогащение Assay Class данными
-
 **Метод:** `AssayPipeline._enrich_with_assay_classes()`
 
 **Эндпоинт:** `/assay_class/{assay_class_id}`
@@ -573,11 +545,8 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = [
 # Аналогичная логика с whitelist и RI check
 
 ```
-
 ## 3. Нормализация данных (Normalize)
-
 ### 3.1 Каноническая сериализация для хеширования
-
 **Метод:** `_canonicalize_row_for_hash()` (НОВЫЙ)
 
 ```python
@@ -617,9 +586,7 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 
 ```
-
 ### 3.2 Хеширование
-
 ```python
 
 def _calculate_hashes(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
@@ -640,9 +607,7 @@ def _calculate_hashes(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     return hash_row, hash_bk
 
 ```
-
 ### 3.3 Системные метаданные
-
 ```python
 
 def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -675,9 +640,7 @@ def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 ```
-
 ### 3.4 Настройки типов данных (Dtypes)
-
 **КРИТИЧЕСКИ:** Использовать nullable dtypes, никаких `object`
 
 ```python
@@ -697,11 +660,8 @@ DTYPES_CONFIG = {
 }
 
 ```
-
 ## 4. Валидация и QC
-
 ### 4.1 Referential Integrity Check
-
 ```python
 
 def _check_referential_integrity(self, df: pd.DataFrame) -> dict:
@@ -746,9 +706,7 @@ def _check_referential_integrity(self, df: pd.DataFrame) -> dict:
     }
 
 ```
-
 ### 4.2 QC Profile
-
 ```python
 
 qc_profile = {
@@ -782,11 +740,8 @@ qc_profile = {
 }
 
 ```
-
 ## 5. Запись результатов (Load)
-
 ### 5.1 Atomic Writes
-
 **Механизм:** Временный файл в run_id-scoped директории + atomic rename
 
 ```python
@@ -834,9 +789,7 @@ def _atomic_write(
     return target_path
 
 ```
-
 ### 5.2 Metadata Builder
-
 ```yaml
 
 # assay_{date_tag}_meta.yaml
@@ -891,9 +844,7 @@ checksums:
   quality_report: sha256: "ghi789..."
 
 ```
-
 ## 6. Корреляционный анализ
-
 **ВАЖНО:** Корреляционный анализ **НЕ часть ETL** и должен быть **опциональным**
 
 ```yaml
@@ -910,11 +861,9 @@ postprocess:
         enabled: true  # Включается только явно
 
 ```
-
 **Причина:** Гарантировать бит-в-бит идентичность с/без корреляций практически невозможно из-за non-deterministic алгоритмов.
 
 ## 7. CLI Дополнения
-
 **Унифицированный интерфейс**: Все пайплайны используют единую команду `bioetl pipeline run`. См. стандарт в [10-configuration.md](10-configuration.md#53-cli-interface-specification-aud-4).
 
 ```bash
@@ -942,7 +891,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
   --set qc.severity_threshold=error
 
 ```
-
 **Новые CLI параметры:**
 
 - `--golden PATH`: Путь к golden файлу для сравнения (бит-в-бит проверка)
@@ -960,9 +908,7 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - `--fail-on-schema-drift`: Падение при изменениях схемы/column_order
 
 ## 8. Критические исправления (To-Do)
-
 ### A. Batch size
-
 - [ ] Исправить `configs/pipelines/assay.yaml`: `batch_size: 25`
 
 - [ ] Добавить валидацию в `AssayConfig`: `if batch_size > 25: raise`
@@ -970,7 +916,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Обновить документацию с объяснением URL limit
 
 ### B. Assay parameters
-
 - [ ] Переписать `_expand_assay_parameters()` на long format
 
 - [ ] Использовать `param_index` для детерминизма
@@ -978,13 +923,11 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Добавить `row_subtype` в DataFrame
 
 ### C. Variant sequences
-
 - [ ] Поддержка и объекта, и списка в `_expand_variant_sequence()`
 
 - [ ] Добавить `variant_index` для детерминизма
 
 ### D. Enrichment whitelist
-
 - [ ] Явно перечислить поля в `TARGET_ENRICHMENT_WHITELIST`
 
 - [ ] Явно перечислить поля в `ASSAY_CLASS_ENRICHMENT_WHITELIST`
@@ -994,7 +937,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Обновить Pandera схему с whitelist
 
 ### E. Хеширование
-
 - [ ] Реализовать `_canonicalize_row_for_hash()` с JSON/ISO8601
 
 - [ ] Единая NA policy: "" вместо None
@@ -1002,23 +944,19 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Float формат: %.6f
 
 ### F. Fallback
-
 - [ ] Расширить запись полями: `error_code`, `http_status`, `retry_after_sec`, `attempt`, `run_id`
 
 ### G. QC
-
 - [ ] Добавить referential integrity check
 
 - [ ] Отчет о потерях join в quality_report
 
 ### H. Корреляции
-
 - [ ] Вынести в отдельный шаг `postprocess.correlation`
 
 - [ ] По умолчанию `enabled: false`
 
 ### I. Chembl release
-
 - [ ] Один снимок `/status` в начале
 
 - [ ] Запись в `run_config.yaml`
@@ -1028,7 +966,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Блокировка при смене release
 
 ### J. Atomic writes
-
 - [ ] Использовать `os.replace()` вместо `rename()`
 
 - [ ] Temp dir: `output_dir/.tmp/{run_id}/`
@@ -1036,13 +973,11 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Документировать Windows behavior
 
 ### K. Dtypes
-
 - [ ] Принудительно `pd.StringDtype()`, `pd.Int64Dtype()`, `pd.Float64Dtype()`
 
 - [ ] Никаких `object` dtypes
 
 ### L. Метаданные
-
 - [ ] Добавить `run_id`, `git_commit`, `config_hash` в все лог-сообщения
 
 - [ ] Добавить OpenTelemetry tags для стадий
@@ -1050,19 +985,16 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Расширить `meta.yaml` полной provenance
 
 ### M. Документация
-
 - [ ] Заменить "строки 128-293" на имена методов
 
 - [ ] Добавить тест-кейсы как якоря
 
 ### N. Фильтры CLI
-
 - [ ] Формализовать контракт фильтра (pure function DataFrame -> DataFrame)
 
 - [ ] Документировать предикаты
 
 ## Заключение
-
 Данная спецификация исправляет критические недостатки в текущей реализации:
 
 1. **Размер батча:** Жестко 25, с валидацией конфига
@@ -1082,4 +1014,3 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 8. **Atomic writes:** Run-scoped temp dirs, os.replace() для Windows compatibility
 
 Все изменения направлены на обеспечение **детерминизма**, **воспроизводимости** и **полной прослеживаемости** данных.
-

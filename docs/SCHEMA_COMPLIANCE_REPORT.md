@@ -1,16 +1,12 @@
 # Schema Compliance Report
-
-**Date:** 2025-10-28  
+**Date:** 2025-10-28
 **Status:** ✅ Basic compliance achieved, enhancements needed
 
 ## Summary
-
 All 5 pipelines have basic schemas implemented. Current schemas cover core fields but are simplified compared to the full specifications in `IO_SCHEMAS_AND_DIAGRAMS.md`.
 
 ## Analysis by Pipeline
-
 ### 1. Assay Pipeline
-
 **Status:** ⚠️ Basic schema, missing fields
 
 **Current Schema:** `src/bioetl/schemas/assay.py`
@@ -35,7 +31,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 ---
 
 ### 2. Activity Pipeline
-
 **Status:** ✅ Good coverage
 
 **Current Schema:** `src/bioetl/schemas/activity.py`
@@ -60,7 +55,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 ---
 
 ### 3. TestItem Pipeline
-
 **Status:** ✅ Good coverage
 
 **Current Schema:** `src/bioetl/schemas/testitem.py`
@@ -87,7 +81,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 ---
 
 ### 4. Target Pipeline
-
 **Status:** ⚠️ Multiple schemas needed
 
 **Current Schema:** `src/bioetl/schemas/target.py`
@@ -121,7 +114,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 ---
 
 ### 5. Document Pipeline
-
 **Status:** ⚠️ Missing multi-source fields
 
 **Current Schema:** `src/bioetl/schemas/document.py`
@@ -146,7 +138,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 ---
 
 ## System Fields Compliance
-
 All schemas inherit from `BaseSchema` which includes:
 
 - ✅ `pipeline_version`
@@ -168,9 +159,7 @@ All schemas inherit from `BaseSchema` which includes:
 ---
 
 ## Recommendations
-
 ### Priority 1: Add System Fields
-
 Add to `BaseSchema`:
 
 ```python
@@ -180,27 +169,21 @@ hash_business_key: Series[str] = pa.Field(nullable=False, regex=r'^[0-9a-f]{64}$
 index: Series[int] = pa.Field(nullable=False, ge=0)
 
 ```
-
 ### Priority 2: Enhance Activity Schema
-
 Add published fields and completeness flags.
 
 ### Priority 3: Fix Document Schema
-
 Create multi-source schema with prefixes for all 5 sources.
 
 ### Priority 4: Enhance Assay Schema
-
 Add `row_subtype`, `row_index` for explode functionality.
 
 ### Priority 5: Complete Target Schemas
-
 Add all missing UniProt, IUPHAR, and classification fields.
 
 ---
 
 ## Overall Compliance: 45%
-
 **Strengths:**
 
 - All schemas inherit from `BaseSchema` ✅
@@ -227,4 +210,3 @@ Add all missing UniProt, IUPHAR, and classification fields.
 2. Implement full Document schema
 3. Complete Target enrichment fields
 4. Add exploded fields to Assay
-

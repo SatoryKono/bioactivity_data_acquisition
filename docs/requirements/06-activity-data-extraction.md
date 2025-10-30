@@ -1,9 +1,6 @@
 # 6. Извлечение данных Activity (ChEMBL)
-
 ## 1. Введение и обзор
-
 ### Назначение модуля
-
 Модуль извлекает биологические активности (activity) из ChEMBL Data Web Services, нормализует и валидирует записи, формирует детерминированные артефакты вывода и метаданные.
 
 **Основные функции:**
@@ -19,7 +16,6 @@
 - Формирование метаданных (meta.yaml) с lineage и checksums
 
 ### Связи с компонентами
-
 Используются унифицированные компоненты архитектуры:
 
 - **UnifiedAPIClient** (см. [03-data-extraction.md](03-data-extraction.md)) — HTTP запросы, ретраи, кэширование
@@ -31,7 +27,6 @@
 - **UnifiedLogger** (см. [01-logging-system.md](01-logging-system.md)) — структурные JSON-логи
 
 ### Источник данных
-
 **ChEMBL Data Web Services:**
 
 - Base URL: `https://www.ebi.ac.uk/chembl/api/data`
@@ -47,7 +42,6 @@
 - [Activity endpoint](https://www.ebi.ac.uk/chembl/documentation/webservices#RESOURCE_ACTIVITY)
 
 ### Контракт извлечения
-
 **Обязательные требования:**
 
 1. **Только официальные эндпоинты** ChEMBL Data Web Services
@@ -67,7 +61,6 @@
    - Версии фиксируются в `meta.yaml` (`chembl_release`, `pipeline_version`)
 
 ### Примеры базовых запросов
-
 **curl:**
 
 ```bash
@@ -75,7 +68,6 @@
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5"
 
 ```
-
 **Python (requests):**
 
 ```python
@@ -91,7 +83,6 @@ r.raise_for_status()
 data = r.json()
 
 ```
-
 **Критерии детерминизма/валидности:**
 
 - Версии фиксируются в `meta.yaml` (`chembl_release`, `pipeline_version`)
@@ -105,9 +96,7 @@ data = r.json()
 ---
 
 ## 2. ChEMBL Activity API
-
 ### Base URL и endpoints
-
 **Base URL:** `https://www.ebi.ac.uk/chembl/api/data`
 
 **Endpoints:**
@@ -121,7 +110,6 @@ data = r.json()
 **Ссылка:** [ChEMBL Blog - Resource URLs](https://www.ebi.ac.uk/chembl/blog/resource-urls)
 
 ### Методы HTTP
-
 - **GET** — основной способ получения данных
 
 - **POST** с заголовком `X-HTTP-Method-Override: GET` — для длинных параметров запроса (обход лимита длины URL)
@@ -129,7 +117,6 @@ data = r.json()
 **Контракт:** Использовать только документированные фильтры и шаблон `/RESOURCE/ID`
 
 ### Параметры запроса
-
 **Ключевые фильтры:**
 
 - `activity_id` — идентификатор активности
@@ -159,7 +146,6 @@ data = r.json()
 - `order_by` — сортировка (например, `order_by=-pchembl_value`)
 
 ### Батчевое извлечение из ChEMBL API
-
 **Метод:** `ActivityPipeline._extract_from_chembl()`
 
 **Эндпоинт ChEMBL:** `/activity.json?activity_id__in={ids}`
@@ -180,7 +166,6 @@ data = r.json()
       )
 
 ```
-
 **Алгоритм:**
 
 ```python
@@ -263,7 +248,6 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
     return extracted_dataframe
 
 ```
-
 **Преимущества batch IDs над offset:**
 
 - Детерминированность: одинаковый набор activity_id всегда даёт одинаковый результат
@@ -275,7 +259,6 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 - Отказоустойчивость: можно повторно запросить конкретный батч без потери контекста
 
 ### Примеры запросов
-
 **Single by activity_id:**
 
 ```bash
@@ -283,7 +266,6 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 
 ```
-
 Пример ответа (усечен):
 
 ```json
@@ -306,7 +288,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 }
 
 ```
-
 **Batch по molecule_chembl_id:**
 
 ```bash
@@ -314,7 +295,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=3"
 
 ```
-
 Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `total_count`.
 
 **Batch по target_chembl_id с фильтрами:**
@@ -324,7 +304,6 @@ Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `t
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CHEMBL240&assay_type=B&pchembl_value__gte=6&only=molecule_chembl_id,pchembl_value,assay_chembl_id&order_by=-pchembl_value&limit=5"
 
 ```
-
 Фильтры `__gte`, `only`, `order_by` — стандартные для ChEMBL Web Services.
 
 **Критерии:**
@@ -338,9 +317,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 ---
 
 ## 3. Структура данных ChEMBL Activity
-
 ### Response schema
-
 **Ключевые поля ресурса activity** (из live-ответов API):
 
 | Поле | Тип | Описание | Nullable |
@@ -372,7 +349,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 - `activity_properties` — массив объектов с произвольными свойствами
 
 ### Контракт сохранения данных
-
 - Сохранять исходные поля API без потери семантики
 
 - При нормализации не терять информацию
@@ -390,9 +366,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 ---
 
 ## 4. Маппинг полей CSV → ChEMBL API
-
 ### Таблица FIELD_MAPPING
-
 Полная таблица маппинга полей с правилами нормализации и валидации:
 
 | _internal_name | _chembl_field | _datatype | _example | _normalisation | _validation | source_endpoint | notes |
@@ -432,7 +406,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 | ACTIVITY.rounded_data_citation | rounded_data_citation | bool | false | as-is | boolean | derived | формируем из источника |
 
 ### Дополнительные поля (business logic, derived)
-
 Поля, не присутствующие в ChEMBL API, производятся на этапе обогащения:
 
 - `compound_key` — вычисляемый бизнес-ключ (concat молекула + тип + таргет)
@@ -460,9 +433,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 ---
 
 ## 5. Нормализация данных
-
 ### Идентификаторы
-
 **ChEMBL IDs:**
 
 - Regex: `^CHEMBL\d+$`
@@ -488,7 +459,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 - Примеры: `9606` (Homo sapiens), `10141` (Cavia porcellus)
 
 ### Числовые значения
-
 **standard_value:**
 
 - Тип: float
@@ -510,7 +480,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 - Диапазон: типично 0-14
 
 ### Строки и категории
-
 **standard_type:**
 
 - Whitelist: `IC50`, `EC50`, `XC50`, `AC50`, `Ki`, `Kd`, `Potency`, `ED50`
@@ -532,7 +501,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CH
 - Примеры: nM, μM (Unicode), uM (ASCII), ug/mL → преобразование к стандарту
 
 ### Политика округления
-
 ChEMBL применяет стандартизацию и проверки валидности данных. Детальные правила приведены в [ChEMBL FAQ](https://www.ebi.ac.uk/chembl/documentation/faq).
 
 **Ключевые моменты:**
@@ -544,7 +512,6 @@ ChEMBL применяет стандартизацию и проверки ва�
 - Проверка на валидность диапазонов значений
 
 ### Политика NULL/NA
-
 **Числовые поля:**
 
 - `None` → `null` в JSON
@@ -570,9 +537,7 @@ ChEMBL применяет стандартизацию и проверки ва�
 ---
 
 ## 6. Pandera Schema для Activity
-
 ### SCHEMA_VERSION и COLUMN_ORDER
-
 ```python
 
 from pandera import DataFrameSchema, Column, Check
@@ -593,9 +558,7 @@ STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
 RELATIONS = {"=", "<", ">", "<=", ">=", "~"}
 
 ```
-
 ### ActivitySchema
-
 ```python
 
 ActivitySchema = DataFrameSchema(
@@ -631,9 +594,7 @@ ActivitySchema = DataFrameSchema(
 )
 
 ```
-
 ### Контракт валидации
-
 - Строгая схема с типами, nullable, unique, диапазонами, regex и isin
 
 - Версионирование и `COLUMN_ORDER` фиксируются в коде
@@ -643,9 +604,7 @@ ActivitySchema = DataFrameSchema(
 ---
 
 ## 7. Rate Limiting и Circuit Breaker
-
 ### Контракт клиента
-
 Клиент обязан:
 
 - Ограничивать QPS (запросов в секунду)
@@ -661,7 +620,6 @@ ActivitySchema = DataFrameSchema(
 - Иметь circuit breaker для длительных деградаций
 
 ### ChEMBL API конфигурация
-
 ```python
 
 from unified_client import APIConfig
@@ -686,9 +644,7 @@ chembl_activity_config = APIConfig(
 )
 
 ```
-
 ### ⚠️ UNCERTAIN: Rate Limits
-
 **Проблема:**
 
 - Официальный фиксированный лимит запросов в сек. не документирован на странице web-services
@@ -706,9 +662,7 @@ chembl_activity_config = APIConfig(
 ---
 
 ## 8. Батчинг и пагинация
-
 ### Стратегия батчинга
-
 **Offset-based pagination:**
 
 - Параметры: `limit` и `offset`
@@ -718,7 +672,6 @@ chembl_activity_config = APIConfig(
 - Не полагаться на `total_count` как инвариант при долгих выгрузках
 
 ### Псевдокод
-
 ```python
 
 offset = 0
@@ -733,9 +686,7 @@ while True:
     offset += pm["limit"]
 
 ```
-
 ### page_meta структура
-
 ```json
 
 {
@@ -747,9 +698,7 @@ while True:
 }
 
 ```
-
 ### Критерии успешной пагинации
-
 - Логи фиксируют `page`, `offset`, `consumed`, `rate_limiter_state`
 
 - Идти по `next` до `null`
@@ -759,7 +708,6 @@ while True:
 **См. также**: [gaps.md](../gaps.md) (G2, G9), [acceptance-criteria.md](../acceptance-criteria.md) (AC6).
 
 ### ⚠️ TODO: Максимальный limit для Activity API
-
 **Проблема (AUD-1):**
 
 Внешние источники упоминают 1000 как возможный максимум, но это не подтверждено для `/activity` endpoint. Требуется эмпирическая верификация через бинарный поиск.
@@ -788,15 +736,12 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5000"
 
 ```
-
 **Ссылка:** [test-plan.md](../test-plan.md), процедура бинарного поиска
 
 ---
 
 ## 9. Обработка ошибок
-
 ### Таблица ERROR_HANDLING
-
 | code | condition | action | retry_policy | log_fields | metric |
 |---|---|---|---|---|---|
 | 200 | OK | продолжить | n/a | info, "page ok" | counter:page_ok |
@@ -811,7 +756,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 | else | unexpected | fail-fast | none | error, include body | counter:http_other |
 
 ### Log fields
-
 Структурированные поля логов:
 
 - `level` — уровень (info, warn, error)
@@ -831,7 +775,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 - `run_id` — уникальный ID запуска
 
 ### Примеры логов
-
 ```json
 
 {
@@ -848,9 +791,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 }
 
 ```
-
 ### Контракт обработки ошибок
-
 - Fail-fast на постоянных 4xx
 
 - Ретраи только на 429/5xx/Timeout
@@ -858,13 +799,11 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 - Все ошибки логируются и метрикуются
 
 ### Критерии приемки обработки ошибок
-
 - Покрытие в юнит-тестах на моки
 
 - Интеграционные тесты на реальных эндпоинтах
 
 ### ⚠️ UNCERTAIN: Поведение Retry-After
-
 **Проблема:**
 
 - Поведение `Retry-After` проверить эмпирически
@@ -880,9 +819,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 ---
 
 ## 10. Кэширование
-
 ### Стратегия кэширования
-
 **TTL-кэш на уровне HTTP-клиента:**
 
 - TTL: 1 час (3600 секунд)
@@ -896,7 +833,6 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 - Invalidation: автоматическая по TTL и при смене `chembl_release`
 
 ### Пример генерации cache key
-
 ```python
 
 import hashlib
@@ -918,9 +854,7 @@ cache_key = make_cache_key(
 # Результат: 'a1b2c3d4e5f6...' (детерминированный для одинаковых параметров)
 
 ```
-
 ### Контракт кэширования
-
 - Стабильная сериализация параметров (сортировка ключей)
 
 - Нормализованный список значений для `__in` фильтров
@@ -930,7 +864,6 @@ cache_key = make_cache_key(
 - Инвалидация при смене `chembl_release`
 
 ### Критерии эффективности кэша
-
 - Кэш-хиты/миссы логируются в структурированном виде
 
 - Hit rate отслеживается в метриках
@@ -938,9 +871,7 @@ cache_key = make_cache_key(
 ---
 
 ## 11. Quality Control
-
 ### QC метрики для activity
-
 **Обязательные метрики:**
 
 - `total_activities` — общее количество записей
@@ -964,7 +895,6 @@ cache_key = make_cache_key(
 - `potential_duplicate` — флаг потенциальных дубликатов
 
 ### Контракт QC-отчетов
-
 - QC-отчеты обязательны
 
 - Применять QC-фильтры по `data_validity_comment`, `potential_duplicate`
@@ -972,7 +902,6 @@ cache_key = make_cache_key(
 - Отчетность пишется рядом с основным CSV
 
 ### Примеры QC фильтров
-
 ```python
 
 # Фильтр по валидности данных
@@ -993,7 +922,6 @@ complete_activities = df[
 ]
 
 ```
-
 **Инвариант G10, AC9:** QC-фильтры по validity/duplicates как AC; инвариант duplicates_activity_id==0; проверка перед записью: `df["activity_id"].duplicated().sum()==0`.
 
 ```python
@@ -1012,11 +940,9 @@ qc_report = {
 }
 
 ```
-
 **См. также**: [gaps.md](../gaps.md) (G10), [acceptance-criteria.md](../acceptance-criteria.md) (AC9).
 
 ### ⚠️ UNCERTAIN: Стабильность BAO полей
-
 **Проблема:**
 
 - Набор (`bao_endpoint`, `bao_format`, `bao_label`) подтвержден схемой, но допускает null
@@ -1034,9 +960,7 @@ qc_report = {
 ---
 
 ## 12. Output Artifacts
-
 ### Standard режим (2 файла)
-
 - `activity_{date}.csv` — основной датасет
 
 - `activity_{date}_quality_report.csv` — QC метрики
@@ -1044,13 +968,11 @@ qc_report = {
 **Корреляционный анализ опционален**: файл `activity_{date}_correlation_report.csv` создаётся только при `postprocess.correlation.enabled: true` в конфигурации.
 
 ### Extended режим (+ metadata и manifest)
-
 - Добавляет `activity_{date}_meta.yaml` — метаданные
 
 - Добавляет `activity_{date}_run_manifest.json` — манифест запуска (опционально)
 
 ### META_TEMPLATE.yaml
-
 ```yaml
 
 pipeline_version: "activity_etl_1.0.0"
@@ -1110,9 +1032,7 @@ notes:
   - "Детерминизм обеспечен: сортировка по activity_id."
 
 ```
-
 ### Контракт атомарной записи
-
 - Атомарная запись через временные файлы
 
 - Контроль сумм (SHA256)
@@ -1122,7 +1042,6 @@ notes:
 - Поля соответствуют `META_TEMPLATE.yaml`
 
 ### Критерии атомарности записи
-
 - Все артефакты создаются или ни один
 
 - Checksums воспроизводимы при одинаковом вводе
@@ -1132,9 +1051,7 @@ notes:
 ---
 
 ## 13. Примеры использования
-
 ### Инициализация и GET-батч
-
 ```python
 
 import hashlib
@@ -1182,9 +1099,7 @@ for activity in fetch_activities({"target_chembl_id": "CHEMBL240"}):
     print(f"Activity {activity['activity_id']}: {activity['standard_value']}")
 
 ```
-
 ### POST с X-HTTP-Method-Override (длинные списки __in)
-
 ```python
 
 import requests
@@ -1212,11 +1127,9 @@ data = r.json()
 print(f"Received {len(data.get('activities', []))} activities")
 
 ```
-
 Поддержка POST + X-HTTP-Method-Override: GET описана в [официальной документации ChEMBL](https://www.ebi.ac.uk/chembl/documentation/webservices).
 
 ### Полный пайплайн
-
 ```python
 
 from unified_client import UnifiedAPIClient
@@ -1261,9 +1174,7 @@ writer.write(
 )
 
 ```
-
 ### Критерии валидности примеров
-
 - Примеры возвращают валидный JSON
 
 - `page_meta` присутствует при списках
@@ -1273,7 +1184,6 @@ writer.write(
 ---
 
 ## 14. Best Practices
-
 1. **Сужайте выборку фильтрами:** `assay_type`, `target_organism`, `pchembl_value__gte`, `only=...`
 
 2. **При больших выборках используйте POST с override:** для длинных списков в `__in` фильтрах
@@ -1295,7 +1205,6 @@ writer.write(
 10. **Детерминированная сортировка:** по `activity_id` для воспроизводимости
 
 ### Примеры Best Practices
-
 **Эффективная фильтрация:**
 
 ```python
@@ -1314,7 +1223,6 @@ filters = {
 filters = {}  # Будет очень медленно!
 
 ```
-
 **Кэширование:**
 
 ```python
@@ -1328,13 +1236,10 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=True, cache_ttl=3600))
 client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
 ```
-
 ---
 
 ## 15. Связь с другими компонентами
-
 ### Зависимости (cross-reference)
-
 - **UnifiedAPIClient** (см. [03-data-extraction.md](03-data-extraction.md)) — для запросов к API
 
 - **UnifiedSchema** (см. [04-normalization-validation.md](04-normalization-validation.md)) — для валидации
@@ -1344,7 +1249,6 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 - **UnifiedLogger** (см. [01-logging-system.md](01-logging-system.md)) — для логирования
 
 ### Интеграция с другими сущностями (referential integrity)
-
 **Foreign Keys:**
 
 - Activity → Assay (FK: `assay_chembl_id`)
@@ -1366,7 +1270,6 @@ Activity
 └── document_chembl_id → Document
 
 ```
-
 **Проверка referential integrity:**
 
 ```python
@@ -1390,11 +1293,9 @@ def validate_referential_integrity(activities_df, assays_df, targets_df):
         )
 
 ```
-
 ---
 
 ## 16. Диаграмма потока данных
-
 ```mermaid
 
 flowchart LR
@@ -1411,7 +1312,6 @@ flowchart LR
   H -->|fail| E[Log error + fail-fast]
 
 ```
-
 **Описание:**
 
 1. **Request filters** — входные параметры запроса
@@ -1437,11 +1337,8 @@ flowchart LR
 ---
 
 ## 17. Открытые вопросы (OPEN_QUESTIONS)
-
 ### ⚠️ UNCERTAIN пункты, требующие верификации
-
 ### 1. Rate limit и Retry-After
-
 **Проблема:**
 
 - Фиксированного лимита в доках не найдено
@@ -1459,7 +1356,6 @@ flowchart LR
 4. Документировать результаты
 
 ### 2. Максимально допустимый limit
-
 **Проблема:**
 
 - Внешние источники упоминают 1000, но это не норматив
@@ -1473,7 +1369,6 @@ flowchart LR
 3. Зафиксировать предел в Best Practices
 
 ### 3. Наличие canonical_smiles в каждом activity
-
 **Проблема:**
 
 - Поле встречается в ответах, но может отсутствовать для отдельных записей
@@ -1487,7 +1382,6 @@ flowchart LR
 3. Документирование результатов
 
 ### 4. Стабильность набора полей BAO
-
 **Проблема:**
 
 - Набор (`bao_endpoint`, `bao_format`, `bao_label`) подтвержден схемой, но допускает null
@@ -1503,7 +1397,6 @@ flowchart LR
 3. Документирование статистики
 
 ### 5. Политика округления standard_value
-
 **Проблема:**
 
 - В FAQ сказано о стандартизации и флагах качества
@@ -1521,9 +1414,7 @@ flowchart LR
 ---
 
 ## 18. Ссылки (опорные)
-
 ### ChEMBL Data Web Services
-
 - [ChEMBL Data Web Services Documentation](https://www.ebi.ac.uk/chembl/documentation/webservices)
 
 - [Activity endpoint](https://www.ebi.ac.uk/chembl/documentation/webservices#RESOURCE_ACTIVITY)
@@ -1539,11 +1430,9 @@ flowchart LR
 - [POST with X-HTTP-Method-Override](https://www.ebi.ac.uk/chembl/documentation/webservices#POST)
 
 ### Шаблон /RESOURCE/ID
-
 - [ChEMBL Blog - Resource URLs](https://www.ebi.ac.uk/chembl/blog/resource-urls)
 
 ### Поля activity
-
 - [EMBL-EBI ChEMBL Data Model](https://www.ebi.ac.uk/chembl/documentation/chema_data_model)
 
 - [ChEMBL Data Model Activities](https://www.ebi.ac.uk/chembl/documentation)
@@ -1551,13 +1440,11 @@ flowchart LR
 - [BAO Ontology](https://www.bioassayontology.org/)
 
 ### pChEMBL
-
 - [ChEMBL FAQ - pChEMBL](https://www.ebi.ac.uk/chembl/documentation/faq)
 
 - [pChEMBL Definition](https://www.ebi.ac.uk/chembl/documentation/faq#pChEMBL)
 
 ### Quality и Validity
-
 - [ChEMBL FAQ - Data Validity](https://www.ebi.ac.uk/chembl/documentation/faq)
 
 - [ChEMBL Data Quality Filters](https://www.ebi.ac.uk/chembl/documentation/faq#Quality)
@@ -1569,4 +1456,3 @@ flowchart LR
 **Автор:** ETL Architecture Team
 
 **Следующий раздел:** Интеграция с другими модулями, см. [00-architecture-overview.md](00-architecture-overview.md)
-

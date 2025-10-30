@@ -1,15 +1,12 @@
 # Document Pipeline Verification Report
-
-**Дата:** 2025-10-28  
-**Pipeline:** Document  
+**Дата:** 2025-10-28
+**Pipeline:** Document
 **Статус:** ✅ Успешно
 
 ---
 
 ## Выполненная проверка
-
 ### 1. Запуск пайплайна
-
 ✅ Пайплайн запущен и завершился успешно
 
 - Входные данные: 10 записей из `data/input/documents.csv`
@@ -17,7 +14,6 @@
 - Quality report: ✅ создан
 
 ### 2. Проверка системных полей
-
 ✅ Все системные поля присутствуют и корректно сгенерированы:
 
 - `index`: детерминированный индекс (0, 1, 2...)
@@ -35,9 +31,7 @@ hash_business_key: 4e8c008e26186bcfdd2e02c0ce4f0ec462db3a078c054a1b0b4ac45ebd075
 hash_row: 02001e96dbfaad6aa11e...
 
 ```
-
 ### 3. Проверка multi-source fields
-
 ✅ Переименование полей в `chembl_*` префикс работает корректно:
 
 - `title` → `chembl_title`
@@ -49,7 +43,6 @@ hash_row: 02001e96dbfaad6aa11e...
 - `abstract` → `chembl_abstract`
 
 ### 4. Проверка column_order
-
 ✅ Порядок колонок соответствует schema
 
 **Actual output columns (11):**
@@ -61,12 +54,10 @@ hash_row: 02001e96dbfaad6aa11e...
  'chembl_journal', 'chembl_year']
 
 ```
-
 **Expected column_order (schema has 77):**
 Порядок первых 11 соответствует спецификации IO_SCHEMAS_AND_DIAGRAMS.md line 957
 
 ### 5. Проверка схемы
-
 ✅ Schema соответствует спецификации:
 
 - **Total fields:** 77 (согласно line 957)
@@ -79,16 +70,13 @@ hash_row: 02001e96dbfaad6aa11e...
 ---
 
 ## Анализ output
-
 ### Что присутствует
-
 ✅ **11 колонок:** системные поля + данные из ChEMBL
 
 - Системные: index, extracted_at, hash_business_key, hash_row, document_chembl_id
 - ChEMBL fields: chembl_title, chembl_abstract, chembl_authors, chembl_doi, chembl_journal, chembl_year
 
 ### Что отсутствует (ожидаемо)
-
 ⏳ **66 колонок:** дополнительные multi-source fields
 
 - `document_pubmed_id, document_classification, referenses_on_previous_experiments` и др. (core fields) - отсутствуют в входных данных
@@ -98,7 +86,6 @@ hash_row: 02001e96dbfaad6aa11e...
 - `publication_date, document_sortorder` - require calculation
 
 ### Вывод
-
 Пайплайн работает **корректно в текущем режиме**. Отсутствующие поля ожидаемы, т.к.:
 1. Входные данные содержат только базовые поля ChEMBL
 2. Multi-source enrichment (PubMed, Crossref, OpenAlex, Semantic Scholar) не выполнен
@@ -107,7 +94,6 @@ hash_row: 02001e96dbfaad6aa11e...
 ---
 
 ## Соответствие IO_SCHEMAS_AND_DIAGRAMS.md
-
 | Критерий | Статус | Примечание |
 |----------|--------|------------|
 | Schema definition | ✅ 100% | 77 полей соответствуют line 957 |
@@ -122,9 +108,7 @@ hash_row: 02001e96dbfaad6aa11e...
 ---
 
 ## Рекомендации
-
 ### Для полного соответствия спецификации (все 77 полей)
-
 1. **Реализовать enrichment:**
 
    - PubMed API adapter
@@ -151,6 +135,4 @@ hash_row: 02001e96dbfaad6aa11e...
    - `document_sortorder` - calculate
 
 ### Текущее состояние
-
 ✅ **Готово к использованию** для базового извлечения документов ChEMBL с системными полями
-

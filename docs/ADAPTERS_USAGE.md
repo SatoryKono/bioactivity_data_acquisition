@@ -1,7 +1,5 @@
 # Использование внешних адаптеров
-
 ## Обзор
-
 Проект реализует 4 адаптера для обогащения метаданных документов из внешних источников:
 
 1. **PubMedAdapter** - PubMed E-utilities API
@@ -10,9 +8,7 @@
 4. **SemanticScholarAdapter** - Semantic Scholar Graph API
 
 ## Конфигурация
-
 ### Переменные окружения
-
 Перед запуском необходимо установить следующие переменные окружения (опционально):
 
 ```bash
@@ -25,14 +21,12 @@ export CROSSREF_MAILTO="your-email@example.com"  # для polite pool
 export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для production
 
 ```
-
 > **Примечание.** Синтаксис `${VAR:}` указывает конфигуратор использовать пустую строку,
 > если переменная окружения `VAR` не определена. Это удобно для опциональных ключей API,
 > вроде `PUBMED_API_KEY` или `SEMANTIC_SCHOLAR_API_KEY`, которые повышают лимиты, но не
 > требуются для локальных прогонов.
 
 ### Конфигурация YAML
-
 Файл `configs/pipelines/document.yaml`:
 
 ```yaml
@@ -76,11 +70,8 @@ sources:
     workers: 1
 
 ```
-
 ## Использование
-
 ### Автоматическая интеграция
-
 Адаптеры автоматически интегрированы в `DocumentPipeline`:
 
 ```python
@@ -96,9 +87,7 @@ pipeline = DocumentPipeline(config, run_id="test")
 df = pipeline.extract("data/input/documents.csv")
 
 ```
-
 ### Прямое использование
-
 ```python
 
 from bioetl.adapters import PubMedAdapter, CrossrefAdapter
@@ -127,9 +116,7 @@ df = pubmed.process(pmids)
 pubmed.close()
 
 ```
-
 ## Приоритеты источников
-
 При объединении данных из нескольких источников используется следующая приоритетность:
 
 - **title**: PubMed > ChEMBL > OpenAlex > Crossref > Semantic Scholar
@@ -144,7 +131,6 @@ pubmed.close()
 - **issn_electronic**: Crossref > PubMed
 
 ## Rate Limiting
-
 Все адаптеры используют `UnifiedAPIClient` с встроенными rate limiters:
 
 - **PubMed**: 3 rps (10 rps с API key)
@@ -153,36 +139,27 @@ pubmed.close()
 - **Semantic Scholar**: 0.8 rps (10 rps с API key)
 
 ## Получение API ключей
-
 ### PubMed API Key
-
 1. Зарегистрироваться на https://www.ncbi.nlm.nih.gov/account/settings/
 2. Найти API Key в настройках аккаунта
 
 ### Crossref (не требуется)
-
 Crossref не требует API ключ, но рекомендуется указать `mailto` для polite pool
 
 ### Semantic Scholar API Key
-
 1. Зарегистрироваться на https://www.semanticscholar.org/
 2. Перейти в Developer API settings
 3. Создать API ключ
 
 ## Troubleshooting
-
 ### PubMed: "Required parameter 'email' missing"
-
 - Установите переменную окружения `PUBMED_EMAIL`
 - Или укажите в конфиге `email`
 
 ### Semantic Scholar: Rate limit exceeded
-
 - Получите API ключ для увеличения лимитов
 - Установите `SEMANTIC_SCHOLAR_API_KEY`
 
 ### Connection timeout
-
 - Проверьте настройки `timeout_connect` и `timeout_read` в конфиге
 - Увеличьте значения для медленных источников
-

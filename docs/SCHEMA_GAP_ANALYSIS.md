@@ -1,18 +1,14 @@
 # Schema Gap Analysis
-
 ## Цель
-
 Сравнить текущее состояние схем пайплайнов с требованиями IO_SCHEMAS_AND_DIAGRAMS.md и выявить все расхождения.
 
-**Дата анализа:** 2025-01-03  
+**Дата анализа:** 2025-01-03
 **Спецификация:** IO_SCHEMAS_AND_DIAGRAMS.md (lines 1-1330)
 
 ---
 
 ## 1. BaseSchema - System Fields
-
 ### Текущее состояние
-
 **Файл:** `src/bioetl/schemas/base.py`
 
 ```python
@@ -25,9 +21,7 @@ class BaseSchema(pa.DataFrameModel):
     Config.ordered = False
 
 ```
-
 ### Требуется по спецификации
-
 - `pipeline_version: str` ✓
 - `source_system: str` ✓
 - `chembl_release: str` ✓
@@ -38,7 +32,6 @@ class BaseSchema(pa.DataFrameModel):
 - `Config.ordered = True` ✗ **НАСТРОЙКА**
 
 ### Чеклист изменений
-
 - [ ] Добавить `index: Series[int]` (>=0, nullable=False)
 - [ ] Добавить `hash_row: Series[str]` (regex constraint, nullable=False)
 - [ ] Добавить `hash_business_key: Series[str]` (regex constraint, nullable=False)
@@ -47,9 +40,7 @@ class BaseSchema(pa.DataFrameModel):
 ---
 
 ## 2. AssaySchema - Full Specification
-
 ### Текущее состояние (continued 1)
-
 **Файл:** `src/bioetl/schemas/assay.py`
 
 **Текущие поля (5):**
@@ -59,11 +50,10 @@ class BaseSchema(pa.DataFrameModel):
 4. `target_chembl_id: Series[str]` ✓
 5. `confidence_score: Series[int]` - частично
 
-**Primary Key:** отсутствует ✗  
+**Primary Key:** отсутствует ✗
 **Column Order:** отсутствует ✗
 
 ### Требуется по спецификации (lines 48-124)
-
 **Primary Key:** `[assay_chembl_id, row_subtype, row_index]`
 
 **Основные поля (обязательно):**
@@ -87,7 +77,6 @@ class BaseSchema(pa.DataFrameModel):
 **Column Order:** `[assay_chembl_id, row_subtype, row_index, pref_name, hash_row, hash_business_key, chembl_release]`
 
 ### Чеклист изменений (continued 1)
-
 - [ ] Добавить `row_subtype: Series[str]` (allowed: ["assay", "param", "variant"], nullable=False)
 - [ ] Добавить `row_index: Series[int]` (>=0, nullable=False)
 - [ ] Добавить `pref_name: Series[str]` (nullable=True)
@@ -98,7 +87,6 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.ordered = True`
 
 ### Pipeline Changes (assay.py)
-
 - [ ] Реализовать explode nested structures (params, variants)
 - [ ] Генерация `row_subtype`, `row_index` для каждой exploded строки
 - [ ] Генерация `hash_row`, `hash_business_key`
@@ -107,9 +95,7 @@ class BaseSchema(pa.DataFrameModel):
 ---
 
 ## 3. ActivitySchema - Complete Fields
-
 ### Текущее состояние (continued) (continued)
-
 **Файл:** `src/bioetl/schemas/activity.py`
 
 **Текущие поля (16):**
@@ -133,8 +119,7 @@ class BaseSchema(pa.DataFrameModel):
 18. `activity_properties: Series[str]` ✗ **ЛИШНЕЕ** (JSON string)
 
 ### Требуется по спецификации (lines 189-474)
-
-**Primary Key:** `[activity_id]` ✓  
+**Primary Key:** `[activity_id]` ✓
 **Column Order:** `[activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, published_type, published_relation, published_value, published_units, standard_type, standard_relation, standard_value, standard_units, standard_flag, lower_bound, upper_bound, is_censored, pchembl_value, activity_comment, data_validity_comment, bao_endpoint, bao_format, bao_label, extracted_at, hash_business_key, hash_row, index, source_system, chembl_release]`
 
 **Отсутствующие поля:**
@@ -151,7 +136,6 @@ class BaseSchema(pa.DataFrameModel):
 - `hash_row, hash_business_key, index` ✗ (из BaseSchema)
 
 ### Чеклист изменений (continued) (continued)
-
 - [ ] Удалить `canonical_smiles`
 - [ ] Удалить `target_organism`
 - [ ] Удалить `target_tax_id`
@@ -169,7 +153,6 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.ordered = True`
 
 ### Pipeline Changes (activity.py)
-
 - [ ] Генерация `hash_row`, `hash_business_key`, `index`
 - [ ] Mapping всех `published_*` полей
 - [ ] Сортировка по `activity_id`
@@ -177,9 +160,7 @@ class BaseSchema(pa.DataFrameModel):
 ---
 
 ## 4. TestItemSchema - Extended Fields
-
 ### Текущее состояние (continued) (continued) (continued)
-
 **Файл:** `src/bioetl/schemas/testitem.py`
 
 **Текущие поля (~17):**
@@ -199,8 +180,7 @@ class BaseSchema(pa.DataFrameModel):
 14. `pubchem_synonyms: Series[str]` ✓
 
 ### Требуется по спецификации (lines 550-675 + примечание line 667)
-
-**Primary Key:** `[molecule_chembl_id]` ✓  
+**Primary Key:** `[molecule_chembl_id]` ✓
 **Примечание:** "Testitem schema содержит ~81 поле" (line 667)
 
 **Отсутствующие ключевые поля:**
@@ -221,7 +201,6 @@ class BaseSchema(pa.DataFrameModel):
 **Column Order:** `[molecule_chembl_id, molregno, pref_name, parent_chembl_id, max_phase, structure_type, molecule_type, mw_freebase, qed_weighted, pubchem_cid, standardized_smiles, hash_row, hash_business_key, chembl_release]`
 
 ### Чеклист изменений (continued) (continued) (continued)
-
 - [ ] Переименовать `canonical_smiles` → `standardized_smiles`
 - [ ] Переименовать `molecular_weight` → `mw_freebase`
 - [ ] Добавить `pref_name: Series[str]` (nullable=True)
@@ -234,7 +213,6 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.ordered = True`
 
 ### Pipeline Changes (testitem.py)
-
 - [ ] Генерация `hash_row`, `hash_business_key`
 - [ ] Flatten всех nested structures (molecule_properties)
 - [ ] Сортировка по `molecule_chembl_id`
@@ -242,9 +220,7 @@ class BaseSchema(pa.DataFrameModel):
 ---
 
 ## 5. TargetSchema - Multi-Table Enrichment
-
 ### Текущее состояние (continued) (continued) (continued) (continued)
-
 **Файл:** `src/bioetl/schemas/target.py`
 
 **Текущие схемы (4):**
@@ -254,7 +230,6 @@ class BaseSchema(pa.DataFrameModel):
 4. `XrefSchema`
 
 #### TargetSchema
-
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
@@ -277,7 +252,6 @@ class BaseSchema(pa.DataFrameModel):
 - Удалить `iuphar_*` поля ✗
 
 #### TargetComponentSchema
-
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
@@ -296,7 +270,6 @@ class BaseSchema(pa.DataFrameModel):
 - Удалить `sequence_length` ✗
 
 #### ProteinClassSchema
-
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
@@ -310,7 +283,6 @@ class BaseSchema(pa.DataFrameModel):
 - `full_path: Series[str]` ✗
 
 #### XrefSchema
-
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
@@ -324,7 +296,6 @@ class BaseSchema(pa.DataFrameModel):
 - `xref_src_db, xref_src_id: Series[str]` (nullable=False) ✗
 
 ### Чеклист изменений (continued) (continued) (continued) (continued)
-
 **TargetSchema:**
 
 - [ ] Переименовать `taxonomy` → `tax_id`
@@ -355,7 +326,6 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Сделать `xref_src_db, xref_src_id` nullable=False
 
 ### Pipeline Changes (target.py)
-
 - [ ] Генерация `hash_row`, `hash_business_key` для всех 4 таблиц
 - [ ] Multi-stage enrichment (ChEMBL → UniProt → IUPHAR)
 - [ ] Priority merge (chembl > uniprot > iuphar > ortholog)
@@ -365,9 +335,7 @@ class BaseSchema(pa.DataFrameModel):
 ---
 
 ## 6. DocumentSchema - Multi-Source Unified
-
 ### Текущее состояние (continued) (continued) (continued) (continued) (continued)
-
 **Файл:** `src/bioetl/schemas/document.py`
 
 **Текущие схемы (2):**
@@ -375,10 +343,9 @@ class BaseSchema(pa.DataFrameModel):
 2. `PubMedDocumentSchema` - 7 полей
 
 ### Требуется по спецификации (lines 953-1329)
-
 **Одна unified schema:** `DocumentSchema` с ~70 полями
 
-**Primary Key:** `[document_chembl_id]`  
+**Primary Key:** `[document_chembl_id]`
 **Column Order:** `[index, extracted_at, hash_business_key, hash_row, document_chembl_id, document_pubmed_id, document_classification, referenses_on_previous_experiments, original_experimental_document, document_citation, pubmed_mesh_descriptors, pubmed_mesh_qualifiers, pubmed_chemical_list, crossref_subject, chembl_pmid, openalex_pmid, pubmed_pmid, semantic_scholar_pmid, chembl_title, crossref_title, openalex_title, pubmed_article_title, semantic_scholar_title, chembl_abstract, pubmed_abstract, chembl_authors, crossref_authors, openalex_authors, pubmed_authors, semantic_scholar_authors, chembl_doi, crossref_doi, openalex_doi, pubmed_doi, semantic_scholar_doi, chembl_doc_type, crossref_doc_type, openalex_doc_type, openalex_crossref_doc_type, pubmed_doc_type, semantic_scholar_doc_type, openalex_issn, pubmed_issn, semantic_scholar_issn, chembl_journal, pubmed_journal, semantic_scholar_journal, chembl_year, openalex_year, chembl_volume, pubmed_volume, chembl_issue, pubmed_issue, pubmed_first_page, pubmed_last_page, crossref_error, openalex_error, pubmed_error, semantic_scholar_error, pubmed_year_completed, pubmed_month_completed, pubmed_day_completed, pubmed_year_revised, pubmed_month_revised, pubmed_day_revised, publication_date, document_sortorder, valid_doi, valid_journal, valid_year, valid_volume, valid_issue, invalid_doi, invalid_journal, invalid_year, invalid_volume, invalid_issue]`
 
 **Отсутствующие поля группированные по префиксам:**
@@ -492,7 +459,6 @@ class BaseSchema(pa.DataFrameModel):
 - `document_sortorder: Series[int]` ✗
 
 ### Чеклист изменений (continued) (continued) (continued) (continued) (continued)
-
 - [ ] Удалить `ChEMBLDocumentSchema`
 - [ ] Удалить `PubMedDocumentSchema`
 - [ ] Создать `DocumentSchema` с ~70 полями
@@ -506,7 +472,6 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.ordered = True`
 
 ### Pipeline Changes (document.py)
-
 - [ ] Multi-source merge с приоритетами полей
 - [ ] Генерация `hash_row`, `hash_business_key`, `index`
 - [ ] Validation fields logic
@@ -515,9 +480,7 @@ class BaseSchema(pa.DataFrameModel):
 ---
 
 ## 7. Config Files - Determinism Settings
-
 ### Текущее состояние (continued) (continued) (continued) (continued) (continued 1)
-
 **Файлы:** `configs/pipelines/*.yaml`
 
 **activity.yaml:**
@@ -525,7 +488,6 @@ class BaseSchema(pa.DataFrameModel):
 - `determinism.sort.by: [activity_id]` ✓ частично
 
 ### Требуется
-
 **Добавить в каждый config:**
 
 ```yaml
@@ -538,7 +500,6 @@ determinism:
     by: [<primary_key_fields>]
 
 ```
-
 **Конкретно:**
 
 - `assay.yaml`: `sort.by: [assay_chembl_id, row_subtype, row_index]`
@@ -548,7 +509,6 @@ determinism:
 - `document.yaml`: добавить `determinism.*`, `sort.by: [document_chembl_id]`
 
 ### Чеклист изменений (continued) (continued) (continued) (continued) (continued 1)
-
 - [ ] Добавить `determinism.hash_algorithm: "sha256"` во все configs
 - [ ] Добавить `determinism.float_precision: 6`
 - [ ] Добавить `determinism.datetime_format: "iso8601"`
@@ -557,9 +517,7 @@ determinism:
 ---
 
 ## Summary
-
 ### Статистика расхождений
-
 | Pipeline | Схем | Текущих полей | Требуется полей | Критических изменений | Status |
 |----------|------|--------------|-----------------|----------------------|--------|
 | BaseSchema | 1 | 4 | 7 | +3 system fields | ⚠️ |
@@ -571,7 +529,6 @@ determinism:
 | **Total** | 10 | ~93 | ~257 | ~164 изменения | |
 
 ### Критичность изменений
-
 **🔴 Высокая:**
 
 - BaseSchema: system fields обязательны для всех
@@ -589,11 +546,9 @@ determinism:
 - Configs: добавление determinism настроек
 
 ### Next Steps
-
 1. ✅ Gap Analysis завершен
 2. ⏭️ Создать модуль хеширования
 3. ⏭️ Обновить BaseSchema
 4. ⏭️ Последовательно обновить все пайплайны
 5. ⏭️ Обновить configs
 6. ⏭️ Тесты и документация
-

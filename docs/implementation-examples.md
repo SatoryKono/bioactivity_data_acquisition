@@ -1,9 +1,7 @@
 # Примеры реализации (Unified Diff)
-
 Унифицированные патчи для закрытия gaps из [gaps.md](gaps.md).
 
 ## Патч 1: Канонизация для хэширования (AC3, G5)
-
 **Зачем**: Детерминизм hash_row, устранение различий из-за порядка и формата.
 
 **Файл**: `src/library/common/hash_utils.py`
@@ -54,7 +52,6 @@
 +    return sha256(canonicalize_row_for_hash(row).encode()).hexdigest()
 
 ```
-
 **Особенности**:
 
 - `sort_keys=True` для детерминированного порядка
@@ -72,7 +69,6 @@
 ---
 
 ## Патч 2: Long-format для assay parameters (AC8, G7)
-
 **Зачем**: Предотвращение потери вложенных данных, обязательный long-format для nested структур.
 
 **Файл**: `src/library/pipelines/assay/transform.py`
@@ -191,7 +187,6 @@
 +                       columns=["assay_chembl_id","class_index","class_type","class_value","row_subtype"])
 
 ```
-
 **Использование**:
 
 ```python
@@ -207,13 +202,11 @@ df_classes = expand_classifications_long(df)
 df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 
 ```
-
 **См. также**: [00-architecture-overview.md → Long format](requirements/00-architecture-overview.md)
 
 ---
 
 ## Патч 3: TokenBucket + Retry-After логирование (AC5, G11)
-
 **Зачем**: Наблюдаемость ретраев, respect Retry-After инвариант.
 
 **Файл**: `src/library/clients/rate_limit.py`
@@ -266,7 +259,6 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 +            self.tokens -= 1
 
 ```
-
 **Файл**: `src/library/clients/unified_client.py`
 
 ```diff
@@ -299,7 +291,6 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
          raise RateLimitError("Rate limited")
 
 ```
-
 **Тест**:
 
 ```python
@@ -321,13 +312,11 @@ def test_respect_retry_after(mocker, caplog):
                for rec in caplog.records)
 
 ```
-
 **См. также**: [03-data-extraction.md → AC-07 Retry-After](requirements/03-data-extraction.md#ac-07-respect-retry-after-429)
 
 ---
 
 ## Патч 4: CLI-флаги строгих режимов (AC10, G8)
-
 **Зачем**: Fail-fast на schema drift, whitelist enrichment контроль.
 
 **Файл**: `src/cli/main.py`
@@ -347,7 +336,6 @@ def test_respect_retry_after(mocker, caplog):
 +                    help="Запрет лишних полей при enrichment (whitelist)")
 
 ```
-
 **Использование**:
 
 ```bash
@@ -361,13 +349,11 @@ python -m pipeline run --fail-on-schema-drift --strict-enrichment
 python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 
 ```
-
 **См. также**: [04-normalization-validation.md → Schema drift](requirements/04-normalization-validation.md#ac-08-schema-drift-detection)
 
 ---
 
 ## Патч 5: Atomic writer с os.replace (AC1, AC4, G1)
-
 **Зачем**: Гарантированная атомарность записи, отсутствие partial artifacts.
 
 **Файл**: `src/library/io/writer.py`
@@ -479,7 +465,6 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 +    write_bytes_atomic(path, content, run_id)
 
 ```
-
 **Проверка**:
 
 ```python
@@ -506,13 +491,11 @@ def test_atomic_write_no_partial(mocker):
     assert not (tmpdir / f"{path.name}.tmp").exists()
 
 ```
-
 **См. также**: [02-io-system.md → Atomic Write](requirements/02-io-system.md#протокол-atomic-write)
 
 ---
 
 ## Резюме патчей
-
 | Патч | Файл(ы) | AC | Gap(s) | Приоритет |
 |------|---------|----|--------|-----------|
 | 1. Канонизация | `hash_utils.py` | AC3 | G5 | Med |
@@ -526,7 +509,6 @@ def test_atomic_write_no_partial(mocker):
 | 5. Atomic writer | `writer.py` | AC1, AC4 | G1 | High |
 
 ## Порядок применения
-
 1. **Патч 5** (Atomic writer) — основа детерминизма
 
 2. **Патч 1** (Канонизация) — для стабильных хешей
@@ -538,7 +520,6 @@ def test_atomic_write_no_partial(mocker):
 5. **Патч 4** (CLI флаги) — для строгости
 
 ## Связи с другими документами
-
 - [gaps.md](gaps.md) — описание проблем, которые решают патчи
 
 - [acceptance-criteria.md](acceptance-criteria.md) — критерии проверки патчей
@@ -548,4 +529,3 @@ def test_atomic_write_no_partial(mocker):
 - [03-data-extraction.md](requirements/03-data-extraction.md) — Retry-After стратегия
 
 - [04-normalization-validation.md](requirements/04-normalization-validation.md) — schema drift
-
