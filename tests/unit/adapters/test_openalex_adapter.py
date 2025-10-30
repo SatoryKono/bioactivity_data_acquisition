@@ -59,6 +59,40 @@ class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertIn("concepts_top3", normalized)
         self.assertEqual(len(normalized["concepts_top3"]), 3)
 
+    @patch("bioetl.adapters.openalex.normalize_common_bibliography", autospec=True)
+    def test_common_helper_invoked(self, helper_mock):
+        """The shared bibliography helper is used for normalization."""
+
+        helper_mock.return_value = {
+            "doi_clean": "10.2000/common",
+            "title": "OA Title",
+            "journal": "OA Journal",
+            "authors": "Author One",
+        }
+
+        record = {
+            "id": "https://openalex.org/W1",
+            "doi": "10.2000/common",
+            "primary_location": {"source": {}},
+            "authorships": [],
+        }
+
+        normalized = self.adapter.normalize_record(record)
+
+        helper_mock.assert_called_once()
+        args, kwargs = helper_mock.call_args
+        self.assertIs(args[0], record)
+        self.assertEqual(kwargs["doi"], "doi")
+        self.assertEqual(kwargs["title"], "title")
+        self.assertEqual(kwargs["authors"], "authorships")
+        self.assertIn("journal", kwargs)
+        self.assertTrue(callable(kwargs["journal"]))
+        self.assertIn("journal_normalizer", kwargs)
+
+        self.assertEqual(normalized["doi_clean"], "10.2000/common")
+        self.assertEqual(normalized["openalex_doi"], "10.2000/common")
+        self.assertEqual(normalized["title"], "OA Title")
+
     def test_fetch_by_ids_batches_using_class_default(self) -> None:
         """Batch helper falls back to ``DEFAULT_BATCH_SIZE``."""
 

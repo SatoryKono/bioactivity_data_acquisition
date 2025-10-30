@@ -6,11 +6,7 @@ from typing import Any
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers import registry
-from bioetl.normalizers.bibliography import (
-    normalize_authors,
-    normalize_doi,
-    normalize_title,
-)
+from bioetl.normalizers.bibliography import normalize_common_bibliography
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -53,23 +49,19 @@ class CrossrefAdapter(ExternalAdapter):
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize Crossref record."""
-        normalized = {}
+        common = normalize_common_bibliography(
+            record,
+            doi="DOI",
+            title="title",
+            journal=("container-title", "short-container-title"),
+            authors="author",
+        )
 
-        # DOI
-        doi_clean = normalize_doi(record.get("DOI"))
+        normalized = dict(common)
+
+        doi_clean = common.get("doi_clean")
         if doi_clean:
-            normalized["doi_clean"] = doi_clean
             normalized["crossref_doi"] = doi_clean
-
-        # Title - Crossref returns list
-        title = normalize_title(record.get("title"))
-        if title:
-            normalized["title"] = title
-
-        # Container title (journal)
-        journal = normalize_title(record.get("container-title"))
-        if journal:
-            normalized["journal"] = journal
 
         # Publication dates - priority: published-print > published-online > issued > created
         date_field = None
@@ -117,9 +109,6 @@ class CrossrefAdapter(ExternalAdapter):
 
         # Authors
         authors_raw = record.get("author")
-        authors = normalize_authors(authors_raw)
-        if authors:
-            normalized["authors"] = authors
 
         if isinstance(authors_raw, list):
             for author in authors_raw:
