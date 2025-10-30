@@ -177,6 +177,8 @@ class BaseSchema(DataFrameModel):
     - extracted_at: метка времени извлечения (ISO8601)
     """
 
+    hash_policy_version = "1.0.0"
+
     # Детерминизм и система трекинга
     index: Series[int] = Field(nullable=False, ge=0, description="Детерминированный индекс строки")
     hash_row: Series[str] = Field(
