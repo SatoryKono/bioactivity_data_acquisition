@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import IO, Any, Sequence
 
 import pandas as pd
 
@@ -76,14 +76,17 @@ class ColumnComparisonResult:
 class ColumnValidator:
     """Валидатор колонок для сравнения с требованиями."""
 
-    def __init__(self):
+    def __init__(self, empty_column_chunksize: int = 100_000):
         self.logger = UnifiedLogger.get(__name__)
+        self.empty_column_chunksize = empty_column_chunksize
 
     def compare_columns(
         self,
         entity: str,
         actual_df: pd.DataFrame,
         schema_version: str = "latest",
+        empty_columns: Sequence[str] | None = None,
+        non_empty_columns: Sequence[str] | None = None,
     ) -> ColumnComparisonResult:
         """
         Сравнить колонки в DataFrame с ожидаемой схемой.
@@ -117,7 +120,11 @@ class ColumnValidator:
             column_count_matches = len(expected_columns) == len(actual_columns)
 
             # Проверить пустые колонки
-            empty_columns, non_empty_columns = self._analyze_column_data(actual_df)
+            if empty_columns is None or non_empty_columns is None:
+                empty_columns, non_empty_columns = self._analyze_column_data(actual_df)
+            else:
+                empty_columns = list(empty_columns)
+                non_empty_columns = list(non_empty_columns)
 
             result = ColumnComparisonResult(
                 entity=entity,
@@ -179,6 +186,45 @@ class ColumnValidator:
                 empty_columns.append(column)
             else:
                 non_empty_columns.append(column)
+
+        return empty_columns, non_empty_columns
+
+    def _analyze_file_for_empty_columns(
+        self,
+        source: Path | IO[str],
+        columns: Sequence[str],
+    ) -> tuple[list[str], list[str]]:
+        """Проанализировать CSV-файл по чанкам и определить пустые и непустые колонки."""
+
+        column_names = list(columns)
+        if not column_names:
+            return [], []
+
+        has_non_null = [False for _ in column_names]
+
+        if hasattr(source, "seek"):
+            source.seek(0)  # type: ignore[attr-defined]
+
+        reader = pd.read_csv(
+            source,
+            usecols=list(range(len(column_names))),
+            chunksize=self.empty_column_chunksize,
+        )
+
+        for chunk in reader:
+            for idx, has_value in enumerate(has_non_null):
+                if has_value:
+                    continue
+
+                series = chunk.iloc[:, idx]
+                if series.notna().any():
+                    has_non_null[idx] = True
+
+            if all(has_non_null):
+                break
+
+        empty_columns = [name for name, has_value in zip(column_names, has_non_null) if not has_value]
+        non_empty_columns = [name for name, has_value in zip(column_names, has_non_null) if has_value]
 
         return empty_columns, non_empty_columns
 
@@ -359,14 +405,25 @@ class ColumnValidator:
                     )
                     continue
 
-                # Загрузить DataFrame
-                df = pd.read_csv(csv_file)
+                # Считать только заголовки для сравнения колонок
+                header_df = pd.read_csv(csv_file, nrows=0)
 
                 # Определить сущность по имени файла
                 entity = self._extract_entity_from_filename(csv_file.name)
 
+                empty_columns, non_empty_columns = self._analyze_file_for_empty_columns(
+                    csv_file,
+                    header_df.columns,
+                )
+
                 # Сравнить колонки
-                result = self.compare_columns(entity, df, schema_version)
+                result = self.compare_columns(
+                    entity,
+                    header_df,
+                    schema_version,
+                    empty_columns=empty_columns,
+                    non_empty_columns=non_empty_columns,
+                )
                 results.append(result)
 
             except Exception as e:

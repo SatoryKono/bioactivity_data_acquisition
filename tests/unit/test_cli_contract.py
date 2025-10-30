@@ -509,7 +509,14 @@ def test_cli_validate_columns_success(monkeypatch: pytest.MonkeyPatch, tmp_path:
         def __init__(self) -> None:
             calls["validator_created"] = True
 
-        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest") -> DummyResult:  # type: ignore[override]
+        def compare_columns(
+            self,
+            *,
+            entity: str,
+            actual_df,
+            schema_version: str = "latest",
+            **_: object,
+        ) -> DummyResult:  # type: ignore[override]
             calls["entity"] = entity
             calls["schema_version"] = schema_version
             calls["columns"] = list(actual_df.columns)
@@ -565,7 +572,14 @@ def test_cli_validate_columns_failure(monkeypatch: pytest.MonkeyPatch, tmp_path:
             self.empty_columns: list[str] = []
 
     class DummyValidator:
-        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest") -> DummyResult:  # type: ignore[override]
+        def compare_columns(
+            self,
+            *,
+            entity: str,
+            actual_df,
+            schema_version: str = "latest",
+            **_: object,
+        ) -> DummyResult:  # type: ignore[override]
             return DummyResult()
 
         def generate_report(self, results, output_dir: Path) -> Path:  # type: ignore[override]

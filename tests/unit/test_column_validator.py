@@ -1,3 +1,4 @@
+import io
 import json
 
 import pandas as pd
@@ -56,7 +57,15 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
     validator = ColumnValidator()
     processed_entities: list[str] = []
 
-    def fake_compare_columns(self, entity, actual_df, schema_version="latest"):
+    def fake_compare_columns(
+        self,
+        entity,
+        actual_df,
+        schema_version="latest",
+        *,
+        empty_columns=None,
+        non_empty_columns=None,
+    ):
         processed_entities.append(entity)
         return ColumnComparisonResult(
             entity=entity,
@@ -66,8 +75,9 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
             extra_columns=[],
             order_matches=True,
             column_count_matches=True,
-            empty_columns=[],
-            non_empty_columns=list(actual_df.columns),
+            empty_columns=list(empty_columns or []),
+            non_empty_columns=list(non_empty_columns or actual_df.columns),
+            duplicate_columns={},
         )
 
     monkeypatch.setattr(ColumnValidator, "compare_columns", fake_compare_columns)
@@ -112,3 +122,21 @@ def test_compare_columns_detects_duplicate_columns(monkeypatch: pytest.MonkeyPat
     assert result_dict["duplicate_columns"] == {"col_a": 2}
     assert result_dict["duplicate_unique_count"] == 1
     assert result_dict["duplicate_total"] == 1
+
+
+def test_analyze_file_for_empty_columns_with_large_mock() -> None:
+    validator = ColumnValidator(empty_column_chunksize=5)
+
+    columns = ["col_a", "col_b", "col_c"]
+    rows = []
+    for i in range(50):
+        rows.append(f"{i},,{i}")
+
+    csv_data = "col_a,col_b,col_c\n" + "\n".join(rows)
+
+    handle = io.StringIO(csv_data)
+
+    empty_columns, non_empty_columns = validator._analyze_file_for_empty_columns(handle, columns)
+
+    assert empty_columns == ["col_b"]
+    assert set(non_empty_columns) == {"col_a", "col_c"}
