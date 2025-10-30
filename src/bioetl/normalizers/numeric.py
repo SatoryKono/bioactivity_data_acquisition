@@ -4,20 +4,8 @@ import math
 from typing import Any
 
 from bioetl.normalizers.base import BaseNormalizer
-from bioetl.normalizers.constants import BOOLEAN_FALSE, BOOLEAN_TRUE, NA_STRINGS
-
-
-def _is_na(value: Any) -> bool:
-    """Проверяет, является ли значение NA/пустым."""
-    if value is None:
-        return True
-    if isinstance(value, float) and math.isnan(value):
-        return True
-    if isinstance(value, str):
-        if value.strip() == "":
-            return True
-        return value.strip().lower() in NA_STRINGS
-    return False
+from bioetl.normalizers.constants import BOOLEAN_FALSE, BOOLEAN_TRUE
+from bioetl.normalizers.helpers import _is_na
 
 
 class NumericNormalizer(BaseNormalizer):

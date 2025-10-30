@@ -1,5 +1,5 @@
 import sys
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 
 import pandas as pd
 import pytest
@@ -9,15 +9,6 @@ from bioetl.config.loader import load_config
 from bioetl.pipelines.document import DocumentPipeline
 from bioetl.schemas.document import DocumentNormalizedSchema, DocumentRawSchema, DocumentSchema
 
-
-class _DummyTTLCache(dict):
-    def __init__(self, maxsize, ttl):  # noqa: D401 - simple test stub
-        super().__init__()
-        self.maxsize = maxsize
-        self.ttl = ttl
-
-
-sys.modules.setdefault("cachetools", SimpleNamespace(TTLCache=_DummyTTLCache))
 
 class _DummySchema:
     __fields__: dict[str, object] = {}

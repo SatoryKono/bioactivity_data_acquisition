@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -13,19 +12,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_PATH = PROJECT_ROOT / "src"
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
-
-
-class _DummyTTLCache(dict):
-    """Minimal TTLCache stub used to avoid optional dependency in tests."""
-
-    def __init__(self, maxsize, ttl):  # noqa: D401 - simple stub
-        super().__init__()
-        self.maxsize = maxsize
-        self.ttl = ttl
-
-
-# Ensure the API client can import cachetools even if it's missing in test envs
-sys.modules.setdefault("cachetools", SimpleNamespace(TTLCache=_DummyTTLCache))
 
 
 def _import_pipeline_dependencies():
