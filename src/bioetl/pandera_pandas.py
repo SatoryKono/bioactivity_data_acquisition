@@ -74,8 +74,11 @@ class _PanderaPandasModule(Protocol):
 
 
 pa: _PanderaPandasModule = cast(_PanderaPandasModule, _pandera_pandas)
+DataFrameModel: type[_DataFrameModelProtocol]
 DataFrameModel = cast(type[_DataFrameModelProtocol], _pandera_pandas.DataFrameModel)
+DataFrameSchema: type[_DataFrameSchemaProtocol]
 DataFrameSchema = cast(type[_DataFrameSchemaProtocol], _pandera_pandas.DataFrameSchema)
+Field: _FieldCallable
 Field = cast(_FieldCallable, _pandera_pandas.Field)
 
 __all__ = ["pa", "DataFrameModel", "DataFrameSchema", "Field"]

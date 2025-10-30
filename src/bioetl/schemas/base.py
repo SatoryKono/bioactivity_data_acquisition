@@ -5,16 +5,9 @@ from __future__ import annotations
 from typing import Any, Protocol, TypedDict, cast
 
 import pandas as pd
-from pandera.pandas import DataFrameModel, Field
 
-from bioetl.pandera_pandas import DataFrameModel as _RuntimeDataFrameModel
-from bioetl.pandera_pandas import Field
+from bioetl.pandera_pandas import DataFrameModel, Field
 from bioetl.pandera_typing import Series
-
-if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
-    from pandera.pandas import DataFrameModel as _DataFrameModelBase
-else:
-    _DataFrameModelBase = _RuntimeDataFrameModel
 
 # Shared column order for fallback metadata columns.  Exposed as a module level
 # constant so downstream schemas can reference it without importing the mixin

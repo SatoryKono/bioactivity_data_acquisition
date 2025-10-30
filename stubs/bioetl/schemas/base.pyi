@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pandas as pd
-import pandera.pandas as pa
-
+from pandera.pandas import DataFrameModel
 from bioetl.pandera_typing import Series
 
 FALLBACK_METADATA_COLUMN_ORDER: list[str]
@@ -21,7 +20,7 @@ class FallbackMetadataMixin:
     fallback_timestamp: Series[str]
 
 
-class BaseSchema(pa.DataFrameModel):
+class BaseSchema(DataFrameModel):
     index: Series[int]
     hash_row: Series[str]
     hash_business_key: Series[str]
