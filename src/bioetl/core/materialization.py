@@ -8,11 +8,13 @@ from typing import Any, Callable, MutableMapping
 
 import pandas as pd
 
-from bioetl.config.models import MaterializationPaths
+from bioetl.config.models import DeterminismConfig, MaterializationPaths
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
+    _resolve_date_format,
+    _resolve_float_format,
     extension_for_format,
     normalise_output_format,
 )
@@ -30,6 +32,7 @@ class MaterializationManager:
     paths: MaterializationPaths
     runtime: Any | None = None
     stage_context: MutableMapping[str, Any] | None = None
+    determinism: DeterminismConfig | None = None
     output_writer_factory: Callable[[], UnifiedOutputWriter] | None = None
     _materialization_writer: UnifiedOutputWriter | None = field(
         default=None,
@@ -317,16 +320,21 @@ class MaterializationManager:
         return {dataset: path}
 
     def _write_dataframe(self, df: pd.DataFrame, path: Path, format: str) -> None:
-        writer = self._get_output_writer() if format == "parquet" else None
+        writer = self._get_output_writer() if self.output_writer_factory is not None else None
 
-        if writer is not None:
+        determinism = getattr(writer, "determinism", None)
+        if determinism is None:
+            determinism = self.determinism
+        if determinism is None:
+            determinism = DeterminismConfig()
+
+        if writer is not None and format == "parquet":
             metadata = OutputMetadata.from_dataframe(
                 df,
                 run_id=writer.run_id,
                 column_order=list(df.columns),
-                hash_policy_version=getattr(
-                    getattr(writer, "determinism", None), "hash_policy_version", None
-                ),
+                hash_policy_version=getattr(determinism, "hash_policy_version", None),
+                determinism=determinism,
             )
             writer.write(
                 df,
@@ -339,10 +347,20 @@ class MaterializationManager:
 
         if format == "parquet":
             df.to_parquet(path, index=False)
-        elif format == "csv":
-            df.to_csv(path, index=False)
-        else:  # pragma: no cover - defensive guard
-            raise ValueError(f"Unsupported format: {format}")
+            return
+
+        if format == "csv":
+            float_format = _resolve_float_format(determinism, None)
+            date_format = _resolve_date_format(determinism, None)
+            write_kwargs: dict[str, Any] = {"index": False}
+            if float_format is not None:
+                write_kwargs["float_format"] = float_format
+            if date_format is not None:
+                write_kwargs["date_format"] = date_format
+            df.to_csv(path, **write_kwargs)
+            return
+
+        raise ValueError(f"Unsupported format: {format}")
 
     def _should_materialize(self, stage: str) -> bool:
         runtime = self.runtime

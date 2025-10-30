@@ -253,8 +253,8 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert contents["schema_id"] is None
     assert contents["schema_version"] is None
     assert contents["column_order_source"] == "dataframe"
-    assert contents.get("na_policy") is None
-    assert contents.get("precision_policy") is None
+    assert contents.get("na_policy") == "type_dependent"
+    assert contents.get("precision_policy") == "%.6f"
 
 
 def test_additional_tables_written_in_multiple_formats(tmp_path, monkeypatch):
@@ -363,6 +363,9 @@ def test_pipeline_export_metadata_receives_checksums(tmp_path, monkeypatch):
 
         def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
             return df
+
+        def close_resources(self) -> None:  # noqa: D401 - test stub
+            return None
 
     config = load_config("configs/pipelines/assay.yaml")
     pipeline = _StubPipeline(config, "run-pipeline-meta")

@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bioetl.config.models import MaterializationPaths
+from bioetl.config.models import DeterminismConfig, MaterializationPaths
 from bioetl.core.materialization import MaterializationManager
 from bioetl.core.output_writer import extension_for_format, normalise_output_format
 
@@ -79,3 +79,27 @@ def test_default_stage_path_uses_shared_extension_logic(format_name: str) -> Non
     base = Path("output")
     resolved = MaterializationManager._resolve_default_stage_path(base, format_name, fallback_stem="dataset")
     assert resolved.name.endswith(extension_for_format(format_name))
+
+
+def test_csv_materialization_respects_determinism(tmp_path: Path) -> None:
+    """CSV materialization should honour configured float and datetime formats."""
+
+    df = pd.DataFrame(
+        {
+            "measurement": pd.Series([0.123456, pd.NA, 9.876543], dtype="Float64"),
+            "captured_at": pd.to_datetime([
+                "2024-03-15",
+                "2024-04-01",
+                "2024-05-20",
+            ]),
+        }
+    )
+
+    determinism = DeterminismConfig(float_precision=4, datetime_format="%Y-%m-%d")
+    manager = MaterializationManager(paths=MaterializationPaths(), determinism=determinism)
+
+    output_path = tmp_path / "deterministic.csv"
+    manager._write_dataframe(df, output_path, "csv")
+
+    golden_path = Path(__file__).resolve().parent / "golden" / "deterministic_materialization.csv"
+    assert output_path.read_text(encoding="utf-8") == golden_path.read_text(encoding="utf-8")

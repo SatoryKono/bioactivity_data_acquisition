@@ -188,6 +188,7 @@ class OutputMetadata:
         sources: Sequence[str] | None = None,
         schema: type[BaseSchema] | None = None,
         hash_policy_version: str | None = None,
+        determinism: DeterminismConfig | None = None,
     ) -> "OutputMetadata":
         """Создает метаданные из DataFrame."""
 
@@ -232,6 +233,15 @@ class OutputMetadata:
                 column_order_source = "schema"
                 na_policy = getattr(schema_cls, "na_policy", None)
                 precision_policy = getattr(schema_cls, "precision_policy", None)
+
+        if na_policy is None:
+            na_policy = "type_dependent"
+
+        if precision_policy is None:
+            resolved_determinism = determinism
+            if resolved_determinism is None:
+                resolved_determinism = DeterminismConfig()
+            precision_policy = f"%.{resolved_determinism.float_precision}f"
 
         return cls(
             pipeline_version=pipeline_version,
@@ -528,6 +538,7 @@ class UnifiedOutputWriter:
                 run_id=self.run_id,
                 column_order=column_order,
                 hash_policy_version=getattr(self.determinism, "hash_policy_version", None),
+                determinism=self.determinism,
             )
         else:
             metadata_updates: dict[str, Any] = {}

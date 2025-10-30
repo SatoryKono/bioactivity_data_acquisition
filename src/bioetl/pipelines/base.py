@@ -442,6 +442,7 @@ class PipelineBase(ABC):
 
             schema=resolved_schema,
             hash_policy_version=resolved_hash_policy_version,
+            determinism=self.determinism,
         )
 
         self.set_export_metadata(metadata)

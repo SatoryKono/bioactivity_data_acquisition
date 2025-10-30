@@ -148,6 +148,7 @@ class TargetPipeline(PipelineBase):
             self.config.materialization,
             runtime=runtime_config,
             stage_context=self.stage_context,
+            determinism=determinism_copy,
             output_writer_factory=lambda: self.materialization_writer,
         )
 
