@@ -415,10 +415,10 @@ def test_write_dataframe_json_cleans_up_on_failure(tmp_path, monkeypatch):
     df = pd.DataFrame({"value": [1], "label": ["b"]})
     writer = UnifiedOutputWriter("run-json")
 
-    def boom(*args, **kwargs):  # noqa: ANN001 - signature mirrors json.dump
+    def boom(self, *args, **kwargs):  # noqa: ANN001 - matches DataFrame.to_json signature
         raise RuntimeError("boom")
 
-    monkeypatch.setattr("bioetl.core.output_writer.json.dump", boom)
+    monkeypatch.setattr(pd.DataFrame, "to_json", boom, raising=False)
 
     target = tmp_path / "run-json" / "reports" / "dataset.json"
 
@@ -456,4 +456,24 @@ def test_write_dataframe_json(tmp_path, monkeypatch):
     assert payload[0]["value"] == 1
     assert payload[0]["label"] == "a"
     assert payload[0]["timestamp"].startswith("2024-01-01")
+
+
+def test_write_dataframe_json_avoids_double_serialization(tmp_path, monkeypatch):
+    """The dataframe serializer should not rely on ``json.loads``."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1], "label": ["b"]})
+    writer = UnifiedOutputWriter("run-json")
+
+    def boom(*args, **kwargs):  # noqa: ANN001 - signature mirrors json.loads
+        raise AssertionError("json.loads should not be invoked during JSON export")
+
+    monkeypatch.setattr("bioetl.core.output_writer.json.loads", boom)
+
+    target = tmp_path / "run-json" / "reports" / "dataset.json"
+
+    writer.write_dataframe_json(df, target)
+
+    assert target.exists()
 
