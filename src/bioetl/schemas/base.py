@@ -180,8 +180,6 @@ class BaseSchema(DataFrameModel):
     - extracted_at: метка времени извлечения (ISO8601)
     """
 
-    hash_policy_version: ClassVar[str] = "1.0.0"
-
     # Детерминизм и система трекинга
     index: Series[int] = Field(nullable=False, ge=0, description="Детерминированный индекс строки")
     hash_row: Series[str] = Field(
@@ -201,6 +199,9 @@ class BaseSchema(DataFrameModel):
     source_system: Series[str] = Field(nullable=False, description="Источник данных")
     chembl_release: Series[str] = Field(nullable=True, description="Версия ChEMBL")
     extracted_at: Series[str] = Field(nullable=False, description="ISO8601 UTC метка времени")
+
+    # Attribute names that should be ignored by Pandera's field discovery.
+    _NON_PANDERA_FIELDS: ClassVar[set[str]] = {"hash_policy_version"}
 
     class Config:
         strict = True
@@ -251,3 +252,18 @@ class BaseSchema(DataFrameModel):
         order: list[str] | None = getattr(cls, "_column_order", None)
         return list(order) if order else []
 
+    @classmethod
+    def _get_model_attrs(cls) -> dict[str, Any]:
+        """Exclude non-Pandera fields from the attribute map used during registration."""
+
+        attrs = super()._get_model_attrs()
+        for name in getattr(cls, "_NON_PANDERA_FIELDS", set()):
+            attrs.pop(name, None)
+        return attrs
+
+
+# ``DataFrameModel`` forbids assigning plain values to annotated attributes during
+# class creation.  Assign the default ``hash_policy_version`` after the class is
+# defined so Pandera doesn't treat it as a schema field, while keeping the
+# attribute available for runtime code and subclasses.
+BaseSchema.hash_policy_version = "1.0.0"
