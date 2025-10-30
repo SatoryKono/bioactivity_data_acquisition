@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+class Timestamp:
+    def isoformat(self) -> str: ...
+
+__all__ = ["Timestamp"]
+
+from __future__ import annotations
+
 from typing import Any, Iterable, Iterator, Sequence
 
 class Int64Dtype:
