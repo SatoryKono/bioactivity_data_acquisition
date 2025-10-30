@@ -747,9 +747,9 @@ class UnifiedAPIClient:
 
         last_error: RequestException | None = context.last_exc
 
-        total_attempts = max(max_attempts, 0)
+        attempts_remaining = max(max_attempts, 0)
 
-        for attempt_index in range(total_attempts):
+        while attempts_remaining > 0:
             wait_time = context.wait_time
             if wait_time and wait_time > 0:
                 logger.debug(
@@ -763,7 +763,8 @@ class UnifiedAPIClient:
                 payload = request_operation()
             except RequestException as exc:
                 last_error = exc
-                if attempt_index >= total_attempts - 1:
+                attempts_remaining -= 1
+                if attempts_remaining == 0:
                     break
                 continue
 
