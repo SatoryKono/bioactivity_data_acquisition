@@ -45,7 +45,7 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
         == tmp_path / "run-test" / "target" / "qc" / "targets_quality_report.csv"
     )
     assert artifacts.run_directory == tmp_path / "run-test" / "target"
-    assert artifacts.metadata == tmp_path / "run-test" / "target" / "meta.yaml"
+    assert artifacts.metadata == tmp_path / "run-test" / "target" / "targets_meta.yaml"
     assert artifacts.qc_summary is None
     assert artifacts.qc_missing_mappings is None
     assert artifacts.qc_enrichment_metrics is None
@@ -117,7 +117,7 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     )
 
     assert artifacts.metadata is not None
-    assert artifacts.metadata == tmp_path / "run-test" / "target" / "meta.yaml"
+    assert artifacts.metadata == tmp_path / "run-test" / "target" / "targets_meta.yaml"
 
     with artifacts.metadata.open() as fh:
         import yaml
