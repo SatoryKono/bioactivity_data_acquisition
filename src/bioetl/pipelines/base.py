@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Callable, Iterable
 
 import pandas as pd
@@ -17,6 +18,11 @@ from bioetl.core.output_writer import (
     OutputArtifacts,
     OutputMetadata,
     UnifiedOutputWriter,
+)
+from bioetl.utils.qc import (
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
 )
 
 logger = UnifiedLogger.get(__name__)
@@ -125,6 +131,68 @@ class PipelineBase(ABC):
         payload.update({key: value for key, value in details.items() if value is not None})
         stages = self.qc_summary_data.setdefault("stages", {})
         stages[name] = payload
+
+    def add_qc_summary_section(
+        self,
+        section: str,
+        values: Mapping[str, Any] | Any,
+        *,
+        merge: bool = True,
+    ) -> Any:
+        """Update a QC summary section using the unified helper."""
+
+        return update_summary_section(self.qc_summary_data, section, values, merge=merge)
+
+    def add_qc_summary_sections(
+        self, sections: Mapping[str, Mapping[str, Any]], *, merge: bool = True
+    ) -> None:
+        """Populate multiple QC summary sections at once."""
+
+        for name, payload in sections.items():
+            self.add_qc_summary_section(name, payload, merge=merge)
+
+    def set_qc_metrics(self, metrics: Mapping[str, Any], *, merge: bool = False) -> None:
+        """Store QC metrics and synchronise the summary payload."""
+
+        if not merge:
+            self.qc_metrics = dict(metrics)
+        else:
+            self.qc_metrics.update(dict(metrics))
+
+        update_summary_metrics(self.qc_summary_data, self.qc_metrics)
+
+    def refresh_validation_issue_summary(self) -> None:
+        """Recompute validation issue counters inside the QC summary."""
+
+        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+
+    def set_export_metadata(self, metadata: OutputMetadata | None) -> None:
+        """Assign export metadata for downstream materialisation."""
+
+        self.export_metadata = metadata
+
+    def set_export_metadata_from_dataframe(
+        self,
+        df: pd.DataFrame,
+        *,
+        pipeline_version: str,
+        source_system: str,
+        chembl_release: str | None = None,
+        column_order: list[str] | None = None,
+    ) -> OutputMetadata:
+        """Create and assign :class:`OutputMetadata` from a dataframe."""
+
+        metadata = OutputMetadata.from_dataframe(
+            df,
+            pipeline_version=pipeline_version,
+            source_system=source_system,
+            chembl_release=chembl_release,
+            column_order=column_order or list(df.columns),
+            run_id=self.run_id,
+        )
+
+        self.set_export_metadata(metadata)
+        return metadata
 
     def execute_enrichment_stages(self, df: pd.DataFrame) -> pd.DataFrame:
         """Execute registered enrichment stages in sequence for the pipeline."""
@@ -397,6 +465,11 @@ class PipelineBase(ABC):
 
         self.additional_tables.pop(name, None)
 
+    def reset_additional_tables(self) -> None:
+        """Clear all registered additional datasets."""
+
+        self.additional_tables.clear()
+
     def _should_emit_debug_artifacts(self) -> bool:
         """Determine whether verbose/debug outputs should be materialised."""
 
@@ -448,7 +521,7 @@ class PipelineBase(ABC):
         logger.info("pipeline_started", pipeline=self.config.pipeline.name)
 
         try:
-            self.additional_tables = {}
+            self.reset_additional_tables()
             self.export_metadata = None
             self.debug_dataset_path = None
             # Extract

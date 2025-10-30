@@ -24,11 +24,7 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.qc import (
-    register_fallback_statistics,
-    update_summary_metrics,
-    update_validation_issue_summary,
-)
+from bioetl.utils.qc import register_fallback_statistics
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import normalize_json_list
 from bioetl.utils.output import finalize_output_dataset
@@ -813,6 +809,13 @@ class ActivityPipeline(PipelineBase):
             },
         )
 
+        self.set_export_metadata_from_dataframe(
+            df,
+            pipeline_version=pipeline_version,
+            source_system=default_source,
+            chembl_release=release_value,
+        )
+
         self._update_fallback_artifacts(df)
 
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
@@ -940,8 +943,7 @@ class ActivityPipeline(PipelineBase):
                 }
             )
 
-        self.qc_metrics = qc_metrics
-        update_summary_metrics(self.qc_summary_data, qc_metrics)
+        self.set_qc_metrics(qc_metrics)
         self._last_validation_report = {"metrics": qc_metrics}
 
         failing_metrics: dict[str, Any] = {}
@@ -1081,7 +1083,7 @@ class ActivityPipeline(PipelineBase):
             return validated_df
 
         logger.info("schema_validation_passed", rows=len(validated_df))
-        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+        self.refresh_validation_issue_summary()
         return validated_df
 
     def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:

@@ -39,13 +39,7 @@ from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.qc import (
-    compute_field_coverage,
-    duplicate_summary,
-    update_summary_metrics,
-    update_summary_section,
-    update_validation_issue_summary,
-)
+from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset
 
@@ -997,6 +991,13 @@ class DocumentPipeline(PipelineBase):
             },
         )
 
+        self.set_export_metadata_from_dataframe(
+            df,
+            pipeline_version=pipeline_version,
+            source_system=default_source,
+            chembl_release=release_value,
+        )
+
         df = df.convert_dtypes()
         df = self._enforce_schema_dtypes(df)
 
@@ -1023,19 +1024,14 @@ class DocumentPipeline(PipelineBase):
         """Validate document data against schema with strict validation."""
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
-            self.qc_metrics = {}
-            update_summary_section(self.qc_summary_data, "row_counts", {"documents": 0})
-            update_summary_section(
-                self.qc_summary_data,
-                "datasets",
-                {"documents": {"rows": 0}},
-            )
-            update_summary_section(
-                self.qc_summary_data,
+            self.set_qc_metrics({})
+            self.add_qc_summary_section("row_counts", {"documents": 0})
+            self.add_qc_summary_section("datasets", {"documents": {"rows": 0}})
+            self.add_qc_summary_section(
                 "duplicates",
                 {"documents": duplicate_summary(0, 0, field="document_chembl_id")},
             )
-            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+            self.refresh_validation_issue_summary()
             return df
 
         working_df = df.copy().convert_dtypes()
@@ -1118,17 +1114,11 @@ class DocumentPipeline(PipelineBase):
         )
 
         metrics = self._compute_qc_metrics(validated_df)
-        self.qc_metrics = metrics
-        update_summary_metrics(self.qc_summary_data, metrics)
+        self.set_qc_metrics(metrics)
         row_count = int(len(validated_df))
-        update_summary_section(self.qc_summary_data, "row_counts", {"documents": row_count})
-        update_summary_section(
-            self.qc_summary_data,
-            "datasets",
-            {"documents": {"rows": row_count}},
-        )
-        update_summary_section(
-            self.qc_summary_data,
+        self.add_qc_summary_section("row_counts", {"documents": row_count})
+        self.add_qc_summary_section("datasets", {"documents": {"rows": row_count}})
+        self.add_qc_summary_section(
             "duplicates",
             {
                 "documents": duplicate_summary(
@@ -1151,14 +1141,10 @@ class DocumentPipeline(PipelineBase):
             key: coverage_stats.get(column, 0.0)
             for key, column in coverage_columns.items()
         }
-        update_summary_section(
-            self.qc_summary_data,
-            "coverage",
-            {"documents": coverage_payload},
-        )
+        self.add_qc_summary_section("coverage", {"documents": coverage_payload})
         self._enforce_qc_thresholds(metrics)
 
-        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+        self.refresh_validation_issue_summary()
 
         logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
         return validated_df
