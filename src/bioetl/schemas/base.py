@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Protocol, TypedDict, cast
+from typing import Any, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -180,8 +180,6 @@ class BaseSchema(DataFrameModel):
     - extracted_at: метка времени извлечения (ISO8601)
     """
 
-    hash_policy_version: ClassVar[str] = "1.0.0"
-
     # Детерминизм и система трекинга
     index: Series[int] = Field(nullable=False, ge=0, description="Детерминированный индекс строки")
     hash_row: Series[str] = Field(
@@ -251,3 +249,9 @@ class BaseSchema(DataFrameModel):
         order: list[str] | None = getattr(cls, "_column_order", None)
         return list(order) if order else []
 
+
+# ``DataFrameModel`` forbids assigning plain values to annotated attributes during
+# class creation.  Assign the default ``hash_policy_version`` after the class is
+# defined so Pandera doesn't treat it as a schema field, while keeping the
+# attribute available for runtime code and subclasses.
+BaseSchema.hash_policy_version = "1.0.0"
