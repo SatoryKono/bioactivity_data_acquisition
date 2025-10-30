@@ -1309,6 +1309,18 @@ class TestActivityPipeline:
         assert properties[0]["value"] == 120.0
         assert properties[1]["value"] == "curated"
 
+        api_like_activity = {
+            **raw_activity,
+            "action_type": {
+                "action_type": "PARTIAL AGONIST",
+                "description": "Ligand is acting as a partial agonist",
+                "label": "Partial agonist",
+            },
+        }
+
+        normalized_api_payload = pipeline._normalize_activity(api_like_activity)
+        assert normalized_api_payload["action_type"] == "PARTIAL AGONIST"
+
     def test_normalize_activity_clamps_negative_measurements(self, activity_config, caplog):
         """Negative measurement values should be sanitised to preserve schema rules."""
 
