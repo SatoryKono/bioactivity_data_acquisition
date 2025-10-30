@@ -370,6 +370,41 @@ def test_request_json_cache_returns_deepcopy(monkeypatch: pytest.MonkeyPatch) ->
     assert call_count["count"] == 1
 
 
+def test_request_json_cache_mutation_does_not_affect_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mutating cached response should not leak between calls."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=True,
+        cache_ttl=60,
+        cache_maxsize=32,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    call_count = {"count": 0}
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        call_count["count"] += 1
+        return _build_response(200, {"result": "ok"})
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    first_payload = client.request_json("/resource")
+    second_payload = client.request_json("/resource")
+    second_payload["result"] = "cached-mutation"
+
+    third_payload = client.request_json("/resource")
+
+    assert first_payload == {"result": "ok"}
+    assert third_payload == {"result": "ok"}
+    assert third_payload is not second_payload
+    assert call_count["count"] == 1
+
+
 def test_request_json_retries_configured_status(monkeypatch: pytest.MonkeyPatch) -> None:
     """UnifiedAPIClient should retry configured HTTP status codes like 404."""
 

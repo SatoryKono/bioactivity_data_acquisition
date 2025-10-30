@@ -384,7 +384,7 @@ class UnifiedAPIClient:
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
                 cached_value: dict[str, Any] = self.cache[cache_key]
-                return copy.deepcopy(cached_value)
+                return self._clone_payload(cached_value)
 
         # Execute with circuit breaker
         def _perform_request() -> requests.Response:
@@ -419,7 +419,7 @@ class UnifiedAPIClient:
                     and method == "GET"
                     and request_has_no_body
                 ):
-                    self.cache[cache_key] = copy.deepcopy(response_payload)
+                    self.cache[cache_key] = self._clone_payload(response_payload)
 
                 return response_payload
 
@@ -629,6 +629,19 @@ class UnifiedAPIClient:
         retry_request_kwargs = request_kwargs.copy()
         response = self.session.request(**retry_request_kwargs)
         return response
+
+    def _clone_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Return a deep copy of the payload suitable for caching."""
+
+        try:
+            return copy.deepcopy(payload)
+        except (TypeError, copy.Error):
+            pass
+
+        try:
+            return json.loads(json.dumps(payload))
+        except (TypeError, ValueError) as exc:
+            raise TypeError("Failed to clone payload for caching") from exc
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
