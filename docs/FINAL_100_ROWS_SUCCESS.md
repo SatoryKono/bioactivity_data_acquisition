@@ -66,28 +66,31 @@
 ### Файлы изменены:
 
 1. **src/bioetl/pipelines/assay.py:**
+
    ```python
    # Было:
    df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
-   
+  
    # Стало:
    df = pd.read_csv(input_file)  # Read all records
    ```
 
 2. **src/bioetl/pipelines/activity.py:**
-   ```python
+   
+```python
    # Было:
    df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
-   
+  
    # Стало:
    df = pd.read_csv(input_file)  # Read all records
    ```
 
 3. **src/bioetl/pipelines/testitem.py:**
-   ```python
-   # Было:
-   df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
    
+   ```python
+# Было:
+   df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
+  
    # Стало:
    df = pd.read_csv(input_file)  # Read all records
    ```
@@ -124,4 +127,3 @@
 **Статус:** ✅ ПОЛНОСТЬЮ РЕАЛИЗОВАНО
 
 **Следующий шаг:** Для обработки еще большего количества данных просто увеличьте количество записей во входных CSV файлах. Пайплайны будут автоматически обрабатывать все записи.
-

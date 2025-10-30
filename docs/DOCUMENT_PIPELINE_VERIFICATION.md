@@ -22,6 +22,7 @@
 - `hash_row`: 64-char SHA256 от канонической строки
 
 **Пример:**
+
 ```
 index: 0
 extracted_at: 2025-10-28T14:56:07.773908+00:00
@@ -43,6 +44,7 @@ hash_row: 02001e96dbfaad6aa11e...
 ✅ Порядок колонок соответствует schema
 
 **Actual output columns (11):**
+
 ```
 ['index', 'extracted_at', 'hash_business_key', 'hash_row', 'document_chembl_id',
  'chembl_title', 'chembl_abstract', 'chembl_authors', 'chembl_doi',
@@ -128,4 +130,3 @@ hash_row: 02001e96dbfaad6aa11e...
 
 ### Текущее состояние
 ✅ **Готово к использованию** для базового извлечения документов ChEMBL с системными полями
-

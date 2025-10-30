@@ -42,7 +42,7 @@
 ## Структура документа
 
 - [Activity Pipeline](#activity-pipeline)
-- [Assay Pipeline](#assay-pipeline) 
+- [Assay Pipeline](#assay-pipeline)
 - [TestItem Pipeline](#testitem-pipeline)
 - [Document Pipeline](#document-pipeline)
 - [Target Pipeline](#target-pipeline)
