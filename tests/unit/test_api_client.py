@@ -149,6 +149,44 @@ def test_api_client_cache_key():
     assert key1 != key3
 
 
+def test_request_json_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Second identical request should return cached payload without executing HTTP call."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=True,
+        cache_ttl=60,
+    )
+    client = UnifiedAPIClient(config)
+
+    execute_calls: list[dict[str, Any]] = []
+
+    response = Mock(spec=requests.Response)
+    response.raise_for_status = Mock()
+    response.json = Mock(return_value={"value": 42})
+    response.headers = CaseInsensitiveDict()
+
+    def fake_execute(**kwargs: Any) -> requests.Response:
+        execute_calls.append(kwargs)
+        return response
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+
+    first_result = client.request_json("endpoint", params={"q": "v"})
+    assert first_result == {"value": 42}
+    assert len(execute_calls) == 1
+
+    response.json.assert_called_once()
+    response.json.reset_mock()
+
+    second_result = client.request_json("endpoint", params={"q": "v"})
+    assert second_result == {"value": 42}
+    assert len(execute_calls) == 1
+    response.json.assert_not_called()
+    assert first_result is not second_result
+
+
 def test_retry_policy_wait_time():
     """Test retry policy wait time calculation."""
     policy = RetryPolicy(total=3, backoff_factor=2.0, backoff_max=10.0)
