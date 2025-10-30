@@ -196,6 +196,65 @@ def test_pipeline_run_does_not_reuse_runtime_limit(assay_config, tmp_path):
     assert "sample" not in pipeline.runtime_options
 
 
+def test_finalize_helper_applies_metadata_and_preserves_fallback(assay_config):
+    """Standard metadata helper should stabilise ordering without dropping flags."""
+
+    class _FinalizeHelperPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # pragma: no cover - stub
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - stub
+            return df
+
+        def export(self, df: pd.DataFrame, output_path: Path, *, extended: bool = False):  # pragma: no cover - stub
+            raise NotImplementedError
+
+    pipeline = _FinalizeHelperPipeline(assay_config, "finalize-helper")
+
+    raw = pd.DataFrame(
+        {
+            "activity_id": [2, 1],
+            "source_system": [None, "DOCUMENT_FALLBACK"],
+            "chembl_release": [None, None],
+            "fallback_reason": [None, "not_found"],
+        }
+    )
+
+    extracted_value = "2024-01-01T00:00:00+00:00"
+    release_value = " 33 "
+
+    result = pipeline.finalize_with_standard_metadata(
+        raw,
+        business_key="activity_id",
+        sort_by=["activity_id"],
+        schema=None,
+        default_source="chembl",
+        chembl_release=release_value,
+        extracted_at=extracted_value,
+    )
+
+    assert list(result["activity_id"]) == [1, 2]
+
+    fallback_row = result.loc[result["activity_id"] == 1].iloc[0]
+    assert fallback_row["source_system"] == "DOCUMENT_FALLBACK"
+    assert fallback_row["fallback_reason"] == "not_found"
+
+    primary_row = result.loc[result["activity_id"] == 2].iloc[0]
+    assert primary_row["source_system"] == "chembl"
+
+    assert set(result["chembl_release"].unique()) == {"33"}
+    assert set(result["extracted_at"].unique()) == {extracted_value}
+
+    assert set(result["pipeline_version"].unique()) == {assay_config.pipeline.version}
+    assert set(result["run_id"].unique()) == {"finalize-helper"}
+
+    assert "hash_business_key" in result.columns
+    assert "hash_row" in result.columns
+
+
 def test_pipeline_run_closes_api_client(monkeypatch, assay_config, tmp_path):
     """``run`` should close UnifiedAPIClient instances when execution completes."""
 

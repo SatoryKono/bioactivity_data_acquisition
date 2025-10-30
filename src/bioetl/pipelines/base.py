@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 from abc import ABC, abstractmethod
+from datetime import datetime
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -24,6 +25,7 @@ from bioetl.core.output_writer import (
 )
 from bioetl.utils.chembl import ChemblRelease, SupportsRequestJson, fetch_chembl_release
 from bioetl.utils.io import load_input_frame, resolve_input_path
+from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     update_summary_metrics,
     update_summary_section,
@@ -444,6 +446,87 @@ class PipelineBase(ABC):
 
         self.set_export_metadata(metadata)
         return metadata
+
+    def finalize_with_standard_metadata(
+        self,
+        df: pd.DataFrame,
+        *,
+        business_key: str,
+        sort_by: Sequence[str] | None = None,
+        ascending: Sequence[bool] | bool | None = None,
+        schema: type[Any] | None = None,
+        default_source: str | None,
+        chembl_release: str | None,
+        extracted_at: Any | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        overwrite_metadata: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        """Apply canonical metadata defaults before delegating finalisation."""
+
+        if df.empty:
+            return df.copy()
+
+        working = df.copy()
+
+        if default_source is not None:
+            if "source_system" in working.columns:
+                working["source_system"] = working["source_system"].fillna(default_source)
+            else:
+                working["source_system"] = default_source
+
+        resolved_release: str | None
+        if isinstance(chembl_release, str):
+            resolved_release = chembl_release.strip() or None
+        else:
+            resolved_release = chembl_release
+
+        if "chembl_release" in working.columns:
+            if resolved_release is None:
+                working["chembl_release"] = working["chembl_release"].where(
+                    working["chembl_release"].notna(),
+                    pd.NA,
+                )
+            else:
+                working["chembl_release"] = working["chembl_release"].fillna(resolved_release)
+        else:
+            if resolved_release is None:
+                working["chembl_release"] = pd.Series(pd.NA, index=working.index, dtype="string")
+            else:
+                working["chembl_release"] = resolved_release
+
+        if extracted_at is None:
+            resolved_extracted_at = pd.Timestamp.now(tz="UTC").isoformat()
+        elif isinstance(extracted_at, (pd.Timestamp, datetime)):
+            resolved_extracted_at = extracted_at.isoformat()
+        else:
+            resolved_extracted_at = str(extracted_at)
+
+        if "extracted_at" in working.columns:
+            working["extracted_at"] = working["extracted_at"].fillna(resolved_extracted_at)
+        else:
+            working["extracted_at"] = resolved_extracted_at
+
+        metadata_payload: dict[str, Any] = dict(metadata or {})
+        metadata_payload.setdefault("pipeline_version", self.config.pipeline.version)
+        metadata_payload.setdefault("run_id", self.run_id)
+
+        if default_source is not None:
+            metadata_payload.setdefault("source_system", default_source)
+        else:
+            metadata_payload.setdefault("source_system", None)
+
+        metadata_payload.setdefault("chembl_release", resolved_release)
+        metadata_payload.setdefault("extracted_at", resolved_extracted_at)
+
+        return finalize_output_dataset(
+            working,
+            business_key=business_key,
+            sort_by=sort_by,
+            ascending=ascending,
+            schema=schema,
+            metadata=metadata_payload,
+            overwrite_metadata=overwrite_metadata,
+        )
 
     def execute_enrichment_stages(self, df: pd.DataFrame) -> pd.DataFrame:
         """Execute registered enrichment stages in sequence for the pipeline."""
