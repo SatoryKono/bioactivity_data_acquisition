@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -11,12 +12,15 @@ import pandas as pd
 import pytest
 import typer
 from click.testing import CliRunner
+from pandera.typing import Series
 from typer.main import get_command
 
 from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
 from bioetl.config.loader import load_config
 from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 from bioetl.pipelines.base import PipelineBase
+from bioetl.schemas.base import BaseSchema
+from bioetl.schemas.registry import schema_registry
 from scripts import PIPELINE_COMMAND_REGISTRY
 
 RUNNER = CliRunner()
@@ -97,6 +101,44 @@ class GoldenStubPipeline(PipelineBase):
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
         return df
+
+
+class ColumnValidationStubPipeline(GoldenStubPipeline):
+    """Stub pipeline ensuring CLI column validation succeeds."""
+
+    OUTPUT_COLUMNS = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "run_id",
+        "source_system",
+        "chembl_release",
+        "compound_id",
+        "assay_type",
+        "canonical_smiles",
+        "result_value",
+        "extracted_at",
+    ]
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+        base_frame = super().transform(df)
+        working = base_frame.copy()
+        working["run_id"] = self.run_id
+
+        ordered = list(self.OUTPUT_COLUMNS)
+        extra_columns = [column for column in working.columns if column not in ordered]
+        ordered_frame = working[ordered + extra_columns]
+
+        self.set_export_metadata_from_dataframe(
+            ordered_frame,
+            pipeline_version=self.PIPELINE_VERSION,
+            source_system=self.SOURCE_SYSTEM,
+            chembl_release=self.CHEMBL_RELEASE,
+            column_order=list(ordered_frame.columns),
+        )
+
+        return ordered_frame
 
 
 def _build_cli_command(pipeline_cls: type[PipelineBase]) -> tuple[click.Command, PipelineCommandConfig]:
@@ -180,4 +222,64 @@ def test_cli_dry_run_reports_config_hash(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.stdout
     assert "[DRY-RUN] Configuration loaded successfully." in result.stdout
     assert f"Config hash: {config_hash}" in result.stdout
+
+
+@pytest.mark.integration
+@pytest.mark.golden
+def test_cli_validates_columns_and_generates_report(tmp_path: Path) -> None:
+    """Full CLI execution should validate columns and emit a report."""
+
+    command, config = _build_cli_command(ColumnValidationStubPipeline)
+    config_path = config.default_config.resolve()
+    output_dir = tmp_path / "validated"
+
+    class ColumnValidationSchema(BaseSchema):
+        """Minimal schema mirroring the stub pipeline output."""
+
+        compound_id: Series[str]
+        assay_type: Series[str]
+        canonical_smiles: Series[str]
+        result_value: Series[float]
+
+        _column_order = ColumnValidationStubPipeline.OUTPUT_COLUMNS
+
+    registry_snapshot = schema_registry._registry.get("assay", {}).copy()
+
+    try:
+        schema_registry.register("assay", "99.0.0", ColumnValidationSchema)
+
+        args = [
+            "--config",
+            str(config_path),
+            "--output-dir",
+            str(output_dir),
+        ]
+        result = RUNNER.invoke(command, args, catch_exceptions=False)
+
+        assert result.exit_code == 0, result.stdout
+        assert "Колонки соответствуют требованиям" in result.stdout
+        assert "Критические несоответствия" not in result.stdout
+
+        datasets = sorted(output_dir.glob("*.csv"))
+        assert datasets, "CLI should materialise a dataset CSV"
+        dataset_path = datasets[0]
+        frame = pd.read_csv(dataset_path)
+        assert frame.shape[0] == len(ColumnValidationStubPipeline.RAW_ROWS)
+        assert list(frame.columns[: len(ColumnValidationStubPipeline.OUTPUT_COLUMNS)]) == ColumnValidationStubPipeline.OUTPUT_COLUMNS
+
+        report_dir = output_dir / "validation_reports"
+        json_report = report_dir / "column_comparison_report.json"
+        md_report = report_dir / "column_comparison_report.md"
+        assert json_report.exists(), "JSON validation report should be generated"
+        assert md_report.exists(), "Markdown validation report should be generated"
+
+        report_payload = json.loads(json_report.read_text(encoding="utf-8"))
+        summary = report_payload.get("summary", {})
+        assert summary.get("matching_entities") == 1
+        assert summary.get("entities_with_issues") == 0
+    finally:
+        if registry_snapshot:
+            schema_registry._registry["assay"] = registry_snapshot
+        else:
+            schema_registry._registry.pop("assay", None)
 
