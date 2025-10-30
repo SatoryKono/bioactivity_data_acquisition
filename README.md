@@ -92,8 +92,10 @@ pytest tests/ -v
 pytest tests/ --cov=src/bioetl --cov-report=html
 
 # Run specific test suite
-pytest tests/unit/ -v              # Unit tests only
-pytest tests/integration/ -v       # Integration tests only
+make test-unit                     # Unit tests only (directory scoped)
+make test-integration              # Integration tests only (directory scoped)
+pytest tests/unit/ -v              # Direct pytest invocation for unit tests
+pytest tests/integration/ -v       # Direct pytest invocation for integration tests
 
 # Lint
 ruff check src/ tests/

@@ -20,13 +20,21 @@ python -m pytest tests/ -v
 ### Unit тесты
 
 ```bash
-pytest tests/unit/ -v -m unit
+# Через Makefile
+make test-unit
+
+# Напрямую через pytest
+pytest tests/unit/ -v
 ```
 
 ### Integration тесты
 
 ```bash
-pytest tests/integration/ -v -m integration
+# Через Makefile
+make test-integration
+
+# Напрямую через pytest
+pytest tests/integration/ -v
 ```
 
 ### Golden и smoke тесты CLI
@@ -55,10 +63,12 @@ pytest tests/ --cov=src/bioetl --cov-report=html
 pytest tests/ -v -m "not slow"
 ```
 
-### Только быстрые тесты
+### Только быстрые тесты (unit + smoke)
 
 ```bash
-pytest tests/ -v -m unit
+make test-unit
+# или
+pytest tests/unit/ -v
 ```
 
 ## Конфигурация
