@@ -480,7 +480,9 @@ class ColumnValidator:
                     header_df = pd.DataFrame()
 
                 column_names = list(header_df.columns)
-                non_null_counts = self._calculate_non_null_counts(csv_file, column_names)
+                non_null_counts = self._calculate_non_null_counts(
+                    csv_file, column_names
+                )
 
                 # Определить сущность по имени файла
                 entity = self._extract_entity_from_filename(csv_file.name)
@@ -488,7 +490,7 @@ class ColumnValidator:
                 # Сравнить колонки
                 result = self.compare_columns(
                     entity,
-                    header_df,
+                    None,
                     schema_version,
                     column_non_null_counts=non_null_counts,
                 )

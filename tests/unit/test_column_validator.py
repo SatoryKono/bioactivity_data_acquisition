@@ -77,16 +77,21 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
 
     def fake_compare_columns(self, entity, actual_df, schema_version="latest", **kwargs):
         processed_entities.append(entity)
+        column_non_null_counts = kwargs.get("column_non_null_counts", [])
+        if actual_df is not None:
+            actual_columns = list(actual_df.columns)
+        else:
+            actual_columns = [name for name, _ in column_non_null_counts]
         return ColumnComparisonResult(
             entity=entity,
             expected_columns=[],
-            actual_columns=list(actual_df.columns),
+            actual_columns=actual_columns,
             missing_columns=[],
             extra_columns=[],
             order_matches=True,
             column_count_matches=True,
             empty_columns=[],
-            non_empty_columns=list(actual_df.columns),
+            non_empty_columns=actual_columns,
             duplicate_columns={},
         )
 
@@ -152,9 +157,53 @@ def test_validate_pipeline_output_streams_large_files(
     result = results[0]
     assert result.empty_columns == ["empty_col"]
     assert result.non_empty_columns == ["assay_id", "value"]
+    assert read_calls[0].get("nrows") == 0
     assert any(
         call.get("chunksize") == _DEFAULT_VALIDATION_CHUNK_SIZE for call in read_calls
     )
+
+
+def test_calculate_non_null_counts_with_large_in_memory_csv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validator = ColumnValidator()
+    csv_path = Path("in_memory.csv")
+
+    total_rows = 50_000
+    lines = ["assay_id,value,empty_col"]
+    expected_non_null_value = 0
+    for idx in range(total_rows):
+        value = "" if idx % 5 == 0 else str(idx)
+        if value:
+            expected_non_null_value += 1
+        lines.append(f"{idx},{value},")
+
+    csv_text = "\n".join(lines)
+
+    original_read_csv = pd.read_csv
+    read_calls: list[dict[str, object]] = []
+
+    def fake_read_csv(path_or_buf, *args, **kwargs):  # type: ignore[override]
+        if path_or_buf == csv_path:
+            read_calls.append(kwargs.copy())
+            buffer = io.StringIO(csv_text)
+            return original_read_csv(buffer, *args, **kwargs)
+        return original_read_csv(path_or_buf, *args, **kwargs)
+
+    monkeypatch.setattr(pd, "read_csv", fake_read_csv)
+
+    counts = validator._calculate_non_null_counts(
+        csv_path,
+        ["assay_id", "value", "empty_col"],
+        chunk_size=10_000,
+    )
+
+    assert counts == [
+        ("assay_id", total_rows),
+        ("value", expected_non_null_value),
+        ("empty_col", 0),
+    ]
+    assert any(call.get("chunksize") == 10_000 for call in read_calls)
 def test_compare_columns_detects_duplicate_columns(monkeypatch: pytest.MonkeyPatch) -> None:
     validator = ColumnValidator()
 
