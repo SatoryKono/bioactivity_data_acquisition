@@ -29,6 +29,12 @@ pytest tests/unit/ -v -m unit
 pytest tests/integration/ -v -m integration
 ```
 
+### Golden и smoke тесты CLI
+
+```bash
+pytest tests/golden/ -v -m golden
+```
+
 ### Конкретный тест
 
 ```bash
@@ -79,9 +85,10 @@ tests/
 
 ## Требования
 
-- Минимальное покрытие кода: 50%
+- Минимальное покрытие кода: 85%
 - Все тесты должны проходить без ошибок
 - Использовать маркеры: `unit`, `integration`, `golden`, `slow`
+- Golden тесты проверяют детерминированные CSV, полученные через CLI
 
 ## Troubleshooting
 
