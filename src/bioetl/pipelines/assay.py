@@ -11,6 +11,7 @@ from typing import Any
 import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
+from urllib.parse import urlencode
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -202,13 +203,8 @@ class AssayPipeline(PipelineBase):
         """Return the fully qualified URL used for batch fetching."""
 
         base = self.api_client.config.base_url.rstrip("/")
-        request = requests.Request(
-            method="GET",
-            url=f"{base}/assay.json",
-            params={"assay_chembl_id__in": ",".join(assay_ids)},
-        )
-        prepared = request.prepare()
-        return prepared.url or ""
+        query = urlencode({"assay_chembl_id__in": ",".join(assay_ids)})
+        return f"{base}/assay.json?{query}"
 
     def _split_assay_ids_by_url_length(self, assay_ids: Sequence[str]) -> list[list[str]]:
         """Recursively split identifiers to satisfy the configured URL length."""
@@ -505,7 +501,7 @@ class AssayPipeline(PipelineBase):
                     results.append(fallback)
                 continue
 
-            assays_payload = []
+            assays_payload: list[dict[str, Any]] = []
             if isinstance(response, dict):
                 assays_payload = response.get("assays", []) or []
             if not isinstance(assays_payload, list):
@@ -1195,3 +1191,8 @@ class AssayPipeline(PipelineBase):
                 "Referential integrity violation: assays reference missing targets"
             )
 
+
+    def close_resources(self) -> None:
+        """Закрыть дополнительные ресурсы (не используются в Assay)."""
+        # Нет нестандартных ресурсов; API‑клиенты закрываются базовым классом через register_client
+        return None

@@ -8,6 +8,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlencode
 from typing import Any
 
 import numpy as np
@@ -112,6 +113,16 @@ def _get_activity_column_order() -> list[str]:
         except AttributeError:  # pragma: no cover - defensive safeguard
             columns = []
     return list(columns)
+def _normalize_int_scalar(value: Any) -> int | None:
+    """Безопасно приводит значение к int либо возвращает None."""
+
+    try:
+        text = str(value).strip()
+        if not text:
+            return None
+        return int(text)
+    except (TypeError, ValueError):
+        return None
 def _derive_compound_key(
     molecule_id: str | None,
     standard_type: str | None,
@@ -136,7 +147,7 @@ def _derive_is_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower()
         if label.replace(" ", "_") == "is_citation":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("boolean", prop.get("value"), default=False) or False
     return False
 
 
@@ -153,7 +164,7 @@ def _derive_exact_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "exact_data_citation":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("boolean", prop.get("value"), default=False) or False
     return False
 
 
@@ -170,7 +181,7 @@ def _derive_rounded_data_citation(
     for prop in properties:
         label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
         if label == "rounded_data_citation":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("boolean", prop.get("value"), default=False) or False
     return False
 
 
@@ -190,7 +201,7 @@ def _derive_high_citation_rate(properties: Sequence[dict[str, Any]]) -> bool:
         if numeric is not None and numeric >= 50:
             return True
         if label.replace(" ", "_") == "high_citation_rate":
-            return registry.get("numeric").normalize_bool(prop.get("value"), default=False)
+            return registry.normalize("boolean", prop.get("value"), default=False) or False
     return False
 
 
@@ -439,13 +450,8 @@ class ActivityPipeline(PipelineBase):
         """Return the fully qualified request URL for the provided identifiers."""
 
         base = str(self.api_client.config.base_url).rstrip("/")
-        request = requests.Request(
-            method="GET",
-            url=f"{base}/activity.json",
-            params={"activity_id__in": ",".join(map(str, activity_ids))},
-        )
-        prepared = request.prepare()
-        return prepared.url or ""
+        query = urlencode({"activity_id__in": ",".join(map(str, activity_ids))})
+        return f"{base}/activity.json?{query}"
 
     def _fetch_batch(self, batch_ids: Iterable[int]) -> tuple[list[dict[str, Any]], dict[str, int]]:
         """Fetch a batch of activities from the ChEMBL API."""
@@ -489,7 +495,7 @@ class ActivityPipeline(PipelineBase):
     def _normalize_activity(self, activity: dict[str, Any]) -> dict[str, Any]:
         """Normalize raw activity payload into a flat record."""
 
-        activity_id = registry.get("numeric").normalize_int(activity.get("activity_id"))
+        activity_id = _normalize_int_scalar(activity.get("activity_id"))
         molecule_id = registry.normalize("chemistry.chembl_id", activity.get("molecule_chembl_id"))
         assay_id = registry.normalize("chemistry.chembl_id", activity.get("assay_chembl_id"))
         target_id = registry.normalize("chemistry.chembl_id", activity.get("target_chembl_id"))
@@ -535,7 +541,7 @@ class ActivityPipeline(PipelineBase):
             activity.get("standard_units"),
             default="nM",
         )
-        standard_flag = registry.get("numeric").normalize_int(activity.get("standard_flag"))
+        standard_flag = _normalize_int_scalar(activity.get("standard_flag"))
 
         lower_bound = registry.normalize("numeric", activity.get("standard_lower_value") or activity.get("lower_value"))
         upper_bound = registry.normalize("numeric", activity.get("standard_upper_value") or activity.get("upper_value"))
@@ -551,12 +557,12 @@ class ActivityPipeline(PipelineBase):
 
         canonical_smiles = registry.normalize("chemistry.string", activity.get("canonical_smiles"))
         target_organism = registry.normalize("chemistry.target_organism", activity.get("target_organism"))
-        target_tax_id = registry.get("numeric").normalize_int(activity.get("target_tax_id"))
+        target_tax_id = _normalize_int_scalar(activity.get("target_tax_id"))
 
-        potential_duplicate = registry.get("numeric").normalize_int(activity.get("potential_duplicate"))
+        potential_duplicate = _normalize_int_scalar(activity.get("potential_duplicate"))
         uo_units = registry.normalize("chemistry.string", activity.get("uo_units"), uppercase=True)
         qudt_units = registry.normalize("chemistry.string", activity.get("qudt_units"))
-        src_id = registry.get("numeric").normalize_int(activity.get("src_id"))
+        src_id = _normalize_int_scalar(activity.get("src_id"))
         action_type = registry.normalize("chemistry.string", activity.get("action_type"))
 
         properties_str, properties = normalize_json_list(activity.get("activity_properties"))
