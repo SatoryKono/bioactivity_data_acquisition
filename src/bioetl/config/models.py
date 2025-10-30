@@ -531,6 +531,50 @@ class MaterializationPaths(BaseModel):
         return (base / path).resolve()
 
 
+class CliConfig(BaseModel):
+    """CLI-related configuration flags persisted in the pipeline config."""
+
+    model_config = ConfigDict(extra="allow")
+
+    default_config: Path | None = None
+    mode_choices: list[str] | None = None
+    mode: str | None = None
+    fail_on_schema_drift: bool = True
+    extended: bool = False
+    dry_run: bool = False
+    verbose: bool = False
+    sample: int | None = Field(default=None, ge=1)
+    limit: int | None = Field(default=None, ge=1)
+    golden: Path | None = None
+    stages: dict[str, Any] = Field(default_factory=dict)
+    run_id: str | None = None
+    output_root: Path | None = None
+
+    @field_validator("mode_choices", mode="before")
+    @classmethod
+    def validate_mode_choices(
+        cls, value: Any
+    ) -> list[str] | None:  # noqa: D401 - validator signature
+        """Ensure mode choices are provided as a distinct sequence of strings."""
+
+        if value is None:
+            return None
+
+        if isinstance(value, str):
+            raise TypeError("cli.mode_choices must be a sequence of strings")
+
+        if isinstance(value, Iterable):
+            deduplicated: list[str] = []
+            for item in value:
+                if not isinstance(item, str):
+                    raise TypeError("cli.mode_choices entries must be strings")
+                if item not in deduplicated:
+                    deduplicated.append(item)
+            return deduplicated
+
+        raise TypeError("cli.mode_choices must be provided as a sequence of strings")
+
+
 class FallbackOptions(BaseModel):
     """Fallback behaviour toggles for HTTP sources."""
 
@@ -570,7 +614,7 @@ class PipelineConfig(BaseModel):
     qc: QCConfig = Field(default_factory=QCConfig)
     materialization: MaterializationPaths = Field(default_factory=MaterializationPaths)
     fallbacks: FallbackOptions = Field(default_factory=FallbackOptions)
-    cli: dict[str, Any] = Field(default_factory=dict)
+    cli: CliConfig = Field(default_factory=CliConfig)
 
     _source_path: Path | None = PrivateAttr(default=None)
 

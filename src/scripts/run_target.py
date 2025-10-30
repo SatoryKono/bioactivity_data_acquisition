@@ -190,9 +190,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
             headers_override["x-api-key"] = ""
 
     config = load_config(config_path, overrides=overrides)
-    mode_choices: list[str] | None = None
-    if isinstance(config.cli, dict):
-        mode_choices = config.cli.get("mode_choices")
+    mode_choices = config.cli.mode_choices or []
     if mode_choices and mode not in mode_choices:
         allowed = ", ".join(mode_choices)
         raise typer.BadParameter(
@@ -202,12 +200,9 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     resolved_run_id = run_id or f"{config.pipeline.name}_{timestamp}"
-    config.cli.setdefault("stages", {})
-    config.cli["stages"].update(
-        {"uniprot": with_uniprot, "iuphar": with_iuphar}
-    )
-    config.cli["run_id"] = resolved_run_id
-    config.cli["output_root"] = str(output_root)
+    config.cli.stages.update({"uniprot": with_uniprot, "iuphar": with_iuphar})
+    config.cli.run_id = resolved_run_id
+    config.cli.output_root = output_root
 
     logger.info(
         "pipeline_run_configured",
