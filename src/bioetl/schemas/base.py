@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypedDict, cast
+from typing import Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -180,7 +180,7 @@ class BaseSchema(DataFrameModel):
     - extracted_at: метка времени извлечения (ISO8601)
     """
 
-    hash_policy_version = "1.0.0"
+    hash_policy_version: ClassVar[str] = "1.0.0"
 
     # Детерминизм и система трекинга
     index: Series[int] = Field(nullable=False, ge=0, description="Детерминированный индекс строки")
