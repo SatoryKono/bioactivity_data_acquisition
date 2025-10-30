@@ -7,10 +7,10 @@ import pytest
 from bioetl.normalizers import registry
 from bioetl.normalizers.chemistry import (
     BaoIdNormalizer,
+    ChemblIdNormalizer,
     ChemistryRelationNormalizer,
     ChemistryStringNormalizer,
     ChemistryUnitsNormalizer,
-    ChemblIdNormalizer,
     LigandEfficiencyNormalizer,
     NonNegativeFloatNormalizer,
     TargetOrganismNormalizer,

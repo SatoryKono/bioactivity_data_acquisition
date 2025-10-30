@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from bioetl.adapters.pubmed import PubMedAdapter
-
 from tests.unit.adapters._mixins import AdapterTestMixin
 
 
@@ -75,6 +74,39 @@ class TestPubMedAdapter(AdapterTestMixin, unittest.TestCase):
         normalized = self.adapter.normalize_record(record)
         self.assertIn("pubmed_id", normalized)
         self.assertEqual(normalized["pubmed_id"], "12345678")
+
+    @patch("bioetl.adapters.pubmed.normalize_common_bibliography", autospec=True)
+    def test_common_helper_invoked(self, helper_mock):
+        """The shared bibliography helper is used for normalization."""
+
+        helper_mock.return_value = {
+            "doi_clean": "10.3000/common",
+            "title": "PM Title",
+            "journal": "PM Journal",
+            "authors": "Author One",
+        }
+
+        record = {
+            "pmid": "12345",
+            "doi": "10.3000/common",
+            "journal": "Ignored Journal",
+            "authors": "A, B",
+        }
+
+        normalized = self.adapter.normalize_record(record)
+
+        helper_mock.assert_called_once()
+        args, kwargs = helper_mock.call_args
+        self.assertIs(args[0], record)
+        self.assertEqual(kwargs["doi"], "doi")
+        self.assertEqual(kwargs["title"], "title")
+        self.assertEqual(kwargs["journal"], "journal")
+        self.assertEqual(kwargs["authors"], "authors")
+        self.assertIn("journal_normalizer", kwargs)
+
+        self.assertEqual(normalized["doi_clean"], "10.3000/common")
+        self.assertEqual(normalized["pubmed_doi"], "10.3000/common")
+        self.assertEqual(normalized["title"], "PM Title")
 
     def test_normalize_date(self):
         """Test date normalization."""

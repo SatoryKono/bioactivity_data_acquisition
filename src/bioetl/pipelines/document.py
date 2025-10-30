@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from pandera.errors import SchemaErrors
 import pandas as pd
 import requests
+from pandera.errors import SchemaErrors
 
 from bioetl.adapters import (
     CrossrefAdapter,
@@ -39,8 +39,8 @@ from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 from bioetl.utils.output import finalize_output_dataset
+from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
 NAType = type(pd.NA)
 

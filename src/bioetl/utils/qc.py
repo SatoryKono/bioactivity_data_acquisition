@@ -141,7 +141,7 @@ def compute_field_coverage(
     coverage: dict[str, float] = {}
 
     if total == 0:
-        return {column: 0.0 for column in columns}
+        return dict.fromkeys(columns, 0.0)
 
     for column in columns:
         if column not in df.columns:

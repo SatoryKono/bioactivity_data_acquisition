@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import pandas as pd
 import pandera.pandas as pa
-from pandera.engines import pandas_engine
 from pandera.typing import Series
 
 from bioetl.schemas.base import (
-    BaseSchema,
     FALLBACK_METADATA_COLUMN_ORDER,
+    BaseSchema,
     FallbackMetadataMixin,
     expose_config_column_order,
 )

@@ -15,7 +15,7 @@ def test_assay_schema_accepts_nullable_integer_columns() -> None:
 
     assert "row_subtype" not in schema_columns
 
-    row = {column: pd.NA for column in schema_columns}
+    row = dict.fromkeys(schema_columns, pd.NA)
     row.update(
         {
             "index": 0,

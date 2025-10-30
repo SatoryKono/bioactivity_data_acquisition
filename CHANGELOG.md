@@ -16,4 +16,3 @@
 
 ### Added
 - Создан `docs/SCHEMA_SYNC_COMPLETION_REPORT.md` с деталями синхронизации схем
-

@@ -8,7 +8,6 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
-
 # Shared column order for fallback metadata columns.  Exposed as a module level
 # constant so downstream schemas can reference it without importing the mixin
 # (which would re-export the Pandera ``Series`` annotations).
@@ -111,7 +110,7 @@ class FallbackMetadataMixin:
 class _ColumnOrderAccessor:
     """Descriptor exposing schema ``column_order`` without Pandera side-effects."""
 
-    def __init__(self, schema_cls: type["BaseSchema"]):
+    def __init__(self, schema_cls: type[BaseSchema]):
         self._schema_cls = schema_cls
 
     def __get__(self, instance, owner):  # noqa: D401 - standard descriptor signature
@@ -119,7 +118,7 @@ class _ColumnOrderAccessor:
         return schema_cls.get_column_order()
 
 
-def expose_config_column_order(schema_cls: type["BaseSchema"]) -> None:
+def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
     """Attach a lazy ``column_order`` accessor to ``schema_cls.Config``.
 
     Pandera treats arbitrary attributes defined on ``Config`` as potential
@@ -135,7 +134,7 @@ def expose_config_column_order(schema_cls: type["BaseSchema"]) -> None:
 
     accessor = _ColumnOrderAccessor(schema_cls)
     schema_cls.Config._schema_cls = schema_cls  # type: ignore[attr-defined]
-    setattr(schema_cls.Config, "column_order", accessor)
+    schema_cls.Config.column_order = accessor
 
     extras = getattr(schema_cls, "__extras__", None)
     if isinstance(extras, dict) and "column_order" in extras:

@@ -8,11 +8,11 @@ from bioetl.normalizers.bibliography import (
 )
 from bioetl.normalizers.chemistry import (
     BaoIdNormalizer,
+    ChemblIdNormalizer,
     ChemistryNormalizer,
     ChemistryRelationNormalizer,
     ChemistryStringNormalizer,
     ChemistryUnitsNormalizer,
-    ChemblIdNormalizer,
     LigandEfficiencyNormalizer,
     NonNegativeFloatNormalizer,
     TargetOrganismNormalizer,

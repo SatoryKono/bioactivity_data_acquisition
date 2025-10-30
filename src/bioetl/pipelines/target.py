@@ -20,8 +20,8 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
-    enrichment_stage_registry,
     create_chembl_client,
+    enrichment_stage_registry,
 )
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
@@ -38,7 +38,7 @@ from bioetl.schemas import (
     XrefSchema,
 )
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils import finalize_pipeline_output
+from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     prepare_enrichment_metrics,
     prepare_missing_mappings,
@@ -167,7 +167,7 @@ class TargetPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract target data from input file."""
-        default_filename = Path("target.csv")
+        Path("target.csv")
         expected_columns = [
             "target_chembl_id",
             "pref_name",
@@ -252,10 +252,6 @@ class TargetPipeline(PipelineBase):
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
         source_system = "chembl"
-        df["pipeline_version"] = pipeline_version
-        df["source_system"] = source_system
-        df["chembl_release"] = self._chembl_release
-        df["extracted_at"] = timestamp
 
         gold_targets, gold_components, gold_protein_class, gold_xref = self._build_gold_outputs(
             df,
@@ -271,17 +267,19 @@ class TargetPipeline(PipelineBase):
         ascending_flags = list(getattr(sort_settings, "ascending", []) or [])
         ascending_param = ascending_flags if ascending_flags else None
 
-        gold_targets = finalize_pipeline_output(
+        gold_targets = finalize_output_dataset(
             gold_targets,
             business_key="target_chembl_id",
             sort_by=sort_columns,
             ascending=ascending_param,
-            pipeline_version=pipeline_version,
-            run_id=self.run_id,
-            source_system=source_system,
-            chembl_release=self._chembl_release,
-            extracted_at=timestamp,
             schema=TargetSchema,
+            metadata={
+                "pipeline_version": pipeline_version,
+                "run_id": self.run_id,
+                "source_system": source_system,
+                "chembl_release": self._chembl_release,
+                "extracted_at": timestamp,
+            },
         )
 
         self.gold_targets = gold_targets

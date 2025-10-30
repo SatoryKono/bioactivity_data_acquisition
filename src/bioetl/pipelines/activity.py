@@ -10,8 +10,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
@@ -24,9 +24,9 @@ from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
-from bioetl.utils.qc import register_fallback_statistics
 from bioetl.utils.json import normalize_json_list
 from bioetl.utils.output import finalize_output_dataset
+from bioetl.utils.qc import register_fallback_statistics
 
 logger = UnifiedLogger.get(__name__)
 
@@ -1053,7 +1053,7 @@ class ActivityPipeline(PipelineBase):
                 failure_handler=_handle_schema_failure,
                 success_handler=_handle_schema_success,
             )
-        except SchemaErrors as exc:
+        except SchemaErrors:
             if self._last_validation_report is not None and failure_report is not None:
                 self._last_validation_report["schema_validation"] = {
                     "status": "failed",

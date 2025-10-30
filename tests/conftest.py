@@ -3,8 +3,8 @@
 import os
 import sys
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pandas as pd
 import pytest
@@ -71,7 +71,6 @@ def sample_chembl_data() -> pd.DataFrame:
         "assay_param_standard_type": ["IC50", "EC50", "IC50"],
         "assay_param_standard_unit": ["nM", "nM", "nM"],
         "assay_param_standard_relation_flag": [0, 0, 0],
-        "assay_param_standard_text_value_flag": [0, 0, 0],
         "assay_param_standard_text_value_flag": [0, 0, 0],
         "fallback_retry_after_sec": [60, 60, 60],
     })
@@ -156,7 +155,7 @@ def sample_document_data() -> pd.DataFrame:
 def mock_config():
     """Mock configuration for testing."""
     from bioetl.config import Config
-    
+
     return Config(
         version=1,
         pipeline={"name": "test", "entity": "test"},
@@ -188,19 +187,20 @@ def reset_environment():
 @pytest.fixture
 def mock_requests(monkeypatch):
     """Mock requests library for API testing."""
-    import requests
     from unittest.mock import Mock
-    
+
+    import requests
+
     mock_response = Mock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"data": []}
     mock_response.text = '{"data": []}'
-    
+
     mock_get = Mock(return_value=mock_response)
     mock_post = Mock(return_value=mock_response)
-    
+
     monkeypatch.setattr(requests, "get", mock_get)
     monkeypatch.setattr(requests, "post", mock_post)
-    
+
     return {"get": mock_get, "post": mock_post}
 

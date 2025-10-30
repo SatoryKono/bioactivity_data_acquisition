@@ -8,9 +8,9 @@ import pandas as pd
 import pytest
 
 from bioetl.config.loader import load_config
+from bioetl.config.models import PipelineConfig
 from bioetl.pipelines import AssayPipeline, TargetPipeline
 from bioetl.pipelines.base import PipelineBase
-from bioetl.config.models import PipelineConfig
 
 
 @pytest.fixture()

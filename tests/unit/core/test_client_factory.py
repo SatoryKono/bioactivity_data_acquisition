@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-from typing import Any, Type
+from typing import Any
 
 import pytest
 
@@ -136,7 +136,7 @@ def test_ensure_target_source_config_defaults() -> None:
 def test_pipeline_constructors_use_factory(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    pipeline_cls: Type[Any],
+    pipeline_cls: type[Any],
     module_path: str,
 ) -> None:
     """Pipelines should construct :class:`UnifiedAPIClient` via the factory."""

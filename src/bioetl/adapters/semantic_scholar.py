@@ -8,11 +8,7 @@ import pandas as pd
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers import registry
-from bioetl.normalizers.bibliography import (
-    normalize_authors,
-    normalize_doi,
-    normalize_title,
-)
+from bioetl.normalizers.bibliography import normalize_common_bibliography
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -76,39 +72,12 @@ class SemanticScholarAdapter(ExternalAdapter):
 
     def process_titles(self, titles: list[str]) -> pd.DataFrame:
         """Process list of titles: fetch, normalize, convert to DataFrame."""
-        if not titles:
-            self.logger.info("no_titles_provided", adapter=self.__class__.__name__)
-            return pd.DataFrame()
-
-        self.logger.info("starting_fetch_by_titles", adapter=self.__class__.__name__, count=len(titles))
-
-        # Fetch records
-        raw_records = self.fetch_by_titles(titles)
-
-        if not raw_records:
-            self.logger.warning("no_records_fetched", adapter=self.__class__.__name__)
-            return pd.DataFrame()
-
-        # Normalize each record
-        normalized_records = []
-        for raw_record in raw_records:
-            try:
-                normalized = self.normalize_record(raw_record)
-                if normalized:
-                    normalized_records.append(normalized)
-            except Exception as e:
-                self.logger.error(
-                    "normalization_failed",
-                    adapter=self.__class__.__name__,
-                    error=str(e),
-                )
-                continue
-
-        # Convert to DataFrame
-        df = self.to_dataframe(normalized_records)
-        self.logger.info("fetch_completed", adapter=self.__class__.__name__, fetched=len(raw_records), normalized=len(normalized_records))
-
-        return df
+        return self._process_collection(
+            titles,
+            self.fetch_by_titles,
+            start_event="starting_fetch_by_titles",
+            no_items_event="no_titles_provided",
+        )
 
     def _search_by_title(self, title: str) -> list[dict[str, Any]]:
         """Search for papers by title."""
@@ -169,7 +138,22 @@ class SemanticScholarAdapter(ExternalAdapter):
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize Semantic Scholar record."""
-        normalized = {}
+        common = normalize_common_bibliography(
+            record,
+            doi=lambda rec: (
+                (rec.get("externalIds") or {}).get("DOI")
+                if isinstance(rec.get("externalIds"), dict)
+                else None
+            ),
+            title="title",
+            journal="venue",
+            authors="authors",
+            journal_normalizer=lambda value: (
+                NORMALIZER_STRING.normalize(value) if value is not None else None
+            ),
+        )
+
+        normalized = dict(common)
 
         # Paper ID
         if "paperId" in record:
@@ -178,25 +162,19 @@ class SemanticScholarAdapter(ExternalAdapter):
         # External IDs
         if "externalIds" in record:
             ex_ids = record["externalIds"]
-            doi_clean = normalize_doi(ex_ids.get("DOI")) if isinstance(ex_ids, dict) else None
-            if doi_clean:
-                normalized["doi_clean"] = doi_clean
             if "PubMed" in ex_ids:
                 normalized["pubmed_id"] = NORMALIZER_ID.normalize(str(ex_ids["PubMed"]))
 
-        # Title
-        title = normalize_title(record.get("title"))
-        if title:
-            normalized["title"] = title
-            normalized["_title_for_join"] = title
+        doi_clean = common.get("doi_clean")
+        if doi_clean:
+            normalized["doi_clean"] = doi_clean
+
+        if "title" in normalized:
+            normalized["_title_for_join"] = normalized["title"]
 
         # Abstract
         if "abstract" in record:
             normalized["abstract"] = NORMALIZER_STRING.normalize(record["abstract"])
-
-        # Venue (journal)
-        if "venue" in record:
-            normalized["journal"] = NORMALIZER_STRING.normalize(record["venue"])
 
         # Year
         if "year" in record:
@@ -227,11 +205,6 @@ class SemanticScholarAdapter(ExternalAdapter):
         # Fields of study
         if "fieldsOfStudy" in record and record["fieldsOfStudy"]:
             normalized["fields_of_study"] = record["fieldsOfStudy"]
-
-        # Authors
-        authors = normalize_authors(record.get("authors"))
-        if authors:
-            normalized["authors"] = authors
 
         # ISSN - not typically available in Semantic Scholar API
         # Semantic Scholar API does not provide ISSN data in their paper endpoint

@@ -23,7 +23,7 @@ from bioetl.pipelines import (
     TestItemPipeline,
 )
 from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
-from bioetl.schemas import AssaySchema, TargetSchema, TestItemSchema
+from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 
 
@@ -1548,6 +1548,7 @@ class TestTargetPipeline:
 
         result = pipeline.transform(df)
         assert result.loc[0, "pipeline_version"] == "1.0.0"
+        assert result.loc[0, "run_id"] == pipeline.run_id
         assert result.loc[0, "source_system"] == "chembl"
         assert result.loc[0, "chembl_release"] == "ChEMBL_TEST"
         assert result.loc[0, "index"] == 0
@@ -1556,7 +1557,28 @@ class TestTargetPipeline:
         assert isinstance(result.loc[0, "hash_row"], str)
         assert len(result.loc[0, "hash_row"]) == 64
         expected_order = TargetSchema.get_column_order()
-        assert list(result.columns[:len(expected_order)]) == expected_order
+        assert list(result.columns[: len(expected_order)]) == expected_order
+
+    def test_transform_standard_column_prefix_matches_activity(self, target_config, monkeypatch):
+        """Target outputs should share the canonical metadata prefix with Activity pipeline."""
+
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TargetPipeline(target_config, run_id)
+        pipeline.uniprot_client = None
+        pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_orthologs_client = None
+        pipeline.iuphar_client = None
+        monkeypatch.setattr(TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None)
+        monkeypatch.setattr(TargetPipeline, "_materialize_silver", lambda self, *args, **kwargs: None)
+
+        df = pd.DataFrame({
+            "target_chembl_id": ["CHEMBL1"],
+            "pref_name": ["Test Target"],
+        })
+
+        result = pipeline.transform(df)
+        metadata_prefix = ActivitySchema.get_column_order()[:8]
+        assert list(result.columns[: len(metadata_prefix)]) == metadata_prefix
 
     def test_validate_removes_duplicates(self, target_config):
         """Test validation removes duplicates."""

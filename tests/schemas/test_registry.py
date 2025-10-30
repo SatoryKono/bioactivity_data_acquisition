@@ -9,7 +9,6 @@ import types
 
 import pytest
 
-
 if "cachetools" not in sys.modules:
     cachetools_stub = types.ModuleType("cachetools")
 

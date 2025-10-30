@@ -4,7 +4,6 @@ import unittest
 from unittest.mock import patch
 
 from bioetl.adapters.crossref import CrossrefAdapter
-
 from tests.unit.adapters._mixins import AdapterTestMixin
 
 
@@ -49,6 +48,36 @@ class TestCrossrefAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(normalized["year"], 2023)
         self.assertIn("authors", normalized)
         self.assertIn("Doe, John", normalized["authors"])
+
+    @patch("bioetl.adapters.crossref.normalize_common_bibliography", autospec=True)
+    def test_common_helper_invoked(self, helper_mock):
+        """The shared bibliography helper is used for normalization."""
+
+        helper_mock.return_value = {
+            "doi_clean": "10.1000/common",
+            "title": "Common Title",
+            "journal": "Common Journal",
+            "authors": "Common Author",
+        }
+
+        record = {
+            "DOI": "10.1000/common",
+            "author": [{"ORCID": "https://orcid.org/0000-0000-0000-0000"}],
+        }
+
+        normalized = self.adapter.normalize_record(record)
+
+        helper_mock.assert_called_once_with(
+            record,
+            doi="DOI",
+            title="title",
+            journal=("container-title", "short-container-title"),
+            authors="author",
+        )
+
+        self.assertEqual(normalized["doi_clean"], "10.1000/common")
+        self.assertEqual(normalized["crossref_doi"], "10.1000/common")
+        self.assertEqual(normalized["title"], "Common Title")
 
     def test_fetch_by_ids_batches_using_class_default(self) -> None:
         """Batch helper respects ``DEFAULT_BATCH_SIZE`` fallback."""
