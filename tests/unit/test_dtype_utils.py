@@ -184,3 +184,33 @@ class TestCoerceOptionalBool:
         assert df["col2"].dtype == "boolean"
         assert df["col1"].tolist() == [True, False, True, False]
         assert df["col2"].tolist() == [True, False, True, False]
+
+    def test_nullable_false_dataframe(self):
+        """Ненулевые значения должны конвертироваться в bool без NA."""
+
+        df = pd.DataFrame({
+            "flag": ["true", None, "false", "1"],
+            "fallback": [pd.NA, "no", "yes", 0],
+        })
+
+        coerce_optional_bool(df, ["flag", "fallback"], nullable=False)
+
+        assert df["flag"].dtype == bool
+        assert df["fallback"].dtype == bool
+        assert df["flag"].tolist() == [True, False, False, True]
+        assert df["fallback"].tolist() == [False, False, True, False]
+
+    def test_nullable_false_series(self):
+        """Серии с NA приводятся к bool при nullable=False."""
+
+        series = pd.Series(["true", None, "false"], dtype="object")
+        result = coerce_optional_bool(series, nullable=False)
+
+        assert result.dtype == bool
+        assert result.tolist() == [True, False, False]
+
+    def test_nullable_false_scalar(self):
+        """Скалярные значения корректно обрабатываются при nullable=False."""
+
+        assert coerce_optional_bool(None, nullable=False) is False
+        assert coerce_optional_bool("true", nullable=False) is True
