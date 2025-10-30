@@ -1136,6 +1136,13 @@ class DocumentPipeline(PipelineBase):
         # Ensure schema-driven dtypes are respected even for newly added columns.
         working_df = self._enforce_schema_dtypes(working_df)
 
+        # Defensive: гарантируем float64 для retry-after перед Pandera-валидацией
+        if "fallback_retry_after_sec" in working_df.columns:
+            numeric_retry = pd.to_numeric(working_df["fallback_retry_after_sec"], errors="coerce")
+            working_df.loc[:, "fallback_retry_after_sec"] = pd.Series(
+                pd.array(numeric_retry, dtype="Float64"), index=working_df.index
+            )
+
         duplicate_count = (
             working_df["document_chembl_id"].duplicated().sum()
             if "document_chembl_id" in working_df.columns

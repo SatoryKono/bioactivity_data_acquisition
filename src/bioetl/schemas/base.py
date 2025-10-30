@@ -85,7 +85,7 @@ class FallbackMetadataMixin:
     fallback_error_code: Series[str]
     fallback_error_message: Series[str]
     fallback_http_status: Series[pd.Int64Dtype]
-    fallback_retry_after_sec: Series[float]
+    fallback_retry_after_sec: Series[pd.Float64Dtype]
     fallback_attempt: Series[pd.Int64Dtype]
     fallback_timestamp: Series[str]
 

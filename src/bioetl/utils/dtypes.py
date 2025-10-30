@@ -197,7 +197,7 @@ def coerce_retry_after(df: pd.DataFrame, column: str = "fallback_retry_after_sec
 
     numeric = pd.to_numeric(series, errors="coerce")
     # Use .loc to avoid pandas SettingWithCopyWarning when df is a slice
-    df.loc[:, column] = numeric.astype("float64", copy=False)
+    df.loc[:, column] = pd.Series(pd.array(numeric, dtype="Float64"), index=df.index)
 
 
 def coerce_nullable_int_columns(
