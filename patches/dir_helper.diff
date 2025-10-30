@@ -1,0 +1,22 @@
+# Почему: __dir__ идентичен в bioetl.pipelines и bioetl.schemas.
+# Что: Выносим helper для сортировки экспортов.
+# Трассировка: [ref: repo:src/bioetl/pipelines/__init__.py@test_refactoring_11] [ref: repo:src/bioetl/schemas/__init__.py@test_refactoring_11]
+# Проверка: python - <<'PY' import bioetl.pipelines as p; print('ActivityPipeline' in dir(p)) PY
+
+diff --git a/src/bioetl/utils/exports.py b/src/bioetl/utils/exports.py
+new file mode 100644
+index 0000000..aaaaaaa
+--- /dev/null
++++ b/src/bioetl/utils/exports.py
+@@
++"""Utilities for module-level export helpers."""
++
++from __future__ import annotations
++
++from collections.abc import Iterable
++
++
++def sorted_exports(exports: Iterable[str]) -> list[str]:
++    """Return deterministic ordering for ``__dir__`` implementations."""
++
++    return sorted(set(exports))

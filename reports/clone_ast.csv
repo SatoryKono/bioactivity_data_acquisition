@@ -1,0 +1,126 @@
+node_kind;path;line_span;clone_group;sim;normalized_sig
+Function;src/scripts/run_target.py;246-255;AST1;1.0;Module(body=[FunctionDef(name='limited_extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id=
+Function;src/bioetl/cli/command.py;197-204;AST1;1.0;Module(body=[FunctionDef(name='limited_extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id=
+Function;src/bioetl/pandera_pandas.py;60-61;AST2;1.0;Module(body=[FunctionDef(name='to_schema', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defau
+Function;src/bioetl/schemas/document.py;25-25;AST2;1.0;Module(body=[FunctionDef(name='to_schema', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defau
+Function;src/bioetl/pandera_pandas.py;64-65;AST3;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;src/bioetl/schemas/document.py;28-28;AST3;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;src/bioetl/adapters/base.py;183-185;AST4;1.0;Module(body=[FunctionDef(name='close', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defaults=
+Function;src/bioetl/core/api_client.py;1000-1002;AST4;1.0;Module(body=[FunctionDef(name='close', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defaults=
+Function;src/bioetl/pipelines/assay.py;1066-1094;AST5;1.0;Module(body=[FunctionDef(name='_summarize_schema_errors', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='
+Function;src/bioetl/pipelines/testitem.py;1424-1450;AST5;1.0;Module(body=[FunctionDef(name='_summarize_schema_errors', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='
+Function;src/bioetl/pipelines/assay.py;1011-1028;AST6;1.0;Module(body=[FunctionDef(name='_handle_schema_failure', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=N
+Function;src/bioetl/pipelines/testitem.py;1300-1317;AST6;1.0;Module(body=[FunctionDef(name='_handle_schema_failure', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=N
+Function;src/bioetl/pipelines/target.py;136-143;AST7;1.0;Module(body=[FunctionDef(name='close_resources', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw
+Function;src/bioetl/pipelines/document.py;306-313;AST7;1.0;Module(body=[FunctionDef(name='close_resources', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw
+Function;src/bioetl/pipelines/target.py;175-179;AST8;1.0;Module(body=[FunctionDef(name='_get_chembl_release', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[]
+Function;src/bioetl/pipelines/document.py;946-953;AST8;1.0;Module(body=[FunctionDef(name='_get_chembl_release', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[]
+Function;src/bioetl/pipelines/__init__.py;35-49;AST9;1.0;Module(body=[FunctionDef(name='__getattr__', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id='NAM
+Function;src/bioetl/schemas/__init__.py;62-70;AST9;1.0;Module(body=[FunctionDef(name='__getattr__', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id='NAM
+Function;src/bioetl/pipelines/__init__.py;52-55;AST10;1.0;Module(body=[FunctionDef(name='__dir__', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults
+Function;src/bioetl/schemas/__init__.py;73-76;AST10;1.0;Module(body=[FunctionDef(name='__dir__', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], defaults
+Function;src/bioetl/normalizers/chemistry.py;139-140;AST11;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;src/bioetl/normalizers/chemistry.py;166-167;AST11;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;src/bioetl/normalizers/chemistry.py;226-227;AST11;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;src/bioetl/normalizers/chemistry.py;173-174;AST12;1.0;Module(body=[FunctionDef(name='__init__', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defaul
+Function;src/bioetl/normalizers/chemistry.py;220-221;AST12;1.0;Module(body=[FunctionDef(name='__init__', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defaul
+Function;src/bioetl/normalizers/chemistry.py;233-234;AST12;1.0;Module(body=[FunctionDef(name='__init__', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defaul
+Function;src/bioetl/normalizers/chemistry.py;266-267;AST12;1.0;Module(body=[FunctionDef(name='__init__', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_defaul
+Class;src/bioetl/schemas/assay.py;244-247;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/target.py;61-64;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/target.py;131-134;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/target.py;150-153;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/target.py;167-170;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/document.py;77-85;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/document.py;479-504;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/testitem.py;343-346;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/base.py;202-205;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/document_input.py;18-21;AST13;1.0;Module(body=[ClassDef(name='Config', bases=[], keywords=[], body=[Assign(targets=[Name(id='NAME', ctx=Store())], value=C
+Class;src/bioetl/schemas/document.py;513-514;AST14;1.0;Module(body=[ClassDef(name='Config', bases=[Attribute(value=Name(id='NAME', ctx=Load()), attr='ATTR', ctx=Load())], keyw
+Class;tests/unit/test_utils_dataframe.py;95-96;AST14;1.0;Module(body=[ClassDef(name='Config', bases=[Attribute(value=Name(id='NAME', ctx=Load()), attr='ATTR', ctx=Load())], keyw
+Class;tests/unit/test_utils_dataframe.py;118-119;AST14;1.0;Module(body=[ClassDef(name='Config', bases=[Attribute(value=Name(id='NAME', ctx=Load()), attr='ATTR', ctx=Load())], keyw
+Function;tests/golden/test_cli_golden.py;103-104;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;93-94;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;144-145;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;205-206;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;236-237;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;397-398;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;447-448;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;500-501;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/validation/test_schema_validation.py;42-43;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/integration/pipelines/test_extended_mode_outputs.py;27-28;AST15;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;58-60;AST16;1.0;Module(body=[FunctionDef(name='document_config', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], 
+Function;tests/unit/test_document_pipeline_validation.py;23-25;AST16;1.0;Module(body=[FunctionDef(name='document_config', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], 
+Function;tests/unit/test_pipelines.py;533-541;AST17;1.0;Module(body=[FunctionDef(name='_mock_status', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG')], kwon
+Function;tests/unit/test_pipelines.py;2045-2053;AST17;1.0;Module(body=[FunctionDef(name='_mock_status', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG')], kwon
+Function;tests/unit/test_pipelines.py;561-566;AST18;1.0;Module(body=[FunctionDef(name='test_init', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG')], kwonlya
+Function;tests/unit/test_pipelines.py;1125-1130;AST18;1.0;Module(body=[FunctionDef(name='test_init', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG')], kwonlya
+Function;tests/unit/test_pipelines.py;1727-1732;AST18;1.0;Module(body=[FunctionDef(name='test_init', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG')], kwonlya
+Function;tests/unit/test_pipelines.py;2055-2060;AST18;1.0;Module(body=[FunctionDef(name='test_init', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG')], kwonlya
+Function;tests/unit/test_pipelines.py;568-578;AST19;1.0;Module(body=[FunctionDef(name='test_extract_empty_file', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='A
+Function;tests/unit/test_pipelines.py;1157-1167;AST19;1.0;Module(body=[FunctionDef(name='test_extract_empty_file', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='A
+Function;tests/unit/test_pipelines.py;1751-1761;AST19;1.0;Module(body=[FunctionDef(name='test_extract_empty_file', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='A
+Function;tests/unit/test_pipelines.py;2062-2072;AST19;1.0;Module(body=[FunctionDef(name='test_extract_empty_file', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='A
+Function;tests/unit/test_pipelines.py;580-593;AST20;1.0;Module(body=[FunctionDef(name='test_extract_with_data', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='AR
+Function;tests/unit/test_pipelines.py;2074-2084;AST20;1.0;Module(body=[FunctionDef(name='test_extract_with_data', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='AR
+Function;tests/unit/test_pipelines.py;67-68;AST21;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;199-200;AST21;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;230-231;AST21;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;141-142;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;202-203;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;233-234;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;273-274;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;347-348;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;394-395;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;444-445;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;497-498;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/validation/test_schema_validation.py;39-40;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/integration/pipelines/test_extended_mode_outputs.py;24-25;AST22;1.0;Module(body=[FunctionDef(name='transform', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotatio
+Function;tests/unit/test_pipelines.py;147-155;AST23;1.0;Module(body=[FunctionDef(name='export', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation=A
+Function;tests/unit/test_pipelines.py;208-216;AST23;1.0;Module(body=[FunctionDef(name='export', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation=A
+Function;tests/unit/test_pipelines.py;239-247;AST23;1.0;Module(body=[FunctionDef(name='export', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation=A
+Function;tests/unit/test_pipelines.py;157-158;AST24;1.0;Module(body=[FunctionDef(name='close_resources', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw
+Function;tests/unit/test_pipelines.py;292-293;AST24;1.0;Module(body=[FunctionDef(name='close_resources', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw
+Function;tests/unit/test_pipelines.py;366-367;AST24;1.0;Module(body=[FunctionDef(name='close_resources', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw
+Function;tests/unit/validation/test_schema_validation.py;45-46;AST24;1.0;Module(body=[FunctionDef(name='close_resources', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw
+Function;tests/unit/test_pipelines.py;270-271;AST25;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;344-345;AST25;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;391-392;AST25;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;441-442;AST25;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;494-495;AST25;1.0;Module(body=[FunctionDef(name='extract', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], vararg=arg(arg='ARG', ann
+Function;tests/unit/test_pipelines.py;276-290;AST26;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;350-364;AST26;1.0;Module(body=[FunctionDef(name='validate', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG', annotation
+Function;tests/unit/test_pipelines.py;536-539;AST27;1.0;Module(body=[FunctionDef(name='_status_stub', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG'), arg(a
+Function;tests/unit/test_pipelines.py;2048-2051;AST27;1.0;Module(body=[FunctionDef(name='_status_stub', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG'), arg(a
+Function;tests/unit/test_pipelines.py;1673-1674;AST28;1.0;Module(body=[FunctionDef(name='fail_request_json', args=arguments(posonlyargs=[], args=[], vararg=arg(arg='ARG'), kwonly
+Function;tests/unit/test_pipelines.py;1710-1711;AST28;1.0;Module(body=[FunctionDef(name='fail_request_json', args=arguments(posonlyargs=[], args=[], vararg=arg(arg='ARG'), kwonly
+Class;tests/unit/test_cli_contract.py;116-121;AST29;1.0;Module(body=[ClassDef(name='RecordingPipeline', bases=[], keywords=[], body=[FunctionDef(name='__init__', args=arguments
+Class;tests/unit/test_cli_contract.py;232-237;AST29;1.0;Module(body=[ClassDef(name='RecordingPipeline', bases=[], keywords=[], body=[FunctionDef(name='__init__', args=arguments
+Class;tests/unit/test_cli_contract.py;287-292;AST29;1.0;Module(body=[ClassDef(name='RecordingPipeline', bases=[], keywords=[], body=[FunctionDef(name='__init__', args=arguments
+Function;tests/unit/test_cli_contract.py;117-121;AST30;1.0;Module(body=[FunctionDef(name='__init__', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG'), arg(arg='
+Function;tests/unit/test_cli_contract.py;233-237;AST30;1.0;Module(body=[FunctionDef(name='__init__', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG'), arg(arg='
+Function;tests/unit/test_cli_contract.py;288-292;AST30;1.0;Module(body=[FunctionDef(name='__init__', args=arguments(posonlyargs=[], args=[arg(arg='ARG'), arg(arg='ARG'), arg(arg='
+Function;tests/unit/test_pipeline_extract_helper.py;61-63;AST31;1.0;Module(body=[FunctionDef(name='_spy', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id='NAME', ctx
+Function;tests/unit/test_pipeline_extract_helper.py;89-91;AST31;1.0;Module(body=[FunctionDef(name='_spy', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id='NAME', ctx
+Function;tests/unit/test_api_client.py;192-194;AST32;1.0;Module(body=[FunctionDef(name='fake_execute', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], kwa
+Function;tests/unit/test_api_client.py;227-229;AST32;1.0;Module(body=[FunctionDef(name='fake_execute', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], kwa
+Function;tests/unit/test_api_client.py;268-270;AST33;1.0;Module(body=[FunctionDef(name='fake_request', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], kwa
+Function;tests/unit/test_api_client.py;398-400;AST33;1.0;Module(body=[FunctionDef(name='fake_request', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], kwa
+Function;tests/unit/test_api_client.py;274-275;AST34;1.0;Module(body=[FunctionDef(name='fake_acquire', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], def
+Function;tests/unit/test_api_client.py;404-405;AST34;1.0;Module(body=[FunctionDef(name='fake_acquire', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], def
+Function;tests/unit/test_api_client.py;591-600;AST35;1.0;Module(body=[FunctionDef(name='fake_execute', args=arguments(posonlyargs=[], args=[], kwonlyargs=[arg(arg='ARG', annotat
+Function;tests/unit/test_api_client.py;775-784;AST35;1.0;Module(body=[FunctionDef(name='fake_execute', args=arguments(posonlyargs=[], args=[], kwonlyargs=[arg(arg='ARG', annotat
+Function;tests/unit/test_api_client.py;820-829;AST35;1.0;Module(body=[FunctionDef(name='fake_execute', args=arguments(posonlyargs=[], args=[], kwonlyargs=[arg(arg='ARG', annotat
+Function;tests/unit/test_api_client.py;997-1006;AST35;1.0;Module(body=[FunctionDef(name='fake_execute', args=arguments(posonlyargs=[], args=[], kwonlyargs=[arg(arg='ARG', annotat
+Function;tests/unit/test_api_client.py;1082-1083;AST36;1.0;Module(body=[FunctionDef(name='always_fail', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], kwar
+Function;tests/unit/test_api_client.py;1174-1175;AST36;1.0;Module(body=[FunctionDef(name='always_fail', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], kwar
+Function;tests/unit/test_api_client.py;1371-1372;AST36;1.0;Module(body=[FunctionDef(name='always_fail', args=arguments(posonlyargs=[], args=[], kwonlyargs=[], kw_defaults=[], kwar
+Function;tests/unit/test_output_writer.py;84-85;AST37;1.0;Module(body=[FunctionDef(name='boom', args=arguments(posonlyargs=[], args=[], vararg=arg(arg='ARG'), kwonlyargs=[], kw_d
+Function;tests/unit/test_output_writer.py;566-567;AST37;1.0;Module(body=[FunctionDef(name='boom', args=arguments(posonlyargs=[], args=[], vararg=arg(arg='ARG'), kwonlyargs=[], kw_d
+Function;tests/unit/test_dtype_utils.py;74-87;AST38;1.0;Module(body=[FunctionDef(name='test_string_values', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[],
+Function;tests/unit/test_dtype_utils.py;124-137;AST38;1.0;Module(body=[FunctionDef(name='test_string_values', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[],
+Function;tests/unit/test_dtype_utils.py;174-187;AST38;1.0;Module(body=[FunctionDef(name='test_string_values', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[],
+Function;tests/unit/test_numeric_normalizer.py;11-13;AST39;1.0;Module(body=[FunctionDef(name='setup_method', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_de
+Function;tests/unit/test_numeric_normalizer.py;88-90;AST39;1.0;Module(body=[FunctionDef(name='setup_method', args=arguments(posonlyargs=[], args=[arg(arg='ARG')], kwonlyargs=[], kw_de
+Function;tests/unit/validation/test_schema_validation.py;66-68;AST40;1.0;Module(body=[FunctionDef(name='_failure_handler', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id
+Function;tests/unit/validation/test_schema_validation.py;97-99;AST40;1.0;Module(body=[FunctionDef(name='_failure_handler', args=arguments(posonlyargs=[], args=[arg(arg='ARG', annotation=Name(id

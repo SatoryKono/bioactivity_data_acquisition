@@ -1,0 +1,55 @@
+# Почему: Повторяющаяся логика расчёта метрик QC в activity/testitem.
+# Что: Добавляем utility в bioetl.utils.qc для duplicate/fallback расчётов.
+# Трассировка: [ref: repo:src/bioetl/pipelines/activity.py@test_refactoring_11] [ref: repo:src/bioetl/pipelines/testitem.py@test_refactoring_11]
+# Проверка: pytest tests/unit/test_pipelines.py -k qc_metric
+
+diff --git a/src/bioetl/utils/qc.py b/src/bioetl/utils/qc.py
+index 7777777..8888888 100644
+--- a/src/bioetl/utils/qc.py
++++ b/src/bioetl/utils/qc.py
+@@
++def build_duplicate_metric(
++    df: pd.DataFrame,
++    *,
++    column: str,
++    threshold: float | int,
++    severity_overrides: Mapping[str, str] | None = None,
++) -> dict[str, Any]:
++    """Return QC payload describing duplicate counts for ``column``."""
++
++    duplicate_mask = df[column].duplicated(keep=False) if column in df.columns else pd.Series([], dtype=bool)
++    duplicate_count = int(df[column].duplicated().sum()) if column in df.columns else 0
++    duplicate_values = df.loc[duplicate_mask, column].astype(str).tolist() if duplicate_count else []
++    severity = "error" if duplicate_count > threshold else "info"
++    if severity_overrides and severity in severity_overrides:
++        severity = severity_overrides[severity]
++    return {
++        "count": duplicate_count,
++        "value": duplicate_count,
++        "threshold": threshold,
++        "passed": duplicate_count <= threshold,
++        "severity": severity,
++        "details": {"duplicate_values": duplicate_values, "field": column},
++    }
++
++
++def build_ratio_metric(
++    count: int,
++    total: int,
++    *,
++    threshold: float,
++    severity_if_over: str = "warning",
++    key: str = "ratio",
++) -> dict[str, Any]:
++    """Generic ratio metric builder for fallback-style checks."""
++
++    ratio = float(count / total) if total else 0.0
++    severity = severity_if_over if ratio > threshold else "info"
++    return {
++        "count": count,
++        key: ratio,
++        "threshold": threshold,
++        "value": ratio,
++        "passed": ratio <= threshold,
++        "severity": severity,
++    }

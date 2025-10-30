@@ -1,0 +1,16 @@
+# Почему: Дублирование `close()` в адаптере и клиенте.
+# Что: Вводим протокол и контекстный миксин для единообразного закрытия.
+# Трассировка: [ref: repo:src/bioetl/adapters/base.py@test_refactoring_11] [ref: repo:src/bioetl/core/api_client.py@test_refactoring_11]
+# Проверка: pytest tests/unit/test_api_client.py -k close
+
+diff --git a/src/bioetl/core/client_protocols.py b/src/bioetl/core/client_protocols.py
+new file mode 100644
+index 0000000..9999999
+--- /dev/null
++++ b/src/bioetl/core/client_protocols.py
+@@
++from typing import Protocol
++
++
++class Closeable(Protocol):
++    def close(self) -> None: ...

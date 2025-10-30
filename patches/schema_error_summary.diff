@@ -1,0 +1,38 @@
+# Почему: Две копии `_summarize_schema_errors` в assay/testitem.
+# Что: Переносим реализацию в PipelineBase и переиспользуем.
+# Трассировка: [ref: repo:src/bioetl/pipelines/assay.py@test_refactoring_11] [ref: repo:src/bioetl/pipelines/testitem.py@test_refactoring_11]
+# Проверка: pytest tests/unit/test_pipelines.py::test_assay_schema_error_summary
+
+diff --git a/src/bioetl/pipelines/base.py b/src/bioetl/pipelines/base.py
+index 5555555..6666666 100644
+--- a/src/bioetl/pipelines/base.py
++++ b/src/bioetl/pipelines/base.py
+@@
++    def summarize_schema_errors(self, failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
++        """Convert Pandera failure cases to standardised issue payloads."""
++
++        if failure_cases.empty:
++            return []
++
++        issues: list[dict[str, Any]] = []
++        for column, group in failure_cases.groupby("column", dropna=False):
++            column_name = (
++                str(column)
++                if column is not None and not (isinstance(column, float) and pd.isna(column))
++                else "<dataframe>"
++            )
++            checks = sorted({str(check) for check in group["check"].dropna().unique()})
++            details = ", ".join(
++                group["failure_case"].dropna().astype(str).unique().tolist()[:5]
++            )
++            issues.append(
++                {
++                    "issue_type": "schema",
++                    "severity": "error",
++                    "column": column_name,
++                    "check": ", ".join(checks) if checks else "<unspecified>",
++                    "count": int(group.shape[0]),
++                    "details": details,
++                }
++            )
++        return issues
