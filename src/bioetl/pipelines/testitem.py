@@ -962,7 +962,7 @@ class TestItemPipeline(PipelineBase):
         ]
         df = df.drop(columns=extraneous_columns, errors="ignore")
 
-        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        pipeline_version = self.config.pipeline.version
         default_source = "chembl"
         timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
 

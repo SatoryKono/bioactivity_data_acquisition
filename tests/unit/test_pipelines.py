@@ -425,7 +425,7 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
     source_df = pd.DataFrame({"value": [1, 2], "beta": ["x", "y"]})
     pipeline.set_export_metadata_from_dataframe(
         source_df,
-        pipeline_version="1.0.0",
+        pipeline_version=config.pipeline.version,
         source_system="test-system",
     )
 
@@ -476,7 +476,7 @@ def test_export_uses_deterministic_float_format(tmp_path, assay_config):
     source_df = pd.DataFrame({"beta": [0.111111], "value": [1.234567], "alpha": ["x"]})
     pipeline.set_export_metadata_from_dataframe(
         source_df,
-        pipeline_version="1.0.0",
+        pipeline_version=config.pipeline.version,
         source_system="test-system",
     )
 
@@ -534,7 +534,7 @@ def test_export_applies_configured_sorting(tmp_path, assay_config):
     )
     pipeline.set_export_metadata_from_dataframe(
         source_df,
-        pipeline_version="1.0.0",
+        pipeline_version=config.pipeline.version,
         source_system="test-system",
     )
 
@@ -2149,7 +2149,7 @@ class TestTargetPipeline:
         )
 
         result = pipeline.transform(df)
-        assert result.loc[0, "pipeline_version"] == "1.0.0"
+        assert result.loc[0, "pipeline_version"] == target_config.pipeline.version
         assert result.loc[0, "run_id"] == pipeline.run_id
         assert result.loc[0, "source_system"] == "chembl"
         assert result.loc[0, "chembl_release"] == "ChEMBL_TEST"
