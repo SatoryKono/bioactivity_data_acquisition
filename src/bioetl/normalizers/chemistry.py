@@ -237,7 +237,7 @@ class NonNegativeFloatNormalizer(BaseNormalizer):
         result = self._numeric_normalizer.normalize(value)
         if result is None:
             return None
-        if result < 0:
+        if not isinstance(result, (int, float)):
             logger.warning(
                 "non_negative_float_sanitized",
                 column=column,
@@ -245,7 +245,16 @@ class NonNegativeFloatNormalizer(BaseNormalizer):
                 sanitized_value=None,
             )
             return None
-        return result
+        numeric_value = float(result)
+        if numeric_value < 0:
+            logger.warning(
+                "non_negative_float_sanitized",
+                column=column,
+                original_value=numeric_value,
+                sanitized_value=None,
+            )
+            return None
+        return numeric_value
 
     def validate(self, value: Any) -> bool:
         return self._numeric_normalizer.validate(value)

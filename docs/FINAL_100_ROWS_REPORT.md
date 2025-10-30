@@ -99,6 +99,7 @@
 **Проблема:** TypeError: unhashable type: 'list' при генерации quality report
 
 **Решение:** Преобразование list в string для полей:
+
 - `assay_classifications` → `str(assay.get("assay_classifications"))`
 - `assay_parameters_json` → `str(assay.get("assay_parameters"))`
 - `variant_sequence_json` → `str(variant_sequences)`

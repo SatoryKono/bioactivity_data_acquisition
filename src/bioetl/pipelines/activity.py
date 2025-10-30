@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlencode
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -763,7 +763,7 @@ class ActivityPipeline(PipelineBase):
         if result is None:
             return None
 
-        if result < 0:
+        if not isinstance(result, (int, float)):
             logger.warning(
                 "cached_non_negative_sanitized",
                 column=column,
@@ -773,7 +773,18 @@ class ActivityPipeline(PipelineBase):
             )
             return None
 
-        return result
+        numeric_value = float(result)
+        if numeric_value < 0:
+            logger.warning(
+                "cached_non_negative_sanitized",
+                column=column,
+                original_value=numeric_value,
+                sanitized_value=None,
+                activity_id=activity_id,
+            )
+            return None
+
+        return numeric_value
 
     def _store_batch_in_cache(self, batch_ids: Iterable[int], records: list[dict[str, Any]]) -> None:
         """Persist batch records into the local cache."""
@@ -797,7 +808,7 @@ class ActivityPipeline(PipelineBase):
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
 
-        release = self._fetch_chembl_release_info(self.api_client)
+        release = self._fetch_chembl_release_info(str(self.api_client.config.base_url))
         status = release.status
         if isinstance(status, Mapping):
             self._status_snapshot = dict(status) if not isinstance(status, dict) else status
