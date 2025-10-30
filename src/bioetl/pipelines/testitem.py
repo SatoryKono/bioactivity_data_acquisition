@@ -18,7 +18,11 @@ from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
+from bioetl.utils.dtypes import (
+    coerce_nullable_int,
+    coerce_optional_bool,
+    coerce_retry_after,
+)
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.json import canonical_json
 from bioetl.utils.output import finalize_output_dataset
@@ -33,6 +37,18 @@ logger = UnifiedLogger.get(__name__)
 
 # Register schema
 schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
+
+
+def _extract_boolean_columns() -> list[str]:
+    annotations = getattr(TestItemSchema, "__annotations__", {})
+    boolean_columns: list[str] = []
+    for name, annotation in annotations.items():
+        if "BooleanDtype" in str(annotation):
+            boolean_columns.append(name)
+    return sorted(boolean_columns)
+
+
+_TESTITEM_BOOLEAN_COLUMNS = _extract_boolean_columns()
 
 
 # _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
@@ -196,6 +212,8 @@ class TestItemPipeline(PipelineBase):
         "fallback_http_status",
         "fallback_attempt",
     ]
+
+    _BOOLEAN_COLUMNS: list[str] = _TESTITEM_BOOLEAN_COLUMNS
 
     _INT_COLUMN_MINIMUMS: dict[str, int] = {
         "molregno": 1,
@@ -968,6 +986,8 @@ class TestItemPipeline(PipelineBase):
                 "extracted_at": timestamp_now,
             },
         )
+
+        coerce_optional_bool(df, columns=self._BOOLEAN_COLUMNS)
 
         default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
         default_minimums.update(self._INT_COLUMN_MINIMUMS)
