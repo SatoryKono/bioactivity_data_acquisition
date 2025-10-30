@@ -355,16 +355,19 @@ class UnifiedAPIClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Make JSON request with all protections.
+        """Make a resilient JSON request with retry, caching, and fallback.
 
-        Args:
-            url: Request URL
-            params: Query parameters
-            method: HTTP method
+        The request flow is:
 
-        Returns:
-            JSON response as dict
+        1. Resolve the absolute URL and return a cached payload when available.
+        2. Execute the HTTP request with rate limiting, circuit breaking, and
+           exponential backoff retries.
+        3. When all retries are exhausted the configured fallback strategies are
+           evaluated sequentially (e.g. ``cache`` → ``partial_retry`` →
+           ``network``). The first strategy that returns data short-circuits the
+           failure and its selection is logged.
+        4. If no fallback succeeds the last exception is enriched with retry
+           metadata and propagated to the caller.
         """
         # Build full URL
         if not url.startswith("http"):
@@ -374,7 +377,7 @@ class UnifiedAPIClient:
 
         # Check cache for GET requests
         cache_key: str | None = None
-        if self.cache and method == "GET" and not data and not json:
+        if self.cache is not None and method == "GET" and not data and not json:
             cache_key = self._cache_key(url, params)
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
@@ -428,6 +431,7 @@ class UnifiedAPIClient:
             on_giveup=_log_giveup,
             factor=self.retry_policy.backoff_factor,
             max_value=self.retry_policy.backoff_max,
+            logger=None,
         )(_perform_request)
 
         # Retry logic
@@ -438,19 +442,23 @@ class UnifiedAPIClient:
         last_error_text: str | None = None
         last_attempt = 0
 
+        def _parse_response(response: requests.Response) -> dict[str, Any]:
+            response.raise_for_status()
+            payload: dict[str, Any] = response.json()
+            if (
+                self.cache is not None
+                and cache_key is not None
+                and method == "GET"
+                and not data
+                and not json
+            ):
+                self.cache[cache_key] = payload
+            return payload
+
         for attempt in range(1, self.retry_policy.total + 1):
             try:
                 response = self.circuit_breaker.call(wrapped_request)
-                response.raise_for_status()
-
-                # Parse JSON
-                data: dict[str, Any] = response.json()
-
-                # Cache result
-                if self.cache and cache_key and method == "GET" and not data and not json:
-                    self.cache[cache_key] = data
-
-                return data
+                return _parse_response(response)
 
             except requests.exceptions.HTTPError as e:
                 last_exc = e
@@ -535,6 +543,21 @@ class UnifiedAPIClient:
                 )
                 time.sleep(wait_time)
 
+            except PartialFailure as e:
+                last_exc = e
+                last_attempt = attempt
+                last_attempt_timestamp = time.time()
+                last_error_text = str(e)
+                logger.error(
+                    "partial_failure_detected",
+                    attempt=attempt,
+                    url=url,
+                    method=method,
+                    params=params,
+                    error=str(e),
+                )
+                break
+
             except Exception as e:
                 last_exc = e
                 logger.error(
@@ -548,6 +571,24 @@ class UnifiedAPIClient:
                 raise
 
         if last_exc:
+            fallback_result: dict[str, Any] | None = None
+            if self.config.fallback_enabled and self.config.fallback_strategies:
+                fallback_result = self._apply_fallbacks(
+                    strategies=self.config.fallback_strategies,
+                    cache_key=cache_key,
+                    last_exc=last_exc,
+                    last_attempt=last_attempt,
+                    last_response=last_response,
+                    last_retry_after=last_retry_after_header,
+                    perform_request=_perform_request,
+                    parse_response=_parse_response,
+                    url=url,
+                    method=method,
+                    params=params,
+                )
+            if fallback_result is not None:
+                return fallback_result
+
             if not hasattr(last_exc, "retry_metadata"):
                 metadata = {
                     "attempt": last_attempt,
@@ -577,6 +618,222 @@ class UnifiedAPIClient:
             )
             raise last_exc
         raise RuntimeError("Request failed with no exception captured")
+
+    def _apply_fallbacks(
+        self,
+        *,
+        strategies: Iterable[str],
+        cache_key: str | None,
+        last_exc: Exception,
+        last_attempt: int,
+        last_response: requests.Response | None,
+        last_retry_after: str | None,
+        perform_request: Callable[[], requests.Response],
+        parse_response: Callable[[requests.Response], dict[str, Any]],
+        url: str,
+        method: str,
+        params: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        """Apply configured fallback strategies sequentially."""
+
+        ordered_strategies = [strategy for strategy in strategies if strategy]
+        if not ordered_strategies:
+            return None
+
+        logger.info(
+            "fallback_sequence_start",
+            strategies=ordered_strategies,
+            url=url,
+            method=method,
+            params=params,
+            last_exception_type=type(last_exc).__name__,
+            attempts=last_attempt,
+            last_status_code=(
+                last_response.status_code if last_response is not None else None
+            ),
+            last_retry_after=last_retry_after,
+        )
+
+        for index, strategy in enumerate(ordered_strategies, start=1):
+            normalized = strategy.strip().lower()
+            try:
+                if normalized == "cache":
+                    result = self._fallback_cache(cache_key)
+                elif normalized in {"partial", "partial_retry"}:
+                    result = self._fallback_partial_retry(
+                        perform_request=perform_request,
+                        parse_response=parse_response,
+                        last_exc=last_exc,
+                    )
+                elif normalized == "network":
+                    result = self._fallback_network_retry(
+                        perform_request=perform_request,
+                        parse_response=parse_response,
+                        last_exc=last_exc,
+                    )
+                elif normalized == "timeout":
+                    result = self._fallback_timeout_retry(
+                        perform_request=perform_request,
+                        parse_response=parse_response,
+                        last_exc=last_exc,
+                    )
+                else:
+                    logger.warning(
+                        "fallback_strategy_unknown",
+                        strategy=strategy,
+                        position=index,
+                    )
+                    continue
+            except Exception as fallback_error:
+                logger.error(
+                    "fallback_strategy_failed",
+                    strategy=normalized,
+                    position=index,
+                    error=str(fallback_error),
+                    exception_type=type(fallback_error).__name__,
+                )
+                continue
+
+            if result is not None:
+                logger.info(
+                    "fallback_strategy_selected",
+                    strategy=normalized,
+                    position=index,
+                    url=url,
+                    method=method,
+                )
+                return result
+
+            logger.debug(
+                "fallback_strategy_noop",
+                strategy=normalized,
+                position=index,
+            )
+
+        logger.warning(
+            "fallback_sequence_exhausted",
+            strategies=ordered_strategies,
+            url=url,
+            method=method,
+            params=params,
+            last_exception_type=type(last_exc).__name__,
+        )
+        return None
+
+    def _fallback_cache(self, cache_key: str | None) -> dict[str, Any] | None:
+        """Return cached payload as a fallback when available."""
+
+        if self.cache is None or cache_key is None:
+            return None
+
+        try:
+            cached_value: dict[str, Any] = self.cache[cache_key]
+        except KeyError:
+            logger.debug("fallback_cache_miss", cache_key=cache_key)
+            return None
+
+        logger.debug("fallback_cache_hit", cache_key=cache_key)
+        return cached_value
+
+    def _fallback_partial_retry(
+        self,
+        *,
+        perform_request: Callable[[], requests.Response],
+        parse_response: Callable[[requests.Response], dict[str, Any]],
+        last_exc: Exception,
+    ) -> dict[str, Any] | None:
+        """Retry requests for partial failures up to ``partial_retry_max`` times."""
+
+        if not isinstance(last_exc, PartialFailure):
+            return None
+
+        max_attempts = max(0, self.config.partial_retry_max)
+        if max_attempts == 0:
+            logger.debug("fallback_partial_retry_disabled")
+            return None
+
+        errors: list[str] = []
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = self.circuit_breaker.call(perform_request)
+                return parse_response(response)
+            except PartialFailure as exc:
+                errors.append(str(exc))
+                logger.warning(
+                    "fallback_partial_retry_retrying",
+                    attempt=attempt,
+                    max_attempts=max_attempts,
+                    error=str(exc),
+                )
+            except requests.exceptions.RequestException as exc:
+                errors.append(str(exc))
+                logger.warning(
+                    "fallback_partial_retry_request_exception",
+                    attempt=attempt,
+                    max_attempts=max_attempts,
+                    error=str(exc),
+                    exception_type=type(exc).__name__,
+                )
+
+        if errors:
+            logger.warning(
+                "fallback_partial_retry_exhausted",
+                attempts=max_attempts,
+                errors=errors,
+            )
+        return None
+
+    def _fallback_network_retry(
+        self,
+        *,
+        perform_request: Callable[[], requests.Response],
+        parse_response: Callable[[requests.Response], dict[str, Any]],
+        last_exc: Exception,
+    ) -> dict[str, Any] | None:
+        """Attempt one more direct network request after retry exhaustion."""
+
+        if not isinstance(last_exc, requests.exceptions.RequestException):
+            return None
+
+        if isinstance(last_exc, requests.exceptions.HTTPError):
+            response = getattr(last_exc, "response", None)
+            if response is not None:
+                status_code = response.status_code
+                if 400 <= status_code < 500 and status_code != 429:
+                    logger.debug(
+                        "fallback_network_skip_http_error",
+                        status_code=status_code,
+                    )
+                    return None
+
+        try:
+            response = self.circuit_breaker.call(perform_request)
+            return parse_response(response)
+        except requests.exceptions.RequestException as exc:
+            logger.warning(
+                "fallback_network_retry_failed",
+                error=str(exc),
+                exception_type=type(exc).__name__,
+            )
+        return None
+
+    def _fallback_timeout_retry(
+        self,
+        *,
+        perform_request: Callable[[], requests.Response],
+        parse_response: Callable[[requests.Response], dict[str, Any]],
+        last_exc: Exception,
+    ) -> dict[str, Any] | None:
+        """Retry once more when the final error was a timeout."""
+
+        if not isinstance(last_exc, requests.exceptions.Timeout):
+            return None
+
+        return self._fallback_network_retry(
+            perform_request=perform_request,
+            parse_response=parse_response,
+            last_exc=last_exc,
+        )
 
     @staticmethod
     def _retry_after_seconds(response: requests.Response | None) -> float | None:

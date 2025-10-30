@@ -11,14 +11,38 @@ import pytest
 import requests
 from requests.structures import CaseInsensitiveDict
 
+from bioetl.core import api_client
 from bioetl.core.api_client import (
     APIConfig,
     CircuitBreaker,
     CircuitBreakerOpenError,
+    PartialFailure,
     RetryPolicy,
     TokenBucketLimiter,
     UnifiedAPIClient,
 )
+
+
+class _StubLogger:
+    """Collect structured log events during tests."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str, dict[str, Any]]] = []
+
+    def bind(self, **_: Any) -> "_StubLogger":  # pragma: no cover - API parity
+        return self
+
+    def debug(self, event: str, **kwargs: Any) -> None:
+        self.events.append(("debug", event, kwargs))
+
+    def info(self, event: str, **kwargs: Any) -> None:
+        self.events.append(("info", event, kwargs))
+
+    def warning(self, event: str, **kwargs: Any) -> None:
+        self.events.append(("warning", event, kwargs))
+
+    def error(self, event: str, **kwargs: Any) -> None:
+        self.events.append(("error", event, kwargs))
 
 
 def test_circuit_breaker():
@@ -346,7 +370,6 @@ def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(client.session, "request", fake_request)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
-    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
 
     data = client.request_json("/resource")
 
@@ -377,7 +400,6 @@ def test_request_json_timeout_metadata_on_exhaustion(
 
     monkeypatch.setattr(client.session, "request", fake_request)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
-    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
 
     with pytest.raises(requests.exceptions.Timeout) as excinfo:
         client.request_json("/resource")
@@ -441,7 +463,6 @@ def test_request_json_connection_error_metadata(
 
     monkeypatch.setattr(client.session, "request", fake_request)
     monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
-    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
 
     with pytest.raises(requests.exceptions.ConnectionError) as excinfo:
         client.request_json("/resource")
@@ -528,6 +549,92 @@ def test_request_json_base_url_join(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert len(observed_urls) == 2
     assert observed_urls[0] == observed_urls[1]
+
+
+def test_request_json_fallback_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fallback should return cached payload when cache strategy is configured."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com/api",
+        cache_enabled=True,
+        cache_ttl=3600,
+        cache_maxsize=8,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=1,
+        retry_backoff_factor=1.0,
+        fallback_enabled=True,
+        fallback_strategies=["cache"],
+    )
+
+    client = UnifiedAPIClient(config)
+    stub_logger = _StubLogger()
+    monkeypatch.setattr(api_client, "logger", stub_logger)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    def fake_request(**kwargs: Any) -> requests.Response:
+        assert client.cache is not None
+        cache_key = client._cache_key(kwargs["url"], kwargs.get("params"))
+        client.cache[cache_key] = {"result": "cached"}
+        return _build_response(500, {"error": "boom"})
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+
+    data = client.request_json("/resource")
+
+    assert data == {"result": "cached"}
+    summary = [
+        (level, event, {k: v for k, v in payload.items() if k in {"strategy", "position", "url", "method"}})
+        for level, event, payload in stub_logger.events
+    ]
+    assert ("info", "fallback_strategy_selected", {
+        "strategy": "cache",
+        "position": 1,
+        "url": "https://api.example.com/api/resource",
+        "method": "GET",
+    }) in summary
+
+
+def test_request_json_fallback_partial_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Partial failure should trigger partial retry fallback when configured."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com/api",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=1,
+        retry_backoff_factor=1.0,
+        partial_retry_max=2,
+        fallback_enabled=True,
+        fallback_strategies=["partial_retry"],
+    )
+
+    client = UnifiedAPIClient(config)
+    stub_logger = _StubLogger()
+    monkeypatch.setattr(api_client, "logger", stub_logger)
+
+    outcomes: list[Any] = [PartialFailure("partial"), _build_response(200, {"result": "ok"})]
+
+    def fake_execute(*_: Any, **__: Any) -> requests.Response:
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+
+    data = client.request_json("/resource")
+
+    assert data == {"result": "ok"}
+    assert any(
+        event == "fallback_strategy_selected" and payload.get("strategy") == "partial_retry"
+        for _, event, payload in stub_logger.events
+    )
 
 
 if __name__ == "__main__":
