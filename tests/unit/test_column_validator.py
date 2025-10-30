@@ -4,7 +4,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import bioetl.utils.validation as column_validator_module
 from bioetl.utils.validation import ColumnComparisonResult, ColumnValidator
 
 
@@ -108,12 +107,12 @@ def test_compare_columns_detects_duplicate_columns(monkeypatch: pytest.MonkeyPat
     validator = ColumnValidator()
 
     monkeypatch.setattr(
-        column_validator_module.SchemaRegistry,
+        "bioetl.schemas.registry.SchemaRegistry",
         "get",
         lambda *args, **kwargs: object(),
     )
     monkeypatch.setattr(
-        column_validator_module.ColumnValidator,
+        ColumnValidator,
         "_get_expected_columns",
         lambda self, schema: ["col_a", "col_b"],
     )

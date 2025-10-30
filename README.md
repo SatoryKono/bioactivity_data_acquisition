@@ -1,4 +1,5 @@
 # BioETL
+
 Unified ETL framework for bioactivity data extraction from ChEMBL and
 external sources with full determinism and reproducibility.
 
@@ -13,11 +14,13 @@ pip install -e ".[dev]"
 # Install pre-commit hooks
 
 pre-commit install
- 
+
+```
+
 ### Install test dependencies only
+
 ```bash
 pip install -r requirements.txt
-
 ```
 
 > **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
@@ -42,6 +45,7 @@ UnifiedLogger.get('test').info('Hello World')"
 ```
 
 ## Environment variables
+
 Все обязательные переменные перечислены в файле [`.env.example`](.env.example) с
 комментариями по формату значений. Скопируйте его и заполните реальные данные:
 
@@ -54,14 +58,13 @@ ${SHELL:-bash} -lc 'set -a; source .env; set +a'
 CI/CD можно использовать аналогичный подход (например, `python -m dotenv load`
 или встроенные менеджеры секретов) до вызова CLI.
 
-```
 | Переменная | Назначение | Обязательность |
 | --- | --- | --- |
 | `PUBMED_TOOL` | Значение параметра `tool` для обращения к NCBI E-utilities. | Да — требуется документному пайплайну. |
 | `PUBMED_EMAIL` | Контактный e-mail для PubMed, который указывается в запросах. | Да — требуется документному пайплайну. |
-| `PUBMED_API_KEY` | Повышает PubMed rate limit с 3 до 10 запросов/сек. | Необязательная, но рекомендована для production. |
+| `PUBMED_API_KEY` | Повышает PubMed rate limit с 3 до 10<br>запросов/сек. | Необязательная, но рекомендована для production. |
 | `CROSSREF_MAILTO` | E-mail для polite pool Crossref API. | Да — требуется документному пайплайну. |
-| `SEMANTIC_SCHOLAR_API_KEY` | Токен Semantic Scholar Graph API. | Необязательная локально, обязательна для production. |
+| `SEMANTIC_SCHOLAR_API_KEY` | Токен Semantic Scholar Graph API. | Необязательная локально,<br>обязательна для production. |
 | `IUPHAR_API_KEY` | Ключ доступа к Guide to Pharmacology API. | Да — требуется target-пайплайну. |
 
 Если `IUPHAR_API_KEY` не задан, загрузчик конфигурации завершится ошибкой,

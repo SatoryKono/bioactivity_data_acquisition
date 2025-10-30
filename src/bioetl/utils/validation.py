@@ -6,26 +6,20 @@ import json
 from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from bioetl.core.logger import UnifiedLogger
 from bioetl.pandera_pandas import pa
 from bioetl.schemas.registry import SchemaRegistry
+from bioetl.utils.column_constants import (
+    DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES,
+    normalise_ignore_suffixes,
+)
 from bioetl.utils.dataframe import resolve_schema_column_order
 
-DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES: tuple[str, ...] = (
-    "_quality_report.csv",
-    "_correlation_report.csv",
-    "_qc.csv",
-    "_metadata.csv",
-    "_qc_summary.json",
-    "qc_missing_mappings.csv",
-    "qc_enrichment_metrics.csv",
-    "_summary_statistics.csv",
-    "_dataset_metrics.csv",
-)
+if TYPE_CHECKING:
+    from bioetl.core.logger import UnifiedLogger
 
 
 def _summarize_schema_errors(failure_cases: pd.DataFrame | None) -> list[dict[str, Any]]:
@@ -67,19 +61,6 @@ def _summarize_schema_errors(failure_cases: pd.DataFrame | None) -> list[dict[st
         )
 
     return issues
-
-
-def normalise_ignore_suffixes(values: Iterable[str]) -> tuple[str, ...]:
-    """Normalise suffix values by trimming, lower-casing and removing duplicates."""
-
-    normalised: list[str] = []
-    for value in values:
-        candidate = str(value).strip().lower()
-        if not candidate:
-            continue
-        if candidate not in normalised:
-            normalised.append(candidate)
-    return tuple(normalised)
 
 
 class ColumnComparisonResult:
@@ -142,6 +123,8 @@ class ColumnValidator:
     """Валидатор колонок для сравнения с требованиями."""
 
     def __init__(self, skip_suffixes: Iterable[str] | None = None):
+        from bioetl.core.logger import UnifiedLogger
+
         self.logger = UnifiedLogger.get(__name__)
         if skip_suffixes is None:
             skip_suffixes = DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES
@@ -509,8 +492,6 @@ class ColumnValidator:
 
 __all__ = [
     "_summarize_schema_errors",
-    "DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES",
-    "normalise_ignore_suffixes",
     "ColumnComparisonResult",
     "ColumnValidator",
 ]
