@@ -150,6 +150,16 @@ pre-commit run --all-files
 
 Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
 
+### Continuous Integration setup
+
+CI workflows rely on the same configuration loader that powers the CLI. To
+customise logging or other runtime options in GitHub Actions, use
+double-underscore separated environment variables with the `BIOETL__` prefix.
+For example, the default workflow sets `BIOETL__LOGGING__LEVEL=DEBUG` and
+`BIOETL__LOGGING__FILE__ENABLED=true` before running `pytest`. The loader also
+accepts the legacy `BIOACTIVITY__` prefix to keep existing secrets working
+while pipelines migrate to the new namespace.
+
 ### Extract-stage conventions
 
 * Всегда используйте `PipelineBase.read_input_table` для чтения исходных CSV.
