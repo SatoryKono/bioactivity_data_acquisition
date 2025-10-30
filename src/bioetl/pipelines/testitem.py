@@ -306,6 +306,27 @@ class TestItemPipeline(PipelineBase):
             if "lipinski_ro5_pass" not in props and "ro3_pass" in props:
                 flattened["lipinski_ro5_pass"] = props.get("ro3_pass")
 
+            # Normalize common truthy/falsey representations to booleans
+            def _to_bool(value: Any) -> Any:
+                if value is None:
+                    return None
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, (int, float)):
+                    if pd.isna(value):
+                        return None
+                    return bool(int(value))
+                if isinstance(value, str):
+                    v = value.strip().lower()
+                    if v in {"y", "yes", "true", "t", "1"}:
+                        return True
+                    if v in {"n", "no", "false", "f", "0"}:
+                        return False
+                return value
+
+            flattened["ro3_pass"] = _to_bool(flattened.get("ro3_pass"))
+            flattened["lipinski_ro5_pass"] = _to_bool(flattened.get("lipinski_ro5_pass"))
+
             if flattened["rtb"] is None and "num_rotatable_bonds" in props:
                 flattened["rtb"] = props.get("num_rotatable_bonds")
 
