@@ -543,6 +543,15 @@ class UnifiedOutputWriter:
             if metadata_updates:
                 metadata = replace(metadata, **metadata_updates)
 
+        metadata_defaults: dict[str, Any] = {}
+        if metadata.na_policy is None:
+            metadata_defaults["na_policy"] = "allow"
+        if metadata.precision_policy is None and float_format is not None:
+            metadata_defaults["precision_policy"] = float_format
+
+        if metadata_defaults:
+            metadata = replace(metadata, **metadata_defaults)
+
         logger.info(
             "writing_dataset",
             path=str(dataset_path),
