@@ -22,7 +22,7 @@ __all__ = (
     "schema_registry",
 )
 
-_SCHEMA_EXPORTS: Dict[str, str] = {
+_SCHEMA_EXPORTS: dict[str, str] = {
     "BaseSchema": "bioetl.schemas.base",
     "ActivitySchema": "bioetl.schemas.activity",
     "DocumentRawSchema": "bioetl.schemas.document",

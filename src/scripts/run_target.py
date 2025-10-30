@@ -4,15 +4,21 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from types import MethodType
+from typing import Any, cast
+
+import pandas as pd
 import typer
 from click import get_current_context
 from click.core import ParameterSource
 
+from bioetl.cli.limits import apply_sample_limit
 from bioetl.config.loader import load_config, parse_cli_overrides
 from bioetl.core.logger import UnifiedLogger
-from bioetl.cli.limits import apply_sample_limit
+from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.target import TargetPipeline
 
 DEFAULT_CONFIG = Path("configs/pipelines/target.yaml")
@@ -239,6 +245,26 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         typer.echo(f"Stages: UniProt={with_uniprot}, IUPHAR={with_iuphar}")
         return
 
+    if sample is not None:
+        original_extract = cast(Callable[..., pd.DataFrame], pipeline.extract)
+
+        def limited_extract(
+            self: PipelineBase, *args: Any, **kwargs: Any
+        ) -> pd.DataFrame:
+            df = original_extract(*args, **kwargs)
+            logger.info(
+                "applying_sample_limit",
+                limit=sample,
+                original_rows=len(df),
+            )
+            return df.head(sample)
+
+        limited_method = cast(
+            Callable[..., pd.DataFrame],
+            MethodType(limited_extract, pipeline),
+        )
+        pipeline.extract = limited_method
+
     if input_file is None:
         input_file = DEFAULT_INPUT
         pipeline.runtime_options["input_file"] = str(input_file)
@@ -277,7 +303,11 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     if artifacts.additional_datasets:
         typer.echo("Additional datasets:")
         for name, path in artifacts.additional_datasets.items():
-            typer.echo(f"  - {name}: {path}")
+            if isinstance(path, dict):
+                for fmt, fmt_path in sorted(path.items()):
+                    typer.echo(f"  - {name} ({fmt}): {fmt_path}")
+            else:
+                typer.echo(f"  - {name}: {path}")
 
     logger.info(
         "pipeline_run_completed",

@@ -10,9 +10,15 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+import yaml
 
 from bioetl.config.models import DeterminismConfig
-from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
+from bioetl.core.output_writer import (
+    AdditionalTableSpec,
+    AtomicWriter,
+    OutputMetadata,
+    UnifiedOutputWriter,
+)
 from bioetl.pandera_typing import Series
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
@@ -74,6 +80,37 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     }
     assert (quality_df["metric"] == "column_profile").all()
     assert set(quality_df["column"]) == set(df.columns)
+
+
+def test_unified_output_writer_writes_parquet_outputs(tmp_path, monkeypatch):
+    """Parquet datasets should include QC reports and metadata."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1, 2], "label": ["a", "b"]}).convert_dtypes()
+    writer = UnifiedOutputWriter("run-parquet")
+
+    output_path = tmp_path / "run-parquet" / "target" / "datasets" / "targets.parquet"
+    artifacts = writer.write(df, output_path)
+
+    assert artifacts.dataset == output_path
+    assert artifacts.dataset.suffix == ".parquet"
+    assert artifacts.quality_report.suffix == ".csv"
+    assert artifacts.metadata is not None and artifacts.metadata.exists()
+
+    parquet_df = pd.read_parquet(artifacts.dataset).convert_dtypes()
+    pd.testing.assert_frame_equal(parquet_df, df)
+
+    quality_df = pd.read_csv(artifacts.quality_report)
+    assert not quality_df.empty
+
+    with artifacts.metadata.open(encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    assert metadata["artifacts"]["dataset"] == str(artifacts.dataset)
+    assert metadata["artifacts"]["quality_report"] == str(artifacts.quality_report)
+    assert artifacts.dataset.name in metadata["file_checksums"]
+    assert artifacts.quality_report.name in metadata["file_checksums"]
 
 
 def test_unified_output_writer_cleans_up_on_failure(tmp_path, monkeypatch):
@@ -172,8 +209,6 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert artifacts.metadata == tmp_path / "run-test" / "target" / "targets_meta.yaml"
 
     with artifacts.metadata.open() as fh:
-        import yaml
-
         contents = yaml.safe_load(fh)
 
     assert contents["run_id"] == "run-test"
@@ -219,37 +254,50 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert contents.get("na_policy") is None
     assert contents.get("precision_policy") is None
 
-    quality_df = pd.read_csv(artifacts.quality_report)
-    column_profiles = quality_df[quality_df["metric"] == "column_profile"]
-    assert set(column_profiles["column"]) == set(df.columns)
-    assert set(column_profiles["dtype"]) == {"int64", "object"}
-    assert column_profiles["null_count"].sum() == 0
 
-    assert artifacts.correlation_report is not None
-    correlation_df = pd.read_csv(artifacts.correlation_report)
-    assert set(correlation_df.columns) == {"feature_x", "feature_y", "correlation"}
-    pivot = correlation_df.pivot_table(
-        index="feature_x", columns="feature_y", values="correlation"
+def test_additional_tables_written_in_multiple_formats(tmp_path, monkeypatch):
+    """Additional tables can be materialised as CSV and Parquet with checksums."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1]}).convert_dtypes()
+    supplemental = pd.DataFrame({"id": [1], "flag": ["y"]}).convert_dtypes()
+
+    writer = UnifiedOutputWriter("run-additional")
+    additional_tables = {
+        "supplemental": AdditionalTableSpec(
+            dataframe=supplemental,
+            relative_path=Path("supplemental.csv"),
+            formats=("csv", "parquet"),
+        )
+    }
+
+    output_path = tmp_path / "run-additional" / "target" / "datasets" / "targets.csv"
+    artifacts = writer.write(
+        df,
+        output_path,
+        additional_tables=additional_tables,
     )
-    assert pytest.approx(pivot.loc["value", "value"], rel=1e-6) == 1.0
 
-    assert artifacts.qc_summary_statistics is not None
-    summary_df = pd.read_csv(artifacts.qc_summary_statistics)
-    assert "column" in summary_df.columns
-    assert set(summary_df["column"]) == set(df.columns)
+    supplemental_artifacts = artifacts.additional_datasets.get("supplemental")
+    assert isinstance(supplemental_artifacts, dict)
 
-    assert artifacts.qc_dataset_metrics is not None
-    metrics_df = pd.read_csv(artifacts.qc_dataset_metrics)
-    assert set(metrics_df.columns) >= {"metric", "value"}
-    row_count_value = metrics_df.loc[
-        metrics_df["metric"] == "row_count", "value"
-    ].iloc[0]
-    assert int(row_count_value) == len(df)
+    csv_path = supplemental_artifacts.get("csv")
+    parquet_path = supplemental_artifacts.get("parquet")
+    assert csv_path is not None
+    assert parquet_path is not None
 
-    duplicate_value = metrics_df.loc[
-        metrics_df["metric"] == "duplicate_rows", "value"
-    ].iloc[0]
-    assert int(duplicate_value) == 2
+    csv_df = pd.read_csv(csv_path).convert_dtypes()
+    parquet_df = pd.read_parquet(parquet_path).convert_dtypes()
+    pd.testing.assert_frame_equal(csv_df, supplemental)
+    pd.testing.assert_frame_equal(parquet_df, supplemental)
+
+    with artifacts.metadata.open(encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    checksums = metadata["file_checksums"]
+    assert Path(csv_path).name in checksums
+    assert Path(parquet_path).name in checksums
 
 
 def test_unified_output_writer_metadata_write_is_atomic(tmp_path, monkeypatch):

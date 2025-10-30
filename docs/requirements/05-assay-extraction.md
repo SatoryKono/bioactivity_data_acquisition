@@ -7,6 +7,7 @@
 ## Архитектура
 
 ```text
+
 AssayPipeline
 ├── Extract Stage
 │   ├── ChEMBLClient (batch_size=25, URL limit)
@@ -31,7 +32,7 @@ AssayPipeline
     ├── CanonicalSerialization (hash generation)
     └── MetadataBuilder (full provenance)
 
-```
+```text
 
 ## 1. Входные данные
 
@@ -61,7 +62,7 @@ class AssayInputSchema(pa.DataFrameModel):
         strict = True
         coerce = True
 
-```
+```text
 
 ### 1.2 Конфигурация
 
@@ -94,6 +95,7 @@ class AssayInputSchema(pa.DataFrameModel):
 **Run-level метаданные:**
 
 ```python
+
 run_id: str = uuid4().hex[:16]  # UUID для идентификации запуска
 
 git_commit: str = get_git_commit()  # SHA текущего коммита
@@ -106,7 +108,7 @@ chembl_release: str = None  # Фиксируется один раз в нача
 
 chembl_base_url: str  # URL для воспроизводимости
 
-```
+```text
 
 **КРИТИЧЕСКИ ВАЖНО:**
 
@@ -131,18 +133,20 @@ chembl_base_url: str  # URL для воспроизводимости
 - **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
 
 - **Валидация конфига:**
-  
+
   ```python
+
 if batch_size > 25:
       raise ConfigValidationError(
           "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
       )
 
-  ```
+```text
 
 **Алгоритм:**
 
 ```python
+
 def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
     """Extract assay data with 25-item batching."""
 
@@ -166,6 +170,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
         batch_ids = assay_ids[i:i + BATCH_SIZE]
 
         try:
+
             # Проверка кэша с release-scoping
 
             cached = self._check_cache(batch_ids, self.chembl_release)
@@ -188,11 +193,13 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
                         success_count += 1
                 else:
                     error_count += 1
+
                     # Fallback с расширенными полями
 
                     assay_data = self._create_fallback_record(assay_id)
 
         except CircuitBreakerOpenError:
+
             # Fallback для всего батча
 
             for assay_id in batch_ids:
@@ -217,7 +224,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 
     return extracted_dataframe
 
-```
+```text
 
 ### 2.3 Fallback механизм
 
@@ -234,6 +241,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 **Расширенная запись fallback:**
 
 ```python
+
 def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dict:
     """Create fallback record with extended error metadata."""
 
@@ -256,7 +264,7 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
         **{field: None for field in EXPECTED_FIELDS}
     }
 
-```
+```text
 
 ### 2.4 Развертывание вложенных структур
 
@@ -273,6 +281,7 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
 **Вариант A: Длинный формат (Long Format)** - **РЕКОМЕНДУЕТСЯ**
 
 ```python
+
 def _expand_assay_parameters_long(self, assay_data: dict) -> pd.DataFrame:
     """Expand assay_parameters to long format with param_index."""
 
@@ -319,11 +328,12 @@ df["row_subtype"] = "assay"  # или "param" при explode
 
 df["row_index"] = df.groupby("assay_chembl_id").cumcount()
 
-```
+```text
 
 **Вариант B: Широкий формат с индексацией** (опционально)
 
 ```python
+
 def _expand_assay_parameters_wide(self, assay_data: dict, max_params: int = 5) -> dict:
     """Expand to wide format with deterministic column names."""
 
@@ -336,11 +346,12 @@ def _expand_assay_parameters_wide(self, assay_data: dict, max_params: int = 5) -
         result[f"{prefix}type"] = param.get("type")
         result[f"{prefix}relation"] = param.get("relation")
         result[f"{prefix}value"] = param.get("value")
+
         # ... остальные поля
 
     return result
 
-```
+```text
 
 **Рекомендация:** Использовать **Вариант A (long format)** как основной, с опциональным pivot в wide при необходимости.
 
@@ -355,6 +366,7 @@ def _expand_assay_parameters_wide(self, assay_data: dict, max_params: int = 5) -
 **Корректное решение:**
 
 ```python
+
 def _expand_variant_sequences(self, assay_data: dict) -> pd.DataFrame:
     """Expand variant_sequence(s) to long format."""
 
@@ -393,7 +405,7 @@ def _expand_variant_sequences(self, assay_data: dict) -> pd.DataFrame:
 
     return pd.DataFrame(records)
 
-```
+```text
 
 #### 2.4.3 Assay Classifications
 
@@ -404,6 +416,7 @@ def _expand_variant_sequences(self, assay_data: dict) -> pd.DataFrame:
 **Корректное решение:**
 
 ```python
+
 def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
     """Extract all assay_class_id from classifications."""
 
@@ -420,6 +433,7 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
     try:
         class_data = json.loads(classifications)
         if isinstance(class_data, list):
+
             # Извлечь все class_id
 
             records = []
@@ -436,7 +450,7 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
 
     return pd.DataFrame()
 
-```
+```text
 
 ### 2.5 Обогащение данными (Enrichment)
 
@@ -453,6 +467,7 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
 **Корректное решение с Whitelist:**
 
 ```python
+
 TARGET_ENRICHMENT_WHITELIST = [
     "target_chembl_id",
     "pref_name",
@@ -471,11 +486,13 @@ def _enrich_with_target_data(self, chembl_client, target_ids: list[str]) -> pd.D
 
     for target_id in target_ids:
         try:
+
             # Fetch from API
 
             target_data = chembl_client.fetch_by_target_id(target_id)
 
             if target_data and "error" not in target_data:
+
                 # Extract only whitelisted fields
 
                 enriched_record = {
@@ -492,6 +509,7 @@ def _enrich_with_target_data(self, chembl_client, target_ids: list[str]) -> pd.D
     missing_ids = set(target_ids) - enriched_ids
     if missing_ids:
         logger.warning(f"Missing targets in enrichment: {len(missing_ids)} targets")
+
         # Запись в quality report
 
     return pd.DataFrame(target_records)
@@ -527,7 +545,7 @@ def _merge_target_data(self, assay_df: pd.DataFrame, target_df: pd.DataFrame) ->
 
     return result
 
-```
+```text
 
 **Инвариант G8:** --strict-enrichment + schema check; whitelist-enrichment обязателен; запрет лишних полей при enrichment.
 
@@ -540,6 +558,7 @@ def _merge_target_data(self, assay_df: pd.DataFrame, target_df: pd.DataFrame) ->
 **Whitelist:**
 
 ```python
+
 ASSAY_CLASS_ENRICHMENT_WHITELIST = [
     "assay_class_id",
     "bao_id",  # Maps to assay_class_bao_id in output
@@ -553,7 +572,7 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = [
 
 # Аналогичная логика с whitelist и RI check
 
-```
+```text
 
 ## 3. Нормализация данных (Normalize)
 
@@ -562,6 +581,7 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = [
 **Метод:** `_canonicalize_row_for_hash()` (НОВЫЙ)
 
 ```python
+
 def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     """
     Canonical serialization for deterministic hashing.
@@ -596,11 +616,12 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
 
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 
-```
+```text
 
 ### 3.2 Хеширование
 
 ```python
+
 def _calculate_hashes(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     """Calculate hash_row and hash_business_key."""
 
@@ -618,11 +639,12 @@ def _calculate_hashes(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
 
     return hash_row, hash_bk
 
-```
+```text
 
 ### 3.3 Системные метаданные
 
 ```python
+
 def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
     """Add system metadata fields."""
 
@@ -652,13 +674,14 @@ def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-```
+```text
 
 ### 3.4 Настройки типов данных (Dtypes)
 
 **КРИТИЧЕСКИ:** Использовать nullable dtypes, никаких `object`
 
 ```python
+
 DTYPES_CONFIG = {
     "assay_chembl_id": pd.StringDtype(),
     "target_chembl_id": pd.StringDtype(),
@@ -668,17 +691,19 @@ DTYPES_CONFIG = {
     "assay_param_value": pd.Float64Dtype(),
     "variant_id": pd.Int64Dtype(),
     "index": pd.Int64Dtype(),
+
     # ... все поля с явными nullable dtypes
 
 }
 
-```
+```text
 
 ## 4. Валидация и QC
 
 ### 4.1 Referential Integrity Check
 
 ```python
+
 def _check_referential_integrity(self, df: pd.DataFrame) -> dict:
     """Check referential integrity and report losses."""
 
@@ -720,11 +745,12 @@ def _check_referential_integrity(self, df: pd.DataFrame) -> dict:
         "issues": issues
     }
 
-```
+```text
 
 ### 4.2 QC Profile
 
 ```python
+
 qc_profile = {
     "checks": [
         {
@@ -755,7 +781,7 @@ qc_profile = {
     ]
 }
 
-```
+```text
 
 ## 5. Запись результатов (Load)
 
@@ -764,6 +790,7 @@ qc_profile = {
 **Механизм:** Временный файл в run_id-scoped директории + atomic rename
 
 ```python
+
 def _atomic_write(
     self,
     content: bytes,
@@ -806,7 +833,7 @@ def _atomic_write(
 
     return target_path
 
-```
+```text
 
 ### 5.2 Metadata Builder
 
@@ -846,6 +873,7 @@ qc:
   passed: true
   issues: []
   warnings:
+
     - type: "referential_integrity_loss"
       count: 5
 
@@ -862,7 +890,7 @@ checksums:
   qc: sha256: "def456..."
   quality_report: sha256: "ghi789..."
 
-```
+```text
 
 ## 6. Корреляционный анализ
 
@@ -877,10 +905,11 @@ postprocess:
     enabled: false  # По умолчанию ВЫКЛЮЧЕН
 
     steps:
+
       - name: "correlation_analysis"
         enabled: true  # Включается только явно
 
-```
+```text
 
 **Причина:** Гарантировать бит-в-бит идентичность с/без корреляций практически невозможно из-за non-deterministic алгоритмов.
 
@@ -912,7 +941,7 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
   --fail-on-schema-drift \
   --set qc.severity_threshold=error
 
-```
+```text
 
 **Новые CLI параметры:**
 
@@ -1053,3 +1082,4 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 8. **Atomic writes:** Run-scoped temp dirs, os.replace() для Windows compatibility
 
 Все изменения направлены на обеспечение **детерминизма**, **воспроизводимости** и **полной прослеживаемости** данных.
+

@@ -10,11 +10,13 @@
 
 ### 1.1 Создать структуру каталогов
 
-```
+```text
+
 src/bioetl/{__init__.py, core/, config/, normalizers/, schemas/, pipelines/, cli/}
 configs/{base.yaml, profiles/, pipelines/}
 tests/{unit/, integration/, golden/, fixtures/}
-```
+
+```text
 
 ### 1.2 Создать pyproject.toml
 
@@ -30,13 +32,20 @@ tests/{unit/, integration/, golden/, fixtures/}
 ### 1.4 Промежуточная проверка
 
 ```bash
+
 # Проверка структуры
+
 ls -R src/ configs/ tests/
+
 # Установка зависимостей
+
 pip install -e ".[dev]"
+
 # Pre-commit hooks
+
 pre-commit install && pre-commit run --all-files
-```
+
+```text
 
 ---
 
@@ -75,11 +84,16 @@ pre-commit install && pre-commit run --all-files
 ### 2.5 Промежуточная проверка
 
 ```bash
+
 # Загрузка конфига
+
 python -c "from bioetl.config import load_config; print(load_config('configs/profiles/dev.yaml', {}))"
+
 # Тесты
+
 pytest tests/unit/test_config_loader.py -v
-```
+
+```text
 
 ---
 
@@ -107,16 +121,21 @@ pytest tests/unit/test_config_loader.py -v
 ### 3.3 Промежуточная проверка
 
 ```bash
+
 # Пример использования
+
 python -c "
 from bioetl.core.logger import UnifiedLogger
 UnifiedLogger.setup('development', run_id='test-123')
 log = UnifiedLogger.get('test')
 log.info('test_event', api_key='secret123')
 "
+
 # Должно показать: api_key=***REDACTED***, run_id=test-123
+
 pytest tests/unit/test_logger.py -v
-```
+
+```text
 
 ---
 
@@ -160,16 +179,21 @@ pytest tests/unit/test_logger.py -v
 ### 4.4 Промежуточная проверка
 
 ```bash
+
 # Integration тесты с mock сервером
+
 pytest tests/integration/test_api_client.py -v --log-cli-level=DEBUG
+
 # Проверка cache
+
 python -c "
 from bioetl.core.api_client import UnifiedAPIClient
 client = UnifiedAPIClient(config, cache_dir='data/cache/test')
 resp = client.request_json('https://httpbin.org/get')
 print(resp)
 "
-```
+
+```text
 
 ---
 
@@ -232,15 +256,19 @@ print(resp)
 ### 5.7 Промежуточная проверка
 
 ```bash
+
 pytest tests/unit/test_normalizers.py tests/unit/test_schemas.py -v
+
 # Проверка drift detection
+
 python -c "
 from bioetl.schemas.registry import SchemaRegistry
 from bioetl.schemas.output_schemas import ActivitySchema
 SchemaRegistry.register('activity', '1.0.0', ActivitySchema)
 SchemaRegistry.register('activity', '2.0.0', ActivitySchema)  # Должен fail
 "
-```
+
+```text
 
 ---
 
@@ -294,17 +322,23 @@ SchemaRegistry.register('activity', '2.0.0', ActivitySchema)  # Должен fai
 ### 6.7 Промежуточная проверка
 
 ```bash
+
 pytest tests/unit/test_output_writer.py -v
 pytest tests/golden/test_output_determinism.py -v
+
 # Проверка артефактов
+
 python -c "
 from bioetl.core.output_writer import UnifiedOutputWriter
 writer = UnifiedOutputWriter(config, schema)
 writer.write(df, 'data/output/test/test.csv', metadata)
 ls -la data/output/test/
+
 # Должны быть: test.csv, test_qc.csv, test_meta.yaml
+
 "
-```
+
+```text
 
 ---
 
@@ -338,10 +372,12 @@ ls -la data/output/test/
 ### 7.4 Промежуточная проверка
 
 ```bash
+
 bioetl --help
 bioetl pipeline list
 bioetl pipeline validate assay --config configs/profiles/test.yaml
-```
+
+```text
 
 ---
 
@@ -392,11 +428,15 @@ bioetl pipeline validate assay --config configs/profiles/test.yaml
 ### 8.6 Промежуточная проверка
 
 ```bash
+
 bioetl pipeline run assay --config configs/profiles/test.yaml --sample 100 --verbose
+
 # Проверка выходных данных
+
 cat data/output/assay/assay_*_meta.yaml
 pytest tests/unit/test_assay_pipeline.py tests/integration/test_assay_pipeline.py -v
-```
+
+```text
 
 ---
 
@@ -450,9 +490,11 @@ pytest tests/unit/test_assay_pipeline.py tests/integration/test_assay_pipeline.p
 ### 9.6 Промежуточная проверка
 
 ```bash
+
 bioetl pipeline run activity --config configs/profiles/test.yaml --sample 100
 pytest tests/unit/test_activity_pipeline.py tests/integration/test_activity_retry.py -v
-```
+
+```text
 
 ---
 
@@ -505,11 +547,15 @@ pytest tests/unit/test_activity_pipeline.py tests/integration/test_activity_retr
 ### 10.6 Промежуточная проверка
 
 ```bash
+
 bioetl pipeline run testitem --config configs/profiles/test.yaml --sample 50 --extended
+
 # Проверка correlation report
+
 ls data/output/testitem/*correlation_report*/
 pytest tests/unit/test_testitem_pipeline.py tests/integration/test_testitem_pubchem.py -v
-```
+
+```text
 
 ---
 
@@ -564,11 +610,15 @@ pytest tests/unit/test_testitem_pipeline.py tests/integration/test_testitem_pubc
 ### 11.6 Промежуточная проверка
 
 ```bash
+
 bioetl pipeline run target --config configs/profiles/test.yaml --sample 20
 ls data/output/target/
+
 # Должны быть: targets.csv, target_components.csv, protein_class.csv, xref.csv + meta/qc для каждого
+
 pytest tests/unit/test_target_pipeline.py tests/integration/test_target_multi_source.py -v
-```
+
+```text
 
 ---
 
@@ -627,9 +677,11 @@ pytest tests/unit/test_target_pipeline.py tests/integration/test_target_multi_so
 ### 12.6 Промежуточная проверка
 
 ```bash
+
 bioetl pipeline run document --config configs/profiles/test.yaml --sample 30 --set pipeline.mode=all --extended
 pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adapters.py -v
-```
+
+```text
 
 ---
 
@@ -679,19 +731,26 @@ pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adap
 ### 13.6 Финальная проверка
 
 ```bash
-# Pre-commit hooks
+
+# Pre-commit hooks (continued 1)
+
 pre-commit run --all-files
+
 # Полный тест-набор
 pytest tests/ -v --cov=src/bioetl --cov-report=html --cov-fail-under=85
 # Golden run всех пайплайнов
+
 bioetl pipeline run assay --config configs/profiles/prod.yaml --golden
 bioetl pipeline run activity --config configs/profiles/prod.yaml --golden
 bioetl pipeline run testitem --config configs/profiles/prod.yaml --golden
 bioetl pipeline run target --config configs/profiles/prod.yaml --golden
 bioetl pipeline run document --config configs/profiles/prod.yaml --golden --set pipeline.mode=all
+
 # Проверка checksums
+
 python scripts/verify_golden_checksums.py
-```
+
+```text
 
 ---
 
@@ -733,3 +792,4 @@ python scripts/verify_golden_checksums.py
 - ✓ NA-policy: строки→"", числа→pd.NA
 - ✓ Precision-policy: %.6f для standard_value
 - ✓ Checksums совпадают при повторных прогонах
+

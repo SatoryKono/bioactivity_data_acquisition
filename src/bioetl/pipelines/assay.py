@@ -8,10 +8,10 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import pandas as pd
 import requests
-from urllib.parse import urlencode
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -24,7 +24,6 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.output import finalize_output_dataset
-from bioetl.utils.validation import _summarize_schema_errors
 
 logger = UnifiedLogger.get(__name__)
 
@@ -323,29 +322,84 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
                 "assay_class_description": assay_class.get("assay_class_description"),
             })
 
+        def _variant_value(variant: dict[str, Any], *candidates: str) -> Any:
+            for key in candidates:
+                if key is None:
+                    continue
+                value = variant.get(key)
+                if value is not None:
+                    return value
+            return None
+
         variant_sequences = assay.get("variant_sequence")
+        variant_records: list[dict[str, Any]] = []
+
+        if isinstance(variant_sequences, dict):
+            variant_records = [dict(variant_sequences)]
+        elif isinstance(variant_sequences, Sequence) and not isinstance(
+            variant_sequences, (str, bytes, bytearray)
+        ):
+            variant_records = [dict(variant) for variant in variant_sequences if isinstance(variant, dict)]
+
         variant_sequence_json = None
-        if variant_sequences:
-            if isinstance(variant_sequences, list) and variant_sequences:
-                variant = variant_sequences[0]
-                if isinstance(variant, dict):
-                    record.update({
-                        "variant_id": variant.get("variant_id"),
-                        "variant_base_accession": variant.get("base_accession"),
-                        "variant_mutation": variant.get("mutation"),
-                        "variant_sequence": variant.get("variant_seq"),
-                        "variant_accession_reported": variant.get("accession_reported"),
-                    })
-                variant_sequence_json = json.dumps(variant_sequences, ensure_ascii=False)
-            elif isinstance(variant_sequences, dict):
-                record.update({
-                    "variant_id": variant_sequences.get("variant_id"),
-                    "variant_base_accession": variant_sequences.get("base_accession"),
-                    "variant_mutation": variant_sequences.get("mutation"),
-                    "variant_sequence": variant_sequences.get("variant_seq"),
-                    "variant_accession_reported": variant_sequences.get("accession_reported"),
-                })
-                variant_sequence_json = json.dumps([variant_sequences], ensure_ascii=False)
+        if variant_records:
+            primary_variant = variant_records[0]
+            record.update(
+                {
+                    "variant_id": primary_variant.get("variant_id"),
+                    "variant_base_accession": _variant_value(
+                        primary_variant,
+                        "accession",
+                        "base_accession",
+                    ),
+                    "variant_mutation": _variant_value(primary_variant, "mutation"),
+                    "variant_sequence": _variant_value(
+                        primary_variant,
+                        "sequence",
+                        "variant_seq",
+                    ),
+                    "variant_accession_reported": _variant_value(
+                        primary_variant,
+                        "accession",
+                        "accession_reported",
+                    ),
+                }
+            )
+
+            try:
+                variant_sequence_json = json.dumps(
+                    variant_records,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            except (TypeError, ValueError):
+                try:
+                    sanitized_variants: list[dict[str, Any]] = []
+                    for variant in variant_records:
+                        sanitized_variants.append(
+                            {
+                                key: variant.get(key)
+                                for key in (
+                                    "variant_id",
+                                    "accession",
+                                    "base_accession",
+                                    "sequence",
+                                    "variant_seq",
+                                    "mutation",
+                                    "tax_id",
+                                    "version",
+                                    "accession_reported",
+                                )
+                                if key in variant
+                            }
+                        )
+                    variant_sequence_json = json.dumps(
+                        sanitized_variants,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                except (TypeError, ValueError):
+                    variant_sequence_json = None
 
         record["variant_sequence_json"] = variant_sequence_json
         record["source_system"] = "chembl"
@@ -1007,45 +1061,31 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
         # point of validation.
         coerce_nullable_int(df, _NULLABLE_INT_COLUMNS)
 
-        schema_issues: list[dict[str, Any]] = []
+        def _assay_error_adapter(
+            issues: list[dict[str, Any]],
+            exc: Exception,
+            should_fail: bool,
+        ) -> Exception | None:
+            if not should_fail:
+                return None
 
-        def _handle_schema_failure(exc: Exception, _: bool) -> None:
-            nonlocal schema_issues
+            if not issues:
+                return ValueError("Schema validation failed")
 
-            failure_cases = getattr(exc, "failure_cases", None)
-            if isinstance(failure_cases, pd.DataFrame):
-                schema_issues = _summarize_schema_errors(failure_cases)
-            else:
-                schema_issues = []
-
-            for issue in schema_issues:
-                self.record_validation_issue(issue)
-                logger.error(
-                    "schema_validation_error",
-                    column=issue.get("column"),
-                    check=issue.get("check"),
-                    count=issue.get("count"),
-                    severity=issue.get("severity"),
-                )
-
-        try:
-            validated_df = self._validate_with_schema(
-                df,
-                AssaySchema,
-                dataset_name="assays",
-                severity="error",
-                metric_name="schema.validation",
-                failure_handler=_handle_schema_failure,
-            )
-        except Exception as exc:
             summary = "; ".join(
                 f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
-                for issue in schema_issues
+                for issue in issues
             )
-            raise ValueError(f"Schema validation failed: {summary}") from exc
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("schema_validation_unexpected_error", error=str(exc))
-            raise
+            return ValueError(f"Schema validation failed: {summary}")
+
+        validated_df = self.run_schema_validation(
+            df,
+            AssaySchema,
+            dataset_name="assays",
+            severity="error",
+            metric_name="schema.validation",
+            error_adapter=_assay_error_adapter,
+        )
 
         output_order = resolve_schema_column_order(AssaySchema)
         if output_order:

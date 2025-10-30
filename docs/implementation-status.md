@@ -11,6 +11,7 @@
 ### Этап 1: Скелет проекта и зависимости ✅
 
 **Реализовано:**
+
 - Структура каталогов (`src/bioetl/`, `configs/`, `tests/`)
 - `pyproject.toml` с зависимостями и dev tools
 - `.pre-commit-config.yaml` (ruff, mypy, pre-commit hooks)
@@ -22,6 +23,7 @@
 ### Этап 2: Система конфигурации ✅
 
 **Реализовано:**
+
 - `src/bioetl/config/models.py`: Pydantic модели
   - `PipelineConfig`, `HttpConfig`, `CacheConfig`, `PathConfig`
   - `DeterminismConfig`, `QCConfig`, `PostprocessConfig`
@@ -40,6 +42,7 @@
 ### Этап 3: UnifiedLogger ✅
 
 **Реализовано:**
+
 - `src/bioetl/core/logger.py`:
   - structlog integration с UTC timestamps
   - `SecurityProcessor` для редакции секретов
@@ -54,6 +57,7 @@
 ### Этап 4: UnifiedAPIClient ✅
 
 **Реализовано:**
+
 - `src/bioetl/core/api_client.py`:
   - `CircuitBreaker`: state machine (closed, half-open, open)
   - `TokenBucketLimiter`: rate limiting с jitter (±10%)
@@ -72,6 +76,7 @@
 ### Этап 5: Нормализаторы и Schema Registry ✅
 
 **Реализовано:**
+
 - `src/bioetl/normalizers/base.py`: `BaseNormalizer` (ABC)
 - `src/bioetl/normalizers/string.py`: `StringNormalizer`
   - strip, Unicode NFC, whitespace normalization
@@ -85,6 +90,7 @@
 - Функциональность протестирована вручную
 
 **Не реализовано:**
+
 - NumericNormalizer, DateTimeNormalizer, BooleanNormalizer
 - Полный набор валидации для identifier patterns
 
@@ -93,6 +99,7 @@
 ### Этап 5 (дополнение): Schema Registry ✅
 
 **Реализовано:**
+
 - `src/bioetl/schemas/base.py`: `BaseSchema` (base class для Pandera)
 - `src/bioetl/schemas/document.py`:
   - `ChEMBLDocumentSchema`, `PubMedDocumentSchema`
@@ -104,6 +111,7 @@
 - Функциональность протестирована
 
 **Не реализовано:**
+
 - Полный набор схем для всех сущностей (Target, Assay, Activity, TestItem)
 - Column order enforcement
 - Schema drift detection в runtime
@@ -113,6 +121,7 @@
 ## Зависимости
 
 Все зависимости установлены и работают:
+
 - pandas, pandera, requests
 - structlog, typer, pydantic, pyyaml
 - cachetools
@@ -120,7 +129,8 @@
 
 ## Структура проекта
 
-```
+```text
+
 src/bioetl/
   ├── __init__.py
   ├── core/
@@ -160,11 +170,13 @@ tests/
   │   └── test_api_client.py ✅
   ├── integration/ (пусто)
   └── golden/ (пусто)
-```
+
+```text
 
 ## Завершенные компоненты
 
 ### UnifiedOutputWriter ✅
+
 - Атомарная запись через `os.replace()` в run-scoped temp directories
 - Quality report generation (null counts, uniqueness, dtypes)
 - Metadata generation (YAML с checksums)
@@ -172,6 +184,7 @@ tests/
 - Функциональность протестирована
 
 ### Pipeline Base и CLI ✅
+
 - `PipelineBase` abstract class с lifecycle методов
 - Typer CLI с командой `list`
 - Контекстное логирование через run_id
@@ -180,16 +193,19 @@ tests/
 ## Следующие шаги
 
 ### Приоритет 1: Первый пайплайн
+
 - Реализовать конкретный пайплайн (Assay или Activity)
 - Подключить к UnifiedAPIClient
 - Интеграция с нормализаторами и схемами
 
 ### Приоритет 2: Интеграционные тесты
+
 - Mock HTTP серверы для API
 - End-to-end тесты пайплайнов
 - Golden test fixtures
 
 ### Приоритет 3: Полный CLI
+
 - Команды run, validate для пайплайнов
 - Флаги --config, --extended, --verbose
 
@@ -210,17 +226,20 @@ tests/
 ## Технические детали
 
 ### Детерминизм
+
 - ✅ UTC timestamps везде
 - ⏳ Canonical sorting (в output writer)
 - ⏳ NA-policy (в output writer)
 - ⏳ Precision-policy (в output writer)
 
 ### Безопасность
+
 - ✅ Secret redaction в logger
 - ✅ ContextVar isolation
 - ✅ Fail-fast на 4xx ошибках (кроме 429)
 
 ### Производительность
+
 - ✅ Rate limiting с jitter
 - ✅ TTL кэш
 - ✅ Circuit breaker для защиты
@@ -228,31 +247,42 @@ tests/
 ## Команды для проверки
 
 ```bash
+
 # Установка зависимостей
+
 pip install -e ".[dev]"
 
 # Запуск тестов
+
 pytest tests/unit/ -v
 
 # Проверка линтера
+
 ruff check src/
 
 # Проверка типов
+
 mypy src/
 
 # Проверка config loader
+
 python -c "from bioetl.config import load_config; print(load_config('configs/profiles/dev.yaml'))"
 
 # Проверка logger
+
 python -c "from bioetl.core.logger import UnifiedLogger; UnifiedLogger.setup('development', 'test'); UnifiedLogger.get('test').info('Hello')"
 
 # Проверка нормализаторов
+
 python -c "from bioetl.normalizers import registry; print(registry.normalize('string', '  test  '))"
 
 # Проверка api client
+
 python -c "from bioetl.core.api_client import UnifiedAPIClient, APIConfig; config = APIConfig(name='test', base_url='https://api.github.com'); client = UnifiedAPIClient(config); print(client.request_json('/zen'))"
-```
+
+```text
 
 ## Заключение
 
 Базовая инфраструктура полностью готова и протестирована. Основные компоненты (logger, config, API client, normalizers) работают корректно. Следующий шаг - реализация Pandera схем и Schema Registry для валидации данных.
+

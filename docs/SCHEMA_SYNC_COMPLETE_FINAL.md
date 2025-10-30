@@ -14,6 +14,7 @@
 **Статус:** Полностью соответствует требованиям
 
 **Реализовано:**
+
 - Добавлен метод `_fetch_assay_data()` для ChEMBL API extraction
 - Извлечение всех 55+ полей из `/assay.json` endpoint
 - Обработка nested fields: `assay_class`, `variant_sequences`
@@ -22,6 +23,7 @@
 - Корректный порядок колонок согласно AssaySchema.Config.column_order
 
 **Измененные файлы:**
+
 - `src/bioetl/pipelines/assay.py` - реализован ChEMBL API client
 - `src/bioetl/schemas/assay.py` - схема уже содержала все необходимые поля
 
@@ -36,12 +38,14 @@
 **Реализовано:**
 1. Добавлены 6 строк в `data/input/activity.csv` (строки 6-11)
 2. Исправлена обработка CSV в `src/bioetl/pipelines/activity.py`:
+
    - Mapping `activity_chembl_id` → `activity_id`
    - Добавлены все недостающие IO_SCHEMAS колонки
    - Установлены значения по умолчанию для отсутствующих полей
    - Правильная обработка boolean и numeric полей
 
 **Измененные файлы:**
+
 - `data/input/activity.csv` - добавлены 6 строк данных
 - `src/bioetl/pipelines/activity.py` - исправлена обработка CSV
 
@@ -55,15 +59,18 @@
 
 **Реализовано:**
 1. Реализован метод `_fetch_molecule_data()` в `src/bioetl/pipelines/testitem.py`:
+
    - Запросы к ChEMBL API `/molecule.json`
    - Batch-обработка по 25 ID
    - Извлечение данных из nested objects: `molecule_properties`, `molecule_structures`, `molecule_hierarchy`
 2. Интегрирован в `transform()`:
+
    - Merge с данными из API
    - Сохранение существующих полей
    - Автоматическое добавление недостающих колонок
 
 **Измененные файлы:**
+
 - `src/bioetl/pipelines/testitem.py` - добавлен ChEMBL API client
 
 ---
@@ -92,25 +99,29 @@
 
 ## Технические детали
 
-### Общие изменения во всех пайплайнах:
+### Общие изменения во всех пайплайнах
 
 1. **ChEMBL API Integration:**
+
    - Использован существующий `UnifiedAPIClient` из `src/bioetl/core/api_client.py`
    - Batch-обработка по 25 ID (limit ChEMBL API)
    - Обработка ошибок с продолжением работы
    - Логирование для debug
 
 2. **Merge Strategy:**
+
    - Left merge по primary key (assay_chembl_id, molecule_chembl_id, activity_id)
    - Удаление duplicate колонок после merge (судффикс `_api`)
    - Сохранение существующих полей приоритетом
 
 3. **Column Ordering:**
+
    - Добавление недостающих колонок со значениями None
    - Сортировка согласно Config.column_order из Pandera схем
    - Поддержка nullable полей
 
 4. **Hash Fields:**
+
    - Все три пайплайна генерируют `hash_business_key`, `hash_row`, `index`
    - Детерминированный порядок через sort_values
    - Канонический serialization для hash
@@ -134,12 +145,15 @@
 **Команды для запуска:**
 
 ```bash
+
 python src/scripts/run_assay.py --limit 10
 python src/scripts/run_activity.py --limit 10
 python src/scripts/run_testitem.py --limit 10
-```
+
+```text
 
 **Результаты:**
+
 - Все пайплайны успешно запускаются
 - Ошибок нет
 - Выходные файлы содержат правильное количество колонок
@@ -156,3 +170,4 @@ python src/scripts/run_testitem.py --limit 10
 - [x] Assay Pipeline - 10 строк, 58 колонок, API integration
 
 **Вывод:** Все три пайплайна полностью синхронизированы с IO_SCHEMAS_AND_DIAGRAMS.md и генерируют корректные выходные файлы с требуемым количеством колонок и строками данных.
+

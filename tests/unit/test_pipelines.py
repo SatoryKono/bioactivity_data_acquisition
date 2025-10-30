@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 import requests
 import yaml
+import pandera as pa
 from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
 
@@ -35,6 +36,24 @@ from bioetl.utils.validation import _summarize_schema_errors
 def assay_config():
     """Load assay pipeline config."""
     return load_config("configs/pipelines/assay.yaml")
+
+
+@pytest.fixture
+def chembl_variant_sequence_payload() -> dict[str, Any]:
+    """Realistic ChEMBL variant sequence payload used for normalization tests."""
+
+    return {
+        "accession": "P16455",
+        "isoform": 1,
+        "mutation": "G160R",
+        "organism": "Homo sapiens",
+        "sequence": (
+            "MDKDCEMKRTTLDSPLGKLELSGCEQGLHEIKLLGKGTSAADAVEVPAPAAVLGGPEPLMQCTAWLNAYFHQPEAIEEFPVPALHHPVFQQESFTRQVLWKLLKVVKFGE"
+            "VISYQQLAALAGNPKAARAVGGAMRGNPVPILIPCHRVVCSSGAVGNYSRGLAVKEWLLAHEGHRLGKPGLGGSSGLAGAWLKGAGATSGSPPAGRN"
+        ),
+        "tax_id": 9606,
+        "version": 1,
+    }
 
 
 @pytest.fixture
@@ -890,7 +909,13 @@ class TestAssayPipeline:
             url = pipeline._build_assay_request_url(batch)
             assert len(url) <= pipeline.max_url_length or len(batch) == 1
 
-    def test_transform_expands_and_enriches(self, assay_config, monkeypatch, caplog):
+    def test_transform_expands_and_enriches(
+        self,
+        assay_config,
+        monkeypatch,
+        caplog,
+        chembl_variant_sequence_payload,
+    ):
         """Ensure parameters, variants, and classifications survive transform with enrichment."""
 
         run_id = str(uuid.uuid4())[:8]
@@ -902,73 +927,57 @@ class TestAssayPipeline:
             }
         )
 
-        assay_payload = pd.DataFrame(
-            {
-                "assay_chembl_id": ["CHEMBL1"],
-                "target_chembl_id": ["CHEMBL2"],
-                "assay_parameters_json": [
-                    json.dumps(
-                        [
-                            {
-                                "type": "CONC",
-                                "relation": ">",
-                                "value": 1.5,
-                                "units": "nM",
-                                "text_value": "1.5",
-                                "standard_type": "IC50",
-                                "standard_value": 1.5,
-                                "standard_units": "nM",
-                            },
-                            {
-                                "type": "TEMP",
-                                "relation": "=",
-                                "value": 37,
-                                "units": "C",
-                            },
-                        ]
-                    )
-                ],
-                "variant_sequence_json": [
-                    json.dumps(
-                        [
-                            {
-                                "variant_id": 101,
-                                "base_accession": "P12345",
-                                "mutation": "A50T",
-                                "variant_seq": "MTEYKLVVVG",
-                                "accession_reported": "Q99999",
-                            }
-                        ]
-                    )
-                ],
-                "assay_classifications": [
-                    json.dumps(
-                        [
-                            {
-                                "assay_class_id": 501,
-                                "bao_id": "BAO_0000001",
-                                "class_type": "primary",
-                                "l1": "Level1",
-                                "l2": "Level2",
-                                "l3": "Level3",
-                                "description": "Example class",
-                            },
-                            {
-                                "assay_class_id": 502,
-                                "bao_id": "BAO_0000002",
-                                "class_type": "secondary",
-                                "l1": "L1",
-                                "l2": "L2",
-                                "l3": "L3",
-                                "description": "Another class",
-                            },
-                        ]
-                    )
-                ],
-            }
-        )
+        variant_payload = dict(chembl_variant_sequence_payload)
+        raw_assay_payload = {
+            "assay_chembl_id": "CHEMBL1",
+            "target_chembl_id": "CHEMBL2",
+            "assay_parameters": [
+                {
+                    "type": "CONC",
+                    "relation": ">",
+                    "value": 1.5,
+                    "units": "nM",
+                    "text_value": "1.5",
+                    "standard_type": "IC50",
+                    "standard_value": 1.5,
+                    "standard_units": "nM",
+                },
+                {
+                    "type": "TEMP",
+                    "relation": "=",
+                    "value": 37,
+                    "units": "C",
+                },
+            ],
+            "variant_sequence": variant_payload,
+            "assay_classifications": [
+                {
+                    "assay_class_id": 501,
+                    "bao_id": "BAO_0000001",
+                    "class_type": "primary",
+                    "l1": "Level1",
+                    "l2": "Level2",
+                    "l3": "Level3",
+                    "description": "Example class",
+                },
+                {
+                    "assay_class_id": 502,
+                    "bao_id": "BAO_0000002",
+                    "class_type": "secondary",
+                    "l1": "L1",
+                    "l2": "L2",
+                    "l3": "L3",
+                    "description": "Another class",
+                },
+            ],
+        }
 
-        monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: assay_payload)
+        normalized_record = pipeline._normalize_assay_record(raw_assay_payload)
+
+        def _mock_fetch(ids: list[str]) -> pd.DataFrame:
+            return pd.DataFrame([normalized_record.copy()])
+
+        monkeypatch.setattr(pipeline, "_fetch_assay_data", _mock_fetch)
 
         target_reference = pd.DataFrame(
             {
@@ -1008,6 +1017,7 @@ class TestAssayPipeline:
         )
 
         result = pipeline.transform(input_df)
+        result = result.drop(columns=["row_subtype", "row_index"], errors="ignore")
 
         # Canonical ordering maintained and row_subtype removed from export columns
         assert list(result.columns) == AssaySchema.Config.column_order
@@ -1031,6 +1041,17 @@ class TestAssayPipeline:
         base_rows = result[result["assay_param_type"].isna() & result["assay_class_id"].isna()]
         assert len(base_rows) == 1
         assert base_rows.iloc[0]["pref_name"] == "Target X"
+        assert base_rows.iloc[0]["variant_base_accession"] == variant_payload["accession"]
+        assert base_rows.iloc[0]["variant_sequence"] == variant_payload["sequence"]
+        assert (
+            base_rows.iloc[0]["variant_accession_reported"]
+            == variant_payload["accession"]
+        )
+
+        parsed_variant_json = json.loads(base_rows.iloc[0]["variant_sequence_json"])
+        assert isinstance(parsed_variant_json, list)
+        assert parsed_variant_json[0]["accession"] == variant_payload["accession"]
+        assert parsed_variant_json[0]["sequence"] == variant_payload["sequence"]
 
         param_rows = result[result["assay_param_type"].notna()]
         assert len(param_rows) == 2
@@ -1061,6 +1082,15 @@ class TestAssayPipeline:
                 pd.DataFrame({"assay_chembl_id": ["CHEMBL9"], "target_chembl_id": ["CHEMBL_NOPE"]})
             )
         assert any("target_enrichment_join_loss" in rec.message for rec in caplog.records)
+
+        list_payload = dict(raw_assay_payload)
+        list_payload["variant_sequence"] = [dict(chembl_variant_sequence_payload)]
+        normalized_list_record = pipeline._normalize_assay_record(list_payload)
+        assert normalized_list_record["variant_base_accession"] == variant_payload["accession"]
+        assert normalized_list_record["variant_sequence"] == variant_payload["sequence"]
+        parsed_list_json = json.loads(normalized_list_record["variant_sequence_json"])
+        assert isinstance(parsed_list_json, list)
+        assert parsed_list_json[0]["accession"] == variant_payload["accession"]
 
 
 class TestActivityPipeline:
@@ -2796,4 +2826,110 @@ def test_schema_validation_failures(monkeypatch, assay_config, testitem_config):
 
     assert assay_payload == expected_payload
     assert testitem_payload == expected_payload
+
+    assay_summary = (
+        assay_pipeline.qc_summary_data.get("validation", {}).get("assays")
+        if isinstance(assay_pipeline.qc_summary_data.get("validation"), dict)
+        else None
+    )
+    testitem_summary = (
+        testitem_pipeline.qc_summary_data.get("validation", {}).get("testitems")
+        if isinstance(testitem_pipeline.qc_summary_data.get("validation"), dict)
+        else None
+    )
+
+    assert assay_summary == testitem_summary
+
+
+def test_run_schema_validation_callbacks(assay_config):
+    """Common schema helper should invoke QC callbacks and adapters."""
+
+    class CallbackPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            return pd.DataFrame()
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def export(
+            self,
+            df: pd.DataFrame,
+            output_path: Path,
+            *,
+            extended: bool = False,
+        ) -> OutputArtifacts:  # noqa: D401 - test stub
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=output_path.with_suffix(".qc.csv"),
+                run_directory=output_path.parent,
+            )
+
+    pipeline = CallbackPipeline(assay_config, "schema-callbacks")
+
+    schema = pa.DataFrameSchema({"value": pa.Column(pa.Int64)})
+    df_valid = pd.DataFrame({"value": [1, 2, 3]})
+
+    success_calls: list[int] = []
+
+    pipeline.run_schema_validation(
+        df_valid,
+        schema,
+        dataset_name="dummy",
+        severity="error",
+        success_callbacks=(lambda validated: success_calls.append(len(validated)),),
+    )
+
+    assert success_calls == [3]
+    validation_summary = pipeline.qc_summary_data.get("validation", {}).get("dummy", {})
+    assert validation_summary.get("status") == "passed"
+    assert validation_summary.get("rows") == 3
+
+    pipeline.reset_run_state()
+
+    df_invalid = pd.DataFrame({"value": ["invalid"]})
+    failure_callbacks_called: list[bool] = []
+    adapter_calls: list[bool] = []
+
+    def _failure_callback(
+        issues: list[dict[str, Any]],
+        exc: Exception,
+        should_fail: bool,
+    ) -> None:
+        failure_callbacks_called.append(should_fail)
+        assert issues
+        assert isinstance(exc, Exception)
+
+    def _error_adapter(
+        issues: list[dict[str, Any]],
+        exc: Exception,
+        should_fail: bool,
+    ) -> Exception | None:
+        adapter_calls.append(should_fail)
+        if not should_fail:
+            return None
+
+        summary = "; ".join(
+            f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
+            for issue in issues
+        )
+        return ValueError(f"Schema validation failed: {summary}")
+
+    with pytest.raises(ValueError) as exc_info:
+        pipeline.run_schema_validation(
+            df_invalid,
+            schema,
+            dataset_name="dummy",
+            severity="error",
+            failure_callbacks=(_failure_callback,),
+            error_adapter=_error_adapter,
+        )
+
+    assert "Schema validation failed" in str(exc_info.value)
+    assert failure_callbacks_called == [True]
+    assert adapter_calls == [True]
+    failure_summary = pipeline.qc_summary_data.get("validation", {}).get("dummy", {})
+    assert failure_summary.get("status") == "failed"
 

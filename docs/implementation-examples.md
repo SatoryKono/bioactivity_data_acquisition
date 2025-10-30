@@ -9,6 +9,7 @@
 **Файл**: `src/library/common/hash_utils.py`
 
 ```diff
+
 --- a/src/library/common/hash_utils.py
 +++ b/src/library/common/hash_utils.py
 
@@ -52,7 +53,7 @@
 
 +    return sha256(canonicalize_row_for_hash(row).encode()).hexdigest()
 
-```
+```text
 
 **Особенности**:
 
@@ -77,6 +78,7 @@
 **Файл**: `src/library/pipelines/assay/transform.py`
 
 ```diff
+
 --- a/src/library/pipelines/assay/transform.py
 +++ b/src/library/pipelines/assay/transform.py
 
@@ -188,7 +190,7 @@
 
 +                       columns=["assay_chembl_id","class_index","class_type","class_value","row_subtype"])
 
-```
+```text
 
 **Использование**:
 
@@ -204,7 +206,7 @@ df_classes = expand_classifications_long(df)
 
 df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 
-```
+```text
 
 **См. также**: [00-architecture-overview.md → Long format](requirements/00-architecture-overview.md)
 
@@ -217,6 +219,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 **Файл**: `src/library/clients/rate_limit.py`
 
 ```diff
+
 --- a/src/library/clients/rate_limit.py
 +++ b/src/library/clients/rate_limit.py
 
@@ -262,11 +265,12 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 
 +            self.tokens -= 1
 
-```
+```text
 
 **Файл**: `src/library/clients/unified_client.py`
 
 ```diff
+
 --- a/src/library/clients/unified_client.py
 +++ b/src/library/clients/unified_client.py
 
@@ -294,11 +298,12 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 +            time.sleep(wait)
          raise RateLimitError("Rate limited")
 
-```
+```text
 
 **Тест**:
 
 ```python
+
 def test_respect_retry_after(mocker, caplog):
     mock_response = Mock(status_code=429, headers={'Retry-After': '5'})
     mocker.patch('requests.get', return_value=mock_response)
@@ -315,7 +320,7 @@ def test_respect_retry_after(mocker, caplog):
     assert any("Rate limited by API" in rec.message and rec.levelname == "WARNING"
                for rec in caplog.records)
 
-```
+```text
 
 **См. также**: [03-data-extraction.md → AC-07 Retry-After](requirements/03-data-extraction.md#ac-07-respect-retry-after-429)
 
@@ -328,6 +333,7 @@ def test_respect_retry_after(mocker, caplog):
 **Файл**: `src/cli/main.py`
 
 ```diff
+
 --- a/src/cli/main.py
 +++ b/src/cli/main.py
 
@@ -340,7 +346,7 @@ def test_respect_retry_after(mocker, caplog):
 
 +                    help="Запрет лишних полей при enrichment (whitelist)")
 
-```
+```text
 
 **Использование**:
 
@@ -354,7 +360,7 @@ python -m pipeline run --fail-on-schema-drift --strict-enrichment
 
 python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 
-```
+```text
 
 **См. также**: [04-normalization-validation.md → Schema drift](requirements/04-normalization-validation.md#ac-08-schema-drift-detection)
 
@@ -367,6 +373,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 **Файл**: `src/library/io/writer.py`
 
 ```diff
+
 --- a/src/library/io/writer.py
 +++ b/src/library/io/writer.py
 
@@ -471,11 +478,12 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 
 +    write_bytes_atomic(path, content, run_id)
 
-```
+```text
 
 **Проверка**:
 
 ```python
+
 def test_atomic_write_no_partial(mocker):
     """Проверка, что при ошибке не остаётся partial файла."""
     run_id = "test_run_123"
@@ -497,7 +505,7 @@ def test_atomic_write_no_partial(mocker):
     tmpdir = path.parent / ".tmp" / run_id
     assert not (tmpdir / f"{path.name}.tmp").exists()
 
-```
+```text
 
 **См. также**: [02-io-system.md → Atomic Write](requirements/02-io-system.md#протокол-atomic-write)
 
@@ -540,3 +548,4 @@ def test_atomic_write_no_partial(mocker):
 - [03-data-extraction.md](requirements/03-data-extraction.md) — Retry-After стратегия
 
 - [04-normalization-validation.md](requirements/04-normalization-validation.md) — schema drift
+

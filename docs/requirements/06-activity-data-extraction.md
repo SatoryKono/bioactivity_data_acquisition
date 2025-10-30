@@ -55,11 +55,13 @@
 2. **Формат ответа:** JSON (предпочтительно) или XML
 
 3. **Все запросы** через `UnifiedAPIClient` с таймаутами, ретраями и кэшированием
+
    - Handshake `/status.json` для фиксации `chembl_release` выполняется тем же клиентом,
      поэтому при недоступности ChEMBL активируются штатные ретраи, circuit-breaker и
      fallback стратегии (`cache`, `partial_retry`) без обходов через «сырые» HTTP вызовы.
 
 4. **Детерминизм:**
+
    - Стабильная сортировка по `activity_id`
    - Фиксированный `COLUMN_ORDER` из Pandera-схемы
    - Версии фиксируются в `meta.yaml` (`chembl_release`, `pipeline_version`)
@@ -69,13 +71,15 @@
 **curl:**
 
 ```bash
+
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5"
 
-```
+```text
 
 **Python (requests):**
 
 ```python
+
 import requests
 
 r = requests.get(
@@ -86,7 +90,7 @@ r = requests.get(
 r.raise_for_status()
 data = r.json()
 
-```
+```text
 
 **Критерии детерминизма/валидности:**
 
@@ -169,15 +173,18 @@ data = r.json()
 - **Валидация конфига:**
 
   ```python
+
   if batch_size > 25:
       raise ConfigValidationError(
           "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
       )
-  ```
+
+```text
 
 **Алгоритм:**
 
 ```python
+
 def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
     """Extract activity data with 25-item batching."""
 
@@ -201,6 +208,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
         batch_ids = activity_ids[i:i + BATCH_SIZE]
 
         try:
+
             # Проверка кэша с release-scoping
 
             cached = self._check_cache(batch_ids, self.chembl_release)
@@ -223,11 +231,13 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
                         success_count += 1
                 else:
                     error_count += 1
+
                     # Fallback с расширенными полями
 
                     activity_data = self._create_fallback_record(activity_id)
 
         except CircuitBreakerOpenError:
+
             # Fallback для всего батча
 
             for activity_id in batch_ids:
@@ -252,7 +262,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 
     return extracted_dataframe
 
-```
+```text
 
 **Преимущества batch IDs над offset:**
 
@@ -269,13 +279,15 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 **Single by activity_id:**
 
 ```bash
+
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 
-```
+```text
 
 Пример ответа (усечен):
 
 ```json
+
 {
   "activity_comment": null,
   "activity_id": 31863,
@@ -293,23 +305,25 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
   "canonical_smiles": "c1ccc..."
 }
 
-```
+```text
 
 **Batch по molecule_chembl_id:**
 
 ```bash
+
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=3"
 
-```
+```text
 
 Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `total_count`.
 
 **Batch по target_chembl_id с фильтрами:**
 
 ```bash
+
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CHEMBL240&assay_type=B&pchembl_value__gte=6&only=molecule_chembl_id,pchembl_value,assay_chembl_id&order_by=-pchembl_value&limit=5"
 
-```
+```text
 
 Фильтры `__gte`, `only`, `order_by` — стандартные для ChEMBL Web Services.
 
@@ -560,6 +574,7 @@ ChEMBL применяет стандартизацию и проверки ва�
 ### SCHEMA_VERSION и COLUMN_ORDER
 
 ```python
+
 from pandera import DataFrameSchema, Column, Check
 import pandera as pa
 
@@ -577,11 +592,12 @@ COLUMN_ORDER = [
 STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
 RELATIONS = {"=", "<", ">", "<=", ">=", "~"}
 
-```
+```text
 
 ### ActivitySchema
 
 ```python
+
 ActivitySchema = DataFrameSchema(
     {
         "activity_id": Column(pa.Int64, Check.ge(1), unique=True, nullable=False),
@@ -614,7 +630,7 @@ ActivitySchema = DataFrameSchema(
     name=f"ActivitySchema_v{SCHEMA_VERSION}",
 )
 
-```
+```text
 
 ### Контракт валидации
 
@@ -647,6 +663,7 @@ ActivitySchema = DataFrameSchema(
 ### ChEMBL API конфигурация
 
 ```python
+
 from unified_client import APIConfig
 
 chembl_activity_config = APIConfig(
@@ -668,7 +685,7 @@ chembl_activity_config = APIConfig(
     cb_timeout=60.0
 )
 
-```
+```text
 
 ### ⚠️ UNCERTAIN: Rate Limits
 
@@ -703,6 +720,7 @@ chembl_activity_config = APIConfig(
 ### Псевдокод
 
 ```python
+
 offset = 0
 limit = 1000  # безопасное значение; при 400/413 уменьшать
 
@@ -714,11 +732,12 @@ while True:
         break
     offset += pm["limit"]
 
-```
+```text
 
 ### page_meta структура
 
 ```json
+
 {
   "limit": 1000,
   "offset": 0,
@@ -727,7 +746,7 @@ while True:
   "total_count": 123456
 }
 
-```
+```text
 
 ### Критерии успешной пагинации
 
@@ -755,15 +774,20 @@ while True:
 **curl команды для проверки:**
 
 ```bash
+
 # Низкий лимит (должен работать)
+
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=100"
 
 # Средний лимит
+
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=1000"
 
 # Высокий лимит
+
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5000"
-```
+
+```text
 
 **Ссылка:** [test-plan.md](../test-plan.md), процедура бинарного поиска
 
@@ -809,6 +833,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 ### Примеры логов
 
 ```json
+
 {
   "level": "error",
   "code": 429,
@@ -822,7 +847,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
   "timestamp_utc": "2025-10-28T07:01:23.456Z"
 }
 
-```
+```text
 
 ### Контракт обработки ошибок
 
@@ -873,6 +898,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 ### Пример генерации cache key
 
 ```python
+
 import hashlib
 import json
 
@@ -891,7 +917,7 @@ cache_key = make_cache_key(
 
 # Результат: 'a1b2c3d4e5f6...' (детерминированный для одинаковых параметров)
 
-```
+```text
 
 ### Контракт кэширования
 
@@ -966,7 +992,7 @@ complete_activities = df[
     df['molecule_chembl_id'].notna()
 ]
 
-```
+```text
 
 **Инвариант G10, AC9:** QC-фильтры по validity/duplicates как AC; инвариант duplicates_activity_id==0; проверка перед записью: `df["activity_id"].duplicated().sum()==0`.
 
@@ -985,7 +1011,7 @@ qc_report = {
     "passed": duplicate_count == 0
 }
 
-```
+```text
 
 **См. также**: [gaps.md](../gaps.md) (G10), [acceptance-criteria.md](../acceptance-criteria.md) (AC9).
 
@@ -1026,6 +1052,7 @@ qc_report = {
 ### META_TEMPLATE.yaml
 
 ```yaml
+
 pipeline_version: "activity_etl_1.0.0"
 chembl_release: "unknown"  # извлекается из /status
 
@@ -1054,7 +1081,9 @@ execution:
 artifacts:
   csv_path: "activity_2025-10-28.csv"
   qc_report_path: "activity_2025-10-28_quality_report.csv"
+
   # corr_report_path: опционально, только при postprocess.correlation.enabled: true
+
   column_order: [
     "activity_id", "molecule_chembl_id", "assay_chembl_id", "target_chembl_id",
     "document_chembl_id", "standard_type", "standard_relation", "standard_value",
@@ -1067,17 +1096,20 @@ artifacts:
 checksums:
   csv_sha256: "13d5deb55a24b8286fb261f6d3c74dff08360089d25f75c6cc2723ef0d126234"
   qc_sha256: "4a8a623f070b039fb82925026b209917a72c87883eb30e3a749f95f3a40eaa9e"
+
   # corr_sha256: опционально, только при postprocess.correlation.enabled: true
+
 row_count: 123456
 qc_summary:
   missing_standard_value_pct: 12.3
   invalid_units_count: 0
   duplicates_activity_id: 0
 notes:
+
   - "Данные получены с использованием фильтров, см. выше."
   - "Детерминизм обеспечен: сортировка по activity_id."
 
-```
+```text
 
 ### Контракт атомарной записи
 
@@ -1104,6 +1136,7 @@ notes:
 ### Инициализация и GET-батч
 
 ```python
+
 import hashlib
 import json
 import time
@@ -1123,6 +1156,7 @@ def fetch_activities(filters, limit=1000, sleep_s=1.0):
         r = requests.get(f"{BASE}/activity", params=params, timeout=60)
 
         if r.status_code == 429:
+
             # exponential backoff
 
             time.sleep(sleep_s)
@@ -1147,11 +1181,12 @@ def fetch_activities(filters, limit=1000, sleep_s=1.0):
 for activity in fetch_activities({"target_chembl_id": "CHEMBL240"}):
     print(f"Activity {activity['activity_id']}: {activity['standard_value']}")
 
-```
+```text
 
 ### POST с X-HTTP-Method-Override (длинные списки __in)
 
 ```python
+
 import requests
 
 filters = {
@@ -1176,13 +1211,14 @@ data = r.json()
 
 print(f"Received {len(data.get('activities', []))} activities")
 
-```
+```text
 
 Поддержка POST + X-HTTP-Method-Override: GET описана в [официальной документации ChEMBL](https://www.ebi.ac.uk/chembl/documentation/webservices).
 
 ### Полный пайплайн
 
 ```python
+
 from unified_client import UnifiedAPIClient
 from activity_schema import ActivitySchema
 from unified_output import UnifiedOutputWriter
@@ -1224,7 +1260,7 @@ writer.write(
 
 )
 
-```
+```text
 
 ### Критерии валидности примеров
 
@@ -1277,7 +1313,7 @@ filters = {
 
 filters = {}  # Будет очень медленно!
 
-```
+```text
 
 **Кэширование:**
 
@@ -1291,7 +1327,7 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=True, cache_ttl=3600))
 
 client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
-```
+```text
 
 ---
 
@@ -1322,17 +1358,19 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 **Диаграмма связей:**
 
 ```text
+
 Activity
 ├── assay_chembl_id → Assay
 ├── target_chembl_id → Target
 ├── molecule_chembl_id → Molecule/TestItem
 └── document_chembl_id → Document
 
-```
+```text
 
 **Проверка referential integrity:**
 
 ```python
+
 def validate_referential_integrity(activities_df, assays_df, targets_df):
     """Проверяет, что все ссылки ссылаются на существующие записи."""
 
@@ -1351,13 +1389,14 @@ def validate_referential_integrity(activities_df, assays_df, targets_df):
             missing_targets=len(missing_targets)
         )
 
-```
+```text
 
 ---
 
 ## 16. Диаграмма потока данных
 
 ```mermaid
+
 flowchart LR
   A[Request filters] --> B{Cache}
   B -- hit --> G[Normalize]
@@ -1371,7 +1410,7 @@ flowchart LR
   J --> K[meta.yaml]
   H -->|fail| E[Log error + fail-fast]
 
-```
+```text
 
 **Описание:**
 
@@ -1530,3 +1569,4 @@ flowchart LR
 **Автор:** ETL Architecture Team
 
 **Следующий раздел:** Интеграция с другими модулями, см. [00-architecture-overview.md](00-architecture-overview.md)
+

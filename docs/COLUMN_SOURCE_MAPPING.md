@@ -12,6 +12,7 @@
 Проект использует унифицированную систему нормализации через `NormalizerRegistry`:
 
 ### NumericNormalizer (`registry.normalize("numeric", value)`)
+
 - **normalize_int()** - приведение к целым числам
 - **normalize_float()** - приведение к числам с плавающей точкой  
 - **normalize_bool()** - нормализация булевых значений
@@ -19,20 +20,25 @@
 - **normalize_relation()** - нормализация операторов сравнения
 
 ### BooleanNormalizer (`registry.normalize("boolean", value)`)
+
 - **normalize()** - строгая нормализация булевых значений
 - **normalize_with_default()** - нормализация с значением по умолчанию
 
 ### StringNormalizer (`registry.normalize("string", value)`)
+
 - **normalize()** - базовая нормализация строк
 - Поддержка параметров: `uppercase`, `max_length`, `trim`
 
 ### IdentifierNormalizer (`registry.normalize("identifier", value)`)
+
 - **normalize()** - нормализация идентификаторов (ChEMBL ID, DOI, etc.)
 
 ### ChemistryNormalizer (`registry.normalize("chemistry", value)`)
+
 - **normalize()** - нормализация химических представлений (SMILES, InChI)
 
 ### Общие утилиты
+
 - **coerce_nullable_int_columns()** - приведение к nullable integer типам
 - **coerce_nullable_float_columns()** - приведение к nullable float типам  
 - **coerce_optional_bool()** - приведение к nullable boolean типам
@@ -157,7 +163,7 @@
 **Enrichment endpoints:** `/target/{id}.json`, `/assay_class/{id}.json`  
 **Batch size:** 25 записей
 
-### Системные поля
+### Системные поля (continued 1)
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
@@ -270,7 +276,7 @@
 **Enrichment:** PubChem PUG-REST API  
 **Batch size:** 25 записей (ChEMBL), 100 записей (PubChem)
 
-### Системные поля
+### Системные поля (continued) (continued)
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
@@ -460,7 +466,7 @@
 **Enrichment:** PubMed, Crossref, OpenAlex, Semantic Scholar  
 **Batch size:** 10 записей (ChEMBL), 200 записей (PubMed), 100 записей (Crossref), 100 записей (OpenAlex), 50 записей (Semantic Scholar)
 
-### Системные поля
+### Системные поля (continued) (continued) (continued)
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
@@ -637,7 +643,7 @@
 **IUPHAR endpoint:** `/services/targets`  
 **Batch size:** 25 записей (ChEMBL), 50 записей (UniProt), 200 записей (IUPHAR)
 
-### Системные поля
+### Системные поля (continued) (continued) (continued) (continued)
 
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
@@ -719,25 +725,30 @@
 ## Общие принципы нормализации
 
 ### ChEMBL ID нормализация
+
 - Приведение к верхнему регистру
 - Валидация формата `^CHEMBL\d+$`
 
 ### Строковая нормализация
+
 - Удаление лишних пробелов
 - Приведение к каноническому виду
 - Обработка NULL значений
 
 ### Числовая нормализация
+
 - Преобразование строк в числа
 - Обработка NaN значений
 - Валидация диапазонов
 
 ### JSON нормализация
+
 - Сериализация в канонический JSON
 - Сортировка ключей
 - Обработка ошибок сериализации
 
 ### Временные метки
+
 - ISO8601 формат
 - UTC временная зона
 - Детерминированная генерация
@@ -758,3 +769,4 @@
 ---
 
 *Документ создан автоматически на основе анализа кода пайплайнов и схем валидации.*
+

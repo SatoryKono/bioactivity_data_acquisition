@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, ParamSpec, Type, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 __all__ = [
     "BaseModel",

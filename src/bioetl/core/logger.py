@@ -6,10 +6,9 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, cast
-
-from logging.handlers import RotatingFileHandler
 
 import structlog
 

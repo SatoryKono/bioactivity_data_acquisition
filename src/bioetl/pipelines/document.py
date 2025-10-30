@@ -1226,28 +1226,34 @@ class DocumentPipeline(PipelineBase):
             logger.error("validation_failed", errors=error_msg)
             raise ValueError(f"Валидация не прошла: {error_msg}")
 
-        validated_df = self._validate_with_schema(
+        metrics: dict[str, float] = {}
+
+        def _update_qc_summary(validated_df: pd.DataFrame) -> None:
+            nonlocal metrics
+
+            metrics = self._compute_qc_metrics(validated_df)
+            self.set_qc_metrics(metrics)
+            row_count = int(len(validated_df))
+            self.add_qc_summary_section("row_counts", {"documents": row_count})
+            self.add_qc_summary_section("datasets", {"documents": {"rows": row_count}})
+            self.add_qc_summary_section(
+                "duplicates",
+                {
+                    "documents": duplicate_summary(
+                        initial_rows,
+                        int(duplicate_count),
+                        field="document_chembl_id",
+                    )
+                },
+            )
+
+        validated_df = self.run_schema_validation(
             working_df,
             DocumentNormalizedSchema,
             dataset_name="documents",
             severity="error",
             metric_name="normalized_schema_validation",
-        )
-
-        metrics = self._compute_qc_metrics(validated_df)
-        self.set_qc_metrics(metrics)
-        row_count = int(len(validated_df))
-        self.add_qc_summary_section("row_counts", {"documents": row_count})
-        self.add_qc_summary_section("datasets", {"documents": {"rows": row_count}})
-        self.add_qc_summary_section(
-            "duplicates",
-            {
-                "documents": duplicate_summary(
-                    initial_rows,
-                    int(duplicate_count),
-                    field="document_chembl_id",
-                )
-            },
+            success_callbacks=(_update_qc_summary,),
         )
 
         coverage_columns = {

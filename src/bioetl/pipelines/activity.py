@@ -8,8 +8,8 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import urlencode
 from typing import Any, cast
+from urllib.parse import urlencode
 
 import numpy as np
 import pandas as pd

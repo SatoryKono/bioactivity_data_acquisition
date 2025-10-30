@@ -59,6 +59,7 @@ Pipeline производит нормализованную таблицу `tar
 ### Диаграмма потока данных
 
 ```text
+
 Target ETL Pipeline
 ├── Stage 1: ChEMBL Extraction (Primary)
 │   ├── /target → target_chembl_id, pref_name, target_type, organism
@@ -82,7 +83,7 @@ Target ETL Pipeline
     ├── Validation: Pandera schemas, QC reports
     └── Export: targets, target_components, protein_class, xref
 
-```
+```text
 
 ### Stage 4: Post-processing
 
@@ -172,11 +173,11 @@ Stage 2 отвечает за нормализацию и обогащение �
 
 Рекомендуемое значение параметра `fields`:
 
-```
+```text
 
 fields=accession,gene_names,organism_name,organism_id,lineage,sequence_length,features,cc_ptm,protein_name,protein_existence
 
-```
+```text
 
 Обязательные для сохранения поля Stage 2:
 
@@ -242,6 +243,7 @@ fields=accession,gene_names,organism_name,organism_id,lineage,sequence_length,fe
 #### TARGET_FIELDS для материализации Stage 1
 
 ```python
+
 TARGET_FIELDS = [
     "pref_name",                 # string, nullable
 
@@ -283,7 +285,7 @@ TARGET_FIELDS = [
 
 ]
 
-```
+```text
 
 > **Инварианты Stage 1:** `target_chembl_id` должен быть уникальным и заполненным, остальные поля допускают `NULL`, но сохраняются в детерминированном формате (строки — UTF-8, JSON — сериализованный словарь с сортировкой ключей).
 
@@ -314,6 +316,7 @@ Pipeline сохраняет промежуточные результаты на
 Pipeline orchestration реализован через `run_pipeline` в `pipeline.py`:
 
 ```python
+
 PipelineResult = dataclass(
     chembl: FrameLike,      # Обязательно: ChEMBL base data
 
@@ -327,7 +330,7 @@ PipelineResult = dataclass(
 
 )
 
-```
+```text
 
 **Зависимости стадий:**
 
@@ -364,13 +367,14 @@ PipelineResult = dataclass(
 **Структура данных:**
 
 ```python
+
 @dataclass
 class IUPHARData:
     target_df: pd.DataFrame  # записи /targets + geneProteinInformation + synonyms
 
     family_df: pd.DataFrame  # дерево /targets/families со всеми уровнями
 
-```
+```text
 
 `family_df` нормализует иерархию классификации: `type → class → subclass → chain → target`. Для каждой ветви рассчитываем два пути:
 
@@ -481,11 +485,12 @@ class IUPHARData:
 **Пример входного файла:**
 
 ```csv
+
 target_chembl_id,organism,target_type
 CHEMBL203,Homo sapiens,SINGLE PROTEIN
 CHEMBL204,Mus musculus,PROTEIN COMPLEX
 
-```
+```text
 
 ### Выходные данные
 
@@ -566,16 +571,18 @@ Protein classification hierarchy для интеграции с внешними
 Формализованные Pandera схемы для 4 выходных таблиц с явными PK/FK:
 
 ```python
+
 from pandera import DataFrameModel, Field, Column
 from pandera.typing import Series
 
 # ===== 1. TARGETS =====
+
 class TargetsOutputSchema(DataFrameModel):
     """
     Output schema для таблицы targets.
     Primary Key: target_chembl_id
     """
-    
+
     target_chembl_id: Series[str] = Field(
         str_matches=r'^CHEMBL\d+$',
         nullable=False,
@@ -585,36 +592,40 @@ class TargetsOutputSchema(DataFrameModel):
     pref_name: Series[str] = Field(nullable=True)
     organism: Series[str] = Field(nullable=True)
     tax_id: Series[int] = Field(nullable=True)
-    
+
     # UniProt
+
     uniprot_id_primary: Series[str] = Field(nullable=True)
     uniprot_ids_all: Series[str] = Field(nullable=True)
-    
+
     # Gene info
+
     gene_symbol: Series[str] = Field(nullable=True)
     hgnc_id: Series[str] = Field(nullable=True)
-    
+
     # Protein classification
+
     protein_class_pred_L1: Series[str] = Field(nullable=True)
     protein_class_pred_L2: Series[str] = Field(nullable=True)
     protein_class_pred_L3: Series[str] = Field(nullable=True)
-    
+
     # Metadata
+
     cellularity: Series[str] = Field(nullable=True)
     data_origin: Series[str] = Field(nullable=True)
-    
+
     class Config:
         strict = True
         coerce = True
 
-
 # ===== 2. TARGET_COMPONENTS =====
+
 class TargetComponentsOutputSchema(DataFrameModel):
     """
     Output schema для таблицы target_components.
     Primary Key: (target_chembl_id, component_id)
     """
-    
+
     target_chembl_id: Series[str] = Field(
         str_matches=r'^CHEMBL\d+$',
         nullable=False,
@@ -629,23 +640,23 @@ class TargetComponentsOutputSchema(DataFrameModel):
     sequence: Series[str] = Field(nullable=True)
     is_ortholog: Series[bool] = Field(nullable=True)
     merge_rank: Series[int] = Field(nullable=True)
-    
+
     class Config:
         strict = True
         coerce = True
-    
+
     @staticmethod
     def get_primary_key() -> list[str]:
         return ["target_chembl_id", "component_id"]
 
-
 # ===== 3. PROTEIN_CLASS =====
+
 class ProteinClassOutputSchema(DataFrameModel):
     """
     Output schema для таблицы protein_class.
     Primary Key: (target_chembl_id, class_level, class_name)
     """
-    
+
     target_chembl_id: Series[str] = Field(
         str_matches=r'^CHEMBL\d+$',
         nullable=False,
@@ -657,23 +668,23 @@ class ProteinClassOutputSchema(DataFrameModel):
     )
     class_name: Series[str] = Field(nullable=False)
     full_path: Series[str] = Field(nullable=True)
-    
+
     class Config:
         strict = True
         coerce = True
-    
+
     @staticmethod
     def get_primary_key() -> list[str]:
         return ["target_chembl_id", "class_level", "class_name"]
 
-
 # ===== 4. XREF =====
+
 class XrefOutputSchema(DataFrameModel):
     """
     Output schema для таблицы xref.
     Primary Key: (target_chembl_id, xref_src_db, xref_id)
     """
-    
+
     target_chembl_id: Series[str] = Field(
         str_matches=r'^CHEMBL\d+$',
         nullable=False,
@@ -681,26 +692,28 @@ class XrefOutputSchema(DataFrameModel):
     )
     xref_src_db: Series[str] = Field(nullable=False, description="UniProt, Ensembl, PDB, etc.")
     xref_id: Series[str] = Field(nullable=False)
-    
+
     class Config:
         strict = True
         coerce = True
-    
+
     @staticmethod
     def get_primary_key() -> list[str]:
         return ["target_chembl_id", "xref_src_db", "xref_id"]
 
-
 # Schema Registry
+
 TARGET_SCHEMAS = {
     "targets": TargetsOutputSchema,
     "target_components": TargetComponentsOutputSchema,
     "protein_class": ProteinClassOutputSchema,
     "xref": XrefOutputSchema,
 }
-```
+
+```text
 
 **Schema IDs:**
+
 - `target.output.targets` v1.0.0
 - `target.output.target_components` v1.0.0
 - `target.output.protein_class` v1.0.0
@@ -815,10 +828,11 @@ TARGET_SCHEMAS = {
 Все выходные таблицы сортируются по фиксированному порядку:
 
 ```python
+
 sort_by = ["target_chembl_id", "accession", "component_id"]
 ascending = [True, True, True]
 
-```
+```text
 
 Гарантирует бит-в-бит одинаковый вывод для одинакового входа.
 
@@ -827,9 +841,10 @@ ascending = [True, True, True]
 **hash_business_key:**
 
 ```python
+
 hash_business_key = sha256(target_chembl_id).hexdigest()
 
-```
+```text
 
 **hash_row:**
 
@@ -840,7 +855,7 @@ hash_business_key = sha256(target_chembl_id).hexdigest()
 normalized_values = [target_chembl_id, pref_name, organism, uniprot_id_primary, ...]
 hash_row = sha256("|".join(normalized_values)).hexdigest()
 
-```
+```text
 
 Используются для:
 
@@ -855,6 +870,7 @@ hash_row = sha256("|".join(normalized_values)).hexdigest()
 Каждый выходной файл сопровождается `meta.yaml`:
 
 ```yaml
+
 pipeline_version: "abc123def"  # Git SHA
 
 chembl_release: "33"
@@ -871,7 +887,7 @@ determinism:
   encoding: "utf-8"
   format: "parquet"
 
-```
+```text
 
 ### Snapshot файлы
 
@@ -942,7 +958,7 @@ bioetl pipeline run --config configs/pipelines/target.yaml \
   --set paths.input_root=data/input \
   --set paths.output_root=data/output/target
 
-```
+```text
 
 ### С опциями источников
 
@@ -969,11 +985,12 @@ bioetl pipeline run --config configs/pipelines/target.yaml \
 
 bioetl pipeline run --config configs/pipelines/target.yaml
 
-```
+```text
 
 ### Python API
 
 ```python
+
 from library.pipelines.target import run_pipeline, TargetPipelineOptions
 
 options = TargetPipelineOptions(
@@ -988,7 +1005,7 @@ result = run_pipeline(config, options)
 print(f"Extracted {result.row_count} targets")
 print(f"Errors: {result.errors}")
 
-```
+```text
 
 ---
 
@@ -1001,3 +1018,4 @@ print(f"Errors: {result.errors}")
 - [08c-target-iuphar-extraction.md](./08c-target-iuphar-extraction.md) - IUPHAR/GtoPdb классификация
 
 - [08d-target-orthologs-isoforms.md](./08d-target-orthologs-isoforms.md) - Ортологи и изоформы
+

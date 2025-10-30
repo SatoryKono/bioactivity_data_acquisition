@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Mapping, Protocol, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import pandas as pd
 

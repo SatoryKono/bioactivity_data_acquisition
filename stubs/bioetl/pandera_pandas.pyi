@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Mapping, Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from pandera.typing import Series as _Series
-
 
 class _FieldCallable(Protocol):
     def __call__(

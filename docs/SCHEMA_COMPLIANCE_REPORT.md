@@ -174,10 +174,12 @@ All schemas inherit from `BaseSchema` which includes:
 Add to `BaseSchema`:
 
 ```python
+
 hash_row: Series[str] = pa.Field(nullable=False, regex=r'^[0-9a-f]{64}$')
 hash_business_key: Series[str] = pa.Field(nullable=False, regex=r'^[0-9a-f]{64}$')
 index: Series[int] = pa.Field(nullable=False, ge=0)
-```
+
+```text
 
 ### Priority 2: Enhance Activity Schema
 
@@ -225,3 +227,4 @@ Add all missing UniProt, IUPHAR, and classification fields.
 2. Implement full Document schema
 3. Complete Target enrichment fields
 4. Add exploded fields to Assay
+

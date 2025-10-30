@@ -3,9 +3,8 @@
 import pandas as pd
 import pandera.pandas as pa
 
-from bioetl.pandera_typing import Series
-
 from bioetl.core.hashing import generate_hash_business_key
+from bioetl.pandera_typing import Series
 from bioetl.schemas import TargetSchema
 from bioetl.schemas.base import BaseSchema
 from bioetl.utils import finalize_pipeline_output, resolve_schema_column_order

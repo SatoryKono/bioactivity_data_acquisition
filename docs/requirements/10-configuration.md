@@ -19,6 +19,7 @@
 Базовый файл `configs/base.yaml` содержит каркас секций и обязательные поля.
 
 ```yaml
+
 version: 1
 pipeline:
   name: "base"
@@ -56,7 +57,7 @@ qc:
 cli:
   default_config: "configs/base.yaml"
 
-```
+```text
 
 ### 2.1 Обязательные поля и их назначение
 
@@ -83,6 +84,7 @@ cli:
 # configs/pipelines/assay.yaml
 
 extends:
+
   - "../base.yaml"
   - "../includes/determinism.yaml"
 
@@ -103,7 +105,7 @@ determinism:
     ascending: [true]
   column_order: ["assay_chembl_id", "pipeline_version", "hash_row", "hash_business_key"]
 
-```
+```text
 
 Вынесенный include `configs/includes/determinism.yaml` задаёт единые значения `hash_algorithm`, `float_precision` и `datetime_format`,
 а конкретный пайплайн отвечает только за собственные ключи сортировки и порядок столбцов.
@@ -123,6 +125,7 @@ determinism:
 Конфигурация загружается через корневую модель `PipelineConfig`, которая строится из вложенных Pydantic-моделей.
 
 ```python
+
 from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -182,7 +185,7 @@ class PipelineConfig(BaseModel):
             raise ValueError("Unsupported config version")
         return value
 
-```
+```text
 
 Модели используют `env` и `alias` для поддержки плоских переопределений. При сериализации в YAML необходимо применять `model_dump()` и `yaml.safe_dump` с `sort_keys=True`.
 
@@ -193,12 +196,13 @@ class PipelineConfig(BaseModel):
 CLI (`bioetl pipeline run`) поддерживает опцию `--set <path>=<value>`:
 
 ```bash
+
 bioetl pipeline run \
   --config configs/pipelines/assay.yaml \
   --set sources.chembl.batch_size=20 \
   --set http.global.timeout_sec=45
 
-```
+```text
 
 Путь интерпретируется точечной нотацией и применяется после загрузки профильного файла. Для сложных структур допускается передача JSON-строки: `--set determinism.sort.by='["assay_chembl_id"]'`.
 
@@ -242,6 +246,7 @@ bioetl pipeline run \
 **Инварианты CLI:**
 
 ```python
+
 @dataclass
 class CLIArguments:
     """Модель CLI аргументов для всех пайплайнов."""
@@ -253,16 +258,19 @@ class CLIArguments:
     mode: str = "default"
     dry_run: bool = False
     verbose: bool = False
+
     # Дополнительные аргументы через --set
+
     overrides: dict[str, Any] = field(default_factory=dict)
-    
+
     def validate(self) -> None:
         """Валидация конфликтующих опций."""
         if self.sample and self.sample < 1:
             raise ValueError("--sample must be >= 1")
         if self.config and not self.config.exists():
             raise FileNotFoundError(f"Config not found: {self.config}")
-```
+
+```text
 
 **Таблица поддержки флагов по пайплайнам:**
 
@@ -278,24 +286,30 @@ class CLIArguments:
 **Примеры использования:**
 
 ```bash
+
 # Базовый запуск
+
 bioetl pipeline run --config configs/pipelines/assay.yaml
 
 # С golden-сравнением
+
 bioetl pipeline run --config configs/pipelines/activity.yaml \
   --golden data/golden/activity_20241021.csv
 
 # Расширенный режим с переопределением
+
 bioetl pipeline run --config configs/pipelines/document.yaml \
   --mode all \
   --extended \
   --set sources.crossref.batching.dois_per_request=50
 
 # Тестовый запуск на ограниченной выборке
+
 bioetl pipeline run --config configs/pipelines/testitem.yaml \
   --sample 100 \
   --verbose
-```
+
+```text
 
 **Ссылка:** См. секции CLI в [05-assay-extraction.md](05-assay-extraction.md), [06-activity-data-extraction.md](06-activity-data-extraction.md), [07a-testitem-extraction.md](07a-testitem-extraction.md), [08-target-data-extraction.md](08-target-data-extraction.md), [09-document-chembl-extraction.md](09-document-chembl-extraction.md).
 
@@ -321,3 +335,4 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 - Набор линтеров (`ruff`, `mypy`) должен проверять, что `PipelineConfig` не допускает неизвестных полей (`model_config = ConfigDict(extra="forbid")`).
 
 Применение этого стандарта обеспечивает единообразие конфигураций, избавляет от копипасты YAML и упрощает сопровождение CLI/CI-переопределений.
+

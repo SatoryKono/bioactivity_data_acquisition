@@ -11,6 +11,7 @@
 ## Что реализовано
 
 ### 1. Система конфигурации ✅
+
 - **Файлы:** `src/bioetl/config/models.py`, `loader.py`
 - **Функции:**
   - Pydantic модели (PipelineConfig, HttpConfig, CacheConfig, etc.)
@@ -21,6 +22,7 @@
 - **Тесты:** ✅ 8 тестов проходят
 
 ### 2. UnifiedLogger ✅
+
 - **Файл:** `src/bioetl/core/logger.py`
 - **Функции:**
   - structlog с UTC timestamps
@@ -30,6 +32,7 @@
 - **Тесты:** ✅ 10 тестов проходят
 
 ### 3. UnifiedAPIClient ✅
+
 - **Файл:** `src/bioetl/core/api_client.py`
 - **Функции:**
   - CircuitBreaker (5 failures → open)
@@ -40,6 +43,7 @@
 - **Тесты:** ✅ 7 тестов, покрытие 70%
 
 ### 4. Нормализаторы ✅
+
 - **Файлы:** `src/bioetl/normalizers/*.py`
 - **Компоненты:**
   - StringNormalizer, IdentifierNormalizer, ChemistryNormalizer
@@ -47,6 +51,7 @@
 - **Статус:** Функциональность проверена
 
 ### 5. Schema Registry ✅
+
 - **Файлы:** `src/bioetl/schemas/*.py`
 - **Компоненты:**
   - BaseSchema, ChEMBLDocumentSchema, PubMedDocumentSchema
@@ -54,6 +59,7 @@
 - **Статус:** Функциональность проверена
 
 ### 6. UnifiedOutputWriter ✅
+
 - **Файл:** `src/bioetl/core/output_writer.py`
 - **Функции:**
   - AtomicWriter (run-scoped temp directories)
@@ -62,6 +68,7 @@
 - **Статус:** Функциональность проверена
 
 ### 7. Pipeline Base и CLI ✅
+
 - **Файлы:** `src/bioetl/pipelines/base.py`, `cli/main.py`
 - **Компоненты:**
   - PipelineBase (abstract class)
@@ -71,16 +78,19 @@
 ## Статистика проекта
 
 ### Код
+
 - **Файлов:** 16+ в `src/bioetl/`
 - **Конфигов:** 4 (base + 3 профиля)
 - **Тестов:** 3 файла, 25 тестов
 
 ### Тестирование
+
 - **Все тесты проходят:** ✅ 25/25
 - **Покрытие кода:** 59.41%
 - **Линтер:** 0 ошибок
 
 ### Компоненты по покрытию
+
 - config: 88-95%
 - logger: 92-97%
 - api_client: 70%
@@ -88,7 +98,8 @@
 
 ## Структура проекта
 
-```
+```text
+
 src/bioetl/
 ├── __init__.py ✅
 ├── core/ ✅
@@ -123,68 +134,86 @@ docs/ ✅
 ├── implementation-status.md
 ├── PROGRESS_SUMMARY.md
 └── COMPLETED_IMPLEMENTATION.md (этот файл)
-```
+
+```text
 
 ## Использование
 
 ### Конфигурация
 
 ```python
+
 from bioetl.config import load_config
 config = load_config('configs/profiles/dev.yaml')
-```
+
+```text
 
 ### Логирование
 
 ```python
+
 from bioetl.core.logger import UnifiedLogger
 UnifiedLogger.setup('development', run_id='test-123')
 logger = UnifiedLogger.get('test')
 logger.info('Hello World')
-```
+
+```text
 
 ### API Client
 
 ```python
+
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
 config = APIConfig(name='test', base_url='https://api.example.com')
 client = UnifiedAPIClient(config)
 result = client.request_json('/endpoint')
-```
+
+```text
 
 ### Нормализация
 
 ```python
+
 from bioetl.normalizers import registry
 result = registry.normalize('string', '  test  ')
-```
+
+```text
 
 ### Output Writer
 
 ```python
+
 from bioetl.core.output_writer import UnifiedOutputWriter
 writer = UnifiedOutputWriter(run_id='test')
 artifacts = writer.write(df, Path('output.csv'))
-```
+
+```text
 
 ## Команды
 
 ```bash
+
 # Установка
+
 pip install -e ".[dev]"
 
 # Тесты
+
 pytest tests/unit/ -v
 
 # Линтер
+
 ruff check src/
 
 # Типы
+
 mypy src/
 
 # CLI
+
 python -m bioetl.cli.main --help
-```
+
+```text
 
 ## Следующие шаги
 
@@ -200,3 +229,4 @@ python -m bioetl.cli.main --help
 Базовая инфраструктура полностью реализована, протестирована и готова к использованию. Все компоненты соответствуют спецификации из `docs/requirements/` и принципам детерминизма, безопасности и воспроизводимости.
 
 **Статус:** ✅ Готово к дальнейшему развитию
+

@@ -1,7 +1,7 @@
 """Minimal PyYAML stub definitions used for type checking."""
 
-from collections.abc import Iterable
-from typing import IO, Any, Callable
+from collections.abc import Callable, Iterable
+from typing import IO, Any
 
 # YAML Nodes
 class Node: ...

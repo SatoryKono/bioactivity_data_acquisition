@@ -8,9 +8,8 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.pandera_pandas import pa
-
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pandera_pandas import pa
 from bioetl.schemas.registry import SchemaRegistry
 from bioetl.utils.dataframe import resolve_schema_column_order
 

@@ -2,9 +2,10 @@
 
 import json
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
-from typing import Any, Callable
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -846,7 +847,7 @@ def test_request_json_server_error_without_retry_after(monkeypatch: pytest.Monke
         for attempt in range(1, config.retry_total)
     ]
     assert len(sleep_calls) == len(expected_waits)
-    for actual, expected in zip(sleep_calls, expected_waits):
+    for actual, expected in zip(sleep_calls, expected_waits, strict=False):
         assert actual == pytest.approx(expected)
 
     metadata = getattr(excinfo.value, "retry_metadata", None)

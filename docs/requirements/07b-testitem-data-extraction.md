@@ -51,6 +51,7 @@ PubChem служит опциональным, но важным источни�
 ### 2.1 Компонентная модель
 
 ```text
+
 ┌──────────────────────────────────────────────────────────────┐
 │               Testitem ETL Pipeline                           │
 │                                                                │
@@ -116,7 +117,7 @@ PubChem служит опциональным, но важным источни�
 │                                                                │
 └──────────────────────────────────────────────────────────────┘
 
-```
+```text
 
 ### 2.2 Ключевые преимущества объединённого подхода
 
@@ -136,7 +137,7 @@ PubChem служит опциональным, но важным источни�
 
 | **Graceful degradation** | Оба | Устойчивость: продолжение при сбоях |
 
-### 2.3 Почему не использовать только один подход?
+### 2.3 Почему не использовать только один подход
 
 **Проект 1 (bioactivity_data_acquisition5):**
 
@@ -193,18 +194,23 @@ PubChem PUG-REST API предоставляет несколько endpoints д�
 **URL Pattern:**
 
 ```text
+
 https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properties}/JSON
-```
+
+```text
 
 **Batch Example:**
 
 ```text
+
 /compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON
-```
+
+```text
 
 **Response Structure:**
 
 ```json
+
 {
   "PropertyTable": {
     "Properties": [
@@ -221,7 +227,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
   }
 }
 
-```
+```text
 
 **Max CIDs per batch:** 100 (рекомендуется для стабильности)
 
@@ -230,29 +236,36 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 **InChIKey Lookup:**
 
 ```text
+
 /compound/inchikey/BSYNRYMUTXBXSQ-UHFFFAOYSA-N/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
-```
+
+```text
 
 **SMILES Lookup:**
 
 ```text
+
 /compound/smiles/CC(=O)OC1=CC=CC=C1C(=O)O/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
-```
+
+```text
 
 **Name Lookup:**
 
 ```text
+
 /compound/name/aspirin/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
-```
+
+```text
 
 ### 3.2 Рекомендуемый HTTP Client
 
 Оптимальный клиент объединяет лучшие практики из обоих проектов:
 
 ```python
+
 """Optimal PubChem HTTP client combining best practices."""
 
 from __future__ import annotations
@@ -318,6 +331,7 @@ class OptimalPubChemClient:
     Optimal PubChem client combining best practices from both projects.
 
     Features:
+
     - Batch requests для properties (Proj1)
     - Service outage tracking (Proj2)
     - Multi-level caching (both)
@@ -456,6 +470,7 @@ class OptimalPubChemClient:
         Make HTTP request with caching and error handling.
 
         Implements:
+
         - Multi-level cache checking
         - Service outage awareness
         - Rate limit handling
@@ -476,6 +491,7 @@ class OptimalPubChemClient:
         cached = self._check_file_cache(cache_key)
         if cached is not None:
             self._increment_metric('cache_hits')
+
             # Promote to memory cache
 
             self._store_memory_cache(cache_key, cached)
@@ -544,6 +560,7 @@ class OptimalPubChemClient:
         try:
             return float(retry_after)
         except ValueError:
+
             # Could be HTTP date, but for simplicity use default
 
             return 60.0
@@ -724,7 +741,7 @@ class RateLimitError(Exception):
     """Raised when rate limit is hit."""
     pass
 
-```
+```text
 
 ### 3.3 Rate Limiting Strategy
 
@@ -733,6 +750,7 @@ PubChem имеет **soft limit 5 requests/second**. Превышение при
 **Рекомендуемая стратегия:**
 
 ```python
+
 from time import sleep, monotonic
 
 class RateLimiter:
@@ -754,6 +772,7 @@ class RateLimiter:
             self.calls = [call_time for call_time in self.calls if now - call_time < self.period]
 
             if len(self.calls) >= self.max_calls:
+
                 # Need to wait
 
                 oldest_call = self.calls[0]
@@ -766,7 +785,7 @@ class RateLimiter:
 
             self.calls.append(monotonic())
 
-```
+```text
 
 ---
 
@@ -777,6 +796,7 @@ class RateLimiter:
 CID (PubChem Compound ID) — это ключевой идентификатор для получения данных из PubChem. Стратегия поиска использует каскадный подход с приоритизацией источников:
 
 ```python
+
 """Optimal CID resolution strategy combining both projects."""
 
 from __future__ import annotations
@@ -998,6 +1018,7 @@ def _update_cache(
 
 def _extract_inchikey(molecule_data: dict[str, Any]) -> str | None:
     """Extract InChIKey from molecule data."""
+
     # Try multiple field names
 
     for field in ["pubchem_inchi_key", "standard_inchikey", "inchikey", "standard_inchi_key"]:
@@ -1039,6 +1060,7 @@ def _extract_cid_from_xrefs(molecule_data: dict[str, Any]) -> str | None:
         xref_id = xref.get("xref_id")
 
         if xref_id and ("pubchem" in xref_name or "pubchem" in xref_src):
+
             # Extract digits from xref_id
 
             digits = "".join(ch for ch in str(xref_id) if ch.isdigit())
@@ -1047,13 +1069,14 @@ def _extract_cid_from_xrefs(molecule_data: dict[str, Any]) -> str | None:
 
     return None
 
-```
+```text
 
 ### 4.2 Кэш-стратегия (гибрид проектов)
 
 Persistent CID cache (из проекта 2) с улучшениями:
 
 ```python
+
 """Persistent CID cache management."""
 
 from __future__ import annotations
@@ -1071,6 +1094,7 @@ class PubChemCIDCache:
     Persistent cache for PubChem CID mappings.
 
     Features:
+
     - JSON storage with metadata
     - TTL-based expiration (30 days default)
     - Schema versioning
@@ -1146,6 +1170,7 @@ class PubChemCIDCache:
             return
 
         try:
+
             # Update metadata
 
             self.metadata.update({
@@ -1284,11 +1309,12 @@ class PubChemCIDCache:
             'cache_path': str(self.cache_path)
         }
 
-```
+```text
 
 **Структура cache файла:**
 
 ```json
+
 {
   "metadata": {
     "schema_version": 1,
@@ -1316,7 +1342,7 @@ class PubChemCIDCache:
   }
 }
 
-```
+```text
 
 ---
 
@@ -1361,6 +1387,7 @@ class PubChemCIDCache:
 ### 5.4 Pandera Schema Definition
 
 ```python
+
 """Pandera schema for PubChem-enriched testitem data."""
 
 import pandera as pa
@@ -1465,7 +1492,7 @@ class PubChemEnrichedTestitemSchema(pa.DataFrameModel):
 
         coerce = True   # Coerce types where possible
 
-```
+```text
 
 ---
 
@@ -1476,6 +1503,7 @@ class PubChemEnrichedTestitemSchema(pa.DataFrameModel):
 Рекомендуемая организация кода для максимальной читаемости и тестируемости:
 
 ```text
+
 library/
 ├── clients/
 │   ├── __init__.py
@@ -1515,13 +1543,14 @@ library/
 
         └── pipeline.py              # Main pipeline orchestration
 
-```
+```text
 
 ### 6.2 Ключевые функции (Implementation)
 
 #### 6.2.1 High-Level Orchestration
 
 ```python
+
 """Main PubChem enrichment orchestrator."""
 
 from __future__ import annotations
@@ -1543,6 +1572,7 @@ class PubChemEnricher:
     Main orchestrator for PubChem enrichment.
 
     Combines:
+
     - Parallel CID resolution (Proj2)
     - Batch properties fetch (Proj1)
     - Smart caching (both)
@@ -1640,6 +1670,7 @@ class PubChemEnricher:
 
     def _filter_molecules(self, df: pd.DataFrame) -> pd.DataFrame:
         """Filter molecules that need PubChem enrichment."""
+
         # Skip if pubchem_cid already present
 
         if 'pubchem_cid' in df.columns:
@@ -1665,6 +1696,7 @@ class PubChemEnricher:
         molecules_list = molecules_df.to_dict('records')
 
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
+
             # Submit all resolution tasks
 
             future_to_molecule = {
@@ -1804,6 +1836,7 @@ class PubChemEnricher:
                 continue
 
             if f"{col}_pubchem_new" in enriched_df.columns:
+
                 # Column existed, use ChEMBL value where available
 
                 enriched_df[col] = enriched_df[col].fillna(enriched_df[f"{col}_pubchem_new"])
@@ -1838,7 +1871,7 @@ class PubChemEnricher:
         total = stats['total_molecules']
         resolved = stats['cid_resolved']
 
-        # Add computed metrics
+# Add computed metrics (continued 1)
 
         stats['cid_resolution_rate'] = resolved / total if total > 0 else 0.0
         stats['enrichment_rate'] = stats['properties_enriched'] / total if total > 0 else 0.0
@@ -1847,11 +1880,12 @@ class PubChemEnricher:
 
         return stats
 
-```
+```text
 
 #### 6.2.2 Pipeline Integration
 
 ```python
+
 """Integration of PubChem enrichment into testitem pipeline."""
 
 from __future__ import annotations
@@ -1894,6 +1928,7 @@ def enrich_testitem_with_pubchem(
         ... }
         >>> enriched_df = enrich_testitem_with_pubchem(df, config, 'cache.json')
     """
+
     # Check if enrichment is enabled
 
     if not config.get('enabled', True):
@@ -1901,6 +1936,7 @@ def enrich_testitem_with_pubchem(
         return testitem_df
 
     try:
+
         # Initialize components
 
         client = OptimalPubChemClient(
@@ -1941,7 +1977,7 @@ def enrich_testitem_with_pubchem(
         logger.warning("pubchem_enrichment_graceful_degradation")
         return testitem_df
 
-```
+```text
 
 ---
 
@@ -1966,6 +2002,7 @@ def enrich_testitem_with_pubchem(
 **Реализация:**
 
 ```python
+
 from cachetools import TTLCache
 import threading
 
@@ -1995,7 +2032,7 @@ class MemoryCacheLayer:
                 'ttl_seconds': self._cache.ttl
             }
 
-```
+```text
 
 **Преимущества:**
 
@@ -2030,6 +2067,7 @@ class MemoryCacheLayer:
 **Cache structure:**
 
 ```json
+
 {
   "metadata": {
     "schema_version": 1,
@@ -2058,7 +2096,7 @@ class MemoryCacheLayer:
   }
 }
 
-```
+```text
 
 **Cache key strategies:**
 
@@ -2101,6 +2139,7 @@ class MemoryCacheLayer:
 **Directory structure:**
 
 ```text
+
 data/cache/pubchem_http/
 ├── a1b2c3d4e5f6...  # compound/cid/2244/property/...
 
@@ -2108,7 +2147,7 @@ data/cache/pubchem_http/
 
 └── ...
 
-```
+```text
 
 **Преимущества:**
 
@@ -2129,6 +2168,7 @@ data/cache/pubchem_http/
 ### 7.4 Cache Invalidation Strategy
 
 ```python
+
 """Cache invalidation logic."""
 
 from datetime import datetime, timezone
@@ -2191,7 +2231,7 @@ def clean_expired_entries(
 
     return cleaned, expired_count
 
-```
+```text
 
 ### 7.5 Cache Hit Rate Optimization
 
@@ -2200,6 +2240,7 @@ def clean_expired_entries(
 1. **Multiple cache keys per molecule:**
 
    ```python
+
    # Cache под всеми возможными идентификаторами
 
    keys = [
@@ -2209,26 +2250,31 @@ def clean_expired_entries(
    ]
    for key in keys:
        cache.set(key, cid)
-   ```
+
+```text
 
 2. **Preemptive caching:**
 
    ```python
+
    # При успешном resolution, cache для всех альтернатив
 
    if cid_found:
        cache_all_identifiers(molecule_data, cid)
-   ```
+
+```text
 
 3. **Cache warming:**
 
    ```python
+
    # Загрузка популярных молекул при старте
 
    def warm_cache(common_molecules: list[str]):
        for chembl_id in common_molecules:
            resolve_and_cache(chembl_id)
-   ```
+
+```text
 
 ---
 
@@ -2237,6 +2283,7 @@ def clean_expired_entries(
 ### 8.1 Иерархия обработки ошибок
 
 ```python
+
 """Comprehensive error handling for PubChem client."""
 
 import logging
@@ -2354,6 +2401,7 @@ class PubChemErrorHandler:
         context: dict
     ) -> tuple[PubChemErrorType, bool]:
         """Handle 429 Rate Limit errors."""
+
         # Extract Retry-After header
 
         retry_after = self._parse_retry_after(error)
@@ -2378,6 +2426,7 @@ class PubChemErrorHandler:
         context: dict
     ) -> tuple[PubChemErrorType, bool]:
         """Handle 503/504 Service Unavailable errors."""
+
         # Mark service unavailable for 60 seconds
 
         self.outage_tracker.mark_unavailable(60.0, "service_error")
@@ -2388,7 +2437,7 @@ class PubChemErrorHandler:
             context=context
         )
 
-        # Should retry after cooldown
+# Should retry after cooldown (continued 1)
 
         return (PubChemErrorType.SERVICE_ERROR, True)
 
@@ -2498,6 +2547,7 @@ class PubChemErrorHandler:
                 try:
                     return float(retry_after)
                 except ValueError:
+
                     # Might be HTTP date, use default
 
                     return 60.0
@@ -2514,7 +2564,7 @@ class PubChemErrorHandler:
                 'by_type': dict(self.error_counts)
             }
 
-```
+```text
 
 ### 8.2 Graceful Degradation Matrix
 
@@ -2543,6 +2593,7 @@ class PubChemErrorHandler:
 ### 8.3 Retry Logic with Exponential Backoff
 
 ```python
+
 """Retry logic with exponential backoff and jitter."""
 
 import random
@@ -2588,6 +2639,7 @@ def retry_with_backoff(
             last_exception = e
 
             if attempt == max_attempts - 1:
+
                 # Last attempt, re-raise
 
                 raise
@@ -2617,7 +2669,7 @@ def retry_with_backoff(
         raise last_exception
     raise RuntimeError("Unexpected retry loop exit")
 
-# Usage example:
+# Usage example
 
 def fetch_with_retry(cid: str, client: OptimalPubChemClient) -> dict:
     """Fetch properties with automatic retry."""
@@ -2628,7 +2680,7 @@ def fetch_with_retry(cid: str, client: OptimalPubChemClient) -> dict:
         retryable_errors=(ServiceUnavailableError, RateLimitError, requests.Timeout)
     )
 
-```
+```text
 
 ---
 
@@ -2641,6 +2693,7 @@ def fetch_with_retry(cid: str, client: OptimalPubChemClient) -> dict:
 **Implementation:**
 
 ```python
+
 """Efficient batch processing for PubChem API."""
 
 from typing import Any, Iterable
@@ -2665,6 +2718,7 @@ def fetch_properties_optimized(
     Optimized batch fetching with smart chunking.
 
     Performance gains:
+
     - 100 molecules: 1 request instead of 100 (100x faster)
     - Automatic fallback to individual on batch failure
     - Progress tracking
@@ -2677,6 +2731,7 @@ def fetch_properties_optimized(
         batch_str = ",".join(batch)
 
         try:
+
             # Try batch request first
 
             path = (
@@ -2687,7 +2742,7 @@ def fetch_properties_optimized(
 
             response = client._request(path)
 
-            # Parse batch results
+# Parse batch results (continued 1)
 
             if "PropertyTable" in response and "Properties" in response["PropertyTable"]:
                 for prop_data in response["PropertyTable"]["Properties"]:
@@ -2728,7 +2783,7 @@ def fetch_properties_optimized(
 
     return results
 
-```
+```text
 
 **Performance comparison:**
 
@@ -2747,6 +2802,7 @@ def fetch_properties_optimized(
 **Implementation:**
 
 ```python
+
 """Parallel CID resolution for maximum throughput."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -2762,6 +2818,7 @@ def resolve_cids_parallel_optimized(
     Parallel CID resolution with optimal worker count.
 
     Performance gains:
+
     - 4 workers: ~4x faster than sequential
     - Automatic load balancing
     - Early completion tracking
@@ -2778,6 +2835,7 @@ def resolve_cids_parallel_optimized(
     cid_mapping = {}
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
+
         # Submit all tasks
 
         future_to_molecule = {
@@ -2838,7 +2896,7 @@ def resolve_cids_parallel_optimized(
 
     return cid_mapping
 
-```
+```text
 
 **Performance comparison:**
 
@@ -2859,6 +2917,7 @@ def resolve_cids_parallel_optimized(
 #### 9.3.1 Cache Warming
 
 ```python
+
 """Pre-populate cache with common molecules."""
 
 def warm_cache_with_common_molecules(
@@ -2877,6 +2936,7 @@ def warm_cache_with_common_molecules(
     Returns:
         Number of molecules cached
     """
+
     # Load common molecules (e.g., top 1000 by frequency)
 
     with open(common_molecules_file) as f:
@@ -2891,6 +2951,7 @@ def warm_cache_with_common_molecules(
 
     for chembl_id in chembl_ids:
         try:
+
             # Check if already cached
 
             cache_key = f"chembl:{chembl_id}"
@@ -2919,11 +2980,12 @@ def warm_cache_with_common_molecules(
 
     return cached_count
 
-```
+```text
 
 #### 9.3.2 Lazy Cache Persistence
 
 ```python
+
 """Lazy cache persistence to reduce I/O."""
 
 class LazyPersistentCache(PubChemCIDCache):
@@ -2957,11 +3019,12 @@ class LazyPersistentCache(PubChemCIDCache):
         if self._dirty:
             self.save(force=True)
 
-```
+```text
 
 ### 9.4 Метрики производительности
 
 ```python
+
 """Performance metrics tracking."""
 
 from dataclasses import dataclass, field
@@ -3103,19 +3166,21 @@ class PerformanceTracker:
         self.metrics.calculate_derived_metrics(total_molecules)
         return self.metrics
 
-```
+```text
 
 **Target performance metrics:**
 
 ```yaml
+
 performance_targets:
-  # Throughput
+
+# Throughput (continued 1)
 
   molecules_per_second: 10.0        # 10 molecules/sec
 
   requests_per_second: 4.5          # Under API limit (5/sec)
 
-  # Timing
+# Timing (continued 1)
 
   avg_cid_resolution_time: 0.5      # 0.5s per CID
 
@@ -3123,23 +3188,23 @@ performance_targets:
 
   total_duration_1000_mols: 180     # 3 minutes for 1000 molecules
 
-  # Success rates
+# Success rates (continued 1)
 
   cid_resolution_rate: 0.85         # 85% успех
 
   properties_enrichment_rate: 0.80  # 80% успех
 
-  # Cache
+# Cache (continued 1)
 
   cache_hit_rate: 0.60              # 60% из cache
 
-  # Errors
+# Errors (continued 1)
 
   rate_limit_hits_per_1000: 2       # Max 2 на 1000 молекул
 
   timeout_rate: 0.01                # Max 1% timeouts
 
-```
+```text
 
 ---
 
@@ -3249,6 +3314,7 @@ performance_targets:
 ### Целевые метрики
 
 ```yaml
+
 target_performance:
   cid_resolution_rate: 0.85       # 85% molecules resolved
 
@@ -3268,7 +3334,7 @@ target_performance:
 
   properties_fetch_duration: 60   # 1 minute
 
-```
+```text
 
 ### Следующие шаги
 
@@ -3302,3 +3368,4 @@ target_performance:
 **Дата создания:** 2024-10-28
 **Авторы:** Synthesis из bioactivity_data_acquisition5 и ChEMBL_data_acquisition6
 **Статус:** Production Ready
+
