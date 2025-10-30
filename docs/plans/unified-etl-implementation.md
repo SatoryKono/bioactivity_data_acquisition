@@ -682,7 +682,7 @@ pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adap
 # Pre-commit hooks
 pre-commit run --all-files
 # Полный тест-набор
-pytest tests/ -v --cov=src/bioetl --cov-report=html --cov-fail-under=80
+pytest tests/ -v --cov=src/bioetl --cov-report=html --cov-fail-under=85
 # Golden run всех пайплайнов
 bioetl pipeline run assay --config configs/profiles/prod.yaml --golden
 bioetl pipeline run activity --config configs/profiles/prod.yaml --golden

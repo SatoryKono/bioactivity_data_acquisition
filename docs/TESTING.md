@@ -73,9 +73,8 @@ pytest tests/unit/ -v
 
 ## Конфигурация
 
-- `pytest.ini` - основные настройки pytest
-- `pyproject.toml` - общая конфигурация проекта и инструментов
-- `tests/conftest.py` - общие фикстуры и настройки пути
+- `pyproject.toml` — общая конфигурация проекта и инструментов; секция `[tool.pytest.ini_options]` содержит настройки pytest
+- `tests/conftest.py` — общие фикстуры и настройки пути
 
 ## Структура тестов
 
