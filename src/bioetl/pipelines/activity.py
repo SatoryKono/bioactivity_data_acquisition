@@ -17,7 +17,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.pipelines.base import PipelineBase, create_chembl_client
+from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
@@ -157,8 +157,7 @@ class ActivityPipeline(PipelineBase):
         self._last_validation_report: dict[str, Any] | None = None
         self._fallback_stats: dict[str, Any] = {}
 
-        chembl_context = create_chembl_client(
-            config,
+        chembl_context = self._init_chembl_client(
             defaults={
                 "enabled": True,
                 "base_url": "https://www.ebi.ac.uk/chembl/api/data",

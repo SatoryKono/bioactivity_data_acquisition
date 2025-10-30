@@ -21,8 +21,7 @@ from bioetl.adapters import (
 )
 from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
@@ -194,25 +193,22 @@ class DocumentPipeline(PipelineBase):
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         default_batch_size = 10
         default_max_url_length = 1800
+        self.max_batch_size = 25
 
-        factory = APIClientFactory.from_pipeline_config(config)
-        chembl_source = ensure_target_source_config(
-            config.sources.get("chembl"),
+        chembl_context = self._init_chembl_client(
             defaults={
                 "enabled": True,
                 "base_url": default_base_url,
                 "batch_size": default_batch_size,
                 "max_url_length": default_max_url_length,
             },
+            batch_size_cap=self.max_batch_size,
         )
 
-        chembl_config = factory.create("chembl", chembl_source)
-        self.api_client = UnifiedAPIClient(chembl_config)
-        self.max_batch_size = 25
-        batch_size = chembl_source.batch_size or default_batch_size
-        max_url_length = chembl_source.max_url_length or default_max_url_length
-        self.batch_size = min(self.max_batch_size, max(1, int(batch_size)))
-        self.max_url_length = max(1, int(max_url_length))
+        self.api_client = chembl_context.client
+        self.batch_size = chembl_context.batch_size
+        resolved_max_url = chembl_context.max_url_length or default_max_url_length
+        self.max_url_length = max(1, int(resolved_max_url))
         self._document_cache: dict[str, dict[str, Any]] = {}
 
         # Initialize external adapters if enabled
