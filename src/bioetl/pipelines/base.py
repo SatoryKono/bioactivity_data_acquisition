@@ -22,6 +22,7 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.utils.chembl import ChemblRelease, SupportsRequestJson, fetch_chembl_release
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.qc import (
     update_summary_metrics,
@@ -274,6 +275,38 @@ class PipelineBase(ABC):
             logger.info("input_limit_active", limit=limit_value, rows=len(dataframe))
 
         return dataframe, resolved_path
+
+    def _fetch_chembl_release_info(
+        self,
+        api_client: SupportsRequestJson | str | None,
+    ) -> ChemblRelease:
+        """Resolve the ChEMBL release metadata and normalise logging."""
+
+        if api_client is None:
+            return ChemblRelease(version=None, status=None)
+
+        try:
+            release = fetch_chembl_release(api_client)
+        except Exception as exc:  # noqa: BLE001 - upstream errors are non-fatal
+            logger.warning("failed_to_get_chembl_version", error=str(exc))
+            return ChemblRelease(version=None, status=None)
+
+        status = release.status
+        version = release.version.strip() if isinstance(release.version, str) else None
+
+        if version:
+            release_date = status.get("chembl_release_date") if isinstance(status, Mapping) else None
+            activities = status.get("activities") if isinstance(status, Mapping) else None
+            logger.info(
+                "chembl_version_fetched",
+                version=version,
+                release_date=release_date,
+                activities=activities,
+            )
+            return ChemblRelease(version=version, status=status)
+
+        logger.warning("chembl_version_not_in_status_response")
+        return ChemblRelease(version=None, status=status)
 
     def set_stage_summary(self, name: str, status: str, **details: Any) -> None:
         """Record the execution summary for an enrichment stage."""

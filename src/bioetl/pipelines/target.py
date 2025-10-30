@@ -162,27 +162,8 @@ class TargetPipeline(PipelineBase):
     def _get_chembl_release(self) -> str | None:
         """Fetch the ChEMBL database release identifier."""
 
-        if self.chembl_client is None:
-            return None
-
-        try:
-            status = self.chembl_client.request_json("/status.json")
-        except Exception as exc:  # noqa: BLE001 - errors are logged and ignored
-            logger.warning("failed_to_get_chembl_version", error=str(exc))
-            return None
-
-        version = status.get("chembl_db_version")
-        release_date = status.get("chembl_release_date")
-        if version:
-            logger.info(
-                "chembl_version_fetched",
-                version=version,
-                release_date=release_date,
-            )
-            return str(version)
-
-        logger.warning("chembl_version_not_in_status_response")
-        return None
+        release = self._fetch_chembl_release_info(self.chembl_client)
+        return release.version
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract target data from input file."""
