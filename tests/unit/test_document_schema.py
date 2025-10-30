@@ -25,3 +25,10 @@ def test_to_schema_handles_column_order_accessor(schema_cls):
 
     schema = schema_cls.to_schema()
     assert list(schema.columns.keys())
+
+
+def test_document_schemas_disable_pandera_column_order_enforcement():
+    """Normalized document schemas must not rely on Pandera's order checks."""
+
+    assert DocumentSchema.Config.ordered is False
+    assert DocumentNormalizedSchema.Config.ordered is False

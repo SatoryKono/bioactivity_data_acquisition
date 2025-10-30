@@ -26,6 +26,25 @@ def test_inheritance():
     assert config.cache.enabled is True
 
 
+@pytest.mark.parametrize(
+    ("profile", "expected_ttl", "expected_enabled", "expected_release_scoped"),
+    [
+        ("dev", 3600, True, False),
+        ("prod", 86400, True, True),
+        ("test", 0, False, False),
+    ],
+)
+def test_profile_configs_smoke(profile, expected_ttl, expected_enabled, expected_release_scoped):
+    """Smoke test for loading profile configs with cache include overrides."""
+
+    config = load_config(Path(f"configs/profiles/{profile}.yaml"))
+
+    assert config.pipeline.name == profile
+    assert config.cache.enabled is expected_enabled
+    assert config.cache.ttl == expected_ttl
+    assert config.cache.release_scoped is expected_release_scoped
+
+
 def test_multiple_extends_and_overrides(tmp_path):
     """Multiple extends blocks should merge with overrides correctly."""
 

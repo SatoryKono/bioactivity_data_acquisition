@@ -475,7 +475,17 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
         # via ``DocumentPipeline._enforce_schema_dtypes``, so disabling coercion
         # keeps validation strict without triggering the Pandera bug.
         coerce = False
-        ordered = True
+        # Pandera enforces dataframe column order whenever ``ordered=True``.
+        # The generated schema places ``fallback_*`` columns immediately after
+        # the BaseSchema fields because they originate from
+        # :class:`FallbackMetadataMixin`.  Our canonical column order, however,
+        # intentionally places these diagnostic columns at the tail of the
+        # dataset so that business fields stay contiguous.  Enabling Pandera's
+        # ordering check therefore results in false positives (``COLUMN_NOT_ORDERED``)
+        # even though the pipeline reorders outputs deterministically via
+        # :func:`finalize_output_dataset`.  Disabling the Pandera check keeps the
+        # schema strict while honouring the canonical ordering.
+        ordered = False
 
 
 expose_config_column_order(DocumentSchema)

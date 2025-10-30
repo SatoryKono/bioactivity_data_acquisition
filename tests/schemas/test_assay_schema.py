@@ -22,6 +22,7 @@ def test_assay_schema_accepts_nullable_integer_columns() -> None:
             "hash_row": "0" * 64,
             "hash_business_key": "0" * 64,
             "pipeline_version": "1.0.0",
+            "run_id": "TEST_RUN",
             "source_system": "chembl",
             "chembl_release": "ChEMBL_TEST",
             "extracted_at": "2024-01-01T00:00:00+00:00",

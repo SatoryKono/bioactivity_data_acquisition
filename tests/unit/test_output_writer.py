@@ -211,6 +211,46 @@ def test_unified_output_writer_emits_qc_artifacts(tmp_path, monkeypatch):
     assert metadata.get("qc_summary", {}).get("row_counts", {}).get("total") == 2
 
 
+def test_write_dataframe_json_uses_atomic_write(tmp_path, monkeypatch):
+    """JSON exports rely on atomic writes and produce sorted keys."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1], "label": ["b"]})
+    writer = UnifiedOutputWriter("run-json")
+
+    target = tmp_path / "run-json" / "reports" / "dataset.json"
+    writer.write_dataframe_json(df, target)
+
+    assert target.exists()
+    content = target.read_text(encoding="utf-8")
+    # ``sort_keys=True`` guarantees alphabetical ordering inside objects.
+    assert content.index('"label"') < content.index('"value"')
+
+
+def test_write_dataframe_json_cleans_up_on_failure(tmp_path, monkeypatch):
+    """Temporary files from JSON writes are removed when serialization fails."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1], "label": ["b"]})
+    writer = UnifiedOutputWriter("run-json")
+
+    def boom(*args, **kwargs):  # noqa: ANN001 - signature mirrors json.dump
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("bioetl.core.output_writer.json.dump", boom)
+
+    target = tmp_path / "run-json" / "reports" / "dataset.json"
+
+    with pytest.raises(RuntimeError):
+        writer.write_dataframe_json(df, target)
+
+    assert not target.exists(), "no JSON artefact should be present after failure"
+    assert not any(tmp_path.rglob("*.tmp")), "temporary JSON files should be removed"
+    assert not list(tmp_path.rglob(".tmp_run_run-json")), "run-scoped temp dirs are cleaned"
+
+
 def test_write_dataframe_json(tmp_path, monkeypatch):
     """Debug dataframe JSON writer should persist records atomically."""
 

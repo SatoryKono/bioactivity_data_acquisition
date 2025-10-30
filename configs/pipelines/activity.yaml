@@ -17,18 +17,56 @@ determinism:
   sort:
     by: ["activity_id"]
     ascending: [true]
-  column_order: [
-    "index", "hash_row", "hash_business_key", "pipeline_version", "source_system", "chembl_release", "extracted_at",
-    "activity_id", "molecule_chembl_id", "assay_chembl_id", "target_chembl_id", "document_chembl_id",
-    "published_type", "published_relation", "published_value", "published_units", "standard_type", "standard_relation",
-    "standard_value", "standard_units", "standard_flag", "pchembl_value", "lower_bound", "upper_bound", "is_censored",
-    "activity_comment", "data_validity_comment", "bao_endpoint", "bao_format", "bao_label", "potential_duplicate",
-    "uo_units", "qudt_units", "src_id", "action_type", "canonical_smiles", "target_organism", "target_tax_id",
-    "activity_properties", "compound_key", "is_citation", "high_citation_rate", "exact_data_citation",
-    "rounded_data_citation", "bei", "sei", "le", "lle", "fallback_reason", "fallback_error_type",
-    "fallback_error_code", "fallback_error_message", "fallback_http_status", "fallback_retry_after_sec",
-    "fallback_attempt", "fallback_timestamp"
-  ]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "activity_id"
+    - "molecule_chembl_id"
+    - "assay_chembl_id"
+    - "target_chembl_id"
+    - "document_chembl_id"
+    - "published_type"
+    - "published_relation"
+    - "published_value"
+    - "published_units"
+    - "standard_type"
+    - "standard_relation"
+    - "standard_value"
+    - "standard_units"
+    - "standard_flag"
+    - "pchembl_value"
+    - "lower_bound"
+    - "upper_bound"
+    - "is_censored"
+    - "activity_comment"
+    - "data_validity_comment"
+    - "bao_endpoint"
+    - "bao_format"
+    - "bao_label"
+    - "potential_duplicate"
+    - "uo_units"
+    - "qudt_units"
+    - "src_id"
+    - "action_type"
+    - "canonical_smiles"
+    - "target_organism"
+    - "target_tax_id"
+    - "activity_properties"
+    - "compound_key"
+    - "is_citation"
+    - "high_citation_rate"
+    - "exact_data_citation"
+    - "rounded_data_citation"
+    - "bei"
+    - "sei"
+    - "le"
+    - "lle"
+    - !include ../includes/fallback_columns.yaml
 
 qc:
   enabled: true

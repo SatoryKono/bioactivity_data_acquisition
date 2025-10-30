@@ -3,16 +3,72 @@
 import hashlib
 import json
 import os
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 
 logger = UnifiedLogger.get(__name__)
+
+
+_ATOMIC_TEMP_DIR_NAME: ContextVar[str] = ContextVar(
+    "_atomic_temp_dir_name",
+    default=".tmp_atomic",
+)
+_ACTIVE_ATOMIC_TEMP_PATH: ContextVar[Path] = ContextVar("_active_atomic_temp_path")
+
+
+def _get_active_atomic_temp_path() -> Path:
+    """Return the temporary path registered for the current atomic write."""
+
+    try:
+        return _ACTIVE_ATOMIC_TEMP_PATH.get()
+    except LookupError as exc:  # pragma: no cover - defensive guard
+        raise RuntimeError("_atomic_write called without an active temp path") from exc
+
+
+def _cleanup_temp_dir(temp_dir: Path) -> None:
+    """Remove temporary directory if empty and cleanup stray ``*.tmp`` files."""
+
+    try:
+        if not temp_dir.exists():
+            return
+
+        if any(temp_dir.iterdir()):
+            for temp_file in temp_dir.glob("*.tmp"):
+                temp_file.unlink(missing_ok=True)
+            if any(temp_dir.iterdir()):
+                return
+        temp_dir.rmdir()
+    except OSError:
+        # Best-effort cleanup – temp artefacts are safe to leave behind if removal fails.
+        pass
+
+
+def _atomic_write(path: Path, write_fn: Callable[[], None]) -> None:
+    """Execute ``write_fn`` within an atomic file replacement workflow."""
+
+    temp_dir_name = _ATOMIC_TEMP_DIR_NAME.get()
+    temp_dir = path.parent / temp_dir_name
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_path = temp_dir / f"{path.name}.tmp"
+
+    token = _ACTIVE_ATOMIC_TEMP_PATH.set(temp_path)
+    try:
+        write_fn()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(str(temp_path), str(path))
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+    finally:
+        _ACTIVE_ATOMIC_TEMP_PATH.reset(token)
+        _cleanup_temp_dir(temp_dir)
 
 
 @dataclass(frozen=True)
@@ -86,27 +142,16 @@ class AtomicWriter:
 
     def write(self, data: pd.DataFrame, path: Path, **kwargs) -> None:
         """Записывает data в path атомарно через run-scoped temp directory."""
-        temp_dir = path.parent / f".tmp_run_{self.run_id}"
-        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
 
-        temp_path = temp_dir / f"{path.name}.tmp"
+        def write_payload() -> None:
+            temp_path = _get_active_atomic_temp_path()
+            self._write_to_file(data, temp_path, **kwargs)
 
         try:
-            self._write_to_file(data, temp_path, **kwargs)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(str(temp_path), str(path))
-        except Exception:
-            temp_path.unlink(missing_ok=True)
-            raise
+            _atomic_write(path, write_payload)
         finally:
-            try:
-                if temp_dir.exists() and not any(temp_dir.iterdir()):
-                    temp_dir.rmdir()
-                elif temp_dir.exists():
-                    for temp_file in temp_dir.glob("*.tmp"):
-                        temp_file.unlink(missing_ok=True)
-            except OSError:
-                pass
+            _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
 
     def _write_to_file(self, data: pd.DataFrame, path: Path, **kwargs) -> None:
         """Записывает DataFrame в файл."""
@@ -375,7 +420,6 @@ class UnifiedOutputWriter:
         )
         parsed_payload = json.loads(json_payload) if json_payload else []
 
-        json_path.parent.mkdir(parents=True, exist_ok=True)
         self._write_json_atomic(json_path, parsed_payload)
 
     def _calculate_checksums(self, *paths: Path) -> dict[str, str]:
@@ -453,26 +497,15 @@ class UnifiedOutputWriter:
 
     def _write_json_atomic(self, path: Path, payload: Any) -> None:
         """Atomically write JSON payload to disk."""
+        temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
 
-        temp_dir = path.parent / f".tmp_run_{self.run_id}"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        temp_path = temp_dir / f"{path.name}.tmp"
-
-        try:
+        def write_payload() -> None:
+            temp_path = _get_active_atomic_temp_path()
             with temp_path.open("w", encoding="utf-8") as handle:
                 json.dump(payload, handle, indent=2, ensure_ascii=False, sort_keys=True)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            os.replace(str(temp_path), str(path))
-        except Exception:
-            temp_path.unlink(missing_ok=True)
-            raise
+
+        try:
+            _atomic_write(path, write_payload)
         finally:
-            try:
-                if temp_dir.exists() and not any(temp_dir.iterdir()):
-                    temp_dir.rmdir()
-                elif temp_dir.exists():
-                    for temp_file in temp_dir.glob("*.tmp"):
-                        temp_file.unlink(missing_ok=True)
-            except OSError:
-                pass
+            _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
 
