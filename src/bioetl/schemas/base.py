@@ -40,7 +40,13 @@ class _FieldSpec(TypedDict, total=False):
 class FallbackMetadataMixin:
     """Reusable Pandera column definitions for fallback metadata fields."""
 
-    _FIELD_SPECS: dict[str, _FieldSpec] = {
+    # ``pandera`` collects type hints from subclasses using the subclass module
+    # globals as the evaluation context.  When ``_FieldSpec`` is referenced in
+    # the annotation it isn't visible in that module, which results in a
+    # ``NameError`` during schema registration.  Using ``dict[str, dict[str,
+    # Any]]`` keeps static type-checkers happy while avoiding the runtime
+    # dependency on the private ``_FieldSpec`` symbol.
+    _FIELD_SPECS: dict[str, dict[str, Any]] = {
         "fallback_reason": {
             "nullable": True,
             "description": "Reason why the fallback record was generated",
