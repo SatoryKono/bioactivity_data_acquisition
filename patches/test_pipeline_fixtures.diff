@@ -1,0 +1,48 @@
+# Почему: Тестовые пайплайны продублированы во множестве модулей.
+# Что: Создаём фабрику в tests/conftest.py и переиспользуем.
+# Трассировка: [ref: repo:tests/unit/test_pipelines.py@test_refactoring_11] [ref: repo:tests/unit/test_cli_contract.py@test_refactoring_11]
+# Проверка: pytest -k "pipeline and recording"
+
+diff --git a/tests/conftest.py b/tests/conftest.py
+new file mode 100644
+index 0000000..ccccccc
+--- /dev/null
++++ b/tests/conftest.py
+@@
++from __future__ import annotations
++
++from pathlib import Path
++from typing import Any, Callable
++
++import pandas as pd
++import pytest
++
++from bioetl.pipelines.base import PipelineBase, OutputArtifacts
++
++
++@pytest.fixture
++def recording_pipeline_factory() -> Callable[[dict[str, Any] | None], type[PipelineBase]]:
++    """Return a PipelineBase subclass that records call arguments for assertions."""
++
++    def factory(state: dict[str, Any] | None = None) -> type[PipelineBase]:
++        shared_state = state or {}
++
++        class RecordingPipeline(PipelineBase):
++            def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # pragma: no cover - test helper
++                shared_state.setdefault("extract_calls", []).append((args, kwargs))
++                return pd.DataFrame({"value": [1]})
++
++            def transform(self, df: pd.DataFrame) -> pd.DataFrame:
++                shared_state.setdefault("transform_calls", 0)
++                shared_state["transform_calls"] += 1
++                return df
++
++            def validate(self, df: pd.DataFrame) -> pd.DataFrame:
++                return df
++
++            def export(self, df: pd.DataFrame, output_path: Path, *, extended: bool = False) -> OutputArtifacts:
++                return OutputArtifacts(dataset=output_path, quality_report=output_path, run_directory=output_path.parent)
++
++        return RecordingPipeline
++
++    return factory

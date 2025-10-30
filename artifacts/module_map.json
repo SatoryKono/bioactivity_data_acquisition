@@ -1,0 +1,278 @@
+{
+  "src/bioetl/__init__.py": {
+    "bytes": 94,
+    "lines": 4
+  },
+  "src/bioetl/adapters/__init__.py": {
+    "bytes": 535,
+    "lines": 18
+  },
+  "src/bioetl/adapters/base.py": {
+    "bytes": 7084,
+    "lines": 210
+  },
+  "src/bioetl/adapters/crossref.py": {
+    "bytes": 5126,
+    "lines": 136
+  },
+  "src/bioetl/adapters/openalex.py": {
+    "bytes": 6605,
+    "lines": 180
+  },
+  "src/bioetl/adapters/pubchem.py": {
+    "bytes": 13954,
+    "lines": 387
+  },
+  "src/bioetl/adapters/pubmed.py": {
+    "bytes": 14974,
+    "lines": 391
+  },
+  "src/bioetl/adapters/semantic_scholar.py": {
+    "bytes": 7750,
+    "lines": 214
+  },
+  "src/bioetl/cli/__init__.py": {
+    "bytes": 478,
+    "lines": 21
+  },
+  "src/bioetl/cli/command.py": {
+    "bytes": 12322,
+    "lines": 308
+  },
+  "src/bioetl/cli/main.py": {
+    "bytes": 844,
+    "lines": 30
+  },
+  "src/bioetl/config/__init__.py": {
+    "bytes": 242,
+    "lines": 7
+  },
+  "src/bioetl/config/loader.py": {
+    "bytes": 8087,
+    "lines": 254
+  },
+  "src/bioetl/config/models.py": {
+    "bytes": 13998,
+    "lines": 426
+  },
+  "src/bioetl/core/__init__.py": {
+    "bytes": 569,
+    "lines": 22
+  },
+  "src/bioetl/core/api_client.py": {
+    "bytes": 33453,
+    "lines": 1003
+  },
+  "src/bioetl/core/client_factory.py": {
+    "bytes": 8078,
+    "lines": 238
+  },
+  "src/bioetl/core/hashing.py": {
+    "bytes": 2789,
+    "lines": 85
+  },
+  "src/bioetl/core/logger.py": {
+    "bytes": 8011,
+    "lines": 258
+  },
+  "src/bioetl/core/output_writer.py": {
+    "bytes": 35455,
+    "lines": 981
+  },
+  "src/bioetl/normalizers/__init__.py": {
+    "bytes": 2167,
+    "lines": 61
+  },
+  "src/bioetl/normalizers/base.py": {
+    "bytes": 942,
+    "lines": 31
+  },
+  "src/bioetl/normalizers/bibliography.py": {
+    "bytes": 7158,
+    "lines": 245
+  },
+  "src/bioetl/normalizers/chemistry.py": {
+    "bytes": 8721,
+    "lines": 285
+  },
+  "src/bioetl/normalizers/constants.py": {
+    "bytes": 1353,
+    "lines": 54
+  },
+  "src/bioetl/normalizers/helpers.py": {
+    "bytes": 1244,
+    "lines": 48
+  },
+  "src/bioetl/normalizers/identifier.py": {
+    "bytes": 3625,
+    "lines": 126
+  },
+  "src/bioetl/normalizers/numeric.py": {
+    "bytes": 4149,
+    "lines": 116
+  },
+  "src/bioetl/normalizers/registry.py": {
+    "bytes": 1032,
+    "lines": 34
+  },
+  "src/bioetl/normalizers/string.py": {
+    "bytes": 1304,
+    "lines": 46
+  },
+  "src/bioetl/pandera_pandas.py": {
+    "bytes": 2754,
+    "lines": 85
+  },
+  "src/bioetl/pandera_typing.py": {
+    "bytes": 1508,
+    "lines": 38
+  },
+  "src/bioetl/pipelines/__init__.py": {
+    "bytes": 1908,
+    "lines": 56
+  },
+  "src/bioetl/pipelines/activity.py": {
+    "bytes": 51658,
+    "lines": 1322
+  },
+  "src/bioetl/pipelines/assay.py": {
+    "bytes": 48941,
+    "lines": 1203
+  },
+  "src/bioetl/pipelines/base.py": {
+    "bytes": 33285,
+    "lines": 927
+  },
+  "src/bioetl/pipelines/document.py": {
+    "bytes": 55656,
+    "lines": 1460
+  },
+  "src/bioetl/pipelines/document_enrichment.py": {
+    "bytes": 12682,
+    "lines": 365
+  },
+  "src/bioetl/pipelines/target.py": {
+    "bytes": 84929,
+    "lines": 2210
+  },
+  "src/bioetl/pipelines/target_gold.py": {
+    "bytes": 17215,
+    "lines": 475
+  },
+  "src/bioetl/pipelines/testitem.py": {
+    "bytes": 59750,
+    "lines": 1550
+  },
+  "src/bioetl/schemas/__init__.py": {
+    "bytes": 2542,
+    "lines": 77
+  },
+  "src/bioetl/schemas/activity.py": {
+    "bytes": 9018,
+    "lines": 265
+  },
+  "src/bioetl/schemas/assay.py": {
+    "bytes": 10479,
+    "lines": 251
+  },
+  "src/bioetl/schemas/base.py": {
+    "bytes": 9774,
+    "lines": 250
+  },
+  "src/bioetl/schemas/document.py": {
+    "bytes": 23250,
+    "lines": 517
+  },
+  "src/bioetl/schemas/document_input.py": {
+    "bytes": 553,
+    "lines": 22
+  },
+  "src/bioetl/schemas/registry.py": {
+    "bytes": 6809,
+    "lines": 214
+  },
+  "src/bioetl/schemas/target.py": {
+    "bytes": 5559,
+    "lines": 171
+  },
+  "src/bioetl/schemas/testitem.py": {
+    "bytes": 14829,
+    "lines": 346
+  },
+  "src/bioetl/utils/__init__.py": {
+    "bytes": 1343,
+    "lines": 36
+  },
+  "src/bioetl/utils/chembl.py": {
+    "bytes": 2185,
+    "lines": 67
+  },
+  "src/bioetl/utils/column_validator.py": {
+    "bytes": 16705,
+    "lines": 418
+  },
+  "src/bioetl/utils/dataframe.py": {
+    "bytes": 9330,
+    "lines": 272
+  },
+  "src/bioetl/utils/dtype.py": {
+    "bytes": 271,
+    "lines": 15
+  },
+  "src/bioetl/utils/dtypes.py": {
+    "bytes": 7013,
+    "lines": 210
+  },
+  "src/bioetl/utils/fallback.py": {
+    "bytes": 6171,
+    "lines": 194
+  },
+  "src/bioetl/utils/io.py": {
+    "bytes": 4583,
+    "lines": 130
+  },
+  "src/bioetl/utils/json.py": {
+    "bytes": 4553,
+    "lines": 127
+  },
+  "src/bioetl/utils/output.py": {
+    "bytes": 4727,
+    "lines": 138
+  },
+  "src/bioetl/utils/qc.py": {
+    "bytes": 7876,
+    "lines": 267
+  },
+  "src/library/__init__.py": {
+    "bytes": 204,
+    "lines": 6
+  },
+  "src/scripts/__init__.py": {
+    "bytes": 2788,
+    "lines": 76
+  },
+  "src/scripts/run_activity.py": {
+    "bytes": 315,
+    "lines": 16
+  },
+  "src/scripts/run_assay.py": {
+    "bytes": 303,
+    "lines": 16
+  },
+  "src/scripts/run_document.py": {
+    "bytes": 315,
+    "lines": 16
+  },
+  "src/scripts/run_target.py": {
+    "bytes": 10820,
+    "lines": 313
+  },
+  "src/scripts/run_testitem.py": {
+    "bytes": 317,
+    "lines": 16
+  },
+  "src/scripts/validate_columns.py": {
+    "bytes": 6969,
+    "lines": 194
+  }
+}

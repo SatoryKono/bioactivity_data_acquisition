@@ -1,0 +1,57 @@
+# Почему: Унифицируем схему валидации по пайплайнам.
+# Что: Добавляем helper в PipelineBase и используем в assay/testitem.
+# Трассировка: [ref: repo:src/bioetl/pipelines/assay.py@test_refactoring_11] [ref: repo:src/bioetl/pipelines/testitem.py@test_refactoring_11]
+# Проверка: pytest tests/unit/test_pipelines.py -k validate
+
+diff --git a/src/bioetl/pipelines/base.py b/src/bioetl/pipelines/base.py
+index 4444444..5555555 100644
+--- a/src/bioetl/pipelines/base.py
++++ b/src/bioetl/pipelines/base.py
+@@
++    def run_schema_validation(
++        self,
++        df: pd.DataFrame,
++        *,
++        schema: type[Any],
++        dataset_name: str,
++        severity: str = "error",
++        metric_name: str = "schema.validation",
++        on_failure: Callable[[pd.DataFrame], None] | None = None,
++    ) -> pd.DataFrame:
++        """Shared validator wrapper used by concrete pipelines."""
++
++        issues: list[dict[str, Any]] = []
++
++        def _handle(exc: Exception, _: bool) -> None:
++            failure_cases = getattr(exc, "failure_cases", None)
++            if isinstance(failure_cases, pd.DataFrame):
++                issues.extend(self._summarize_schema_errors(failure_cases))
++            if on_failure is not None and isinstance(failure_cases, pd.DataFrame):
++                on_failure(failure_cases)
++            for issue in issues:
++                self.record_validation_issue(issue)
++                logger.error(
++                    "schema_validation_error",
++                    column=issue.get("column"),
++                    check=issue.get("check"),
++                    count=issue.get("count"),
++                    severity=issue.get("severity"),
++                )
++
++        validated = self._validate_with_schema(
++            df,
++            schema,
++            dataset_name=dataset_name,
++            severity=severity,
++            metric_name=metric_name,
++            failure_handler=_handle,
++        )
++        if issues:
++            raise ValueError(
++                "Schema validation failed: "
++                + "; ".join(
++                    f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
++                    for issue in issues
++                )
++            )
++        return validated

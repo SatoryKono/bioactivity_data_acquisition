@@ -1,0 +1,20 @@
+# Почему: validate() повторяется в ChemistryStringNormalizer и родственниках.
+# Что: Добавляем миксин со стандартной проверкой строки.
+# Трассировка: [ref: repo:src/bioetl/normalizers/chemistry.py@test_refactoring_11]
+# Проверка: pytest tests/unit/test_identifier_normalizer.py -k chemistry
+
+diff --git a/src/bioetl/normalizers/_mixins.py b/src/bioetl/normalizers/_mixins.py
+new file mode 100644
+index 0000000..bbbbbbb
+--- /dev/null
++++ b/src/bioetl/normalizers/_mixins.py
+@@
++from __future__ import annotations
++
++from typing import Any
++
++
++def is_string_or_na(value: Any, *, na_predicate) -> bool:
++    """Return True when ``value`` is NA or ``str``."""
++
++    return na_predicate(value) or isinstance(value, str)

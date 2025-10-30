@@ -1,0 +1,86 @@
+# Почему: Удаляем копипасту sample-limit из CLI команд.
+# Что: Выносим обёртку в helper и переиспользуем.
+# Трассировка: [ref: repo:src/bioetl/cli/command.py@test_refactoring_11] [ref: repo:src/scripts/run_target.py@test_refactoring_11]
+# Проверка: pytest tests/unit/test_cli_contract.py -k sample
+
+diff --git a/src/bioetl/cli/limits.py b/src/bioetl/cli/limits.py
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/src/bioetl/cli/limits.py
+@@
++"""Shared helpers for applying CLI sampling limits to pipelines."""
++
++from __future__ import annotations
++
++from types import MethodType
++from typing import Any, Callable, Protocol
++
++import pandas as pd
++
++from bioetl.pipelines.base import PipelineBase
++
++
++class _ExtractCallable(Protocol):
++    def __call__(self, *args: Any, **kwargs: Any) -> pd.DataFrame: ...
++
++
++def apply_sample_limit(pipeline: PipelineBase, limit: int, *, log: Callable[..., None]) -> None:
++    """Wrap ``pipeline.extract`` so subsequent calls return at most ``limit`` rows."""
++
++    original = pipeline.extract
++
++    def limited_extract(self: PipelineBase, *args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
++        frame = original(*args, **kwargs)
++        log("applying_sample_limit", limit=limit, original_rows=len(frame))
++        return frame.head(limit)
++
++    pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
+
+diff --git a/src/bioetl/cli/command.py b/src/bioetl/cli/command.py
+index 1234567..89abcde 100644
+--- a/src/bioetl/cli/command.py
++++ b/src/bioetl/cli/command.py
+@@
+-            if sample_limit is not None:
+-                original_extract = pipeline.extract
+-
+-                def limited_extract(self: PipelineBase, *args: Any, **kwargs: Any) -> pd.DataFrame:  # type: ignore[misc]
+-                    df = original_extract(*args, **kwargs)
+-                    logger.info(
+-                        "applying_sample_limit",
+-                        limit=sample_limit,
+-                        original_rows=len(df),
+-                    )
+-                    return df.head(sample_limit)
+-
+-                pipeline.extract = MethodType(limited_extract, pipeline)  # type: ignore[method-assign]
++            if sample_limit is not None:
++                apply_sample_limit(pipeline, sample_limit, log=logger.info)
+
+diff --git a/src/scripts/run_target.py b/src/scripts/run_target.py
+index 2222222..3333333 100644
+--- a/src/scripts/run_target.py
++++ b/src/scripts/run_target.py
+@@
+-    if sample is not None:
+-        original_extract = cast(Callable[..., pd.DataFrame], pipeline.extract)
+-
+-        def limited_extract(
+-            self: PipelineBase, *args: Any, **kwargs: Any
+-        ) -> pd.DataFrame:
+-            df = original_extract(*args, **kwargs)
+-            logger.info(
+-                "applying_sample_limit",
+-                limit=sample,
+-                original_rows=len(df),
+-            )
+-            return df.head(sample)
+-
+-        limited_method = cast(
+-            Callable[..., pd.DataFrame],
+-            MethodType(limited_extract, pipeline),
+-        )
+-        setattr(pipeline, "extract", limited_method)
++    if sample is not None:
++        apply_sample_limit(pipeline, sample, log=logger.info)
