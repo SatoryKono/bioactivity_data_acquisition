@@ -76,39 +76,12 @@ class SemanticScholarAdapter(ExternalAdapter):
 
     def process_titles(self, titles: list[str]) -> pd.DataFrame:
         """Process list of titles: fetch, normalize, convert to DataFrame."""
-        if not titles:
-            self.logger.info("no_titles_provided", adapter=self.__class__.__name__)
-            return pd.DataFrame()
-
-        self.logger.info("starting_fetch_by_titles", adapter=self.__class__.__name__, count=len(titles))
-
-        # Fetch records
-        raw_records = self.fetch_by_titles(titles)
-
-        if not raw_records:
-            self.logger.warning("no_records_fetched", adapter=self.__class__.__name__)
-            return pd.DataFrame()
-
-        # Normalize each record
-        normalized_records = []
-        for raw_record in raw_records:
-            try:
-                normalized = self.normalize_record(raw_record)
-                if normalized:
-                    normalized_records.append(normalized)
-            except Exception as e:
-                self.logger.error(
-                    "normalization_failed",
-                    adapter=self.__class__.__name__,
-                    error=str(e),
-                )
-                continue
-
-        # Convert to DataFrame
-        df = self.to_dataframe(normalized_records)
-        self.logger.info("fetch_completed", adapter=self.__class__.__name__, fetched=len(raw_records), normalized=len(normalized_records))
-
-        return df
+        return self._process_collection(
+            titles,
+            self.fetch_by_titles,
+            start_event="starting_fetch_by_titles",
+            no_items_event="no_titles_provided",
+        )
 
     def _search_by_title(self, title: str) -> list[dict[str, Any]]:
         """Search for papers by title."""

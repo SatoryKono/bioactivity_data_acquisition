@@ -1,6 +1,7 @@
 """Base class for external API adapters."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -122,33 +123,53 @@ class ExternalAdapter(ABC):
 
     def process(self, ids: list[str]) -> pd.DataFrame:
         """Process list of IDs: fetch, normalize, convert to DataFrame."""
-        if not ids:
-            self.logger.info("no_ids_provided", adapter=self.__class__.__name__)
+
+        return self._process_collection(ids, self.fetch_by_ids)
+
+    def _process_collection(
+        self,
+        items: Sequence[str],
+        fetch_fn: Callable[[list[str]], list[dict[str, Any]]],
+        *,
+        start_event: str = "starting_fetch",
+        no_items_event: str = "no_ids_provided",
+        empty_event: str = "no_records_fetched",
+    ) -> pd.DataFrame:
+        """Shared workflow for fetching, normalizing, and tabulating records."""
+
+        items_list = list(items) if items is not None else []
+
+        if not items_list:
+            self.logger.info(no_items_event, adapter=self.__class__.__name__)
             return pd.DataFrame()
 
-        self.logger.info("starting_fetch", adapter=self.__class__.__name__, count=len(ids))
+        self.logger.info(start_event, adapter=self.__class__.__name__, count=len(items_list))
 
-        # Fetch records
-        raw_records = self.fetch_by_ids(ids)
+        raw_records = fetch_fn(items_list)
 
         if not raw_records:
-            self.logger.warning("no_records_fetched", adapter=self.__class__.__name__)
+            self.logger.warning(empty_event, adapter=self.__class__.__name__)
             return pd.DataFrame()
 
-        # Normalize each record
-        normalized_records = []
+        normalized_records: list[dict[str, Any]] = []
         for raw_record in raw_records:
             try:
                 normalized = self.normalize_record(raw_record)
-                if normalized:
-                    normalized_records.append(normalized)
-            except Exception as e:
+            except Exception as exc:  # pragma: no cover - defensive logging
+                if isinstance(raw_record, dict):
+                    record_id = raw_record.get("id", "unknown")
+                else:
+                    record_id = getattr(raw_record, "id", "unknown")
                 self.logger.error(
                     "normalization_failed",
                     adapter=self.__class__.__name__,
-                    error=str(e),
-                    record_id=raw_record.get("id", "unknown"),
+                    error=str(exc),
+                    record_id=record_id,
                 )
+                continue
+
+            if normalized:
+                normalized_records.append(normalized)
 
         self.logger.info(
             "fetch_completed",
@@ -157,7 +178,6 @@ class ExternalAdapter(ABC):
             normalized=len(normalized_records),
         )
 
-        # Convert to DataFrame
         return self.to_dataframe(normalized_records)
 
     def close(self) -> None:
