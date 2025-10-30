@@ -97,6 +97,7 @@ class OutputArtifacts:
     qc_summary_statistics: Path | None = None
     qc_dataset_metrics: Path | None = None
     debug_dataset: Path | None = None
+    metadata_model: OutputMetadata | None = None
 
 
 _SUPPORTED_FORMATS = {"csv", "parquet"}
@@ -724,6 +725,7 @@ class UnifiedOutputWriter:
         checksum_targets.extend(path for path in optional_targets if path is not None)
 
         checksums = self._calculate_checksums(*checksum_targets)
+        metadata = replace(metadata, checksums=checksums)
 
         metadata_filename = f"{dataset_path.stem}_meta.yaml"
         metadata_path = run_directory / metadata_filename
@@ -766,6 +768,7 @@ class UnifiedOutputWriter:
             qc_summary_statistics=summary_statistics_path,
             qc_dataset_metrics=dataset_metrics_path,
             debug_dataset=debug_dataset,
+            metadata_model=metadata,
         )
 
     def write_dataframe_json(
