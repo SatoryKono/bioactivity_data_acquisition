@@ -74,6 +74,87 @@ def _atomic_write(path: Path, write_fn: Callable[[], None]) -> None:
 
 
 @dataclass(frozen=True)
+class RunManifest:
+    """Structured payload describing a pipeline run."""
+
+    run_id: str
+    generated_at: str
+    inputs: dict[str, Any]
+    outputs: dict[str, Any]
+    pipeline_version: str | None = None
+    git_commit: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-serialisable representation of the manifest."""
+
+        payload: dict[str, Any] = {
+            "run_id": self.run_id,
+            "generated_at": self.generated_at,
+            "inputs": self.inputs,
+            "outputs": self.outputs,
+        }
+
+        if self.pipeline_version is not None:
+            payload["pipeline_version"] = self.pipeline_version
+        if self.git_commit is not None:
+            payload["git_commit"] = self.git_commit
+
+        return payload
+
+
+class ManifestWriter:
+    """Persist run manifests in JSON format with atomic guarantees."""
+
+    def __init__(self, run_id: str):
+        self.run_id = run_id
+
+    def write(self, path: Path, manifest: RunManifest) -> None:
+        """Serialize ``manifest`` to ``path`` atomically."""
+
+        temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
+
+        def write_payload() -> None:
+            temp_path = _get_active_atomic_temp_path()
+            with temp_path.open("w", encoding="utf-8") as handle:
+                json.dump(
+                    manifest.to_dict(),
+                    handle,
+                    indent=2,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+
+        try:
+            _atomic_write(path, write_payload)
+        finally:
+            _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
+
+
+def _normalise_manifest_value(value: Any) -> Any:
+    """Convert ``value`` into a JSON-serialisable representation."""
+
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+
+    if isinstance(value, Path):
+        return str(value)
+
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat()
+
+    if isinstance(value, dict):
+        return {
+            str(key): _normalise_manifest_value(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_normalise_manifest_value(item) for item in value]
+
+    return str(value)
+
+
+@dataclass(frozen=True)
 class OutputArtifacts:
     """Пути к стандартным выходным артефактам."""
 
@@ -304,6 +385,7 @@ class UnifiedOutputWriter:
         self.determinism = determinism or DeterminismConfig()
         self.atomic_writer = AtomicWriter(run_id, determinism=self.determinism)
         self.quality_generator = QualityReportGenerator()
+        self.manifest_writer = ManifestWriter(run_id)
 
     def _apply_column_order(self, df: pd.DataFrame) -> pd.DataFrame:
         """Return a dataframe matching the configured deterministic column order."""
@@ -565,6 +647,24 @@ class UnifiedOutputWriter:
         if dataset_metrics_path is not None:
             qc_artifact_paths["dataset_metrics"] = dataset_metrics_path
 
+        manifest_path: Path | None = None
+        if extended:
+            manifest_path = qc_dir / f"{dataset_path.stem}_manifest.json"
+            qc_artifact_paths["manifest"] = manifest_path
+            manifest_payload = self._build_manifest(
+                metadata,
+                dataset_path=dataset_path,
+                quality_path=quality_path,
+                metadata_path=metadata_path,
+                additional_paths=additional_paths,
+                qc_artifacts=qc_artifact_paths,
+                runtime_options=runtime_options or {},
+                debug_dataset=debug_dataset,
+                checksums=checksums,
+            )
+            self.manifest_writer.write(manifest_path, manifest_payload)
+            checksums = self._calculate_checksums(*checksum_targets, manifest_path)
+
         self._write_metadata(
             metadata_path,
             metadata,
@@ -586,6 +686,7 @@ class UnifiedOutputWriter:
             additional_datasets=additional_paths,
             correlation_report=correlation_path,
             metadata=metadata_path,
+            manifest=manifest_path,
             qc_summary=qc_summary_path,
             qc_missing_mappings=missing_mappings_path,
             qc_enrichment_metrics=enrichment_metrics_path,
@@ -751,6 +852,73 @@ class UnifiedOutputWriter:
 
         metrics_df = pd.DataFrame(metrics)
         return metrics_df.convert_dtypes()
+
+    def _build_manifest(
+        self,
+        metadata: OutputMetadata,
+        *,
+        dataset_path: Path,
+        quality_path: Path,
+        metadata_path: Path,
+        additional_paths: dict[str, Path],
+        qc_artifacts: dict[str, Path | None],
+        runtime_options: dict[str, Any] | None,
+        debug_dataset: Path | None,
+        checksums: dict[str, str],
+    ) -> RunManifest:
+        """Construct a manifest payload for the completed run."""
+
+        generated_at = datetime.now(timezone.utc).isoformat()
+
+        inputs: dict[str, Any] = {
+            "source_system": metadata.source_system,
+            "sources": list(metadata.sources) if metadata.sources else [],
+        }
+
+        if metadata.chembl_release is not None:
+            inputs["chembl_release"] = metadata.chembl_release
+
+        inputs["metadata_generated_at"] = metadata.generated_at
+
+        if runtime_options:
+            inputs["runtime_options"] = {
+                str(key): _normalise_manifest_value(value)
+                for key, value in runtime_options.items()
+            }
+
+        outputs: dict[str, Any] = {
+            "dataset": str(dataset_path),
+            "quality_report": str(quality_path),
+            "metadata": str(metadata_path),
+            "row_count": metadata.row_count,
+            "column_count": metadata.column_count,
+            "checksums": dict(checksums),
+        }
+
+        if additional_paths:
+            outputs["additional_datasets"] = {
+                name: str(path) for name, path in additional_paths.items()
+            }
+
+        qc_paths = {
+            name: str(path)
+            for name, path in qc_artifacts.items()
+            if path is not None
+        }
+        if qc_paths:
+            outputs["qc"] = qc_paths
+
+        if debug_dataset is not None:
+            outputs["debug_dataset"] = str(debug_dataset)
+
+        return RunManifest(
+            run_id=self.run_id,
+            generated_at=generated_at,
+            inputs=inputs,
+            outputs=outputs,
+            pipeline_version=metadata.pipeline_version,
+            git_commit=metadata.git_commit,
+        )
 
     def _write_metadata(
         self,
