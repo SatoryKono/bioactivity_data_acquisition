@@ -2,6 +2,8 @@
 
 import json
 import time
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from typing import Any
 from unittest.mock import Mock
 
@@ -161,6 +163,37 @@ def test_retry_policy_wait_time():
 
     # Should use retry_after if provided
     assert policy.get_wait_time(1, retry_after=10.0) == 10.0
+    assert policy.get_wait_time(1, retry_after="15") == 15.0
+
+
+def test_retry_after_parsing_numeric_and_http_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retry-After header should support seconds and HTTP-date formats."""
+
+    config = APIConfig(name="test", base_url="https://api.example.com")
+    client = UnifiedAPIClient(config)
+
+    numeric_response = _build_response(
+        429,
+        {"error": "rate limited"},
+        headers={"Retry-After": "12"},
+    )
+
+    assert client._retry_after_seconds(numeric_response) == 12.0
+
+    fixed_now = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr("bioetl.core.api_client._current_utc_time", lambda: fixed_now)
+
+    http_date = format_datetime(fixed_now + timedelta(seconds=30))
+    http_date_response = _build_response(
+        429,
+        {"error": "rate limited"},
+        headers={"Retry-After": http_date},
+    )
+
+    wait_seconds = client._retry_after_seconds(http_date_response)
+    assert wait_seconds == pytest.approx(30.0)
 
 
 def _build_response(

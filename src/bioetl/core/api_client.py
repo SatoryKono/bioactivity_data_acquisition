@@ -21,6 +21,54 @@ from bioetl.core.logger import UnifiedLogger
 logger = UnifiedLogger.get(__name__)
 
 
+def _current_utc_time() -> datetime:
+    """Return the current UTC time."""
+
+    return datetime.now(timezone.utc)
+
+
+def parse_retry_after(value: float | int | str | None) -> float | None:
+    """Parse Retry-After header value to seconds.
+
+    Supports both numeric seconds and HTTP-date formats.
+    """
+
+    if value is None:
+        return None
+
+    if isinstance(value, (int, float)):
+        try:
+            seconds = float(value)
+        except (TypeError, ValueError):
+            return None
+        return max(seconds, 0.0)
+
+    if isinstance(value, str):
+        retry_after = value.strip()
+        if not retry_after:
+            return None
+
+        try:
+            seconds = float(retry_after)
+        except (TypeError, ValueError):
+            try:
+                parsed = parsedate_to_datetime(retry_after)
+            except (TypeError, ValueError):
+                return None
+
+            if parsed is None:
+                return None
+
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+
+            seconds = (parsed - _current_utc_time()).total_seconds()
+
+        return max(seconds, 0.0)
+
+    return None
+
+
 class CircuitBreakerOpenError(Exception):
     """Circuit breaker is open."""
 
@@ -236,10 +284,20 @@ class RetryPolicy:
 
         return False
 
-    def get_wait_time(self, attempt: int, retry_after: float | None = None) -> float:
+    def get_wait_time(
+        self, attempt: int, retry_after: float | int | str | None = None
+    ) -> float:
         """Вычисляет время ожидания для attempt."""
         if retry_after is not None:
-            return max(0.0, float(retry_after))
+            wait_override = parse_retry_after(retry_after)
+            if wait_override is not None:
+                logger.debug(
+                    "retry_policy_retry_after_override",
+                    attempt=attempt,
+                    wait_seconds=wait_override,
+                    retry_after_raw=retry_after,
+                )
+                return wait_override
 
         effective_attempt = max(attempt, 0)
         wait_time = float(self.backoff_factor) ** effective_attempt
@@ -370,18 +428,31 @@ class UnifiedAPIClient:
             if response.status_code == 429:
                 retry_after = response.headers.get("Retry-After")
                 if retry_after:
-                    wait_time = float(retry_after)
-                    logger.warning("retry_after_header", wait_seconds=wait_time)
-                    time.sleep(wait_time)
-                    # Retry once after waiting
-                    response = self.session.request(
-                        method=method,
-                        url=url,
-                        params=params,
-                        data=data,
-                        json=json,
-                        timeout=(self.config.timeout_connect, self.config.timeout_read),
-                    )
+                    wait_time = parse_retry_after(retry_after)
+                    if wait_time is None:
+                        logger.warning(
+                            "retry_after_header_invalid",
+                            retry_after_raw=retry_after,
+                        )
+                    else:
+                        logger.warning(
+                            "retry_after_header",
+                            wait_seconds=wait_time,
+                            retry_after_raw=retry_after,
+                        )
+                        time.sleep(wait_time)
+                        # Retry once after waiting
+                        response = self.session.request(
+                            method=method,
+                            url=url,
+                            params=params,
+                            data=data,
+                            json=json,
+                            timeout=(
+                                self.config.timeout_connect,
+                                self.config.timeout_read,
+                            ),
+                        )
 
             return response
 
@@ -521,22 +592,20 @@ class UnifiedAPIClient:
         if not retry_after:
             return None
 
-        try:
-            return float(retry_after)
-        except (TypeError, ValueError):
-            try:
-                parsed = parsedate_to_datetime(retry_after)
-            except (TypeError, ValueError):
-                return None
+        parsed_seconds = parse_retry_after(retry_after)
+        if parsed_seconds is None:
+            logger.debug(
+                "retry_after_parse_failed",
+                retry_after_raw=retry_after,
+            )
+            return None
 
-            if parsed is None:
-                return None
-
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
-
-            delta = parsed - datetime.now(timezone.utc)
-            return max(delta.total_seconds(), 0.0)
+        logger.debug(
+            "retry_after_parsed",
+            retry_after_raw=retry_after,
+            wait_seconds=parsed_seconds,
+        )
+        return parsed_seconds
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
