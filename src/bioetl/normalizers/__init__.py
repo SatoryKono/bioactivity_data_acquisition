@@ -1,6 +1,11 @@
 """Data normalizers: string, numeric, chemistry, identifier."""
 
 from bioetl.normalizers.base import BaseNormalizer
+from bioetl.normalizers.bibliography import (
+    normalize_authors,
+    normalize_doi,
+    normalize_title,
+)
 from bioetl.normalizers.chemistry import (
     BaoIdNormalizer,
     ChemistryNormalizer,
@@ -49,5 +54,8 @@ __all__ = [
     "BooleanNormalizer",
     "NormalizerRegistry",
     "registry",
+    "normalize_doi",
+    "normalize_title",
+    "normalize_authors",
 ]
 
