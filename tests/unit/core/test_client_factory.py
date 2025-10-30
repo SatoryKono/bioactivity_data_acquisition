@@ -64,6 +64,12 @@ def _build_pipeline_config(tmp_path: Path) -> PipelineConfig:
                 "headers": {"Authorization": "Bearer token", "X-Source": "chembl"},
             }
         },
+        "fallbacks": {
+            "enabled": False,
+            "strategies": ["network"],
+            "partial_retry_max": 4,
+            "circuit_breaker": {"failure_threshold": 6, "timeout_sec": 180.0},
+        },
         "cache": {
             "enabled": True,
             "directory": str(cache_dir),
@@ -95,10 +101,17 @@ def test_factory_merges_http_profiles(tmp_path: Path) -> None:
     assert api_config.rate_limit_max_calls == 2
     assert api_config.rate_limit_period == 5.0
     assert api_config.rate_limit_jitter is False
+    assert api_config.timeout_connect == 5.0
+    assert api_config.timeout_read == 25.0
     assert api_config.headers["X-Global"] == "global"
     assert api_config.headers["X-Profile"] == "chembl"
     assert api_config.headers["Authorization"] == "Bearer token"
     assert api_config.headers["X-Source"] == "chembl"
+    assert api_config.cb_failure_threshold == 6
+    assert api_config.cb_timeout == 180.0
+    assert api_config.fallback_enabled is False
+    assert api_config.fallback_strategies == ["network"]
+    assert api_config.partial_retry_max == 4
 
 
 def test_ensure_target_source_config_defaults() -> None:
