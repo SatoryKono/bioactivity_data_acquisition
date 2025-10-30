@@ -17,6 +17,7 @@ import pandas as pd
 from pandas import DataFrame
 
 from bioetl.config.models import DeterminismConfig
+from bioetl.config.paths import get_configs_root
 from bioetl.core.logger import UnifiedLogger
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
@@ -1089,30 +1090,45 @@ class UnifiedOutputWriter:
         except OSError:
             return None
 
-        relative: Path | str | None = None
+        relative_path: Path | None = None
 
-        relative_accessor = getattr(config, "relative_source_path", None)
-        if callable(relative_accessor):
-            try:
-                relative = relative_accessor()
-            except TypeError:  # pragma: no cover - defensive guard
-                relative = relative_accessor(source_path)
-        elif hasattr(config, "source_path_relative"):
-            relative = config.source_path_relative
+        try:
+            configs_root = get_configs_root()
+        except (FileNotFoundError, RuntimeError):  # pragma: no cover - defensive guard
+            configs_root = None
 
-        if isinstance(relative, Path):
-            relative_path = relative
-        elif isinstance(relative, str):
-            relative_path = Path(relative)
-        else:
-            base = Path.cwd()
+        if configs_root is not None:
             try:
-                relative_path = source_path.relative_to(base)
+                relative_path = Path("configs") / source_path.relative_to(configs_root)
             except ValueError:
+                relative_path = None
+
+        if relative_path is None:
+            relative_accessor = getattr(config, "relative_source_path", None)
+            relative: Path | str | None
+            if callable(relative_accessor):
                 try:
-                    relative_path = Path(os.path.relpath(source_path, base))
-                except OSError:
-                    relative_path = source_path
+                    relative = relative_accessor()
+                except TypeError:  # pragma: no cover - defensive guard
+                    relative = relative_accessor(source_path)
+            elif hasattr(config, "source_path_relative"):
+                relative = config.source_path_relative
+            else:
+                relative = None
+
+            if isinstance(relative, Path):
+                relative_path = relative
+            elif isinstance(relative, str):
+                relative_path = Path(relative)
+            else:
+                base = Path.cwd()
+                try:
+                    relative_path = source_path.relative_to(base)
+                except ValueError:
+                    try:
+                        relative_path = Path(os.path.relpath(source_path, base))
+                    except OSError:
+                        relative_path = source_path
 
         return {
             "path": relative_path.as_posix(),

@@ -12,7 +12,7 @@ from bioetl.config import load_config, parse_cli_overrides
 
 def test_load_base_config():
     """Test loading base configuration."""
-    config = load_config(Path("configs/base.yaml"))
+    config = load_config("configs/base.yaml")
     assert config.version == 1
     assert config.pipeline.name == "base"
     assert config.http["global"].timeout_sec == 60.0
@@ -20,7 +20,7 @@ def test_load_base_config():
 
 def test_inheritance():
     """Test configuration inheritance."""
-    config = load_config(Path("configs/profiles/dev.yaml"))
+    config = load_config("configs/profiles/dev.yaml")
     assert config.pipeline.name == "dev"
     assert config.http["global"].retries.total == 2  # From dev
     assert config.cache.enabled is True
@@ -37,7 +37,7 @@ def test_inheritance():
 def test_profile_configs_smoke(profile, expected_ttl, expected_enabled, expected_release_scoped):
     """Smoke test for loading profile configs with cache include overrides."""
 
-    config = load_config(Path(f"configs/profiles/{profile}.yaml"))
+    config = load_config(f"configs/profiles/{profile}.yaml")
 
     assert config.pipeline.name == profile
     assert config.cache.enabled is expected_enabled
@@ -308,7 +308,7 @@ def test_source_header_requires_env_variable(tmp_path, monkeypatch):
 def test_pipeline_include_merges_determinism_defaults():
     """Pipeline configs should inherit determinism defaults from shared include."""
 
-    config = load_config(Path("configs/pipelines/target.yaml"))
+    config = load_config("configs/pipelines/target.yaml")
 
     determinism = config.determinism
     assert determinism.hash_algorithm == "sha256"
@@ -522,7 +522,7 @@ def test_chembl_batch_size_limit():
 
     with pytest.raises(ValidationError):
         load_config(
-            Path("configs/pipelines/assay.yaml"),
+            "configs/pipelines/assay.yaml",
             overrides={"sources": {"chembl": {"batch_size": 30}}},
         )
 
