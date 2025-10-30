@@ -15,6 +15,7 @@ from pandera.errors import SchemaErrors
 from bioetl.config.loader import load_config
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.hashing import generate_hash_business_key
+from bioetl.core.output_writer import OutputArtifacts
 from bioetl.pipelines import (
     ActivityPipeline,
     AssayPipeline,
@@ -22,6 +23,7 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
+from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
 from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
@@ -55,6 +57,70 @@ def target_config():
 def document_config():
     """Load document pipeline config."""
     return load_config("configs/pipelines/document.yaml")
+
+
+def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
+    """Calling ``run`` twice should not accumulate QC records from previous runs."""
+
+    class RecordingPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            return pd.DataFrame({"value": [1]})
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+            issue_number = len(self.validation_issues) + 1
+            self.validation_issues.append({"metric": "validation_issue", "call": issue_number})
+
+            self.qc_metrics["transform_calls"] = self.qc_metrics.get("transform_calls", 0) + 1
+
+            summary_records = list(self.qc_summary_data.get("runs", []))
+            summary_records.append({"call": issue_number})
+            self.qc_summary_data["runs"] = summary_records
+
+            new_missing = pd.DataFrame({"call": [issue_number]})
+            self.qc_missing_mappings = pd.concat(
+                [self.qc_missing_mappings, new_missing], ignore_index=True
+            )
+
+            new_enrichment = pd.DataFrame({"call": [issue_number]})
+            self.qc_enrichment_metrics = pd.concat(
+                [self.qc_enrichment_metrics, new_enrichment], ignore_index=True
+            )
+
+            self.stage_context["transform_call"] = self.stage_context.get("transform_call", 0) + 1
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def export(
+            self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
+        ) -> OutputArtifacts:  # noqa: D401 - test stub
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=output_path.with_suffix(".qc.csv"),
+                run_directory=output_path.parent,
+            )
+
+    pipeline = RecordingPipeline(assay_config, "run-state-test")
+    output_path = tmp_path / "dataset.csv"
+
+    pipeline.run(output_path)
+
+    assert len(pipeline.validation_issues) == 1
+    assert pipeline.qc_metrics == {"transform_calls": 1}
+    assert pipeline.qc_summary_data["runs"] == [{"call": 1}]
+    assert list(pipeline.qc_missing_mappings["call"]) == [1]
+    assert list(pipeline.qc_enrichment_metrics["call"]) == [1]
+    assert pipeline.stage_context["transform_call"] == 1
+
+    pipeline.run(output_path)
+
+    assert len(pipeline.validation_issues) == 1
+    assert pipeline.qc_metrics == {"transform_calls": 1}
+    assert pipeline.qc_summary_data["runs"] == [{"call": 1}]
+    assert list(pipeline.qc_missing_mappings["call"]) == [1]
+    assert list(pipeline.qc_enrichment_metrics["call"]) == [1]
+    assert pipeline.stage_context["transform_call"] == 1
 
 
 class TestAssayPipeline:
