@@ -82,6 +82,15 @@ class PartialFailure(Exception):
 
 
 @dataclass
+class FallbackResult:
+    """Outcome of a fallback strategy attempt."""
+
+    payload: dict[str, Any]
+    strategy: str
+    attempts: int = 0
+
+
+@dataclass
 class APIConfig:
     """API client configuration."""
 
@@ -358,6 +367,13 @@ class UnifiedAPIClient:
         """
         Make JSON request with all protections.
 
+        When retries are exhausted the client attempts configured fallback
+        strategies in order (``APIConfig.fallback_strategies``). Supported
+        strategies include returning cached payloads (``"cache"``) and limited
+        network retries (``"network"``/``"partial_retry"``) up to
+        ``APIConfig.partial_retry_max`` attempts. Successfully applied fallback
+        strategies are logged for observability.
+
         Args:
             url: Request URL
             params: Query parameters
@@ -424,6 +440,9 @@ class UnifiedAPIClient:
                 json=json_payload,
             )
 
+        def _call_request_with_circuit() -> requests.Response:
+            return self.circuit_breaker.call(wrapped_request)
+
         wrapped_request = backoff.on_exception(
             backoff.expo,
             requests.exceptions.RequestException,
@@ -445,20 +464,19 @@ class UnifiedAPIClient:
 
         for attempt in range(1, self.retry_policy.total + 1):
             try:
-                response = self.circuit_breaker.call(wrapped_request)
+                response = _call_request_with_circuit()
                 response.raise_for_status()
 
                 # Parse JSON
                 response_payload: dict[str, Any] = response.json()
 
                 # Cache result
-                if (
-                    self.cache
-                    and cache_key
-                    and method == "GET"
-                    and request_has_no_body
-                ):
-                    self.cache[cache_key] = response_payload
+                self._store_in_cache(
+                    cache_key,
+                    response_payload,
+                    method=method,
+                    request_has_no_body=request_has_no_body,
+                )
 
                 return response_payload
 
@@ -557,6 +575,28 @@ class UnifiedAPIClient:
                 )
                 raise
 
+        fallback_result: FallbackResult | None = None
+        if last_exc is not None:
+            fallback_result = self._apply_fallbacks(
+                strategies=self.config.fallback_strategies,
+                cache_key=cache_key,
+                request_has_no_body=request_has_no_body,
+                request_callable=_call_request_with_circuit,
+                method=method,
+                last_exc=last_exc,
+            )
+
+        if fallback_result is not None:
+            logger.info(
+                "request_recovered_via_fallback",
+                strategy=fallback_result.strategy,
+                attempts=fallback_result.attempts,
+                url=url,
+                method=method,
+                params=params,
+            )
+            return fallback_result.payload
+
         if last_exc:
             if not hasattr(last_exc, "retry_metadata"):
                 metadata = {
@@ -584,6 +624,8 @@ class UnifiedAPIClient:
                 error=str(last_exc),
                 exception_type=type(last_exc).__name__,
                 timestamp=last_attempt_timestamp or time.time(),
+                fallback_attempted=self.config.fallback_enabled,
+                fallback_strategies=self.config.fallback_strategies,
             )
             raise last_exc
         raise RuntimeError("Request failed with no exception captured")
@@ -666,6 +708,179 @@ class UnifiedAPIClient:
         retry_request_kwargs = request_kwargs.copy()
         response = self.session.request(**retry_request_kwargs)
         return response
+
+    def _store_in_cache(
+        self,
+        cache_key: str | None,
+        payload: dict[str, Any],
+        *,
+        method: str,
+        request_has_no_body: bool,
+    ) -> None:
+        """Store payload in cache when caching conditions are satisfied."""
+
+        if (
+            self.cache
+            and cache_key
+            and method == "GET"
+            and request_has_no_body
+        ):
+            self.cache[cache_key] = payload
+
+    def _apply_fallbacks(
+        self,
+        *,
+        strategies: Iterable[str],
+        cache_key: str | None,
+        request_has_no_body: bool,
+        request_callable: Callable[[], requests.Response],
+        method: str,
+        last_exc: Exception,
+    ) -> FallbackResult | None:
+        """Attempt configured fallback strategies sequentially."""
+
+        strategy_list = list(strategies)
+
+        if not self.config.fallback_enabled:
+            logger.debug(
+                "fallback_disabled",
+                strategy_count=len(strategy_list),
+            )
+            return None
+
+        normalized_strategies = [
+            strategy.strip().lower()
+            for strategy in strategy_list
+            if strategy and strategy.strip()
+        ]
+        if not normalized_strategies:
+            logger.debug("fallback_skipped_no_strategies")
+            return None
+
+        total = len(normalized_strategies)
+        for index, strategy in enumerate(normalized_strategies, start=1):
+            logger.info(
+                "fallback_strategy_attempt",
+                strategy=strategy,
+                order=index,
+                total=total,
+                error_type=type(last_exc).__name__,
+            )
+            if strategy == "cache":
+                payload = self._fallback_from_cache(cache_key)
+                if payload is not None:
+                    logger.info("fallback_strategy_success", strategy=strategy, attempts=0)
+                    return FallbackResult(payload=payload, strategy=strategy, attempts=0)
+                logger.debug("fallback_cache_miss", strategy=strategy)
+                continue
+
+            if strategy in {"network", "partial_retry", "retry"}:
+                result = self._fallback_partial_retry(
+                    strategy=strategy,
+                    cache_key=cache_key,
+                    request_has_no_body=request_has_no_body,
+                    request_callable=request_callable,
+                    method=method,
+                )
+                if result is not None:
+                    logger.info(
+                        "fallback_strategy_success",
+                        strategy=result.strategy,
+                        attempts=result.attempts,
+                    )
+                    return result
+                continue
+
+            logger.warning("fallback_strategy_unknown", strategy=strategy)
+
+        logger.error(
+            "fallback_strategies_exhausted",
+            strategies=list(normalized_strategies),
+            error=str(last_exc),
+            exception_type=type(last_exc).__name__,
+        )
+        return None
+
+    def _fallback_from_cache(self, cache_key: str | None) -> dict[str, Any] | None:
+        """Return cached payload if available for fallback purposes."""
+
+        if not self.cache or not cache_key:
+            return None
+
+        try:
+            cached = self.cache.get(cache_key)  # type: ignore[assignment]
+        except KeyError:
+            return None
+
+        if cached is None:
+            return None
+
+        if not isinstance(cached, dict):
+            logger.warning("fallback_cache_invalid_payload", cache_key=cache_key)
+            return None
+
+        return cached
+
+    def _fallback_partial_retry(
+        self,
+        *,
+        strategy: str,
+        cache_key: str | None,
+        request_has_no_body: bool,
+        request_callable: Callable[[], requests.Response],
+        method: str,
+    ) -> FallbackResult | None:
+        """Attempt limited network retries as a fallback."""
+
+        max_attempts = max(int(self.config.partial_retry_max), 0)
+        if max_attempts <= 0:
+            logger.debug("fallback_partial_retry_disabled", strategy=strategy)
+            return None
+
+        last_error: Exception | None = None
+        for attempt in range(1, max_attempts + 1):
+            logger.info(
+                "fallback_partial_retry_attempt",
+                strategy=strategy,
+                attempt=attempt,
+                max_attempts=max_attempts,
+            )
+            try:
+                response = request_callable()
+                response.raise_for_status()
+                payload: dict[str, Any] = response.json()
+                self._store_in_cache(
+                    cache_key,
+                    payload,
+                    method=method,
+                    request_has_no_body=request_has_no_body,
+                )
+                logger.info(
+                    "fallback_partial_retry_success",
+                    strategy=strategy,
+                    attempt=attempt,
+                )
+                return FallbackResult(payload=payload, strategy=strategy, attempts=attempt)
+            except Exception as exc:  # noqa: BLE001 - fallback diagnostics
+                last_error = exc
+                logger.warning(
+                    "fallback_partial_retry_failed",
+                    strategy=strategy,
+                    attempt=attempt,
+                    max_attempts=max_attempts,
+                    error=str(exc),
+                    exception_type=type(exc).__name__,
+                )
+
+        if last_error is not None:
+            logger.error(
+                "fallback_partial_retry_exhausted",
+                strategy=strategy,
+                max_attempts=max_attempts,
+                error=str(last_error),
+                exception_type=type(last_error).__name__,
+            )
+        return None
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""

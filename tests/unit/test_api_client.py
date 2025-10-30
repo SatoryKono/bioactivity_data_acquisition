@@ -4,7 +4,7 @@ import json
 import time
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
-from typing import Any, Callable
+from typing import Any, Callable, cast
 from unittest.mock import Mock
 
 import pytest
@@ -559,6 +559,116 @@ def test_request_json_base_url_join(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert len(observed_urls) == 2
     assert observed_urls[0] == observed_urls[1]
+
+
+def test_request_json_fallback_prefers_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Fallback strategies should reuse cached payloads when configured."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=True,
+        cache_ttl=60,
+        cache_maxsize=32,
+        fallback_enabled=True,
+        fallback_strategies=["cache"],
+        retry_total=1,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    class DeceptiveCache(dict[str, Any]):
+        """Cache that hides membership checks to force fallback usage."""
+
+        def __contains__(self, _key: object) -> bool:
+            return False
+
+    fake_cache: DeceptiveCache = DeceptiveCache()
+    cache_key = client._cache_key("https://api.example.com/resource", {"page": 1})
+    fake_cache[cache_key] = {"from_cache": True}
+    client.cache = cast(Any, fake_cache)
+
+    def fail_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        raise requests.exceptions.Timeout("boom")
+
+    monkeypatch.setattr(client, "_execute", fail_execute)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda *_: None)
+
+    caplog.set_level("INFO")
+    payload = client.request_json("/resource", params={"page": 1})
+
+    assert payload == {"from_cache": True}
+    assert any(
+        record.message == "fallback_strategy_success" and getattr(record, "strategy", None) == "cache"
+        for record in caplog.records
+    )
+    assert any(record.message == "request_recovered_via_fallback" for record in caplog.records)
+
+
+def test_request_json_fallback_partial_retry(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Fallback strategies should trigger limited network retries when requested."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        fallback_enabled=True,
+        fallback_strategies=["network"],
+        partial_retry_max=2,
+        retry_total=1,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+    monkeypatch.setattr(client.rate_limiter, "acquire", lambda: None)
+
+    call_count = {"count": 0}
+
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        call_count["count"] += 1
+        if call_count["count"] <= config.retry_total:
+            raise requests.exceptions.ConnectionError("primary failure")
+        return _build_response(200, {"result": "ok"})
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda *_: None)
+    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
+
+    caplog.set_level("INFO")
+    payload = client.request_json("/resource")
+
+    assert payload == {"result": "ok"}
+    assert call_count["count"] == 2
+    assert any(
+        record.message == "fallback_strategy_success" and getattr(record, "strategy", None) == "network"
+        for record in caplog.records
+    )
+    assert any(record.message == "fallback_partial_retry_attempt" for record in caplog.records)
 
 
 if __name__ == "__main__":
