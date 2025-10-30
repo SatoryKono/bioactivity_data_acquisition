@@ -23,7 +23,7 @@ def _base_config(tmp_path: Path) -> dict:
 
     return {
         "version": 1,
-        "pipeline": {"name": "test", "entity": "unit"},
+        "pipeline": {"name": "test", "entity": "unit", "version": "1.0.0"},
         "http": {},
         "cache": {"enabled": False, "directory": str(cache_dir), "ttl": 0},
         "paths": {"input_root": str(input_root), "output_root": str(output_root)},
@@ -64,6 +64,36 @@ def test_pipeline_config_rejects_batch_size_exceeding_limit(tmp_path: Path) -> N
 
     with pytest.raises(ValueError, match="batch_size must be <= 25"):
         PipelineConfig.model_validate(payload)
+
+
+def test_pipeline_config_rejects_invalid_pipeline_version(tmp_path: Path) -> None:
+    """Pipeline version strings must be valid semantic versions."""
+
+    payload = _base_config(tmp_path)
+    payload["pipeline"]["version"] = "invalid version"
+
+    with pytest.raises(ValueError, match="Invalid pipeline version"):
+        PipelineConfig.model_validate(payload)
+
+
+def test_pipeline_config_normalises_validation_suffixes(tmp_path: Path) -> None:
+    """Column validation ignore suffixes should be lower-cased and deduplicated."""
+
+    payload = _base_config(tmp_path)
+    payload["determinism"] = {
+        "column_validation_ignore_suffixes": [
+            "  _QC.csv  ",
+            "_Qc.CsV",
+            "_Custom_Report.CSV",
+        ]
+    }
+
+    config = PipelineConfig.model_validate(payload)
+
+    assert config.determinism.column_validation_ignore_suffixes == [
+        "_qc.csv",
+        "_custom_report.csv",
+    ]
 
 
 def test_pipeline_config_rejects_unknown_fallback_strategy(tmp_path: Path) -> None:
