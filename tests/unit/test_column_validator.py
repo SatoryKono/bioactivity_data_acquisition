@@ -1,6 +1,8 @@
+import json
+
 import pytest
 
-from bioetl.utils.column_validator import ColumnValidator
+from bioetl.utils.column_validator import ColumnValidator, ColumnComparisonResult
 
 
 @pytest.mark.parametrize(
@@ -20,3 +22,26 @@ def test_extract_entity_from_filename_handles_timestamps(filename: str, expected
     extracted = validator._extract_entity_from_filename(filename)
 
     assert extracted == expected_entity
+
+
+def test_generate_report_uses_utc_timestamp(tmp_path) -> None:
+    validator = ColumnValidator()
+    result = ColumnComparisonResult(
+        entity="assay",
+        expected_columns=["col_a", "col_b"],
+        actual_columns=["col_a", "col_b"],
+        missing_columns=[],
+        extra_columns=[],
+        order_matches=True,
+        column_count_matches=True,
+        empty_columns=[],
+        non_empty_columns=["col_a", "col_b"],
+    )
+
+    validator.generate_report([result], tmp_path)
+
+    json_path = tmp_path / "column_comparison_report.json"
+    report_data = json.loads(json_path.read_text(encoding="utf-8"))
+    timestamp = report_data["timestamp"]
+
+    assert timestamp.endswith("Z") or timestamp.endswith("+00:00")
