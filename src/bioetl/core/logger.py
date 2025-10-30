@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from logging.handlers import RotatingFileHandler
+
 import structlog
 
 # ContextVar для контекста логирования
@@ -113,7 +115,11 @@ def add_context(logger: Any, method_name: str, event_dict: dict[str, Any]) -> di
     return event_dict
 
 
-def setup_logger(mode: str = "development", run_id: str | None = None) -> None:
+def setup_logger(
+    mode: str = "development",
+    run_id: str | None = None,
+    config: LoggerConfig | None = None,
+) -> None:
     """
     Setup UnifiedLogger with specified mode.
 
@@ -130,7 +136,9 @@ def setup_logger(mode: str = "development", run_id: str | None = None) -> None:
     if run_id:
         set_context({"run_id": run_id})
 
-    # Configure structlog processors
+    # Load configuration (with defaults) and configure structlog processors
+    logger_config = config or LoggerConfig()
+
     processors: list[Callable[..., Any]] = [
         structlog.contextvars.merge_contextvars,
         add_utc_timestamp,
@@ -156,6 +164,9 @@ def setup_logger(mode: str = "development", run_id: str | None = None) -> None:
         level = "DEBUG"
         processors.append(structlog.dev.ConsoleRenderer(colors=True))
 
+    if config is not None:
+        level = logger_config.level.upper()
+
     structlog.configure(
         processors=processors,
         wrapper_class=structlog.stdlib.BoundLogger,
@@ -165,10 +176,26 @@ def setup_logger(mode: str = "development", run_id: str | None = None) -> None:
     )
 
     # Configure standard logging
-    logging.basicConfig(format="%(message)s", stream=None, level=getattr(logging, level))
+    logging.basicConfig(
+        format="%(message)s",
+        stream=None,
+        level=getattr(logging, level.upper(), logging.INFO),
+    )
 
     # Add filters to root logger
     root_logger = logging.getLogger()
+
+    if logger_config.file_enabled:
+        logger_config.file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            logger_config.file_path,
+            maxBytes=logger_config.max_bytes,
+            backupCount=logger_config.backup_count,
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(logging.Formatter("%(message)s"))
+        root_logger.addHandler(file_handler)
+
     for handler in root_logger.handlers:
         handler.addFilter(RedactSecretsFilter())
         handler.addFilter(SafeFormattingFilter())
@@ -191,11 +218,16 @@ class UnifiedLogger:
     _run_id: str | None = None
 
     @classmethod
-    def setup(cls, mode: str = "development", run_id: str | None = None) -> None:
+    def setup(
+        cls,
+        mode: str = "development",
+        run_id: str | None = None,
+        config: LoggerConfig | None = None,
+    ) -> None:
         """Setup the unified logger."""
         cls._initialized = True
         cls._run_id = run_id
-        setup_logger(mode=mode, run_id=run_id)
+        setup_logger(mode=mode, run_id=run_id, config=config)
 
     @classmethod
     def get(cls, name: str) -> structlog.stdlib.BoundLogger:
