@@ -21,7 +21,7 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 _DEFAULT_VALIDATION_CHUNK_SIZE = 50_000
 
 if TYPE_CHECKING:
-    from bioetl.core.logger import UnifiedLogger
+    pass
 
 
 def _summarize_schema_errors(failure_cases: pd.DataFrame | None) -> list[dict[str, Any]]:
@@ -295,7 +295,7 @@ class ColumnValidator:
                 error=str(exc),
             )
 
-        return list(zip(column_names, counts))
+        return list(zip(column_names, counts, strict=False))
 
     def generate_report(
         self,

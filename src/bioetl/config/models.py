@@ -374,7 +374,7 @@ class MaterializationDatasetPaths(BaseModel):
     formats: dict[str, Path | str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def normalise_formats(self) -> "MaterializationDatasetPaths":
+    def normalise_formats(self) -> MaterializationDatasetPaths:
         """Normalise format keys to lower-case for consistent lookups."""
 
         if self.formats:
@@ -385,8 +385,8 @@ class MaterializationDatasetPaths(BaseModel):
     def resolve(
         self,
         *,
-        stage: "MaterializationStagePaths",
-        registry: "MaterializationPaths",
+        stage: MaterializationStagePaths,
+        registry: MaterializationPaths,
         dataset: str,
         format: str,
     ) -> Path | None:
@@ -414,8 +414,8 @@ class MaterializationDatasetPaths(BaseModel):
     def infer_default_format(
         self,
         *,
-        stage: "MaterializationStagePaths",
-        registry: "MaterializationPaths",
+        stage: MaterializationStagePaths,
+        registry: MaterializationPaths,
     ) -> str | None:
         """Infer the preferred format for the dataset from config state."""
 
@@ -470,7 +470,7 @@ class MaterializationPaths(BaseModel):
         return value.strip().lower()
 
     @model_validator(mode="after")
-    def normalise_format_registry(self) -> "MaterializationPaths":
+    def normalise_format_registry(self) -> MaterializationPaths:
         if self.formats:
             normalised = {str(key).strip().lower(): value for key, value in self.formats.items()}
             object.__setattr__(self, "formats", normalised)

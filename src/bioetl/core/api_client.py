@@ -473,7 +473,7 @@ class _RequestRetryContext:
                 else str(exc),
                 "retry_after": self.last_retry_after_header,
             }
-            setattr(exc, "retry_metadata", metadata)
+            cast(Any, exc).retry_metadata = metadata
 
         logger.error(
             "request_failed_after_retries",

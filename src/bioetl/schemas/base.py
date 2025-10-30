@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypedDict, cast
+from typing import Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -205,6 +205,9 @@ class BaseSchema(DataFrameModel):
         coerce = True
         ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
+    # Версия политики хеширования; не является колонкой датафрейма
+    hash_policy_version: ClassVar[str] = "1.0.0"
+
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
         # Ensure Config exposes column_order via descriptor, unless overridden explicitly.
@@ -250,8 +253,4 @@ class BaseSchema(DataFrameModel):
         return list(order) if order else []
 
 
-# ``DataFrameModel`` forbids assigning plain values to annotated attributes during
-# class creation.  Assign the default ``hash_policy_version`` after the class is
-# defined so Pandera doesn't treat it as a schema field, while keeping the
-# attribute available for runtime code and subclasses.
-BaseSchema.hash_policy_version = "1.0.0"
+# Note: ``hash_policy_version`` объявлен как ClassVar и игнорируется Pandera.

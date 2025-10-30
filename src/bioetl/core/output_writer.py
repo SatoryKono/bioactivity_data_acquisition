@@ -189,7 +189,7 @@ class OutputMetadata:
         sources: Sequence[str] | None = None,
         schema: type[BaseSchema] | None = None,
         hash_policy_version: str | None = None,
-    ) -> "OutputMetadata":
+    ) -> OutputMetadata:
         """Создает метаданные из DataFrame."""
 
         normalised_sources: tuple[str, ...] = ()
@@ -431,7 +431,7 @@ class UnifiedOutputWriter:
         self,
         run_id: str,
         determinism: DeterminismConfig | None = None,
-        pipeline_config: "PipelineConfig" | None = None,
+        pipeline_config: PipelineConfig | None = None,
     ):
         self.run_id = run_id
         self.determinism = determinism or DeterminismConfig()
@@ -481,7 +481,7 @@ class UnifiedOutputWriter:
         qc_summary: dict[str, Any] | None = None,
         qc_missing_mappings: DataFrame | None = None,
         qc_enrichment_metrics: DataFrame | None = None,
-        additional_tables: dict[str, "AdditionalTableSpec"] | None = None,
+        additional_tables: dict[str, AdditionalTableSpec] | None = None,
         runtime_options: dict[str, Any] | None = None,
         debug_dataset: Path | None = None,
         *,

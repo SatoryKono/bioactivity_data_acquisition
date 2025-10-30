@@ -19,7 +19,7 @@ flowchart TB
   TR --> VL["Validate: Pandera schema + RI checks<br/>QC profile<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
   VL --> LD["Load: UnifiedOutputWriter CSV/QC/meta<br/>Atomic write, hashes<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
 
-```
+```yaml
 
 ### C) Input Schema (Assay)
 
@@ -52,7 +52,7 @@ schema:
   na_policy: allow
   notes: "Опциональный фильтр по таргету"
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
-```
+```yaml
 
 ### D) Output Schema (Assay)
 
