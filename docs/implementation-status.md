@@ -14,7 +14,7 @@
 - Структура каталогов (`src/bioetl/`, `configs/`, `tests/`)
 - `pyproject.toml` с зависимостями и dev tools
 - `.pre-commit-config.yaml` (ruff, mypy, pre-commit hooks)
-- `.github/workflows/ci.yml` (lint, type-check, test)
+- `.github/workflows/ci.yaml` (lint, type-check, test)
 - `.gitignore`
 
 **Статус:** Полностью завершен

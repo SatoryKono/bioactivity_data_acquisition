@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, master, develop ]
 
 jobs:
   test:
@@ -36,8 +36,8 @@ jobs:
     
     - name: Lint with ruff
       run: |
-        ruff check src/bioetl src/library tests
-        ruff format --check src/bioetl src/library tests
+        ruff check src tests
+        ruff format --check src tests
     
     - name: Type check with mypy
       run: |

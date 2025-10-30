@@ -24,7 +24,7 @@ tests/{unit/, integration/, golden/, fixtures/}
 ### 1.3 Настроить CI/CD
 
 - `.pre-commit-config.yaml`: ruff (lint+format), mypy, trailing-whitespace
-- `.github/workflows/ci.yml`: lint → test → coverage
+- `.github/workflows/ci.yaml`: lint → test → coverage
 - `.gitignore`: `__pycache__/`, `.mypy_cache/`, `data/cache/`, `*.pyc`, `.env`
 
 ### 1.4 Промежуточная проверка
@@ -654,7 +654,7 @@ pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adap
 
 ### 13.3 Финализировать CI
 
-**Файл:** `.github/workflows/ci.yml`
+**Файл:** `.github/workflows/ci.yaml`
 
 - Matrix: Python 3.10, 3.11, 3.12
 - Steps: install → lint (ruff) → type check (mypy) → unit tests → integration tests → golden tests → coverage report
