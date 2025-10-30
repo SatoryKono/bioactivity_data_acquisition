@@ -4,8 +4,7 @@ import math
 from typing import Any
 
 from bioetl.normalizers.base import BaseNormalizer
-from bioetl.normalizers.constants import BOOLEAN_FALSE, BOOLEAN_TRUE
-from bioetl.normalizers.helpers import _is_na
+from bioetl.normalizers.helpers import _is_na, coerce_bool
 
 
 class NumericNormalizer(BaseNormalizer):
@@ -48,69 +47,27 @@ class NumericNormalizer(BaseNormalizer):
 
     def normalize_bool(self, value: Any, *, default: bool = False) -> bool:
         """Нормализует булево значение."""
-        if _is_na(value):
+        coerced = coerce_bool(value, default=default, allow_na=False)
+        if coerced is None:
             return default
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, int) and not isinstance(value, bool):
-            return bool(value)
-        if isinstance(value, float):
-            return bool(value)
-        text = str(value).strip().lower()
-        if text in BOOLEAN_TRUE:
-            return True
-        if text in BOOLEAN_FALSE:
-            return False
-        return default
+        return coerced
 
 class BooleanNormalizer(BaseNormalizer):
     """Нормализатор булевых значений."""
 
     def normalize(self, value: Any, **_: Any) -> bool | None:
         """Нормализует булево значение, возвращая None для NA."""
-        if _is_na(value):
-            return None
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, int) and not isinstance(value, bool):
-            return bool(value)
-        if isinstance(value, float):
-            return bool(value)
-        text = str(value).strip().lower()
-        if text in BOOLEAN_TRUE:
-            return True
-        if text in BOOLEAN_FALSE:
-            return False
-        return None
+        return coerce_bool(value, allow_na=True)
 
     def validate(self, value: Any) -> bool:
         """Проверяет, можно ли нормализовать значение в bool."""
         if _is_na(value):
             return True
-        if isinstance(value, bool):
-            return True
-        if isinstance(value, int) and not isinstance(value, bool):
-            return True
-        if isinstance(value, float):
-            return True
-        if isinstance(value, str):
-            text = str(value).strip().lower()
-            return text in BOOLEAN_TRUE or text in BOOLEAN_FALSE
-        return False
+        return coerce_bool(value, allow_na=True) is not None
 
     def normalize_with_default(self, value: Any, default: bool = False) -> bool:
         """Нормализует булево значение с дефолтом для NA."""
-        if _is_na(value):
+        coerced = coerce_bool(value, default=default, allow_na=False)
+        if coerced is None:
             return default
-        if isinstance(value, bool):
-            return value
-        if isinstance(value, int) and not isinstance(value, bool):
-            return bool(value)
-        if isinstance(value, float):
-            return bool(value)
-        text = str(value).strip().lower()
-        if text in BOOLEAN_TRUE:
-            return True
-        if text in BOOLEAN_FALSE:
-            return False
-        return default
+        return coerced
