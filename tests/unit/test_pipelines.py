@@ -39,6 +39,24 @@ def assay_config():
 
 
 @pytest.fixture
+def chembl_variant_sequence_payload() -> dict[str, Any]:
+    """Realistic ChEMBL variant sequence payload used for normalization tests."""
+
+    return {
+        "accession": "P16455",
+        "isoform": 1,
+        "mutation": "G160R",
+        "organism": "Homo sapiens",
+        "sequence": (
+            "MDKDCEMKRTTLDSPLGKLELSGCEQGLHEIKLLGKGTSAADAVEVPAPAAVLGGPEPLMQCTAWLNAYFHQPEAIEEFPVPALHHPVFQQESFTRQVLWKLLKVVKFGE"
+            "VISYQQLAALAGNPKAARAVGGAMRGNPVPILIPCHRVVCSSGAVGNYSRGLAVKEWLLAHEGHRLGKPGLGGSSGLAGAWLKGAGATSGSPPAGRN"
+        ),
+        "tax_id": 9606,
+        "version": 1,
+    }
+
+
+@pytest.fixture
 def activity_config():
     """Load activity pipeline config."""
     return load_config("configs/pipelines/activity.yaml")
@@ -891,7 +909,13 @@ class TestAssayPipeline:
             url = pipeline._build_assay_request_url(batch)
             assert len(url) <= pipeline.max_url_length or len(batch) == 1
 
-    def test_transform_expands_and_enriches(self, assay_config, monkeypatch, caplog):
+    def test_transform_expands_and_enriches(
+        self,
+        assay_config,
+        monkeypatch,
+        caplog,
+        chembl_variant_sequence_payload,
+    ):
         """Ensure parameters, variants, and classifications survive transform with enrichment."""
 
         run_id = str(uuid.uuid4())[:8]
@@ -903,73 +927,57 @@ class TestAssayPipeline:
             }
         )
 
-        assay_payload = pd.DataFrame(
-            {
-                "assay_chembl_id": ["CHEMBL1"],
-                "target_chembl_id": ["CHEMBL2"],
-                "assay_parameters_json": [
-                    json.dumps(
-                        [
-                            {
-                                "type": "CONC",
-                                "relation": ">",
-                                "value": 1.5,
-                                "units": "nM",
-                                "text_value": "1.5",
-                                "standard_type": "IC50",
-                                "standard_value": 1.5,
-                                "standard_units": "nM",
-                            },
-                            {
-                                "type": "TEMP",
-                                "relation": "=",
-                                "value": 37,
-                                "units": "C",
-                            },
-                        ]
-                    )
-                ],
-                "variant_sequence_json": [
-                    json.dumps(
-                        [
-                            {
-                                "variant_id": 101,
-                                "base_accession": "P12345",
-                                "mutation": "A50T",
-                                "variant_seq": "MTEYKLVVVG",
-                                "accession_reported": "Q99999",
-                            }
-                        ]
-                    )
-                ],
-                "assay_classifications": [
-                    json.dumps(
-                        [
-                            {
-                                "assay_class_id": 501,
-                                "bao_id": "BAO_0000001",
-                                "class_type": "primary",
-                                "l1": "Level1",
-                                "l2": "Level2",
-                                "l3": "Level3",
-                                "description": "Example class",
-                            },
-                            {
-                                "assay_class_id": 502,
-                                "bao_id": "BAO_0000002",
-                                "class_type": "secondary",
-                                "l1": "L1",
-                                "l2": "L2",
-                                "l3": "L3",
-                                "description": "Another class",
-                            },
-                        ]
-                    )
-                ],
-            }
-        )
+        variant_payload = dict(chembl_variant_sequence_payload)
+        raw_assay_payload = {
+            "assay_chembl_id": "CHEMBL1",
+            "target_chembl_id": "CHEMBL2",
+            "assay_parameters": [
+                {
+                    "type": "CONC",
+                    "relation": ">",
+                    "value": 1.5,
+                    "units": "nM",
+                    "text_value": "1.5",
+                    "standard_type": "IC50",
+                    "standard_value": 1.5,
+                    "standard_units": "nM",
+                },
+                {
+                    "type": "TEMP",
+                    "relation": "=",
+                    "value": 37,
+                    "units": "C",
+                },
+            ],
+            "variant_sequence": variant_payload,
+            "assay_classifications": [
+                {
+                    "assay_class_id": 501,
+                    "bao_id": "BAO_0000001",
+                    "class_type": "primary",
+                    "l1": "Level1",
+                    "l2": "Level2",
+                    "l3": "Level3",
+                    "description": "Example class",
+                },
+                {
+                    "assay_class_id": 502,
+                    "bao_id": "BAO_0000002",
+                    "class_type": "secondary",
+                    "l1": "L1",
+                    "l2": "L2",
+                    "l3": "L3",
+                    "description": "Another class",
+                },
+            ],
+        }
 
-        monkeypatch.setattr(pipeline, "_fetch_assay_data", lambda ids: assay_payload)
+        normalized_record = pipeline._normalize_assay_record(raw_assay_payload)
+
+        def _mock_fetch(ids: list[str]) -> pd.DataFrame:
+            return pd.DataFrame([normalized_record.copy()])
+
+        monkeypatch.setattr(pipeline, "_fetch_assay_data", _mock_fetch)
 
         target_reference = pd.DataFrame(
             {
@@ -1009,6 +1017,7 @@ class TestAssayPipeline:
         )
 
         result = pipeline.transform(input_df)
+        result = result.drop(columns=["row_subtype", "row_index"], errors="ignore")
 
         # Canonical ordering maintained and row_subtype removed from export columns
         assert list(result.columns) == AssaySchema.Config.column_order
@@ -1032,6 +1041,17 @@ class TestAssayPipeline:
         base_rows = result[result["assay_param_type"].isna() & result["assay_class_id"].isna()]
         assert len(base_rows) == 1
         assert base_rows.iloc[0]["pref_name"] == "Target X"
+        assert base_rows.iloc[0]["variant_base_accession"] == variant_payload["accession"]
+        assert base_rows.iloc[0]["variant_sequence"] == variant_payload["sequence"]
+        assert (
+            base_rows.iloc[0]["variant_accession_reported"]
+            == variant_payload["accession"]
+        )
+
+        parsed_variant_json = json.loads(base_rows.iloc[0]["variant_sequence_json"])
+        assert isinstance(parsed_variant_json, list)
+        assert parsed_variant_json[0]["accession"] == variant_payload["accession"]
+        assert parsed_variant_json[0]["sequence"] == variant_payload["sequence"]
 
         param_rows = result[result["assay_param_type"].notna()]
         assert len(param_rows) == 2
@@ -1062,6 +1082,15 @@ class TestAssayPipeline:
                 pd.DataFrame({"assay_chembl_id": ["CHEMBL9"], "target_chembl_id": ["CHEMBL_NOPE"]})
             )
         assert any("target_enrichment_join_loss" in rec.message for rec in caplog.records)
+
+        list_payload = dict(raw_assay_payload)
+        list_payload["variant_sequence"] = [dict(chembl_variant_sequence_payload)]
+        normalized_list_record = pipeline._normalize_assay_record(list_payload)
+        assert normalized_list_record["variant_base_accession"] == variant_payload["accession"]
+        assert normalized_list_record["variant_sequence"] == variant_payload["sequence"]
+        parsed_list_json = json.loads(normalized_list_record["variant_sequence_json"])
+        assert isinstance(parsed_list_json, list)
+        assert parsed_list_json[0]["accession"] == variant_payload["accession"]
 
 
 class TestActivityPipeline:
