@@ -8,6 +8,7 @@ import types
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 SRC_DIR = ROOT_DIR / "src"
@@ -17,6 +18,9 @@ if str(SRC_DIR) not in sys.path:
 from bioetl.pipelines.base import enrichment_stage_registry
 from bioetl.pipelines.document import DocumentPipeline
 from bioetl.pipelines.target import TargetPipeline
+
+
+pytestmark = pytest.mark.integration
 
 
 def _make_target_stub() -> TargetPipeline:
@@ -64,6 +68,7 @@ def _make_document_stub() -> DocumentPipeline:
     return pipeline
 
 
+@pytest.mark.integration
 def test_target_uniprot_stage_disabled() -> None:
     """UniProt stage should report disabled when runtime option is false."""
 
@@ -78,6 +83,7 @@ def test_target_uniprot_stage_disabled() -> None:
     assert reason == "disabled"
 
 
+@pytest.mark.integration
 def test_target_uniprot_stage_included_with_accessions() -> None:
     """UniProt stage should run when accessions and client are available."""
 
@@ -92,6 +98,7 @@ def test_target_uniprot_stage_included_with_accessions() -> None:
     assert reason is None
 
 
+@pytest.mark.integration
 def test_target_iuphar_stage_toggle() -> None:
     """IUPHAR stage honours runtime option and client availability."""
 
@@ -115,6 +122,7 @@ def test_target_iuphar_stage_toggle() -> None:
     assert reason_missing_client == "client_unavailable"
 
 
+@pytest.mark.integration
 def test_document_pubmed_stage_disabled_without_option() -> None:
     """Document pubmed stage should skip when runtime flag is disabled."""
 
@@ -130,6 +138,7 @@ def test_document_pubmed_stage_disabled_without_option() -> None:
     assert reason == "disabled"
 
 
+@pytest.mark.integration
 def test_document_pubmed_stage_requires_adapters() -> None:
     """Document pubmed stage only runs when adapters are configured."""
 

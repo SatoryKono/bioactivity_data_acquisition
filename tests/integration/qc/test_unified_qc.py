@@ -7,6 +7,7 @@ import types
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 if "cachetools" not in sys.modules:
     cachetools_module = types.ModuleType("cachetools")
@@ -22,6 +23,9 @@ from bioetl.pipelines.activity import ActivityPipeline
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.document import DocumentPipeline
 from bioetl.pipelines.target import TargetPipeline
+
+
+pytestmark = pytest.mark.integration
 
 
 def _make_pipeline_stub(pipeline_cls: type[PipelineBase], name: str) -> PipelineBase:
@@ -45,6 +49,7 @@ def _make_pipeline_stub(pipeline_cls: type[PipelineBase], name: str) -> Pipeline
     return pipeline
 
 
+@pytest.mark.integration
 def test_qc_summary_format_consistent_across_pipelines() -> None:
     """QC summary helpers should yield consistent payloads for all pipelines."""
 
@@ -66,6 +71,7 @@ def test_qc_summary_format_consistent_across_pipelines() -> None:
         assert candidate.qc_summary_data == reference
 
 
+@pytest.mark.integration
 def test_additional_table_specs_are_uniform() -> None:
     """Additional table registration should mirror Target pipeline behaviour."""
 
@@ -88,6 +94,7 @@ def test_additional_table_specs_are_uniform() -> None:
         pd.testing.assert_frame_equal(spec.dataframe, expected.dataframe)
 
 
+@pytest.mark.integration
 def test_export_metadata_generation_consistent() -> None:
     """Pipelines should rely on the shared helper for export metadata."""
 
