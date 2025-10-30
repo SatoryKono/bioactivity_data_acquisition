@@ -8,7 +8,6 @@ from urllib.parse import urlencode
 
 import pandas as pd
 import requests  # type: ignore[import-untyped]
-from pandera.errors import SchemaErrors
 
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -23,7 +22,6 @@ from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.json import canonical_json
 from bioetl.utils.output import finalize_output_dataset
-from bioetl.utils.validation import _summarize_schema_errors
 from bioetl.utils.qc import (
     duplicate_summary,
     update_summary_metrics,
@@ -1296,77 +1294,66 @@ class TestItemPipeline(PipelineBase):
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
 
         coerce_retry_after(df)
-        schema_issues: list[dict[str, Any]] = []
 
-        def _handle_schema_failure(exc: SchemaErrors, _: bool) -> None:
-            nonlocal schema_issues
+        def _testitem_error_adapter(
+            issues: list[dict[str, Any]],
+            exc: Exception,
+            should_fail: bool,
+        ) -> Exception | None:
+            if not should_fail:
+                return None
 
-            failure_cases = getattr(exc, "failure_cases", None)
-            if isinstance(failure_cases, pd.DataFrame):
-                schema_issues = _summarize_schema_errors(failure_cases)
-            else:
-                schema_issues = []
+            if not issues:
+                return ValueError("Schema validation failed")
 
-            for issue in schema_issues:
-                self.record_validation_issue(issue)
-                logger.error(
-                    "schema_validation_error",
-                    column=issue.get("column"),
-                    check=issue.get("check"),
-                    count=issue.get("count"),
-                    severity=issue.get("severity"),
-                )
-
-        try:
-            validated_df = self._validate_with_schema(
-                df,
-                TestItemSchema,
-                dataset_name="testitems",
-                severity="error",
-                metric_name="schema.validation",
-                failure_handler=_handle_schema_failure,
-            )
-        except SchemaErrors as exc:
             summary = "; ".join(
                 f"{issue.get('column')}: {issue.get('check')} ({issue.get('count')} cases)"
-                for issue in schema_issues
+                for issue in issues
             )
-            raise ValueError(f"Schema validation failed: {summary}") from exc
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.error("schema_validation_unexpected_error", error=str(exc))
-            raise
+            return ValueError(f"Schema validation failed: {summary}")
+
+        def _refresh_qc_summary(validated_df: pd.DataFrame) -> None:
+            row_count = int(len(validated_df))
+            update_summary_section(self.qc_summary_data, "row_counts", {"testitems": row_count})
+            update_summary_section(
+                self.qc_summary_data,
+                "datasets",
+                {"testitems": {"rows": row_count}},
+            )
+
+            duplicate_count = int(qc_metrics.get("testitem.duplicate_ratio", {}).get("count", 0) or 0)
+            update_summary_section(
+                self.qc_summary_data,
+                "duplicates",
+                {
+                    "testitems": duplicate_summary(
+                        initial_rows,
+                        duplicate_count,
+                        field="molecule_chembl_id",
+                        threshold=qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold"),
+                    )
+                },
+            )
+            update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
+
+        validated_df = self.run_schema_validation(
+            df,
+            TestItemSchema,
+            dataset_name="testitems",
+            severity="error",
+            metric_name="schema.validation",
+            success_callbacks=(_refresh_qc_summary,),
+            error_adapter=_testitem_error_adapter,
+        )
 
         self._validate_identifier_formats(validated_df)
         self._check_referential_integrity(validated_df)
-
-        row_count = int(len(validated_df))
-        update_summary_section(self.qc_summary_data, "row_counts", {"testitems": row_count})
-        update_summary_section(
-            self.qc_summary_data,
-            "datasets",
-            {"testitems": {"rows": row_count}},
-        )
-
-        duplicate_count = int(qc_metrics.get("testitem.duplicate_ratio", {}).get("count", 0) or 0)
-        update_summary_section(
-            self.qc_summary_data,
-            "duplicates",
-            {
-                "testitems": duplicate_summary(
-                    initial_rows,
-                    duplicate_count,
-                    field="molecule_chembl_id",
-                    threshold=qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold"),
-                )
-            },
-        )
 
         logger.info(
             "validation_completed",
             rows=len(validated_df),
             issues=len(self.validation_issues),
         )
-        update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
         return validated_df
 
     def _calculate_qc_metrics(self, df: pd.DataFrame) -> dict[str, dict[str, Any]]:

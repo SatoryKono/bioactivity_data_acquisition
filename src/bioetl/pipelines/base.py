@@ -29,6 +29,7 @@ from bioetl.utils.qc import (
     update_summary_section,
     update_validation_issue_summary,
 )
+from bioetl.utils.validation import _summarize_schema_errors
 
 logger = UnifiedLogger.get(__name__)
 
@@ -532,6 +533,125 @@ class PipelineBase(ABC):
 
         threshold = self.config.qc.severity_threshold.lower()
         return self._severity_value(severity) >= self._severity_value(threshold)
+
+    def run_schema_validation(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        *,
+        dataset_name: str,
+        severity: str = "error",
+        metric_name: str | None = None,
+        success_callbacks: Iterable[Callable[[pd.DataFrame], None]] | None = None,
+        failure_callbacks: Iterable[Callable[[list[dict[str, Any]], Exception, bool], None]] | None = None,
+        error_adapter: Callable[[list[dict[str, Any]], Exception, bool], Exception | None]
+        | None = None,
+    ) -> pd.DataFrame:
+        """Execute Pandera validation with shared QC handling and callbacks.
+
+        Parameters
+        ----------
+        df:
+            DataFrame to validate.
+        schema:
+            Pandera schema object providing ``validate``.
+        dataset_name:
+            Identifier used for QC reporting.
+        severity:
+            Severity label forwarded to :meth:`_validate_with_schema`.
+        metric_name:
+            Optional explicit QC metric identifier.
+        success_callbacks:
+            Callbacks invoked with the validated dataframe when validation
+            succeeds without issues.
+        failure_callbacks:
+            Callbacks invoked when validation raises an exception.  Each
+            callback receives a list of schema issues, the underlying
+            exception and the ``should_fail`` flag calculated by
+            :meth:`_should_fail`.
+        error_adapter:
+            Optional callable converting schema issues into a raised exception.
+            When provided and validation raises, the adapter is given the
+            issues, original exception and ``should_fail`` flag.  Returning an
+            exception instance causes it to be raised instead of the original
+            error.
+        """
+
+        success_callbacks = tuple(success_callbacks or ())
+        failure_callbacks = tuple(failure_callbacks or ())
+
+        schema_issues: list[dict[str, Any]] = []
+        should_fail_flag = False
+
+        def _handle_schema_failure(exc: Exception, should_fail: bool) -> None:
+            nonlocal schema_issues, should_fail_flag
+
+            should_fail_flag = bool(should_fail)
+
+            failure_cases = getattr(exc, "failure_cases", None)
+            schema_issues = _summarize_schema_errors(failure_cases)
+
+            for issue in schema_issues:
+                self.record_validation_issue(issue)
+                logger.error(
+                    "schema_validation_error",
+                    dataset=dataset_name,
+                    column=issue.get("column"),
+                    check=issue.get("check"),
+                    count=issue.get("count"),
+                    severity=issue.get("severity"),
+                )
+
+            for callback in failure_callbacks:
+                try:
+                    callback(schema_issues, exc, should_fail_flag)
+                except Exception as callback_exc:  # pragma: no cover - defensive
+                    logger.warning(
+                        "qc_failure_callback_error",
+                        dataset=dataset_name,
+                        callback=getattr(callback, "__name__", type(callback).__name__),
+                        error=str(callback_exc),
+                    )
+
+        try:
+            validated_df = self._validate_with_schema(
+                df,
+                schema,
+                dataset_name=dataset_name,
+                severity=severity,
+                metric_name=metric_name,
+                failure_handler=_handle_schema_failure,
+            )
+        except Exception as exc:  # pragma: no cover - exercised via adapter tests
+            if error_adapter is not None:
+                try:
+                    adapted_error = error_adapter(schema_issues, exc, should_fail_flag)
+                except Exception as adapter_exc:  # pragma: no cover - defensive
+                    logger.warning(
+                        "qc_error_adapter_failed",
+                        dataset=dataset_name,
+                        error=str(adapter_exc),
+                    )
+                    adapted_error = None
+                if adapted_error is not None:
+                    raise adapted_error from exc
+            raise
+
+        if schema_issues:
+            return validated_df
+
+        for callback in success_callbacks:
+            try:
+                callback(validated_df)
+            except Exception as callback_exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "qc_success_callback_error",
+                    dataset=dataset_name,
+                    callback=getattr(callback, "__name__", type(callback).__name__),
+                    error=str(callback_exc),
+                )
+
+        return validated_df
 
     def _validate_with_schema(
         self,
