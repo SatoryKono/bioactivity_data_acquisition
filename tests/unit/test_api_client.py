@@ -209,6 +209,35 @@ def test_request_json_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     assert first_result is not second_result
 
 
+def test_request_json_preserves_embedded_scheme_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Relative paths containing embedded schemes should be concatenated verbatim."""
+
+    config = APIConfig(name="openalex", base_url="https://api.openalex.org/")
+    client = UnifiedAPIClient(config)
+
+    captured: dict[str, Any] = {}
+
+    response = Mock(spec=requests.Response)
+    response.raise_for_status = Mock()
+    response.json = Mock(return_value={})
+    response.headers = CaseInsensitiveDict()
+
+    def fake_execute(**kwargs: Any) -> requests.Response:
+        captured.update(kwargs)
+        return response
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+
+    client.request_json("/works/https://doi.org/10.1021/jm050235r")
+
+    assert (
+        captured["url"]
+        == "https://api.openalex.org/works/https://doi.org/10.1021/jm050235r"
+    )
+
+
 def test_retry_policy_wait_time():
     """Test retry policy wait time calculation."""
     policy = RetryPolicy(total=3, backoff_factor=2.0, backoff_max=10.0)
@@ -695,6 +724,70 @@ def test_request_json_respects_retry_total(monkeypatch: pytest.MonkeyPatch) -> N
     assert call_count["count"] == 2
 
 
+def test_request_json_server_error_without_retry_after(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Server errors without Retry-After should sleep between retries and then raise."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=3,
+        retry_backoff_factor=1.5,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    responses = iter(
+        [
+            _build_response(500, {"error": f"server error #{idx}"})
+            for idx in range(config.retry_total)
+        ]
+    )
+
+    call_count = {"count": 0}
+
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        call_count["count"] += 1
+        return next(responses)
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+    monkeypatch.setattr(
+        "bioetl.core.api_client.time.sleep",
+        lambda seconds: sleep_calls.append(seconds),
+    )
+
+    with pytest.raises(requests.exceptions.HTTPError) as excinfo:
+        client.request_json("/resource")
+
+    assert call_count["count"] == config.retry_total
+
+    expected_waits = [
+        config.retry_backoff_factor**attempt
+        for attempt in range(1, config.retry_total)
+    ]
+    assert len(sleep_calls) == len(expected_waits)
+    for actual, expected in zip(sleep_calls, expected_waits):
+        assert actual == pytest.approx(expected)
+
+    metadata = getattr(excinfo.value, "retry_metadata", None)
+    assert metadata is not None
+    assert metadata["attempt"] == config.retry_total
+    assert metadata["status_code"] == 500
+    assert metadata["retry_after"] is None
+
+
 def test_request_json_timeout_metadata_on_exhaustion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1018,6 +1111,96 @@ def test_no_fallback_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(requests.exceptions.ConnectionError):
         client.request_json("/endpoint")
+
+
+def test_fallback_partial_retry_waits_without_retry_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Partial retry should sleep using backoff wait time even without Retry-After."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        retry_total=1,
+        fallback_enabled=True,
+        fallback_strategies=["partial_retry"],
+        partial_retry_max=1,
+        retry_backoff_factor=2.0,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    call_count = {"n": 0}
+
+    def flaky_execute(**_: Any) -> requests.Response:
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise requests.exceptions.ReadTimeout("timeout")
+        return _build_response(200, {"ok": True})
+
+    sleep_calls: list[float] = []
+
+    def fake_sleep(duration: float) -> None:
+        sleep_calls.append(duration)
+
+    monkeypatch.setattr(client, "_execute", flaky_execute)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", fake_sleep)
+
+    result = client.request_json("/resource")
+
+    assert result == {"ok": True}
+    assert call_count["n"] == 2
+    assert sleep_calls, "Expected fallback to invoke time.sleep"
+    expected_wait = client.retry_policy.get_wait_time(1)
+    assert sleep_calls[0] == pytest.approx(expected_wait)
+
+
+def test_fallback_partial_retry_respects_rate_limiter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each fallback attempt must acquire the rate limiter token."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        retry_total=1,
+        fallback_enabled=True,
+        fallback_strategies=["partial_retry"],
+        partial_retry_max=2,
+        retry_backoff_factor=2.0,
+        rate_limit_jitter=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=0.01,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    acquire_calls: list[int] = []
+
+    def fake_acquire() -> None:
+        acquire_calls.append(1)
+
+    monkeypatch.setattr(client.rate_limiter, "acquire", fake_acquire)
+
+    call_count = {"n": 0}
+
+    def fake_request(*_: Any, **kwargs: Any) -> requests.Response:
+        call_count["n"] += 1
+        if call_count["n"] <= 2:
+            raise requests.exceptions.ReadTimeout("timeout")
+        response = _build_response(200, {"ok": True})
+        response.url = kwargs.get("url", response.url)
+        return response
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda *_: None)
+
+    result = client.request_json("/resource")
+
+    assert result == {"ok": True}
+    assert call_count["n"] == 3
+    assert acquire_calls == [1, 1, 1]
 
 
 if __name__ == "__main__":

@@ -619,15 +619,23 @@ class UnifiedOutputWriter:
                         ].dt.strftime(resolved_date_format)
                 pandas_date_format = None
 
-        json_payload = dataframe_to_serialize.to_json(
-            orient=orient,
-            force_ascii=False,
-            date_format=pandas_date_format,
-            double_precision=self.determinism.float_precision,
-        )
-        parsed_payload = json.loads(json_payload) if json_payload else []
+        if not dataframe_to_serialize.empty:
+            sorted_columns = sorted(dataframe_to_serialize.columns)
+            if list(dataframe_to_serialize.columns) != sorted_columns:
+                dataframe_to_serialize = dataframe_to_serialize.loc[:, sorted_columns]
 
-        self._write_json_atomic(json_path, parsed_payload)
+        if dataframe_to_serialize.empty:
+            json_payload = "[]"
+        else:
+            json_payload = dataframe_to_serialize.to_json(
+                orient=orient,
+                force_ascii=False,
+                date_format=pandas_date_format,
+                double_precision=self.determinism.float_precision,
+                indent=2,
+            )
+
+        self._write_json_atomic(json_path, json_payload)
 
     def _calculate_checksums(self, *paths: Path | None) -> dict[str, str]:
         """Вычисляет checksums для файлов."""
@@ -805,7 +813,10 @@ class UnifiedOutputWriter:
         def write_payload() -> None:
             temp_path = _get_active_atomic_temp_path()
             with temp_path.open("w", encoding="utf-8") as handle:
-                json.dump(payload, handle, indent=2, ensure_ascii=False, sort_keys=True)
+                if isinstance(payload, str):
+                    handle.write(payload)
+                else:
+                    json.dump(payload, handle, indent=2, ensure_ascii=False, sort_keys=True)
 
         try:
             _atomic_write(path, write_payload)

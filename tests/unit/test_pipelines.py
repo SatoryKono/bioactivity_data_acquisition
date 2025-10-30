@@ -221,6 +221,22 @@ def test_pipeline_base_validate_uses_primary_schema(monkeypatch, assay_config):
         def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - unused
             return df
 
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - unused
+            schema = getattr(self, "primary_schema", None)
+            if schema is None:
+                return df
+
+            dataset_name = getattr(self.config.pipeline, "name", None) or type(self).__name__
+            dataset_label = str(dataset_name)
+
+            return self._validate_with_schema(
+                df,
+                schema,
+                dataset_name=dataset_label,
+                severity="error",
+                metric_name=f"schema.{dataset_label}",
+            )
+
         def close_resources(self) -> None:  # pragma: no cover - unused
             return None
 
@@ -278,6 +294,22 @@ def test_pipeline_base_validate_without_primary_schema(monkeypatch, assay_config
 
         def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - unused
             return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - unused
+            schema = getattr(self, "primary_schema", None)
+            if schema is None:
+                return df
+
+            dataset_name = getattr(self.config.pipeline, "name", None) or type(self).__name__
+            dataset_label = str(dataset_name)
+
+            return self._validate_with_schema(
+                df,
+                schema,
+                dataset_name=dataset_label,
+                severity="error",
+                metric_name=f"schema.{dataset_label}",
+            )
 
         def close_resources(self) -> None:  # pragma: no cover - unused
             return None
