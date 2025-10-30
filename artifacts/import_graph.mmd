@@ -1,0 +1,498 @@
+graph TD
+    bioetl["bioetl"]
+    bioetl_adapters["bioetl.adapters"]
+    bioetl_adapters_base["bioetl.adapters.base"]
+    bioetl_adapters_crossref["bioetl.adapters.crossref"]
+    bioetl_adapters_openalex["bioetl.adapters.openalex"]
+    bioetl_adapters_pubchem["bioetl.adapters.pubchem"]
+    bioetl_adapters_pubmed["bioetl.adapters.pubmed"]
+    bioetl_adapters_semantic_scholar["bioetl.adapters.semantic_scholar"]
+    bioetl_cli["bioetl.cli"]
+    bioetl_cli_command["bioetl.cli.command"]
+    bioetl_cli_limits["bioetl.cli.limits"]
+    bioetl_cli_main["bioetl.cli.main"]
+    bioetl_config["bioetl.config"]
+    bioetl_config_loader["bioetl.config.loader"]
+    bioetl_config_models["bioetl.config.models"]
+    bioetl_core["bioetl.core"]
+    bioetl_core_api_client["bioetl.core.api_client"]
+    bioetl_core_client_factory["bioetl.core.client_factory"]
+    bioetl_core_hashing["bioetl.core.hashing"]
+    bioetl_core_logger["bioetl.core.logger"]
+    bioetl_core_materialization["bioetl.core.materialization"]
+    bioetl_core_output_writer["bioetl.core.output_writer"]
+    bioetl_normalizers["bioetl.normalizers"]
+    bioetl_normalizers_base["bioetl.normalizers.base"]
+    bioetl_normalizers_bibliography["bioetl.normalizers.bibliography"]
+    bioetl_normalizers_chemistry["bioetl.normalizers.chemistry"]
+    bioetl_normalizers_constants["bioetl.normalizers.constants"]
+    bioetl_normalizers_helpers["bioetl.normalizers.helpers"]
+    bioetl_normalizers_identifier["bioetl.normalizers.identifier"]
+    bioetl_normalizers_numeric["bioetl.normalizers.numeric"]
+    bioetl_normalizers_registry["bioetl.normalizers.registry"]
+    bioetl_normalizers_string["bioetl.normalizers.string"]
+    bioetl_pandera_pandas["bioetl.pandera_pandas"]
+    bioetl_pandera_typing["bioetl.pandera_typing"]
+    bioetl_pipelines["bioetl.pipelines"]
+    bioetl_pipelines_activity["bioetl.pipelines.activity"]
+    bioetl_pipelines_assay["bioetl.pipelines.assay"]
+    bioetl_pipelines_base["bioetl.pipelines.base"]
+    bioetl_pipelines_document["bioetl.pipelines.document"]
+    bioetl_pipelines_document_enrichment["bioetl.pipelines.document_enrichment"]
+    bioetl_pipelines_target["bioetl.pipelines.target"]
+    bioetl_pipelines_target_gold["bioetl.pipelines.target_gold"]
+    bioetl_pipelines_testitem["bioetl.pipelines.testitem"]
+    bioetl_schemas["bioetl.schemas"]
+    bioetl_schemas_activity["bioetl.schemas.activity"]
+    bioetl_schemas_assay["bioetl.schemas.assay"]
+    bioetl_schemas_base["bioetl.schemas.base"]
+    bioetl_schemas_document["bioetl.schemas.document"]
+    bioetl_schemas_document_input["bioetl.schemas.document_input"]
+    bioetl_schemas_registry["bioetl.schemas.registry"]
+    bioetl_schemas_target["bioetl.schemas.target"]
+    bioetl_schemas_testitem["bioetl.schemas.testitem"]
+    bioetl_utils["bioetl.utils"]
+    bioetl_utils_chembl["bioetl.utils.chembl"]
+    bioetl_utils_column_validation["bioetl.utils.column_validation"]
+    bioetl_utils_column_validator["bioetl.utils.column_validator"]
+    bioetl_utils_dataframe["bioetl.utils.dataframe"]
+    bioetl_utils_dtype["bioetl.utils.dtype"]
+    bioetl_utils_dtypes["bioetl.utils.dtypes"]
+    bioetl_utils_fallback["bioetl.utils.fallback"]
+    bioetl_utils_io["bioetl.utils.io"]
+    bioetl_utils_json["bioetl.utils.json"]
+    bioetl_utils_output["bioetl.utils.output"]
+    bioetl_utils_qc["bioetl.utils.qc"]
+    bioetl_utils_validation["bioetl.utils.validation"]
+    library["library"]
+    scripts["scripts"]
+    scripts_fix_markdown["scripts.fix_markdown"]
+    scripts_run_activity["scripts.run_activity"]
+    scripts_run_assay["scripts.run_assay"]
+    scripts_run_document["scripts.run_document"]
+    scripts_run_fix_markdown["scripts.run_fix_markdown"]
+    scripts_run_target["scripts.run_target"]
+    scripts_run_testitem["scripts.run_testitem"]
+    scripts_validate_columns["scripts.validate_columns"]
+    tests["tests"]
+    tests_conftest["tests.conftest"]
+    tests_golden_test_cli_golden["tests.golden.test_cli_golden"]
+    tests_integration_pipelines["tests.integration.pipelines"]
+    tests_integration_pipelines_test_activity_pipeline["tests.integration.pipelines.test_activity_pipeline"]
+    tests_integration_pipelines_test_enrichment_stages["tests.integration.pipelines.test_enrichment_stages"]
+    tests_integration_pipelines_test_extended_mode_outputs["tests.integration.pipelines.test_extended_mode_outputs"]
+    tests_integration_qc_test_unified_qc["tests.integration.qc.test_unified_qc"]
+    tests_integration_test_document_pipeline_enrichment["tests.integration.test_document_pipeline_enrichment"]
+    tests_perf_test_dataframe_hash["tests.perf.test_dataframe_hash"]
+    tests_perf_test_quality_report_generator["tests.perf.test_quality_report_generator"]
+    tests_pipelines["tests.pipelines"]
+    tests_pipelines_test_materialization_manager["tests.pipelines.test_materialization_manager"]
+    tests_schemas_test_assay_schema["tests.schemas.test_assay_schema"]
+    tests_schemas_test_document_raw_schema["tests.schemas.test_document_raw_schema"]
+    tests_schemas_test_registry["tests.schemas.test_registry"]
+    tests_schemas_test_testitem_schema["tests.schemas.test_testitem_schema"]
+    tests_test_fixtures_smoke["tests.test_fixtures_smoke"]
+    tests_unit["tests.unit"]
+    tests_unit_adapters["tests.unit.adapters"]
+    tests_unit_adapters__mixins["tests.unit.adapters._mixins"]
+    tests_unit_adapters_test_base_adapter["tests.unit.adapters.test_base_adapter"]
+    tests_unit_adapters_test_crossref_adapter["tests.unit.adapters.test_crossref_adapter"]
+    tests_unit_adapters_test_openalex_adapter["tests.unit.adapters.test_openalex_adapter"]
+    tests_unit_adapters_test_pubchem_adapter["tests.unit.adapters.test_pubchem_adapter"]
+    tests_unit_adapters_test_pubmed_adapter["tests.unit.adapters.test_pubmed_adapter"]
+    tests_unit_adapters_test_semantic_scholar_adapter["tests.unit.adapters.test_semantic_scholar_adapter"]
+    tests_unit_config_test_pipeline_config["tests.unit.config.test_pipeline_config"]
+    tests_unit_core_test_client_factory["tests.unit.core.test_client_factory"]
+    tests_unit_docs_test_data_sources_spec["tests.unit.docs.test_data_sources_spec"]
+    tests_unit_normalizers_test_bibliography["tests.unit.normalizers.test_bibliography"]
+    tests_unit_normalizers_test_helpers["tests.unit.normalizers.test_helpers"]
+    tests_unit_test_api_client["tests.unit.test_api_client"]
+    tests_unit_test_chemistry_normalizers["tests.unit.test_chemistry_normalizers"]
+    tests_unit_test_cli_contract["tests.unit.test_cli_contract"]
+    tests_unit_test_column_order["tests.unit.test_column_order"]
+    tests_unit_test_column_validator["tests.unit.test_column_validator"]
+    tests_unit_test_config_loader["tests.unit.test_config_loader"]
+    tests_unit_test_document_enrichment["tests.unit.test_document_enrichment"]
+    tests_unit_test_document_pipeline_validation["tests.unit.test_document_pipeline_validation"]
+    tests_unit_test_document_schema["tests.unit.test_document_schema"]
+    tests_unit_test_dtype_utils["tests.unit.test_dtype_utils"]
+    tests_unit_test_fallback_utils["tests.unit.test_fallback_utils"]
+    tests_unit_test_hashing["tests.unit.test_hashing"]
+    tests_unit_test_identifier_normalizer["tests.unit.test_identifier_normalizer"]
+    tests_unit_test_json_utils["tests.unit.test_json_utils"]
+    tests_unit_test_logger["tests.unit.test_logger"]
+    tests_unit_test_numeric_normalizer["tests.unit.test_numeric_normalizer"]
+    tests_unit_test_output_writer["tests.unit.test_output_writer"]
+    tests_unit_test_pipeline_extract_helper["tests.unit.test_pipeline_extract_helper"]
+    tests_unit_test_pipelines["tests.unit.test_pipelines"]
+    tests_unit_test_rate_limiter["tests.unit.test_rate_limiter"]
+    tests_unit_test_target_gold["tests.unit.test_target_gold"]
+    tests_unit_test_utils_chembl["tests.unit.test_utils_chembl"]
+    tests_unit_test_utils_dataframe["tests.unit.test_utils_dataframe"]
+    tests_unit_test_utils_dtypes["tests.unit.test_utils_dtypes"]
+    tests_unit_test_utils_io["tests.unit.test_utils_io"]
+    tests_unit_test_utils_output["tests.unit.test_utils_output"]
+    tests_unit_validation_test_schema_validation["tests.unit.validation.test_schema_validation"]
+    bioetl_adapters --> bioetl_adapters_base
+    bioetl_adapters --> bioetl_adapters_crossref
+    bioetl_adapters --> bioetl_adapters_openalex
+    bioetl_adapters --> bioetl_adapters_pubchem
+    bioetl_adapters --> bioetl_adapters_pubmed
+    bioetl_adapters --> bioetl_adapters_semantic_scholar
+    bioetl_adapters_base --> bioetl_core_api_client
+    bioetl_adapters_base --> bioetl_core_logger
+    bioetl_adapters_crossref --> bioetl_adapters_base
+    bioetl_adapters_crossref --> bioetl_core_api_client
+    bioetl_adapters_crossref --> bioetl_normalizers
+    bioetl_adapters_crossref --> bioetl_normalizers_bibliography
+    bioetl_adapters_crossref --> bioetl_normalizers_registry
+    bioetl_adapters_openalex --> bioetl_adapters_base
+    bioetl_adapters_openalex --> bioetl_normalizers
+    bioetl_adapters_openalex --> bioetl_normalizers_bibliography
+    bioetl_adapters_openalex --> bioetl_normalizers_registry
+    bioetl_adapters_pubchem --> bioetl_adapters_base
+    bioetl_adapters_pubchem --> bioetl_core_api_client
+    bioetl_adapters_pubmed --> bioetl_adapters_base
+    bioetl_adapters_pubmed --> bioetl_core_api_client
+    bioetl_adapters_pubmed --> bioetl_normalizers
+    bioetl_adapters_pubmed --> bioetl_normalizers_bibliography
+    bioetl_adapters_pubmed --> bioetl_normalizers_registry
+    bioetl_adapters_semantic_scholar --> bioetl_adapters_base
+    bioetl_adapters_semantic_scholar --> bioetl_core_api_client
+    bioetl_adapters_semantic_scholar --> bioetl_normalizers
+    bioetl_adapters_semantic_scholar --> bioetl_normalizers_bibliography
+    bioetl_adapters_semantic_scholar --> bioetl_normalizers_registry
+    bioetl_cli_command --> bioetl_cli_limits
+    bioetl_cli_command --> bioetl_config_loader
+    bioetl_cli_command --> bioetl_core_logger
+    bioetl_cli_command --> bioetl_pipelines_base
+    bioetl_cli_command --> bioetl_utils_column_validator
+    bioetl_cli_limits --> bioetl_core_logger
+    bioetl_cli_limits --> bioetl_pipelines_base
+    bioetl_cli_main --> bioetl_core_logger
+    bioetl_cli_main --> scripts
+    bioetl_config --> bioetl_config_loader
+    bioetl_config --> bioetl_config_models
+    bioetl_config_loader --> bioetl_config_models
+    bioetl_config_models --> bioetl_utils_column_validation
+    bioetl_core --> bioetl_core_api_client
+    bioetl_core --> bioetl_core_client_factory
+    bioetl_core --> bioetl_core_logger
+    bioetl_core --> bioetl_core_output_writer
+    bioetl_core_api_client --> bioetl_core_logger
+    bioetl_core_client_factory --> bioetl_config_models
+    bioetl_core_client_factory --> bioetl_core_api_client
+    bioetl_core_materialization --> bioetl_config_models
+    bioetl_core_materialization --> bioetl_core_logger
+    bioetl_core_materialization --> bioetl_core_output_writer
+    bioetl_core_output_writer --> bioetl_config
+    bioetl_core_output_writer --> bioetl_config_models
+    bioetl_core_output_writer --> bioetl_core_logger
+    bioetl_core_output_writer --> bioetl_schemas_base
+    bioetl_core_output_writer --> bioetl_schemas_registry
+    bioetl_normalizers --> bioetl_normalizers_base
+    bioetl_normalizers --> bioetl_normalizers_bibliography
+    bioetl_normalizers --> bioetl_normalizers_chemistry
+    bioetl_normalizers --> bioetl_normalizers_identifier
+    bioetl_normalizers --> bioetl_normalizers_numeric
+    bioetl_normalizers --> bioetl_normalizers_registry
+    bioetl_normalizers --> bioetl_normalizers_string
+    bioetl_normalizers_base --> bioetl_core_logger
+    bioetl_normalizers_bibliography --> bioetl_normalizers_registry
+    bioetl_normalizers_chemistry --> bioetl_core_logger
+    bioetl_normalizers_chemistry --> bioetl_normalizers_base
+    bioetl_normalizers_chemistry --> bioetl_normalizers_constants
+    bioetl_normalizers_chemistry --> bioetl_normalizers_helpers
+    bioetl_normalizers_chemistry --> bioetl_normalizers_numeric
+    bioetl_normalizers_helpers --> bioetl_normalizers_constants
+    bioetl_normalizers_identifier --> bioetl_normalizers_base
+    bioetl_normalizers_numeric --> bioetl_normalizers_base
+    bioetl_normalizers_numeric --> bioetl_normalizers_constants
+    bioetl_normalizers_numeric --> bioetl_normalizers_helpers
+    bioetl_normalizers_registry --> bioetl_normalizers_base
+    bioetl_normalizers_string --> bioetl_normalizers_base
+    bioetl_pandera_pandas --> bioetl_pandera_typing
+    bioetl_pipelines --> bioetl_pipelines_activity
+    bioetl_pipelines --> bioetl_pipelines_assay
+    bioetl_pipelines --> bioetl_pipelines_base
+    bioetl_pipelines --> bioetl_pipelines_document
+    bioetl_pipelines --> bioetl_pipelines_target
+    bioetl_pipelines --> bioetl_pipelines_testitem
+    bioetl_pipelines_activity --> bioetl_config
+    bioetl_pipelines_activity --> bioetl_core_api_client
+    bioetl_pipelines_activity --> bioetl_core_logger
+    bioetl_pipelines_activity --> bioetl_normalizers
+    bioetl_pipelines_activity --> bioetl_normalizers_registry
+    bioetl_pipelines_activity --> bioetl_pipelines_base
+    bioetl_pipelines_activity --> bioetl_schemas
+    bioetl_pipelines_activity --> bioetl_schemas_registry
+    bioetl_pipelines_activity --> bioetl_utils_dataframe
+    bioetl_pipelines_activity --> bioetl_utils_dtypes
+    bioetl_pipelines_activity --> bioetl_utils_fallback
+    bioetl_pipelines_activity --> bioetl_utils_json
+    bioetl_pipelines_activity --> bioetl_utils_output
+    bioetl_pipelines_activity --> bioetl_utils_qc
+    bioetl_pipelines_assay --> bioetl_config
+    bioetl_pipelines_assay --> bioetl_core_api_client
+    bioetl_pipelines_assay --> bioetl_core_logger
+    bioetl_pipelines_assay --> bioetl_normalizers
+    bioetl_pipelines_assay --> bioetl_normalizers_registry
+    bioetl_pipelines_assay --> bioetl_pipelines_base
+    bioetl_pipelines_assay --> bioetl_schemas
+    bioetl_pipelines_assay --> bioetl_schemas_assay
+    bioetl_pipelines_assay --> bioetl_schemas_registry
+    bioetl_pipelines_assay --> bioetl_utils_dataframe
+    bioetl_pipelines_assay --> bioetl_utils_dtypes
+    bioetl_pipelines_assay --> bioetl_utils_fallback
+    bioetl_pipelines_assay --> bioetl_utils_output
+    bioetl_pipelines_base --> bioetl_config
+    bioetl_pipelines_base --> bioetl_config_models
+    bioetl_pipelines_base --> bioetl_core_api_client
+    bioetl_pipelines_base --> bioetl_core_client_factory
+    bioetl_pipelines_base --> bioetl_core_logger
+    bioetl_pipelines_base --> bioetl_core_output_writer
+    bioetl_pipelines_base --> bioetl_utils_chembl
+    bioetl_pipelines_base --> bioetl_utils_io
+    bioetl_pipelines_base --> bioetl_utils_qc
+    bioetl_pipelines_base --> bioetl_utils_validation
+    bioetl_pipelines_document --> bioetl_adapters
+    bioetl_pipelines_document --> bioetl_adapters_base
+    bioetl_pipelines_document --> bioetl_config
+    bioetl_pipelines_document --> bioetl_core_api_client
+    bioetl_pipelines_document --> bioetl_core_logger
+    bioetl_pipelines_document --> bioetl_normalizers
+    bioetl_pipelines_document --> bioetl_normalizers_registry
+    bioetl_pipelines_document --> bioetl_pipelines_base
+    bioetl_pipelines_document --> bioetl_pipelines_document_enrichment
+    bioetl_pipelines_document --> bioetl_schemas_document
+    bioetl_pipelines_document --> bioetl_schemas_document_input
+    bioetl_pipelines_document --> bioetl_schemas_registry
+    bioetl_pipelines_document --> bioetl_utils_dtypes
+    bioetl_pipelines_document --> bioetl_utils_fallback
+    bioetl_pipelines_document --> bioetl_utils_output
+    bioetl_pipelines_document --> bioetl_utils_qc
+    bioetl_pipelines_document_enrichment --> bioetl_core_logger
+    bioetl_pipelines_target --> bioetl_config
+    bioetl_pipelines_target --> bioetl_config_models
+    bioetl_pipelines_target --> bioetl_core_api_client
+    bioetl_pipelines_target --> bioetl_core_client_factory
+    bioetl_pipelines_target --> bioetl_core_logger
+    bioetl_pipelines_target --> bioetl_core_materialization
+    bioetl_pipelines_target --> bioetl_core_output_writer
+    bioetl_pipelines_target --> bioetl_normalizers
+    bioetl_pipelines_target --> bioetl_normalizers_registry
+    bioetl_pipelines_target --> bioetl_pipelines_base
+    bioetl_pipelines_target --> bioetl_pipelines_target_gold
+    bioetl_pipelines_target --> bioetl_schemas
+    bioetl_pipelines_target --> bioetl_schemas_registry
+    bioetl_pipelines_target --> bioetl_utils_output
+    bioetl_pipelines_target --> bioetl_utils_qc
+    bioetl_pipelines_target_gold --> bioetl_config_models
+    bioetl_pipelines_target_gold --> bioetl_core_logger
+    bioetl_pipelines_target_gold --> bioetl_core_materialization
+    bioetl_pipelines_testitem --> bioetl_adapters
+    bioetl_pipelines_testitem --> bioetl_adapters_base
+    bioetl_pipelines_testitem --> bioetl_config
+    bioetl_pipelines_testitem --> bioetl_core_api_client
+    bioetl_pipelines_testitem --> bioetl_core_logger
+    bioetl_pipelines_testitem --> bioetl_normalizers
+    bioetl_pipelines_testitem --> bioetl_normalizers_registry
+    bioetl_pipelines_testitem --> bioetl_pipelines_base
+    bioetl_pipelines_testitem --> bioetl_schemas
+    bioetl_pipelines_testitem --> bioetl_schemas_registry
+    bioetl_pipelines_testitem --> bioetl_utils_chembl
+    bioetl_pipelines_testitem --> bioetl_utils_dtypes
+    bioetl_pipelines_testitem --> bioetl_utils_fallback
+    bioetl_pipelines_testitem --> bioetl_utils_json
+    bioetl_pipelines_testitem --> bioetl_utils_output
+    bioetl_pipelines_testitem --> bioetl_utils_qc
+    bioetl_schemas --> bioetl_schemas_activity
+    bioetl_schemas --> bioetl_schemas_assay
+    bioetl_schemas --> bioetl_schemas_base
+    bioetl_schemas --> bioetl_schemas_document
+    bioetl_schemas --> bioetl_schemas_document_input
+    bioetl_schemas --> bioetl_schemas_registry
+    bioetl_schemas --> bioetl_schemas_target
+    bioetl_schemas --> bioetl_schemas_testitem
+    bioetl_schemas_activity --> bioetl_pandera_pandas
+    bioetl_schemas_activity --> bioetl_pandera_typing
+    bioetl_schemas_activity --> bioetl_schemas_base
+    bioetl_schemas_assay --> bioetl_pandera_pandas
+    bioetl_schemas_assay --> bioetl_pandera_typing
+    bioetl_schemas_assay --> bioetl_schemas_base
+    bioetl_schemas_base --> bioetl_pandera_pandas
+    bioetl_schemas_base --> bioetl_pandera_typing
+    bioetl_schemas_document --> bioetl_pandera_pandas
+    bioetl_schemas_document --> bioetl_pandera_typing
+    bioetl_schemas_document --> bioetl_schemas_base
+    bioetl_schemas_document_input --> bioetl_pandera_pandas
+    bioetl_schemas_document_input --> bioetl_pandera_typing
+    bioetl_schemas_registry --> bioetl_core_logger
+    bioetl_schemas_registry --> bioetl_pandera_pandas
+    bioetl_schemas_registry --> bioetl_utils_dataframe
+    bioetl_schemas_target --> bioetl_pandera_pandas
+    bioetl_schemas_target --> bioetl_pandera_typing
+    bioetl_schemas_target --> bioetl_schemas_base
+    bioetl_schemas_testitem --> bioetl_pandera_pandas
+    bioetl_schemas_testitem --> bioetl_pandera_typing
+    bioetl_schemas_testitem --> bioetl_schemas_base
+    bioetl_utils --> bioetl_utils
+    bioetl_utils --> bioetl_utils_dataframe
+    bioetl_utils --> bioetl_utils_io
+    bioetl_utils --> bioetl_utils_output
+    bioetl_utils_column_validator --> bioetl_core_logger
+    bioetl_utils_column_validator --> bioetl_pandera_pandas
+    bioetl_utils_column_validator --> bioetl_schemas_registry
+    bioetl_utils_column_validator --> bioetl_utils_column_validation
+    bioetl_utils_column_validator --> bioetl_utils_dataframe
+    bioetl_utils_dataframe --> bioetl_core_hashing
+    bioetl_utils_dataframe --> bioetl_schemas_base
+    bioetl_utils_dtype --> bioetl_utils_dtypes
+    bioetl_utils_fallback --> bioetl_core_api_client
+    bioetl_utils_fallback --> bioetl_utils_dtypes
+    bioetl_utils_io --> bioetl_config
+    bioetl_utils_json --> bioetl_normalizers_constants
+    bioetl_utils_json --> bioetl_normalizers_helpers
+    bioetl_utils_output --> bioetl_schemas_base
+    bioetl_utils_output --> bioetl_utils_dataframe
+    bioetl_utils_qc --> bioetl_utils_dtypes
+    scripts --> bioetl_cli_command
+    scripts --> bioetl_pipelines_activity
+    scripts --> bioetl_pipelines_assay
+    scripts --> bioetl_pipelines_document
+    scripts --> bioetl_pipelines_target
+    scripts --> bioetl_pipelines_testitem
+    scripts_run_activity --> scripts
+    scripts_run_assay --> scripts
+    scripts_run_document --> scripts
+    scripts_run_target --> bioetl_cli_limits
+    scripts_run_target --> bioetl_config_loader
+    scripts_run_target --> bioetl_core_logger
+    scripts_run_target --> bioetl_pipelines_base
+    scripts_run_target --> bioetl_pipelines_target
+    scripts_run_testitem --> scripts
+    scripts_validate_columns --> bioetl_utils_column_validator
+    tests_conftest --> bioetl_config
+    tests_golden_test_cli_golden --> bioetl_cli_command
+    tests_golden_test_cli_golden --> bioetl_config_loader
+    tests_golden_test_cli_golden --> bioetl_core_hashing
+    tests_golden_test_cli_golden --> bioetl_pandera_typing
+    tests_golden_test_cli_golden --> bioetl_pipelines_base
+    tests_golden_test_cli_golden --> bioetl_schemas_base
+    tests_golden_test_cli_golden --> bioetl_schemas_registry
+    tests_golden_test_cli_golden --> scripts
+    tests_integration_pipelines_test_activity_pipeline --> bioetl_config_loader
+    tests_integration_pipelines_test_activity_pipeline --> bioetl_pipelines_activity
+    tests_integration_pipelines_test_activity_pipeline --> bioetl_schemas
+    tests_integration_pipelines_test_activity_pipeline --> bioetl_utils_chembl
+    tests_integration_pipelines_test_enrichment_stages --> bioetl_pipelines_base
+    tests_integration_pipelines_test_enrichment_stages --> bioetl_pipelines_document
+    tests_integration_pipelines_test_enrichment_stages --> bioetl_pipelines_target
+    tests_integration_pipelines_test_extended_mode_outputs --> bioetl_pipelines_base
+    tests_integration_qc_test_unified_qc --> bioetl_pipelines_activity
+    tests_integration_qc_test_unified_qc --> bioetl_pipelines_base
+    tests_integration_qc_test_unified_qc --> bioetl_pipelines_document
+    tests_integration_qc_test_unified_qc --> bioetl_pipelines_target
+    tests_integration_test_document_pipeline_enrichment --> bioetl_config_loader
+    tests_integration_test_document_pipeline_enrichment --> bioetl_pipelines_document
+    tests_integration_test_document_pipeline_enrichment --> bioetl_schemas
+    tests_perf_test_dataframe_hash --> bioetl_core_hashing
+    tests_perf_test_dataframe_hash --> bioetl_utils_dataframe
+    tests_perf_test_quality_report_generator --> bioetl_core_output_writer
+    tests_pipelines_test_materialization_manager --> bioetl_config_models
+    tests_pipelines_test_materialization_manager --> bioetl_core_materialization
+    tests_schemas_test_assay_schema --> bioetl_schemas_assay
+    tests_schemas_test_document_raw_schema --> bioetl_schemas_document
+    tests_schemas_test_registry --> bioetl_schemas_assay
+    tests_schemas_test_registry --> bioetl_schemas_registry
+    tests_schemas_test_testitem_schema --> bioetl_schemas
+    tests_test_fixtures_smoke --> tests
+    tests_test_fixtures_smoke --> tests_conftest
+    tests_unit_adapters__mixins --> bioetl_adapters_base
+    tests_unit_adapters__mixins --> bioetl_core_api_client
+    tests_unit_adapters_test_base_adapter --> bioetl_adapters_base
+    tests_unit_adapters_test_base_adapter --> tests_unit_adapters__mixins
+    tests_unit_adapters_test_crossref_adapter --> bioetl_adapters_crossref
+    tests_unit_adapters_test_crossref_adapter --> tests_unit_adapters__mixins
+    tests_unit_adapters_test_openalex_adapter --> bioetl_adapters_openalex
+    tests_unit_adapters_test_openalex_adapter --> tests_unit_adapters__mixins
+    tests_unit_adapters_test_pubchem_adapter --> bioetl_adapters_pubchem
+    tests_unit_adapters_test_pubchem_adapter --> tests_unit_adapters__mixins
+    tests_unit_adapters_test_pubmed_adapter --> bioetl_adapters_pubmed
+    tests_unit_adapters_test_pubmed_adapter --> tests_unit_adapters__mixins
+    tests_unit_adapters_test_semantic_scholar_adapter --> bioetl_adapters_semantic_scholar
+    tests_unit_adapters_test_semantic_scholar_adapter --> tests_unit_adapters__mixins
+    tests_unit_config_test_pipeline_config --> bioetl_config
+    tests_unit_config_test_pipeline_config --> bioetl_config_models
+    tests_unit_core_test_client_factory --> bioetl_config
+    tests_unit_core_test_client_factory --> bioetl_core_client_factory
+    tests_unit_core_test_client_factory --> bioetl_pipelines_activity
+    tests_unit_core_test_client_factory --> bioetl_pipelines_assay
+    tests_unit_core_test_client_factory --> bioetl_pipelines_document
+    tests_unit_core_test_client_factory --> bioetl_pipelines_testitem
+    tests_unit_docs_test_data_sources_spec --> bioetl_config_loader
+    tests_unit_normalizers_test_bibliography --> bioetl_normalizers
+    tests_unit_normalizers_test_bibliography --> bioetl_normalizers_bibliography
+    tests_unit_normalizers_test_helpers --> bioetl_normalizers_helpers
+    tests_unit_test_api_client --> bioetl_core_api_client
+    tests_unit_test_chemistry_normalizers --> bioetl_normalizers
+    tests_unit_test_chemistry_normalizers --> bioetl_normalizers_chemistry
+    tests_unit_test_chemistry_normalizers --> bioetl_normalizers_registry
+    tests_unit_test_cli_contract --> bioetl_cli_main
+    tests_unit_test_cli_contract --> bioetl_core_output_writer
+    tests_unit_test_cli_contract --> bioetl_utils_column_validator
+    tests_unit_test_cli_contract --> scripts
+    tests_unit_test_column_order --> bioetl_config
+    tests_unit_test_column_validator --> bioetl_utils_column_validator
+    tests_unit_test_config_loader --> bioetl_config
+    tests_unit_test_document_enrichment --> bioetl_pipelines_document_enrichment
+    tests_unit_test_document_pipeline_validation --> bioetl_config_loader
+    tests_unit_test_document_pipeline_validation --> bioetl_pipelines_document
+    tests_unit_test_document_pipeline_validation --> bioetl_schemas_document
+    tests_unit_test_document_schema --> bioetl_schemas_document
+    tests_unit_test_dtype_utils --> bioetl_utils_dtype
+    tests_unit_test_fallback_utils --> bioetl_core
+    tests_unit_test_fallback_utils --> bioetl_core_api_client
+    tests_unit_test_fallback_utils --> bioetl_utils
+    tests_unit_test_fallback_utils --> bioetl_utils_fallback
+    tests_unit_test_hashing --> bioetl_core_hashing
+    tests_unit_test_identifier_normalizer --> bioetl_config_loader
+    tests_unit_test_identifier_normalizer --> bioetl_normalizers_identifier
+    tests_unit_test_identifier_normalizer --> bioetl_pipelines_document
+    tests_unit_test_json_utils --> bioetl_normalizers_constants
+    tests_unit_test_json_utils --> bioetl_utils_json
+    tests_unit_test_numeric_normalizer --> bioetl_normalizers_numeric
+    tests_unit_test_output_writer --> bioetl_config_loader
+    tests_unit_test_output_writer --> bioetl_config_models
+    tests_unit_test_output_writer --> bioetl_core_output_writer
+    tests_unit_test_output_writer --> bioetl_pandera_typing
+    tests_unit_test_output_writer --> bioetl_pipelines_base
+    tests_unit_test_output_writer --> bioetl_schemas_base
+    tests_unit_test_output_writer --> bioetl_schemas_registry
+    tests_unit_test_pipeline_extract_helper --> bioetl_config_loader
+    tests_unit_test_pipeline_extract_helper --> bioetl_config_models
+    tests_unit_test_pipeline_extract_helper --> bioetl_pipelines
+    tests_unit_test_pipeline_extract_helper --> bioetl_pipelines_base
+    tests_unit_test_pipelines --> bioetl_config_loader
+    tests_unit_test_pipelines --> bioetl_core_api_client
+    tests_unit_test_pipelines --> bioetl_core_hashing
+    tests_unit_test_pipelines --> bioetl_core_output_writer
+    tests_unit_test_pipelines --> bioetl_pipelines
+    tests_unit_test_pipelines --> bioetl_pipelines_assay
+    tests_unit_test_pipelines --> bioetl_pipelines_base
+    tests_unit_test_pipelines --> bioetl_schemas
+    tests_unit_test_pipelines --> bioetl_schemas_activity
+    tests_unit_test_pipelines --> bioetl_utils_validation
+    tests_unit_test_rate_limiter --> bioetl_core
+    tests_unit_test_rate_limiter --> bioetl_core_api_client
+    tests_unit_test_utils_chembl --> bioetl_utils_chembl
+    tests_unit_test_utils_dataframe --> bioetl_core_hashing
+    tests_unit_test_utils_dataframe --> bioetl_pandera_typing
+    tests_unit_test_utils_dataframe --> bioetl_schemas
+    tests_unit_test_utils_dataframe --> bioetl_schemas_base
+    tests_unit_test_utils_dataframe --> bioetl_utils
+    tests_unit_test_utils_dtypes --> bioetl_utils_dtypes
+    tests_unit_test_utils_io --> bioetl_config
+    tests_unit_test_utils_io --> bioetl_utils_io
+    tests_unit_test_utils_output --> bioetl_utils_output
+    tests_unit_validation_test_schema_validation --> bioetl
