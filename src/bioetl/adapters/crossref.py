@@ -3,13 +3,12 @@
 import os
 from typing import Any
 
+from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
-from bioetl.normalizers import registry
 from bioetl.normalizers.bibliography import normalize_common_bibliography
 
-NORMALIZER_ID = registry.get("identifier")
-NORMALIZER_STRING = registry.get("string")
+NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
 
 
 class CrossrefAdapter(ExternalAdapter):

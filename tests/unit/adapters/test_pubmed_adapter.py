@@ -3,6 +3,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import bioetl.adapters.pubmed as pubmed_module
+from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.pubmed import PubMedAdapter
 from tests.unit.adapters._mixins import AdapterTestMixin
 
@@ -107,6 +109,14 @@ class TestPubMedAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(normalized["doi_clean"], "10.3000/common")
         self.assertEqual(normalized["pubmed_doi"], "10.3000/common")
         self.assertEqual(normalized["title"], "PM Title")
+
+    def test_uses_shared_bibliography_normalizers(self) -> None:
+        """Module-level normalizers come from the shared helper."""
+
+        identifier, string = get_bibliography_normalizers()
+
+        self.assertIs(pubmed_module.NORMALIZER_ID, identifier)
+        self.assertIs(pubmed_module.NORMALIZER_STRING, string)
 
     def test_normalize_date(self):
         """Test date normalization."""

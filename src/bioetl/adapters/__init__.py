@@ -1,5 +1,6 @@
 """External API adapters for document enrichment."""
 
+from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import ExternalAdapter
 from bioetl.adapters.crossref import CrossrefAdapter
 from bioetl.adapters.openalex import OpenAlexAdapter
@@ -14,5 +15,6 @@ __all__ = [
     "OpenAlexAdapter",
     "SemanticScholarAdapter",
     "PubChemAdapter",
+    "get_bibliography_normalizers",
 ]
 

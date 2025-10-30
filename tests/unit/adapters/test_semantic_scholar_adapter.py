@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 import pandas as pd
 
+import bioetl.adapters.semantic_scholar as semantic_module
+from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
 from tests.unit.adapters._mixins import AdapterTestMixin
 
@@ -92,6 +94,14 @@ class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(normalized["doi_clean"], "10.4000/common")
         self.assertEqual(normalized["title"], "SS Title")
         self.assertEqual(normalized["_title_for_join"], "SS Title")
+
+    def test_uses_shared_bibliography_normalizers(self) -> None:
+        """Module-level normalizers come from the shared helper."""
+
+        identifier, string = get_bibliography_normalizers()
+
+        self.assertIs(semantic_module.NORMALIZER_ID, identifier)
+        self.assertIs(semantic_module.NORMALIZER_STRING, string)
 
     def test_fetch_by_ids_batches_using_class_default(self) -> None:
         """Batch helper respects ``DEFAULT_BATCH_SIZE`` fallback."""
