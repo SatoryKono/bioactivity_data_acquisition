@@ -1077,6 +1077,31 @@ class TestActivityPipeline:
         assert pipeline.config == activity_config
         assert pipeline.run_id == run_id
 
+    def test_release_fetch_fallback_uses_api_client(
+        self, activity_config, monkeypatch, caplog
+    ) -> None:
+        """Release handshake should rely on UnifiedAPIClient with graceful fallback."""
+
+        captured: dict[str, Any] = {}
+
+        def _fake_fetch(client: Any):
+            captured["client"] = client
+            raise requests.exceptions.ConnectionError("chembl unavailable")
+
+        monkeypatch.setattr(
+            "bioetl.pipelines.base.fetch_chembl_release",
+            _fake_fetch,
+        )
+
+        with caplog.at_level("WARNING"):
+            pipeline = ActivityPipeline(activity_config, "release-fallback")
+
+        assert captured["client"] is pipeline.api_client
+        assert pipeline._chembl_release is None
+        assert pipeline._status_snapshot is None
+        warnings = [record for record in caplog.records if record.levelname == "WARNING"]
+        assert any("failed_to_get_chembl_version" in record.message for record in warnings)
+
     def test_extract_empty_file(self, activity_config, tmp_path):
         """Test extraction with empty file."""
         run_id = str(uuid.uuid4())[:8]
