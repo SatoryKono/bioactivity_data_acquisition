@@ -147,6 +147,19 @@ class AssayPipeline(PipelineBase):
             },
         )
 
+    def close_resources(self) -> None:
+        """Release cached payloads and defer to the base cleanup hook."""
+
+        try:
+            cache = getattr(self, "_assay_cache", None)
+            if isinstance(cache, dict):
+                cache.clear()
+
+            if hasattr(self, "_status_payload"):
+                self._status_payload = None
+        finally:
+            super().close_resources()
+
     @staticmethod
     def _resolve_git_commit() -> str:
         """Return the current git commit SHA or 'unknown'."""
