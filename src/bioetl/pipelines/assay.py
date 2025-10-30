@@ -14,11 +14,10 @@ import requests
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase, create_chembl_client
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
@@ -79,9 +78,8 @@ class AssayPipeline(PipelineBase):
         default_batch_size = 25
         default_max_url_length = 2000
 
-        factory = APIClientFactory.from_pipeline_config(config)
-        chembl_source = ensure_target_source_config(
-            config.sources.get("chembl"),
+        chembl_context = create_chembl_client(
+            config,
             defaults={
                 "enabled": True,
                 "base_url": default_base_url,
@@ -90,15 +88,12 @@ class AssayPipeline(PipelineBase):
             },
         )
 
-        chembl_config = factory.create("chembl", chembl_source)
-        self.api_client = UnifiedAPIClient(chembl_config)
+        self.api_client = chembl_context.client
 
-        batch_size = chembl_source.batch_size or default_batch_size
-        max_url_length = chembl_source.max_url_length or default_max_url_length
-
-        self.batch_size = max(1, int(batch_size))
-        self.max_url_length = max(1, int(max_url_length))
-        self.chembl_base_url = chembl_config.base_url
+        self.batch_size = chembl_context.batch_size
+        resolved_max_url_length = chembl_context.max_url_length or default_max_url_length
+        self.max_url_length = max(1, int(resolved_max_url_length))
+        self.chembl_base_url = chembl_context.base_url
         self.chembl_release: str | None = None
         self.git_commit = self._resolve_git_commit()
         self.config_hash = config.config_hash

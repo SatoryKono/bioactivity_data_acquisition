@@ -21,6 +21,7 @@ from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
     enrichment_stage_registry,
+    create_chembl_client,
 )
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
@@ -85,10 +86,21 @@ class TargetPipeline(PipelineBase):
         self.source_configs: dict[str, TargetSourceConfig] = {}
         self.api_clients: dict[str, UnifiedAPIClient] = {}
 
+        chembl_context = create_chembl_client(
+            config,
+            defaults={
+                "enabled": True,
+                "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+                "batch_size": 25,
+            },
+        )
+        self.source_configs["chembl"] = chembl_context.source_config
+        self.api_clients["chembl"] = chembl_context.client
+
         factory = APIClientFactory.from_pipeline_config(config)
 
         for source_name, source in config.sources.items():
-            if source is None:
+            if source_name == "chembl" or source is None:
                 continue
 
             source_config = ensure_target_source_config(source, defaults={})
@@ -99,7 +111,7 @@ class TargetPipeline(PipelineBase):
             api_client_config = factory.create(source_name, source_config)
             self.api_clients[source_name] = UnifiedAPIClient(api_client_config)
 
-        self.chembl_client = self.api_clients.get("chembl")
+        self.chembl_client = chembl_context.client
         self.uniprot_client = self.api_clients.get("uniprot")
         self.uniprot_idmapping_client = self.api_clients.get("uniprot_idmapping")
         self.uniprot_orthologs_client = self.api_clients.get("uniprot_orthologs")
@@ -108,8 +120,7 @@ class TargetPipeline(PipelineBase):
         # Backwards compatibility
         self.api_client = self.chembl_client
 
-        chembl_source = self.source_configs.get("chembl")
-        self.batch_size = chembl_source.batch_size if chembl_source and chembl_source.batch_size else 25
+        self.batch_size = chembl_context.batch_size
         self._chembl_release = self._get_chembl_release() if self.chembl_client else None
 
         self.gold_targets: pd.DataFrame = pd.DataFrame()

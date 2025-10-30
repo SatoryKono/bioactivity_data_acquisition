@@ -130,16 +130,33 @@ def test_pipeline_constructors_use_factory(
 
     config = _build_pipeline_config(tmp_path)
     module = importlib.import_module(module_path)
+    base_module = importlib.import_module("bioetl.pipelines.base")
     captured: list[Any] = []
 
     class DummyClient:
         def __init__(self, api_config):
             captured.append(api_config)
+            self.config = api_config
 
         def request_json(self, url, params=None, method="GET", **kwargs):
             return {"chembl_db_version": "CHEMBL_TEST"}
 
-    monkeypatch.setattr(module, "UnifiedAPIClient", DummyClient)
+    original_helper = base_module.create_chembl_client
+
+    def recording_helper(pipeline_config, *, defaults=None, batch_size_cap=None):  # type: ignore[override]
+        context = original_helper(pipeline_config, defaults=defaults, batch_size_cap=batch_size_cap)
+        return base_module.ChemblClientContext(
+            client=DummyClient(context.client.config),
+            source_config=context.source_config,
+            batch_size=context.batch_size,
+            max_url_length=context.max_url_length,
+            base_url=context.base_url,
+        )
+
+    monkeypatch.setattr(base_module, "create_chembl_client", recording_helper)
+
+    if hasattr(module, "UnifiedAPIClient"):
+        monkeypatch.setattr(module, "UnifiedAPIClient", DummyClient)
 
     pipeline_cls(config, "run-id")
 
