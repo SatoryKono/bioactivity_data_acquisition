@@ -183,24 +183,38 @@ class AtomicWriter:
         """Записывает data в path атомарно через run-scoped temp directory."""
         temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
 
+        resolved_float_format = _resolve_float_format(
+            self.determinism, kwargs.pop("float_format", None)
+        )
+        resolved_date_format = _resolve_date_format(
+            self.determinism, kwargs.pop("date_format", None)
+        )
+
         def write_payload() -> None:
             temp_path = _get_active_atomic_temp_path()
-            self._write_to_file(data, temp_path, **kwargs)
+            self._write_to_file(
+                data,
+                temp_path,
+                float_format=resolved_float_format,
+                date_format=resolved_date_format,
+                **kwargs,
+            )
 
         try:
             _atomic_write(path, write_payload)
         finally:
             _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
 
-    def _write_to_file(self, data: pd.DataFrame, path: Path, **kwargs) -> None:
+    def _write_to_file(
+        self,
+        data: pd.DataFrame,
+        path: Path,
+        *,
+        float_format: str | None = None,
+        date_format: str | None = None,
+        **kwargs,
+    ) -> None:
         """Записывает DataFrame в файл."""
-        float_format = _resolve_float_format(
-            self.determinism, kwargs.pop("float_format", None)
-        )
-        date_format = _resolve_date_format(
-            self.determinism, kwargs.pop("date_format", None)
-        )
-
         data.to_csv(
             path,
             index=False,
@@ -523,32 +537,45 @@ class UnifiedOutputWriter:
             path=str(json_path),
             rows=len(df),
             orient=orient,
-            date_format=date_format,
+            date_format=date_format or self.determinism.datetime_format,
         )
 
         dataframe_to_serialize = df
-        resolved_date_format = date_format
+        pandas_date_format = date_format
 
-        datetime_format = self.determinism.datetime_format
-        if resolved_date_format is None:
-            if datetime_format.lower() == "iso8601":
-                resolved_date_format = "iso"
+        resolved_date_format = _resolve_date_format(
+            self.determinism, date_format
+        )
+        datetime_columns = df.select_dtypes(include=["datetime", "datetimetz"]).columns
+
+        if date_format is None:
+            if resolved_date_format is None:
+                if self.determinism.datetime_format.lower() == "iso8601" and len(
+                    datetime_columns
+                ) > 0:
+                    dataframe_to_serialize = df.copy()
+                    for column in datetime_columns:
+                        dataframe_to_serialize[column] = dataframe_to_serialize[
+                            column
+                        ].apply(
+                            lambda value: value.isoformat()
+                            if pd.notna(value)
+                            else None
+                        )
+                pandas_date_format = None
             else:
-                datetime_columns = df.select_dtypes(
-                    include=["datetime", "datetimetz"]
-                ).columns
                 if len(datetime_columns) > 0:
                     dataframe_to_serialize = df.copy()
                     for column in datetime_columns:
-                        dataframe_to_serialize[column] = dataframe_to_serialize[column].dt.strftime(
-                            datetime_format
-                        )
-                resolved_date_format = None
+                        dataframe_to_serialize[column] = dataframe_to_serialize[
+                            column
+                        ].dt.strftime(resolved_date_format)
+                pandas_date_format = None
 
         json_payload = dataframe_to_serialize.to_json(
             orient=orient,
             force_ascii=False,
-            date_format=resolved_date_format,
+            date_format=pandas_date_format,
             double_precision=self.determinism.float_precision,
         )
         parsed_payload = json.loads(json_payload) if json_payload else []
