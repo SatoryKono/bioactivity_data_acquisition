@@ -11,6 +11,7 @@ from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
 from bioetl.pipelines.activity import ActivityPipeline
 from bioetl.pipelines.assay import AssayPipeline
 from bioetl.pipelines.document import DocumentPipeline
+from bioetl.pipelines.target import TargetPipeline
 from bioetl.pipelines.testitem import TestItemPipeline
 
 PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
@@ -27,6 +28,14 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_config=Path("configs/pipelines/assay.yaml"),
         default_input=Path("data/input/assay.csv"),
         default_output_dir=Path("data/output/assay"),
+    ),
+    "target": PipelineCommandConfig(
+        pipeline_name="target",
+        pipeline_factory=lambda: TargetPipeline,
+        default_config=Path("configs/pipelines/target.yaml"),
+        default_input=Path("data/input/target.csv"),
+        default_output_dir=Path("data/output/target"),
+        mode_choices=("default", "smoke"),
     ),
     "document": PipelineCommandConfig(
         pipeline_name="document",
