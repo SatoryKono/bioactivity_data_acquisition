@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -17,6 +17,8 @@ from bioetl.utils.column_constants import (
     normalise_ignore_suffixes,
 )
 from bioetl.utils.dataframe import resolve_schema_column_order
+
+_DEFAULT_VALIDATION_CHUNK_SIZE = 50_000
 
 if TYPE_CHECKING:
     from bioetl.core.logger import UnifiedLogger
@@ -133,8 +135,10 @@ class ColumnValidator:
     def compare_columns(
         self,
         entity: str,
-        actual_df: pd.DataFrame,
+        actual_df: pd.DataFrame | None,
         schema_version: str = "latest",
+        *,
+        column_non_null_counts: Sequence[tuple[str, int]] | None = None,
     ) -> ColumnComparisonResult:
         """
         Сравнить колонки в DataFrame с ожидаемой схемой.
@@ -153,7 +157,15 @@ class ColumnValidator:
             expected_columns = self._get_expected_columns(schema)
 
             # Получить фактические колонки
-            actual_columns = list(actual_df.columns)
+            if actual_df is None and column_non_null_counts is None:
+                raise ValueError(
+                    "Either actual_df or column_non_null_counts must be provided to determine actual columns."
+                )
+
+            if actual_df is not None:
+                actual_columns = list(actual_df.columns)
+            else:
+                actual_columns = [col for col, _ in column_non_null_counts or []]
             duplicates_counter = Counter(actual_columns)
             duplicate_columns = {
                 column: count
@@ -168,7 +180,10 @@ class ColumnValidator:
             column_count_matches = len(expected_columns) == len(actual_columns)
 
             # Проверить пустые колонки
-            empty_columns, non_empty_columns = self._analyze_column_data(actual_df)
+            empty_columns, non_empty_columns = self._analyze_column_data(
+                actual_df,
+                column_non_null_counts=column_non_null_counts,
+            )
 
             result = ColumnComparisonResult(
                 entity=entity,
@@ -208,7 +223,12 @@ class ColumnValidator:
         """Получить ожидаемые колонки из схемы."""
         return resolve_schema_column_order(schema)
 
-    def _analyze_column_data(self, df: pd.DataFrame) -> tuple[list[str], list[str]]:
+    def _analyze_column_data(
+        self,
+        df: pd.DataFrame | None,
+        *,
+        column_non_null_counts: Sequence[tuple[str, int]] | None = None,
+    ) -> tuple[list[str], list[str]]:
         """
         Анализировать данные в колонках и определить пустые/непустые.
 
@@ -218,11 +238,21 @@ class ColumnValidator:
         Returns:
             Tuple[empty_columns, non_empty_columns]
         """
-        empty_columns = []
-        non_empty_columns = []
+        empty_columns: list[str] = []
+        non_empty_columns: list[str] = []
+
+        if column_non_null_counts is not None:
+            for column, non_null_count in column_non_null_counts:
+                if non_null_count == 0:
+                    empty_columns.append(column)
+                else:
+                    non_empty_columns.append(column)
+            return empty_columns, non_empty_columns
+
+        if df is None:
+            return empty_columns, non_empty_columns
 
         for idx, column in enumerate(df.columns):
-            # Проверить, есть ли непустые значения
             series = df.iloc[:, idx]
             non_null_count = series.notna().sum()
 
@@ -232,6 +262,40 @@ class ColumnValidator:
                 non_empty_columns.append(column)
 
         return empty_columns, non_empty_columns
+
+    def _calculate_non_null_counts(
+        self,
+        csv_file: Path,
+        column_names: Sequence[str],
+        chunk_size: int = _DEFAULT_VALIDATION_CHUNK_SIZE,
+    ) -> list[tuple[str, int]]:
+        """Подсчитать количество непустых значений для каждой колонки."""
+
+        if not column_names:
+            return []
+
+        counts = [0] * len(column_names)
+
+        try:
+            for chunk in pd.read_csv(csv_file, chunksize=chunk_size):
+                # Возможны колонки, которые pandas не смог считать (например, из-за ошибок формата)
+                if chunk.empty:
+                    continue
+
+                available_columns = min(len(column_names), chunk.shape[1])
+                for idx in range(available_columns):
+                    series = chunk.iloc[:, idx]
+                    counts[idx] += int(series.notna().sum())
+        except pd.errors.EmptyDataError:
+            return [(column, 0) for column in column_names]
+        except ValueError as exc:  # pragma: no cover - защитный случай
+            self.logger.warning(
+                "column_non_null_count_failed",
+                file=str(csv_file),
+                error=str(exc),
+            )
+
+        return list(zip(column_names, counts))
 
     def generate_report(
         self,
@@ -410,14 +474,24 @@ class ColumnValidator:
                     )
                     continue
 
-                # Загрузить DataFrame
-                df = pd.read_csv(csv_file)
+                try:
+                    header_df = pd.read_csv(csv_file, nrows=0)
+                except pd.errors.EmptyDataError:
+                    header_df = pd.DataFrame()
+
+                column_names = list(header_df.columns)
+                non_null_counts = self._calculate_non_null_counts(csv_file, column_names)
 
                 # Определить сущность по имени файла
                 entity = self._extract_entity_from_filename(csv_file.name)
 
                 # Сравнить колонки
-                result = self.compare_columns(entity, df, schema_version)
+                result = self.compare_columns(
+                    entity,
+                    header_df,
+                    schema_version,
+                    column_non_null_counts=non_null_counts,
+                )
                 results.append(result)
 
             except Exception as e:

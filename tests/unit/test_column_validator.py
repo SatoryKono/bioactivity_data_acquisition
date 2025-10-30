@@ -1,10 +1,15 @@
+import io
 import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from bioetl.utils.validation import ColumnComparisonResult, ColumnValidator
+from bioetl.utils.validation import (
+    ColumnComparisonResult,
+    ColumnValidator,
+    _DEFAULT_VALIDATION_CHUNK_SIZE,
+)
 
 
 @pytest.mark.parametrize(
@@ -70,7 +75,7 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
     validator = ColumnValidator()
     processed_entities: list[str] = []
 
-    def fake_compare_columns(self, entity, actual_df, schema_version="latest"):
+    def fake_compare_columns(self, entity, actual_df, schema_version="latest", **kwargs):
         processed_entities.append(entity)
         return ColumnComparisonResult(
             entity=entity,
@@ -82,6 +87,7 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
             column_count_matches=True,
             empty_columns=[],
             non_empty_columns=list(actual_df.columns),
+            duplicate_columns={},
         )
 
     monkeypatch.setattr(ColumnValidator, "compare_columns", fake_compare_columns)
@@ -103,12 +109,57 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
 
     assert processed_entities == expected_entities
     assert [result.entity for result in results] == expected_entities
+
+
+def test_validate_pipeline_output_streams_large_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = ColumnValidator()
+
+    csv_lines = ["assay_id,value,empty_col"]
+    for idx in range(10_000):
+        csv_lines.append(f"{idx},{idx},")
+
+    csv_text = "\n".join(csv_lines)
+    csv_path = tmp_path / "assay_output.csv"
+    csv_path.write_text(csv_text, encoding="utf-8")
+
+    monkeypatch.setattr(
+        "bioetl.utils.validation.SchemaRegistry.get",
+        lambda *args, **kwargs: object(),
+    )
+    monkeypatch.setattr(
+        ColumnValidator,
+        "_get_expected_columns",
+        lambda self, schema: ["assay_id", "value", "empty_col"],
+    )
+
+    original_read_csv = pd.read_csv
+    read_calls: list[dict[str, object]] = []
+
+    def tracking_read_csv(path_or_buf, *args, **kwargs):  # type: ignore[override]
+        if path_or_buf == csv_path:
+            read_calls.append(kwargs.copy())
+            buffer = io.StringIO(csv_text)
+            return original_read_csv(buffer, *args, **kwargs)
+        return original_read_csv(path_or_buf, *args, **kwargs)
+
+    monkeypatch.setattr(pd, "read_csv", tracking_read_csv)
+
+    results = validator.validate_pipeline_output("assay", tmp_path)
+
+    assert len(results) == 1
+    result = results[0]
+    assert result.empty_columns == ["empty_col"]
+    assert result.non_empty_columns == ["assay_id", "value"]
+    assert any(
+        call.get("chunksize") == _DEFAULT_VALIDATION_CHUNK_SIZE for call in read_calls
+    )
 def test_compare_columns_detects_duplicate_columns(monkeypatch: pytest.MonkeyPatch) -> None:
     validator = ColumnValidator()
 
     monkeypatch.setattr(
-        "bioetl.schemas.registry.SchemaRegistry",
-        "get",
+        "bioetl.utils.validation.SchemaRegistry.get",
         lambda *args, **kwargs: object(),
     )
     monkeypatch.setattr(
