@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -137,7 +139,12 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     df = pd.DataFrame(
         {"value": [10, 20, 10, 30], "category": ["x", "y", "x", "z"]}
     )
-    writer = UnifiedOutputWriter("run-test")
+    repo_root = Path(__file__).resolve().parents[2]
+    config_path = repo_root / "configs" / "base.yaml"
+    writer = UnifiedOutputWriter(
+        "run-test",
+        pipeline_config=SimpleNamespace(source_path=config_path),
+    )
 
     metadata = OutputMetadata.from_dataframe(
         df,
@@ -148,6 +155,7 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         config_hash="sha256:deadbeef",
         git_commit="abc123def",
         sources=["chembl", "pubchem"],
+        hash_policy_version="2024.01",
     )
 
     artifacts = writer.write(
@@ -172,6 +180,13 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert contents["config_hash"] == "sha256:deadbeef"
     assert contents["git_commit"] == "abc123def"
     assert contents["sources"] == ["chembl", "pubchem"]
+    assert contents["hash_policy_version"] == "2024.01"
+    snapshot = contents.get("config_snapshot")
+    assert snapshot is not None
+    expected_config_digest = hashlib.sha256(config_path.read_bytes()).hexdigest()
+    assert snapshot["path"] == "configs/base.yaml"
+    assert snapshot["sha256"] == f"sha256:{expected_config_digest}"
+    assert contents["lineage"] == {"source_files": [], "transformations": []}
 
     expected_checksums = {
         artifacts.dataset.name: hashlib.sha256(artifacts.dataset.read_bytes()).hexdigest(),

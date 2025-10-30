@@ -170,7 +170,11 @@ class PipelineBase(ABC):
         self.config = config
         self.run_id = run_id
         self.determinism = config.determinism
-        self.output_writer = UnifiedOutputWriter(run_id, determinism=self.determinism)
+        self.output_writer = UnifiedOutputWriter(
+            run_id,
+            determinism=self.determinism,
+            pipeline_config=config,
+        )
         self.primary_schema: Any | None = None
         self.validation_issues: list[dict[str, Any]] = []
         self.qc_metrics: dict[str, Any] = {}
@@ -382,6 +386,7 @@ class PipelineBase(ABC):
         config_hash: str | None = None,
         git_commit: str | None = None,
         sources: Sequence[str] | None = None,
+        hash_policy_version: str | None = None,
     ) -> OutputMetadata:
         """Create and assign :class:`OutputMetadata` from a dataframe."""
 
@@ -403,6 +408,16 @@ class PipelineBase(ABC):
                         enabled.append(str(name))
                 resolved_sources = enabled
 
+        resolved_hash_policy_version = hash_policy_version
+        if resolved_hash_policy_version is None:
+            determinism = getattr(self.config, "determinism", None)
+            resolved_hash_policy_version = getattr(
+                determinism, "hash_policy_version", None
+            )
+        if resolved_hash_policy_version is None:
+            schema = getattr(self, "primary_schema", None)
+            resolved_hash_policy_version = getattr(schema, "hash_policy_version", None)
+
         metadata = OutputMetadata.from_dataframe(
             df,
             pipeline_version=pipeline_version,
@@ -413,6 +428,7 @@ class PipelineBase(ABC):
             config_hash=resolved_config_hash,
             git_commit=resolved_git_commit,
             sources=resolved_sources,
+            hash_policy_version=resolved_hash_policy_version,
         )
 
         self.set_export_metadata(metadata)

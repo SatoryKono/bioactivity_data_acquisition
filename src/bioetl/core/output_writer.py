@@ -8,12 +8,15 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from collections.abc import Callable, Sequence
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.config.models import DeterminismConfig
+
+if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
+    from bioetl.config import PipelineConfig
 
 logger = UnifiedLogger.get(__name__)
 
@@ -116,6 +119,7 @@ class OutputMetadata:
     config_hash: str | None = None
     git_commit: str | None = None
     sources: tuple[str, ...] = field(default_factory=tuple)
+    hash_policy_version: str | None = None
 
     @classmethod
     def from_dataframe(
@@ -130,6 +134,7 @@ class OutputMetadata:
         config_hash: str | None = None,
         git_commit: str | None = None,
         sources: Sequence[str] | None = None,
+        hash_policy_version: str | None = None,
     ) -> "OutputMetadata":
         """Создает метаданные из DataFrame."""
 
@@ -160,6 +165,7 @@ class OutputMetadata:
             config_hash=config_hash,
             git_commit=git_commit,
             sources=normalised_sources,
+            hash_policy_version=hash_policy_version,
         )
 
 
@@ -299,11 +305,17 @@ class QualityReportGenerator:
 class UnifiedOutputWriter:
     """Unified output writer with atomic writes and QC reports."""
 
-    def __init__(self, run_id: str, determinism: DeterminismConfig | None = None):
+    def __init__(
+        self,
+        run_id: str,
+        determinism: DeterminismConfig | None = None,
+        pipeline_config: "PipelineConfig" | None = None,
+    ):
         self.run_id = run_id
         self.determinism = determinism or DeterminismConfig()
         self.atomic_writer = AtomicWriter(run_id, determinism=self.determinism)
         self.quality_generator = QualityReportGenerator()
+        self.pipeline_config: "PipelineConfig" | None = pipeline_config
 
     def _apply_column_order(self, df: pd.DataFrame) -> pd.DataFrame:
         """Return a dataframe matching the configured deterministic column order."""
@@ -785,6 +797,13 @@ class UnifiedOutputWriter:
             "sources": sorted(metadata.sources) if metadata.sources else [],
         }
 
+        if metadata.hash_policy_version:
+            meta_dict["hash_policy_version"] = metadata.hash_policy_version
+
+        config_snapshot = self._resolve_config_snapshot()
+        if config_snapshot is not None:
+            meta_dict["config_snapshot"] = config_snapshot
+
         artifacts: dict[str, Any] = {
             "dataset": str(dataset_path),
             "quality_report": str(quality_path),
@@ -817,6 +836,14 @@ class UnifiedOutputWriter:
         if runtime_options:
             meta_dict["runtime_options"] = runtime_options
 
+        lineage: dict[str, Any] | None = meta_dict.get("lineage")
+        if not isinstance(lineage, dict):
+            lineage = {"source_files": [], "transformations": []}
+        else:
+            lineage.setdefault("source_files", [])
+            lineage.setdefault("transformations", [])
+        meta_dict["lineage"] = lineage
+
         temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
 
         def write_metadata() -> None:
@@ -833,6 +860,60 @@ class UnifiedOutputWriter:
             _atomic_write(path, write_metadata)
         finally:
             _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
+
+    def _resolve_config_snapshot(self) -> dict[str, str] | None:
+        """Return config snapshot metadata if a pipeline config is attached."""
+
+        config = getattr(self, "pipeline_config", None)
+        if config is None:
+            return None
+
+        source_path: Path | None = None
+
+        candidate_path = getattr(config, "source_path", None)
+        if candidate_path is not None:
+            try:
+                source_path = Path(candidate_path).resolve()
+            except (TypeError, OSError):  # pragma: no cover - defensive guard
+                source_path = None
+
+        if source_path is None:
+            return None
+
+        try:
+            digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        except OSError:
+            return None
+
+        relative: Path | str | None = None
+
+        relative_accessor = getattr(config, "relative_source_path", None)
+        if callable(relative_accessor):
+            try:
+                relative = relative_accessor()
+            except TypeError:  # pragma: no cover - defensive guard
+                relative = relative_accessor(source_path)
+        elif hasattr(config, "source_path_relative"):
+            relative = getattr(config, "source_path_relative")
+
+        if isinstance(relative, Path):
+            relative_path = relative
+        elif isinstance(relative, str):
+            relative_path = Path(relative)
+        else:
+            base = Path.cwd()
+            try:
+                relative_path = source_path.relative_to(base)
+            except ValueError:
+                try:
+                    relative_path = Path(os.path.relpath(source_path, base))
+                except OSError:
+                    relative_path = source_path
+
+        return {
+            "path": relative_path.as_posix(),
+            "sha256": f"sha256:{digest}",
+        }
 
     def _write_json_atomic(self, path: Path, payload: Any) -> None:
         """Atomically write JSON payload to disk."""

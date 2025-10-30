@@ -146,6 +146,7 @@ def load_config(
 
     # Validate and return
     result: PipelineConfig = PipelineConfig.model_validate(config_data)
+    result.attach_source_path(config_path)
     return result
 
 

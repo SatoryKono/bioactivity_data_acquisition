@@ -25,7 +25,14 @@ def _normalise_fallback_strategies(strategies: Iterable[str]) -> list[str]:
             normalised.append(strategy)
     return normalised
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    field_validator,
+    model_validator,
+)
 
 
 class RetryConfig(BaseModel):
@@ -242,6 +249,10 @@ class DeterminismConfig(BaseModel):
     datetime_format: str = Field(default="iso8601", description="DateTime format for canonical serialization")
     sort: SortConfig = Field(default_factory=SortConfig)
     column_order: list[str] = Field(default_factory=list)
+    hash_policy_version: str = Field(
+        default="1.0.0",
+        description="Version identifier for the canonical hashing policy",
+    )
 
 
 class QCConfig(BaseModel):
@@ -329,6 +340,8 @@ class PipelineConfig(BaseModel):
     fallbacks: FallbackOptions = Field(default_factory=FallbackOptions)
     cli: dict[str, Any] = Field(default_factory=dict)
 
+    _source_path: Path | None = PrivateAttr(default=None)
+
     @field_validator("version")
     @classmethod
     def check_version(cls, value: int) -> int:
@@ -378,3 +391,35 @@ class PipelineConfig(BaseModel):
         canonical = self.model_dump_canonical()
         json_str = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(json_str.encode()).hexdigest()
+
+    @property
+    def source_path(self) -> Path | None:
+        """Return the resolved path of the originating YAML configuration."""
+
+        return self._source_path
+
+    def attach_source_path(self, path: Path | str | None) -> None:
+        """Persist the originating YAML configuration path for metadata exports."""
+
+        resolved: Path | None = None
+        if path is not None:
+            try:
+                resolved = Path(path).resolve()
+            except (TypeError, OSError):  # pragma: no cover - defensive guard
+                resolved = None
+        object.__setattr__(self, "_source_path", resolved)
+
+    def relative_source_path(self, base: Path | None = None) -> Path | None:
+        """Return the configuration path relative to ``base`` (defaults to CWD)."""
+
+        if self._source_path is None:
+            return None
+
+        base_path = base or Path.cwd()
+        try:
+            return self._source_path.relative_to(base_path)
+        except ValueError:
+            try:
+                return Path(os.path.relpath(self._source_path, base_path))
+            except OSError:
+                return self._source_path
