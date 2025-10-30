@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import pandas as pd
 import pandera.pandas as pa
 
 from bioetl.pandera_typing import Series
-
 from bioetl.schemas.base import (
     FALLBACK_METADATA_COLUMN_ORDER,
     BaseSchema,
@@ -70,11 +71,11 @@ class DocumentRawSchema(pa.DataFrameModel):
         coerce = True
 
     @classmethod
-    def validate(  # type: ignore[override]
+    def validate(
         cls,
         check_obj: pd.DataFrame,
-        *args,
-        **kwargs,
+        *args: object,
+        **kwargs: object,
     ) -> pd.DataFrame:
         """Validate ``check_obj`` while being resilient to column permutations.
 
@@ -92,7 +93,7 @@ class DocumentRawSchema(pa.DataFrameModel):
         schema._ordered = False  # defensive: ensure ordering is never enforced
 
         if not isinstance(check_obj, pd.DataFrame):
-            return schema.validate(check_obj, *args, **kwargs)
+            return cast(pd.DataFrame, schema.validate(check_obj, *args, **kwargs))
 
         original_columns = list(check_obj.columns)
         expected_columns = list(schema.columns.keys())
@@ -104,11 +105,11 @@ class DocumentRawSchema(pa.DataFrameModel):
             working_df[column] = pd.NA
 
         ordered_df = working_df.reindex(columns=expected_columns)
-        validated_core = schema.validate(ordered_df, *args, **kwargs)
+        validated_core = cast(pd.DataFrame, schema.validate(ordered_df, *args, **kwargs))
 
         extra_columns = [col for col in original_columns if col not in expected_columns]
         if extra_columns:
-            extras = working_df.loc[:, extra_columns]
+            extras = cast(pd.DataFrame, working_df.loc[:, extra_columns])
             # ``pd.concat`` preserves the deterministic order of the schema
             # columns while keeping user-supplied extras to the right.
             return pd.concat([validated_core, extras], axis=1)
