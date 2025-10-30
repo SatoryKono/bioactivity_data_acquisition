@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the test item pipeline."""
 
-import typer
+from scripts import create_pipeline_app
 
-from scripts import register_pipeline_command
-
-app = typer.Typer(help="Run test item pipeline to extract and transform compound data")
-
-
-register_pipeline_command(app, "testitem")
+app = create_pipeline_app(
+    "testitem",
+    "Run test item pipeline to extract and transform compound data",
+)
 
 
 if __name__ == "__main__":

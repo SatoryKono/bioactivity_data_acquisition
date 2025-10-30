@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the activity pipeline."""
 
-import typer
+from scripts import create_pipeline_app
 
-from scripts import register_pipeline_command
-
-app = typer.Typer(help="Run activity pipeline to extract and transform activity data")
-
-
-register_pipeline_command(app, "activity")
+app = create_pipeline_app(
+    "activity",
+    "Run activity pipeline to extract and transform activity data",
+)
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ from bioetl.pandera_typing import Series
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
-from scripts import PIPELINE_COMMAND_REGISTRY
+from scripts import PIPELINE_COMMAND_REGISTRY, create_pipeline_app
 
 RUNNER = CliRunner()
 
@@ -159,6 +159,16 @@ def _build_cli_command(pipeline_cls: type[PipelineBase]) -> tuple[click.Command,
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_create_pipeline_app_registers_command() -> None:
+    """Helper should build Typer app with the requested pipeline command."""
+
+    app = create_pipeline_app("activity", "Activity pipeline helper")
+    command = get_command(app)
+
+    assert command.help == "Activity pipeline helper"
+    assert "activity" in command.commands
 
 
 @pytest.mark.integration
