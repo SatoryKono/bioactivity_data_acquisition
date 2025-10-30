@@ -122,7 +122,10 @@ def _coerce_optional_bool_scalar(value: object) -> bool | NAType:
 
 
 def coerce_optional_bool(
-    value: object, columns: Sequence[str] | None = None
+    value: object,
+    columns: Sequence[str] | None = None,
+    *,
+    nullable: bool = True,
 ) -> bool | NAType | pd.Series | pd.DataFrame | None:
     """Best-effort coercion of optional booleans preserving ``pd.NA``.
 
@@ -133,6 +136,19 @@ def coerce_optional_bool(
       ``boolean`` dtype is returned.
     * When ``value`` is a :class:`pandas.DataFrame`, the provided ``columns``
       are coerced in-place and the dataframe is returned.
+
+    Parameters
+    ----------
+    value:
+        Scalar, :class:`pandas.Series` or :class:`pandas.DataFrame` to coerce.
+    columns:
+        Column names to coerce when ``value`` is a dataframe.
+    nullable:
+        When ``True`` (default) the result uses pandas' nullable ``boolean``
+        dtype preserving ``pd.NA`` values. When ``False`` missing values are
+        replaced with ``False`` and the result is stored using the native
+        ``bool`` dtype, which is compatible with strict Pandera schemas that
+        expect concrete booleans.
     """
 
     if isinstance(value, pd.DataFrame):
@@ -145,14 +161,28 @@ def coerce_optional_bool(
             if column not in value.columns:
                 continue
             coerced = value[column].apply(_coerce_optional_bool_scalar)
-            value[column] = pd.Series(coerced, dtype="boolean", index=value.index)
+            if nullable:
+                value[column] = pd.Series(coerced, dtype="boolean", index=value.index)
+            else:
+                coerced_values = [
+                    False if pd.isna(item) else bool(item) for item in coerced
+                ]
+                value[column] = pd.Series(
+                    coerced_values, dtype="bool", index=value.index
+                )
         return value
 
     if isinstance(value, pd.Series):
         coerced_series = value.apply(_coerce_optional_bool_scalar)
-        return pd.Series(coerced_series, dtype="boolean", index=value.index)
+        if nullable:
+            return pd.Series(coerced_series, dtype="boolean", index=value.index)
+        coerced_values = [False if pd.isna(item) else bool(item) for item in coerced_series]
+        return pd.Series(coerced_values, dtype="bool", index=value.index)
 
-    return _coerce_optional_bool_scalar(value)
+    coerced_scalar = _coerce_optional_bool_scalar(value)
+    if nullable or isinstance(coerced_scalar, bool):
+        return coerced_scalar
+    return False if pd.isna(coerced_scalar) else bool(coerced_scalar)
 
 
 def coerce_retry_after(df: pd.DataFrame, column: str = "fallback_retry_after_sec") -> None:

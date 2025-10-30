@@ -1008,7 +1008,7 @@ class TestItemPipeline(PipelineBase):
             },
         )
 
-        coerce_optional_bool(df, columns=self._BOOLEAN_COLUMNS)
+        coerce_optional_bool(df, columns=self._BOOLEAN_COLUMNS, nullable=False)
 
         default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
         default_minimums.update(self._INT_COLUMN_MINIMUMS)
