@@ -8,10 +8,10 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 import pandas as pd
 import requests
-from urllib.parse import urlencode
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError

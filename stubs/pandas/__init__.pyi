@@ -7,7 +7,8 @@ __all__ = ["Timestamp"]
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Any
 
 class Int64Dtype:
     ...

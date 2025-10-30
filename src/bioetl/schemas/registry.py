@@ -1,7 +1,7 @@
 """Schema Registry with versioning and descriptive metadata."""
 
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 from packaging import version
 

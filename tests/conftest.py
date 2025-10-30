@@ -45,12 +45,12 @@ def _register_cachetools_stub() -> None:
     module = sys.modules.get("cachetools")
     if module is None:
         stub = ModuleType("cachetools")
-        setattr(stub, "TTLCache", _DummyTTLCache)
+        stub.TTLCache = _DummyTTLCache
         sys.modules["cachetools"] = stub
         return
 
     if not hasattr(module, "TTLCache"):
-        setattr(module, "TTLCache", _DummyTTLCache)
+        module.TTLCache = _DummyTTLCache
 
 
 _register_cachetools_stub()

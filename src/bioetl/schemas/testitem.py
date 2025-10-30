@@ -3,9 +3,7 @@
 import pandas as pd
 
 from bioetl.pandera_pandas import pa
-
 from bioetl.pandera_typing import Series
-
 from bioetl.schemas.base import (
     FALLBACK_METADATA_COLUMN_ORDER,
     BaseSchema,
@@ -225,7 +223,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         *FALLBACK_METADATA_COLUMN_ORDER,
         # Primary/business keys first
         "molecule_chembl_id",
-        
+
         # Core ChEMBL business fields
         "molregno",
         "pref_name",
@@ -275,7 +273,7 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "drug_antineoplastic_flag",
         "drug_immunosuppressant_flag",
         "drug_antiinflammatory_flag",
-        
+
         # Properties
         "mw_freebase",
         "alogp",
@@ -301,13 +299,13 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "num_lipinski_ro5_violations",
         "lipinski_ro5_violations",
         "lipinski_ro5_pass",
-        
+
         # Structures and text
         "standardized_smiles",
         "standard_inchi",
         "standard_inchi_key",
         "all_names",
-        
+
         # Nested JSON blobs
         "molecule_hierarchy",
         "molecule_properties",

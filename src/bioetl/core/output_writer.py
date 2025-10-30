@@ -3,17 +3,17 @@
 import hashlib
 import json
 import os
+from collections.abc import Callable, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from collections.abc import Callable, Sequence
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from bioetl.core.logger import UnifiedLogger
 from bioetl.config.models import DeterminismConfig
+from bioetl.core.logger import UnifiedLogger
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
     from bioetl.config import PipelineConfig
@@ -120,7 +120,7 @@ class OutputMetadata:
     config_hash: str | None = None
     git_commit: str | None = None
     sources: tuple[str, ...] = field(default_factory=tuple)
- 
+
     schema_id: str | None = None
     schema_version: str | None = None
     column_order_source: str | None = None
@@ -357,7 +357,7 @@ class UnifiedOutputWriter:
         self.determinism = determinism or DeterminismConfig()
         self.atomic_writer = AtomicWriter(run_id, determinism=self.determinism)
         self.quality_generator = QualityReportGenerator()
-        self.pipeline_config: "PipelineConfig" | None = pipeline_config
+        self.pipeline_config: PipelineConfig | None = pipeline_config
 
     def _apply_column_order(self, df: pd.DataFrame) -> pd.DataFrame:
         """Return a dataframe matching the configured deterministic column order."""
@@ -941,7 +941,7 @@ class UnifiedOutputWriter:
             except TypeError:  # pragma: no cover - defensive guard
                 relative = relative_accessor(source_path)
         elif hasattr(config, "source_path_relative"):
-            relative = getattr(config, "source_path_relative")
+            relative = config.source_path_relative
 
         if isinstance(relative, Path):
             relative_path = relative

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from bioetl.utils.column_validator import ColumnValidator, ColumnComparisonResult
+from bioetl.utils.column_validator import ColumnComparisonResult, ColumnValidator
 
 
 @pytest.mark.parametrize(

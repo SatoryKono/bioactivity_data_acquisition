@@ -12,7 +12,6 @@ from bioetl.pipelines.activity import ActivityPipeline
 from bioetl.schemas import ActivitySchema
 from bioetl.utils.chembl import ChemblRelease
 
-
 GOLDEN_COLUMN_ORDER_PATH = (
     Path(__file__).resolve().parent / "golden" / "activity_column_order.json"
 )

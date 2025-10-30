@@ -3,7 +3,8 @@ from __future__ import annotations
 import pandas as pd
 
 from bioetl.pandera_pandas import DataFrameModel
-from bioetl.pandera_typing import DataFrame as PanderaDataFrame, Series
+from bioetl.pandera_typing import DataFrame as PanderaDataFrame
+from bioetl.pandera_typing import Series
 
 FALLBACK_METADATA_COLUMN_ORDER: list[str]
 

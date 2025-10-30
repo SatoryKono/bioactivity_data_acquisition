@@ -226,7 +226,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
             Callable[..., pd.DataFrame],
             MethodType(limited_extract, pipeline),
         )
-        setattr(pipeline, "extract", limited_method)
+        pipeline.extract = limited_method
 
     if input_file is None:
         input_file = DEFAULT_INPUT

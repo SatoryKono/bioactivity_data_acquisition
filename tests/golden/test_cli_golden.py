@@ -12,13 +12,12 @@ import pandas as pd
 import pytest
 import typer
 from click.testing import CliRunner
-
-from bioetl.pandera_typing import Series
 from typer.main import get_command
 
 from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
 from bioetl.config.loader import load_config
 from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+from bioetl.pandera_typing import Series
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry

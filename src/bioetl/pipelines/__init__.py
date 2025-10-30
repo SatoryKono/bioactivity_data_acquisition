@@ -14,7 +14,7 @@ __all__ = (
     "DocumentPipeline",
 )
 
-_PIPELINE_EXPORTS: Dict[str, str] = {
+_PIPELINE_EXPORTS: dict[str, str] = {
     "PipelineBase": "bioetl.pipelines.base",
     "ActivityPipeline": "bioetl.pipelines.activity",
     "AssayPipeline": "bioetl.pipelines.assay",

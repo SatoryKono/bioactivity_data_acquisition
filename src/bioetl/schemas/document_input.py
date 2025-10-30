@@ -1,7 +1,6 @@
 """Pandera schema for document pipeline inputs."""
 
 from bioetl.pandera_pandas import pa
-
 from bioetl.pandera_typing import Series
 
 
