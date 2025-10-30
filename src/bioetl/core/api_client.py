@@ -484,7 +484,8 @@ class UnifiedAPIClient:
                     ),
                     retry_after=last_retry_after_header,
                 )
-                time.sleep(wait_time)
+                if retry_after_seconds is not None and wait_time > 0:
+                    time.sleep(wait_time)
 
             except requests.exceptions.RequestException as e:
                 last_exc = e
@@ -533,7 +534,8 @@ class UnifiedAPIClient:
                     ),
                     retry_after=last_retry_after_header,
                 )
-                time.sleep(wait_time)
+                if retry_after_seconds is not None and wait_time > 0:
+                    time.sleep(wait_time)
 
             except Exception as e:
                 last_exc = e
