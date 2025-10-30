@@ -367,7 +367,8 @@ class UnifiedOutputWriter:
 
         checksums = self._calculate_checksums(*checksum_targets)
 
-        metadata_path = run_directory / "meta.yaml"
+        metadata_filename = f"{dataset_path.stem}_meta.yaml"
+        metadata_path = run_directory / metadata_filename
         qc_artifact_paths = {
             "qc_summary": qc_summary_path,
             "qc_missing_mappings": missing_mappings_path,
