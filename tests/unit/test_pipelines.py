@@ -60,6 +60,40 @@ def document_config():
     return load_config("configs/pipelines/document.yaml")
 
 
+def test_normalise_metadata_value_redacts_sensitive_fields():
+    """Source snapshots in metadata should exclude secrets and headers."""
+
+    payload = {
+        "api_key": "top-secret",
+        "token": "abc123",
+        "client-secret": "shh",
+        "headers": {
+            "Authorization": "Bearer token",
+            "X-Id": "123",
+        },
+        "http": {
+            "headers": {"X-Feature": "on"},
+            "timeout": 30,
+        },
+        "nested": [
+            {"refresh_token": "refresh-me"},
+            {"headers": {"X-Trace": "trace"}},
+        ],
+    }
+
+    normalised = PipelineBase._normalise_metadata_value(payload)
+
+    assert "api_key" not in normalised
+    assert "token" not in normalised
+    assert "client-secret" not in normalised
+    assert normalised["headers"]["Authorization"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert normalised["headers"]["X-Id"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert normalised["http"]["headers"]["X-Feature"] == PipelineBase._REDACTED_METADATA_VALUE
+    nested_headers = normalised["nested"][1]["headers"]
+    assert nested_headers["X-Trace"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert normalised["nested"][0] == {}
+
+
 def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     """Calling ``run`` twice should not accumulate QC records from previous runs."""
 
@@ -341,7 +375,9 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
     assert metadata["column_order"] == exported_df.columns.tolist()
     assert metadata["column_count"] == len(exported_df.columns)
     expected_sources = {
-        name: source.model_dump(mode="json", exclude_none=True, exclude={"api_key"})
+        name: PipelineBase._normalise_metadata_value(
+            source.model_dump(mode="json", exclude_none=True)
+        )
         for name, source in config.sources.items()
     }
     assert metadata["config_hash"] == pipeline.config_hash

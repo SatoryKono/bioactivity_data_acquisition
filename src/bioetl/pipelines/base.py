@@ -238,27 +238,76 @@ class PipelineBase(ABC):
         issue.setdefault("severity", "info")
         self.validation_issues.append(issue)
 
-    @staticmethod
-    def _normalise_metadata_value(value: Any) -> Any:
-        """Coerce metadata payloads into YAML-friendly primitives."""
+    _REDACTED_METADATA_VALUE = "<redacted>"
+    _MODEL_DUMP_EXCLUDE_KEYS: frozenset[str] = frozenset({"api_key"})
+    _SENSITIVE_FIELD_NAMES: frozenset[str] = frozenset(
+        {
+            "access_token",
+            "api_key",
+            "api_secret",
+            "api_token",
+            "apikey",
+            "auth_token",
+            "authorization",
+            "bearer_token",
+            "client_secret",
+            "clientsecret",
+            "password",
+            "passphrase",
+            "private_key",
+            "refresh_token",
+            "secret",
+            "secret_key",
+            "shared_secret",
+            "token",
+            "x_api_key",
+        }
+    )
+    _HEADER_CONTAINER_NAMES: frozenset[str] = frozenset(
+        {
+            "headers",
+            "http_headers",
+            "extra_headers",
+            "default_headers",
+            "custom_headers",
+        }
+    )
+
+    @classmethod
+    def _normalise_metadata_value(cls, value: Any) -> Any:
+        """Coerce metadata payloads into YAML-friendly primitives with redaction."""
 
         model_dump = getattr(value, "model_dump", None)
         if callable(model_dump):
             try:
-                dumped = model_dump(mode="json", exclude_none=True, exclude={"api_key"})
+                dumped = model_dump(
+                    mode="json",
+                    exclude_none=True,
+                    exclude=cls._MODEL_DUMP_EXCLUDE_KEYS,
+                )
             except TypeError:  # pragma: no cover - defensive for unexpected signatures
                 dumped = model_dump()  # type: ignore[call-arg]
-            return PipelineBase._normalise_metadata_value(dumped)
+            return cls._normalise_metadata_value(dumped)
 
         if isinstance(value, Mapping):
-            return {
-                str(key): PipelineBase._normalise_metadata_value(val)
-                for key, val in value.items()
-                if key != "api_key"
-            }
+            normalised: dict[str, Any] = {}
+            for key, val in value.items():
+                key_str = str(key)
+                key_normalised = key_str.lower().replace("-", "_")
+
+                if key_normalised in cls._SENSITIVE_FIELD_NAMES:
+                    continue
+
+                if key_normalised in cls._HEADER_CONTAINER_NAMES:
+                    normalised[key_str] = cls._redact_header_values(val)
+                    continue
+
+                normalised[key_str] = cls._normalise_metadata_value(val)
+
+            return normalised
 
         if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-            return [PipelineBase._normalise_metadata_value(item) for item in value]
+            return [cls._normalise_metadata_value(item) for item in value]
 
         if isinstance(value, Path):
             return str(value)
@@ -271,6 +320,21 @@ class PipelineBase(ABC):
                 return str(value)
 
         return value
+
+    @classmethod
+    def _redact_header_values(cls, value: Any) -> Any:
+        """Return a header mapping with sensitive values removed."""
+
+        if value is None:
+            return {}
+
+        if isinstance(value, Mapping):
+            return {str(header): cls._REDACTED_METADATA_VALUE for header in value.keys()}
+
+        if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            return [cls._REDACTED_METADATA_VALUE for _ in value]
+
+        return cls._REDACTED_METADATA_VALUE
 
     def _normalise_sources_for_metadata(
         self, sources: Mapping[str, Any] | None

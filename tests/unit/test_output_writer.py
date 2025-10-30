@@ -11,6 +11,7 @@ import pytest
 
 from bioetl.config.models import DeterminismConfig
 from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
+from bioetl.pipelines.base import PipelineBase
 
 
 class _FixedDateTime:
@@ -139,6 +140,18 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     )
     writer = UnifiedOutputWriter("run-test")
 
+    raw_sources = {
+        "chembl": {
+            "base_url": "https://chembl.example/api",
+            "stage": "primary",
+            "headers": {"Accept": "application/json"},
+        }
+    }
+    normalised_sources = {
+        name: PipelineBase._normalise_metadata_value(source)
+        for name, source in raw_sources.items()
+    }
+
     metadata = OutputMetadata.from_dataframe(
         df,
         pipeline_version="2.0.0",
@@ -147,13 +160,7 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
         run_id="run-test",
         config_hash="sha256:abc",
         git_commit="deadbeefcafebabe",
-        sources={
-            "chembl": {
-                "base_url": "https://chembl.example/api",
-                "stage": "primary",
-                "headers": {"Accept": "application/json"},
-            }
-        },
+        sources=normalised_sources,
     )
 
     artifacts = writer.write(
@@ -178,6 +185,8 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert contents["config_hash"] == "sha256:abc"
     assert contents["git_commit"] == "deadbeefcafebabe"
     assert contents["sources"] == metadata.sources
+    header_payload = contents["sources"]["chembl"]["headers"]
+    assert header_payload["Accept"] == PipelineBase._REDACTED_METADATA_VALUE
 
     expected_checksums = {
         artifacts.dataset.name: hashlib.sha256(artifacts.dataset.read_bytes()).hexdigest(),

@@ -41,6 +41,10 @@ def _make_config() -> types.SimpleNamespace:
         "chembl": {
             "base_url": "https://chembl.test/api",
             "stage": "primary",
+            "headers": {
+                "Authorization": "Bearer integration-token",
+                "X-Test": "test",
+            },
         }
     }
     return types.SimpleNamespace(
@@ -86,7 +90,14 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     metadata = yaml.safe_load(meta_path.read_text(encoding="utf-8"))
     assert metadata["config_hash"] == pipeline.config_hash
     assert metadata["git_commit"] == pipeline.git_commit
-    assert metadata["sources"] == pipeline.config.sources
+    expected_sources = {
+        name: PipelineBase._normalise_metadata_value(source)
+        for name, source in pipeline.config.sources.items()
+    }
+    assert metadata["sources"] == expected_sources
+    headers_payload = metadata["sources"]["chembl"]["headers"]
+    assert headers_payload["Authorization"] == PipelineBase._REDACTED_METADATA_VALUE
+    assert headers_payload["X-Test"] == PipelineBase._REDACTED_METADATA_VALUE
     qc_artifacts = metadata["artifacts"].get("qc", {})
     assert "correlation_report" in qc_artifacts
     assert "summary_statistics" in qc_artifacts
