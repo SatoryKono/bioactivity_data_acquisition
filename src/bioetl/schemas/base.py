@@ -206,9 +206,16 @@ class BaseSchema(DataFrameModel):
         coerce = True
         ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
-    # Версия политики хеширования; не является колонкой датафрейма
-    # ВАЖНО: не объявляем через аннотацию, чтобы Pandera не трактовала
-    # как поле схемы. Значение устанавливается динамически в __init_subclass__.
+    # Версия политики хеширования; не является колонкой датафрейма.  ``ClassVar``
+    # объявлен только для статических анализаторов, чтобы Pandera не пыталась
+    # интерпретировать ``hash_policy_version`` как колонку при регистрации
+    # ``DataFrameModel``.
+    # ``hash_policy_version`` используется в метаданных writer'а и не является
+    # колонкой датафрейма.  Аннотация ``ClassVar`` гарантирует, что Pandera не
+    # будет пытаться интерпретировать атрибут как ``Field`` при регистрации
+    # ``DataFrameModel`` (что приводило к ``SchemaInitError`` в версиях Pandera
+    # 0.19+).
+    hash_policy_version: ClassVar[str] = "1.0.0"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
