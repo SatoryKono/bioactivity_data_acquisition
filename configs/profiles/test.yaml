@@ -1,4 +1,6 @@
-extends: ../base.yaml
+extends:
+  - ../base.yaml
+  - ../includes/cache.yaml
 
 pipeline:
   name: "test"
@@ -17,9 +19,7 @@ http:
 
 cache:
   enabled: false
-  directory: "data/cache"
   ttl: 0
-  release_scoped: false
 
 qc:
   severity_threshold: "warning"
