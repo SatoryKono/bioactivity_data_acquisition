@@ -1060,6 +1060,36 @@ class TestItemPipeline(PipelineBase):
             logger.warning("enrichment_skipped", reason="missing_standard_inchi_key_column")
             return df
 
+        # Pre-enrichment coverage logging and QC metric
+        total_rows = int(len(df))
+        inchi_present = int(df["standard_inchi_key"].notna().sum())
+        inchi_coverage = float(inchi_present / total_rows) if total_rows else 0.0
+        logger.info(
+            "pubchem_inchikey_coverage",
+            total_rows=total_rows,
+            present=inchi_present,
+            coverage=inchi_coverage,
+        )
+
+        qc_cfg = getattr(self.config, "qc", None)
+        thresholds: dict[str, Any] = getattr(qc_cfg, "thresholds", {}) if qc_cfg is not None else {}
+        min_inchikey_cov = float(thresholds.get("testitem.pubchem_min_inchikey_coverage", 0.0))
+        inchikey_metric = {
+            "count": inchi_present,
+            "value": inchi_coverage,
+            "threshold": min_inchikey_cov,
+            "passed": inchi_coverage >= min_inchikey_cov,
+            "severity": "warning" if inchi_coverage < min_inchikey_cov else "info",
+        }
+        update_summary_metrics(self.qc_summary_data, {"pubchem.inchikey_coverage": inchikey_metric})
+
+        if inchi_present == 0:
+            logger.warning(
+                "pubchem_enrichment_skipped_no_inchikey",
+                advice="Убедитесь, что из ChEMBL приходит molecule_structures.standard_inchi_key",
+            )
+            return df
+
         pubchem_adapter = self.external_adapters["pubchem"]
 
         try:
@@ -1067,6 +1097,33 @@ class TestItemPipeline(PipelineBase):
             enriched_df = cast(PubChemAdapter, pubchem_adapter).enrich_with_pubchem(
                 df, inchi_key_col="standard_inchi_key"
             )
+            # Post-enrichment metrics
+            if "pubchem_cid" in enriched_df.columns:
+                enriched_rows = int(enriched_df["pubchem_cid"].notna().sum())
+                enrichment_rate = float(enriched_rows / len(enriched_df)) if len(enriched_df) else 0.0
+                logger.info(
+                    "pubchem_enrichment_metrics",
+                    enriched_rows=enriched_rows,
+                    total_rows=int(len(enriched_df)),
+                    enrichment_rate=enrichment_rate,
+                )
+                update_summary_metrics(
+                    self.qc_summary_data,
+                    {
+                        "pubchem.enrichment_rate": {
+                            "count": enriched_rows,
+                            "value": enrichment_rate,
+                            "threshold": float(thresholds.get("testitem.pubchem_min_enrichment_rate", 0.0)),
+                            "passed": enrichment_rate >= float(
+                                thresholds.get("testitem.pubchem_min_enrichment_rate", 0.0)
+                            ),
+                            "severity": "warning"
+                            if enrichment_rate
+                            < float(thresholds.get("testitem.pubchem_min_enrichment_rate", 0.0))
+                            else "info",
+                        }
+                    },
+                )
             return enriched_df  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("pubchem_enrichment_error", error=str(e))

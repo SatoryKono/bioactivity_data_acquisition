@@ -9,11 +9,10 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlencode
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
-import requests
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig

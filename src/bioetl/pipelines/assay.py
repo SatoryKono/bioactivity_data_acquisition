@@ -1,5 +1,6 @@
 """Assay Pipeline - ChEMBL assay data extraction."""
 
+
 import json
 import subprocess
 from collections import Counter
@@ -149,17 +150,14 @@ class AssayPipeline(PipelineBase):
         )
 
     def close_resources(self) -> None:
-        """Release cached payloads and defer to the base cleanup hook."""
+        """Освобождение локальных ресурсов пайплайна Assay."""
 
-        try:
-            cache = getattr(self, "_assay_cache", None)
-            if isinstance(cache, dict):
-                cache.clear()
+        cache = getattr(self, "_assay_cache", None)
+        if isinstance(cache, dict):
+            cache.clear()
 
-            if hasattr(self, "_status_payload"):
-                self._status_payload = None
-        finally:
-            super().close_resources()
+        if hasattr(self, "_status_payload"):
+            self._status_payload = None
 
     @staticmethod
     def _resolve_git_commit() -> str:
@@ -1204,9 +1202,3 @@ class AssayPipeline(PipelineBase):
             raise ValueError(
                 "Referential integrity violation: assays reference missing targets"
             )
-
-
-    def close_resources(self) -> None:
-        """Закрыть дополнительные ресурсы (не используются в Assay)."""
-        # Нет нестандартных ресурсов; API‑клиенты закрываются базовым классом через register_client
-        return None
