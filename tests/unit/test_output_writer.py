@@ -113,6 +113,22 @@ def test_atomic_writer_respects_float_precision(tmp_path):
     assert content[1] == "1.234568"
 
 
+def test_unified_output_writer_respects_float_precision(tmp_path, monkeypatch):
+    """Unified writer propagates determinism float precision to CSV outputs."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1.23456789]})
+    determinism = DeterminismConfig(float_precision=6, datetime_format="iso8601")
+    writer = UnifiedOutputWriter("run-precision", determinism=determinism)
+
+    output_path = tmp_path / "run-precision" / "target" / "datasets" / "targets.csv"
+    writer.write(df, output_path)
+
+    content = output_path.read_text(encoding="utf-8").splitlines()
+    assert content[1] == "1.234568"
+
+
 def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     """Extended writes produce metadata with checksums and QC details."""
 
