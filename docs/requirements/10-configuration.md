@@ -82,7 +82,10 @@ cli:
 
 # configs/pipelines/assay.yaml
 
-extends: "../base.yaml"
+extends:
+  - "../base.yaml"
+  - "../includes/determinism.yaml"
+
 pipeline:
   name: "assay"
   entity: "assay"
@@ -94,7 +97,16 @@ sources:
     batch_size: 25
     max_url_length: 2000
 
+determinism:
+  sort:
+    by: ["assay_chembl_id"]
+    ascending: [true]
+  column_order: ["assay_chembl_id", "pipeline_version", "hash_row", "hash_business_key"]
+
 ```
+
+Вынесенный include `configs/includes/determinism.yaml` задаёт единые значения `hash_algorithm`, `float_precision` и `datetime_format`,
+а конкретный пайплайн отвечает только за собственные ключи сортировки и порядок столбцов.
 
 Мерж выполняется по правилам «глубокого» обновления словарей:
 
