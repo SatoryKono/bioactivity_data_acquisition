@@ -128,6 +128,8 @@ class AtomicWriter:
 
 ```
 
+> **Материализация:** `MaterializationManager` всегда использует `UnifiedOutputWriter.atomic_writer` для записи как CSV, так и Parquet. Если пайплайн не передал фабрику `output_writer_factory`, менеджер создаёт `AtomicWriter` на лету, повторно используя текущий `run_id` и `DeterminismConfig`. Это гарантирует единое поведение и одинаковые гарантии атомарности для обоих форматов.
+
 **Ключевые принципы атомарной записи:**
 
 - **os.replace() вместо Path.rename()**: гарантирует атомарность на POSIX и Windows

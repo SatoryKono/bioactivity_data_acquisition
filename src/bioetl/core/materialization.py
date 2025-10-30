@@ -8,10 +8,10 @@ from typing import Any, Callable, MutableMapping
 
 import pandas as pd
 
-from bioetl.config.models import MaterializationPaths
+from bioetl.config.models import DeterminismConfig, MaterializationPaths
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import (
-    OutputMetadata,
+    AtomicWriter,
     UnifiedOutputWriter,
     extension_for_format,
     normalise_output_format,
@@ -31,7 +31,14 @@ class MaterializationManager:
     runtime: Any | None = None
     stage_context: MutableMapping[str, Any] | None = None
     output_writer_factory: Callable[[], UnifiedOutputWriter] | None = None
+    run_id: str = "materialization"
+    determinism: DeterminismConfig = field(default_factory=DeterminismConfig)
     _materialization_writer: UnifiedOutputWriter | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _atomic_writer: AtomicWriter | None = field(
         default=None,
         init=False,
         repr=False,
@@ -317,32 +324,26 @@ class MaterializationManager:
         return {dataset: path}
 
     def _write_dataframe(self, df: pd.DataFrame, path: Path, format: str) -> None:
-        writer = self._get_output_writer() if format == "parquet" else None
+        writer = self._get_output_writer()
 
         if writer is not None:
-            metadata = OutputMetadata.from_dataframe(
-                df,
-                run_id=writer.run_id,
-                column_order=list(df.columns),
-                hash_policy_version=getattr(
-                    getattr(writer, "determinism", None), "hash_policy_version", None
-                ),
-            )
-            writer.write(
-                df,
-                path,
-                metadata=metadata,
-                extended=False,
-                apply_column_order=False,
-            )
-            return
+            atomic_writer = writer.atomic_writer
+            determinism = getattr(writer, "determinism", None) or self.determinism
+        else:
+            atomic_writer = self._atomic_writer
+            if atomic_writer is None:
+                atomic_writer = AtomicWriter(self.run_id, determinism=self.determinism)
+                self._atomic_writer = atomic_writer
+            determinism = getattr(atomic_writer, "determinism", None) or self.determinism
 
-        if format == "parquet":
-            df.to_parquet(path, index=False)
-        elif format == "csv":
-            df.to_csv(path, index=False)
-        else:  # pragma: no cover - defensive guard
+        if format not in {"csv", "parquet"}:  # pragma: no cover - defensive guard
             raise ValueError(f"Unsupported format: {format}")
+
+        write_kwargs: dict[str, Any] = {}
+        if format == "csv" and determinism is not None:
+            write_kwargs["float_format"] = f"%.{determinism.float_precision}f"
+
+        atomic_writer.write(df, path, format=format, **write_kwargs)
 
     def _should_materialize(self, stage: str) -> bool:
         runtime = self.runtime
