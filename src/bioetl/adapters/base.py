@@ -124,7 +124,13 @@ class ExternalAdapter(ABC):
     def process(self, ids: list[str]) -> pd.DataFrame:
         """Process list of IDs: fetch, normalize, convert to DataFrame."""
 
-        return self._process_collection(ids, self.fetch_by_ids)
+        return self._process_collection(
+            ids,
+            self.fetch_by_ids,
+            start_event="starting_fetch",
+            no_items_event="no_ids_provided",
+            empty_event="no_records_fetched",
+        )
 
     def _process_collection(
         self,
