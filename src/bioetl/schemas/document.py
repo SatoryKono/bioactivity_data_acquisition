@@ -7,7 +7,12 @@ import pandera.pandas as pa
 from pandera.engines import pandas_engine
 from pandera.typing import Series
 
-from bioetl.schemas.base import BaseSchema, expose_config_column_order
+from bioetl.schemas.base import (
+    BaseSchema,
+    FALLBACK_METADATA_COLUMN_ORDER,
+    FallbackMetadataMixin,
+    expose_config_column_order,
+)
 
 
 class DocumentRawSchema(pa.DataFrameModel):
@@ -111,7 +116,7 @@ class DocumentRawSchema(pa.DataFrameModel):
         return validated_core
 
 
-class DocumentSchema(BaseSchema):
+class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     """Unified schema for ChEMBL documents with multi-source enrichment.
 
     Primary Key: [document_chembl_id]
@@ -332,43 +337,6 @@ class DocumentSchema(BaseSchema):
     pubmed_error: Series[str] = pa.Field(nullable=True, description="Ошибка PubMed адаптера")
     semantic_scholar_error: Series[str] = pa.Field(nullable=True, description="Ошибка Semantic Scholar адаптера")
 
-    # Fallback level error context
-    fallback_reason: Series[str] = pa.Field(
-        nullable=True,
-        description="Причина генерации fallback записи",
-    )
-    fallback_error_type: Series[str] = pa.Field(
-        nullable=True,
-        description="Класс исключения, инициировавший fallback",
-    )
-    fallback_error_code: Series[str] = pa.Field(
-        nullable=True,
-        description="Нормализованный код ошибки для fallback",
-    )
-    fallback_error_message: Series[str] = pa.Field(
-        nullable=True,
-        description="Текст ошибки для fallback строки",
-    )
-    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="HTTP статус, ассоциированный с fallback",
-    )
-    fallback_retry_after_sec: Series[float] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="Retry-After (секунды), предоставленный API",
-    )
-    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="Номер попытки, на которой зафиксирован fallback",
-    )
-    fallback_timestamp: Series[str] = pa.Field(
-        nullable=True,
-        description="ISO8601 время создания fallback записи",
-    )
-
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at
 
@@ -491,15 +459,7 @@ class DocumentSchema(BaseSchema):
         "openalex_error",
         "pubmed_error",
         "semantic_scholar_error",
-        "fallback_reason",
-        "fallback_error_type",
-        "fallback_error_code",
-        "fallback_error_message",
-        "fallback_http_status",
-        "fallback_retry_after_sec",
-        "fallback_attempt",
-        "fallback_timestamp",
-    ]
+    ] + FALLBACK_METADATA_COLUMN_ORDER
 
     class Config:
         strict = True
