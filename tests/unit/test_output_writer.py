@@ -216,6 +216,53 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert int(row_count_value) == len(df)
 
 
+def test_unified_output_writer_metadata_write_is_atomic(tmp_path, monkeypatch):
+    """Metadata writes should not corrupt existing files when failures occur."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1, 2, 3]})
+    writer = UnifiedOutputWriter("run-atomic")
+
+    metadata = OutputMetadata.from_dataframe(
+        df,
+        pipeline_version="3.0.0",
+        source_system="chembl",
+        chembl_release="35",
+        run_id="run-atomic",
+    )
+
+    output_path = tmp_path / "run-atomic" / "target" / "datasets" / "targets.csv"
+    artifacts = writer.write(
+        df,
+        output_path,
+        extended=True,
+        metadata=metadata,
+    )
+
+    metadata_path = artifacts.metadata
+    assert metadata_path is not None
+    baseline_contents = metadata_path.read_text(encoding="utf-8")
+
+    import yaml as pyyaml
+
+    def failing_dump(*args, **kwargs):  # noqa: ANN001 - signature defined by yaml.dump
+        raise RuntimeError("metadata boom")
+
+    monkeypatch.setattr(pyyaml, "dump", failing_dump)
+
+    with pytest.raises(RuntimeError):
+        writer.write(
+            df,
+            output_path,
+            extended=True,
+            metadata=metadata,
+        )
+
+    assert metadata_path.read_text(encoding="utf-8") == baseline_contents
+    assert not list((tmp_path / "run-atomic").rglob("*.tmp"))
+
+
 def test_calculate_checksums_supports_multi_chunk_files(tmp_path):
     """Checksum calculation should stream large files in multiple chunks."""
 
