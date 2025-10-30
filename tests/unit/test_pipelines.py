@@ -208,6 +208,53 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
     assert metadata["column_count"] == len(exported_df.columns)
 
 
+def test_export_uses_deterministic_float_format(tmp_path, assay_config):
+    """Pipeline exports should respect determinism float precision and column order."""
+
+    class DeterministicPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+    config = assay_config.model_copy(deep=True)
+    config.determinism.column_order = ["alpha", "value"]
+    config.determinism.float_precision = 4
+
+    pipeline = DeterministicPipeline(config, "run-format")
+
+    source_df = pd.DataFrame({"beta": [0.111111], "value": [1.234567], "alpha": ["x"]})
+    pipeline.set_export_metadata_from_dataframe(
+        source_df,
+        pipeline_version="1.0.0",
+        source_system="test-system",
+    )
+
+    output_path = tmp_path / "deterministic.csv"
+    artifacts = pipeline.export(source_df, output_path)
+
+    content = artifacts.dataset.read_text(encoding="utf-8").splitlines()
+    header = content[0].split(",")
+    assert header[: len(config.determinism.column_order)] == config.determinism.column_order
+
+    row = content[1].split(",")
+    assert row[0] == "x"
+    assert row[1] == "1.2346"
+    assert row[2] == "0.1111"
+
+    import yaml
+
+    with artifacts.metadata.open("r", encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    assert metadata["column_order"] == header
+    assert metadata["column_count"] == len(header)
+
+
 class TestAssayPipeline:
     """Tests for AssayPipeline."""
 

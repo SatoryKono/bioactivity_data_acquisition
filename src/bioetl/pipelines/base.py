@@ -169,7 +169,8 @@ class PipelineBase(ABC):
     def __init__(self, config: PipelineConfig, run_id: str):
         self.config = config
         self.run_id = run_id
-        self.output_writer = UnifiedOutputWriter(run_id, determinism=config.determinism)
+        self.determinism = config.determinism
+        self.output_writer = UnifiedOutputWriter(run_id, determinism=self.determinism)
         self.validation_issues: list[dict[str, Any]] = []
         self.qc_metrics: dict[str, Any] = {}
         self.qc_summary_data: dict[str, Any] = {}
@@ -611,9 +612,8 @@ class PipelineBase(ABC):
         logger.info("exporting_data", path=output_path, rows=len(df))
 
         configured_order: list[str] = []
-        determinism = getattr(self.config, "determinism", None)
-        if determinism is not None:
-            configured_order = list(getattr(determinism, "column_order", []) or [])
+        if getattr(self, "determinism", None) is not None:
+            configured_order = list(self.determinism.column_order or [])
 
         export_frame = df
         if configured_order:
