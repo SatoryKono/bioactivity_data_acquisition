@@ -108,6 +108,7 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
     expected_flags = (
         "--config",
         "--golden",
+        "--limit",
         "--sample",
         "--fail-on-schema-drift",
         "--extended",
@@ -116,11 +117,11 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
         "--verbose",
         "--set",
     )
-    if entry.name == "target":
-        expected_flags += ("--limit",)
 
     for flag in expected_flags:
         assert flag in result.stdout, f"{flag} missing from help for {entry.name}"
+
+    assert "prefer --sample" in result.stdout
 
 
 @pytest.mark.unit
@@ -169,7 +170,7 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     ]
 
     if entry.name == "target":
-        args.extend(["--limit", "7"])
+        args.extend(["--limit", "5"])
 
     if entry.name == "document":
         monkeypatch.setenv("PUBMED_API_KEY", "contract")
@@ -198,7 +199,7 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     assert cli_section["sample"] == 5
     assert cli_section["golden"] == str(golden_path)
     if entry.name == "target":
-        assert cli_section["limit"] == 7
+        assert cli_section["limit"] == 5
 
     run_id = captured.get("run_id")
     assert isinstance(run_id, str) and run_id.startswith(entry.name)
@@ -207,6 +208,34 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     assert isinstance(runtime_options, dict)
     assert runtime_options.get("sample") == 5
     assert runtime_options.get("limit") == 5
+    if entry.name == "target":
+        stderr = result.stderr or ""
+        assert "--limit is deprecated" in stderr
+
+
+@pytest.mark.unit
+def test_cli_rejects_mismatched_sample_limit() -> None:
+    """Providing conflicting --sample/--limit options should fail fast."""
+
+    entry = _get_entry_by_name("assay")
+    module = _load_entry_module(entry)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--dry-run",
+            "--sample",
+            "3",
+            "--limit",
+            "5",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "--sample and --limit must match" in result.output
 
 
 @pytest.mark.unit

@@ -26,6 +26,18 @@ from scripts import PIPELINE_COMMAND_REGISTRY
 RUNNER = CliRunner()
 
 
+@pytest.mark.integration
+def test_cli_help_includes_limit_hint() -> None:
+    """CLI help should expose --limit with guidance to prefer --sample."""
+
+    command, _ = _build_cli_command(GoldenStubPipeline)
+    result = RUNNER.invoke(command, ["--help"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.stdout
+    assert "--limit" in result.stdout
+    assert "prefer --sample" in result.stdout
+
+
 class GoldenStubPipeline(PipelineBase):
     """Minimal deterministic pipeline used for CLI golden tests."""
 
@@ -192,6 +204,29 @@ def test_cli_run_matches_expected_csv_hash(tmp_path: Path) -> None:
     expected_hash = _sha256(artifacts.dataset)
 
     assert actual_hash == expected_hash
+
+
+@pytest.mark.integration
+def test_cli_limit_option_emits_hint(tmp_path: Path) -> None:
+    """Using --limit should emit a deprecation hint guiding users to --sample."""
+
+    command, config = _build_cli_command(GoldenStubPipeline)
+    output_dir = tmp_path / "limited"
+
+    args = [
+        "--config",
+        str(config.default_config.resolve()),
+        "--output-dir",
+        str(output_dir),
+        "--limit",
+        "1",
+        "--no-validate-columns",
+    ]
+    result = RUNNER.invoke(command, args, catch_exceptions=False)
+
+    assert result.exit_code == 0, result.stdout
+    stderr = result.stderr or ""
+    assert "--limit is deprecated" in stderr
 
 
 @pytest.mark.integration

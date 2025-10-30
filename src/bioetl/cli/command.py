@@ -78,8 +78,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
         limit: int | None = typer.Option(
             None,
             "--limit",
-            help="Deprecated alias for --sample",
-            hidden=True,
+            help="Deprecated alias for --sample; prefer --sample for smoke testing",
         ),
         sample: int | None = typer.Option(
             None,
@@ -145,11 +144,20 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
         UnifiedLogger.setup(mode="development" if verbose else "production")
         logger = UnifiedLogger.get(f"cli.{config.pipeline_name}")
 
+        limit_hint_requested = limit is not None
+
         if limit is not None and sample is None:
             logger.warning(
                 "deprecated_cli_option_used",
                 option="--limit",
                 replacement="--sample",
+            )
+
+        if limit_hint_requested:
+            typer.echo(
+                "Hint: --limit is deprecated and will be removed in a future release. "
+                "Prefer --sample for smoke testing runs.",
+                err=True,
             )
 
         try:
@@ -170,6 +178,8 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 cli_overrides["golden"] = str(golden)
             if sample_limit is not None:
                 cli_overrides["sample"] = sample_limit
+            if limit is not None:
+                cli_overrides["limit"] = limit
 
             config_obj = load_config(config_path, overrides=overrides)
 

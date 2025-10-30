@@ -77,7 +77,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     limit: int | None = typer.Option(
         None,
         "--limit",
-        help="Restrict extraction to the first N input records",
+        help="Deprecated alias for --sample; prefer --sample for smoke testing",
     ),
     fail_on_schema_drift: bool = typer.Option(
         True,
@@ -139,6 +139,11 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     _validate_positive_option(sample, "sample")
     _validate_positive_option(limit, "limit")
 
+    if sample is not None and limit is not None and sample != limit:
+        raise typer.BadParameter(
+            "--sample and --limit must match when both are provided",
+        )
+
     UnifiedLogger.setup(mode="development" if verbose else "production")
     logger = UnifiedLogger.get("cli.target")
 
@@ -159,6 +164,11 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         cli_overrides["sample"] = sample
     if limit is not None:
         cli_overrides["limit"] = limit
+        typer.echo(
+            "Hint: --limit is deprecated and will be removed in a future release. "
+            "Prefer --sample for smoke testing runs.",
+            err=True,
+        )
 
     ctx = get_current_context()
     iuphar_param_source = ctx.get_parameter_source("with_iuphar")
