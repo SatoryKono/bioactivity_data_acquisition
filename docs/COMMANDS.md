@@ -19,6 +19,7 @@ Bash:
 python src/scripts/run_activity.py --input-file "data/input/activity.csv" --config "configs/pipelines/activity.yaml" --output-dir "data/output/activity" --sample 10
 
 ```
+
 PowerShell:
 
 ```powershell
@@ -26,6 +27,7 @@ PowerShell:
 python src\scripts\run_activity.py --input-file data\input\activity.csv --config configs\pipelines\activity.yaml --output-dir data\output\activity --sample 10
 
 ```
+
 ---
 
 ## /run-assay
@@ -44,6 +46,7 @@ Bash:
 python src/scripts/run_assay.py --input-file "data/input/assay.csv" --config "configs/pipelines/assay.yaml" --output-dir "data/output/assay" --sample 10
 
 ```
+
 PowerShell:
 
 ```powershell
@@ -51,6 +54,7 @@ PowerShell:
 python src\scripts\run_assay.py --input-file data\input\assay.csv --config configs\pipelines\assay.yaml --output-dir data\output\assay --sample 10
 
 ```
+
 ---
 
 ## /run-document
@@ -69,6 +73,7 @@ Bash:
 python src/scripts/run_document.py --input-file "data/input/document.csv" --config "configs/pipelines/document.yaml" --output-dir "data/output/document" --sample 10
 
 ```
+
 PowerShell:
 
 ```powershell
@@ -76,6 +81,7 @@ PowerShell:
 python src\scripts\run_document.py --input-file data\input\document.csv --config configs\pipelines\document.yaml --output-dir data\output\document --sample 10
 
 ```
+
 ---
 
 ## /run-target
@@ -94,6 +100,7 @@ Bash:
 python src/scripts/run_target.py --input-file "data/input/target.csv" --config "configs/pipelines/target.yaml" --output-dir "data/output/target" --sample 10
 
 ```
+
 PowerShell:
 
 ```powershell
@@ -101,6 +108,7 @@ PowerShell:
 python src\scripts\run_target.py --input-file data\input\target.csv --config configs\pipelines\target.yaml --output-dir data\output\target --sample 10
 
 ```
+
 ---
 
 ## /run-testitem
@@ -119,6 +127,7 @@ Bash:
 python src/scripts/run_testitem.py --input-file "data/input/testitem.csv" --config "configs/pipelines/testitem.yaml" --output-dir "data/output/testitem" --sample 10
 
 ```
+
 PowerShell:
 
 ```powershell
@@ -126,6 +135,7 @@ PowerShell:
 python src\scripts\run_testitem.py --input-file data\input\testitem.csv --config configs\pipelines\testitem.yaml --output-dir data\output\testitem --sample 10
 
 ```
+
 ---
 
 ## /validate-columns
@@ -138,6 +148,7 @@ Usage:
 python src/scripts/validate_columns.py --entity activity --schema-version latest
 
 ```
+
 PowerShell:
 
 ```powershell
@@ -145,6 +156,7 @@ PowerShell:
 python src\scripts\validate_columns.py --entity activity --schema-version latest
 
 ```
+
 ---
 
 ## /validate-all-columns
@@ -157,6 +169,7 @@ Usage:
 python src/scripts/validate_columns.py --entity all --schema-version latest
 
 ```
+
 PowerShell:
 
 ```powershell
@@ -164,6 +177,7 @@ PowerShell:
 python src\scripts\validate_columns.py --entity all --schema-version latest
 
 ```
+
 ---
 
 ## /qc-summary
@@ -186,6 +200,7 @@ for p in glob.glob('data/output/**/*.csv', recursive=True):
 PY
 
 ```
+
 PowerShell:
 
 ```powershell

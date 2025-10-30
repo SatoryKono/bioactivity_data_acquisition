@@ -31,6 +31,7 @@ hash_business_key: 4e8c008e26186bcfdd2e02c0ce4f0ec462db3a078c054a1b0b4ac45ebd075
 hash_row: 02001e96dbfaad6aa11e...
 
 ```
+
 ### 3. Проверка multi-source fields
 ✅ Переименование полей в `chembl_*` префикс работает корректно:
 
@@ -54,6 +55,7 @@ hash_row: 02001e96dbfaad6aa11e...
  'chembl_journal', 'chembl_year']
 
 ```
+
 **Expected column_order (schema has 77):**
 Порядок первых 11 соответствует спецификации IO_SCHEMAS_AND_DIAGRAMS.md line 957
 

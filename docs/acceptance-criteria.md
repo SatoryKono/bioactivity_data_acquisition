@@ -35,6 +35,7 @@ def test_mandatory_log_fields():
         assert field in log, f"Missing field: {field}"
 
 ```
+
 **Артефакт:** Логи должны проходить статическую проверку обязательных полей.
 
 ### AC12-AC16: QC пороги по пайплайнам
@@ -53,6 +54,7 @@ def test_mandatory_log_fields():
 ## Детализация по категориям
 ### IO и детерминизм (AC1, AC3, AC4, AC6)
 #### AC1: Бит-в-бит детерминизм
+
 ```python
 
 # Проверка golden-run
@@ -67,7 +69,9 @@ def test_deterministic_output():
     # python -m pipeline run --golden data/golden/assay.csv
 
 ```
+
 #### AC3: hash_row стабилен
+
 ```python
 
 def canonicalize_row_for_hash(row: dict) -> str:
@@ -82,7 +86,9 @@ def canonicalize_row_for_hash(row: dict) -> str:
                       sort_keys=True, separators=(",", ":"))
 
 ```
+
 #### AC4: Нет partial artifacts
+
 ```python
 
 # Проверка после записи
@@ -92,7 +98,9 @@ assert meta_file.exists()
 assert not is_partial_file(output_file)  # по размеру, заголовкам
 
 ```
+
 #### AC6: Activity сортировка
+
 ```python
 
 df_final = df.sort_values(["activity_id"], kind="mergesort")
@@ -100,8 +108,10 @@ df_final = df.sort_values(["activity_id"], kind="mergesort")
 # mergesort гарантирует стабильность
 
 ```
+
 ### Схемы и валидация (AC2, AC10)
 #### AC2: column_order=схеме
+
 ```python
 
 schema = get_schema("ActivitySchema")
@@ -109,6 +119,7 @@ df_validated = schema.validate(df)
 assert list(df_validated.columns) == schema.column_order
 
 ```
+
 #### AC10: Schema drift fail-fast
 **Важно:** В production режиме default=True обязателен для предотвращения незамеченных breaking changes.
 
@@ -127,8 +138,10 @@ if not current_schema.compatible_with(new_schema):
     raise SchemaDriftError(f"Incompatible schema: {current_schema} -> {new_schema}")
 
 ```
+
 ### API клиенты и отказоустойчивость (AC5, AC11)
 #### AC5: Respect Retry-After
+
 ```python
 
 if response.status_code == 429:
@@ -151,8 +164,10 @@ def test_respect_retry_after():
         assert elapsed <= 60.0  # Cap инвариант
 
 ```
+
 ### Assay и трансформации (AC7, AC8)
 #### AC7: Assay batch≤25
+
 ```python
 
 @dataclass
@@ -164,7 +179,9 @@ class AssayConfig:
             raise ValueError(f"batch_size must be ≤ 25, got {self.batch_size}")
 
 ```
+
 #### AC8: Long-format nested
+
 ```python
 
 def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
@@ -185,8 +202,10 @@ def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["assay_chembl_id","param_index","param_name","param_value","row_subtype"])
 
 ```
+
 ### QC и качество (AC9)
 #### AC9: QC duplicates=0
+
 ```python
 
 duplicate_count = df["activity_id"].duplicated().sum()
@@ -201,6 +220,7 @@ qc_report = {
 }
 
 ```
+
 ## Связи с Gap-листом
 | AC ID | Покрывает gaps | Закрытые риски |
 |-------|----------------|----------------|

@@ -550,7 +550,7 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
    chembl_df = get_documents(document_ids, cfg=cfg, client=client)
 
 ```
-2. **Извлечение ключей обогащения:**
+1. **Извлечение ключей обогащения:**
 
 ```python
 
@@ -558,7 +558,7 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
    dois = chembl_df["doi_clean"].dropna().tolist()
 
 ```
-3. **Вызов адаптеров** (каждый независимо):
+1. **Вызов адаптеров** (каждый независимо):
 
 ```python
 
@@ -568,11 +568,11 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
    scholar_df = fetch_semantic_scholar(pmids)
 
 ```
-4. **Merge field-level с приоритетами** (§12)
+1. **Merge field-level с приоритетами** (§12)
 
-5. **Валидация и QC**
+2. **Валидация и QC**
 
-6. **Атомарная запись**
+3. **Атомарная запись**
 
 ## 6. Интеграция с внешними адаптерами (обновлено)
 ### Контракты вызова

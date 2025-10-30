@@ -6,6 +6,7 @@
 
 ## Этап 1: Скелет проекта и зависимости
 ### 1.1 Создать структуру каталогов
+
 ```text
 
 src/bioetl/{__init__.py, core/, config/, normalizers/, schemas/, pipelines/, cli/}
@@ -13,6 +14,7 @@ configs/{base.yaml, profiles/, pipelines/}
 tests/{unit/, integration/, golden/, fixtures/}
 
 ```
+
 ### 1.2 Создать pyproject.toml
 - Зависимости: pandas, pandera, requests, backoff, structlog, typer, pydantic, pyyaml
 - Dev: pytest, pytest-cov, mypy, ruff, pre-commit
@@ -23,6 +25,7 @@ tests/{unit/, integration/, golden/, fixtures/}
 - `.gitignore`: `__pycache__/`, `.mypy_cache/`, `data/cache/`, `*.pyc`, `.env`
 
 ### 1.4 Промежуточная проверка
+
 ```bash
 
 # Проверка структуры
@@ -38,6 +41,7 @@ pip install -e ".[dev]"
 pre-commit install && pre-commit run --all-files
 
 ```
+
 ---
 
 ## Этап 2: Система конфигурации (PipelineConfig)
@@ -68,6 +72,7 @@ pre-commit install && pre-commit run --all-files
 - Тест невалидных значений (должен упасть)
 
 ### 2.5 Промежуточная проверка
+
 ```bash
 
 # Загрузка конфига
@@ -79,6 +84,7 @@ python -c "from bioetl.config import load_config; print(load_config('configs/pro
 pytest tests/unit/test_config_loader.py -v
 
 ```
+
 ---
 
 ## Этап 3: UnifiedLogger
@@ -100,6 +106,7 @@ pytest tests/unit/test_config_loader.py -v
 - Тест режимов (dev/prod/test)
 
 ### 3.3 Промежуточная проверка
+
 ```bash
 
 # Пример использования
@@ -116,6 +123,7 @@ log.info('test_event', api_key='secret123')
 pytest tests/unit/test_logger.py -v
 
 ```
+
 ---
 
 ## Этап 4: UnifiedAPIClient
@@ -152,6 +160,7 @@ pytest tests/unit/test_logger.py -v
 - Тест pagination (offset/cursor)
 
 ### 4.4 Промежуточная проверка
+
 ```bash
 
 # Integration тесты с mock сервером
@@ -168,6 +177,7 @@ print(resp)
 "
 
 ```
+
 ---
 
 ## Этап 5: UnifiedSchema и нормализаторы
@@ -220,6 +230,7 @@ print(resp)
 - Фикстуры для воспроизводимости нормализации
 
 ### 5.7 Промежуточная проверка
+
 ```bash
 
 pytest tests/unit/test_normalizers.py tests/unit/test_schemas.py -v
@@ -234,6 +245,7 @@ SchemaRegistry.register('activity', '2.0.0', ActivitySchema)  # Должен fai
 "
 
 ```
+
 ---
 
 ## Этап 6: UnifiedOutputWriter и QC
@@ -277,6 +289,7 @@ SchemaRegistry.register('activity', '2.0.0', ActivitySchema)  # Должен fai
 - Прогон с фикстурой → сравнение checksum с golden
 
 ### 6.7 Промежуточная проверка
+
 ```bash
 
 pytest tests/unit/test_output_writer.py -v
@@ -295,6 +308,7 @@ ls -la data/output/test/
 "
 
 ```
+
 ---
 
 ## Этап 7: CLI и оркестратор пайплайна
@@ -321,6 +335,7 @@ ls -la data/output/test/
 - Тест `--fail-on-schema-drift` (major version change → exit 1)
 
 ### 7.4 Промежуточная проверка
+
 ```bash
 
 bioetl --help
@@ -328,6 +343,7 @@ bioetl pipeline list
 bioetl pipeline validate assay --config configs/profiles/test.yaml
 
 ```
+
 ---
 
 ## Этап 8: Пайплайн Assay
@@ -369,6 +385,7 @@ bioetl pipeline validate assay --config configs/profiles/test.yaml
 - Проверка артефактов: assay.csv, assay_qc.csv, assay_meta.yaml
 
 ### 8.6 Промежуточная проверка
+
 ```bash
 
 bioetl pipeline run assay --config configs/profiles/test.yaml --sample 100 --verbose
@@ -379,6 +396,7 @@ cat data/output/assay/assay_*_meta.yaml
 pytest tests/unit/test_assay_pipeline.py tests/integration/test_assay_pipeline.py -v
 
 ```
+
 ---
 
 ## Этап 9: Пайплайн Activity
@@ -423,12 +441,14 @@ pytest tests/unit/test_assay_pipeline.py tests/integration/test_assay_pipeline.p
 - Проверка: должен подождать 5s и повторить
 
 ### 9.6 Промежуточная проверка
+
 ```bash
 
 bioetl pipeline run activity --config configs/profiles/test.yaml --sample 100
 pytest tests/unit/test_activity_pipeline.py tests/integration/test_activity_retry.py -v
 
 ```
+
 ---
 
 ## Этап 10: Пайплайн Testitem
@@ -472,6 +492,7 @@ pytest tests/unit/test_activity_pipeline.py tests/integration/test_activity_retr
 - Проверка cache hit/miss
 
 ### 10.6 Промежуточная проверка
+
 ```bash
 
 bioetl pipeline run testitem --config configs/profiles/test.yaml --sample 50 --extended
@@ -482,6 +503,7 @@ ls data/output/testitem/*correlation_report*/
 pytest tests/unit/test_testitem_pipeline.py tests/integration/test_testitem_pubchem.py -v
 
 ```
+
 ---
 
 ## Этап 11: Пайплайн Target
@@ -527,6 +549,7 @@ pytest tests/unit/test_testitem_pipeline.py tests/integration/test_testitem_pubc
 - Проверка 4 output файлов
 
 ### 11.6 Промежуточная проверка
+
 ```bash
 
 bioetl pipeline run target --config configs/profiles/test.yaml --sample 20
@@ -537,6 +560,7 @@ ls data/output/target/
 pytest tests/unit/test_target_pipeline.py tests/integration/test_target_multi_source.py -v
 
 ```
+
 ---
 
 ## Этап 12: Пайплайн Document
@@ -586,12 +610,14 @@ pytest tests/unit/test_target_pipeline.py tests/integration/test_target_multi_so
 - Проверка fallback (PubMed fail → Crossref)
 
 ### 12.6 Промежуточная проверка
+
 ```bash
 
 bioetl pipeline run document --config configs/profiles/test.yaml --sample 30 --set pipeline.mode=all --extended
 pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adapters.py -v
 
 ```
+
 ---
 
 ## Этап 13: Тестирование и финализация
@@ -632,6 +658,7 @@ pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adap
 - Добавить гайды для других breaking changes (если есть)
 
 ### 13.6 Финальная проверка
+
 ```bash
 
 # Pre-commit hooks (continued 1)
@@ -655,6 +682,7 @@ bioetl pipeline run document --config configs/profiles/prod.yaml --golden --set 
 python scripts/verify_golden_checksums.py
 
 ```
+
 ---
 
 ## Критерии приемки

@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-from bioetl.utils.column_validator import (
+from bioetl.utils.validation import (
     DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES,
     normalise_ignore_suffixes,
 )

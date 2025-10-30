@@ -174,6 +174,7 @@
 ---
 
 ## Последовательность применения
+
 ```mermaid
 
 graph TD
@@ -184,6 +185,7 @@ graph TD
     PR4 --> PR5[PR-5: Activity]
 
 ```
+
 **Порядок**:
 
 1. **PR-1** (основа детерминизма)
@@ -208,6 +210,7 @@ graph TD
 - [ ] Code review одобрен
 
 ### Формат commit message
+
 ```text
 
 type(scope): краткое описание
@@ -220,6 +223,7 @@ type(scope): краткое описание
 Refs: #issue-number
 
 ```
+
 ### Типы commits
 - `feat`: новая функциональность
 - `fix`: исправление бага
@@ -273,6 +277,7 @@ git checkout -b hotfix/pr-X-rollback
 git push origin hotfix/pr-X-rollback
 
 ```
+
 ## Метрики успеха
 После merge всех PR:
 

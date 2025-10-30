@@ -21,6 +21,7 @@ class BaseSchema(pa.DataFrameModel):
     Config.ordered = False
 
 ```
+
 ### Требуется по спецификации
 - `pipeline_version: str` ✓
 - `source_system: str` ✓
@@ -500,6 +501,7 @@ determinism:
     by: [<primary_key_fields>]
 
 ```
+
 **Конкретно:**
 
 - `assay.yaml`: `sort.by: [assay_chembl_id, row_subtype, row_index]`

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.utils.column_validator import ColumnValidator
+from bioetl.utils.validation import ColumnValidator
 
 app = typer.Typer(help="Валидация колонок в выходных данных pipeline'ов")
 

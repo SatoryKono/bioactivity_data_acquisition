@@ -28,6 +28,7 @@
 Документ описывает спецификацию извлечения данных testitem (молекул) из ChEMBL API с опциональным обогащением через PubChem PUG-REST API. Обеспечиваются детерминированность, полная воспроизводимость результатов и защита от потери данных.
 
 ### Архитектура пайплайна
+
 ```text
 
 TestitemPipeline
@@ -66,7 +67,9 @@ TestitemPipeline
     └── MetadataBuilder (full provenance)
 
 ```
+
 ### Диаграмма потока данных
+
 ```mermaid
 
 flowchart TD
@@ -91,6 +94,7 @@ flowchart TD
     style H fill:#f3e5f5
 
 ```
+
 ### Интеграция с архитектурой проекта
 Пайплайн testitem интегрируется с унифицированными компонентами:
 
@@ -177,6 +181,7 @@ class TestitemInputSchema(pa.DataFrameModel):
         coerce = True
 
 ```
+
 **Таблица входных полей:**
 
 | Имя | Тип | Обязательность | Пример | Нормализация | Валидация |
@@ -233,6 +238,7 @@ chembl_release: str = None  # Фиксируется один раз в нача
 chembl_base_url: str  # URL для воспроизводимости
 
 ```
+
 **КРИТИЧЕСКИ ВАЖНО:**
 
 1. Снимок `/status` выполняется **один раз** в начале run
@@ -251,6 +257,7 @@ curl -H "Accept: application/json" \
   https://www.ebi.ac.uk/chembl/api/data/status.json
 
 ```
+
 **Response:**
 
 ```json
@@ -261,6 +268,7 @@ curl -H "Accept: application/json" \
 }
 
 ```
+
 ### 2.2 Батчевое извлечение из ChEMBL API
 **Метод:** `TestitemPipeline._extract_from_chembl()`
 
@@ -324,6 +332,7 @@ curl -H "Accept: application/json" \
   "https://www.ebi.ac.uk/chembl/api/data/molecule/CHEMBL25.json"
 
 ```
+
 *Батч запрос (25 molecules):*
 
 ```bash
@@ -332,10 +341,12 @@ curl -H "Accept: application/json" \
   "https://www.ebi.ac.uk/chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL25,CHEMBL192,CHEMBL941&fields=molecule_chembl_id,molregno,pref_name,max_phase,molecule_hierarchy,molecule_properties,molecule_structures,molecule_synonyms&limit=1000"
 
 ```
+
 ### 2.3 Распаковка вложенных структур
 **ВАЖНО:** Вложенные структуры из ChEMBL должны быть распакованы в плоские колонки без потери данных.
 
 #### 2.3.1 molecule_hierarchy
+
 ```python
 
 def _flatten_molecule_hierarchy(molecule: dict) -> dict:
@@ -363,6 +374,7 @@ def _flatten_molecule_hierarchy(molecule: dict) -> dict:
     return flattened
 
 ```
+
 #### 2.3.2 molecule_properties
 **22 физико-химических свойства:**
 
@@ -425,7 +437,9 @@ def _flatten_molecule_properties(molecule: dict) -> dict:
     return flattened
 
 ```
+
 #### 2.3.3 molecule_structures
+
 ```python
 
 def _flatten_molecule_structures(molecule: dict) -> dict:
@@ -455,6 +469,7 @@ def _flatten_molecule_structures(molecule: dict) -> dict:
     return flattened
 
 ```
+
 #### 2.3.4 molecule_synonyms
 **Стратегия:** Конкатенация в `all_names` (для поиска) + JSON (для программного доступа)
 
@@ -498,7 +513,9 @@ def _flatten_molecule_synonyms(molecule: dict) -> dict:
     return flattened
 
 ```
+
 #### 2.3.5 Вложенные JSON (atc_classifications, cross_references, biotherapeutic)
+
 ```python
 
 def _flatten_nested_json(molecule: dict, field_name: str) -> str:
@@ -521,6 +538,7 @@ def _flatten_nested_json(molecule: dict, field_name: str) -> str:
 # flattened["biotherapeutic"] = _flatten_nested_json(molecule, "biotherapeutic")
 
 ```
+
 ### 2.4 Fallback механизм
 **Условия активации:**
 
@@ -567,6 +585,7 @@ def _create_fallback_record(
     }
 
 ```
+
 **Пример лога fallback:**
 
 ```json
@@ -588,6 +607,7 @@ def _create_fallback_record(
 }
 
 ```
+
 ### 2.5 Извлечение из PubChem API
 > **📖 Детальное описание:** См. полную спецификацию PubChem integration в документе [`07b-testitem-data-extraction.md`](./07b-testitem-data-extraction.md) — "Оптимальный подход к извлечению данных testitem из PubChem"
 
@@ -620,9 +640,11 @@ pref_name                  ↓
                  Enriched DataFrame
 
 ```
+
 **Стратегия обогащения (2-step process):**
 
 #### Step 1: CID Resolution (Multi-strategy)
+
 ```python
 
 # Приоритет lookup стратегий (см. 07b § 5)
@@ -638,7 +660,9 @@ pref_name                  ↓
 # 5. Name-based search → /compound/name/{name}/cids/JSON (fallback)
 
 ```
+
 #### Step 2: Batch Properties Fetch
+
 ```python
 
 # Endpoint: /compound/cid/{cids}/property/{properties}/JSON
@@ -648,6 +672,7 @@ pref_name                  ↓
 # Properties: MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName
 
 ```
+
 **Rate limiting:** 5 requests/second (пауза 0.2s между запросами)
 
 **Пример одиночного запроса (InChIKey lookup):**
@@ -667,6 +692,7 @@ curl -H "Accept: application/json" \
   "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244/property/MolecularFormula,MolecularWeight,CanonicalSMILES,InChI,InChIKey,IUPACName/JSON"
 
 ```
+
 **Пример batch запроса (эффективный подход):**
 
 ```bash
@@ -675,6 +701,7 @@ curl -H "Accept: application/json" \
   "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName/JSON"
 
 ```
+
 **Response структура:**
 
 ```json
@@ -697,6 +724,7 @@ curl -H "Accept: application/json" \
 }
 
 ```
+
 **Python реализация (упрощенная, полная версия в 07b § 6-7):**
 
 ```python
@@ -729,6 +757,7 @@ def _enrich_with_pubchem(
     return df
 
 ```
+
 **Merge стратегия:**
 
 - Left join по `standard_inchi_key` (ChEMBL) → CID → PubChem properties
@@ -807,6 +836,7 @@ def _merge_chembl_data(
     return merged_data
 
 ```
+
 **PubChem data merge:**
 
 ```python
@@ -868,6 +898,7 @@ def _merge_pubchem_data(
     return merged_data
 
 ```
+
 ### 3.2 Каноническая сериализация для хеширования
 **Метод:** `_canonicalize_row_for_hash()`
 
@@ -915,7 +946,9 @@ def _canonicalize_row_for_hash(
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 
 ```
+
 ### 3.3 Хеширование
+
 ```python
 
 def _calculate_hashes(
@@ -941,7 +974,9 @@ def _calculate_hashes(
     return hash_row, hash_business_key
 
 ```
+
 ### 3.4 Системные метаданные
+
 ```python
 
 def _add_system_metadata(
@@ -977,6 +1012,7 @@ def _add_system_metadata(
     return df
 
 ```
+
 ### 3.5 Nullable dtypes
 **КРИТИЧЕСКИ:** Использовать nullable dtypes, никаких `object`
 
@@ -1019,6 +1055,7 @@ DTYPES_CONFIG = {
 }
 
 ```
+
 ---
 
 ## 4. Валидация и QC
@@ -1044,6 +1081,7 @@ class TestitemRawSchema(pa.DataFrameModel):
     # ... и т.д
 
 ```
+
 **TestitemNormalizedSchema:** (80+ полей, см. `src/library/schemas/testitem_schema.py`)
 
 ```python
@@ -1100,6 +1138,7 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         coerce = True
 
 ```
+
 **TestitemOutputSchema (AUD-3):** Формализованная выходная схема с PK и полным списком полей.
 
 ```python
@@ -1194,6 +1233,7 @@ class TestitemOutputSchema(pa.DataFrameModel):
         ]
 
 ```
+
 **Schema Registry:** Схема регистрируется в `src/library/schemas/__init__.py`:
 
 ```python
@@ -1209,9 +1249,11 @@ class TestitemOutputSchema(DataFrameModel):
     column_order = TestitemOutputSchema.get_column_order()
 
 ```
+
 **Ссылка:** См. также [04-normalization-validation.md](04-normalization-validation.md) для column_order и NA-policy.
 
 ### 4.2 QC профили
+
 ```python
 
 QC_PROFILE = {
@@ -1257,7 +1299,9 @@ QC_PROFILE = {
 }
 
 ```
+
 ### 4.3 Referential Integrity Check
+
 ```python
 
 def _check_referential_integrity(
@@ -1300,6 +1344,7 @@ def _check_referential_integrity(
     }
 
 ```
+
 ---
 
 ## 5. Запись результатов (Load)
@@ -1348,6 +1393,7 @@ def _atomic_write(
     return target_path
 
 ```
+
 ### 5.2 Metadata Builder
 **Шаблон `meta.yaml`:**
 
@@ -1414,6 +1460,7 @@ checksums:
 # correlation: опционально, только при postprocess.correlation.enabled: true (continued 1)
 
 ```
+
 ---
 
 ## 6. Корреляционный анализ
@@ -1431,6 +1478,7 @@ postprocess:
     min_correlation: 0.5
 
 ```
+
 **Причина:** Гарантировать бит-в-бит идентичность с/без корреляций практически невозможно из-за non-deterministic алгоритмов в scipy/numpy.
 
 **Output структура (если enabled):**
@@ -1445,6 +1493,7 @@ testitem_correlation_report_20251028/
 └── correlation_insights.json
 
 ```
+
 ---
 
 ## 7. CLI дополнения
@@ -1476,6 +1525,7 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
   --set sources.chembl.batch_size=25
 
 ```
+
 **Новые CLI параметры:**
 
 - `--golden PATH`: Путь к golden файлу для сравнения (бит-в-бит проверка)
@@ -1633,6 +1683,7 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 **Итого: ~95 колонок** (идентификаторы + иерархия + разработка + физ-хим + структуры + флаги + регистрация + механизм + drug + pubchem + стандартизированные + JSON + input + метаданные)
 
 ### 9.2 Пример полной конфигурации column_order
+
 ```yaml
 
 determinism:
@@ -1798,6 +1849,7 @@ determinism:
     - hash_business_key
 
 ```
+
 ---
 
 ## 10. Determinism Checklist

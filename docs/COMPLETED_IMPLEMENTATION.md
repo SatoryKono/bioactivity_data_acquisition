@@ -83,6 +83,7 @@
 - остальное: 37-100%
 
 ## Структура проекта
+
 ```text
 
 src/bioetl/
@@ -121,15 +122,19 @@ docs/ ✅
 └── COMPLETED_IMPLEMENTATION.md (этот файл)
 
 ```
+
 ## Использование
 ### Конфигурация
+
 ```python
 
 from bioetl.config import load_config
 config = load_config('configs/profiles/dev.yaml')
 
 ```
+
 ### Логирование
+
 ```python
 
 from bioetl.core.logger import UnifiedLogger
@@ -138,7 +143,9 @@ logger = UnifiedLogger.get('test')
 logger.info('Hello World')
 
 ```
+
 ### API Client
+
 ```python
 
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
@@ -147,14 +154,18 @@ client = UnifiedAPIClient(config)
 result = client.request_json('/endpoint')
 
 ```
+
 ### Нормализация
+
 ```python
 
 from bioetl.normalizers import registry
 result = registry.normalize('string', '  test  ')
 
 ```
+
 ### Output Writer
+
 ```python
 
 from bioetl.core.output_writer import UnifiedOutputWriter
@@ -162,7 +173,9 @@ writer = UnifiedOutputWriter(run_id='test')
 artifacts = writer.write(df, Path('output.csv'))
 
 ```
+
 ## Команды
+
 ```bash
 
 # Установка
@@ -186,6 +199,7 @@ mypy src/
 python -m bioetl.cli.main --help
 
 ```
+
 ## Следующие шаги
 Базовая инфраструктура готова. Следующие задачи:
 

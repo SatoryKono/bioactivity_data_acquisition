@@ -169,6 +169,7 @@ hash_business_key: Series[str] = pa.Field(nullable=False, regex=r'^[0-9a-f]{64}$
 index: Series[int] = pa.Field(nullable=False, ge=0)
 
 ```
+
 ### Priority 2: Enhance Activity Schema
 Add published fields and completeness flags.
 

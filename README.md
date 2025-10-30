@@ -3,6 +3,7 @@ Unified ETL framework for bioactivity data extraction from ChEMBL and
 external sources with full determinism and reproducibility.
 
 ## Installation
+
 ```bash
 
 # Install in development mode
@@ -18,12 +19,14 @@ pre-commit install
 pip install -r requirements.txt
 
 ```
+
 > **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
 > for deterministic fixture data. Installing the development extras or the
 > pinned requirements file above ensures the dependency is available before
 > running `pytest`.
 
 ## Quick Start
+
 ```bash
 
 # Load configuration
@@ -37,6 +40,7 @@ UnifiedLogger.setup('development', 'test'); \
 UnifiedLogger.get('test').info('Hello World')"
 
 ```
+
 ## Environment variables
 Все обязательные переменные перечислены в файле [`.env.example`](.env.example) с
 комментариями по формату значений. Скопируйте его и заполните реальные данные:
@@ -45,10 +49,10 @@ UnifiedLogger.get('test').info('Hello World')"
 cp .env.example .env
 ${SHELL:-bash} -lc 'set -a; source .env; set +a'
 ```
+
 Команда `set -a` экспортирует все переменные из `.env` в текущую сессию. В
 CI/CD можно использовать аналогичный подход (например, `python -m dotenv load`
 или встроенные менеджеры секретов) до вызова CLI.
-
 
 ```
 | Переменная | Назначение | Обязательность |

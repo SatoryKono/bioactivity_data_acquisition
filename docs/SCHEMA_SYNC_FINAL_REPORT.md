@@ -30,6 +30,7 @@ target_chembl_id, confidence_score, pipeline_version, source_system,
 chembl_release, extracted_at, hash_business_key, hash_row, index
 
 ```
+
 **Проверка:**
 
 - ✅ `hash_row` присутствует (64-символьный SHA256)
@@ -51,6 +52,7 @@ hash_business_key: f51be1e5a8158c26ccd9cc8490f3eb907a740525f643580f84517a13b6561
 index: 0
 
 ```
+
 ---
 
 ### 2. Activity Pipeline ✅ 100%
@@ -78,6 +80,7 @@ hash_business_key: <64-char SHA256>
 index: 0
 
 ```
+
 ---
 
 ### 3. TestItem Pipeline ✅ 100%
@@ -108,6 +111,7 @@ hash_business_key: <64-char SHA256>
 index: 0
 
 ```
+
 ---
 
 ## Что не выполнено

@@ -73,6 +73,7 @@ Has hash_row: True ✅
 Has hash_business_key: True ✅
 
 ```
+
 ### 2. Assay ✅
 **Файл:** `data/output/assay/assay_20251028_20251028.csv`
 
@@ -86,6 +87,7 @@ Has row_subtype: True ✅
 Has row_index: True ✅
 
 ```
+
 **Sample:**
 
 ```text
@@ -98,6 +100,7 @@ hash_business_key: f51be1e5a8158c26ccd9cc8490f3eb907a740525f643580f84517a13b6561
 index: 0
 
 ```
+
 ### 3. TestItem ✅
 **Файл:** `data/output/testitem/testitem_20251028_20251028.csv`
 
@@ -111,6 +114,7 @@ Has standardized_smiles: True ✅
 Has mw_freebase: True ✅
 
 ```
+
 ### 4. Document ✅
 **Файл:** `data/output/documents/documents_20251028_20251028.csv`
 
@@ -126,6 +130,7 @@ Has chembl_year: True ✅
 Has chembl_doi: True ✅
 
 ```
+
 **Sample columns:**
 
 ```text
@@ -135,6 +140,7 @@ chembl_title, chembl_abstract, chembl_authors, chembl_doi, chembl_journal,
 chembl_year, ...
 
 ```
+
 ---
 
 ## Что не выполнено

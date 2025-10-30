@@ -72,6 +72,7 @@
 - **Тесты:** ✅ CLI работает
 
 ## Структура проекта
+
 ```text
 
 src/bioetl/
@@ -124,6 +125,7 @@ docs/
 └── PROGRESS_SUMMARY.md ✅ (этот файл)
 
 ```
+
 ## Принципы реализации
 ### Детерминизм
 - ✅ UTC timestamps везде
@@ -151,13 +153,16 @@ docs/
 
 ## Примеры использования
 ### Загрузка конфигурации
+
 ```python
 
 from bioetl.config import load_config
 config = load_config('configs/profiles/dev.yaml')
 
 ```
+
 ### Настройка логгера
+
 ```python
 
 from bioetl.core.logger import UnifiedLogger
@@ -166,7 +171,9 @@ log = UnifiedLogger.get('test')
 log.info('Hello World')
 
 ```
+
 ### Использование API клиента
+
 ```python
 
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
@@ -175,7 +182,9 @@ client = UnifiedAPIClient(config)
 result = client.request_json('/endpoint')
 
 ```
+
 ### Нормализация данных
+
 ```python
 
 from bioetl.normalizers import registry
@@ -184,7 +193,9 @@ result = registry.normalize('string', '  test  ')
 # → 'test'
 
 ```
+
 ### Запись данных
+
 ```python
 
 from bioetl.core.output_writer import UnifiedOutputWriter
@@ -192,7 +203,9 @@ writer = UnifiedOutputWriter(run_id='test')
 artifacts = writer.write(df, Path('output.csv'), extended=True)
 
 ```
+
 ## Команды для проверки
+
 ```bash
 
 # Установка зависимостей
@@ -216,6 +229,7 @@ mypy src/
 python -m bioetl.cli.main --help
 
 ```
+
 ## Следующие шаги
 ### Приоритет 1: Первый пайплайн
 Реализовать конкретный пайплайн (например, Assay):

@@ -11,6 +11,7 @@ UnifiedLogger — универсальная система логировани
 - Автоматическое редактирование секретов
 
 ## Архитектура
+
 ```text
 
 UnifiedLogger
@@ -28,6 +29,7 @@ UnifiedLogger
     └── OpenTelemetry интеграция
 
 ```
+
 ## Компоненты
 ### 1. LogContext (dataclass)
 Унифицированный контекст для всех логов:
@@ -70,6 +72,7 @@ class LogContext:
     error_message: str | None = None  # Сообщение об ошибке
 
 ```
+
 **Использование**:
 
 ```python
@@ -85,6 +88,7 @@ context = LogContext(
 set_log_context(context)
 
 ```
+
 ### 2. SecurityProcessor (structlog processor)
 Редактирование чувствительных данных в structlog:
 
@@ -104,6 +108,7 @@ def security_processor(logger, method_name, event_dict):
     return event_dict
 
 ```
+
 ### 3. RedactSecretsFilter (logging.Filter)
 Фильтрация секретов на уровне стандартного logging:
 
@@ -130,6 +135,7 @@ class RedactSecretsFilter(logging.Filter):
         return True
 
 ```
+
 ### 4. SafeFormattingFilter (logging.Filter)
 Защита от ошибок форматирования в проблемных библиотеках (urllib3, requests):
 
@@ -163,6 +169,7 @@ class SafeFormattingFilter(logging.Filter):
         return True
 
 ```
+
 ### 5. LoggerConfig (dataclass)
 Единая конфигурация логгера:
 
@@ -188,6 +195,7 @@ class LoggerConfig:
     redact_secrets: bool = True
 
 ```
+
 ## Использование
 ### Идемпотентная инициализация
 `UnifiedLogger` повторно конфигурирует стандартное логирование с помощью `logging.basicConfig(..., force=True)`,
@@ -197,6 +205,7 @@ class LoggerConfig:
 конфигурационного профиля.
 
 ### Базовое использование
+
 ```python
 
 from unified_logger import configure_logging, get_logger
@@ -213,7 +222,9 @@ logger.warning("API rate limit approaching", remaining=5)
 logger.error("Failed to fetch data", api="openalex", error=str(e), exc_info=True)
 
 ```
+
 ### Stage-based логирование
+
 ```python
 
 from unified_logger import bind_stage
@@ -226,7 +237,9 @@ with bind_stage(logger, "extract", source="chembl"):
     logger.info("Extraction complete", rows=1500)
 
 ```
+
 ### Контекстные переменные
+
 ```python
 
 from unified_logger import set_run_context, generate_run_id
@@ -241,6 +254,7 @@ logger.info("Processing", step="first")
 # Output: {"run_id": "a3f8d2e1", "stage": "extract", "actor": "scheduler", "source": "chembl", "step": "first", ...}
 
 ```
+
 ### Контекст и редактирование секретов
 **Обязательный набор полей контекста**
 
@@ -291,6 +305,7 @@ set_run_context(run_id=run_id, stage="extract", actor="scheduler", source="chemb
 set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
 
 ```
+
 **Обязательные поля логов (инвариант G12):**
 
 - Базовые поля (`run_id`, `stage`, `actor`, `source`, `generated_at`) обязательны всегда.
@@ -322,6 +337,7 @@ SENSITIVE_KEYS = [
 ]
 
 ```
+
 1. **Паттерны для маскирования:**
 
 ```python
@@ -334,6 +350,7 @@ REDACT_PATTERNS = [
 ]
 
 ```
+
 1. **Применение маскирования:**
 
 ```python
@@ -359,6 +376,7 @@ def redact_secrets(event_dict: dict) -> dict:
     return event_dict
 
 ```
+
 **Примеры логов с обязательными полями:**
 
 Development (локальный dry-run, допускаются `None` для телеметрии):
@@ -385,6 +403,7 @@ Development (локальный dry-run, допускаются `None` для т
 }
 
 ```
+
 Testing (повтор запроса с имитацией 429, `trace_id` остаётся `None`):
 
 ```json
@@ -409,6 +428,7 @@ Testing (повтор запроса с имитацией 429, `trace_id` ос�
 }
 
 ```
+
 Production (успешный HTTP-запрос, все поля заполнены):
 
 ```json
@@ -433,7 +453,9 @@ Production (успешный HTTP-запрос, все поля заполнен
 }
 
 ```
+
 ### Интеграция с OpenTelemetry
+
 ```python
 
 from unified_logger import configure_logging, LoggerConfig
@@ -452,8 +474,10 @@ logger.info("API call started", endpoint="/api/data")
 # Output включает trace_id из OpenTelemetry span
 
 ```
+
 ## Режимы работы
 ### Development
+
 ```python
 
 config = LoggerConfig(
@@ -466,7 +490,9 @@ config = LoggerConfig(
 )
 
 ```
+
 ### Production
+
 ```python
 
 config = LoggerConfig(
@@ -483,7 +509,9 @@ config = LoggerConfig(
 )
 
 ```
+
 ### Testing
+
 ```python
 
 config = LoggerConfig(
@@ -496,8 +524,10 @@ config = LoggerConfig(
 )
 
 ```
+
 ## Форматы вывода
 ### Console (text)
+
 ```text
 
 [2025-01-28 14:23:15] [INFO] [extract] Pipeline started stage=init row_count=1000
@@ -505,7 +535,9 @@ config = LoggerConfig(
 [2025-01-28 14:23:25] [ERROR] [extract] Failed to fetch data api=openalex error=Timeout
 
 ```
+
 ### Console (JSON)
+
 ```json
 
 {"event": "Pipeline started", "level": "info", "logger": "extract",
@@ -519,6 +551,7 @@ config = LoggerConfig(
  "timestamp": "2025-01-28T14:23:25.789Z"}
 
 ```
+
 ### File (JSON)
 Те же JSON строки, одна на строку, с UTC timestamps и полными контекстами.
 
@@ -538,7 +571,9 @@ logs/
   app_20250128.log.10     # Самый старый (удаляется при следующей ротации)
 
 ```
+
 ### Cleanup старых логов
+
 ```python
 
 from unified_logger import cleanup_old_logs
@@ -548,6 +583,7 @@ from unified_logger import cleanup_old_logs
 cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 
 ```
+
 ## Именование файлов
 Следует конвенции из ChEMBL_data_acquisition6:
 
@@ -556,6 +592,7 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 "{script_name}_{YYYYMMDD}.log"
 
 ```
+
 Примеры:
 
 - `get_document_data_20250128.log`
@@ -630,8 +667,10 @@ configure_logging(
 )
 
 ```
+
 ## Миграция
 ### Из стандартного logging
+
 ```python
 
 # Было
@@ -647,7 +686,9 @@ logger = get_logger(__name__)
 logger.info("message")
 
 ```
+
 ### Из structlog без конфигурации
+
 ```python
 
 # Было (continued 1)
@@ -664,6 +705,7 @@ logger = get_logger(__name__)
 logger.info("message")  # Та же API
 
 ```
+
 ---
 
 **Следующий раздел**: [02-io-system.md](02-io-system.md)

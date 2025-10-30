@@ -2198,7 +2198,7 @@ def clean_expired_entries(
        cache.set(key, cid)
 
 ```
-2. **Preemptive caching:**
+1. **Preemptive caching:**
 
 ```python
 
@@ -2208,7 +2208,7 @@ def clean_expired_entries(
        cache_all_identifiers(molecule_data, cid)
 
 ```
-3. **Cache warming:**
+1. **Cache warming:**
 
 ```python
 

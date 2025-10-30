@@ -140,6 +140,7 @@ python src/scripts/run_activity.py --limit 10
 python src/scripts/run_testitem.py --limit 10
 
 ```
+
 **Результаты:**
 
 - Все пайплайны успешно запускаются

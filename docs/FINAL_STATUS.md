@@ -105,6 +105,7 @@ data/output/assay/
   └── assay_20251028_meta.yaml (352 bytes, checksum: fe26427...)
 
 ```
+
 **Статистика:**
 
 - 10 уникальных assay IDs
@@ -113,6 +114,7 @@ data/output/assay/
 - Checksum: SHA256
 
 ## Структура проекта
+
 ```text
 
 src/bioetl/
@@ -153,6 +155,7 @@ docs/ ✅
 └── FINAL_STATUS.md (этот файл)
 
 ```
+
 ## Метрики качества
 - **Код:** 20+ файлов, чистая архитектура
 - **Тесты:** 25 unit тестов
@@ -180,6 +183,7 @@ docs/ ✅
 
 ## Примеры использования
 ### Запуск Assay Pipeline
+
 ```python
 
 from bioetl.pipelines import AssayPipeline
@@ -200,6 +204,7 @@ artifacts = pipeline.run(
 print(f"Created: {artifacts.dataset}")
 
 ```
+
 ### Результат
 - `assay_20251028.csv` - основной датасет
 - `assay_20251028_quality_report.csv` - QC метрики

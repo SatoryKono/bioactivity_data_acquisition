@@ -21,6 +21,7 @@ export CROSSREF_MAILTO="your-email@example.com"  # для polite pool
 export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для production
 
 ```
+
 > **Примечание.** Синтаксис `${VAR:}` указывает конфигуратор использовать пустую строку,
 > если переменная окружения `VAR` не определена. Это удобно для опциональных ключей API,
 > вроде `PUBMED_API_KEY` или `SEMANTIC_SCHOLAR_API_KEY`, которые повышают лимиты, но не
@@ -70,6 +71,7 @@ sources:
     workers: 1
 
 ```
+
 ## Использование
 ### Автоматическая интеграция
 Адаптеры автоматически интегрированы в `DocumentPipeline`:
@@ -87,7 +89,9 @@ pipeline = DocumentPipeline(config, run_id="test")
 df = pipeline.extract("data/input/documents.csv")
 
 ```
+
 ### Прямое использование
+
 ```python
 
 from bioetl.adapters import PubMedAdapter, CrossrefAdapter
@@ -116,6 +120,7 @@ df = pubmed.process(pmids)
 pubmed.close()
 
 ```
+
 ## Приоритеты источников
 При объединении данных из нескольких источников используется следующая приоритетность:
 

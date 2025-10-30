@@ -68,6 +68,7 @@
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5"
 
 ```
+
 **Python (requests):**
 
 ```python
@@ -83,6 +84,7 @@ r.raise_for_status()
 data = r.json()
 
 ```
+
 **Критерии детерминизма/валидности:**
 
 - Версии фиксируются в `meta.yaml` (`chembl_release`, `pipeline_version`)
@@ -166,6 +168,7 @@ data = r.json()
       )
 
 ```
+
 **Алгоритм:**
 
 ```python
@@ -248,6 +251,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
     return extracted_dataframe
 
 ```
+
 **Преимущества batch IDs над offset:**
 
 - Детерминированность: одинаковый набор activity_id всегда даёт одинаковый результат
@@ -266,6 +270,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 
 ```
+
 Пример ответа (усечен):
 
 ```json
@@ -288,6 +293,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 }
 
 ```
+
 **Batch по molecule_chembl_id:**
 
 ```bash
@@ -295,6 +301,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=3"
 
 ```
+
 Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `total_count`.
 
 **Batch по target_chembl_id с фильтрами:**
@@ -304,6 +311,7 @@ Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `t
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CHEMBL240&assay_type=B&pchembl_value__gte=6&only=molecule_chembl_id,pchembl_value,assay_chembl_id&order_by=-pchembl_value&limit=5"
 
 ```
+
 Фильтры `__gte`, `only`, `order_by` — стандартные для ChEMBL Web Services.
 
 **Критерии:**
@@ -538,6 +546,7 @@ ChEMBL применяет стандартизацию и проверки ва�
 
 ## 6. Pandera Schema для Activity
 ### SCHEMA_VERSION и COLUMN_ORDER
+
 ```python
 
 from pandera import DataFrameSchema, Column, Check
@@ -558,7 +567,9 @@ STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
 RELATIONS = {"=", "<", ">", "<=", ">=", "~"}
 
 ```
+
 ### ActivitySchema
+
 ```python
 
 ActivitySchema = DataFrameSchema(
@@ -594,6 +605,7 @@ ActivitySchema = DataFrameSchema(
 )
 
 ```
+
 ### Контракт валидации
 - Строгая схема с типами, nullable, unique, диапазонами, regex и isin
 
@@ -620,6 +632,7 @@ ActivitySchema = DataFrameSchema(
 - Иметь circuit breaker для длительных деградаций
 
 ### ChEMBL API конфигурация
+
 ```python
 
 from unified_client import APIConfig
@@ -644,6 +657,7 @@ chembl_activity_config = APIConfig(
 )
 
 ```
+
 ### ⚠️ UNCERTAIN: Rate Limits
 **Проблема:**
 
@@ -672,6 +686,7 @@ chembl_activity_config = APIConfig(
 - Не полагаться на `total_count` как инвариант при долгих выгрузках
 
 ### Псевдокод
+
 ```python
 
 offset = 0
@@ -686,7 +701,9 @@ while True:
     offset += pm["limit"]
 
 ```
+
 ### page_meta структура
+
 ```json
 
 {
@@ -698,6 +715,7 @@ while True:
 }
 
 ```
+
 ### Критерии успешной пагинации
 - Логи фиксируют `page`, `offset`, `consumed`, `rate_limiter_state`
 
@@ -736,6 +754,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5000"
 
 ```
+
 **Ссылка:** [test-plan.md](../test-plan.md), процедура бинарного поиска
 
 ---
@@ -775,6 +794,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 - `run_id` — уникальный ID запуска
 
 ### Примеры логов
+
 ```json
 
 {
@@ -791,6 +811,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 }
 
 ```
+
 ### Контракт обработки ошибок
 - Fail-fast на постоянных 4xx
 
@@ -833,6 +854,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 - Invalidation: автоматическая по TTL и при смене `chembl_release`
 
 ### Пример генерации cache key
+
 ```python
 
 import hashlib
@@ -854,6 +876,7 @@ cache_key = make_cache_key(
 # Результат: 'a1b2c3d4e5f6...' (детерминированный для одинаковых параметров)
 
 ```
+
 ### Контракт кэширования
 - Стабильная сериализация параметров (сортировка ключей)
 
@@ -902,6 +925,7 @@ cache_key = make_cache_key(
 - Отчетность пишется рядом с основным CSV
 
 ### Примеры QC фильтров
+
 ```python
 
 # Фильтр по валидности данных
@@ -922,6 +946,7 @@ complete_activities = df[
 ]
 
 ```
+
 **Инвариант G10, AC9:** QC-фильтры по validity/duplicates как AC; инвариант duplicates_activity_id==0; проверка перед записью: `df["activity_id"].duplicated().sum()==0`.
 
 ```python
@@ -940,6 +965,7 @@ qc_report = {
 }
 
 ```
+
 **См. также**: [gaps.md](../gaps.md) (G10), [acceptance-criteria.md](../acceptance-criteria.md) (AC9).
 
 ### ⚠️ UNCERTAIN: Стабильность BAO полей
@@ -973,6 +999,7 @@ qc_report = {
 - Добавляет `activity_{date}_run_manifest.json` — манифест запуска (опционально)
 
 ### META_TEMPLATE.yaml
+
 ```yaml
 
 pipeline_version: "activity_etl_1.0.0"
@@ -1032,6 +1059,7 @@ notes:
   - "Детерминизм обеспечен: сортировка по activity_id."
 
 ```
+
 ### Контракт атомарной записи
 - Атомарная запись через временные файлы
 
@@ -1052,6 +1080,7 @@ notes:
 
 ## 13. Примеры использования
 ### Инициализация и GET-батч
+
 ```python
 
 import hashlib
@@ -1099,7 +1128,9 @@ for activity in fetch_activities({"target_chembl_id": "CHEMBL240"}):
     print(f"Activity {activity['activity_id']}: {activity['standard_value']}")
 
 ```
+
 ### POST с X-HTTP-Method-Override (длинные списки __in)
+
 ```python
 
 import requests
@@ -1127,9 +1158,11 @@ data = r.json()
 print(f"Received {len(data.get('activities', []))} activities")
 
 ```
+
 Поддержка POST + X-HTTP-Method-Override: GET описана в [официальной документации ChEMBL](https://www.ebi.ac.uk/chembl/documentation/webservices).
 
 ### Полный пайплайн
+
 ```python
 
 from unified_client import UnifiedAPIClient
@@ -1174,6 +1207,7 @@ writer.write(
 )
 
 ```
+
 ### Критерии валидности примеров
 - Примеры возвращают валидный JSON
 
@@ -1223,6 +1257,7 @@ filters = {
 filters = {}  # Будет очень медленно!
 
 ```
+
 **Кэширование:**
 
 ```python
@@ -1236,6 +1271,7 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=True, cache_ttl=3600))
 client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
 ```
+
 ---
 
 ## 15. Связь с другими компонентами
@@ -1270,6 +1306,7 @@ Activity
 └── document_chembl_id → Document
 
 ```
+
 **Проверка referential integrity:**
 
 ```python
@@ -1293,9 +1330,11 @@ def validate_referential_integrity(activities_df, assays_df, targets_df):
         )
 
 ```
+
 ---
 
 ## 16. Диаграмма потока данных
+
 ```mermaid
 
 flowchart LR
@@ -1312,6 +1351,7 @@ flowchart LR
   H -->|fail| E[Log error + fail-fast]
 
 ```
+
 **Описание:**
 
 1. **Request filters** — входные параметры запроса

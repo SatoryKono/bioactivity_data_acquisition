@@ -3,6 +3,7 @@
 Документ описывает спецификацию извлечения данных ассаев (assay) из ChEMBL API с детерминированностью, полной воспроизводимостью результатов и защитой от потери данных.
 
 ## Архитектура
+
 ```text
 
 AssayPipeline
@@ -30,6 +31,7 @@ AssayPipeline
     └── MetadataBuilder (full provenance)
 
 ```
+
 ## 1. Входные данные
 ### 1.1 Формат входных данных
 **Файл:** CSV или DataFrame
@@ -57,6 +59,7 @@ class AssayInputSchema(pa.DataFrameModel):
         coerce = True
 
 ```
+
 ### 1.2 Конфигурация
 **Базовый стандарт:** см. `docs/requirements/10-configuration.md` (§2–§6).
 
@@ -99,6 +102,7 @@ chembl_release: str = None  # Фиксируется один раз в нача
 chembl_base_url: str  # URL для воспроизводимости
 
 ```
+
 **КРИТИЧЕСКИ ВАЖНО:**
 
 1. Снимок `/status` выполняется **один раз** в начале run
@@ -130,6 +134,7 @@ if batch_size > 25:
       )
 
 ```
+
 **Алгоритм:**
 
 ```python
@@ -212,6 +217,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
     return extracted_dataframe
 
 ```
+
 ### 2.3 Fallback механизм
 **Условия активации:**
 
@@ -250,6 +256,7 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
     }
 
 ```
+
 ### 2.4 Развертывание вложенных структур
 **ВАЖНО:** Текущая реализация "берет первый параметр" **НЕВЕРНА** и приводит к потере данных. Требуется рефакторинг.
 
@@ -311,6 +318,7 @@ df["row_subtype"] = "assay"  # или "param" при explode
 df["row_index"] = df.groupby("assay_chembl_id").cumcount()
 
 ```
+
 **Вариант B: Широкий формат с индексацией** (опционально)
 
 ```python
@@ -333,6 +341,7 @@ def _expand_assay_parameters_wide(self, assay_data: dict, max_params: int = 5) -
     return result
 
 ```
+
 **Рекомендация:** Использовать **Вариант A (long format)** как основной, с опциональным pivot в wide при необходимости.
 
 **Инвариант G7:** Расширение вложенных массивов только в long-format (parameters, variant_sequences, classifications); при невозможности — error; включить RI-чек "assay→target".
@@ -385,6 +394,7 @@ def _expand_variant_sequences(self, assay_data: dict) -> pd.DataFrame:
     return pd.DataFrame(records)
 
 ```
+
 #### 2.4.3 Assay Classifications
 **Источник:** Поле `assay_classifications` (JSON строка с массивом)
 
@@ -428,6 +438,7 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
     return pd.DataFrame()
 
 ```
+
 ### 2.5 Обогащение данными (Enrichment)
 **См. также**: [gaps.md](../gaps.md) (G6, G7, G8), [acceptance-criteria.md](../acceptance-criteria.md) (AC7, AC8), [implementation-examples.md](../implementation-examples.md) (патч 2).
 
@@ -520,6 +531,7 @@ def _merge_target_data(self, assay_df: pd.DataFrame, target_df: pd.DataFrame) ->
     return result
 
 ```
+
 **Инвариант G8:** --strict-enrichment + schema check; whitelist-enrichment обязателен; запрет лишних полей при enrichment.
 
 #### 2.5.2 Обогащение Assay Class данными
@@ -545,6 +557,7 @@ ASSAY_CLASS_ENRICHMENT_WHITELIST = [
 # Аналогичная логика с whitelist и RI check
 
 ```
+
 ## 3. Нормализация данных (Normalize)
 ### 3.1 Каноническая сериализация для хеширования
 **Метод:** `_canonicalize_row_for_hash()` (НОВЫЙ)
@@ -586,7 +599,9 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 
 ```
+
 ### 3.2 Хеширование
+
 ```python
 
 def _calculate_hashes(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
@@ -607,7 +622,9 @@ def _calculate_hashes(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
     return hash_row, hash_bk
 
 ```
+
 ### 3.3 Системные метаданные
+
 ```python
 
 def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -640,6 +657,7 @@ def _add_system_metadata(self, df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 ```
+
 ### 3.4 Настройки типов данных (Dtypes)
 **КРИТИЧЕСКИ:** Использовать nullable dtypes, никаких `object`
 
@@ -660,8 +678,10 @@ DTYPES_CONFIG = {
 }
 
 ```
+
 ## 4. Валидация и QC
 ### 4.1 Referential Integrity Check
+
 ```python
 
 def _check_referential_integrity(self, df: pd.DataFrame) -> dict:
@@ -706,7 +726,9 @@ def _check_referential_integrity(self, df: pd.DataFrame) -> dict:
     }
 
 ```
+
 ### 4.2 QC Profile
+
 ```python
 
 qc_profile = {
@@ -740,6 +762,7 @@ qc_profile = {
 }
 
 ```
+
 ## 5. Запись результатов (Load)
 ### 5.1 Atomic Writes
 **Механизм:** Временный файл в run_id-scoped директории + atomic rename
@@ -789,7 +812,9 @@ def _atomic_write(
     return target_path
 
 ```
+
 ### 5.2 Metadata Builder
+
 ```yaml
 
 # assay_{date_tag}_meta.yaml
@@ -844,6 +869,7 @@ checksums:
   quality_report: sha256: "ghi789..."
 
 ```
+
 ## 6. Корреляционный анализ
 **ВАЖНО:** Корреляционный анализ **НЕ часть ETL** и должен быть **опциональным**
 
@@ -861,6 +887,7 @@ postprocess:
         enabled: true  # Включается только явно
 
 ```
+
 **Причина:** Гарантировать бит-в-бит идентичность с/без корреляций практически невозможно из-за non-deterministic алгоритмов.
 
 ## 7. CLI Дополнения
@@ -891,6 +918,7 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
   --set qc.severity_threshold=error
 
 ```
+
 **Новые CLI параметры:**
 
 - `--golden PATH`: Путь к golden файлу для сравнения (бит-в-бит проверка)

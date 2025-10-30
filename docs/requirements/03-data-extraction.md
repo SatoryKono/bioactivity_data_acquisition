@@ -13,6 +13,7 @@ UnifiedAPIClient — универсальный клиент для работы
 - **Exponential backoff** с giveup условиями (оба проекта)
 
 ## Архитектура
+
 ```text
 
 UnifiedAPIClient
@@ -32,6 +33,7 @@ UnifiedAPIClient
     └── Pagination handling
 
 ```
+
 ## Компоненты
 ### 1. APIConfig (dataclass)
 Конфигурация клиента:
@@ -87,6 +89,7 @@ class APIConfig:
     fallback_strategies: list[str] = field(default_factory=lambda: ["network", "timeout"])
 
 ```
+
 ### 2. CircuitBreaker
 Защита от каскадных ошибок:
 
@@ -132,6 +135,7 @@ class CircuitBreaker:
             raise
 
 ```
+
 ### 3. TokenBucketLimiter
 Rate limiting с jitter:
 
@@ -188,6 +192,7 @@ class TokenBucketLimiter:
             self.last_refill = now
 
 ```
+
 ### 4. RetryPolicy
 Политика повторов с giveup:
 
@@ -250,6 +255,7 @@ class RetryPolicy:
         return self.backoff_factor ** attempt
 
 ```
+
 ### 5. FallbackManager
 Управление fallback стратегиями:
 
@@ -303,6 +309,7 @@ class FallbackManager:
         return {}
 
 ```
+
 ### 6. ResponseParser
 Универсальный парсер ответов:
 
@@ -375,6 +382,7 @@ class ResponseParser:
         return result
 
 ```
+
 ### 7. PaginationHandler
 Обработка различных типов пагинации:
 
@@ -513,7 +521,9 @@ class PaginationHandler:
         return False
 
 ```
+
 ## Основной класс: UnifiedAPIClient
+
 ```python
 
 class UnifiedAPIClient:
@@ -629,6 +639,7 @@ class UnifiedAPIClient:
                 time.sleep(wait_time)
 
 ```
+
 ### Cache policy
 UnifiedAPIClient разделяет ответственность кэширования на два уровня:
 
@@ -664,6 +675,7 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
     return response
 
 ```
+
 **Warm-up:** допускается прогрев популярных ключей при старте (например, `status` endpoints).
 
 **Invalidation:**
@@ -710,8 +722,10 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
         return self.request("POST", endpoint, json=data, **kwargs)
 
 ```
+
 ## Конфигурации для разных API
 ### ChEMBL
+
 ```python
 
 chembl_config = APIConfig(
@@ -728,7 +742,9 @@ chembl_config = APIConfig(
 )
 
 ```
+
 ### PubMed
+
 ```python
 
 pubmed_config = APIConfig(
@@ -743,7 +759,9 @@ pubmed_config = APIConfig(
 )
 
 ```
+
 ### Semantic Scholar
+
 ```python
 
 semantic_scholar_config = APIConfig(
@@ -759,7 +777,9 @@ semantic_scholar_config = APIConfig(
 )
 
 ```
+
 ### PubChem
+
 ```python
 
 pubchem_config = APIConfig(
@@ -775,7 +795,9 @@ pubchem_config = APIConfig(
 )
 
 ```
+
 ### UniProt
+
 ```python
 
 uniprot_config = APIConfig(
@@ -788,7 +810,9 @@ uniprot_config = APIConfig(
 )
 
 ```
+
 ### IUPHAR
+
 ```python
 
 iuphar_config = APIConfig(
@@ -801,7 +825,9 @@ iuphar_config = APIConfig(
 )
 
 ```
+
 ## Использование
+
 ```python
 
 from unified_client import UnifiedAPIClient, APIConfig
@@ -824,10 +850,12 @@ data = client.get("molecule/CHEMBL25.json")
 data = client.get("molecule", params={"molecule_chembl_id__in": "CHEMBL25,CHEMBL26"})
 
 ```
+
 ## Error Model
 Классификация ошибок и реакция пайплайна:
 
 ### Классы ошибок
+
 ```python
 
 class APIError(Exception):
@@ -867,6 +895,7 @@ class PartialFailure(APIError):
         self.page_state = page_state
 
 ```
+
 ### Поля события
 Все события ошибок содержат:
 
@@ -943,6 +972,7 @@ def drain_partial_queue(client: UnifiedAPIClient) -> None:
         item.attempt += 1
 
 ```
+
 **Примечание:** `params` обязан содержать исходный `page_state`, чтобы соблюсти контракт идемпотентности.
 
 **Конфигурация:**
@@ -956,9 +986,11 @@ http:
       backoff_factor: 2.0
 
 ```
+
 **Обоснование:** Предотвращает потерю данных при частичных сбоях пагинации, формализует недостающий контракт обработки ошибок, закрывает риск R3 из gap-анализа.
 
 ### Примеры логов
+
 ```json
 
 {"level": "error", "code": 429, "message": "Rate limited", "retry_after": 60,
@@ -974,6 +1006,7 @@ http:
  "timestamp_utc": "2025-01-28T14:23:25.789Z"}
 
 ```
+
 ## Pagination
 Спецификация стратегий пагинации для внешних API.
 
@@ -990,6 +1023,7 @@ http:
 **Общие стратегии для других API:**
 
 #### Page + Limit
+
 ```python
 
 params = {"page": 1, "limit": 100}
@@ -997,7 +1031,9 @@ params = {"page": 1, "limit": 100}
 # Ответ: {"items": [...], "page": 1, "total_pages": 10}
 
 ```
+
 #### Cursor
+
 ```python
 
 params = {"cursor": "abc123", "limit": 100}
@@ -1005,7 +1041,9 @@ params = {"cursor": "abc123", "limit": 100}
 # Ответ: {"items": [...], "next_cursor": "def456", "has_more": true}
 
 ```
+
 #### Offset + Limit
+
 ```python
 
 params = {"offset": 0, "limit": 100}
@@ -1013,6 +1051,7 @@ params = {"offset": 0, "limit": 100}
 # Ответ: {"items": [...], "offset": 100, "total": 1000}
 
 ```
+
 ### Сигналы завершения
 | Стратегия | Сигнал завершения |
 |-----------|-------------------|
@@ -1040,6 +1079,7 @@ response2 = api.get("/data", params=params)
 assert response1.items == response2.items  # Идемпотентность
 
 ```
+
 Нарушения идемпотентности:
 
 - Изменение порядка элементов между запросами
@@ -1070,6 +1110,7 @@ params = {"offset": 100, "cursor": "abc123"}  # Ошибка!
 params = {"assay_chembl_id__in": "CHEMBL1,CHEMBL2", "offset": 0}  # Ошибка!
 
 ```
+
 **Допустимо (унифицированная стратегия для ChEMBL):**
 
 ```python
@@ -1093,6 +1134,7 @@ params = {"cursor": "abc123", "limit": 100}  # Только cursor
 params = {"page": 1, "limit": 100}  # Только page
 
 ```
+
 **Валидация стратегии:**
 
 ```python
@@ -1109,6 +1151,7 @@ def validate_pagination_params(params: dict) -> None:
         raise ValueError(f"Multiple pagination strategies detected: {params}")
 
 ```
+
 **См. также**: [gaps.md](../gaps.md) (G2), [06-activity-data-extraction.md](06-activity-data-extraction.md).
 
 ### TTL курсора
@@ -1143,6 +1186,7 @@ if response.status_code == 429:
     raise RateLimitError("Rate limited")
 
 ```
+
 **Политика ретраев**:
 
 - 2xx, 3xx: успех, возвращаем response
@@ -1183,6 +1227,7 @@ assert "retry_after=7" in log_output
 assert "attempt=1" in log_output
 
 ```
+
 **Порог:** Время ожидания >= указанному Retry-After.
 
 ### AC-19: Fail-Fast на 4xx (кроме 429)
@@ -1209,6 +1254,7 @@ assert attempt == 1
 assert "Client error, giving up" in log_output
 
 ```
+
 **Порог:** Нет ретраев на 4xx (кроме 429).
 
 ## Best Practices

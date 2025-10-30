@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import bioetl.utils.column_validator as column_validator_module
-from bioetl.utils.column_validator import ColumnComparisonResult, ColumnValidator
+import bioetl.utils.validation as column_validator_module
+from bioetl.utils.validation import ColumnComparisonResult, ColumnValidator
 
 
 @pytest.mark.parametrize(

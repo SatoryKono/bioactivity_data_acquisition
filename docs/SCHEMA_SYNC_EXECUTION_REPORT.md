@@ -78,6 +78,7 @@ if "column_order" in ActivitySchema.Config.__dict__:
     df = df[[col for col in expected_cols if col in df.columns]]
 
 ```
+
 **Решение:**
 
 - Добавить `index`, `hash_row`, `hash_business_key` в column_order всех схем
@@ -97,6 +98,7 @@ Columns: ['assay_chembl_id', 'row_subtype', 'row_index', 'hash_row', 'hash_busin
 Row count: 10
 
 ```
+
 **Статус:**
 
 - ✅ Explode работает (row_subtype="assay", row_index=0)
@@ -117,6 +119,7 @@ Has hash fields: False
 Has index: False
 
 ```
+
 **Статус:**
 
 - ⚠️ Hash поля НЕ генерируются (фильтруются column_order)
@@ -136,6 +139,7 @@ Has mw_freebase: True
 Has standardized_smiles: False
 
 ```
+
 **Статус:**
 
 - ⚠️ Hash поля НЕ генерируются (фильтруются column_order)

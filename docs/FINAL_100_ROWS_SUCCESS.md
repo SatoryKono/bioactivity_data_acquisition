@@ -73,6 +73,7 @@ df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
 df = pd.read_csv(input_file)  # Read all records
 
 ```
+
 1. **src/bioetl/pipelines/activity.py:**
 
 ```python
@@ -86,6 +87,7 @@ df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
 df = pd.read_csv(input_file)  # Read all records
 
 ```
+
 1. **src/bioetl/pipelines/testitem.py:**
 
 ```python
@@ -99,6 +101,7 @@ df = pd.read_csv(input_file, nrows=10)  # Limit to 10 records
 df = pd.read_csv(input_file)  # Read all records
 
 ```
+
 ---
 
 ## Проверка качества данных

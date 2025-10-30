@@ -20,6 +20,7 @@ sources:
     rate_limit_jitter: true
 
 ```
+
 These defaults cover the API endpoint, deterministic request headers, and common throttling behaviour. Individual pipelines only override the pieces that differ.
 
 ## Referencing the include
@@ -33,6 +34,7 @@ extends:
   - ../includes/chembl_source.yaml
 
 ```
+
 Inside the `sources.chembl` block override only the parameters that vary per pipeline, typically `batch_size` and the pipeline-specific `headers.User-Agent`:
 
 ```yaml
@@ -44,6 +46,7 @@ sources:
       User-Agent: "bioetl-document-pipeline/1.0"
 
 ```
+
 Additional ChEMBL options (e.g. cache settings, circuit breakers) may be added in the pipeline file as needed, but the shared defaults should remain untouched.
 
 ## External adapter overrides
@@ -59,6 +62,7 @@ sources:
     timeout_sec: 15.0      # applies to both connect/read timeouts
 
 ```
+
 All overrides are optional; unset values fall back to the global `cache` and `http.global` configuration. Use `timeout_sec` to adjust both connect and read timeouts together, or provide the more granular `connect_timeout_sec` / `read_timeout_sec` keys when an API needs asymmetric limits.
 
 ## Validating merges
@@ -81,5 +85,6 @@ Configuration loading resolves all `extends` entries recursively. Unit tests und
 cp .env.example .env           # однократно, затем заполните значения
 ${SHELL:-bash} -lc 'set -a; source .env; set +a'
 ```
+
 Команда выше экспортирует все ключи из `.env` в текущую оболочку, после чего CLI
 (`python -m bioetl.cli.main …`) и тесты используют корректные токены.

@@ -227,7 +227,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 typer.echo("Валидация колонок...")
 
                 try:
-                    from bioetl.utils.column_validator import ColumnValidator
+                    from bioetl.utils.validation import ColumnValidator
 
                     validator = ColumnValidator(
                         skip_suffixes=config.determinism.column_validation_ignore_suffixes
