@@ -13,6 +13,9 @@ The legacy `library.target` package has been fully removed. The modern `bioetl` 
 ## Follow-up
 - Monitor downstream documentation or deployment scripts for any references to the removed modules and update them to point to the `bioetl` equivalents if discovered.
 
+## Shared Determinism Configuration
+- Introduced `configs/includes/determinism_defaults.yaml` to centralize determinism defaults for all pipelines extending ChEMBL sources.
+- Updated activity, assay, document, and testitem pipeline configs to extend the shared include instead of duplicating the determinism defaults.
 ## Shared ChEMBL Client Contract
 - Pipelines that communicate with the ChEMBL API must call `bioetl.pipelines.base.create_chembl_client` during construction.
 - The helper applies the canonical defaults (base URL, batch sizing, URL-length guards) via `ensure_target_source_config` and materialises a `UnifiedAPIClient` using `APIClientFactory.from_pipeline_config`.

@@ -1,5 +1,6 @@
 extends:
   - ../base.yaml
+  - ../includes/determinism_defaults.yaml
   - ../includes/chembl_source.yaml
 
 pipeline:
@@ -13,9 +14,6 @@ sources:
       User-Agent: "bioetl-assay-pipeline/1.0"
 
 determinism:
-  hash_algorithm: "sha256"
-  float_precision: 6
-  datetime_format: "iso8601"
   sort:
     by: ["assay_chembl_id", "row_subtype"]
     ascending: [true, true]

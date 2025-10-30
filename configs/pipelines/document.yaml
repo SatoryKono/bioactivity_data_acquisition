@@ -1,5 +1,6 @@
 extends:
   - ../base.yaml
+  - ../includes/determinism_defaults.yaml
   - ../includes/chembl_source.yaml
 
 pipeline:
@@ -50,9 +51,6 @@ sources:
     workers: 1
 
 determinism:
-  hash_algorithm: "sha256"
-  float_precision: 6
-  datetime_format: "iso8601"
   sort:
     by: ["document_chembl_id"]
     ascending: [true]

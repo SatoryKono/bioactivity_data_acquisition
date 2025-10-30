@@ -1,0 +1,4 @@
+determinism:
+  hash_algorithm: "sha256"
+  float_precision: 6
+  datetime_format: "iso8601"
