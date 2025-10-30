@@ -12,6 +12,7 @@ from typing import Any, Callable
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.config.models import DeterminismConfig
 
 logger = UnifiedLogger.get(__name__)
 
@@ -134,11 +135,47 @@ class OutputMetadata:
         )
 
 
+def _resolve_float_format(
+    determinism: DeterminismConfig | None,
+    override: str | None,
+) -> str | None:
+    """Return the float format string derived from determinism settings."""
+
+    if override is not None:
+        return override
+
+    if determinism is None:
+        return None
+
+    precision = determinism.float_precision
+    return f"%.{precision}f"
+
+
+def _resolve_date_format(
+    determinism: DeterminismConfig | None,
+    override: str | None,
+) -> str | None:
+    """Return the date format string respecting ``iso8601`` default semantics."""
+
+    if override is not None:
+        return override
+
+    if determinism is None:
+        return None
+
+    fmt = determinism.datetime_format
+    if fmt.lower() == "iso8601":
+        return None
+
+    return fmt
+
+
 class AtomicWriter:
     """Атомарная запись с защитой от corruption."""
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str, determinism: DeterminismConfig | None = None):
         self.run_id = run_id
+        self.determinism = determinism or DeterminismConfig()
 
     def write(self, data: pd.DataFrame, path: Path, **kwargs) -> None:
         """Записывает data в path атомарно через run-scoped temp directory."""
@@ -155,7 +192,20 @@ class AtomicWriter:
 
     def _write_to_file(self, data: pd.DataFrame, path: Path, **kwargs) -> None:
         """Записывает DataFrame в файл."""
-        data.to_csv(path, index=False, **kwargs)
+        float_format = _resolve_float_format(
+            self.determinism, kwargs.pop("float_format", None)
+        )
+        date_format = _resolve_date_format(
+            self.determinism, kwargs.pop("date_format", None)
+        )
+
+        data.to_csv(
+            path,
+            index=False,
+            float_format=float_format,
+            date_format=date_format,
+            **kwargs,
+        )
 
 
 class QualityReportGenerator:
@@ -207,9 +257,10 @@ class QualityReportGenerator:
 class UnifiedOutputWriter:
     """Unified output writer with atomic writes and QC reports."""
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str, determinism: DeterminismConfig | None = None):
         self.run_id = run_id
-        self.atomic_writer = AtomicWriter(run_id)
+        self.determinism = determinism or DeterminismConfig()
+        self.atomic_writer = AtomicWriter(run_id, determinism=self.determinism)
         self.quality_generator = QualityReportGenerator()
 
     def write(
@@ -407,7 +458,7 @@ class UnifiedOutputWriter:
         json_path: Path,
         *,
         orient: str = "records",
-        date_format: str = "iso",
+        date_format: str | None = None,
     ) -> None:
         """Serialize ``df`` to JSON using the same atomic guarantees as CSV writes."""
 
@@ -419,10 +470,30 @@ class UnifiedOutputWriter:
             date_format=date_format,
         )
 
-        json_payload = df.to_json(
+        dataframe_to_serialize = df
+        resolved_date_format = date_format
+
+        datetime_format = self.determinism.datetime_format
+        if resolved_date_format is None:
+            if datetime_format.lower() == "iso8601":
+                resolved_date_format = "iso"
+            else:
+                datetime_columns = df.select_dtypes(
+                    include=["datetime", "datetimetz"]
+                ).columns
+                if len(datetime_columns) > 0:
+                    dataframe_to_serialize = df.copy()
+                    for column in datetime_columns:
+                        dataframe_to_serialize[column] = dataframe_to_serialize[column].dt.strftime(
+                            datetime_format
+                        )
+                resolved_date_format = None
+
+        json_payload = dataframe_to_serialize.to_json(
             orient=orient,
             force_ascii=False,
-            date_format=date_format,
+            date_format=resolved_date_format,
+            double_precision=self.determinism.float_precision,
         )
         parsed_payload = json.loads(json_payload) if json_payload else []
 
