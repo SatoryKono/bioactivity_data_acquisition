@@ -2,30 +2,25 @@
 
 import unittest
 
-from bioetl.adapters.base import AdapterConfig
 from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
-from bioetl.core.api_client import APIConfig
+
+from tests.unit.adapters._mixins import AdapterTestMixin
 
 
-class TestSemanticScholarAdapter(unittest.TestCase):
+class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
     """Test SemanticScholarAdapter."""
 
-    def setUp(self):
-        """Set up test fixtures."""
-        api_config = APIConfig(
-            name="semantic_scholar",
-            base_url="https://api.semanticscholar.org/graph/v1",
-            rate_limit_max_calls=1,
-            rate_limit_period=1.25,
-        )
-        adapter_config = AdapterConfig(
-            enabled=True,
-            batch_size=50,
-            workers=1,
-        )
-        adapter_config.api_key = "test_key"
-
-        self.adapter = SemanticScholarAdapter(api_config, adapter_config)
+    ADAPTER_CLASS = SemanticScholarAdapter
+    API_CONFIG_OVERRIDES = {
+        "name": "semantic_scholar",
+        "base_url": "https://api.semanticscholar.org/graph/v1",
+        "rate_limit_period": 1.25,
+    }
+    ADAPTER_CONFIG_OVERRIDES = {
+        "batch_size": 50,
+        "workers": 1,
+        "api_key": "test_key",
+    }
 
     def test_format_paper_id(self):
         """Test paper ID formatting."""
