@@ -449,6 +449,12 @@ class TestItemPipeline(PipelineBase):
             context={"chembl_release": self._chembl_release},
         )
 
+    def close_resources(self) -> None:
+        """Close API clients and adapters associated with the pipeline."""
+
+        seen = self._close_objects(self.external_adapters.values())
+        self._close_known_resources(seen=seen)
+
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract molecule data from input file."""
         df, resolved_path = self.read_input_table(

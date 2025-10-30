@@ -13,7 +13,7 @@ from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
 
 from bioetl.config.loader import load_config
-from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.hashing import generate_hash_business_key
 from bioetl.core.output_writer import OutputArtifacts
 from bioetl.pipelines import (
@@ -121,6 +121,47 @@ def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     assert list(pipeline.qc_missing_mappings["call"]) == [1]
     assert list(pipeline.qc_enrichment_metrics["call"]) == [1]
     assert pipeline.stage_context["transform_call"] == 1
+
+
+def test_pipeline_run_closes_api_clients(assay_config, tmp_path, monkeypatch):
+    """The pipeline run lifecycle should close initialized API clients."""
+
+    close_calls: list[UnifiedAPIClient] = []
+    original_close = UnifiedAPIClient.close
+
+    def _recording_close(self: UnifiedAPIClient) -> None:
+        close_calls.append(self)
+        original_close(self)
+
+    monkeypatch.setattr(UnifiedAPIClient, "close", _recording_close, raising=False)
+
+    class ClosingPipeline(PipelineBase):
+        def __init__(self, config: Any, run_id: str):
+            super().__init__(config, run_id)
+            self.api_client = UnifiedAPIClient(APIConfig(name="test", base_url="https://example.com"))
+
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            return pd.DataFrame({"value": [1]})
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def export(
+            self, df: pd.DataFrame, output_path: Path, *, extended: bool = False
+        ) -> OutputArtifacts:  # noqa: D401 - test stub
+            return OutputArtifacts(
+                dataset=output_path,
+                quality_report=output_path.with_suffix(".qc.csv"),
+                run_directory=output_path.parent,
+            )
+
+    pipeline = ClosingPipeline(assay_config, "close-test")
+    pipeline.run(tmp_path / "dataset.csv")
+
+    assert len(close_calls) >= 1
 
 
 class TestAssayPipeline:

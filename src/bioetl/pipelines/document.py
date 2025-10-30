@@ -219,6 +219,12 @@ class DocumentPipeline(PipelineBase):
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
 
+    def close_resources(self) -> None:
+        """Close API clients and adapters created during initialization."""
+
+        seen = self._close_objects(self.external_adapters.values())
+        self._close_known_resources(seen=seen)
+
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
         df, resolved_path = self.read_input_table(

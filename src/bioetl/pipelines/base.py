@@ -664,6 +664,63 @@ class PipelineBase(ABC):
 
         self.additional_tables.clear()
 
+    def _close_objects(
+        self,
+        objects: Iterable[Any],
+        *,
+        seen: set[int] | None = None,
+    ) -> set[int]:
+        """Close objects that expose a ``close`` method, suppressing errors."""
+
+        if seen is None:
+            seen = set()
+
+        for obj in objects:
+            if obj is None:
+                continue
+
+            identifier = id(obj)
+            if identifier in seen:
+                continue
+
+            close_method = getattr(obj, "close", None)
+            if callable(close_method):
+                try:
+                    close_method()
+                except Exception as exc:  # noqa: BLE001 - log and continue
+                    logger.warning(
+                        "resource_close_failed",
+                        resource=obj.__class__.__name__,
+                        error=str(exc),
+                    )
+
+            seen.add(identifier)
+
+        return seen
+
+    def _close_known_resources(self, *, seen: set[int] | None = None) -> set[int]:
+        """Close well-known API client attributes owned by the pipeline."""
+
+        candidates: list[Any] = []
+        for attribute in (
+            "api_client",
+            "chembl_client",
+            "uniprot_client",
+            "uniprot_idmapping_client",
+            "uniprot_orthologs_client",
+            "iuphar_client",
+        ):
+            candidate = getattr(self, attribute, None)
+            if candidate is not None:
+                candidates.append(candidate)
+
+        return self._close_objects(candidates, seen=seen)
+
+    def close_resources(self) -> None:
+        """Close any API clients associated with the pipeline instance."""
+
+        self._close_known_resources()
+
     def _should_emit_debug_artifacts(self) -> bool:
         """Determine whether verbose/debug outputs should be materialised."""
 
@@ -714,6 +771,7 @@ class PipelineBase(ABC):
         """Запускает полный пайплайн: extract → transform → validate → export."""
         logger.info("pipeline_started", pipeline=self.config.pipeline.name)
 
+        artifacts: OutputArtifacts | None = None
         try:
             self.reset_run_state()
             self.reset_additional_tables()
@@ -742,4 +800,14 @@ class PipelineBase(ABC):
         except Exception as e:
             logger.error("pipeline_failed", error=str(e))
             raise
+
+        finally:
+            try:
+                self.close_resources()
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning(
+                    "pipeline_cleanup_failed",
+                    error=str(exc),
+                    pipeline=self.config.pipeline.name,
+                )
 
