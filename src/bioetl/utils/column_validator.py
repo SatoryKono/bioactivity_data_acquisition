@@ -304,11 +304,13 @@ class ColumnValidator:
         results: list[ColumnComparisonResult] = []
 
         # Найти CSV файлы в выходной директории
-        csv_files = [
-            csv_file
-            for csv_file in output_dir.glob("**/*.csv")
-            if not self._should_skip_file(csv_file)
-        ]
+        csv_files = sorted(
+            [
+                csv_file
+                for csv_file in output_dir.glob("**/*.csv")
+                if not self._should_skip_file(csv_file)
+            ]
+        )
 
         if not csv_files:
             self.logger.warning(
