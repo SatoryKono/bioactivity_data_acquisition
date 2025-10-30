@@ -28,7 +28,6 @@ from bioetl.pipelines.target_gold import (
     annotate_source_rank,
     coalesce_by_priority,
     expand_xrefs,
-    materialize_gold,
     merge_components,
 )
 from bioetl.schemas import (
@@ -302,26 +301,41 @@ class TargetPipeline(PipelineBase):
 
         self.reset_additional_tables()
         if not gold_components.empty:
-            self.add_additional_table("target_components", gold_components)
+            self.add_additional_table(
+                "target_components",
+                gold_components,
+                formats=("csv", "parquet"),
+            )
         if not gold_protein_class.empty:
             self.add_additional_table(
                 "target_protein_classifications",
                 gold_protein_class,
+                formats=("csv", "parquet"),
             )
         if not gold_xref.empty:
-            self.add_additional_table("target_xrefs", gold_xref)
+            self.add_additional_table(
+                "target_xrefs",
+                gold_xref,
+                formats=("csv", "parquet"),
+            )
         if not component_enrichment.empty:
             self.add_additional_table(
                 "target_component_enrichment",
                 component_enrichment,
+                formats=("csv", "parquet"),
             )
         if not iuphar_classification.empty:
             self.add_additional_table(
                 "target_iuphar_classification",
                 iuphar_classification,
+                formats=("csv", "parquet"),
             )
         if not iuphar_gold.empty:
-            self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
+            self.add_additional_table(
+                "target_iuphar_enrichment",
+                iuphar_gold,
+                formats=("csv", "parquet"),
+            )
 
         self.set_export_metadata_from_dataframe(
             gold_targets,
@@ -1606,14 +1620,33 @@ class TargetPipeline(PipelineBase):
             logger.info("gold_materialization_skipped", reason="dry_run")
             return
 
-        gold_path = getattr(self.config.materialization, "gold", Path("data/output/target/targets_final.parquet"))
-        materialize_gold(
-            Path(gold_path),
-            targets=targets_df,
-            components=components_df,
-            protein_class=protein_class_df,
-            xref=xref_df,
+        materialization_config = getattr(self.config, "materialization", None)
+        gold_target = getattr(materialization_config, "gold", None)
+        if not gold_target:
+            logger.info("gold_materialization_skipped", reason="missing_gold_path")
+            return
+
+        gold_path = Path(gold_target)
+        logger.info("gold_materialization_started", path=str(gold_path))
+
+        extended_flag = bool(self.runtime_options.get("extended", False))
+
+        self.output_writer.write(
+            targets_df,
+            gold_path,
+            metadata=self.export_metadata,
+            extended=extended_flag,
+            issues=self.validation_issues,
+            qc_metrics=self.qc_metrics,
+            qc_summary=self.qc_summary_data,
+            qc_missing_mappings=self.qc_missing_mappings,
+            qc_enrichment_metrics=self.qc_enrichment_metrics,
+            additional_tables=self.additional_tables,
+            runtime_options=self.runtime_options,
+            dataset_formats=("parquet", "csv"),
         )
+
+        logger.info("gold_materialization_completed", path=str(gold_path))
 
     def _expand_json_column(self, df: pd.DataFrame, column: str) -> pd.DataFrame:
         """Expand a JSON encoded column into a flat DataFrame."""

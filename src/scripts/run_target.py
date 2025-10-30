@@ -278,6 +278,8 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     typer.echo("=== Target Pipeline Execution Summary ===")
     typer.echo(f"Run directory: {artifacts.run_directory}")
     typer.echo(f"Dataset: {artifacts.dataset}")
+    if artifacts.dataset_parquet and artifacts.dataset_parquet != artifacts.dataset:
+        typer.echo(f"Dataset (parquet): {artifacts.dataset_parquet}")
     typer.echo(f"Quality report: {artifacts.quality_report}")
     if artifacts.correlation_report:
         typer.echo(f"Correlation report: {artifacts.correlation_report}")
@@ -298,6 +300,10 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     if artifacts.additional_datasets:
         typer.echo("Additional datasets:")
         for name, path in artifacts.additional_datasets.items():
+            typer.echo(f"  - {name}: {path}")
+    if artifacts.additional_datasets_parquet:
+        typer.echo("Additional datasets (parquet):")
+        for name, path in artifacts.additional_datasets_parquet.items():
             typer.echo(f"  - {name}: {path}")
 
     logger.info(

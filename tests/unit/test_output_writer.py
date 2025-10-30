@@ -12,7 +12,12 @@ import pandas as pd
 import pytest
 
 from bioetl.config.models import DeterminismConfig
-from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
+from bioetl.core.output_writer import (
+    AdditionalTableSpec,
+    AtomicWriter,
+    OutputMetadata,
+    UnifiedOutputWriter,
+)
 from bioetl.pandera_typing import Series
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
@@ -52,6 +57,10 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     )
     assert artifacts.run_directory == tmp_path / "run-test" / "target"
     assert artifacts.metadata == tmp_path / "run-test" / "target" / "targets_meta.yaml"
+    assert artifacts.dataset_parquet is None
+    assert artifacts.dataset_formats == {"csv": artifacts.dataset}
+    assert artifacts.additional_dataset_formats == {}
+    assert artifacts.additional_datasets_parquet == {}
     assert artifacts.qc_summary is None
     assert artifacts.qc_missing_mappings is None
     assert artifacts.qc_enrichment_metrics is None
@@ -74,6 +83,73 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     }
     assert (quality_df["metric"] == "column_profile").all()
     assert set(quality_df["column"]) == set(df.columns)
+
+
+def test_unified_output_writer_materializes_parquet(tmp_path, monkeypatch):
+    """Writer should create parquet artefacts with synchronized metadata and checksums."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1, 2, 3], "label": ["x", "y", "z"]})
+    supplemental = pd.DataFrame({"value": [10, 20], "note": ["a", "b"]})
+
+    writer = UnifiedOutputWriter("run-parquet")
+
+    output_path = tmp_path / "run-parquet" / "target" / "targets_final.parquet"
+    supplemental_spec = AdditionalTableSpec(
+        dataframe=supplemental,
+        formats=("csv", "parquet"),
+    )
+
+    artifacts = writer.write(
+        df,
+        output_path,
+        additional_tables={"supplemental": supplemental_spec},
+        dataset_formats=("parquet", "csv"),
+    )
+
+    assert artifacts.dataset.suffix == ".parquet"
+    assert artifacts.dataset_parquet == artifacts.dataset
+    assert set(artifacts.dataset_formats.keys()) == {"parquet", "csv"}
+
+    csv_dataset = artifacts.dataset_formats["csv"]
+    parquet_dataset = artifacts.dataset_formats["parquet"]
+    pd.testing.assert_frame_equal(pd.read_csv(csv_dataset), df)
+    pd.testing.assert_frame_equal(pd.read_parquet(parquet_dataset), df)
+
+    supplemental_formats = artifacts.additional_dataset_formats["supplemental"]
+    assert supplemental_formats.keys() == {"csv", "parquet"}
+    assert artifacts.additional_datasets["supplemental"] == supplemental_formats["csv"]
+    assert (
+        artifacts.additional_datasets_parquet["supplemental"]
+        == supplemental_formats["parquet"]
+    )
+    pd.testing.assert_frame_equal(
+        pd.read_parquet(supplemental_formats["parquet"]), supplemental
+    )
+
+    assert artifacts.quality_report.exists()
+    quality_df = pd.read_csv(artifacts.quality_report)
+    assert not quality_df.empty
+
+    with artifacts.metadata.open(encoding="utf-8") as handle:
+        import yaml
+
+        contents = yaml.safe_load(handle)
+
+    dataset_formats_meta = contents["artifacts"]["dataset_formats"]
+    assert dataset_formats_meta["parquet"] == str(parquet_dataset)
+    assert dataset_formats_meta["csv"] == str(csv_dataset)
+
+    supplemental_formats_meta = contents["artifacts"]["additional_dataset_formats"]
+    assert supplemental_formats_meta["supplemental"]["parquet"] == str(
+        supplemental_formats["parquet"]
+    )
+
+    checksums = contents["file_checksums"]
+    assert csv_dataset.name in checksums
+    assert parquet_dataset.name in checksums
+    assert supplemental_formats["parquet"].name in checksums
 
 
 def test_unified_output_writer_cleans_up_on_failure(tmp_path, monkeypatch):
@@ -209,6 +285,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert contents["file_checksums"] == expected_checksums
     assert contents["artifacts"]["dataset"] == str(artifacts.dataset)
     assert contents["artifacts"]["quality_report"] == str(artifacts.quality_report)
+    assert contents["artifacts"].get("dataset_formats") == {
+        "csv": str(artifacts.dataset)
+    }
     qc_artifacts = contents["artifacts"].get("qc", {})
     assert qc_artifacts["correlation_report"] == str(artifacts.correlation_report)
     assert qc_artifacts["summary_statistics"] == str(artifacts.qc_summary_statistics)
