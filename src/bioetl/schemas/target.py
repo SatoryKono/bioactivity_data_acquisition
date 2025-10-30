@@ -62,6 +62,14 @@ class TargetSchema(BaseSchema):
         ordered = False
 
     _column_order = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "run_id",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
         "target_chembl_id",
         "isoform_ids",
         "isoform_names",
@@ -102,14 +110,6 @@ class TargetSchema(BaseSchema):
         "iuphar_class",
         "iuphar_subclass",
         "data_origin",
-        "pipeline_version",
-        "run_id",
-        "source_system",
-        "chembl_release",
-        "extracted_at",
-        "hash_business_key",
-        "hash_row",
-        "index",
     ]
 
 
