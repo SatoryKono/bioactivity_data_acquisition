@@ -259,6 +259,26 @@ def test_source_api_key_requires_env_variable(tmp_path, monkeypatch):
         load_config(config_file)
 
 
+def test_source_api_key_optional_default(tmp_path, monkeypatch):
+    """Environment references may provide an optional default fallback."""
+
+    config_file = _write_minimal_config(
+        tmp_path,
+        dedent(
+            """
+              optional:
+                base_url: "https://example.org"
+                api_key: "${OPTIONAL_API_KEY:}"
+            """
+        ),
+    )
+    monkeypatch.delenv("OPTIONAL_API_KEY", raising=False)
+
+    config = load_config(config_file)
+
+    assert config.sources["optional"].api_key == ""
+
+
 def test_source_header_requires_env_variable(tmp_path, monkeypatch):
     """Environment references in headers should fail fast when missing."""
 
