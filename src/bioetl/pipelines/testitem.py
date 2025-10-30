@@ -853,6 +853,19 @@ class TestItemPipeline(PipelineBase):
                 logger.error("pubchem_enrichment_failed", error=str(e))
                 # Continue with original data - graceful degradation
 
+        extraneous_columns = [
+            "inchi_key_from_mol",
+            "inchi_key_from_smiles",
+            "is_radical",
+            "mw_<100_or_>1000",
+            "n_stereocenters",
+            "nstereo",
+            "salt_chembl_id",
+            "standard_inchi_skeleton",
+            "standard_inchi_stereo",
+        ]
+        df = df.drop(columns=extraneous_columns, errors="ignore")
+
         pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
         default_source = "chembl"
         timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()

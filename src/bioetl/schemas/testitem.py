@@ -336,18 +336,6 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
         "pubchem_fallback_used",
         "pubchem_enrichment_attempt",
         "pubchem_lookup_inchikey",
-    ] + FALLBACK_METADATA_COLUMN_ORDER + [
-        # Canonical pipeline metadata
-        "pipeline_version",
-        "run_id",
-        "source_system",
-        "chembl_release",
-        "extracted_at",
-        
-        # Hashes and deterministic index last
-        "hash_business_key",
-        "hash_row",
-        "index",
     ]
 
     class Config:

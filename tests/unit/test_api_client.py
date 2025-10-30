@@ -220,6 +220,40 @@ def test_request_json_retries_configured_status(monkeypatch: pytest.MonkeyPatch)
     assert call_count["count"] == 3
 
 
+def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """UnifiedAPIClient should retry transient errors like timeouts using backoff."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=3,
+        retry_backoff_factor=1.0,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    call_count = {"count": 0}
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        call_count["count"] += 1
+        if call_count["count"] < 3:
+            raise requests.exceptions.Timeout("timeout occurred")
+        return _build_response(200, {"result": "ok"})
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
+
+    data = client.request_json("/resource")
+
+    assert data == {"result": "ok"}
+    assert call_count["count"] == 3
+
+
 def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPatch) -> None:
     """UnifiedAPIClient should expose retry metadata when retries are exhausted."""
 

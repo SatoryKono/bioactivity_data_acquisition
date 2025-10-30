@@ -77,6 +77,7 @@ class TargetSourceConfig(SourceConfig):
     http_profile: str | None = None
     http: HttpConfig | None = None
     rate_limit: RateLimitConfig | None = None
+    rate_limit_jitter: bool | None = None
     timeout_sec: float | None = Field(default=None, gt=0)
     headers: dict[str, str] = Field(default_factory=dict)
     cache_enabled: bool | None = None
@@ -86,6 +87,29 @@ class TargetSourceConfig(SourceConfig):
     partial_retry_max: int | None = Field(default=None, ge=0)
     fallback_strategies: list[str] = Field(default_factory=list)
     circuit_breaker: CircuitBreakerConfig | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_rate_limit_jitter(cls, data: Any) -> Any:
+        """Lift ``http.rate_limit_jitter`` into a top-level field."""
+
+        if not isinstance(data, dict):
+            return data
+
+        http_block = data.get("http")
+        if isinstance(http_block, dict) and "rate_limit_jitter" in http_block:
+            payload = dict(data)
+            http_payload = dict(http_block)
+            payload["rate_limit_jitter"] = http_payload.pop("rate_limit_jitter")
+
+            if http_payload:
+                payload["http"] = http_payload
+            else:
+                payload.pop("http", None)
+
+            return payload
+
+        return data
 
     @field_validator("api_key", mode="before")
     @classmethod

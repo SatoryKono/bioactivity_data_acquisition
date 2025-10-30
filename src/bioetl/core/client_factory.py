@@ -227,6 +227,8 @@ class APIClientFactory:
         http_profile: HttpConfig | None,
         global_http: HttpConfig | None,
     ) -> bool:
+        if source_config.rate_limit_jitter is not None:
+            return source_config.rate_limit_jitter
         if source_config.http is not None:
             return source_config.http.rate_limit_jitter
         if http_profile is not None:

@@ -12,6 +12,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urljoin
 
+import backoff
 import requests
 from cachetools import TTLCache  # type: ignore
 
@@ -118,6 +119,8 @@ class CircuitBreaker:
 class TokenBucketLimiter:
     """Token bucket rate limiter с jitter."""
 
+    LONG_WAIT_THRESHOLD_SECONDS = 1.0
+
     def __init__(self, max_calls: int, period: float, jitter: bool = True):
         self.max_calls = max_calls
         self.period = period
@@ -128,21 +131,42 @@ class TokenBucketLimiter:
 
     def acquire(self) -> None:
         """Ожидает и получает token."""
-        with self.lock:
-            self._refill()
+        while True:
+            jitter_sleep = 0.0
+            wait_time = 0.0
 
-            if self.tokens >= 1:
-                self.tokens -= 1
-                if self.jitter:
-                    jitter = random.uniform(0, self.period * 0.1)
-                    time.sleep(jitter)
-            else:
-                wait_time = self.period - (time.monotonic() - self.last_refill)
-                if wait_time > 0:
-                    logger.debug("rate_limit_wait", wait_seconds=wait_time)
-                    time.sleep(wait_time)
-                    self._refill()
+            with self.lock:
+                self._refill()
+
+                if self.tokens >= 1:
                     self.tokens -= 1
+                    if self.jitter:
+                        jitter_sleep = random.uniform(0, self.period * 0.1)
+                else:
+                    wait_time = max(0.0, self.period - (time.monotonic() - self.last_refill))
+
+            if wait_time > 0:
+                if wait_time >= self.LONG_WAIT_THRESHOLD_SECONDS:
+                    logger.warning(
+                        "rate_limit_wait_long",
+                        wait_seconds=wait_time,
+                        max_calls=self.max_calls,
+                        period=self.period,
+                    )
+                else:
+                    logger.debug(
+                        "rate_limit_wait",
+                        wait_seconds=wait_time,
+                        max_calls=self.max_calls,
+                        period=self.period,
+                    )
+                time.sleep(wait_time)
+                continue
+
+            if jitter_sleep > 0:
+                time.sleep(jitter_sleep)
+
+            break
 
     def _refill(self) -> None:
         """Пополняет bucket."""
@@ -300,7 +324,35 @@ class UnifiedAPIClient:
                 return cached_value
 
         # Execute with circuit breaker
-        def _execute() -> requests.Response:
+        def _log_backoff(details: dict[str, Any]) -> None:
+            exception = details.get("exception")
+            wait = details.get("wait")
+            tries = details.get("tries")
+            logger.warning(
+                "request_exception_retrying",
+                url=url,
+                method=method,
+                params=params,
+                tries=tries,
+                max_tries=self.config.retry_total,
+                wait_seconds=wait,
+                error=str(exception) if exception else None,
+            )
+
+        def _log_giveup(details: dict[str, Any]) -> None:
+            exception = details.get("exception")
+            tries = details.get("tries")
+            logger.error(
+                "request_exception_giveup",
+                url=url,
+                method=method,
+                params=params,
+                tries=tries,
+                max_tries=self.config.retry_total,
+                error=str(exception) if exception else None,
+            )
+
+        def _perform_request() -> requests.Response:
             # Rate limit
             self.rate_limiter.acquire()
 
@@ -333,6 +385,17 @@ class UnifiedAPIClient:
 
             return response
 
+        wrapped_request = backoff.on_exception(
+            backoff.expo,
+            requests.exceptions.RequestException,
+            max_tries=self.config.retry_total,
+            jitter=backoff.full_jitter,
+            on_backoff=_log_backoff,
+            on_giveup=_log_giveup,
+            factor=self.retry_policy.backoff_factor,
+            max_value=self.retry_policy.backoff_max,
+        )(_perform_request)
+
         # Retry logic
         last_exc: Exception | None = None
         last_response: requests.Response | None = None
@@ -343,7 +406,7 @@ class UnifiedAPIClient:
 
         for attempt in range(1, self.retry_policy.total + 1):
             try:
-                response = self.circuit_breaker.call(_execute)
+                response = self.circuit_breaker.call(wrapped_request)
                 response.raise_for_status()
 
                 # Parse JSON
@@ -389,9 +452,31 @@ class UnifiedAPIClient:
                 )
                 time.sleep(wait_time)
 
+            except requests.exceptions.RequestException as e:
+                last_exc = e
+                last_attempt = attempt
+                last_attempt_timestamp = time.time()
+                last_error_text = str(e)
+                logger.error(
+                    "request_exception_unhandled",
+                    attempt=attempt,
+                    url=url,
+                    method=method,
+                    params=params,
+                    error=str(e),
+                )
+                break
+
             except Exception as e:
                 last_exc = e
-                logger.error("request_error", attempt=attempt, error=str(e))
+                logger.error(
+                    "request_error",
+                    attempt=attempt,
+                    url=url,
+                    method=method,
+                    params=params,
+                    error=str(e),
+                )
                 raise
 
         if last_exc:
@@ -406,6 +491,22 @@ class UnifiedAPIClient:
                     "retry_after": last_retry_after_header,
                 }
                 last_exc.retry_metadata = metadata
+            logger.error(
+                "request_failed_after_retries",
+                url=url,
+                method=method,
+                params=params,
+                data_present=data is not None,
+                json_present=json is not None,
+                attempt=last_attempt,
+                status_code=(
+                    last_response.status_code if last_response is not None else None
+                ),
+                retry_after=last_retry_after_header,
+                error=str(last_exc),
+                exception_type=type(last_exc).__name__,
+                timestamp=last_attempt_timestamp or time.time(),
+            )
             raise last_exc
         raise RuntimeError("Request failed with no exception captured")
 
