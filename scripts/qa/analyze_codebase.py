@@ -34,7 +34,8 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import Optional
+from collections.abc import Iterator, Sequence
 
 try:  # pragma: no cover - optional dependency
     import tomllib  # Python 3.11+
@@ -62,9 +63,9 @@ class ModuleInfo:
 
     name: str
     path: Path
-    imports: Tuple[str, ...]
+    imports: tuple[str, ...]
 
-    def to_json(self, repo_root: Path) -> Dict[str, object]:
+    def to_json(self, repo_root: Path) -> dict[str, object]:
         return {
             "module": self.name,
             "path": str(self.path.relative_to(repo_root)),
@@ -97,7 +98,7 @@ def iter_python_files(base_dirs: Sequence[Path]) -> Iterator[Path]:
                 yield path
 
 
-def module_name_from_path(path: Path, base_dir: Path) -> Optional[str]:
+def module_name_from_path(path: Path, base_dir: Path) -> str | None:
     try:
         relative = path.relative_to(base_dir)
     except ValueError:
@@ -115,7 +116,7 @@ def module_name_from_path(path: Path, base_dir: Path) -> Optional[str]:
     return module or None
 
 
-def parse_imports(tree: ast.AST, module_name: str) -> Tuple[str, ...]:
+def parse_imports(tree: ast.AST, module_name: str) -> tuple[str, ...]:
     imports: set[str] = set()
     module_parts = module_name.split(".") if module_name else []
     for node in ast.walk(tree):
@@ -149,8 +150,8 @@ def gather_code_objects(
     path: Path,
     tree: ast.AST,
     source_lines: Sequence[str],
-) -> List[CodeObject]:
-    objects: List[CodeObject] = []
+) -> list[CodeObject]:
+    objects: list[CodeObject] = []
 
     def build_source(node: ast.AST) -> str:
         start = getattr(node, "lineno", None)
@@ -160,7 +161,7 @@ def gather_code_objects(
         segment = source_lines[start - 1 : end]
         return "\n".join(segment)
 
-    def visit(node: ast.AST, parents: List[str], in_class: bool = False) -> None:
+    def visit(node: ast.AST, parents: list[str], in_class: bool = False) -> None:
         for child in ast.iter_child_nodes(node):
             child_in_class = in_class or isinstance(child, ast.ClassDef)
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -200,10 +201,10 @@ def gather_code_objects(
     return objects
 
 
-def token_signature(source: str) -> Optional[str]:
+def token_signature(source: str) -> str | None:
     if not source.strip():
         return None
-    tokens: List[str] = []
+    tokens: list[str] = []
     try:
         for tok in tokenize_source(source):
             tokens.append(tok)
@@ -290,11 +291,11 @@ def semantic_signature(node: ast.AST) -> str:
 @dataclass
 class CloneGroup:
     signature: str
-    members: List[CodeObject]
+    members: list[CodeObject]
 
 
-def detect_clone_groups(code_objects: Sequence[CodeObject], signature_builder) -> List[CloneGroup]:
-    grouped: Dict[str, List[CodeObject]] = defaultdict(list)
+def detect_clone_groups(code_objects: Sequence[CodeObject], signature_builder) -> list[CloneGroup]:
+    grouped: dict[str, list[CodeObject]] = defaultdict(list)
     for obj in code_objects:
         node = extract_ast_node(obj)
         if node is None:
@@ -303,7 +304,7 @@ def detect_clone_groups(code_objects: Sequence[CodeObject], signature_builder) -
         if signature is None:
             continue
         grouped[signature].append(obj)
-    result: List[CloneGroup] = []
+    result: list[CloneGroup] = []
     for signature, members in grouped.items():
         if len(members) > 1:
             sorted_members = sorted(
@@ -315,7 +316,7 @@ def detect_clone_groups(code_objects: Sequence[CodeObject], signature_builder) -
     return result
 
 
-def extract_ast_node(obj: CodeObject) -> Optional[ast.AST]:
+def extract_ast_node(obj: CodeObject) -> ast.AST | None:
     try:
         tree = ast.parse(obj.source)
     except SyntaxError:
@@ -325,7 +326,7 @@ def extract_ast_node(obj: CodeObject) -> Optional[ast.AST]:
     return tree.body[0]
 
 
-def node_token_signature(node: ast.AST, source: str) -> Optional[str]:
+def node_token_signature(node: ast.AST, source: str) -> str | None:
     del node
     return token_signature(source)
 
@@ -367,8 +368,8 @@ def ensure_logger(verbose: bool) -> None:
     logging.basicConfig(level=level, format="[%(levelname)s] %(message)s")
 
 
-def build_module_map(repo_root: Path, base_dirs: Sequence[Path]) -> List[ModuleInfo]:
-    modules: List[ModuleInfo] = []
+def build_module_map(repo_root: Path, base_dirs: Sequence[Path]) -> list[ModuleInfo]:
+    modules: list[ModuleInfo] = []
     for file_path in iter_python_files(base_dirs):
         base_dir = next((base for base in base_dirs if file_path.is_relative_to(base)), None)
         if base_dir is None:
@@ -388,8 +389,8 @@ def build_module_map(repo_root: Path, base_dirs: Sequence[Path]) -> List[ModuleI
     return modules
 
 
-def gather_all_code_objects(modules: Sequence[ModuleInfo]) -> List[CodeObject]:
-    code_objects: List[CodeObject] = []
+def gather_all_code_objects(modules: Sequence[ModuleInfo]) -> list[CodeObject]:
+    code_objects: list[CodeObject] = []
     for module in modules:
         try:
             source = module.path.read_text(encoding="utf-8")
@@ -421,11 +422,11 @@ def build_mermaid_graph(modules: Sequence[ModuleInfo]) -> str:
     def normalise(identifier: str) -> str:
         return re.sub(r"[^0-9A-Za-z_]", "_", identifier)
 
-    lines: List[str] = ["graph TD"]
+    lines: list[str] = ["graph TD"]
     for module in modules:
         node_id = normalise(module.name)
         lines.append(f"    {node_id}[\"{module.name}\"]")
-    edges: set[Tuple[str, str, str, str]] = set()
+    edges: set[tuple[str, str, str, str]] = set()
     module_lookup = {module.name for module in modules}
     for module in modules:
         source_id = normalise(module.name)
@@ -443,8 +444,8 @@ def write_mermaid_graph(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
-def detect_config_duplicates(config_dir: Path, repo_root: Path) -> List[Tuple[str, List[str]]]:
-    duplicates: Dict[Tuple[str, str], List[str]] = defaultdict(list)
+def detect_config_duplicates(config_dir: Path, repo_root: Path) -> list[tuple[str, list[str]]]:
+    duplicates: dict[tuple[str, str], list[str]] = defaultdict(list)
     if not config_dir.exists():
         return []
     for path in sorted(config_dir.rglob("*")):
@@ -458,7 +459,7 @@ def detect_config_duplicates(config_dir: Path, repo_root: Path) -> List[Tuple[st
             signature = (value_repr, value_type)
             location = f"{relative}::{key_path}" if key_path else relative
             duplicates[signature].append(location)
-    results: List[Tuple[str, List[str]]] = []
+    results: list[tuple[str, list[str]]] = []
     for (value_repr, value_type), locations in sorted(duplicates.items(), key=lambda item: (item[0][0], item[0][1])):
         if len(locations) > 1:
             results.append((f"{value_type}:{value_repr}", sorted(locations)))
@@ -487,8 +488,8 @@ def load_config(path: Path):  # type: ignore[override]
     return simple_kv_parse(text)
 
 
-def simple_kv_parse(text: str) -> Dict[str, str]:
-    result: Dict[str, str] = {}
+def simple_kv_parse(text: str) -> dict[str, str]:
+    result: dict[str, str] = {}
     for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or line.startswith("//"):
@@ -502,7 +503,7 @@ def simple_kv_parse(text: str) -> Dict[str, str]:
     return result
 
 
-def flatten_config(data, prefix: Tuple[str, ...] = ()) -> Iterator[Tuple[str, str, str]]:
+def flatten_config(data, prefix: tuple[str, ...] = ()) -> Iterator[tuple[str, str, str]]:
     if isinstance(data, dict):
         for key in sorted(data.keys(), key=str):
             yield from flatten_config(data[key], prefix + (str(key),))
@@ -519,7 +520,7 @@ def flatten_config(data, prefix: Tuple[str, ...] = ()) -> Iterator[Tuple[str, st
         yield key_path, value_repr, value_type
 
 
-def write_config_duplicates(path: Path, duplicates: Sequence[Tuple[str, List[str]]]) -> None:
+def write_config_duplicates(path: Path, duplicates: Sequence[tuple[str, list[str]]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
@@ -548,7 +549,7 @@ def run(repo_root: Path, artifacts_dir: Path, reports_dir: Path) -> None:
     write_config_duplicates(reports_dir / "config_duplicates.csv", duplicates)
 
 
-def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate quality analysis artifacts")
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[2], help="Repository root")
     parser.add_argument("--artifacts-dir", type=Path, default=None, help="Output directory for artifacts")
@@ -557,7 +558,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     ensure_logger(args.verbose)
     repo_root = args.repo_root.resolve()

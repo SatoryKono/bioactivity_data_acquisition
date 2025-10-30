@@ -43,6 +43,7 @@
    - Запросы к ChEMBL API `/molecule.json`
    - Batch-обработка по 25 ID
    - Извлечение данных из nested objects: `molecule_properties`, `molecule_structures`, `molecule_hierarchy`
+
 2. Интегрирован в `transform()`:
 
    - Merge с данными из API
@@ -99,3 +100,4 @@
 ---
 
 **Прогресс:** 2 из 3 пайплайнов полностью реализованы (67% готовности)
+

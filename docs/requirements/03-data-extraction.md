@@ -14,7 +14,6 @@ UnifiedAPIClient — универсальный клиент для работы
 
 - **Exponential backoff** с giveup условиями (оба проекта)
 
-
 ## Архитектура
 
 ```text
@@ -659,7 +658,6 @@ UnifiedAPIClient разделяет ответственность кэширо�
 
 2. **Persistent cache** — release-scoped. Ключи include `chembl_release`/`pipeline_version`.
 
-
 ```python
 
 def _cache_key(self, endpoint: str, params: dict) -> str:
@@ -696,7 +694,6 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
 - При смене `chembl_release`/`pipeline_version` сбрасываем persistent cache (новый namespace).
 
 - Принудительное очищение через CLI флаг `--cache-clear` добавляет `run_id` в namespace.
-
 
 **TTL ответственность:** значения TTL читаются из `config.cache_ttl`; истёкший ключ удаляется при обращении. Для критичных
 
@@ -928,7 +925,6 @@ class PartialFailure(APIError):
 
 - `attempt`: номер попытки
 
-
 ### Таблица реакций пайплайна
 
 | Код | Класс | Действие | Retry | Fallback |
@@ -954,7 +950,6 @@ class PartialFailure(APIError):
 2. После основной пагинации обрабатываем `retry_queue` FIFO, повторно вызывая `request()` с оригинальным `page_state`.
 3. Ограничиваем `max_partial_retries` (конфиг `http.global.partial_retries.max`, по умолчанию 3) для защиты от бесконечных циклов.
 4. Логи повторов включают `run_id`, `page_state`, `attempt` и `retry_origin="partial_requeue"`.
-
 
 ```python
 
@@ -1113,7 +1108,6 @@ assert response1.items == response2.items  # Идемпотентность
 
 - Изменение timestamp в данных (если не part of business key)
 
-
 ### Запрет смешивания стратегий
 
 **Критическое правило:** Каждый запрос использует **только одну** стратегию пагинации.
@@ -1191,7 +1185,6 @@ TTL курсора — ответственность внешнего API. Unif
 
 - Логирует предупреждение при использовании истекшего cursor
 
-
 ## Rate Limiting и Retry-After
 
 ### Контракт Retry-After (инвариант)
@@ -1227,7 +1220,6 @@ if response.status_code == 429:
 - 4xx (кроме 429): не ретраить, fail-fast
 
 - 5xx: exponential backoff, retry
-
 
 **См. также**: [gaps.md](../gaps.md) (G11), [acceptance-criteria.md](../acceptance-criteria.md) (AC5).
 
@@ -1310,7 +1302,7 @@ assert "Client error, giving up" in log_output
 
 8. **Не смешивайте стратегии пагинации**: только offset, или только cursor, или только page
 
-
 ---
 
 **Следующий раздел**: [04-normalization-validation.md](04-normalization-validation.md)
+

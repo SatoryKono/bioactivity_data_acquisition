@@ -9,36 +9,30 @@
 - **Архитектурные принципы**: композиция над наследованием, детерминизм, безопасность и расширяемость определяют построение всех подсистем (UnifiedLogger, UnifiedOutputWriter, UnifiedAPIClient, UnifiedSchema).【F:docs/requirements/00-architecture-overview.md†L13-L164】
 - **Компонентное взаимодействие**: пайплайн использует последовательную цепочку логирования → HTTP-клиенты → нормализаторы/схемы → детерминированный вывод, что фиксируется диаграммой взаимодействия и соответствует унифицированным требованиям каждого компонента.【F:docs/requirements/00-architecture-overview.md†L33-L199】
 
-
 ## Конфигурация и CLI
 
 - **Стандарт конфигурации**: YAML + Pydantic модель `PipelineConfig`, поддержка наследования профилей, правила приоритета переопределений, alias/ENV-binding и валидация версии.【F:docs/requirements/10-configuration.md†L1-L175】【F:docs/requirements/10-configuration.md†L300-L311】
 - **CLI-инварианты**: стандартный набор флагов (`--config`, `--golden`, `--sample`, `--fail-on-schema-drift`, `--extended`, `--mode`, `--dry-run`, `--verbose`) и механизм `--set`/`BIOETL_*` обеспечивают единое управление параметрами всех профилей пайплайна.【F:docs/requirements/10-configuration.md†L177-L288】
-
 
 ## Система логирования
 
 - UnifiedLogger обеспечивает структурированное логирование через structlog, обязательные поля контекста (`run_id`, `stage`, `actor`, `source`, `generated_at` и др.), фильтрацию секретов и режимы для разных окружений.【F:docs/requirements/00-architecture-overview.md†L35-L59】【F:docs/requirements/01-logging-system.md†L1-L138】
 - Проверка обязательных полей логов закреплена в acceptance criteria (AC11), поддерживая трассируемость и соответствие требованиям аудита (AUD-5).【F:docs/acceptance-criteria.md†L21-L41】【F:docs/REQUIREMENTS_AUDIT.md†L36-L58】
 
-
 ## HTTP-клиенты и устойчивость извлечения
 
 - UnifiedAPIClient реализует слои кэширования, circuit breaker, fallback-стратегии, token-bucket rate limiting с jitter, экспоненциальные повторы и управление пагинацией для REST API источников (ChEMBL, PubMed, CrossRef и др.).【F:docs/requirements/00-architecture-overview.md†L112-L135】【F:docs/requirements/03-data-extraction.md†L1-L195】
 - Acceptance критерии охватывают соблюдение Retry-After (AC5) и другие контракты отказоустойчивости, обеспечивая проверяемость устойчивости клиента.【F:docs/acceptance-criteria.md†L7-L20】【F:docs/acceptance-criteria.md†L145-L160】
-
 
 ## Нормализация и валидация
 
 - UnifiedSchema предоставляет модульные нормализаторы (строковые, числовые, химические, идентификаторы, онтологии) и семейство Pandera-схем для входных/выходных таблиц всех сущностей, гарантируя контроль типов и метаданных нормализации.【F:docs/requirements/00-architecture-overview.md†L138-L164】【F:docs/requirements/04-normalization-validation.md†L1-L200】
 - Требования аудита (AUD-2, AUD-3) фиксируют необходимость централизованного column_order/NA-policy и обязательных Pandera OutputSchema, дополняя acceptance criteria по проверке колонок и дрифтов схем (AC2, AC10).【F:docs/REQUIREMENTS_AUDIT.md†L28-L58】【F:docs/acceptance-criteria.md†L7-L20】【F:docs/acceptance-criteria.md†L114-L143】
 
-
 ## Вывод данных, QC и корреляции
 
 - UnifiedOutputWriter гарантирует атомарную запись через временные каталоги, детерминированные CSV (порядок строк/столбцов, каноническая сериализация), QC отчёты, correlation отчёты по флагу и поддержку расширенных артефактов (meta.yaml, manifest).【F:docs/requirements/00-architecture-overview.md†L61-L110】【F:docs/requirements/02-io-system.md†L1-L144】
 - Acceptance критерии AC1, AC3, AC4, AC6 описывают проверки детерминизма, отсутствия частичных артефактов и стабильной сортировки, связывая вывод с QA-практиками.【F:docs/acceptance-criteria.md†L7-L113】
-
 
 ## Нефункциональные требования
 
@@ -46,13 +40,11 @@
 - **Безопасность**: редактирование секретов в логах, управление конфиденциальными параметрами через ENV, fail-fast на несогласованных конфигурациях и защита от частичных записей удовлетворяют базовым требованиям безопасности и целостности.【F:docs/requirements/00-architecture-overview.md†L25-L31】【F:docs/requirements/10-configuration.md†L177-L204】【F:docs/requirements/02-io-system.md†L70-L144】
 - **Расширяемость и сопровождение**: модульная архитектура, профили конфигураций и таблица линтеров/типизации создают базу для масштабируемого развития пайплайнов.【F:docs/requirements/00-architecture-overview.md†L29-L33】【F:docs/requirements/10-configuration.md†L300-L311】
 
-
 ## Стратегия QA и контроль качества
 
 - Requirements Audit фиксирует ключевые риски (AUD-1…AUD-5) по лимитам, схемам, CLI и логированию, определяя направления доработок и проверки полноты требований.【F:docs/REQUIREMENTS_AUDIT.md†L23-L58】
 - Acceptance criteria охватывают golden-run, schema drift, QC-пороги для всех пайплайнов и обязательные поля логов, обеспечивая проверяемые контракты приёмки.【F:docs/acceptance-criteria.md†L7-L155】
 - Документы по статусу/отчётности (например, `DOCUMENT_PIPELINE_VERIFICATION.md`, `SCHEMA_COMPLIANCE_REPORT.md`) остаются источниками доказательств выполнения AC и устранения аудиторских замечаний.
-
 
 ## Матрица трассируемости
 
@@ -75,7 +67,6 @@
 5. **Вывод и QC**: детерминированные CSV/отчёты формируются атомарно, QC пороги (AC12-AC16) выполняются, отсутствуют частичные артефакты (AC1/AC3/AC4/AC6).【F:docs/requirements/02-io-system.md†L1-L144】【F:docs/acceptance-criteria.md†L7-L155】
 6. **Документация и отчёты**: актуализированы артефакты валидации (`DOCUMENT_PIPELINE_VERIFICATION.md`, `SCHEMA_COMPLIANCE_REPORT.md`, `FINAL_VALIDATION_REPORT.md`) с ссылками на устранение рисков из аудита.【F:docs/REQUIREMENTS_AUDIT.md†L23-L58】
 
-
 ## Ссылочная карта документов
 
 - `00-architecture-overview.md` — архитектура, компоненты, инварианты детерминизма.
@@ -88,3 +79,4 @@
 - `REQUIREMENTS_AUDIT.md` — выявленные риски, аудит и матрица AUD.
 - `acceptance-criteria.md` — проверяемые AC и тестовые методики.
 - Профильные отчёты в `docs/` — подтверждение выполнения требований и QA.
+

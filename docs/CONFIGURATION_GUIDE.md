@@ -90,7 +90,9 @@ Configuration loading resolves all `extends` entries recursively. Unit tests und
 ```bash
 cp .env.example .env           # однократно, затем заполните значения
 ${SHELL:-bash} -lc 'set -a; source .env; set +a'
+
 ```
 
 Команда выше экспортирует все ключи из `.env` в текущую оболочку, после чего CLI
 (`python -m bioetl.cli.main …`) и тесты используют корректные токены.
+

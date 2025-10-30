@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, MutableMapping
+from typing import Any
+from collections.abc import Callable, MutableMapping
 
 import pandas as pd
 

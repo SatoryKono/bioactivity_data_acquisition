@@ -16,7 +16,6 @@
 - Выходной файл: `data/output/documents/documents_20251028_20251028.csv`
 - Quality report: ✅ создан
 
-
 ### 2. Проверка системных полей
 
 ✅ Все системные поля присутствуют и корректно сгенерированы:
@@ -25,7 +24,6 @@
 - `extracted_at`: ISO8601 timestamp
 - `hash_business_key`: 64-char SHA256 от `document_chembl_id`
 - `hash_row`: 64-char SHA256 от канонической строки
-
 
 **Пример:**
 
@@ -49,7 +47,6 @@ hash_row: 02001e96dbfaad6aa11e...
 - `pmid` → `chembl_pmid`
 - `authors` → `chembl_authors`
 - `abstract` → `chembl_abstract`
-
 
 ### 4. Проверка column_order
 
@@ -79,7 +76,6 @@ hash_row: 02001e96dbfaad6aa11e...
 - **Validation fields:** valid_doi, invalid_doi, и др.
 - **Derived fields:** publication_date, document_sortorder
 
-
 ---
 
 ## Анализ output
@@ -91,7 +87,6 @@ hash_row: 02001e96dbfaad6aa11e...
 - Системные: index, extracted_at, hash_business_key, hash_row, document_chembl_id
 - ChEMBL fields: chembl_title, chembl_abstract, chembl_authors, chembl_doi, chembl_journal, chembl_year
 
-
 ### Что отсутствует (ожидаемо)
 
 ⏳ **66 колонок:** дополнительные multi-source fields
@@ -102,7 +97,6 @@ hash_row: 02001e96dbfaad6aa11e...
 - `valid_*, invalid_*` - требуют validation logic
 - `publication_date, document_sortorder` - require calculation
 
-
 ### Вывод
 
 Пайплайн работает **корректно в текущем режиме**. Отсутствующие поля ожидаемы, т.к.:
@@ -110,7 +104,6 @@ hash_row: 02001e96dbfaad6aa11e...
 1. Входные данные содержат только базовые поля ChEMBL
 2. Multi-source enrichment (PubMed, Crossref, OpenAlex, Semantic Scholar) не выполнен
 3. Validation logic не реализована
-
 
 ---
 
@@ -158,7 +151,7 @@ hash_row: 02001e96dbfaad6aa11e...
    - `publication_date` - calculate from year/month/day
    - `document_sortorder` - calculate
 
-
 ### Текущее состояние
 
 ✅ **Готово к использованию** для базового извлечения документов ChEMBL с системными полями
+

@@ -14,7 +14,6 @@
 
 - единая схема логических секций (`http`, `cache`, `determinism`, `postprocess`, `paths`, `qc`, `cli`).
 
-
 ## 2. Базовая схема YAML
 
 Базовый файл `configs/base.yaml` содержит каркас секций и обязательные поля.
@@ -107,6 +106,7 @@ determinism:
   column_order: ["assay_chembl_id", "pipeline_version", "hash_row", "hash_business_key"]
 
 ```
+
 Вынесенный include `configs/includes/determinism.yaml` задаёт единые значения `hash_algorithm`, `float_precision` и `datetime_format`,
 а конкретный пайплайн отвечает только за собственные ключи сортировки и порядок столбцов.
 
@@ -117,7 +117,6 @@ determinism:
 - списки считаются атомарными и полностью заменяются дочерними значениями (например, `determinism.sort.by` в профиле полностью заменяет базовый список);
 
 - скалярные значения заменяются последним источником.
-
 
 Профильные файлы могут ссылаться на общие шаблоны через `anchors` и `aliases`, однако итоговая конфигурация после развёртывания должна соответствовать модели из раздела 4.
 
@@ -187,6 +186,7 @@ class PipelineConfig(BaseModel):
         return value
 
 ```
+
 Модели используют `env` и `alias` для поддержки плоских переопределений. При сериализации в YAML необходимо применять `model_dump()` и `yaml.safe_dump` с `sort_keys=True`.
 
 ## 5. Переопределения через CLI и окружение
@@ -203,6 +203,7 @@ bioetl pipeline run \
   --set http.global.timeout_sec=45
 
 ```
+
 Путь интерпретируется точечной нотацией и применяется после загрузки профильного файла. Для сложных структур допускается передача JSON-строки: `--set determinism.sort.by='["assay_chembl_id"]'`.
 
 ### 5.2 Переменные окружения
@@ -242,7 +243,6 @@ bioetl pipeline run \
 3. CLI флаги (`--config`, `--set`)
 4. Переменные окружения (`BIOETL_*`)
 
-
 **Инварианты CLI:**
 
 ```python
@@ -271,6 +271,7 @@ class CLIArguments:
             raise FileNotFoundError(f"Config not found: {self.config}")
 
 ```
+
 **Таблица поддержки флагов по пайплайнам:**
 
 | Флаг | Assay | Activity | Testitem | Target | Document |
@@ -309,6 +310,7 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
   --verbose
 
 ```
+
 **Ссылка:** См. секции CLI в [05-assay-extraction.md](05-assay-extraction.md), [06-activity-data-extraction.md](06-activity-data-extraction.md), [07a-testitem-extraction.md](07a-testitem-extraction.md), [08-target-data-extraction.md](08-target-data-extraction.md), [09-document-chembl-extraction.md](09-document-chembl-extraction.md).
 
 ## 6. Профильные расширения
@@ -326,11 +328,12 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 ## 7. Контроль соответствия
 
 - Любой новый профиль обязан:
+
   1. объявить `extends` на `../base.yaml` или иной общий шаблон;
   2. пройти валидацию `PipelineConfig.validate_yaml(path)` (реализация в `src/config/loader.py`);
   3. задокументировать специфичные ограничения (batch size, TTL, сортировка).
 
 - Набор линтеров (`ruff`, `mypy`) должен проверять, что `PipelineConfig` не допускает неизвестных полей (`model_config = ConfigDict(extra="forbid")`).
 
-
 Применение этого стандарта обеспечивает единообразие конфигураций, избавляет от копипасты YAML и упрощает сопровождение CLI/CI-переопределений.
+

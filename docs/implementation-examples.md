@@ -17,6 +17,7 @@
 -def serialize_row(row: dict) -> str:
 
 -    return json.dumps(row)
+
 +def canonicalize_row_for_hash(row: dict) -> str:
 
 +    """
@@ -49,6 +50,7 @@
 -def hash_row(row: dict) -> str:
 
 -    return sha256(serialize_row(row).encode()).hexdigest()
+
 +def hash_row(row: dict) -> str:
 
 +    return sha256(canonicalize_row_for_hash(row).encode()).hexdigest()
@@ -66,7 +68,6 @@
 - `separators=(",", ":")` без пробелов
 
 - NA-policy: None→null
-
 
 **См. также**: [00-architecture-overview.md → Каноническая сериализация](requirements/00-architecture-overview.md)
 
@@ -89,6 +90,7 @@
 -    # Старая реализация с потерей данных
 
 -    ...
+
 +def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
 
 +    """
@@ -96,6 +98,7 @@
 +    Превращает массив parameters в long-format с полями:
 
 +    assay_chembl_id, param_index, param_name, param_value, row_subtype="parameter".
+
 +
 
 +    Инвариант: ни одна запись не теряется.
@@ -121,6 +124,7 @@
 +                "row_subtype": "parameter",
 
 +            })
+
 +
 
 +    if not rows:
@@ -128,6 +132,7 @@
 +        # Возвращаем пустой DataFrame с правильными колонками
 
 +        return pd.DataFrame(columns=["assay_chembl_id","param_index","param_name","param_value","row_subtype"])
+
 +
 
 +    return pd.DataFrame(rows, columns=["assay_chembl_id","param_index","param_name","param_value","row_subtype"])
@@ -162,6 +167,7 @@
 +    return pd.DataFrame(rows if rows else [],
 
 +                       columns=["assay_chembl_id","varseq_index","variant_name","sequence","row_subtype"])
+
 +
 +def expand_classifications_long(df: pd.DataFrame) -> pd.DataFrame:
 
@@ -235,6 +241,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 +        # Блокирующее ожидание следующего токена, с опциональным джиттером
 
 +        now = time.time()
+
 +
 
 +        # Пополнение bucket
@@ -246,6 +253,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 +        self.tokens = min(self.max_calls, self.tokens + tokens_to_add)
 
 +        self.last_refill = now
+
 +
 
 +        # Если токенов нет, ждём
@@ -297,6 +305,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 +                          run_id=context.run_id)
 
 +            time.sleep(wait)
+
          raise RateLimitError("Rate limited")
 
 ```
@@ -343,6 +352,7 @@ def test_respect_retry_after(mocker, caplog):
 +parser.add_argument("--fail-on-schema-drift", action="store_true", default=True,
 
 +                    help="Fail-fast при несовместимой major версии схемы")
+
 +parser.add_argument("--strict-enrichment", action="store_true", default=True,
 
 +                    help="Запрет лишних полей при enrichment (whitelist)")
@@ -382,11 +392,13 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 -def write_bytes_atomic(path: Path, content: bytes) -> None:
 
 -    path.write_bytes(content)
+
 +def write_bytes_atomic(path: Path, content: bytes, run_id: str) -> None:
 
 +    """
 
 +    Атомарная запись через run-scoped temp dir и os.replace.
+
 +
 
 +    Протокол:
@@ -398,6 +410,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 +    3. os.replace(tmp_path, final_path) — атомарная операция
 
 +    4. Cleanup temp files при любой ошибке
+
 +
 
 +    Инвариант: либо файл записан полностью, либо не записан вообще.
@@ -407,9 +420,11 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 +    tmpdir = path.parent / f".tmp_run_{run_id}"
 
 +    tmpdir.mkdir(parents=True, exist_ok=True)
+
 +
 
 +    tmppath = tmpdir / f"{path.name}.tmp"
+
 +
 
 +    try:
@@ -417,6 +432,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 +        # Запись
 
 +        tmppath.write_bytes(content)
+
 +
 
 +        # Валидация (опционально)
@@ -430,6 +446,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 +        path.parent.mkdir(parents=True, exist_ok=True)
 
 +        os.replace(str(tmppath), str(path))
+
 +
 
 +    except Exception as e:
@@ -439,6 +456,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 +        tmppath.unlink(missing_ok=True)
 
 +        raise RuntimeError(f"Failed to write atomic file: {path}") from e
+
 +
 
 +    finally:
@@ -475,6 +493,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 +    else:
 
 +        raise ValueError(f"Unsupported format: {format}")
+
 +
 
 +    write_bytes_atomic(path, content, run_id)
@@ -538,7 +557,6 @@ def test_atomic_write_no_partial(mocker):
 
 5. **Патч 4** (CLI флаги) — для строгости
 
-
 ## Связи с другими документами
 
 - [gaps.md](gaps.md) — описание проблем, которые решают патчи
@@ -550,3 +568,4 @@ def test_atomic_write_no_partial(mocker):
 - [03-data-extraction.md](requirements/03-data-extraction.md) — Retry-After стратегия
 
 - [04-normalization-validation.md](requirements/04-normalization-validation.md) — schema drift
+

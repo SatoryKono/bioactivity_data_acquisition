@@ -17,7 +17,6 @@
 - ✅ Данные извлекаются корректно
 - ✅ Порядок колонок соответствует спецификации
 
-
 ---
 
 ## Детальные результаты пайплайнов
@@ -45,7 +44,6 @@ chembl_release, extracted_at, hash_business_key, hash_row, index
 - ✅ `row_subtype` = "assay" (explode работает)
 - ✅ `row_index` = 0 для всех записей
 - ✅ Порядок колонок соответствует schema.Config.column_order
-
 
 **Пример записи:**
 
@@ -78,7 +76,6 @@ index: 0
 - ✅ Все published_* поля добавлены в схему
 - ✅ Порядок колонок соответствует schema.Config.column_order
 
-
 **Пример записи:**
 
 ```csv
@@ -109,7 +106,6 @@ index: 0
 - ✅ `mw_freebase` присутствует (переименовано из molecular_weight)
 - ✅ Порядок колонок соответствует schema.Config.column_order
 
-
 **Пример записи:**
 
 ```csv
@@ -133,19 +129,16 @@ index: 0
 - Multi-stage enrichment не реализован
 - Status: pending
 
-
 ### 5. DocumentSchema ❌ 0%
 
 - Unified multi-source schema не реализована
 - Старые схемы не удалены
 - Status: pending
 
-
 ### Тесты ❌ 0%
 
 - `test_schemas.py` не создан
 - `test_pipelines_e2e.py` не создан
-
 
 ### Документация ⚠️ 50%
 
@@ -153,7 +146,6 @@ index: 0
 - `SCHEMA_SYNC_PROGRESS.md` создан ✅
 - `SCHEMA_IMPLEMENTATION_GUIDE.md` не создан ❌
 - `SCHEMA_COMPLIANCE_REPORT.md` не обновлен ❌
-
 
 ---
 
@@ -178,7 +170,6 @@ index: 0
 - ✅ Hashing module: 14 тестов пройдено
 - ✅ Column order: полностью соответствует спецификации
 - ✅ Hash generation: детерминированная
-
 
 ---
 
@@ -213,7 +204,6 @@ index: 0
 3. Реализовать multi-stage enrichment в pipeline
 4. Добавить hash generation для всех 4 таблиц
 
-
 ### DocumentSchema
 
 1. Создать unified multi-source schema с ~70 полями
@@ -221,19 +211,16 @@ index: 0
 3. Реализовать multi-source merge в pipeline
 4. Добавить error tracking для каждого адаптера
 
-
 ### Тесты
 
 1. Создать `tests/unit/test_schemas.py`
 2. Создать `tests/integration/test_pipelines_e2e.py`
 3. Обновить `tests/unit/test_pipelines.py`
 
-
 ### Документация
 
 1. Создать `SCHEMA_IMPLEMENTATION_GUIDE.md`
 2. Обновить `SCHEMA_COMPLIANCE_REPORT.md`
-
 
 ---
 
@@ -264,8 +251,8 @@ index: 0
 - ✅ Assay pipeline - полная синхронизация
 - ✅ TestItem pipeline - полная синхронизация
 
-
 **Осталось:**
 
 - ❌ Target schemas (4 таблицы)
 - ❌ DocumentSchema (unified multi-source)
+

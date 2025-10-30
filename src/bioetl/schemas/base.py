@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypedDict, cast
+from typing import Any, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -242,7 +242,7 @@ class BaseSchema(DataFrameModel):
         if not isinstance(cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor):
             expose_config_column_order(cls)
 
-        return cast(
+        validated = cast(
             DataFrame[BaseSchema],
             super().validate(
                 check_obj,
@@ -254,6 +254,11 @@ class BaseSchema(DataFrameModel):
                 inplace=inplace,
             ),
         )
+        # Безопасно добавляем служебную версию политики хеширования после
+        # материализации схемы Pandera, чтобы не вмешиваться в сбор полей.
+        if "hash_policy_version" not in cls.__dict__:
+            cls.hash_policy_version = "1.0.0"
+        return validated
 
     @classmethod
     def get_column_order(cls) -> list[str]:

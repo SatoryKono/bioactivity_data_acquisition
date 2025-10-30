@@ -12,7 +12,6 @@ UnifiedLogger — универсальная система логировани
 
 - Автоматическое редактирование секретов
 
-
 ## Архитектура
 
 ```text
@@ -302,7 +301,6 @@ logger.info("Processing", step="first")
 
 - `<username>`: ручные запуски пользователем
 
-
 ```python
 
 # Автоматический запуск
@@ -333,7 +331,6 @@ set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
 
 - Для ошибок добавляются `error_code` и `error_message`; для успехов поля остаются `None`.
 
-
 **Инвариант для всех сред:** `run_id`, `stage`, `actor`, `source`, `generated_at` обязательны всегда, независимо от окружения.
 
 **См. также**: [gaps.md](../gaps.md) (G12).
@@ -341,7 +338,6 @@ set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
 **Правила маскирования секретов**
 
 1. **Словарь чувствительных ключей:**
-
 
 ```python
 
@@ -355,7 +351,6 @@ SENSITIVE_KEYS = [
 
 1. **Паттерны для маскирования:**
 
-
 ```python
 
 REDACT_PATTERNS = [
@@ -368,7 +363,6 @@ REDACT_PATTERNS = [
 ```
 
 1. **Применение маскирования:**
-
 
 ```python
 
@@ -624,7 +618,6 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 
 - `pipeline_20250128.log` (если script_name пустой)
 
-
 ## Best Practices
 
 1. **Всегда используйте context manager для stages**: `with bind_stage(logger, "stage_name"):`
@@ -638,7 +631,6 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 5. **Выбирайте адекватный уровень**: DEBUG для разработки, INFO для production
 
 6. **Используйте JSON в production**: для парсинга и анализа
-
 
 ## Acceptance Criteria (AUD-5)
 
@@ -677,7 +669,6 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 - `missing_count`: количество пропущенных обязательных полей
 - `fallback_count`: количество fallback записей
 - `referential_integrity_violations`: количество нарушений RI
-
 
 **Ссылка:** Подробности QC порогов по пайплайнам см. в acceptance-criteria.md AC12-AC16.
 
@@ -741,3 +732,4 @@ logger.info("message")  # Та же API
 ---
 
 **Следующий раздел**: [02-io-system.md](02-io-system.md)
+

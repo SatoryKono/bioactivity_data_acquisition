@@ -34,14 +34,12 @@
    - Hash generation работает
    - 14 колонок в output (с префиксами chembl_*)
 
-
 ### Не выполнено
 
 1. **Target schemas** ❌ 0%
 
    - 4 схемы требуют обновления
    - Multi-stage enrichment не реализован
-
 
 ---
 
@@ -67,7 +65,6 @@
 - ✅ Hashing module: 14 тестов пройдено (82% coverage)
 - ✅ Column order: полностью соответствует спецификации
 - ✅ Hash generation: детерминированная, работает
-
 
 ---
 
@@ -170,7 +167,6 @@ chembl_year, ...
 - Изменить ProteinClassSchema (l1-l4 → class_level/class_name/full_path)
 - Реализовать multi-stage enrichment в pipeline
 
-
 **Время выполнения:** ~2-3 часа
 
 ### Тесты (0%)
@@ -181,7 +177,6 @@ chembl_year, ...
 - `tests/integration/test_pipelines_e2e.py` - E2E тесты
 - Обновить `tests/unit/test_pipelines.py`
 
-
 **Время выполнения:** ~3-4 часа
 
 ### Документация (50%)
@@ -190,7 +185,6 @@ chembl_year, ...
 
 - `SCHEMA_IMPLEMENTATION_GUIDE.md` - детальное руководство
 - Обновить `SCHEMA_COMPLIANCE_REPORT.md`
-
 
 **Время выполнения:** ~1-2 часа
 
@@ -226,7 +220,6 @@ chembl_year, ...
 - ✅ Explode functionality для Assay работает
 - ✅ Field renaming для TestItem работает
 
-
 ### Готово к использованию в production
 
 - Activity pipeline
@@ -234,7 +227,7 @@ chembl_year, ...
 - TestItem pipeline
 - Document pipeline
 
-
 ### Осталось
 
 - Target schemas (4 таблицы) - ~20% работы
+

@@ -104,8 +104,9 @@ pytest tests/unit/ -v
   в котором отключены внешние API и заданы фиктивные ключи. Благодаря этому `pytest tests/integration/test_document_pipeline_enrichment.py -v`
   выполняется без реальных секретов и сетевого доступа. При необходимости профиль можно загрузить вручную:
 
-  ```bash
+```bash
   python -c "from bioetl.config import load_config; print(load_config('configs/profiles/document_test.yaml'))"
+
   ```
 
 ## Структура тестов
@@ -167,3 +168,4 @@ pip install -e ".[dev]"
 pytest --cov=src/bioetl --cov-report=term-missing
 
 ```
+

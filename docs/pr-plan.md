@@ -14,7 +14,6 @@
 - `tests/unit/test_writer.py` — тесты atomic write
 - `tests/golden/test_determinism.py` — тесты golden-run
 
-
 **Изменения**:
 
 - Добавить раздел "Единый протокол записи" в 02-io-system.md
@@ -23,14 +22,12 @@
 - Добавить AC1, AC4
 - Добавить golden-run CLI флаг
 
-
 **Тесты**: AC1, AC4, G1, G13, G15
 
 **Риски**:
 
 - Платформенные различия `os.replace` (Windows vs POSIX)
 - Performance overhead от temp dir
-
 
 **Откат**: Вернуть прежний путь записи, убрать temp dir.
 
@@ -51,7 +48,6 @@
 - `tests/unit/test_schema_drift.py` — тесты drift
 - `tests/unit/test_precision.py` — тесты precision
 
-
 **Изменения**:
 
 - column_order из схемы, meta.yaml — копия
@@ -61,14 +57,12 @@
 - **Типо-зависимая NA-policy**: строки → "", числа → null (R1) ✅
 - **Расширение meta.yaml**: добавлены `run_id`, `config_hash`, `config_snapshot` (R2) ✅
 
-
 **Тесты**: AC2, AC10, G4, G5
 
 **Риски**:
 
 - Жёсткость валидации может блокировать миграции
 - Breaking changes в схемах
-
 
 **Откат**: Ослабить fail-fast, разрешить отключение через флаг.
 
@@ -91,7 +85,6 @@
 - `src/library/clients/rate_limit.py` — TokenBucket acquire
 - `tests/integration/test_retry_after.py` — тесты 429 handling
 
-
 **Изменения**:
 
 - Implement `TokenBucketLimiter.acquire()`
@@ -101,14 +94,12 @@
 - Запрет ретраев на 4xx (кроме 429)
 - **Протокол requeue**: реализация `retry_queue`, `drain_partial_queue()` с лимитом 3 попытки (R3) ✅
 
-
 **Тесты**: AC5, G11
 
 **Риски**:
 
 - Деградация скорости выгрузки (long waits)
 - Накопление таймаутов
-
 
 **Откат**: Снизить ожидания, уменьшить backoff.
 
@@ -132,7 +123,6 @@
 
 - `tests/integration/test_assay_long_format.py` — тесты long-format
 
-
 **Изменения**:
 
 - batch_size ≤ 25 validation в конфиге
@@ -141,14 +131,12 @@
 - RI-чек "assay→target"
 - `--strict-enrichment` флаг (whitelist полей)
 
-
 **Тесты**: AC7, AC8, G6, G7, G8
 
 **Риски**:
 
 - Рост объёма данных (long-format)
 - Потеря производительности на explode
-
 
 **Откат**: Фича-флаг для long-format, отключение strict-enrichment.
 
@@ -170,7 +158,6 @@
 
 - `tests/integration/test_activity_pagination.py` — тесты pagination
 
-
 **Изменения**:
 
 - Только offset-пагинация, идти по page_meta.next
@@ -179,14 +166,12 @@
 - QC фильтр: `duplicates_activity_id==0`
 - Фиксация "безопасного" limit через бинарный поиск
 
-
 **Тесты**: AC6, AC9, G2, G3, G9, G10
 
 **Риски**:
 
 - Время выгрузки (большой offset range)
 - 429 штормы при агрессивной пагинации
-
 
 **Откат**: Снизить лимит, вернуть смешанную pagination.
 
@@ -219,7 +204,6 @@ graph TD
 
 5. **PR-5** (activity, финальный)
 
-
 ## Общие требования к PR
 
 ### Чеклист PR
@@ -232,7 +216,6 @@ graph TD
 
 - [ ] Golden-run проходит
 - [ ] Code review одобрен
-
 
 ### Формат commit message
 
@@ -259,14 +242,12 @@ Refs: #issue-number
 
 - `refactor`: рефакторинг без изменения функциональности
 
-
 ### Размер PR
 
 - Оптимально: 300-500 строк изменений
 - Максимум: 1000 строк
 
 - Если больше — разбить на несколько PR
-
 
 ## Дефолтные reviewers
 
@@ -275,7 +256,6 @@ Refs: #issue-number
 
 - **ETL Eng**: PR-4
 - **Вед. инженер**: все PR (финальный approval)
-
 
 ## Критерии готовности к merge
 
@@ -290,7 +270,6 @@ Refs: #issue-number
 5. Golden-run сравнение пройдено
 
 6. Gap закрыт (см. gaps.md)
-
 
 ## Роллбэк план
 
@@ -324,7 +303,6 @@ git push origin hotfix/pr-X-rollback
 
 - Golden-run stable
 
-
 ## Связи с документами
 
 - [gaps.md](gaps.md) — описание проблем
@@ -334,3 +312,4 @@ git push origin hotfix/pr-X-rollback
 - [implementation-examples.md](implementation-examples.md) — патчи кода
 
 - `CHANGELOG.md` — фиксация изменений
+

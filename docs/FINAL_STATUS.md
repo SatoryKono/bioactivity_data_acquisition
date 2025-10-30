@@ -54,7 +54,6 @@
    - Контекстное логирование
    - Поддержка args/kwargs
 
-
 ### Пайплайны (20%)
 
 **Assay Pipeline** ✅
@@ -65,7 +64,6 @@
 - QC reports
 - Метаданные
 
-
 **Остальные пайплайны** ⏳
 
 - Activity Pipeline (pending)
@@ -73,12 +71,10 @@
 - Target Pipeline (pending)
 - Document Pipeline (pending)
 
-
 ### CLI (50%)
 
 - Команда `list` для перечисления пайплайнов ✅
 - Команды `run`, `validate` (pending)
-
 
 ## Тестирование
 
@@ -92,17 +88,14 @@
   - `test_logger.py` (10 тестов)
   - `test_api_client.py` (7 тестов)
 
-
 ### Integration Tests ⏳
 
 - Mock HTTP серверы (pending)
 - End-to-end тесты пайплайнов (pending)
 
-
 ### Golden Tests ⏳
 
 - Фикстуры для воспроизводимости (pending)
-
 
 ## Демонстрация работы
 
@@ -112,7 +105,6 @@
 
 - Файл: `data/input/assay.csv`
 - Лимит: 10 записей
-
 
 **Выходные артефакты:**
 
@@ -131,7 +123,6 @@ data/output/assay/
 - 3 типа assays
 - 0% missing для основных полей
 - Checksum: SHA256
-
 
 ## Структура проекта
 
@@ -184,7 +175,6 @@ docs/ ✅
 - **Линтер:** 0 ошибок
 - **Типобезопасность:** Аннотации везде
 
-
 ## Функциональность
 
 ### Реализовано
@@ -199,14 +189,12 @@ docs/ ✅
 - ✅ Метаданные с checksums
 - ✅ Assay Pipeline (работает end-to-end)
 
-
 ### В разработке
 
 - ⏳ Остальные пайплайны (Activity, TestItem, Target, Document)
 - ⏳ Полный CLI с командами run/validate
 - ⏳ Интеграционные тесты
 - ⏳ Golden test fixtures
-
 
 ## Примеры использования
 
@@ -239,7 +227,6 @@ print(f"Created: {artifacts.dataset}")
 - `assay_20251028_quality_report.csv` - QC метрики
 - `assay_20251028_meta.yaml` - метаданные с checksum
 
-
 ## Следующие шаги
 
 ### Приоритет 1: Реализация остальных пайплайнов
@@ -249,19 +236,16 @@ print(f"Created: {artifacts.dataset}")
 - Target Pipeline (multi-source)
 - Document Pipeline (external adapters)
 
-
 ### Приоритет 2: Расширение тестирования
 
 - Mock HTTP серверы
 - End-to-end тесты
 - Golden fixtures
 
-
 ### Приоритет 3: Полный CLI
 
 - Команды run, validate
 - Все флаги (--config, --extended, etc.)
-
 
 ## Заключение
 
@@ -272,5 +256,5 @@ print(f"Created: {artifacts.dataset}")
 - Тесты проходят, код чистый
 - Система готова к расширению
 
-
 **Статус:** ✅ Production Ready для базовой функциональности
+

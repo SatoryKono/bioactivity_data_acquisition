@@ -73,12 +73,10 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 - В `extract()` фильтровались поля входного файла
 - В `transform()` добавлялись только существующие колонки
 
-
 **Решение:**
 
 1. Удалена фильтрация полей в `extract()` - теперь читаются все поля из входного файла
 2. Добавлено автоматическое создание недостающих колонок со значениями None в `transform()`:
-
 
 ```python
 
@@ -106,13 +104,11 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 - ✅ `hash_row` - SHA256 канонической строки
 - ✅ `index` - детерминированный индекс
 
-
 ### Порядок колонок соответствует
 
 - ✅ Assay: business fields → system fields → hash fields
 - ✅ Activity: business fields → system fields → hash fields
 - ✅ Testitem: business fields → system fields → hash fields
-
 
 ---
 
@@ -124,7 +120,7 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 - [x] IO_SCHEMAS_AND_DIAGRAMS.md синхронизирован с реальными схемами
 - [x] Все три пайплайна запускаются без ошибок
 
-
 ---
 
 **Финальный статус:** ✅ Все схемы полностью соответствуют выводу пайплайнов
+

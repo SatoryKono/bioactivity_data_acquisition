@@ -17,7 +17,6 @@
 - Строк данных: **10** ✅
 - Hash поля: ✅ присутствуют
 
-
 **Заголовки:**
 
 ```text
@@ -42,7 +41,6 @@ assay_chembl_id,row_subtype,row_index,assay_type,description,target_chembl_id,co
 - Строк данных: **4** ✅ (входной файл содержал 4 записи)
 - Hash поля: ✅ присутствуют
 
-
 **Заголовки:**
 
 ```text
@@ -66,7 +64,6 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 - Колонок: **31** ✅
 - Строк данных: **10** ✅
 - Hash поля: ✅ присутствуют
-
 
 **Заголовки:**
 
@@ -100,7 +97,6 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 - `hash_row` - SHA256 канонической строки
 - `index` - детерминированный индекс
 
-
 ✅ **Порядок колонок соответствует Config.column_order в Pandera схемах**
 
 ✅ **IO_SCHEMAS_AND_DIAGRAMS.md синхронизирован с реальными выходами**
@@ -108,3 +104,4 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 ---
 
 **Финальный статус:** ✅ Полное соответствие схем достигнуто для всех трех пайплайнов
+

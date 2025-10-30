@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, ParamSpec, TypeVar, Type
+from typing import Any, ParamSpec, TypeVar
 
 __all__ = [
     "BaseModel",
@@ -34,7 +34,7 @@ class BaseModel:
     def model_dump_json(self, *, indent: int | None = ...) -> str: ...
 
     @classmethod
-    def model_validate(cls: Type[ModelT], obj: Any) -> ModelT: ...
+    def model_validate(cls: type[ModelT], obj: Any) -> ModelT: ...
 
 def Field(
     default: Any = ...,

@@ -38,7 +38,6 @@ CHEMBL1000139,assay,0,Enzyme,Displacement of [3H](-)-(S)-emopamil from EBP in gu
 - ✅ Обработано 10 строк
 - ✅ Корректный `column_order`: business fields → system fields → hash fields
 
-
 ---
 
 ## 2. Activity Pipeline ✅
@@ -71,7 +70,6 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 - ✅ Обработано 4 строки (входной файл содержал 4 записи)
 - ✅ Корректный `column_order`: business fields → system fields → hash fields
 
-
 ---
 
 ## 3. Testitem Pipeline ✅
@@ -103,7 +101,6 @@ CHEMBL129416,1.0.0,chembl,,2025-10-28T14:54:42.963935+00:00,6b66802c023cfdde4729
 - ✅ Обработано 10 строк
 - ⚠️ Бизнес-поля отсутствуют (только системные + hash) - требуется доработка для ChEMBL API extraction
 
-
 ---
 
 ## Статистика
@@ -125,7 +122,6 @@ CHEMBL129416,1.0.0,chembl,,2025-10-28T14:54:42.963935+00:00,6b66802c023cfdde4729
 - [x] Все три пайплайна (assay, activity, testitem) запускаются успешно
 - [x] QC отчеты генерируются корректно
 
-
 ---
 
 ## Замечания
@@ -134,7 +130,7 @@ CHEMBL129416,1.0.0,chembl,,2025-10-28T14:54:42.963935+00:00,6b66802c023cfdde4729
 2. **Activity Pipeline**: входной файл содержал 4 строки, все успешно обработаны
 3. **Hash поля**: все три пайплайна корректно генерируют `hash_business_key`, `hash_row`, `index`
 
-
 ---
 
 **Статус:** ✅ Все пайплайны успешно выполнены, схемы синхронизированы с IO_SCHEMAS_AND_DIAGRAMS.md
+

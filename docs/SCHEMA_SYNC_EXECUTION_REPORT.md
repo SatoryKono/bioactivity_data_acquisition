@@ -45,7 +45,6 @@
    - 14 тестов пройдено
    - 82% coverage
 
-
 ---
 
 ## Проблемы при выполнении
@@ -58,19 +57,16 @@
 - Activity: hash поля отсутствуют ❌
 - TestItem: hash поля отсутствуют ❌
 
-
 **Причина:**
 
 - `column_order` в схемах ActivitySchema и TestItemSchema содержит только часть полей
 - Pipeline генерирует hash поля, но они фильтруются из-за ограниченного column_order
 - Assay работает, потому что в его column_order включены hash поля
 
-
 **Файлы:**
 
 - `src/bioetl/pipelines/activity.py` line 147-152
 - `src/bioetl/pipelines/testitem.py` line 121-124
-
 
 ```python
 
@@ -92,7 +88,6 @@ if "column_order" in ActivitySchema.Config.__dict__:
 
 - Добавить `index`, `hash_row`, `hash_business_key` в column_order всех схем
 - Или изменить логику - включить системные поля из BaseSchema автоматически
-
 
 ---
 
@@ -119,7 +114,6 @@ Row count: 10
 - ❌ Отсутствует поле `index`
 - ❌ Отсутствуют остальные поля схемы (из-за ограниченного column_order)
 
-
 ### Activity Pipeline ⚠️
 
 **Запуск:** `python src/scripts/run_activity.py --profile dev --limit 10`
@@ -139,7 +133,6 @@ Has index: False
 - ⚠️ Hash поля НЕ генерируются (фильтруются column_order)
 - ⚠️ Index отсутствует
 - ✅ Данные извлекаются корректно
-
 
 ### TestItem Pipeline ⚠️
 
@@ -163,7 +156,6 @@ Has standardized_smiles: False
 - ✅ `mw_freebase` присутствует (переименование работает)
 - ❌ `standardized_smiles` отсутствует (поле переименовывается, но потом удаляется)
 
-
 ---
 
 ## Не выполнено
@@ -173,28 +165,23 @@ Has standardized_smiles: False
 - 4 схемы требуют обновления
 - Multi-stage enrichment не реализован
 
-
 ### DocumentSchema (0%)
 
 - Unified multi-source schema не реализована
 - Старые схемы не удалены
 
-
 ### Тесты схем (0%)
 
 - `tests/unit/test_schemas.py` не создан
-
 
 ### Интеграционные тесты (0%)
 
 - `tests/integration/test_pipelines_e2e.py` не создан
 
-
 ### Документация (частично)
 
 - `SCHEMA_IMPLEMENTATION_GUIDE.md` не создан
 - `SCHEMA_COMPLIANCE_REPORT.md` не обновлен
-
 
 ---
 
@@ -218,7 +205,6 @@ Has standardized_smiles: False
 - ❌ Тесты для схем отсутствуют
 - ❌ Интеграционные тесты отсутствуют
 
-
 ---
 
 ## Рекомендации
@@ -240,7 +226,6 @@ Has standardized_smiles: False
    - Поле переименовывается в transform(), но исчезает в output
    - Добавить в column_order
 
-
 ### Продолжить работу
 
 1. Реализовать Target schemas (4 таблицы)
@@ -248,7 +233,6 @@ Has standardized_smiles: False
 3. Создать тесты для схем
 4. Создать интеграционные тесты
 5. Обновить документацию
-
 
 ---
 
@@ -260,5 +244,5 @@ Has standardized_smiles: False
 - Target и Document схемы не реализованы
 - Тесты отсутствуют
 
-
 **Следующий шаг:** Исправить column_order для Activity и TestItem, добавив системные поля и все поля схемы.
+

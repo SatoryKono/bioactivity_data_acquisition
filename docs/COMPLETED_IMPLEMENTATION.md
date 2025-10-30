@@ -21,7 +21,6 @@
 - **Конфиги:** base.yaml, dev.yaml, prod.yaml, test.yaml
 - **Тесты:** ✅ 8 тестов проходят
 
-
 ### 2. UnifiedLogger ✅
 
 - **Файл:** `src/bioetl/core/logger.py`
@@ -31,7 +30,6 @@
   - ContextVar для run_id, stage, entity
   - 3 режима: development, production, testing
 - **Тесты:** ✅ 10 тестов проходят
-
 
 ### 3. UnifiedAPIClient ✅
 
@@ -44,7 +42,6 @@
   - TTLCache для GET-запросов
 - **Тесты:** ✅ 7 тестов, покрытие 70%
 
-
 ### 4. Нормализаторы ✅
 
 - **Файлы:** `src/bioetl/normalizers/*.py`
@@ -53,7 +50,6 @@
   - NormalizerRegistry
 - **Статус:** Функциональность проверена
 
-
 ### 5. Schema Registry ✅
 
 - **Файлы:** `src/bioetl/schemas/*.py`
@@ -61,7 +57,6 @@
   - BaseSchema, ChEMBLDocumentSchema, PubMedDocumentSchema
   - SchemaRegistry с версионированием
 - **Статус:** Функциональность проверена
-
 
 ### 6. UnifiedOutputWriter ✅
 
@@ -72,7 +67,6 @@
   - OutputMetadata с checksums
 - **Статус:** Функциональность проверена
 
-
 ### 7. Pipeline Base и CLI ✅
 
 - **Файлы:** `src/bioetl/pipelines/base.py`, `cli/main.py`
@@ -80,7 +74,6 @@
   - PipelineBase (abstract class)
   - Typer CLI
 - **Статус:** Архитектура готова
-
 
 ## Статистика проекта
 
@@ -90,13 +83,11 @@
 - **Конфигов:** 4 (base + 3 профиля)
 - **Тестов:** 3 файла, 25 тестов
 
-
 ### Тестирование
 
 - **Все тесты проходят:** ✅ 25/25
 - **Покрытие кода:** 59.41%
 - **Линтер:** 0 ошибок
-
 
 ### Компоненты по покрытию
 
@@ -104,7 +95,6 @@
 - logger: 92-97%
 - api_client: 70%
 - остальное: 37-100%
-
 
 ## Структура проекта
 
@@ -234,9 +224,9 @@ python -m bioetl.cli.main --help
 3. **Расширение CLI** — команды run, validate с полным набором флагов
 4. **Документация** — примеры использования, API reference
 
-
 ## Заключение
 
 Базовая инфраструктура полностью реализована, протестирована и готова к использованию. Все компоненты соответствуют спецификации из `docs/requirements/` и принципам детерминизма, безопасности и воспроизводимости.
 
 **Статус:** ✅ Готово к дальнейшему развитию
+
