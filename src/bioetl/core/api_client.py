@@ -385,7 +385,7 @@ class UnifiedAPIClient:
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
                 cached_value: dict[str, Any] = self.cache[cache_key]
-                return copy.deepcopy(cached_value)
+                return self._clone_payload(cached_value)
 
         # Execute with circuit breaker
         def _perform_request() -> requests.Response:
@@ -420,7 +420,7 @@ class UnifiedAPIClient:
                     and method == "GET"
                     and request_has_no_body
                 ):
-                    self.cache[cache_key] = copy.deepcopy(payload)
+                    self.cache[cache_key] = self._clone_payload(payload)
 
                 return payload
 
@@ -630,6 +630,17 @@ class UnifiedAPIClient:
         retry_request_kwargs = request_kwargs.copy()
         response = self.session.request(**retry_request_kwargs)
         return response
+
+    @staticmethod
+    def _clone_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        """Return a deep copy of payload, avoiding shared mutable state."""
+
+        try:
+            return copy.deepcopy(payload)
+        except Exception:
+            # ``requests`` can sometimes return objects that are not fully deepcopyable.
+            # Fall back to JSON round-trip cloning as a safe guard.
+            return json.loads(json.dumps(payload))
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
