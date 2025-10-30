@@ -18,13 +18,12 @@ from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase, read_input_table
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
@@ -414,24 +413,16 @@ class AssayPipeline(PipelineBase):
         return record
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
-        """Extract assay data from input file."""
-        default_filename = Path("assay.csv")
-        input_path = Path(input_file) if input_file is not None else default_filename
-        resolved_path = resolve_input_path(self.config, input_path)
-
-        logger.info("reading_input", path=resolved_path)
-
-        limit_value = self.get_runtime_limit()
-        df = load_input_frame(
-            self.config,
-            resolved_path,
+        """Extract assay data from input file using the shared helper."""
+        df, resolved_path = read_input_table(
+            self,
+            default_filename=Path("assay.csv"),
+            input_file=input_file,
             expected_columns=["assay_chembl_id"],
-            limit=limit_value,
             dtype="string",
         )
 
         if not resolved_path.exists():
-            logger.warning("input_file_not_found", path=resolved_path)
             return df
 
         result = pd.DataFrame({"assay_chembl_id": df.get("assay_chembl_id", pd.Series(dtype="string"))})
@@ -963,6 +954,8 @@ class AssayPipeline(PipelineBase):
             },
         )
 
+        df = df.drop(columns=["row_subtype", "row_index"], errors="ignore")
+
         coerce_nullable_int(df, nullable_int_columns)
         coerce_retry_after(df)
 
@@ -971,8 +964,15 @@ class AssayPipeline(PipelineBase):
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate assay data against schema and referential integrity."""
         from bioetl.schemas.assay import AssaySchema
-        
+
         self.validation_issues.clear()
+
+        df = df.copy()
+
+        if "run_id" in df.columns:
+            df["run_id"] = df["run_id"].astype("string").fillna(self.run_id)
+        else:
+            df["run_id"] = pd.Series(self.run_id, index=df.index, dtype="string")
 
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)

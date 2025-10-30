@@ -15,7 +15,7 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase, read_input_table
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
@@ -26,7 +26,6 @@ from bioetl.utils.qc import (
     update_summary_section,
     update_validation_issue_summary,
 )
-from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import canonical_json
 from bioetl.utils.output import finalize_output_dataset
 
@@ -445,22 +444,15 @@ class TestItemPipeline(PipelineBase):
         self._molecule_cache: dict[str, dict[str, Any]] = {}
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
-        """Extract molecule data from input file."""
-        default_filename = Path("testitem.csv")
-        input_path = Path(input_file) if input_file is not None else default_filename
-        resolved_path = resolve_input_path(self.config, input_path)
-
-        logger.info("reading_input", path=resolved_path)
-
-        df = load_input_frame(
-            self.config,
-            resolved_path,
+        """Extract molecule data from input file via :func:`read_input_table`."""
+        df, resolved_path = read_input_table(
+            self,
+            default_filename=Path("testitem.csv"),
+            input_file=input_file,
             expected_columns=TestItemSchema.get_column_order(),
-            limit=self.get_runtime_limit(),
         )
 
         if not resolved_path.exists():
-            logger.warning("input_file_not_found", path=resolved_path)
             return df
 
         logger.info("extraction_completed", rows=len(df), columns=len(df.columns))

@@ -18,7 +18,7 @@ from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase, read_input_table
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
@@ -29,7 +29,6 @@ from bioetl.utils.qc import (
     update_summary_metrics,
     update_validation_issue_summary,
 )
-from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.json import normalize_json_list
 from bioetl.utils.output import finalize_output_dataset
 
@@ -183,26 +182,19 @@ class ActivityPipeline(PipelineBase):
         self._chembl_release = self._get_chembl_release()
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
-        """Extract activity data from input file."""
-        default_filename = Path("activity.csv")
-        input_path = Path(input_file) if input_file is not None else default_filename
-        resolved_path = resolve_input_path(self.config, input_path)
-
-        logger.info("reading_input", path=resolved_path)
-
+        """Extract activity data via :func:`read_input_table` and API lookups."""
         expected_cols = ActivitySchema.get_column_order() or []
-        limit_value = self.get_runtime_limit()
-
-        df = load_input_frame(
-            self.config,
-            resolved_path,
+        df, resolved_path = read_input_table(
+            self,
+            default_filename=Path("activity.csv"),
+            input_file=input_file,
             expected_columns=expected_cols,
-            limit=limit_value,
         )
 
         if not resolved_path.exists():
-            logger.warning("input_file_not_found", path=resolved_path)
             return df
+
+        limit_value = self.get_runtime_limit()
 
         # Map activity_chembl_id to activity_id if needed
         if 'activity_chembl_id' in df.columns:

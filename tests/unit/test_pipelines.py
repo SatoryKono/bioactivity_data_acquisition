@@ -123,6 +123,38 @@ class TestAssayPipeline:
         assert isinstance(result, pd.DataFrame)
         assert len(result) >= 0  # May be limited by nrows=10
 
+    def test_extract_missing_file_returns_empty(self, assay_config, tmp_path):
+        """Helper should return an empty frame with expected columns when file is missing."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(assay_config, run_id)
+
+        missing_path = tmp_path / "does_not_exist.csv"
+
+        result = pipeline.extract(input_file=missing_path)
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
+        assert list(result.columns) == ["assay_chembl_id"]
+
+    def test_extract_respects_runtime_limit(self, assay_config, tmp_path):
+        """Helper should enforce the configured limit on the loaded input rows."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = AssayPipeline(assay_config, run_id)
+        pipeline.runtime_options["limit"] = 1
+
+        csv_path = tmp_path / "assay.csv"
+        csv_path.write_text(
+            "assay_chembl_id\n"
+            "CHEMBL1\n"
+            "CHEMBL2\n"
+        )
+
+        result = pipeline.extract(input_file=csv_path)
+
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 1
+        assert result.iloc[0]["assay_chembl_id"] == "CHEMBL1"
+
     def test_transform_adds_metadata(self, assay_config, monkeypatch):
         """Test transformation adds pipeline metadata."""
         run_id = str(uuid.uuid4())[:8]
@@ -1497,6 +1529,51 @@ class TestTargetPipeline:
         result = pipeline.extract(input_file=csv_path)
         assert isinstance(result, pd.DataFrame)
         assert len(result) >= 0
+
+    def test_extract_missing_file_returns_empty(self, target_config, tmp_path):
+        """Helper should return the expected empty frame when the target file is absent."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TargetPipeline(target_config, run_id)
+
+        missing_path = tmp_path / "missing_target.csv"
+
+        result = pipeline.extract(input_file=missing_path)
+
+        assert isinstance(result, pd.DataFrame)
+        assert result.empty
+        assert list(result.columns) == [
+            "target_chembl_id",
+            "pref_name",
+            "target_type",
+            "organism",
+            "taxonomy",
+            "hgnc_id",
+            "uniprot_accession",
+            "iuphar_type",
+            "iuphar_class",
+            "iuphar_subclass",
+        ]
+
+    def test_extract_respects_runtime_limit(self, target_config, tmp_path):
+        """Helper should enforce runtime limits for target pipeline as well."""
+        run_id = str(uuid.uuid4())[:8]
+        pipeline = TargetPipeline(target_config, run_id)
+        pipeline.runtime_options["limit"] = 2
+
+        csv_path = tmp_path / "target.csv"
+        csv_path.write_text(
+            "target_chembl_id,pref_name,target_type\n"
+            "CHEMBL1,Target One,PROTEIN\n"
+            "CHEMBL2,Target Two,PROTEIN\n"
+            "CHEMBL3,Target Three,PROTEIN\n"
+        )
+
+        result = pipeline.extract(input_file=csv_path)
+
+        assert isinstance(result, pd.DataFrame)
+        assert len(result) == 2
+        assert result.iloc[0]["target_chembl_id"] == "CHEMBL1"
+        assert result.iloc[1]["target_chembl_id"] == "CHEMBL2"
 
     def test_transform_adds_metadata(self, target_config, monkeypatch):
         """Test transformation adds pipeline metadata."""

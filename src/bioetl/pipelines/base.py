@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from collections.abc import Sequence
 from typing import Any, Callable, Iterable
 
 import pandas as pd
@@ -18,6 +19,7 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
@@ -73,6 +75,67 @@ class EnrichmentStageRegistry:
 
 
 enrichment_stage_registry = EnrichmentStageRegistry()
+
+
+def read_input_table(
+    pipeline: "PipelineBase",
+    *,
+    default_filename: str | Path,
+    input_file: str | Path | None = None,
+    expected_columns: Sequence[str] | None = None,
+    dtype: Any | None = None,
+    **read_csv_kwargs: Any,
+) -> tuple[pd.DataFrame, Path]:
+    """Load a CSV input table applying shared pipeline conventions.
+
+    Parameters
+    ----------
+    pipeline:
+        Pipeline instance providing configuration and runtime options.
+    default_filename:
+        Filename used when the caller does not supply ``input_file``.
+    input_file:
+        Optional explicit path to the input CSV.
+    expected_columns:
+        Optional sequence describing the desired column order for empty
+        results.
+    dtype:
+        Optional dtype hint forwarded to :func:`pandas.read_csv`.
+    read_csv_kwargs:
+        Additional keyword arguments forwarded to
+        :func:`bioetl.utils.io.load_input_frame`.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, Path]
+        A tuple containing the loaded dataframe and the resolved filesystem
+        path that was used for loading.
+    """
+
+    input_path = Path(input_file) if input_file is not None else Path(default_filename)
+    resolved_path = resolve_input_path(pipeline.config, input_path)
+
+    logger.info("reading_input", path=resolved_path)
+
+    limit_value = pipeline.get_runtime_limit()
+
+    dataframe = load_input_frame(
+        pipeline.config,
+        resolved_path,
+        expected_columns=expected_columns,
+        limit=limit_value,
+        dtype=dtype,
+        **read_csv_kwargs,
+    )
+
+    if not resolved_path.exists():
+        logger.warning("input_file_not_found", path=resolved_path)
+        return dataframe, resolved_path
+
+    if limit_value is not None:
+        logger.info("input_limit_applied", limit=limit_value, rows=len(dataframe))
+
+    return dataframe, resolved_path
 
 
 class PipelineBase(ABC):

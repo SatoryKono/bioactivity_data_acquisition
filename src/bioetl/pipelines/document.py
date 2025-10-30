@@ -28,6 +28,7 @@ from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
     enrichment_stage_registry,
+    read_input_table,
 )
 from bioetl.pipelines.document_enrichment import merge_with_precedence
 from bioetl.schemas.document import (
@@ -46,7 +47,6 @@ from bioetl.utils.qc import (
     update_summary_section,
     update_validation_issue_summary,
 )
-from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset
 
 NAType = type(pd.NA)
@@ -230,22 +230,16 @@ class DocumentPipeline(PipelineBase):
         self._chembl_release = self._get_chembl_release()
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
-        """Extract document data from input file with optional enrichment."""
-        default_filename = Path("document.csv")
-        input_path = Path(input_file) if input_file is not None else default_filename
-        resolved_path = resolve_input_path(self.config, input_path)
-
-        logger.info("reading_input", path=resolved_path)
-
-        df = load_input_frame(
-            self.config,
-            resolved_path,
+        """Extract document data using :func:`read_input_table` before enrichment."""
+        df, resolved_path = read_input_table(
+            self,
+            default_filename=Path("document.csv"),
+            input_file=input_file,
             expected_columns=["document_chembl_id"],
             dtype="string",
         )
 
         if not resolved_path.exists():
-            logger.warning("input_file_not_found", path=resolved_path)
             return df
 
         valid_ids, rejected_rows = self._prepare_input_ids(df)

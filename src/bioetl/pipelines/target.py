@@ -22,6 +22,7 @@ from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
     enrichment_stage_registry,
+    read_input_table,
 )
 from bioetl.pipelines.target_gold import (
     _split_accession_field,
@@ -46,7 +47,6 @@ from bioetl.utils.qc import (
     update_summary_section,
     update_validation_issue_summary,
 )
-from bioetl.utils.io import load_input_frame, resolve_input_path
 
 logger = UnifiedLogger.get(__name__)
 
@@ -176,13 +176,7 @@ class TargetPipeline(PipelineBase):
         return None
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
-        """Extract target data from input file."""
-        default_filename = Path("target.csv")
-        input_path = Path(input_file) if input_file is not None else default_filename
-        resolved_path = resolve_input_path(self.config, input_path)
-
-        logger.info("reading_input", path=resolved_path)
-
+        """Extract target data from input file via the shared helper."""
         expected_columns = [
             "target_chembl_id",
             "pref_name",
@@ -196,15 +190,14 @@ class TargetPipeline(PipelineBase):
             "iuphar_subclass",
         ]
 
-        df = load_input_frame(
-            self.config,
-            resolved_path,
+        df, resolved_path = read_input_table(
+            self,
+            default_filename=Path("target.csv"),
+            input_file=input_file,
             expected_columns=expected_columns,
-            limit=self.get_runtime_limit(),
         )
 
         if not resolved_path.exists():
-            logger.warning("input_file_not_found", path=resolved_path)
             return df
 
         logger.info("extraction_completed", rows=len(df))
