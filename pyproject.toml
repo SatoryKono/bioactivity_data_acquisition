@@ -131,16 +131,31 @@ addopts = [
     "--strict-markers",
     "--strict-config",
     "--cov=src/bioetl",
-    "--cov-report=xml",
     "--cov-report=term-missing",
     "--cov-report=html",
-    "--cov-fail-under=50",
+    "--cov-report=xml",
+    "--cov-fail-under=85",
+    "--tb=short",
+    "--durations=10",
+    "--maxfail=5",
+    "--disable-warnings",
 ]
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
-    "golden: Golden tests",
-    "slow: Slow tests",
+    "golden: Golden tests for deterministic output verification",
+    "slow: Slow tests (>5s)",
+    "property: Property-based tests",
+    "qc: Quality control tests",
+    "schema: Schema validation tests",
+    "api: External API tests",
+    "benchmark: Performance benchmark tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::pandas.errors.PerformanceWarning",
+    "ignore::UserWarning:.*pandera.*",
 ]
 
 [tool.coverage.run]
