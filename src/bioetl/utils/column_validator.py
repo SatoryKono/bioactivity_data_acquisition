@@ -98,9 +98,13 @@ class ColumnValidator:
             # Получить фактические колонки
             actual_columns = list(actual_df.columns)
 
-            # Сравнить колонки
-            missing_columns = list(set(expected_columns) - set(actual_columns))
-            extra_columns = list(set(actual_columns) - set(expected_columns))
+            # Сравнить колонки, сохраняя детерминированный порядок
+            missing_columns = [
+                column for column in expected_columns if column not in actual_columns
+            ]
+            extra_columns = [
+                column for column in actual_columns if column not in expected_columns
+            ]
             order_matches = expected_columns == actual_columns
             column_count_matches = len(expected_columns) == len(actual_columns)
 

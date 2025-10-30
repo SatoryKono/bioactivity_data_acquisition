@@ -1,7 +1,9 @@
 import json
 
+import pandas as pd
 import pytest
 
+from bioetl.utils import column_validator as column_validator_module
 from bioetl.utils.column_validator import ColumnComparisonResult, ColumnValidator
 
 
@@ -45,3 +47,41 @@ def test_generate_report_uses_utc_timestamp(tmp_path) -> None:
     timestamp = report_data["timestamp"]
 
     assert timestamp.endswith("Z") or timestamp.endswith("+00:00")
+
+
+def test_compare_columns_preserves_missing_and_extra_order(monkeypatch) -> None:
+    validator = ColumnValidator()
+    expected_columns = [
+        "assay_id",
+        "sample_id",
+        "result",
+        "quality_flag",
+        "timestamp",
+    ]
+    actual_columns = [
+        "sample_id",
+        "result",
+        "extra_a",
+        "timestamp",
+        "extra_b",
+    ]
+
+    monkeypatch.setattr(
+        column_validator_module.SchemaRegistry,
+        "get",
+        lambda entity, schema_version="latest": object(),
+    )
+    monkeypatch.setattr(
+        ColumnValidator,
+        "_get_expected_columns",
+        lambda self, schema: expected_columns,
+    )
+
+    actual_df = pd.DataFrame(columns=actual_columns)
+
+    result = validator.compare_columns("assay", actual_df)
+
+    assert result.expected_columns == expected_columns
+    assert result.actual_columns == actual_columns
+    assert result.missing_columns == ["assay_id", "quality_flag"]
+    assert result.extra_columns == ["extra_a", "extra_b"]
