@@ -47,9 +47,9 @@ class TargetSchema(BaseSchema):
     uniprot_id_primary: Series[str] = pa.Field(nullable=True)
     uniprot_ids_all: Series[str] = pa.Field(nullable=True)
     isoform_count: Series[int] = pa.Field(nullable=True, ge=0)
-    has_alternative_products: Series[bool] = pa.Field(nullable=True)
-    has_uniprot: Series[bool] = pa.Field(nullable=True)
-    has_iuphar: Series[bool] = pa.Field(nullable=True)
+    has_alternative_products: Series[pd.BooleanDtype] = pa.Field(nullable=True)
+    has_uniprot: Series[pd.BooleanDtype] = pa.Field(nullable=True)
+    has_iuphar: Series[pd.BooleanDtype] = pa.Field(nullable=True)
 
     iuphar_type: Series[str] = pa.Field(nullable=True)
     iuphar_class: Series[str] = pa.Field(nullable=True)
@@ -124,7 +124,7 @@ class TargetComponentSchema(BaseSchema):
     # UniProt enrichment
     gene_symbol: Series[str] = pa.Field(nullable=True)
     sequence_length: Series[int] = pa.Field(nullable=True, ge=0)
-    is_canonical: Series[bool] = pa.Field(nullable=True)
+    is_canonical: Series[pd.BooleanDtype] = pa.Field(nullable=True)
 
     class Config:
         strict = True

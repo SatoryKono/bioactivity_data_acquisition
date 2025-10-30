@@ -227,10 +227,10 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     )
     activity_properties: Series[str] = pa.Field(nullable=True, description="Свойства активности в каноническом виде")
     compound_key: Series[str] = pa.Field(nullable=True, description="Бизнес-ключ для связывания активности")
-    is_citation: Series[bool] = pa.Field(nullable=True, description="Флаг наличия цитирования")
-    high_citation_rate: Series[bool] = pa.Field(nullable=True, description="Высокая частота цитирований")
-    exact_data_citation: Series[bool] = pa.Field(nullable=True, description="Флаг точного цитирования")
-    rounded_data_citation: Series[bool] = pa.Field(nullable=True, description="Флаг округленного цитирования")
+    is_citation: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Флаг наличия цитирования")
+    high_citation_rate: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Высокая частота цитирований")
+    exact_data_citation: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Флаг точного цитирования")
+    rounded_data_citation: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Флаг округленного цитирования")
 
     # Ligand efficiency
     bei: Series[float] = pa.Field(nullable=True, description="Binding Efficiency Index")
