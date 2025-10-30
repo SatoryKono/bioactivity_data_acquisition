@@ -125,7 +125,9 @@ def _expected_sources(config_obj) -> dict[str, object]:
     if not sources:
         return {}
     return {
-        name: source.model_dump(mode="json", exclude_none=True, exclude={"api_key"})
+        name: PipelineBase._normalise_metadata_value(
+            source.model_dump(mode="json", exclude_none=True)
+        )
         for name, source in sources.items()
     }
 
