@@ -19,7 +19,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.qc import (
     duplicate_summary,
     update_summary_metrics,
@@ -442,6 +442,10 @@ class TestItemPipeline(PipelineBase):
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
         self._molecule_cache: dict[str, dict[str, Any]] = {}
+        self._fallback_builder = FallbackRecordBuilder(
+            business_columns=tuple(self._expected_columns()),
+            context={"chembl_release": self._chembl_release},
+        )
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract molecule data from input file."""
@@ -696,8 +700,7 @@ class TestItemPipeline(PipelineBase):
         if retry_after is None and isinstance(error, requests.exceptions.HTTPError):
             retry_after = self._extract_retry_after(error)
 
-        fallback_record = self._empty_molecule_record()
-        fallback_record["molecule_chembl_id"] = molecule_id
+        fallback_record = self._fallback_builder.record({"molecule_chembl_id": molecule_id})
 
         metadata = build_fallback_payload(
             entity="testitem",
@@ -706,10 +709,7 @@ class TestItemPipeline(PipelineBase):
             source="TESTITEM_FALLBACK",
             attempt=attempt,
             message=message,
-            context={
-                "molecule_chembl_id": molecule_id,
-                "chembl_release": self._chembl_release,
-            },
+            context=self._fallback_builder.context_with({"molecule_chembl_id": molecule_id}),
         )
 
         if retry_after is not None:

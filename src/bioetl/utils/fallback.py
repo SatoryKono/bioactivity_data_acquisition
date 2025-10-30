@@ -2,14 +2,63 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from types import MappingProxyType
 from typing import Any
 from warnings import warn
 
 import pandas as pd
 
 from bioetl.utils.dtypes import coerce_retry_after
+
+
+class FallbackRecordBuilder:
+    """Helper for constructing deterministic fallback records."""
+
+    __slots__ = ("_business_columns", "_context")
+
+    def __init__(
+        self,
+        *,
+        business_columns: Sequence[str],
+        context: Mapping[str, Any] | None = None,
+    ) -> None:
+        if not business_columns:
+            raise ValueError("business_columns must not be empty")
+
+        self._business_columns = tuple(business_columns)
+        self._context = MappingProxyType(dict(context or {}))
+
+    @property
+    def business_columns(self) -> tuple[str, ...]:
+        """Return the immutable sequence of business columns."""
+
+        return self._business_columns
+
+    @property
+    def context(self) -> Mapping[str, Any]:
+        """Return immutable base context for fallback payloads."""
+
+        return self._context
+
+    def record(self, overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        """Create a fallback record skeleton with optional overrides."""
+
+        record = dict.fromkeys(self._business_columns)
+        record.update(self._context)
+        if overrides:
+            record.update(dict(overrides))
+        return record
+
+    def context_with(self, extra: Mapping[str, Any] | None = None) -> dict[str, Any]:
+        """Merge base context with ``extra`` for payload construction."""
+
+        if not extra:
+            return dict(self._context)
+        merged = dict(self._context)
+        merged.update(dict(extra))
+        return merged
 
 
 def _extract_http_status(error: Any) -> int | None:
