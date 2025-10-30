@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import requests
+from pytest_httpserver import HTTPServer
 
 from bioetl.config.loader import load_config
 from bioetl.pipelines.document import DocumentPipeline
@@ -43,6 +45,75 @@ def document_config():
     config_path = Path("configs/pipelines/document.yaml")
     return config_path
 
+
+@pytest.fixture(autouse=True)
+def cleanup_httpserver_state(httpserver: HTTPServer) -> None:
+    """Ensure the embedded HTTP server is reset between tests."""
+
+    yield
+    httpserver.clear()
+
+
+@pytest.fixture
+def mock_external_enrichment(
+    monkeypatch: pytest.MonkeyPatch,
+    httpserver: HTTPServer,
+    sample_documents_data: pd.DataFrame,
+):
+    """Patch external enrichment to use a local HTTP server and avoid real network access."""
+
+    configured = {"value": False}
+
+    def _configure(*, status: int = 200) -> dict[str, list[dict[str, object]]]:
+        configured["value"] = True
+        url_path = "/enrich"
+        expected_payload = sample_documents_data.head(3).to_dict(orient="records")
+        response_payload = [
+            {
+                "document_chembl_id": record["document_chembl_id"],
+                "mock_source": "pytest-httpserver",
+                "mock_title": f"{record['title']} (enriched)",
+            }
+            for record in expected_payload
+        ]
+
+        if status < 400:
+            httpserver.expect_request(
+                url_path, method="POST", json=expected_payload
+            ).respond_with_json({"records": response_payload}, status=status)
+        else:
+            httpserver.expect_request(
+                url_path, method="POST", json=expected_payload
+            ).respond_with_data("", status=status)
+
+        endpoint = httpserver.url_for(url_path)
+
+        def fake_enrich(self: DocumentPipeline, chembl_df: pd.DataFrame) -> pd.DataFrame:
+            payload = chembl_df.to_dict(orient="records")
+            assert payload == expected_payload
+            try:
+                response = requests.post(endpoint, json=payload, timeout=5)
+                response.raise_for_status()
+            except requests.RequestException:
+                return chembl_df.copy()
+
+            enriched_records = response.json().get("records", [])
+            enrichment_df = pd.DataFrame(enriched_records)
+            if enrichment_df.empty:
+                return chembl_df.copy()
+            return chembl_df.merge(enrichment_df, on="document_chembl_id", how="left")
+
+        monkeypatch.setattr(DocumentPipeline, "_enrich_with_external_sources", fake_enrich)
+
+        return {
+            "expected_payload": expected_payload,
+            "response_payload": response_payload,
+        }
+
+    yield _configure
+
+    if configured["value"]:
+        httpserver.check_assertions()
 
 class TestDocumentPipelineEnrichment:
     """Test DocumentPipeline with external enrichment."""
@@ -88,10 +159,17 @@ class TestDocumentPipelineEnrichment:
             pipeline.extract = original_extract
             input_path.unlink()
 
-    def test_enrichment_adds_external_columns(self, document_config, sample_documents_data):
+    def test_enrichment_adds_external_columns(
+        self,
+        document_config,
+        sample_documents_data,
+        mock_external_enrichment,
+    ):
         """Test that enrichment adds columns from external sources."""
         config = load_config(document_config)
         pipeline = DocumentPipeline(config, "test_run")
+
+        mock_external_enrichment()
 
         # Simulate enrichment
         df = sample_documents_data.copy()
@@ -102,26 +180,13 @@ class TestDocumentPipelineEnrichment:
         if "classification" in df.columns:
             df["document_classification"] = df["classification"]
 
-        # Check if enrichment is enabled
-        enrichment_enabled = any(
-            hasattr(pipeline.config.sources.get(source_name), "enabled")
-            and pipeline.config.sources[source_name].enabled
-            for source_name in ["pubmed", "crossref", "openalex", "semantic_scholar"]
-            if source_name in pipeline.config.sources
-        )
+        enriched_df = pipeline._enrich_with_external_sources(df.head(3))
 
-        if enrichment_enabled:
-            # Enrichment will add columns from adapters
-            enriched_df = pipeline._enrich_with_external_sources(df.head(3))
-
-            # Check for enrichment columns (may be empty if adapters fail)
-            external_cols = [
-                col for col in enriched_df.columns
-                if any(prefix in col for prefix in ["crossref_", "openalex_", "pubmed_", "semantic_scholar_"])
-            ]
-
-            # At least some enrichment columns should be present
-            assert len(external_cols) >= 0  # May be 0 if APIs are unavailable
+        # Check for mocked enrichment columns
+        assert "mock_source" in enriched_df.columns
+        assert "mock_title" in enriched_df.columns
+        assert enriched_df["mock_source"].eq("pytest-httpserver").all()
+        assert enriched_df["mock_title"].str.contains("enriched").all()
 
     def test_schema_compliance(self, document_config, sample_documents_data):
         """Test that output complies with DocumentSchema."""
@@ -188,10 +253,17 @@ class TestDocumentPipelineEnrichment:
         assert len(validated_df) <= len(df_with_duplicates)
         assert validated_df["document_chembl_id"].duplicated().sum() == 0
 
-    def test_enrichment_handles_api_failures_gracefully(self, document_config, sample_documents_data):
+    def test_enrichment_handles_api_failures_gracefully(
+        self,
+        document_config,
+        sample_documents_data,
+        mock_external_enrichment,
+    ):
         """Test that enrichment continues even if some APIs fail."""
         config = load_config(document_config)
         pipeline = DocumentPipeline(config, "test_run")
+
+        mock_external_enrichment(status=500)
 
         df = sample_documents_data.copy()
 
@@ -201,6 +273,7 @@ class TestDocumentPipelineEnrichment:
             # Should not raise exception even if APIs fail
             assert enriched_df is not None
             assert len(enriched_df) <= len(df)
+            assert enriched_df.equals(df.head(3))
 
         except Exception as e:
             # If enrichment fails completely, that's also acceptable
