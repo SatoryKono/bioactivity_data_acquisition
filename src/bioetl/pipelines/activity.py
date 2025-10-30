@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import numpy as np
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
