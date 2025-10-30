@@ -182,9 +182,10 @@ def finalize_pipeline_output(
 ) -> DataFrameT:
     """Apply deterministic metadata, hashing and ordering to a dataframe.
 
-    The helper enriches the dataframe with metadata columns, calculates the
-    ``hash_business_key`` and ``hash_row`` digests and finally enforces a
-    canonical ordering.  ``hash_row`` values are generated via
+    The helper enriches the dataframe with metadata columns (creating optional
+    fields such as ``run_id`` when absent), calculates the ``hash_business_key``
+    and ``hash_row`` digests and finally enforces a canonical ordering.
+    ``hash_row`` values are generated via
     :func:`pandas.util.hash_pandas_object` on the dataframe columns sorted by
     name which guarantees deterministic SHA256 digests regardless of platform or
     dataframe row ordering.
@@ -201,10 +202,10 @@ def finalize_pipeline_output(
 
     if run_id is not None:
         result["run_id"] = run_id
-    elif "run_id" not in result.columns:
-        raise KeyError("run_id column is required for deterministic outputs")
     else:
-        if result["run_id"].isna().any():
+        if "run_id" not in result.columns:
+            result["run_id"] = pd.Series(pd.NA, index=result.index, dtype="string")
+        elif result["run_id"].isna().any():
             raise ValueError("run_id column contains null values")
 
     if source_system is not None:
