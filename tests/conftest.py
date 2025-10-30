@@ -5,6 +5,7 @@ import sys
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
+from types import ModuleType
 
 import pandas as pd
 import pytest
@@ -19,6 +20,32 @@ if str(src_path) not in sys.path:
 # Configure Faker for consistent test data
 fake = Faker()
 Faker.seed(42)  # For reproducible test data
+
+
+class _DummyTTLCache(dict):
+    """Minimal TTLCache stub used when ``cachetools`` is unavailable."""
+
+    def __init__(self, maxsize, ttl):  # noqa: D401 - simple stub
+        super().__init__()
+        self.maxsize = maxsize
+        self.ttl = ttl
+
+
+def _register_cachetools_stub() -> None:
+    """Ensure a ``cachetools`` stub with ``TTLCache`` is available for tests."""
+
+    module = sys.modules.get("cachetools")
+    if module is None:
+        stub = ModuleType("cachetools")
+        setattr(stub, "TTLCache", _DummyTTLCache)
+        sys.modules["cachetools"] = stub
+        return
+
+    if not hasattr(module, "TTLCache"):
+        setattr(module, "TTLCache", _DummyTTLCache)
+
+
+_register_cachetools_stub()
 
 
 @pytest.fixture
