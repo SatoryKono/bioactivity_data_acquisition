@@ -14,6 +14,7 @@ if str(PROJECT_SRC) not in sys.path:
     sys.path.insert(0, str(PROJECT_SRC))
 
 from scripts import PIPELINE_COMMAND_REGISTRY  # noqa: E402
+from bioetl.cli.main import app as main_cli_app  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -198,6 +199,32 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     else:
         assert runtime_options.get("sample") == 5
         assert runtime_options.get("limit") == 5
+
+
+@pytest.mark.unit
+def test_cli_main_registers_pipeline_commands() -> None:
+    """The consolidated CLI registers each pipeline command alongside list."""
+
+    registered_command_names = {command.name for command in main_cli_app.registered_commands}
+    expected_names = set(PIPELINE_COMMAND_REGISTRY) | {"list"}
+
+    missing = expected_names - registered_command_names
+    assert not missing, f"Missing commands from main CLI: {sorted(missing)}"
+
+
+@pytest.mark.unit
+def test_cli_main_help_lists_pipeline_commands() -> None:
+    """Help output from the consolidated CLI exposes the pipeline commands."""
+
+    runner = CliRunner()
+    result = runner.invoke(main_cli_app, ["--help"])
+
+    assert result.exit_code == 0, result.output
+
+    for command_name in sorted(PIPELINE_COMMAND_REGISTRY):
+        assert command_name in result.stdout
+
+    assert "list" in result.stdout
 
 
 @pytest.mark.unit
