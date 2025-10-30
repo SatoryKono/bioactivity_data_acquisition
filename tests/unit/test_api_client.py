@@ -209,6 +209,35 @@ def test_request_json_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     assert first_result is not second_result
 
 
+def test_request_json_preserves_embedded_scheme_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Relative paths containing embedded schemes should be concatenated verbatim."""
+
+    config = APIConfig(name="openalex", base_url="https://api.openalex.org/")
+    client = UnifiedAPIClient(config)
+
+    captured: dict[str, Any] = {}
+
+    response = Mock(spec=requests.Response)
+    response.raise_for_status = Mock()
+    response.json = Mock(return_value={})
+    response.headers = CaseInsensitiveDict()
+
+    def fake_execute(**kwargs: Any) -> requests.Response:
+        captured.update(kwargs)
+        return response
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+
+    client.request_json("/works/https://doi.org/10.1021/jm050235r")
+
+    assert (
+        captured["url"]
+        == "https://api.openalex.org/works/https://doi.org/10.1021/jm050235r"
+    )
+
+
 def test_retry_policy_wait_time():
     """Test retry policy wait time calculation."""
     policy = RetryPolicy(total=3, backoff_factor=2.0, backoff_max=10.0)

@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any, cast
-from urllib.parse import urljoin
 
 import backoff
 import requests
@@ -555,9 +554,14 @@ class UnifiedAPIClient:
         """
         # Build full URL
         if not url.startswith("http"):
-            base_url = self.config.base_url.rstrip("/") + "/"
+            base_url = self.config.base_url.rstrip("/")
             relative_path = url.lstrip("/")
-            url = urljoin(base_url, relative_path)
+
+            # ``urllib.parse.urljoin`` normalizes the path which breaks endpoints that
+            # intentionally embed another scheme, e.g. ``/works/https://doi.org/...``
+            # used by the OpenAlex API.  Rely on deterministic string concatenation
+            # to preserve the relative path exactly as provided by the adapter.
+            url = f"{base_url}/{relative_path}"
 
         query_params = copy.deepcopy(params) if params is not None else None
         data_payload = data
