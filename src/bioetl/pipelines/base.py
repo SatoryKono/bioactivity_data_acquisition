@@ -723,6 +723,7 @@ class PipelineBase(ABC):
             self.debug_dataset_path = self._dump_debug_output(df, output_path)
 
             # Export
+            self.runtime_options["extended"] = extended
             artifacts = self.export(df, output_path, extended=extended)
             logger.info("pipeline_completed", artifacts=str(artifacts.dataset))
 

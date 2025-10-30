@@ -85,6 +85,8 @@ class OutputArtifacts:
     qc_summary: Path | None = None
     qc_missing_mappings: Path | None = None
     qc_enrichment_metrics: Path | None = None
+    qc_summary_statistics: Path | None = None
+    qc_dataset_metrics: Path | None = None
     debug_dataset: Path | None = None
 
 
@@ -353,6 +355,48 @@ class UnifiedOutputWriter:
                 self.atomic_writer.write(table, table_path)
                 additional_paths[name] = table_path
 
+        correlation_path: Path | None = None
+        summary_statistics_path: Path | None = None
+        dataset_metrics_path: Path | None = None
+
+        if extended:
+            correlation_df = self._build_correlation_report(df)
+            if correlation_df is not None and not correlation_df.empty:
+                correlation_path = qc_dir / f"{dataset_path.stem}_correlation_report.csv"
+                logger.info(
+                    "writing_correlation_report",
+                    path=str(correlation_path),
+                    rows=len(correlation_df),
+                )
+                self.atomic_writer.write(correlation_df, correlation_path)
+            else:
+                logger.info(
+                    "skip_correlation_report",
+                    reason="no_numeric_columns" if correlation_df is None else "empty_payload",
+                )
+
+            summary_statistics_df = self._build_summary_statistics(df)
+            if summary_statistics_df is not None and not summary_statistics_df.empty:
+                summary_statistics_path = (
+                    qc_dir / f"{dataset_path.stem}_summary_statistics.csv"
+                )
+                logger.info(
+                    "writing_summary_statistics",
+                    path=str(summary_statistics_path),
+                    rows=len(summary_statistics_df),
+                )
+                self.atomic_writer.write(summary_statistics_df, summary_statistics_path)
+
+            dataset_metrics_df = self._build_dataset_metrics(df)
+            if dataset_metrics_df is not None and not dataset_metrics_df.empty:
+                dataset_metrics_path = qc_dir / f"{dataset_path.stem}_dataset_metrics.csv"
+                logger.info(
+                    "writing_dataset_metrics",
+                    path=str(dataset_metrics_path),
+                    rows=len(dataset_metrics_df),
+                )
+                self.atomic_writer.write(dataset_metrics_df, dataset_metrics_path)
+
         checksum_targets: list[Path] = [
             dataset_path,
             quality_path,
@@ -362,6 +406,9 @@ class UnifiedOutputWriter:
             missing_mappings_path,
             enrichment_metrics_path,
             qc_summary_path,
+            correlation_path,
+            summary_statistics_path,
+            dataset_metrics_path,
         )
         checksum_targets.extend(path for path in optional_targets if path is not None)
 
@@ -373,6 +420,12 @@ class UnifiedOutputWriter:
             "qc_missing_mappings": missing_mappings_path,
             "qc_enrichment_metrics": enrichment_metrics_path,
         }
+        if correlation_path is not None:
+            qc_artifact_paths["correlation_report"] = correlation_path
+        if summary_statistics_path is not None:
+            qc_artifact_paths["summary_statistics"] = summary_statistics_path
+        if dataset_metrics_path is not None:
+            qc_artifact_paths["dataset_metrics"] = dataset_metrics_path
 
         self._write_metadata(
             metadata_path,
@@ -393,10 +446,13 @@ class UnifiedOutputWriter:
             quality_report=quality_path,
             run_directory=run_directory,
             additional_datasets=additional_paths,
+            correlation_report=correlation_path,
             metadata=metadata_path,
             qc_summary=qc_summary_path,
             qc_missing_mappings=missing_mappings_path,
             qc_enrichment_metrics=enrichment_metrics_path,
+            qc_summary_statistics=summary_statistics_path,
+            qc_dataset_metrics=dataset_metrics_path,
             debug_dataset=debug_dataset,
         )
 
@@ -438,6 +494,82 @@ class UnifiedOutputWriter:
                     content = f.read()
                     checksums[path.name] = hashlib.sha256(content).hexdigest()
         return checksums
+
+    def _build_correlation_report(self, df: pd.DataFrame) -> pd.DataFrame | None:
+        """Prepare a tidy correlation report for numeric columns."""
+
+        if df.empty:
+            return None
+
+        numeric_df = df.select_dtypes(include="number")
+        if numeric_df.empty:
+            return None
+
+        correlation = numeric_df.corr(numeric_only=True)
+        if correlation.empty:
+            return None
+
+        correlation = correlation.round(6)
+        tidy = (
+            correlation.reset_index()
+            .rename(columns={"index": "feature_x"})
+            .melt(id_vars="feature_x", var_name="feature_y", value_name="correlation")
+        )
+        tidy = tidy.dropna(subset=["correlation"])
+        tidy = tidy.sort_values(["feature_x", "feature_y"]).reset_index(drop=True)
+        return tidy
+
+    def _build_summary_statistics(self, df: pd.DataFrame) -> pd.DataFrame | None:
+        """Build descriptive statistics for all columns."""
+
+        if df.empty:
+            return None
+
+        try:
+            summary = df.describe(include="all")
+        except (TypeError, ValueError):
+            return None
+
+        if summary.empty:
+            return None
+
+        summary = summary.transpose().reset_index().rename(columns={"index": "column"})
+        summary = summary.convert_dtypes()
+        return summary
+
+    def _build_dataset_metrics(self, df: pd.DataFrame) -> pd.DataFrame | None:
+        """Compute dataset-level QC metrics."""
+
+        row_count = int(len(df))
+        column_count = int(df.shape[1])
+        total_cells = row_count * column_count
+
+        null_cells = int(df.isna().sum().sum()) if total_cells else 0
+        null_fraction = (null_cells / total_cells) if total_cells else 0.0
+        duplicate_rows = int(df.duplicated().sum()) if row_count else 0
+        numeric_columns = int(df.select_dtypes(include="number").shape[1])
+        categorical_columns = int(
+            df.select_dtypes(include=["object", "string", "category"]).shape[1]
+        )
+        datetime_columns = int(
+            df.select_dtypes(include=["datetime64[ns]", "datetimetz"]).shape[1]
+        )
+        memory_usage = int(df.memory_usage(deep=True).sum()) if column_count else 0
+
+        metrics = [
+            {"metric": "row_count", "value": row_count},
+            {"metric": "column_count", "value": column_count},
+            {"metric": "duplicate_rows", "value": duplicate_rows},
+            {"metric": "null_cells_total", "value": null_cells},
+            {"metric": "null_fraction_total", "value": null_fraction},
+            {"metric": "numeric_column_count", "value": numeric_columns},
+            {"metric": "categorical_column_count", "value": categorical_columns},
+            {"metric": "datetime_column_count", "value": datetime_columns},
+            {"metric": "memory_usage_bytes", "value": memory_usage},
+        ]
+
+        metrics_df = pd.DataFrame(metrics)
+        return metrics_df.convert_dtypes()
 
     def _write_metadata(
         self,

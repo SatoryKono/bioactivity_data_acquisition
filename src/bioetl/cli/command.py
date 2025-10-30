@@ -96,7 +96,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
         extended: bool = typer.Option(
             False,
             "--extended/--no-extended",
-            help="Emit extended QC artifacts (correlations, metadata)",
+            help="Emit extended QC artifacts (correlations, summary statistics, dataset metrics)",
             show_default=True,
         ),
         mode: str = typer.Option(
@@ -229,6 +229,14 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
             if artifacts.qc_enrichment_metrics:
                 typer.echo(
                     f"QC enrichment metrics: {artifacts.qc_enrichment_metrics}"
+                )
+            if artifacts.qc_summary_statistics:
+                typer.echo(
+                    f"QC summary statistics: {artifacts.qc_summary_statistics}"
+                )
+            if artifacts.qc_dataset_metrics:
+                typer.echo(
+                    f"QC dataset metrics: {artifacts.qc_dataset_metrics}"
                 )
 
             # Валидация колонок

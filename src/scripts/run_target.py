@@ -83,7 +83,7 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     extended: bool = typer.Option(
         False,
         "--extended/--no-extended",
-        help="Emit extended QC artifacts (correlations, metadata)",
+        help="Emit extended QC artifacts (correlations, summary statistics, dataset metrics)",
         show_default=True,
     ),
     mode: str = typer.Option(
@@ -242,6 +242,8 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     typer.echo(f"Run directory: {artifacts.run_directory}")
     typer.echo(f"Dataset: {artifacts.dataset}")
     typer.echo(f"Quality report: {artifacts.quality_report}")
+    if artifacts.correlation_report:
+        typer.echo(f"Correlation report: {artifacts.correlation_report}")
     if artifacts.metadata is not None:
         typer.echo(f"Metadata: {artifacts.metadata}")
     if artifacts.debug_dataset:
@@ -252,6 +254,10 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         typer.echo(f"QC missing mappings: {artifacts.qc_missing_mappings}")
     if artifacts.qc_enrichment_metrics:
         typer.echo(f"QC enrichment metrics: {artifacts.qc_enrichment_metrics}")
+    if artifacts.qc_summary_statistics:
+        typer.echo(f"QC summary statistics: {artifacts.qc_summary_statistics}")
+    if artifacts.qc_dataset_metrics:
+        typer.echo(f"QC dataset metrics: {artifacts.qc_dataset_metrics}")
     if artifacts.additional_datasets:
         typer.echo("Additional datasets:")
         for name, path in artifacts.additional_datasets.items():
