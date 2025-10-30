@@ -211,6 +211,16 @@ class PipelineBase(ABC):
 
         self.stage_context.clear()
 
+    def reset_run_state(self) -> None:
+        """Reset per-run quality control tracking containers."""
+
+        self.validation_issues.clear()
+        self.qc_metrics = {}
+        self.qc_summary_data = {}
+        self.qc_missing_mappings = pd.DataFrame()
+        self.qc_enrichment_metrics = pd.DataFrame()
+        self.reset_stage_context()
+
     def get_stage_summary(self, name: str) -> dict[str, Any] | None:
         """Return the summary payload for a specific stage if present."""
 
@@ -705,6 +715,7 @@ class PipelineBase(ABC):
         logger.info("pipeline_started", pipeline=self.config.pipeline.name)
 
         try:
+            self.reset_run_state()
             self.reset_additional_tables()
             self.export_metadata = None
             self.debug_dataset_path = None

@@ -9,7 +9,15 @@ from types import ModuleType
 
 import pandas as pd
 import pytest
-from faker import Faker
+
+try:
+    from faker import Faker
+except ModuleNotFoundError:  # pragma: no cover - import guard
+    pytest.skip(
+        "Faker is required for test fixtures. Install via `pip install faker` "
+        "or the `bioetl[dev]` extra.",
+        allow_module_level=True,
+    )
 
 # Add src to path so imports work
 project_root = Path(__file__).parent.parent

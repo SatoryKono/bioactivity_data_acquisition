@@ -363,10 +363,16 @@ class ColumnValidator:
         # Убрать расширение и путь
         name = Path(filename).stem
 
+        # Базовое имя определяется до первого разделителя и приводится к нижнему регистру
+        base_name = name.split("_", 1)[0].lower()
+        normalized_name = name.lower()
+
         # Маппинг имен файлов на сущности
         entity_mapping = {
             "assay": "assay",
+            "assays": "assay",
             "activity": "activity",
+            "activities": "activity",
             "testitem": "testitem",
             "testitems": "testitem",
             "target": "target",
@@ -375,7 +381,16 @@ class ColumnValidator:
             "documents": "document",
         }
 
-        return entity_mapping.get(name, name)
+        # Сначала ищем точное совпадение по базовому имени
+        if base_name in entity_mapping:
+            return entity_mapping[base_name]
+
+        # Затем пытаемся сопоставить по префиксу полного имени
+        for candidate, entity in entity_mapping.items():
+            if normalized_name.startswith(candidate):
+                return entity
+
+        return base_name
 
     def _should_skip_file(self, path: Path) -> bool:
         """Определить, следует ли пропустить CSV файл при валидации."""

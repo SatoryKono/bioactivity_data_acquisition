@@ -57,7 +57,7 @@ def get_pipeline_command_config(key: str) -> PipelineCommandConfig:
 
 def register_pipeline_command(app: typer.Typer, key: str) -> None:
     command = create_pipeline_command(get_pipeline_command_config(key))
-    app.command()(command)
+    app.command(name=key)(command)
 
 
 __all__ = [

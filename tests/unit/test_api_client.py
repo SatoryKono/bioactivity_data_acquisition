@@ -4,7 +4,7 @@ import json
 import time
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
-from typing import Any
+from typing import Any, Callable
 from unittest.mock import Mock
 
 import pytest
@@ -196,6 +196,73 @@ def test_retry_after_parsing_numeric_and_http_date(
     assert wait_seconds == pytest.approx(30.0)
 
 
+@pytest.mark.parametrize(
+    "retry_after_builder, expected_wait",
+    [
+        (lambda now: "3", 3.0),
+        (
+            lambda now: format_datetime(now + timedelta(seconds=5)),
+            5.0,
+        ),
+    ],
+)
+def test_execute_reuses_same_request_arguments_after_retry_after(
+    monkeypatch: pytest.MonkeyPatch,
+    retry_after_builder: Callable[[datetime], str],
+    expected_wait: float,
+) -> None:
+    """_execute should honour Retry-After and retry with identical parameters."""
+
+    config = APIConfig(name="test", base_url="https://api.example.com", rate_limit_jitter=False)
+    client = UnifiedAPIClient(config)
+
+    base_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    monkeypatch.setattr("bioetl.core.api_client._current_utc_time", lambda: base_time)
+
+    retry_after_value = retry_after_builder(base_time)
+
+    responses = iter(
+        [
+            _build_response(
+                429,
+                {"error": "rate limited"},
+                headers={"Retry-After": retry_after_value},
+            ),
+            _build_response(200, {"result": "ok"}),
+        ]
+    )
+
+    recorded_requests: list[dict[str, Any]] = []
+
+    def fake_request(**kwargs: Any) -> requests.Response:
+        recorded_requests.append(dict(kwargs))
+        return next(responses)
+
+    acquire_calls: list[object] = []
+
+    def fake_acquire() -> None:
+        acquire_calls.append(object())
+
+    sleep_calls: list[float] = []
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr(client.rate_limiter, "acquire", fake_acquire)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda seconds: sleep_calls.append(seconds))
+
+    final_response = client._execute(
+        method="GET",
+        url="https://api.example.com/resource",
+        params={"foo": "bar"},
+        json={"payload": 1},
+    )
+
+    assert final_response.status_code == 200
+    assert len(recorded_requests) == 2
+    assert recorded_requests[0] == recorded_requests[1]
+    assert sleep_calls == [pytest.approx(expected_wait)]
+    assert len(acquire_calls) == 2
+
+
 def _build_response(
     status_code: int,
     payload: dict[str, Any],
@@ -285,6 +352,106 @@ def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert data == {"result": "ok"}
     assert call_count["count"] == 3
+
+
+def test_request_json_timeout_metadata_on_exhaustion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timeout errors should propagate retry metadata when retries are exhausted."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=2,
+        retry_backoff_factor=1.0,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        raise requests.exceptions.Timeout("timeout occurred")
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
+
+    with pytest.raises(requests.exceptions.Timeout) as excinfo:
+        client.request_json("/resource")
+
+    metadata = getattr(excinfo.value, "retry_metadata", None)
+    assert metadata is not None
+    assert metadata["attempt"] == 2
+    assert metadata["status_code"] is None
+    assert metadata["retry_after"] is None
+    assert metadata["error_text"] == "timeout occurred"
+
+
+def test_request_json_connection_error_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Connection errors should include retry metadata and respect headers."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=2,
+        retry_backoff_factor=1.0,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    error_responses = iter(
+        [
+            _build_response(
+                503,
+                {"error": "down"},
+                headers={"Retry-After": "1"},
+            ),
+            _build_response(
+                503,
+                {"error": "down"},
+                headers={"Retry-After": "1"},
+            ),
+            _build_response(
+                503,
+                {"error": "still down"},
+                headers={"Retry-After": "2"},
+            ),
+            _build_response(
+                503,
+                {"error": "still down"},
+                headers={"Retry-After": "2"},
+            ),
+        ]
+    )
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        response = next(error_responses)
+        exc = requests.exceptions.ConnectionError("connection issue")
+        exc.response = response
+        raise exc
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
+
+    with pytest.raises(requests.exceptions.ConnectionError) as excinfo:
+        client.request_json("/resource")
+
+    metadata = getattr(excinfo.value, "retry_metadata", None)
+    assert metadata is not None
+    assert metadata["attempt"] == 2
+    assert metadata["status_code"] == 503
+    assert metadata["retry_after"] == "2"
+    assert "still down" in metadata["error_text"]
 
 
 def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPatch) -> None:
