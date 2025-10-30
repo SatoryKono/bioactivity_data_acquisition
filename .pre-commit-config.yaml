@@ -38,6 +38,7 @@ repos:
           [
             --config-file=pyproject.toml,
             --strict,
+            src/bioetl,
           ]
         pass_filenames: false
 

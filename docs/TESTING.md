@@ -25,18 +25,22 @@ python -m pytest tests/ -v
 ### Unit тесты
 
 ```bash
+# Через Makefile
+make test-unit
 
-pytest tests/unit/ -v -m unit
-
-```text
+# Напрямую через pytest
+pytest tests/unit/ -v
+```
 
 ### Integration тесты
 
 ```bash
+# Через Makefile
+make test-integration
 
-pytest tests/integration/ -v -m integration
-
-```text
+# Напрямую через pytest
+pytest tests/integration/ -v
+```
 
 ### Golden и smoke тесты CLI
 
@@ -72,19 +76,18 @@ pytest tests/ -v -m "not slow"
 
 ```text
 
-### Только быстрые тесты
+### Только быстрые тесты (unit + smoke)
 
 ```bash
-
-pytest tests/ -v -m unit
-
-```text
+make test-unit
+# или
+pytest tests/unit/ -v
+```
 
 ## Конфигурация
 
-- `pytest.ini` - основные настройки pytest
-- `pyproject.toml` - общая конфигурация проекта и инструментов
-- `tests/conftest.py` - общие фикстуры и настройки пути
+- `pyproject.toml` — общая конфигурация проекта и инструментов; секция `[tool.pytest.ini_options]` содержит настройки pytest
+- `tests/conftest.py` — общие фикстуры и настройки пути
 
 ## Структура тестов
 
@@ -110,6 +113,8 @@ tests/
 - Все тесты должны проходить без ошибок
 - Использовать маркеры: `unit`, `integration`, `golden`, `slow`
 - Golden тесты проверяют детерминированные CSV, полученные через CLI
+- Установите зависимость `faker` (через `pip install -e ".[dev]"` или `pip install -r requirements.txt`),
+  иначе фикстуры в `tests/conftest.py` завершатся с ошибкой.
 
 ## Troubleshooting
 

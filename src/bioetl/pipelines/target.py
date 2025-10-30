@@ -17,6 +17,7 @@ from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.materialization import MaterializationManager
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
@@ -28,7 +29,6 @@ from bioetl.pipelines.target_gold import (
     annotate_source_rank,
     coalesce_by_priority,
     expand_xrefs,
-    materialize_gold,
     merge_components,
 )
 from bioetl.schemas import (
@@ -132,6 +132,13 @@ class TargetPipeline(PipelineBase):
         self.gold_protein_class: pd.DataFrame = pd.DataFrame()
         self.gold_xref: pd.DataFrame = pd.DataFrame()
         self._qc_missing_mapping_records: list[dict[str, Any]] = []
+
+        runtime_config = getattr(self.config, "runtime", None)
+        self.materialization_manager = MaterializationManager(
+            self.config.materialization,
+            runtime=runtime_config,
+            stage_context=self.stage_context,
+        )
 
     def close_resources(self) -> None:
         """Close API clients constructed by the target pipeline."""
@@ -1469,34 +1476,12 @@ class TargetPipeline(PipelineBase):
     ) -> None:
         """Persist silver-level UniProt artifacts deterministically."""
 
-        if uniprot_df.empty and component_df.empty:
-            logger.info("silver_materialization_skipped", reason="empty_frames")
-            return
-
-        silver_path_config = self.config.materialization.silver or Path("data/output/target/targets_silver.parquet")
-        silver_path = Path(silver_path_config)
-        silver_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if not uniprot_df.empty:
-            logger.info(
-                "writing_silver_dataset",
-                path=str(silver_path),
-                rows=len(uniprot_df),
-            )
-            uniprot_df.sort_values("canonical_accession", inplace=True)
-            uniprot_df.to_parquet(silver_path, index=False)
-
-        component_path = silver_path.parent / "component_enrichment.parquet"
-        if not component_df.empty:
-            logger.info(
-                "writing_component_enrichment",
-                path=str(component_path),
-                rows=len(component_df),
-            )
-            component_df.sort_values(["canonical_accession", "isoform_accession"], inplace=True)
-            component_df.to_parquet(component_path, index=False)
-        elif component_path.exists():
-            logger.info("component_enrichment_empty", path=str(component_path))
+        format_name = self._resolve_materialization_format()
+        self.materialization_manager.materialize_silver(
+            uniprot_df,
+            component_df,
+            format=format_name,
+        )
 
     def _materialize_iuphar(
         self,
@@ -1505,35 +1490,12 @@ class TargetPipeline(PipelineBase):
     ) -> None:
         """Persist IUPHAR classification artifacts."""
 
-        if classification_df.empty and gold_df.empty:
-            logger.info("iuphar_materialization_skipped", reason="empty_frames")
-            return
-
-        output_dir = Path(self.config.materialization.gold or Path("data/output/target/targets_final.parquet")).parent
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-        if not classification_df.empty:
-            classification_path = output_dir / "targets_iuphar_classification.parquet"
-            logger.info(
-                "writing_iuphar_classification",
-                path=str(classification_path),
-                rows=len(classification_df),
-            )
-            classification_sorted = classification_df.sort_values(
-                by=["target_chembl_id", "iuphar_family_id"],
-                kind="stable",
-            )
-            classification_sorted.to_parquet(classification_path, index=False)
-
-        if not gold_df.empty:
-            gold_path = output_dir / "targets_iuphar_enrichment.parquet"
-            logger.info(
-                "writing_iuphar_gold",
-                path=str(gold_path),
-                rows=len(gold_df),
-            )
-            gold_sorted = gold_df.sort_values(by=["target_chembl_id"], kind="stable")
-            gold_sorted.to_parquet(gold_path, index=False)
+        format_name = self._resolve_materialization_format()
+        self.materialization_manager.materialize_iuphar(
+            classification_df,
+            gold_df,
+            format=format_name,
+        )
 
     def _build_gold_outputs(
         self,
@@ -1601,19 +1563,45 @@ class TargetPipeline(PipelineBase):
     ) -> None:
         """Persist gold-level DataFrames respecting runtime configuration."""
 
-        runtime = getattr(self.config, "runtime", None)
-        if runtime is not None and getattr(runtime, "dry_run", False):
-            logger.info("gold_materialization_skipped", reason="dry_run")
-            return
-
-        gold_path = getattr(self.config.materialization, "gold", Path("data/output/target/targets_final.parquet"))
-        materialize_gold(
-            Path(gold_path),
-            targets=targets_df,
-            components=components_df,
-            protein_class=protein_class_df,
-            xref=xref_df,
+        format_name = self._resolve_materialization_format()
+        gold_path = getattr(
+            self.config.materialization,
+            "gold",
+            Path("data/output/target/targets_final.parquet"),
         )
+        self.materialization_manager.materialize_gold(
+            targets_df,
+            components_df,
+            protein_class_df,
+            xref_df,
+            format=format_name,
+            output_path=gold_path,
+        )
+
+    def _resolve_materialization_format(self) -> str:
+        """Determine the requested output format for materialization artefacts."""
+
+        runtime_override = self.runtime_options.get("materialization_format") or self.runtime_options.get(
+            "format"
+        )
+        if runtime_override:
+            resolved = str(runtime_override).strip().lower()
+            if resolved in {"csv", "parquet"}:
+                return resolved
+            logger.warning(
+                "unsupported_materialization_format",
+                format=runtime_override,
+                default="parquet",
+            )
+
+        materialization_paths = getattr(self.config, "materialization", None)
+        gold_path = getattr(materialization_paths, "gold", None)
+        if gold_path:
+            suffix = Path(gold_path).suffix.lower()
+            if suffix in {".csv", ".parquet"}:
+                return suffix.lstrip(".")
+
+        return "parquet"
 
     def _expand_json_column(self, df: pd.DataFrame, column: str) -> pd.DataFrame:
         """Expand a JSON encoded column into a flat DataFrame."""

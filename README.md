@@ -15,7 +15,18 @@ pip install -e ".[dev]"
 
 pre-commit install
 
-```text
+```
+
+### Install test dependencies only
+
+```bash
+pip install -r requirements.txt
+```
+
+> **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
+> for deterministic fixture data. Installing the development extras or the
+> pinned requirements file above ensures the dependency is available before
+> running `pytest`.
 
 ## Quick Start
 
@@ -114,9 +125,10 @@ pytest tests/ -v
 pytest tests/ --cov=src/bioetl --cov-report=html
 
 # Run specific test suite
-
-pytest tests/unit/ -v              # Unit tests only
-pytest tests/integration/ -v       # Integration tests only
+make test-unit                     # Unit tests only (directory scoped)
+make test-integration              # Integration tests only (directory scoped)
+pytest tests/unit/ -v              # Direct pytest invocation for unit tests
+pytest tests/integration/ -v       # Direct pytest invocation for integration tests
 
 # Lint
 

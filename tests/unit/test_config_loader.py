@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from textwrap import dedent
+from textwrap import dedent, indent
 
 import pytest
 from pydantic import ValidationError
@@ -197,6 +197,10 @@ def _write_minimal_config(tmp_path, sources_block: str) -> Path:
     """Helper to create a minimal config file with custom sources."""
 
     config_file = tmp_path / "config.yaml"
+    formatted_sources = indent(sources_block.lstrip("\n"), "  ")
+    if sources_block.startswith("\n"):
+        formatted_sources = "\n" + formatted_sources
+
     config_file.write_text(
         dedent(
             """
@@ -214,8 +218,7 @@ def _write_minimal_config(tmp_path, sources_block: str) -> Path:
                 rate_limit:
                   max_calls: 5
                   period: 15.0
-            sources:
-            {sources_block}
+            sources:{formatted_sources}
             cache:
               enabled: true
               directory: data/cache
@@ -235,7 +238,7 @@ def _write_minimal_config(tmp_path, sources_block: str) -> Path:
               severity_threshold: warning
             cli: {{}}
             """
-        ).replace("{sources_block}", sources_block)
+        ).format(formatted_sources=formatted_sources)
     )
     return config_file
 

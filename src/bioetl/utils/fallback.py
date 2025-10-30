@@ -10,6 +10,7 @@ from warnings import warn
 
 import pandas as pd
 
+from bioetl.core.api_client import parse_retry_after
 from bioetl.utils.dtypes import coerce_retry_after
 
 
@@ -83,17 +84,14 @@ def _extract_http_status(error: Any) -> int | None:
 
 
 def _extract_retry_after(error: Any) -> float | None:
-    """Retrieve Retry-After seconds from ``error`` when available."""
+    """Retrieve Retry-After seconds from ``error`` supporting HTTP-date format."""
 
     if error is None:
         return None
 
     retry_after = getattr(error, "retry_after", None)
     if retry_after is not None:
-        try:
-            return float(retry_after)
-        except (TypeError, ValueError):
-            return None
+        return parse_retry_after(retry_after)
 
     response = getattr(error, "response", None)
     if response is None:  # pragma: no cover - defensive
@@ -107,10 +105,7 @@ def _extract_retry_after(error: Any) -> float | None:
     if retry_after_header is None:
         return None
 
-    try:
-        return float(retry_after_header)
-    except (TypeError, ValueError):  # pragma: no cover - defensive
-        return None
+    return parse_retry_after(retry_after_header)
 
 
 def _stringify(value: Any) -> str | None:

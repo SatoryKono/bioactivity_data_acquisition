@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from bioetl.config.loader import load_config
 from bioetl.pipelines.activity import ActivityPipeline
@@ -15,6 +16,9 @@ from bioetl.utils.chembl import ChemblRelease
 GOLDEN_COLUMN_ORDER_PATH = (
     Path(__file__).resolve().parent / "golden" / "activity_column_order.json"
 )
+
+
+pytestmark = pytest.mark.integration
 
 
 def _load_golden_column_order() -> list[str]:
@@ -73,6 +77,7 @@ def _build_activity_dataframe() -> pd.DataFrame:
     return pd.DataFrame([row], columns=columns)
 
 
+@pytest.mark.integration
 def test_activity_column_order_matches_schema_and_golden() -> None:
     """Config determinism order should equal schema column order and golden snapshot."""
 
@@ -85,6 +90,7 @@ def test_activity_column_order_matches_schema_and_golden() -> None:
     assert config_order == schema_order
 
 
+@pytest.mark.integration
 def test_activity_pipeline_output_matches_golden(monkeypatch) -> None:
     """Activity pipeline output must follow the golden column order without omissions."""
 

@@ -4,8 +4,87 @@ import json
 import math
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+from hypothesis.strategies import SearchStrategy
 
+from bioetl.normalizers.constants import NA_STRINGS
 from bioetl.utils.json import canonical_json, normalize_json_list
+
+
+def _numeric_string_strategy() -> SearchStrategy[str]:
+    """Стратегия для генерации чисел, сериализованных в строки."""
+
+    def _format_float(value: float) -> str:
+        # Используем представление через general формат, чтобы избежать
+        # ненужных хвостов и сохранить читаемость для тестов.
+        return format(value, "g")
+
+    integers_as_text = st.integers().map(str)
+    finite_floats_as_text = st.floats(allow_nan=False, allow_infinity=False).map(_format_float)
+    return st.one_of(integers_as_text, finite_floats_as_text)
+
+
+def _json_scalar_strategy() -> SearchStrategy:
+    """Стратегия для генерации простых JSON-совместимых значений."""
+
+    return st.one_of(
+        st.none(),
+        st.booleans(),
+        st.integers(),
+        st.floats(allow_nan=True, allow_infinity=False),
+        _numeric_string_strategy(),
+        st.sampled_from(list(NA_STRINGS)),
+        st.text(min_size=0, max_size=10),
+    )
+
+
+def _json_nested_strategy() -> SearchStrategy:
+    """Стратегия для генерации вложенных JSON-структур."""
+
+    key_strategy = st.text(min_size=0, max_size=10)
+    return st.recursive(
+        _json_scalar_strategy(),
+        lambda children: st.one_of(
+            st.lists(children, max_size=4),
+            st.dictionaries(key_strategy, children, max_size=4),
+        ),
+        max_leaves=10,
+    )
+
+
+def _json_records_strategy() -> SearchStrategy:
+    """Стратегия генерации входов для normalize_json_list."""
+
+    record_strategy = st.dictionaries(
+        st.text(min_size=0, max_size=10),
+        _json_nested_strategy(),
+        max_size=5,
+    )
+    records_strategy = st.lists(record_strategy, max_size=5)
+
+    return st.one_of(
+        st.sampled_from([None, "", " \t\n", math.nan, "NA", "n/a"]),
+        record_strategy,
+        records_strategy,
+        record_strategy.map(json.dumps),
+        records_strategy.map(json.dumps),
+    )
+
+
+def _default_sort_key(item: dict) -> tuple[str, str]:
+    """Воспроизводит ключ сортировки из normalize_json_list."""
+
+    primary = (
+        item.get("name")
+        or item.get("type")
+        or item.get("property_name")
+        or ""
+    )
+    return (
+        str(primary).lower(),
+        json.dumps(item, ensure_ascii=False, sort_keys=True),
+    )
 
 
 class TestCanonicalJson:
@@ -203,4 +282,31 @@ class TestNormalizeJsonList:
 
         assert canonical is None
         assert records == []
+
+    @given(raw=_json_records_strategy())
+    def test_normalize_invariants(self, raw):
+        """Проверяем детерминизм и каноничность normalize_json_list."""
+
+        first_canonical, first_records = normalize_json_list(raw)
+        second_canonical, second_records = normalize_json_list(raw)
+
+        # Детерминизм: повторный вызов возвращает те же результаты
+        assert first_canonical == second_canonical
+        assert first_records == second_records
+
+        if first_canonical is None:
+            assert first_records == []
+            return
+
+        # Каноническая строка должна соответствовать восстановленным данным
+        parsed = json.loads(first_canonical)
+        assert parsed == first_records
+
+        # Отсортированность ключей внутри каждой записи
+        for record in first_records:
+            assert list(record.keys()) == sorted(record.keys())
+
+        # Отсортированность записей по ключу сортировки по умолчанию
+        expected = sorted(first_records, key=_default_sort_key)
+        assert first_records == expected
 

@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, TYPE_CHECKING, TypeAlias, cast
 
 import numpy as np
 import pandas as pd
 
-NAType = type(pd.NA)
+if TYPE_CHECKING:
+    from pandas._libs.missing import NAType as PandasNAType
+else:  # pragma: no cover - pandas runtime provides the concrete type
+    PandasNAType = type(pd.NA)
+
+NAType: TypeAlias = PandasNAType
 _DEFAULT_MINIMUM_KEYS = ("*", "__default__")
 
 
@@ -92,17 +97,17 @@ def _coerce_optional_bool_scalar(value: object) -> bool | NAType:
     """Coerce a scalar value to a pandas ``boolean`` compatible value."""
 
     if value is None or (isinstance(value, float) and pd.isna(value)):
-        return pd.NA
+        return cast(NAType, pd.NA)
 
     if isinstance(value, str):
         normalized = value.strip().lower()
         if normalized in {"", "na", "none", "null"}:
-            return pd.NA
+            return cast(NAType, pd.NA)
         if normalized in {"true", "t"}:
             return True
         if normalized in {"false", "f", "0"}:
             return False
-        return pd.NA
+        return cast(NAType, pd.NA)
 
     if isinstance(value, bool):
         return value
@@ -110,8 +115,8 @@ def _coerce_optional_bool_scalar(value: object) -> bool | NAType:
     if isinstance(value, int):
         return bool(value)
 
-    if pd.isna(value):  # type: ignore[arg-type]
-        return pd.NA
+    if pd.isna(value):
+        return cast(NAType, pd.NA)
 
     return bool(value)
 

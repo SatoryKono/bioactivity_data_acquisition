@@ -19,10 +19,10 @@ test:
 	pytest tests/ -v
 
 test-unit:
-	pytest tests/unit/ -v -m unit
+	pytest tests/unit/ -v
 
 test-integration:
-	pytest tests/integration/ -v -m integration
+	pytest tests/integration/ -v
 
 test-cov:
 	pytest tests/ --cov=src/bioetl --cov-report=term-missing --cov-report=html
@@ -42,4 +42,3 @@ clean:
 	find . -type f -name "*.pyo" -delete
 	find . -type f -name ".pytest_cache" -delete
 	find . -type d -name ".pytest_cache" -exec rm -r {} + 2>/dev/null || true
-

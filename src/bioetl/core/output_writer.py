@@ -1,10 +1,13 @@
 """UnifiedOutputWriter: deterministic data writing with quality metrics and atomic writes."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
 from collections.abc import Callable, Sequence
 from contextvars import ContextVar
+
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
