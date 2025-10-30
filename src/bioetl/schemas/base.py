@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypedDict, cast
+from typing import Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -210,9 +210,12 @@ class BaseSchema(DataFrameModel):
     # объявлен только для статических анализаторов, чтобы Pandera не пыталась
     # интерпретировать ``hash_policy_version`` как колонку при регистрации
     # ``DataFrameModel``.
-    if TYPE_CHECKING:  # pragma: no cover - typing aid only
-        hash_policy_version: ClassVar[str]
-    hash_policy_version = "1.0.0"
+    # ``hash_policy_version`` используется в метаданных writer'а и не является
+    # колонкой датафрейма.  Аннотация ``ClassVar`` гарантирует, что Pandera не
+    # будет пытаться интерпретировать атрибут как ``Field`` при регистрации
+    # ``DataFrameModel`` (что приводило к ``SchemaInitError`` в версиях Pandera
+    # 0.19+).
+    hash_policy_version: ClassVar[str] = "1.0.0"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
