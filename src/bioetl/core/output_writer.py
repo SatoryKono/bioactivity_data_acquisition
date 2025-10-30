@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -209,10 +209,11 @@ class QualityReportGenerator:
 class UnifiedOutputWriter:
     """Unified output writer with atomic writes and QC reports."""
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str, determinism: Any | None = None):
         self.run_id = run_id
         self.atomic_writer = AtomicWriter(run_id)
         self.quality_generator = QualityReportGenerator()
+        self.determinism = determinism
 
     def write(
         self,
@@ -228,6 +229,7 @@ class UnifiedOutputWriter:
         additional_tables: dict[str, "AdditionalTableSpec"] | None = None,
         runtime_options: dict[str, Any] | None = None,
         debug_dataset: Path | None = None,
+        determinism: Any | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -257,45 +259,72 @@ class UnifiedOutputWriter:
 
         quality_path = qc_dir / f"{dataset_path.stem}_quality_report.csv"
 
+        resolved_determinism = determinism or self.determinism
+
+        float_format: str | None = None
+        configured_order: list[str] = []
+        if resolved_determinism is not None:
+            precision = getattr(resolved_determinism, "float_precision", None)
+            if isinstance(precision, int):
+                float_format = f"%.{precision}f"
+
+            configured_order = list(getattr(resolved_determinism, "column_order", []) or [])
+
+        export_df = df
+        if configured_order:
+            export_df = df.copy()
+
+            missing_columns = [
+                column for column in configured_order if column not in export_df.columns
+            ]
+            for column in missing_columns:
+                export_df[column] = pd.NA
+
+            extra_columns = [
+                column for column in export_df.columns if column not in configured_order
+            ]
+            export_df = export_df[configured_order + extra_columns]
+
         # Generate metadata if not provided
         if metadata is None:
             metadata = OutputMetadata.from_dataframe(
-                df,
+                export_df,
                 run_id=self.run_id,
-                column_order=list(df.columns),
+                column_order=list(export_df.columns),
             )
-        elif metadata.run_id is None:
-            metadata = OutputMetadata(
-                pipeline_version=metadata.pipeline_version,
-                source_system=metadata.source_system,
-                chembl_release=metadata.chembl_release,
-                generated_at=metadata.generated_at,
-                row_count=metadata.row_count,
-                column_count=metadata.column_count,
-                column_order=metadata.column_order,
-                checksums=metadata.checksums,
-                run_id=self.run_id,
-            )
+        else:
+            metadata_kwargs: dict[str, Any] = {}
+            if metadata.run_id is None:
+                metadata_kwargs["run_id"] = self.run_id
+            if configured_order:
+                metadata_kwargs["column_order"] = list(export_df.columns)
+                metadata_kwargs["column_count"] = len(export_df.columns)
+            if metadata_kwargs:
+                metadata = replace(metadata, **metadata_kwargs)
 
         logger.info(
             "writing_dataset",
             path=str(dataset_path),
-            rows=len(df),
+            rows=len(export_df),
             run_directory=str(run_directory),
         )
-        self.atomic_writer.write(df, dataset_path)
+        write_kwargs: dict[str, Any] = {}
+        if float_format is not None:
+            write_kwargs["float_format"] = float_format
+
+        self.atomic_writer.write(export_df, dataset_path, **write_kwargs)
 
         logger.info(
             "generating_quality_report",
             path=str(quality_path),
-            rows=len(df.columns),
+            rows=len(export_df.columns),
         )
         quality_df = self.quality_generator.generate(
-            df,
+            export_df,
             issues=issues,
             qc_metrics=qc_metrics,
         )
-        self.atomic_writer.write(quality_df, quality_path)
+        self.atomic_writer.write(quality_df, quality_path, **write_kwargs)
 
         qc_summary_path: Path | None = None
         if qc_summary:
@@ -311,7 +340,7 @@ class UnifiedOutputWriter:
                 path=str(missing_mappings_path),
                 rows=len(qc_missing_mappings),
             )
-            self.atomic_writer.write(qc_missing_mappings, missing_mappings_path)
+            self.atomic_writer.write(qc_missing_mappings, missing_mappings_path, **write_kwargs)
 
         enrichment_metrics_path: Path | None = None
         if qc_enrichment_metrics is not None and not qc_enrichment_metrics.empty:
@@ -321,7 +350,9 @@ class UnifiedOutputWriter:
                 path=str(enrichment_metrics_path),
                 rows=len(qc_enrichment_metrics),
             )
-            self.atomic_writer.write(qc_enrichment_metrics, enrichment_metrics_path)
+            self.atomic_writer.write(
+                qc_enrichment_metrics, enrichment_metrics_path, **write_kwargs
+            )
 
         additional_paths: dict[str, Path] = {}
         if additional_tables:
@@ -352,7 +383,7 @@ class UnifiedOutputWriter:
                     path=str(table_path),
                     rows=len(table),
                 )
-                self.atomic_writer.write(table, table_path)
+                self.atomic_writer.write(table, table_path, **write_kwargs)
                 additional_paths[name] = table_path
 
         correlation_path: Path | None = None
@@ -360,7 +391,7 @@ class UnifiedOutputWriter:
         dataset_metrics_path: Path | None = None
 
         if extended:
-            correlation_df = self._build_correlation_report(df)
+            correlation_df = self._build_correlation_report(export_df)
             if correlation_df is not None and not correlation_df.empty:
                 correlation_path = qc_dir / f"{dataset_path.stem}_correlation_report.csv"
                 logger.info(
@@ -368,14 +399,14 @@ class UnifiedOutputWriter:
                     path=str(correlation_path),
                     rows=len(correlation_df),
                 )
-                self.atomic_writer.write(correlation_df, correlation_path)
+                self.atomic_writer.write(correlation_df, correlation_path, **write_kwargs)
             else:
                 logger.info(
                     "skip_correlation_report",
                     reason="no_numeric_columns" if correlation_df is None else "empty_payload",
                 )
 
-            summary_statistics_df = self._build_summary_statistics(df)
+            summary_statistics_df = self._build_summary_statistics(export_df)
             if summary_statistics_df is not None and not summary_statistics_df.empty:
                 summary_statistics_path = (
                     qc_dir / f"{dataset_path.stem}_summary_statistics.csv"
@@ -385,9 +416,11 @@ class UnifiedOutputWriter:
                     path=str(summary_statistics_path),
                     rows=len(summary_statistics_df),
                 )
-                self.atomic_writer.write(summary_statistics_df, summary_statistics_path)
+                self.atomic_writer.write(
+                    summary_statistics_df, summary_statistics_path, **write_kwargs
+                )
 
-            dataset_metrics_df = self._build_dataset_metrics(df)
+            dataset_metrics_df = self._build_dataset_metrics(export_df)
             if dataset_metrics_df is not None and not dataset_metrics_df.empty:
                 dataset_metrics_path = qc_dir / f"{dataset_path.stem}_dataset_metrics.csv"
                 logger.info(
@@ -395,7 +428,9 @@ class UnifiedOutputWriter:
                     path=str(dataset_metrics_path),
                     rows=len(dataset_metrics_df),
                 )
-                self.atomic_writer.write(dataset_metrics_df, dataset_metrics_path)
+                self.atomic_writer.write(
+                    dataset_metrics_df, dataset_metrics_path, **write_kwargs
+                )
 
         checksum_targets: list[Path] = [
             dataset_path,

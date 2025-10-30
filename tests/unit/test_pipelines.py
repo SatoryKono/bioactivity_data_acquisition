@@ -138,10 +138,11 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
 
     config = assay_config.model_copy(deep=True)
     config.determinism.column_order = ["alpha", "value"]
+    config.determinism.float_precision = 3
 
     pipeline = SimplePipeline(config, "run-config-order")
 
-    source_df = pd.DataFrame({"value": [1, 2], "beta": ["x", "y"]})
+    source_df = pd.DataFrame({"value": [1.234567, 2.345678], "beta": ["x", "y"]})
     pipeline.set_export_metadata_from_dataframe(
         source_df,
         pipeline_version="1.0.0",
@@ -152,8 +153,22 @@ def test_export_prioritises_configured_column_order(tmp_path, assay_config):
     artifacts = pipeline.export(source_df, output_path)
 
     exported_df = pd.read_csv(artifacts.dataset)
-    assert exported_df.columns.tolist()[: len(config.determinism.column_order)] == config.determinism.column_order
+    assert (
+        exported_df.columns.tolist()[: len(config.determinism.column_order)]
+        == config.determinism.column_order
+    )
     assert exported_df["alpha"].isna().all()
+
+    csv_lines = artifacts.dataset.read_text(encoding="utf-8").strip().splitlines()
+    header_cells = csv_lines[0].split(",")
+    assert header_cells[: len(config.determinism.column_order)] == config.determinism.column_order
+
+    first_row_cells = csv_lines[1].split(",")
+    assert first_row_cells[0] == ""
+    expected_value = format(
+        source_df["value"].iloc[0], f".{config.determinism.float_precision}f"
+    )
+    assert first_row_cells[1] == expected_value
 
     import yaml
 

@@ -169,7 +169,8 @@ class PipelineBase(ABC):
     def __init__(self, config: PipelineConfig, run_id: str):
         self.config = config
         self.run_id = run_id
-        self.output_writer = UnifiedOutputWriter(run_id)
+        self.determinism_config = getattr(config, "determinism", None)
+        self.output_writer = UnifiedOutputWriter(run_id, determinism=self.determinism_config)
         self.validation_issues: list[dict[str, Any]] = []
         self.qc_metrics: dict[str, Any] = {}
         self.qc_summary_data: dict[str, Any] = {}
@@ -610,35 +611,8 @@ class PipelineBase(ABC):
         """Экспортирует данные с QC отчетами."""
         logger.info("exporting_data", path=output_path, rows=len(df))
 
-        configured_order: list[str] = []
-        determinism = getattr(self.config, "determinism", None)
-        if determinism is not None:
-            configured_order = list(getattr(determinism, "column_order", []) or [])
-
-        export_frame = df
-        if configured_order:
-            export_frame = df.copy()
-
-            missing_columns = [
-                column for column in configured_order if column not in export_frame.columns
-            ]
-            for column in missing_columns:
-                export_frame[column] = pd.NA
-
-            extra_columns = [
-                column for column in export_frame.columns if column not in configured_order
-            ]
-            export_frame = export_frame[configured_order + extra_columns]
-
-            if self.export_metadata is not None:
-                self.export_metadata = replace(
-                    self.export_metadata,
-                    column_order=list(export_frame.columns),
-                    column_count=len(export_frame.columns),
-                )
-
         return self.output_writer.write(
-            export_frame,
+            df,
             output_path,
             metadata=self.export_metadata,
             extended=extended,
@@ -650,6 +624,7 @@ class PipelineBase(ABC):
             additional_tables=self.additional_tables,
             runtime_options=self.runtime_options,
             debug_dataset=self.debug_dataset_path,
+            determinism=self.determinism_config,
         )
 
     def add_additional_table(
