@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypedDict, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -216,7 +216,7 @@ class BaseSchema(DataFrameModel):
     if TYPE_CHECKING:  # pragma: no cover - выполняется только для type checker'ов
         hash_policy_version: ClassVar[str]
 
-    hash_policy_version = "1.0.0"
+    _DEFAULT_HASH_POLICY_VERSION = "1.0.0"
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         cast("type[Any]", super()).__init_subclass__(**kwargs)
@@ -242,6 +242,9 @@ class BaseSchema(DataFrameModel):
         if not isinstance(cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor):
             expose_config_column_order(cls)
 
+        if "hash_policy_version" not in cls.__dict__:
+            cls.hash_policy_version = cls._DEFAULT_HASH_POLICY_VERSION
+
         validated = cast(
             DataFrame[BaseSchema],
             super().validate(
@@ -257,7 +260,7 @@ class BaseSchema(DataFrameModel):
         # Безопасно добавляем служебную версию политики хеширования после
         # материализации схемы Pandera, чтобы не вмешиваться в сбор полей.
         if "hash_policy_version" not in cls.__dict__:
-            cls.hash_policy_version = "1.0.0"
+            cls.hash_policy_version = cls._DEFAULT_HASH_POLICY_VERSION
         return validated
 
     @classmethod
@@ -276,3 +279,8 @@ class BaseSchema(DataFrameModel):
         attrs = super()._get_model_attrs()
         attrs.pop("hash_policy_version", None)
         return attrs
+
+
+# ``hash_policy_version`` устанавливается после определения класса, чтобы
+# избежать интерференции с метаклассом Pandera при сборе колонок.
+BaseSchema.hash_policy_version = BaseSchema._DEFAULT_HASH_POLICY_VERSION
