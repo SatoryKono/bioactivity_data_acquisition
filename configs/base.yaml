@@ -36,6 +36,7 @@ determinism:
 sources:
   pubchem:
     enabled: true
+    base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
 
 postprocess:
   qc:
