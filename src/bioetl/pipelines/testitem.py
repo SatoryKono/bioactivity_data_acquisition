@@ -207,6 +207,7 @@ class TestItemPipeline(PipelineBase):
         """Return ordered list of expected columns prior to metadata fields."""
 
         business_fields = [
+            *cls._FALLBACK_FIELDS,
             "molecule_chembl_id",
             *cls._CHEMBL_CORE_FIELDS,
             *cls._CHEMBL_PROPERTY_FIELDS,
@@ -222,7 +223,6 @@ class TestItemPipeline(PipelineBase):
                 ordered.append(col)
                 seen.add(col)
         ordered.extend(cls._PUBCHEM_FIELDS)
-        ordered.extend(cls._FALLBACK_FIELDS)
         return ordered
 
     # _canonical_json заменена на canonical_json из bioetl.utils.json

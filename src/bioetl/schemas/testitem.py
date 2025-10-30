@@ -212,6 +212,15 @@ class TestItemSchema(FallbackMetadataMixin, BaseSchema):
     pubchem_lookup_inchikey: Series[str] = pa.Field(nullable=True, description="Lookup InChIKey used for PubChem resolution")
 
     _column_order = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "run_id",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
+        *FALLBACK_METADATA_COLUMN_ORDER,
         # Primary/business keys first
         "molecule_chembl_id",
         
