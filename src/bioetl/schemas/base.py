@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
-import pandera.pandas as pa
 
+from bioetl.pandera_pandas import DataFrameModel as _RuntimeDataFrameModel
+from bioetl.pandera_pandas import Field
 from bioetl.pandera_typing import Series
+
+if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
+    from pandera.pandas import DataFrameModel as _DataFrameModelBase
+else:
+    _DataFrameModelBase = _RuntimeDataFrameModel
 
 # Shared column order for fallback metadata columns.  Exposed as a module level
 # constant so downstream schemas can reference it without importing the mixin
@@ -79,10 +85,10 @@ class FallbackMetadataMixin:
     # sentinels during class creation, therefore the original ``FieldInfo``
     # instances are recreated as needed when propagating to subclasses.
     for _name, _spec in _FIELD_SPECS.items():
-        locals()[_name] = pa.Field(**_spec)
+        locals()[_name] = Field(**_spec)
     del _name, _spec
 
-    def __init_subclass__(cls, **kwargs):  # pragma: no cover - executed on subclass creation
+    def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         """Ensure mixin annotations propagate to subclasses for Pandera."""
 
         super().__init_subclass__(**kwargs)
@@ -111,11 +117,15 @@ class FallbackMetadataMixin:
 class _ColumnOrderAccessor:
     """Descriptor exposing schema ``column_order`` without Pandera side-effects."""
 
-    def __init__(self, schema_cls: type[BaseSchema]):
+    def __init__(self, schema_cls: type[BaseSchema]) -> None:
         self._schema_cls = schema_cls
 
-    def __get__(self, instance, owner):  # noqa: D401 - standard descriptor signature
-        schema_cls = getattr(owner, "_schema_cls", self._schema_cls)
+    def __get__(
+        self,
+        instance: Any | None,
+        owner: type[BaseSchema] | None,
+        ) -> list[str]:  # noqa: D401 - standard descriptor signature
+        schema_cls = getattr(owner or self._schema_cls, "_schema_cls", self._schema_cls)
         return schema_cls.get_column_order()
 
 
@@ -134,8 +144,8 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
     """
 
     accessor = _ColumnOrderAccessor(schema_cls)
-    schema_cls.Config._schema_cls = schema_cls  # type: ignore[attr-defined]
-    schema_cls.Config.column_order = accessor  # type: ignore[attr-defined]
+    setattr(schema_cls.Config, "_schema_cls", schema_cls)  # noqa: B010
+    setattr(schema_cls.Config, "column_order", accessor)  # noqa: B010
 
     extras = getattr(schema_cls, "__extras__", None)
     if isinstance(extras, dict) and "column_order" in extras:
@@ -143,10 +153,10 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
         # Remove ``column_order`` so the descriptor isn't treated as a Check.
         updated = dict(extras)
         updated.pop("column_order", None)
-        schema_cls.__extras__ = updated  # type: ignore[attr-defined]
+        schema_cls.__extras__ = updated
 
 
-class BaseSchema(pa.DataFrameModel):
+class BaseSchema(_DataFrameModelBase):
     """Базовый класс для Pandera схем.
 
     Содержит обязательные системные поля для всех пайплайнов:
@@ -161,31 +171,31 @@ class BaseSchema(pa.DataFrameModel):
     """
 
     # Детерминизм и система трекинга
-    index: Series[int] = pa.Field(nullable=False, ge=0, description="Детерминированный индекс строки")
-    hash_row: Series[str] = pa.Field(
+    index: Series[int] = Field(nullable=False, ge=0, description="Детерминированный индекс строки")
+    hash_row: Series[str] = Field(
         nullable=False,
         regex=r'^[0-9a-f]{64}$',
         description="SHA256 канонической строки (64 hex chars)",
     )
-    hash_business_key: Series[str] = pa.Field(
+    hash_business_key: Series[str] = Field(
         nullable=False,
         regex=r'^[0-9a-f]{64}$',
         description="SHA256 бизнес-ключа (64 hex chars)",
     )
 
     # Системные поля
-    pipeline_version: Series[str] = pa.Field(nullable=False, description="Версия пайплайна")
-    run_id: Series[str] = pa.Field(nullable=False, description="Идентификатор запуска пайплайна")
-    source_system: Series[str] = pa.Field(nullable=False, description="Источник данных")
-    chembl_release: Series[str] = pa.Field(nullable=True, description="Версия ChEMBL")
-    extracted_at: Series[str] = pa.Field(nullable=False, description="ISO8601 UTC метка времени")
+    pipeline_version: Series[str] = Field(nullable=False, description="Версия пайплайна")
+    run_id: Series[str] = Field(nullable=False, description="Идентификатор запуска пайплайна")
+    source_system: Series[str] = Field(nullable=False, description="Источник данных")
+    chembl_release: Series[str] = Field(nullable=True, description="Версия ChEMBL")
+    extracted_at: Series[str] = Field(nullable=False, description="ISO8601 UTC метка времени")
 
     class Config:
         strict = True
         coerce = True
         ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
-    def __init_subclass__(cls, **kwargs):  # pragma: no cover - executed on subclass creation
+    def __init_subclass__(cls, **kwargs: Any) -> None:  # pragma: no cover - executed on subclass creation
         super().__init_subclass__(**kwargs)
         # Ensure Config exposes column_order via descriptor, unless overridden explicitly.
         if getattr(cls.Config, "column_order", None) is None or not isinstance(
@@ -194,18 +204,18 @@ class BaseSchema(pa.DataFrameModel):
             expose_config_column_order(cls)
 
     @classmethod
-    def validate(  # type: ignore[override]
+    def validate(
         cls,
         check_obj: pd.DataFrame | object,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """Validate ``check_obj`` ensuring the column accessor stays patched."""
 
         if not isinstance(cls.Config.__dict__.get("column_order"), _ColumnOrderAccessor):
             expose_config_column_order(cls)
 
-        return super().validate(check_obj, *args, **kwargs)
+        return cast(pd.DataFrame, super().validate(check_obj, *args, **kwargs))
 
     @classmethod
     def get_column_order(cls) -> list[str]:

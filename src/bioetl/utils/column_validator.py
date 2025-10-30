@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import pandera.pandas as pa
+
+from bioetl.pandera_pandas import pa
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.registry import SchemaRegistry

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import pandas as pd
-import pandera.pandas as pa
 
+from bioetl.pandera_pandas import DataFrameModel as _RuntimeDataFrameModel
+from bioetl.pandera_pandas import Field
 from bioetl.pandera_typing import Series
 from bioetl.schemas.base import (
     FALLBACK_METADATA_COLUMN_ORDER,
@@ -15,47 +16,52 @@ from bioetl.schemas.base import (
     expose_config_column_order,
 )
 
+if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
+    from pandera.pandas import DataFrameModel as _DataFrameModelBase
+else:
+    _DataFrameModelBase = _RuntimeDataFrameModel
 
-class DocumentRawSchema(pa.DataFrameModel):
+
+class DocumentRawSchema(_DataFrameModelBase):
     """Schema for raw ChEMBL document payloads prior to normalization."""
 
-    document_chembl_id: Series[str] = pa.Field(
+    document_chembl_id: Series[str] = Field(
         regex=r"^CHEMBL\d+$",
         nullable=False,
         description="Primary identifier for the document record",
     )
-    abstract: Series[str] = pa.Field(nullable=True, description="Abstract text from ChEMBL")
-    authors: Series[str] = pa.Field(nullable=True, description="Author list from ChEMBL")
-    classification: Series[str] = pa.Field(
+    abstract: Series[str] = Field(nullable=True, description="Abstract text from ChEMBL")
+    authors: Series[str] = Field(nullable=True, description="Author list from ChEMBL")
+    classification: Series[str] = Field(
         nullable=True,
         description="Document classification flag provided by ChEMBL",
     )
-    document_contains_external_links: Series[str] = pa.Field(
+    document_contains_external_links: Series[str] = Field(
         nullable=True,
         description="Raw indicator for external references provided by ChEMBL",
     )
-    doi: Series[str] = pa.Field(nullable=True, description="Digital Object Identifier")
-    first_page: Series[str] = pa.Field(nullable=True, description="First page of article")
-    is_experimental_doc: Series[str] = pa.Field(
+    doi: Series[str] = Field(nullable=True, description="Digital Object Identifier")
+    first_page: Series[str] = Field(nullable=True, description="First page of article")
+    is_experimental_doc: Series[str] = Field(
         nullable=True,
         description="Whether ChEMBL classifies the document as experimental",
     )
-    issue: Series[str] = pa.Field(nullable=True, description="Journal issue")
-    journal: Series[str] = pa.Field(nullable=True, description="Journal name")
-    journal_abbrev: Series[str] = pa.Field(nullable=True, description="Journal abbreviation")
-    last_page: Series[str] = pa.Field(nullable=True, description="Last page of article")
-    month: Series[str] = pa.Field(nullable=True, description="Publication month reported by ChEMBL")
-    pubmed_id: Series[str] = pa.Field(
+    issue: Series[str] = Field(nullable=True, description="Journal issue")
+    journal: Series[str] = Field(nullable=True, description="Journal name")
+    journal_abbrev: Series[str] = Field(nullable=True, description="Journal abbreviation")
+    last_page: Series[str] = Field(nullable=True, description="Last page of article")
+    month: Series[str] = Field(nullable=True, description="Publication month reported by ChEMBL")
+    pubmed_id: Series[str] = Field(
         nullable=True,
         description="PubMed identifier supplied by ChEMBL",
     )
-    title: Series[str] = pa.Field(nullable=True, description="Document title from ChEMBL")
-    volume: Series[str] = pa.Field(nullable=True, description="Journal volume")
-    year: Series[str] = pa.Field(
+    title: Series[str] = Field(nullable=True, description="Document title from ChEMBL")
+    volume: Series[str] = Field(nullable=True, description="Journal volume")
+    year: Series[str] = Field(
         nullable=True,
         description="Publication year reported by ChEMBL",
     )
-    source: Series[str] = pa.Field(
+    source: Series[str] = Field(
         nullable=True,
         description="Source system providing the document payload",
     )
@@ -126,217 +132,217 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     """
 
     # Primary Key
-    document_chembl_id: Series[str] = pa.Field(
+    document_chembl_id: Series[str] = Field(
         nullable=False, description="Первичный ключ"
     )
 
     # Core document information
-    document_pubmed_id: Series[pd.Int64Dtype] = pa.Field(
+    document_pubmed_id: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="Document PubMed ID",
     )
-    document_classification: Series[str] = pa.Field(nullable=True, description="Document classification")
-    referenses_on_previous_experiments: Series[pd.BooleanDtype] = pa.Field(
+    document_classification: Series[str] = Field(nullable=True, description="Document classification")
+    referenses_on_previous_experiments: Series[pd.BooleanDtype] = Field(
         nullable=True,
         description="References on previous experiments",
     )
-    original_experimental_document: Series[pd.BooleanDtype] = pa.Field(
+    original_experimental_document: Series[pd.BooleanDtype] = Field(
         nullable=True,
         description="Original experimental document",
     )
 
     # Resolved fields with precedence
-    pmid: Series[pd.Int64Dtype] = pa.Field(
+    pmid: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="Resolved PMID using precedence",
     )
-    pmid_source: Series[str] = pa.Field(nullable=True, description="Source of resolved PMID")
-    doi_clean: Series[str] = pa.Field(nullable=True, description="Resolved DOI using precedence")
-    doi_clean_source: Series[str] = pa.Field(nullable=True, description="Source of resolved DOI")
-    title: Series[str] = pa.Field(nullable=True, description="Resolved title")
-    title_source: Series[str] = pa.Field(nullable=True, description="Source of resolved title")
-    abstract: Series[str] = pa.Field(nullable=True, description="Resolved abstract")
-    abstract_source: Series[str] = pa.Field(nullable=True, description="Source of resolved abstract")
-    journal: Series[str] = pa.Field(nullable=True, description="Resolved journal name")
-    journal_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal")
-    journal_abbrev: Series[str] = pa.Field(nullable=True, description="Resolved journal abbreviation")
-    journal_abbrev_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal abbreviation")
-    authors: Series[str] = pa.Field(nullable=True, description="Resolved authors")
-    authors_source: Series[str] = pa.Field(nullable=True, description="Source of resolved authors")
-    year: Series[pd.Int64Dtype] = pa.Field(
+    pmid_source: Series[str] = Field(nullable=True, description="Source of resolved PMID")
+    doi_clean: Series[str] = Field(nullable=True, description="Resolved DOI using precedence")
+    doi_clean_source: Series[str] = Field(nullable=True, description="Source of resolved DOI")
+    title: Series[str] = Field(nullable=True, description="Resolved title")
+    title_source: Series[str] = Field(nullable=True, description="Source of resolved title")
+    abstract: Series[str] = Field(nullable=True, description="Resolved abstract")
+    abstract_source: Series[str] = Field(nullable=True, description="Source of resolved abstract")
+    journal: Series[str] = Field(nullable=True, description="Resolved journal name")
+    journal_source: Series[str] = Field(nullable=True, description="Source of resolved journal")
+    journal_abbrev: Series[str] = Field(nullable=True, description="Resolved journal abbreviation")
+    journal_abbrev_source: Series[str] = Field(nullable=True, description="Source of resolved journal abbreviation")
+    authors: Series[str] = Field(nullable=True, description="Resolved authors")
+    authors_source: Series[str] = Field(nullable=True, description="Source of resolved authors")
+    year: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="Resolved publication year",
     )
-    year_source: Series[str] = pa.Field(nullable=True, description="Source of resolved publication year")
-    volume: Series[str] = pa.Field(nullable=True, description="Resolved journal volume")
-    volume_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal volume")
-    issue: Series[str] = pa.Field(nullable=True, description="Resolved journal issue")
-    issue_source: Series[str] = pa.Field(nullable=True, description="Source of resolved journal issue")
-    first_page: Series[str] = pa.Field(nullable=True, description="Resolved first page")
-    first_page_source: Series[str] = pa.Field(nullable=True, description="Source of resolved first page")
-    last_page: Series[str] = pa.Field(nullable=True, description="Resolved last page")
-    last_page_source: Series[str] = pa.Field(nullable=True, description="Source of resolved last page")
-    issn_print: Series[str] = pa.Field(nullable=True, description="Resolved print ISSN")
-    issn_print_source: Series[str] = pa.Field(nullable=True, description="Source of resolved print ISSN")
-    issn_electronic: Series[str] = pa.Field(nullable=True, description="Resolved electronic ISSN")
-    issn_electronic_source: Series[str] = pa.Field(nullable=True, description="Source of resolved electronic ISSN")
-    is_oa: Series[pd.BooleanDtype] = pa.Field(
+    year_source: Series[str] = Field(nullable=True, description="Source of resolved publication year")
+    volume: Series[str] = Field(nullable=True, description="Resolved journal volume")
+    volume_source: Series[str] = Field(nullable=True, description="Source of resolved journal volume")
+    issue: Series[str] = Field(nullable=True, description="Resolved journal issue")
+    issue_source: Series[str] = Field(nullable=True, description="Source of resolved journal issue")
+    first_page: Series[str] = Field(nullable=True, description="Resolved first page")
+    first_page_source: Series[str] = Field(nullable=True, description="Source of resolved first page")
+    last_page: Series[str] = Field(nullable=True, description="Resolved last page")
+    last_page_source: Series[str] = Field(nullable=True, description="Source of resolved last page")
+    issn_print: Series[str] = Field(nullable=True, description="Resolved print ISSN")
+    issn_print_source: Series[str] = Field(nullable=True, description="Source of resolved print ISSN")
+    issn_electronic: Series[str] = Field(nullable=True, description="Resolved electronic ISSN")
+    issn_electronic_source: Series[str] = Field(nullable=True, description="Source of resolved electronic ISSN")
+    is_oa: Series[pd.BooleanDtype] = Field(
         nullable=True,
         description="Resolved Open Access flag",
     )
-    is_oa_source: Series[str] = pa.Field(nullable=True, description="Source of Open Access flag")
-    oa_status: Series[str] = pa.Field(nullable=True, description="Resolved OA status")
-    oa_status_source: Series[str] = pa.Field(nullable=True, description="Source of OA status")
-    oa_url: Series[str] = pa.Field(nullable=True, description="Resolved OA URL")
-    oa_url_source: Series[str] = pa.Field(nullable=True, description="Source of OA URL")
-    citation_count: Series[pd.Int64Dtype] = pa.Field(
+    is_oa_source: Series[str] = Field(nullable=True, description="Source of Open Access flag")
+    oa_status: Series[str] = Field(nullable=True, description="Resolved OA status")
+    oa_status_source: Series[str] = Field(nullable=True, description="Source of OA status")
+    oa_url: Series[str] = Field(nullable=True, description="Resolved OA URL")
+    oa_url_source: Series[str] = Field(nullable=True, description="Source of OA URL")
+    citation_count: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="Resolved citation count",
     )
-    citation_count_source: Series[str] = pa.Field(nullable=True, description="Source of citation count")
-    influential_citations: Series[pd.Int64Dtype] = pa.Field(
+    citation_count_source: Series[str] = Field(nullable=True, description="Source of citation count")
+    influential_citations: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="Resolved influential citation count",
     )
-    influential_citations_source: Series[str] = pa.Field(nullable=True, description="Source of influential citations")
-    fields_of_study: Series[str] = pa.Field(nullable=True, description="Resolved fields of study")
-    fields_of_study_source: Series[str] = pa.Field(nullable=True, description="Source of fields of study")
-    concepts_top3: Series[str] = pa.Field(nullable=True, description="Resolved OpenAlex concepts")
-    concepts_top3_source: Series[str] = pa.Field(nullable=True, description="Source of OpenAlex concepts")
-    mesh_terms: Series[str] = pa.Field(nullable=True, description="Resolved MeSH terms")
-    mesh_terms_source: Series[str] = pa.Field(nullable=True, description="Source of MeSH terms")
-    chemicals: Series[str] = pa.Field(nullable=True, description="Resolved chemicals list")
-    chemicals_source: Series[str] = pa.Field(nullable=True, description="Source of chemicals list")
+    influential_citations_source: Series[str] = Field(nullable=True, description="Source of influential citations")
+    fields_of_study: Series[str] = Field(nullable=True, description="Resolved fields of study")
+    fields_of_study_source: Series[str] = Field(nullable=True, description="Source of fields of study")
+    concepts_top3: Series[str] = Field(nullable=True, description="Resolved OpenAlex concepts")
+    concepts_top3_source: Series[str] = Field(nullable=True, description="Source of OpenAlex concepts")
+    mesh_terms: Series[str] = Field(nullable=True, description="Resolved MeSH terms")
+    mesh_terms_source: Series[str] = Field(nullable=True, description="Source of MeSH terms")
+    chemicals: Series[str] = Field(nullable=True, description="Resolved chemicals list")
+    chemicals_source: Series[str] = Field(nullable=True, description="Source of chemicals list")
 
-    conflict_doi: Series[pd.BooleanDtype] = pa.Field(
+    conflict_doi: Series[pd.BooleanDtype] = Field(
         nullable=True,
         description="Conflict flag for DOI discrepancies",
     )
-    conflict_pmid: Series[pd.BooleanDtype] = pa.Field(
+    conflict_pmid: Series[pd.BooleanDtype] = Field(
         nullable=True,
         description="Conflict flag for PMID discrepancies",
     )
 
     # PMID fields (4 sources)
-    chembl_pmid: Series[pd.Int64Dtype] = pa.Field(
+    chembl_pmid: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PMID из ChEMBL",
     )
-    pubmed_pmid: Series[pd.Int64Dtype] = pa.Field(
+    pubmed_pmid: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PMID из PubMed",
     )
-    openalex_pmid: Series[pd.Int64Dtype] = pa.Field(
+    openalex_pmid: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PMID из OpenAlex",
     )
-    semantic_scholar_pmid: Series[pd.Int64Dtype] = pa.Field(
+    semantic_scholar_pmid: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PMID из Semantic Scholar",
     )
 
     # Title fields (5 sources)
-    chembl_title: Series[str] = pa.Field(nullable=True, description="Заголовок из ChEMBL")
-    crossref_title: Series[str] = pa.Field(nullable=True, description="Заголовок из Crossref")
-    openalex_title: Series[str] = pa.Field(nullable=True, description="Заголовок из OpenAlex")
-    pubmed_article_title: Series[str] = pa.Field(nullable=True, description="Заголовок из PubMed")
-    semantic_scholar_title: Series[str] = pa.Field(nullable=True, description="Заголовок из Semantic Scholar")
+    chembl_title: Series[str] = Field(nullable=True, description="Заголовок из ChEMBL")
+    crossref_title: Series[str] = Field(nullable=True, description="Заголовок из Crossref")
+    openalex_title: Series[str] = Field(nullable=True, description="Заголовок из OpenAlex")
+    pubmed_article_title: Series[str] = Field(nullable=True, description="Заголовок из PubMed")
+    semantic_scholar_title: Series[str] = Field(nullable=True, description="Заголовок из Semantic Scholar")
 
     # Abstract fields (2 sources)
-    chembl_abstract: Series[str] = pa.Field(nullable=True, description="Аннотация из ChEMBL")
-    pubmed_abstract: Series[str] = pa.Field(nullable=True, description="Аннотация из PubMed")
+    chembl_abstract: Series[str] = Field(nullable=True, description="Аннотация из ChEMBL")
+    pubmed_abstract: Series[str] = Field(nullable=True, description="Аннотация из PubMed")
 
     # Authors fields (5 sources)
-    chembl_authors: Series[str] = pa.Field(nullable=True, description="Авторы из ChEMBL")
-    crossref_authors: Series[str] = pa.Field(nullable=True, description="Авторы из Crossref")
-    openalex_authors: Series[str] = pa.Field(nullable=True, description="Авторы из OpenAlex")
-    pubmed_authors: Series[str] = pa.Field(nullable=True, description="Авторы из PubMed")
-    semantic_scholar_authors: Series[str] = pa.Field(nullable=True, description="Авторы из Semantic Scholar")
+    chembl_authors: Series[str] = Field(nullable=True, description="Авторы из ChEMBL")
+    crossref_authors: Series[str] = Field(nullable=True, description="Авторы из Crossref")
+    openalex_authors: Series[str] = Field(nullable=True, description="Авторы из OpenAlex")
+    pubmed_authors: Series[str] = Field(nullable=True, description="Авторы из PubMed")
+    semantic_scholar_authors: Series[str] = Field(nullable=True, description="Авторы из Semantic Scholar")
 
     # DOI fields (5 sources)
-    chembl_doi: Series[str] = pa.Field(nullable=True, description="DOI из ChEMBL")
-    crossref_doi: Series[str] = pa.Field(nullable=True, description="DOI из Crossref")
-    openalex_doi: Series[str] = pa.Field(nullable=True, description="DOI из OpenAlex")
-    pubmed_doi: Series[str] = pa.Field(nullable=True, description="DOI из PubMed")
-    semantic_scholar_doi: Series[str] = pa.Field(nullable=True, description="DOI из Semantic Scholar")
+    chembl_doi: Series[str] = Field(nullable=True, description="DOI из ChEMBL")
+    crossref_doi: Series[str] = Field(nullable=True, description="DOI из Crossref")
+    openalex_doi: Series[str] = Field(nullable=True, description="DOI из OpenAlex")
+    pubmed_doi: Series[str] = Field(nullable=True, description="DOI из PubMed")
+    semantic_scholar_doi: Series[str] = Field(nullable=True, description="DOI из Semantic Scholar")
 
     # Doc Type fields (6 sources)
-    chembl_doc_type: Series[str] = pa.Field(nullable=True, description="Doc type из ChEMBL")
-    crossref_doc_type: Series[str] = pa.Field(nullable=True, description="Doc type из Crossref")
-    openalex_doc_type: Series[str] = pa.Field(nullable=True, description="Doc type из OpenAlex")
-    openalex_crossref_doc_type: Series[str] = pa.Field(nullable=True, description="Doc type OpenAlex→Crossref")
-    pubmed_doc_type: Series[str] = pa.Field(nullable=True, description="Doc type из PubMed")
-    semantic_scholar_doc_type: Series[str] = pa.Field(nullable=True, description="Doc type из Semantic Scholar")
+    chembl_doc_type: Series[str] = Field(nullable=True, description="Doc type из ChEMBL")
+    crossref_doc_type: Series[str] = Field(nullable=True, description="Doc type из Crossref")
+    openalex_doc_type: Series[str] = Field(nullable=True, description="Doc type из OpenAlex")
+    openalex_crossref_doc_type: Series[str] = Field(nullable=True, description="Doc type OpenAlex→Crossref")
+    pubmed_doc_type: Series[str] = Field(nullable=True, description="Doc type из PubMed")
+    semantic_scholar_doc_type: Series[str] = Field(nullable=True, description="Doc type из Semantic Scholar")
 
     # Journal fields (3 sources)
-    chembl_journal: Series[str] = pa.Field(nullable=True, description="Название журнала из ChEMBL")
-    pubmed_journal: Series[str] = pa.Field(nullable=True, description="Название журнала из PubMed")
-    semantic_scholar_journal: Series[str] = pa.Field(nullable=True, description="Название журнала из Semantic Scholar")
+    chembl_journal: Series[str] = Field(nullable=True, description="Название журнала из ChEMBL")
+    pubmed_journal: Series[str] = Field(nullable=True, description="Название журнала из PubMed")
+    semantic_scholar_journal: Series[str] = Field(nullable=True, description="Название журнала из Semantic Scholar")
 
     # Year fields (2 sources)
-    chembl_year: Series[pd.Int64Dtype] = pa.Field(
+    chembl_year: Series[pd.Int64Dtype] = Field(
         ge=1800,
         le=2100,
         nullable=True,
         description="Год публикации из ChEMBL",
     )
-    openalex_year: Series[pd.Int64Dtype] = pa.Field(
+    openalex_year: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="Год публикации из OpenAlex",
     )
 
     # Volume/Issue fields (4 sources)
-    chembl_volume: Series[str] = pa.Field(nullable=True, description="Том журнала из ChEMBL")
-    pubmed_volume: Series[str] = pa.Field(nullable=True, description="Том журнала из PubMed")
-    chembl_issue: Series[str] = pa.Field(nullable=True, description="Выпуск журнала из ChEMBL")
-    pubmed_issue: Series[str] = pa.Field(nullable=True, description="Выпуск журнала из PubMed")
+    chembl_volume: Series[str] = Field(nullable=True, description="Том журнала из ChEMBL")
+    pubmed_volume: Series[str] = Field(nullable=True, description="Том журнала из PubMed")
+    chembl_issue: Series[str] = Field(nullable=True, description="Выпуск журнала из ChEMBL")
+    pubmed_issue: Series[str] = Field(nullable=True, description="Выпуск журнала из PubMed")
 
     # Pages fields (2 sources)
-    pubmed_first_page: Series[str] = pa.Field(nullable=True, description="Первая страница из PubMed")
-    pubmed_last_page: Series[str] = pa.Field(nullable=True, description="Последняя страница из PubMed")
+    pubmed_first_page: Series[str] = Field(nullable=True, description="Первая страница из PubMed")
+    pubmed_last_page: Series[str] = Field(nullable=True, description="Последняя страница из PubMed")
 
     # ISSN fields (3 sources)
-    openalex_issn: Series[str] = pa.Field(nullable=True, description="ISSN из OpenAlex")
-    pubmed_issn: Series[str] = pa.Field(nullable=True, description="ISSN из PubMed")
-    semantic_scholar_issn: Series[str] = pa.Field(nullable=True, description="ISSN из Semantic Scholar")
+    openalex_issn: Series[str] = Field(nullable=True, description="ISSN из OpenAlex")
+    pubmed_issn: Series[str] = Field(nullable=True, description="ISSN из PubMed")
+    semantic_scholar_issn: Series[str] = Field(nullable=True, description="ISSN из Semantic Scholar")
 
     # PubMed specific metadata
-    pubmed_mesh_descriptors: Series[str] = pa.Field(nullable=True, description="PubMed MeSH descriptors")
-    pubmed_mesh_qualifiers: Series[str] = pa.Field(nullable=True, description="PubMed MeSH qualifiers")
-    pubmed_chemical_list: Series[str] = pa.Field(nullable=True, description="PubMed chemical list")
-    pubmed_year_completed: Series[pd.Int64Dtype] = pa.Field(
+    pubmed_mesh_descriptors: Series[str] = Field(nullable=True, description="PubMed MeSH descriptors")
+    pubmed_mesh_qualifiers: Series[str] = Field(nullable=True, description="PubMed MeSH qualifiers")
+    pubmed_chemical_list: Series[str] = Field(nullable=True, description="PubMed chemical list")
+    pubmed_year_completed: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PubMed year completed",
     )
-    pubmed_month_completed: Series[pd.Int64Dtype] = pa.Field(
+    pubmed_month_completed: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PubMed month completed",
     )
-    pubmed_day_completed: Series[pd.Int64Dtype] = pa.Field(
+    pubmed_day_completed: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PubMed day completed",
     )
-    pubmed_year_revised: Series[pd.Int64Dtype] = pa.Field(
+    pubmed_year_revised: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PubMed year revised",
     )
-    pubmed_month_revised: Series[pd.Int64Dtype] = pa.Field(
+    pubmed_month_revised: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PubMed month revised",
     )
-    pubmed_day_revised: Series[pd.Int64Dtype] = pa.Field(
+    pubmed_day_revised: Series[pd.Int64Dtype] = Field(
         nullable=True,
         description="PubMed day revised",
     )
 
     # Crossref specific
-    crossref_subject: Series[str] = pa.Field(nullable=True, description="Crossref subject")
+    crossref_subject: Series[str] = Field(nullable=True, description="Crossref subject")
 
     # Error tracking fields (4 sources)
-    crossref_error: Series[str] = pa.Field(nullable=True, description="Ошибка Crossref адаптера")
-    openalex_error: Series[str] = pa.Field(nullable=True, description="Ошибка OpenAlex адаптера")
-    pubmed_error: Series[str] = pa.Field(nullable=True, description="Ошибка PubMed адаптера")
-    semantic_scholar_error: Series[str] = pa.Field(nullable=True, description="Ошибка Semantic Scholar адаптера")
+    crossref_error: Series[str] = Field(nullable=True, description="Ошибка Crossref адаптера")
+    openalex_error: Series[str] = Field(nullable=True, description="Ошибка OpenAlex адаптера")
+    pubmed_error: Series[str] = Field(nullable=True, description="Ошибка PubMed адаптера")
+    semantic_scholar_error: Series[str] = Field(nullable=True, description="Ошибка Semantic Scholar адаптера")
 
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at
