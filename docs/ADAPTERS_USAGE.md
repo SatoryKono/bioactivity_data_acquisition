@@ -24,6 +24,11 @@ export CROSSREF_MAILTO="your-email@example.com"  # для polite pool
 export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для production
 ```
 
+Если переменная окружения не установлена, пайплайн использует безопасное
+значение по умолчанию (например, пустую строку) и продолжит работу. Как только
+переменная задана, она автоматически подставляется без изменения YAML-файла
+конфигурации.
+
 ### Конфигурация YAML
 
 Файл `configs/pipelines/document.yaml`:
@@ -33,23 +38,23 @@ sources:
   pubmed:
     enabled: true
     base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-    tool: "bioactivity_etl"
-    email: "${PUBMED_EMAIL}"
-    api_key: "${PUBMED_API_KEY}"
+    tool: ""
+    email: ""
+    api_key: ""
     batch_size: 200
     rate_limit_max_calls: 3  # 10 with API key
     rate_limit_period: 1.0
     workers: 1
-  
+
   crossref:
     enabled: true
     base_url: "https://api.crossref.org"
-    mailto: "${CROSSREF_MAILTO}"
+    mailto: ""
     batch_size: 100
     rate_limit_max_calls: 2
     rate_limit_period: 1.0
     workers: 2
-  
+
   openalex:
     enabled: true
     base_url: "https://api.openalex.org"
@@ -57,16 +62,20 @@ sources:
     rate_limit_max_calls: 10
     rate_limit_period: 1.0
     workers: 4
-  
+
   semantic_scholar:
     enabled: true
     base_url: "https://api.semanticscholar.org/graph/v1"
-    api_key: "${SEMANTIC_SCHOLAR_API_KEY}"
+    api_key: ""
     batch_size: 50
     rate_limit_max_calls: 1  # 10 with API key
     rate_limit_period: 1.25
     workers: 1
 ```
+
+Пустые строки служат явными маркерами «получить значение из переменной
+окружения, если она существует». Для обязательных значений замените пустую
+строку явным значением или установите переменную окружения.
 
 ## Использование
 
