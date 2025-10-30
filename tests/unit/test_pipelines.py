@@ -821,6 +821,35 @@ class TestActivityPipeline:
         assert captured_ids == [1, 2]
         assert len(result) == 2
 
+    def test_extract_from_chembl_splits_batches_by_url_length(
+        self, activity_config, monkeypatch
+    ) -> None:
+        """Ensure batch iteration respects the configured URL length limit."""
+
+        activity_config.sources["chembl"].max_url_length = 60
+        activity_config.cache.enabled = False
+
+        pipeline = ActivityPipeline(activity_config, "url-limit")
+        pipeline.api_client.config.base_url = "https://chembl.test"
+
+        monkeypatch.setattr(pipeline, "_store_batch_in_cache", lambda *args, **kwargs: None)
+        monkeypatch.setattr(pipeline, "_load_batch_from_cache", lambda batch_ids: None)
+
+        recorded_calls: list[str] = []
+
+        def fake_request(url: str, params: dict[str, Any] | None = None, **_: Any) -> dict[str, Any]:
+            assert params is not None
+            recorded_calls.append(params.get("activity_id__in", ""))
+            ids = [int(value) for value in params.get("activity_id__in", "").split(",") if value]
+            return {"activities": [{"activity_id": activity_id} for activity_id in ids]}
+
+        monkeypatch.setattr(pipeline.api_client, "request_json", fake_request)
+
+        result = pipeline._extract_from_chembl([1, 2, 3, 4])
+
+        assert recorded_calls == ["1,2", "3,4"]
+        assert sorted(result["activity_id"].dropna().astype(int).tolist()) == [1, 2, 3, 4]
+
     def test_normalize_activity_field_mapping(self, activity_config):
         """Dedicated mappers should normalize every field as specified."""
 

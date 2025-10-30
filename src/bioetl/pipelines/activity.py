@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import requests
 from pandera.errors import SchemaErrors
 
 from bioetl.config import PipelineConfig
@@ -226,6 +227,7 @@ class ActivityPipeline(PipelineBase):
         # fallback behaviour from ``PipelineConfig`` are fully honoured.
         self.api_client = chembl_context.client
         self.batch_size = chembl_context.batch_size
+        self.configured_max_url_length = chembl_context.max_url_length
 
         # Status handshake for release metadata
         self._status_snapshot: dict[str, Any] | None = None
@@ -294,9 +296,7 @@ class ActivityPipeline(PipelineBase):
 
         results: list[dict[str, Any]] = []
 
-        for i in range(0, len(activity_ids), self.batch_size):
-            batch_ids = activity_ids[i : i + self.batch_size]
-            batch_number = i // self.batch_size + 1
+        for batch_number, batch_ids in enumerate(self._iter_activity_batches(activity_ids), start=1):
             logger.info("fetching_batch", batch=batch_number, size=len(batch_ids))
 
             cached_records = self._load_batch_from_cache(batch_ids)
@@ -390,6 +390,61 @@ class ActivityPipeline(PipelineBase):
             coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
         logger.info("extraction_completed", rows=len(df), from_api=True)
         return df
+
+    def _iter_activity_batches(self, activity_ids: Sequence[int]) -> Iterable[list[int]]:
+        """Yield batches constrained by batch size and configured URL length."""
+
+        batch_size = max(1, int(self.batch_size))
+        total = len(activity_ids)
+        for index in range(0, total, batch_size):
+            chunk = list(activity_ids[index : index + batch_size])
+            if not chunk:
+                continue
+            for split_chunk in self._split_activity_ids_by_url_length(chunk):
+                if split_chunk:
+                    yield split_chunk
+
+    def _split_activity_ids_by_url_length(self, candidate_ids: Sequence[int]) -> list[list[int]]:
+        """Recursively split identifiers to satisfy the configured URL limit."""
+
+        ids = list(candidate_ids)
+        if not ids:
+            return []
+
+        limit = self.configured_max_url_length
+        if limit is None:
+            return [ids]
+
+        url = self._build_activity_request_url(ids)
+        if not url:
+            return [ids]
+
+        if len(url) <= limit or len(ids) == 1:
+            if len(url) > limit:
+                logger.warning(
+                    "activity_single_id_exceeds_url_limit",
+                    activity_id=ids[0],
+                    url_length=len(url),
+                    max_length=limit,
+                )
+            return [ids]
+
+        midpoint = max(1, len(ids) // 2)
+        return self._split_activity_ids_by_url_length(ids[:midpoint]) + self._split_activity_ids_by_url_length(
+            ids[midpoint:]
+        )
+
+    def _build_activity_request_url(self, activity_ids: Sequence[int]) -> str:
+        """Return the fully qualified request URL for the provided identifiers."""
+
+        base = str(self.api_client.config.base_url).rstrip("/")
+        request = requests.Request(
+            method="GET",
+            url=f"{base}/activity.json",
+            params={"activity_id__in": ",".join(map(str, activity_ids))},
+        )
+        prepared = request.prepare()
+        return prepared.url or ""
 
     def _fetch_batch(self, batch_ids: Iterable[int]) -> tuple[list[dict[str, Any]], dict[str, int]]:
         """Fetch a batch of activities from the ChEMBL API."""
