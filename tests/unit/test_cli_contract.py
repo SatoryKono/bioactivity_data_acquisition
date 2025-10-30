@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import importlib
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 from typer.testing import CliRunner
@@ -11,6 +12,8 @@ from typer.testing import CliRunner
 PROJECT_SRC = Path(__file__).resolve().parents[2] / "src"
 if str(PROJECT_SRC) not in sys.path:
     sys.path.insert(0, str(PROJECT_SRC))
+
+from scripts import PIPELINE_COMMAND_REGISTRY  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -24,43 +27,62 @@ class EntryPoint:
     mode: str
 
 
-ENTRYPOINTS = (
-    EntryPoint(
-        name="assay",
-        module="scripts.run_assay",
-        pipeline_attr="AssayPipeline",
-        config_path=Path("configs/pipelines/assay.yaml"),
-        mode="smoke",
-    ),
-    EntryPoint(
-        name="activity",
-        module="scripts.run_activity",
-        pipeline_attr="ActivityPipeline",
-        config_path=Path("configs/pipelines/activity.yaml"),
-        mode="smoke",
-    ),
-    EntryPoint(
-        name="testitem",
-        module="scripts.run_testitem",
-        pipeline_attr="TestItemPipeline",
-        config_path=Path("configs/pipelines/testitem.yaml"),
-        mode="smoke",
-    ),
-    EntryPoint(
+def _build_registry_entrypoints() -> list[EntryPoint]:
+    ordered_keys = ("assay", "activity", "testitem", "document")
+    entries: list[EntryPoint] = []
+    for key in ordered_keys:
+        config = PIPELINE_COMMAND_REGISTRY[key]
+        pipeline_cls = config.pipeline_factory()
+        default_mode = config.default_mode
+        mode = "smoke" if default_mode == "default" else default_mode
+        entries.append(
+            EntryPoint(
+                name=key,
+                module=f"scripts.run_{key}",
+                pipeline_attr=pipeline_cls.__name__,
+                config_path=config.default_config,
+                mode=mode,
+            )
+        )
+
+    target_entry = EntryPoint(
         name="target",
         module="scripts.run_target",
         pipeline_attr="TargetPipeline",
         config_path=Path("configs/pipelines/target.yaml"),
         mode="smoke",
-    ),
-    EntryPoint(
-        name="document",
-        module="scripts.run_document",
-        pipeline_attr="DocumentPipeline",
-        config_path=Path("configs/pipelines/document.yaml"),
-        mode="all",
-    ),
-)
+    )
+
+    # Preserve historical ordering with target preceding the document pipeline.
+    return entries[:3] + [target_entry] + entries[3:]
+
+
+ENTRYPOINTS = tuple(_build_registry_entrypoints())
+
+
+def _import_entry_module(entry: EntryPoint) -> ModuleType:
+    sys.modules.pop(entry.module, None)
+    return importlib.import_module(entry.module)
+
+
+def _load_entry_module(
+    entry: EntryPoint,
+    monkeypatch: pytest.MonkeyPatch | None = None,
+    pipeline_override: type | None = None,
+) -> ModuleType:
+    if (
+        monkeypatch is not None
+        and pipeline_override is not None
+        and entry.name in PIPELINE_COMMAND_REGISTRY
+    ):
+        original = PIPELINE_COMMAND_REGISTRY[entry.name]
+        monkeypatch.setitem(
+            PIPELINE_COMMAND_REGISTRY,
+            entry.name,
+            replace(original, pipeline_factory=lambda: pipeline_override),
+        )
+
+    return _import_entry_module(entry)
 
 
 @pytest.mark.unit
@@ -68,7 +90,7 @@ ENTRYPOINTS = (
 def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
     """Each CLI advertises the shared contract in help output."""
 
-    module = importlib.import_module(entry.module)
+    module = _load_entry_module(entry)
     runner = CliRunner()
     result = runner.invoke(module.app, ["--help"])
 
@@ -97,8 +119,6 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
 def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, entry: EntryPoint) -> None:
     """CLI overrides and environment variables reach the pipeline configuration."""
 
-    module = importlib.import_module(entry.module)
-
     captured: dict[str, object] = {}
 
     class RecordingPipeline:
@@ -108,7 +128,9 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
             self.runtime_options: dict[str, object] = {}
             captured["runtime_options"] = self.runtime_options
 
-    monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline)
+    module = _load_entry_module(entry, monkeypatch, pipeline_override=RecordingPipeline)
+
+    monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline, raising=False)
 
     golden_path = tmp_path / "golden.csv"
     golden_path.write_text("id\n1\n", encoding="utf-8")
@@ -183,8 +205,6 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
 def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoint) -> None:
     """Default CLI invocation applies expected pipeline-specific flags."""
 
-    module = importlib.import_module(entry.module)
-
     captured: dict[str, object] = {}
 
     class RecordingPipeline:
@@ -194,7 +214,9 @@ def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoin
             self.runtime_options: dict[str, object] = {}
             captured["runtime_options"] = self.runtime_options
 
-    monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline)
+    module = _load_entry_module(entry, monkeypatch, pipeline_override=RecordingPipeline)
+
+    monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline, raising=False)
 
     runner = CliRunner()
     result = runner.invoke(

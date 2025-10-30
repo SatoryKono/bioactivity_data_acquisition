@@ -1,2 +1,67 @@
-"""Scripts package for pipeline execution."""
+"""Shared registry and helpers for CLI pipeline entrypoints."""
 
+from __future__ import annotations
+
+from dataclasses import replace
+from pathlib import Path
+
+import typer
+
+from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
+from bioetl.pipelines.activity import ActivityPipeline
+from bioetl.pipelines.assay import AssayPipeline
+from bioetl.pipelines.document import DocumentPipeline
+from bioetl.pipelines.testitem import TestItemPipeline
+
+PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
+    "activity": PipelineCommandConfig(
+        pipeline_name="activity",
+        pipeline_factory=lambda: ActivityPipeline,
+        default_config=Path("configs/pipelines/activity.yaml"),
+        default_input=Path("data/input/activity.csv"),
+        default_output_dir=Path("data/output/activity"),
+    ),
+    "assay": PipelineCommandConfig(
+        pipeline_name="assay",
+        pipeline_factory=lambda: AssayPipeline,
+        default_config=Path("configs/pipelines/assay.yaml"),
+        default_input=Path("data/input/assay.csv"),
+        default_output_dir=Path("data/output/assay"),
+    ),
+    "document": PipelineCommandConfig(
+        pipeline_name="document",
+        pipeline_factory=lambda: DocumentPipeline,
+        default_config=Path("configs/pipelines/document.yaml"),
+        default_input=Path("data/input/document.csv"),
+        default_output_dir=Path("data/output/documents"),
+        mode_choices=("chembl", "all"),
+        default_mode="all",
+    ),
+    "testitem": PipelineCommandConfig(
+        pipeline_name="testitem",
+        pipeline_factory=lambda: TestItemPipeline,
+        default_config=Path("configs/pipelines/testitem.yaml"),
+        default_input=Path("data/input/testitem.csv"),
+        default_output_dir=Path("data/output/testitems"),
+    ),
+}
+
+
+def get_pipeline_command_config(key: str) -> PipelineCommandConfig:
+    try:
+        config = PIPELINE_COMMAND_REGISTRY[key]
+    except KeyError as exc:  # pragma: no cover - defensive branch
+        raise KeyError(f"Unknown pipeline registry key: {key}") from exc
+    return replace(config)
+
+
+def register_pipeline_command(app: typer.Typer, key: str) -> None:
+    command = create_pipeline_command(get_pipeline_command_config(key))
+    app.command()(command)
+
+
+__all__ = [
+    "PIPELINE_COMMAND_REGISTRY",
+    "get_pipeline_command_config",
+    "register_pipeline_command",
+]

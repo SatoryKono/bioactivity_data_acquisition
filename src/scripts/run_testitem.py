@@ -1,29 +1,14 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the test item pipeline."""
 
-from pathlib import Path
-
 import typer
 
-from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
-from bioetl.pipelines.testitem import TestItemPipeline
+from scripts import register_pipeline_command
 
 app = typer.Typer(help="Run test item pipeline to extract and transform compound data")
 
 
-# Создаем команду pipeline
-pipeline_command = create_pipeline_command(
-    PipelineCommandConfig(
-        pipeline_name="testitem",
-        pipeline_factory=lambda: TestItemPipeline,
-        default_config=Path("configs/pipelines/testitem.yaml"),
-            default_input=Path("data/input/testitem.csv"),
-        default_output_dir=Path("data/output/testitems"),
-    )
-)
-
-# Добавляем команду в typer app
-app.command()(pipeline_command)
+register_pipeline_command(app, "testitem")
 
 
 if __name__ == "__main__":
