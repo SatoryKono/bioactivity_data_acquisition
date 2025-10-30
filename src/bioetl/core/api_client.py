@@ -6,7 +6,7 @@ import json
 import random
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -616,15 +616,29 @@ class UnifiedAPIClient:
         max_tries = max(1, self.retry_policy.total)
 
         backoff_decorated = backoff.on_exception(
-            wait_gen=backoff.constant(interval=0),
+            wait_gen=backoff.constant,
+            interval=0,
             exception=(RequestException,),
             max_tries=max_tries,
             giveup=context.should_giveup,
             on_backoff=context.on_backoff,
             on_giveup=context.on_giveup,
+            logger=None,
         )(_request_operation)
 
-        payload = cast(dict[str, Any], backoff_decorated())
+        try:
+            payload = cast(dict[str, Any], backoff_decorated())
+        except RequestException as exc:
+            if not (self.config.fallback_enabled and self.config.fallback_strategies):
+                raise
+
+            payload = self._apply_fallback_strategies(
+                context=context,
+                cache_key=cache_key,
+                request_has_no_body=request_has_no_body,
+                request_operation=_request_operation,
+                last_exception=exc,
+            )
 
         if (
             self.cache
@@ -635,6 +649,135 @@ class UnifiedAPIClient:
             self.cache[cache_key] = self._clone_payload(payload)
 
         return payload
+
+    def _apply_fallback_strategies(
+        self,
+        *,
+        context: _RequestRetryContext,
+        cache_key: str | None,
+        request_has_no_body: bool,
+        request_operation: Callable[[], dict[str, Any]],
+        last_exception: RequestException,
+    ) -> dict[str, Any]:
+        """Execute configured fallback strategies in order."""
+
+        strategies: Sequence[str] = self.config.fallback_strategies
+        cache: TTLCache[str, Any] | None = cast(TTLCache[str, Any] | None, self.cache)
+        last_error: RequestException = last_exception
+
+        for strategy in strategies:
+            if strategy == "cache":
+                if cache is not None and cache_key and request_has_no_body and cache_key in cache:
+                    logger.warning(
+                        "fallback_cache_hit",
+                        url=context.url,
+                        method=context.method,
+                    )
+                    cached_value: dict[str, Any] = cache[cache_key]
+                    return self._clone_payload(cached_value)
+
+                logger.debug(
+                    "fallback_cache_miss",
+                    url=context.url,
+                    method=context.method,
+                    cache_key_present=cache_key is not None,
+                    cache_configured=cache is not None,
+                )
+                continue
+
+            if strategy == "partial_retry":
+                try:
+                    return self._fallback_partial_retry(
+                        context=context,
+                        request_operation=request_operation,
+                        max_attempts=self.config.partial_retry_max,
+                        last_exception=last_error,
+                    )
+                except RequestException as exc:
+                    last_error = exc
+                    continue
+
+            logger.warning(
+                "fallback_strategy_unknown",
+                strategy=strategy,
+                url=context.url,
+                method=context.method,
+            )
+
+        raise last_error
+
+    def _fallback_partial_retry(
+        self,
+        *,
+        context: _RequestRetryContext,
+        request_operation: Callable[[], dict[str, Any]],
+        max_attempts: int,
+        last_exception: RequestException,
+    ) -> dict[str, Any]:
+        """Perform partial retry attempts after primary retries are exhausted."""
+
+        if max_attempts <= 0:
+            logger.debug(
+                "fallback_partial_retry_disabled",
+                url=context.url,
+                method=context.method,
+                max_attempts=max_attempts,
+            )
+            if context.last_exc is not None:
+                raise context.last_exc
+            raise last_exception
+
+        logger.warning(
+            "fallback_partial_retry_start",
+            url=context.url,
+            method=context.method,
+            max_attempts=max_attempts,
+            attempt=context.attempt,
+        )
+
+        last_error: RequestException | None = context.last_exc
+
+        total_attempts = max_attempts + 1
+
+        for attempt_index in range(total_attempts):
+            wait_time = context.wait_time
+            if wait_time and wait_time > 0:
+                logger.debug(
+                    "fallback_partial_retry_sleep",
+                    wait_seconds=wait_time,
+                    attempt=context.attempt,
+                )
+                time.sleep(wait_time)
+
+            try:
+                payload = request_operation()
+            except RequestException as exc:
+                last_error = exc
+                if attempt_index >= total_attempts - 1:
+                    break
+                continue
+
+            logger.info(
+                "fallback_partial_retry_success",
+                url=context.url,
+                method=context.method,
+                attempt=context.attempt,
+            )
+            return payload
+
+        logger.error(
+            "fallback_partial_retry_failed",
+            url=context.url,
+            method=context.method,
+            max_attempts=max_attempts,
+            attempt=context.attempt,
+            error=str(last_error) if last_error is not None else None,
+        )
+
+        if last_error is not None:
+            raise last_error
+
+        raise RequestException("partial retry failed without exception")
 
     @staticmethod
     def _retry_after_seconds(response: requests.Response | None) -> float | None:
