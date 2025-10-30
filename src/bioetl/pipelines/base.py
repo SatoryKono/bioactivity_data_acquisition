@@ -743,6 +743,10 @@ class PipelineBase(ABC):
         frame: pd.DataFrame | None,
         *,
         relative_path: Path | str | None = None,
+        formats: Sequence[str] | None = None,
+        sort_by: Sequence[str] | None = None,
+        ascending: Sequence[bool] | None = None,
+        column_order: Sequence[str] | None = None,
     ) -> None:
         """Register or remove an additional dataset for export."""
 
@@ -762,9 +766,29 @@ class PipelineBase(ABC):
             else:
                 path_value = candidate
 
+        resolved_formats: list[str] = []
+        for fmt in formats or ("csv",):
+            key = str(fmt).lower()
+            if key not in {"csv", "parquet"}:
+                logger.warning(
+                    "additional_table_unsupported_format",
+                    name=name,
+                    format=fmt,
+                )
+                continue
+            if key not in resolved_formats:
+                resolved_formats.append(key)
+
+        if not resolved_formats:
+            resolved_formats.append("csv")
+
         self.additional_tables[name] = AdditionalTableSpec(
             dataframe=frame,
             relative_path=path_value,
+            formats=tuple(resolved_formats),
+            sort_by=tuple(sort_by) if sort_by else None,
+            sort_ascending=tuple(bool(value) for value in ascending) if ascending else None,
+            column_order=tuple(column_order) if column_order else None,
         )
 
     def remove_additional_table(self, name: str) -> None:

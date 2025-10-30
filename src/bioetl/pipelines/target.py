@@ -138,6 +138,7 @@ class TargetPipeline(PipelineBase):
             self.config.materialization,
             runtime=runtime_config,
             stage_context=self.stage_context,
+            writer=self.output_writer,
         )
 
     def close_resources(self) -> None:
@@ -309,26 +310,41 @@ class TargetPipeline(PipelineBase):
 
         self.reset_additional_tables()
         if not gold_components.empty:
-            self.add_additional_table("target_components", gold_components)
+            self.add_additional_table(
+                "target_components",
+                gold_components,
+                formats=("csv", "parquet"),
+            )
         if not gold_protein_class.empty:
             self.add_additional_table(
                 "target_protein_classifications",
                 gold_protein_class,
+                formats=("csv", "parquet"),
             )
         if not gold_xref.empty:
-            self.add_additional_table("target_xrefs", gold_xref)
+            self.add_additional_table(
+                "target_xrefs",
+                gold_xref,
+                formats=("csv", "parquet"),
+            )
         if not component_enrichment.empty:
             self.add_additional_table(
                 "target_component_enrichment",
                 component_enrichment,
+                formats=("csv", "parquet"),
             )
         if not iuphar_classification.empty:
             self.add_additional_table(
                 "target_iuphar_classification",
                 iuphar_classification,
+                formats=("csv", "parquet"),
             )
         if not iuphar_gold.empty:
-            self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
+            self.add_additional_table(
+                "target_iuphar_enrichment",
+                iuphar_gold,
+                formats=("csv", "parquet"),
+            )
 
         self.set_export_metadata_from_dataframe(
             gold_targets,

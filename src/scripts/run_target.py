@@ -297,8 +297,12 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         typer.echo(f"QC dataset metrics: {artifacts.qc_dataset_metrics}")
     if artifacts.additional_datasets:
         typer.echo("Additional datasets:")
-        for name, path in artifacts.additional_datasets.items():
-            typer.echo(f"  - {name}: {path}")
+        for name, bundle in artifacts.additional_datasets.items():
+            typer.echo(f"  - {name}:")
+            for fmt, dataset_path in bundle.datasets.items():
+                typer.echo(f"      {fmt}: {dataset_path}")
+            typer.echo(f"      quality_report: {bundle.quality_report}")
+            typer.echo(f"      metadata: {bundle.metadata}")
 
     logger.info(
         "pipeline_run_completed",

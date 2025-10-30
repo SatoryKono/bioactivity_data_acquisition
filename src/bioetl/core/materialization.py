@@ -10,6 +10,7 @@ import pandas as pd
 
 from bioetl.config.models import MaterializationPaths
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.output_writer import OutputMetadata, UnifiedOutputWriter
 
 logger = UnifiedLogger.get(__name__)
 
@@ -24,6 +25,7 @@ class MaterializationManager:
     paths: MaterializationPaths
     runtime: Any | None = None
     stage_context: MutableMapping[str, Any] | None = None
+    writer: UnifiedOutputWriter | None = None
 
     def materialize_silver(
         self,
@@ -53,13 +55,37 @@ class MaterializationManager:
 
         if not uniprot_df.empty:
             sorted_uniprot = uniprot_df.sort_values("canonical_accession", kind="stable")
-            logger.info(
-                "writing_silver_dataset",
-                path=str(silver_path),
-                rows=len(sorted_uniprot),
-            )
-            self._write_dataframe(sorted_uniprot, silver_path, resolved_format)
-            outputs["uniprot"] = silver_path
+            if self.writer is not None:
+                bundle = self.writer.write_table_bundle(
+                    sorted_uniprot,
+                    silver_path,
+                    formats=(resolved_format,),
+                    metadata=OutputMetadata.from_dataframe(
+                        sorted_uniprot,
+                        run_id=self.writer.run_id,
+                        column_order=list(sorted_uniprot.columns),
+                    ),
+                    qc_directory=silver_path.parent / "qc",
+                )
+                dataset_path = bundle.datasets.get(
+                    resolved_format,
+                    next(iter(bundle.datasets.values())),
+                )
+                logger.info(
+                    "writing_silver_dataset",
+                    path=str(dataset_path),
+                    rows=len(sorted_uniprot),
+                    format=resolved_format,
+                )
+                outputs["uniprot"] = dataset_path
+            else:
+                logger.info(
+                    "writing_silver_dataset",
+                    path=str(silver_path),
+                    rows=len(sorted_uniprot),
+                )
+                self._write_dataframe(sorted_uniprot, silver_path, resolved_format)
+                outputs["uniprot"] = silver_path
 
         component_path = self._resolve_sibling_path(
             silver_path.parent,
@@ -71,13 +97,37 @@ class MaterializationManager:
                 ["canonical_accession", "isoform_accession"],
                 kind="stable",
             )
-            logger.info(
-                "writing_component_enrichment",
-                path=str(component_path),
-                rows=len(sorted_components),
-            )
-            self._write_dataframe(sorted_components, component_path, resolved_format)
-            outputs["component_enrichment"] = component_path
+            if self.writer is not None:
+                bundle = self.writer.write_table_bundle(
+                    sorted_components,
+                    component_path,
+                    formats=(resolved_format,),
+                    metadata=OutputMetadata.from_dataframe(
+                        sorted_components,
+                        run_id=self.writer.run_id,
+                        column_order=list(sorted_components.columns),
+                    ),
+                    qc_directory=component_path.parent / "qc",
+                )
+                dataset_path = bundle.datasets.get(
+                    resolved_format,
+                    next(iter(bundle.datasets.values())),
+                )
+                logger.info(
+                    "writing_component_enrichment",
+                    path=str(dataset_path),
+                    rows=len(sorted_components),
+                    format=resolved_format,
+                )
+                outputs["component_enrichment"] = dataset_path
+            else:
+                logger.info(
+                    "writing_component_enrichment",
+                    path=str(component_path),
+                    rows=len(sorted_components),
+                )
+                self._write_dataframe(sorted_components, component_path, resolved_format)
+                outputs["component_enrichment"] = component_path
         elif component_path.exists():
             logger.info("component_enrichment_empty", path=str(component_path))
 
@@ -122,13 +172,37 @@ class MaterializationManager:
                 ["target_chembl_id", "iuphar_family_id"],
                 kind="stable",
             )
-            logger.info(
-                "writing_iuphar_classification",
-                path=str(classification_path),
-                rows=len(sorted_classification),
-            )
-            self._write_dataframe(sorted_classification, classification_path, resolved_format)
-            outputs["classification"] = classification_path
+            if self.writer is not None:
+                bundle = self.writer.write_table_bundle(
+                    sorted_classification,
+                    classification_path,
+                    formats=(resolved_format,),
+                    metadata=OutputMetadata.from_dataframe(
+                        sorted_classification,
+                        run_id=self.writer.run_id,
+                        column_order=list(sorted_classification.columns),
+                    ),
+                    qc_directory=classification_path.parent / "qc",
+                )
+                dataset_path = bundle.datasets.get(
+                    resolved_format,
+                    next(iter(bundle.datasets.values())),
+                )
+                logger.info(
+                    "writing_iuphar_classification",
+                    path=str(dataset_path),
+                    rows=len(sorted_classification),
+                    format=resolved_format,
+                )
+                outputs["classification"] = dataset_path
+            else:
+                logger.info(
+                    "writing_iuphar_classification",
+                    path=str(classification_path),
+                    rows=len(sorted_classification),
+                )
+                self._write_dataframe(sorted_classification, classification_path, resolved_format)
+                outputs["classification"] = classification_path
 
         if not gold_df.empty:
             gold_path = self._resolve_sibling_path(
@@ -137,13 +211,37 @@ class MaterializationManager:
                 resolved_format,
             )
             sorted_gold = gold_df.sort_values(["target_chembl_id"], kind="stable")
-            logger.info(
-                "writing_iuphar_gold",
-                path=str(gold_path),
-                rows=len(sorted_gold),
-            )
-            self._write_dataframe(sorted_gold, gold_path, resolved_format)
-            outputs["iuphar_gold"] = gold_path
+            if self.writer is not None:
+                bundle = self.writer.write_table_bundle(
+                    sorted_gold,
+                    gold_path,
+                    formats=(resolved_format,),
+                    metadata=OutputMetadata.from_dataframe(
+                        sorted_gold,
+                        run_id=self.writer.run_id,
+                        column_order=list(sorted_gold.columns),
+                    ),
+                    qc_directory=gold_path.parent / "qc",
+                )
+                dataset_path = bundle.datasets.get(
+                    resolved_format,
+                    next(iter(bundle.datasets.values())),
+                )
+                logger.info(
+                    "writing_iuphar_gold",
+                    path=str(dataset_path),
+                    rows=len(sorted_gold),
+                    format=resolved_format,
+                )
+                outputs["iuphar_gold"] = dataset_path
+            else:
+                logger.info(
+                    "writing_iuphar_gold",
+                    path=str(gold_path),
+                    rows=len(sorted_gold),
+                )
+                self._write_dataframe(sorted_gold, gold_path, resolved_format)
+                outputs["iuphar_gold"] = gold_path
 
         if outputs:
             self._update_stage_context("iuphar", {"outputs": outputs})
@@ -181,36 +279,36 @@ class MaterializationManager:
         outputs: dict[str, Path] = {}
 
         outputs.update(
-            self._write_stage_dataset(
+            self._materialize_stage_dataset(
                 targets,
                 targets_path,
                 resolved_format,
-                dataset="targets",
+                label="targets",
             )
         )
 
         outputs.update(
-            self._write_stage_dataset(
+            self._materialize_stage_dataset(
                 components,
                 self._resolve_sibling_path(base_dir, "target_components", resolved_format),
                 resolved_format,
-                dataset="target_components",
+                label="target_components",
             )
         )
         outputs.update(
-            self._write_stage_dataset(
+            self._materialize_stage_dataset(
                 protein_class,
                 self._resolve_sibling_path(base_dir, "protein_class", resolved_format),
                 resolved_format,
-                dataset="protein_class",
+                label="protein_class",
             )
         )
         outputs.update(
-            self._write_stage_dataset(
+            self._materialize_stage_dataset(
                 xref,
                 self._resolve_sibling_path(base_dir, "target_xref", resolved_format),
                 resolved_format,
-                dataset="target_xref",
+                label="target_xref",
             )
         )
 
@@ -221,21 +319,45 @@ class MaterializationManager:
 
     # Internal helpers -------------------------------------------------
 
-    def _write_stage_dataset(
+    def _materialize_stage_dataset(
         self,
         df: pd.DataFrame,
         path: Path,
         format: str,
         *,
-        dataset: str,
+        label: str,
     ) -> dict[str, Path]:
         if df.empty:
-            logger.info("gold_materialization_skipped", dataset=dataset, reason="empty_dataframe")
+            logger.info("gold_materialization_skipped", dataset=label, reason="empty_dataframe")
             return {}
 
-        logger.info("writing_gold_dataset", dataset=dataset, path=str(path), rows=len(df))
-        self._write_dataframe(df, path, format)
-        return {dataset: path}
+        if self.writer is not None:
+            metadata = OutputMetadata.from_dataframe(
+                df,
+                run_id=self.writer.run_id,
+                column_order=list(df.columns),
+            )
+            bundle = self.writer.write_table_bundle(
+                df,
+                path,
+                formats=(format,),
+                metadata=metadata,
+                qc_directory=path.parent / "qc",
+            )
+            dataset_path = bundle.datasets.get(format, next(iter(bundle.datasets.values())))
+            logger.info(
+                "writing_gold_dataset",
+                dataset=label,
+                path=str(dataset_path),
+                rows=len(df),
+                format=format,
+            )
+        else:
+            logger.info("writing_gold_dataset", dataset=label, path=str(path), rows=len(df))
+            self._write_dataframe(df, path, format)
+            dataset_path = path
+
+        return {label: dataset_path}
 
     def _write_dataframe(self, df: pd.DataFrame, path: Path, format: str) -> None:
         if format == "parquet":

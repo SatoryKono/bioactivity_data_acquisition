@@ -12,7 +12,12 @@ import pandas as pd
 import pytest
 
 from bioetl.config.models import DeterminismConfig
-from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
+from bioetl.core.output_writer import (
+    AdditionalTableSpec,
+    AtomicWriter,
+    OutputMetadata,
+    UnifiedOutputWriter,
+)
 from bioetl.pandera_typing import Series
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
@@ -46,6 +51,7 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     artifacts = writer.write(df, output_path)
 
     assert artifacts.dataset == output_path
+    assert artifacts.dataset_formats == {"csv": output_path}
     assert (
         artifacts.quality_report
         == tmp_path / "run-test" / "target" / "qc" / "targets_quality_report.csv"
@@ -207,7 +213,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
                 extra_artifact.read_bytes()
             ).hexdigest()
     assert contents["file_checksums"] == expected_checksums
-    assert contents["artifacts"]["dataset"] == str(artifacts.dataset)
+    dataset_entry = contents["artifacts"]["dataset"]
+    assert isinstance(dataset_entry, dict)
+    assert dataset_entry["csv"] == str(artifacts.dataset)
     assert contents["artifacts"]["quality_report"] == str(artifacts.quality_report)
     qc_artifacts = contents["artifacts"].get("qc", {})
     assert qc_artifacts["correlation_report"] == str(artifacts.correlation_report)
@@ -418,6 +426,95 @@ def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monke
     assert "correlation_report" not in qc_artifacts
     assert "summary_statistics" not in qc_artifacts
     assert "dataset_metrics" not in qc_artifacts
+
+
+def test_unified_output_writer_generates_parquet_artifacts(tmp_path, monkeypatch):
+    """Parquet exports should include QC reports and metadata with checksums."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame({"value": [1, 2, 3], "label": ["a", "b", "c"]})
+    writer = UnifiedOutputWriter("run-parquet")
+
+    output_path = tmp_path / "run-parquet" / "target" / "datasets" / "targets.parquet"
+    artifacts = writer.write(df, output_path, formats=("parquet",))
+
+    assert artifacts.dataset.suffix == ".parquet"
+    assert artifacts.dataset_formats == {"parquet": artifacts.dataset}
+    assert artifacts.quality_report.exists()
+
+    parquet_df = pd.read_parquet(artifacts.dataset)
+    pd.testing.assert_frame_equal(parquet_df, df)
+
+    quality_df = pd.read_csv(artifacts.quality_report)
+    assert set(quality_df["column"]) == set(df.columns)
+
+    import yaml
+
+    with artifacts.metadata.open(encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    dataset_artifact = metadata["artifacts"]["dataset"]
+    assert dataset_artifact == {"parquet": str(artifacts.dataset)}
+    assert metadata["artifacts"]["quality_report"] == str(artifacts.quality_report)
+
+    checksums = metadata["file_checksums"]
+    assert artifacts.dataset.name in checksums
+    assert artifacts.quality_report.name in checksums
+
+
+def test_additional_table_emits_csv_and_parquet_with_metadata(tmp_path, monkeypatch):
+    """Additional tables should export both CSV and Parquet variants consistently."""
+
+    _freeze_datetime(monkeypatch)
+
+    main_df = pd.DataFrame({"id": [1, 2], "value": [10, 20]})
+    extra_df = pd.DataFrame({"id": [2, 1], "note": ["b", "a"]})
+
+    writer = UnifiedOutputWriter("run-additional")
+    output_path = tmp_path / "run-additional" / "target" / "datasets" / "targets.csv"
+
+    artifacts = writer.write(
+        main_df,
+        output_path,
+        additional_tables={
+            "supplemental": AdditionalTableSpec(
+                dataframe=extra_df,
+                formats=("csv", "parquet"),
+                sort_by=("id",),
+            )
+        },
+    )
+
+    assert artifacts.dataset_formats["csv"] == artifacts.dataset
+
+    supplemental = artifacts.additional_datasets["supplemental"]
+    csv_path = supplemental.datasets["csv"]
+    parquet_path = supplemental.datasets["parquet"]
+
+    csv_df = pd.read_csv(csv_path)
+    parquet_df = pd.read_parquet(parquet_path)
+    pd.testing.assert_frame_equal(csv_df, parquet_df)
+
+    import yaml
+
+    with supplemental.metadata.open(encoding="utf-8") as handle:
+        supplemental_meta = yaml.safe_load(handle)
+
+    dataset_mapping = supplemental_meta["artifacts"]["dataset"]
+    assert dataset_mapping == {"csv": str(csv_path), "parquet": str(parquet_path)}
+    assert supplemental_meta["artifacts"]["quality_report"] == str(
+        supplemental.quality_report
+    )
+
+    with artifacts.metadata.open(encoding="utf-8") as handle:
+        main_meta = yaml.safe_load(handle)
+
+    additional_entry = main_meta["artifacts"]["additional_datasets"]["supplemental"]
+    assert additional_entry["datasets"]["csv"] == str(csv_path)
+    assert additional_entry["datasets"]["parquet"] == str(parquet_path)
+    assert additional_entry["quality_report"] == str(supplemental.quality_report)
+    assert additional_entry["metadata"] == str(supplemental.metadata)
 
 
 def test_meta_yaml_matches_schema_registry(tmp_path, monkeypatch):
