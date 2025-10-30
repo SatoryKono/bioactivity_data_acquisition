@@ -23,30 +23,119 @@ determinism:
   sort:
     by: ["molecule_chembl_id"]
     ascending: [true]
-  column_order: [
-    "index", "hash_row", "hash_business_key", "pipeline_version", "source_system", "chembl_release", "extracted_at",
-    "molecule_chembl_id", "molregno", "pref_name", "pref_name_key", "parent_chembl_id", "parent_molregno",
-    "therapeutic_flag", "structure_type", "molecule_type", "molecule_type_chembl", "max_phase", "first_approval",
-    "dosed_ingredient", "availability_type", "chirality", "chirality_chembl", "mechanism_of_action",
-    "direct_interaction", "molecular_mechanism", "oral", "parenteral", "topical", "black_box_warning",
-    "natural_product", "first_in_class", "prodrug", "inorganic_flag", "polymer_flag", "usan_year", "usan_stem",
-    "usan_substem", "usan_stem_definition", "indication_class", "withdrawn_flag", "withdrawn_year",
-    "withdrawn_country", "withdrawn_reason", "drug_chembl_id", "drug_name", "drug_type", "drug_substance_flag",
-    "drug_indication_flag", "drug_antibacterial_flag", "drug_antiviral_flag", "drug_antifungal_flag",
-    "drug_antiparasitic_flag", "drug_antineoplastic_flag", "drug_immunosuppressant_flag", "drug_antiinflammatory_flag",
-    "mw_freebase", "alogp", "hba", "hbd", "psa", "rtb", "ro3_pass", "num_ro5_violations", "acd_most_apka",
-    "acd_most_bpka", "acd_logp", "acd_logd", "molecular_species", "full_mwt", "aromatic_rings", "heavy_atoms",
-    "qed_weighted", "mw_monoisotopic", "full_molformula", "hba_lipinski", "hbd_lipinski", "num_lipinski_ro5_violations",
-    "lipinski_ro5_violations", "lipinski_ro5_pass", "standardized_smiles", "standard_inchi", "standard_inchi_key",
-    "all_names", "molecule_hierarchy", "molecule_properties", "molecule_structures", "molecule_synonyms",
-    "atc_classifications", "cross_references", "biotherapeutic", "chemical_probe", "orphan", "veterinary",
-    "helm_notation", "fallback_reason", "fallback_error_type", "fallback_error_code", "fallback_http_status",
-    "fallback_retry_after_sec", "fallback_attempt", "fallback_error_message", "fallback_timestamp", "pubchem_cid",
-    "pubchem_molecular_formula", "pubchem_molecular_weight", "pubchem_canonical_smiles", "pubchem_isomeric_smiles",
-    "pubchem_inchi", "pubchem_inchi_key", "pubchem_iupac_name", "pubchem_registry_id", "pubchem_rn",
-    "pubchem_synonyms", "pubchem_enriched_at", "pubchem_cid_source", "pubchem_fallback_used",
-    "pubchem_enrichment_attempt", "pubchem_lookup_inchikey"
-  ]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "molecule_chembl_id"
+    - "molregno"
+    - "pref_name"
+    - "pref_name_key"
+    - "parent_chembl_id"
+    - "parent_molregno"
+    - "therapeutic_flag"
+    - "structure_type"
+    - "molecule_type"
+    - "molecule_type_chembl"
+    - "max_phase"
+    - "first_approval"
+    - "dosed_ingredient"
+    - "availability_type"
+    - "chirality"
+    - "chirality_chembl"
+    - "mechanism_of_action"
+    - "direct_interaction"
+    - "molecular_mechanism"
+    - "oral"
+    - "parenteral"
+    - "topical"
+    - "black_box_warning"
+    - "natural_product"
+    - "first_in_class"
+    - "prodrug"
+    - "inorganic_flag"
+    - "polymer_flag"
+    - "usan_year"
+    - "usan_stem"
+    - "usan_substem"
+    - "usan_stem_definition"
+    - "indication_class"
+    - "withdrawn_flag"
+    - "withdrawn_year"
+    - "withdrawn_country"
+    - "withdrawn_reason"
+    - "drug_chembl_id"
+    - "drug_name"
+    - "drug_type"
+    - "drug_substance_flag"
+    - "drug_indication_flag"
+    - "drug_antibacterial_flag"
+    - "drug_antiviral_flag"
+    - "drug_antifungal_flag"
+    - "drug_antiparasitic_flag"
+    - "drug_antineoplastic_flag"
+    - "drug_immunosuppressant_flag"
+    - "drug_antiinflammatory_flag"
+    - "mw_freebase"
+    - "alogp"
+    - "hba"
+    - "hbd"
+    - "psa"
+    - "rtb"
+    - "ro3_pass"
+    - "num_ro5_violations"
+    - "acd_most_apka"
+    - "acd_most_bpka"
+    - "acd_logp"
+    - "acd_logd"
+    - "molecular_species"
+    - "full_mwt"
+    - "aromatic_rings"
+    - "heavy_atoms"
+    - "qed_weighted"
+    - "mw_monoisotopic"
+    - "full_molformula"
+    - "hba_lipinski"
+    - "hbd_lipinski"
+    - "num_lipinski_ro5_violations"
+    - "lipinski_ro5_violations"
+    - "lipinski_ro5_pass"
+    - "standardized_smiles"
+    - "standard_inchi"
+    - "standard_inchi_key"
+    - "all_names"
+    - "molecule_hierarchy"
+    - "molecule_properties"
+    - "molecule_structures"
+    - "molecule_synonyms"
+    - "atc_classifications"
+    - "cross_references"
+    - "biotherapeutic"
+    - "chemical_probe"
+    - "orphan"
+    - "veterinary"
+    - "helm_notation"
+    - !include ../includes/fallback_columns.yaml
+    - "pubchem_cid"
+    - "pubchem_molecular_formula"
+    - "pubchem_molecular_weight"
+    - "pubchem_canonical_smiles"
+    - "pubchem_isomeric_smiles"
+    - "pubchem_inchi"
+    - "pubchem_inchi_key"
+    - "pubchem_iupac_name"
+    - "pubchem_registry_id"
+    - "pubchem_rn"
+    - "pubchem_synonyms"
+    - "pubchem_enriched_at"
+    - "pubchem_cid_source"
+    - "pubchem_fallback_used"
+    - "pubchem_enrichment_attempt"
+    - "pubchem_lookup_inchikey"
 
 qc:
   enabled: true
