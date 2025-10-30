@@ -199,7 +199,7 @@ def _write_minimal_config(tmp_path, sources_block: str) -> Path:
     config_file = tmp_path / "config.yaml"
     config_file.write_text(
         dedent(
-            f"""
+            """
             version: 1
             pipeline:
               name: test
@@ -229,13 +229,13 @@ def _write_minimal_config(tmp_path, sources_block: str) -> Path:
                 by: []
                 ascending: []
               column_order: []
-            postprocess: {{}}
+            postprocess: {}
             qc:
               enabled: true
               severity_threshold: warning
-            cli: {{}}
+            cli: {}
             """
-        )
+        ).replace("{sources_block}", sources_block)
     )
     return config_file
 
