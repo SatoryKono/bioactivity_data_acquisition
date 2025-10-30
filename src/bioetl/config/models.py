@@ -18,6 +18,11 @@ from pydantic import (
     model_validator,
 )
 
+from bioetl.utils.column_validation import (
+    DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES,
+    normalise_ignore_suffixes,
+)
+
 SUPPORTED_FALLBACK_STRATEGIES: tuple[str, ...] = ("cache", "partial_retry")
 
 
@@ -273,6 +278,16 @@ class DeterminismConfig(BaseModel):
         default="1.0.0",
         description="Version identifier for the canonical hashing policy",
     )
+    column_validation_ignore_suffixes: list[str] = Field(
+        default_factory=lambda: list(DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES)
+    )
+
+    @field_validator("column_validation_ignore_suffixes")
+    @classmethod
+    def normalise_validation_suffixes(cls, values: list[str]) -> list[str]:
+        """Normalise configured suffixes for column validation filters."""
+
+        return list(normalise_ignore_suffixes(values))
 
 
 class QCConfig(BaseModel):

@@ -229,7 +229,9 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 try:
                     from bioetl.utils.column_validator import ColumnValidator
 
-                    validator = ColumnValidator()
+                    validator = ColumnValidator(
+                        skip_suffixes=config.determinism.column_validation_ignore_suffixes
+                    )
 
                     # Загрузить выходной файл для валидации
                     if artifacts.dataset and artifacts.dataset.exists():

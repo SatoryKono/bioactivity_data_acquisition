@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -50,6 +51,20 @@ def test_generate_report_uses_utc_timestamp(tmp_path) -> None:
     assert timestamp.endswith("Z") or timestamp.endswith("+00:00")
 
 
+@pytest.mark.parametrize(
+    "artifact_name",
+    [
+        "assay_qc_summary.json",
+        "targets_qc_missing_mappings.csv",
+        "targets_qc_enrichment_metrics.csv",
+        "assay_summary_statistics.csv",
+        "target_dataset_metrics.csv",
+    ],
+)
+def test_should_skip_qc_artifacts(artifact_name: str) -> None:
+    validator = ColumnValidator()
+
+    assert validator._should_skip_file(Path(artifact_name))
 def test_validate_pipeline_output_processes_files_in_sorted_order(
     tmp_path, monkeypatch
 ) -> None:
