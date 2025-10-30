@@ -36,6 +36,10 @@ determinism:
 sources:
   pubchem:
     enabled: true
+    base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-pubchem-default/1.0"
 
 postprocess:
   qc:
