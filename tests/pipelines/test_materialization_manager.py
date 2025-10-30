@@ -128,3 +128,38 @@ def test_materialization_manager_respects_dry_run(tmp_path) -> None:
     gold_context = materialization_ctx.get("gold", {})
     assert gold_context.get("status") == "skipped"
     assert gold_context.get("reason") == "dry_run"
+
+
+def test_materialization_manager_cleans_up_after_failed_write(tmp_path, monkeypatch) -> None:
+    """Atomic writes prevent partial CSV artefacts and remove temp files on failure."""
+
+    paths = MaterializationPaths.model_validate(
+        {
+            "root": tmp_path,
+            "stages": {
+                "silver": {
+                    "directory": "silver",
+                    "datasets": {
+                        "uniprot": {"filename": "targets_silver"},
+                    },
+                }
+            },
+        }
+    )
+
+    manager = MaterializationManager(paths, stage_context={}, run_id="failure-test")
+
+    df = pd.DataFrame({"canonical_accession": ["P99999"], "value": [1]})
+
+    def boom(self, *args, **kwargs):  # noqa: ANN001 - mirrors DataFrame.to_csv signature
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(pd.DataFrame, "to_csv", boom, raising=False)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        manager.materialize_silver(df, pd.DataFrame(), format="csv")
+
+    dataset_path = tmp_path / "silver" / "targets_silver.csv"
+    assert not dataset_path.exists(), "no artefact should remain after a failed write"
+    assert not any(tmp_path.rglob("*.tmp")), "temporary CSV files must be removed"
+    assert not any(tmp_path.rglob(".tmp_run_failure-test")), "run-scoped temp dir should be cleaned"
