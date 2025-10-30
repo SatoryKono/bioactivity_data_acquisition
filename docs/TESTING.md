@@ -89,6 +89,8 @@ tests/
 - Все тесты должны проходить без ошибок
 - Использовать маркеры: `unit`, `integration`, `golden`, `slow`
 - Golden тесты проверяют детерминированные CSV, полученные через CLI
+- Установите зависимость `faker` (через `pip install -e ".[dev]"` или `pip install -r requirements.txt`),
+  иначе фикстуры в `tests/conftest.py` завершатся с ошибкой.
 
 ## Troubleshooting
 
