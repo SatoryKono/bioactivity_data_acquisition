@@ -6,7 +6,8 @@ from typing import Any
 
 import pandas as pd
 import pandera.pandas as pa
-from pandera.typing import Series
+
+from bioetl.pandera_typing import Series
 
 # Shared column order for fallback metadata columns.  Exposed as a module level
 # constant so downstream schemas can reference it without importing the mixin

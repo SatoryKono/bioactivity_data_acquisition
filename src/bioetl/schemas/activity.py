@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pandas as pd
 import pandera.pandas as pa
-from pandera.typing import Series
+
+from bioetl.pandera_typing import Series
 
 from bioetl.schemas.base import (
     FALLBACK_METADATA_COLUMN_ORDER,

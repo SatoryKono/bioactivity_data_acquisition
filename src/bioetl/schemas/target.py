@@ -2,7 +2,8 @@
 
 import pandas as pd
 import pandera.pandas as pa
-from pandera.typing import Series
+
+from bioetl.pandera_typing import Series
 
 from bioetl.schemas.base import BaseSchema
 
