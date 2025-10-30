@@ -527,16 +527,50 @@ class UnifiedAPIClient:
                 last_exc = e
                 last_attempt = attempt
                 last_attempt_timestamp = time.time()
-                last_error_text = str(e)
-                logger.error(
-                    "request_exception_unhandled",
-                    attempt=attempt,
-                    url=url,
-                    method=method,
-                    params=params,
-                    error=str(e),
+                last_response = getattr(e, "response", None)
+                last_retry_after_header = (
+                    last_response.headers.get("Retry-After")
+                    if last_response is not None and last_response.headers
+                    else None
                 )
-                break
+                last_error_text = (
+                    last_response.text if last_response is not None else str(e)
+                )
+
+                if self.retry_policy.should_giveup(e, attempt):
+                    logger.error(
+                        "request_exception_giveup",
+                        attempt=attempt,
+                        url=url,
+                        method=method,
+                        params=params,
+                        error=str(e),
+                        exception_type=type(e).__name__,
+                        status_code=(
+                            last_response.status_code
+                            if last_response is not None
+                            else None
+                        ),
+                    )
+                    break
+
+                retry_after_seconds = self._retry_after_seconds(last_response)
+                wait_time = self.retry_policy.get_wait_time(
+                    attempt,
+                    retry_after=retry_after_seconds,
+                )
+                logger.warning(
+                    "retrying_request_exception",
+                    attempt=attempt,
+                    wait_seconds=wait_time,
+                    error=str(e),
+                    exception_type=type(e).__name__,
+                    status_code=(
+                        last_response.status_code if last_response is not None else None
+                    ),
+                    retry_after=last_retry_after_header,
+                )
+                time.sleep(wait_time)
 
             except Exception as e:
                 last_exc = e

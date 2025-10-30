@@ -287,6 +287,106 @@ def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
     assert call_count["count"] == 3
 
 
+def test_request_json_timeout_metadata_on_exhaustion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Timeout errors should propagate retry metadata when retries are exhausted."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=2,
+        retry_backoff_factor=1.0,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        raise requests.exceptions.Timeout("timeout occurred")
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
+
+    with pytest.raises(requests.exceptions.Timeout) as excinfo:
+        client.request_json("/resource")
+
+    metadata = getattr(excinfo.value, "retry_metadata", None)
+    assert metadata is not None
+    assert metadata["attempt"] == 2
+    assert metadata["status_code"] is None
+    assert metadata["retry_after"] is None
+    assert metadata["error_text"] == "timeout occurred"
+
+
+def test_request_json_connection_error_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Connection errors should include retry metadata and respect headers."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=2,
+        retry_backoff_factor=1.0,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    error_responses = iter(
+        [
+            _build_response(
+                503,
+                {"error": "down"},
+                headers={"Retry-After": "1"},
+            ),
+            _build_response(
+                503,
+                {"error": "down"},
+                headers={"Retry-After": "1"},
+            ),
+            _build_response(
+                503,
+                {"error": "still down"},
+                headers={"Retry-After": "2"},
+            ),
+            _build_response(
+                503,
+                {"error": "still down"},
+                headers={"Retry-After": "2"},
+            ),
+        ]
+    )
+
+    def fake_request(*_: Any, **__: Any) -> requests.Response:
+        response = next(error_responses)
+        exc = requests.exceptions.ConnectionError("connection issue")
+        exc.response = response
+        raise exc
+
+    monkeypatch.setattr(client.session, "request", fake_request)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+    monkeypatch.setattr("backoff._common.sleep", lambda *_: None)
+
+    with pytest.raises(requests.exceptions.ConnectionError) as excinfo:
+        client.request_json("/resource")
+
+    metadata = getattr(excinfo.value, "retry_metadata", None)
+    assert metadata is not None
+    assert metadata["attempt"] == 2
+    assert metadata["status_code"] == 503
+    assert metadata["retry_after"] == "2"
+    assert "still down" in metadata["error_text"]
+
+
 def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPatch) -> None:
     """UnifiedAPIClient should expose retry metadata when retries are exhausted."""
 
