@@ -181,6 +181,7 @@ class PipelineBase(ABC):
         self.export_metadata: OutputMetadata | None = None
         self.debug_dataset_path: Path | None = None
         self.stage_context: dict[str, Any] = {}
+        self._clients: list[UnifiedAPIClient] = []
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
@@ -692,6 +693,18 @@ class PipelineBase(ABC):
 
         self.additional_tables.clear()
 
+    def register_client(self, client: UnifiedAPIClient | None) -> None:
+        """Register an API client for automatic teardown."""
+
+        if client is None:
+            return
+
+        for existing in self._clients:
+            if existing is client:
+                return
+
+        self._clients.append(client)
+
     def _close_resource(self, resource: Any, *, resource_name: str) -> None:
         """Close a resource if it exposes a callable ``close`` attribute."""
 
@@ -712,19 +725,33 @@ class PipelineBase(ABC):
             )
 
     def close_resources(self) -> None:
-        """Close known API clients or adapters held by the pipeline instance."""
+        """Close non-API resources held by the pipeline instance."""
 
-        candidates = (
-            "api_client",
-            "chembl_client",
-            "uniprot_client",
-            "uniprot_idmapping_client",
-            "uniprot_orthologs_client",
-            "iuphar_client",
-        )
+    def close(self) -> None:
+        """Close registered API clients and any additional resources."""
 
-        for attribute in candidates:
-            self._close_resource(getattr(self, attribute, None), resource_name=attribute)
+        closed_ids: set[int] = set()
+
+        def _close_client(client: UnifiedAPIClient, *, label: str) -> None:
+            identifier = id(client)
+            if identifier in closed_ids:
+                return
+            closed_ids.add(identifier)
+            self._close_resource(client, resource_name=label)
+
+        for attribute_name, attribute_value in vars(self).items():
+            if isinstance(attribute_value, UnifiedAPIClient):
+                _close_client(attribute_value, label=f"api_client.{attribute_name}")
+
+        for index, client in enumerate(self._clients):
+            if client is None:
+                continue
+            _close_client(client, label=f"api_client.registered[{index}]")
+
+        try:
+            self.close_resources()
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("pipeline_resource_cleanup_failed", error=str(exc))
 
     def _should_emit_debug_artifacts(self) -> bool:
         """Determine whether verbose/debug outputs should be materialised."""
@@ -806,8 +833,5 @@ class PipelineBase(ABC):
             logger.error("pipeline_failed", error=str(e))
             raise
         finally:
-            try:
-                self.close_resources()
-            except Exception as exc:  # pragma: no cover - defensive logging
-                logger.warning("pipeline_resource_cleanup_failed", error=str(exc))
+            self.close()
 

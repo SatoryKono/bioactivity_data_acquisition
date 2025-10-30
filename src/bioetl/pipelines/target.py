@@ -96,6 +96,7 @@ class TargetPipeline(PipelineBase):
         )
         self.source_configs["chembl"] = chembl_context.source_config
         self.api_clients["chembl"] = chembl_context.client
+        self.register_client(chembl_context.client)
 
         factory = APIClientFactory.from_pipeline_config(config)
 
@@ -109,7 +110,9 @@ class TargetPipeline(PipelineBase):
 
             self.source_configs[source_name] = source_config
             api_client_config = factory.create(source_name, source_config)
-            self.api_clients[source_name] = UnifiedAPIClient(api_client_config)
+            client = UnifiedAPIClient(api_client_config)
+            self.api_clients[source_name] = client
+            self.register_client(client)
 
         self.chembl_client = chembl_context.client
         self.uniprot_client = self.api_clients.get("uniprot")

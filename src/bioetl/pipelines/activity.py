@@ -226,6 +226,7 @@ class ActivityPipeline(PipelineBase):
         # so that HTTP profiles, retry policies, rate limiting, circuit breaker tuning and
         # fallback behaviour from ``PipelineConfig`` are fully honoured.
         self.api_client = chembl_context.client
+        self.register_client(self.api_client)
         self.batch_size = chembl_context.batch_size
         self.configured_max_url_length = chembl_context.max_url_length
 

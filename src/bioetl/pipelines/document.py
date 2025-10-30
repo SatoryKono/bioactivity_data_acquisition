@@ -207,6 +207,7 @@ class DocumentPipeline(PipelineBase):
         )
 
         self.api_client = chembl_context.client
+        self.register_client(self.api_client)
         self.batch_size = chembl_context.batch_size
         resolved_max_url = chembl_context.max_url_length or default_max_url_length
         self.max_url_length = max(1, int(resolved_max_url))
