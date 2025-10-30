@@ -180,6 +180,7 @@ def setup_logger(
         format="%(message)s",
         stream=None,
         level=getattr(logging, level.upper(), logging.INFO),
+        force=True,
     )
 
     # Add filters to root logger
@@ -187,14 +188,23 @@ def setup_logger(
 
     if logger_config.file_enabled:
         logger_config.file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = RotatingFileHandler(
-            logger_config.file_path,
-            maxBytes=logger_config.max_bytes,
-            backupCount=logger_config.backup_count,
-            encoding="utf-8",
+        target_path = logger_config.file_path.resolve()
+        has_file_handler = any(
+            isinstance(handler, RotatingFileHandler)
+            and hasattr(handler, "baseFilename")
+            and Path(handler.baseFilename).resolve() == target_path
+            for handler in root_logger.handlers
         )
-        file_handler.setFormatter(logging.Formatter("%(message)s"))
-        root_logger.addHandler(file_handler)
+
+        if not has_file_handler:
+            file_handler = RotatingFileHandler(
+                logger_config.file_path,
+                maxBytes=logger_config.max_bytes,
+                backupCount=logger_config.backup_count,
+                encoding="utf-8",
+            )
+            file_handler.setFormatter(logging.Formatter("%(message)s"))
+            root_logger.addHandler(file_handler)
 
     for handler in root_logger.handlers:
         handler.addFilter(RedactSecretsFilter())
