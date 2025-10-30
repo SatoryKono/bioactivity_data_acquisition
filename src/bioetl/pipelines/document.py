@@ -39,7 +39,6 @@ from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
-from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
 NAType = type(pd.NA)
@@ -1062,54 +1061,24 @@ class DocumentPipeline(PipelineBase):
 
         pipeline_version = self.config.pipeline.version
         default_source = "chembl"
-        timestamp_now = pd.Timestamp.now(tz="UTC").isoformat()
-
-        if "source_system" in df.columns:
-            df["source_system"] = df["source_system"].fillna(default_source)
-        else:
-            df["source_system"] = default_source
 
         if "chembl_release" in df.columns:
             df["chembl_release"] = df["chembl_release"].apply(self._normalise_chembl_release_value)
 
         release_value = self._normalise_chembl_release_value(self._chembl_release)
 
-        if release_value is None:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].where(
-                    df["chembl_release"].notna(),
-                    pd.NA,
-                )
-            else:
-                df["chembl_release"] = pd.NA
-        else:
-            if "chembl_release" in df.columns:
-                df["chembl_release"] = df["chembl_release"].fillna(release_value)
-            else:
-                df["chembl_release"] = release_value
-
-        if "extracted_at" in df.columns:
-            df["extracted_at"] = df["extracted_at"].fillna(timestamp_now)
-        else:
-            df["extracted_at"] = timestamp_now
-
         if "fallback_reason" in df.columns:
             fallback_mask = df["fallback_reason"].notna()
             if fallback_mask.any():
                 df.loc[fallback_mask, "source_system"] = "DOCUMENT_FALLBACK"
 
-        df = finalize_output_dataset(
+        df = self.finalize_with_standard_metadata(
             df,
             business_key="document_chembl_id",
             sort_by=["document_chembl_id"],
             schema=DocumentSchema,
-            metadata={
-                "pipeline_version": pipeline_version,
-                "run_id": self.run_id,
-                "source_system": default_source,
-                "chembl_release": release_value,
-                "extracted_at": timestamp_now,
-            },
+            default_source=default_source,
+            chembl_release=release_value,
         )
 
         self.set_export_metadata_from_dataframe(
