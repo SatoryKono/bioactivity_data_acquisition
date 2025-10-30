@@ -31,9 +31,11 @@ class TestPubChemAdapter(AdapterTestMixin, unittest.TestCase):
         )
         identifiers = ["AAA", "BBB"]
 
-        with patch.object(adapter, "_fetch_batch", return_value=[{"CID": 1}]) as batch_mock, (
-            patch.object(adapter, "_fetch_in_batches", wraps=adapter._fetch_in_batches) as helper_mock
-        ):
+        with patch.object(
+            adapter, "_fetch_batch", return_value=[{"CID": 1}]
+        ) as batch_mock, patch.object(
+            adapter, "_fetch_in_batches", wraps=adapter._fetch_in_batches
+        ) as helper_mock:
             result = adapter.fetch_by_ids(identifiers)
 
         helper_mock.assert_called_once_with(
@@ -55,10 +57,13 @@ class TestPubChemAdapter(AdapterTestMixin, unittest.TestCase):
         }
         property_records = [{"CID": 123, "Some": "value"}]
 
-        with patch.object(adapter, "_resolve_cids_batch", return_value=resolution) as resolve_mock, (
-            patch.object(adapter, "_fetch_properties_batch", return_value=property_records) as properties_mock,
-            patch.object(adapter, "_fetch_in_batches", wraps=adapter._fetch_in_batches) as helper_mock,
-        ):
+        with patch.object(
+            adapter, "_resolve_cids_batch", return_value=resolution
+        ) as resolve_mock, patch.object(
+            adapter, "_fetch_properties_batch", return_value=property_records
+        ) as properties_mock, patch.object(
+            adapter, "_fetch_in_batches", wraps=adapter._fetch_in_batches
+        ) as helper_mock:
             results = adapter.fetch_by_ids(identifiers)
 
         helper_mock.assert_called_once()
