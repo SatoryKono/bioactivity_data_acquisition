@@ -27,6 +27,27 @@ paths:
   input_root: "data/input"
   output_root: "data/output"
 
+materialization:
+  defaults:
+    root: "{entity}"
+  stages:
+    bronze:
+      format: parquet
+      filename: "{dataset}_bronze.parquet"
+      description: "Raw materialized extracts"
+    silver:
+      format: parquet
+      filename: "{dataset}_silver.parquet"
+      description: "Normalized intermediate dataset"
+    gold:
+      format: parquet
+      filename: "{dataset}_final.parquet"
+      description: "Curated analytics-ready dataset"
+    qc_report:
+      format: csv
+      filename: "{dataset}_qc.csv"
+      description: "Quality control summary report"
+
 determinism:
   sort:
     by: []

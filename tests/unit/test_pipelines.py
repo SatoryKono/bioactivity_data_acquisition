@@ -14,6 +14,7 @@ from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
 
 from bioetl.config.loader import load_config
+from bioetl.config.models import MaterializationStage
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.hashing import generate_hash_business_key
 from bioetl.core.output_writer import OutputArtifacts
@@ -2167,7 +2168,13 @@ class TestTargetPipeline:
         pipeline = TargetPipeline(target_config, run_id)
 
         def _fake_materialize_silver(self, uniprot_df, component_df):
-            silver_path = Path(self.config.materialization.silver)
+            silver_path = self.config.resolve_materialization_path(
+                "silver", dataset="targets"
+            )
+            if silver_path is None:
+                silver_path = Path("data/output/target/targets_silver.parquet")
+            else:
+                silver_path = Path(silver_path)
             silver_path.parent.mkdir(parents=True, exist_ok=True)
             silver_path.write_text("dummy")
             component_path = silver_path.parent / "component_enrichment.parquet"
@@ -2224,7 +2231,9 @@ class TestTargetPipeline:
         pipeline.uniprot_idmapping_client = None
         pipeline.uniprot_orthologs_client = None
         pipeline.iuphar_client = None
-        pipeline.config.materialization.silver = tmp_path / "targets_uniprot.parquet"
+        pipeline.config.materialization.datasets["targets"].silver = MaterializationStage(
+            path=tmp_path / "targets_uniprot.parquet"
+        )
 
         df = pd.DataFrame(
             {
@@ -2241,7 +2250,11 @@ class TestTargetPipeline:
         assert enriched.loc[0, "uniprot_merge_strategy"] == "direct"
         assert pipeline.qc_metrics.get("enrichment_success.uniprot") == 1.0
 
-        silver_path = Path(pipeline.config.materialization.silver)
+        silver_path = pipeline.config.resolve_materialization_path(
+            "silver", dataset="targets"
+        )
+        assert silver_path is not None
+        silver_path = Path(silver_path)
         component_path = silver_path.parent / "component_enrichment.parquet"
         assert silver_path.exists()
         assert component_path.exists()
