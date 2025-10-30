@@ -173,7 +173,7 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
         schema_cls.__extras__ = updated
 
 
-class BaseSchema(_DataFrameModelBase):
+class BaseSchema(DataFrameModel):  # type: ignore
     """Базовый класс для Pandera схем.
 
     Содержит обязательные системные поля для всех пайплайнов:
