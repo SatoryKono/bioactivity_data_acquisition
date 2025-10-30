@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
+from bioetl.config.models import DeterminismConfig
 from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
 
 
@@ -94,6 +95,22 @@ def test_unified_output_writer_cleans_up_on_failure(tmp_path, monkeypatch):
     assert not tmp_dirs, "temporary run directory should be removed"
     assert not tmp_files, "temporary files should be removed"
     assert not any(tmp_path.rglob("targets.csv")), "no dataset files should remain"
+
+
+def test_atomic_writer_respects_float_precision(tmp_path):
+    """Floating point serialization follows determinism float precision."""
+
+    df = pd.DataFrame({"value": [1.23456789]})
+    writer = AtomicWriter(
+        "run-precision",
+        determinism=DeterminismConfig(float_precision=6, datetime_format="iso8601"),
+    )
+
+    target = tmp_path / "precision.csv"
+    writer.write(df, target)
+
+    content = target.read_text(encoding="utf-8").splitlines()
+    assert content[1] == "1.234568"
 
 
 def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
