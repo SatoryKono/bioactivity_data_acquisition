@@ -1,0 +1,32 @@
+﻿python : Traceback (most recent call last):
+At C:\Users\Fedor\AppData\Local\Temp\ps-script-931d8f97-b0be-48fe-97bb-6c61944229aa.ps1:81 char:44
++ ... cquisition; python -c "from bioetl.schemas.testitem import TestItemSc ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "<string>", line 1, in <module>
+    from bioetl.schemas.testitem import TestItemSchema; print('import OK'); schema = TestItemSchema.to_schema(); 
+print('schema OK')
+                                                                                     ~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "c:\Users\Fedor\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandera\api\dataframe\model.py", line 
+206, in to_schema
+    cls.__fields__ = cls._collect_fields()
+                     ~~~~~~~~~~~~~~~~~~~^^
+  File "c:\Users\Fedor\AppData\Local\Programs\Python\Python313\Lib\site-packages\pandera\api\dataframe\model.py", line 
+329, in _collect_fields
+    annotations = get_type_hints(cls, include_extras=True)
+  File "c:\Users\Fedor\AppData\Local\Programs\Python\Python313\Lib\typing.py", line 2461, in get_type_hints
+    value = _eval_type(value, base_globals, base_locals, base.__type_params__)
+  File "c:\Users\Fedor\AppData\Local\Programs\Python\Python313\Lib\typing.py", line 474, in _eval_type
+    return t._evaluate(globalns, localns, type_params, recursive_guard=recursive_guard)
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\Fedor\AppData\Local\Programs\Python\Python313\Lib\typing.py", line 1081, in _evaluate
+    eval(self.__forward_code__, globalns, localns),
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 1, in <module>
+    from bioetl.schemas.testitem import TestItemSchema; print('import OK'); schema = TestItemSchema.to_schema(); 
+print('schema OK')
+              ^^^^^^^^^^
+NameError: name '_FieldSpec' is not defined
+import OK

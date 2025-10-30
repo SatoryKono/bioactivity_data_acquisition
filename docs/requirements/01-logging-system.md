@@ -1,5 +1,7 @@
 # 1. Система логирования (UnifiedLogger)
+
 ## Обзор
+
 UnifiedLogger — универсальная система логирования, объединяющая:
 
 - Структурированность из **structlog** (bioactivity_data_acquisition5)
@@ -9,6 +11,7 @@ UnifiedLogger — универсальная система логировани
 - Контекстное логирование через **ContextVar**
 
 - Автоматическое редактирование секретов
+
 
 ## Архитектура
 
@@ -31,7 +34,9 @@ UnifiedLogger
 ```
 
 ## Компоненты
+
 ### 1. LogContext (dataclass)
+
 Унифицированный контекст для всех логов:
 
 ```python
@@ -90,6 +95,7 @@ set_log_context(context)
 ```
 
 ### 2. SecurityProcessor (structlog processor)
+
 Редактирование чувствительных данных в structlog:
 
 ```python
@@ -110,6 +116,7 @@ def security_processor(logger, method_name, event_dict):
 ```
 
 ### 3. RedactSecretsFilter (logging.Filter)
+
 Фильтрация секретов на уровне стандартного logging:
 
 ```python
@@ -137,6 +144,7 @@ class RedactSecretsFilter(logging.Filter):
 ```
 
 ### 4. SafeFormattingFilter (logging.Filter)
+
 Защита от ошибок форматирования в проблемных библиотеках (urllib3, requests):
 
 ```python
@@ -171,6 +179,7 @@ class SafeFormattingFilter(logging.Filter):
 ```
 
 ### 5. LoggerConfig (dataclass)
+
 Единая конфигурация логгера:
 
 ```python
@@ -197,7 +206,9 @@ class LoggerConfig:
 ```
 
 ## Использование
+
 ### Идемпотентная инициализация
+
 `UnifiedLogger` повторно конфигурирует стандартное логирование с помощью `logging.basicConfig(..., force=True)`,
 чтобы принудительно сбросить прежние обработчики и уровни перед повторной настройкой. Перед добавлением
 ротационного файлового обработчика выполняется проверка существующих обработчиков с тем же путём; это предотвращает
@@ -256,6 +267,7 @@ logger.info("Processing", step="first")
 ```
 
 ### Контекст и редактирование секретов
+
 **Обязательный набор полей контекста**
 
 Контракт теперь фиксирован на уровне сред выполнения. Поля `LogContext` могут принимать `None` только в тех средах, где это явно разрешено.
@@ -290,6 +302,7 @@ logger.info("Processing", step="first")
 
 - `<username>`: ручные запуски пользователем
 
+
 ```python
 
 # Автоматический запуск
@@ -320,6 +333,7 @@ set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
 
 - Для ошибок добавляются `error_code` и `error_message`; для успехов поля остаются `None`.
 
+
 **Инвариант для всех сред:** `run_id`, `stage`, `actor`, `source`, `generated_at` обязательны всегда, независимо от окружения.
 
 **См. также**: [gaps.md](../gaps.md) (G12).
@@ -327,6 +341,7 @@ set_run_context(run_id=run_id, stage="extract", actor="fedor", source="chembl")
 **Правила маскирования секретов**
 
 1. **Словарь чувствительных ключей:**
+
 
 ```python
 
@@ -340,6 +355,7 @@ SENSITIVE_KEYS = [
 
 1. **Паттерны для маскирования:**
 
+
 ```python
 
 REDACT_PATTERNS = [
@@ -352,6 +368,7 @@ REDACT_PATTERNS = [
 ```
 
 1. **Применение маскирования:**
+
 
 ```python
 
@@ -476,6 +493,7 @@ logger.info("API call started", endpoint="/api/data")
 ```
 
 ## Режимы работы
+
 ### Development
 
 ```python
@@ -526,6 +544,7 @@ config = LoggerConfig(
 ```
 
 ## Форматы вывода
+
 ### Console (text)
 
 ```text
@@ -553,10 +572,13 @@ config = LoggerConfig(
 ```
 
 ### File (JSON)
+
 Те же JSON строки, одна на строку, с UTC timestamps и полными контекстами.
 
 ## Ротация и cleanup
+
 ### Автоматическая ротация
+
 Логи ротируются при достижении `max_bytes` (по умолчанию 10MB):
 
 ```text
@@ -585,6 +607,7 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 ```
 
 ## Именование файлов
+
 Следует конвенции из ChEMBL_data_acquisition6:
 
 ```python
@@ -601,7 +624,9 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 
 - `pipeline_20250128.log` (если script_name пустой)
 
+
 ## Best Practices
+
 1. **Всегда используйте context manager для stages**: `with bind_stage(logger, "stage_name"):`
 
 2. **Добавляйте структурированные поля**: `logger.info("message", key1=value1, key2=value2)`
@@ -614,8 +639,11 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 
 6. **Используйте JSON в production**: для парсинга и анализа
 
+
 ## Acceptance Criteria (AUD-5)
+
 ### AC-L1: Обязательные поля контекста
+
 **Цель:** Гарантировать минимальный набор полей для трассируемости и аудита во всех логах.
 
 **Минимальный набор обязательных полей:**
@@ -640,6 +668,7 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 **Порог:** Все логи должны содержать минимальный набор полей; отсутствие любого обязательного поля — это ошибка.
 
 ### AC-L2: QC-метрики в логах
+
 **Цель:** Зафиксировать ключевые метрики качества для каждого пайплайна.
 
 **Обязательные QC-метрики в stage="load":**
@@ -649,9 +678,11 @@ cleanup_old_logs(older_than_days=14, logs_dir=Path("logs"))
 - `fallback_count`: количество fallback записей
 - `referential_integrity_violations`: количество нарушений RI
 
+
 **Ссылка:** Подробности QC порогов по пайплайнам см. в acceptance-criteria.md AC12-AC16.
 
 ## Расширение
+
 Для добавления кастомных процессоров:
 
 ```python
@@ -669,6 +700,7 @@ configure_logging(
 ```
 
 ## Миграция
+
 ### Из стандартного logging
 
 ```python

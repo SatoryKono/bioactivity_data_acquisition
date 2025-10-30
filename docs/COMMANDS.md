@@ -1,9 +1,11 @@
 # Cursor Commands — Bioactivity ETL
+
 Paste these into `.cursor/rules` or keep as a playbook. Each command is deterministic and traceable.
 
 ---
 
 ## /run-activity
+
 Goal: fetch ChEMBL activity data with defaults and QC hooks.
 Defaults:
 
@@ -11,6 +13,7 @@ Defaults:
 - CONFIG: configs/pipelines/activity.yaml
 - OUTPUT: data/output/activity
 - SAMPLE: 10
+
 
 Bash:
 
@@ -31,6 +34,7 @@ python src\scripts\run_activity.py --input-file data\input\activity.csv --config
 ---
 
 ## /run-assay
+
 Goal: fetch assay data with defaults and a brief artifact summary.
 Defaults:
 
@@ -38,6 +42,7 @@ Defaults:
 - CONFIG: configs/pipelines/assay.yaml
 - OUTPUT: data/output/assay
 - SAMPLE: 10
+
 
 Bash:
 
@@ -58,6 +63,7 @@ python src\scripts\run_assay.py --input-file data\input\assay.csv --config confi
 ---
 
 ## /run-document
+
 Goal: fetch publication metadata with defaults and QC hooks.
 Defaults:
 
@@ -65,6 +71,7 @@ Defaults:
 - CONFIG: configs/pipelines/document.yaml
 - OUTPUT: data/output/document
 - SAMPLE: 10
+
 
 Bash:
 
@@ -85,6 +92,7 @@ python src\scripts\run_document.py --input-file data\input\document.csv --config
 ---
 
 ## /run-target
+
 Goal: fetch target data with defaults and QC hooks.
 Defaults:
 
@@ -92,6 +100,7 @@ Defaults:
 - CONFIG: configs/pipelines/target.yaml
 - OUTPUT: data/output/target
 - SAMPLE: 10
+
 
 Bash:
 
@@ -112,6 +121,7 @@ python src\scripts\run_target.py --input-file data\input\target.csv --config con
 ---
 
 ## /run-testitem
+
 Goal: fetch testitem data with defaults and QC recap.
 Defaults:
 
@@ -119,6 +129,7 @@ Defaults:
 - CONFIG: configs/pipelines/testitem.yaml
 - OUTPUT: data/output/testitem
 - SAMPLE: 10
+
 
 Bash:
 
@@ -139,6 +150,7 @@ python src\scripts\run_testitem.py --input-file data\input\testitem.csv --config
 ---
 
 ## /validate-columns
+
 Goal: validate output columns against requirements for specific pipeline.
 
 Usage:
@@ -160,6 +172,7 @@ python src\scripts\validate_columns.py --entity activity --schema-version latest
 ---
 
 ## /validate-all-columns
+
 Goal: validate output columns for all pipelines.
 
 Usage:
@@ -181,6 +194,7 @@ python src\scripts\validate_columns.py --entity all --schema-version latest
 ---
 
 ## /qc-summary
+
 Goal: print paths, sizes, and row counts where available for last run outputs.
 
 Bash:

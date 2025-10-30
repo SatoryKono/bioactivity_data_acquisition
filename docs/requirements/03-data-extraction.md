@@ -1,5 +1,7 @@
 # 3. Извлечение данных (UnifiedAPIClient)
+
 ## Обзор
+
 UnifiedAPIClient — универсальный клиент для работы с внешними API, объединяющий:
 
 - **TTL-кэш** для тяжелых источников (ChEMBL_data_acquisition6)
@@ -11,6 +13,7 @@ UnifiedAPIClient — универсальный клиент для работы
 - **Token bucket rate limiter** с jitter (ChEMBL_data_acquisition6)
 
 - **Exponential backoff** с giveup условиями (оба проекта)
+
 
 ## Архитектура
 
@@ -35,7 +38,9 @@ UnifiedAPIClient
 ```
 
 ## Компоненты
+
 ### 1. APIConfig (dataclass)
+
 Конфигурация клиента:
 
 ```python
@@ -91,6 +96,7 @@ class APIConfig:
 ```
 
 ### 2. CircuitBreaker
+
 Защита от каскадных ошибок:
 
 ```python
@@ -137,6 +143,7 @@ class CircuitBreaker:
 ```
 
 ### 3. TokenBucketLimiter
+
 Rate limiting с jitter:
 
 ```python
@@ -194,6 +201,7 @@ class TokenBucketLimiter:
 ```
 
 ### 4. RetryPolicy
+
 Политика повторов с giveup:
 
 ```python
@@ -257,6 +265,7 @@ class RetryPolicy:
 ```
 
 ### 5. FallbackManager
+
 Управление fallback стратегиями:
 
 ```python
@@ -311,6 +320,7 @@ class FallbackManager:
 ```
 
 ### 6. ResponseParser
+
 Универсальный парсер ответов:
 
 ```python
@@ -384,6 +394,7 @@ class ResponseParser:
 ```
 
 ### 7. PaginationHandler
+
 Обработка различных типов пагинации:
 
 ```python
@@ -641,11 +652,13 @@ class UnifiedAPIClient:
 ```
 
 ### Cache policy
+
 UnifiedAPIClient разделяет ответственность кэширования на два уровня:
 
 1. **In-memory TTLCache** — run-scoped. Очищается при завершении пайплайна.
 
 2. **Persistent cache** — release-scoped. Ключи include `chembl_release`/`pipeline_version`.
+
 
 ```python
 
@@ -683,6 +696,7 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
 - При смене `chembl_release`/`pipeline_version` сбрасываем persistent cache (новый namespace).
 
 - Принудительное очищение через CLI флаг `--cache-clear` добавляет `run_id` в namespace.
+
 
 **TTL ответственность:** значения TTL читаются из `config.cache_ttl`; истёкший ключ удаляется при обращении. Для критичных
 
@@ -724,6 +738,7 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
 ```
 
 ## Конфигурации для разных API
+
 ### ChEMBL
 
 ```python
@@ -852,6 +867,7 @@ data = client.get("molecule", params={"molecule_chembl_id__in": "CHEMBL25,CHEMBL
 ```
 
 ## Error Model
+
 Классификация ошибок и реакция пайплайна:
 
 ### Классы ошибок
@@ -897,6 +913,7 @@ class PartialFailure(APIError):
 ```
 
 ### Поля события
+
 Все события ошибок содержат:
 
 - `code`: HTTP код или внутренний код ошибки
@@ -911,7 +928,9 @@ class PartialFailure(APIError):
 
 - `attempt`: номер попытки
 
+
 ### Таблица реакций пайплайна
+
 | Код | Класс | Действие | Retry | Fallback |
 |-----|-------|----------|-------|----------|
 | 400 | ClientError | Fail-fast | Нет | Нет |
@@ -926,6 +945,7 @@ class PartialFailure(APIError):
 | Partial | PartialFailure | Log + requeue | Да | Да |
 
 ### Протокол повторной постановки (requeue) для PartialFailure
+
 **Цель:** гарантировать дочитывание недополученных страниц без нарушения детерминизма.
 
 **Шаги протокола:**
@@ -934,6 +954,7 @@ class PartialFailure(APIError):
 2. После основной пагинации обрабатываем `retry_queue` FIFO, повторно вызывая `request()` с оригинальным `page_state`.
 3. Ограничиваем `max_partial_retries` (конфиг `http.global.partial_retries.max`, по умолчанию 3) для защиты от бесконечных циклов.
 4. Логи повторов включают `run_id`, `page_state`, `attempt` и `retry_origin="partial_requeue"`.
+
 
 ```python
 
@@ -1008,9 +1029,11 @@ http:
 ```
 
 ## Pagination
+
 Спецификация стратегий пагинации для внешних API.
 
 ### Стратегии пагинации по pipeline
+
 **Унифицированная стратегия для ChEMBL pipelines (v3.0):**
 
 | Pipeline | Стратегия | Параметр | Batch Size | URL Limit | Endpoint |
@@ -1053,6 +1076,7 @@ params = {"offset": 0, "limit": 100}
 ```
 
 ### Сигналы завершения
+
 | Стратегия | Сигнал завершения |
 |-----------|-------------------|
 | Page + Limit | `items=[]` или `page > total_pages` |
@@ -1061,6 +1085,7 @@ params = {"offset": 0, "limit": 100}
 | Offset + Limit | `received < limit` или `offset >= total` |
 
 ### Контракт идемпотентности
+
 Одинаковый `page_state` → идентичный набор данных.
 
 ```python
@@ -1088,7 +1113,9 @@ assert response1.items == response2.items  # Идемпотентность
 
 - Изменение timestamp в данных (если не part of business key)
 
+
 ### Запрет смешивания стратегий
+
 **Критическое правило:** Каждый запрос использует **только одну** стратегию пагинации.
 
 **⚠️ Breaking Change (v3.0):** Все ChEMBL pipelines унифицированы на batch IDs стратегию.
@@ -1155,6 +1182,7 @@ def validate_pagination_params(params: dict) -> None:
 **См. также**: [gaps.md](../gaps.md) (G2), [06-activity-data-extraction.md](06-activity-data-extraction.md).
 
 ### TTL курсора
+
 TTL курсора — ответственность внешнего API. UnifiedAPIClient:
 
 - Не устанавливает TTL для cursor
@@ -1163,8 +1191,11 @@ TTL курсора — ответственность внешнего API. Unif
 
 - Логирует предупреждение при использовании истекшего cursor
 
+
 ## Rate Limiting и Retry-After
+
 ### Контракт Retry-After (инвариант)
+
 **Обязательное требование**: Respect Retry-After обязателен; ожидание не меньше указанного; ретраи на 4xx запрещены (кроме 429); circuit-breaker обязателен.
 
 **Протокол для 429**:
@@ -1197,12 +1228,15 @@ if response.status_code == 429:
 
 - 5xx: exponential backoff, retry
 
+
 **См. также**: [gaps.md](../gaps.md) (G11), [acceptance-criteria.md](../acceptance-criteria.md) (AC5).
 
 ## Acceptance Criteria
+
 Матрица проверяемых инвариантов для API клиента:
 
 ### AC-07: Respect Retry-After (429)
+
 **Цель:** Гарантировать корректную обработку HTTP 429 с Retry-After заголовком.
 
 **Тест:**
@@ -1231,6 +1265,7 @@ assert "attempt=1" in log_output
 **Порог:** Время ожидания >= указанному Retry-After.
 
 ### AC-19: Fail-Fast на 4xx (кроме 429)
+
 **Цель:** Гарантировать немедленное прекращение ретраев при клиентских ошибках.
 
 **Тест:**
@@ -1258,6 +1293,7 @@ assert "Client error, giving up" in log_output
 **Порог:** Нет ретраев на 4xx (кроме 429).
 
 ## Best Practices
+
 1. **Включайте кэш для тяжелых API**: ChEMBL, PubChem, UniProt
 
 2. **Настройте rate limits строго**: следование лимитам API
@@ -1273,6 +1309,7 @@ assert "Client error, giving up" in log_output
 7. **Используйте POST override для длинных URL**: автоматически при превышении max_url_length
 
 8. **Не смешивайте стратегии пагинации**: только offset, или только cursor, или только page
+
 
 ---
 

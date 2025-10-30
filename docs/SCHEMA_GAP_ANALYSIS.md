@@ -1,5 +1,7 @@
 # Schema Gap Analysis
+
 ## Цель
+
 Сравнить текущее состояние схем пайплайнов с требованиями IO_SCHEMAS_AND_DIAGRAMS.md и выявить все расхождения.
 
 **Дата анализа:** 2025-01-03
@@ -8,7 +10,9 @@
 ---
 
 ## 1. BaseSchema - System Fields
+
 ### Текущее состояние
+
 **Файл:** `src/bioetl/schemas/base.py`
 
 ```python
@@ -23,6 +27,7 @@ class BaseSchema(pa.DataFrameModel):
 ```
 
 ### Требуется по спецификации
+
 - `pipeline_version: str` ✓
 - `source_system: str` ✓
 - `chembl_release: str` ✓
@@ -32,29 +37,37 @@ class BaseSchema(pa.DataFrameModel):
 - `hash_business_key: Series[str]` - SHA256 (regex: `^[0-9a-f]{64}$`, nullable=False) ✗ **ОТСУТСТВУЕТ**
 - `Config.ordered = True` ✗ **НАСТРОЙКА**
 
+
 ### Чеклист изменений
+
 - [ ] Добавить `index: Series[int]` (>=0, nullable=False)
 - [ ] Добавить `hash_row: Series[str]` (regex constraint, nullable=False)
 - [ ] Добавить `hash_business_key: Series[str]` (regex constraint, nullable=False)
 - [ ] Изменить `Config.ordered = True`
 
+
 ---
 
 ## 2. AssaySchema - Full Specification
+
 ### Текущее состояние (continued 1)
+
 **Файл:** `src/bioetl/schemas/assay.py`
 
 **Текущие поля (5):**
+
 1. `assay_chembl_id: Series[str]` ✓
 2. `assay_type: Series[str]` - частично
 3. `description: Series[str]` - частично
 4. `target_chembl_id: Series[str]` ✓
 5. `confidence_score: Series[int]` - частично
 
+
 **Primary Key:** отсутствует ✗
 **Column Order:** отсутствует ✗
 
 ### Требуется по спецификации (lines 48-124)
+
 **Primary Key:** `[assay_chembl_id, row_subtype, row_index]`
 
 **Основные поля (обязательно):**
@@ -66,6 +79,7 @@ class BaseSchema(pa.DataFrameModel):
 - `hash_row: Series[str]` ✗ (из BaseSchema)
 - `hash_business_key: Series[str]` ✗ (из BaseSchema)
 
+
 **Остальные поля (из примечания line 136):**
 
 - `src_id, src_name, assay_organism, assay_tax_id, assay_tissue, assay_cell_type`
@@ -75,9 +89,11 @@ class BaseSchema(pa.DataFrameModel):
 - `relationship_type, confidence_score, activity_type`
 - И другие из требований docs/requirements/05-assay-extraction.md
 
+
 **Column Order:** `[assay_chembl_id, row_subtype, row_index, pref_name, hash_row, hash_business_key, chembl_release]`
 
 ### Чеклист изменений (continued 1)
+
 - [ ] Добавить `row_subtype: Series[str]` (allowed: ["assay", "param", "variant"], nullable=False)
 - [ ] Добавить `row_index: Series[int]` (>=0, nullable=False)
 - [ ] Добавить `pref_name: Series[str]` (nullable=True)
@@ -87,19 +103,25 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.column_order` согласно спецификации
 - [ ] Установить `Config.ordered = True`
 
+
 ### Pipeline Changes (assay.py)
+
 - [ ] Реализовать explode nested structures (params, variants)
 - [ ] Генерация `row_subtype`, `row_index` для каждой exploded строки
 - [ ] Генерация `hash_row`, `hash_business_key`
 - [ ] Сортировка по `[assay_chembl_id, row_subtype, row_index]`
 
+
 ---
 
 ## 3. ActivitySchema - Complete Fields
+
 ### Текущее состояние (continued) (continued)
+
 **Файл:** `src/bioetl/schemas/activity.py`
 
 **Текущие поля (16):**
+
 1. `activity_id: Series[int]` ✓
 2. `molecule_chembl_id: Series[str]` ✓
 3. `assay_chembl_id: Series[str]` ✓
@@ -119,7 +141,9 @@ class BaseSchema(pa.DataFrameModel):
 17. `data_validity_comment: Series[str]` ✓
 18. `activity_properties: Series[str]` ✗ **ЛИШНЕЕ** (JSON string)
 
+
 ### Требуется по спецификации (lines 189-474)
+
 **Primary Key:** `[activity_id]` ✓
 **Column Order:** `[activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, published_type, published_relation, published_value, published_units, standard_type, standard_relation, standard_value, standard_units, standard_flag, lower_bound, upper_bound, is_censored, pchembl_value, activity_comment, data_validity_comment, bao_endpoint, bao_format, bao_label, extracted_at, hash_business_key, hash_row, index, source_system, chembl_release]`
 
@@ -136,7 +160,9 @@ class BaseSchema(pa.DataFrameModel):
 - `activity_comment: Series[str]` ✗
 - `hash_row, hash_business_key, index` ✗ (из BaseSchema)
 
+
 ### Чеклист изменений (continued) (continued)
+
 - [ ] Удалить `canonical_smiles`
 - [ ] Удалить `target_organism`
 - [ ] Удалить `target_tax_id`
@@ -153,18 +179,24 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.column_order` согласно спецификации
 - [ ] Установить `Config.ordered = True`
 
+
 ### Pipeline Changes (activity.py)
+
 - [ ] Генерация `hash_row`, `hash_business_key`, `index`
 - [ ] Mapping всех `published_*` полей
 - [ ] Сортировка по `activity_id`
 
+
 ---
 
 ## 4. TestItemSchema - Extended Fields
+
 ### Текущее состояние (continued) (continued) (continued)
+
 **Файл:** `src/bioetl/schemas/testitem.py`
 
 **Текущие поля (~17):**
+
 1. `molecule_chembl_id: Series[str]` ✓
 2. `molregno: Series[int]` ✓
 3. `parent_chembl_id: Series[str]` ✓
@@ -180,7 +212,9 @@ class BaseSchema(pa.DataFrameModel):
 13. `pubchem_cid: Series[int]` ✓
 14. `pubchem_synonyms: Series[str]` ✓
 
+
 ### Требуется по спецификации (lines 550-675 + примечание line 667)
+
 **Primary Key:** `[molecule_chembl_id]` ✓
 **Примечание:** "Testitem schema содержит ~81 поле" (line 667)
 
@@ -194,14 +228,17 @@ class BaseSchema(pa.DataFrameModel):
 - `qed_weighted: Series[float]` ✗
 - `standardized_smiles: Series[str]` - вместо `canonical_smiles` ✗
 
+
 **Остальные поля из ~81:**
 
 - Все физико-химические свойства, флаги, drug_* поля
 - Полный список см. в docs/requirements/07a-testitem-extraction.md
 
+
 **Column Order:** `[molecule_chembl_id, molregno, pref_name, parent_chembl_id, max_phase, structure_type, molecule_type, mw_freebase, qed_weighted, pubchem_cid, standardized_smiles, hash_row, hash_business_key, chembl_release]`
 
 ### Чеклист изменений (continued) (continued) (continued)
+
 - [ ] Переименовать `canonical_smiles` → `standardized_smiles`
 - [ ] Переименовать `molecular_weight` → `mw_freebase`
 - [ ] Добавить `pref_name: Series[str]` (nullable=True)
@@ -213,24 +250,32 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.column_order` согласно спецификации
 - [ ] Установить `Config.ordered = True`
 
+
 ### Pipeline Changes (testitem.py)
+
 - [ ] Генерация `hash_row`, `hash_business_key`
 - [ ] Flatten всех nested structures (molecule_properties)
 - [ ] Сортировка по `molecule_chembl_id`
 
+
 ---
 
 ## 5. TargetSchema - Multi-Table Enrichment
+
 ### Текущее состояние (continued) (continued) (continued) (continued)
+
 **Файл:** `src/bioetl/schemas/target.py`
 
 **Текущие схемы (4):**
+
 1. `TargetSchema`
 2. `TargetComponentSchema`
 3. `ProteinClassSchema`
 4. `XrefSchema`
 
+
 #### TargetSchema
+
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
@@ -242,6 +287,7 @@ class BaseSchema(pa.DataFrameModel):
 - `uniprot_accession: Series[str]` - нужно переименовать ✗
 - `iuphar_type, iuphar_class, iuphar_subclass: Series[str]` - удалить ✗
 
+
 **Требуется (lines 738-805):**
 
 - `tax_id: Series[int]` - переименовать `taxonomy` ✗
@@ -252,7 +298,9 @@ class BaseSchema(pa.DataFrameModel):
 - `isoform_count: Series[int]` (>=0) ✗
 - Удалить `iuphar_*` поля ✗
 
+
 #### TargetComponentSchema
+
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
@@ -262,6 +310,7 @@ class BaseSchema(pa.DataFrameModel):
 - `sequence_length: Series[int]` - нужно заменить ✗
 - `is_canonical: Series[bool]` ✓
 
+
 **Требуется (lines 813-843):**
 
 - `component_type: Series[str]` ✗
@@ -270,12 +319,15 @@ class BaseSchema(pa.DataFrameModel):
 - `data_origin: Series[str]` - allowed: ["chembl", "uniprot", "ortholog", "fallback"] ✗
 - Удалить `sequence_length` ✗
 
+
 #### ProteinClassSchema
+
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
 - `protein_class_id: Series[int]` - удалить ✗
 - `l1, l2, l3, l4: Series[str]` - заменить ✗
+
 
 **Требуется (lines 852-871):**
 
@@ -283,7 +335,9 @@ class BaseSchema(pa.DataFrameModel):
 - `class_name: Series[str]` ✗
 - `full_path: Series[str]` ✗
 
+
 #### XrefSchema
+
 **Текущие поля:**
 
 - `target_chembl_id: Series[str]` ✓
@@ -291,12 +345,15 @@ class BaseSchema(pa.DataFrameModel):
 - `xref_src_db: Series[str]` - nullable=True ✗
 - `xref_src_id: Series[str]` ✓
 
+
 **Требуется (lines 880-897):**
 
 - Удалить `xref_id` (int) ✗
 - `xref_src_db, xref_src_id: Series[str]` (nullable=False) ✗
 
+
 ### Чеклист изменений (continued) (continued) (continued) (continued)
+
 **TargetSchema:**
 
 - [ ] Переименовать `taxonomy` → `tax_id`
@@ -307,12 +364,14 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Добавить `isoform_count: Series[int]`
 - [ ] Удалить `iuphar_type, iuphar_class, iuphar_subclass`
 
+
 **TargetComponentSchema:**
 
 - [ ] Добавить `component_type: Series[str]`
 - [ ] Заменить `sequence_length` → `sequence: Series[str]`
 - [ ] Добавить `isoform_variant: Series[str]`
 - [ ] Добавить `data_origin: Series[str]` (allowed values)
+
 
 **ProteinClassSchema:**
 
@@ -321,29 +380,38 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Добавить `class_name: Series[str]`
 - [ ] Добавить `full_path: Series[str]`
 
+
 **XrefSchema:**
 
 - [ ] Удалить `xref_id: Series[int]`
 - [ ] Сделать `xref_src_db, xref_src_id` nullable=False
 
+
 ### Pipeline Changes (target.py)
+
 - [ ] Генерация `hash_row`, `hash_business_key` для всех 4 таблиц
 - [ ] Multi-stage enrichment (ChEMBL → UniProt → IUPHAR)
 - [ ] Priority merge (chembl > uniprot > iuphar > ortholog)
 - [ ] Isoform extraction
 - [ ] Protein class hierarchy flatten в `class_level/class_name/full_path`
 
+
 ---
 
 ## 6. DocumentSchema - Multi-Source Unified
+
 ### Текущее состояние (continued) (continued) (continued) (continued) (continued)
+
 **Файл:** `src/bioetl/schemas/document.py`
 
 **Текущие схемы (2):**
+
 1. `ChEMBLDocumentSchema` - 6 полей
 2. `PubMedDocumentSchema` - 7 полей
 
+
 ### Требуется по спецификации (lines 953-1329)
+
 **Одна unified schema:** `DocumentSchema` с ~70 полями
 
 **Primary Key:** `[document_chembl_id]`
@@ -359,12 +427,14 @@ class BaseSchema(pa.DataFrameModel):
 - `original_experimental_document: Series[str]` ✗
 - `document_citation: Series[str]` ✗
 
+
 **PMID (4):**
 
 - `chembl_pmid: Series[int]` ✗
 - `openalex_pmid: Series[int]` ✗
 - `pubmed_pmid: Series[int]` ✗
 - `semantic_scholar_pmid: Series[int]` ✗
+
 
 **Title (5):**
 
@@ -374,10 +444,12 @@ class BaseSchema(pa.DataFrameModel):
 - `pubmed_article_title: Series[str]` ✗
 - `semantic_scholar_title: Series[str]` ✗
 
+
 **Abstract (2):**
 
 - `chembl_abstract: Series[str]` - добавить ✗
 - `pubmed_abstract: Series[str]` ✗
+
 
 **Authors (5):**
 
@@ -387,6 +459,7 @@ class BaseSchema(pa.DataFrameModel):
 - `pubmed_authors: Series[str]` - частично `authors` ✗
 - `semantic_scholar_authors: Series[str]` ✗
 
+
 **DOI (5):**
 
 - `chembl_doi: Series[str]` - переименовать `doi` ✗
@@ -394,6 +467,7 @@ class BaseSchema(pa.DataFrameModel):
 - `openalex_doi: Series[str]` ✗
 - `pubmed_doi: Series[str]` ✗
 - `semantic_scholar_doi: Series[str]` ✗
+
 
 **Doc Type (6):**
 
@@ -404,16 +478,19 @@ class BaseSchema(pa.DataFrameModel):
 - `pubmed_doc_type: Series[str]` ✗
 - `semantic_scholar_doc_type: Series[str]` ✗
 
+
 **Journal (3):**
 
 - `chembl_journal: Series[str]` - переименовать `journal` ✗
 - `pubmed_journal: Series[str]` ✗
 - `semantic_scholar_journal: Series[str]` ✗
 
+
 **Year (2):**
 
 - `chembl_year: Series[int]` (1800-2100) - переименовать `year` ✗
 - `openalex_year: Series[int]` ✗
+
 
 **Volume/Issue (4):**
 
@@ -422,16 +499,19 @@ class BaseSchema(pa.DataFrameModel):
 - `chembl_issue: Series[str]` ✗
 - `pubmed_issue: Series[str]` ✗
 
+
 **Pages (2):**
 
 - `pubmed_first_page: Series[str]` ✗
 - `pubmed_last_page: Series[str]` ✗
+
 
 **ISSN (3):**
 
 - `openalex_issn: Series[str]` ✗
 - `pubmed_issn: Series[str]` ✗
 - `semantic_scholar_issn: Series[str]` ✗
+
 
 **PubMed Metadata (9):**
 
@@ -441,25 +521,31 @@ class BaseSchema(pa.DataFrameModel):
 - `pubmed_year_completed, pubmed_month_completed, pubmed_day_completed: Series[int]` ✗ (3)
 - `pubmed_year_revised, pubmed_month_revised, pubmed_day_revised: Series[int]` ✗ (3)
 
+
 **Crossref Metadata (1):**
 
 - `crossref_subject: Series[str]` ✗
 
+
 **Error Fields (4):**
 
 - `crossref_error, openalex_error, pubmed_error, semantic_scholar_error: Series[str]` ✗ (4)
+
 
 **Validation Fields (10):**
 
 - `valid_doi, valid_journal, valid_year, valid_volume, valid_issue: Series[bool]` ✗ (5)
 - `invalid_doi, invalid_journal, invalid_year, invalid_volume, invalid_issue: Series[str]` ✗ (5)
 
+
 **Derived Fields (2):**
 
 - `publication_date: Series[str]` ✗
 - `document_sortorder: Series[int]` ✗
 
+
 ### Чеклист изменений (continued) (continued) (continued) (continued) (continued)
+
 - [ ] Удалить `ChEMBLDocumentSchema`
 - [ ] Удалить `PubMedDocumentSchema`
 - [ ] Создать `DocumentSchema` с ~70 полями
@@ -472,23 +558,30 @@ class BaseSchema(pa.DataFrameModel):
 - [ ] Установить `Config.column_order` согласно спецификации
 - [ ] Установить `Config.ordered = True`
 
+
 ### Pipeline Changes (document.py)
+
 - [ ] Multi-source merge с приоритетами полей
 - [ ] Генерация `hash_row`, `hash_business_key`, `index`
 - [ ] Validation fields logic
 - [ ] Error tracking для каждого адаптера
 
+
 ---
 
 ## 7. Config Files - Determinism Settings
+
 ### Текущее состояние (continued) (continued) (continued) (continued) (continued 1)
+
 **Файлы:** `configs/pipelines/*.yaml`
 
 **activity.yaml:**
 
 - `determinism.sort.by: [activity_id]` ✓ частично
 
+
 ### Требуется
+
 **Добавить в каждый config:**
 
 ```yaml
@@ -510,16 +603,21 @@ determinism:
 - `target.yaml`: добавить `determinism.*`, `sort.by: [target_chembl_id]`
 - `document.yaml`: добавить `determinism.*`, `sort.by: [document_chembl_id]`
 
+
 ### Чеклист изменений (continued) (continued) (continued) (continued) (continued 1)
+
 - [ ] Добавить `determinism.hash_algorithm: "sha256"` во все configs
 - [ ] Добавить `determinism.float_precision: 6`
 - [ ] Добавить `determinism.datetime_format: "iso8601"`
 - [ ] Добавить `determinism.sort.by` для каждого пайплайна
 
+
 ---
 
 ## Summary
+
 ### Статистика расхождений
+
 | Pipeline | Схем | Текущих полей | Требуется полей | Критических изменений | Status |
 |----------|------|--------------|-----------------|----------------------|--------|
 | BaseSchema | 1 | 4 | 7 | +3 system fields | ⚠️ |
@@ -531,6 +629,7 @@ determinism:
 | **Total** | 10 | ~93 | ~257 | ~164 изменения | |
 
 ### Критичность изменений
+
 **🔴 Высокая:**
 
 - BaseSchema: system fields обязательны для всех
@@ -538,16 +637,20 @@ determinism:
 - TestItem: 64 поля (~400% роста)
 - Document: unified multi-source (~400% роста)
 
+
 **🟡 Средняя:**
 
 - Activity: добавление published_* полей
 - Target: restructuring 4 схем
 
+
 **🟢 Низкая:**
 
 - Configs: добавление determinism настроек
 
+
 ### Next Steps
+
 1. ✅ Gap Analysis завершен
 2. ⏭️ Создать модуль хеширования
 3. ⏭️ Обновить BaseSchema

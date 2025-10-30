@@ -40,7 +40,9 @@ class _FieldSpec(TypedDict, total=False):
 class FallbackMetadataMixin:
     """Reusable Pandera column definitions for fallback metadata fields."""
 
-    _FIELD_SPECS: dict[str, _FieldSpec] = {
+    # Use a stable annotation that doesn't rely on typing.Any to avoid
+    # evaluation issues in foreign modules during Pandera introspection.
+    _FIELD_SPECS: dict[str, dict[str, object]] = {
         "fallback_reason": {
             "nullable": True,
             "description": "Reason why the fallback record was generated",

@@ -1,7 +1,9 @@
 # Acceptance Criteria
+
 Матрица проверок инвариантов архитектуры проекта.
 
 ## Таблица критериев
+
 | ac_id | инвариант | способ проверки | команда/псевдокод | порог/ожидаемое | артефакт |
 |---|---|---|---|---|---|
 | AC1 | Бит-в-бит детерминизм | Golden-run | --golden path/to/golden.csv | байтовая идентичность | diff отчёт [ref: 02-io-system.md](requirements/02-io-system.md#ac-01-golden-compare-детерминизма) |
@@ -17,7 +19,9 @@
 | AC10 | Schema drift fail-fast | Запуск с несовместимой major | --fail-on-schema-drift | exit!=0 | лог [ref: 04-normalization-validation.md](requirements/04-normalization-validation.md#ac-08-schema-drift-detection) |
 
 ## Новые AC (AUD-5)
+
 ### AC11: Обязательные поля логов
+
 **Цель:** Все логи содержат минимальный набор полей для трассируемости.
 
 ```python
@@ -39,6 +43,7 @@ def test_mandatory_log_fields():
 **Артефакт:** Логи должны проходить статическую проверку обязательных полей.
 
 ### AC12-AC16: QC пороги по пайплайнам
+
 **AC12 (Assay):** duplicates=0, referential_integrity_violations=0
 
 **AC13 (Activity):** duplicates_activity_id=0, max_ic50_missing ≤ 5%
@@ -52,7 +57,9 @@ def test_mandatory_log_fields():
 **Артефакт:** QC отчеты с явными порогами для каждого пайплайна.
 
 ## Детализация по категориям
+
 ### IO и детерминизм (AC1, AC3, AC4, AC6)
+
 #### AC1: Бит-в-бит детерминизм
 
 ```python
@@ -110,6 +117,7 @@ df_final = df.sort_values(["activity_id"], kind="mergesort")
 ```
 
 ### Схемы и валидация (AC2, AC10)
+
 #### AC2: column_order=схеме
 
 ```python
@@ -121,6 +129,7 @@ assert list(df_validated.columns) == schema.column_order
 ```
 
 #### AC10: Schema drift fail-fast
+
 **Важно:** В production режиме default=True обязателен для предотвращения незамеченных breaking changes.
 
 ```python
@@ -140,6 +149,7 @@ if not current_schema.compatible_with(new_schema):
 ```
 
 ### API клиенты и отказоустойчивость (AC5, AC11)
+
 #### AC5: Respect Retry-After
 
 ```python
@@ -166,6 +176,7 @@ def test_respect_retry_after():
 ```
 
 ### Assay и трансформации (AC7, AC8)
+
 #### AC7: Assay batch≤25
 
 ```python
@@ -204,6 +215,7 @@ def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
 ```
 
 ### QC и качество (AC9)
+
 #### AC9: QC duplicates=0
 
 ```python
@@ -222,6 +234,7 @@ qc_report = {
 ```
 
 ## Связи с Gap-листом
+
 | AC ID | Покрывает gaps | Закрытые риски |
 |-------|----------------|----------------|
 | AC1 | G1, G13 | |
@@ -247,7 +260,9 @@ qc_report = {
 
 - **R3** (major): Протокол requeue для PartialFailure формализован в [03-data-extraction.md](requirements/03-data-extraction.md#протокол-повторной-постановки-requeue-для-partialfailure) ✅
 
+
 ## Инструменты проверки
+
 - **AC1**: `diff -u golden.csv actual.csv`, `sha256sum`
 
 - **AC2-AC10**: pytest тесты в `tests/acceptance/`
@@ -258,7 +273,9 @@ qc_report = {
 
 - **AC9**: QC generator в OutputWriter
 
+
 ## Метрики успеха
+
 После внедрения всех AC:
 
 - Средний балл по ISO/IEC 25010 ≥ 4.0

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from bioetl.pandera_pandas import pa
+from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import SchemaRegistry
 from bioetl.utils.column_constants import (
     DEFAULT_COLUMN_VALIDATION_IGNORE_SUFFIXES,
@@ -150,7 +150,7 @@ class ColumnValidator:
         try:
             # Получить схему из реестра
             schema = SchemaRegistry.get(entity, schema_version)
-            expected_columns = self._get_expected_columns(schema)
+            expected_columns = self._get_expected_columns(schema)  # type: ignore[arg-type]
 
             # Получить фактические колонки
             actual_columns = list(actual_df.columns)
@@ -204,7 +204,7 @@ class ColumnValidator:
             )
             raise
 
-    def _get_expected_columns(self, schema: pa.DataFrameModel) -> list[str]:
+    def _get_expected_columns(self, schema: type[BaseSchema]) -> list[str]:
         """Получить ожидаемые колонки из схемы."""
         return resolve_schema_column_order(schema)
 

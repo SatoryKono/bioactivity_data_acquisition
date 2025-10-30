@@ -1,13 +1,16 @@
 # Результаты запуска пайплайнов
+
 **Дата:** 2025-01-27
 **Время выполнения:** ~1 минута
 
 ## Обзор
+
 Все три пайплайна (assay, activity, testitem) успешно запущены с лимитом 10 строк каждый.
 
 ---
 
 ## 1. Assay Pipeline ✅
+
 **Выходной файл:** `assay_20251028_20251028.csv`
 **Размер:** 3,310 bytes
 **Время создания:** 2025-10-28 14:54:29
@@ -29,14 +32,17 @@ CHEMBL1000139,assay,0,Enzyme,Displacement of [3H](-)-(S)-emopamil from EBP in gu
 ```
 
 ### Результаты
+
 - ✅ Содержит hash поля: `hash_business_key`, `hash_row`, `index`
 - ✅ Порядок колонок соответствует схеме
 - ✅ Обработано 10 строк
 - ✅ Корректный `column_order`: business fields → system fields → hash fields
 
+
 ---
 
 ## 2. Activity Pipeline ✅
+
 **Выходной файл:** `activity_20251028_20251028.csv`
 **Размер:** 1,609 bytes
 **Время создания:** 2025-10-28 15:00:15
@@ -58,15 +64,18 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 ```
 
 ### Результаты (continued 1)
+
 - ✅ Содержит hash поля: `hash_business_key`, `hash_row`, `index`
 - ✅ QC-поля отсутствуют (Filtered.init, IUPHAR_class и др. удалены)
 - ✅ Порядок колонок соответствует ActivitySchema
 - ✅ Обработано 4 строки (входной файл содержал 4 записи)
 - ✅ Корректный `column_order`: business fields → system fields → hash fields
 
+
 ---
 
 ## 3. Testitem Pipeline ✅
+
 **Выходной файл:** `testitem_20251028_20251028.csv`
 **Размер:** 2,041 bytes
 **Время создания:** 2025-10-28 14:54:42
@@ -88,14 +97,17 @@ CHEMBL129416,1.0.0,chembl,,2025-10-28T14:54:42.963935+00:00,6b66802c023cfdde4729
 ```
 
 ### Результаты (continued) (continued)
+
 - ✅ Содержит hash поля: `hash_business_key`, `hash_row`, `index`
 - ✅ Порядок колонок соответствует схеме
 - ✅ Обработано 10 строк
 - ⚠️ Бизнес-поля отсутствуют (только системные + hash) - требуется доработка для ChEMBL API extraction
 
+
 ---
 
 ## Статистика
+
 | Pipeline | Строк обработано | Размер файла | Hash поля | Соответствие схеме |
 |----------|------------------|--------------|-----------|-------------------|
 | Assay    | 10               | 3,310 bytes  | ✅        | ✅ 100%           |
@@ -105,6 +117,7 @@ CHEMBL129416,1.0.0,chembl,,2025-10-28T14:54:42.963935+00:00,6b66802c023cfdde4729
 ---
 
 ## Соответствие критериям приёмки
+
 - [x] Все выходные CSV содержат hash поля (hash_row, hash_business_key, index)
 - [x] Входные CSV содержат только поля из IO_SCHEMAS Input Schema
 - [x] Pandera схемы валидируют данные без ошибок
@@ -112,12 +125,15 @@ CHEMBL129416,1.0.0,chembl,,2025-10-28T14:54:42.963935+00:00,6b66802c023cfdde4729
 - [x] Все три пайплайна (assay, activity, testitem) запускаются успешно
 - [x] QC отчеты генерируются корректно
 
+
 ---
 
 ## Замечания
+
 1. **Testitem Pipeline**: требует доработку для извлечения бизнес-полей из ChEMBL API (molregno, pref_name, parent_chembl_id, max_phase и др.)
 2. **Activity Pipeline**: входной файл содержал 4 строки, все успешно обработаны
 3. **Hash поля**: все три пайплайна корректно генерируют `hash_business_key`, `hash_row`, `index`
+
 
 ---
 

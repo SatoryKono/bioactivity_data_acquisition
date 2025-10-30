@@ -1,10 +1,15 @@
 # IO Schemas and Diagrams
+
 ## Assay Pipeline
+
 ### A) Паспорт пайплайна (Assay)
+
 - **Название:** AssayPipeline
 - **Назначение:** детерминированное извлечение, нормализация и выгрузка данных ассая из ChEMBL с whitelist обогащением. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 
+
 ### B) Диаграмма I/O (Assay)
+
 ```mermaid
 
 flowchart TB
@@ -15,7 +20,9 @@ flowchart TB
   VL --> LD["Load: UnifiedOutputWriter CSV/QC/meta<br/>Atomic write, hashes<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
 
 ```
+
 ### C) Input Schema (Assay)
+
 schema:
   name: assay/input
   primary_key: [assay_chembl_id]
@@ -48,6 +55,7 @@ schema:
 ```
 
 ### D) Output Schema (Assay)
+
 schema:
   name: assay/output
   primary_key: [assay_chembl_id, row_subtype, row_index]
@@ -660,6 +668,7 @@ schema:
 ```
 
 ### E) Mapping Input→Output (Assay)
+
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
 | assay_chembl_id | assay_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
@@ -674,18 +683,24 @@ schema:
 ---
 
 ### F) Контракты и детерминизм (Assay)
+
 - Batch запросы `≤25` ID, при превышении — откат к POST+Override; circuit breaker 5/60, retries уважают `Retry-After`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 - Сортировка `assay_chembl_id,row_subtype,row_index`, nullable dtypes, NA-policy `""/null`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 - AtomicWriter `os.replace`, run-scoped `.tmp_run_{run_id}`, meta.yaml с SHA256. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_11]
 
+
 ---
 
 ## Activity Pipeline
+
 ### A) Паспорт пайплайна (Activity)
+
 - **Название:** ActivityPipeline
 - **Назначение:** извлечение и нормализация ChEMBL activity c детерминированной выгрузкой и QC. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 
+
 ### B) Диаграмма I/O (Activity)
+
 ```mermaid
 
 flowchart TB
@@ -695,7 +710,9 @@ flowchart TB
   VL --> LD["Load: dataset/qc/(corr)/meta via UnifiedOutputWriter<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
 
 ```
+
 ### C) Input Schema (Activity)
+
 schema:
   name: activity/input
   primary_key: []
@@ -727,6 +744,7 @@ schema:
 ```
 
 ### D) Output Schema (Activity)
+
 schema:
   name: activity/output
   primary_key: [activity_id]
@@ -1152,6 +1170,7 @@ schema:
 ```
 
 ### E) Mapping Input→Output (Activity)
+
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
 | activity_id | API activity_id | passthrough | none | unique, >=1 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
@@ -1163,18 +1182,24 @@ schema:
 ---
 
 ### F) Контракты и детерминизм (Activity)
+
 - Batch `activity_id__in` ≤25, fallback split, respect Retry-After, duplicates запрещены (`duplicated()==0`). [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 - Сортировка `activity_id`, QC отчёты фиксируют duplicates и coverage. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 - OutputWriter стандарт/extended режимы с correlation по feature flag. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 
+
 ---
 
 ## Testitem Pipeline
+
 ### A) Паспорт пайплайна (Testitem)
+
 - **Название:** TestitemPipeline
 - **Назначение:** извлечение молекул ChEMBL с опциональным PubChem enrichment и строгой нормализацией. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
 
+
 ### B) Диаграмма I/O (Testitem)
+
 ```mermaid
 
 flowchart TB
@@ -1187,7 +1212,9 @@ flowchart TB
   VL --> LD["Load: deterministic CSV/QC/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
 
 ```
+
 ### C) Input Schema (Testitem)
+
 schema:
   name: testitem/input
   primary_key: [molecule_chembl_id]
@@ -1231,6 +1258,7 @@ schema:
 ```
 
 ### D) Output Schema (Testitem)
+
 schema:
   name: testitem/output
   primary_key: [molecule_chembl_id]
@@ -1353,6 +1381,7 @@ schema:
 ```
 
 ### E) Mapping Input→Output (Testitem)
+
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
 | molecule_chembl_id | molecule_chembl_id | uppercase & trim | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
@@ -1367,18 +1396,24 @@ schema:
 ---
 
 ### F) Контракты и детерминизм (Testitem)
+
 - ChEMBL batch ≤25, PubChem batch ≤100 (5 req/sec), многоуровневый cache и graceful degradation. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] [ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11]
 - Сортировка `molecule_chembl_id`, column_order фиксирован, NA-policy строгая (nullable dtypes). [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
 - QC fail_on `missing_molecule_chembl_id`, `duplicate_primary_keys`; optional correlation выключен по умолчанию. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
 
+
 ---
 
 ## Target Pipeline
+
 ### A) Паспорт пайплайна (Target)
+
 - **Название:** TargetPipeline
 - **Назначение:** объединение ChEMBL таргетов с UniProt и IUPHAR enrichment в четыре согласованные таблицы. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 
+
 ### B) Диаграмма I/O (Target)
+
 ```mermaid
 
 flowchart TB
@@ -1392,7 +1427,9 @@ flowchart TB
   PP --> OUT4["Output: xref.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
 
 ```
+
 ### C) Input Schema (Target)
+
 schema:
   name: target/input
   primary_key: [target_chembl_id]
@@ -1434,6 +1471,7 @@ schema:
 ```
 
 ### D) Output Schemas (Target)
+
 schema:
   name: target/targets
   primary_key: [target_chembl_id]
@@ -1635,6 +1673,7 @@ schema:
 ```
 
 ### E) Mapping Input→Output (Target)
+
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
 | target_chembl_id | input.target_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11] |
@@ -1644,18 +1683,24 @@ schema:
 | xref_id | ChEMBL cross_references + UniProt xrefs | normalize IDs, dedupe | none | non-empty string | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11] |
 
 ### F) Контракты и детерминизм (Target)
+
 - ChEMBL pagination (`limit/offset` with adaptive chunking); UniProt idmapping batch ≤10000 with 5s polling; rate ≤3/sec. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 - Merge priority: chembl > uniprot > iuphar > ortholog; fallback taxonomy/gene symbol logged WARNING. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 - AtomicWriter для всех parquet, referential integrity между таблицами, QC coverage ≥80% UniProt, duplicates=0. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 
+
 ---
 
 ## Document Pipeline
+
 ### A) Паспорт пайплайна (Document)
+
 - **Название:** DocumentPipeline
 - **Назначение:** извлечение метаданных документов из ChEMBL и внешних источников с детерминированным экспортом. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 
+
 ### B) Диаграмма I/O
+
 ```mermaid
 
 flowchart TB
@@ -1668,7 +1713,9 @@ flowchart TB
   VL --> LD["Load: dataset/qc/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
 
 ```
+
 ### C) Input Schema (Document)
+
 schema:
   name: document/input
   primary_key: [document_chembl_id]
@@ -1690,6 +1737,7 @@ schema:
 ```
 
 ### D) Output Schema (Document)
+
 schema:
   name: document/output
   primary_key: [document_chembl_id]
@@ -2095,6 +2143,7 @@ schema:
 ```
 
 ### E) Mapping Input→Output (Document)
+
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
 | document_chembl_id | input.document_chembl_id | uppercase & trim | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
@@ -2104,6 +2153,7 @@ schema:
 ---
 
 ### F) Контракты и детерминизм (Document)
+
 - Batch ≤25, recursive split на timeouts, respect Retry-After, circuit breaker 5/60. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 - mode=all запускает независимые адаптеры с rate limits (PubMed batch 200, Crossref cursor rows≤1000, OpenAlex per_page≤200, Semantic Scholar graceful degradation). [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 - QC отчёты: coverage (doi_coverage, pmid_coverage, title_coverage, journal_coverage), conflicts (doi, pmid), duplicates (CHEMBL, DOI+year, PMID), access_denied; meta.yaml фиксирует metrics и checksum. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]

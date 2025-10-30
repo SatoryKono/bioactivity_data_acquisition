@@ -18,6 +18,7 @@
 
 - Shared клиент ChEMBL и адаптеры с TTL‑кэшем и троттлингом
 - Callers must persist the returned client alongside the resolved batch and
+
   limit metadata to honour the shared runtime contract, and tests should
   monkeypatch `_init_chembl_client` to intercept client creation in a single
   location.

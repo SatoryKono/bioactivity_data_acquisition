@@ -1,10 +1,12 @@
 # Финальные результаты запуска пайплайнов
+
 **Дата:** 2025-10-28 18:08
 **Статус:** ✅ Все пайплайны успешно выполнены
 
 ---
 
 ## 1. ASSAY Pipeline ✅
+
 **Файл:** `assay_20251028_20251028.csv`
 **Размер:** 3,310 bytes
 **Время:** 18:08:26
@@ -14,6 +16,7 @@
 - Колонок: **14** ✅
 - Строк данных: **10** ✅
 - Hash поля: ✅ присутствуют
+
 
 **Заголовки:**
 
@@ -28,6 +31,7 @@ assay_chembl_id,row_subtype,row_index,assay_type,description,target_chembl_id,co
 ---
 
 ## 2. ACTIVITY Pipeline ✅
+
 **Файл:** `activity_20251028_20251028.csv`
 **Размер:** 1,609 bytes
 **Время:** 18:08:31
@@ -37,6 +41,7 @@ assay_chembl_id,row_subtype,row_index,assay_type,description,target_chembl_id,co
 - Колонок: **30** ✅
 - Строк данных: **4** ✅ (входной файл содержал 4 записи)
 - Hash поля: ✅ присутствуют
+
 
 **Заголовки:**
 
@@ -51,6 +56,7 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 ---
 
 ## 3. TESTITEM Pipeline ✅
+
 **Файл:** `testitem_20251028_20251028.csv`
 **Размер:** 2,595 bytes
 **Время:** 18:08:36
@@ -60,6 +66,7 @@ activity_id,molecule_chembl_id,assay_chembl_id,target_chembl_id,document_chembl_
 - Колонок: **31** ✅
 - Строк данных: **10** ✅
 - Hash поля: ✅ присутствуют
+
 
 **Заголовки:**
 
@@ -74,6 +81,7 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 ---
 
 ## Таблица соответствия
+
 | Pipeline | Ожидаемых колонок | Фактических колонок | Соответствие | Hash поля | Строк данных |
 |----------|-------------------|---------------------|--------------|-----------|--------------|
 | **Assay** | 14 | 14 | ✅ 100% | ✅ | 10 |
@@ -83,6 +91,7 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 ---
 
 ## Выводы
+
 ✅ **Все три пайплайна генерируют выходные файлы с точным соответствием ожидаемым схемам**
 
 ✅ **Все выходные файлы содержат обязательные hash поля:**
@@ -90,6 +99,7 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 - `hash_business_key` - SHA256 от первичного ключа
 - `hash_row` - SHA256 канонической строки
 - `index` - детерминированный индекс
+
 
 ✅ **Порядок колонок соответствует Config.column_order в Pandera схемах**
 

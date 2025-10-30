@@ -1,5 +1,7 @@
 """Pandera schemas for Target data."""
 
+from __future__ import annotations
+
 import pandas as pd
 
 from bioetl.pandera_pandas import pa

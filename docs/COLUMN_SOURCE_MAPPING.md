@@ -1,56 +1,75 @@
 # Сопоставление колонок и источников данных для пайплайнов
+
 **Дата создания:** 2025-01-27
 **Версия:** 1.0
 
 ## Обзор
+
 Документ содержит детальное сопоставление колонок выходных таблиц с источниками данных, запросами, извлекаемыми параметрами, типами данных, нормализацией и валидацией для всех 5 пайплайнов проекта BioETL.
 
 ## Общие нормализаторы
+
 Проект использует унифицированную систему нормализации через `NormalizerRegistry`:
 
 ### NumericNormalizer (`registry.normalize("numeric", value)`)
+
 - **normalize_int()** - приведение к целым числам
 - **normalize_float()** - приведение к числам с плавающей точкой
 - **normalize_bool()** - нормализация булевых значений
 - **normalize_units()** - стандартизация единиц измерения
 - **normalize_relation()** - нормализация операторов сравнения
 
+
 ### BooleanNormalizer (`registry.normalize("boolean", value)`)
+
 - **normalize()** - строгая нормализация булевых значений
 - **normalize_with_default()** - нормализация с значением по умолчанию
 
+
 ### StringNormalizer (`registry.normalize("string", value)`)
+
 - **normalize()** - базовая нормализация строк
 - Поддержка параметров: `uppercase`, `max_length`, `trim`
 
+
 ### IdentifierNormalizer (`registry.normalize("identifier", value)`)
+
 - **normalize()** - нормализация идентификаторов (ChEMBL ID, DOI, etc.)
 
+
 ### ChemistryNormalizer (`registry.normalize("chemistry", value)`)
+
 - **normalize()** - нормализация химических представлений (SMILES, InChI)
 
+
 ### Общие утилиты
+
 - **coerce_nullable_int_columns()** - приведение к nullable integer типам
 - **coerce_nullable_float_columns()** - приведение к nullable float типам
 - **coerce_optional_bool()** - приведение к nullable boolean типам
 - **canonical_json()** - каноническая сериализация JSON
 - **normalize_json_list()** - нормализация списков JSON объектов
 
+
 ## Структура документа
+
 - [Activity Pipeline](#activity-pipeline)
 - [Assay Pipeline](#assay-pipeline)
 - [TestItem Pipeline](#testitem-pipeline)
 - [Document Pipeline](#document-pipeline)
 - [Target Pipeline](#target-pipeline)
 
+
 ---
 
 ## Activity Pipeline
+
 **Источник данных:** ChEMBL API
 **Endpoint:** `GET /activity.json?activity_id__in=...`
 **Batch size:** 25 записей
 
 ### Системные поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `index` | Генерируется | - | `int` | Последовательный счетчик | `Series[int]` |
@@ -62,6 +81,7 @@
 | `extracted_at` | Генерируется | - | `str` | ISO8601 timestamp | `Series[str]` |
 
 ### Основные поля активности
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `activity_id` | `/activity.json` | `activity_id` | `int` | `registry.normalize("numeric", value)` | `Series[int]` (NOT NULL) |
@@ -71,6 +91,7 @@
 | `document_chembl_id` | `/activity.json` | `document_chembl_id` | `str` | `_normalize_chembl_id()` | `Series[str]` (regex: `^CHEMBL\d+$`) |
 
 ### Опубликованные данные активности
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `published_type` | `/activity.json` | `type` или `published_type` | `str` | `registry.normalize("string", value, uppercase=True)` | `Series[str]` |
@@ -79,6 +100,7 @@
 | `published_units` | `/activity.json` | `units` или `published_units` | `str` | `registry.normalize("numeric", value).normalize_units()` | `Series[str]` |
 
 ### Стандартизированные данные активности
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `standard_type` | `/activity.json` | `standard_type` | `str` | `registry.normalize("string", value, uppercase=True)` | `Series[str]` |
@@ -89,6 +111,7 @@
 | `pchembl_value` | `/activity.json` | `pchembl_value` | `float` | `registry.normalize("numeric", value)` | `Series[float]` (ge=0) |
 
 ### Границы и цензурирование
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `lower_bound` | `/activity.json` | `standard_lower_value` или `lower_value` | `float` | `registry.normalize("numeric", value)` | `Series[float]` |
@@ -96,12 +119,14 @@
 | `is_censored` | Вычисляется | - | `bool` | `_derive_is_censored(standard_relation)` | `Series[pd.BooleanDtype]` |
 
 ### Комментарии и метаданные
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `activity_comment` | `/activity.json` | `activity_comment` | `str` | `registry.normalize("string", value)` | `Series[str]` |
 | `data_validity_comment` | `/activity.json` | `data_validity_comment` | `str` | `registry.normalize("string", value)` | `Series[str]` |
 
 ### BAO аннотации
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `bao_endpoint` | `/activity.json` | `bao_endpoint` | `str` | `_normalize_bao_id()` | `Series[str]` |
@@ -109,6 +134,7 @@
 | `bao_label` | `/activity.json` | `bao_label` | `str` | `registry.normalize("string", value, max_length=128)` | `Series[str]` |
 
 ### Дополнительные поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `canonical_smiles` | `/activity.json` | `canonical_smiles` | `str` | `registry.normalize("string", value)` | `Series[str]` |
@@ -121,6 +147,7 @@
 | `action_type` | `/activity.json` | `action_type` | `str` | `registry.normalize("string", value)` | `Series[str]` |
 
 ### Свойства активности и эффективность лиганда
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `activity_properties` | `/activity.json` | `activity_properties` | `str` | `normalize_json_list()` | `Series[str]` |
@@ -137,12 +164,14 @@
 ---
 
 ## Assay Pipeline
+
 **Источник данных:** ChEMBL API + Enrichment
 **Основной endpoint:** `GET /assay.json?assay_chembl_id__in=...`
 **Enrichment endpoints:** `/target/{id}.json`, `/assay_class/{id}.json`
 **Batch size:** 25 записей
 
 ### Системные поля (continued 1)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `index` | Генерируется | - | `int` | Последовательный счетчик | `Series[int]` |
@@ -154,6 +183,7 @@
 | `extracted_at` | Генерируется | - | `str` | ISO8601 timestamp | `Series[str]` |
 
 ### Основные поля ассая
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `assay_chembl_id` | `/assay.json` | `assay_chembl_id` | `str` | Прямое извлечение | `Series[str]` (NOT NULL, regex: `^CHEMBL\d+$`) |
@@ -174,6 +204,7 @@
 | `assay_type_description` | `/assay.json` | `assay_type_description` | `str` | Прямое извлечение | `Series[str]` |
 
 ### BAO поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `bao_format` | `/assay.json` | `bao_format` | `str` | Прямое извлечение | `Series[str]` (regex: `^BAO_\d+$`) |
@@ -181,6 +212,7 @@
 | `bao_endpoint` | `/assay.json` | `bao_endpoint` | `str` | Прямое извлечение | `Series[str]` (regex: `^BAO_\d{7}$`) |
 
 ### Связи
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `cell_chembl_id` | `/assay.json` | `cell_chembl_id` | `str` | Прямое извлечение | `Series[str]` |
@@ -197,6 +229,7 @@
 | `variant_sequence_json` | `/assay.json` | `variant_sequence` | `str` | JSON сериализация | `Series[str]` |
 
 ### Target Enrichment (whitelist)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `pref_name` | `/target/{id}.json` | `target.pref_name` | `str` | Прямое извлечение | `Series[str]` |
@@ -207,6 +240,7 @@
 | `component_count` | `/target/{id}.json` | `target.component_count` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=0) |
 
 ### Assay Parameters (explode из JSON)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `assay_param_type` | `/assay.json` | `assay_parameters[].type` | `str` | Explode из JSON | `Series[str]` |
@@ -219,6 +253,7 @@
 | `assay_param_standard_units` | `/assay.json` | `assay_parameters[].standard_units` | `str` | Explode из JSON | `Series[str]` |
 
 ### Assay Class (из /assay_class endpoint)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `assay_class_id` | `/assay_class/{id}.json` | `assay_class.assay_class_id` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` |
@@ -230,6 +265,7 @@
 | `assay_class_description` | `/assay_class/{id}.json` | `assay_class.assay_class_description` | `str` | Прямое извлечение | `Series[str]` |
 
 ### Variant Sequences (explode из JSON)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `variant_id` | `/assay.json` | `variant_sequence[].variant_id` | `int` | Explode из JSON | `Series[pd.Int64Dtype]` |
@@ -241,12 +277,14 @@
 ---
 
 ## TestItem Pipeline
+
 **Источник данных:** ChEMBL API + PubChem Enrichment
 **Основной endpoint:** `GET /molecule.json?molecule_chembl_id__in=...`
 **Enrichment:** PubChem PUG-REST API
 **Batch size:** 25 записей (ChEMBL), 100 записей (PubChem)
 
 ### Системные поля (continued) (continued)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `pipeline_version` | Конфиг | - | `str` | Из конфигурации | `Series[str]` |
@@ -258,6 +296,7 @@
 | `index` | Генерируется | - | `int` | Последовательный счетчик | `Series[int]` |
 
 ### Основные поля молекулы
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `molecule_chembl_id` | `/molecule.json` | `molecule_chembl_id` | `str` | Прямое извлечение | `Series[str]` (NOT NULL, regex: `^CHEMBL\d+$`) |
@@ -268,6 +307,7 @@
 | `parent_molregno` | `/molecule.json` | `parent_molregno` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=1) |
 
 ### Флаги и классификация
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `therapeutic_flag` | `/molecule.json` | `therapeutic_flag` | `bool` | Прямое извлечение | `Series[bool]` |
@@ -280,6 +320,7 @@
 | `availability_type` | `/molecule.json` | `availability_type` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=0) |
 
 ### Химические свойства
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `chirality` | `/molecule.json` | `chirality` | `str` | Прямое извлечение | `Series[str]` |
@@ -289,6 +330,7 @@
 | `molecular_mechanism` | `/molecule.json` | `molecular_mechanism` | `bool` | Прямое извлечение | `Series[bool]` |
 
 ### Административные пути
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `oral` | `/molecule.json` | `oral` | `bool` | Прямое извлечение | `Series[bool]` |
@@ -302,6 +344,7 @@
 | `polymer_flag` | `/molecule.json` | `polymer_flag` | `bool` | Прямое извлечение | `Series[bool]` |
 
 ### USAN классификация
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `usan_year` | `/molecule.json` | `usan_year` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=0) |
@@ -311,6 +354,7 @@
 | `indication_class` | `/molecule.json` | `indication_class` | `str` | Прямое извлечение | `Series[str]` |
 
 ### Отзыв с рынка
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `withdrawn_flag` | `/molecule.json` | `withdrawn_flag` | `bool` | Прямое извлечение | `Series[bool]` |
@@ -319,6 +363,7 @@
 | `withdrawn_reason` | `/molecule.json` | `withdrawn_reason` | `str` | Прямое извлечение | `Series[str]` |
 
 ### Drug информация
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `drug_chembl_id` | `/molecule.json` | `drug_chembl_id` | `str` | Прямое извлечение | `Series[str]` |
@@ -335,6 +380,7 @@
 | `drug_antiinflammatory_flag` | `/molecule.json` | `drug_antiinflammatory_flag` | `bool` | Прямое извлечение | `Series[bool]` |
 
 ### Молекулярные свойства
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `mw_freebase` | `/molecule.json` | `mw_freebase` | `float` | Прямое извлечение | `Series[float]` (ge=0) |
@@ -363,6 +409,7 @@
 | `lipinski_ro5_pass` | `/molecule.json` | `lipinski_ro5_pass` | `bool` | Прямое извлечение | `Series[bool]` |
 
 ### Структурные данные
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `standardized_smiles` | `/molecule.json` | `standardized_smiles` | `str` | Прямое извлечение | `Series[str]` |
@@ -370,6 +417,7 @@
 | `standard_inchi_key` | `/molecule.json` | `standard_inchi_key` | `str` | Прямое извлечение | `Series[str]` |
 
 ### JSON поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `all_names` | `/molecule.json` | `all_names` | `str` | Прямое извлечение | `Series[str]` |
@@ -386,6 +434,7 @@
 | `helm_notation` | `/molecule.json` | `helm_notation` | `str` | JSON сериализация | `Series[str]` |
 
 ### PubChem Enrichment
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `pubchem_cid` | PubChem API | `CID` | `int` | Прямое извлечение | `Series[pd.Int64Dtype]` (ge=1) |
@@ -406,6 +455,7 @@
 | `pubchem_lookup_inchikey` | Генерируется | - | `str` | InChIKey для поиска | `Series[str]` |
 
 ### Fallback поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `fallback_error_code` | Генерируется | - | `str` | Код ошибки | `Series[str]` |
@@ -417,12 +467,14 @@
 ---
 
 ## Document Pipeline
+
 **Источник данных:** ChEMBL API + Multi-source Enrichment
 **Основной endpoint:** `GET /document.json?document_chembl_id__in=...`
 **Enrichment:** PubMed, Crossref, OpenAlex, Semantic Scholar
 **Batch size:** 10 записей (ChEMBL), 200 записей (PubMed), 100 записей (Crossref), 100 записей (OpenAlex), 50 записей (Semantic Scholar)
 
 ### Системные поля (continued) (continued) (continued)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `index` | Генерируется | - | `int` | Последовательный счетчик | `Series[int]` |
@@ -434,6 +486,7 @@
 | `extracted_at` | Генерируется | - | `str` | ISO8601 timestamp | `Series[str]` |
 
 ### Основные поля документа
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `document_chembl_id` | `/document.json` | `document_chembl_id` | `str` | Прямое извлечение | `Series[str]` (NOT NULL) |
@@ -443,6 +496,7 @@
 | `original_experimental_document` | `/document.json` | `is_experimental_doc` | `bool` | `coerce_optional_bool()` | `Series[bool]` |
 
 ### Resolved поля (с precedence)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `pmid` | Multi-source | - | `int` | `merge_with_precedence()` | `Series[int]` |
@@ -493,12 +547,14 @@
 | `chemicals_source` | Multi-source | - | `str` | Источник данных | `Series[str]` |
 
 ### Conflict поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `conflict_doi` | Вычисляется | - | `bool` | Обнаружение конфликтов | `Series[bool]` |
 | `conflict_pmid` | Вычисляется | - | `bool` | Обнаружение конфликтов | `Series[bool]` |
 
 ### ChEMBL поля (с префиксом)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `chembl_pmid` | `/document.json` | `pubmed_id` | `int` | `int()` преобразование | `Series[int]` |
@@ -512,6 +568,7 @@
 | `chembl_issue` | `/document.json` | `issue` | `str` | Прямое извлечение | `Series[str]` |
 
 ### PubMed поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `pubmed_pmid` | PubMed API | `uid` | `int` | Прямое извлечение | `Series[int]` |
@@ -537,6 +594,7 @@
 | `pubmed_day_revised` | PubMed API | `day_revised` | `int` | Прямое извлечение | `Series[int]` |
 
 ### Crossref поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `crossref_title` | Crossref API | `title[0]` | `str` | Прямое извлечение | `Series[str]` |
@@ -546,6 +604,7 @@
 | `crossref_subject` | Crossref API | `subject` | `str` | JSON сериализация | `Series[str]` |
 
 ### OpenAlex поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `openalex_pmid` | OpenAlex API | `pmids[0]` | `int` | Прямое извлечение | `Series[int]` |
@@ -558,6 +617,7 @@
 | `openalex_issn` | OpenAlex API | `host_venue.issn` | `str` | Прямое извлечение | `Series[str]` |
 
 ### Semantic Scholar поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `semantic_scholar_pmid` | Semantic Scholar API | `externalIds.PubMed` | `int` | Прямое извлечение | `Series[int]` |
@@ -569,6 +629,7 @@
 | `semantic_scholar_issn` | Semantic Scholar API | `venue` | `str` | Прямое извлечение | `Series[str]` |
 
 ### Error tracking поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `crossref_error` | Генерируется | - | `str` | Код ошибки | `Series[str]` |
@@ -582,6 +643,7 @@
 ---
 
 ## Target Pipeline
+
 **Источник данных:** ChEMBL API + UniProt + IUPHAR Enrichment
 **Основной endpoint:** `GET /target/{id}.json` (single record)
 **UniProt endpoints:** `/search`, `/idmapping`, `/uniprotkb/{accession}`
@@ -589,6 +651,7 @@
 **Batch size:** 25 записей (ChEMBL), 50 записей (UniProt), 200 записей (IUPHAR)
 
 ### Системные поля (continued) (continued) (continued) (continued)
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `pipeline_version` | Конфиг | - | `str` | Из конфигурации | `Series[str]` |
@@ -600,6 +663,7 @@
 | `index` | Генерируется | - | `int` | Последовательный счетчик | `Series[int]` |
 
 ### Основные поля таргета
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `target_chembl_id` | `/target/{id}.json` | `target_chembl_id` | `str` | Прямое извлечение | `Series[str]` (NOT NULL) |
@@ -610,6 +674,7 @@
 | `target_type` | `/target/{id}.json` | `target_type` | `str` | Прямое извлечение | `Series[str]` |
 
 ### Таксономия
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `organism` | `/target/{id}.json` | `organism` | `str` | Прямое извлечение | `Series[str]` |
@@ -619,6 +684,7 @@
 | `lineage` | `/target/{id}.json` | `lineage` | `str` | JSON сериализация | `Series[str]` |
 
 ### UniProt данные
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `primaryAccession` | UniProt API | `primaryAccession` | `str` | Прямое извлечение | `Series[str]` |
@@ -641,6 +707,7 @@
 | `isoforms_chembl` | UniProt API | `isoforms` | `str` | JSON сериализация | `Series[str]` |
 
 ### UniProt enrichment поля
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `uniprot_accession` | UniProt API | `accession` | `str` | Прямое извлечение | `Series[str]` |
@@ -652,6 +719,7 @@
 | `has_iuphar` | Вычисляется | - | `bool` | Наличие IUPHAR данных | `Series[bool]` |
 
 ### IUPHAR данные
+
 | Колонка | Запрос | JSON Path | Тип | Нормализация | Валидация |
 |---------|--------|-----------|-----|--------------|-----------|
 | `iuphar_type` | IUPHAR API | `type` | `str` | `_normalize_iuphar_name()` | `Series[str]` |
@@ -662,33 +730,45 @@
 ---
 
 ## Общие принципы нормализации
+
 ### ChEMBL ID нормализация
+
 - Приведение к верхнему регистру
 - Валидация формата `^CHEMBL\d+$`
 
+
 ### Строковая нормализация
+
 - Удаление лишних пробелов
 - Приведение к каноническому виду
 - Обработка NULL значений
 
+
 ### Числовая нормализация
+
 - Преобразование строк в числа
 - Обработка NaN значений
 - Валидация диапазонов
 
+
 ### JSON нормализация
+
 - Сериализация в канонический JSON
 - Сортировка ключей
 - Обработка ошибок сериализации
 
+
 ### Временные метки
+
 - ISO8601 формат
 - UTC временная зона
 - Детерминированная генерация
 
+
 ---
 
 ## Источники данных
+
 1. **ChEMBL API** - основной источник для всех пайплайнов
 2. **PubChem API** - enrichment для TestItem Pipeline
 3. **UniProt API** - enrichment для Target Pipeline
@@ -697,6 +777,7 @@
 6. **Crossref API** - enrichment для Document Pipeline
 7. **OpenAlex API** - enrichment для Document Pipeline
 8. **Semantic Scholar API** - enrichment для Document Pipeline
+
 
 ---
 

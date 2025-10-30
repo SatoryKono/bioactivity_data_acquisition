@@ -1,5 +1,7 @@
 # Инструкции по запуску тестов
+
 ## Быстрый старт
+
 ### Запуск всех тестов
 
 ```bash
@@ -19,6 +21,7 @@ python -m pytest tests/ -v
 ```
 
 ## Запуск отдельных групп тестов
+
 ### Unit тесты
 
 ```bash
@@ -64,6 +67,7 @@ pytest tests/unit/test_pipelines.py::TestActivityPipeline::test_init -v
 ```
 
 ## Флаги и опции
+
 ### С покрытием кода
 
 ```bash
@@ -92,9 +96,11 @@ pytest tests/unit/ -v
 ```
 
 ## Конфигурация
+
 - `pyproject.toml` — общая конфигурация проекта и инструментов; секция `[tool.pytest.ini_options]` содержит настройки pytest
 - `tests/conftest.py` — общие фикстуры и настройки пути
 - Интеграционные тесты документного пайплайна используют профиль `configs/profiles/document_test.yaml`,
+
   в котором отключены внешние API и заданы фиктивные ключи. Благодаря этому `pytest tests/integration/test_document_pipeline_enrichment.py -v`
   выполняется без реальных секретов и сетевого доступа. При необходимости профиль можно загрузить вручную:
 
@@ -121,15 +127,19 @@ tests/
 ```
 
 ## Требования
+
 - Минимальное покрытие кода: 85%
 - Все тесты должны проходить без ошибок
 - Использовать маркеры: `unit`, `integration`, `golden`, `slow`
 - Golden тесты проверяют детерминированные CSV, полученные через CLI
 - Установите зависимость `faker` (через `pip install -e ".[dev]"` или `pip install -r requirements.txt`),
+
   иначе фикстуры в `tests/conftest.py` завершатся с ошибкой.
 
 ## Troubleshooting
+
 ### Импорты не работают
+
 Убедитесь, что `src` добавлен в `PYTHONPATH`:
 
 ```bash
@@ -139,6 +149,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 ```
 
 ### Тесты падают с ImportError
+
 Переустановите пакет:
 
 ```bash
@@ -148,6 +159,7 @@ pip install -e ".[dev]"
 ```
 
 ### Низкое покрытие кода
+
 Добавьте больше тестов для недостающих модулей:
 
 ```bash

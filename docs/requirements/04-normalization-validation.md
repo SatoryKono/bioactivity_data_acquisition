@@ -1,5 +1,7 @@
 # 4. Нормализация и валидация (UnifiedSchema)
+
 ## Обзор
+
 UnifiedSchema — система нормализации и валидации, объединяющая:
 
 - **Модульные нормализаторы** с реестром (bioactivity_data_acquisition5)
@@ -9,6 +11,7 @@ UnifiedSchema — система нормализации и валидации,
 - **Pandera валидацию** с метаданными
 
 - **Фабрики полей** для типовых идентификаторов
+
 
 ## Архитектура
 
@@ -51,7 +54,9 @@ Schema System (Pandera)
 ```
 
 ## Компоненты нормализации
+
 ### 1. BaseNormalizer (ABC)
+
 Базовый абстрактный класс для нормализаторов:
 
 ```python
@@ -82,6 +87,7 @@ class BaseNormalizer(ABC):
 ```
 
 ### 2. StringNormalizer
+
 Нормализация строк:
 
 ```python
@@ -124,6 +130,7 @@ class StringNormalizer(BaseNormalizer):
 ```
 
 ### 3. IdentifierNormalizer
+
 Нормализация идентификаторов:
 
 ```python
@@ -172,6 +179,7 @@ class IdentifierNormalizer(BaseNormalizer):
 ```
 
 ### 4. ChemistryNormalizer
+
 Нормализация химических структур:
 
 ```python
@@ -211,6 +219,7 @@ class ChemistryNormalizer(BaseNormalizer):
 ```
 
 ### 5. NormalizerRegistry
+
 Централизованный реестр:
 
 ```python
@@ -248,7 +257,9 @@ registry.register("chemistry", ChemistryNormalizer())
 ```
 
 ## Компоненты схем Pandera
+
 ### 1. BaseSchema
+
 Базовый класс для всех схем:
 
 ```python
@@ -456,6 +467,7 @@ class PubChemTestItemSchema(BaseSchema):
 ```
 
 ## Использование
+
 ### Нормализация данных
 
 ```python
@@ -529,6 +541,7 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 ```
 
 ## Best Practices
+
 1. **Всегда валидируйте через Pandera**: перед записью данных
 
 2. **Используйте lazy=True**: для получения всех ошибок сразу
@@ -541,10 +554,13 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 
 6. **Логируйте ошибки валидации**: для отладки
 
+
 ## Schema Registry
+
 Централизованный реестр Pandera-схем с версионированием.
 
 ### Структура схемы
+
 Каждая схема содержит:
 
 - `schema_id`: уникальный идентификатор (например, `document.chembl`)
@@ -552,6 +568,7 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 - `schema_version`: семантическая версия (semver: MAJOR.MINOR.PATCH)
 
 - `column_order`: источник истины для порядка колонок
+
 
 ```python
 
@@ -581,6 +598,7 @@ class DocumentSchema(BaseSchema):
 ```
 
 ### Правила эволюции схем
+
 **Semantic Versioning (MAJOR.MINOR.PATCH):**
 
 | Изменение | Impact | Пример | Версия |
@@ -609,7 +627,9 @@ class DocumentSchema(BaseSchema):
 
 - Изменение типа колонки: только major
 
+
 ### Матрица совместимости
+
 Таблица допустимых апгрейдов:
 
 | From | To | Compatibility | Required Actions |
@@ -633,6 +653,7 @@ def is_compatible(from_version: str, to_version: str) -> bool:
 ```
 
 ### Хранение column_order в схеме (источник истины)
+
 **Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме — fail-fast до записи; NA-policy обязательна для всех таблиц.
 
 ```python
@@ -684,12 +705,15 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
 
 - Fail-fast до записи
 
+
 **См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC10).
 
 ### Централизованная политика NA-policy и Precision-policy (AUD-2)
+
 **Инвариант:** Единый источник истины для NA-policy и precision-policy — Pandera схема. Все пайплайны обязаны следовать этим правилам при нормализации данных и генерации хешей.
 
 #### NA-policy (Null Availability Policy)
+
 **Определение:** Политика обработки пропущенных значений для детерминированной сериализации и хеширования.
 
 | Тип данных | NA-значение | JSON сериализация | Применение |
@@ -726,6 +750,7 @@ def canonicalize_for_hash(value: Any, dtype: str) -> Any:
 ```
 
 #### Precision-policy
+
 **Определение:** Политика округления для числовых полей, обеспечивающая детерминизм и научную точность.
 
 | Тип поля | Точность (decimal places) | Применение |
@@ -763,7 +788,9 @@ def format_float(value: float, field_name: str) -> str:
 - Научная точность: 6 decimal places достаточно для IC50/Ki
 - Экономия памяти: разумный баланс
 
+
 #### Проверка соответствия meta.yaml → schema
+
 **AC-02-NA (AUD-2):** Meta.yaml должна содержать копию NA-policy и precision-policy из схемы для аудита.
 
 ```python
@@ -798,6 +825,7 @@ def validate_meta_policies(meta: dict, schema: BaseSchema) -> None:
 **См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC3, AC10).
 
 ### Semver Policy и Schema Evolution (fail-fast на major)
+
 **Инвариант:** Семантика schema drift: major incompatible (fail-fast), minor backward-compatible; CLI-флаг `--fail-on-schema-drift` (default=True).
 
 **Критическое правило:** Изменения схемы требуют bump версии и валидацию совместимости.
@@ -840,6 +868,7 @@ def validate_schema_compatibility(schema: type[BaseSchema], expected_version: st
 ```
 
 ### Реестр схем
+
 Централизованное хранилище всех схем:
 
 ```python
@@ -883,6 +912,7 @@ SchemaRegistry.register(TargetSchema)
 ```
 
 ### Метрики precision
+
 Единая карта точности для числовых полей (инвариант v3.0):
 
 | Поле | Precision | Формат | Обоснование |
@@ -911,6 +941,7 @@ def format_float(value: float, field_name: str) -> str:
 **Обоснование:** Обеспечивает детерминизм сериализации и достаточную точность для научных вычислений.
 
 ## Расширение
+
 ### Добавление нового нормализатора
 
 ```python
@@ -958,9 +989,11 @@ class MyCustomSchema(BaseSchema):
 ```
 
 ## Acceptance Criteria
+
 **Примечание:** NA-policy и каноническая сериализация описаны в [02-io-system.md](02-io-system.md#na-policy) как типо-зависимая политика (строки → `""`, числа/даты/boolean → `null`).
 
 ### AC-08: Schema Drift Detection
+
 **Цель:** Гарантировать fail-fast при несовместимых изменениях схемы.
 
 **Тест:**
@@ -984,6 +1017,7 @@ schema = SchemaRegistry.get("document.chembl", expected_version="3.0.0", fail_on
 **Порог:** exit != 0 при fail_on_drift=True и major mismatch.
 
 ### AC-03: Column Order Validation
+
 **Цель:** Гарантировать, что порядок колонок соответствует схеме.
 
 **Тест:**

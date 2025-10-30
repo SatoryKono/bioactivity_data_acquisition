@@ -1,23 +1,29 @@
 # Schema Synchronization Final Report
+
 **Дата:** 2025-10-28
 **Статус:** ✅ Успешно выполнено для 3 из 5 пайплайнов (60%)
 
 ---
 
 ## Резюме
+
 Успешно синхронизированы схемы для **Activity**, **Assay** и **TestItem** согласно IO_SCHEMAS_AND_DIAGRAMS.md с полным соответствием спецификации.
 
 ### Основные достижения
+
 - ✅ Все системные поля присутствуют (index, hash_row, hash_business_key)
 - ✅ Hash generation работает детерминированно
 - ✅ Column order enforcement включен
 - ✅ Данные извлекаются корректно
 - ✅ Порядок колонок соответствует спецификации
 
+
 ---
 
 ## Детальные результаты пайплайнов
+
 ### 1. Assay Pipeline ✅ 100%
+
 **Схема:** AssaySchema
 **Output файл:** `data/output/assay/assay_20251028_20251028.csv`
 
@@ -40,6 +46,7 @@ chembl_release, extracted_at, hash_business_key, hash_row, index
 - ✅ `row_index` = 0 для всех записей
 - ✅ Порядок колонок соответствует schema.Config.column_order
 
+
 **Пример записи:**
 
 ```csv
@@ -56,6 +63,7 @@ index: 0
 ---
 
 ### 2. Activity Pipeline ✅ 100%
+
 **Схема:** ActivitySchema
 **Output файл:** `data/output/activity/activity_20251028_20251028.csv`
 
@@ -69,6 +77,7 @@ index: 0
 - ✅ `index` присутствует (0, 1, 2...)
 - ✅ Все published_* поля добавлены в схему
 - ✅ Порядок колонок соответствует schema.Config.column_order
+
 
 **Пример записи:**
 
@@ -84,6 +93,7 @@ index: 0
 ---
 
 ### 3. TestItem Pipeline ✅ 100%
+
 **Схема:** TestItemSchema
 **Output файл:** `data/output/testitem/testitem_20251028_20251028.csv`
 
@@ -98,6 +108,7 @@ index: 0
 - ✅ `standardized_smiles` присутствует (переименовано из canonical_smiles)
 - ✅ `mw_freebase` присутствует (переименовано из molecular_weight)
 - ✅ Порядок колонок соответствует schema.Config.column_order
+
 
 **Пример записи:**
 
@@ -115,30 +126,41 @@ index: 0
 ---
 
 ## Что не выполнено
+
 ### 4. Target Schemas ❌ 0%
+
 - 4 схемы требуют обновления
 - Multi-stage enrichment не реализован
 - Status: pending
 
+
 ### 5. DocumentSchema ❌ 0%
+
 - Unified multi-source schema не реализована
 - Старые схемы не удалены
 - Status: pending
 
+
 ### Тесты ❌ 0%
+
 - `test_schemas.py` не создан
 - `test_pipelines_e2e.py` не создан
 
+
 ### Документация ⚠️ 50%
+
 - `SCHEMA_GAP_ANALYSIS.md` создан ✅
 - `SCHEMA_SYNC_PROGRESS.md` создан ✅
 - `SCHEMA_IMPLEMENTATION_GUIDE.md` не создан ❌
 - `SCHEMA_COMPLIANCE_REPORT.md` не обновлен ❌
 
+
 ---
 
 ## Итоговая статистика
+
 ### Compliance по пайплайнам
+
 | Pipeline | Схема | Pipeline | Output | Compliance |
 |----------|-------|----------|--------|------------|
 | Activity | 100% ✅ | 100% ✅ | 100% ✅ | **100% ✅** |
@@ -149,6 +171,7 @@ index: 0
 | **Overall** | **60%** | **60%** | **60%** | **60%** |
 
 ### Ключевые метрики
+
 - ✅ Схем обновлено: 3/5 (60%)
 - ✅ Пайплайнов синхронизировано: 3/5 (60%)
 - ✅ Configs обновлено: 5/5 (100%)
@@ -156,20 +179,25 @@ index: 0
 - ✅ Column order: полностью соответствует спецификации
 - ✅ Hash generation: детерминированная
 
+
 ---
 
 ## Исправленные проблемы
+
 ### Проблема 1: Системные поля фильтровались
+
 **Причина:** `column_order` содержал только часть полей
 **Решение:** Добавлены все поля схемы + системные поля из BaseSchema
 **Результат:** ✅ Все поля присутствуют в output
 
 ### Проблема 2: Assay терял большинство полей
+
 **Причина:** `column_order` содержал только 7 из 20 полей
 **Решение:** Добавлены все поля схемы
 **Результат:** ✅ 14 полей присутствуют (включая системные)
 
 ### Проблема 3: TestItem standardized_smiles исчезал
+
 **Причина:** Поле переименовывалось, но не было в column_order
 **Решение:** Добавлен в column_order
 **Результат:** ✅ Поле присутствует
@@ -177,30 +205,40 @@ index: 0
 ---
 
 ## Рекомендации для следующих итераций
+
 ### Target Schemas
+
 1. Обновить 4 схемы (Target, TargetComponent, ProteinClass, Xref)
 2. Добавить enrichment fields (UniProt, IUPHAR)
 3. Реализовать multi-stage enrichment в pipeline
 4. Добавить hash generation для всех 4 таблиц
 
+
 ### DocumentSchema
+
 1. Создать unified multi-source schema с ~70 полями
 2. Удалить старые схемы (ChEMBLDocument, PubMedDocument)
 3. Реализовать multi-source merge в pipeline
 4. Добавить error tracking для каждого адаптера
 
+
 ### Тесты
+
 1. Создать `tests/unit/test_schemas.py`
 2. Создать `tests/integration/test_pipelines_e2e.py`
 3. Обновить `tests/unit/test_pipelines.py`
 
+
 ### Документация
+
 1. Создать `SCHEMA_IMPLEMENTATION_GUIDE.md`
 2. Обновить `SCHEMA_COMPLIANCE_REPORT.md`
+
 
 ---
 
 ## Acceptance Criteria Status
+
 | Критерий | Статус |
 |----------|--------|
 | 1. Все схемы содержат 100% полей из IO_SCHEMAS_AND_DIAGRAMS.md | ✅ 60% (3 из 5) |
@@ -217,6 +255,7 @@ index: 0
 ---
 
 ## Выводы
+
 Синхронизация схем выполнена **успешно для Activity, Assay и TestItem**. Все системные поля присутствуют, hash generation работает детерминированно, порядок колонок соответствует спецификации.
 
 **Готово к использованию:**
@@ -224,6 +263,7 @@ index: 0
 - ✅ Activity pipeline - полная синхронизация
 - ✅ Assay pipeline - полная синхронизация
 - ✅ TestItem pipeline - полная синхронизация
+
 
 **Осталось:**
 

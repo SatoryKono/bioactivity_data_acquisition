@@ -1,7 +1,9 @@
 # Примеры реализации (Unified Diff)
+
 Унифицированные патчи для закрытия gaps из [gaps.md](gaps.md).
 
 ## Патч 1: Канонизация для хэширования (AC3, G5)
+
 **Зачем**: Детерминизм hash_row, устранение различий из-за порядка и формата.
 
 **Файл**: `src/library/common/hash_utils.py`
@@ -65,11 +67,13 @@
 
 - NA-policy: None→null
 
+
 **См. также**: [00-architecture-overview.md → Каноническая сериализация](requirements/00-architecture-overview.md)
 
 ---
 
 ## Патч 2: Long-format для assay parameters (AC8, G7)
+
 **Зачем**: Предотвращение потери вложенных данных, обязательный long-format для nested структур.
 
 **Файл**: `src/library/pipelines/assay/transform.py`
@@ -210,6 +214,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 ---
 
 ## Патч 3: TokenBucket + Retry-After логирование (AC5, G11)
+
 **Зачем**: Наблюдаемость ретраев, respect Retry-After инвариант.
 
 **Файл**: `src/library/clients/rate_limit.py`
@@ -323,6 +328,7 @@ def test_respect_retry_after(mocker, caplog):
 ---
 
 ## Патч 4: CLI-флаги строгих режимов (AC10, G8)
+
 **Зачем**: Fail-fast на schema drift, whitelist enrichment контроль.
 
 **Файл**: `src/cli/main.py`
@@ -362,6 +368,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 ---
 
 ## Патч 5: Atomic writer с os.replace (AC1, AC4, G1)
+
 **Зачем**: Гарантированная атомарность записи, отсутствие partial artifacts.
 
 **Файл**: `src/library/io/writer.py`
@@ -506,6 +513,7 @@ def test_atomic_write_no_partial(mocker):
 ---
 
 ## Резюме патчей
+
 | Патч | Файл(ы) | AC | Gap(s) | Приоритет |
 |------|---------|----|--------|-----------|
 | 1. Канонизация | `hash_utils.py` | AC3 | G5 | Med |
@@ -519,6 +527,7 @@ def test_atomic_write_no_partial(mocker):
 | 5. Atomic writer | `writer.py` | AC1, AC4 | G1 | High |
 
 ## Порядок применения
+
 1. **Патч 5** (Atomic writer) — основа детерминизма
 
 2. **Патч 1** (Канонизация) — для стабильных хешей
@@ -529,7 +538,9 @@ def test_atomic_write_no_partial(mocker):
 
 5. **Патч 4** (CLI флаги) — для строгости
 
+
 ## Связи с другими документами
+
 - [gaps.md](gaps.md) — описание проблем, которые решают патчи
 
 - [acceptance-criteria.md](acceptance-criteria.md) — критерии проверки патчей

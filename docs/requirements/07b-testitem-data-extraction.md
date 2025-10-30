@@ -1,6 +1,9 @@
 # Оптимальный подход к извлечению данных testitem из PubChem
+
 ## Executive Summary
+
 ### Обзор
+
 PubChem служит опциональным, но важным источником обогащения данных testitem (молекул) в ETL пайплайнах биоактивности. ChEMBL остаётся **primary источником**, а PubChem обеспечивает:
 
 - **Дополнительные структурные идентификаторы** (canonical SMILES, InChI, InChIKey)
@@ -11,7 +14,9 @@ PubChem служит опциональным, но важным источни�
 
 - **Cross-references** на другие базы данных
 
+
 ### Ключевые метрики успеха
+
 | Метрика | Target | Критичность |
 |---------|--------|-------------|
 | **CID resolution rate** | ≥85% | HIGH |
@@ -27,6 +32,7 @@ PubChem служит опциональным, но важным источни�
 | **Pipeline failure rate** | 0% (graceful degradation) | CRITICAL |
 
 ### Архитектурные принципы
+
 1. ✅ **Optional by Design** — PubChem enrichment никогда не блокирует pipeline
 
 2. ✅ **Graceful Degradation** — продолжение при любых PubChem сбоях
@@ -39,10 +45,13 @@ PubChem служит опциональным, но важным источни�
 
 6. ✅ **Monitor Actively** — сбор метрик для проактивного выявления проблем
 
+
 ---
 
 ## 2. Рекомендуемая архитектура (Best of Both Worlds)
+
 ### 2.1 Компонентная модель
+
 ```text
 
 ┌──────────────────────────────────────────────────────────────┐
@@ -111,7 +120,9 @@ PubChem служит опциональным, но важным источни�
 └──────────────────────────────────────────────────────────────┘
 
 ```
+
 ### 2.2 Ключевые преимущества объединённого подхода
+
 Оптимальное решение синтезирует лучшие практики из двух проектов:
 
 | Компонент | Источник | Преимущество |
@@ -129,6 +140,7 @@ PubChem служит опциональным, но важным источни�
 | **Graceful degradation** | Оба | Устойчивость: продолжение при сбоях |
 
 ### 2.3 Почему не использовать только один подход
+
 **Проект 1 (bioactivity_data_acquisition5):**
 
 - ✅ Простая архитектура, легко понять
@@ -142,6 +154,7 @@ PubChem служит опциональным, но важным источни�
 - ❌ Sequential processing → медленнее
 
 - ❌ Базовое error handling
+
 
 **Проект 2 (ChEMBL_data_acquisition6):**
 
@@ -157,12 +170,15 @@ PubChem служит опциональным, но важным источни�
 
 - ❌ Сложная конфигурация
 
+
 **Оптимальный подход:** лучшее из обоих миров.
 
 ---
 
 ## 3. PubChem API Integration
+
 ### 3.1 Используемые Endpoints
+
 PubChem PUG-REST API предоставляет несколько endpoints для работы с молекулами. Рекомендуемые endpoints с приоритизацией:
 
 | Endpoint | Назначение | Batch Support | Приоритет | Rate Limit |
@@ -178,6 +194,7 @@ PubChem PUG-REST API предоставляет несколько endpoints д�
 | `/compound/cid/{cid}/JSON` | Full record (fallback) | ❌ No | FALLBACK | 5 req/sec |
 
 #### 3.1.1 Properties Endpoint (Primary)
+
 **URL Pattern:**
 
 ```text
@@ -185,6 +202,7 @@ PubChem PUG-REST API предоставляет несколько endpoints д�
 https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properties}/JSON
 
 ```
+
 **Batch Example:**
 
 ```text
@@ -192,6 +210,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 /compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON
 
 ```
+
 **Response Structure:**
 
 ```json
@@ -213,9 +232,11 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 }
 
 ```
+
 **Max CIDs per batch:** 100 (рекомендуется для стабильности)
 
 #### 3.1.2 CID Resolution Endpoints
+
 **InChIKey Lookup:**
 
 ```text
@@ -224,6 +245,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 → {"IdentifierList": {"CID": [2244]}}
 
 ```
+
 **SMILES Lookup:**
 
 ```text
@@ -232,6 +254,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 → {"IdentifierList": {"CID": [2244]}}
 
 ```
+
 **Name Lookup:**
 
 ```text
@@ -240,7 +263,9 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 → {"IdentifierList": {"CID": [2244]}}
 
 ```
+
 ### 3.2 Рекомендуемый HTTP Client
+
 Оптимальный клиент объединяет лучшие практики из обоих проектов:
 
 ```python
@@ -721,7 +746,9 @@ class RateLimitError(Exception):
     pass
 
 ```
+
 ### 3.3 Rate Limiting Strategy
+
 PubChem имеет **soft limit 5 requests/second**. Превышение приводит к 429 responses.
 
 **Рекомендуемая стратегия:**
@@ -763,10 +790,13 @@ class RateLimiter:
             self.calls.append(monotonic())
 
 ```
+
 ---
 
 ## 4. Оптимальная стратегия поиска CID
+
 ### 4.1 Приоритизированный каскад
+
 CID (PubChem Compound ID) — это ключевой идентификатор для получения данных из PubChem. Стратегия поиска использует каскадный подход с приоритизацией источников:
 
 ```python
@@ -1044,7 +1074,9 @@ def _extract_cid_from_xrefs(molecule_data: dict[str, Any]) -> str | None:
     return None
 
 ```
+
 ### 4.2 Кэш-стратегия (гибрид проектов)
+
 Persistent CID cache (из проекта 2) с улучшениями:
 
 ```python
@@ -1282,6 +1314,7 @@ class PubChemCIDCache:
         }
 
 ```
+
 **Структура cache файла:**
 
 ```json
@@ -1314,10 +1347,13 @@ class PubChemCIDCache:
 }
 
 ```
+
 ---
 
 ## 5. Извлекаемые поля (Unified Schema)
+
 ### 5.1 Обязательные поля (Core Properties)
+
 Эти поля должны присутствовать для каждой успешно обогащённой молекулы:
 
 | Поле | Тип | Nullable | Validation | Описание |
@@ -1329,6 +1365,7 @@ class PubChemCIDCache:
 | `pubchem_inchi_key` | STRING | Yes | length: 27, format: `XXX-XXX-X` | InChI Key (standard hash) |
 
 ### 5.2 Опциональные поля (Extended Properties)
+
 Дополнительные поля для расширенной аннотации:
 
 | Поле | Тип | Nullable | Описание | Проект |
@@ -1341,6 +1378,7 @@ class PubChemCIDCache:
 | `pubchem_synonyms` | LIST[STRING] | Yes | List of synonyms | Проект 1 |
 
 ### 5.3 Metadata поля (Tracking & Audit)
+
 Системные поля для отслеживания процесса обогащения:
 
 | Поле | Тип | Nullable | Описание |
@@ -1351,6 +1389,7 @@ class PubChemCIDCache:
 | `pubchem_enrichment_attempt` | INT | No | Номер попытки обогащения (для retry tracking) |
 
 ### 5.4 Pandera Schema Definition
+
 ```python
 
 """Pandera schema for PubChem-enriched testitem data."""
@@ -1458,10 +1497,13 @@ class PubChemEnrichedTestitemSchema(pa.DataFrameModel):
         coerce = True   # Coerce types where possible
 
 ```
+
 ---
 
 ## 6. Реализация (Рекомендуемая архитектура)
+
 ### 6.1 Модульная структура
+
 Рекомендуемая организация кода для максимальной читаемости и тестируемости:
 
 ```text
@@ -1506,8 +1548,11 @@ library/
         └── pipeline.py              # Main pipeline orchestration
 
 ```
+
 ### 6.2 Ключевые функции (Implementation)
+
 #### 6.2.1 High-Level Orchestration
+
 ```python
 
 """Main PubChem enrichment orchestrator."""
@@ -1840,7 +1885,9 @@ class PubChemEnricher:
         return stats
 
 ```
+
 #### 6.2.2 Pipeline Integration
+
 ```python
 
 """Integration of PubChem enrichment into testitem pipeline."""
@@ -1935,10 +1982,13 @@ def enrich_testitem_with_pubchem(
         return testitem_df
 
 ```
+
 ---
 
 ## 7. Кэширование (Трёхуровневая стратегия)
+
 ### 7.1 Level 1: In-Memory TTL Cache (из проекта 2)
+
 **Назначение:** Кэширование HTTP responses в памяти для быстрого доступа
 
 **Характеристики:**
@@ -1952,6 +2002,7 @@ def enrich_testitem_with_pubchem(
 - **Thread-safe:** Да (threading.Lock)
 
 - **Persistence:** Нет
+
 
 **Реализация:**
 
@@ -1987,6 +2038,7 @@ class MemoryCacheLayer:
             }
 
 ```
+
 **Преимущества:**
 
 - ✅ Очень быстрый доступ (in-memory)
@@ -1995,13 +2047,16 @@ class MemoryCacheLayer:
 
 - ✅ Thread-safe
 
+
 **Недостатки:**
 
 - ❌ Не персистентен (теряется при рестарте)
 
 - ❌ Ограниченный размер
 
+
 ### 7.2 Level 2: Persistent CID Mapping (из проекта 2)
+
 **Назначение:** Долговременное хранение CID mappings
 
 **Характеристики:**
@@ -2015,6 +2070,7 @@ class MemoryCacheLayer:
 - **Atomic writes:** Да
 
 - **Compression:** Нет (читаемость важнее)
+
 
 **Cache structure:**
 
@@ -2049,6 +2105,7 @@ class MemoryCacheLayer:
 }
 
 ```
+
 **Cache key strategies:**
 
 | Key Type | Format | Example | Uniqueness |
@@ -2067,13 +2124,16 @@ class MemoryCacheLayer:
 
 - ✅ Метаданные для мониторинга
 
+
 **Недостатки:**
 
 - ❌ Медленнее чем in-memory
 
 - ❌ Требует disk I/O
 
+
 ### 7.3 Level 3: File-Based HTTP Cache (из проекта 1, опционально)
+
 **Назначение:** Отладка и аудит HTTP запросов
 
 **Характеристики:**
@@ -2085,6 +2145,7 @@ class MemoryCacheLayer:
 - **TTL:** Нет (manual cleanup)
 
 - **Organization:** По endpoint
+
 
 **Directory structure:**
 
@@ -2098,6 +2159,7 @@ data/cache/pubchem_http/
 └── ...
 
 ```
+
 **Преимущества:**
 
 - ✅ Полный аудит trail
@@ -2105,6 +2167,7 @@ data/cache/pubchem_http/
 - ✅ Легко инспектировать
 
 - ✅ Можно использовать для regression testing
+
 
 **Недостатки:**
 
@@ -2114,7 +2177,9 @@ data/cache/pubchem_http/
 
 - ❌ Медленный
 
+
 ### 7.4 Cache Invalidation Strategy
+
 ```python
 
 """Cache invalidation logic."""
@@ -2180,10 +2245,13 @@ def clean_expired_entries(
     return cleaned, expired_count
 
 ```
+
 ### 7.5 Cache Hit Rate Optimization
+
 **Strategies для увеличения cache hit rate:**
 
 1. **Multiple cache keys per molecule:**
+
 
 ```python
 
@@ -2198,7 +2266,9 @@ def clean_expired_entries(
        cache.set(key, cid)
 
 ```
+
 1. **Preemptive caching:**
+
 
 ```python
 
@@ -2208,7 +2278,9 @@ def clean_expired_entries(
        cache_all_identifiers(molecule_data, cid)
 
 ```
+
 1. **Cache warming:**
+
 
 ```python
 
@@ -2219,10 +2291,13 @@ def clean_expired_entries(
            resolve_and_cache(chembl_id)
 
 ```
+
 ---
 
 ## 8. Обработка ошибок (Resilience Patterns)
+
 ### 8.1 Иерархия обработки ошибок
+
 ```python
 
 """Comprehensive error handling for PubChem client."""
@@ -2506,7 +2581,9 @@ class PubChemErrorHandler:
             }
 
 ```
+
 ### 8.2 Graceful Degradation Matrix
+
 Таблица стратегий обработки для каждого типа ошибки:
 
 | Error Type | HTTP Code | Strategy | Retry? | Continue Pipeline? | Log Level |
@@ -2530,6 +2607,7 @@ class PubChemErrorHandler:
 | **Unknown** | Other | Skip molecule | ❌ No | ✅ Yes | ERROR |
 
 ### 8.3 Retry Logic with Exponential Backoff
+
 ```python
 
 """Retry logic with exponential backoff and jitter."""
@@ -2619,10 +2697,13 @@ def fetch_with_retry(cid: str, client: OptimalPubChemClient) -> dict:
     )
 
 ```
+
 ---
 
 ## 9. Performance Optimization
+
 ### 9.1 Batch Processing (проект 1 approach)
+
 **Концепция:** Группировка CIDs для единого API запроса
 
 **Implementation:**
@@ -2719,6 +2800,7 @@ def fetch_properties_optimized(
     return results
 
 ```
+
 **Performance comparison:**
 
 | Approach | 1000 molecules | Requests | Time (estimated) |
@@ -2730,6 +2812,7 @@ def fetch_properties_optimized(
 | **Speedup** | - | **100x fewer** | **100x faster** |
 
 ### 9.2 Parallel CID Resolution (проект 2 approach)
+
 **Концепция:** Параллельное разрешение CIDs через ThreadPoolExecutor
 
 **Implementation:**
@@ -2830,6 +2913,7 @@ def resolve_cids_parallel_optimized(
     return cid_mapping
 
 ```
+
 **Performance comparison:**
 
 | Workers | 1000 molecules | Time (estimated) | Speedup |
@@ -2845,7 +2929,9 @@ def resolve_cids_parallel_optimized(
 **Note:** 8+ workers не дают выигрыша из-за rate limit 5 req/sec.
 
 ### 9.3 Smart Caching Strategies
+
 #### 9.3.1 Cache Warming
+
 ```python
 
 """Pre-populate cache with common molecules."""
@@ -2911,7 +2997,9 @@ def warm_cache_with_common_molecules(
     return cached_count
 
 ```
+
 #### 9.3.2 Lazy Cache Persistence
+
 ```python
 
 """Lazy cache persistence to reduce I/O."""
@@ -2948,7 +3036,9 @@ class LazyPersistentCache(PubChemCIDCache):
             self.save(force=True)
 
 ```
+
 ### 9.4 Метрики производительности
+
 ```python
 
 """Performance metrics tracking."""
@@ -3093,6 +3183,7 @@ class PerformanceTracker:
         return self.metrics
 
 ```
+
 **Target performance metrics:**
 
 ```yaml
@@ -3130,15 +3221,20 @@ performance_targets:
   timeout_rate: 0.01                # Max 1% timeouts
 
 ```
+
 ---
 
 ## 10. Конфигурация
+
 ### 10.1 Базовый стандарт
+
 - Используется единый шаблон `configs/base.yaml` и стандарты из `docs/requirements/10-configuration.md`.
 
 - Профиль testitem подключается через `configs/pipelines/testitem.yaml` (`extends: "../base.yaml"`).
 
+
 ### 10.2 Расширение PubChem
+
 | Путь | Значение по умолчанию | Ограничения | Назначение |
 |------|-----------------------|-------------|------------|
 | `sources.pubchem.enabled` | `true` | Можно отключить только через CLI/env | Фича-флаг enrichment. |
@@ -3150,6 +3246,7 @@ performance_targets:
 | `postprocess.qc.pubchem_min_enrichment_rate` | `0.70` | `0–1` | Генерирует предупреждение при деградации. |
 
 ### 10.3 Переопределения
+
 - **CLI:**
   - `--set sources.pubchem.enabled=false` — отключить обогащение.
   - `--set sources.pubchem.performance.workers=2` — снизить параллельность в тестовом окружении.
@@ -3159,46 +3256,60 @@ performance_targets:
   - `BIOETL_SOURCES__PUBCHEM__API_KEY=<secret>` — привязка к приватному ключу (используется в client).
   - `BIOETL_SOURCES__PUBCHEM__CACHE__CID_MAPPING__PATH=/mnt/cache/pubchem_cid_cache.json` — переопределение пути.
 
+
 ### 10.4 Валидация
+
 - Проверка конфигурации осуществляется моделью `PipelineConfig` (см. §4 `10-configuration`).
 
 - Дополнительные валидаторы: `sources.pubchem.http.headers.User-Agent` должен содержать контактный email; проверяется функцией `validate_pubchem_headers()` внутри загрузчика.
 
 - Нарушения лимитов (`batch.size > 100`, `rate_limit.max_requests > 5`) считаются фатальными ошибками конфигурации.
 
+
 ## Заключение
+
 Этот документ описывает **оптимальный подход** к извлечению данных testitem из PubChem API, объединяя лучшие практики из двух существующих проектов:
 
 ### Ключевые рекомендации
+
 #### 1. Используйте Batch API (из проекта 1)
+
 - 100x меньше запросов
 
 - Значительное ускорение обработки
 
 - Автоматический fallback на individual requests
 
+
 #### 2. Реализуйте Multi-Level Caching (из проекта 2)
+
 - In-memory cache для скорости
 
 - Persistent CID cache для долговременного хранения
 
 - File cache для отладки (опционально)
 
+
 #### 3. Применяйте Parallel Processing (из проекта 2)
+
 - 4 workers для CID resolution
 
 - ThreadPoolExecutor для максимальной производительности
 
 - Соблюдение rate limits
 
+
 #### 4. Обеспечьте Graceful Degradation (оба проекта)
+
 - PubChem всегда опционален
 
 - Продолжение pipeline при любых сбоях
 
 - Детальное логирование для диагностики
 
+
 #### 5. Мониторьте активно
+
 - Enrichment rate ≥80%
 
 - Cache hit rate ≥60%
@@ -3207,7 +3318,9 @@ performance_targets:
 
 - Error rate <2%
 
+
 ### Сравнение проектов
+
 | Feature | Проект 1 | Проект 2 | Рекомендация |
 |---------|----------|----------|--------------|
 | **Batch API** | ✅ | ❌ | ✅ Использовать |
@@ -3223,6 +3336,7 @@ performance_targets:
 | **Telemetry** | ⚠️ | ✅ | ✅ Использовать |
 
 ### Целевые метрики
+
 ```yaml
 
 target_performance:
@@ -3245,14 +3359,18 @@ target_performance:
   properties_fetch_duration: 60   # 1 minute
 
 ```
+
 ### Следующие шаги
+
 1. **Для проекта 1:** Добавить persistent cache и parallel processing
 
 2. **Для проекта 2:** Добавить batch API calls и упростить конфигурацию
 
 3. **Для нового проекта:** Использовать этот документ как reference implementation
 
+
 ### Ссылки на исходный код
+
 **Проект 1 (bioactivity_data_acquisition5):**
 
 - `src/library/clients/pubchem.py` - HTTP client с batch support
@@ -3261,6 +3379,7 @@ target_performance:
 
 - `configs/pipelines/testitem.yaml` - Configuration
 
+
 **Проект 2 (ChEMBL_data_acquisition6):**
 
 - `library/clients/pubchem.py` - Low-level client
@@ -3268,6 +3387,7 @@ target_performance:
 - `library/pipelines/testitem/pubchem.py` - Pipeline integration
 
 - `config/config.yaml` - Configuration
+
 
 ---
 

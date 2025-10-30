@@ -1,29 +1,10 @@
 {
   "plugins": {
     "md013": {
-      "line_length": 120,
-      "code_block_line_length": 120,
-      "code_blocks": true,
-      "tables": false
-    }
-  }
-}
-
-{
-  "plugins": {
-    "md013": {
       "enabled": false
+    },
+    "md033": {
+      "enabled": true
     }
   }
 }
-{
-  "plugins": {},
-  "extensions": {},
-  "md013": {
-    "line_length": 9999,
-    "code_block_line_length": 9999,
-    "tables": false
-  }
-}
-
-

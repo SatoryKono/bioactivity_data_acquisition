@@ -1,27 +1,35 @@
 # 9. Извлечение метаданных документов из ChEMBL API
+
 **Версия:** 1.1
 **Дата:** 2025-01-28
 **Автор:** Data Acquisition Team
 
 ## 0. Цели, охват, ограничения
+
 ### Цель
+
 Детерминированно извлекать, нормализовать и валидировать метаданные публикаций (documents) из ChEMBL; опционально обогащать данными из PubMed/OpenAlex/Crossref/Semantic Scholar; обеспечить полную трассировку, QC метрики и атомарную запись артефактов.
 
 ### Охват
+
 - **Режим `chembl`**: извлечение только из ChEMBL API
 
 - **Режим `all`**: ChEMBL + внешние источники (PubMed, Crossref, OpenAlex, Semantic Scholar)
 
 - Внешние адаптеры со спецификациями в разделах 8-11
 
+
 ### Ограничения
+
 - Не выдумывать эндпоинты ChEMBL
 
 - Любая неуверенность помечается `uncertain:` с конкретным curl для проверки
 
 - Использовать только подтверждённые поля API
 
+
 ### Нон-цели
+
 - Парсинг полнотекстов статей
 
 - Дедупликация статей вне ChEMBL-ID/PMID/DOI
@@ -30,7 +38,9 @@
 
 - Анализ цитирований (базовая поддержка через Semantic Scholar)
 
+
 ## 1. Архитектура и поток данных
+
 ```mermaid
 
 flowchart LR
@@ -48,7 +58,9 @@ flowchart LR
   K --> D
 
 ```
+
 ### Компоненты
+
 **Extract Stage:**
 
 - ChEMBL Client (batch retrieval с recursive split)
@@ -59,6 +71,7 @@ flowchart LR
 
 - Fallback manager
 
+
 **Transform Stage:**
 
 - Normalize: DOI, PMID, year, authors, journal
@@ -66,6 +79,7 @@ flowchart LR
 - Enrich: адаптеры для PubMed/OpenAlex/Crossref/S2
 
 - Merge: field-level precedence
+
 
 **Validate Stage:**
 
@@ -75,6 +89,7 @@ flowchart LR
 
 - Conflict detection
 
+
 **Load Stage:**
 
 - Atomic writer (run_id-scoped temp dirs)
@@ -83,14 +98,19 @@ flowchart LR
 
 - Metadata builder (full provenance)
 
+
 ## 2. API ChEMBL: контракты и проверка
+
 ### Base URL
+
 ```text
 
 https://www.ebi.ac.uk/chembl/api/data
 
 ```
+
 ### Ресурс документов
+
 **Endpoint:** `GET /document.json`
 
 **Параметры:**
@@ -103,7 +123,9 @@ https://www.ebi.ac.uk/chembl/api/data
 
 - `format`: "json" (рекомендуется)
 
+
 ### ⚠️ TODO: Подтверждение полей `/document.json` (AUD-1)
+
 **Проблема:**
 
 Требуется подтверждение доступных полей в ответе `/document.json` при батчевом запросе `document_chembl_id__in`. Неизвестно, совпадает ли набор полей с single-record endpoint.
@@ -115,7 +137,9 @@ https://www.ebi.ac.uk/chembl/api/data
 curl -sS "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50"
 
 ```
+
 ### Фиксация релиза БД
+
 ```bash
 
 curl -sS "https://www.ebi.ac.uk/chembl/api/data/status.json"
@@ -131,7 +155,9 @@ curl -sS "https://www.ebi.ac.uk/chembl/api/data/status.json"
 
 - Блокировать дальнейшие запросы при смене релиза
 
+
 ### Пагинация
+
 **Дефолт:** limit=20, offset=0
 
 **page_meta в ответе:**
@@ -148,17 +174,22 @@ curl -sS "https://www.ebi.ac.uk/chembl/api/data/status.json"
 }
 
 ```
+
 ## 3. Вход, батчинг и устойчивость
+
 ### 3.1 Входные данные
+
 **Минимальные требования:**
 
 - `document_chembl_id` (строка, regex `^CHEMBL\d+$`, уникальная)
+
 
 **Фильтрация:**
 
 - Пустые строки, `#N/A`, невалидные ID → отфильтровать до вызова API
 
 - Сохранить `rejected_input.csv` с причинами отклонения
+
 
 **Pandera InputSchema:**
 
@@ -177,7 +208,9 @@ class DocumentInputSchema(pa.DataFrameModel):
         coerce = True
 
 ```
+
 ### 3.2 Батчинг
+
 **Параметры:**
 
 - `chunk_size` по умолчанию: 10
@@ -185,6 +218,7 @@ class DocumentInputSchema(pa.DataFrameModel):
 - **Максимальный размер батча: 25 ID** (жёсткое ограничение)
 
 - URL length limit: 8000 символов (порог для переключения на POST)
+
 
 **POST override стратегия:**
 При `len(ids) > 25` или риске `414 URI Too Long` (URL > 8000 символов) выполняется:
@@ -194,6 +228,7 @@ class DocumentInputSchema(pa.DataFrameModel):
 - Параметр `document_chembl_id__in` передаётся в теле запроса
 
 - При ошибках применяется recursive split до единичных ID
+
 
 **Алгоритм динамической подстройки:**
 
@@ -243,12 +278,15 @@ def _fetch_documents_chunk(
     return [_normalise_document_record(item) for item in items if isinstance(item, Mapping)]
 
 ```
+
 ### 3.3 Таймауты, ретраи, троттлинг
+
 **Таймауты:**
 
 - Connect: 10 секунд
 
 - Read: 30 секунд
+
 
 **Ретраи:**
 
@@ -257,6 +295,7 @@ def _fetch_documents_chunk(
 - Backoff: экспоненциальный с jitter (initial=0.5s, max=8s)
 
 - Перехват: 408/429/5xx, сетевые исключения
+
 
 **429 обработка:**
 
@@ -342,8 +381,11 @@ logger.error("circuit_breaker_triggered", cb_state=state, cb_failures=failure_co
 }
 
 ```
+
 ## 4. Схема данных ChEMBL и нормализация
+
 ### 4.1 Целевые поля из ChEMBL
+
 | Поле | Тип | Nullable | Описание |
 |------|-----|----------|----------|
 | `document_chembl_id` | StringDtype | NO | PRIMARY KEY |
@@ -366,6 +408,7 @@ logger.error("circuit_breaker_triggered", cb_state=state, cb_failures=failure_co
 Наличие полей `journal_abbrev` и полей пагинации (`page_meta`) требует подтверждения через curl. См. curl команды в разделе выше (§2).
 
 ### 4.2 FIELD_MAPPING (расширенный с внешними источниками)
+
 | Источник | Поле | Normalized Field | Нормализация |
 |---------|------|------------------|--------------|
 | ChEMBL | `document_chembl_id` | `document_chembl_id` | Без изменений |
@@ -398,7 +441,9 @@ logger.error("circuit_breaker_triggered", cb_state=state, cb_failures=failure_co
 | - | - | `source` | Constant "ChEMBL" |
 
 ### 4.3 Нормализация (детерминированная)
+
 #### DOI нормализация
+
 ```python
 
 def normalize_doi(doi: str | None) -> tuple[str, bool]:
@@ -431,7 +476,9 @@ def normalize_doi(doi: str | None) -> tuple[str, bool]:
 
 - `qc_flag_invalid_doi`: 1 если невалидный
 
+
 #### PMID нормализация
+
 ```python
 
 def coerce_pmid(value: Any) -> pd.Int64Dtype | None:
@@ -444,7 +491,9 @@ def coerce_pmid(value: Any) -> pd.Int64Dtype | None:
         return None
 
 ```
+
 #### Year нормализация
+
 ```python
 
 def normalize_year(value: Any) -> tuple[int | None, bool]:
@@ -462,6 +511,7 @@ def normalize_year(value: Any) -> tuple[int | None, bool]:
 **QC флаг:** `qc_flag_out_of_range_year=1` если year вне диапазона.
 
 #### Authors нормализация
+
 ```python
 
 def normalize_authors(authors: Any, separator: str = ", ") -> tuple[str, int]:
@@ -493,7 +543,9 @@ def normalize_authors(authors: Any, separator: str = ", ") -> tuple[str, int]:
 
 - `authors_count`: количество авторов
 
+
 #### Journal нормализация
+
 ```python
 
 def normalize_journal(value: Any, max_len: int = 255) -> str:
@@ -505,7 +557,9 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
     return text[:max_len] if len(text) > max_len else text
 
 ```
+
 ### NA политика
+
 - Пустые строки → `pd.NA`
 
 - Сериализация в CSV: пустыми строками (`na_rep=""`)
@@ -514,8 +568,11 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
 
 - Сериализация: пустыми строками
 
+
 ## 5. Режимы работы пайплайна
+
 ### 5.1 Режим `chembl`
+
 **Вход:** `document_chembl_id`
 
 **Процесс:**
@@ -530,6 +587,7 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
 
 5. Атомарная запись (§18)
 
+
 **Выход:**
 
 - Базовый набор полей ChEMBL (14 колонок)
@@ -538,19 +596,24 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
 
 - QC отчёт
 
+
 ### 5.2 Режим `all`
+
 **Вход:** `document_chembl_id`
 
 **Процесс:**
 
 1. **Извлечение ChEMBL:**
 
+
 ```python
 
    chembl_df = get_documents(document_ids, cfg=cfg, client=client)
 
 ```
+
 1. **Извлечение ключей обогащения:**
+
 
 ```python
 
@@ -558,7 +621,9 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
    dois = chembl_df["doi_clean"].dropna().tolist()
 
 ```
+
 1. **Вызов адаптеров** (каждый независимо):
+
 
 ```python
 
@@ -568,14 +633,18 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
    scholar_df = fetch_semantic_scholar(pmids)
 
 ```
+
 1. **Merge field-level с приоритетами** (§12)
 
 2. **Валидация и QC**
 
 3. **Атомарная запись**
 
+
 ## 6. Интеграция с внешними адаптерами (обновлено)
+
 ### Контракты вызова
+
 **PubMed (§8):**
 
 ```python
@@ -667,7 +736,9 @@ def fetch_semantic_scholar(
 
 - `PubMed.ArticleTitle`, `PubMed.Abstract`, etc.
 
+
 ### Стриминг для больших наборов
+
 ```python
 
 with tempfile.TemporaryDirectory(prefix="chembl_metadata_") as tmp_dir:
@@ -704,7 +775,9 @@ with tempfile.TemporaryDirectory(prefix="chembl_metadata_") as tmp_dir:
     merged = merge_with_chembl(chembl_df, metadata_iterators)
 
 ```
+
 ### Fallback по DOI
+
 Если нет PMID, использовать `doi_clean` для Crossref/OpenAlex/S2:
 
 ```python
@@ -725,11 +798,15 @@ if not doc_df.empty and "doi_clean" in doc_df.columns:
         )
 
 ```
+
 ### Обработка ошибок
+
 Все внешние вызовы → retry/backoff, троттлинг, логирование аналогично ChEMBL (§3.3). Детали в разделах 8-11.
 
 ## 7. Обработка ошибок и устойчивость
+
 ### ERROR MATRIX (расширенный)
+
 | Код | Условие | Действие | Retry | Log Fields |
 |-----|---------|----------|-------|------------|
 | `E_HTTP_429` | ChEMBL 429 | Sleep by Retry-After, retry | YES | endpoint, retry_after, attempt |
@@ -752,6 +829,7 @@ if not doc_df.empty and "doi_clean" in doc_df.columns:
 | `E_S2_QUOTA_EXCEEDED` | S2 quota exceeded | Wait until reset | YES | quota_info |
 
 ### Fallback строки
+
 При невосстановимой ошибке для chunk:
 
 ```python
@@ -773,7 +851,9 @@ def create_fallback_row(
     return row
 
 ```
+
 ### Классификация ошибок
+
 ```python
 
 def classify_error(exc: Exception) -> tuple[str, bool]:
@@ -791,7 +871,9 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
     return "E_UNKNOWN", False
 
 ```
+
 ### Централизованное логирование ошибок
+
 ```json
 
 {
@@ -805,8 +887,11 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
 }
 
 ```
+
 ## 8. PubMed E-utilities API
+
 ### 8.1 Политика NCBI и обязательные параметры
+
 **Обязательные параметры запросов:**
 
 - `tool=<our_app>` — идентификация приложения (обязательно)
@@ -815,9 +900,11 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
 
 - `api_key=<key>` — для увеличения лимита до 10 rps (опционально)
 
+
 **Без этих параметров прилетит блокировка от NCBI!**
 
 ### 8.2 E-utilities endpoints
+
 **ESearch - поиск по условиям:**
 
 ```text
@@ -885,7 +972,9 @@ dbfrom=pubmed&linkname=pubmed_pmc&id=<PMIDs>  # PMCID маппинг
 dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список референсов
 
 ```
+
 ### 8.3 History Server
+
 Использование: `ESearch/EPost → WebEnv + query_key → EFetch`
 
 **Преимущества:**
@@ -896,10 +985,13 @@ dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список рефер�
 
 - Пагинация через `retstart`/`retmax`
 
+
 ### 8.4 Rate limiting
+
 - **Без API ключа**: 3 запроса/секунду
 
 - **С API ключом**: 10 запросов/секунду
+
 
 **Стратегия:**
 
@@ -909,14 +1001,18 @@ dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список рефер�
 
 - Exponential backoff с jitter при 429 ошибках
 
+
 ### 8.5 Batch size
+
 - **Рекомендация**: 200 UID в EFetch
 
 - **Допустимо**: несколько сотен за один EFetch
 
 - **Обязательно POST**: при >200 UID
 
+
 ### 8.6 Парсинг XML (DTD-осознанная выборка полей)
+
 **XML структура (PubMed DTD):**
 Корень: `PubmedArticleSet` → `PubmedArticle` → `MedlineCitation` + `PubmedData`
 
@@ -946,6 +1042,7 @@ dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список рефер�
 
 - `PubMed.Year/Month/Day` → `//Article/Journal/JournalIssue/PubDate/*`
 
+
 **DOI - приоритеты извлечения:**
 
 Два источника в XML (согласно DTD):
@@ -953,6 +1050,7 @@ dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список рефер�
 1. **Приоритетный**: `//PubmedData/ArticleIdList/ArticleId[@IdType='doi']`
 
 2. **Fallback**: `//Article/ELocationID[@EIdType='doi']`
+
 
 Фиксируем источник в поле `doi_source` для трейсабилити.
 
@@ -965,12 +1063,14 @@ dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список рефер�
 
 - `Identifier[@Source='ORCID']` (если есть)
 
+
 **MeSH терминология:**
 `//MeshHeadingList/MeshHeading`:
 
 - `DescriptorName[@UI, @MajorTopicYN]`
 
 - `QualifierName[@UI]`
+
 
 **Химические вещества:**
 `//ChemicalList/Chemical`:
@@ -979,7 +1079,9 @@ dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список рефер�
 
 - `RegistryNumber` (CAS номер)
 
+
 ### 8.7 Нормализация
+
 ```python
 
 def normalize_pubmed_date(year, month, day):
@@ -990,12 +1092,15 @@ def normalize_pubmed_date(year, month, day):
     return f"{year}-{month}-{day}"
 
 ```
+
 ### 8.8 Обработка ошибок
+
 **404 Not Found для PMID:**
 
 - Создать "tombstone" запись: `{pmid, error="NotFound", fetched_at}`
 
 - Продолжить обработку остальных
+
 
 **Timeout / 5xx ошибки:**
 
@@ -1005,6 +1110,7 @@ def normalize_pubmed_date(year, month, day):
 
 - Финальный fallback в error записи
 
+
 **Malformed XML:**
 
 - Сохранить сырой батч в `landing/`
@@ -1013,8 +1119,11 @@ def normalize_pubmed_date(year, month, day):
 
 - Записать в `qc/pubmed/errors.csv`
 
+
 ## 9. Crossref REST API
+
 ### 9.1 Polite Pool vs Public Pool
+
 **Public Pool (без идентификации):**
 
 - Rate limit: ~50 запросов/секунду
@@ -1022,6 +1131,7 @@ def normalize_pubmed_date(year, month, day):
 - Нестабильная производительность
 
 - Может тротлиться при высокой нагрузке
+
 
 **Polite Pool (рекомендуется):**
 
@@ -1031,6 +1141,7 @@ def normalize_pubmed_date(year, month, day):
 
 - Стабильная производительность
 
+
 **Crossref Plus (с API токеном):**
 
 - Требует регистрацию и токен
@@ -1039,7 +1150,9 @@ def normalize_pubmed_date(year, month, day):
 
 - Увеличенные лимиты
 
+
 ### 9.2 REST API endpoints
+
 **GET /works/{doi} - извлечение по одному DOI:**
 
 ```bash
@@ -1069,7 +1182,9 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=*"
 curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/..."
 
 ```
+
 ### 9.3 Rate limiting
+
 **Наша стратегия (консервативная):**
 
 - **По умолчанию**: 2 запроса/секунду (polite pool)
@@ -1080,7 +1195,9 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/.
 
 - **Timeout**: connect 10s, read 30s
 
+
 ### 9.4 Извлекаемые поля
+
 ```json
 
 {
@@ -1108,7 +1225,9 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/.
 }
 
 ```
+
 ### 9.5 Приоритеты дат
+
 **Порядок предпочтения:**
 
 1. `published-print.date-parts` — дата печатной версии (приоритет)
@@ -1119,7 +1238,9 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/.
 
 4. `created.date-parts` — дата создания записи в Crossref
 
+
 ### 9.6 ISSN нормализация (Print vs Electronic)
+
 ```python
 
 def extract_issn(record):
@@ -1148,7 +1269,9 @@ def extract_issn(record):
     return issn_data
 
 ```
+
 ### 9.7 ORCID нормализация
+
 ```python
 
 def normalize_orcid(orcid_value):
@@ -1165,13 +1288,16 @@ def normalize_orcid(orcid_value):
     return None
 
 ```
+
 ### 9.8 Обработка ошибок
+
 **404 Not Found:** Tombstone запись
 **400 Bad Request:** Валидация DOI перед запросом
 **503 Service Unavailable:** Retry с exponential backoff
 **429 Rate Limiting:** Exponential backoff с jitter
 
 ### 9.9 Лицензирование
+
 Crossref metadata под CC0 (public domain):
 
 - Можно использовать свободно
@@ -1180,8 +1306,11 @@ Crossref metadata под CC0 (public domain):
 
 - Ссылка на Terms of Use обязательна
 
+
 ## 10. OpenAlex Works API
+
 ### 10.1 Open Data политика
+
 OpenAlex — полностью открытый сервис:
 
 - ✅ **Бесплатный**: нет API ключей
@@ -1192,7 +1321,9 @@ OpenAlex — полностью открытый сервис:
 
 - ✅ **Публичный код**: GitHub repository
 
+
 ### 10.2 API endpoints
+
 **GET /works/{work_id} - извлечение по OpenAlex ID:**
 
 ```bash
@@ -1236,7 +1367,9 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=*"
 curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=MjAyM..."
 
 ```
+
 ### 10.3 Rate limiting
+
 **Официальные рекомендации:**
 
 - Не более 100K запросов/день на IP
@@ -1244,6 +1377,7 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=Mj
 - Минимум 100ms между запросами
 
 - Не использовать параллельные запросы в агрессивном режиме
+
 
 **Наша стратегия:**
 
@@ -1253,7 +1387,9 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=Mj
 
 - Exponential backoff при any errors
 
+
 ### 10.4 Извлекаемые поля
+
 ```json
 
 {
@@ -1282,13 +1418,17 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=Mj
 }
 
 ```
+
 ### 10.5 OA статус детализация
+
 Возможные значения: `gold`, `green`, `hybrid`, `bronze`, `closed`
 
 ### 10.6 Concepts и Subject Areas
+
 Извлекаем топ-3 концепта по score для поля `concepts_top3`.
 
 ### 10.7 Title-based поиск (fallback)
+
 ```python
 
 def search_by_title(title, fuzzy=True):
@@ -1308,7 +1448,9 @@ def search_by_title(title, fuzzy=True):
     return exact_results
 
 ```
+
 ### 10.8 Нормализация
+
 ```python
 
 def normalize_openalex_id(openalex_url):
@@ -1322,13 +1464,17 @@ def normalize_openalex_id(openalex_url):
     return match.group(1) if match else None
 
 ```
+
 ### 10.9 Обработка ошибок
+
 **404 Not Found:** Work не существует, fallback
 **429 Too Many Requests:** Retry with delay
 **5xx Server Errors:** Retry с exponential backoff
 
 ## 11. Semantic Scholar Graph API
+
 ### 11.1 API Key requirement
+
 **Базовый (без API ключа):**
 
 - 100 запросов/5 минут
@@ -1336,6 +1482,7 @@ def normalize_openalex_id(openalex_url):
 - 100K запросов/месяц на email
 
 - Rate limit: ~0.33 requests/секунду
+
 
 **Premium (с API ключом):**
 
@@ -1345,9 +1492,11 @@ def normalize_openalex_id(openalex_url):
 
 - Rate limit: ~16 requests/секунду
 
+
 **API key обязателен для production использования!**
 
 ### 11.2 Rate limiting
+
 **Наша стратегия (консервативная):**
 
 - **По умолчанию**: 0.8 requests/секунду (1.25s между запросами)
@@ -1358,7 +1507,9 @@ def normalize_openalex_id(openalex_url):
 
 - **Timeout**: 30s
 
+
 ### 11.3 API endpoints
+
 **GET /graph/v1/paper/{paper_id} - извлечение по ID:**
 
 ```bash
@@ -1375,6 +1526,7 @@ curl "https://api.semanticscholar.org/graph/v1/paper/10.1371/journal.pone.000000
 
 - ArXiv: `arXiv:1234.5678`
 
+
 **Search API (для title fallback):**
 
 ```bash
@@ -1383,7 +1535,9 @@ curl "https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&
   -H "x-api-key: <your_key>"
 
 ```
+
 ### 11.4 Извлекаемые поля
+
 ```json
 
 {
@@ -1406,7 +1560,9 @@ curl "https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&
 }
 
 ```
+
 ### 11.5 Citation metrics
+
 Уникальные метрики Semantic Scholar:
 
 - `citation_count`: общее количество цитирований
@@ -1415,7 +1571,9 @@ curl "https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&
 
 - `reference_count`: количество референсов
 
+
 ### 11.6 Title-based поиск (critical fallback)
+
 ```python
 
 def search_by_title(title, max_results=10):
@@ -1439,7 +1597,9 @@ def search_by_title(title, max_results=10):
 
 - Validate year match if available
 
+
 ### 11.7 Нормализация publication types
+
 ```python
 
 def normalize_publication_types(types_list):
@@ -1451,7 +1611,9 @@ def normalize_publication_types(types_list):
     return normalized
 
 ```
+
 ### 11.8 Обработка Access Denied
+
 ```python
 
 def handle_access_denied(error_response, attempt):
@@ -1467,7 +1629,9 @@ def handle_access_denied(error_response, attempt):
     return False
 
 ```
+
 ### 11.9 Лицензирование
+
 ⚠️ **Важно:** Semantic Scholar Metadata License
 
 - Non-commercial use OK
@@ -1478,10 +1642,13 @@ def handle_access_denied(error_response, attempt):
 
 - Terms: <https://www.semanticscholar.org/product/api/api-terms-of-use>
 
+
 **В production:** проконсультироваться с юристами!
 
 ## 12. Интеграция и Merge Strategy (расширенный)
+
 ### 12.1 Последовательность вызовов адаптеров
+
 ```python
 
 # 1. Извлечение из ChEMBL
@@ -1513,7 +1680,9 @@ merged_df = merge_with_precedence(
 )
 
 ```
+
 ### 12.2 Fallback цепочки
+
 **Для идентификаторов:**
 
 - PMID → DOI → title search (OpenAlex/S2)
@@ -1522,7 +1691,9 @@ merged_df = merge_with_precedence(
 
 - Если нет DOI, использовать title search только в OpenAlex/S2
 
+
 ### 12.3 Field-level merge с детальными приоритетами
+
 | Поле | Приоритет (слева → справа) | Источники | Обоснование |
 |------|---------------------------|-----------|-------------|
 | `title` | PubMed > ChEMBL > OpenAlex > Crossref > S2 | 5 | PubMed структурированный для биомеда |
@@ -1550,6 +1721,7 @@ merged_df = merge_with_precedence(
 | `chemicals` | PubMed | 1 | PubMed CAS номера |
 
 ### 12.3.1 Merge-precedence enforcement
+
 **Правила разрешения конфликтов:**
 
 - При наличии значения из нескольких источников используется приоритет из таблицы 12.3
@@ -1559,6 +1731,7 @@ merged_df = merge_with_precedence(
 - При конфликтах DOI/PMID выставляются флаги `conflict_doi` / `conflict_pmid`
 
 - Все варианты значений сохраняются в audit trail для трассировки
+
 
 **Пример:**
 
@@ -1580,7 +1753,9 @@ df["doi_clean_source"] = "Crossref"
 df["conflict_doi"] = True
 
 ```
+
 ### 12.4 Алгоритм choose_field
+
 ```python
 
 def choose_field(row, field_name: str, precedence: list[str]):
@@ -1605,10 +1780,13 @@ merged_df = merged_df.apply(
 )
 
 ```
+
 ### 12.5 Прозрачность источников
+
 Для полей `title`, `abstract`, `journal`, `authors`, `issn_print`, `issn_electronic` добавить `*_source` с именем источника.
 
 ### 12.6 Конфликты DOI/PMID
+
 ```python
 
 def detect_conflicts(row):
@@ -1641,7 +1819,9 @@ def detect_conflicts(row):
     return row
 
 ```
+
 ### 12.7 Стриминг для больших наборов
+
 ```python
 
 with tempfile.TemporaryDirectory(prefix="chembl_enrichment_") as tmp_dir:
@@ -1690,7 +1870,9 @@ with tempfile.TemporaryDirectory(prefix="chembl_enrichment_") as tmp_dir:
     merged_df = pd.concat(merged_chunks, ignore_index=True)
 
 ```
+
 ### 12.8 Параллельный вызов адаптеров
+
 **Workers и timeouts:**
 
 ```python
@@ -1733,11 +1915,15 @@ with ThreadPoolExecutor(max_workers=workers) as executor:
             results[name] = pd.DataFrame()
 
 ```
+
 ## 13. Приоритеты источников и разрешение конфликтов
+
 ### 13.1 Матрица приоритетов по полям
+
 См. раздел 12.3 — полная таблица с обоснованиями.
 
 ### 13.2 Конфликты метаданных
+
 **DOI mismatch:**
 
 - Сравнение всех источников с DOI
@@ -1745,6 +1931,7 @@ with ThreadPoolExecutor(max_workers=workers) as executor:
 - Флаг `conflict_doi=True` если найдены расхождения
 
 - Логирование всех вариантов для audit
+
 
 **PMID mismatch:**
 
@@ -1754,6 +1941,7 @@ with ThreadPoolExecutor(max_workers=workers) as executor:
 
 - QC отчёт включает все случаи
 
+
 **Year conflicts:**
 
 - Диапазон 1500-2100
@@ -1762,7 +1950,9 @@ with ThreadPoolExecutor(max_workers=workers) as executor:
 
 - Log для investigation
 
+
 ### 13.3 Стратегии разрешения
+
 ```python
 
 def resolve_field_conflict(row, field_name: str, precedence: list[str]):
@@ -1800,7 +1990,9 @@ def resolve_field_conflict(row, field_name: str, precedence: list[str]):
     return None, None
 
 ```
+
 ### 13.4 Quality scoring
+
 ```python
 
 def score_source_quality(source: str, field: str, value: Any) -> float:
@@ -1831,7 +2023,9 @@ def score_source_quality(source: str, field: str, value: Any) -> float:
     return 0.5
 
 ```
+
 ### 13.5 Audit trail
+
 **Сохранение всех вариантов:**
 
 ```python
@@ -1854,8 +2048,11 @@ for field in ["doi_clean", "pubmed_id", "year"]:
 row["audit_trail"] = json.dumps(audit_trail, sort_keys=True)
 
 ```
+
 ## 14. Детерминизм, метаданные и кэш
+
 ### 14.1 Сортировка финальная
+
 ```python
 
 sort_by = ["document_chembl_id", "pubmed_id", "doi_clean"]
@@ -1871,7 +2068,9 @@ df_sorted = df.sort_values(
 )
 
 ```
+
 ### 14.2 COLUMN_ORDER (расширенный)
+
 ```python
 
 COLUMN_ORDER = [
@@ -1956,7 +2155,9 @@ for col, dtype in DTYPES_CONFIG.items():
 assert not any(df_final.dtypes == "object"), "Object dtypes forbidden"
 
 ```
+
 ### 14.3 Хеши
+
 **hash_business_key:**
 
 ```python
@@ -2036,7 +2237,9 @@ def compute_hash_row(row: pd.Series) -> str:
 df["hash_row"] = df.apply(compute_hash_row, axis=1)
 
 ```
+
 ### 14.4 Метаданные run
+
 ```python
 
 run_metadata = {
@@ -2056,7 +2259,9 @@ run_metadata = {
 }
 
 ```
+
 ### 14.5 Кэш HTTP
+
 **Ключ:**
 
 ```python
@@ -2103,7 +2308,9 @@ source_ttl = {
 
 - Ручная инвалидация через CLI
 
+
 ### 14.6 Чек-лист детерминизма
+
 - [ ] Сортировка фиксированная по sort_by
 
 - [ ] Column order фиксирован и соответствует COLUMN_ORDER
@@ -2120,8 +2327,11 @@ source_ttl = {
 
 - [ ] ASCII-only encoding (UTF-8 с ASCII subset)
 
+
 ## 15. Схемы данных Pandera (расширенные)
+
 ### 15.1 InputSchema
+
 ```python
 
 import pandas as pd
@@ -2144,7 +2354,9 @@ class DocumentInputSchema(pa.DataFrameModel):
         coerce = True
 
 ```
+
 ### 15.2 RawSchema (ChEMBL-only)
+
 ```python
 
 class DocumentRawSchema(pa.DataFrameModel):
@@ -2171,7 +2383,9 @@ class DocumentRawSchema(pa.DataFrameModel):
         coerce = True
 
 ```
+
 ### 15.3 NormalizedSchema (mode=chembl/all)
+
 ```python
 
 class DocumentNormalizedSchema(DocumentRawSchema):
@@ -2249,7 +2463,9 @@ class DocumentNormalizedSchema(DocumentRawSchema):
         coerce = True
 
 ```
+
 ### 15.3.1 DocumentOutputSchema (AUD-3)
+
 Формализованная выходная схема с PK и полным списком полей:
 
 ```python
@@ -2389,6 +2605,7 @@ DOCUMENT_SCHEMAS = {
 **Ссылка:** См. также [04-normalization-validation.md](04-normalization-validation.md) для column_order и NA-policy.
 
 ### 15.4 Валидация
+
 ```python
 
 def validate_documents(df: pd.DataFrame, stage: str = "normalized") -> pd.DataFrame:
@@ -2414,7 +2631,9 @@ def validate_documents(df: pd.DataFrame, stage: str = "normalized") -> pd.DataFr
         raise
 
 ```
+
 ### 15.4.1 CLI флаги для строгой валидации
+
 **--fail-on-schema-drift:**
 При несовпадении схемы Pandera с `column_order` или изменении типов колонок:
 
@@ -2424,6 +2643,7 @@ def validate_documents(df: pd.DataFrame, stage: str = "normalized") -> pd.DataFr
 
 - Use case: CI/CD проверки перед деплоем
 
+
 **--strict-enrichment:**
 При ошибках обогащения от внешних источников (403/401 от PubMed/Crossref/OpenAlex/S2):
 
@@ -2432,6 +2652,7 @@ def validate_documents(df: pd.DataFrame, stage: str = "normalized") -> pd.DataFr
 - QC флаг: `qc_flag_external_access_denied=1`
 
 - Use case: критичные пайплайны, требующие полноты данных
+
 
 **Пример:**
 
@@ -2452,8 +2673,11 @@ python -m scripts.get_document_data \
   --strict-enrichment
 
 ```
+
 ## 16. QC и метрики качества
+
 ### 16.1 Метрики покрытия
+
 ```python
 
 def compute_coverage_metrics(df: pd.DataFrame) -> dict[str, float]:
@@ -2471,7 +2695,9 @@ def compute_coverage_metrics(df: pd.DataFrame) -> dict[str, float]:
     }
 
 ```
+
 ### 16.2 Метрики конфликтов
+
 ```python
 
 def compute_conflict_metrics(df: pd.DataFrame) -> dict[str, float]:
@@ -2484,7 +2710,9 @@ def compute_conflict_metrics(df: pd.DataFrame) -> dict[str, float]:
     }
 
 ```
+
 ### 16.3 Валидность
+
 ```python
 
 def compute_validity_metrics(df: pd.DataFrame) -> dict[str, float]:
@@ -2499,7 +2727,9 @@ def compute_validity_metrics(df: pd.DataFrame) -> dict[str, float]:
     }
 
 ```
+
 ### 16.4 Дубликаты
+
 ```python
 
 def detect_duplicates(df: pd.DataFrame) -> dict[str, int]:
@@ -2511,7 +2741,9 @@ def detect_duplicates(df: pd.DataFrame) -> dict[str, int]:
     }
 
 ```
+
 ### 16.5 QC Report генерация
+
 ```python
 
 def generate_qc_report(df: pd.DataFrame, output_path: Path) -> pd.DataFrame:
@@ -2529,7 +2761,9 @@ def generate_qc_report(df: pd.DataFrame, output_path: Path) -> pd.DataFrame:
     return report_df
 
 ```
+
 ### 16.6 Пороги и проверки
+
 ```yaml
 
 qc:
@@ -2570,12 +2804,16 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
     return violations
 
 ```
+
 ## 17. Конфигурация
+
 - Следует стандарту `docs/requirements/10-configuration.md`.
 
 - Профильный файл: `configs/pipelines/document.yaml` (`extends: "../base.yaml"`).
 
+
 ### 17.1 Основные переопределения
+
 | Секция | Ключ | Значение | Ограничение | Комментарий |
 |--------|------|----------|-------------|-------------|
 | Pipeline | `pipeline.name` | `document_chembl` | — | Используется в логах и `run_config.yaml`. |
@@ -2588,6 +2826,7 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
 | QC | `qc.max_s2_access_denied` | `0.05` | `0–1` | Контроль блокировок Semantic Scholar. |
 
 ### 17.2 Переопределения CLI/ENV
+
 - CLI примеры:
   - `--set sources.pubmed.enabled=false` — запуск только ChEMBL/Crossref.
   - `--set postprocess.priority_matrix.title='["PubMed","ChEMBL","Crossref","OpenAlex","S2"]'` — смена порядка приоритетов.
@@ -2597,7 +2836,9 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
   - `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL_ENV=PUBMED_EMAIL` (значение берётся из секретов CI).
   - `BIOETL_SOURCES__CROSSREF__IDENTIFY__PLUS_TOKEN_ENV=CROSSREF_PLUS_TOKEN`.
 
+
 ### 17.3 Валидация
+
 - Используется `PipelineConfig.validate_yaml('configs/pipelines/document.yaml')`.
 
 - Дополнительные проверки:
@@ -2605,8 +2846,11 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
   - `postprocess.priority_matrix` должен содержать все поля из §13.
   - `qc` пороги не могут быть отрицательными.
 
+
 ## 18. Выходные артефакты и атомарная запись
+
 ### 18.1 Артефакты
+
 1. `documents_{mode}_{date}.csv` или Parquet
 
 2. `documents_{mode}_{date}_quality_report.csv`
@@ -2615,7 +2859,9 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
 
 4. `documents_{mode}_{date}_meta.yaml`
 
+
 ### 18.2 Содержимое meta.yaml
+
 ```yaml
 
 pipeline: document_chembl
@@ -2668,7 +2914,9 @@ checksums:
   qc_report_sha256: "sha256_checksum"
 
 ```
+
 ### 18.3 Атомарность записи
+
 ```python
 
 def atomic_write(df: pd.DataFrame, output_path: Path, run_id: str):
@@ -2686,15 +2934,20 @@ def atomic_write(df: pd.DataFrame, output_path: Path, run_id: str):
     shutil.rmtree(temp_dir)
 
 ```
+
 ## 19. Примеры
+
 ### 19.1 ChEMBL batch request
+
 ```bash
 
 curl -sS \
   "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50"
 
 ```
+
 ### 19.2 PubMed EPost → EFetch
+
 ```python
 
 # Post IDs to history
@@ -2708,7 +2961,9 @@ for i in range(0, total, 200):
     process_xml(batch)
 
 ```
+
 ### 19.3 Crossref cursor pagination
+
 ```python
 
 cursor = "*"
@@ -2722,7 +2977,9 @@ while cursor:
     cursor = response.get("next-cursor")
 
 ```
+
 ### 19.4 OpenAlex title search fallback
+
 ```python
 
 # Try DOI lookup
@@ -2740,7 +2997,9 @@ if not result:
     best = select_best_match(results, title, threshold=0.8)
 
 ```
+
 ### 19.5 Semantic Scholar with title fallback
+
 ```python
 
 # Try PMID lookup
@@ -2755,7 +3014,9 @@ if not result:
     best = select_best_match(results, title, threshold=0.85)
 
 ```
+
 ### 19.6 Merge example
+
 ```python
 
 # Merge with precedence
@@ -2774,8 +3035,11 @@ merged = merged.apply(detect_conflicts, axis=1)
 merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 
 ```
+
 ## 20. Тест-план и приёмка
+
 ### 20.1 Unit тесты
+
 - `normalize_doi()`: префиксы, валидация regex
 
 - `coerce_pmid()`: числовые, нечисловые, NA
@@ -2796,7 +3060,9 @@ merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 
 - `normalize_concepts()`: top-3 selection
 
+
 ### 20.2 Integration тесты
+
 **ChEMBL:**
 
 - Фиктивный набор из 30 ID → батчинг и сборка
@@ -2804,6 +3070,7 @@ merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 - Имитированная 429/5xx/timeout с ретраями
 
 - Проверка circuit breaker open/half-open
+
 
 **PubMed:**
 
@@ -2813,6 +3080,7 @@ merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 
 - History server expiration handling
 
+
 **Crossref:**
 
 - Cursor pagination с большим списком DOI
@@ -2820,6 +3088,7 @@ merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 - Polite pool vs public pool
 
 - ISSN extraction для разных форматов
+
 
 **OpenAlex:**
 
@@ -2829,6 +3098,7 @@ merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 
 - Concepts scoring
 
+
 **Semantic Scholar:**
 
 - Title fallback с scoring
@@ -2836,6 +3106,7 @@ merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 - Access denied recovery
 
 - Citation metrics extraction
+
 
 **Merge:**
 
@@ -2845,7 +3116,9 @@ merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 
 - Audit trail generation
 
+
 ### 20.3 Golden тесты
+
 ```bash
 
 python -m scripts.get_document_data \
@@ -2857,6 +3130,7 @@ python -m scripts.get_document_data \
 Бит-в-бит сравнение, проверка `hash_row`.
 
 ### 20.4 QC тесты
+
 - Применение порогов
 
 - Валидация conflict флагов
@@ -2865,7 +3139,9 @@ python -m scripts.get_document_data \
 
 - Проверка fallback rates
 
+
 ### 20.5 Definition of Done
+
 - [ ] Все разделы документа заполнены
 
 - [ ] Column order зафиксирован и соответствует схемам
@@ -2904,7 +3180,9 @@ python -m scripts.get_document_data \
 
 - [ ] Acceptance criteria AC11-AC20 проходят в CI
 
+
 ## 21. Риски и снижения (расширенные)
+
 | Риск | Вероятность | Влияние | Снижение |
 |------|-------------|---------|----------|
 | Неполные поля ChEMBL | Высокая | Средняя | Фиксация в `qc_*` и `*_source`; не блокирующая ошибка |
@@ -2933,7 +3211,9 @@ python -m scripts.get_document_data \
 | NA-policy ломает существующие пайплайны | Средняя | Средняя | Типизация Pandera, миграция схем с semver |
 
 ## 22. Приложения
+
 ### 22.1 Глоссарий
+
 - **ChEMBL ID**: Уникальный идентификатор документа в формате `CHEMBL\d+`
 
 - **DOI**: Digital Object Identifier для публикаций
@@ -2954,7 +3234,9 @@ python -m scripts.get_document_data \
 
 - **Cursor Pagination**: Cursor-based pagination для стабильности
 
+
 ### 22.2 Ссылки на код
+
 - Реализация: `library/pipelines/document/chembl_document.py`
 
 - CLI: `library/cli/commands/get_document_data.py`
@@ -2971,12 +3253,15 @@ python -m scripts.get_document_data \
 
 - Semantic Scholar Client: `library/clients/semantic_scholar.py`
 
+
 ### 22.3 Ссылки на документацию
+
 **ChEMBL:**
 
 - [ChEMBL Data Web Services](https://www.ebi.ac.uk/chembl/api/data/docs)
 
 - [ChEMBL Interface Documentation](https://chembl.gitbook.io/chembl-interface-documentation/web-services/chembl-data-web-services)
+
 
 **PubMed:**
 
@@ -2984,17 +3269,20 @@ python -m scripts.get_document_data \
 
 - [PubMed XML DTD](https://dtd.nlm.nih.gov/ncbi/pubmed/doc/)
 
+
 **Crossref:**
 
 - [Crossref REST API](https://api.crossref.org/)
 
 - [Polite Pool Guidelines](https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-metadata-maker/)
 
+
 **OpenAlex:**
 
 - [OpenAlex API Documentation](https://docs.openalex.org/)
 
 - [OpenAlex API Use Policy](https://docs.openalex.org/api-use-policy)
+
 
 **Semantic Scholar:**
 
