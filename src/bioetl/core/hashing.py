@@ -8,7 +8,7 @@ import hashlib
 import json
 from typing import Any
 
-import pandas as pd
+from pandas import Timestamp
 
 
 def generate_hash_row(row: dict[str, Any]) -> str:
@@ -74,7 +74,7 @@ def _canonicalize_value(value: Any) -> Any:
         Канонизированное значение
     """
     # pandas Timestamp или datetime
-    if isinstance(value, pd.Timestamp):
+    if isinstance(value, Timestamp):
         return value.isoformat()
 
     if hasattr(value, "isoformat"):

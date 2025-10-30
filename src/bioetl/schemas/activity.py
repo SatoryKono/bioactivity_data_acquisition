@@ -159,7 +159,7 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     published_type: Series[str] = pa.Field(nullable=True, description="Оригинальный тип опубликованных данных")
     published_relation: Series[str] = pa.Field(
         nullable=True,
-        isin=RELATION_VALUES,
+        regex=r'^(=|>|<|>=|<=)$',
         description="Соотношение для published_value",
     )
     published_value: Series[float] = pa.Field(nullable=True, ge=0, description="Оригинальное опубликованное значение")
@@ -169,7 +169,7 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     standard_type: Series[str] = pa.Field(nullable=True, description="Стандартизированный тип активности")
     standard_relation: Series[str] = pa.Field(
         nullable=True,
-        isin=RELATION_VALUES,
+        regex=r'^(=|>|<|>=|<=)$',
         description="Соотношение для standard_value (=, >, <, >=, <=)",
     )
     standard_value: Series[float] = pa.Field(nullable=True, ge=0, description="Стандартизированное значение")
