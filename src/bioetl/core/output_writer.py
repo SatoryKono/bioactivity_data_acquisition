@@ -12,6 +12,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+import typing as _typing
 
 import pandas as pd
 from pandas import DataFrame
@@ -19,6 +20,7 @@ from pandas import DataFrame
 from bioetl.config.models import DeterminismConfig
 from bioetl.config.paths import get_configs_root
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pandera_pandas import DataFrameModel
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
     from bioetl.config import PipelineConfig
@@ -220,7 +222,9 @@ class OutputMetadata:
             else:
                 schema_cls = schema
 
-            registration = SchemaRegistry.find_registration(schema_cls)
+            registration = SchemaRegistry.find_registration(
+                _typing.cast(DataFrameModel, schema_cls)
+            )
             if registration is not None:
                 schema_id = registration.schema_id
                 schema_version = registration.version
