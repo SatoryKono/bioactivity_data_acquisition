@@ -7,4 +7,5 @@ sources:
     headers:
       Accept: "application/json"
       User-Agent: "bioetl-chembl-default/1.0"
-    rate_limit_jitter: true
+    http:
+      rate_limit_jitter: true

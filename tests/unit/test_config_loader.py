@@ -101,7 +101,8 @@ def test_multiple_extends_and_overrides(tmp_path):
                 headers:
                   Accept: "application/json"
                   User-Agent: "bioetl-chembl-default/1.0"
-                rate_limit_jitter: true
+                http:
+                  rate_limit_jitter: true
             """
         )
     )
@@ -135,6 +136,61 @@ def test_multiple_extends_and_overrides(tmp_path):
     assert chembl.max_url_length == 2000
     assert chembl.headers["Accept"] == "application/json"
     assert chembl.headers["User-Agent"] == "custom-agent/1.0"
+    assert chembl.rate_limit_jitter is True
+
+
+def test_source_rate_limit_jitter_override(tmp_path):
+    """Nested ``http.rate_limit_jitter`` should be recognized for sources."""
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text(
+        dedent(
+            """
+            version: 1
+            pipeline:
+              name: test
+              entity: test
+            http:
+              global:
+                timeout_sec: 60.0
+                retries:
+                  total: 5
+                  backoff_multiplier: 2.0
+                  backoff_max: 120.0
+                rate_limit:
+                  max_calls: 5
+                  period: 15.0
+            sources:
+              chembl:
+                base_url: "https://example.org"
+                http:
+                  rate_limit_jitter: false
+            cache:
+              enabled: true
+              directory: data/cache
+              ttl: 1
+              release_scoped: false
+            paths:
+              input_root: data/input
+              output_root: data/output
+            determinism:
+              sort:
+                by: []
+                ascending: []
+              column_order: []
+            postprocess: {}
+            qc:
+              enabled: true
+              severity_threshold: warning
+            cli: {}
+            """
+        )
+    )
+
+    config = load_config(config_file)
+
+    chembl = config.sources["chembl"]
+    assert chembl.rate_limit_jitter is False
 
 
 def test_pipeline_include_merges_determinism_defaults():
