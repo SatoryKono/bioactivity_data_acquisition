@@ -303,7 +303,11 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     if artifacts.additional_datasets:
         typer.echo("Additional datasets:")
         for name, path in artifacts.additional_datasets.items():
-            typer.echo(f"  - {name}: {path}")
+            if isinstance(path, dict):
+                for fmt, fmt_path in sorted(path.items()):
+                    typer.echo(f"  - {name} ({fmt}): {fmt_path}")
+            else:
+                typer.echo(f"  - {name}: {path}")
 
     logger.info(
         "pipeline_run_completed",
