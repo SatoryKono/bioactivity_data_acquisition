@@ -39,6 +39,12 @@ class _DummyPipeline(PipelineBase):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
         return df
 
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
+        return df
+
+    def close_resources(self) -> None:  # type: ignore[override]
+        return None
+
 
 def _make_pipeline(severity_threshold: str) -> _DummyPipeline:
     config = types.SimpleNamespace(

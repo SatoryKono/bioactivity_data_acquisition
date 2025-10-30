@@ -600,24 +600,15 @@ class PipelineBase(ABC):
     @abstractmethod
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Трансформирует данные."""
-        pass
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement the transform() method"
+        )
 
+    @abstractmethod
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Валидирует данные через Pandera."""
-        schema = getattr(self, "primary_schema", None)
-        if schema is None:
-            return df
-
-        pipeline_config = getattr(self.config, "pipeline", None)
-        dataset_name = getattr(pipeline_config, "name", None) or type(self).__name__
-        dataset_label = str(dataset_name)
-
-        return self._validate_with_schema(
-            df,
-            schema,
-            dataset_name=dataset_label,
-            severity="error",
-            metric_name=f"schema.{dataset_label}",
+        raise NotImplementedError(
+            f"{type(self).__name__} must implement the validate() method"
         )
 
     def export(
