@@ -229,11 +229,11 @@ def _write_minimal_config(tmp_path, sources_block: str) -> Path:
                 by: []
                 ascending: []
               column_order: []
-            postprocess: {}
+            postprocess: {{}}
             qc:
               enabled: true
               severity_threshold: warning
-            cli: {}
+            cli: {{}}
             """
         ).replace("{sources_block}", sources_block)
     )
