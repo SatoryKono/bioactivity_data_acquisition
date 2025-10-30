@@ -18,6 +18,7 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.materialization import MaterializationManager
+from bioetl.core.output_writer import UnifiedOutputWriter
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
@@ -134,10 +135,20 @@ class TargetPipeline(PipelineBase):
         self._qc_missing_mapping_records: list[dict[str, Any]] = []
 
         runtime_config = getattr(self.config, "runtime", None)
+
+        determinism_copy = self.determinism.model_copy()
+        determinism_copy.column_order = []
+        self.materialization_writer = UnifiedOutputWriter(
+            f"{self.run_id}-materialization",
+            determinism=determinism_copy,
+            pipeline_config=config,
+        )
+
         self.materialization_manager = MaterializationManager(
             self.config.materialization,
             runtime=runtime_config,
             stage_context=self.stage_context,
+            output_writer_factory=lambda: self.materialization_writer,
         )
 
     def close_resources(self) -> None:
@@ -309,26 +320,41 @@ class TargetPipeline(PipelineBase):
 
         self.reset_additional_tables()
         if not gold_components.empty:
-            self.add_additional_table("target_components", gold_components)
+            self.add_additional_table(
+                "target_components",
+                gold_components,
+                formats=("csv", "parquet"),
+            )
         if not gold_protein_class.empty:
             self.add_additional_table(
                 "target_protein_classifications",
                 gold_protein_class,
+                formats=("csv", "parquet"),
             )
         if not gold_xref.empty:
-            self.add_additional_table("target_xrefs", gold_xref)
+            self.add_additional_table(
+                "target_xrefs",
+                gold_xref,
+                formats=("csv", "parquet"),
+            )
         if not component_enrichment.empty:
             self.add_additional_table(
                 "target_component_enrichment",
                 component_enrichment,
+                formats=("csv", "parquet"),
             )
         if not iuphar_classification.empty:
             self.add_additional_table(
                 "target_iuphar_classification",
                 iuphar_classification,
+                formats=("csv", "parquet"),
             )
         if not iuphar_gold.empty:
-            self.add_additional_table("target_iuphar_enrichment", iuphar_gold)
+            self.add_additional_table(
+                "target_iuphar_enrichment",
+                iuphar_gold,
+                formats=("csv", "parquet"),
+            )
 
         self.set_export_metadata_from_dataframe(
             gold_targets,

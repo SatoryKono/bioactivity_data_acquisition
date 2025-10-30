@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, MutableMapping
+from typing import Any, Callable, MutableMapping
 
 import pandas as pd
 
 from bioetl.config.models import MaterializationPaths
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.output_writer import OutputMetadata, UnifiedOutputWriter
 
 logger = UnifiedLogger.get(__name__)
 
@@ -24,6 +25,12 @@ class MaterializationManager:
     paths: MaterializationPaths
     runtime: Any | None = None
     stage_context: MutableMapping[str, Any] | None = None
+    output_writer_factory: Callable[[], UnifiedOutputWriter] | None = None
+    _materialization_writer: UnifiedOutputWriter | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
 
     def materialize_silver(
         self,
@@ -96,6 +103,17 @@ class MaterializationManager:
             self._update_stage_context("silver", {"outputs": outputs})
 
         return outputs
+
+    def _get_output_writer(self) -> UnifiedOutputWriter | None:
+        """Return (and cache) the configured output writer instance if available."""
+
+        if self.output_writer_factory is None:
+            return None
+
+        if self._materialization_writer is None:
+            self._materialization_writer = self.output_writer_factory()
+
+        return self._materialization_writer
 
     def materialize_iuphar(
         self,
@@ -294,6 +312,26 @@ class MaterializationManager:
         return {dataset: path}
 
     def _write_dataframe(self, df: pd.DataFrame, path: Path, format: str) -> None:
+        writer = self._get_output_writer() if format == "parquet" else None
+
+        if writer is not None:
+            metadata = OutputMetadata.from_dataframe(
+                df,
+                run_id=writer.run_id,
+                column_order=list(df.columns),
+                hash_policy_version=getattr(
+                    getattr(writer, "determinism", None), "hash_policy_version", None
+                ),
+            )
+            writer.write(
+                df,
+                path,
+                metadata=metadata,
+                extended=False,
+                apply_column_order=False,
+            )
+            return
+
         if format == "parquet":
             df.to_parquet(path, index=False)
         elif format == "csv":
