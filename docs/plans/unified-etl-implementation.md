@@ -18,7 +18,7 @@ tests/{unit/, integration/, golden/, fixtures/}
 
 ### 1.2 Создать pyproject.toml
 
-- Зависимости: pandas, pandera, requests, backoff, structlog, typer, pydantic, pyyaml, tenacity
+- Зависимости: pandas, pandera, requests, backoff, structlog, typer, pydantic, pyyaml
 - Dev: pytest, pytest-cov, mypy, ruff, pre-commit
 
 ### 1.3 Настроить CI/CD
