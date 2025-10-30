@@ -7,6 +7,61 @@ import pandera.pandas as pa
 from pandera.typing import Series
 
 
+# Shared column order for fallback metadata columns.  Exposed as a module level
+# constant so downstream schemas can reference it without importing the mixin
+# (which would re-export the Pandera ``Series`` annotations).
+FALLBACK_METADATA_COLUMN_ORDER = [
+    "fallback_reason",
+    "fallback_error_type",
+    "fallback_error_code",
+    "fallback_error_message",
+    "fallback_http_status",
+    "fallback_retry_after_sec",
+    "fallback_attempt",
+    "fallback_timestamp",
+]
+
+
+class FallbackMetadataMixin:
+    """Reusable Pandera column definitions for fallback metadata fields."""
+
+    fallback_reason: Series[str] = pa.Field(
+        nullable=True,
+        description="Reason why the fallback record was generated",
+    )
+    fallback_error_type: Series[str] = pa.Field(
+        nullable=True,
+        description="Exception class that triggered the fallback",
+    )
+    fallback_error_code: Series[str] = pa.Field(
+        nullable=True,
+        description="Normalized error code captured for the fallback",
+    )
+    fallback_error_message: Series[str] = pa.Field(
+        nullable=True,
+        description="Human readable error message captured for the fallback",
+    )
+    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="HTTP status associated with the fallback (if any)",
+    )
+    fallback_retry_after_sec: Series[float] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Retry-After header (seconds) returned by the upstream API",
+    )
+    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        ge=0,
+        description="Attempt number when the fallback was emitted",
+    )
+    fallback_timestamp: Series[str] = pa.Field(
+        nullable=True,
+        description="UTC timestamp when the fallback record was materialised",
+    )
+
+
 class _ColumnOrderAccessor:
     """Descriptor exposing schema ``column_order`` without Pandera side-effects."""
 

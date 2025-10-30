@@ -2,7 +2,7 @@
 
 import os
 import re
-from collections.abc import Callable, Iterable, Sequence, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from dataclasses import dataclass
@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
+from pandera.errors import SchemaErrors
 import pandas as pd
 import requests
 

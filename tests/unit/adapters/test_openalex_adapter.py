@@ -1,6 +1,7 @@
 """Unit tests for OpenAlexAdapter."""
 
 import unittest
+from unittest.mock import patch
 
 from bioetl.adapters.openalex import OpenAlexAdapter
 
@@ -57,4 +58,25 @@ class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertTrue(normalized["is_oa"])
         self.assertIn("concepts_top3", normalized)
         self.assertEqual(len(normalized["concepts_top3"]), 3)
+
+    def test_fetch_by_ids_batches_using_class_default(self) -> None:
+        """Batch helper falls back to ``DEFAULT_BATCH_SIZE``."""
+
+        adapter = self.ADAPTER_CLASS(
+            self.api_config,
+            self.make_adapter_config(batch_size=0),
+        )
+
+        total = adapter.DEFAULT_BATCH_SIZE * 2 + 5
+        identifiers = [f"10.1234/openalex{i}" for i in range(total)]
+
+        with patch.object(adapter, "_fetch_batch", return_value=[], autospec=True) as batch_mock:
+            adapter.fetch_by_ids(identifiers)
+
+        expected_calls = -(-total // adapter.DEFAULT_BATCH_SIZE)
+        self.assertEqual(batch_mock.call_count, expected_calls)
+        self.assertEqual(len(batch_mock.call_args_list[0].args[1]), adapter.DEFAULT_BATCH_SIZE)
+        remainder = total % adapter.DEFAULT_BATCH_SIZE
+        expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
+        self.assertEqual(len(batch_mock.call_args_list[-1].args[1]), expected_last)
 

@@ -6,7 +6,11 @@ import pandas as pd
 import pandera.pandas as pa
 from pandera.typing import Series
 
-from bioetl.schemas.base import BaseSchema
+from bioetl.schemas.base import (
+    BaseSchema,
+    FALLBACK_METADATA_COLUMN_ORDER,
+    FallbackMetadataMixin,
+)
 
 RELATION_VALUES = ["=", ">", "<", ">=", "<="]
 STANDARD_UNITS_ALLOWED = {
@@ -118,18 +122,10 @@ COLUMN_ORDER = [
     "sei",
     "le",
     "lle",
-    "fallback_reason",
-    "fallback_error_type",
-    "fallback_error_code",
-    "fallback_error_message",
-    "fallback_http_status",
-    "fallback_retry_after_sec",
-    "fallback_attempt",
-    "fallback_timestamp",
-]
+] + FALLBACK_METADATA_COLUMN_ORDER
 
 
-class ActivitySchema(BaseSchema):
+class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     """Schema for ChEMBL Activity data according to IO_SCHEMAS_AND_DIAGRAMS.md."""
 
     # Primary Key
@@ -241,43 +237,6 @@ class ActivitySchema(BaseSchema):
     sei: Series[float] = pa.Field(nullable=True, description="Surface Efficiency Index")
     le: Series[float] = pa.Field(nullable=True, description="Ligand Efficiency")
     lle: Series[float] = pa.Field(nullable=True, description="Lipophilic Ligand Efficiency")
-
-    # Fallback metadata
-    fallback_reason: Series[str] = pa.Field(
-        nullable=True,
-        description="Reason why the fallback record was generated",
-    )
-    fallback_error_type: Series[str] = pa.Field(
-        nullable=True,
-        description="Exception class that triggered the fallback",
-    )
-    fallback_error_code: Series[str] = pa.Field(
-        nullable=True,
-        description="Normalized error code captured for the fallback",
-    )
-    fallback_error_message: Series[str] = pa.Field(
-        nullable=True,
-        description="Human readable error message captured for the fallback",
-    )
-    fallback_http_status: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="HTTP status associated with the fallback (if any)",
-    )
-    fallback_retry_after_sec: Series[float] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="Retry-After header (seconds) returned by the upstream API",
-    )
-    fallback_attempt: Series[pd.Int64Dtype] = pa.Field(
-        nullable=True,
-        ge=0,
-        description="Attempt number when the fallback was emitted",
-    )
-    fallback_timestamp: Series[str] = pa.Field(
-        nullable=True,
-        description="UTC timestamp when the fallback record was materialised",
-    )
 
     # System fields (from BaseSchema)
     # index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at

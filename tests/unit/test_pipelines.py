@@ -196,6 +196,9 @@ class TestAssayPipeline:
         row = df.iloc[0]
         assert row["assay_chembl_id"] == "CHEMBL_FAIL"
         assert row["source_system"] == "ChEMBL_FALLBACK"
+        assert row["chembl_release"] == "ChEMBL_F"
+        assert row["git_commit"] == pipeline.git_commit
+        assert row["config_hash"] == pipeline.config_hash
         assert row["fallback_error_message"].startswith("Circuit") or "breaker" in row[
             "fallback_error_message"
         ]
@@ -1068,6 +1071,14 @@ class TestActivityPipeline:
         assert set(df["fallback_reason"].dropna().unique()) == {"circuit_breaker_open"}
         assert set(df["fallback_error_type"].dropna().unique()) == {"CircuitBreakerOpenError"}
         assert set(df["chembl_release"].unique()) == {"ChEMBL_99"}
+        assert set(df["published_relation"].dropna().unique()) == {"="}
+        assert set(df["standard_relation"].dropna().unique()) == {"="}
+        assert set(df["standard_units"].dropna().unique()) == {"nM"}
+        assert set(df["is_citation"].dropna().unique()) == {False}
+        assert set(df["high_citation_rate"].dropna().unique()) == {False}
+        assert set(df["exact_data_citation"].dropna().unique()) == {False}
+        assert set(df["rounded_data_citation"].dropna().unique()) == {False}
+        assert df["extracted_at"].notna().all()
 
     def test_activity_cache_serves_before_network(self, activity_config, monkeypatch, tmp_path):
         """Batches are served from cache without additional network calls."""
@@ -1378,6 +1389,8 @@ class TestTestItemPipeline:
         assert record["fallback_attempt"] == 2
         assert "Not Found" in record["fallback_error_message"]
         assert pd.notna(record["fallback_timestamp"])
+        assert record["chembl_release"] == "ChEMBL_TEST"
+        assert record["fallback_error_code"] == "http_error"
         assert record["pref_name_key"] is None
 
     def test_flatten_molecule_synonyms_canonical(self, testitem_config):

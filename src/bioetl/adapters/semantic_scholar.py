@@ -8,6 +8,11 @@ import pandas as pd
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers import registry
+from bioetl.normalizers.bibliography import (
+    normalize_authors,
+    normalize_doi,
+    normalize_title,
+)
 
 NORMALIZER_ID = registry.get("identifier")
 NORMALIZER_STRING = registry.get("string")
@@ -20,6 +25,8 @@ class SemanticScholarAdapter(ExternalAdapter):
     for ID-based retrieval.
     """
 
+    DEFAULT_BATCH_SIZE = 50
+
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize Semantic Scholar adapter."""
         super().__init__(api_config, adapter_config)
@@ -30,11 +37,6 @@ class SemanticScholarAdapter(ExternalAdapter):
             self.api_client.session.headers["x-api-key"] = self.api_key
         else:
             self.logger.warning("semantic_scholar_api_key_missing", note="Rate limits will be lower")
-
-    def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
-        """Fetch records by identifiers (DOI, PMID, ArXiv)."""
-        batch_size = self.adapter_config.batch_size or 50
-        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of papers by their IDs."""
@@ -176,16 +178,17 @@ class SemanticScholarAdapter(ExternalAdapter):
         # External IDs
         if "externalIds" in record:
             ex_ids = record["externalIds"]
-            if "DOI" in ex_ids:
-                normalized["doi_clean"] = NORMALIZER_ID.normalize(ex_ids["DOI"])
+            doi_clean = normalize_doi(ex_ids.get("DOI")) if isinstance(ex_ids, dict) else None
+            if doi_clean:
+                normalized["doi_clean"] = doi_clean
             if "PubMed" in ex_ids:
                 normalized["pubmed_id"] = NORMALIZER_ID.normalize(str(ex_ids["PubMed"]))
 
         # Title
-        if "title" in record:
-            normalized["title"] = NORMALIZER_STRING.normalize(record["title"])
-            # Store original title for join key
-            normalized["_title_for_join"] = normalized["title"]
+        title = normalize_title(record.get("title"))
+        if title:
+            normalized["title"] = title
+            normalized["_title_for_join"] = title
 
         # Abstract
         if "abstract" in record:
@@ -226,14 +229,9 @@ class SemanticScholarAdapter(ExternalAdapter):
             normalized["fields_of_study"] = record["fieldsOfStudy"]
 
         # Authors
-        if "authors" in record and record["authors"]:
-            authors = []
-            for author in record["authors"]:
-                name = author.get("name")
-                if name:
-                    authors.append(name)
-            if authors:
-                normalized["authors"] = "; ".join(authors)
+        authors = normalize_authors(record.get("authors"))
+        if authors:
+            normalized["authors"] = authors
 
         # ISSN - not typically available in Semantic Scholar API
         # Semantic Scholar API does not provide ISSN data in their paper endpoint

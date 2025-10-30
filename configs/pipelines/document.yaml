@@ -1,6 +1,6 @@
 extends:
   - ../base.yaml
-  - ../includes/determinism_defaults.yaml
+  - ../includes/determinism.yaml
   - ../includes/chembl_source.yaml
 
 pipeline:

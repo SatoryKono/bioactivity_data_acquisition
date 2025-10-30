@@ -118,6 +118,19 @@ def test_multiple_extends_and_overrides(tmp_path):
     assert chembl.headers["User-Agent"] == "custom-agent/1.0"
 
 
+def test_pipeline_include_merges_determinism_defaults():
+    """Pipeline configs should inherit determinism defaults from shared include."""
+
+    config = load_config(Path("configs/pipelines/target.yaml"))
+
+    determinism = config.determinism
+    assert determinism.hash_algorithm == "sha256"
+    assert determinism.float_precision == 6
+    assert determinism.datetime_format == "iso8601"
+    assert determinism.sort.by == ["target_chembl_id"]
+    assert determinism.column_order[0] == "target_chembl_id"
+
+
 def test_cli_overrides(tmp_path):
     """Test CLI overrides."""
     # Create test config
