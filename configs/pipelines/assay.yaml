@@ -7,6 +7,9 @@ pipeline:
   name: assay
   entity: assay
 
+materialization:
+  pipeline_subdir: "assay"
+
 sources:
   chembl:
     batch_size: 20
