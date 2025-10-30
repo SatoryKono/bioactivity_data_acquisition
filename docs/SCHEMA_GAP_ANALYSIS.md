@@ -24,7 +24,7 @@ class BaseSchema(pa.DataFrameModel):
     extracted_at: str
     Config.ordered = False
 
-```text
+```
 
 ### Требуется по спецификации
 
@@ -537,7 +537,7 @@ determinism:
   sort:
     by: [<primary_key_fields>]
 
-```text
+```
 
 **Конкретно:**
 

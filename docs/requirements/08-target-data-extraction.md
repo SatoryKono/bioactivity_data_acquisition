@@ -83,7 +83,7 @@ Target ETL Pipeline
     ├── Validation: Pandera schemas, QC reports
     └── Export: targets, target_components, protein_class, xref
 
-```text
+```
 
 ### Stage 4: Post-processing
 
@@ -177,7 +177,7 @@ Stage 2 отвечает за нормализацию и обогащение �
 
 fields=accession,gene_names,organism_name,organism_id,lineage,sequence_length,features,cc_ptm,protein_name,protein_existence
 
-```text
+```
 
 Обязательные для сохранения поля Stage 2:
 
@@ -285,7 +285,7 @@ TARGET_FIELDS = [
 
 ]
 
-```text
+```
 
 > **Инварианты Stage 1:** `target_chembl_id` должен быть уникальным и заполненным, остальные поля допускают `NULL`, но сохраняются в детерминированном формате (строки — UTF-8, JSON — сериализованный словарь с сортировкой ключей).
 
@@ -330,7 +330,7 @@ PipelineResult = dataclass(
 
 )
 
-```text
+```
 
 **Зависимости стадий:**
 
@@ -374,7 +374,7 @@ class IUPHARData:
 
     family_df: pd.DataFrame  # дерево /targets/families со всеми уровнями
 
-```text
+```
 
 `family_df` нормализует иерархию классификации: `type → class → subclass → chain → target`. Для каждой ветви рассчитываем два пути:
 
@@ -490,7 +490,7 @@ target_chembl_id,organism,target_type
 CHEMBL203,Homo sapiens,SINGLE PROTEIN
 CHEMBL204,Mus musculus,PROTEIN COMPLEX
 
-```text
+```
 
 ### Выходные данные
 
@@ -710,7 +710,7 @@ TARGET_SCHEMAS = {
     "xref": XrefOutputSchema,
 }
 
-```text
+```
 
 **Schema IDs:**
 
@@ -832,7 +832,7 @@ TARGET_SCHEMAS = {
 sort_by = ["target_chembl_id", "accession", "component_id"]
 ascending = [True, True, True]
 
-```text
+```
 
 Гарантирует бит-в-бит одинаковый вывод для одинакового входа.
 
@@ -844,7 +844,7 @@ ascending = [True, True, True]
 
 hash_business_key = sha256(target_chembl_id).hexdigest()
 
-```text
+```
 
 **hash_row:**
 
@@ -855,7 +855,7 @@ hash_business_key = sha256(target_chembl_id).hexdigest()
 normalized_values = [target_chembl_id, pref_name, organism, uniprot_id_primary, ...]
 hash_row = sha256("|".join(normalized_values)).hexdigest()
 
-```text
+```
 
 Используются для:
 
@@ -887,7 +887,7 @@ determinism:
   encoding: "utf-8"
   format: "parquet"
 
-```text
+```
 
 ### Snapshot файлы
 
@@ -958,7 +958,7 @@ bioetl pipeline run --config configs/pipelines/target.yaml \
   --set paths.input_root=data/input \
   --set paths.output_root=data/output/target
 
-```text
+```
 
 ### С опциями источников
 
@@ -985,7 +985,7 @@ bioetl pipeline run --config configs/pipelines/target.yaml \
 
 bioetl pipeline run --config configs/pipelines/target.yaml
 
-```text
+```
 
 ### Python API
 
@@ -1005,7 +1005,7 @@ result = run_pipeline(config, options)
 print(f"Extracted {result.row_count} targets")
 print(f"Errors: {result.errors}")
 
-```text
+```
 
 ---
 

@@ -69,7 +69,7 @@ TestitemPipeline
     ├── CanonicalSerialization (hash generation)
     └── MetadataBuilder (full provenance)
 
-```text
+```
 
 ### Диаграмма потока данных
 
@@ -96,7 +96,7 @@ flowchart TD
     style F fill:#e8f5e9
     style H fill:#f3e5f5
 
-```text
+```
 
 ### Интеграция с архитектурой проекта
 
@@ -187,7 +187,7 @@ class TestitemInputSchema(pa.DataFrameModel):
 
         coerce = True
 
-```text
+```
 
 **Таблица входных полей:**
 
@@ -247,7 +247,7 @@ chembl_release: str = None  # Фиксируется один раз в нача
 
 chembl_base_url: str  # URL для воспроизводимости
 
-```text
+```
 
 **КРИТИЧЕСКИ ВАЖНО:**
 
@@ -266,7 +266,7 @@ chembl_base_url: str  # URL для воспроизводимости
 curl -H "Accept: application/json" \
   https://www.ebi.ac.uk/chembl/api/data/status.json
 
-```text
+```
 
 **Response:**
 
@@ -277,7 +277,7 @@ curl -H "Accept: application/json" \
   "status": "UP"
 }
 
-```text
+```
 
 ### 2.2 Батчевое извлечение из ChEMBL API
 
@@ -342,7 +342,7 @@ curl -H "Accept: application/json" \
 curl -H "Accept: application/json" \
   "https://www.ebi.ac.uk/chembl/api/data/molecule/CHEMBL25.json"
 
-```text
+```
 
 *Батч запрос (25 molecules):*
 
@@ -351,7 +351,7 @@ curl -H "Accept: application/json" \
 curl -H "Accept: application/json" \
   "https://www.ebi.ac.uk/chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL25,CHEMBL192,CHEMBL941&fields=molecule_chembl_id,molregno,pref_name,max_phase,molecule_hierarchy,molecule_properties,molecule_structures,molecule_synonyms&limit=1000"
 
-```text
+```
 
 ### 2.3 Распаковка вложенных структур
 
@@ -385,7 +385,7 @@ def _flatten_molecule_hierarchy(molecule: dict) -> dict:
 
     return flattened
 
-```text
+```
 
 #### 2.3.2 molecule_properties
 
@@ -449,7 +449,7 @@ def _flatten_molecule_properties(molecule: dict) -> dict:
 
     return flattened
 
-```text
+```
 
 #### 2.3.3 molecule_structures
 
@@ -481,7 +481,7 @@ def _flatten_molecule_structures(molecule: dict) -> dict:
 
     return flattened
 
-```text
+```
 
 #### 2.3.4 molecule_synonyms
 
@@ -526,7 +526,7 @@ def _flatten_molecule_synonyms(molecule: dict) -> dict:
 
     return flattened
 
-```text
+```
 
 #### 2.3.5 Вложенные JSON (atc_classifications, cross_references, biotherapeutic)
 
@@ -551,7 +551,7 @@ def _flatten_nested_json(molecule: dict, field_name: str) -> str:
 
 # flattened["biotherapeutic"] = _flatten_nested_json(molecule, "biotherapeutic")
 
-```text
+```
 
 ### 2.4 Fallback механизм
 
@@ -599,7 +599,7 @@ def _create_fallback_record(
         ]}
     }
 
-```text
+```
 
 **Пример лога fallback:**
 
@@ -621,7 +621,7 @@ def _create_fallback_record(
   }
 }
 
-```text
+```
 
 ### 2.5 Извлечение из PubChem API
 
@@ -655,7 +655,7 @@ pref_name                  ↓
                            ↓
                  Enriched DataFrame
 
-```text
+```
 
 **Стратегия обогащения (2-step process):**
 
@@ -675,7 +675,7 @@ pref_name                  ↓
 
 # 5. Name-based search → /compound/name/{name}/cids/JSON (fallback)
 
-```text
+```
 
 #### Step 2: Batch Properties Fetch
 
@@ -687,7 +687,7 @@ pref_name                  ↓
 
 # Properties: MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName
 
-```text
+```
 
 **Rate limiting:** 5 requests/second (пауза 0.2s между запросами)
 
@@ -707,7 +707,7 @@ curl -H "Accept: application/json" \
 curl -H "Accept: application/json" \
   "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244/property/MolecularFormula,MolecularWeight,CanonicalSMILES,InChI,InChIKey,IUPACName/JSON"
 
-```text
+```
 
 **Пример batch запроса (эффективный подход):**
 
@@ -716,7 +716,7 @@ curl -H "Accept: application/json" \
 curl -H "Accept: application/json" \
   "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName/JSON"
 
-```text
+```
 
 **Response структура:**
 
@@ -739,7 +739,7 @@ curl -H "Accept: application/json" \
   }
 }
 
-```text
+```
 
 **Python реализация (упрощенная, полная версия в 07b § 6-7):**
 
@@ -772,7 +772,7 @@ def _enrich_with_pubchem(
 
     return df
 
-```text
+```
 
 **Merge стратегия:**
 
@@ -853,7 +853,7 @@ def _merge_chembl_data(
 
     return merged_data
 
-```text
+```
 
 **PubChem data merge:**
 
@@ -915,7 +915,7 @@ def _merge_pubchem_data(
 
     return merged_data
 
-```text
+```
 
 ### 3.2 Каноническая сериализация для хеширования
 
@@ -964,7 +964,7 @@ def _canonicalize_row_for_hash(
 
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 
-```text
+```
 
 ### 3.3 Хеширование
 
@@ -992,7 +992,7 @@ def _calculate_hashes(
 
     return hash_row, hash_business_key
 
-```text
+```
 
 ### 3.4 Системные метаданные
 
@@ -1030,7 +1030,7 @@ def _add_system_metadata(
 
     return df
 
-```text
+```
 
 ### 3.5 Nullable dtypes
 
@@ -1074,7 +1074,7 @@ DTYPES_CONFIG = {
 
 }
 
-```text
+```
 
 ---
 
@@ -1102,7 +1102,7 @@ class TestitemRawSchema(pa.DataFrameModel):
 
     # ... и т.д
 
-```text
+```
 
 **TestitemNormalizedSchema:** (80+ полей, см. `src/library/schemas/testitem_schema.py`)
 
@@ -1159,7 +1159,7 @@ class TestitemNormalizedSchema(pa.DataFrameModel):
         strict = False
         coerce = True
 
-```text
+```
 
 **TestitemOutputSchema (AUD-3):** Формализованная выходная схема с PK и полным списком полей.
 
@@ -1254,7 +1254,7 @@ class TestitemOutputSchema(pa.DataFrameModel):
             "hash_business_key", "hash_row"  # Хеши последними
         ]
 
-```text
+```
 
 **Schema Registry:** Схема регистрируется в `src/library/schemas/__init__.py`:
 
@@ -1270,7 +1270,7 @@ class TestitemOutputSchema(DataFrameModel):
     schema_version = "1.0.0"
     column_order = TestitemOutputSchema.get_column_order()
 
-```text
+```
 
 **Ссылка:** См. также [04-normalization-validation.md](04-normalization-validation.md) для column_order и NA-policy.
 
@@ -1320,7 +1320,7 @@ QC_PROFILE = {
     ]
 }
 
-```text
+```
 
 ### 4.3 Referential Integrity Check
 
@@ -1365,7 +1365,7 @@ def _check_referential_integrity(
         "issues": issues
     }
 
-```text
+```
 
 ---
 
@@ -1416,7 +1416,7 @@ def _atomic_write(
 
     return target_path
 
-```text
+```
 
 ### 5.2 Metadata Builder
 
@@ -1484,7 +1484,7 @@ checksums:
 
 # correlation: опционально, только при postprocess.correlation.enabled: true (continued 1)
 
-```text
+```
 
 ---
 
@@ -1503,7 +1503,7 @@ postprocess:
     methods: ["pearson", "spearman"]
     min_correlation: 0.5
 
-```text
+```
 
 **Причина:** Гарантировать бит-в-бит идентичность с/без корреляций практически невозможно из-за non-deterministic алгоритмов в scipy/numpy.
 
@@ -1518,7 +1518,7 @@ testitem_correlation_report_20251028/
 ├── correlation_summary.csv
 └── correlation_insights.json
 
-```text
+```
 
 ---
 
@@ -1551,7 +1551,7 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 bioetl pipeline run --config configs/pipelines/testitem.yaml \
   --set sources.chembl.batch_size=25
 
-```text
+```
 
 **Новые CLI параметры:**
 
@@ -1882,7 +1882,7 @@ determinism:
     - hash_row
     - hash_business_key
 
-```text
+```
 
 ---
 

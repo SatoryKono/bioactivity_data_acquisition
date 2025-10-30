@@ -26,14 +26,37 @@ def fix_file(path: Path) -> bool:
     original = path.read_text(encoding="utf-8").splitlines()
     changed = False
 
-    # Pass 1: add language to bare fenced code blocks
+    # Pass 1: normalize fenced code blocks
+    # - add language to bare OPENING fences (``` -> ```text)
+    # - normalize all CLOSING fences to ```
     out: list[str] = []
-    for line in original:
-        if line.strip() == "```":
-            out.append("```text")
-            changed = True
-        else:
-            out.append(line)
+    in_fence = False
+    for raw_line in original:
+        line = raw_line
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            # Detect fence lines like ```lang or ```
+            fence_delim, _, fence_lang = stripped.partition("```")
+            # If not currently in a fence, this is an opening fence
+            if not in_fence:
+                in_fence = True
+                # opening with no language → set to ```text
+                if stripped == "```":
+                    line = "```text"
+                    if line != raw_line:
+                        changed = True
+                else:
+                    # keep existing language as-is (e.g., ```bash)
+                    line = stripped
+                    if line != raw_line:
+                        changed = True
+            else:
+                # closing fence → always normalize to ```
+                in_fence = False
+                if stripped != "```":
+                    line = "```"
+                    changed = True
+        out.append(line)
 
     # Pass 2: ensure blank lines around headings and lists
     result: list[str] = []
@@ -98,8 +121,8 @@ def fix_file(path: Path) -> bool:
             changed = True
             # fall through to append line below
 
-        # Ensure blank line AFTER closing fence: if previous was fence and current is not fence or blank
-        if prev.strip().startswith("```") and line.strip() != "" and not line.strip().startswith("```"):
+        # Ensure blank line AFTER closing fence: if previous was a fence end and current is not fence or blank
+        if prev.strip() == "```" and line.strip() != "" and not line.strip().startswith("```"):
             result.append("")
             changed = True
         result.append(line)

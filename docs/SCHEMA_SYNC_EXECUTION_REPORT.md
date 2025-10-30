@@ -82,7 +82,7 @@ if "column_order" in ActivitySchema.Config.__dict__:
     expected_cols = ActivitySchema.Config.column_order
     df = df[[col for col in expected_cols if col in df.columns]]
 
-```text
+```
 
 **Решение:**
 
@@ -104,7 +104,7 @@ if "column_order" in ActivitySchema.Config.__dict__:
 Columns: ['assay_chembl_id', 'row_subtype', 'row_index', 'hash_row', 'hash_business_key', 'chembl_release']
 Row count: 10
 
-```text
+```
 
 **Статус:**
 
@@ -126,7 +126,7 @@ Columns count: 37
 Has hash fields: False
 Has index: False
 
-```text
+```
 
 **Статус:**
 
@@ -147,7 +147,7 @@ Has hash fields: False
 Has mw_freebase: True
 Has standardized_smiles: False
 
-```text
+```
 
 **Статус:**
 

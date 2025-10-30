@@ -115,7 +115,7 @@ data/output/assay/
   ├── assay_20251028_quality_report.csv (332 bytes)
   └── assay_20251028_meta.yaml (352 bytes, checksum: fe26427...)
 
-```text
+```
 
 **Статистика:**
 
@@ -165,7 +165,7 @@ docs/ ✅
 ├── COMPLETED_IMPLEMENTATION.md
 └── FINAL_STATUS.md (этот файл)
 
-```text
+```
 
 ## Метрики качества
 
@@ -219,7 +219,7 @@ artifacts = pipeline.run(
 
 print(f"Created: {artifacts.dataset}")
 
-```text
+```
 
 ### Результат
 

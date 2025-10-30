@@ -38,7 +38,7 @@ def test_mandatory_log_fields():
     for field in mandatory:
         assert field in log, f"Missing field: {field}"
 
-```text
+```
 
 **Артефакт:** Логи должны проходить статическую проверку обязательных полей.
 
@@ -75,7 +75,7 @@ def test_deterministic_output():
 
     # python -m pipeline run --golden data/golden/assay.csv
 
-```text
+```
 
 #### AC3: hash_row стабилен
 
@@ -92,7 +92,7 @@ def canonicalize_row_for_hash(row: dict) -> str:
     return json.dumps({k: _normalize(v) for k, v in sorted(row.items())},
                       sort_keys=True, separators=(",", ":"))
 
-```text
+```
 
 #### AC4: Нет partial artifacts
 
@@ -104,7 +104,7 @@ assert output_file.exists()
 assert meta_file.exists()
 assert not is_partial_file(output_file)  # по размеру, заголовкам
 
-```text
+```
 
 #### AC6: Activity сортировка
 
@@ -114,7 +114,7 @@ df_final = df.sort_values(["activity_id"], kind="mergesort")
 
 # mergesort гарантирует стабильность
 
-```text
+```
 
 ### Схемы и валидация (AC2, AC10)
 
@@ -126,7 +126,7 @@ schema = get_schema("ActivitySchema")
 df_validated = schema.validate(df)
 assert list(df_validated.columns) == schema.column_order
 
-```text
+```
 
 #### AC10: Schema drift fail-fast
 
@@ -146,7 +146,7 @@ new_schema = schema_registry.get("ActivitySchema", "2.0.0")  # major bump
 if not current_schema.compatible_with(new_schema):
     raise SchemaDriftError(f"Incompatible schema: {current_schema} -> {new_schema}")
 
-```text
+```
 
 ### API клиенты и отказоустойчивость (AC5, AC11)
 
@@ -173,7 +173,7 @@ def test_respect_retry_after():
         assert elapsed >= 5.0
         assert elapsed <= 60.0  # Cap инвариант
 
-```text
+```
 
 ### Assay и трансформации (AC7, AC8)
 
@@ -189,7 +189,7 @@ class AssayConfig:
         if self.batch_size > 25:
             raise ValueError(f"batch_size must be ≤ 25, got {self.batch_size}")
 
-```text
+```
 
 #### AC8: Long-format nested
 
@@ -212,7 +212,7 @@ def expand_assay_parameters_long(df: pd.DataFrame) -> pd.DataFrame:
             })
     return pd.DataFrame(rows, columns=["assay_chembl_id","param_index","param_name","param_value","row_subtype"])
 
-```text
+```
 
 ### QC и качество (AC9)
 
@@ -231,7 +231,7 @@ qc_report = {
     "passed": duplicate_count == 0
 }
 
-```text
+```
 
 ## Связи с Gap-листом
 

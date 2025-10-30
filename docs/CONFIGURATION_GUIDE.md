@@ -21,7 +21,7 @@ sources:
       User-Agent: "bioetl-chembl-default/1.0"
     rate_limit_jitter: true
 
-```text
+```
 
 These defaults cover the API endpoint, deterministic request headers, and common throttling behaviour. Individual pipelines only override the pieces that differ.
 
@@ -36,7 +36,7 @@ extends:
   - ../base.yaml
   - ../includes/chembl_source.yaml
 
-```text
+```
 
 Inside the `sources.chembl` block override only the parameters that vary per pipeline, typically `batch_size` and the pipeline-specific `headers.User-Agent`:
 
@@ -48,7 +48,7 @@ sources:
     headers:
       User-Agent: "bioetl-document-pipeline/1.0"
 
-```text
+```
 
 Additional ChEMBL options (e.g. cache settings, circuit breakers) may be added in the pipeline file as needed, but the shared defaults should remain untouched.
 
@@ -65,7 +65,7 @@ sources:
     cache_maxsize: 2048    # entries in the TTL cache
     timeout_sec: 15.0      # applies to both connect/read timeouts
 
-```text
+```
 
 All overrides are optional; unset values fall back to the global `cache` and `http.global` configuration. Use `timeout_sec` to adjust both connect and read timeouts together, or provide the more granular `connect_timeout_sec` / `read_timeout_sec` keys when an API needs asymmetric limits.
 

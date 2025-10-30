@@ -16,7 +16,7 @@ src/bioetl/{__init__.py, core/, config/, normalizers/, schemas/, pipelines/, cli
 configs/{base.yaml, profiles/, pipelines/}
 tests/{unit/, integration/, golden/, fixtures/}
 
-```text
+```
 
 ### 1.2 Создать pyproject.toml
 
@@ -45,7 +45,7 @@ pip install -e ".[dev]"
 
 pre-commit install && pre-commit run --all-files
 
-```text
+```
 
 ---
 
@@ -93,7 +93,7 @@ python -c "from bioetl.config import load_config; print(load_config('configs/pro
 
 pytest tests/unit/test_config_loader.py -v
 
-```text
+```
 
 ---
 
@@ -135,7 +135,7 @@ log.info('test_event', api_key='secret123')
 
 pytest tests/unit/test_logger.py -v
 
-```text
+```
 
 ---
 
@@ -193,7 +193,7 @@ resp = client.request_json('https://httpbin.org/get')
 print(resp)
 "
 
-```text
+```
 
 ---
 
@@ -268,7 +268,7 @@ SchemaRegistry.register('activity', '1.0.0', ActivitySchema)
 SchemaRegistry.register('activity', '2.0.0', ActivitySchema)  # Должен fail
 "
 
-```text
+```
 
 ---
 
@@ -338,7 +338,7 @@ ls -la data/output/test/
 
 "
 
-```text
+```
 
 ---
 
@@ -377,7 +377,7 @@ bioetl --help
 bioetl pipeline list
 bioetl pipeline validate assay --config configs/profiles/test.yaml
 
-```text
+```
 
 ---
 
@@ -436,7 +436,7 @@ bioetl pipeline run assay --config configs/profiles/test.yaml --sample 100 --ver
 cat data/output/assay/assay_*_meta.yaml
 pytest tests/unit/test_assay_pipeline.py tests/integration/test_assay_pipeline.py -v
 
-```text
+```
 
 ---
 
@@ -494,7 +494,7 @@ pytest tests/unit/test_assay_pipeline.py tests/integration/test_assay_pipeline.p
 bioetl pipeline run activity --config configs/profiles/test.yaml --sample 100
 pytest tests/unit/test_activity_pipeline.py tests/integration/test_activity_retry.py -v
 
-```text
+```
 
 ---
 
@@ -555,7 +555,7 @@ bioetl pipeline run testitem --config configs/profiles/test.yaml --sample 50 --e
 ls data/output/testitem/*correlation_report*/
 pytest tests/unit/test_testitem_pipeline.py tests/integration/test_testitem_pubchem.py -v
 
-```text
+```
 
 ---
 
@@ -618,7 +618,7 @@ ls data/output/target/
 
 pytest tests/unit/test_target_pipeline.py tests/integration/test_target_multi_source.py -v
 
-```text
+```
 
 ---
 
@@ -681,7 +681,7 @@ pytest tests/unit/test_target_pipeline.py tests/integration/test_target_multi_so
 bioetl pipeline run document --config configs/profiles/test.yaml --sample 30 --set pipeline.mode=all --extended
 pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adapters.py -v
 
-```text
+```
 
 ---
 
@@ -737,7 +737,9 @@ pytest tests/unit/test_document_pipeline.py tests/integration/test_document_adap
 pre-commit run --all-files
 
 # Полный тест-набор
+
 pytest tests/ -v --cov=src/bioetl --cov-report=html --cov-fail-under=85
+
 # Golden run всех пайплайнов
 
 bioetl pipeline run assay --config configs/profiles/prod.yaml --golden
@@ -750,7 +752,7 @@ bioetl pipeline run document --config configs/profiles/prod.yaml --golden --set 
 
 python scripts/verify_golden_checksums.py
 
-```text
+```
 
 ---
 

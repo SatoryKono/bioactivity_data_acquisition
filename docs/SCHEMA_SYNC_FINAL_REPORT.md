@@ -34,7 +34,7 @@ assay_chembl_id, row_subtype, row_index, assay_type, description,
 target_chembl_id, confidence_score, pipeline_version, source_system,
 chembl_release, extracted_at, hash_business_key, hash_row, index
 
-```text
+```
 
 **Проверка:**
 
@@ -56,7 +56,7 @@ hash_row: 317c585ed74e996450fa63e83f82050278c28b53653bf73a20df345b2aa15ca4
 hash_business_key: f51be1e5a8158c26ccd9cc8490f3eb907a740525f643580f84517a13b656196e
 index: 0
 
-```text
+```
 
 ---
 
@@ -85,7 +85,7 @@ hash_row: <64-char SHA256>
 hash_business_key: <64-char SHA256>
 index: 0
 
-```text
+```
 
 ---
 
@@ -117,7 +117,7 @@ hash_row: <64-char SHA256>
 hash_business_key: <64-char SHA256>
 index: 0
 
-```text
+```
 
 ---
 

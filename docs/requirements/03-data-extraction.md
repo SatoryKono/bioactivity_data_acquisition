@@ -34,7 +34,7 @@ UnifiedAPIClient
     ├── Response parsing (JSON/XML)
     └── Pagination handling
 
-```text
+```
 
 ## Компоненты
 
@@ -92,7 +92,7 @@ class APIConfig:
     fallback_enabled: bool = True
     fallback_strategies: list[str] = field(default_factory=lambda: ["network", "timeout"])
 
-```text
+```
 
 ### 2. CircuitBreaker
 
@@ -139,7 +139,7 @@ class CircuitBreaker:
 
             raise
 
-```text
+```
 
 ### 3. TokenBucketLimiter
 
@@ -197,7 +197,7 @@ class TokenBucketLimiter:
             self.tokens = self.max_calls
             self.last_refill = now
 
-```text
+```
 
 ### 4. RetryPolicy
 
@@ -261,7 +261,7 @@ class RetryPolicy:
         """Вычисляет время ожидания для attempt."""
         return self.backoff_factor ** attempt
 
-```text
+```
 
 ### 5. FallbackManager
 
@@ -316,7 +316,7 @@ class FallbackManager:
         """Возвращает пустые fallback данные."""
         return {}
 
-```text
+```
 
 ### 6. ResponseParser
 
@@ -390,7 +390,7 @@ class ResponseParser:
 
         return result
 
-```text
+```
 
 ### 7. PaginationHandler
 
@@ -530,7 +530,7 @@ class PaginationHandler:
 
         return False
 
-```text
+```
 
 ## Основной класс: UnifiedAPIClient
 
@@ -648,7 +648,7 @@ class UnifiedAPIClient:
                 wait_time = self.retry_policy.get_wait_time(attempt)
                 time.sleep(wait_time)
 
-```text
+```
 
 ### Cache policy
 
@@ -685,7 +685,7 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
 
     return response
 
-```text
+```
 
 **Warm-up:** допускается прогрев популярных ключей при старте (например, `status` endpoints).
 
@@ -732,7 +732,7 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
         """POST запрос."""
         return self.request("POST", endpoint, json=data, **kwargs)
 
-```text
+```
 
 ## Конфигурации для разных API
 
@@ -753,7 +753,7 @@ chembl_config = APIConfig(
     timeout_read=90.0
 )
 
-```text
+```
 
 ### PubMed
 
@@ -770,7 +770,7 @@ pubmed_config = APIConfig(
     fallback_strategies=["timeout", "5xx"]
 )
 
-```text
+```
 
 ### Semantic Scholar
 
@@ -788,7 +788,7 @@ semantic_scholar_config = APIConfig(
     timeout_read=60.0
 )
 
-```text
+```
 
 ### PubChem
 
@@ -806,7 +806,7 @@ pubchem_config = APIConfig(
     timeout_read=30.0
 )
 
-```text
+```
 
 ### UniProt
 
@@ -821,7 +821,7 @@ uniprot_config = APIConfig(
     timeout_read=30.0
 )
 
-```text
+```
 
 ### IUPHAR
 
@@ -836,7 +836,7 @@ iuphar_config = APIConfig(
     rate_limit_period=1.0
 )
 
-```text
+```
 
 ## Использование
 
@@ -861,7 +861,7 @@ data = client.get("molecule/CHEMBL25.json")
 
 data = client.get("molecule", params={"molecule_chembl_id__in": "CHEMBL25,CHEMBL26"})
 
-```text
+```
 
 ## Error Model
 
@@ -907,7 +907,7 @@ class PartialFailure(APIError):
         self.expected = expected
         self.page_state = page_state
 
-```text
+```
 
 ### Поля события
 
@@ -987,7 +987,7 @@ def drain_partial_queue(client: UnifiedAPIClient) -> None:
         client.request("GET", item.endpoint, params=item.params)
         item.attempt += 1
 
-```text
+```
 
 **Примечание:** `params` обязан содержать исходный `page_state`, чтобы соблюсти контракт идемпотентности.
 
@@ -1001,7 +1001,7 @@ http:
       max: 3  # Максимум 3 попытки для PartialFailure
       backoff_factor: 2.0
 
-```text
+```
 
 **Обоснование:** Предотвращает потерю данных при частичных сбоях пагинации, формализует недостающий контракт обработки ошибок, закрывает риск R3 из gap-анализа.
 
@@ -1021,7 +1021,7 @@ http:
  "received": 950, "expected": 1000, "page_state": "cursor=abc123",
  "timestamp_utc": "2025-01-28T14:23:25.789Z"}
 
-```text
+```
 
 ## Pagination
 
@@ -1048,7 +1048,7 @@ params = {"page": 1, "limit": 100}
 
 # Ответ: {"items": [...], "page": 1, "total_pages": 10}
 
-```text
+```
 
 #### Cursor
 
@@ -1058,7 +1058,7 @@ params = {"cursor": "abc123", "limit": 100}
 
 # Ответ: {"items": [...], "next_cursor": "def456", "has_more": true}
 
-```text
+```
 
 #### Offset + Limit
 
@@ -1068,7 +1068,7 @@ params = {"offset": 0, "limit": 100}
 
 # Ответ: {"items": [...], "offset": 100, "total": 1000}
 
-```text
+```
 
 ### Сигналы завершения
 
@@ -1098,7 +1098,7 @@ response2 = api.get("/data", params=params)
 
 assert response1.items == response2.items  # Идемпотентность
 
-```text
+```
 
 Нарушения идемпотентности:
 
@@ -1130,7 +1130,7 @@ params = {"offset": 100, "cursor": "abc123"}  # Ошибка!
 
 params = {"assay_chembl_id__in": "CHEMBL1,CHEMBL2", "offset": 0}  # Ошибка!
 
-```text
+```
 
 **Допустимо (унифицированная стратегия для ChEMBL):**
 
@@ -1154,7 +1154,7 @@ params = {"cursor": "abc123", "limit": 100}  # Только cursor
 
 params = {"page": 1, "limit": 100}  # Только page
 
-```text
+```
 
 **Валидация стратегии:**
 
@@ -1171,7 +1171,7 @@ def validate_pagination_params(params: dict) -> None:
     if strategies > 1:
         raise ValueError(f"Multiple pagination strategies detected: {params}")
 
-```text
+```
 
 **См. также**: [gaps.md](../gaps.md) (G2), [06-activity-data-extraction.md](06-activity-data-extraction.md).
 
@@ -1209,7 +1209,7 @@ if response.status_code == 429:
         time.sleep(wait)
     raise RateLimitError("Rate limited")
 
-```text
+```
 
 **Политика ретраев**:
 
@@ -1252,7 +1252,7 @@ assert "Rate limited by API" in log_output
 assert "retry_after=7" in log_output
 assert "attempt=1" in log_output
 
-```text
+```
 
 **Порог:** Время ожидания >= указанному Retry-After.
 
@@ -1280,7 +1280,7 @@ except Exception:
 assert attempt == 1
 assert "Client error, giving up" in log_output
 
-```text
+```
 
 **Порог:** Нет ретраев на 4xx (кроме 429).
 

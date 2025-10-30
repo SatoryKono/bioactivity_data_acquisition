@@ -81,7 +81,7 @@ Has index: True ✅
 Has hash_row: True ✅
 Has hash_business_key: True ✅
 
-```text
+```
 
 ### 2. Assay ✅
 
@@ -96,7 +96,7 @@ Has hash_business_key: True ✅
 Has row_subtype: True ✅
 Has row_index: True ✅
 
-```text
+```
 
 **Sample:**
 
@@ -109,7 +109,7 @@ hash_row: 317c585ed74e996450fa63e83f82050278c28b53653bf73a20df345b2aa15ca4
 hash_business_key: f51be1e5a8158c26ccd9cc8490f3eb907a740525f643580f84517a13b656196e
 index: 0
 
-```text
+```
 
 ### 3. TestItem ✅
 
@@ -124,7 +124,7 @@ Has hash_business_key: True ✅
 Has standardized_smiles: True ✅
 Has mw_freebase: True ✅
 
-```text
+```
 
 ### 4. Document ✅
 
@@ -141,7 +141,7 @@ Has chembl_journal: True ✅
 Has chembl_year: True ✅
 Has chembl_doi: True ✅
 
-```text
+```
 
 **Sample columns:**
 
@@ -151,7 +151,7 @@ index, extracted_at, hash_business_key, hash_row, document_chembl_id,
 chembl_title, chembl_abstract, chembl_authors, chembl_doi, chembl_journal,
 chembl_year, ...
 
-```text
+```
 
 ---
 

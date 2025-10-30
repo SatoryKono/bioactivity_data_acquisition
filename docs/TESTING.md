@@ -18,28 +18,36 @@
 
 python -m pytest tests/ -v
 
-```text
+```
 
 ## Запуск отдельных групп тестов
 
 ### Unit тесты
 
 ```bash
+
 # Через Makefile
+
 make test-unit
 
 # Напрямую через pytest
+
 pytest tests/unit/ -v
+
 ```
 
 ### Integration тесты
 
 ```bash
-# Через Makefile
+
+# Через Makefile (continued 1)
+
 make test-integration
 
-# Напрямую через pytest
+# Напрямую через pytest (continued 1)
+
 pytest tests/integration/ -v
+
 ```
 
 ### Golden и smoke тесты CLI
@@ -48,7 +56,7 @@ pytest tests/integration/ -v
 
 pytest tests/golden/ -v -m golden
 
-```text
+```
 
 ### Конкретный тест
 
@@ -56,7 +64,7 @@ pytest tests/golden/ -v -m golden
 
 pytest tests/unit/test_pipelines.py::TestActivityPipeline::test_init -v
 
-```text
+```
 
 ## Флаги и опции
 
@@ -66,7 +74,7 @@ pytest tests/unit/test_pipelines.py::TestActivityPipeline::test_init -v
 
 pytest tests/ --cov=src/bioetl --cov-report=html
 
-```text
+```
 
 ### Пропуск медленных тестов
 
@@ -74,14 +82,17 @@ pytest tests/ --cov=src/bioetl --cov-report=html
 
 pytest tests/ -v -m "not slow"
 
-```text
+```
 
 ### Только быстрые тесты (unit + smoke)
 
 ```bash
 make test-unit
+
 # или
+
 pytest tests/unit/ -v
+
 ```
 
 ## Конфигурация
@@ -105,7 +116,7 @@ tests/
 └── integration/                # Интеграционные тесты
     └── test_document_pipeline_enrichment.py
 
-```text
+```
 
 ## Требования
 
@@ -126,7 +137,7 @@ tests/
 
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 
-```text
+```
 
 ### Тесты падают с ImportError
 
@@ -136,7 +147,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
 
 pip install -e ".[dev]"
 
-```text
+```
 
 ### Низкое покрытие кода
 
@@ -146,5 +157,5 @@ pip install -e ".[dev]"
 
 pytest --cov=src/bioetl --cov-report=term-missing
 
-```text
+```
 

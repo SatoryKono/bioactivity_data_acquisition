@@ -36,7 +36,7 @@ def test_precision_map():
     assert get_precision("standard_value") == 2
     assert get_precision("activity_id") is None  # string
 
-```text
+```
 
 **Покрытие**: AC3, G5
 
@@ -63,7 +63,7 @@ def test_schema_drift_minor_compatible():
 
     assert check_schema_compatibility(schema_v1, schema_v1_1) is None
 
-```text
+```
 
 **Покрытие**: AC10, G4
 
@@ -81,7 +81,7 @@ def test_column_order_from_schema():
     df_validated = schema.validate(df)
     assert list(df_validated.columns) == schema.column_order
 
-```text
+```
 
 **Покрытие**: AC2, G4
 
@@ -117,7 +117,7 @@ def test_activity_offset_only():
     with pytest.raises(ValueError, match="Cannot mix pagination strategies"):
         client.fetch_activities(offset=0, cursor="abc123")  # смешивание
 
-```text
+```
 
 **Покрытие**: G2
 
@@ -163,7 +163,7 @@ def test_no_retry_on_4xx_except_429():
 
     assert requests.get.call_count == 1
 
-```text
+```
 
 **Покрытие**: AC5, G11
 
@@ -187,7 +187,7 @@ def test_chembl_post_override():
 
     assert response.request.headers.get("X-HTTP-Method-Override") == "GET"
 
-```text
+```
 
 **Покрытие**: [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md)
 
@@ -236,7 +236,7 @@ def test_golden_run_assay():
 
     # (continued)
 
-```text
+```
 
 **CLI команда**:
 
@@ -244,7 +244,7 @@ def test_golden_run_assay():
 
 python -m pipeline run --golden data/golden/activity.csv
 
-```text
+```
 
 **Покрытие**: AC1, G1, G13
 
@@ -290,7 +290,7 @@ def test_binary_search_limit():
 
     assert ActivityConfig.max_limit == safe_limit
 
-```text
+```
 
 **Покрытие**: G3
 
@@ -329,7 +329,7 @@ def test_track_429_rate():
         "avg_retry_after": metrics.avg_retry_after
     }
 
-```text
+```
 
 **Покрытие**: G11
 
@@ -368,7 +368,7 @@ def test_full_activity_pipeline():
     assert output.meta.exists()
     assert not is_partial_file(output.csv)
 
-```text
+```
 
 **Покрытие**: AC6, AC9, AC4
 
@@ -395,7 +395,7 @@ def test_assay_long_format():
     assert all(p["assay_chembl_id"] in assays["assay_chembl_id"].values
               for p in parameters.itertuples())
 
-```text
+```
 
 **Покрытие**: AC8, G7
 
@@ -416,7 +416,7 @@ def test_atomic_write_failure():
     assert not path.exists()
     assert not (path.parent / ".tmp" / run_id / f"{path.name}.tmp").exists()
 
-```text
+```
 
 **Покрытие**: AC4, G1
 
@@ -453,7 +453,7 @@ def test_atomic_write_failure():
     pytest tests/golden/ -v --golden-dir=../data/golden
     pytest tests/load/ -v --slow
 
-```text
+```
 
 ## Связи с документами
 

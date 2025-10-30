@@ -54,7 +54,7 @@ flowchart LR
   J -.exhausted.-> K[Fallback rows + error context]
   K --> D
 
-```text
+```
 
 ### Компоненты
 
@@ -100,7 +100,7 @@ flowchart LR
 
 https://www.ebi.ac.uk/chembl/api/data
 
-```text
+```
 
 ### Ресурс документов
 
@@ -128,7 +128,7 @@ https://www.ebi.ac.uk/chembl/api/data
 
 curl -sS "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50"
 
-```text
+```
 
 ### Фиксация релиза БД
 
@@ -136,7 +136,7 @@ curl -sS "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id
 
 curl -sS "https://www.ebi.ac.uk/chembl/api/data/status.json"
 
-```text
+```
 
 **Использование релиза:**
 
@@ -165,7 +165,7 @@ curl -sS "https://www.ebi.ac.uk/chembl/api/data/status.json"
   "documents": [...]
 }
 
-```text
+```
 
 ## 3. Вход, батчинг и устойчивость
 
@@ -197,7 +197,7 @@ class DocumentInputSchema(pa.DataFrameModel):
         ordered = True
         coerce = True
 
-```text
+```
 
 ### 3.2 Батчинг
 
@@ -235,7 +235,7 @@ def fetch_batch(ids, chunk_size):
                 raise
             yield from fetch_batch(chunk, max(1, len(chunk)//2))
 
-```text
+```
 
 **Реализация в коде:**
 
@@ -266,7 +266,7 @@ def _fetch_documents_chunk(
     items = data.get("documents") or data.get("document") or []
     return [_normalise_document_record(item) for item in items if isinstance(item, Mapping)]
 
-```text
+```
 
 ### 3.3 Таймауты, ретраи, троттлинг
 
@@ -319,7 +319,7 @@ if response.status_code == 429:
     time.sleep(wait_sec)
     raise RateLimitError()
 
-```text
+```
 
 **Circuit breaker:**
 
@@ -353,7 +353,7 @@ class CircuitBreaker:
 
 logger.error("circuit_breaker_triggered", cb_state=state, cb_failures=failure_count)
 
-```text
+```
 
 **Логирование:**
 Каждый запрос → JSON запись:
@@ -369,7 +369,7 @@ logger.error("circuit_breaker_triggered", cb_state=state, cb_failures=failure_co
   "duration_ms": 234
 }
 
-```text
+```
 
 ## 4. Схема данных ChEMBL и нормализация
 
@@ -456,7 +456,7 @@ def normalize_doi(doi: str | None) -> tuple[str, bool]:
 
     return doi if is_valid else "", is_valid
 
-```text
+```
 
 **Результат:**
 
@@ -479,7 +479,7 @@ def coerce_pmid(value: Any) -> pd.Int64Dtype | None:
     except (ValueError, TypeError):
         return None
 
-```text
+```
 
 #### Year нормализация
 
@@ -496,7 +496,7 @@ def normalize_year(value: Any) -> tuple[int | None, bool]:
     except (ValueError, TypeError):
         return None, False
 
-```text
+```
 
 **QC флаг:** `qc_flag_out_of_range_year=1` если year вне диапазона.
 
@@ -526,7 +526,7 @@ def normalize_authors(authors: Any, separator: str = ", ") -> tuple[str, int]:
 
     return separator.join(parts), len(parts)
 
-```text
+```
 
 **Результат:**
 
@@ -546,7 +546,7 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
     text = re.sub(r'\s+', ' ', text).strip()
     return text[:max_len] if len(text) > max_len else text
 
-```text
+```
 
 ### NA политика
 
@@ -592,31 +592,31 @@ def normalize_journal(value: Any, max_len: int = 255) -> str:
 
 1. **Извлечение ChEMBL:**
 
-   ```python
+```python
 
    chembl_df = get_documents(document_ids, cfg=cfg, client=client)
 
-```text
+```
 
 2. **Извлечение ключей обогащения:**
 
-   ```python
+```python
 
    pmids = chembl_df["pubmed_id"].dropna().astype(int).tolist()
    dois = chembl_df["doi_clean"].dropna().tolist()
 
-```text
+```
 
 3. **Вызов адаптеров** (каждый независимо):
 
-   ```python
+```python
 
    pubmed_df = fetch_pubmed(pmids)
    openalex_df = fetch_openalex(dois)
    crossref_df = fetch_crossref(dois)
    scholar_df = fetch_semantic_scholar(pmids)
 
-```text
+```
 
 4. **Merge field-level с приоритетами** (§12)
 
@@ -648,7 +648,7 @@ def fetch_pubmed(
     - Prefix: PubMed.*
     """
 
-```text
+```
 
 **Crossref (§9):**
 
@@ -670,7 +670,7 @@ def fetch_crossref(
     - Prefix: Crossref.*
     """
 
-```text
+```
 
 **OpenAlex (§10):**
 
@@ -692,7 +692,7 @@ def fetch_openalex(
     - Prefix: OpenAlex.*
     """
 
-```text
+```
 
 **Semantic Scholar (§11):**
 
@@ -713,7 +713,7 @@ def fetch_semantic_scholar(
     - Prefix: S2.*
     """
 
-```text
+```
 
 **Обязательные колонки для merge:**
 
@@ -760,7 +760,7 @@ with tempfile.TemporaryDirectory(prefix="chembl_metadata_") as tmp_dir:
 
     merged = merge_with_chembl(chembl_df, metadata_iterators)
 
-```text
+```
 
 ### Fallback по DOI
 
@@ -783,7 +783,7 @@ if not doc_df.empty and "doi_clean" in doc_df.columns:
             scholar_df=scholar_df
         )
 
-```text
+```
 
 ### Обработка ошибок
 
@@ -836,7 +836,7 @@ def create_fallback_row(
     })
     return row
 
-```text
+```
 
 ### Классификация ошибок
 
@@ -856,7 +856,7 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
         return "E_JSON", False
     return "E_UNKNOWN", False
 
-```text
+```
 
 ### Централизованное логирование ошибок
 
@@ -872,7 +872,7 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
   "timestamp_utc": "2025-01-28T14:23:45.123Z"
 }
 
-```text
+```
 
 ## 8. PubMed E-utilities API
 
@@ -904,7 +904,7 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?
   &email=<contact>
   &api_key=<key>
 
-```text
+```
 
 **EPost - загрузка UID в историю:**
 
@@ -915,7 +915,7 @@ Body: id=PMID1,PMID2,...
 
 Возвращает: WebEnv + query_key
 
-```text
+```
 
 **EFetch - извлечение полных записей:**
 
@@ -935,7 +935,7 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
   &email=<contact>
   &api_key=<key>
 
-```text
+```
 
 По явному списку ID (POST для >200):
 
@@ -950,7 +950,7 @@ POST https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
   &api_key=<key>
 Body: id=PMID1,PMID2,...
 
-```text
+```
 
 **ELink - связанные ресурсы (опционально):**
 
@@ -960,7 +960,7 @@ dbfrom=pubmed&linkname=pubmed_pmc&id=<PMIDs>  # PMCID маппинг
 
 dbfrom=pubmed&linkname=pubmed_pubmed_refs&id=<PMIDs>  # Список референсов
 
-```text
+```
 
 ### 8.3 History Server
 
@@ -1071,7 +1071,7 @@ def normalize_pubmed_date(year, month, day):
     day = str(day).zfill(2) if day else "00"
     return f"{year}-{month}-{day}"
 
-```text
+```
 
 ### 8.8 Обработка ошибок
 
@@ -1134,7 +1134,7 @@ def normalize_pubmed_date(year, month, day):
 curl "https://api.crossref.org/works/10.1371/journal.pone.0000000" \
   -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)"
 
-```text
+```
 
 **GET /works - пакетное извлечение:**
 
@@ -1143,7 +1143,7 @@ curl "https://api.crossref.org/works/10.1371/journal.pone.0000000" \
 curl "https://api.crossref.org/works?filter=doi:10.1371/journal.pone.0000000,10.1038/nature12345&rows=100" \
   -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)"
 
-```text
+```
 
 **Cursor-based pagination для больших списков:**
 
@@ -1157,7 +1157,7 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=*"
 
 curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/..."
 
-```text
+```
 
 ### 9.3 Rate limiting
 
@@ -1199,7 +1199,7 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/.
   ]
 }
 
-```text
+```
 
 ### 9.5 Приоритеты дат
 
@@ -1242,7 +1242,7 @@ def extract_issn(record):
 
     return issn_data
 
-```text
+```
 
 ### 9.7 ORCID нормализация
 
@@ -1261,7 +1261,7 @@ def normalize_orcid(orcid_value):
 
     return None
 
-```text
+```
 
 ### 9.8 Обработка ошибок
 
@@ -1302,7 +1302,7 @@ OpenAlex — полностью открытый сервис:
 
 curl "https://api.openalex.org/works/W1234567890"
 
-```text
+```
 
 **GET /works?filter=... - множественные критерии поиска:**
 
@@ -1312,7 +1312,7 @@ curl "https://api.openalex.org/works/W1234567890"
 
 curl "https://api.openalex.org/works?filter=doi:10.1371/journal.pone.0000000"
 
-```text
+```
 
 По PMID:
 
@@ -1320,7 +1320,7 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/journal.pone.0000000"
 
 curl "https://api.openalex.org/works?filter=pmid:12345678"
 
-```text
+```
 
 По заголовку (title search):
 
@@ -1328,7 +1328,7 @@ curl "https://api.openalex.org/works?filter=pmid:12345678"
 
 curl "https://api.openalex.org/works?filter=title.search:prostaglandin"
 
-```text
+```
 
 **Cursor-based pagination (рекомендуется):**
 
@@ -1342,7 +1342,7 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=*"
 
 curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=MjAyM..."
 
-```text
+```
 
 ### 10.3 Rate limiting
 
@@ -1391,7 +1391,7 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=Mj
   ]
 }
 
-```text
+```
 
 ### 10.5 OA статус детализация
 
@@ -1421,7 +1421,7 @@ def search_by_title(title, fuzzy=True):
 
     return exact_results
 
-```text
+```
 
 ### 10.8 Нормализация
 
@@ -1437,7 +1437,7 @@ def normalize_openalex_id(openalex_url):
 
     return match.group(1) if match else None
 
-```text
+```
 
 ### 10.9 Обработка ошибок
 
@@ -1488,7 +1488,7 @@ def normalize_openalex_id(openalex_url):
 curl "https://api.semanticscholar.org/graph/v1/paper/10.1371/journal.pone.0000000" \
   -H "x-api-key: <your_key>"
 
-```text
+```
 
 Поддерживаемые IDs:
 
@@ -1505,7 +1505,7 @@ curl "https://api.semanticscholar.org/graph/v1/paper/10.1371/journal.pone.000000
 curl "https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&limit=10" \
   -H "x-api-key: <your_key>"
 
-```text
+```
 
 ### 11.4 Извлекаемые поля
 
@@ -1530,7 +1530,7 @@ curl "https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&
   "fieldsOfStudy": ["Medicine", "Biology"]
 }
 
-```text
+```
 
 ### 11.5 Citation metrics
 
@@ -1558,7 +1558,7 @@ def search_by_title(title, max_results=10):
     response = session.get(url, params=params, timeout=30)
     return response.json().get('data', [])
 
-```text
+```
 
 **Scoring и выбор:**
 
@@ -1580,7 +1580,7 @@ def normalize_publication_types(types_list):
     normalized = [t.lower() for t in types_list]
     return normalized
 
-```text
+```
 
 ### 11.8 Обработка Access Denied
 
@@ -1598,7 +1598,7 @@ def handle_access_denied(error_response, attempt):
 
     return False
 
-```text
+```
 
 ### 11.9 Лицензирование
 
@@ -1648,7 +1648,7 @@ merged_df = merge_with_precedence(
     chembl_df, pubmed_df, crossref_df, openalex_df, scholar_df
 )
 
-```text
+```
 
 ### 12.2 Fallback цепочки
 
@@ -1719,7 +1719,7 @@ df["doi_clean"] = "10.1371/journal.pone.0123456"
 df["doi_clean_source"] = "Crossref"
 df["conflict_doi"] = True
 
-```text
+```
 
 ### 12.4 Алгоритм choose_field
 
@@ -1746,7 +1746,7 @@ merged_df = merged_df.apply(
     axis=1
 )
 
-```text
+```
 
 ### 12.5 Прозрачность источников
 
@@ -1785,7 +1785,7 @@ def detect_conflicts(row):
 
     return row
 
-```text
+```
 
 ### 12.7 Стриминг для больших наборов
 
@@ -1836,7 +1836,7 @@ with tempfile.TemporaryDirectory(prefix="chembl_enrichment_") as tmp_dir:
 
     merged_df = pd.concat(merged_chunks, ignore_index=True)
 
-```text
+```
 
 ### 12.8 Параллельный вызов адаптеров
 
@@ -1881,7 +1881,7 @@ with ThreadPoolExecutor(max_workers=workers) as executor:
             logger.warning(f"{name} timeout", timeout=timeout_per_source)
             results[name] = pd.DataFrame()
 
-```text
+```
 
 ## 13. Приоритеты источников и разрешение конфликтов
 
@@ -1953,7 +1953,7 @@ def resolve_field_conflict(row, field_name: str, precedence: list[str]):
 
     return None, None
 
-```text
+```
 
 ### 13.4 Quality scoring
 
@@ -1986,7 +1986,7 @@ def score_source_quality(source: str, field: str, value: Any) -> float:
 
     return 0.5
 
-```text
+```
 
 ### 13.5 Audit trail
 
@@ -2011,7 +2011,7 @@ for field in ["doi_clean", "pubmed_id", "year"]:
 
 row["audit_trail"] = json.dumps(audit_trail, sort_keys=True)
 
-```text
+```
 
 ## 14. Детерминизм, метаданные и кэш
 
@@ -2031,7 +2031,7 @@ df_sorted = df.sort_values(
 
 )
 
-```text
+```
 
 ### 14.2 COLUMN_ORDER (расширенный)
 
@@ -2118,7 +2118,7 @@ for col, dtype in DTYPES_CONFIG.items():
 
 assert not any(df_final.dtypes == "object"), "Object dtypes forbidden"
 
-```text
+```
 
 ### 14.3 Хеши
 
@@ -2134,7 +2134,7 @@ def compute_hash_business_key(document_chembl_id: str) -> str:
 
 df["hash_business_key"] = df["document_chembl_id"].apply(compute_hash_business_key)
 
-```text
+```
 
 **hash_row:**
 
@@ -2201,7 +2201,7 @@ def compute_hash_row(row: pd.Series) -> str:
 
 df["hash_row"] = df.apply(compute_hash_row, axis=1)
 
-```text
+```
 
 ### 14.4 Метаданные run
 
@@ -2223,7 +2223,7 @@ run_metadata = {
     }
 }
 
-```text
+```
 
 ### 14.5 Кэш HTTP
 
@@ -2238,7 +2238,7 @@ def cache_key(url: str, params: dict) -> str:
     full = f"GET+{url}+{param_str}"
     return hashlib.sha256(full.encode()).hexdigest()
 
-```text
+```
 
 **Scope:**
 
@@ -2265,7 +2265,7 @@ source_ttl = {
 
 }
 
-```text
+```
 
 **Invalidation:**
 
@@ -2318,7 +2318,7 @@ class DocumentInputSchema(pa.DataFrameModel):
         ordered = True
         coerce = True
 
-```text
+```
 
 ### 15.2 RawSchema (ChEMBL-only)
 
@@ -2347,7 +2347,7 @@ class DocumentRawSchema(pa.DataFrameModel):
         ordered = True
         coerce = True
 
-```text
+```
 
 ### 15.3 NormalizedSchema (mode=chembl/all)
 
@@ -2427,7 +2427,7 @@ class DocumentNormalizedSchema(DocumentRawSchema):
         ordered = True
         coerce = True
 
-```text
+```
 
 ### 15.3.1 DocumentOutputSchema (AUD-3)
 
@@ -2564,7 +2564,7 @@ DOCUMENT_SCHEMAS = {
     "output": DocumentOutputSchema,
 }
 
-```text
+```
 
 **Schema ID:** `document.output` v1.0.0
 
@@ -2596,7 +2596,7 @@ def validate_documents(df: pd.DataFrame, stage: str = "normalized") -> pd.DataFr
         )
         raise
 
-```text
+```
 
 ### 15.4.1 CLI флаги для строгой валидации
 
@@ -2636,7 +2636,7 @@ python -m scripts.get_document_data \
   --input documents.csv \
   --strict-enrichment
 
-```text
+```
 
 ## 16. QC и метрики качества
 
@@ -2658,7 +2658,7 @@ def compute_coverage_metrics(df: pd.DataFrame) -> dict[str, float]:
         "oa_status_coverage": (df["oa_status"].notna()).sum() / total if total > 0 else 0.0,
     }
 
-```text
+```
 
 ### 16.2 Метрики конфликтов
 
@@ -2673,7 +2673,7 @@ def compute_conflict_metrics(df: pd.DataFrame) -> dict[str, float]:
         "conflicts_pmid": (df["conflict_pmid"] == True).sum() / total if total > 0 else 0.0,
     }
 
-```text
+```
 
 ### 16.3 Валидность
 
@@ -2690,7 +2690,7 @@ def compute_validity_metrics(df: pd.DataFrame) -> dict[str, float]:
         "title_fallback_rate": (df["qc_flag_title_fallback_used"] == 1).sum() / total if total > 0 else 0.0,
     }
 
-```text
+```
 
 ### 16.4 Дубликаты
 
@@ -2704,7 +2704,7 @@ def detect_duplicates(df: pd.DataFrame) -> dict[str, int]:
         "duplicates_by_pmid": df["pubmed_id"].duplicated().sum(),
     }
 
-```text
+```
 
 ### 16.5 QC Report генерация
 
@@ -2724,7 +2724,7 @@ def generate_qc_report(df: pd.DataFrame, output_path: Path) -> pd.DataFrame:
 
     return report_df
 
-```text
+```
 
 ### 16.6 Пороги и проверки
 
@@ -2738,7 +2738,7 @@ qc:
   max_title_fallback: 0.1
   fail_on_threshold_violation: false
 
-```text
+```
 
 ```python
 
@@ -2768,7 +2768,7 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
 
     return violations
 
-```text
+```
 
 ## 17. Конфигурация
 
@@ -2874,7 +2874,7 @@ checksums:
   csv_sha256: "sha256_checksum"
   qc_report_sha256: "sha256_checksum"
 
-```text
+```
 
 ### 18.3 Атомарность записи
 
@@ -2894,7 +2894,7 @@ def atomic_write(df: pd.DataFrame, output_path: Path, run_id: str):
 
     shutil.rmtree(temp_dir)
 
-```text
+```
 
 ## 19. Примеры
 
@@ -2905,7 +2905,7 @@ def atomic_write(df: pd.DataFrame, output_path: Path, run_id: str):
 curl -sS \
   "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50"
 
-```text
+```
 
 ### 19.2 PubMed EPost → EFetch
 
@@ -2921,7 +2921,7 @@ for i in range(0, total, 200):
     batch = pubmed_client.efetch_by_history(ctx, retstart=i, retmax=200)
     process_xml(batch)
 
-```text
+```
 
 ### 19.3 Crossref cursor pagination
 
@@ -2937,7 +2937,7 @@ while cursor:
     process_records(response["items"])
     cursor = response.get("next-cursor")
 
-```text
+```
 
 ### 19.4 OpenAlex title search fallback
 
@@ -2957,7 +2957,7 @@ if not result:
 
     best = select_best_match(results, title, threshold=0.8)
 
-```text
+```
 
 ### 19.5 Semantic Scholar with title fallback
 
@@ -2974,7 +2974,7 @@ if not result:
     results = s2_client.search_by_title(title)
     best = select_best_match(results, title, threshold=0.85)
 
-```text
+```
 
 ### 19.6 Merge example
 
@@ -2995,7 +2995,7 @@ merged = merged.apply(detect_conflicts, axis=1)
 
 merged["audit_trail"] = merged.apply(create_audit_trail, axis=1)
 
-```text
+```
 
 ## 20. Тест-план и приёмка
 
@@ -3080,7 +3080,7 @@ python -m scripts.get_document_data \
   --input test_ids.csv \
   --golden golden_output.csv
 
-```text
+```
 
 Бит-в-бит сравнение, проверка `hash_row`.
 

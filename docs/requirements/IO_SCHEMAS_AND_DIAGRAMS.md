@@ -18,7 +18,7 @@ flowchart TB
   TR --> VL["Validate: Pandera schema + RI checks<br/>QC profile<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
   VL --> LD["Load: UnifiedOutputWriter CSV/QC/meta<br/>Atomic write, hashes<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
 
-```text
+```
 
 ### C) Input Schema (Assay)
 
@@ -700,7 +700,7 @@ flowchart TB
   TR --> VL["Validate: Pandera schema + duplicate check<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
   VL --> LD["Load: dataset/qc/(corr)/meta via UnifiedOutputWriter<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
 
-```text
+```
 
 ### C) Input Schema (Activity)
 
@@ -1194,7 +1194,7 @@ flowchart TB
   TR --> VL["Validate: Pandera output schema, QC fail_on duplicates<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
   VL --> LD["Load: deterministic CSV/QC/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
 
-```text
+```
 
 ### C) Input Schema (Testitem)
 
@@ -1401,7 +1401,7 @@ flowchart TB
   PP --> OUT3["Output: protein_class.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
   PP --> OUT4["Output: xref.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
 
-```text
+```
 
 ### C) Input Schema (Target)
 
@@ -1669,7 +1669,7 @@ flowchart TB
   TR --> VL["Validate: Pandera raw/normalized schemas, QC coverage/conflicts<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
   VL --> LD["Load: dataset/qc/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
 
-```text
+```
 
 ### C) Input Schema (Document)
 

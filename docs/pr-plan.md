@@ -190,7 +190,7 @@ graph TD
     PR3 --> PR4
     PR4 --> PR5[PR-5: Activity]
 
-```text
+```
 
 **Порядок**:
 
@@ -230,7 +230,7 @@ type(scope): краткое описание
 
 Refs: #issue-number
 
-```text
+```
 
 ### Типы commits
 
@@ -289,7 +289,7 @@ git checkout -b hotfix/pr-X-rollback
 
 git push origin hotfix/pr-X-rollback
 
-```text
+```
 
 ## Метрики успеха
 

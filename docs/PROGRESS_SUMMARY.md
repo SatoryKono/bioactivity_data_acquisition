@@ -134,7 +134,7 @@ docs/
 ├── implementation-status.md ✅
 └── PROGRESS_SUMMARY.md ✅ (этот файл)
 
-```text
+```
 
 ## Принципы реализации
 
@@ -175,7 +175,7 @@ docs/
 from bioetl.config import load_config
 config = load_config('configs/profiles/dev.yaml')
 
-```text
+```
 
 ### Настройка логгера
 
@@ -186,7 +186,7 @@ UnifiedLogger.setup('development', run_id='test-123')
 log = UnifiedLogger.get('test')
 log.info('Hello World')
 
-```text
+```
 
 ### Использование API клиента
 
@@ -197,7 +197,7 @@ config = APIConfig(name='test', base_url='https://api.example.com')
 client = UnifiedAPIClient(config)
 result = client.request_json('/endpoint')
 
-```text
+```
 
 ### Нормализация данных
 
@@ -208,7 +208,7 @@ result = registry.normalize('string', '  test  ')
 
 # → 'test'
 
-```text
+```
 
 ### Запись данных
 
@@ -218,7 +218,7 @@ from bioetl.core.output_writer import UnifiedOutputWriter
 writer = UnifiedOutputWriter(run_id='test')
 artifacts = writer.write(df, Path('output.csv'), extended=True)
 
-```text
+```
 
 ## Команды для проверки
 
@@ -244,7 +244,7 @@ mypy src/
 
 python -m bioetl.cli.main --help
 
-```text
+```
 
 ## Следующие шаги
 

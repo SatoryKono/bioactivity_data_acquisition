@@ -74,7 +74,7 @@
 
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5"
 
-```text
+```
 
 **Python (requests):**
 
@@ -90,7 +90,7 @@ r = requests.get(
 r.raise_for_status()
 data = r.json()
 
-```text
+```
 
 **Критерии детерминизма/валидности:**
 
@@ -172,14 +172,14 @@ data = r.json()
 
 - **Валидация конфига:**
 
-  ```python
+```python
 
   if batch_size > 25:
       raise ConfigValidationError(
           "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
       )
 
-```text
+```
 
 **Алгоритм:**
 
@@ -262,7 +262,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 
     return extracted_dataframe
 
-```text
+```
 
 **Преимущества batch IDs над offset:**
 
@@ -282,7 +282,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 
-```text
+```
 
 Пример ответа (усечен):
 
@@ -305,7 +305,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
   "canonical_smiles": "c1ccc..."
 }
 
-```text
+```
 
 **Batch по molecule_chembl_id:**
 
@@ -313,7 +313,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=3"
 
-```text
+```
 
 Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `total_count`.
 
@@ -323,7 +323,7 @@ Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `t
 
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CHEMBL240&assay_type=B&pchembl_value__gte=6&only=molecule_chembl_id,pchembl_value,assay_chembl_id&order_by=-pchembl_value&limit=5"
 
-```text
+```
 
 Фильтры `__gte`, `only`, `order_by` — стандартные для ChEMBL Web Services.
 
@@ -592,7 +592,7 @@ COLUMN_ORDER = [
 STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
 RELATIONS = {"=", "<", ">", "<=", ">=", "~"}
 
-```text
+```
 
 ### ActivitySchema
 
@@ -630,7 +630,7 @@ ActivitySchema = DataFrameSchema(
     name=f"ActivitySchema_v{SCHEMA_VERSION}",
 )
 
-```text
+```
 
 ### Контракт валидации
 
@@ -685,7 +685,7 @@ chembl_activity_config = APIConfig(
     cb_timeout=60.0
 )
 
-```text
+```
 
 ### ⚠️ UNCERTAIN: Rate Limits
 
@@ -732,7 +732,7 @@ while True:
         break
     offset += pm["limit"]
 
-```text
+```
 
 ### page_meta структура
 
@@ -746,7 +746,7 @@ while True:
   "total_count": 123456
 }
 
-```text
+```
 
 ### Критерии успешной пагинации
 
@@ -787,7 +787,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 
 curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5000"
 
-```text
+```
 
 **Ссылка:** [test-plan.md](../test-plan.md), процедура бинарного поиска
 
@@ -847,7 +847,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
   "timestamp_utc": "2025-10-28T07:01:23.456Z"
 }
 
-```text
+```
 
 ### Контракт обработки ошибок
 
@@ -917,7 +917,7 @@ cache_key = make_cache_key(
 
 # Результат: 'a1b2c3d4e5f6...' (детерминированный для одинаковых параметров)
 
-```text
+```
 
 ### Контракт кэширования
 
@@ -992,7 +992,7 @@ complete_activities = df[
     df['molecule_chembl_id'].notna()
 ]
 
-```text
+```
 
 **Инвариант G10, AC9:** QC-фильтры по validity/duplicates как AC; инвариант duplicates_activity_id==0; проверка перед записью: `df["activity_id"].duplicated().sum()==0`.
 
@@ -1011,7 +1011,7 @@ qc_report = {
     "passed": duplicate_count == 0
 }
 
-```text
+```
 
 **См. также**: [gaps.md](../gaps.md) (G10), [acceptance-criteria.md](../acceptance-criteria.md) (AC9).
 
@@ -1109,7 +1109,7 @@ notes:
   - "Данные получены с использованием фильтров, см. выше."
   - "Детерминизм обеспечен: сортировка по activity_id."
 
-```text
+```
 
 ### Контракт атомарной записи
 
@@ -1181,7 +1181,7 @@ def fetch_activities(filters, limit=1000, sleep_s=1.0):
 for activity in fetch_activities({"target_chembl_id": "CHEMBL240"}):
     print(f"Activity {activity['activity_id']}: {activity['standard_value']}")
 
-```text
+```
 
 ### POST с X-HTTP-Method-Override (длинные списки __in)
 
@@ -1211,7 +1211,7 @@ data = r.json()
 
 print(f"Received {len(data.get('activities', []))} activities")
 
-```text
+```
 
 Поддержка POST + X-HTTP-Method-Override: GET описана в [официальной документации ChEMBL](https://www.ebi.ac.uk/chembl/documentation/webservices).
 
@@ -1260,7 +1260,7 @@ writer.write(
 
 )
 
-```text
+```
 
 ### Критерии валидности примеров
 
@@ -1313,7 +1313,7 @@ filters = {
 
 filters = {}  # Будет очень медленно!
 
-```text
+```
 
 **Кэширование:**
 
@@ -1327,7 +1327,7 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=True, cache_ttl=3600))
 
 client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
-```text
+```
 
 ---
 
@@ -1365,7 +1365,7 @@ Activity
 ├── molecule_chembl_id → Molecule/TestItem
 └── document_chembl_id → Document
 
-```text
+```
 
 **Проверка referential integrity:**
 
@@ -1389,7 +1389,7 @@ def validate_referential_integrity(activities_df, assays_df, targets_df):
             missing_targets=len(missing_targets)
         )
 
-```text
+```
 
 ---
 
@@ -1410,7 +1410,7 @@ flowchart LR
   J --> K[meta.yaml]
   H -->|fail| E[Log error + fail-fast]
 
-```text
+```
 
 **Описание:**
 

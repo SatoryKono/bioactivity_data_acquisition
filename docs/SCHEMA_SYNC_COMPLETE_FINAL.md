@@ -150,7 +150,7 @@ python src/scripts/run_assay.py --limit 10
 python src/scripts/run_activity.py --limit 10
 python src/scripts/run_testitem.py --limit 10
 
-```text
+```
 
 **Результаты:**
 

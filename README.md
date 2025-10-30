@@ -21,6 +21,7 @@ pre-commit install
 
 ```bash
 pip install -r requirements.txt
+
 ```
 
 > **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
@@ -42,7 +43,7 @@ python -c "from bioetl.core.logger import UnifiedLogger; \
 UnifiedLogger.setup('development', 'test'); \
 UnifiedLogger.get('test').info('Hello World')"
 
-```text
+```
 
 ## Environment variables
 
@@ -53,7 +54,7 @@ UnifiedLogger.get('test').info('Hello World')"
 
 export IUPHAR_API_KEY="your-iuphar-token"
 
-```text
+```
 
 Если переменная не задана, загрузчик конфигурации завершится ошибкой, предотвращая
 случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
@@ -80,7 +81,7 @@ python -m bioetl.cli.main activity \
   --dry-run \
   --verbose
 
-```text
+```
 
 ## Structure
 
@@ -105,7 +106,7 @@ tests/
   ├── golden/        # Golden tests
   └── fixtures/      # Test fixtures
 
-```text
+```
 
 ## Development
 
@@ -125,6 +126,7 @@ pytest tests/ -v
 pytest tests/ --cov=src/bioetl --cov-report=html
 
 # Run specific test suite
+
 make test-unit                     # Unit tests only (directory scoped)
 make test-integration              # Integration tests only (directory scoped)
 pytest tests/unit/ -v              # Direct pytest invocation for unit tests
@@ -146,7 +148,7 @@ pytest tests/unit tests/integration tests/schemas
 
 pre-commit run --all-files
 
-```text
+```
 
 Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
 

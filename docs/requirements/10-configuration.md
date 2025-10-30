@@ -57,7 +57,7 @@ qc:
 cli:
   default_config: "configs/base.yaml"
 
-```text
+```
 
 ### 2.1 Обязательные поля и их назначение
 
@@ -105,7 +105,7 @@ determinism:
     ascending: [true]
   column_order: ["assay_chembl_id", "pipeline_version", "hash_row", "hash_business_key"]
 
-```text
+```
 
 Вынесенный include `configs/includes/determinism.yaml` задаёт единые значения `hash_algorithm`, `float_precision` и `datetime_format`,
 а конкретный пайплайн отвечает только за собственные ключи сортировки и порядок столбцов.
@@ -185,7 +185,7 @@ class PipelineConfig(BaseModel):
             raise ValueError("Unsupported config version")
         return value
 
-```text
+```
 
 Модели используют `env` и `alias` для поддержки плоских переопределений. При сериализации в YAML необходимо применять `model_dump()` и `yaml.safe_dump` с `sort_keys=True`.
 
@@ -202,7 +202,7 @@ bioetl pipeline run \
   --set sources.chembl.batch_size=20 \
   --set http.global.timeout_sec=45
 
-```text
+```
 
 Путь интерпретируется точечной нотацией и применяется после загрузки профильного файла. Для сложных структур допускается передача JSON-строки: `--set determinism.sort.by='["assay_chembl_id"]'`.
 
@@ -270,7 +270,7 @@ class CLIArguments:
         if self.config and not self.config.exists():
             raise FileNotFoundError(f"Config not found: {self.config}")
 
-```text
+```
 
 **Таблица поддержки флагов по пайплайнам:**
 
@@ -309,7 +309,7 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
   --sample 100 \
   --verbose
 
-```text
+```
 
 **Ссылка:** См. секции CLI в [05-assay-extraction.md](05-assay-extraction.md), [06-activity-data-extraction.md](06-activity-data-extraction.md), [07a-testitem-extraction.md](07a-testitem-extraction.md), [08-target-data-extraction.md](08-target-data-extraction.md), [09-document-chembl-extraction.md](09-document-chembl-extraction.md).
 

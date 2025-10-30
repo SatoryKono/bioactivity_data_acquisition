@@ -50,7 +50,7 @@ Schema System (Pandera)
 │           ├── ChEMBLTestItemSchema
 │           └── PubChemTestItemSchema
 
-```text
+```
 
 ## Компоненты нормализации
 
@@ -83,7 +83,7 @@ class BaseNormalizer(ABC):
             logger.warning(f"Normalization failed: {e}", value=value)
             return None
 
-```text
+```
 
 ### 2. StringNormalizer
 
@@ -126,7 +126,7 @@ class StringNormalizer(BaseNormalizer):
         import re
         return re.sub(r'\s+', ' ', s)
 
-```text
+```
 
 ### 3. IdentifierNormalizer
 
@@ -175,7 +175,7 @@ class IdentifierNormalizer(BaseNormalizer):
 
         return s
 
-```text
+```
 
 ### 4. ChemistryNormalizer
 
@@ -215,7 +215,7 @@ class ChemistryNormalizer(BaseNormalizer):
 
         return s
 
-```text
+```
 
 ### 5. NormalizerRegistry
 
@@ -253,7 +253,7 @@ registry.register("string", StringNormalizer())
 registry.register("identifier", IdentifierNormalizer())
 registry.register("chemistry", ChemistryNormalizer())
 
-```text
+```
 
 ## Компоненты схем Pandera
 
@@ -283,7 +283,7 @@ class BaseSchema(pa.DataFrameModel):
         coerce = True
         ordered = True
 
-```text
+```
 
 ### 2. DocumentSchema — ChEMBL
 
@@ -306,7 +306,7 @@ class ChEMBLDocumentSchema(BaseSchema):
     doi: str | None = pa.Field(nullable=True, str_matches=r'^10\.\d+/.+$')
     pmid: str | None = pa.Field(nullable=True, str_matches=r'^\d+$')
 
-```text
+```
 
 ### 3. DocumentSchema — PubMed
 
@@ -324,7 +324,7 @@ class PubMedDocumentSchema(BaseSchema):
     mesh_terms: str | None = pa.Field(nullable=True)
     doi: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ### 4. DocumentSchema — CrossRef
 
@@ -340,7 +340,7 @@ class CrossRefDocumentSchema(BaseSchema):
     subject: str | None = pa.Field(nullable=True)
     publisher: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ### 5. DocumentSchema — OpenAlex
 
@@ -356,7 +356,7 @@ class OpenAlexDocumentSchema(BaseSchema):
     mesh_descriptors: str | None = pa.Field(nullable=True)
     mesh_qualifiers: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ### 6. DocumentSchema — Semantic Scholar
 
@@ -371,7 +371,7 @@ class SemanticScholarDocumentSchema(BaseSchema):
     citation_count: int | None = pa.Field(ge=0, nullable=True)
     influential_citations: int | None = pa.Field(ge=0, nullable=True)
 
-```text
+```
 
 ### 7. TargetSchema — ChEMBL
 
@@ -389,7 +389,7 @@ class ChEMBLTargetSchema(BaseSchema):
     organism: str | None = pa.Field(nullable=True)
     pref_name: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ### 8. TargetSchema — UniProt
 
@@ -408,7 +408,7 @@ class UniProtTargetSchema(BaseSchema):
     function: str | None = pa.Field(nullable=True)
     sequence: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ### 9. TargetSchema — IUPHAR
 
@@ -423,7 +423,7 @@ class IUPHARTargetSchema(BaseSchema):
     species: str | None = pa.Field(nullable=True)
     ligands: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ### 10. TestItemSchema — ChEMBL
 
@@ -443,7 +443,7 @@ class ChEMBLTestItemSchema(BaseSchema):
     canonical_smiles: str | None = pa.Field(nullable=True)
     standard_inchi: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ### 11. TestItemSchema — PubChem
 
@@ -463,7 +463,7 @@ class PubChemTestItemSchema(BaseSchema):
     inchi: str | None = pa.Field(nullable=True)
     inchikey: str | None = pa.Field(nullable=True)
 
-```text
+```
 
 ## Использование
 
@@ -493,7 +493,7 @@ result = registry.normalize("identifier", "10.1234/example")
 
 # → "10.1234/example"
 
-```text
+```
 
 ### Валидация через схемы
 
@@ -511,7 +511,7 @@ validated_df = schema.validate(df, lazy=True)
 schema = PubMedDocumentSchema
 validated_df = schema.validate(df, lazy=True)
 
-```text
+```
 
 ### Применение нормализации к DataFrame
 
@@ -537,7 +537,7 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 
     return normalized_df
 
-```text
+```
 
 ## Best Practices
 
@@ -592,7 +592,7 @@ class DocumentSchema(BaseSchema):
     year: int | None = pa.Field(ge=1800, le=2030, nullable=True)
     ...
 
-```text
+```
 
 ### Правила эволюции схем
 
@@ -646,7 +646,7 @@ def is_compatible(from_version: str, to_version: str) -> bool:
 
     return from_major == to_major  # Major версия должна совпадать
 
-```text
+```
 
 ### Хранение column_order в схеме (источник истины)
 
@@ -675,7 +675,7 @@ meta = {
     ...
 }
 
-```text
+```
 
 **Fail-fast при несоответствии**:
 
@@ -689,7 +689,7 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
             f"got {list(df.columns)}"
         )
 
-```text
+```
 
 **Преимущества:**
 
@@ -742,7 +742,7 @@ def canonicalize_for_hash(value: Any, dtype: str) -> Any:
 
     return value
 
-```text
+```
 
 #### Precision-policy
 
@@ -775,7 +775,7 @@ def format_float(value: float, field_name: str) -> str:
     decimals = precision_policy.get(field_name, 6)  # Default 6
     return f"{value:.{decimals}f}"
 
-```text
+```
 
 **Обоснование:**
 
@@ -802,7 +802,7 @@ def generate_meta_with_policies(schema: BaseSchema, df: pd.DataFrame) -> dict:
 
     }
 
-```text
+```
 
 **Валидация:**
 
@@ -814,7 +814,7 @@ def validate_meta_policies(meta: dict, schema: BaseSchema) -> None:
     assert meta.get("na_policy") == schema.na_policy
     assert meta.get("precision_policy") == schema.precision_policy
 
-```text
+```
 
 **См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC3, AC10).
 
@@ -859,7 +859,7 @@ def validate_schema_compatibility(schema: type[BaseSchema], expected_version: st
                 actual=actual_version
             )
 
-```text
+```
 
 ### Реестр схем
 
@@ -903,7 +903,7 @@ SchemaRegistry.register(DocumentSchema)
 SchemaRegistry.register(ActivitySchema)
 SchemaRegistry.register(TargetSchema)
 
-```text
+```
 
 ### Метрики precision
 
@@ -930,7 +930,7 @@ def format_float(value: float, field_name: str) -> str:
     decimals = precision_map.get(field_name, 6)  # Default 6
     return f"{value:.{decimals}f}"
 
-```text
+```
 
 **Обоснование:** Обеспечивает детерминизм сериализации и достаточную точность для научных вычислений.
 
@@ -957,7 +957,7 @@ class CustomNormalizer(BaseNormalizer):
 
 NormalizerRegistry.register("custom", CustomNormalizer())
 
-```text
+```
 
 ### Создание новой схемы
 
@@ -980,7 +980,7 @@ class MyCustomSchema(BaseSchema):
 
     SchemaRegistry.register(MyCustomSchema)
 
-```text
+```
 
 ## Acceptance Criteria
 
@@ -1006,7 +1006,7 @@ schema = SchemaRegistry.get("document.chembl", expected_version="3.0.0", fail_on
 
 # Ожидаемое: warning в логах
 
-```text
+```
 
 **Порог:** exit != 0 при fail_on_drift=True и major mismatch.
 
@@ -1027,7 +1027,7 @@ df_ordered = df[schema.column_order]
 
 assert df_ordered.columns.tolist() == schema.column_order
 
-```text
+```
 
 **Ожидаемое:** Полное совпадение порядка колонок.
 

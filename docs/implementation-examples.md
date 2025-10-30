@@ -53,7 +53,7 @@
 
 +    return sha256(canonicalize_row_for_hash(row).encode()).hexdigest()
 
-```text
+```
 
 **Особенности**:
 
@@ -190,7 +190,7 @@
 
 +                       columns=["assay_chembl_id","class_index","class_type","class_value","row_subtype"])
 
-```text
+```
 
 **Использование**:
 
@@ -206,7 +206,7 @@ df_classes = expand_classifications_long(df)
 
 df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 
-```text
+```
 
 **См. также**: [00-architecture-overview.md → Long format](requirements/00-architecture-overview.md)
 
@@ -265,7 +265,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 
 +            self.tokens -= 1
 
-```text
+```
 
 **Файл**: `src/library/clients/unified_client.py`
 
@@ -298,7 +298,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 +            time.sleep(wait)
          raise RateLimitError("Rate limited")
 
-```text
+```
 
 **Тест**:
 
@@ -320,7 +320,7 @@ def test_respect_retry_after(mocker, caplog):
     assert any("Rate limited by API" in rec.message and rec.levelname == "WARNING"
                for rec in caplog.records)
 
-```text
+```
 
 **См. также**: [03-data-extraction.md → AC-07 Retry-After](requirements/03-data-extraction.md#ac-07-respect-retry-after-429)
 
@@ -346,7 +346,7 @@ def test_respect_retry_after(mocker, caplog):
 
 +                    help="Запрет лишних полей при enrichment (whitelist)")
 
-```text
+```
 
 **Использование**:
 
@@ -360,7 +360,7 @@ python -m pipeline run --fail-on-schema-drift --strict-enrichment
 
 python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 
-```text
+```
 
 **См. также**: [04-normalization-validation.md → Schema drift](requirements/04-normalization-validation.md#ac-08-schema-drift-detection)
 
@@ -478,7 +478,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 
 +    write_bytes_atomic(path, content, run_id)
 
-```text
+```
 
 **Проверка**:
 
@@ -505,7 +505,7 @@ def test_atomic_write_no_partial(mocker):
     tmpdir = path.parent / ".tmp" / run_id
     assert not (tmpdir / f"{path.name}.tmp").exists()
 
-```text
+```
 
 **См. также**: [02-io-system.md → Atomic Write](requirements/02-io-system.md#протокол-atomic-write)
 

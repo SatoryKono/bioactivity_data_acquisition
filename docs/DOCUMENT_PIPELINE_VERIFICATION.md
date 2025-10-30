@@ -34,7 +34,7 @@ extracted_at: 2025-10-28T14:56:07.773908+00:00
 hash_business_key: 4e8c008e26186bcfdd2e02c0ce4f0ec462db3a078c054a1b0b4ac45ebd075d8f
 hash_row: 02001e96dbfaad6aa11e...
 
-```text
+```
 
 ### 3. Проверка multi-source fields
 
@@ -60,7 +60,7 @@ hash_row: 02001e96dbfaad6aa11e...
  'chembl_title', 'chembl_abstract', 'chembl_authors', 'chembl_doi',
  'chembl_journal', 'chembl_year']
 
-```text
+```
 
 **Expected column_order (schema has 77):**
 Порядок первых 11 соответствует спецификации IO_SCHEMAS_AND_DIAGRAMS.md line 957

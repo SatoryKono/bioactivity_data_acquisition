@@ -24,7 +24,7 @@ export CROSSREF_MAILTO="your-email@example.com"  # для polite pool
 
 export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для production
 
-```text
+```
 
 > **Примечание.** Синтаксис `${VAR:}` указывает конфигуратор использовать пустую строку,
 > если переменная окружения `VAR` не определена. Это удобно для опциональных ключей API,
@@ -75,7 +75,7 @@ sources:
     rate_limit_period: 1.25
     workers: 1
 
-```text
+```
 
 ## Использование
 
@@ -95,7 +95,7 @@ pipeline = DocumentPipeline(config, run_id="test")
 
 df = pipeline.extract("data/input/documents.csv")
 
-```text
+```
 
 ### Прямое использование
 
@@ -126,7 +126,7 @@ df = pubmed.process(pmids)
 
 pubmed.close()
 
-```text
+```
 
 ## Приоритеты источников
 

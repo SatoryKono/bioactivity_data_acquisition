@@ -117,7 +117,7 @@ PubChem служит опциональным, но важным источни�
 │                                                                │
 └──────────────────────────────────────────────────────────────┘
 
-```text
+```
 
 ### 2.2 Ключевые преимущества объединённого подхода
 
@@ -197,7 +197,7 @@ PubChem PUG-REST API предоставляет несколько endpoints д�
 
 https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properties}/JSON
 
-```text
+```
 
 **Batch Example:**
 
@@ -205,7 +205,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 
 /compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey/JSON
 
-```text
+```
 
 **Response Structure:**
 
@@ -227,7 +227,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
   }
 }
 
-```text
+```
 
 **Max CIDs per batch:** 100 (рекомендуется для стабильности)
 
@@ -240,7 +240,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 /compound/inchikey/BSYNRYMUTXBXSQ-UHFFFAOYSA-N/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
 
-```text
+```
 
 **SMILES Lookup:**
 
@@ -249,7 +249,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 /compound/smiles/CC(=O)OC1=CC=CC=C1C(=O)O/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
 
-```text
+```
 
 **Name Lookup:**
 
@@ -258,7 +258,7 @@ https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properti
 /compound/name/aspirin/cids/JSON
 → {"IdentifierList": {"CID": [2244]}}
 
-```text
+```
 
 ### 3.2 Рекомендуемый HTTP Client
 
@@ -741,7 +741,7 @@ class RateLimitError(Exception):
     """Raised when rate limit is hit."""
     pass
 
-```text
+```
 
 ### 3.3 Rate Limiting Strategy
 
@@ -785,7 +785,7 @@ class RateLimiter:
 
             self.calls.append(monotonic())
 
-```text
+```
 
 ---
 
@@ -1069,7 +1069,7 @@ def _extract_cid_from_xrefs(molecule_data: dict[str, Any]) -> str | None:
 
     return None
 
-```text
+```
 
 ### 4.2 Кэш-стратегия (гибрид проектов)
 
@@ -1309,7 +1309,7 @@ class PubChemCIDCache:
             'cache_path': str(self.cache_path)
         }
 
-```text
+```
 
 **Структура cache файла:**
 
@@ -1342,7 +1342,7 @@ class PubChemCIDCache:
   }
 }
 
-```text
+```
 
 ---
 
@@ -1492,7 +1492,7 @@ class PubChemEnrichedTestitemSchema(pa.DataFrameModel):
 
         coerce = True   # Coerce types where possible
 
-```text
+```
 
 ---
 
@@ -1543,7 +1543,7 @@ library/
 
         └── pipeline.py              # Main pipeline orchestration
 
-```text
+```
 
 ### 6.2 Ключевые функции (Implementation)
 
@@ -1880,7 +1880,7 @@ class PubChemEnricher:
 
         return stats
 
-```text
+```
 
 #### 6.2.2 Pipeline Integration
 
@@ -1977,7 +1977,7 @@ def enrich_testitem_with_pubchem(
         logger.warning("pubchem_enrichment_graceful_degradation")
         return testitem_df
 
-```text
+```
 
 ---
 
@@ -2032,7 +2032,7 @@ class MemoryCacheLayer:
                 'ttl_seconds': self._cache.ttl
             }
 
-```text
+```
 
 **Преимущества:**
 
@@ -2096,7 +2096,7 @@ class MemoryCacheLayer:
   }
 }
 
-```text
+```
 
 **Cache key strategies:**
 
@@ -2147,7 +2147,7 @@ data/cache/pubchem_http/
 
 └── ...
 
-```text
+```
 
 **Преимущества:**
 
@@ -2231,7 +2231,7 @@ def clean_expired_entries(
 
     return cleaned, expired_count
 
-```text
+```
 
 ### 7.5 Cache Hit Rate Optimization
 
@@ -2239,7 +2239,7 @@ def clean_expired_entries(
 
 1. **Multiple cache keys per molecule:**
 
-   ```python
+```python
 
    # Cache под всеми возможными идентификаторами
 
@@ -2251,22 +2251,22 @@ def clean_expired_entries(
    for key in keys:
        cache.set(key, cid)
 
-```text
+```
 
 2. **Preemptive caching:**
 
-   ```python
+```python
 
    # При успешном resolution, cache для всех альтернатив
 
    if cid_found:
        cache_all_identifiers(molecule_data, cid)
 
-```text
+```
 
 3. **Cache warming:**
 
-   ```python
+```python
 
    # Загрузка популярных молекул при старте
 
@@ -2274,7 +2274,7 @@ def clean_expired_entries(
        for chembl_id in common_molecules:
            resolve_and_cache(chembl_id)
 
-```text
+```
 
 ---
 
@@ -2564,7 +2564,7 @@ class PubChemErrorHandler:
                 'by_type': dict(self.error_counts)
             }
 
-```text
+```
 
 ### 8.2 Graceful Degradation Matrix
 
@@ -2680,7 +2680,7 @@ def fetch_with_retry(cid: str, client: OptimalPubChemClient) -> dict:
         retryable_errors=(ServiceUnavailableError, RateLimitError, requests.Timeout)
     )
 
-```text
+```
 
 ---
 
@@ -2783,7 +2783,7 @@ def fetch_properties_optimized(
 
     return results
 
-```text
+```
 
 **Performance comparison:**
 
@@ -2896,7 +2896,7 @@ def resolve_cids_parallel_optimized(
 
     return cid_mapping
 
-```text
+```
 
 **Performance comparison:**
 
@@ -2980,7 +2980,7 @@ def warm_cache_with_common_molecules(
 
     return cached_count
 
-```text
+```
 
 #### 9.3.2 Lazy Cache Persistence
 
@@ -3019,7 +3019,7 @@ class LazyPersistentCache(PubChemCIDCache):
         if self._dirty:
             self.save(force=True)
 
-```text
+```
 
 ### 9.4 Метрики производительности
 
@@ -3166,7 +3166,7 @@ class PerformanceTracker:
         self.metrics.calculate_derived_metrics(total_molecules)
         return self.metrics
 
-```text
+```
 
 **Target performance metrics:**
 
@@ -3204,7 +3204,7 @@ performance_targets:
 
   timeout_rate: 0.01                # Max 1% timeouts
 
-```text
+```
 
 ---
 
@@ -3334,7 +3334,7 @@ target_performance:
 
   properties_fetch_duration: 60   # 1 minute
 
-```text
+```
 
 ### Следующие шаги
 
