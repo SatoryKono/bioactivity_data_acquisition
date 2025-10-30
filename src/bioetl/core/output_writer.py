@@ -730,8 +730,22 @@ class UnifiedOutputWriter:
         if runtime_options:
             meta_dict["runtime_options"] = runtime_options
 
-        with path.open("w") as f:
-            yaml.dump(meta_dict, f, default_flow_style=False, sort_keys=True)
+        temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
+
+        def write_metadata() -> None:
+            temp_path = _get_active_atomic_temp_path()
+            with temp_path.open("w", encoding="utf-8") as handle:
+                yaml.dump(
+                    meta_dict,
+                    handle,
+                    default_flow_style=False,
+                    sort_keys=True,
+                )
+
+        try:
+            _atomic_write(path, write_metadata)
+        finally:
+            _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
 
     def _write_json_atomic(self, path: Path, payload: Any) -> None:
         """Atomically write JSON payload to disk."""
