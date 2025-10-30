@@ -196,6 +196,27 @@ def test_retry_after_parsing_numeric_and_http_date(
     assert wait_seconds == pytest.approx(30.0)
 
 
+def test_retry_after_parsing_fixed_http_date(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry-After parser should handle canonical RFC 1123 date strings."""
+
+    config = APIConfig(name="test", base_url="https://api.example.com")
+    client = UnifiedAPIClient(config)
+
+    # Freeze current time to ensure deterministic delta calculation.
+    fixed_now = datetime(2015, 10, 21, 7, 27, tzinfo=timezone.utc)
+    monkeypatch.setattr("bioetl.core.api_client._current_utc_time", lambda: fixed_now)
+
+    http_date_header = "Wed, 21 Oct 2015 07:28:00 GMT"
+    http_date_response = _build_response(
+        429,
+        {"error": "rate limited"},
+        headers={"Retry-After": http_date_header},
+    )
+
+    wait_seconds = client._retry_after_seconds(http_date_response)
+    assert wait_seconds == pytest.approx(60.0)
+
+
 @pytest.mark.parametrize(
     "retry_after_builder, expected_wait",
     [
