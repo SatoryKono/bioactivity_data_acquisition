@@ -630,8 +630,27 @@ class PipelineBase(ABC):
         logger.info("exporting_data", path=output_path, rows=len(df))
 
         configured_order: list[str] = []
+        sort_columns: list[str] = []
+        sort_ascending: list[bool] = []
         if getattr(self, "determinism", None) is not None:
             configured_order = list(self.determinism.column_order or [])
+
+            sort_config = getattr(self.determinism, "sort", None)
+            if sort_config is not None:
+                source_columns = set(df.columns)
+                ascending_values = list(sort_config.ascending or [])
+
+                for index, column_name in enumerate(list(sort_config.by or [])):
+                    if column_name not in source_columns:
+                        continue
+
+                    sort_columns.append(column_name)
+                    if index < len(ascending_values):
+                        sort_ascending.append(bool(ascending_values[index]))
+                    elif ascending_values:
+                        sort_ascending.append(bool(ascending_values[-1]))
+                    else:
+                        sort_ascending.append(True)
 
         export_frame = df
         if configured_order:
@@ -654,6 +673,13 @@ class PipelineBase(ABC):
                     column_order=list(export_frame.columns),
                     column_count=len(export_frame.columns),
                 )
+
+        if sort_columns:
+            export_frame = export_frame.sort_values(
+                by=sort_columns,
+                ascending=sort_ascending,
+                kind="stable",
+            )
 
         return self.output_writer.write(
             export_frame,
