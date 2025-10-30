@@ -191,8 +191,7 @@ fallbacks:
   allow_partial_materialization: true
   strategies:
     - cache
-    - network
-    - offline
+    - partial_retry
   partial_retry_max: 2
   use_materialized_outputs: true
   circuit_breaker:
