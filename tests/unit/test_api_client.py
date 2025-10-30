@@ -149,6 +149,28 @@ def test_api_client_cache_key():
     assert key1 != key3
 
 
+def test_api_client_cache_key_with_datetime_and_set() -> None:
+    """Cache key generation should handle datetime and set params deterministically."""
+
+    config = APIConfig(name="test", base_url="https://api.example.com")
+    client = UnifiedAPIClient(config)
+
+    timestamp = datetime(2024, 1, 1, 12, 30, tzinfo=timezone.utc)
+    params = {"when": timestamp, "options": {"b", "a"}}
+
+    first = client._cache_key("https://api.example.com/endpoint", params)
+    second = client._cache_key("https://api.example.com/endpoint", params)
+
+    assert first == second
+
+    altered = client._cache_key(
+        "https://api.example.com/endpoint",
+        {"when": timestamp + timedelta(minutes=1), "options": {"b", "a"}},
+    )
+
+    assert altered != first
+
+
 def test_request_json_uses_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     """Second identical request should return cached payload without executing HTTP call."""
 

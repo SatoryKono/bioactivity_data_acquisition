@@ -633,10 +633,39 @@ class UnifiedAPIClient:
 
     def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
         """Generate cache key for request."""
+
+        def _stringify(value: Any) -> Any:
+            try:
+                if isinstance(value, datetime):
+                    return value.isoformat()
+
+                if isinstance(value, set):
+                    try:
+                        sorted_items = sorted(value, key=lambda item: repr(item))
+                    except Exception:
+                        return repr(value)
+                    return [_stringify(item) for item in sorted_items]
+
+                if isinstance(value, (list, tuple)):
+                    return [_stringify(item) for item in value]
+
+                if isinstance(value, dict):
+                    return {
+                        str(key): _stringify(val)
+                        for key, val in sorted(value.items(), key=lambda item: str(item[0]))
+                    }
+
+                return value
+            except Exception:
+                return repr(value)
+
         key_parts = [url]
         if params:
-            sorted_params = sorted(params.items())
-            params_str = json.dumps(sorted_params, sort_keys=True)
+            normalized_params = [
+                (key, _stringify(value))
+                for key, value in sorted(params.items(), key=lambda item: item[0])
+            ]
+            params_str = json.dumps(normalized_params, sort_keys=True, separators=(",", ":"))
             key_parts.append(params_str)
         return hashlib.sha256("|".join(key_parts).encode()).hexdigest()
 
