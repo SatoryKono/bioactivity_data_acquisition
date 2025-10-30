@@ -22,7 +22,7 @@ from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.qc import register_fallback_statistics
 from bioetl.utils.json import normalize_json_list
 from bioetl.utils.output import finalize_output_dataset
@@ -42,6 +42,61 @@ INTEGER_COLUMNS: tuple[str, ...] = (
 INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
 FLOAT_COLUMNS: tuple[str, ...] = ("fallback_retry_after_sec",)
 NON_NEGATIVE_CACHE_COLUMNS: tuple[str, ...] = ("published_value", "standard_value")
+
+ACTIVITY_FALLBACK_BUSINESS_COLUMNS: tuple[str, ...] = (
+    "activity_id",
+    "molecule_chembl_id",
+    "assay_chembl_id",
+    "target_chembl_id",
+    "document_chembl_id",
+    "published_type",
+    "published_relation",
+    "published_value",
+    "published_units",
+    "standard_type",
+    "standard_relation",
+    "standard_value",
+    "standard_units",
+    "standard_flag",
+    "lower_bound",
+    "upper_bound",
+    "is_censored",
+    "pchembl_value",
+    "activity_comment",
+    "data_validity_comment",
+    "bao_endpoint",
+    "bao_format",
+    "bao_label",
+    "canonical_smiles",
+    "target_organism",
+    "target_tax_id",
+    "activity_properties",
+    "compound_key",
+    "is_citation",
+    "high_citation_rate",
+    "exact_data_citation",
+    "rounded_data_citation",
+    "potential_duplicate",
+    "uo_units",
+    "qudt_units",
+    "src_id",
+    "action_type",
+    "bei",
+    "sei",
+    "le",
+    "lle",
+    "chembl_release",
+    "source_system",
+    "fallback_reason",
+    "fallback_error_type",
+    "fallback_error_code",
+    "fallback_error_message",
+    "fallback_http_status",
+    "fallback_retry_after_sec",
+    "fallback_attempt",
+    "fallback_timestamp",
+    "extracted_at",
+)
 
 
 @lru_cache(maxsize=1)
@@ -171,6 +226,10 @@ class ActivityPipeline(PipelineBase):
         # Status handshake for release metadata
         self._status_snapshot: dict[str, Any] | None = None
         self._chembl_release = self._get_chembl_release()
+        self._fallback_builder = FallbackRecordBuilder(
+            business_columns=ACTIVITY_FALLBACK_BUSINESS_COLUMNS,
+            context={"chembl_release": self._chembl_release},
+        )
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract activity data from input file."""
@@ -515,67 +574,25 @@ class ActivityPipeline(PipelineBase):
     ) -> dict[str, Any]:
         """Create deterministic fallback record enriched with error metadata."""
 
-        record = {
-            "activity_id": activity_id,
-            "molecule_chembl_id": None,
-            "assay_chembl_id": None,
-            "target_chembl_id": None,
-            "document_chembl_id": None,
-            "published_type": None,
-            "published_relation": "=",
-            "published_value": None,
-            "published_units": None,
-            "standard_type": None,
-            "standard_relation": "=",
-            "standard_value": None,
-            "standard_units": "nM",
-            "standard_flag": None,
-            "lower_bound": None,
-            "upper_bound": None,
-            "is_censored": None,
-            "pchembl_value": None,
-            "activity_comment": None,
-            "data_validity_comment": None,
-            "bao_endpoint": None,
-            "bao_format": None,
-            "bao_label": None,
-            "canonical_smiles": None,
-            "target_organism": None,
-            "target_tax_id": None,
-            "activity_properties": None,
-            "compound_key": None,
-            "is_citation": False,
-            "high_citation_rate": False,
-            "exact_data_citation": False,
-            "rounded_data_citation": False,
-            "potential_duplicate": None,
-            "uo_units": None,
-            "qudt_units": None,
-            "src_id": None,
-            "action_type": None,
-            "bei": None,
-            "sei": None,
-            "le": None,
-            "lle": None,
-            "chembl_release": self._chembl_release,
-            "source_system": "chembl",
-            "fallback_reason": None,
-            "fallback_error_type": None,
-            "fallback_error_code": None,
-            "fallback_error_message": None,
-            "fallback_http_status": None,
-            "fallback_retry_after_sec": None,
-            "fallback_attempt": None,
-            "fallback_timestamp": None,
-            "extracted_at": datetime.now(timezone.utc).isoformat(),
-        }
-
+        record = self._fallback_builder.record(
+            overrides={
+                "activity_id": activity_id,
+                "published_relation": "=",
+                "standard_relation": "=",
+                "standard_units": "nM",
+                "is_citation": False,
+                "high_citation_rate": False,
+                "exact_data_citation": False,
+                "rounded_data_citation": False,
+                "extracted_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         metadata = build_fallback_payload(
             entity="activity",
             reason=reason,
             error=error,
             source="ChEMBL_FALLBACK",
-            context={"chembl_release": self._chembl_release},
+            context=self._fallback_builder.context,
         )
         record.update(metadata)
 

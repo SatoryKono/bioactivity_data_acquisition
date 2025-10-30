@@ -22,7 +22,7 @@ from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.output import finalize_output_dataset
 
 logger = UnifiedLogger.get(__name__)
@@ -62,6 +62,24 @@ _NULLABLE_INT_COLUMNS = (
     "assay_class_id",
     "variant_id",
     "src_id",
+)
+
+
+ASSAY_FALLBACK_BUSINESS_COLUMNS: tuple[str, ...] = (
+    "assay_chembl_id",
+    "source_system",
+    "chembl_release",
+    "fallback_reason",
+    "fallback_error_type",
+    "fallback_error_code",
+    "fallback_error_message",
+    "fallback_http_status",
+    "fallback_retry_after_sec",
+    "fallback_attempt",
+    "fallback_timestamp",
+    "run_id",
+    "git_commit",
+    "config_hash",
 )
 
 
@@ -118,6 +136,15 @@ class AssayPipeline(PipelineBase):
         }
 
         self._initialize_status()
+        self._fallback_builder = FallbackRecordBuilder(
+            business_columns=ASSAY_FALLBACK_BUSINESS_COLUMNS,
+            context={
+                "chembl_release": self.chembl_release,
+                "run_id": self.run_id,
+                "git_commit": self.git_commit,
+                "config_hash": self.config_hash,
+            },
+        )
 
     @staticmethod
     def _resolve_git_commit() -> str:
@@ -373,34 +400,14 @@ class AssayPipeline(PipelineBase):
     ) -> dict[str, Any]:
         """Generate fallback payload when API data cannot be retrieved."""
 
-        record: dict[str, Any] = {
-            "assay_chembl_id": assay_id,
-            "source_system": "chembl",
-            "chembl_release": self.chembl_release,
-            "fallback_reason": None,
-            "fallback_error_type": None,
-            "fallback_error_code": None,
-            "fallback_error_message": None,
-            "fallback_http_status": None,
-            "fallback_retry_after_sec": None,
-            "fallback_attempt": None,
-            "fallback_timestamp": None,
-            "run_id": self.run_id,
-            "git_commit": self.git_commit,
-            "config_hash": self.config_hash,
-        }
+        record = self._fallback_builder.record({"assay_chembl_id": assay_id})
 
         metadata = build_fallback_payload(
             entity="assay",
             reason=reason,
             error=error,
             source="ChEMBL_FALLBACK",
-            context={
-                "chembl_release": self.chembl_release,
-                "run_id": self.run_id,
-                "git_commit": self.git_commit,
-                "config_hash": self.config_hash,
-            },
+            context=self._fallback_builder.context,
         )
         record.update(metadata)
 
