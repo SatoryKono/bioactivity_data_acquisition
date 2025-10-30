@@ -10,7 +10,11 @@ import requests
 from pytest_httpserver import HTTPServer
 
 from bioetl.config.loader import load_config
-from bioetl.pipelines.document import DocumentPipeline
+from bioetl.pipelines.document import (
+    DocumentPipeline,
+    ExternalEnrichmentResult,
+    _document_run_pubmed_stage,
+)
 
 
 @pytest.fixture
@@ -88,20 +92,23 @@ def mock_external_enrichment(
 
         endpoint = httpserver.url_for(url_path)
 
-        def fake_enrich(self: DocumentPipeline, chembl_df: pd.DataFrame) -> pd.DataFrame:
+        def fake_enrich(
+            self: DocumentPipeline, chembl_df: pd.DataFrame
+        ) -> ExternalEnrichmentResult:
             payload = chembl_df.to_dict(orient="records")
             assert payload == expected_payload
             try:
                 response = requests.post(endpoint, json=payload, timeout=5)
                 response.raise_for_status()
             except requests.RequestException:
-                return chembl_df.copy()
+                return ExternalEnrichmentResult(chembl_df.copy(), "failed", {"mock": "request"})
 
             enriched_records = response.json().get("records", [])
             enrichment_df = pd.DataFrame(enriched_records)
             if enrichment_df.empty:
-                return chembl_df.copy()
-            return chembl_df.merge(enrichment_df, on="document_chembl_id", how="left")
+                return ExternalEnrichmentResult(chembl_df.copy(), "completed", {})
+            merged = chembl_df.merge(enrichment_df, on="document_chembl_id", how="left")
+            return ExternalEnrichmentResult(merged, "completed", {})
 
         monkeypatch.setattr(DocumentPipeline, "_enrich_with_external_sources", fake_enrich)
 
@@ -180,13 +187,16 @@ class TestDocumentPipelineEnrichment:
         if "classification" in df.columns:
             df["document_classification"] = df["classification"]
 
-        enriched_df = pipeline._enrich_with_external_sources(df.head(3))
+        result = pipeline._enrich_with_external_sources(df.head(3))
+        enriched_df = result.dataframe
 
         # Check for mocked enrichment columns
         assert "mock_source" in enriched_df.columns
         assert "mock_title" in enriched_df.columns
         assert enriched_df["mock_source"].eq("pytest-httpserver").all()
         assert enriched_df["mock_title"].str.contains("enriched").all()
+        assert result.status == "completed"
+        assert result.errors == {}
 
     def test_schema_compliance(self, document_config, sample_documents_data):
         """Test that output complies with DocumentSchema."""
@@ -268,16 +278,61 @@ class TestDocumentPipelineEnrichment:
         df = sample_documents_data.copy()
 
         try:
-            enriched_df = pipeline._enrich_with_external_sources(df.head(3))
+            result = pipeline._enrich_with_external_sources(df.head(3))
 
             # Should not raise exception even if APIs fail
-            assert enriched_df is not None
-            assert len(enriched_df) <= len(df)
-            assert enriched_df.equals(df.head(3))
+            assert result is not None
+            assert len(result.dataframe) <= len(df)
+            assert result.dataframe.equals(df.head(3))
+            assert result.status in {"completed", "failed"}
+            if result.status == "failed":
+                assert result.errors
 
         except Exception as e:
             # If enrichment fails completely, that's also acceptable
             pytest.skip(f"Enrichment failed: {e}")
+
+    def test_pubmed_stage_summary_records_adapter_failure(
+        self,
+        document_config,
+        sample_documents_data,
+    ):
+        """Failed adapters should mark the stage as failed and record QC issues."""
+
+        config = load_config(document_config)
+        pipeline = DocumentPipeline(config, "test_run")
+
+        class FailingAdapter:
+            def process(self, identifiers: list[str]) -> pd.DataFrame:
+                raise RuntimeError("adapter boom")
+
+        pipeline.external_adapters = {"pubmed": FailingAdapter()}
+
+        df = sample_documents_data.head(1).copy()
+
+        result_df = _document_run_pubmed_stage(pipeline, df)
+
+        assert isinstance(result_df, pd.DataFrame)
+        assert len(result_df) == len(df)
+        assert result_df["document_chembl_id"].tolist() == df["document_chembl_id"].tolist()
+
+        summary = pipeline.get_stage_summary("pubmed")
+        assert summary is not None
+        assert summary["status"] == "failed"
+        assert summary["error_count"] == 1
+        assert summary["errors"] == {"pubmed": "adapter boom"}
+
+        assert "pubmed" in pipeline.stage_context
+        assert pipeline.stage_context["pubmed"]["status"] == "failed"
+        assert pipeline.stage_context["pubmed"]["errors"] == {"pubmed": "adapter boom"}
+
+        issues = [issue for issue in pipeline.validation_issues if issue["metric"] == "enrichment.pubmed"]
+        assert issues, "Expected QC issue for enrichment failure"
+        last_issue = issues[-1]
+        assert last_issue["severity"] == "error"
+        assert last_issue["status"] == "failed"
+        assert last_issue["errors"] == {"pubmed": "adapter boom"}
+        assert last_issue["error_count"] == 1
 
 
 if __name__ == "__main__":

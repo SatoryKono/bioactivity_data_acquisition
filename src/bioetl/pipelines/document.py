@@ -46,6 +46,20 @@ NAType = type(pd.NA)
 
 logger = UnifiedLogger.get(__name__)
 
+
+@dataclass
+class ExternalEnrichmentResult:
+    """Container describing the outcome of an external enrichment request."""
+
+    dataframe: pd.DataFrame
+    status: str
+    errors: dict[str, str]
+
+    def has_errors(self) -> bool:
+        """Return True when at least one adapter reported an error."""
+
+        return bool(self.errors)
+
 # ---------------------------------------------------------------------------
 # External adapter configuration profiles
 # ---------------------------------------------------------------------------
@@ -397,7 +411,9 @@ class DocumentPipeline(PipelineBase):
             return os.getenv(env_name, "")
         return value
 
-    def _enrich_with_external_sources(self, chembl_df: pd.DataFrame) -> pd.DataFrame:
+    def _enrich_with_external_sources(
+        self, chembl_df: pd.DataFrame
+    ) -> ExternalEnrichmentResult:
         """Enrich ChEMBL data with external sources."""
         # Extract PMIDs and DOIs from ChEMBL data
         pmids = []
@@ -439,6 +455,7 @@ class DocumentPipeline(PipelineBase):
         crossref_df = None
         openalex_df = None
         semantic_scholar_df = None
+        adapter_errors: dict[str, str] = {}
 
         # Use ThreadPoolExecutor for parallel fetching
         workers = min(4, len(self.external_adapters))
@@ -487,7 +504,9 @@ class DocumentPipeline(PipelineBase):
                     if not result.empty:
                         logger.info("adapter_columns", source=source, columns=list(result.columns))
                 except Exception as e:
-                    logger.error("adapter_failed", source=source, error=str(e))
+                    error_message = str(e) or e.__class__.__name__
+                    adapter_errors[source] = error_message
+                    logger.error("adapter_failed", source=source, error=error_message)
 
         # DEBUG: Log before merge
         logger.info("before_merge", chembl_cols=len(chembl_df.columns), chembl_rows=len(chembl_df))
@@ -507,7 +526,13 @@ class DocumentPipeline(PipelineBase):
 
         logger.info("after_merge", enriched_cols=len(enriched_df.columns), enriched_rows=len(enriched_df))
 
-        return enriched_df
+        if adapter_errors:
+            logger.error("external_enrichment_failed", errors=adapter_errors)
+            status = "failed"
+        else:
+            status = "completed"
+
+        return ExternalEnrichmentResult(enriched_df, status, adapter_errors)
 
     # ------------------------------------------------------------------
     # Extraction helpers
@@ -1257,7 +1282,7 @@ def _document_run_pubmed_stage(
         return df
 
     try:
-        enriched_df = pipeline._enrich_with_external_sources(df)
+        result = pipeline._enrich_with_external_sources(df)
     except Exception as exc:
         pipeline.record_validation_issue(
             {
@@ -1270,8 +1295,33 @@ def _document_run_pubmed_stage(
         )
         raise
 
-    pipeline.stage_context["pubmed"] = {"executed": True}
-    pipeline.set_stage_summary("pubmed", "completed", rows=int(len(enriched_df)))
+    enriched_df = result.dataframe
+    pipeline.stage_context["pubmed"] = {
+        "executed": True,
+        "errors": result.errors,
+        "status": result.status,
+    }
+
+    if result.has_errors():
+        pipeline.set_stage_summary(
+            "pubmed",
+            result.status,
+            rows=int(len(enriched_df)),
+            errors=result.errors,
+            error_count=len(result.errors),
+        )
+        pipeline.record_validation_issue(
+            {
+                "metric": "enrichment.pubmed",
+                "issue_type": "enrichment",
+                "severity": "error",
+                "status": "failed",
+                "errors": result.errors,
+                "error_count": len(result.errors),
+            }
+        )
+    else:
+        pipeline.set_stage_summary("pubmed", result.status, rows=int(len(enriched_df)))
 
     return enriched_df
 
