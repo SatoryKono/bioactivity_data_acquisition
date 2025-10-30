@@ -123,6 +123,47 @@ def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     assert pipeline.stage_context["transform_call"] == 1
 
 
+def test_export_prioritises_configured_column_order(tmp_path, assay_config):
+    """Configured ``column_order`` should drive dataset column order on export."""
+
+    class SimplePipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - test stub
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
+            return df
+
+    config = assay_config.model_copy(deep=True)
+    config.determinism.column_order = ["alpha", "value"]
+
+    pipeline = SimplePipeline(config, "run-config-order")
+
+    source_df = pd.DataFrame({"value": [1, 2], "beta": ["x", "y"]})
+    pipeline.set_export_metadata_from_dataframe(
+        source_df,
+        pipeline_version="1.0.0",
+        source_system="test-system",
+    )
+
+    output_path = tmp_path / "dataset.csv"
+    artifacts = pipeline.export(source_df, output_path)
+
+    exported_df = pd.read_csv(artifacts.dataset)
+    assert exported_df.columns.tolist()[: len(config.determinism.column_order)] == config.determinism.column_order
+    assert exported_df["alpha"].isna().all()
+
+    import yaml
+
+    with artifacts.metadata.open("r", encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    assert metadata["column_order"] == exported_df.columns.tolist()
+    assert metadata["column_count"] == len(exported_df.columns)
+
+
 class TestAssayPipeline:
     """Tests for AssayPipeline."""
 
