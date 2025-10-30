@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pytest
 
+from bioetl.config.models import DeterminismConfig
 from bioetl.core.output_writer import AtomicWriter, OutputMetadata, UnifiedOutputWriter
 
 
@@ -34,7 +35,7 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
     _freeze_datetime(monkeypatch)
 
     df = pd.DataFrame({"value": [1, 2], "label": ["a", "b"]})
-    writer = UnifiedOutputWriter("run-test")
+    writer = UnifiedOutputWriter("run-test", DeterminismConfig())
 
     output_path = tmp_path / "run-test" / "target" / "datasets" / "targets.csv"
     artifacts = writer.write(df, output_path)
@@ -77,7 +78,7 @@ def test_unified_output_writer_cleans_up_on_failure(tmp_path, monkeypatch):
 
     monkeypatch.setattr(AtomicWriter, "_write_to_file", boom)
 
-    writer = UnifiedOutputWriter("run-test")
+    writer = UnifiedOutputWriter("run-test", DeterminismConfig())
 
     with pytest.raises(RuntimeError):
         writer.write(
@@ -99,7 +100,7 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     _freeze_datetime(monkeypatch)
 
     df = pd.DataFrame({"value": [10, 20, 30], "category": ["x", "y", "z"]})
-    writer = UnifiedOutputWriter("run-test")
+    writer = UnifiedOutputWriter("run-test", DeterminismConfig())
 
     metadata = OutputMetadata.from_dataframe(
         df,
@@ -153,7 +154,7 @@ def test_unified_output_writer_emits_qc_artifacts(tmp_path, monkeypatch):
     _freeze_datetime(monkeypatch)
 
     df = pd.DataFrame({"value": [1, 2], "label": ["x", "y"]})
-    writer = UnifiedOutputWriter("run-qc")
+    writer = UnifiedOutputWriter("run-qc", DeterminismConfig())
 
     qc_summary = {
         "row_counts": {"total": 2, "success": 2, "fallback": 0},

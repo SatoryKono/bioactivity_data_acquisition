@@ -11,6 +11,7 @@ from typing import Any, Callable
 
 import pandas as pd
 
+from bioetl.config.models import DeterminismConfig
 from bioetl.core.logger import UnifiedLogger
 
 logger = UnifiedLogger.get(__name__)
@@ -137,16 +138,32 @@ class OutputMetadata:
 class AtomicWriter:
     """Атомарная запись с защитой от corruption."""
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str, *, determinism: DeterminismConfig | None = None):
         self.run_id = run_id
+        self._determinism = determinism
 
     def write(self, data: pd.DataFrame, path: Path, **kwargs) -> None:
         """Записывает data в path атомарно через run-scoped temp directory."""
         temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
 
+        write_kwargs = dict(kwargs)
+        payload = data
+
+        if self._determinism is not None:
+            precision = int(self._determinism.float_precision)
+            if "float_format" not in write_kwargs:
+                write_kwargs["float_format"] = f"%.{precision}f"
+
+            column_order = list(self._determinism.column_order)
+            if column_order:
+                ordered = [column for column in column_order if column in payload.columns]
+                if ordered:
+                    remaining = [column for column in payload.columns if column not in ordered]
+                    payload = payload.loc[:, ordered + remaining]
+
         def write_payload() -> None:
             temp_path = _get_active_atomic_temp_path()
-            self._write_to_file(data, temp_path, **kwargs)
+            self._write_to_file(payload, temp_path, **write_kwargs)
 
         try:
             _atomic_write(path, write_payload)
@@ -207,9 +224,9 @@ class QualityReportGenerator:
 class UnifiedOutputWriter:
     """Unified output writer with atomic writes and QC reports."""
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str, determinism: DeterminismConfig | None = None):
         self.run_id = run_id
-        self.atomic_writer = AtomicWriter(run_id)
+        self.atomic_writer = AtomicWriter(run_id, determinism=determinism)
         self.quality_generator = QualityReportGenerator()
 
     def write(

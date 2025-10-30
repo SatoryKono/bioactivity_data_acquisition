@@ -169,7 +169,10 @@ class PipelineBase(ABC):
     def __init__(self, config: PipelineConfig, run_id: str):
         self.config = config
         self.run_id = run_id
-        self.output_writer = UnifiedOutputWriter(run_id)
+        self.output_writer = UnifiedOutputWriter(
+            run_id,
+            determinism=config.determinism,
+        )
         self.validation_issues: list[dict[str, Any]] = []
         self.qc_metrics: dict[str, Any] = {}
         self.qc_summary_data: dict[str, Any] = {}

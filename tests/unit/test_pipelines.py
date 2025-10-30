@@ -123,6 +123,81 @@ def test_pipeline_run_resets_per_run_state(assay_config, tmp_path):
     assert pipeline.stage_context["transform_call"] == 1
 
 
+def test_pipeline_export_enforces_column_order_and_float_format(
+    activity_config, tmp_path
+) -> None:
+    """Export should honor determinism column order and float precision."""
+
+    class _ExportOnlyPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # noqa: D401 - stub
+            return pd.DataFrame()
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - stub
+            return df
+
+    pipeline = _ExportOnlyPipeline(activity_config, "determinism-export")
+
+    columns = list(activity_config.determinism.column_order)
+    assert columns, "determinism column order should not be empty"
+
+    row: dict[str, Any] = {}
+    for column in columns:
+        if column == "index":
+            value: Any = 0
+        elif column in {"hash_row", "hash_business_key"}:
+            value = f"{column}_value"
+        elif column == "pipeline_version":
+            value = "1.0.0"
+        elif column == "run_id":
+            value = pipeline.run_id
+        elif column == "source_system":
+            value = "chembl"
+        elif column == "chembl_release":
+            value = "ChEMBL_TEST"
+        elif column == "extracted_at":
+            value = "2024-01-01T00:00:00+00:00"
+        elif column == "standard_value":
+            value = 3.1415926535
+        elif column == "lower_bound":
+            value = 2.7182818284
+        elif column == "upper_bound":
+            value = 6.02214076
+        elif column in {"bei", "sei", "le", "lle"}:
+            value = 0.0
+        elif column.endswith("_flag") or column.startswith("is_") or column.endswith("_duplicate"):
+            value = False
+        elif column.endswith(("_id", "_chembl_id")):
+            value = f"{column.upper()}_ID"
+        elif column.endswith("_timestamp"):
+            value = "2024-01-01T00:00:00+00:00"
+        elif column.endswith(("_http_status", "_code", "_attempt")):
+            value = 0
+        elif column.endswith("_retry_after_sec"):
+            value = 0
+        elif column.endswith(("_value", "_units", "_relation", "_type", "_label")):
+            value = f"{column}_value"
+        else:
+            value = f"{column}_value"
+
+        row[column] = value
+
+    df = pd.DataFrame([row], columns=list(reversed(columns)))
+
+    output_path = tmp_path / "run" / "activity" / "datasets" / "activities.csv"
+    artifacts = pipeline.export(df, output_path)
+
+    contents = artifacts.dataset.read_text(encoding="utf-8").splitlines()
+    assert contents, "dataset output should not be empty"
+
+    header = contents[0].split(",")
+    assert header == columns
+
+    assert len(contents) >= 2, "dataset should contain at least one row"
+    data_row = contents[1].split(",")
+    standard_value_idx = columns.index("standard_value")
+    assert data_row[standard_value_idx] == "3.141593"
+
+
 class TestAssayPipeline:
     """Tests for AssayPipeline."""
 
