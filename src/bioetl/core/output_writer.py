@@ -103,7 +103,22 @@ class OutputArtifacts:
 _SUPPORTED_FORMATS = {"csv", "parquet"}
 
 
-def _normalise_format(value: str | None, *, default: str | None = "csv") -> str | None:
+__all__ = [
+    "normalise_output_format",
+    "extension_for_format",
+    "OutputArtifacts",
+    "AdditionalTableSpec",
+    "OutputMetadata",
+    "QualityReportGenerator",
+    "UnifiedOutputWriter",
+]
+
+
+def normalise_output_format(
+    value: str | None,
+    *,
+    default: str | None = "csv",
+) -> str | None:
     """Normalise a format string to lower-case and validate support."""
 
     if value is None:
@@ -115,10 +130,10 @@ def _normalise_format(value: str | None, *, default: str | None = "csv") -> str 
     return resolved
 
 
-def _extension_for_format(format_name: str) -> str:
+def extension_for_format(format_name: str) -> str:
     """Return the canonical file extension for the given format."""
 
-    resolved = _normalise_format(format_name)
+    resolved = normalise_output_format(format_name)
     if resolved is None:
         raise ValueError("Format name cannot be empty")
     return ".parquet" if resolved == "parquet" else ".csv"
@@ -294,10 +309,12 @@ class AtomicWriter:
 
         temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
 
-        resolved_format = _normalise_format(format, default=None)
+        resolved_format = normalise_output_format(format, default=None)
         if resolved_format is None:
             suffix = path.suffix.lower()
-            resolved_format = _normalise_format(suffix.lstrip(".")) if suffix else "csv"
+            resolved_format = (
+                normalise_output_format(suffix.lstrip(".")) if suffix else "csv"
+            )
 
         resolved_float_format = _resolve_float_format(
             self.determinism, kwargs.pop("float_format", None)
@@ -604,7 +621,7 @@ class UnifiedOutputWriter:
                 resolved_formats = table_spec.formats or ("csv",)
                 normalised_formats = []
                 for fmt in resolved_formats:
-                    normalised = _normalise_format(fmt)
+                    normalised = normalise_output_format(fmt)
                     if normalised is None:
                         continue
                     if normalised not in normalised_formats:
@@ -612,7 +629,7 @@ class UnifiedOutputWriter:
 
                 table_artifacts: dict[str, Path] = {}
                 for fmt in normalised_formats:
-                    extension = _extension_for_format(fmt)
+                    extension = extension_for_format(fmt)
                     target_path = table_path
                     if target_path.suffix:
                         target_path = target_path.with_suffix(extension)
