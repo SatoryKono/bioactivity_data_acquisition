@@ -378,8 +378,29 @@ class PipelineBase(ABC):
         source_system: str,
         chembl_release: str | None = None,
         column_order: list[str] | None = None,
+        config_hash: str | None = None,
+        git_commit: str | None = None,
+        sources: Sequence[str] | None = None,
     ) -> OutputMetadata:
         """Create and assign :class:`OutputMetadata` from a dataframe."""
+
+        resolved_config_hash = config_hash
+        if resolved_config_hash is None:
+            resolved_config_hash = getattr(self.config, "config_hash", None)
+
+        resolved_git_commit = git_commit
+        if resolved_git_commit is None:
+            resolved_git_commit = getattr(self, "git_commit", None)
+
+        resolved_sources: Sequence[str] | None = sources
+        if resolved_sources is None:
+            config_sources = getattr(self.config, "sources", None)
+            if isinstance(config_sources, Mapping):
+                enabled: list[str] = []
+                for name, definition in config_sources.items():
+                    if getattr(definition, "enabled", True):
+                        enabled.append(str(name))
+                resolved_sources = enabled
 
         metadata = OutputMetadata.from_dataframe(
             df,
@@ -388,6 +409,9 @@ class PipelineBase(ABC):
             chembl_release=chembl_release,
             column_order=column_order or list(df.columns),
             run_id=self.run_id,
+            config_hash=resolved_config_hash,
+            git_commit=resolved_git_commit,
+            sources=resolved_sources,
         )
 
         self.set_export_metadata(metadata)

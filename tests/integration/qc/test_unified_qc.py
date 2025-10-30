@@ -27,7 +27,19 @@ from bioetl.pipelines.target import TargetPipeline
 def _make_pipeline_stub(pipeline_cls: type[PipelineBase], name: str) -> PipelineBase:
     """Instantiate a pipeline without running subclass initialisers."""
 
-    config = types.SimpleNamespace(pipeline=types.SimpleNamespace(name=name))
+    determinism = types.SimpleNamespace(
+        column_order=[],
+        float_precision=6,
+        datetime_format="iso8601",
+        sort=types.SimpleNamespace(by=[], ascending=[]),
+    )
+    sources = {"chembl": types.SimpleNamespace(enabled=True)}
+    config = types.SimpleNamespace(
+        pipeline=types.SimpleNamespace(name=name),
+        determinism=determinism,
+        config_hash="stub-config-hash",
+        sources=sources,
+    )
     pipeline = pipeline_cls.__new__(pipeline_cls)  # type: ignore[call-arg]
     PipelineBase.__init__(pipeline, config, run_id="test")
     return pipeline
@@ -101,6 +113,9 @@ def test_export_metadata_generation_consistent() -> None:
         assert metadata.column_count == dataset.shape[1]
         assert metadata.column_order == list(dataset.columns)
         assert metadata.run_id == "test"
+        assert metadata.config_hash == "stub-config-hash"
+        assert metadata.git_commit is None
+        assert metadata.sources == ("chembl",)
 
     reference = pipelines[0].export_metadata
     for candidate in pipelines[1:]:
@@ -112,4 +127,7 @@ def test_export_metadata_generation_consistent() -> None:
         assert meta.column_count == reference.column_count
         assert meta.column_order == reference.column_order
         assert isinstance(meta.generated_at, str)
+        assert meta.config_hash == reference.config_hash
+        assert meta.sources == reference.sources
+        assert meta.git_commit == reference.git_commit
 
