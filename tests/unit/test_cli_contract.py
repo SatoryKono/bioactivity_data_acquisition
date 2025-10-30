@@ -13,6 +13,7 @@ PROJECT_SRC = Path(__file__).resolve().parents[2] / "src"
 if str(PROJECT_SRC) not in sys.path:
     sys.path.insert(0, str(PROJECT_SRC))
 
+from bioetl.core.output_writer import OutputArtifacts  # noqa: E402
 from scripts import PIPELINE_COMMAND_REGISTRY  # noqa: E402
 from bioetl.cli.main import app as main_cli_app  # noqa: E402
 
@@ -349,3 +350,136 @@ def test_target_cli_requires_api_key_when_stage_forced(
 
     assert result.exit_code != 0
     assert "IUPHAR_API_KEY" in result.stderr
+
+
+def _get_entry_by_name(name: str) -> EntryPoint:
+    try:
+        return next(entry for entry in ENTRYPOINTS if entry.name == name)
+    except StopIteration:  # pragma: no cover - defensive guard
+        raise AssertionError(f"Entry point '{name}' not found")
+
+
+class _FakeArtifactsPipeline:
+    """Pipeline stub returning deterministic output artefacts for testing."""
+
+    def __init__(self, config, run_id):  # noqa: D401, ANN001 - Typer wiring contract
+        self.config = config
+        self.run_id = run_id
+        self.runtime_options: dict[str, object] = {}
+
+    def run(self, output_path: Path, extended: bool = False, *args, **kwargs) -> OutputArtifacts:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        dataset_path = output_path
+        dataset_path.write_text("chembl_id\nCHEMBL1\n", encoding="utf-8")
+        quality_path = output_path.parent / "quality_report.csv"
+        quality_path.write_text("metric,value\nrows,1\n", encoding="utf-8")
+        return OutputArtifacts(
+            dataset=dataset_path,
+            quality_report=quality_path,
+            run_directory=output_path.parent,
+        )
+
+
+@pytest.mark.unit
+def test_cli_validate_columns_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """CLI should succeed when column validation reports no mismatches."""
+
+    entry = _get_entry_by_name("assay")
+    module = _load_entry_module(entry, monkeypatch, pipeline_override=_FakeArtifactsPipeline)
+    monkeypatch.setattr(module, entry.pipeline_attr, _FakeArtifactsPipeline, raising=False)
+
+    import bioetl.utils.column_validator as column_validator_module
+
+    calls: dict[str, object] = {}
+
+    class DummyResult:
+        def __init__(self) -> None:
+            self.overall_match = True
+            self.missing_columns: list[str] = []
+            self.extra_columns: list[str] = []
+            self.empty_columns: list[str] = []
+
+    class DummyValidator:
+        def __init__(self) -> None:
+            calls["validator_created"] = True
+
+        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest") -> DummyResult:  # type: ignore[override]
+            calls["entity"] = entity
+            calls["schema_version"] = schema_version
+            calls["columns"] = list(actual_df.columns)
+            return DummyResult()
+
+        def generate_report(self, results, output_dir: Path) -> Path:  # type: ignore[override]
+            report_path = output_dir / "report.md"
+            report_path.write_text("validation report", encoding="utf-8")
+            calls["report_path"] = report_path
+            calls["results_len"] = len(results)
+            return report_path
+
+    monkeypatch.setattr(column_validator_module, "ColumnValidator", DummyValidator)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--output-dir",
+            str(tmp_path),
+            "--validate-columns",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls.get("validator_created") is True
+    assert calls.get("entity") == entry.name
+    assert calls.get("schema_version") == "latest"
+    assert calls.get("columns") == ["chembl_id"]
+    report_path = calls.get("report_path")
+    assert isinstance(report_path, Path)
+    assert report_path.exists()
+    assert calls.get("results_len") == 1
+
+
+@pytest.mark.unit
+def test_cli_validate_columns_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """CLI should exit with code 1 when column validation reports missing columns."""
+
+    entry = _get_entry_by_name("assay")
+    module = _load_entry_module(entry, monkeypatch, pipeline_override=_FakeArtifactsPipeline)
+    monkeypatch.setattr(module, entry.pipeline_attr, _FakeArtifactsPipeline, raising=False)
+
+    import bioetl.utils.column_validator as column_validator_module
+
+    class DummyResult:
+        def __init__(self) -> None:
+            self.overall_match = False
+            self.missing_columns = ["expected_col"]
+            self.extra_columns: list[str] = []
+            self.empty_columns: list[str] = []
+
+    class DummyValidator:
+        def compare_columns(self, *, entity: str, actual_df, schema_version: str = "latest") -> DummyResult:  # type: ignore[override]
+            return DummyResult()
+
+        def generate_report(self, results, output_dir: Path) -> Path:  # type: ignore[override]
+            report_path = output_dir / "report.md"
+            report_path.write_text("validation report", encoding="utf-8")
+            return report_path
+
+    monkeypatch.setattr(column_validator_module, "ColumnValidator", DummyValidator)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        module.app,
+        [
+            "--config",
+            str(entry.config_path),
+            "--output-dir",
+            str(tmp_path),
+            "--validate-columns",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Отсутствуют" in result.stdout
