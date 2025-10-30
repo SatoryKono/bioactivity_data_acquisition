@@ -1,5 +1,6 @@
 """UnifiedAPIClient: resilient HTTP client with circuit breaker, rate limiting, retry policies."""
 
+import copy
 import hashlib
 import json
 import random
@@ -384,7 +385,7 @@ class UnifiedAPIClient:
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
                 cached_value: dict[str, Any] = self.cache[cache_key]
-                return cached_value
+                return copy.deepcopy(cached_value)
 
         # Execute with circuit breaker
         def _log_backoff(details: dict[str, Any]) -> None:
@@ -458,7 +459,7 @@ class UnifiedAPIClient:
                     and method == "GET"
                     and request_has_no_body
                 ):
-                    self.cache[cache_key] = response_payload
+                    self.cache[cache_key] = copy.deepcopy(response_payload)
 
                 return response_payload
 
