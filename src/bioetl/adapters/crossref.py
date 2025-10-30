@@ -18,6 +18,8 @@ class CrossrefAdapter(ExternalAdapter):
     retrieval when combined with :meth:`ExternalAdapter._fetch_in_batches`.
     """
 
+    DEFAULT_BATCH_SIZE = 100
+
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize Crossref adapter."""
         super().__init__(api_config, adapter_config)
@@ -27,11 +29,6 @@ class CrossrefAdapter(ExternalAdapter):
         if self.mailto:
             # Add to headers for polite pool
             self.api_client.session.headers["User-Agent"] = f"bioactivity_etl/1.0 (mailto:{self.mailto})"
-
-    def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
-        """Fetch records by DOIs using batch API."""
-        batch_size = self.adapter_config.batch_size or 100
-        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, dois: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of DOIs."""

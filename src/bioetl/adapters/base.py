@@ -33,6 +33,8 @@ class ExternalAdapter(ABC):
     validation, batching, and logging for the common ``fetch_by_ids`` workflow.
     """
 
+    DEFAULT_BATCH_SIZE: int | None = 50
+
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize adapter with API client."""
         self.api_config = api_config
@@ -40,9 +42,10 @@ class ExternalAdapter(ABC):
         self.api_client = UnifiedAPIClient(api_config)
         self.logger = UnifiedLogger.get(self.__class__.__name__)
 
-    @abstractmethod
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by identifiers (DOI, PMID, etc)."""
+
+        return self._fetch_in_batches(ids)
 
     @abstractmethod
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
@@ -64,8 +67,9 @@ class ExternalAdapter(ABC):
         Args:
             ids: Identifiers to fetch from the external source.
             batch_size: Explicit batch size override. When ``None`` the helper
-                falls back to ``adapter_config.batch_size`` and finally to the
-                total number of identifiers.
+                falls back to ``adapter_config.batch_size`` and then the
+                adapter's ``DEFAULT_BATCH_SIZE`` before defaulting to the total
+                number of identifiers.
             log_event: Structured logging event name for batch failures.
 
         Returns:
@@ -84,9 +88,10 @@ class ExternalAdapter(ABC):
         if not sanitized_ids:
             return []
 
-        effective_batch_size = batch_size or self.adapter_config.batch_size or len(sanitized_ids)
-        if effective_batch_size <= 0:
-            effective_batch_size = len(sanitized_ids)
+        effective_batch_size = self._resolve_batch_size(
+            requested=batch_size,
+            total=len(sanitized_ids),
+        )
 
         all_records: list[dict[str, Any]] = []
         for index, start in enumerate(range(0, len(sanitized_ids), effective_batch_size)):
@@ -158,4 +163,28 @@ class ExternalAdapter(ABC):
     def close(self) -> None:
         """Close adapter and cleanup resources."""
         self.api_client.close()
+
+    def _resolve_batch_size(self, *, requested: int | None, total: int) -> int:
+        """Determine effective batch size for :meth:`_fetch_in_batches`.
+
+        The resolution order is ``requested`` > ``adapter_config.batch_size`` >
+        ``DEFAULT_BATCH_SIZE`` > ``total``. Non-positive values are ignored.
+        """
+
+        def _valid(candidate: int | None) -> int | None:
+            if candidate is None:
+                return None
+            if isinstance(candidate, bool):  # Guard against bool-as-int
+                return None
+            return candidate if candidate > 0 else None
+
+        for candidate in (
+            _valid(requested),
+            _valid(getattr(self.adapter_config, "batch_size", None)),
+            _valid(getattr(self, "DEFAULT_BATCH_SIZE", None)),
+        ):
+            if candidate:
+                return candidate
+
+        return max(total, 1)
 

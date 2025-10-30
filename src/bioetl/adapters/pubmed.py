@@ -20,6 +20,8 @@ class PubMedAdapter(ExternalAdapter):
     via the shared batching helper.
     """
 
+    DEFAULT_BATCH_SIZE = 200
+
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize PubMed adapter."""
         super().__init__(api_config, adapter_config)
@@ -39,12 +41,6 @@ class PubMedAdapter(ExternalAdapter):
         }
         if self.api_key:
             self.common_params["api_key"] = self.api_key
-
-    def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
-        """Fetch records by PMIDs using EPost + EFetch."""
-
-        batch_size = self.adapter_config.batch_size or 200
-        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, pmids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of PMIDs using EFetch directly."""
