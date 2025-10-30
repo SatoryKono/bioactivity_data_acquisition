@@ -14,7 +14,6 @@ Defaults:
 - OUTPUT: data/output/activity
 - SAMPLE: 10
 
-
 Bash:
 
 ```bash
@@ -42,7 +41,6 @@ Defaults:
 - CONFIG: configs/pipelines/assay.yaml
 - OUTPUT: data/output/assay
 - SAMPLE: 10
-
 
 Bash:
 
@@ -72,7 +70,6 @@ Defaults:
 - OUTPUT: data/output/document
 - SAMPLE: 10
 
-
 Bash:
 
 ```bash
@@ -101,7 +98,6 @@ Defaults:
 - OUTPUT: data/output/target
 - SAMPLE: 10
 
-
 Bash:
 
 ```bash
@@ -129,7 +125,6 @@ Defaults:
 - CONFIG: configs/pipelines/testitem.yaml
 - OUTPUT: data/output/testitem
 - SAMPLE: 10
-
 
 Bash:
 
@@ -232,3 +227,4 @@ for p in glob.glob('data/output/**/*.csv', recursive=True):
 PY
 
 ```
+

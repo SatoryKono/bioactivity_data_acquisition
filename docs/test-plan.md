@@ -37,6 +37,7 @@ def test_precision_map():
     assert get_precision("activity_id") is None  # string
 
 ```
+
 **Покрытие**: AC3, G5
 
 #### 1.2 Schema drift detection
@@ -63,6 +64,7 @@ def test_schema_drift_minor_compatible():
     assert check_schema_compatibility(schema_v1, schema_v1_1) is None
 
 ```
+
 **Покрытие**: AC10, G4
 
 #### 1.3 Column order validation
@@ -80,6 +82,7 @@ def test_column_order_from_schema():
     assert list(df_validated.columns) == schema.column_order
 
 ```
+
 **Покрытие**: AC2, G4
 
 ### 2. Интеграционные тесты
@@ -115,6 +118,7 @@ def test_activity_offset_only():
         client.fetch_activities(offset=0, cursor="abc123")  # смешивание
 
 ```
+
 **Покрытие**: G2
 
 #### 2.2 Mock 429 Retry-After
@@ -160,6 +164,7 @@ def test_no_retry_on_4xx_except_429():
     assert requests.get.call_count == 1
 
 ```
+
 **Покрытие**: AC5, G11
 
 #### 2.3 POST+X-HTTP-Method-Override
@@ -183,6 +188,7 @@ def test_chembl_post_override():
     assert response.request.headers.get("X-HTTP-Method-Override") == "GET"
 
 ```
+
 **Покрытие**: [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md)
 
 ### 3. Golden-run тесты
@@ -231,6 +237,7 @@ def test_golden_run_assay():
     # (continued)
 
 ```
+
 **CLI команда**:
 
 ```bash
@@ -238,6 +245,7 @@ def test_golden_run_assay():
 python -m pipeline run --golden data/golden/activity.csv
 
 ```
+
 **Покрытие**: AC1, G1, G13
 
 ### 4. Нагрузочные тесты и лимиты
@@ -283,6 +291,7 @@ def test_binary_search_limit():
     assert ActivityConfig.max_limit == safe_limit
 
 ```
+
 **Покрытие**: G3
 
 #### 4.2 Метрики частоты 429
@@ -321,6 +330,7 @@ def test_track_429_rate():
     }
 
 ```
+
 **Покрытие**: G11
 
 ## Тестовые сценарии
@@ -359,6 +369,7 @@ def test_full_activity_pipeline():
     assert not is_partial_file(output.csv)
 
 ```
+
 **Покрытие**: AC6, AC9, AC4
 
 ### Сценарий 2: Assay с long-format
@@ -385,6 +396,7 @@ def test_assay_long_format():
               for p in parameters.itertuples())
 
 ```
+
 **Покрытие**: AC8, G7
 
 ### Сценарий 3: Atomic write failure recovery
@@ -405,6 +417,7 @@ def test_atomic_write_failure():
     assert not (path.parent / ".tmp" / run_id / f"{path.name}.tmp").exists()
 
 ```
+
 **Покрытие**: AC4, G1
 
 ## Метрики покрытия
@@ -417,7 +430,6 @@ def test_atomic_write_failure():
 
 - **Нагрузочные**: 100% для limit discovery
 
-
 ## Инструменты
 
 - **pytest**: основная платформа
@@ -428,7 +440,6 @@ def test_atomic_write_failure():
 
 - **pytest-cov**: измерение покрытия кода
 
-
 ## CI Integration
 
 ```yaml
@@ -436,6 +447,7 @@ def test_atomic_write_failure():
 # .github/workflows/test.yml
 
 - name: Run tests
+
   run: |
     pytest tests/unit/ -v --cov=src
     pytest tests/integration/ -v
@@ -457,3 +469,4 @@ def test_atomic_write_failure():
 - [04-normalization-validation.md](requirements/04-normalization-validation.md) — тесты schema drift
 
 - [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md) — тесты activity пайплайна
+

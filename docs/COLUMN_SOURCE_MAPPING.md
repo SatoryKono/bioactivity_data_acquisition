@@ -19,28 +19,23 @@
 - **normalize_units()** - стандартизация единиц измерения
 - **normalize_relation()** - нормализация операторов сравнения
 
-
 ### BooleanNormalizer (`registry.normalize("boolean", value)`)
 
 - **normalize()** - строгая нормализация булевых значений
 - **normalize_with_default()** - нормализация с значением по умолчанию
-
 
 ### StringNormalizer (`registry.normalize("string", value)`)
 
 - **normalize()** - базовая нормализация строк
 - Поддержка параметров: `uppercase`, `max_length`, `trim`
 
-
 ### IdentifierNormalizer (`registry.normalize("identifier", value)`)
 
 - **normalize()** - нормализация идентификаторов (ChEMBL ID, DOI, etc.)
 
-
 ### ChemistryNormalizer (`registry.normalize("chemistry", value)`)
 
 - **normalize()** - нормализация химических представлений (SMILES, InChI)
-
 
 ### Общие утилиты
 
@@ -50,7 +45,6 @@
 - **canonical_json()** - каноническая сериализация JSON
 - **normalize_json_list()** - нормализация списков JSON объектов
 
-
 ## Структура документа
 
 - [Activity Pipeline](#activity-pipeline)
@@ -58,7 +52,6 @@
 - [TestItem Pipeline](#testitem-pipeline)
 - [Document Pipeline](#document-pipeline)
 - [Target Pipeline](#target-pipeline)
-
 
 ---
 
@@ -736,13 +729,11 @@
 - Приведение к верхнему регистру
 - Валидация формата `^CHEMBL\d+$`
 
-
 ### Строковая нормализация
 
 - Удаление лишних пробелов
 - Приведение к каноническому виду
 - Обработка NULL значений
-
 
 ### Числовая нормализация
 
@@ -750,20 +741,17 @@
 - Обработка NaN значений
 - Валидация диапазонов
 
-
 ### JSON нормализация
 
 - Сериализация в канонический JSON
 - Сортировка ключей
 - Обработка ошибок сериализации
 
-
 ### Временные метки
 
 - ISO8601 формат
 - UTC временная зона
 - Детерминированная генерация
-
 
 ---
 
@@ -778,7 +766,7 @@
 7. **OpenAlex API** - enrichment для Document Pipeline
 8. **Semantic Scholar API** - enrichment для Document Pipeline
 
-
 ---
 
 *Документ создан автоматически на основе анализа кода пайплайнов и схем валидации.*
+

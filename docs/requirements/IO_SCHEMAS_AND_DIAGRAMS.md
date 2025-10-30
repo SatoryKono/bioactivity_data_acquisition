@@ -7,7 +7,6 @@
 - **Название:** AssayPipeline
 - **Назначение:** детерминированное извлечение, нормализация и выгрузка данных ассая из ChEMBL с whitelist обогащением. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 
-
 ### B) Диаграмма I/O (Assay)
 
 ```mermaid
@@ -19,7 +18,7 @@ flowchart TB
   TR --> VL["Validate: Pandera schema + RI checks<br/>QC profile<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
   VL --> LD["Load: UnifiedOutputWriter CSV/QC/meta<br/>Atomic write, hashes<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
 
-```yaml
+```
 
 ### C) Input Schema (Assay)
 
@@ -30,8 +29,10 @@ schema:
   column_order: [assay_chembl_id, target_chembl_id]
   fields:
 
-```
+```text
+
 - name: assay_chembl_id
+
   dtype: string
   required: true
   units: null
@@ -43,6 +44,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: target_chembl_id
+
   dtype: string
   required: false
   units: null
@@ -52,7 +54,8 @@ schema:
   na_policy: allow
   notes: "Опциональный фильтр по таргету"
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
-```yaml
+
+```
 
 ### D) Output Schema (Assay)
 
@@ -61,15 +64,21 @@ schema:
   primary_key: [assay_chembl_id, row_subtype, row_index]
   foreign_keys:
 
-```
+```text
+
 - field: target_chembl_id
+
   references: target(target_chembl_id)
+
 ```
+
   column_order: [assay_chembl_id, row_subtype, row_index, assay_type, assay_category, assay_cell_type, assay_classifications, assay_group, assay_organism, assay_parameters_json, assay_strain, assay_subcellular_fraction, assay_tax_id, assay_test_type, assay_tissue, assay_type_description, assay_description, bao_endpoint, bao_format, bao_label, cell_chembl_id, confidence_description, confidence_score, document_chembl_id, relationship_description, relationship_type, src_assay_id, src_id, target_chembl_id, tissue_chembl_id, variant_sequence_json, assay_param_type, assay_param_relation, assay_param_value, assay_param_units, assay_param_text_value, assay_param_standard_type, assay_param_standard_value, assay_param_standard_units, assay_class_id, assay_class_bao_id, assay_class_type, assay_class_l1, assay_class_l2, assay_class_l3, assay_class_description, variant_id, variant_base_accession, variant_mutation, variant_sequence, variant_accession_reported, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
   fields:
 
-```
+```text
+
 - name: assay_chembl_id
+
   dtype: string
   required: true
   units: null
@@ -81,6 +90,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: row_subtype
+
   dtype: string
   required: true
   units: null
@@ -91,6 +101,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: row_index
+
   dtype: int
   required: true
   units: null
@@ -102,6 +113,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_type
+
   dtype: string
   required: false
   units: null
@@ -112,6 +124,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_category
+
   dtype: string
   required: false
   units: null
@@ -122,6 +135,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_cell_type
+
   dtype: string
   required: false
   units: null
@@ -132,6 +146,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_classifications
+
   dtype: string
   required: false
   units: null
@@ -142,6 +157,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_group
+
   dtype: string
   required: false
   units: null
@@ -152,6 +168,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_organism
+
   dtype: string
   required: false
   units: null
@@ -162,6 +179,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_parameters_json
+
   dtype: string
   required: false
   units: null
@@ -172,6 +190,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_strain
+
   dtype: string
   required: false
   units: null
@@ -182,6 +201,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_subcellular_fraction
+
   dtype: string
   required: false
   units: null
@@ -192,6 +212,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_tax_id
+
   dtype: int
   required: false
   units: null
@@ -203,6 +224,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_test_type
+
   dtype: string
   required: false
   units: null
@@ -213,6 +235,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_tissue
+
   dtype: string
   required: false
   units: null
@@ -223,6 +246,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_type_description
+
   dtype: string
   required: false
   units: null
@@ -233,6 +257,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_description
+
   dtype: string
   required: false
   units: null
@@ -243,6 +268,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: bao_endpoint
+
   dtype: string
   required: false
   units: null
@@ -254,6 +280,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: bao_format
+
   dtype: string
   required: false
   units: null
@@ -265,6 +292,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: bao_label
+
   dtype: string
   required: false
   units: null
@@ -275,6 +303,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: cell_chembl_id
+
   dtype: string
   required: false
   units: null
@@ -286,6 +315,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: confidence_description
+
   dtype: string
   required: false
   units: null
@@ -296,6 +326,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: confidence_score
+
   dtype: int
   required: false
   units: null
@@ -308,6 +339,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: document_chembl_id
+
   dtype: string
   required: false
   units: null
@@ -319,6 +351,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: relationship_description
+
   dtype: string
   required: false
   units: null
@@ -329,6 +362,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: relationship_type
+
   dtype: string
   required: false
   units: null
@@ -339,6 +373,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: src_assay_id
+
   dtype: string
   required: false
   units: null
@@ -349,6 +384,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: src_id
+
   dtype: int
   required: false
   units: null
@@ -359,6 +395,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: target_chembl_id
+
   dtype: string
   required: false
   units: null
@@ -370,6 +407,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: tissue_chembl_id
+
   dtype: string
   required: false
   units: null
@@ -381,6 +419,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: variant_sequence_json
+
   dtype: string
   required: false
   units: null
@@ -391,6 +430,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_type
+
   dtype: string
   required: false
   units: null
@@ -401,6 +441,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_relation
+
   dtype: string
   required: false
   units: null
@@ -411,6 +452,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_value
+
   dtype: float
   required: false
   units: null
@@ -421,6 +463,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_units
+
   dtype: string
   required: false
   units: null
@@ -431,6 +474,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_text_value
+
   dtype: string
   required: false
   units: null
@@ -441,6 +485,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_standard_type
+
   dtype: string
   required: false
   units: null
@@ -451,6 +496,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_standard_value
+
   dtype: float
   required: false
   units: null
@@ -461,6 +507,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_param_standard_units
+
   dtype: string
   required: false
   units: null
@@ -471,6 +518,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_class_id
+
   dtype: int
   required: false
   units: null
@@ -481,6 +529,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_class_bao_id
+
   dtype: string
   required: false
   units: null
@@ -492,6 +541,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_class_type
+
   dtype: string
   required: false
   units: null
@@ -502,6 +552,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_class_l1
+
   dtype: string
   required: false
   units: null
@@ -512,6 +563,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_class_l2
+
   dtype: string
   required: false
   units: null
@@ -522,6 +574,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_class_l3
+
   dtype: string
   required: false
   units: null
@@ -532,6 +585,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: assay_class_description
+
   dtype: string
   required: false
   units: null
@@ -542,6 +596,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: variant_id
+
   dtype: int
   required: false
   units: null
@@ -552,6 +607,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: variant_base_accession
+
   dtype: string
   required: false
   units: null
@@ -563,6 +619,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: variant_mutation
+
   dtype: string
   required: false
   units: null
@@ -573,6 +630,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: variant_sequence
+
   dtype: string
   required: false
   units: null
@@ -584,6 +642,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: variant_accession_reported
+
   dtype: string
   required: false
   units: null
@@ -594,6 +653,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: pipeline_version
+
   dtype: string
   required: true
   units: null
@@ -604,6 +664,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: source_system
+
   dtype: string
   required: true
   units: null
@@ -614,6 +675,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: chembl_release
+
   dtype: string
   required: true
   units: null
@@ -624,6 +686,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: extracted_at
+
   dtype: string
   required: true
   units: null
@@ -634,6 +697,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: hash_business_key
+
   dtype: string
   required: true
   units: null
@@ -645,6 +709,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: hash_row
+
   dtype: string
   required: true
   units: null
@@ -656,6 +721,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
 
 - name: index
+
   dtype: int
   required: true
   units: null
@@ -665,6 +731,7 @@ schema:
   na_policy: forbid
   notes: "Детерминированный индекс строки"
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+
 ```
 
 ### E) Mapping Input→Output (Assay)
@@ -688,7 +755,6 @@ schema:
 - Сортировка `assay_chembl_id,row_subtype,row_index`, nullable dtypes, NA-policy `""/null`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
 - AtomicWriter `os.replace`, run-scoped `.tmp_run_{run_id}`, meta.yaml с SHA256. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_11]
 
-
 ---
 
 ## Activity Pipeline
@@ -697,7 +763,6 @@ schema:
 
 - **Название:** ActivityPipeline
 - **Назначение:** извлечение и нормализация ChEMBL activity c детерминированной выгрузкой и QC. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
-
 
 ### B) Диаграмма I/O (Activity)
 
@@ -720,8 +785,10 @@ schema:
   column_order: [activity_id]
   fields:
 
-```
+```text
+
 - name: activity_id
+
   dtype: int
   required: false
   units: null
@@ -733,6 +800,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: filter_params
+
   dtype: string
   required: false
   units: null
@@ -741,6 +809,7 @@ schema:
   na_policy: allow
   notes: "Параметры фильтрации (molecule_chembl_id, target_chembl_id, etc.)"
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+
 ```
 
 ### D) Output Schema (Activity)
@@ -750,24 +819,33 @@ schema:
   primary_key: [activity_id]
   foreign_keys:
 
-```
+```text
+
 - field: molecule_chembl_id
+
   references: molecule(molecule_chembl_id)
 
 - field: assay_chembl_id
+
   references: assay(assay_chembl_id)
 
 - field: target_chembl_id
+
   references: target(target_chembl_id)
 
 - field: document_chembl_id
+
   references: document(document_chembl_id)
+
 ```
+
   column_order: [activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, published_type, published_relation, published_value, published_units, standard_type, standard_relation, standard_value, standard_units, standard_flag, lower_bound, upper_bound, is_censored, pchembl_value, activity_comment, data_validity_comment, bao_endpoint, bao_format, bao_label, potential_duplicate, uo_units, qudt_units, src_id, action_type, activity_properties_json, bei, sei, le, lle, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
   fields:
 
-```
+```text
+
 - name: activity_id
+
   dtype: Int64
   required: true
   units: null
@@ -779,6 +857,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: molecule_chembl_id
+
   dtype: StringDtype
   required: false
   units: null
@@ -790,6 +869,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: assay_chembl_id
+
   dtype: StringDtype
   required: false
   units: null
@@ -801,6 +881,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: target_chembl_id
+
   dtype: StringDtype
   required: false
   units: null
@@ -812,6 +893,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: document_chembl_id
+
   dtype: StringDtype
   required: false
   units: null
@@ -823,6 +905,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: published_type
+
   dtype: StringDtype
   required: false
   units: null
@@ -833,6 +916,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: published_relation
+
   dtype: StringDtype
   required: false
   units: null
@@ -843,6 +927,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: published_value
+
   dtype: Float64
   required: false
   units: "as provided"
@@ -854,6 +939,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: published_units
+
   dtype: StringDtype
   required: false
   units: null
@@ -864,6 +950,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: standard_type
+
   dtype: StringDtype
   required: false
   units: null
@@ -874,6 +961,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: standard_relation
+
   dtype: StringDtype
   required: false
   units: null
@@ -884,6 +972,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: standard_value
+
   dtype: Float64
   required: false
   units: "as provided (nM, µM, etc.)"
@@ -895,6 +984,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: standard_units
+
   dtype: StringDtype
   required: false
   units: null
@@ -905,6 +995,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: standard_flag
+
   dtype: Int64
   required: false
   units: null
@@ -915,6 +1006,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: lower_bound
+
   dtype: Float64
   required: false
   units: null
@@ -925,6 +1017,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: upper_bound
+
   dtype: Float64
   required: false
   units: null
@@ -935,6 +1028,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: is_censored
+
   dtype: boolean
   required: false
   units: null
@@ -945,6 +1039,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: pchembl_value
+
   dtype: Float64
   required: false
   units: null
@@ -956,6 +1051,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: activity_comment
+
   dtype: StringDtype
   required: false
   units: null
@@ -966,6 +1062,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: data_validity_comment
+
   dtype: StringDtype
   required: false
   units: null
@@ -976,6 +1073,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: bao_endpoint
+
   dtype: StringDtype
   required: false
   units: null
@@ -986,6 +1084,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: bao_format
+
   dtype: StringDtype
   required: false
   units: null
@@ -996,6 +1095,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: bao_label
+
   dtype: StringDtype
   required: false
   units: null
@@ -1006,6 +1106,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: potential_duplicate
+
   dtype: Int64
   required: false
   units: null
@@ -1016,6 +1117,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: uo_units
+
   dtype: StringDtype
   required: false
   units: null
@@ -1027,6 +1129,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: qudt_units
+
   dtype: StringDtype
   required: false
   units: null
@@ -1037,6 +1140,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: src_id
+
   dtype: Int64
   required: false
   units: null
@@ -1047,6 +1151,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: action_type
+
   dtype: StringDtype
   required: false
   units: null
@@ -1057,6 +1162,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: activity_properties_json
+
   dtype: StringDtype
   required: false
   units: null
@@ -1067,6 +1173,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: bei
+
   dtype: Float64
   required: false
   units: null
@@ -1077,6 +1184,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: sei
+
   dtype: Float64
   required: false
   units: null
@@ -1087,6 +1195,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: le
+
   dtype: Float64
   required: false
   units: null
@@ -1097,6 +1206,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: lle
+
   dtype: Float64
   required: false
   units: null
@@ -1107,6 +1217,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: extracted_at
+
   dtype: StringDtype
   required: true
   units: null
@@ -1117,6 +1228,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: hash_business_key
+
   dtype: StringDtype
   required: true
   units: null
@@ -1128,6 +1240,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: hash_row
+
   dtype: StringDtype
   required: true
   units: null
@@ -1139,6 +1252,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: index
+
   dtype: Int64
   required: true
   units: null
@@ -1149,6 +1263,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: source_system
+
   dtype: StringDtype
   required: true
   units: null
@@ -1159,6 +1274,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: chembl_release
+
   dtype: StringDtype
   required: true
   units: null
@@ -1167,6 +1283,7 @@ schema:
   na_policy: forbid
   notes: "Версия ChEMBL источника"
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+
 ```
 
 ### E) Mapping Input→Output (Activity)
@@ -1187,7 +1304,6 @@ schema:
 - Сортировка `activity_id`, QC отчёты фиксируют duplicates и coverage. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 - OutputWriter стандарт/extended режимы с correlation по feature flag. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
 
-
 ---
 
 ## Testitem Pipeline
@@ -1196,7 +1312,6 @@ schema:
 
 - **Название:** TestitemPipeline
 - **Назначение:** извлечение молекул ChEMBL с опциональным PubChem enrichment и строгой нормализацией. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
-
 
 ### B) Диаграмма I/O (Testitem)
 
@@ -1222,8 +1337,10 @@ schema:
   column_order: [molecule_chembl_id, nstereo, salt_chembl_id]
   fields:
 
-```
+```text
+
 - name: molecule_chembl_id
+
   dtype: string
   required: true
   units: null
@@ -1235,6 +1352,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: nstereo
+
   dtype: int
   required: false
   units: null
@@ -1246,6 +1364,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: salt_chembl_id
+
   dtype: string
   required: false
   units: null
@@ -1255,6 +1374,7 @@ schema:
   na_policy: allow
   notes: "Идентификатор соли"
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+
 ```
 
 ### D) Output Schema (Testitem)
@@ -1264,15 +1384,21 @@ schema:
   primary_key: [molecule_chembl_id]
   foreign_keys:
 
-```
+```text
+
 - field: parent_chembl_id
+
   references: molecule(molecule_chembl_id)
+
 ```
+
   column_order: [molecule_chembl_id, molregno, pref_name, parent_chembl_id, max_phase, structure_type, molecule_type, mw_freebase, qed_weighted, standardized_smiles, standard_inchi, standard_inchi_key, heavy_atoms, aromatic_rings, rotatable_bonds, hba, hbd, lipinski_ro5_violations, lipinski_ro5_pass, all_names, molecule_synonyms, atc_classifications, pubchem_cid, pubchem_synonyms, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
   fields:
 
-```
+```text
+
 - name: molecule_chembl_id
+
   dtype: string
   required: true
   units: null
@@ -1284,6 +1410,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: molregno
+
   dtype: int
   required: true
   units: null
@@ -1295,6 +1422,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: pref_name
+
   dtype: string
   required: false
   units: null
@@ -1305,6 +1433,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: parent_chembl_id
+
   dtype: string
   required: false
   units: null
@@ -1316,6 +1445,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: max_phase
+
   dtype: int
   required: false
   units: null
@@ -1327,6 +1457,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: mw_freebase
+
   dtype: float
   required: false
   units: "as provided"
@@ -1338,6 +1469,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: pubchem_cid
+
   dtype: int
   required: false
   units: null
@@ -1349,6 +1481,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11]"
 
 - name: standardized_smiles
+
   dtype: string
   required: false
   units: null
@@ -1359,6 +1492,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: hash_row
+
   dtype: string
   required: true
   units: null
@@ -1370,6 +1504,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
 
 - name: chembl_release
+
   dtype: string
   required: true
   units: null
@@ -1378,6 +1513,7 @@ schema:
   na_policy: forbid
   notes: "Версия источника"
   evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+
 ```
 
 ### E) Mapping Input→Output (Testitem)
@@ -1401,7 +1537,6 @@ schema:
 - Сортировка `molecule_chembl_id`, column_order фиксирован, NA-policy строгая (nullable dtypes). [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
 - QC fail_on `missing_molecule_chembl_id`, `duplicate_primary_keys`; optional correlation выключен по умолчанию. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
 
-
 ---
 
 ## Target Pipeline
@@ -1410,7 +1545,6 @@ schema:
 
 - **Название:** TargetPipeline
 - **Назначение:** объединение ChEMBL таргетов с UniProt и IUPHAR enrichment в четыре согласованные таблицы. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
-
 
 ### B) Диаграмма I/O (Target)
 
@@ -1437,8 +1571,10 @@ schema:
   column_order: [target_chembl_id, organism, target_type]
   fields:
 
-```
+```text
+
 - name: target_chembl_id
+
   dtype: string
   required: true
   units: null
@@ -1450,6 +1586,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: organism
+
   dtype: string
   required: false
   units: null
@@ -1460,6 +1597,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: target_type
+
   dtype: string
   required: false
   units: null
@@ -1468,6 +1606,7 @@ schema:
   na_policy: allow
   notes: "Опциональный фильтр (SINGLE PROTEIN, COMPLEX и др.)"
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+
 ```
 
 ### D) Output Schemas (Target)
@@ -1479,8 +1618,10 @@ schema:
   column_order: [target_chembl_id, pref_name, organism, tax_id, uniprot_id_primary, uniprot_ids_all, gene_symbol, hgnc_id, protein_class_pred_L1, isoform_count, chembl_release]
   fields:
 
-```
+```text
+
 - name: target_chembl_id
+
   dtype: string
   required: true
   units: null
@@ -1492,6 +1633,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: pref_name
+
   dtype: string
   required: false
   units: null
@@ -1502,6 +1644,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: organism
+
   dtype: string
   required: false
   units: null
@@ -1512,6 +1655,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: uniprot_id_primary
+
   dtype: string
   required: false
   units: null
@@ -1523,6 +1667,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: protein_class_pred_L1
+
   dtype: string
   required: false
   units: null
@@ -1533,6 +1678,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: isoform_count
+
   dtype: int
   required: false
   units: null
@@ -1544,6 +1690,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: chembl_release
+
   dtype: string
   required: true
   units: null
@@ -1552,7 +1699,9 @@ schema:
   na_policy: forbid
   notes: "Версия источника"
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+
 ```
+
 schema:
 
 schema:
@@ -1560,15 +1709,21 @@ schema:
   primary_key: [target_chembl_id, component_id]
   foreign_keys:
 
-```
+```text
+
 - field: target_chembl_id
+
   references: targets(target_chembl_id)
+
 ```
+
   column_order: [target_chembl_id, component_id, component_type, accession, sequence, is_canonical, isoform_variant, data_origin]
   fields:
 
-```
+```text
+
 - name: component_id
+
   dtype: int
   required: true
   units: null
@@ -1580,6 +1735,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: accession
+
   dtype: string
   required: false
   units: null
@@ -1591,6 +1747,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: data_origin
+
   dtype: string
   required: true
   units: null
@@ -1599,7 +1756,9 @@ schema:
   na_policy: forbid
   notes: "Источник компонента"
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+
 ```
+
 schema:
 
 schema:
@@ -1607,15 +1766,21 @@ schema:
   primary_key: [target_chembl_id, class_level, class_name]
   foreign_keys:
 
-```
+```text
+
 - field: target_chembl_id
+
   references: targets(target_chembl_id)
+
 ```
+
   column_order: [target_chembl_id, class_level, class_name, full_path]
   fields:
 
-```
+```text
+
 - name: class_level
+
   dtype: int
   required: true
   units: null
@@ -1627,6 +1792,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: full_path
+
   dtype: string
   required: true
   units: null
@@ -1635,7 +1801,9 @@ schema:
   na_policy: forbid
   notes: "Полный путь классификации"
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+
 ```
+
 schema:
 
 schema:
@@ -1643,15 +1811,21 @@ schema:
   primary_key: [target_chembl_id, xref_src_db, xref_id]
   foreign_keys:
 
-```
+```text
+
 - field: target_chembl_id
+
   references: targets(target_chembl_id)
+
 ```
+
   column_order: [target_chembl_id, xref_src_db, xref_id]
   fields:
 
-```
+```text
+
 - name: xref_src_db
+
   dtype: string
   required: true
   units: null
@@ -1662,6 +1836,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
 
 - name: xref_id
+
   dtype: string
   required: true
   units: null
@@ -1670,6 +1845,7 @@ schema:
   na_policy: forbid
   notes: "Идентификатор во внешней БД"
   evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+
 ```
 
 ### E) Mapping Input→Output (Target)
@@ -1688,7 +1864,6 @@ schema:
 - Merge priority: chembl > uniprot > iuphar > ortholog; fallback taxonomy/gene symbol logged WARNING. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 - AtomicWriter для всех parquet, referential integrity между таблицами, QC coverage ≥80% UniProt, duplicates=0. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
 
-
 ---
 
 ## Document Pipeline
@@ -1697,7 +1872,6 @@ schema:
 
 - **Название:** DocumentPipeline
 - **Назначение:** извлечение метаданных документов из ChEMBL и внешних источников с детерминированным экспортом. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
-
 
 ### B) Диаграмма I/O
 
@@ -1723,8 +1897,10 @@ schema:
   column_order: [document_chembl_id]
   fields:
 
-```
+```text
+
 - name: document_chembl_id
+
   dtype: string
   required: true
   units: null
@@ -1734,6 +1910,7 @@ schema:
   na_policy: forbid
   notes: "Уникальный идентификатор документа"
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+
 ```
 
 ### D) Output Schema (Document)
@@ -1745,8 +1922,10 @@ schema:
   column_order: [index, extracted_at, hash_business_key, hash_row, document_chembl_id, document_pubmed_id, document_classification, referenses_on_previous_experiments, original_experimental_document, document_citation, pubmed_mesh_descriptors, pubmed_mesh_qualifiers, pubmed_chemical_list, crossref_subject, chembl_pmid, openalex_pmid, pubmed_pmid, semantic_scholar_pmid, chembl_title, crossref_title, openalex_title, pubmed_article_title, semantic_scholar_title, chembl_abstract, pubmed_abstract, chembl_authors, crossref_authors, openalex_authors, pubmed_authors, semantic_scholar_authors, chembl_doi, crossref_doi, openalex_doi, pubmed_doi, semantic_scholar_doi, chembl_doc_type, crossref_doc_type, openalex_doc_type, openalex_crossref_doc_type, pubmed_doc_type, semantic_scholar_doc_type, openalex_issn, pubmed_issn, semantic_scholar_issn, chembl_journal, pubmed_journal, semantic_scholar_journal, chembl_year, openalex_year, chembl_volume, pubmed_volume, chembl_issue, pubmed_issue, pubmed_first_page, pubmed_last_page, crossref_error, openalex_error, pubmed_error, semantic_scholar_error, pubmed_year_completed, pubmed_month_completed, pubmed_day_completed, pubmed_year_revised, pubmed_month_revised, pubmed_day_revised, publication_date, document_sortorder, valid_doi, valid_journal, valid_year, valid_volume, valid_issue, invalid_doi, invalid_journal, invalid_year, invalid_volume, invalid_issue]
   fields:
 
-```
+```text
+
 - name: index
+
   dtype: Int64
   required: true
   units: null
@@ -1757,6 +1936,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: extracted_at
+
   dtype: StringDtype
   required: true
   units: null
@@ -1767,6 +1947,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: hash_business_key
+
   dtype: StringDtype
   required: true
   units: null
@@ -1778,6 +1959,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: hash_row
+
   dtype: StringDtype
   required: true
   units: null
@@ -1789,6 +1971,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: document_chembl_id
+
   dtype: StringDtype
   required: true
   units: null
@@ -1800,6 +1983,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_title
+
   dtype: StringDtype
   required: false
   units: null
@@ -1810,6 +1994,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: crossref_title
+
   dtype: StringDtype
   required: false
   units: null
@@ -1820,6 +2005,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: openalex_title
+
   dtype: StringDtype
   required: false
   units: null
@@ -1830,6 +2016,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_article_title
+
   dtype: StringDtype
   required: false
   units: null
@@ -1840,6 +2027,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: semantic_scholar_title
+
   dtype: StringDtype
   required: false
   units: null
@@ -1850,6 +2038,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_abstract
+
   dtype: StringDtype
   required: false
   units: null
@@ -1860,6 +2049,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_abstract
+
   dtype: StringDtype
   required: false
   units: null
@@ -1870,6 +2060,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_authors
+
   dtype: StringDtype
   required: false
   units: null
@@ -1880,6 +2071,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: crossref_authors
+
   dtype: StringDtype
   required: false
   units: null
@@ -1890,6 +2082,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: openalex_authors
+
   dtype: StringDtype
   required: false
   units: null
@@ -1900,6 +2093,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_authors
+
   dtype: StringDtype
   required: false
   units: null
@@ -1910,6 +2104,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: semantic_scholar_authors
+
   dtype: StringDtype
   required: false
   units: null
@@ -1920,6 +2115,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_doi
+
   dtype: StringDtype
   required: false
   units: null
@@ -1930,6 +2126,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: crossref_doi
+
   dtype: StringDtype
   required: false
   units: null
@@ -1940,6 +2137,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: openalex_doi
+
   dtype: StringDtype
   required: false
   units: null
@@ -1950,6 +2148,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_doi
+
   dtype: StringDtype
   required: false
   units: null
@@ -1960,6 +2159,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: semantic_scholar_doi
+
   dtype: StringDtype
   required: false
   units: null
@@ -1970,6 +2170,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_pmid
+
   dtype: Int64
   required: false
   units: null
@@ -1980,6 +2181,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_pmid
+
   dtype: Int64
   required: false
   units: null
@@ -1990,6 +2192,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_year
+
   dtype: Int64
   required: false
   units: null
@@ -2002,6 +2205,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: openalex_year
+
   dtype: Int64
   required: false
   units: null
@@ -2012,6 +2216,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_journal
+
   dtype: StringDtype
   required: false
   units: null
@@ -2022,6 +2227,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_journal
+
   dtype: StringDtype
   required: false
   units: null
@@ -2032,6 +2238,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: semantic_scholar_journal
+
   dtype: StringDtype
   required: false
   units: null
@@ -2042,6 +2249,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_volume
+
   dtype: StringDtype
   required: false
   units: null
@@ -2052,6 +2260,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_volume
+
   dtype: StringDtype
   required: false
   units: null
@@ -2062,6 +2271,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: chembl_issue
+
   dtype: StringDtype
   required: false
   units: null
@@ -2072,6 +2282,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_issue
+
   dtype: StringDtype
   required: false
   units: null
@@ -2082,6 +2293,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_first_page
+
   dtype: StringDtype
   required: false
   units: null
@@ -2092,6 +2304,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_last_page
+
   dtype: StringDtype
   required: false
   units: null
@@ -2102,6 +2315,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: crossref_error
+
   dtype: StringDtype
   required: false
   units: null
@@ -2112,6 +2326,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: openalex_error
+
   dtype: StringDtype
   required: false
   units: null
@@ -2122,6 +2337,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: pubmed_error
+
   dtype: StringDtype
   required: false
   units: null
@@ -2132,6 +2348,7 @@ schema:
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
 
 - name: semantic_scholar_error
+
   dtype: StringDtype
   required: false
   units: null
@@ -2140,6 +2357,7 @@ schema:
   na_policy: allow
   notes: "Ошибка Semantic Scholar адаптера"
   evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+
 ```
 
 ### E) Mapping Input→Output (Document)
@@ -2158,3 +2376,4 @@ schema:
 - mode=all запускает независимые адаптеры с rate limits (PubMed batch 200, Crossref cursor rows≤1000, OpenAlex per_page≤200, Semantic Scholar graceful degradation). [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 - QC отчёты: coverage (doi_coverage, pmid_coverage, title_coverage, journal_coverage), conflicts (doi, pmid), duplicates (CHEMBL, DOI+year, PMID), access_denied; meta.yaml фиксирует metrics и checksum. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 - AtomicWriter `.tmp` per run, deterministic CSV/Parquet; correlation report опционален. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_11] [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
+

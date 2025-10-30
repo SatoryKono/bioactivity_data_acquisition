@@ -22,12 +22,10 @@
 - Автоматическое добавление недостающих колонок со значениями None
 - Корректный порядок колонок согласно AssaySchema.Config.column_order
 
-
 **Измененные файлы:**
 
 - `src/bioetl/pipelines/assay.py` - реализован ChEMBL API client
 - `src/bioetl/schemas/assay.py` - схема уже содержала все необходимые поля
-
 
 ---
 
@@ -47,12 +45,10 @@
    - Установлены значения по умолчанию для отсутствующих полей
    - Правильная обработка boolean и numeric полей
 
-
 **Измененные файлы:**
 
 - `data/input/activity.csv` - добавлены 6 строк данных
 - `src/bioetl/pipelines/activity.py` - исправлена обработка CSV
-
 
 ---
 
@@ -69,17 +65,16 @@
    - Запросы к ChEMBL API `/molecule.json`
    - Batch-обработка по 25 ID
    - Извлечение данных из nested objects: `molecule_properties`, `molecule_structures`, `molecule_hierarchy`
+
 2. Интегрирован в `transform()`:
 
    - Merge с данными из API
    - Сохранение существующих полей
    - Автоматическое добавление недостающих колонок
 
-
 **Измененные файлы:**
 
 - `src/bioetl/pipelines/testitem.py` - добавлен ChEMBL API client
-
 
 ---
 
@@ -102,7 +97,6 @@
 - [x] Testitem: выходной файл содержит 10 строк со всеми 31 колонкой заполненными данными из ChEMBL API
 - [x] Все три пайплайна запускаются без ошибок
 - [x] Schemas соответствуют IO_SCHEMAS_AND_DIAGRAMS.md
-
 
 ---
 
@@ -135,7 +129,6 @@
    - Детерминированный порядок через sort_values
    - Канонический serialization для hash
 
-
 ---
 
 ## Файлы изменены
@@ -147,7 +140,6 @@
 5. ✅ `src/bioetl/schemas/assay.py` - схема уже была полной
 6. ✅ `src/bioetl/schemas/activity.py` - схема уже была полной
 7. ✅ `src/bioetl/schemas/testitem.py` - схема уже была полной
-
 
 ---
 
@@ -170,7 +162,6 @@ python src/scripts/run_testitem.py --limit 10
 - Выходные файлы содержат правильное количество колонок
 - Hash поля присутствуют во всех выходах
 
-
 ---
 
 ## Прогресс
@@ -181,5 +172,5 @@ python src/scripts/run_testitem.py --limit 10
 - [x] Testitem Pipeline - 10 строк, 31 колонка, API integration
 - [x] Assay Pipeline - 10 строк, 58 колонок, API integration
 
-
 **Вывод:** Все три пайплайна полностью синхронизированы с IO_SCHEMAS_AND_DIAGRAMS.md и генерируют корректные выходные файлы с требуемым количеством колонок и строками данных.
+

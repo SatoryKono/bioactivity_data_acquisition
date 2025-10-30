@@ -12,7 +12,6 @@ UnifiedOutputWriter — детерминированная система зап
 
 - **Run manifests** для отслеживания пайплайнов
 
-
 ## Архитектура
 
 ```text
@@ -146,7 +145,6 @@ class AtomicWriter:
 
 - **Windows-compatibility**: os.replace() является атомарной операцией на всех ОС
 
-
 **Передача run_id**:
 
 - В CLI run_id создаётся на старте пайплайна и передаётся в `AtomicWriter` явным аргументом конструктора.
@@ -154,7 +152,6 @@ class AtomicWriter:
 - Допускается DI через контекст исполнения (`contextvars` или context manager), но **инициализация всегда явная**, чтобы соблюдать инвариант детерминизма из [00-architecture-overview.md](00-architecture-overview.md#2-%D0%94%D0%B5%D1%82%D0%B5%D1%80%D0%BC%D0%B8%D0%BD%D0%B8%D0%B7%D0%BC).
 
 - Run-scoped временные директории `.tmp_run_{run_id}` обеспечивают принцип «всё или ничего» из AC (см. раздел *Standard (2 файла, без correlation по умолчанию)* в [00-architecture-overview.md](00-architecture-overview.md#2-unifiedoutputwriter-%E2%80%94-%D0%A1%D0%B8%D1%81%D1%82%D0%B5%D0%BC%D0%B0-%D0%B2%D0%B2%D0%BE%D0%B4%D0%B0-%D0%B2%D1%8B%D0%B2%D0%BE%D0%B4%D0%B0)).
-
 
 ### 3. OutputMetadata (dataclass)
 
@@ -639,7 +636,6 @@ schema_version: "2.1.0"
 - **Строковые поля** → `""` (пустая строка в CSV и canonical JSON)
 - **Числовые/даты/boolean** → `pd.NA` или `None` (пустая ячейка в CSV, `null` в canonical JSON)
 
-
 ```python
 
 string_columns = {
@@ -667,7 +663,6 @@ df[non_string] = df[non_string].astype(schema.to_schema().dtype)
 
 - Применяется ко всем контекстам: хеширование, вывод, сериализация
 
-
 **Обоснование:**
 
 - Обеспечивает детерминизм канонической сериализации
@@ -675,7 +670,6 @@ df[non_string] = df[non_string].astype(schema.to_schema().dtype)
 - Единообразие обработки данных
 
 - Достаточная точность для научных вычислений
-
 
 ```python
 
@@ -743,7 +737,6 @@ hash_row = hashlib.sha256(row_str.encode()).hexdigest()
 - Значения нормализованы (trim, NA policy)
 
 - Всегда SHA256 (64 hex символа)
-
 
 **Каноническая сериализация для hash_row:**
 
@@ -843,6 +836,7 @@ lineage:
   source_files:
 
     - "input/documents.csv"
+
   transformations:
 
     - "normalize_titles"
@@ -856,7 +850,6 @@ lineage:
 - `config_hash`: SHA256 хеш конфигурации (после резолва переменных окружения)
 - `config_snapshot`: путь и хеш исходного файла конфигурации
 
-
 **Обоснование:** Обеспечивает полную воспроизводимость и аудит запусков, закрывает требование R2 из gap-анализа.
 
 **См. также**: [09-document-chembl-extraction.md](09-document-chembl-extraction.md) — примеры использования `config_hash`.
@@ -866,7 +859,6 @@ lineage:
 Протокол гарантирует отсутствие partial артефактов:
 
 1. **Запись во временный файл в run-scoped директории**
-
 
 ```python
 
@@ -884,7 +876,6 @@ df.to_csv(temp_path, index=False)
 
 1. **Валидация checksums (опционально, для критичных данных)**
 
-
 ```python
 
 checksum = compute_checksum(temp_path)
@@ -894,7 +885,6 @@ checksum = compute_checksum(temp_path)
 ```
 
 1. **Атомарный replace**
-
 
 ```python
 
@@ -906,7 +896,6 @@ os.replace(str(temp_path), str(output_path))  # Atomic операция
 ```
 
 1. **Guaranteed cleanup при любой ошибке**
-
 
 ```python
 
@@ -958,7 +947,6 @@ finally:
 - Пустые файлы (размер = 0)
 
 - Артефакты без соответствующих QC отчетов (в standard/extended режиме)
-
 
 **Протокол валидации после записи:**
 
@@ -1061,7 +1049,6 @@ python pipeline.py --input data/input/documents.csv \
 
 - При расхождении: отчет diff.txt с различиями
 
-
 **Формат отчета diff.txt:**
 
 ```text
@@ -1103,6 +1090,7 @@ postprocess:
     steps:
 
       - name: "correlation_analysis"
+
         enabled: false
 
 ```
@@ -1142,7 +1130,6 @@ output.documents_20250128_data_correlation_report_table.csv
 
 - Correlation опциональный (по умолчанию выключен)
 
-
 ### Extended (+ metadata и manifest)
 
 ```text
@@ -1167,7 +1154,6 @@ reports/run_manifest_20250128142315.json
 - Нет частичных артефактов (все или ничего)
 
 - `column_order` копируется из Schema Registry (не источник истины)
-
 
 ## Acceptance Criteria
 
@@ -1243,7 +1229,6 @@ assert list(df.columns) == schema.column_order
 
 - Числовое NaN → `null` в JSON, пустое в CSV
 
-
 **Проверка:**
 
 ```python
@@ -1272,7 +1257,6 @@ assert '"numeric_field": null' in serialized_row  # null
 1. **CSV для человекочитаемости**: Parquet для производительности и размера
 
 1. **Проверяйте artifacts перед использованием**: существование файлов
-
 
 ## Обработка ошибок
 
@@ -1362,3 +1346,4 @@ artifacts = writer.write(df, table_name="documents", date_tag="20250128")
 ---
 
 **Следующий раздел**: [03-data-extraction.md](03-data-extraction.md)
+

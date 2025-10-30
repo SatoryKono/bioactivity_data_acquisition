@@ -26,7 +26,6 @@
 
 - [11. Best Practices](#11-best-practices)
 
-
 ## Обзор и архитектура
 
 Документ описывает спецификацию извлечения данных testitem (молекул) из ChEMBL API с опциональным обогащением через PubChem PUG-REST API. Обеспечиваются детерминированность, полная воспроизводимость результатов и защита от потери данных.
@@ -111,7 +110,6 @@ flowchart TD
 
 - **UnifiedLogger**: Структурированное логирование с trace_id, run_id
 
-
 Cross-references:
 
 - См. [Архитектура проекта](./00-architecture-overview.md) для общей структуры
@@ -124,7 +122,6 @@ Cross-references:
 
 - См. [Нормализация и валидация](./04-normalization-validation.md) для QC метрик
 
-
 ### Интеграция источников
 
 **Приоритет источников:**
@@ -132,7 +129,6 @@ Cross-references:
 1. **ChEMBL** (PRIMARY) — базовые данные о молекулах из `/molecule` endpoint
 
 2. **PubChem** (SECONDARY) — дополнительное обогащение через PUG-REST API
-
 
 **Стратегия обогащения:**
 
@@ -143,7 +139,6 @@ Cross-references:
 - Graceful degradation: сбои PubChem не блокируют pipeline
 
 - Merge по `standard_inchi_key` (ChEMBL) ↔ InChIKey lookup (PubChem)
-
 
 ---
 
@@ -157,13 +152,11 @@ Cross-references:
 
 - `molecule_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор молекулы в формате `CHEMBL\d+`
 
-
 **Опциональные поля:**
 
 - `nstereo` (Int64Dtype, nullable): количество стереоизомеров
 
 - `salt_chembl_id` (StringDtype, nullable): ChEMBL ID соли
-
 
 **Схема валидации:**
 
@@ -228,7 +221,6 @@ class TestitemInputSchema(pa.DataFrameModel):
 
 - тестовые прогоны используют `--set postprocess.qc.enabled=false` (см. политику в §10-configuration).
 
-
 ---
 
 ## 2. Процесс извлечения (Extract)
@@ -267,7 +259,6 @@ chembl_base_url: str  # URL для воспроизводимости
 
 4. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release: `testitem:{release}:{molecule_chembl_id}`
 
-
 **Пример запроса ChEMBL release:**
 
 ```bash
@@ -300,58 +291,47 @@ curl -H "Accept: application/json" \
 
 - **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
 
-
 **Полный список полей для извлечения (~80+ полей):**
 
 **Базовые идентификаторы (10):**
 
 - molecule_chembl_id, molregno, pref_name, max_phase, therapeutic_flag, structure_type, molecule_type, first_approval, dosed_ingredient, availability_type
 
-
 **Иерархия молекул (2):**
 
 - parent_chembl_id (из molecule_hierarchy.parent_chembl_id), molecule_hierarchy (JSON)
-
 
 **Физико-химические свойства из molecule_properties (22):**
 
 - mw_freebase, alogp, hba, hbd, psa, rtb, ro3_pass, num_ro5_violations, acd_most_apka, acd_most_bpka, acd_logp, acd_logd, molecular_species, full_mwt, aromatic_rings, heavy_atoms, qed_weighted, mw_monoisotopic, full_molformula, hba_lipinski, hbd_lipinski, num_lipinski_ro5_violations
 
-
 **Структуры из molecule_structures (3):**
 
 - canonical_smiles, standard_inchi, standard_inchi_key
-
 
 **Флаги путей введения и свойств (10):**
 
 - oral, parenteral, topical, black_box_warning, natural_product, first_in_class, chirality, prodrug, inorganic_flag, polymer_flag
 
-
 **Регистрация и отзыв (9):**
 
 - usan_year, usan_stem, usan_substem, usan_stem_definition, indication_class, withdrawn_flag, withdrawn_year, withdrawn_country, withdrawn_reason
-
 
 **Механизм действия (3):**
 
 - mechanism_of_action, direct_interaction, molecular_mechanism
 
-
 **Drug данные (9):**
 
 - drug_chembl_id, drug_name, drug_type, drug_substance_flag, drug_indication_flag, drug_antibacterial_flag, drug_antiviral_flag, drug_antifungal_flag, drug_antiparasitic_flag, drug_antineoplastic_flag, drug_immunosuppressant_flag, drug_antiinflammatory_flag
-
 
 **Вложенные JSON структуры (8):**
 
 - molecule_synonyms, atc_classifications, cross_references, biotherapeutic, chemical_probe, orphan, veterinary, helm_notation
 
-
 **Дополнительные ChEMBL поля (4):**
 
 - chirality_chembl, molecule_type_chembl, parent_molregno (из hierarchy), pref_name_key (нормализованное название)
-
 
 **Примеры запросов:**
 
@@ -585,7 +565,6 @@ def _flatten_nested_json(molecule: dict, field_name: str) -> str:
 
 - 429/503 с `Retry-After` header (если exceed max retries)
 
-
 **Расширенная запись fallback:**
 
 ```python
@@ -661,7 +640,6 @@ def _create_fallback_record(
 4. ✅ **Batch When Possible** — до 100 CIDs per batch request
 
 5. ✅ **Monitor Actively** — сбор метрик для проактивного выявления проблем
-
 
 **Интеграция с ChEMBL pipeline:**
 
@@ -806,7 +784,6 @@ def _enrich_with_pubchem(
 
 - Graceful degradation: пропущенные CIDs не блокируют pipeline
 
-
 **Метрики успеха:**
 
 - CID resolution rate: ≥85%
@@ -814,7 +791,6 @@ def _enrich_with_pubchem(
 - Properties enrichment rate: ≥80%
 
 - Cache hit rate: ≥60%
-
 
 > **⚠️ Важно:** Полная спецификация включает:
 > - Multi-level caching strategy (in-memory + persistent)
@@ -836,7 +812,6 @@ def _enrich_with_pubchem(
 1. **ChEMBL** (базовые данные) — PRIMARY
 
 2. **PubChem** (дополнительные идентификаторы) — SECONDARY
-
 
 **ChEMBL data merge:**
 
@@ -1488,6 +1463,7 @@ qc:
   warnings:
 
     - type: "low_pubchem_enrichment"
+
       count: 284
       rate: 0.23
 
@@ -1590,7 +1566,6 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 
 - `--hierarchy-path PATH`: путь к molecule_hierarchy lookup CSV
 
-
 ---
 
 ## 8. Сравнение с assay extraction
@@ -1646,7 +1621,6 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
    - Batch properties fetch (100 CIDs per request)
    - Persistent CID mapping cache (30 days TTL)
 
-
 #### Assay особенности
 
 1. **Triple enrichment:**
@@ -1667,7 +1641,6 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
    - Variant sequences (mutation, accession)
    - Bioassay ontology classification (L1/L2/L3)
 
-
 ---
 
 ## 9. Column order (детальный)
@@ -1678,86 +1651,69 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 
 - molecule_chembl_id, molregno, pref_name, pref_name_key
 
-
 **Иерархия (2):**
 
 - parent_chembl_id, parent_molregno
-
 
 **Разработка и регистрация (4):**
 
 - max_phase, therapeutic_flag, dosed_ingredient, first_approval
 
-
 **Типы (2):**
 
 - structure_type, molecule_type
-
 
 **Физико-химические свойства (22):**
 
 - mw_freebase, alogp, hba, hbd, psa, rtb, ro3_pass, num_ro5_violations, acd_most_apka, acd_most_bpka, acd_logp, acd_logd, molecular_species, full_mwt, aromatic_rings, heavy_atoms, qed_weighted, mw_monoisotopic, full_molformula, hba_lipinski, hbd_lipinski, num_lipinski_ro5_violations
 
-
 **Структуры (3):**
 
 - canonical_smiles, standard_inchi, standard_inchi_key
-
 
 **Флаги путей введения (3):**
 
 - oral, parenteral, topical
 
-
 **Флаги свойств (7):**
 
 - black_box_warning, natural_product, first_in_class, chirality, prodrug, inorganic_flag, polymer_flag
-
 
 **Регистрация USAN (5):**
 
 - usan_year, availability_type, usan_stem, usan_substem, usan_stem_definition
 
-
 **Индикации и отзыв (5):**
 
 - indication_class, withdrawn_flag, withdrawn_year, withdrawn_country, withdrawn_reason
-
 
 **Механизм действия (3):**
 
 - mechanism_of_action, direct_interaction, molecular_mechanism
 
-
 **Drug данные (12):**
 
 - drug_chembl_id, drug_name, drug_type, drug_substance_flag, drug_indication_flag, drug_antibacterial_flag, drug_antiviral_flag, drug_antifungal_flag, drug_antiparasitic_flag, drug_antineoplastic_flag, drug_immunosuppressant_flag, drug_antiinflammatory_flag
-
 
 **PubChem данные (9):**
 
 - pubchem_cid, pubchem_molecular_formula, pubchem_molecular_weight, pubchem_canonical_smiles, pubchem_isomeric_smiles, pubchem_inchi, pubchem_inchi_key, pubchem_iupac_name, pubchem_registry_id, pubchem_rn
 
-
 **Стандартизированные структуры (3):**
 
 - standardized_inchi, standardized_inchi_key, standardized_smiles
-
 
 **Вложенные JSON (13):**
 
 - atc_classifications, biotherapeutic, chemical_probe, cross_references, helm_notation, molecule_hierarchy, molecule_properties, molecule_structures, molecule_synonyms, all_names, orphan, veterinary, chirality_chembl, molecule_type_chembl
 
-
 **Input поля (2):**
 
 - nstereo, salt_chembl_id
 
-
 **Метаданные (7):**
 
 - index, pipeline_version, source_system, chembl_release, extracted_at, hash_row, hash_business_key
-
 
 **Итого: ~95 колонок** (идентификаторы + иерархия + разработка + физ-хим + структуры + флаги + регистрация + механизм + drug + pubchem + стандартизированные + JSON + input + метаданные)
 
@@ -1953,7 +1909,6 @@ determinism:
 
 - ✅ **Nullable dtypes:** explicit StringDtype(), Int64Dtype(), Float64Dtype()
 
-
 ---
 
 ## 11. Best Practices
@@ -1974,7 +1929,6 @@ determinism:
 
 8. **Parent molecule tracking:** логировать missing parent molecules для RI reporting
 
-
 ---
 
 ## Заключение
@@ -1992,7 +1946,6 @@ determinism:
 5. **Quality gates:** Pandera валидация + QC профили + referential integrity checks
 
 6. **Complete flattening:** nested JSON → flat columns + JSON audit trail
-
 
 Все изменения направлены на обеспечение **полной прослеживаемости**, **воспроизводимости** и **защиты от потери данных**.
 
@@ -2013,3 +1966,4 @@ determinism:
 - [03-data-extraction.md](./03-data-extraction.md) — Паттерны извлечения данных
 
 - [04-normalization-validation.md](./04-normalization-validation.md) — QC и валидация
+

@@ -12,7 +12,6 @@ UnifiedSchema — система нормализации и валидации,
 
 - **Фабрики полей** для типовых идентификаторов
 
-
 ## Архитектура
 
 ```text
@@ -554,7 +553,6 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 
 6. **Логируйте ошибки валидации**: для отладки
 
-
 ## Schema Registry
 
 Централизованный реестр Pandera-схем с версионированием.
@@ -568,7 +566,6 @@ def normalize_dataframe(df: pd.DataFrame, schema: pa.DataFrameModel):
 - `schema_version`: семантическая версия (semver: MAJOR.MINOR.PATCH)
 
 - `column_order`: источник истины для порядка колонок
-
 
 ```python
 
@@ -626,7 +623,6 @@ class DocumentSchema(BaseSchema):
 - Удаление колонки: только major
 
 - Изменение типа колонки: только major
-
 
 ### Матрица совместимости
 
@@ -704,7 +700,6 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
 - Простая миграция при изменении порядка
 
 - Fail-fast до записи
-
 
 **См. также**: [gaps.md](../gaps.md) (G4, G5), [acceptance-criteria.md](../acceptance-criteria.md) (AC2, AC10).
 
@@ -787,7 +782,6 @@ def format_float(value: float, field_name: str) -> str:
 - Детерминизм: одинаковое округление даёт одинаковый хеш
 - Научная точность: 6 decimal places достаточно для IC50/Ki
 - Экономия памяти: разумный баланс
-
 
 #### Проверка соответствия meta.yaml → schema
 
@@ -1040,3 +1034,4 @@ assert df_ordered.columns.tolist() == schema.column_order
 ---
 
 **Назад к обзору**: [00-architecture-overview.md](00-architecture-overview.md)
+

@@ -9,7 +9,6 @@
 3. **OpenAlexAdapter** - OpenAlex Works API
 4. **SemanticScholarAdapter** - Semantic Scholar Graph API
 
-
 ## Конфигурация
 
 ### Переменные окружения
@@ -144,7 +143,6 @@ pubmed.close()
 - **issn_print**: Crossref > PubMed
 - **issn_electronic**: Crossref > PubMed
 
-
 ## Rate Limiting
 
 Все адаптеры используют `UnifiedAPIClient` с встроенными rate limiters:
@@ -154,14 +152,12 @@ pubmed.close()
 - **OpenAlex**: 10 rps
 - **Semantic Scholar**: 0.8 rps (10 rps с API key)
 
-
 ## Получение API ключей
 
 ### PubMed API Key
 
 1. Зарегистрироваться на https://www.ncbi.nlm.nih.gov/account/settings/
 2. Найти API Key в настройках аккаунта
-
 
 ### Crossref (не требуется)
 
@@ -173,7 +169,6 @@ Crossref не требует API ключ, но рекомендуется ук�
 2. Перейти в Developer API settings
 3. Создать API ключ
 
-
 ## Troubleshooting
 
 ### PubMed: "Required parameter 'email' missing"
@@ -181,14 +176,13 @@ Crossref не требует API ключ, но рекомендуется ук�
 - Установите переменную окружения `PUBMED_EMAIL`
 - Или укажите в конфиге `email`
 
-
 ### Semantic Scholar: Rate limit exceeded
 
 - Получите API ключ для увеличения лимитов
 - Установите `SEMANTIC_SCHOLAR_API_KEY`
 
-
 ### Connection timeout
 
 - Проверьте настройки `timeout_connect` и `timeout_read` в конфиге
 - Увеличьте значения для медленных источников
+

@@ -17,7 +17,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 
 - Fields: `assay_chembl_id`, `assay_type`, `description`, `target_chembl_id`, `confidence_score`
 
-
 **Expected Schema:** From `IO_SCHEMAS_AND_DIAGRAMS.md` lines 57-124
 
 - Primary key: `[assay_chembl_id, row_subtype, row_index]`
@@ -31,7 +30,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
   - `hash_business_key` (SHA256)
   - Additional fields: `assay_class_id`, `src_id`, `src_name`, etc.
 
-
 **Compliance:** 20% - Core structure missing
 
 ---
@@ -44,13 +42,11 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 
 - Fields: Core IDs, activity measures, BAO annotations, molecular properties, target info
 
-
 **Expected Schema:** From `IO_SCHEMAS_AND_DIAGRAMS.md` lines 202-474
 
 - Primary key: `[activity_id]`
 
 - Required fields present
-
 
 **Missing Fields:**
 
@@ -58,7 +54,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 - `standard_flag`, `lower_bound`, `upper_bound`, `is_censored`
 - `activity_comment`
 - `hash_row`, `hash_business_key`, `index` (system fields)
-
 
 **Compliance:** 60% - Core activity data covered
 
@@ -72,13 +67,11 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 
 - Fields: Identifiers, structure, properties, Lipinski, synonyms, classification, PubChem
 
-
 **Expected Schema:** From `IO_SCHEMAS_AND_DIAGRAMS.md` lines 557-655
 
 - Primary key: `[molecule_chembl_id]`
 
 - Most fields present
-
 
 **Missing Fields:**
 
@@ -88,7 +81,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 - `mw_freebase`, `qed_weighted`
 - `standardized_smiles` (vs `canonical_smiles`)
 - `hash_row`, `hash_business_key`
-
 
 **Compliance:** 70% - Good molecular data coverage
 
@@ -104,20 +96,17 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 
 - Basic structure in place
 
-
 **Expected Schema:** From `IO_SCHEMAS_AND_DIAGRAMS.md` lines 738-898
 
 - 4 output tables required ✅
 
 - Need more fields in each schema
 
-
 **TargetSchema Missing:**
 
 - `pref_name`, `organism`, `tax_id`
 - `uniprot_id_primary`, `uniprot_ids_all`, `gene_symbol`, `hgnc_id`
 - `protein_class_pred_L1`, `isoform_count`
-
 
 **TargetComponentSchema Missing:**
 
@@ -126,7 +115,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 - `sequence`
 
 - `isoform_variant`
-
 
 **Compliance:** 40% - Structure correct, fields incomplete
 
@@ -140,13 +128,11 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 
 - Uses `ChEMBLDocumentSchema` (external schemas)
 
-
 **Expected Schema:** From `IO_SCHEMAS_AND_DIAGRAMS.md` lines 957-1314
 
 - Primary key: `[document_chembl_id]`
 
 - Multi-source fields with prefixes (`chembl_`, `pubmed_`, `crossref_`, `openalex_`, `semantic_scholar_`)
-
 
 **Missing:**
 
@@ -154,7 +140,6 @@ All 5 pipelines have basic schemas implemented. Current schemas cover core field
 - Coverage/validation fields (`valid_doi`, `invalid_doi`, etc.)
 - Error fields (`pubmed_error`, `crossref_error`, etc.)
 - `hash_row`, `hash_business_key`, `index`
-
 
 **Compliance:** 30% - Schema exists but lacks multi-source structure
 
@@ -172,7 +157,6 @@ All schemas inherit from `BaseSchema` which includes:
 
 - ✅ `extracted_at`
 
-
 **Missing from all schemas:**
 
 - ❌ `hash_row` (SHA256 of canonicalized row)
@@ -180,7 +164,6 @@ All schemas inherit from `BaseSchema` which includes:
 - ❌ `hash_business_key` (SHA256 of business key)
 
 - ❌ `index` (deterministic ordering)
-
 
 ---
 
@@ -228,7 +211,6 @@ Add all missing UniProt, IUPHAR, and classification fields.
 
 - TestItem and Activity have good coverage ✅
 
-
 **Gaps:**
 
 - System fields (hashes, index) missing ⚠️
@@ -239,10 +221,10 @@ Add all missing UniProt, IUPHAR, and classification fields.
 
 - Assay needs explode fields ⚠️
 
-
 **Next Steps:**
 
 1. Add hash fields to output generation
 2. Implement full Document schema
 3. Complete Target enrichment fields
 4. Add exploded fields to Assay
+

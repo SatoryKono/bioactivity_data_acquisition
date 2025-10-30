@@ -260,7 +260,6 @@ qc_report = {
 
 - **R3** (major): Протокол requeue для PartialFailure формализован в [03-data-extraction.md](requirements/03-data-extraction.md#протокол-повторной-постановки-requeue-для-partialfailure) ✅
 
-
 ## Инструменты проверки
 
 - **AC1**: `diff -u golden.csv actual.csv`, `sha256sum`
@@ -273,7 +272,6 @@ qc_report = {
 
 - **AC9**: QC generator в OutputWriter
 
-
 ## Метрики успеха
 
 После внедрения всех AC:
@@ -285,3 +283,4 @@ qc_report = {
 - Зелёный CI pipeline
 
 - Golden-run проходит бит-в-бит
+

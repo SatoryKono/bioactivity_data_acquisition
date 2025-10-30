@@ -44,11 +44,9 @@ AssayPipeline
 
 - `assay_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор ассая в формате `CHEMBL\d+`
 
-
 **Опциональные поля:**
 
 - `target_chembl_id` (StringDtype): для фильтрации по целевому белку
-
 
 **Схема валидации:**
 
@@ -122,7 +120,6 @@ chembl_base_url: str  # URL для воспроизводимости
 
 4. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release: `assay:{release}:{assay_chembl_id}`
 
-
 ### 2.2 Батчевое извлечение из ChEMBL API
 
 **Метод:** `AssayPipeline._extract_from_chembl()`
@@ -136,7 +133,6 @@ chembl_base_url: str  # URL для воспроизводимости
 - **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
 
 - **Валидация конфига:**
-
 
 ```python
 
@@ -241,7 +237,6 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 - Circuit Breaker в состоянии OPEN
 
 - 429/503 с `Retry-After` header (если exceed max retries)
-
 
 **Расширенная запись fallback:**
 
@@ -880,6 +875,7 @@ qc:
   warnings:
 
     - type: "referential_integrity_loss"
+
       count: 5
 
 # Output artifacts
@@ -912,6 +908,7 @@ postprocess:
     steps:
 
       - name: "correlation_analysis"
+
         enabled: true  # Включается только явно
 
 ```
@@ -964,7 +961,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - `--fail-on-schema-drift`: Падение при изменениях схемы/column_order
 
-
 ## 8. Критические исправления (To-Do)
 
 ### A. Batch size
@@ -975,7 +971,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Обновить документацию с объяснением URL limit
 
-
 ### B. Assay parameters
 
 - [ ] Переписать `_expand_assay_parameters()` на long format
@@ -984,13 +979,11 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Добавить `row_subtype` в DataFrame
 
-
 ### C. Variant sequences
 
 - [ ] Поддержка и объекта, и списка в `_expand_variant_sequence()`
 
 - [ ] Добавить `variant_index` для детерминизма
-
 
 ### D. Enrichment whitelist
 
@@ -1002,7 +995,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Обновить Pandera схему с whitelist
 
-
 ### E. Хеширование
 
 - [ ] Реализовать `_canonicalize_row_for_hash()` с JSON/ISO8601
@@ -1011,11 +1003,9 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Float формат: %.6f
 
-
 ### F. Fallback
 
 - [ ] Расширить запись полями: `error_code`, `http_status`, `retry_after_sec`, `attempt`, `run_id`
-
 
 ### G. QC
 
@@ -1023,13 +1013,11 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Отчет о потерях join в quality_report
 
-
 ### H. Корреляции
 
 - [ ] Вынести в отдельный шаг `postprocess.correlation`
 
 - [ ] По умолчанию `enabled: false`
-
 
 ### I. Chembl release
 
@@ -1041,7 +1029,6 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Блокировка при смене release
 
-
 ### J. Atomic writes
 
 - [ ] Использовать `os.replace()` вместо `rename()`
@@ -1050,13 +1037,11 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Документировать Windows behavior
 
-
 ### K. Dtypes
 
 - [ ] Принудительно `pd.StringDtype()`, `pd.Int64Dtype()`, `pd.Float64Dtype()`
 
 - [ ] Никаких `object` dtypes
-
 
 ### L. Метаданные
 
@@ -1066,20 +1051,17 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 - [ ] Расширить `meta.yaml` полной provenance
 
-
 ### M. Документация
 
 - [ ] Заменить "строки 128-293" на имена методов
 
 - [ ] Добавить тест-кейсы как якоря
 
-
 ### N. Фильтры CLI
 
 - [ ] Формализовать контракт фильтра (pure function DataFrame -> DataFrame)
 
 - [ ] Документировать предикаты
-
 
 ## Заключение
 
@@ -1101,5 +1083,5 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 
 8. **Atomic writes:** Run-scoped temp dirs, os.replace() для Windows compatibility
 
-
 Все изменения направлены на обеспечение **детерминизма**, **воспроизводимости** и **полной прослеживаемости** данных.
+

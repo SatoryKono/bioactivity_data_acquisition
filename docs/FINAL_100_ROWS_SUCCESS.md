@@ -20,7 +20,6 @@
 - Теперь обрабатывает все данные из входного файла
 - ChEMBL API batch requests работают корректно
 
-
 ---
 
 ### ACTIVITY Pipeline ✅
@@ -36,7 +35,6 @@
 - Обрабатывает все записи из входного файла
 - Все поля корректно обрабатываются
 
-
 ---
 
 ### TESTITEM Pipeline ✅
@@ -51,7 +49,6 @@
 - Убрано жесткое ограничение `nrows=10` в `extract()`
 - Читает все molecule_chembl_id из входного файла
 - ChEMBL API обрабатывает их по 25 ID за batch
-
 
 **Примечание:** 99 строк вместо 100, потому что в testitem.csv содержалось 99 unique molecule_chembl_id
 
@@ -73,7 +70,6 @@
 
 1. **src/bioetl/pipelines/assay.py:**
 
-
 ```python
 
 # Было
@@ -88,7 +84,6 @@ df = pd.read_csv(input_file)  # Read all records
 
 1. **src/bioetl/pipelines/activity.py:**
 
-
 ```python
 
 **Было:**
@@ -102,7 +97,6 @@ df = pd.read_csv(input_file)  # Read all records
 ```
 
 1. **src/bioetl/pipelines/testitem.py:**
-
 
 ```python
 
@@ -126,20 +120,17 @@ df = pd.read_csv(input_file)  # Read all records
 - Nested fields обработаны корректно
 - List fields преобразованы в string для избежания ошибок
 
-
 ### Activity (100 строк, 30 колонок)
 
 - Все IO_SCHEMAS поля присутствуют
 - Значения `published_value` и `standard_value` корректны
 - Boolean и numeric поля обработаны правильно
 
-
 ### Testitem (99 строк, 31 колонка)
 
 - Данные из ChEMBL API успешно получены
 - Все бизнес-поля заполнены
 - Merge с входными данными работает корректно
-
 
 ---
 
@@ -154,3 +145,4 @@ df = pd.read_csv(input_file)  # Read all records
 **Статус:** ✅ ПОЛНОСТЬЮ РЕАЛИЗОВАНО
 
 **Следующий шаг:** Для обработки еще большего количества данных просто увеличьте количество записей во входных CSV файлах. Пайплайны будут автоматически обрабатывать все записи.
+

@@ -21,6 +21,7 @@ pre-commit install
 
 ```bash
 pip install -r requirements.txt
+
 ```
 
 > **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
@@ -52,6 +53,7 @@ UnifiedLogger.get('test').info('Hello World')"
 ```bash
 cp .env.example .env
 ${SHELL:-bash} -lc 'set -a; source .env; set +a'
+
 ```
 
 Команда `set -a` экспортирует все переменные из `.env` в текущую сессию. В
@@ -76,13 +78,17 @@ CI/CD можно использовать аналогичный подход (�
 поэтому консольный интерфейс всегда отражает актуальные пайплайны.
 
 ```bash
+
 # Просмотреть доступные команды и флаги
+
 python -m bioetl.cli.main --help
 
 # Список зарегистрированных пайплайнов
+
 python -m bioetl.cli.main list
 
 # Пример запуска пайплайна в режиме dry-run
+
 python -m bioetl.cli.main activity \
   --config configs/pipelines/activity.yaml \
   --dry-run \
@@ -117,32 +123,41 @@ tests/
 ## Development
 
 ```bash
+
 # Run linting (same as CI)
+
 ruff check src/bioetl src/library tests
 ruff format --check src/bioetl src/library tests
 
 # Run tests
+
 pytest tests/ -v
 
 # Run with coverage
+
 pytest tests/ --cov=src/bioetl --cov-report=html
 
 # Run specific test suite
+
 make test-unit                     # Unit tests only (directory scoped)
 make test-integration              # Integration tests only (directory scoped)
 pytest tests/unit/ -v              # Direct pytest invocation for unit tests
 pytest tests/integration/ -v       # Direct pytest invocation for integration tests
 
 # Lint
+
 ruff check src/ tests/
 
 # Type check
+
 mypy --config-file=pyproject.toml src/bioetl src/library
 
 # Execute the full test matrix
+
 pytest tests/unit tests/integration tests/schemas
 
 # Run every hook locally
+
 pre-commit run --all-files
 
 ```
@@ -161,7 +176,7 @@ while pipelines migrate to the new namespace.
 
 ### Extract-stage conventions
 
-* Всегда используйте `PipelineBase.read_input_table` для чтения исходных CSV.
+\1- Всегда используйте `PipelineBase.read_input_table` для чтения исходных CSV.
 
   Хелпер логирует путь, применяет `limit`/`sample` и возвращает как датафрейм,
   так и разрешённый путь. Это гарантирует единообразное поведение при
@@ -172,15 +187,15 @@ while pipelines migrate to the new namespace.
 Флаг `--extended` в CLI добавляет к стандартному набору артефактов
 (`dataset.csv`, `qc/<name>_quality_report.csv`, `meta.yaml`) следующие файлы:
 
-* `qc/<name>_correlation_report.csv` — матрица парных корреляций для всех
+\1- `qc/<name>_correlation_report.csv` — матрица парных корреляций для всех
 
   числовых признаков в длинном формате.
 
-* `qc/<name>_summary_statistics.csv` — сводка описательных статистик по
+\1- `qc/<name>_summary_statistics.csv` — сводка описательных статистик по
 
   каждому столбцу (count, mean, top, freq и т. д.).
 
-* `qc/<name>_dataset_metrics.csv` — агрегированные QC-метрики на уровне всего
+\1- `qc/<name>_dataset_metrics.csv` — агрегированные QC-метрики на уровне всего
 
   датасета (количество строк/столбцов, дубликаты, пустые значения, размер в
   памяти и т. п.).
@@ -195,3 +210,4 @@ while pipelines migrate to the new namespace.
 ## License
 
 MIT
+

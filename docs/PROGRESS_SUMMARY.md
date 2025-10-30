@@ -20,7 +20,6 @@
 - **Конфиги:** base.yaml, dev.yaml, prod.yaml, test.yaml
 - **Тесты:** ✅ Все проходят
 
-
 ### 2. UnifiedLogger
 
 - **Файл:** `src/bioetl/core/logger.py`
@@ -31,7 +30,6 @@
   - 3 режима: development, production, testing
   - Filters: RedactSecretsFilter, SafeFormattingFilter
 - **Тесты:** ✅ `tests/unit/test_logger.py`
-
 
 ### 3. UnifiedAPIClient
 
@@ -44,7 +42,6 @@
   - TTLCache для GET-запросов
 - **Тесты:** ✅ 7 тестов, покрытие 70%
 
-
 ### 4. Нормализаторы
 
 - **Файлы:** `src/bioetl/normalizers/*.py`
@@ -54,7 +51,6 @@
   - ChemistryNormalizer (SMILES, InChI)
   - NormalizerRegistry (регистрация и lookup)
 - **Тесты:** ✅ Функциональность проверена
-
 
 ### 5. Schema Registry
 
@@ -66,7 +62,6 @@
   - Validate compatibility (major change detection)
 - **Тесты:** ✅ Функциональность проверена
 
-
 ### 6. UnifiedOutputWriter
 
 - **Файл:** `src/bioetl/core/output_writer.py`
@@ -77,7 +72,6 @@
   - Поддержка extended mode
 - **Тесты:** ✅ Функциональность проверена
 
-
 ### 7. Pipeline Base и CLI
 
 - **Файлы:** `src/bioetl/pipelines/base.py`, `cli/main.py`
@@ -86,7 +80,6 @@
   - Typer CLI с командой `list`
   - Контекстное логирование
 - **Тесты:** ✅ CLI работает
-
 
 ## Структура проекта
 
@@ -153,14 +146,12 @@ docs/
 - ⏳ NA-policy (в output writer)
 - ⏳ Precision-policy (в output writer)
 
-
 ### Безопасность
 
 - ✅ Secret redaction в logger
 - ✅ ContextVar isolation
 - ✅ Fail-fast на 4xx ошибках (кроме 429)
 - ✅ Circuit breaker для защиты
-
 
 ### Производительность
 
@@ -169,13 +160,11 @@ docs/
 - ✅ Circuit breaker
 - ✅ Exponential backoff
 
-
 ### Типобезопасность
 
 - ✅ Pydantic для конфигурации
 - ✅ Pandera для данных
 - ✅ Аннотации типов везде
-
 
 ## Примеры использования
 
@@ -269,22 +258,20 @@ python -m bioetl.cli.main --help
 - Использовать нормализаторы и схемы
 - Тестировать end-to-end
 
-
 ### Приоритет 2: Интеграционные тесты
 
 - Mock HTTP серверы (pytest-httpserver)
 - End-to-end тесты пайплайнов
 - Golden fixtures для воспроизводимости
 
-
 ### Приоритет 3: Полный CLI
 
 - Команды `run`, `validate` для пайплайнов
 - Полный набор флагов (--config, --extended, --verbose, etc.)
-
 
 ## Заключение
 
 Базовая инфраструктура полностью реализована, протестирована и готова к использованию. Все компоненты соответствуют спецификации из `docs/requirements/` и принципам детерминизма, безопасности и воспроизводимости.
 
 **Следующий этап:** Реализация конкретных пайплайнов на базе созданной инфраструктуры.
+

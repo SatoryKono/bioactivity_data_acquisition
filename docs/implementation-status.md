@@ -18,7 +18,6 @@
 - `.github/workflows/ci.yaml` (lint, type-check, test)
 - `.gitignore`
 
-
 **Статус:** Полностью завершен
 
 ### Этап 2: Система конфигурации ✅
@@ -38,7 +37,6 @@
   - `configs/profiles/dev.yaml`, `prod.yaml`, `test.yaml`
 - Unit-тесты: `tests/unit/test_config_loader.py` (все проходят)
 
-
 **Статус:** Полностью завершен
 
 ### Этап 3: UnifiedLogger ✅
@@ -53,7 +51,6 @@
   - `RedactSecretsFilter`, `SafeFormattingFilter`
 - Unit-тесты: `tests/unit/test_logger.py`
 - Функциональность протестирована
-
 
 **Статус:** Полностью завершен
 
@@ -74,7 +71,6 @@
 - Unit-тесты: `tests/unit/test_api_client.py` (7 тестов, все проходят)
 - Покрытие кода: 70% для api_client.py
 
-
 **Статус:** Полностью завершен
 
 ### Этап 5: Нормализаторы и Schema Registry ✅
@@ -93,12 +89,10 @@
   - Безопасная нормализация с обработкой ошибок
 - Функциональность протестирована вручную
 
-
 **Не реализовано:**
 
 - NumericNormalizer, DateTimeNormalizer, BooleanNormalizer
 - Полный набор валидации для identifier patterns
-
 
 **Статус:** Частично завершен (базовые нормализаторы работают)
 
@@ -116,13 +110,11 @@
   - Support для 'latest' version lookup
 - Функциональность протестирована
 
-
 **Не реализовано:**
 
 - Полный набор схем для всех сущностей (Target, Assay, Activity, TestItem)
 - Column order enforcement
 - Schema drift detection в runtime
-
 
 **Статус:** Частично завершен (базовая функциональность работает)
 
@@ -134,7 +126,6 @@
 - structlog, typer, pydantic, pyyaml
 - cachetools
 - pytest, pytest-cov, mypy, ruff, pre-commit
-
 
 ## Структура проекта
 
@@ -192,14 +183,12 @@ tests/
 - Поддержка extended mode
 - Функциональность протестирована
 
-
 ### Pipeline Base и CLI ✅
 
 - `PipelineBase` abstract class с lifecycle методов
 - Typer CLI с командой `list`
 - Контекстное логирование через run_id
 - Готова архитектура для пайплайнов
-
 
 ## Следующие шаги
 
@@ -209,19 +198,16 @@ tests/
 - Подключить к UnifiedAPIClient
 - Интеграция с нормализаторами и схемами
 
-
 ### Приоритет 2: Интеграционные тесты
 
 - Mock HTTP серверы для API
 - End-to-end тесты пайплайнов
 - Golden test fixtures
 
-
 ### Приоритет 3: Полный CLI
 
 - Команды run, validate для пайплайнов
 - Флаги --config, --extended, --verbose
-
 
 ## Тестирование
 
@@ -230,14 +216,12 @@ tests/
 - Pre-commit hooks настроены и работают
 - CI pipeline готов (нужен activation)
 
-
 ## Известные ограничения
 
 1. **Logger**: Режим testing не полностью протестирован
 2. **API Client**: Нет поддержки POST/PUT/DELETE с retry
 3. **Normalizers**: Отсутствуют некоторые типы нормализаторов
 4. **Schema**: Pandera схемы не реализованы
-
 
 ## Технические детали
 
@@ -248,20 +232,17 @@ tests/
 - ⏳ NA-policy (в output writer)
 - ⏳ Precision-policy (в output writer)
 
-
 ### Безопасность
 
 - ✅ Secret redaction в logger
 - ✅ ContextVar isolation
 - ✅ Fail-fast на 4xx ошибках (кроме 429)
 
-
 ### Производительность
 
 - ✅ Rate limiting с jitter
 - ✅ TTL кэш
 - ✅ Circuit breaker для защиты
-
 
 ## Команды для проверки
 
@@ -304,3 +285,4 @@ python -c "from bioetl.core.api_client import UnifiedAPIClient, APIConfig; confi
 ## Заключение
 
 Базовая инфраструктура полностью готова и протестирована. Основные компоненты (logger, config, API client, normalizers) работают корректно. Следующий шаг - реализация Pandera схем и Schema Registry для валидации данных.
+
