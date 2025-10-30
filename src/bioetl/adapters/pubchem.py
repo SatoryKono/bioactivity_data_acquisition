@@ -64,6 +64,21 @@ class PubChemAdapter(ExternalAdapter):
         Returns:
             List of PubChem records
         """
+
+        return self._fetch_in_batches(
+            ids,
+            batch_size=self.adapter_config.batch_size or 100,
+            log_event="pubchem_batch_fetch_failed",
+        )
+
+    def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch and resolve a batch of identifiers.
+
+        The implementation mirrors the previous ``fetch_by_ids`` logic but is scoped
+        to a single batch so that :meth:`_fetch_in_batches` can orchestrate the
+        workflow and satisfy the :class:`ExternalAdapter` contract.
+        """
+
         if not ids:
             return []
 
