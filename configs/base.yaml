@@ -33,6 +33,10 @@ determinism:
     ascending: []
   column_order: []
 
+sources:
+  pubchem:
+    enabled: true
+
 postprocess:
   qc:
     enabled: true
