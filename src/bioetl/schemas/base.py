@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol, TypedDict, cast
+from typing import Any, ClassVar, Protocol, TypedDict, cast
 
 import pandas as pd
 
@@ -39,7 +39,7 @@ class _FieldSpec(TypedDict, total=False):
 class FallbackMetadataMixin:
     """Reusable Pandera column definitions for fallback metadata fields."""
 
-    _FIELD_SPECS: dict[str, _FieldSpec] = {
+    _FIELD_SPECS: dict[str, dict[str, object]] = {
         "fallback_reason": {
             "nullable": True,
             "description": "Reason why the fallback record was generated",
@@ -177,7 +177,7 @@ class BaseSchema(DataFrameModel):
     - extracted_at: метка времени извлечения (ISO8601)
     """
 
-    hash_policy_version = "1.0.0"
+    hash_policy_version: ClassVar[str] = "1.0.0"
 
     # Детерминизм и система трекинга
     index: Series[int] = Field(nullable=False, ge=0, description="Детерминированный индекс строки")
@@ -247,4 +247,18 @@ class BaseSchema(DataFrameModel):
 
         order: list[str] | None = getattr(cls, "_column_order", None)
         return list(order) if order else []
+
+    @classmethod
+    def _get_model_attrs(cls) -> dict[str, Any]:  # type: ignore[override]
+        """Hide internal class variables from Pandera field discovery."""
+
+        attrs = super()._get_model_attrs()
+        attrs.pop("hash_policy_version", None)
+        return attrs
+
+
+# Pandera inspects ``__annotations__`` to discover dataframe fields. Remove the
+# ``hash_policy_version`` class variable from the annotations map so it isn't
+# treated as a column requirement during schema materialisation.
+BaseSchema.__annotations__.pop("hash_policy_version", None)
 
