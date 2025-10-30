@@ -87,7 +87,7 @@ class OutputArtifacts:
     dataset: Path
     quality_report: Path
     run_directory: Path
-    additional_datasets: dict[str, Path] = field(default_factory=dict)
+    additional_datasets: dict[str, Path | dict[str, Path]] = field(default_factory=dict)
     correlation_report: Path | None = None
     metadata: Path | None = None
     manifest: Path | None = None
@@ -99,12 +99,37 @@ class OutputArtifacts:
     debug_dataset: Path | None = None
 
 
+_SUPPORTED_FORMATS = {"csv", "parquet"}
+
+
+def _normalise_format(value: str | None, *, default: str | None = "csv") -> str | None:
+    """Normalise a format string to lower-case and validate support."""
+
+    if value is None:
+        return default
+
+    resolved = value.strip().lower()
+    if resolved not in _SUPPORTED_FORMATS:
+        raise ValueError(f"Unsupported output format: {value}")
+    return resolved
+
+
+def _extension_for_format(format_name: str) -> str:
+    """Return the canonical file extension for the given format."""
+
+    resolved = _normalise_format(format_name)
+    if resolved is None:
+        raise ValueError("Format name cannot be empty")
+    return ".parquet" if resolved == "parquet" else ".csv"
+
+
 @dataclass(frozen=True)
 class AdditionalTableSpec:
     """Описание дополнительной таблицы для экспорта."""
 
     dataframe: pd.DataFrame
     relative_path: Path | None = None
+    formats: tuple[str, ...] = ("csv",)
 
 
 @dataclass(frozen=True)
@@ -256,9 +281,22 @@ class AtomicWriter:
         self.run_id = run_id
         self.determinism = determinism or DeterminismConfig()
 
-    def write(self, data: pd.DataFrame, path: Path, **kwargs) -> None:
+    def write(
+        self,
+        data: pd.DataFrame,
+        path: Path,
+        *,
+        format: str | None = None,
+        **kwargs,
+    ) -> None:
         """Записывает data в path атомарно через run-scoped temp directory."""
+
         temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
+
+        resolved_format = _normalise_format(format, default=None)
+        if resolved_format is None:
+            suffix = path.suffix.lower()
+            resolved_format = _normalise_format(suffix.lstrip(".")) if suffix else "csv"
 
         resolved_float_format = _resolve_float_format(
             self.determinism, kwargs.pop("float_format", None)
@@ -272,6 +310,7 @@ class AtomicWriter:
             self._write_to_file(
                 data,
                 temp_path,
+                format=resolved_format,
                 float_format=resolved_float_format,
                 date_format=resolved_date_format,
                 **kwargs,
@@ -287,18 +326,29 @@ class AtomicWriter:
         data: pd.DataFrame,
         path: Path,
         *,
+        format: str,
         float_format: str | None = None,
         date_format: str | None = None,
         **kwargs,
     ) -> None:
         """Записывает DataFrame в файл."""
-        data.to_csv(
-            path,
-            index=False,
-            float_format=float_format,
-            date_format=date_format,
-            **kwargs,
-        )
+
+        if format == "csv":
+            data.to_csv(
+                path,
+                index=False,
+                float_format=float_format,
+                date_format=date_format,
+                **kwargs,
+            )
+            return
+
+        if format == "parquet":
+            parquet_kwargs = {key: value for key, value in kwargs.items() if key not in {"float_format", "date_format"}}
+            data.to_parquet(path, index=False, **parquet_kwargs)
+            return
+
+        raise ValueError(f"Unsupported output format: {format}")
 
 
 class QualityReportGenerator:
@@ -382,6 +432,15 @@ class UnifiedOutputWriter:
         remaining_columns = [column for column in ordered.columns if column not in configured_order]
         return ordered[configured_order + remaining_columns]
 
+    def _resolve_dataset_location(self, output_path: Path) -> tuple[Path, str]:
+        """Return the concrete dataset path and serialisation format."""
+
+        suffix = output_path.suffix.lower()
+        if suffix in {".csv", ".parquet"}:
+            return output_path, suffix.lstrip(".")
+
+        return output_path.with_suffix(".csv"), "csv"
+
     def write(
         self,
         df: pd.DataFrame,
@@ -396,6 +455,8 @@ class UnifiedOutputWriter:
         additional_tables: dict[str, "AdditionalTableSpec"] | None = None,
         runtime_options: dict[str, Any] | None = None,
         debug_dataset: Path | None = None,
+        *,
+        apply_column_order: bool = True,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -409,14 +470,14 @@ class UnifiedOutputWriter:
         Returns:
             OutputArtifacts с путями к созданным файлам
         """
-        dataset_df = self._apply_column_order(df)
+        dataset_df = df.copy() if not apply_column_order else self._apply_column_order(df)
         column_order = list(dataset_df.columns)
-        float_precision = self.determinism.float_precision
-        float_format = f"%.{float_precision}f"
+        dataset_path, dataset_format = self._resolve_dataset_location(output_path)
 
-        dataset_path = output_path
-        if dataset_path.suffix != ".csv":
-            dataset_path = dataset_path.with_suffix(".csv")
+        float_format: str | None = None
+        if dataset_format == "csv":
+            float_precision = self.determinism.float_precision
+            float_format = f"%.{float_precision}f"
 
         dataset_dir = dataset_path.parent
         dataset_dir.mkdir(parents=True, exist_ok=True)
@@ -436,6 +497,7 @@ class UnifiedOutputWriter:
                 dataset_df,
                 run_id=self.run_id,
                 column_order=column_order,
+                hash_policy_version=getattr(self.determinism, "hash_policy_version", None),
             )
         else:
             metadata_updates: dict[str, Any] = {}
@@ -457,7 +519,15 @@ class UnifiedOutputWriter:
             rows=len(dataset_df),
             run_directory=str(run_directory),
         )
-        self.atomic_writer.write(dataset_df, dataset_path, float_format=float_format)
+        write_kwargs: dict[str, Any] = {}
+        if float_format is not None:
+            write_kwargs["float_format"] = float_format
+        self.atomic_writer.write(
+            dataset_df,
+            dataset_path,
+            format=dataset_format,
+            **write_kwargs,
+        )
 
         logger.info(
             "generating_quality_report",
@@ -505,7 +575,7 @@ class UnifiedOutputWriter:
                 float_format=float_format,
             )
 
-        additional_paths: dict[str, Path] = {}
+        additional_paths: dict[str, Path | dict[str, Path]] = {}
         if additional_tables:
             for name, table_spec in additional_tables.items():
                 if table_spec is None:
@@ -521,21 +591,58 @@ class UnifiedOutputWriter:
                     if relative_path.is_absolute():
                         table_path = relative_path
                     else:
-                        if relative_path.suffix != ".csv":
-                            relative_path = relative_path.with_suffix(".csv")
                         table_path = run_directory / relative_path
                 else:
                     safe_name = name.replace(" ", "_").lower()
-                    table_path = dataset_dir / f"{safe_name}.csv"
+                    table_path = dataset_dir / safe_name
 
-                logger.info(
-                    "writing_additional_dataset",
-                    name=name,
-                    path=str(table_path),
-                    rows=len(table),
-                )
-                self.atomic_writer.write(table, table_path, float_format=float_format)
-                additional_paths[name] = table_path
+                resolved_formats = table_spec.formats or ("csv",)
+                normalised_formats = []
+                for fmt in resolved_formats:
+                    normalised = _normalise_format(fmt)
+                    if normalised is None:
+                        continue
+                    if normalised not in normalised_formats:
+                        normalised_formats.append(normalised)
+
+                table_artifacts: dict[str, Path] = {}
+                for fmt in normalised_formats:
+                    extension = _extension_for_format(fmt)
+                    target_path = table_path
+                    if target_path.suffix:
+                        target_path = target_path.with_suffix(extension)
+                    else:
+                        target_path = target_path.with_suffix(extension)
+
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    logger.info(
+                        "writing_additional_dataset",
+                        name=name,
+                        path=str(target_path),
+                        rows=len(table),
+                        format=fmt,
+                    )
+
+                    write_args: dict[str, Any] = {}
+                    if fmt == "csv" and float_format is not None:
+                        write_args["float_format"] = float_format
+
+                    self.atomic_writer.write(
+                        table,
+                        target_path,
+                        format=fmt,
+                        **write_args,
+                    )
+                    table_artifacts[fmt] = target_path
+
+                if not table_artifacts:
+                    continue
+
+                if len(table_artifacts) == 1:
+                    additional_paths[name] = next(iter(table_artifacts.values()))
+                else:
+                    additional_paths[name] = table_artifacts
 
         correlation_path: Path | None = None
         summary_statistics_path: Path | None = None
@@ -594,8 +701,14 @@ class UnifiedOutputWriter:
         checksum_targets: list[Path] = [
             dataset_path,
             quality_path,
-            *additional_paths.values(),
         ]
+
+        for value in additional_paths.values():
+            if isinstance(value, dict):
+                checksum_targets.extend(value.values())
+            elif isinstance(value, Path):
+                checksum_targets.append(value)
+
         optional_targets: tuple[Path | None, ...] = (
             missing_mappings_path,
             enrichment_metrics_path,
@@ -817,7 +930,7 @@ class UnifiedOutputWriter:
         *,
         dataset_path: Path,
         quality_path: Path,
-        additional_paths: dict[str, Path] | None = None,
+        additional_paths: dict[str, Path | dict[str, Path]] | None = None,
         qc_summary: dict[str, Any] | None = None,
         qc_metrics: dict[str, Any] | None = None,
         issues: list[dict[str, Any]] | None = None,
@@ -860,9 +973,15 @@ class UnifiedOutputWriter:
         }
 
         if additional_paths:
-            artifacts["additional_datasets"] = {
-                name: str(path) for name, path in additional_paths.items()
-            }
+            formatted_additional: dict[str, Any] = {}
+            for name, path_value in additional_paths.items():
+                if isinstance(path_value, dict):
+                    formatted_additional[name] = {
+                        fmt: str(path) for fmt, path in path_value.items()
+                    }
+                else:
+                    formatted_additional[name] = str(path_value)
+            artifacts["additional_datasets"] = formatted_additional
 
         if qc_artifacts:
             artifact_paths = {
