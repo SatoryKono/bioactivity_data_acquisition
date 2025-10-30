@@ -6,9 +6,10 @@ import json
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
+from pandas.errors import EmptyDataError
 
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import SchemaRegistry
@@ -277,16 +278,18 @@ class ColumnValidator:
         counts = [0] * len(column_names)
 
         try:
-            for chunk in pd.read_csv(csv_file, chunksize=chunk_size):
-                # Возможны колонки, которые pandas не смог считать (например, из-за ошибок формата)
-                if chunk.empty:
+            reader = pd.read_csv(csv_file, chunksize=chunk_size)
+            for chunk_obj in reader:
+                # Возможны неожиданные типы чанк-элементов; продолжаем только для DataFrame с данными
+                if not isinstance(chunk_obj, pd.DataFrame) or chunk_obj.empty:
                     continue
 
+                chunk = cast(pd.DataFrame, chunk_obj)
                 available_columns = min(len(column_names), chunk.shape[1])
                 for idx in range(available_columns):
                     series = chunk.iloc[:, idx]
                     counts[idx] += int(series.notna().sum())
-        except pd.errors.EmptyDataError:
+        except EmptyDataError:
             return [(column, 0) for column in column_names]
         except ValueError as exc:  # pragma: no cover - защитный случай
             self.logger.warning(

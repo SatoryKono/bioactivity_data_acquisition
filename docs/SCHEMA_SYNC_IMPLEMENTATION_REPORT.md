@@ -75,6 +75,7 @@
 4. Обновить `IO_SCHEMAS_AND_DIAGRAMS.md`
 
 **Оценка:** ~2 часа работы
+
 ---
 
 ## Следующие шаги
@@ -94,7 +95,6 @@
 4. ⚠️ `src/bioetl/schemas/assay.py` - требуется обновление (не выполнено)
 5. ⚠️ `src/bioetl/pipelines/assay.py` - требуется реализация API extraction (не выполнено)
 6. ⚠️ `docs/requirements/IO_SCHEMAS_AND_DIAGRAMS.md` - требуется обновление (не выполнено)
-
 
 ---
 
