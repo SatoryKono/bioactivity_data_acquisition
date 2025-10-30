@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -609,8 +609,36 @@ class PipelineBase(ABC):
     ) -> OutputArtifacts:
         """Экспортирует данные с QC отчетами."""
         logger.info("exporting_data", path=output_path, rows=len(df))
+
+        configured_order: list[str] = []
+        determinism = getattr(self.config, "determinism", None)
+        if determinism is not None:
+            configured_order = list(getattr(determinism, "column_order", []) or [])
+
+        export_frame = df
+        if configured_order:
+            export_frame = df.copy()
+
+            missing_columns = [
+                column for column in configured_order if column not in export_frame.columns
+            ]
+            for column in missing_columns:
+                export_frame[column] = pd.NA
+
+            extra_columns = [
+                column for column in export_frame.columns if column not in configured_order
+            ]
+            export_frame = export_frame[configured_order + extra_columns]
+
+            if self.export_metadata is not None:
+                self.export_metadata = replace(
+                    self.export_metadata,
+                    column_order=list(export_frame.columns),
+                    column_count=len(export_frame.columns),
+                )
+
         return self.output_writer.write(
-            df,
+            export_frame,
             output_path,
             metadata=self.export_metadata,
             extended=extended,
