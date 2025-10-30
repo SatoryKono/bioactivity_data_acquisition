@@ -24,6 +24,7 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.output import finalize_output_dataset
+from bioetl.utils.validation import _summarize_schema_errors
 
 logger = UnifiedLogger.get(__name__)
 
@@ -1013,7 +1014,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
 
             failure_cases = getattr(exc, "failure_cases", None)
             if isinstance(failure_cases, pd.DataFrame):
-                schema_issues = self._summarize_schema_errors(failure_cases)
+                schema_issues = _summarize_schema_errors(failure_cases)
             else:
                 schema_issues = []
 
@@ -1062,36 +1063,6 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
             issues=len(self.validation_issues),
         )
         return validated_df
-
-    def _summarize_schema_errors(self, failure_cases: pd.DataFrame) -> list[dict[str, Any]]:
-        """Convert Pandera failure cases to structured validation issues."""
-
-        issues: list[dict[str, Any]] = []
-        if failure_cases.empty:
-            return issues
-
-        for column, group in failure_cases.groupby("column", dropna=False):
-            column_name = (
-                str(column)
-                if column is not None and not (isinstance(column, float) and pd.isna(column))
-                else "<dataframe>"
-            )
-            checks = sorted({str(check) for check in group["check"].dropna().unique()})
-            details = ", ".join(
-                group["failure_case"].dropna().astype(str).unique().tolist()[:5]
-            )
-            issues.append(
-                {
-                    "issue_type": "schema",
-                    "severity": "error",
-                    "column": column_name,
-                    "check": ", ".join(checks) if checks else "<unspecified>",
-                    "count": int(group.shape[0]),
-                    "details": details,
-                }
-            )
-
-        return issues
 
     def _load_target_reference_ids(self) -> set[str]:
         """Load known target identifiers for referential integrity checks."""

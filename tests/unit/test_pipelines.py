@@ -28,6 +28,7 @@ from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
+from bioetl.utils.validation import _summarize_schema_errors
 
 
 @pytest.fixture
@@ -2722,3 +2723,65 @@ def _build_testitem_frame(
 
     df = pd.DataFrame(rows, columns=columns).convert_dtypes()
     return df
+
+
+def test_schema_validation_failures(monkeypatch, assay_config, testitem_config):
+    """Assay and TestItem pipelines should emit identical schema issue payloads."""
+
+    def _status_stub(self, url, params=None, method="GET", **kwargs):  # noqa: ANN001
+        if url == "/status.json":
+            return {"chembl_db_version": "ChEMBL_TEST"}
+        raise AssertionError(f"Unexpected request during test: {url}")
+
+    monkeypatch.setattr(UnifiedAPIClient, "request_json", _status_stub)
+    monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
+    monkeypatch.setattr(TestItemPipeline, "_calculate_qc_metrics", lambda self, df: {})
+
+    failure_cases = pd.DataFrame(
+        {
+            "index": [0, 1, 2],
+            "column": ["assay_chembl_id", "assay_chembl_id", None],
+            "failure_case": ["<NA>", "<NA>", "missing row"],
+            "check": ["ColumnInDataFrame", "ColumnInDataFrame", "DataFrameSchema"],
+        }
+    )
+
+    expected_payload = _summarize_schema_errors(failure_cases)
+
+    def _raise_schema_error(self, *args, **kwargs):  # noqa: ANN001, D401 - test helper
+        failure_handler = kwargs.get("failure_handler")
+        if failure_handler is None:
+            raise AssertionError("failure_handler not provided")
+
+        class _DummySchemaError(Exception):
+            """Minimal schema error stub providing ``failure_cases`` attribute."""
+
+        error = _DummySchemaError("schema failure")
+        error.failure_cases = failure_cases
+        failure_handler(error, True)
+        raise error
+
+    monkeypatch.setattr(AssayPipeline, "_validate_with_schema", _raise_schema_error)
+    monkeypatch.setattr(TestItemPipeline, "_validate_with_schema", _raise_schema_error)
+
+    assay_pipeline = AssayPipeline(assay_config, run_id="schema-assay")
+    testitem_pipeline = TestItemPipeline(testitem_config, run_id="schema-testitem")
+
+    with pytest.raises(ValueError):
+        assay_pipeline.validate(pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]}))
+
+    with pytest.raises(ValueError):
+        testitem_pipeline.validate(pd.DataFrame({"molecule_chembl_id": ["CHEMBL1"]}))
+
+    assay_payload = [
+        issue for issue in assay_pipeline.validation_issues if issue.get("issue_type") == "schema"
+    ]
+    testitem_payload = [
+        issue
+        for issue in testitem_pipeline.validation_issues
+        if issue.get("issue_type") == "schema"
+    ]
+
+    assert assay_payload == expected_payload
+    assert testitem_payload == expected_payload
+
