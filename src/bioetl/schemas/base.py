@@ -200,12 +200,6 @@ class BaseSchema(DataFrameModel):
     chembl_release: Series[str] = Field(nullable=True, description="Версия ChEMBL")
     extracted_at: Series[str] = Field(nullable=False, description="ISO8601 UTC метка времени")
 
-    # ``DataFrameModel`` interprets annotated attributes as dataframe columns
-    # unless they are marked as :class:`typing.ClassVar`.  ``hash_policy_version``
-    # is schema metadata rather than a column definition, so declare it as a
-    # class variable to keep Pandera from registering it as a field while still
-    # exposing the value for pipeline components that rely on the attribute.
-    hash_policy_version: ClassVar[str | None] = "1.0.0"
 
     class Config:
         strict = True
@@ -259,5 +253,4 @@ class BaseSchema(DataFrameModel):
         order: list[str] | None = getattr(cls, "_column_order", None)
         return list(order) if order else []
 
-
-# Note: ``hash_policy_version`` объявлен как ClassVar и игнорируется Pandera.
+    # Note: ``hash_policy_version`` объявлен как ClassVar и игнорируется Pandera.
