@@ -46,13 +46,13 @@ class ChemblClientContext:
     base_url: str
 
 
-def create_chembl_client(
+def _build_chembl_client_context(
     config: PipelineConfig,
     *,
     defaults: Mapping[str, Any] | None = None,
     batch_size_cap: int | None = None,
 ) -> ChemblClientContext:
-    """Construct a ``UnifiedAPIClient`` for the ChEMBL source with shared defaults."""
+    """Create a :class:`ChemblClientContext` for the provided configuration."""
 
     resolved_defaults: dict[str, Any] = {
         "enabled": True,
@@ -88,6 +88,21 @@ def create_chembl_client(
         batch_size=resolved_batch_size,
         max_url_length=max_url_length,
         base_url=str(chembl_source.base_url),
+    )
+
+
+def create_chembl_client(
+    config: PipelineConfig,
+    *,
+    defaults: Mapping[str, Any] | None = None,
+    batch_size_cap: int | None = None,
+) -> ChemblClientContext:
+    """Construct a ``UnifiedAPIClient`` for the ChEMBL source with shared defaults."""
+
+    return _build_chembl_client_context(
+        config,
+        defaults=defaults,
+        batch_size_cap=batch_size_cap,
     )
 
 
@@ -167,6 +182,20 @@ class PipelineBase(ABC):
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
+
+    def _init_chembl_client(
+        self,
+        *,
+        defaults: Mapping[str, Any] | None = None,
+        batch_size_cap: int | None = None,
+    ) -> ChemblClientContext:
+        """Return a configured ChEMBL client context for the pipeline instance."""
+
+        return _build_chembl_client_context(
+            self.config,
+            defaults=defaults,
+            batch_size_cap=batch_size_cap,
+        )
 
     def record_validation_issue(self, issue: dict[str, Any]) -> None:
         """Store a validation issue for later QC reporting."""

@@ -11,8 +11,7 @@ from pandera.errors import SchemaErrors
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.core.api_client import APIConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -409,19 +408,23 @@ class TestItemPipeline(PipelineBase):
 
         # Initialize ChEMBL API client
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
-        factory = APIClientFactory.from_pipeline_config(config)
-        chembl_source = ensure_target_source_config(
-            config.sources.get("chembl"),
+        default_batch_size = 25
+
+        chembl_context = self._init_chembl_client(
             defaults={
                 "enabled": True,
                 "base_url": default_base_url,
-                "batch_size": 25,
-            },
+                "batch_size": default_batch_size,
+            }
         )
 
-        batch_size_value = chembl_source.batch_size if chembl_source.batch_size is not None else 25
+        configured_batch_size = (
+            chembl_context.source_config.batch_size
+            if chembl_context.source_config.batch_size is not None
+            else default_batch_size
+        )
         try:
-            batch_size_value = int(batch_size_value)
+            batch_size_value = int(configured_batch_size)
         except (TypeError, ValueError) as exc:
             raise ValueError("sources.chembl.batch_size must be an integer") from exc
 
@@ -431,8 +434,7 @@ class TestItemPipeline(PipelineBase):
         if batch_size_value > 25:
             raise ValueError("sources.chembl.batch_size must be <= 25 due to ChEMBL API limits")
 
-        chembl_config = factory.create("chembl", chembl_source)
-        self.api_client = UnifiedAPIClient(chembl_config)
+        self.api_client = chembl_context.client
         self.batch_size = batch_size_value
 
         # Initialize external adapters (PubChem)

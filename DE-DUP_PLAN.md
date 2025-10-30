@@ -14,6 +14,6 @@ The legacy `library.target` package has been fully removed. The modern `bioetl` 
 - Monitor downstream documentation or deployment scripts for any references to the removed modules and update them to point to the `bioetl` equivalents if discovered.
 
 ## Shared ChEMBL Client Contract
-- Pipelines that communicate with the ChEMBL API must call `bioetl.pipelines.base.create_chembl_client` during construction.
-- The helper applies the canonical defaults (base URL, batch sizing, URL-length guards) via `ensure_target_source_config` and materialises a `UnifiedAPIClient` using `APIClientFactory.from_pipeline_config`.
-- Callers must persist the returned client alongside the resolved batch and limit metadata to honour the shared runtime contract and keep tests focused on the helper when monkeypatching.
+- Pipelines that communicate with the ChEMBL API must call `PipelineBase._init_chembl_client()` during construction (legacy call sites may continue using `bioetl.pipelines.base.create_chembl_client`).
+- The helper applies the canonical defaults (base URL, batch sizing, URL-length guards) via `ensure_target_source_config` and materialises a `UnifiedAPIClient` using `APIClientFactory.from_pipeline_config` before returning the resolved context.
+- Callers must persist the returned client alongside the resolved batch and limit metadata to honour the shared runtime contract, and tests should monkeypatch `_init_chembl_client` to intercept client creation in a single location.

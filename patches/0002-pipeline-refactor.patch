@@ -1,0 +1,148 @@
+diff --git a/src/bioetl/pipelines/activity.py b/src/bioetl/pipelines/activity.py
+index 20db322..961a4be 100644
+--- a/src/bioetl/pipelines/activity.py
++++ b/src/bioetl/pipelines/activity.py
+@@ -17,7 +17,7 @@ from bioetl.config import PipelineConfig
+ from bioetl.core.api_client import CircuitBreakerOpenError
+ from bioetl.core.logger import UnifiedLogger
+ from bioetl.normalizers import registry
+-from bioetl.pipelines.base import PipelineBase, create_chembl_client
++from bioetl.pipelines.base import PipelineBase
+ from bioetl.schemas import ActivitySchema
+ from bioetl.schemas.registry import schema_registry
+ from bioetl.utils.dataframe import resolve_schema_column_order
+@@ -157,8 +157,7 @@ class ActivityPipeline(PipelineBase):
+         self._last_validation_report: dict[str, Any] | None = None
+         self._fallback_stats: dict[str, Any] = {}
+ 
+-        chembl_context = create_chembl_client(
+-            config,
++        chembl_context = self._init_chembl_client(
+             defaults={
+                 "enabled": True,
+                 "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+diff --git a/src/bioetl/pipelines/assay.py b/src/bioetl/pipelines/assay.py
+index 58da846..88eef12 100644
+--- a/src/bioetl/pipelines/assay.py
++++ b/src/bioetl/pipelines/assay.py
+@@ -17,7 +17,7 @@ from bioetl.config import PipelineConfig
+ from bioetl.core.api_client import CircuitBreakerOpenError
+ from bioetl.core.logger import UnifiedLogger
+ from bioetl.normalizers import registry
+-from bioetl.pipelines.base import PipelineBase, create_chembl_client
++from bioetl.pipelines.base import PipelineBase
+ from bioetl.schemas import AssaySchema
+ from bioetl.schemas.registry import schema_registry
+ from bioetl.utils.dataframe import resolve_schema_column_order
+@@ -78,8 +78,7 @@ class AssayPipeline(PipelineBase):
+         default_batch_size = 25
+         default_max_url_length = 2000
+ 
+-        chembl_context = create_chembl_client(
+-            config,
++        chembl_context = self._init_chembl_client(
+             defaults={
+                 "enabled": True,
+                 "base_url": default_base_url,
+diff --git a/src/bioetl/pipelines/document.py b/src/bioetl/pipelines/document.py
+index 7104401..0050840 100644
+--- a/src/bioetl/pipelines/document.py
++++ b/src/bioetl/pipelines/document.py
+@@ -21,8 +21,7 @@ from bioetl.adapters import (
+ )
+ from bioetl.adapters.base import AdapterConfig
+ from bioetl.config import PipelineConfig
+-from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError, UnifiedAPIClient
+-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
++from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError
+ from bioetl.core.logger import UnifiedLogger
+ from bioetl.pipelines.base import (
+     EnrichmentStage,
+@@ -194,25 +193,22 @@ class DocumentPipeline(PipelineBase):
+         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
+         default_batch_size = 10
+         default_max_url_length = 1800
++        self.max_batch_size = 25
+ 
+-        factory = APIClientFactory.from_pipeline_config(config)
+-        chembl_source = ensure_target_source_config(
+-            config.sources.get("chembl"),
++        chembl_context = self._init_chembl_client(
+             defaults={
+                 "enabled": True,
+                 "base_url": default_base_url,
+                 "batch_size": default_batch_size,
+                 "max_url_length": default_max_url_length,
+             },
++            batch_size_cap=self.max_batch_size,
+         )
+ 
+-        chembl_config = factory.create("chembl", chembl_source)
+-        self.api_client = UnifiedAPIClient(chembl_config)
+-        self.max_batch_size = 25
+-        batch_size = chembl_source.batch_size or default_batch_size
+-        max_url_length = chembl_source.max_url_length or default_max_url_length
+-        self.batch_size = min(self.max_batch_size, max(1, int(batch_size)))
+-        self.max_url_length = max(1, int(max_url_length))
++        self.api_client = chembl_context.client
++        self.batch_size = chembl_context.batch_size
++        resolved_max_url = chembl_context.max_url_length or default_max_url_length
++        self.max_url_length = max(1, int(resolved_max_url))
+         self._document_cache: dict[str, dict[str, Any]] = {}
+ 
+         # Initialize external adapters if enabled
+diff --git a/src/bioetl/pipelines/testitem.py b/src/bioetl/pipelines/testitem.py
+index 3dc1ebb..0f0d8c8 100644
+--- a/src/bioetl/pipelines/testitem.py
++++ b/src/bioetl/pipelines/testitem.py
+@@ -11,8 +11,7 @@ from pandera.errors import SchemaErrors
+ from bioetl.adapters import PubChemAdapter
+ from bioetl.adapters.base import AdapterConfig, ExternalAdapter
+ from bioetl.config import PipelineConfig
+-from bioetl.core.api_client import APIConfig, UnifiedAPIClient
+-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
++from bioetl.core.api_client import APIConfig
+ from bioetl.core.logger import UnifiedLogger
+ from bioetl.normalizers import registry
+ from bioetl.pipelines.base import PipelineBase
+@@ -409,19 +408,23 @@ class TestItemPipeline(PipelineBase):
+ 
+         # Initialize ChEMBL API client
+         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
+-        factory = APIClientFactory.from_pipeline_config(config)
+-        chembl_source = ensure_target_source_config(
+-            config.sources.get("chembl"),
++        default_batch_size = 25
++
++        chembl_context = self._init_chembl_client(
+             defaults={
+                 "enabled": True,
+                 "base_url": default_base_url,
+-                "batch_size": 25,
+-            },
++                "batch_size": default_batch_size,
++            }
+         )
+ 
+-        batch_size_value = chembl_source.batch_size if chembl_source.batch_size is not None else 25
++        configured_batch_size = (
++            chembl_context.source_config.batch_size
++            if chembl_context.source_config.batch_size is not None
++            else default_batch_size
++        )
+         try:
+-            batch_size_value = int(batch_size_value)
++            batch_size_value = int(configured_batch_size)
+         except (TypeError, ValueError) as exc:
+             raise ValueError("sources.chembl.batch_size must be an integer") from exc
+ 
+@@ -431,8 +434,7 @@ class TestItemPipeline(PipelineBase):
+         if batch_size_value > 25:
+             raise ValueError("sources.chembl.batch_size must be <= 25 due to ChEMBL API limits")
+ 
+-        chembl_config = factory.create("chembl", chembl_source)
+-        self.api_client = UnifiedAPIClient(chembl_config)
++        self.api_client = chembl_context.client
+         self.batch_size = batch_size_value
+ 
+         # Initialize external adapters (PubChem)

@@ -141,10 +141,14 @@ def test_pipeline_constructors_use_factory(
         def request_json(self, url, params=None, method="GET", **kwargs):
             return {"chembl_db_version": "CHEMBL_TEST"}
 
-    original_helper = base_module.create_chembl_client
+    original_builder = base_module._build_chembl_client_context
 
-    def recording_helper(pipeline_config, *, defaults=None, batch_size_cap=None):  # type: ignore[override]
-        context = original_helper(pipeline_config, defaults=defaults, batch_size_cap=batch_size_cap)
+    def recording_helper(self, *, defaults=None, batch_size_cap=None):  # type: ignore[override]
+        context = original_builder(
+            self.config,
+            defaults=defaults,
+            batch_size_cap=batch_size_cap,
+        )
         return base_module.ChemblClientContext(
             client=DummyClient(context.client.config),
             source_config=context.source_config,
@@ -153,7 +157,7 @@ def test_pipeline_constructors_use_factory(
             base_url=context.base_url,
         )
 
-    monkeypatch.setattr(base_module, "create_chembl_client", recording_helper)
+    monkeypatch.setattr(base_module.PipelineBase, "_init_chembl_client", recording_helper)
 
     if hasattr(module, "UnifiedAPIClient"):
         monkeypatch.setattr(module, "UnifiedAPIClient", DummyClient)

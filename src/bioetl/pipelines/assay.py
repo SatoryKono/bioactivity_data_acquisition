@@ -17,7 +17,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
-from bioetl.pipelines.base import PipelineBase, create_chembl_client
+from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
@@ -78,8 +78,7 @@ class AssayPipeline(PipelineBase):
         default_batch_size = 25
         default_max_url_length = 2000
 
-        chembl_context = create_chembl_client(
-            config,
+        chembl_context = self._init_chembl_client(
             defaults={
                 "enabled": True,
                 "base_url": default_base_url,
