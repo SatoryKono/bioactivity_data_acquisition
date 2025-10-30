@@ -7,7 +7,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import pandas as pd
 
@@ -736,7 +737,7 @@ class UnifiedOutputWriter:
         """Записывает метаданные в YAML."""
         import yaml
 
-        meta_dict = {
+        meta_dict: dict[str, Any] = {
             "run_id": metadata.run_id,
             "pipeline_version": metadata.pipeline_version,
             "source_system": metadata.source_system,
@@ -746,14 +747,15 @@ class UnifiedOutputWriter:
             "column_count": metadata.column_count,
             "column_order": metadata.column_order,
             "file_checksums": checksums,
-            "artifacts": {
-                "dataset": str(dataset_path),
-                "quality_report": str(quality_path),
-            },
+        }
+
+        artifacts: dict[str, Any] = {
+            "dataset": str(dataset_path),
+            "quality_report": str(quality_path),
         }
 
         if additional_paths:
-            meta_dict.setdefault("artifacts", {})["additional_datasets"] = {
+            artifacts["additional_datasets"] = {
                 name: str(path) for name, path in additional_paths.items()
             }
 
@@ -762,7 +764,10 @@ class UnifiedOutputWriter:
                 name: str(path) for name, path in qc_artifacts.items() if path is not None
             }
             if artifact_paths:
-                meta_dict.setdefault("artifacts", {})["qc"] = artifact_paths
+                artifacts["qc"] = artifact_paths
+
+        # finalize artifacts
+        meta_dict["artifacts"] = artifacts
 
         if qc_summary:
             meta_dict["qc_summary"] = qc_summary

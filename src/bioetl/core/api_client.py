@@ -616,12 +616,13 @@ class UnifiedAPIClient:
         max_tries = max(1, self.retry_policy.total)
 
         backoff_decorated = backoff.on_exception(
-            wait_gen=backoff.constant(interval=0),
+            wait_gen=backoff.constant,
             exception=(RequestException,),
             max_tries=max_tries,
             giveup=context.should_giveup,
             on_backoff=context.on_backoff,
             on_giveup=context.on_giveup,
+            interval=0,
         )(_request_operation)
 
         payload = cast(dict[str, Any], backoff_decorated())
