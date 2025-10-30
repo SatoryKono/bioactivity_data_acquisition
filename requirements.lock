@@ -1,0 +1,12 @@
+# Locked direct dependencies generated from installed editable package
+backoff==2.2.1
+cachetools==6.2.1
+click==8.2.1
+packaging==25.0
+pandas==2.3.3
+pandera==0.26.1
+pydantic==2.12.3
+pyyaml==6.0.3
+requests==2.32.5
+structlog==24.4.0
+typer==0.20.0

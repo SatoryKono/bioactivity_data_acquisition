@@ -29,7 +29,7 @@ class EntryPoint:
 
 
 def _build_registry_entrypoints() -> list[EntryPoint]:
-    ordered_keys = ("assay", "activity", "testitem", "document")
+    ordered_keys = ("assay", "activity", "testitem", "target", "document")
     entries: list[EntryPoint] = []
     for key in ordered_keys:
         config = PIPELINE_COMMAND_REGISTRY[key]
@@ -46,16 +46,7 @@ def _build_registry_entrypoints() -> list[EntryPoint]:
             )
         )
 
-    target_entry = EntryPoint(
-        name="target",
-        module="scripts.run_target",
-        pipeline_attr="TargetPipeline",
-        config_path=Path("configs/pipelines/target.yaml"),
-        mode="smoke",
-    )
-
-    # Preserve historical ordering with target preceding the document pipeline.
-    return entries[:3] + [target_entry] + entries[3:]
+    return entries
 
 
 ENTRYPOINTS = tuple(_build_registry_entrypoints())
