@@ -372,9 +372,14 @@ class UnifiedAPIClient:
             relative_path = url.lstrip("/")
             url = urljoin(base_url, relative_path)
 
+        data_payload = data
+        json_payload = json
+        request_has_body = bool(data_payload or json_payload)
+        request_has_no_body = not request_has_body
+
         # Check cache for GET requests
         cache_key: str | None = None
-        if self.cache and method == "GET" and not data and not json:
+        if self.cache and method == "GET" and request_has_no_body:
             cache_key = self._cache_key(url, params)
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
@@ -415,8 +420,8 @@ class UnifiedAPIClient:
                 method=method,
                 url=url,
                 params=params,
-                data=data,
-                json=json,
+                data=data_payload,
+                json=json_payload,
             )
 
         wrapped_request = backoff.on_exception(
@@ -444,13 +449,18 @@ class UnifiedAPIClient:
                 response.raise_for_status()
 
                 # Parse JSON
-                data: dict[str, Any] = response.json()
+                response_payload: dict[str, Any] = response.json()
 
                 # Cache result
-                if self.cache and cache_key and method == "GET" and not data and not json:
-                    self.cache[cache_key] = data
+                if (
+                    self.cache
+                    and cache_key
+                    and method == "GET"
+                    and request_has_no_body
+                ):
+                    self.cache[cache_key] = response_payload
 
-                return data
+                return response_payload
 
             except requests.exceptions.HTTPError as e:
                 last_exc = e
@@ -564,8 +574,8 @@ class UnifiedAPIClient:
                 url=url,
                 method=method,
                 params=params,
-                data_present=data is not None,
-                json_present=json is not None,
+                data_present=data_payload is not None,
+                json_present=json_payload is not None,
                 attempt=last_attempt,
                 status_code=(
                     last_response.status_code if last_response is not None else None
