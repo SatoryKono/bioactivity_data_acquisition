@@ -149,6 +149,49 @@ def test_api_client_cache_key():
     assert key1 != key3
 
 
+def test_request_json_uses_cache_for_non_empty_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repeated GET requests should reuse cached non-empty responses."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=True,
+        cache_ttl=3600,
+    )
+    client = UnifiedAPIClient(config)
+
+    call_count = 0
+
+    def fake_execute(
+        self: UnifiedAPIClient,
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        nonlocal call_count
+        call_count += 1
+        response = Mock(spec=requests.Response)
+        response.status_code = 200
+        response.headers = {}
+        response.raise_for_status = Mock()
+        response.json = Mock(return_value={"payload": 1})
+        return response
+
+    monkeypatch.setattr(UnifiedAPIClient, "_execute", fake_execute)
+
+    first_response = client.request_json("/resource")
+    second_response = client.request_json("/resource")
+
+    assert first_response == {"payload": 1}
+    assert second_response == {"payload": 1}
+    assert call_count == 1
+
+
 def test_retry_policy_wait_time():
     """Test retry policy wait time calculation."""
     policy = RetryPolicy(total=3, backoff_factor=2.0, backoff_max=10.0)

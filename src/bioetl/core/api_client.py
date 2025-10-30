@@ -372,6 +372,7 @@ class UnifiedAPIClient:
             relative_path = url.lstrip("/")
             url = urljoin(base_url, relative_path)
 
+        query_params = params
         data_payload = data
         json_payload = json
         request_has_body = bool(data_payload or json_payload)
@@ -380,7 +381,7 @@ class UnifiedAPIClient:
         # Check cache for GET requests
         cache_key: str | None = None
         if self.cache and method == "GET" and request_has_no_body:
-            cache_key = self._cache_key(url, params)
+            cache_key = self._cache_key(url, query_params)
             if cache_key in self.cache:
                 logger.debug("cache_hit", url=url)
                 cached_value: dict[str, Any] = self.cache[cache_key]
@@ -395,7 +396,7 @@ class UnifiedAPIClient:
                 "request_exception_retrying",
                 url=url,
                 method=method,
-                params=params,
+                params=query_params,
                 tries=tries,
                 max_tries=self.config.retry_total,
                 wait_seconds=wait,
@@ -409,7 +410,7 @@ class UnifiedAPIClient:
                 "request_exception_giveup",
                 url=url,
                 method=method,
-                params=params,
+                params=query_params,
                 tries=tries,
                 max_tries=self.config.retry_total,
                 error=str(exception) if exception else None,
@@ -419,7 +420,7 @@ class UnifiedAPIClient:
             return self._execute(
                 method=method,
                 url=url,
-                params=params,
+                params=query_params,
                 data=data_payload,
                 json=json_payload,
             )
@@ -449,7 +450,7 @@ class UnifiedAPIClient:
                 response.raise_for_status()
 
                 # Parse JSON
-                response_payload: dict[str, Any] = response.json()
+                payload: dict[str, Any] = response.json()
 
                 # Cache result
                 if (
@@ -458,9 +459,9 @@ class UnifiedAPIClient:
                     and method == "GET"
                     and request_has_no_body
                 ):
-                    self.cache[cache_key] = response_payload
+                    self.cache[cache_key] = payload
 
-                return response_payload
+                return payload
 
             except requests.exceptions.HTTPError as e:
                 last_exc = e
@@ -517,7 +518,7 @@ class UnifiedAPIClient:
                         attempt=attempt,
                         url=url,
                         method=method,
-                        params=params,
+                        params=query_params,
                         error=str(e),
                         exception_type=type(e).__name__,
                         status_code=(
@@ -554,7 +555,7 @@ class UnifiedAPIClient:
                     attempt=attempt,
                     url=url,
                     method=method,
-                    params=params,
+                    params=query_params,
                     error=str(e),
                 )
                 raise
@@ -575,7 +576,7 @@ class UnifiedAPIClient:
                 "request_failed_after_retries",
                 url=url,
                 method=method,
-                params=params,
+                params=query_params,
                 data_present=data_payload is not None,
                 json_present=json_payload is not None,
                 attempt=last_attempt,
