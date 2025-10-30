@@ -4,7 +4,16 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any
+from typing import Any, TypedDict, cast
+
+
+class NormalizedBibliography(TypedDict, total=False):
+    """Typed mapping for normalized bibliographic fields."""
+
+    doi_clean: str
+    title: str
+    journal: str
+    authors: str
 
 from bioetl.normalizers.registry import registry
 
@@ -43,7 +52,10 @@ def normalize_doi(value: Any) -> str | None:
     if not candidate:
         return None
 
-    return registry.normalize("identifier", candidate)
+    normalized = registry.normalize("identifier", candidate)
+    if normalized is None:
+        return None
+    return cast(str, normalized)
 
 
 def normalize_title(value: Any) -> str | None:
@@ -53,7 +65,10 @@ def normalize_title(value: Any) -> str | None:
     if not candidate:
         return None
 
-    return registry.normalize("string", candidate)
+    normalized = registry.normalize("string", candidate)
+    if normalized is None:
+        return None
+    return cast(str, normalized)
 
 
 def _normalize_author_mapping(author: Mapping[str, Any]) -> str | None:
@@ -66,7 +81,10 @@ def _normalize_author_mapping(author: Mapping[str, Any]) -> str | None:
     for key in ("display_name", "displayName", "name"):
         value = author.get(key)
         if isinstance(value, str):
-            return registry.normalize("string", value)
+            normalized_value = registry.normalize("string", value)
+            if normalized_value is None:
+                return None
+            return cast(str, normalized_value)
 
     family = author.get("family") or author.get("last") or author.get("last_name") or author.get("lastName")
     given = author.get("given") or author.get("first") or author.get("first_name") or author.get("firstName")
@@ -88,7 +106,10 @@ def _normalize_author_mapping(author: Mapping[str, Any]) -> str | None:
     else:
         name = parts[0]
 
-    return registry.normalize("string", name)
+    normalized_name = registry.normalize("string", name)
+    if normalized_name is None:
+        return None
+    return cast(str, normalized_name)
 
 
 def normalize_authors(value: Any) -> str | None:
@@ -98,7 +119,10 @@ def normalize_authors(value: Any) -> str | None:
         return None
 
     if isinstance(value, str):
-        return registry.normalize("string", value)
+        normalized_value = registry.normalize("string", value)
+        if normalized_value is None:
+            return None
+        return cast(str, normalized_value)
 
     entries: Iterable[Any]
     if isinstance(value, Mapping):
@@ -113,7 +137,11 @@ def normalize_authors(value: Any) -> str | None:
         normalized_name: str | None = None
 
         if isinstance(entry, str):
-            normalized_name = registry.normalize("string", entry)
+            raw_normalized = registry.normalize("string", entry)
+            if raw_normalized is not None:
+                normalized_name = cast(str, raw_normalized)
+            else:
+                normalized_name = None
         elif isinstance(entry, Mapping):
             normalized_name = _normalize_author_mapping(entry)
 
@@ -124,7 +152,10 @@ def normalize_authors(value: Any) -> str | None:
         return None
 
     joined = "; ".join(names)
-    return registry.normalize("string", joined)
+    normalized_joined = registry.normalize("string", joined)
+    if normalized_joined is None:
+        return None
+    return cast(str, normalized_joined)
 
 
 FieldExtractor = (
@@ -166,7 +197,7 @@ def normalize_common_bibliography(
     title_normalizer: Callable[[Any], str | None] = normalize_title,
     journal_normalizer: Callable[[Any], str | None] = normalize_title,
     authors_normalizer: Callable[[Any], str | None] = normalize_authors,
-) -> dict[str, Any]:
+) -> NormalizedBibliography:
     """Normalize common bibliographic fields for *record*.
 
     Parameters
@@ -188,7 +219,7 @@ def normalize_common_bibliography(
     if not isinstance(record, Mapping):
         return {}
 
-    normalized: dict[str, Any] = {}
+    normalized: NormalizedBibliography = {}
 
     raw_doi = _resolve_field(record, doi)
     doi_clean = doi_normalizer(raw_doi)
