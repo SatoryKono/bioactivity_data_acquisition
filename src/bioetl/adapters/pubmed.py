@@ -55,22 +55,29 @@ class PubMedAdapter(ExternalAdapter):
             "rettype": "abstract",
         }
 
-        # Make request directly to get XML response
         try:
-            self.api_client.rate_limiter.acquire()
-            response = self.api_client.session.get(
+            xml_content = self.api_client.request_text(
                 efetch_url,
                 params=params,
-                timeout=(self.api_config.timeout_connect, self.api_config.timeout_read),
+                method="GET",
             )
-            response.raise_for_status()
-
-            # Parse XML response
-            return self._parse_xml(response.text)
-
-        except Exception as e:
-            self.logger.error("fetch_batch_error", error=str(e), pmids=pmids[:3])
+        except Exception as exc:
+            self.logger.error(
+                "fetch_batch_error",
+                error=str(exc),
+                pmids=pmids[:3],
+            )
             return []
+
+        if not isinstance(xml_content, str):
+            self.logger.warning(
+                "unexpected_streaming_payload",
+                pmids=pmids[:3],
+                payload_type=type(xml_content).__name__,
+            )
+            xml_content = "".join(str(chunk) for chunk in xml_content)
+
+        return self._parse_xml(xml_content)
 
     def _parse_xml(self, xml_content: str) -> list[dict[str, Any]]:
         """Parse PubMed XML response."""
