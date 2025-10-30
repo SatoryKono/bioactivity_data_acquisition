@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Callable, Iterable
 
 import pandas as pd
@@ -19,6 +19,7 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.qc import (
     update_summary_metrics,
     update_summary_section,
@@ -82,7 +83,13 @@ enrichment_stage_registry = EnrichmentStageRegistry()
 
 
 class PipelineBase(ABC):
-    """Базовый класс для всех пайплайнов."""
+    """Базовый класс для всех пайплайнов.
+
+    Реализации ``extract`` должны вызывать :meth:`read_input_table` для чтения
+    входных CSV. Хелпер централизует логирование, обработку ``limit`` и
+    отсутствие файлов, поэтому новые пайплайны автоматически наследуют единое
+    поведение.
+    """
 
     def __init__(self, config: PipelineConfig, run_id: str):
         self.config = config
@@ -123,6 +130,62 @@ class PipelineBase(ABC):
             return None
         payload = stages.get(name)
         return payload if isinstance(payload, dict) else None
+
+    def read_input_table(
+        self,
+        *,
+        default_filename: str | Path,
+        expected_columns: Sequence[str] | None = None,
+        dtype: Any | None = None,
+        input_file: Path | None = None,
+        apply_limit: bool = True,
+        **read_csv_kwargs: Any,
+    ) -> tuple[pd.DataFrame, Path]:
+        """Read an input CSV applying shared logging and runtime limits.
+
+        Parameters
+        ----------
+        default_filename:
+            Имя файла по умолчанию внутри ``paths.input_root``.
+        expected_columns:
+            Последовательность столбцов для пустого датафрейма, если файл
+            отсутствует.
+        dtype:
+            Значение ``dtype`` для ``pandas.read_csv``.
+        input_file:
+            Переопределение имени входного файла, например из CLI.
+        apply_limit:
+            Управляет применением ``limit``/``sample`` при чтении файла.
+        read_csv_kwargs:
+            Дополнительные аргументы, передаваемые ``pandas.read_csv``.
+        """
+
+        input_path = Path(input_file) if input_file is not None else Path(default_filename)
+        resolved_path = resolve_input_path(self.config, input_path)
+
+        limit_value = self.get_runtime_limit() if apply_limit else None
+        log_payload: dict[str, Any] = {"path": resolved_path}
+        if limit_value is not None:
+            log_payload["limit"] = limit_value
+        logger.info("reading_input", **log_payload)
+
+        dataframe = load_input_frame(
+            self.config,
+            resolved_path,
+            expected_columns=expected_columns,
+            limit=limit_value,
+            dtype=dtype,
+            **read_csv_kwargs,
+        )
+
+        if not resolved_path.exists():
+            logger.warning("input_file_not_found", path=resolved_path)
+            return dataframe, resolved_path
+
+        if limit_value is not None:
+            logger.info("input_limit_active", limit=limit_value, rows=len(dataframe))
+
+        return dataframe, resolved_path
 
     def set_stage_summary(self, name: str, status: str, **details: Any) -> None:
         """Record the execution summary for an enrichment stage."""

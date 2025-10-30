@@ -76,6 +76,13 @@ pre-commit run --all-files
 
 Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
 
+### Extract-stage conventions
+
+* Всегда используйте `PipelineBase.read_input_table` для чтения исходных CSV.
+  Хелпер логирует путь, применяет `limit`/`sample` и возвращает как датафрейм,
+  так и разрешённый путь. Это гарантирует единообразное поведение при
+  отсутствии файла и упрощает написание новых пайплайнов.
+
 ## Commands
 
 Для быстрого запуска pipeline'ов используйте команды из [docs/COMMANDS.md](docs/COMMANDS.md).
