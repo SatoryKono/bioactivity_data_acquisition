@@ -97,4 +97,9 @@ qc:
 
 cli:
   default_config: "configs/base.yaml"
+  mode_choices: []
+  fail_on_schema_drift: true
+  extended: false
+  dry_run: false
+  verbose: false
 

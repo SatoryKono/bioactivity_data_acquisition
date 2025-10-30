@@ -189,16 +189,16 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     assert qc_thresholds["null_fraction"] == pytest.approx(0.05)
 
     cli_section = config.cli
-    assert cli_section["custom_flag"] == "contract"
-    assert cli_section["extended"] is True
-    assert cli_section["mode"] == entry.mode
-    assert cli_section["fail_on_schema_drift"] is False
-    assert cli_section["dry_run"] is True
-    assert cli_section["verbose"] is True
-    assert cli_section["sample"] == 5
-    assert cli_section["golden"] == str(golden_path)
+    assert cli_section.model_extra["custom_flag"] == "contract"
+    assert cli_section.extended is True
+    assert cli_section.mode == entry.mode
+    assert cli_section.fail_on_schema_drift is False
+    assert cli_section.dry_run is True
+    assert cli_section.verbose is True
+    assert cli_section.sample == 5
+    assert cli_section.golden == golden_path
     if entry.name == "target":
-        assert cli_section["limit"] == 7
+        assert cli_section.limit == 7
 
     run_id = captured.get("run_id")
     assert isinstance(run_id, str) and run_id.startswith(entry.name)
@@ -369,10 +369,10 @@ def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoin
     assert config is not None, "Pipeline did not receive configuration"
 
     if entry.name == "document":
-        assert config.cli.get("mode") == "all"
+        assert config.cli.mode == "all"
 
     if entry.name == "target":
-        stages = config.cli.get("stages", {})
+        stages = config.cli.stages
         assert stages.get("uniprot") is True
         assert stages.get("iuphar") is True
 
@@ -418,7 +418,7 @@ def test_target_cli_auto_disables_iuphar_when_api_key_missing(
     config = captured.get("config")
     assert config is not None
 
-    stages = config.cli.get("stages", {})
+    stages = config.cli.stages
     assert stages.get("iuphar") is False
 
     source_cfg = config.sources.get("iuphar")

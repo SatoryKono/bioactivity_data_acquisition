@@ -8,6 +8,12 @@ pipeline:
   entity: document
   version: "1.0.0"
 
+cli:
+  mode_choices:
+    - chembl
+    - all
+  mode: all
+
 materialization:
   pipeline_subdir: "document"
 

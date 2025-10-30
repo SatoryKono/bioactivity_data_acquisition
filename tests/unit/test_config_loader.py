@@ -196,6 +196,118 @@ def test_source_rate_limit_jitter_override(tmp_path):
     assert chembl.rate_limit_jitter is False
 
 
+def test_cli_section_validates_types(tmp_path):
+    """CLI configuration should reject invalid shapes and accept valid payloads."""
+
+    invalid_config = tmp_path / "invalid_cli.yaml"
+    invalid_config.write_text(
+        dedent(
+            """
+            version: 1
+            pipeline:
+              name: test
+              entity: test
+              version: '1.0.0'
+            http:
+              global:
+                timeout_sec: 60.0
+                retries:
+                  total: 5
+                  backoff_multiplier: 2.0
+                  backoff_max: 120.0
+                rate_limit:
+                  max_calls: 5
+                  period: 15.0
+            cache:
+              enabled: true
+              directory: data/cache
+              ttl: 1
+              release_scoped: false
+            paths:
+              input_root: data/input
+              output_root: data/output
+            determinism:
+              sort:
+                by: []
+                ascending: []
+              column_order: []
+            postprocess: {}
+            qc:
+              enabled: true
+              severity_threshold: warning
+            cli:
+              mode_choices: chembl
+            """
+        )
+    )
+
+    with pytest.raises(ValidationError, match="mode_choices"):
+        load_config(invalid_config)
+
+    valid_config = tmp_path / "valid_cli.yaml"
+    valid_config.write_text(
+        dedent(
+            """
+            version: 1
+            pipeline:
+              name: test
+              entity: test
+              version: '1.0.0'
+            http:
+              global:
+                timeout_sec: 60.0
+                retries:
+                  total: 5
+                  backoff_multiplier: 2.0
+                  backoff_max: 120.0
+                rate_limit:
+                  max_calls: 5
+                  period: 15.0
+            cache:
+              enabled: true
+              directory: data/cache
+              ttl: 1
+              release_scoped: false
+            paths:
+              input_root: data/input
+              output_root: data/output
+            determinism:
+              sort:
+                by: []
+                ascending: []
+              column_order: []
+            postprocess: {}
+            qc:
+              enabled: true
+              severity_threshold: warning
+            cli:
+              mode_choices: [chembl, all]
+              mode: chembl
+              fail_on_schema_drift: false
+              extended: true
+              dry_run: true
+              verbose: true
+              sample: 10
+              limit: 10
+              golden: data/golden.csv
+              custom_flag: enabled
+            """
+        )
+    )
+
+    config = load_config(valid_config)
+
+    assert config.cli.mode_choices == ["chembl", "all"]
+    assert config.cli.mode == "chembl"
+    assert config.cli.fail_on_schema_drift is False
+    assert config.cli.extended is True
+    assert config.cli.dry_run is True
+    assert config.cli.verbose is True
+    assert config.cli.sample == 10
+    assert config.cli.limit == 10
+    assert config.cli.golden == Path("data/golden.csv")
+    assert config.cli.model_extra["custom_flag"] == "enabled"
+
 def _write_minimal_config(tmp_path, sources_block: str) -> Path:
     """Helper to create a minimal config file with custom sources."""
 
