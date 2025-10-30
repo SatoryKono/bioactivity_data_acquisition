@@ -211,6 +211,95 @@ def test_pipeline_run_invokes_close(monkeypatch, assay_config, tmp_path):
     assert close_calls and close_calls[0] is pipeline
 
 
+def test_pipeline_base_validate_uses_primary_schema(monkeypatch, assay_config):
+    """Default ``validate`` should defer to the registered primary schema."""
+
+    class SchemaPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # pragma: no cover - unused
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - unused
+            return df
+
+        def close_resources(self) -> None:  # pragma: no cover - unused
+            return None
+
+    pipeline = SchemaPipeline(assay_config, "base-validate-schema")
+
+    recorded: dict[str, Any] = {}
+
+    def _recording_validate(
+        self,
+        df: pd.DataFrame,
+        schema: Any,
+        *,
+        dataset_name: str,
+        severity: str = "error",
+        metric_name: str | None = None,
+        **kwargs: Any,
+    ) -> pd.DataFrame:
+        recorded.update(
+            {
+                "df": df,
+                "schema": schema,
+                "dataset_name": dataset_name,
+                "severity": severity,
+                "metric_name": metric_name,
+            }
+        )
+        return df.assign(validated=True)
+
+    monkeypatch.setattr(
+        PipelineBase,
+        "_validate_with_schema",
+        _recording_validate,
+        raising=False,
+    )
+
+    sentinel_schema = object()
+    pipeline.primary_schema = sentinel_schema
+
+    input_df = pd.DataFrame({"value": [1]})
+    result_df = pipeline.validate(input_df)
+
+    assert recorded["schema"] is sentinel_schema
+    assert recorded["dataset_name"] == pipeline.config.pipeline.name
+    assert recorded["severity"] == "error"
+    assert recorded["metric_name"] == f"schema.{pipeline.config.pipeline.name}"
+    assert "validated" in result_df.columns and result_df.loc[0, "validated"] is True
+
+
+def test_pipeline_base_validate_without_primary_schema(monkeypatch, assay_config):
+    """Default ``validate`` should no-op when a schema is not provided."""
+
+    class DefaultPipeline(PipelineBase):
+        def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:  # pragma: no cover - unused
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - unused
+            return df
+
+        def close_resources(self) -> None:  # pragma: no cover - unused
+            return None
+
+    pipeline = DefaultPipeline(assay_config, "base-validate-none")
+
+    def _failing_validate(*args: Any, **kwargs: Any) -> pd.DataFrame:  # pragma: no cover - guard
+        raise AssertionError("_validate_with_schema should not be called")
+
+    monkeypatch.setattr(
+        PipelineBase,
+        "_validate_with_schema",
+        _failing_validate,
+        raising=False,
+    )
+
+    input_df = pd.DataFrame({"value": [1]})
+    result_df = pipeline.validate(input_df)
+
+    assert result_df is input_df
+
+
 def test_export_prioritises_configured_column_order(tmp_path, assay_config):
     """Configured ``column_order`` should drive dataset column order on export."""
 
