@@ -13,8 +13,7 @@ from tests.unit.adapters._mixins import AdapterTestMixin
 class DummyAdapter(ExternalAdapter):
     """Minimal adapter used to exercise :meth:`_fetch_in_batches`."""
 
-    def fetch_by_ids(self, ids: list[str]):  # pragma: no cover - not used directly
-        return self._fetch_in_batches(ids)
+    DEFAULT_BATCH_SIZE = 3
 
     def normalize_record(self, record: dict[str, object]) -> dict[str, object]:
         return record
@@ -57,4 +56,23 @@ class TestExternalAdapterHelper(AdapterTestMixin, unittest.TestCase):
         self.assertIn("boom", last_call.kwargs.get("error", ""))
         self.assertEqual(last_call.kwargs.get("batch"), 1)
         self.assertEqual(last_call.kwargs.get("batch_index"), 1)
+
+    def test_fetch_by_ids_uses_class_default_when_config_disabled(self) -> None:
+        """``DEFAULT_BATCH_SIZE`` is respected when config batch size is falsy."""
+
+        adapter = self.ADAPTER_CLASS(
+            self.api_config,
+            self.make_adapter_config(batch_size=0),
+        )
+
+        identifiers = [f"id{i}" for i in range(7)]
+        with patch.object(adapter, "_fetch_batch", return_value=[], autospec=True) as batch_mock:
+            adapter.fetch_by_ids(identifiers)
+
+        self.assertEqual(batch_mock.call_count, 3)
+        batch_sizes = [len(call.args[1]) for call in batch_mock.call_args_list]
+        self.assertEqual(batch_sizes[:-1], [adapter.DEFAULT_BATCH_SIZE] * (len(batch_sizes) - 1))
+        remainder = len(identifiers) % adapter.DEFAULT_BATCH_SIZE
+        expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
+        self.assertEqual(batch_sizes[-1], expected_last)
 

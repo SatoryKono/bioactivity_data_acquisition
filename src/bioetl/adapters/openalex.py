@@ -20,10 +20,7 @@ class OpenAlexAdapter(ExternalAdapter):
     Override :meth:`_fetch_batch` to plug into the shared batching helper.
     """
 
-    def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
-        """Fetch records by identifiers (DOI, PMID, or OpenAlex ID)."""
-        batch_size = self.adapter_config.batch_size or 100
-        return self._fetch_in_batches(ids, batch_size=batch_size)
+    DEFAULT_BATCH_SIZE = 100
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of works."""

@@ -25,6 +25,8 @@ class SemanticScholarAdapter(ExternalAdapter):
     for ID-based retrieval.
     """
 
+    DEFAULT_BATCH_SIZE = 50
+
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize Semantic Scholar adapter."""
         super().__init__(api_config, adapter_config)
@@ -35,11 +37,6 @@ class SemanticScholarAdapter(ExternalAdapter):
             self.api_client.session.headers["x-api-key"] = self.api_key
         else:
             self.logger.warning("semantic_scholar_api_key_missing", note="Rate limits will be lower")
-
-    def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
-        """Fetch records by identifiers (DOI, PMID, ArXiv)."""
-        batch_size = self.adapter_config.batch_size or 50
-        return self._fetch_in_batches(ids, batch_size=batch_size)
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of papers by their IDs."""
