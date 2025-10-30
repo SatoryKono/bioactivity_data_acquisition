@@ -551,6 +551,52 @@ def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
     assert call_count["count"] == 3
 
 
+def test_request_json_respects_retry_total(monkeypatch: pytest.MonkeyPatch) -> None:
+    """UnifiedAPIClient should not exceed the configured retry_total attempts."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        cache_enabled=False,
+        rate_limit_max_calls=10,
+        rate_limit_period=1.0,
+        rate_limit_jitter=False,
+        retry_total=2,
+        retry_backoff_factor=1.0,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    responses = iter(
+        [
+            _build_response(500, {"error": "fail-1"}),
+            _build_response(500, {"error": "fail-2"}),
+            _build_response(200, {"result": "ok"}),
+        ]
+    )
+
+    call_count = {"count": 0}
+
+    def fake_execute(
+        *,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        call_count["count"] += 1
+        return next(responses)
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda _: None)
+
+    with pytest.raises(requests.exceptions.HTTPError):
+        client.request_json("/resource")
+
+    assert call_count["count"] == 2
+
+
 def test_request_json_timeout_metadata_on_exhaustion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
