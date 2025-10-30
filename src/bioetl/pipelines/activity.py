@@ -562,7 +562,31 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
         uo_units = registry.normalize("chemistry.string", activity.get("uo_units"), uppercase=True)
         qudt_units = registry.normalize("chemistry.string", activity.get("qudt_units"))
         src_id = _normalize_int_scalar(activity.get("src_id"))
-        action_type = registry.normalize("chemistry.string", activity.get("action_type"))
+
+        action_type_raw = activity.get("action_type")
+        action_type_metadata: dict[str, str | None] | None = None
+        if isinstance(action_type_raw, Mapping):
+            action_type_metadata = {
+                "action_type": registry.normalize(
+                    "chemistry.string", action_type_raw.get("action_type")
+                ),
+                "label": registry.normalize(
+                    "chemistry.string", action_type_raw.get("label")
+                ),
+                "description": registry.normalize(
+                    "chemistry.string", action_type_raw.get("description")
+                ),
+            }
+            action_type_raw = action_type_metadata.get("action_type")
+            metadata_payload = {key: value for key, value in action_type_metadata.items() if value}
+            if metadata_payload:
+                logger.debug(
+                    "activity_action_type_payload",
+                    activity_id=activity_id,
+                    **metadata_payload,
+                )
+
+        action_type = registry.normalize("chemistry.string", action_type_raw)
 
         properties_str, properties = normalize_json_list(activity.get("activity_properties"))
         ligand_efficiency = activity.get("ligand_efficiency") or activity.get("ligand_eff")
