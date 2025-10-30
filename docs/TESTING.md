@@ -99,6 +99,13 @@ pytest tests/unit/ -v
 
 - `pyproject.toml` — общая конфигурация проекта и инструментов; секция `[tool.pytest.ini_options]` содержит настройки pytest
 - `tests/conftest.py` — общие фикстуры и настройки пути
+- Интеграционные тесты документного пайплайна используют профиль `configs/profiles/document_test.yaml`,
+  в котором отключены внешние API и заданы фиктивные ключи. Благодаря этому `pytest tests/integration/test_document_pipeline_enrichment.py -v`
+  выполняется без реальных секретов и сетевого доступа. При необходимости профиль можно загрузить вручную:
+
+  ```bash
+  python -c "from bioetl.config import load_config; print(load_config('configs/profiles/document_test.yaml'))"
+  ```
 
 ## Структура тестов
 

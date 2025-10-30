@@ -54,6 +54,21 @@ def _build_registry_entrypoints() -> list[EntryPoint]:
 ENTRYPOINTS = tuple(_build_registry_entrypoints())
 
 
+@pytest.mark.unit
+def test_cli_list_command_reflects_registry() -> None:
+    """The aggregated CLI lists every registered pipeline with descriptions."""
+
+    runner = CliRunner()
+    result = runner.invoke(main_cli_app, ["list"])
+
+    assert result.exit_code == 0, result.output
+
+    for key, config in sorted(PIPELINE_COMMAND_REGISTRY.items()):
+        description = config.description or config.pipeline_name
+        expected_line = f"  - {key} ({description})"
+        assert expected_line in result.stdout
+
+
 def _import_entry_module(entry: EntryPoint) -> ModuleType:
     sys.modules.pop(entry.module, None)
     return importlib.import_module(entry.module)

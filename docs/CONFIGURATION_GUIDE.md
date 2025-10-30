@@ -73,3 +73,25 @@ All overrides are optional; unset values fall back to the global `cache` and `ht
 
 Configuration loading resolves all `extends` entries recursively. Unit tests under `tests/unit/test_config_loader.py` ensure that multiple `extends` blocks merge correctly and that per-pipeline overrides are applied without losing the shared defaults. If you introduce new includes, add similar tests to guard against regression.
 
+## Environment-bound secrets
+
+Некоторые адаптеры не работают без заранее экспортированных переменных окружения.
+Полный список и формат значений задокументирован в [`.env.example`](../.env.example).
+
+* `PUBMED_TOOL` и `PUBMED_EMAIL` подставляются в конфиг документного пайплайна и
+  передаются в PubMed E-utilities (`sources.pubmed.tool/email`).
+* `CROSSREF_MAILTO` требуется Crossref для polite-пула (`sources.crossref.mailto`).
+* `SEMANTIC_SCHOLAR_API_KEY` и `PUBMED_API_KEY` опциональны, но расширяют лимиты
+  соответствующих API (`sources.semantic_scholar.api_key`, `sources.pubmed.api_key`).
+* `IUPHAR_API_KEY` обязателен для обогащения целевых сущностей (`sources.iuphar`).
+
+Рекомендуемый порядок загрузки секретов:
+
+```bash
+cp .env.example .env           # однократно, затем заполните значения
+${SHELL:-bash} -lc 'set -a; source .env; set +a'
+```
+
+Команда выше экспортирует все ключи из `.env` в текущую оболочку, после чего CLI
+(`python -m bioetl.cli.main …`) и тесты используют корректные токены.
+

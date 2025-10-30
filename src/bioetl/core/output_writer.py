@@ -97,6 +97,7 @@ class OutputArtifacts:
     qc_summary_statistics: Path | None = None
     qc_dataset_metrics: Path | None = None
     debug_dataset: Path | None = None
+    metadata_model: OutputMetadata | None = None
 
 
 _SUPPORTED_FORMATS = {"csv", "parquet"}
@@ -362,11 +363,15 @@ class QualityReportGenerator:
     ) -> pd.DataFrame:
         """Создает QC отчет."""
         rows: list[dict[str, Any]] = []
+        row_count = len(df)
+        null_counts = df.isna().sum()
+        unique_counts = df.nunique(dropna=True)
+        dtype_strings = df.dtypes.astype(str)
 
         for column in df.columns:
-            null_count = df[column].isna().sum()
-            null_fraction = null_count / len(df) if len(df) > 0 else 0
-            unique_count = df[column].nunique()
+            null_count = int(null_counts[column])
+            null_fraction = null_count / row_count if row_count > 0 else 0
+            unique_count = int(unique_counts[column])
 
             rows.append(
                 {
@@ -375,7 +380,7 @@ class QualityReportGenerator:
                     "null_count": null_count,
                     "null_fraction": null_fraction,
                     "unique_count": unique_count,
-                    "dtype": str(df[column].dtype),
+                    "dtype": dtype_strings[column],
                 }
             )
 
@@ -720,6 +725,7 @@ class UnifiedOutputWriter:
         checksum_targets.extend(path for path in optional_targets if path is not None)
 
         checksums = self._calculate_checksums(*checksum_targets)
+        metadata = replace(metadata, checksums=checksums)
 
         metadata_filename = f"{dataset_path.stem}_meta.yaml"
         metadata_path = run_directory / metadata_filename
@@ -762,6 +768,7 @@ class UnifiedOutputWriter:
             qc_summary_statistics=summary_statistics_path,
             qc_dataset_metrics=dataset_metrics_path,
             debug_dataset=debug_dataset,
+            metadata_model=metadata,
         )
 
     def write_dataframe_json(

@@ -6,6 +6,7 @@ extends:
 pipeline:
   name: target
   entity: target
+  version: "1.0.0"
 
 http:
   chembl:

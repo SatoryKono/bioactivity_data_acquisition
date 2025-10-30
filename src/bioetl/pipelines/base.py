@@ -842,7 +842,7 @@ class PipelineBase(ABC):
                 kind="stable",
             )
 
-        return self.output_writer.write(
+        artifacts = self.output_writer.write(
             export_frame,
             output_path,
             metadata=self.export_metadata,
@@ -856,6 +856,11 @@ class PipelineBase(ABC):
             runtime_options=self.runtime_options,
             debug_dataset=self.debug_dataset_path,
         )
+
+        if artifacts.metadata_model is not None:
+            self.export_metadata = artifacts.metadata_model
+
+        return artifacts
 
     def add_additional_table(
         self,

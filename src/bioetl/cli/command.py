@@ -26,6 +26,7 @@ class PipelineCommandConfig:
     default_output_dir: Path
     mode_choices: Sequence[str] | None = None
     default_mode: str = "default"
+    description: str | None = None
 
 
 def _validate_sample(sample: int | None) -> None:
@@ -228,7 +229,9 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 try:
                     from bioetl.utils.column_validator import ColumnValidator
 
-                    validator = ColumnValidator()
+                    validator = ColumnValidator(
+                        skip_suffixes=config.determinism.column_validation_ignore_suffixes
+                    )
 
                     # Загрузить выходной файл для валидации
                     if artifacts.dataset and artifacts.dataset.exists():

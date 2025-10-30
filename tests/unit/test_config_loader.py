@@ -56,6 +56,7 @@ def test_multiple_extends_and_overrides(tmp_path):
             pipeline:
               name: base
               entity: base
+              version: '1.0.0'
             http:
               global:
                 timeout_sec: 60.0
@@ -118,6 +119,7 @@ def test_multiple_extends_and_overrides(tmp_path):
             pipeline:
               name: chembl-child
               entity: child
+              version: '1.0.0'
 
             sources:
               chembl:
@@ -150,6 +152,7 @@ def test_source_rate_limit_jitter_override(tmp_path):
             pipeline:
               name: test
               entity: test
+              version: '1.0.0'
             http:
               global:
                 timeout_sec: 60.0
@@ -325,6 +328,7 @@ version: 1
 pipeline:
   name: test
   entity: test
+  version: '1.0.0'
 http:
   global:
     timeout_sec: 60.0
@@ -420,6 +424,7 @@ version: 1
 pipeline:
   name: target
   entity: target
+  version: '1.0.0'
 http:
   global:
     timeout_sec: 60.0
@@ -546,6 +551,7 @@ version: 1
 pipeline:
   name: activity
   entity: activity
+  version: '1.0.0'
 http:
   global:
     timeout_sec: 60.0
@@ -590,6 +596,8 @@ def test_circular_extends(tmp_path):
 extends: child.yaml
 pipeline:
   name: base
+  entity: base
+  version: '1.0.0'
 """
     )
     child_file.write_text(
@@ -597,6 +605,8 @@ pipeline:
 extends: base.yaml
 pipeline:
   name: child
+  entity: child
+  version: '1.0.0'
 """
     )
 

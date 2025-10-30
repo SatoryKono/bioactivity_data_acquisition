@@ -281,7 +281,7 @@ class TargetPipeline(PipelineBase):
             iuphar_gold = pd.DataFrame()
 
         timestamp = pd.Timestamp.now(tz="UTC").isoformat()
-        pipeline_version = getattr(self.config.pipeline, "version", None) or "1.0.0"
+        pipeline_version = self.config.pipeline.version
         source_system = "chembl"
 
         gold_targets, gold_components, gold_protein_class, gold_xref = self._build_gold_outputs(

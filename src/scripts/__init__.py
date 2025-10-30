@@ -21,6 +21,7 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_config=Path("configs/pipelines/activity.yaml"),
         default_input=Path("data/input/activity.csv"),
         default_output_dir=Path("data/output/activity"),
+        description="ChEMBL activity data",
     ),
     "assay": PipelineCommandConfig(
         pipeline_name="assay",
@@ -28,6 +29,7 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_config=Path("configs/pipelines/assay.yaml"),
         default_input=Path("data/input/assay.csv"),
         default_output_dir=Path("data/output/assay"),
+        description="ChEMBL assay data",
     ),
     "target": PipelineCommandConfig(
         pipeline_name="target",
@@ -36,6 +38,7 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_input=Path("data/input/target.csv"),
         default_output_dir=Path("data/output/target"),
         mode_choices=("default", "smoke"),
+        description="ChEMBL + UniProt + IUPHAR",
     ),
     "document": PipelineCommandConfig(
         pipeline_name="document",
@@ -45,6 +48,7 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_output_dir=Path("data/output/documents"),
         mode_choices=("chembl", "all"),
         default_mode="all",
+        description="ChEMBL + external sources",
     ),
     "testitem": PipelineCommandConfig(
         pipeline_name="testitem",
@@ -52,6 +56,7 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_config=Path("configs/pipelines/testitem.yaml"),
         default_input=Path("data/input/testitem.csv"),
         default_output_dir=Path("data/output/testitems"),
+        description="ChEMBL molecules + PubChem",
     ),
 }
 

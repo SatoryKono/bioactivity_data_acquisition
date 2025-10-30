@@ -1,10 +1,8 @@
 # BioETL
-
 Unified ETL framework for bioactivity data extraction from ChEMBL and
 external sources with full determinism and reproducibility.
 
 ## Installation
-
 ```bash
 
 # Install in development mode
@@ -16,21 +14,17 @@ pip install -e ".[dev]"
 pre-commit install
 
 ```
-
 ### Install test dependencies only
-
 ```bash
 pip install -r requirements.txt
 
 ```
-
 > **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
 > for deterministic fixture data. Installing the development extras or the
 > pinned requirements file above ensures the dependency is available before
 > running `pytest`.
 
 ## Quick Start
-
 ```bash
 
 # Load configuration
@@ -44,20 +38,31 @@ UnifiedLogger.setup('development', 'test'); \
 UnifiedLogger.get('test').info('Hello World')"
 
 ```
-
 ## Environment variables
-
-Некоторые пайплайны требуют секретов из переменных окружения. Для доступа к IUPHAR
-необходимо установить API-ключ до запуска конфигурации или CLI:
+Все обязательные переменные перечислены в файле [`.env.example`](.env.example) с
+комментариями по формату значений. Скопируйте его и заполните реальные данные:
 
 ```bash
+cp .env.example .env
+${SHELL:-bash} -lc 'set -a; source .env; set +a'
+```
+Команда `set -a` экспортирует все переменные из `.env` в текущую сессию. В
+CI/CD можно использовать аналогичный подход (например, `python -m dotenv load`
+или встроенные менеджеры секретов) до вызова CLI.
 
-export IUPHAR_API_KEY="your-iuphar-token"
 
 ```
+| Переменная | Назначение | Обязательность |
+| --- | --- | --- |
+| `PUBMED_TOOL` | Значение параметра `tool` для обращения к NCBI E-utilities. | Да — требуется документному пайплайну. |
+| `PUBMED_EMAIL` | Контактный e-mail для PubMed, который указывается в запросах. | Да — требуется документному пайплайну. |
+| `PUBMED_API_KEY` | Повышает PubMed rate limit с 3 до 10 запросов/сек. | Необязательная, но рекомендована для production. |
+| `CROSSREF_MAILTO` | E-mail для polite pool Crossref API. | Да — требуется документному пайплайну. |
+| `SEMANTIC_SCHOLAR_API_KEY` | Токен Semantic Scholar Graph API. | Необязательная локально, обязательна для production. |
+| `IUPHAR_API_KEY` | Ключ доступа к Guide to Pharmacology API. | Да — требуется target-пайплайну. |
 
-Если переменная не задана, загрузчик конфигурации завершится ошибкой, предотвращая
-случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
+Если `IUPHAR_API_KEY` не задан, загрузчик конфигурации завершится ошибкой,
+предотвращая случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
 
 ## CLI Usage
 
@@ -65,17 +70,13 @@ export IUPHAR_API_KEY="your-iuphar-token"
 поэтому консольный интерфейс всегда отражает актуальные пайплайны.
 
 ```bash
-
 # Просмотреть доступные команды и флаги
-
 python -m bioetl.cli.main --help
 
 # Список зарегистрированных пайплайнов
-
 python -m bioetl.cli.main list
 
 # Пример запуска пайплайна в режиме dry-run
-
 python -m bioetl.cli.main activity \
   --config configs/pipelines/activity.yaml \
   --dry-run \
@@ -86,7 +87,6 @@ python -m bioetl.cli.main activity \
 ## Structure
 
 ```text
-
 src/bioetl/
   ├── core/          # Logger, API client, output writer
   ├── config/        # Configuration system
@@ -111,46 +111,47 @@ tests/
 ## Development
 
 ```bash
-
 # Run linting (same as CI)
-
 ruff check src/bioetl src/library tests
 ruff format --check src/bioetl src/library tests
 
 # Run tests
-
 pytest tests/ -v
 
 # Run with coverage
-
 pytest tests/ --cov=src/bioetl --cov-report=html
 
 # Run specific test suite
-
 make test-unit                     # Unit tests only (directory scoped)
 make test-integration              # Integration tests only (directory scoped)
 pytest tests/unit/ -v              # Direct pytest invocation for unit tests
 pytest tests/integration/ -v       # Direct pytest invocation for integration tests
 
 # Lint
-
 ruff check src/ tests/
 
 # Type check
-
 mypy --config-file=pyproject.toml src/bioetl src/library
 
 # Execute the full test matrix
-
 pytest tests/unit tests/integration tests/schemas
 
 # Run every hook locally
-
 pre-commit run --all-files
 
 ```
 
 Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
+
+### Continuous Integration setup
+
+CI workflows rely on the same configuration loader that powers the CLI. To
+customise logging or other runtime options in GitHub Actions, use
+double-underscore separated environment variables with the `BIOETL__` prefix.
+For example, the default workflow sets `BIOETL__LOGGING__LEVEL=DEBUG` and
+`BIOETL__LOGGING__FILE__ENABLED=true` before running `pytest`. The loader also
+accepts the legacy `BIOACTIVITY__` prefix to keep existing secrets working
+while pipelines migrate to the new namespace.
 
 ### Extract-stage conventions
 
@@ -184,4 +185,3 @@ pre-commit run --all-files
 ## License
 
 MIT
-
