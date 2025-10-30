@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
@@ -11,6 +12,8 @@ from typing import Any, cast
 
 import pandas as pd
 import typer
+from click import get_current_context
+from click.core import ParameterSource
 
 from bioetl.config.loader import load_config, parse_cli_overrides
 from bioetl.core.logger import UnifiedLogger
@@ -155,6 +158,35 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
         cli_overrides["sample"] = sample
     if limit is not None:
         cli_overrides["limit"] = limit
+
+    ctx = get_current_context()
+    iuphar_param_source = ctx.get_parameter_source("with_iuphar")
+    iuphar_source_overrides = overrides.setdefault("sources", {}).setdefault("iuphar", {})
+    override_enabled = iuphar_source_overrides.get("enabled")
+    effective_iuphar_requested = with_iuphar if override_enabled is None else bool(override_enabled)
+    user_forced_iuphar = (
+        iuphar_param_source not in {ParameterSource.DEFAULT, ParameterSource.DEFAULT_MAP}
+        and with_iuphar
+    ) or override_enabled is True
+
+    if os.getenv("IUPHAR_API_KEY") is None:
+        if user_forced_iuphar:
+            raise typer.BadParameter(
+                "IUPHAR enrichment requires the IUPHAR_API_KEY environment variable",
+                param_hint="--with-iuphar",
+            )
+
+        if effective_iuphar_requested:
+            logger.warning(
+                "iuphar_api_key_missing",
+                message="IUPHAR_API_KEY not set; disabling enrichment stage",
+            )
+        with_iuphar = False
+        iuphar_source_overrides["enabled"] = False
+        iuphar_source_overrides.setdefault("api_key", None)
+        headers_override = iuphar_source_overrides.setdefault("headers", {})
+        if not headers_override:
+            headers_override["x-api-key"] = ""
 
     config = load_config(config_path, overrides=overrides)
     mode_choices: list[str] | None = None
