@@ -34,7 +34,7 @@ format:
 	ruff format src/ tests/
 
 type-check:
-	mypy src/
+	mypy --strict --config-file=pyproject.toml src/bioetl src/scripts src/library
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -r {} + 2>/dev/null || true
