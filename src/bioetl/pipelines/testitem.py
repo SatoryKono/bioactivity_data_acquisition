@@ -984,51 +984,146 @@ class TestItemPipeline(PipelineBase):
         """Initialize external API adapters."""
         sources = self.config.sources
 
-        # PubChem adapter
-        if "pubchem" in sources:
-            pubchem = sources["pubchem"]
-            # Handle both dict and SourceConfig object
-            if isinstance(pubchem, dict):
-                enabled = pubchem.get("enabled", False)
-                base_url = pubchem.get("base_url", "https://pubchem.ncbi.nlm.nih.gov/rest/pug")
-                rate_limit_max_calls = pubchem.get("rate_limit_max_calls", 5)
-                rate_limit_period = pubchem.get("rate_limit_period", 1.0)
-                batch_size = pubchem.get("batch_size", 100)
-            else:
-                enabled = pubchem.enabled
-                base_url = pubchem.base_url or "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-                rate_limit_max_calls = getattr(pubchem, "rate_limit_max_calls", 5)
-                rate_limit_period = getattr(pubchem, "rate_limit_period", 1.0)
-                batch_size = pubchem.batch_size or 100
+        default_base_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+        default_batch_size = 100
+        default_rate_limit_max_calls = 5
+        default_rate_limit_period = 1.0
 
-            # NOTE:
-            # -----
-            # ``enabled`` defaults to ``False`` because pipeline profiles (for example
-            # ``configs/profiles/dev.yaml``) intentionally omit the PubChem source
-            # block.  When those profiles are used directly with the CLI the
-            # enrichment adapter is not constructed and the downstream dataframe
-            # retains ``pubchem_*`` columns filled with ``None``.
-            #
-            # To activate enrichment, make sure the effective configuration merges in
-            # ``configs/pipelines/testitem.yaml`` (or sets ``sources.pubchem.enabled``
-            # to ``true``) so that we drop into this branch and actually instantiate
-            # the adapter.
-            if enabled:
-                pubchem_config = APIConfig(
-                    name="pubchem",
-                    base_url=base_url,
-                    rate_limit_max_calls=rate_limit_max_calls,
-                    rate_limit_period=rate_limit_period,
-                    cache_enabled=self.config.cache.enabled,
-                    cache_ttl=self.config.cache.ttl,
+        def _source_attr(source: Any, attr: str, default: Any) -> Any:
+            if isinstance(source, dict):
+                return source.get(attr, default)
+            if source is None:
+                return default
+            return getattr(source, attr, default)
+
+        def _coerce_int(value: Any, default: int, *, minimum: int = 1, field: str) -> int:
+            if value is None:
+                return default
+            try:
+                candidate = int(value)
+            except (TypeError, ValueError):
+                logger.warning("pubchem_config_invalid_int", field=field, value=value, default=default)
+                return default
+            if candidate < minimum:
+                logger.warning(
+                    "pubchem_config_out_of_range",
+                    field=field,
+                    value=candidate,
+                    minimum=minimum,
+                    default=default,
                 )
-                adapter_config = AdapterConfig(
-                    enabled=True,
-                    batch_size=batch_size,
-                    workers=1,  # PubChem doesn't use parallel workers for simplicity
+                return default
+            return candidate
+
+        def _coerce_float(value: Any, default: float, *, minimum: float = 0.0, field: str) -> float:
+            if value is None:
+                return default
+            try:
+                candidate = float(value)
+            except (TypeError, ValueError):
+                logger.warning("pubchem_config_invalid_float", field=field, value=value, default=default)
+                return default
+            if candidate <= minimum:
+                logger.warning(
+                    "pubchem_config_out_of_range",
+                    field=field,
+                    value=candidate,
+                    minimum=minimum,
+                    default=default,
                 )
-                self.external_adapters["pubchem"] = PubChemAdapter(pubchem_config, adapter_config)
-                logger.info("pubchem_adapter_initialized", base_url=base_url, batch_size=batch_size)
+                return default
+            return candidate
+
+        pubchem_source = sources.get("pubchem") if sources is not None else None
+
+        base_url = _source_attr(pubchem_source, "base_url", default_base_url)
+        rate_limit_max_calls_raw = _source_attr(
+            pubchem_source, "rate_limit_max_calls", default_rate_limit_max_calls
+        )
+        rate_limit_period_raw = _source_attr(
+            pubchem_source, "rate_limit_period", default_rate_limit_period
+        )
+        batch_size_raw = _source_attr(pubchem_source, "batch_size", default_batch_size)
+        headers_raw = _source_attr(pubchem_source, "headers", {})
+        rate_limit_jitter = bool(_source_attr(pubchem_source, "rate_limit_jitter", True))
+
+        if pubchem_source is not None and not _source_attr(pubchem_source, "enabled", True):
+            logger.warning("pubchem_adapter_force_enabled", reason="explicit_disable_ignored")
+
+        headers: dict[str, Any]
+        if isinstance(headers_raw, dict):
+            headers = dict(headers_raw)
+        else:
+            headers = {}
+            logger.warning("pubchem_config_invalid_headers", headers_type=type(headers_raw).__name__)
+
+        http_profile = _source_attr(pubchem_source, "http", None)
+        if http_profile is not None:
+            http_headers = _source_attr(http_profile, "headers", None)
+            if isinstance(http_headers, dict):
+                headers.update({str(key): str(value) for key, value in http_headers.items()})
+
+            http_rate_limit = _source_attr(http_profile, "rate_limit", None)
+            if http_rate_limit is not None:
+                rate_limit_max_calls_raw = _source_attr(
+                    http_rate_limit, "max_calls", rate_limit_max_calls_raw
+                )
+                rate_limit_period_raw = _source_attr(
+                    http_rate_limit, "period", rate_limit_period_raw
+                )
+
+        cache_maxsize = getattr(self.config.cache, "maxsize", None)
+        if cache_maxsize is None:
+            cache_maxsize = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
+
+        rate_limit_max_calls = _coerce_int(
+            rate_limit_max_calls_raw,
+            default_rate_limit_max_calls,
+            minimum=1,
+            field="rate_limit_max_calls",
+        )
+        rate_limit_period = _coerce_float(
+            rate_limit_period_raw,
+            default_rate_limit_period,
+            minimum=0.0,
+            field="rate_limit_period",
+        )
+        batch_size = _coerce_int(batch_size_raw, default_batch_size, minimum=1, field="batch_size")
+
+        workers_raw = _source_attr(pubchem_source, "workers", 1)
+        workers = _coerce_int(workers_raw, 1, minimum=1, field="workers")
+
+        adapter_kwargs: dict[str, Any] = {
+            "enabled": True,
+            "batch_size": batch_size,
+            "workers": workers,
+        }
+        for optional_field in ("tool", "email", "api_key", "mailto"):
+            optional_value = _source_attr(pubchem_source, optional_field, None)
+            if optional_value:
+                adapter_kwargs[optional_field] = optional_value
+
+        pubchem_config = APIConfig(
+            name="pubchem",
+            base_url=base_url,
+            headers=headers,
+            cache_enabled=self.config.cache.enabled,
+            cache_ttl=self.config.cache.ttl,
+            cache_maxsize=cache_maxsize,
+            rate_limit_max_calls=rate_limit_max_calls,
+            rate_limit_period=rate_limit_period,
+            rate_limit_jitter=rate_limit_jitter,
+        )
+
+        adapter_config = AdapterConfig(**adapter_kwargs)
+        self.external_adapters["pubchem"] = PubChemAdapter(pubchem_config, adapter_config)
+        logger.info(
+            "pubchem_adapter_initialized",
+            base_url=base_url,
+            batch_size=batch_size,
+            rate_limit_max_calls=rate_limit_max_calls,
+            rate_limit_period=rate_limit_period,
+        )
 
         logger.info("adapters_initialized", count=len(self.external_adapters))
 
