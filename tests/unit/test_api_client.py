@@ -1203,6 +1203,64 @@ def test_fallback_partial_retry_respects_rate_limiter(
     assert acquire_calls == [1, 1, 1]
 
 
+def test_fallback_partial_retry_stops_after_max_attempts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Partial retry must not exceed ``partial_retry_max`` extra attempts."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        retry_total=2,
+        fallback_enabled=True,
+        fallback_strategies=["partial_retry"],
+        partial_retry_max=2,
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    call_count = {"n": 0}
+
+    def always_fail(**_: Any) -> requests.Response:
+        call_count["n"] += 1
+        raise requests.exceptions.Timeout("timeout")
+
+    monkeypatch.setattr(client, "_execute", always_fail)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda *_: None)
+
+    with pytest.raises(requests.exceptions.Timeout):
+        client.request_json("/resource")
+
+    assert call_count["n"] == config.retry_total + config.partial_retry_max
+
+
+def test_fallback_enabled_without_strategies_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When fallback is enabled but strategies list is empty, raise last error."""
+
+    config = APIConfig(
+        name="test",
+        base_url="https://api.example.com",
+        retry_total=1,
+        fallback_enabled=True,
+        fallback_strategies=[],
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    def always_fail(**_: Any) -> requests.Response:
+        raise requests.exceptions.ConnectionError("down")
+
+    monkeypatch.setattr(client, "_execute", always_fail)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda *_: None)
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        client.request_json("/endpoint")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

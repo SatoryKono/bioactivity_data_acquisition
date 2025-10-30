@@ -639,7 +639,7 @@ class UnifiedAPIClient:
         try:
             payload = backoff_decorated()
         except RequestException as exc:
-            if not (self.config.fallback_enabled and self.config.fallback_strategies):
+            if not self.config.fallback_enabled:
                 raise
 
             payload = self._apply_fallback_strategies(
@@ -747,7 +747,7 @@ class UnifiedAPIClient:
 
         last_error: RequestException | None = context.last_exc
 
-        total_attempts = max_attempts + 1
+        total_attempts = max(max_attempts, 0)
 
         for attempt_index in range(total_attempts):
             wait_time = context.wait_time
