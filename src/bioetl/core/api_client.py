@@ -118,6 +118,8 @@ class CircuitBreaker:
 class TokenBucketLimiter:
     """Token bucket rate limiter с jitter."""
 
+    LONG_WAIT_THRESHOLD_SECONDS = 1.0
+
     def __init__(self, max_calls: int, period: float, jitter: bool = True):
         self.max_calls = max_calls
         self.period = period
@@ -128,21 +130,42 @@ class TokenBucketLimiter:
 
     def acquire(self) -> None:
         """Ожидает и получает token."""
-        with self.lock:
-            self._refill()
+        while True:
+            jitter_sleep = 0.0
+            wait_time = 0.0
 
-            if self.tokens >= 1:
-                self.tokens -= 1
-                if self.jitter:
-                    jitter = random.uniform(0, self.period * 0.1)
-                    time.sleep(jitter)
-            else:
-                wait_time = self.period - (time.monotonic() - self.last_refill)
-                if wait_time > 0:
-                    logger.debug("rate_limit_wait", wait_seconds=wait_time)
-                    time.sleep(wait_time)
-                    self._refill()
+            with self.lock:
+                self._refill()
+
+                if self.tokens >= 1:
                     self.tokens -= 1
+                    if self.jitter:
+                        jitter_sleep = random.uniform(0, self.period * 0.1)
+                else:
+                    wait_time = max(0.0, self.period - (time.monotonic() - self.last_refill))
+
+            if wait_time > 0:
+                if wait_time >= self.LONG_WAIT_THRESHOLD_SECONDS:
+                    logger.warning(
+                        "rate_limit_wait_long",
+                        wait_seconds=wait_time,
+                        max_calls=self.max_calls,
+                        period=self.period,
+                    )
+                else:
+                    logger.debug(
+                        "rate_limit_wait",
+                        wait_seconds=wait_time,
+                        max_calls=self.max_calls,
+                        period=self.period,
+                    )
+                time.sleep(wait_time)
+                continue
+
+            if jitter_sleep > 0:
+                time.sleep(jitter_sleep)
+
+            break
 
     def _refill(self) -> None:
         """Пополняет bucket."""
