@@ -940,7 +940,7 @@ class UnifiedAPIClient:
         """Return a deep copy of payload, avoiding shared mutable state."""
 
         if isinstance(payload, (str, bytes, int, float, bool)) or payload is None:
-            return payload
+            return cast(PayloadT, payload)
 
         try:
             return copy.deepcopy(payload)
