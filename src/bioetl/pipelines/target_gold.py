@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.materialization import MaterializationManager
+from bioetl.config.models import MaterializationPaths
 
 # Runtime-safe aliases for pandas API to avoid stub issues
 PD_NA: Any = getattr(pd, "NA", np.nan)
@@ -441,35 +443,17 @@ def materialize_gold(
 ) -> dict[str, Path]:
     """Persist deterministic gold-layer artefacts."""
 
-    output_path = Path(output_path)
-    if output_path.suffix:
-        base_dir = output_path.parent
-        targets_path = output_path
-    else:
-        base_dir = output_path
-        targets_path = base_dir / "targets.parquet"
-
-    base_dir.mkdir(parents=True, exist_ok=True)
-
-    outputs: dict[str, Path] = {}
-
-    def _write(df: pd.DataFrame, path: Path, name: str) -> None:
-        if df.empty:
-            logger.info("gold_materialization_skipped", dataset=name, reason="empty_dataframe")
-            return
-        df = df.copy()
-        if format == "parquet":
-            df.to_parquet(path, index=False)
-        elif format == "csv":
-            df.to_csv(path.with_suffix(".csv"), index=False)
-        else:
-            raise ValueError(f"Unsupported format: {format}")
-        outputs[name] = path
-
-    _write(targets, targets_path, "targets")
-    _write(components, base_dir / "target_components.parquet", "target_components")
-    _write(protein_class, base_dir / "protein_class.parquet", "protein_class")
-    _write(xref, base_dir / "target_xref.parquet", "target_xref")
-
-    return outputs
+    manager = MaterializationManager(
+        MaterializationPaths(gold=output_path),
+        runtime=None,
+        stage_context=None,
+    )
+    return manager.materialize_gold(
+        targets,
+        components,
+        protein_class,
+        xref,
+        format=format,
+        output_path=output_path,
+    )
 
