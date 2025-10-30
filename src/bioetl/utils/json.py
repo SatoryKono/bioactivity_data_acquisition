@@ -9,7 +9,7 @@ from bioetl.normalizers.constants import NA_STRINGS
 from bioetl.normalizers.helpers import _is_na
 
 
-def canonical_json(value: Any, sort_keys: bool = True) -> str | None:
+def canonical_json(value: Any, sort_keys: bool = True, ensure_ascii: bool = True) -> str | None:
     """Сериализует значение в канонический JSON.
 
     Детерминированная сериализация с сортировкой ключей и компактным форматом.
@@ -17,6 +17,7 @@ def canonical_json(value: Any, sort_keys: bool = True) -> str | None:
     Args:
         value: Значение для сериализации
         sort_keys: Сортировать ключи для детерминизма
+        ensure_ascii: Экранировать не-ASCII символы (совместимо с json.dumps)
 
     Returns:
         JSON строка или None для пустых значений
@@ -24,7 +25,12 @@ def canonical_json(value: Any, sort_keys: bool = True) -> str | None:
     if value in (None, ""):
         return None
     try:
-        return json.dumps(value, sort_keys=sort_keys, separators=(",", ":"))
+        return json.dumps(
+            value,
+            sort_keys=sort_keys,
+            separators=(",", ":"),
+            ensure_ascii=ensure_ascii,
+        )
     except (TypeError, ValueError):
         return None
 
