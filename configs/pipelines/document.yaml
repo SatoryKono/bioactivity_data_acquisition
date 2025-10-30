@@ -6,6 +6,7 @@ extends:
 pipeline:
   name: document
   entity: document
+  version: "1.0.0"
 
 materialization:
   pipeline_subdir: "document"

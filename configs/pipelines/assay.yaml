@@ -6,6 +6,7 @@ extends:
 pipeline:
   name: assay
   entity: assay
+  version: "1.0.0"
 
 materialization:
   pipeline_subdir: "assay"
