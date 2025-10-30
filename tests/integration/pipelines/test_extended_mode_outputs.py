@@ -87,6 +87,8 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     assert metadata["config_hash"] == config.config_hash
     assert metadata.get("git_commit") is None
     assert metadata["sources"] == ["chembl"]
+    assert "generated_at" in metadata
+    assert "extraction_timestamp" not in metadata
 
     qc_artifacts = metadata["artifacts"].get("qc", {})
     assert "correlation_report" in qc_artifacts

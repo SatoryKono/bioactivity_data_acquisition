@@ -7,7 +7,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import pandas as pd
@@ -159,6 +159,66 @@ class OutputMetadata:
             run_id=run_id,
             config_hash=config_hash,
             git_commit=git_commit,
+            sources=normalised_sources,
+        )
+
+    @classmethod
+    def from_mapping(cls, payload: Mapping[str, Any]) -> "OutputMetadata":
+        """Create :class:`OutputMetadata` from a mapping, accepting legacy keys."""
+
+        data = dict(payload)
+
+        def _pop_required(key: str) -> Any:
+            if key not in data:
+                raise KeyError(key)
+            return data.pop(key)
+
+        def _pop_optional(key: str, default: Any = None) -> Any:
+            return data.pop(key, default)
+
+        generated_at = data.pop("generated_at", None)
+        if generated_at is None:
+            generated_at = data.pop("extraction_timestamp", None)
+        if generated_at is None:
+            raise KeyError("generated_at")
+
+        raw_checksums = data.pop("checksums", None)
+        if raw_checksums is None:
+            raw_checksums = data.pop("file_checksums", None)
+
+        checksums: dict[str, str]
+        if raw_checksums is None:
+            checksums = {}
+        else:
+            checksums = {str(name): str(value) for name, value in dict(raw_checksums).items()}
+
+        sources_payload = data.pop("sources", tuple())
+        normalised_sources: tuple[str, ...] = tuple()
+        if sources_payload:
+            seen: set[str] = set()
+            ordered: list[str] = []
+            for item in sources_payload:
+                if not item:
+                    continue
+                key = str(item)
+                if key in seen:
+                    continue
+                seen.add(key)
+                ordered.append(key)
+            normalised_sources = tuple(ordered)
+
+        return cls(
+            pipeline_version=str(_pop_required("pipeline_version")),
+            source_system=str(_pop_required("source_system")),
+            chembl_release=_pop_optional("chembl_release"),
+            generated_at=str(generated_at),
+            row_count=int(_pop_required("row_count")),
+            column_count=int(_pop_required("column_count")),
+            column_order=list(_pop_optional("column_order", [])),
+            checksums=checksums,
+            run_id=_pop_optional("run_id"),
+            config_hash=_pop_optional("config_hash"),
+            git_commit=_pop_optional("git_commit"),
             sources=normalised_sources,
         )
 
@@ -775,11 +835,11 @@ class UnifiedOutputWriter:
             "pipeline_version": metadata.pipeline_version,
             "source_system": metadata.source_system,
             "chembl_release": metadata.chembl_release,
-            "extraction_timestamp": metadata.generated_at,
+            "generated_at": metadata.generated_at,
             "row_count": metadata.row_count,
             "column_count": metadata.column_count,
             "column_order": metadata.column_order,
-            "file_checksums": checksums,
+            "checksums": checksums,
             "config_hash": metadata.config_hash,
             "git_commit": metadata.git_commit,
             "sources": sorted(metadata.sources) if metadata.sources else [],

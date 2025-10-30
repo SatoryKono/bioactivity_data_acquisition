@@ -133,6 +133,25 @@ pre-commit run --all-files
 Все новые файлы сохраняются в каталоге `qc/` рядом с основным датасетом и
 учитываются в `meta.yaml` для контроля целостности.
 
+#### Структура `meta.yaml`
+
+Каждый датасет сопровождается файлом `*_meta.yaml` со сводной информацией о
+выгрузке. Основные ключи:
+
+* `run_id`, `pipeline_version`, `source_system`, `chembl_release` — параметры
+  запуска и источник данных.
+* `generated_at` — UTC-время генерации метаданных в ISO 8601.
+* `row_count`, `column_count`, `column_order` — размеры и порядок столбцов
+  выгруженного датасета.
+* `checksums` — словарь с SHA256-хэшами всех артефактов (датасет, QC-отчёты и
+  т. д.).
+* `config_hash`, `git_commit`, `sources` — контрольная информация о конфигурации
+  и источниках.
+
+Исторические артефакты могли использовать ключи `extraction_timestamp` и
+`file_checksums`; при чтении `OutputMetadata.from_mapping` автоматически
+нормализует их к новым полям.
+
 ## Commands
 
 Для быстрого запуска pipeline'ов используйте команды из [docs/COMMANDS.md](docs/COMMANDS.md).

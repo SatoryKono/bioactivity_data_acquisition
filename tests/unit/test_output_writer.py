@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from typing import Any, Mapping
 
 import pandas as pd
 import pytest
@@ -27,6 +28,66 @@ def _freeze_datetime(monkeypatch: pytest.MonkeyPatch) -> None:
     """Freeze ``datetime`` inside :mod:`bioetl.core.output_writer`."""
 
     monkeypatch.setattr("bioetl.core.output_writer.datetime", _FixedDateTime)
+
+
+def _resolve_checksums(metadata: Mapping[str, Any]) -> dict[str, str]:
+    """Return checksums from metadata supporting legacy key names."""
+
+    checksums = metadata.get("checksums")
+    if checksums is None:
+        checksums = metadata.get("file_checksums", {})
+    return dict(checksums)
+
+
+def test_output_metadata_from_mapping_accepts_new_keys():
+    """``OutputMetadata.from_mapping`` should parse payloads with new key names."""
+
+    payload = {
+        "pipeline_version": "1.2.3",
+        "source_system": "chembl",
+        "chembl_release": "34",
+        "generated_at": "2024-01-02T03:04:05+00:00",
+        "row_count": 10,
+        "column_count": 3,
+        "column_order": ["a", "b", "c"],
+        "checksums": {"dataset.csv": "abc"},
+        "run_id": "run-new",
+        "config_hash": "cfg",
+        "git_commit": "deadbeef",
+        "sources": ["chembl", "pubchem"],
+    }
+
+    metadata = OutputMetadata.from_mapping(payload)
+
+    assert metadata.generated_at == payload["generated_at"]
+    assert metadata.checksums == payload["checksums"]
+    assert metadata.sources == ("chembl", "pubchem")
+    # Original payload should remain untouched
+    assert "generated_at" in payload and "checksums" in payload
+
+
+def test_output_metadata_from_mapping_accepts_legacy_keys():
+    """Legacy ``meta.yaml`` payloads with old keys remain supported."""
+
+    payload = {
+        "pipeline_version": "2.0.0",
+        "source_system": "legacy",
+        "chembl_release": None,
+        "extraction_timestamp": "2023-12-11T10:09:08+00:00",
+        "row_count": 5,
+        "column_count": 2,
+        "column_order": ["x", "y"],
+        "file_checksums": {"legacy.csv": "def"},
+        "run_id": "run-old",
+        "sources": ["chembl", "chembl", "pubchem", ""],
+    }
+
+    metadata = OutputMetadata.from_mapping(payload)
+
+    assert metadata.generated_at == payload["extraction_timestamp"]
+    assert metadata.checksums == payload["file_checksums"]
+    assert metadata.sources == ("chembl", "pubchem")
+    assert payload["file_checksums"] == {"legacy.csv": "def"}
 
 
 def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatch):
@@ -188,7 +249,9 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
             expected_checksums[extra_artifact.name] = hashlib.sha256(
                 extra_artifact.read_bytes()
             ).hexdigest()
-    assert contents["file_checksums"] == expected_checksums
+    assert contents["generated_at"] == _FixedDateTime.fixed.isoformat()
+    assert "extraction_timestamp" not in contents
+    assert _resolve_checksums(contents) == expected_checksums
     assert contents["artifacts"]["dataset"] == str(artifacts.dataset)
     assert contents["artifacts"]["quality_report"] == str(artifacts.quality_report)
     qc_artifacts = contents["artifacts"].get("qc", {})
@@ -383,7 +446,7 @@ def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monke
         metadata = yaml.safe_load(handle)
 
     assert metadata.get("sources") == []
-    checksums = metadata["file_checksums"]
+    checksums = _resolve_checksums(metadata)
     assert "qc_missing_mappings.csv" not in checksums
     assert "qc_enrichment_metrics.csv" not in checksums
     assert "qc_summary.json" in checksums
