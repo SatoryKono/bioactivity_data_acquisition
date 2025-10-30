@@ -11,7 +11,15 @@ pip install -e ".[dev]"
 
 # Install pre-commit hooks
 pre-commit install
+
+# Install test dependencies only
+pip install -r requirements.txt
 ```
+
+> **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
+> for deterministic fixture data. Installing the development extras or the
+> pinned requirements file above ensures the dependency is available before
+> running `pytest`.
 
 ## Quick Start
 

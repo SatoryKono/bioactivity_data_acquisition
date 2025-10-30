@@ -12,12 +12,11 @@ import pytest
 
 try:
     from faker import Faker
-except ModuleNotFoundError:  # pragma: no cover - import guard
-    pytest.skip(
-        "Faker is required for test fixtures. Install via `pip install faker` "
-        "or the `bioetl[dev]` extra.",
-        allow_module_level=True,
-    )
+except ModuleNotFoundError as exc:  # pragma: no cover - import guard
+    raise RuntimeError(
+        "Faker is required for test fixtures. Install it via `pip install faker` "
+        "or include the `bioetl[dev]` extra before running the test suite."
+    ) from exc
 
 # Add src to path so imports work
 project_root = Path(__file__).parent.parent
