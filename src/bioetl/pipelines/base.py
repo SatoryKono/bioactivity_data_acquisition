@@ -692,6 +692,40 @@ class PipelineBase(ABC):
 
         self.additional_tables.clear()
 
+    def _close_resource(self, resource: Any, *, resource_name: str) -> None:
+        """Close a resource if it exposes a callable ``close`` attribute."""
+
+        if resource is None:
+            return
+
+        close_method = getattr(resource, "close", None)
+        if not callable(close_method):
+            return
+
+        try:
+            close_method()
+        except Exception as exc:  # noqa: BLE001 - cleanup should not fail run teardown
+            logger.warning(
+                "resource_close_failed",
+                resource=resource_name,
+                error=str(exc),
+            )
+
+    def close_resources(self) -> None:
+        """Close known API clients or adapters held by the pipeline instance."""
+
+        candidates = (
+            "api_client",
+            "chembl_client",
+            "uniprot_client",
+            "uniprot_idmapping_client",
+            "uniprot_orthologs_client",
+            "iuphar_client",
+        )
+
+        for attribute in candidates:
+            self._close_resource(getattr(self, attribute, None), resource_name=attribute)
+
     def _should_emit_debug_artifacts(self) -> bool:
         """Determine whether verbose/debug outputs should be materialised."""
 
@@ -771,4 +805,9 @@ class PipelineBase(ABC):
         except Exception as e:
             logger.error("pipeline_failed", error=str(e))
             raise
+        finally:
+            try:
+                self.close_resources()
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.warning("pipeline_resource_cleanup_failed", error=str(exc))
 
