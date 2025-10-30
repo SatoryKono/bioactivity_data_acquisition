@@ -134,7 +134,7 @@ def expose_config_column_order(schema_cls: type[BaseSchema]) -> None:
 
     accessor = _ColumnOrderAccessor(schema_cls)
     schema_cls.Config._schema_cls = schema_cls  # type: ignore[attr-defined]
-    schema_cls.Config.column_order = accessor
+    schema_cls.Config.column_order = accessor  # type: ignore[attr-defined]
 
     extras = getattr(schema_cls, "__extras__", None)
     if isinstance(extras, dict) and "column_order" in extras:
@@ -182,7 +182,7 @@ class BaseSchema(pa.DataFrameModel):
     class Config:
         strict = True
         coerce = True
-        ordered = True  # Enforce column order
+        ordered = False  # Column order проверяется и обеспечивается на этапе финализации
 
     def __init_subclass__(cls, **kwargs):  # pragma: no cover - executed on subclass creation
         super().__init_subclass__(**kwargs)
