@@ -74,6 +74,7 @@ def test_merge_with_precedence_prioritizes_sources():
             "oa_status": ["gold"],
             "oa_url": ["https://example.org/open"],
             "openalex_pmid": [123],
+            "openalex_citation_count": [30],
         }
     )
 
@@ -88,7 +89,7 @@ def test_merge_with_precedence_prioritizes_sources():
             "influential_citations": [7],
             "fields_of_study": [["Biology", "Chemistry"]],
             "authors": ["Semantic Authors"],
-            "pubmed_id": [456],
+            "semantic_scholar_pmid": [456],
         }
     )
 
@@ -148,6 +149,14 @@ def test_merge_with_precedence_prioritizes_sources():
     assert merged.loc[0, "chemicals_source"] == "pubmed"
     assert bool(merged.loc[0, "conflict_doi"]) is True
     assert bool(merged.loc[0, "conflict_pmid"]) is True
+
+    doi_extras = merged.loc[0, "doi_clean_extras"]
+    assert isinstance(doi_extras, list)
+    assert any(item["source"] == "pubmed" and item["value"] == "10.1000/pubmed" for item in doi_extras)
+
+    citation_extras = merged.loc[0, "citation_count_extras"]
+    assert isinstance(citation_extras, list)
+    assert any(item["source"] == "openalex" and item["value"] == 30 for item in citation_extras)
 
 
 def test_merge_with_precedence_handles_missing_sources():
