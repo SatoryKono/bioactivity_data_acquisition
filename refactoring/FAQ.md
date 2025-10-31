@@ -1,7 +1,7 @@
-Инвентаризация (tools/inventory/inventory_sources.py)
+Инвентаризация (src/scripts/run_inventory.py)
 
 MUST: автоматизированный инструмент инвентаризации должен существовать. Ручной отчёт допустим единожды для бутстрапа, но артефакт инвентаризации обязан генерироваться детерминированно и повторяемо.
-Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:tools/inventory/inventory_sources.py@Pipeline_Unification].
+Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:src/scripts/run_inventory.py@Pipeline_Unification]; конфигурация: [ref: repo:configs/inventory.yaml@Pipeline_Unification].
 Запись файла — атомарная: tmp → os.replace. 
 Python documentation
 
