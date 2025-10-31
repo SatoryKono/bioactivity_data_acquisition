@@ -2,31 +2,18 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.chembl import create_chembl_client
-from bioetl.core.materialization import MaterializationManager
-from bioetl.core.output_writer import UnifiedOutputWriter
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
     enrichment_stage_registry,
-)
-from bioetl.pipelines.target_gold import (
-    _split_accession_field,
-    annotate_source_rank,
-    coalesce_by_priority,
-    expand_xrefs,
-    merge_components,
 )
 from bioetl.schemas import (
     ProteinClassSchema,
@@ -36,27 +23,26 @@ from bioetl.schemas import (
 )
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
-from bioetl.sources.iuphar.parser import parse_api_response
-from bioetl.sources.iuphar.request import (
-    DEFAULT_PAGE_SIZE,
-    build_families_request,
-    build_targets_request,
-)
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 from bioetl.sources.uniprot.client import (
     UniProtIdMappingClient,
-    UniProtOrthologClient,
+    UniProtOrthologsClient,
     UniProtSearchClient,
 )
-from bioetl.sources.uniprot.normalizer import UniProtNormalizer
-from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
-    prepare_enrichment_metrics,
     prepare_missing_mappings,
     update_summary_metrics,
     update_summary_section,
     update_validation_issue_summary,
 )
+from bioetl.sources.chembl.target.client import TargetClientManager
+from bioetl.sources.chembl.target.merge import build_gold_outputs
+from bioetl.sources.chembl.target.normalizer import (
+    MissingMappingRecorder,
+    TargetEnricher,
+)
+from bioetl.sources.chembl.target.output import TargetOutputService
+from bioetl.sources.chembl.target.request import IupharRequestBuilder
 
 __all__ = ["TargetPipeline"]
 
@@ -90,50 +76,32 @@ class TargetPipeline(PipelineBase):
         "10090": 1,  # Mus musculus
         "10116": 2,  # Rattus norvegicus
     }
-    _IUPHAR_PAGE_SIZE = DEFAULT_PAGE_SIZE
+    _IUPHAR_PAGE_SIZE = 200
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         self.primary_schema = TargetSchema
 
-        self.source_configs: dict[str, TargetSourceConfig] = {}
-        self.api_clients: dict[str, UnifiedAPIClient] = {}
-
-        chembl_context = create_chembl_client(
+        client_manager = TargetClientManager(
             config,
+            self.register_client,
             defaults={
                 "enabled": True,
                 "base_url": "https://www.ebi.ac.uk/chembl/api/data",
                 "batch_size": 25,
             },
         )
-        self.source_configs["chembl"] = chembl_context.source_config
-        self.api_clients["chembl"] = chembl_context.client
-        self.register_client(chembl_context.client)
+        self.client_manager = client_manager
+        self.source_configs = dict(client_manager.source_configs)
+        self.api_clients = dict(client_manager.api_clients)
 
-        factory = APIClientFactory.from_pipeline_config(config)
-
-        for source_name, source in config.sources.items():
-            if source_name == "chembl" or source is None:
-                continue
-
-            source_config = ensure_target_source_config(source, defaults={})
-            if not source_config.enabled:
-                continue
-
-            self.source_configs[source_name] = source_config
-            api_client_config = factory.create(source_name, source_config)
-            client = UnifiedAPIClient(api_client_config)
-            self.api_clients[source_name] = client
-            self.register_client(client)
-
-        self.chembl_client = chembl_context.client
-        self.uniprot_client = self.api_clients.get("uniprot")
-        self.uniprot_idmapping_client = self.api_clients.get("uniprot_idmapping")
-        self.uniprot_orthologs_client = self.api_clients.get("uniprot_orthologs")
-        self.iuphar_client = self.api_clients.get("iuphar")
+        self.chembl_client = client_manager.get_client("chembl")
+        self.uniprot_client = client_manager.get_client("uniprot")
+        self.uniprot_idmapping_client = client_manager.get_client("uniprot_idmapping")
+        self.uniprot_orthologs_client = client_manager.get_client("uniprot_orthologs")
+        self.iuphar_client = client_manager.get_client("iuphar")
         self.iuphar_paginator: PageNumberPaginator | None = None
         if self.iuphar_client is not None:
-            iuphar_config = self.source_configs.get("iuphar")
+            iuphar_config = client_manager.get_source_config("iuphar")
             batch_size = getattr(iuphar_config, "batch_size", None)
             if batch_size:
                 try:
@@ -143,6 +111,9 @@ class TargetPipeline(PipelineBase):
             else:
                 page_size = self._IUPHAR_PAGE_SIZE
             self.iuphar_paginator = PageNumberPaginator(self.iuphar_client, page_size)
+        else:
+            page_size = self._IUPHAR_PAGE_SIZE
+        self.iuphar_request_builder = IupharRequestBuilder(page_size=page_size)
         self.iuphar_service = IupharService(
             config=IupharServiceConfig(
                 identifier_column="target_chembl_id",
@@ -165,46 +136,38 @@ class TargetPipeline(PipelineBase):
             max_wait=self._IDMAPPING_MAX_WAIT,
         )
         ortholog_base_client = self.uniprot_orthologs_client or self.uniprot_client
-        self.uniprot_ortholog_client = UniProtOrthologClient(
+        self.uniprot_ortholog_client = UniProtOrthologsClient(
             client=ortholog_base_client,
             fields=self._ORTHOLOG_FIELDS,
             priority_map=self._ORTHOLOG_PRIORITY,
         )
-        self.uniprot_normalizer = UniProtNormalizer(
-            search_client=self.uniprot_search_client,
-            id_mapping_client=self.uniprot_id_mapping_client,
-            ortholog_client=self.uniprot_ortholog_client,
+        self.missing_mapping_recorder = MissingMappingRecorder()
+        self.enricher = TargetEnricher(
+            uniprot_search_client=self.uniprot_search_client,
+            uniprot_id_mapping_client=self.uniprot_id_mapping_client,
+            uniprot_ortholog_client=self.uniprot_ortholog_client,
+            iuphar_service=self.iuphar_service,
+            iuphar_paginator=self.iuphar_paginator,
         )
+        self.uniprot_normalizer = self.enricher.uniprot_normalizer
 
         # Backwards compatibility
         self.api_client = self.chembl_client
 
-        self.batch_size = chembl_context.batch_size
+        self.batch_size = client_manager.batch_size
         self._chembl_release = self._get_chembl_release() if self.chembl_client else None
 
         self.gold_targets: pd.DataFrame = pd.DataFrame()
         self.gold_components: pd.DataFrame = pd.DataFrame()
         self.gold_protein_class: pd.DataFrame = pd.DataFrame()
         self.gold_xref: pd.DataFrame = pd.DataFrame()
-        self._qc_missing_mapping_records: list[dict[str, Any]] = []
-
         runtime_config = getattr(self.config, "runtime", None)
-
-        determinism_copy = self.determinism.model_copy()
-        determinism_copy.column_order = []
-        self.materialization_writer = UnifiedOutputWriter(
-            f"{self.run_id}-materialization",
-            determinism=determinism_copy,
+        self.output_service = TargetOutputService(
             pipeline_config=config,
-        )
-
-        self.materialization_manager = MaterializationManager(
-            self.config.materialization,
-            runtime=runtime_config,
-            stage_context=self.stage_context,
-            output_writer_factory=lambda: self.materialization_writer,
             run_id=self.run_id,
+            stage_context=self.stage_context,
             determinism=self.determinism,
+            runtime_config=runtime_config,
         )
 
     def close_resources(self) -> None:
@@ -229,22 +192,15 @@ class TargetPipeline(PipelineBase):
     ) -> None:
         """Capture missing mapping events for QC artifacts."""
 
-        record: dict[str, Any] = {
-            "stage": stage,
-            "target_chembl_id": target_id,
-            "input_accession": accession,
-            "resolved_accession": resolved_accession,
-            "resolution": resolution,
-            "status": status,
-        }
-
-        if details:
-            try:
-                record["details"] = json.dumps(details, ensure_ascii=False, sort_keys=True)
-            except TypeError:
-                record["details"] = str(details)
-
-        self._qc_missing_mapping_records.append(record)
+        self.missing_mapping_recorder.record(
+            stage=stage,
+            target_id=target_id,
+            accession=accession,
+            resolution=resolution,
+            status=status,
+            resolved_accession=resolved_accession,
+            details=details,
+        )
 
     def _get_chembl_release(self) -> str | None:
         """Fetch the ChEMBL database release identifier."""
@@ -286,7 +242,7 @@ class TargetPipeline(PipelineBase):
             return df
 
         df = df.copy()
-        self._qc_missing_mapping_records = []
+        self.missing_mapping_recorder.reset()
         self.qc_missing_mappings = pd.DataFrame()
         self.qc_enrichment_metrics = pd.DataFrame()
         self.qc_summary_data = {}
@@ -340,7 +296,7 @@ class TargetPipeline(PipelineBase):
         pipeline_version = self.config.pipeline.version
         source_system = "chembl"
 
-        gold_targets, gold_components, gold_protein_class, gold_xref = self._build_gold_outputs(
+        gold_targets, gold_components, gold_protein_class, gold_xref = build_gold_outputs(
             df,
             component_enrichment,
             iuphar_gold,
@@ -354,7 +310,7 @@ class TargetPipeline(PipelineBase):
         ascending_flags = list(getattr(sort_settings, "ascending", []) or [])
         ascending_param = ascending_flags if ascending_flags else None
 
-        gold_targets = finalize_output_dataset(
+        gold_targets = self.output_service.finalize_targets(
             gold_targets,
             business_key="target_chembl_id",
             sort_by=sort_columns,
@@ -420,8 +376,9 @@ class TargetPipeline(PipelineBase):
             column_order=list(gold_targets.columns),
         )
 
-        if self._qc_missing_mapping_records:
-            self.qc_missing_mappings = prepare_missing_mappings(self._qc_missing_mapping_records)
+        missing_records = self.missing_mapping_recorder.records
+        if missing_records:
+            self.qc_missing_mappings = prepare_missing_mappings(missing_records)
         else:
             self.qc_missing_mappings = pd.DataFrame()
 
@@ -515,50 +472,26 @@ class TargetPipeline(PipelineBase):
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich the target dataframe using UniProt entries via the shared service."""
 
-        result = self.uniprot_normalizer.enrich_targets(
+        return self.enricher.enrich_uniprot(
             df,
-            accession_column="uniprot_accession",
-            target_id_column="target_chembl_id",
-            gene_symbol_column="gene_symbol",
-            organism_column="organism",
-            taxonomy_column="taxonomy_id",
+            record_missing_mapping=self._record_missing_mapping,
+            record_validation_issue=self.record_validation_issue,
         )
-
-        for record in result.missing_mappings:
-            self._record_missing_mapping(**record)
-
-        for issue in result.validation_issues:
-            self.record_validation_issue(issue)
-
-        return result.dataframe, result.silver, result.components, result.metrics
 
     def _enrich_iuphar(
         self, df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich target dataframe with IUPHAR classifications."""
 
-        if self.iuphar_paginator is None or self.iuphar_client is None:
-            return self.iuphar_service.enrich_targets(df, targets=[], families=[])
-
-        targets = self._fetch_iuphar_collection(
-            "/targets",
-            unique_key="targetId",
-            params=build_targets_request(annotation_status="CURATED"),
-        )
-        families = self._fetch_iuphar_collection(
-            "/targets/families",
-            unique_key="familyId",
-            params=build_families_request(),
+        enriched_df, classification_df, gold_df, metrics, targets, families = self.enricher.enrich_iuphar(
+            df,
+            request_builder=self.iuphar_request_builder,
         )
 
         self.stage_context["raw_targets"] = targets
         self.stage_context["raw_families"] = families
 
-        return self.iuphar_service.enrich_targets(
-            df,
-            targets=targets,
-            families=families,
-        )
+        return enriched_df, classification_df, gold_df, metrics
 
     def _fetch_iuphar_collection(
         self,
@@ -566,46 +499,37 @@ class TargetPipeline(PipelineBase):
         unique_key: str,
         params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Delegate collection fetches to :class:`IupharService`."""
+        """Delegate collection fetches via the shared enricher instance."""
 
-        if self.iuphar_paginator is None:
-            return []
-
-        parser = lambda payload: parse_api_response(payload, unique_key=unique_key)
-        return self.iuphar_paginator.fetch_all(
-            path,
-            unique_key=unique_key,
-            params=params or {},
-            parser=parser,
-        )
+        params = params or {}
+        return self.enricher.fetch_collection(path, unique_key=unique_key, params=params)
 
     def _build_family_hierarchy(
         self, families: dict[int, dict[str, Any]]
     ) -> dict[int, dict[str, list[Any]]]:
-        return self.iuphar_service.build_family_hierarchy(families)
+        return self.enricher.build_family_hierarchy(families)
 
     def _normalize_iuphar_name(self, value: str | None) -> str:
         """Normalize identifiers for fuzzy matching."""
 
-        return self.iuphar_service.normalize_name(value)
+        return self.enricher.normalize_iuphar_name(value)
 
     def _candidate_names_from_row(self, row: pd.Series) -> list[str]:
         """Extract candidate names for IUPHAR matching from a row."""
 
-        return self.iuphar_service.candidate_names_from_row(row)
+        return self.enricher.candidate_names_from_row(row)
 
     def _fallback_classification_record(self, row: pd.Series) -> dict[str, Any]:
         """Construct a fallback classification record for unmatched targets."""
 
-        return self.iuphar_service.fallback_classification_record(row)
+        return self.enricher.fallback_classification_record(row)
 
     def _select_best_classification(
         self, records: list[dict[str, Any]]
     ) -> dict[str, Any] | None:
         """Select the best classification entry for a matched target."""
 
-        result = self.iuphar_service.select_best_classification(records)
-        return dict(result) if isinstance(result, dict) else result
+        return self.enricher.select_best_classification(records)
 
     def _materialize_silver(
         self,
@@ -615,10 +539,10 @@ class TargetPipeline(PipelineBase):
         """Persist silver-level UniProt artifacts deterministically."""
 
         format_name = self._resolve_materialization_format()
-        self.materialization_manager.materialize_silver(
+        self.output_service.materialize_silver(
             uniprot_df,
             component_df,
-            format=format_name,
+            format_name=format_name,
         )
 
     def _materialize_iuphar(
@@ -629,68 +553,11 @@ class TargetPipeline(PipelineBase):
         """Persist IUPHAR classification artifacts."""
 
         format_name = self._resolve_materialization_format()
-        self.materialization_manager.materialize_iuphar(
+        self.output_service.materialize_iuphar(
             classification_df,
             gold_df,
-            format=format_name,
+            format_name=format_name,
         )
-
-    def _build_gold_outputs(
-        self,
-        df: pd.DataFrame,
-        component_enrichment: pd.DataFrame,
-        iuphar_gold: pd.DataFrame,
-    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-        """Assemble deterministic gold-level DataFrames."""
-
-        chembl_components = self._expand_json_column(df, "target_components")
-        components_df = merge_components(
-            chembl_components,
-            component_enrichment,
-            targets=df,
-        )
-
-        if not components_df.empty:
-            components_df = annotate_source_rank(
-                components_df,
-                source_column="data_origin",
-                output_column="merge_rank",
-            )
-            sort_columns = [
-                col
-                for col in [
-                    "target_chembl_id",
-                    "canonical_accession",
-                    "isoform_accession",
-                    "component_id",
-                ]
-                if col in components_df.columns
-            ]
-            if sort_columns:
-                components_df = components_df.sort_values(sort_columns, kind="stable")
-            components_df = components_df.reset_index(drop=True)
-
-        protein_class_df = self._expand_protein_classifications(df)
-        if not protein_class_df.empty:
-            protein_class_df = protein_class_df.sort_values(
-                ["target_chembl_id", "class_level", "class_name"],
-                kind="stable",
-            ).reset_index(drop=True)
-
-        xref_df = expand_xrefs(df)
-        if not xref_df.empty:
-            sort_columns = [
-                col
-                for col in ["target_chembl_id", "xref_src_db", "xref_id", "component_id"]
-                if col in xref_df.columns
-            ]
-            if sort_columns:
-                xref_df = xref_df.sort_values(sort_columns, kind="stable").reset_index(drop=True)
-
-        targets_gold = self._build_targets_gold(df, components_df, iuphar_gold)
-        targets_gold = targets_gold.sort_values(["target_chembl_id"], kind="stable").reset_index(drop=True)
-
-        return targets_gold, components_df, protein_class_df, xref_df
 
     def _materialize_gold_outputs(
         self,
@@ -703,289 +570,28 @@ class TargetPipeline(PipelineBase):
 
         format_name = self._resolve_materialization_format()
         gold_path = self.config.materialization.resolve_dataset_path("gold", "targets", format_name)
-        self.materialization_manager.materialize_gold(
+        self.output_service.materialize_gold(
             targets_df,
             components_df,
             protein_class_df,
             xref_df,
-            format=format_name,
+            format_name=format_name,
             output_path=gold_path,
         )
 
     def _resolve_materialization_format(self) -> str:
         """Determine the requested output format for materialization artefacts."""
 
-        runtime_override = self.runtime_options.get("materialization_format") or self.runtime_options.get(
-            "format"
-        )
-        if runtime_override:
-            resolved = str(runtime_override).strip().lower()
-            if resolved in {"csv", "parquet"}:
-                return resolved
+        format_name = self.output_service.resolve_materialization_format(self.runtime_options)
+        if format_name not in {"csv", "parquet"}:
             logger.warning(
                 "unsupported_materialization_format",
-                format=runtime_override,
+                format=self.runtime_options.get("materialization_format")
+                or self.runtime_options.get("format"),
                 default="parquet",
             )
-
-        materialization_paths = getattr(self.config, "materialization", None)
-        if materialization_paths:
-            inferred = materialization_paths.infer_dataset_format("gold", "targets")
-            if inferred:
-                normalised = str(inferred).strip().lower()
-                if normalised in {"csv", "parquet"}:
-                    return normalised
-
-        return "parquet"
-
-    def _expand_json_column(self, df: pd.DataFrame, column: str) -> pd.DataFrame:
-        """Expand a JSON encoded column into a flat DataFrame."""
-
-        if column not in df.columns:
-            return pd.DataFrame()
-
-        records: list[dict[str, Any]] = []
-        for row in df.itertuples(index=False):
-            payload = getattr(row, column, None)
-            if payload is None or payload is pd.NA:
-                continue
-            if isinstance(payload, str) and payload.strip() in {"", "[]"}:
-                continue
-            if isinstance(payload, list | tuple) and not payload:
-                continue
-
-            if isinstance(payload, str):
-                try:
-                    parsed = json.loads(payload)
-                except json.JSONDecodeError:
-                    logger.debug("expand_json_column_invalid", column=column, value=payload)
-                    continue
-            else:
-                parsed = payload
-
-            if isinstance(parsed, dict):
-                parsed = [parsed]
-
-            if not isinstance(parsed, list):
-                continue
-
-            for item in parsed:
-                if not isinstance(item, dict):
-                    continue
-                record = item.copy()
-                if "target_chembl_id" not in record:
-                    record["target_chembl_id"] = getattr(row, "target_chembl_id", None)
-                records.append(record)
-
-        if not records:
-            return pd.DataFrame()
-
-        return pd.DataFrame(records).convert_dtypes()
-
-    def _expand_protein_classifications(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Normalise protein classification hierarchy."""
-
-        raw_df = self._expand_json_column(df, "protein_classifications")
-        if raw_df.empty:
-            return pd.DataFrame(columns=["target_chembl_id", "class_level", "class_name", "full_path"])
-
-        records: list[dict[str, Any]] = []
-        level_keys = ["l1", "l2", "l3", "l4", "l5"]
-        for entry in raw_df.to_dict("records"):
-            target_id = entry.get("target_chembl_id")
-            path: list[str] = []
-            for idx, key in enumerate(level_keys, start=1):
-                class_name = entry.get(key)
-                if class_name in {None, "", pd.NA}:
-                    continue
-                class_name_str = str(class_name)
-                path.append(class_name_str)
-                records.append(
-                    {
-                        "target_chembl_id": target_id,
-                        "class_level": f"L{idx}",
-                        "class_name": class_name_str,
-                        "full_path": " > ".join(path),
-                    }
-                )
-
-        if not records:
-            return pd.DataFrame(columns=["target_chembl_id", "class_level", "class_name", "full_path"])
-
-        protein_class_df = pd.DataFrame(records).drop_duplicates()
-        return protein_class_df.convert_dtypes()
-
-    def _build_targets_gold(
-        self,
-        df: pd.DataFrame,
-        components_df: pd.DataFrame,
-        iuphar_gold: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """Construct the final targets table with aggregated attributes."""
-
-        working = df.copy()
-
-        coalesce_map = {
-            "pref_name": [
-                ("pref_name", "chembl"),
-                ("uniprot_protein_name", "uniprot"),
-                ("iuphar_name", "iuphar"),
-            ],
-            "organism": [
-                ("organism", "chembl"),
-                ("uniprot_taxonomy_name", "uniprot"),
-            ],
-            "tax_id": [
-                ("tax_id", "chembl"),
-                ("taxonomy", "chembl"),
-                ("uniprot_taxonomy_id", "uniprot"),
-            ],
-            "gene_symbol": [
-                ("gene_symbol", "chembl"),
-                ("uniprot_gene_primary", "uniprot"),
-            ],
-            "hgnc_id": [
-                ("hgnc_id", "chembl"),
-                ("uniprot_hgnc_id", "uniprot"),
-                ("hgnc", "uniprot"),
-            ],
-            "lineage": [
-                ("lineage", "chembl"),
-                ("uniprot_lineage", "uniprot"),
-            ],
-            "uniprot_id_primary": [
-                ("uniprot_canonical_accession", "uniprot"),
-                ("uniprot_accession", "chembl"),
-                ("primaryAccession", "chembl"),
-            ],
-        }
-
-        working = coalesce_by_priority(working, coalesce_map, source_suffix="_origin")
-
-        if not iuphar_gold.empty:
-            iuphar_subset = iuphar_gold.drop_duplicates("target_chembl_id")
-            working = working.merge(
-                iuphar_subset,
-                on="target_chembl_id",
-                how="left",
-                suffixes=("", "_iuphar"),
-            )
-
-        if not components_df.empty and "isoform_accession" in components_df.columns:
-            isoform_counts = components_df.groupby("target_chembl_id")["isoform_accession"].nunique()
-            isoform_map = (
-                components_df.groupby("target_chembl_id")["isoform_accession"]
-                .apply(
-                    lambda values: sorted(
-                        {str(value) for value in values if value not in {None, "", pd.NA}}
-                    )
-                )
-                .to_dict()
-            )
-        else:
-            isoform_counts = pd.Series(dtype="Int64")
-            isoform_map = {}
-
-        working["isoform_count"] = (
-            working["target_chembl_id"].map(isoform_counts).fillna(0).astype("Int64")
-        )
-        working["has_alternative_products"] = (working["isoform_count"] > 1).astype("boolean")
-
-        working["has_uniprot"] = working["uniprot_id_primary"].notna().astype("boolean")
-        if "iuphar_target_id" in working.columns:
-            working["has_iuphar"] = working["iuphar_target_id"].notna().astype("boolean")
-        else:
-            working["has_iuphar"] = pd.Series(False, index=working.index, dtype="boolean")
-
-        if "uniprot_secondary_accessions" in working.columns:
-            secondary_map = {
-                key: _split_accession_field(value)
-                for key, value in working.set_index("target_chembl_id")["uniprot_secondary_accessions"].items()
-            }
-        else:
-            secondary_map = {}
-
-        def combine_ids(row: pd.Series) -> Any:
-            accs: list[str] = []
-            primary = row.get("uniprot_id_primary")
-            if pd.notna(primary):
-                accs.append(str(primary))
-            accs.extend(isoform_map.get(row.get("target_chembl_id"), []))
-            accs.extend(secondary_map.get(row.get("target_chembl_id"), []))
-            seen: set[str] = set()
-            unique: list[str] = []
-            for acc in accs:
-                if not acc:
-                    continue
-                if acc not in seen:
-                    seen.add(acc)
-                    unique.append(acc)
-            return "; ".join(unique) if unique else pd.NA
-
-        working["uniprot_ids_all"] = working.apply(combine_ids, axis=1)
-
-        origin_columns = [col for col in working.columns if col.endswith("_origin")]
-
-        def derive_origin(row: pd.Series) -> str:
-            origins = {
-                str(row[col]).lower()
-                for col in origin_columns
-                if pd.notna(row[col]) and str(row[col]).strip()
-            }
-            if row.get("has_iuphar") is True:
-                origins.add("iuphar")
-            if not origins:
-                origins.add("chembl")
-            return ",".join(sorted(origins))
-
-        working["data_origin"] = working.apply(derive_origin, axis=1)
-        working = working.drop(columns=origin_columns, errors="ignore")
-
-        expected_columns = [
-            "target_chembl_id",
-            "pref_name",
-            "target_type",
-            "organism",
-            "tax_id",
-            "gene_symbol",
-            "hgnc_id",
-            "lineage",
-            "uniprot_accession",
-            "uniprot_id_primary",
-            "uniprot_ids_all",
-            "isoform_count",
-            "has_alternative_products",
-            "has_uniprot",
-            "has_iuphar",
-            "iuphar_type",
-            "iuphar_class",
-            "iuphar_subclass",
-            "data_origin",
-            "pipeline_version",
-            "source_system",
-            "chembl_release",
-            "extracted_at",
-        ]
-
-        for column in expected_columns:
-            if column not in working.columns:
-                working[column] = pd.NA
-
-        working["has_alternative_products"] = working["has_alternative_products"].astype("boolean")
-        working["has_uniprot"] = working["has_uniprot"].astype("boolean")
-        working["has_iuphar"] = working["has_iuphar"].astype("boolean")
-        working["isoform_count"] = working["isoform_count"].astype("Int64")
-
-        if "tax_id" in working.columns:
-            working["tax_id"] = (
-                pd.to_numeric(working["tax_id"], errors="coerce")
-                .astype("Int64")
-            )
-
-        # Ensure we only expose the expected contract columns in a stable order.
-        working = working[expected_columns]
-
-        return working.convert_dtypes()
+            return "parquet"
+        return format_name
 
     def _evaluate_iuphar_qc(self, coverage: float) -> None:
         """Compare coverage against QC thresholds and log warnings."""
@@ -1107,7 +713,7 @@ class TargetPipeline(PipelineBase):
             if not passed:
                 failing.append({"metric": name, "severity": severity, "value": value_float, "threshold": min_threshold_value})
 
-        self.qc_enrichment_metrics = prepare_enrichment_metrics(records)
+        self.qc_enrichment_metrics = self.output_service.prepare_enrichment_metrics(records)
 
         blocking: list[dict[str, Any]] = []
         downgraded: list[dict[str, Any]] = []

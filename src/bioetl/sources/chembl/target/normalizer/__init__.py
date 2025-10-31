@@ -1,3 +1,5 @@
-"""Target normalizer module namespace."""
+"""Normalization helpers for the target pipeline."""
 
-__all__ = []
+from .enrichment import MissingMappingRecorder, TargetEnricher
+
+__all__ = ["MissingMappingRecorder", "TargetEnricher"]
