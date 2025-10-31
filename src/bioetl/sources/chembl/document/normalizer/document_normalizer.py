@@ -78,6 +78,16 @@ def _normalize_document_record(
             if old_col != new_col:
                 normalised.pop(old_col, None)
 
+    for source_column, target_column in (
+        ("first_page", "chembl_first_page"),
+        ("last_page", "chembl_last_page"),
+    ):
+        if source_column in normalised:
+            value = normalised.get(source_column)
+            normalised[target_column] = (
+                registry.normalize("string", value) if value is not None else None
+            )
+
     if "doi" in normalised:
         normalised["chembl_doi"] = normalised.get("doi")
 
