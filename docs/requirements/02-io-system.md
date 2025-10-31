@@ -1091,6 +1091,12 @@ Row 123: Hash mismatch
 
 ```
 
+### Репозиторий golden-артефактов
+
+- Каноничные результаты golden-тестов хранятся в `artifacts/baselines/golden_tests/`. В каталоге лежат журналы запуска pytest и итоговый отчёт покрытия (`coverage_summary.txt`), подтверждающие, что текущая версия пайплайна детерминирована и проходит smoke/golden сценарии без расхождений.
+- При обновлении эталонов выполняйте golden-прогон локально: `pytest tests/golden/ -v -m golden --cov=src/bioetl --cov-report=term | tee artifacts/baselines/golden_tests/pytest_integration.log`. После завершения сохраните текстовый отчёт покрытия с помощью `coverage report > artifacts/baselines/golden_tests/coverage_summary.txt`.
+- Перед коммитом убедитесь, что обновлённые файлы в каталоге `artifacts/baselines/golden_tests/` отражают фактический прогон (включая дату, контрольные значения покрытия и ключевые логи), затем повторно запустите `pytest tests/golden/ -v -m golden` для валидации.
+
 ### Сценарий: Sampling для тестов
 
 Быстрая проверка на малой выборке:
