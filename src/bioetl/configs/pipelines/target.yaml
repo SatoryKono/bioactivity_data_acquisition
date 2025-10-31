@@ -100,7 +100,12 @@ sources:
     cache_enabled: true
     cache_ttl: 43200
     cache_maxsize: 4096
-    fallback_strategies: ["cache", "partial_retry"]
+    fallback_strategies:
+      - "cache"
+      - "partial_retry"
+      - "network"
+      - "timeout"
+      - "5xx"
     circuit_breaker:
       failure_threshold: 5
       timeout_sec: 90.0
@@ -194,6 +199,9 @@ fallbacks:
   strategies:
     - cache
     - partial_retry
+    - network
+    - timeout
+    - 5xx
   partial_retry_max: 2
   use_materialized_outputs: true
   circuit_breaker:
