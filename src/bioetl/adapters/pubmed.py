@@ -1,6 +1,6 @@
 """PubMed E-utilities API adapter."""
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import pandas as pd
@@ -95,6 +95,180 @@ class PubMedAdapter(ExternalAdapter):
 
         normalised = [self.normalize_record(record) for record in records]
         return self.to_dataframe(normalised)
+
+    def process_identifiers(
+        self,
+        *,
+        pmids: Sequence[str] | None = None,
+        dois: Sequence[str] | None = None,
+        titles: Sequence[str] | None = None,
+        records: Sequence[Mapping[str, str]] | None = None,
+    ) -> pd.DataFrame:
+        """Process identifiers with DOI/title fallbacks when PMIDs are missing."""
+
+        frames: list[pd.DataFrame] = []
+        seen_pmids: set[str] = set()
+
+        def _collect(frame: pd.DataFrame) -> None:
+            if frame is None or frame.empty:
+                return
+            frames.append(frame)
+            if "pmid" in frame.columns:
+                seen_pmids.update(frame["pmid"].dropna().astype(str).tolist())
+            elif "pubmed_pmid" in frame.columns:
+                seen_pmids.update(frame["pubmed_pmid"].dropna().astype(str).tolist())
+
+        pmid_list = list(dict.fromkeys(pmids or []))
+        if pmid_list:
+            _collect(self.process(pmid_list))
+
+        doi_list = list(dict.fromkeys(dois or []))
+        title_list = list(dict.fromkeys(titles or []))
+
+        fallback_pmids: list[str] = []
+        if doi_list:
+            doi_pmids = self.resolve_pmids_from_dois(doi_list)
+            fallback_pmids.extend(doi_pmids)
+
+        title_candidates: list[str] = []
+        if records:
+            for entry in records:
+                if entry.get("pmid"):
+                    continue
+                title_value = entry.get("title")
+                if title_value:
+                    title_candidates.append(title_value)
+        if not title_candidates:
+            title_candidates = title_list
+
+        if title_candidates:
+            title_pmids = self._resolve_pmids_from_titles(title_candidates)
+            fallback_pmids.extend(title_pmids)
+
+        missing_pmids: list[str] = []
+        for pmid in fallback_pmids:
+            if not pmid or pmid in seen_pmids:
+                continue
+            missing_pmids.append(pmid)
+
+        if missing_pmids:
+            self.logger.info(
+                "pubmed_fallback_fetch", missing=len(missing_pmids), sources=len(fallback_pmids)
+            )
+            _collect(self.process(missing_pmids))
+
+        if not frames:
+            return pd.DataFrame()
+
+        combined = pd.concat(frames, ignore_index=True)
+        if "pmid" in combined.columns:
+            combined = combined.drop_duplicates(subset=["pmid"], keep="first")
+        elif "pubmed_pmid" in combined.columns:
+            combined = combined.drop_duplicates(subset=["pubmed_pmid"], keep="first")
+        return combined.reset_index(drop=True)
+
+    def resolve_pmids_from_dois(self, dois: Sequence[str]) -> list[str]:
+        """Resolve PMIDs associated with provided DOIs via ``esearch``."""
+
+        return self._resolve_pmids_from_terms(
+            (
+                (doi, f'"{self._sanitize_query_value(doi)}"[AID]')
+                for doi in dict.fromkeys(dois or [])
+                if doi
+            ),
+            label="doi",
+        )
+
+    def _resolve_pmids_from_titles(self, titles: Sequence[str]) -> list[str]:
+        """Resolve PMIDs for titles when DOI lookup fails."""
+
+        return self._resolve_pmids_from_terms(
+            (
+                (title, f'"{self._sanitize_query_value(title)}"[Title]')
+                for title in dict.fromkeys(titles or [])
+                if title
+            ),
+            label="title",
+        )
+
+    def _resolve_pmids_from_terms(
+        self,
+        terms: Iterable[tuple[str, str]],
+        *,
+        label: str,
+    ) -> list[str]:
+        """Query ``esearch`` terms returning flattened PMIDs."""
+
+        resolved: list[str] = []
+        for raw_value, term in terms:
+            spec = self.request_builder.esearch(
+                {
+                    "db": "pubmed",
+                    "retmode": "json",
+                    "retmax": 5,
+                    "term": term,
+                }
+            )
+            try:
+                payload = self.api_client.request_json(
+                    spec.url,
+                    params=spec.params,
+                    headers=spec.headers,
+                )
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(
+                    "pubmed_esearch_failed",
+                    query=term,
+                    identifier=raw_value,
+                    label=label,
+                    error=str(exc),
+                )
+                continue
+
+            pmids = self._extract_pmids(payload)
+            if not pmids:
+                continue
+
+            resolved.extend(pmids)
+
+        return resolved
+
+    @staticmethod
+    def _extract_pmids(payload: Mapping[str, Any] | None) -> list[str]:
+        """Extract PMIDs from an ``esearch`` response payload."""
+
+        if not isinstance(payload, Mapping):
+            return []
+
+        result = payload.get("esearchresult")
+        if isinstance(result, Mapping):
+            data = result
+        else:
+            data = payload
+
+        id_list = data.get("idlist") or data.get("IdList")
+        if isinstance(id_list, Mapping):  # pragma: no cover - compatibility
+            candidates = list(id_list.values())
+        else:
+            candidates = id_list
+
+        pmids: list[str] = []
+        if isinstance(candidates, Sequence) and not isinstance(candidates, (str, bytes)):
+            for value in candidates:
+                if value in (None, ""):
+                    continue
+                pmid = str(value)
+                if pmid:
+                    pmids.append(pmid)
+        elif candidates not in (None, ""):
+            pmids.append(str(candidates))
+        return pmids
+
+    @staticmethod
+    def _sanitize_query_value(value: str) -> str:
+        """Sanitise query values for PubMed search terms."""
+
+        return value.replace("\"", " ").strip()
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize PubMed record."""

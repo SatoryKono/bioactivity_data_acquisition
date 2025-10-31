@@ -184,12 +184,18 @@ def run_enrichment_requests(
     pmids: Sequence[str],
     dois: Sequence[str],
     titles: Sequence[str],
+    records: Sequence[Mapping[str, str]] | None = None,
     timeout: float = 300.0,
 ) -> tuple[pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, pd.DataFrame | None, dict[str, str]]:
     """Execute enrichment requests across adapters in parallel."""
 
     if not adapters:
         return None, None, None, None, {}
+
+    pmid_list = list(dict.fromkeys(pmids)) if pmids else []
+    doi_list = list(dict.fromkeys(dois)) if dois else []
+    title_list = list(dict.fromkeys(titles)) if titles else []
+    record_list = list(records) if records else []
 
     pubmed_df = None
     crossref_df = None
@@ -201,23 +207,38 @@ def run_enrichment_requests(
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures: dict[str, Any] = {}
 
-        if "pubmed" in adapters and pmids:
-            futures["pubmed"] = executor.submit(adapters["pubmed"].process, pmids)
+        adapter_inputs: dict[str, dict[str, Sequence[str] | list[Mapping[str, str]]]] = {
+            "pubmed": {
+                "pmids": pmid_list,
+                "dois": doi_list,
+                "titles": title_list,
+                "records": record_list,
+            },
+            "crossref": {
+                "pmids": pmid_list,
+                "dois": doi_list,
+                "titles": title_list,
+                "records": record_list,
+            },
+            "openalex": {
+                "pmids": pmid_list,
+                "dois": doi_list,
+                "titles": title_list,
+                "records": record_list,
+            },
+            "semantic_scholar": {
+                "pmids": pmid_list,
+                "dois": doi_list,
+                "titles": title_list,
+                "records": record_list,
+            },
+        }
 
-        if "crossref" in adapters and dois:
-            futures["crossref"] = executor.submit(adapters["crossref"].process, dois)
-
-        if "openalex" in adapters and dois:
-            futures["openalex"] = executor.submit(adapters["openalex"].process, dois)
-
-        if "semantic_scholar" in adapters:
-            if pmids:
-                futures["semantic_scholar"] = executor.submit(adapters["semantic_scholar"].process, pmids)
-            elif titles:
-                futures["semantic_scholar"] = executor.submit(
-                    adapters["semantic_scholar"].process_titles,
-                    titles,
-                )
+        for source, adapter in adapters.items():
+            inputs = adapter_inputs.get(source)
+            if inputs is None:
+                continue
+            futures[source] = executor.submit(_dispatch_adapter, adapter, inputs)
 
         for source, future in futures.items():
             try:
@@ -246,6 +267,38 @@ def run_enrichment_requests(
                 semantic_scholar_df = result
 
     return pubmed_df, crossref_df, openalex_df, semantic_scholar_df, adapter_errors
+
+
+def _dispatch_adapter(adapter: Any, identifiers: Mapping[str, Sequence[str] | list[Mapping[str, str]]]) -> pd.DataFrame | None:
+    """Invoke adapter-specific processing with identifier fallbacks."""
+
+    process_identifiers = getattr(adapter, "process_identifiers", None)
+    if callable(process_identifiers):
+        return process_identifiers(**identifiers)
+
+    payload: dict[str, Sequence[str]] = {
+        key: list(value) if isinstance(value, list) else list(value)
+        for key, value in identifiers.items()
+        if key != "records"
+    }
+
+    pmid_ids = payload.get("pmids") or []
+    doi_ids = payload.get("dois") or []
+    title_values = payload.get("titles") or []
+
+    if doi_ids and hasattr(adapter, "process"):
+        return adapter.process(list(doi_ids))
+
+    if pmid_ids and hasattr(adapter, "process"):
+        return adapter.process(list(pmid_ids))
+
+    if title_values and hasattr(adapter, "process_titles"):
+        return adapter.process_titles(list(title_values))
+
+    if hasattr(adapter, "process"):
+        return adapter.process([])
+
+    return None
 
 
 def collect_enrichment_metrics(
