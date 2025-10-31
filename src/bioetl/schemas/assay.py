@@ -56,11 +56,6 @@ class AssaySchema(FallbackMetadataMixin, BaseSchema):
         description="BAO format классификация",
     )
     bao_label: Series[str] = pa.Field(nullable=True, description="BAO label классификация")
-    bao_endpoint: Series[str] = pa.Field(
-        nullable=True,
-        regex=r'^BAO_\d{7}$',
-        description="BAO endpoint",
-    )
 
     # Связи
     cell_chembl_id: Series[str] = pa.Field(nullable=True, description="ChEMBL ID клетки")
@@ -200,7 +195,6 @@ class AssaySchema(FallbackMetadataMixin, BaseSchema):
         "assay_type_description",
         "bao_format",
         "bao_label",
-        "bao_endpoint",
         "cell_chembl_id",
         "confidence_description",
         "confidence_score",

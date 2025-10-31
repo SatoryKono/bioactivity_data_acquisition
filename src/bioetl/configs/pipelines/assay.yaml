@@ -45,7 +45,6 @@ determinism:
     - "assay_type_description"
     - "bao_format"
     - "bao_label"
-    - "bao_endpoint"
     - "cell_chembl_id"
     - "confidence_description"
     - "confidence_score"
