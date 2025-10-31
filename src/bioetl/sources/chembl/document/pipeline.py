@@ -205,7 +205,7 @@ class DocumentPipeline(PipelineBase):
         logger.info("extraction_completed", rows=len(validated))
         return validated
 
-    def _sync_mode_runtime(self) -> None:
+    def _sync_mode_runtime(self, *, prepare_adapters: bool = True) -> None:
         """Synchronise the execution mode with runtime overrides."""
 
         runtime_mode = self.runtime_options.get("mode")
@@ -222,7 +222,8 @@ class DocumentPipeline(PipelineBase):
             self.mode = resolved_mode
 
         self.runtime_options["mode"] = self.mode
-        self._prepare_enrichment_adapters()
+        if prepare_adapters:
+            self._prepare_enrichment_adapters()
 
     def _prepare_enrichment_adapters(self) -> None:
         """Ensure external adapters reflect the active execution mode."""
@@ -293,10 +294,10 @@ class DocumentPipeline(PipelineBase):
 
     def _enrich_with_external_sources(
         self, chembl_df: pd.DataFrame
-    ) -> ExternalEnrichmentResult:
+    ) -> ExternalEnrichmentResult | pd.DataFrame:
         """Enrich ChEMBL data with external sources."""
-        self._sync_mode_runtime()
-        self._prepare_enrichment_adapters()
+        manual_skip = not self.external_adapters and self._adapter_initialization_mode == "all"
+        self._sync_mode_runtime(prepare_adapters=not manual_skip)
         if not self.external_adapters:
             logger.info(
                 "external_enrichment_skipped",
@@ -304,7 +305,7 @@ class DocumentPipeline(PipelineBase):
                 chembl_rows=len(chembl_df),
             )
             self.qc_enrichment_metrics = pd.DataFrame()
-            return ExternalEnrichmentResult(chembl_df, "skipped", {})
+            return chembl_df
 
         pmids: list[str] = []
         dois: list[str] = []
@@ -960,6 +961,15 @@ def _document_run_pubmed_stage(
             }
         )
         raise
+
+    if isinstance(result, pd.DataFrame):
+        pipeline.stage_context["pubmed"] = {
+            "executed": False,
+            "errors": {},
+            "status": "skipped",
+        }
+        pipeline.set_stage_summary("pubmed", "skipped", rows=int(len(result)))
+        return result
 
     enriched_df = result.dataframe
     pipeline.stage_context["pubmed"] = {
