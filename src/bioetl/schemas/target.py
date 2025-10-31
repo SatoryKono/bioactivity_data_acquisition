@@ -48,6 +48,14 @@ class TargetSchema(BaseSchema):
     uniprot_accession: Series[str] = pa.Field(nullable=True)
     uniprot_id_primary: Series[str] = pa.Field(nullable=True)
     uniprot_ids_all: Series[str] = pa.Field(nullable=True)
+    # Intermediate UniProt enrichment columns (used for coalesce, may remain in DataFrame)
+    uniprot_protein_name: Series[str] = pa.Field(nullable=True)
+    uniprot_taxonomy_name: Series[str] = pa.Field(nullable=True)
+    uniprot_taxonomy_id: Series[str] = pa.Field(nullable=True)
+    uniprot_gene_primary: Series[str] = pa.Field(nullable=True)
+    uniprot_hgnc_id: Series[str] = pa.Field(nullable=True)
+    uniprot_lineage: Series[str] = pa.Field(nullable=True)
+    uniprot_canonical_accession: Series[str] = pa.Field(nullable=True)
     isoform_count: Series[int] = pa.Field(nullable=True, ge=0)
     has_alternative_products: Series[pd.BooleanDtype] = pa.Field(nullable=True)
     has_uniprot: Series[pd.BooleanDtype] = pa.Field(nullable=True)
@@ -56,6 +64,7 @@ class TargetSchema(BaseSchema):
     iuphar_type: Series[str] = pa.Field(nullable=True)
     iuphar_class: Series[str] = pa.Field(nullable=True)
     iuphar_subclass: Series[str] = pa.Field(nullable=True)
+    iuphar_name: Series[str] = pa.Field(nullable=True)
     data_origin: Series[str] = pa.Field(nullable=True)
 
     class Config:
@@ -104,6 +113,13 @@ class TargetSchema(BaseSchema):
         "uniprot_accession",
         "uniprot_id_primary",
         "uniprot_ids_all",
+        "uniprot_protein_name",
+        "uniprot_taxonomy_name",
+        "uniprot_taxonomy_id",
+        "uniprot_gene_primary",
+        "uniprot_hgnc_id",
+        "uniprot_lineage",
+        "uniprot_canonical_accession",
         "isoform_count",
         "has_alternative_products",
         "has_uniprot",
@@ -111,6 +127,7 @@ class TargetSchema(BaseSchema):
         "iuphar_type",
         "iuphar_class",
         "iuphar_subclass",
+        "iuphar_name",
         "data_origin",
     ]
 
