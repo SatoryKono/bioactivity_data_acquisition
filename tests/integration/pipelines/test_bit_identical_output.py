@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import types
 from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 
 from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 from bioetl.pipelines.base import PipelineBase
@@ -134,6 +136,21 @@ def test_pipeline_outputs_are_bit_identical(tmp_path: Path, frozen_time) -> None
     second_pipeline = _DeterministicPipeline(config, run_id="bit-identical")
     second_artifacts = second_pipeline.run(output_path, extended=True)
     second_snapshot = snapshot_artifacts(second_artifacts, tmp_path / "snapshot_second")
+
+    assert first_artifacts.hash_summary is not None
+    assert second_artifacts.hash_summary == first_artifacts.hash_summary
+
+    metadata_path = first_artifacts.metadata
+    assert metadata_path is not None and metadata_path.exists()
+    with metadata_path.open("r", encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    assert metadata["hash_summary"] == first_artifacts.hash_summary
+
+    manifest_path = first_artifacts.manifest
+    assert manifest_path is not None and manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["hash_summary"] == first_artifacts.hash_summary
 
     identical, errors = verify_bit_identical_outputs(first_snapshot, second_snapshot)
     assert identical, "Outputs diverged:\n- " + "\n- ".join(errors)

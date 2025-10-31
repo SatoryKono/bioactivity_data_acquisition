@@ -7,9 +7,9 @@ import json
 import os
 from collections.abc import Callable, Sequence
 from contextvars import ContextVar
-
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 import typing as _typing
@@ -20,7 +20,12 @@ from pandas import DataFrame
 from bioetl.config.models import DeterminismConfig
 from bioetl.config.paths import get_configs_root
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.hashing import (
+    generate_hash_business_key as _generate_hash_business_key,
+    generate_hash_row as _generate_hash_row,
+)
 from bioetl.pandera_pandas import DataFrameModel
+from bioetl.utils.dataframe import resolve_schema_column_order
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
     from bioetl.config import PipelineConfig
@@ -84,6 +89,28 @@ def _atomic_write(path: Path, write_fn: Callable[[], None]) -> None:
         _cleanup_temp_dir(temp_dir)
 
 
+class OutputWriterStage(str, Enum):
+    """Named stages used to contextualise logging emitted by the writer."""
+
+    VALIDATION = "validation"
+    FORMAT = "format"
+    QUALITY = "quality"
+    METADATA = "metadata"
+    ATOMIC_WRITE = "atomic_write"
+
+
+def hash_row(payload: dict[str, Any]) -> str:
+    """Return the canonical ``hash_row`` digest for ``payload``."""
+
+    return _generate_hash_row(payload)
+
+
+def hash_business_key(value: Any) -> str:
+    """Return the canonical ``hash_business_key`` digest for ``value``."""
+
+    return _generate_hash_business_key(value)
+
+
 @dataclass(frozen=True)
 class OutputArtifacts:
     """Пути к стандартным выходным артефактам."""
@@ -102,6 +129,7 @@ class OutputArtifacts:
     qc_dataset_metrics: Path | None = None
     debug_dataset: Path | None = None
     metadata_model: OutputMetadata | None = None
+    hash_summary: dict[str, Any] | None = None
 
 
 _SUPPORTED_FORMATS = {"csv", "parquet"}
@@ -115,6 +143,8 @@ __all__ = [
     "OutputMetadata",
     "QualityReportGenerator",
     "UnifiedOutputWriter",
+    "hash_row",
+    "hash_business_key",
 ]
 
 
@@ -175,6 +205,7 @@ class OutputMetadata:
     na_policy: str | None = None
     precision_policy: str | None = None
     hash_policy_version: str | None = None
+    hash_summary: dict[str, Any] | None = None
 
     @classmethod
     def from_dataframe(
@@ -303,6 +334,9 @@ class AtomicWriter:
         self.run_id = run_id
         self.determinism = determinism or DeterminismConfig()
 
+    def _logger(self):
+        return logger.bind(stage=OutputWriterStage.ATOMIC_WRITE.value, run_id=self.run_id)
+
     def write(
         self,
         data: DataFrame,
@@ -343,6 +377,11 @@ class AtomicWriter:
             )
 
         try:
+            self._logger().info(
+                "atomic_write_dataset",
+                path=str(path),
+                format=resolved_format,
+            )
             _atomic_write(path, write_payload)
         finally:
             _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
@@ -404,6 +443,7 @@ class AtomicWriter:
                     )
 
         try:
+            self._logger().info("atomic_write_json", path=str(path))
             _atomic_write(path, write_payload)
         finally:
             _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
@@ -475,25 +515,135 @@ class UnifiedOutputWriter:
         self.quality_generator = QualityReportGenerator()
         self.pipeline_config: PipelineConfig | None = pipeline_config
 
-    def _apply_column_order(self, df: DataFrame) -> DataFrame:
-        """Return a dataframe matching the configured deterministic column order."""
+    def _stage_logger(self, stage: OutputWriterStage):
+        """Return a logger bound with the output writer stage."""
+
+        return logger.bind(stage=stage.value, run_id=self.run_id)
+
+    def _resolve_schema_order_from_metadata(
+        self, metadata: OutputMetadata | None
+    ) -> list[str]:
+        """Resolve schema order using the ``schema_id`` and ``schema_version`` fields."""
+
+        if metadata is None or not metadata.schema_id:
+            return []
+
+        try:
+            from bioetl.schemas.registry import SchemaRegistry  # noqa: PLC0415
+        except Exception:  # pragma: no cover - defensive guard
+            return []
+
+        registration = SchemaRegistry.find_registration_by_schema_id(
+            metadata.schema_id,
+            version=metadata.schema_version,
+        )
+        if registration is None:
+            return []
+
+        try:
+            return resolve_schema_column_order(registration.schema)
+        except Exception:  # pragma: no cover - defensive guard
+            return []
+
+    def _resolve_schema_order_from_config(self) -> list[str]:
+        """Resolve schema order using the attached pipeline configuration."""
+
+        if self.pipeline_config is None:
+            return []
+
+        pipeline_section = getattr(self.pipeline_config, "pipeline", None)
+        if pipeline_section is None:
+            return []
+
+        entity = getattr(pipeline_section, "entity", None)
+        if not entity:
+            return []
+
+        version = getattr(pipeline_section, "version", "latest")
+
+        try:
+            from bioetl.schemas.registry import SchemaRegistry  # noqa: PLC0415
+        except Exception:  # pragma: no cover - defensive guard
+            return []
+
+        registration = SchemaRegistry.get_metadata(entity, version)
+        if registration is None:
+            return []
+
+        try:
+            return resolve_schema_column_order(registration.schema)
+        except Exception:  # pragma: no cover - defensive guard
+            return []
+
+    def _resolve_target_order(
+        self,
+        metadata: OutputMetadata | None,
+    ) -> tuple[list[str], bool]:
+        """Return the desired column order and whether strict enforcement is required."""
+
+        if metadata is not None and metadata.column_order:
+            order = [column for column in metadata.column_order if column]
+            strict = metadata.column_order_source in {"schema_registry", "schema"}
+            return order, strict
 
         configured_order = [column for column in self.determinism.column_order if column]
-        if not configured_order:
+        if configured_order:
+            return configured_order, False
+
+        schema_order = self._resolve_schema_order_from_metadata(metadata)
+        if schema_order:
+            return schema_order, True
+
+        schema_order = self._resolve_schema_order_from_config()
+        if schema_order:
+            return schema_order, True
+
+        return [], False
+
+    def _apply_column_order(
+        self,
+        df: DataFrame,
+        metadata: OutputMetadata | None = None,
+    ) -> DataFrame:
+        """Return a dataframe matching the configured deterministic column order."""
+
+        order, strict = self._resolve_target_order(metadata)
+        stage_logger = self._stage_logger(OutputWriterStage.VALIDATION)
+
+        if not order:
             return df
 
-        missing_columns = [column for column in configured_order if column not in df.columns]
-        extra_columns = [column for column in df.columns if column not in configured_order]
+        missing_columns = [column for column in order if column not in df.columns]
+        extra_columns = [column for column in df.columns if column not in order]
 
-        if not missing_columns and not extra_columns and list(df.columns) == configured_order:
+        if (missing_columns or extra_columns) and strict:
+            stage_logger.error(
+                "column_order_mismatch",
+                expected=order,
+                missing=missing_columns,
+                unexpected=extra_columns,
+            )
+            raise ValueError(
+                "columns do not match Schema Registry order: "
+                f"missing {missing_columns}, unexpected {extra_columns}"
+            )
+
+        if not missing_columns and not extra_columns and list(df.columns) == order:
             return df
 
         ordered = df.copy()
         for column in missing_columns:
             ordered[column] = pd.NA
 
-        remaining_columns = [column for column in ordered.columns if column not in configured_order]
-        new_order = configured_order + remaining_columns
+        if missing_columns:
+            stage_logger.warning(
+                "column_order_padding",
+                added=missing_columns,
+                source="schema" if strict else "determinism",
+            )
+
+        remaining_columns = [column for column in ordered.columns if column not in order]
+        new_order = order + remaining_columns
         ordered_view: DataFrame = ordered[new_order]
         return ordered_view
 
@@ -535,9 +685,9 @@ class UnifiedOutputWriter:
         Returns:
             OutputArtifacts с путями к созданным файлам
         """
-        dataset_df: DataFrame = (
-            df.copy() if not apply_column_order else self._apply_column_order(df)
-        )
+        dataset_df: DataFrame = df.copy()
+        if apply_column_order:
+            dataset_df = self._apply_column_order(dataset_df, metadata)
         column_order = list(dataset_df.columns)
         dataset_path, dataset_format = self._resolve_dataset_location(output_path)
 
@@ -589,7 +739,7 @@ class UnifiedOutputWriter:
         if metadata_defaults:
             metadata = replace(metadata, **metadata_defaults)
 
-        logger.info(
+        self._stage_logger(OutputWriterStage.FORMAT).info(
             "writing_dataset",
             path=str(dataset_path),
             rows=len(dataset_df),
@@ -605,7 +755,7 @@ class UnifiedOutputWriter:
             **write_kwargs,
         )
 
-        logger.info(
+        self._stage_logger(OutputWriterStage.QUALITY).info(
             "generating_quality_report",
             path=str(quality_path),
             rows=len(dataset_df.columns),
@@ -617,16 +767,22 @@ class UnifiedOutputWriter:
         )
         self.atomic_writer.write(quality_df, quality_path, float_format=float_format)
 
+        hash_summary = self._compute_hash_summary(dataset_df)
+        if hash_summary:
+            metadata = replace(metadata, hash_summary=hash_summary)
+
         qc_summary_path: Path | None = None
         if qc_summary:
             qc_summary_path = qc_dir / "qc_summary.json"
-            logger.info("writing_qc_summary", path=str(qc_summary_path))
+            self._stage_logger(OutputWriterStage.QUALITY).info(
+                "writing_qc_summary", path=str(qc_summary_path)
+            )
             self._write_json_atomic(qc_summary_path, qc_summary)
 
         missing_mappings_path: Path | None = None
         if qc_missing_mappings is not None and not qc_missing_mappings.empty:
             missing_mappings_path = qc_dir / "qc_missing_mappings.csv"
-            logger.info(
+            self._stage_logger(OutputWriterStage.QUALITY).info(
                 "writing_qc_missing_mappings",
                 path=str(missing_mappings_path),
                 rows=len(qc_missing_mappings),
@@ -640,7 +796,7 @@ class UnifiedOutputWriter:
         enrichment_metrics_path: Path | None = None
         if qc_enrichment_metrics is not None and not qc_enrichment_metrics.empty:
             enrichment_metrics_path = qc_dir / "qc_enrichment_metrics.csv"
-            logger.info(
+            self._stage_logger(OutputWriterStage.QUALITY).info(
                 "writing_qc_enrichment_metrics",
                 path=str(enrichment_metrics_path),
                 rows=len(qc_enrichment_metrics),
@@ -692,7 +848,7 @@ class UnifiedOutputWriter:
 
                     target_path.parent.mkdir(parents=True, exist_ok=True)
 
-                    logger.info(
+                    self._stage_logger(OutputWriterStage.FORMAT).info(
                         "writing_additional_dataset",
                         name=name,
                         path=str(target_path),
@@ -728,7 +884,7 @@ class UnifiedOutputWriter:
             correlation_df = self._build_correlation_report(dataset_df)
             if correlation_df is not None and not correlation_df.empty:
                 correlation_path = qc_dir / f"{dataset_path.stem}_correlation_report.csv"
-                logger.info(
+                self._stage_logger(OutputWriterStage.QUALITY).info(
                     "writing_correlation_report",
                     path=str(correlation_path),
                     rows=len(correlation_df),
@@ -739,7 +895,7 @@ class UnifiedOutputWriter:
                     float_format=float_format,
                 )
             else:
-                logger.info(
+                self._stage_logger(OutputWriterStage.QUALITY).info(
                     "skip_correlation_report",
                     reason="no_numeric_columns" if correlation_df is None else "empty_payload",
                 )
@@ -749,7 +905,7 @@ class UnifiedOutputWriter:
                 summary_statistics_path = (
                     qc_dir / f"{dataset_path.stem}_summary_statistics.csv"
                 )
-                logger.info(
+                self._stage_logger(OutputWriterStage.QUALITY).info(
                     "writing_summary_statistics",
                     path=str(summary_statistics_path),
                     rows=len(summary_statistics_df),
@@ -763,7 +919,7 @@ class UnifiedOutputWriter:
             dataset_metrics_df = self._build_dataset_metrics(dataset_df)
             if dataset_metrics_df is not None and not dataset_metrics_df.empty:
                 dataset_metrics_path = qc_dir / f"{dataset_path.stem}_dataset_metrics.csv"
-                logger.info(
+                self._stage_logger(OutputWriterStage.QUALITY).info(
                     "writing_dataset_metrics",
                     path=str(dataset_metrics_path),
                     rows=len(dataset_metrics_df),
@@ -812,6 +968,11 @@ class UnifiedOutputWriter:
         if dataset_metrics_path is not None:
             qc_artifact_paths["dataset_metrics"] = dataset_metrics_path
 
+        self._stage_logger(OutputWriterStage.METADATA).info(
+            "writing_metadata",
+            path=str(metadata_path),
+            hash_summary_present=bool(hash_summary),
+        )
         self._write_metadata(
             metadata_path,
             metadata,
@@ -824,6 +985,7 @@ class UnifiedOutputWriter:
             issues=issues,
             qc_artifacts=qc_artifact_paths,
             runtime_options=runtime_options,
+            hash_summary=hash_summary,
         )
 
         manifest_path = run_directory / "run_manifest.json"
@@ -864,6 +1026,13 @@ class UnifiedOutputWriter:
             },
         }
 
+        if hash_summary:
+            manifest_payload["hash_summary"] = hash_summary
+
+        self._stage_logger(OutputWriterStage.METADATA).info(
+            "writing_manifest",
+            path=str(manifest_path),
+        )
         self.atomic_writer.write_json(manifest_payload, manifest_path)
 
         return OutputArtifacts(
@@ -881,6 +1050,7 @@ class UnifiedOutputWriter:
             qc_dataset_metrics=dataset_metrics_path,
             debug_dataset=debug_dataset,
             metadata_model=metadata,
+            hash_summary=hash_summary,
         )
 
     def write_dataframe_json(
@@ -893,7 +1063,7 @@ class UnifiedOutputWriter:
     ) -> None:
         """Serialize ``df`` to JSON using the same atomic guarantees as CSV writes."""
 
-        logger.info(
+        self._stage_logger(OutputWriterStage.FORMAT).info(
             "writing_dataframe_json",
             path=str(json_path),
             rows=len(df),
@@ -950,6 +1120,43 @@ class UnifiedOutputWriter:
             )
 
         self._write_json_atomic(json_path, json_payload)
+
+    def _compute_hash_summary(self, df: DataFrame) -> dict[str, Any] | None:
+        """Return a digest summary for hash-related columns if present."""
+
+        summary: dict[str, Any] = {}
+        for column in ("hash_row", "hash_business_key"):
+            if column not in df.columns:
+                continue
+            column_summary = self._hash_series_summary(df[column])
+            summary[column] = column_summary
+
+        return summary or None
+
+    def _hash_series_summary(self, series: pd.Series) -> dict[str, Any]:
+        """Aggregate ``series`` into deterministic hash summary statistics."""
+
+        values: list[str] = []
+        null_count = 0
+        for value in series:
+            if pd.isna(value):
+                null_count += 1
+                continue
+            values.append(str(value))
+
+        digest = hashlib.sha256()
+        for value in values:
+            digest.update(value.encode("utf-8"))
+            digest.update(b"\n")
+
+        unique_count = len(set(values))
+
+        return {
+            "count": len(values),
+            "unique": unique_count,
+            "null_count": null_count,
+            "sha256": digest.hexdigest(),
+        }
 
     def _calculate_checksums(self, *paths: Path | None) -> dict[str, str]:
         """Вычисляет checksums для файлов."""
@@ -1058,6 +1265,7 @@ class UnifiedOutputWriter:
         issues: list[dict[str, Any]] | None = None,
         qc_artifacts: dict[str, Path | None] | None = None,
         runtime_options: dict[str, Any] | None = None,
+        hash_summary: dict[str, Any] | None = None,
     ) -> None:
         """Записывает метаданные в YAML."""
         import yaml
@@ -1126,6 +1334,9 @@ class UnifiedOutputWriter:
 
         if runtime_options:
             meta_dict["runtime_options"] = runtime_options
+
+        if hash_summary:
+            meta_dict["hash_summary"] = hash_summary
 
         lineage: dict[str, Any] | None = meta_dict.get("lineage")
         if not isinstance(lineage, dict):

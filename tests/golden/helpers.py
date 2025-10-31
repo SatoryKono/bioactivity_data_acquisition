@@ -148,6 +148,7 @@ def snapshot_artifacts(artifacts: OutputArtifacts, target_dir: Path) -> OutputAr
         qc_dataset_metrics=_copy(artifacts.qc_dataset_metrics),
         debug_dataset=_copy(artifacts.debug_dataset),
         metadata_model=artifacts.metadata_model,
+        hash_summary=artifacts.hash_summary,
     )
 
 
