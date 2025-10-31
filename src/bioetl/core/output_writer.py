@@ -208,9 +208,9 @@ class OutputMetadata:
     hash_policy_version: str | None = None
     hash_summary: dict[str, Any] | None = None
     quantitative_metrics: dict[str, Any] = field(default_factory=dict)
-    stage_durations: dict[str, float] = field(default_factory=dict)
-    sort_keys: list[str] = field(default_factory=list)
-    sort_directions: list[bool] = field(default_factory=list)
+    config_version: str | None = None
+    stage_durations_ms: dict[str, float] | None = None
+    sort_keys: dict[str, Any] | None = None
     pii_secrets_policy: dict[str, Any] | None = None
 
     @staticmethod
@@ -238,10 +238,8 @@ class OutputMetadata:
         sources: Sequence[str] | None = None,
         schema: type[BaseSchema] | None = None,
         hash_policy_version: str | None = None,
-        stage_durations: Mapping[str, float] | None = None,
+        config_version: str | None = None,
         quantitative_metrics: Mapping[str, Any] | None = None,
-        sort_keys: Sequence[str] | None = None,
-        sort_directions: Sequence[bool] | None = None,
         pii_secrets_policy: Mapping[str, Any] | None = None,
     ) -> OutputMetadata:
         """Создает метаданные из DataFrame."""
@@ -297,14 +295,6 @@ class OutputMetadata:
         if quantitative_metrics:
             base_metrics.update({key: value for key, value in quantitative_metrics.items()})
 
-        resolved_stage_durations = {
-            key: float(value)
-            for key, value in (stage_durations.items() if stage_durations else [])
-        }
-
-        resolved_sort_keys = list(sort_keys or [])
-        resolved_sort_directions = [bool(value) for value in (sort_directions or [])]
-
         resolved_pii_policy = (
             {key: value for key, value in pii_secrets_policy.items()}
             if pii_secrets_policy
@@ -332,9 +322,7 @@ class OutputMetadata:
             precision_policy=precision_policy,
             hash_policy_version=hash_policy_version,
             quantitative_metrics=base_metrics,
-            stage_durations=resolved_stage_durations,
-            sort_keys=resolved_sort_keys,
-            sort_directions=resolved_sort_directions,
+            config_version=config_version,
             pii_secrets_policy=resolved_pii_policy,
         )
 
@@ -719,6 +707,9 @@ class UnifiedOutputWriter:
         debug_dataset: Path | None = None,
         *,
         apply_column_order: bool = True,
+        stage_durations_ms: Mapping[str, float] | None = None,
+        sort_definition: Mapping[str, Any] | None = None,
+        pii_secrets_policy: Mapping[str, Any] | None = None,
     ) -> OutputArtifacts:
         """
         Записывает DataFrame с QC отчетами и метаданными.
@@ -732,7 +723,7 @@ class UnifiedOutputWriter:
         Returns:
             OutputArtifacts с путями к созданным файлам
         """
-        load_start = perf_counter()
+        load_stage_start = perf_counter()
 
         dataset_df: DataFrame = df.copy()
         if apply_column_order:
@@ -784,6 +775,14 @@ class UnifiedOutputWriter:
             metadata_defaults["na_policy"] = "allow"
         if metadata.precision_policy is None and float_format is not None:
             metadata_defaults["precision_policy"] = float_format
+        if metadata.sort_keys is None and sort_definition is not None:
+            metadata_defaults["sort_keys"] = dict(sort_definition)
+        if metadata.pii_secrets_policy is None and pii_secrets_policy is not None:
+            metadata_defaults["pii_secrets_policy"] = dict(pii_secrets_policy)
+        if metadata.stage_durations_ms is None and stage_durations_ms is not None:
+            metadata_defaults["stage_durations_ms"] = {
+                str(name): float(value) for name, value in stage_durations_ms.items()
+            }
 
         if metadata_defaults:
             metadata = replace(metadata, **metadata_defaults)
@@ -1016,13 +1015,23 @@ class UnifiedOutputWriter:
             quantitative_metrics.update(dataset_metrics_payload)
         metadata = replace(metadata, quantitative_metrics=quantitative_metrics)
 
-        load_elapsed = perf_counter() - load_start
-        stage_durations = dict(metadata.stage_durations)
-        stage_durations["load"] = round(load_elapsed, 6)
-        metadata = replace(metadata, stage_durations=stage_durations)
-
         checksums = self._calculate_checksums(*checksum_targets)
-        metadata = replace(metadata, checksums=checksums)
+        stage_duration_payload = dict(metadata.stage_durations_ms or {})
+        load_duration_ms = (perf_counter() - load_stage_start) * 1000.0
+        stage_duration_payload["load"] = load_duration_ms
+
+        metadata_updates: dict[str, Any] = {
+            "checksums": checksums,
+            "stage_durations_ms": stage_duration_payload,
+        }
+
+        if metadata.sort_keys is None and sort_definition is not None:
+            metadata_updates["sort_keys"] = dict(sort_definition)
+
+        if metadata.pii_secrets_policy is None and pii_secrets_policy is not None:
+            metadata_updates["pii_secrets_policy"] = dict(pii_secrets_policy)
+
+        metadata = replace(metadata, **metadata_updates)
 
         metadata_filename = f"{dataset_path.stem}_meta.yaml"
         metadata_path = run_directory / metadata_filename
@@ -1360,11 +1369,21 @@ class UnifiedOutputWriter:
             "na_policy": metadata.na_policy,
             "precision_policy": metadata.precision_policy,
             "quantitative_metrics": metadata.quantitative_metrics,
-            "stage_durations": metadata.stage_durations,
-            "sort_keys": metadata.sort_keys,
-            "sort_directions": metadata.sort_directions,
             "pii_secrets_policy": metadata.pii_secrets_policy,
         }
+
+        if metadata.config_version is not None:
+            meta_dict["config_version"] = metadata.config_version
+
+        stage_durations_ms = {
+            str(name): float(value) for name, value in (metadata.stage_durations_ms or {}).items()
+        }
+        meta_dict["stage_durations_ms"] = stage_durations_ms
+
+        meta_dict["sort_keys"] = dict(metadata.sort_keys or {})
+
+        pii_policy = metadata.pii_secrets_policy or {}
+        meta_dict["pii_secrets_policy"] = pii_policy
 
         if metadata.hash_policy_version:
             meta_dict["hash_policy_version"] = metadata.hash_policy_version

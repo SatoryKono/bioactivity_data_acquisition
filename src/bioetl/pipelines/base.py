@@ -9,6 +9,7 @@ from time import perf_counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import pandas as pd
@@ -128,7 +129,7 @@ class PipelineBase(ABC):
         self.export_metadata: OutputMetadata | None = None
         self.debug_dataset_path: Path | None = None
         self.stage_context: dict[str, Any] = {}
-        self.stage_durations: dict[str, float] = {}
+        self.stage_durations_ms: dict[str, float] = {}
         self._clients: list[UnifiedAPIClient] = []
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
@@ -162,15 +163,16 @@ class PipelineBase(ABC):
         self.stage_context.clear()
 
     def _record_stage_duration(self, stage: str, duration: float) -> None:
-        """Persist elapsed wall-clock time for ``stage`` and update metadata."""
+        """Persist elapsed wall-clock time for ``stage`` in milliseconds and update metadata."""
 
-        safe_duration = round(float(duration), 6)
-        self.stage_durations[stage] = safe_duration
+        safe_duration_ms = round(float(duration) * 1000.0, 6)
+        self.stage_durations_ms[stage] = safe_duration_ms
 
         if self.export_metadata is not None:
+            stage_durations_ms_dict = dict(self.stage_durations_ms)
             self.export_metadata = replace(
                 self.export_metadata,
-                stage_durations=dict(self.stage_durations),
+                stage_durations_ms=stage_durations_ms_dict,
             )
 
     def _build_pii_secrets_policy(self) -> dict[str, Any]:
@@ -200,6 +202,7 @@ class PipelineBase(ABC):
         self.qc_enrichment_metrics = pd.DataFrame()
         self.runtime_options.clear()
         self.reset_stage_context()
+        self.stage_durations_ms.clear()
 
     def get_stage_summary(self, name: str) -> dict[str, Any] | None:
         """Return the summary payload for a specific stage if present."""
@@ -411,7 +414,7 @@ class PipelineBase(ABC):
 
             schema=resolved_schema,
             hash_policy_version=resolved_hash_policy_version,
-            stage_durations=self.stage_durations,
+            config_version=str(getattr(self.config, "version", "")) or None,
             pii_secrets_policy=self._build_pii_secrets_policy(),
         )
 
@@ -546,6 +549,17 @@ class PipelineBase(ABC):
             )
 
         return working_df
+
+    def _resolve_pii_policy(self) -> dict[str, Any]:
+        """Return the PII/secrets handling policy snapshot for metadata exports."""
+
+        reference = "docs/acceptance-criteria-document.md#pii-and-secrets"
+        return {
+            "redaction": "enabled",
+            "log_channels": ["structlog", "pipeline"],
+            "artifact_secrets": "forbidden",
+            "policy_reference": reference,
+        }
 
     def get_runtime_limit(self) -> int | None:
         """Return a positive runtime limit if configured, normalising the value."""
@@ -995,6 +1009,14 @@ class PipelineBase(ABC):
                 kind="stable",
             )
 
+        sort_definition = {
+            "by": list(sort_columns),
+            "ascending": list(sort_ascending),
+            "stable": bool(sort_columns),
+        }
+
+        pii_policy = self._resolve_pii_policy()
+
         artifacts = self.output_writer.write(
             export_frame,
             output_path,
@@ -1008,11 +1030,15 @@ class PipelineBase(ABC):
             additional_tables=self.additional_tables,
             runtime_options=self.runtime_options,
             debug_dataset=self.debug_dataset_path,
+            stage_durations_ms=self.stage_durations_ms,
+            sort_definition=sort_definition,
+            pii_secrets_policy=pii_policy,
         )
 
         if artifacts.metadata_model is not None:
             self.export_metadata = artifacts.metadata_model
-            self.stage_durations = dict(artifacts.metadata_model.stage_durations)
+            if artifacts.metadata_model.stage_durations_ms is not None:
+                self.stage_durations_ms = dict(artifacts.metadata_model.stage_durations_ms)
 
         return artifacts
 
@@ -1195,7 +1221,7 @@ class PipelineBase(ABC):
         try:
             self.reset_run_state()
             self.reset_additional_tables()
-            self.stage_durations.clear()
+            self.stage_durations_ms.clear()
             if previous_runtime_options:
                 self.runtime_options.update(previous_runtime_options)
             self.export_metadata = None
@@ -1203,29 +1229,28 @@ class PipelineBase(ABC):
             # Extract
             UnifiedLogger.set_context(stage="extract")
             extract_start = perf_counter()
-            try:
-                df = self.extract(*args, **kwargs)
-            finally:
-                self._record_stage_duration("extract", perf_counter() - extract_start)
-            logger.info("extraction_completed", rows=len(df))
+            df = self.extract(*args, **kwargs)
+            extract_duration = (perf_counter() - extract_start) * 1000.0
+            self.stage_durations_ms["extract"] = extract_duration
+            logger.info("extraction_completed", rows=len(df), duration_ms=extract_duration)
 
             # Transform
             UnifiedLogger.set_context(stage="transform")
             transform_start = perf_counter()
-            try:
-                df = self.transform(df)
-            finally:
-                self._record_stage_duration("transform", perf_counter() - transform_start)
-            logger.info("transformation_completed", rows=len(df))
+            df = self.transform(df)
+            transform_duration = (perf_counter() - transform_start) * 1000.0
+            self.stage_durations_ms["transform"] = transform_duration
+            logger.info(
+                "transformation_completed", rows=len(df), duration_ms=transform_duration
+            )
 
             # Validate
             UnifiedLogger.set_context(stage="validate")
             validate_start = perf_counter()
-            try:
-                df = self.validate(df)
-            finally:
-                self._record_stage_duration("validate", perf_counter() - validate_start)
-            logger.info("validation_completed", rows=len(df))
+            df = self.validate(df)
+            validate_duration = (perf_counter() - validate_start) * 1000.0
+            self.stage_durations_ms["validate"] = validate_duration
+            logger.info("validation_completed", rows=len(df), duration_ms=validate_duration)
 
             self.debug_dataset_path = self._dump_debug_output(df, output_path)
 
@@ -1233,7 +1258,12 @@ class PipelineBase(ABC):
             UnifiedLogger.set_context(stage="load")
             self.runtime_options["extended"] = extended
             artifacts = self.export(df, output_path, extended=extended)
-            logger.info("pipeline_completed", artifacts=str(artifacts.dataset))
+            load_duration = self.stage_durations_ms.get("load")
+            logger.info(
+                "pipeline_completed",
+                artifacts=str(artifacts.dataset),
+                load_duration_ms=load_duration,
+            )
 
             return artifacts
 

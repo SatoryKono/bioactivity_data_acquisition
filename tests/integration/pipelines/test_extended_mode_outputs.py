@@ -97,6 +97,7 @@ def _make_config() -> types.SimpleNamespace:
         "pubchem": types.SimpleNamespace(enabled=False),
     }
     return types.SimpleNamespace(
+        version=1,
         pipeline=pipeline_section,
         qc=qc_section,
         cli={},
@@ -180,6 +181,17 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     assert "summary_statistics" in qc_artifacts
     assert "dataset_metrics" in qc_artifacts
 
+    assert metadata["config_version"] == "1"
+    durations = metadata["stage_durations_ms"]
+    assert {"extract", "transform", "validate", "load"}.issubset(durations)
+    assert all(value >= 0 for value in durations.values())
+    sort_keys = metadata["sort_keys"]
+    assert sort_keys.get("by") == []
+    assert sort_keys.get("stable") is False
+    pii_policy = metadata["pii_secrets_policy"]
+    assert pii_policy["artifact_secrets"] == "forbidden"
+    assert pii_policy["policy_reference"].endswith("#pii-and-secrets")
+
 
 @pytest.mark.integration
 def test_pipeline_run_fails_on_schema_registry_order_mismatch(
@@ -203,3 +215,4 @@ def test_pipeline_run_fails_on_schema_registry_order_mismatch(
 
     with pytest.raises(ValueError, match="columns do not match"):
         pipeline.run(output_path)
+    assert set(pipeline.stage_durations_ms) == {"extract", "transform", "validate"}

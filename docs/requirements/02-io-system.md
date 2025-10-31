@@ -876,6 +876,20 @@ pii_secrets_policy:
   secret_management: "API credentials via env / secrets manager"
   pii_review: "Schema registry audits enforce absence of personal identifiers."
 git_commit: "a1b2c3d"
+config_version: "1"
+stage_durations_ms:
+  extract: 1523.4
+  transform: 743.8
+  validate: 211.0
+  load: 982.6
+sort_keys:
+  by: ["chembl_id", "assay_id"]
+  ascending: [true, true]
+  stable: true
+pii_secrets_policy:
+  redaction: "enabled"
+  artifact_secrets: "forbidden"
+  policy_reference: "docs/acceptance-criteria-document.md#pii-and-secrets"
 generated_at: "2025-01-28T14:23:15.123Z"
 lineage:
   source_files:
@@ -889,15 +903,16 @@ lineage:
 
 ```
 
-**Обязательные поля lineage конфигурации:**
+**Обязательные поля lineage конфигурации и контроля детерминизма:**
 
 - `run_id`: уникальный идентификатор запуска (UUID8 или timestamp-based)
 - `config_hash`: SHA256 хеш конфигурации (после резолва переменных окружения)
 - `config_snapshot`: путь и хеш исходного файла конфигурации
 - `checksum_algorithm`: алгоритм, которым рассчитаны `file_checksums`
+- `config_version`: версия конфигурационной схемы (`PipelineConfig.version`)
 - `quantitative_metrics`: числовые показатели качества (объём, дубликаты, пропуски)
-- `stage_durations`: длительность стадий ETL (extract/transform/validate/load)
-- `sort_keys`/`sort_directions`: применённая детерминированная сортировка
+- `stage_durations_ms`: длительности стадий ETL в миллисекундах (extract/transform/validate/load)
+- `sort_keys`: словарь с ключами стабильной сортировки и направлением (для аудита детерминизма)
 - `pii_secrets_policy`: политика обращения с PII и секретами для трассируемости аудита
 
 **Обоснование:** Обеспечивает полную воспроизводимость и аудит запусков, закрывает требование R2 из gap-анализа.

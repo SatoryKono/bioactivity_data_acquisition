@@ -642,6 +642,9 @@ def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monke
         metadata = yaml.safe_load(handle)
 
     assert metadata.get("sources") == []
+    assert metadata["stage_durations_ms"]["load"] >= 0
+    assert metadata["sort_keys"] == {}
+    assert metadata["pii_secrets_policy"] == {}
     checksums = metadata["file_checksums"]
     assert "qc_missing_mappings.csv" not in checksums
     assert "qc_enrichment_metrics.csv" not in checksums
@@ -717,6 +720,9 @@ def test_meta_yaml_matches_schema_registry(tmp_path, monkeypatch):
         assert contents["column_order_source"] == "schema_registry"
         assert contents["na_policy"] == "forbid"
         assert contents["precision_policy"] == "%.4f"
+        assert "load" in contents["stage_durations_ms"]
+        assert contents["sort_keys"] == {}
+        assert contents["pii_secrets_policy"] == {}
     finally:
         stub_versions = schema_registry._registry.get("stub")
         if stub_versions is not None:
