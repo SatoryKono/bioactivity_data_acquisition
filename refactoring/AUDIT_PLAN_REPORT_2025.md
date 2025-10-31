@@ -114,52 +114,52 @@ CSV `docs/requirements/PIPELINES.inventory.csv` отсутствует, хотя
 
 **Приоритет:** P0 (Критический)  
 **Категория:** Структура тестов  
-**Статус:** ✅ Исправлено (2025-10-31)
+**Статус:** ⚠️ **ЧАСТИЧНО СООТВЕТСТВУЕТ** (2025-10-31)
 
-**Решение:**
+**Фактическое состояние:**
 
-- Перенесены интеграционные проверки DocumentPipeline из `tests/integration/` в `tests/sources/document/` и разделены на
-  обязательный `test_pipeline_e2e.py` и целевой `test_merge.py` для MergePolicy.
-- Добавлен `tests/sources/pubchem/test_pipeline_e2e.py`, закрывающий обязательный набор тестов для источника PubChem.
-- Каталог `tests/integration/` оставлен только для общих многоисточниковых E2E-проверок (bit-identical, golden, QC).
-- Документация (`MODULE_RULES.md`, `PIPELINES.md`, `REFACTOR_PLAN.md`) обновлена и синхронизирована с фактической структурой.
+✅ Структура `tests/sources/` существует для всех источников:
+- `tests/sources/chembl/` — содержит обязательные тесты (`test_client.py`, `test_parser.py`, `test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`)
+- `tests/sources/crossref/`, `tests/sources/pubmed/`, `tests/sources/openalex/`, `tests/sources/semantic_scholar/` — содержат обязательные тесты
+- `tests/sources/document/`, `tests/sources/pubchem/`, `tests/sources/iuphar/`, `tests/sources/uniprot/` — содержат обязательные тесты
+- Опциональные сценарии (pagination, merge) вынесены в отдельные файлы внутри того же каталога
+
+⚠️ **Частичное соответствие:** Структура существует и содержит обязательные файлы для всех источников, но документация (`MODULE_RULES.md`, `REFACTOR_PLAN.md`) требует полного соответствия со всеми источниками из `src/bioetl/sources/`. Некоторые источники могут не иметь полного набора тестов или структура не полностью соответствует требованиям `MODULE_RULES.md`.
 
 **Актуальная структура:**
 
 ```
 tests/
-├── sources/
+├── sources/              # Существует для всех источников
 │   ├── chembl/
 │   ├── crossref/
 │   ├── document/
+│   ├── iuphar/
 │   ├── openalex/
 │   ├── pubchem/
 │   ├── pubmed/
 │   ├── semantic_scholar/
-│   ├── uniprot/
-│   └── … (остальные источники)
+│   └── uniprot/
 ├── integration/
-│   └── pipelines/   # Общие сквозные сценарии (без дублирования source E2E)
-└── unit/
-    └── …
+│   └── pipelines/       # E2E тесты пайплайнов
+├── unit/                 # Unit-тесты компонентов
+└── schemas/              # Тесты схем
 ```
-
-**Проверено:** каждая директория `tests/sources/<source>/` содержит обязательные файлы (`test_client.py`, `test_parser.py`,
-`test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`). Опциональные сценарии (pagination, merge) вынесены в отдельные
-файлы внутри того же каталога.
 
 **Рекомендации:**
 
-**Вариант А:** Привести структуру тестов в соответствие с `MODULE_RULES.md`:
-- Создать `tests/sources/<source>/` для всех источников из `src/bioetl/sources/`
-- Добавить тесты: `test_client.py`, `test_parser.py`, `test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`
-- Перенести существующие тесты адаптеров в правильную структуру
+**Вариант А:** Привести структуру тестов в полное соответствие с `MODULE_RULES.md`:
+- Убедиться, что все источники из `src/bioetl/sources/` имеют полный набор тестов в `tests/sources/<source>/`
+- Проверить, что все обязательные файлы присутствуют: `test_client.py`, `test_parser.py`, `test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`
+- Дополнить недостающие тесты для источников, где они отсутствуют
 
 **Вариант Б:** Обновить описание структуры тестов под фактическую организацию:
 - Обновить `MODULE_RULES.md` с указанием фактической структуры
-- Уточнить, что `tests/sources/` — для адаптеров, `tests/integration/pipelines/` — для E2E пайплайнов
+- Уточнить, что `tests/sources/` — для адаптеров и пайплайнов источников, `tests/integration/pipelines/` — для общих многоисточниковых E2E-проверок
 
 **Приоритет:** Высокий — влияет на соответствие правилам проекта
+
+> **Примечание:** Детальный анализ см. [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md#p0-3)
 
 ---
 
