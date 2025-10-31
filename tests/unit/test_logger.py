@@ -12,6 +12,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pytest
+from hypothesis import given, strategies as st
 from structlog.testing import capture_logs
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -274,6 +275,39 @@ def test_setup_logger_reinitialization_is_idempotent(tmp_path):
     second_handlers = _get_rotating_file_handlers()
     assert len(second_handlers) == 1
     assert Path(second_handlers[0].baseFilename) == log_file.resolve()
+
+
+@pytest.mark.usefixtures("fixed_timestamp")
+@given(
+    st.integers(min_value=0, max_value=10_000),
+    st.integers(min_value=0, max_value=10_000),
+    st.floats(min_value=0.0, max_value=1e6, allow_nan=False, allow_infinity=False),
+)
+def test_structured_metrics_context(rows_in: int, rows_out: int, elapsed_ms: float) -> None:
+    """Structured metrics should propagate through the processor pipeline."""
+
+    UnifiedLogger.setup(mode="testing", run_id="metrics-run")
+    UnifiedLogger.set_context(
+        run_id="metrics-run",
+        stage="transform",
+        actor="pipeline",
+        source="chembl",
+    )
+    log = UnifiedLogger.get("metrics")
+
+    with capture_logs() as logs:
+        log.info(
+            "metrics_event",
+            rows_in=rows_in,
+            rows_out=rows_out,
+            elapsed_ms=elapsed_ms,
+        )
+
+    assert logs
+    event = _apply_core_processors(log, "info", logs[0])
+    assert event["rows_in"] == rows_in
+    assert event["rows_out"] == rows_out
+    assert event["elapsed_ms"] == elapsed_ms
 
 
 if __name__ == "__main__":
