@@ -35,6 +35,9 @@ datatracker.ietf.org
 ### Тесты и доки (MUST)
 
 `tests/sources/<source>/` с `test_client.py`, `test_parser.py`, `test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`.
+Опциональные сценарии (`test_pagination.py`, `test_merge.py`, `test_request.py`) располагаются рядом, в этой же директории.
+`tests/integration/pipelines/` содержит только общие E2E-проверки (golden, bit-identical, QC) для нескольких источников.
+Тесты конкретного источника размещаются исключительно в `tests/sources/<source>/`.
 
 `docs/requirements/sources/<source>/README.md` — краткая спецификация источника (API, config_keys, merge_policy, тесты/golden).
 

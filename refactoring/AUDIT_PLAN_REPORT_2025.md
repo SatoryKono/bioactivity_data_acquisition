@@ -108,35 +108,39 @@ CSV `docs/requirements/PIPELINES.inventory.csv` отсутствует, хотя
 
 **Приоритет:** P0 (Критический)  
 **Категория:** Структура тестов  
-**Статус:** Требует синхронизации
+**Статус:** ✅ Исправлено (2025-10-31)
 
-**Проблема:**
+**Решение:**
 
-Документы требуют `tests/sources/<source>/`, но фактическая структура:
-- `tests/sources/` существует для адаптеров (crossref, pubmed, openalex, semantic_scholar)
-- `tests/integration/pipelines/` для E2E тестов пайплайнов
-- `tests/unit/` для unit-тестов компонентов
+- Перенесены интеграционные проверки DocumentPipeline из `tests/integration/` в `tests/sources/document/` и разделены на
+  обязательный `test_pipeline_e2e.py` и целевой `test_merge.py` для MergePolicy.
+- Добавлен `tests/sources/pubchem/test_pipeline_e2e.py`, закрывающий обязательный набор тестов для источника PubChem.
+- Каталог `tests/integration/` оставлен только для общих многоисточниковых E2E-проверок (bit-identical, golden, QC).
+- Документация (`MODULE_RULES.md`, `PIPELINES.md`, `REFACTOR_PLAN.md`) обновлена и синхронизирована с фактической структурой.
 
-**Фактическое состояние:**
+**Актуальная структура:**
 
 ```
 tests/
-├── sources/              # Существует для адаптеров
+├── sources/
+│   ├── chembl/
 │   ├── crossref/
-│   ├── pubmed/
+│   ├── document/
 │   ├── openalex/
-│   └── semantic_scholar/
+│   ├── pubchem/
+│   ├── pubmed/
+│   ├── semantic_scholar/
+│   ├── uniprot/
+│   └── … (остальные источники)
 ├── integration/
-│   └── pipelines/        # E2E тесты пайплайнов
-├── unit/                 # Unit-тесты компонентов
-└── schemas/              # Тесты схем
+│   └── pipelines/   # Общие сквозные сценарии (без дублирования source E2E)
+└── unit/
+    └── …
 ```
 
-**Затронутые документы:**
-- `MODULE_RULES.md` (строка 30) — требует `tests/sources/<source>/` с `test_client.py`, `test_parser.py`, и т.д.
-- `REFACTOR_PLAN.md` (строка 714) — ссылается на `tests/sources/crossref/*`
-- `PIPELINES.md` (строка 142) — описывает структуру тестов
-- `AUDIT_REPORT_2025.md` (строки 58-75, 809-820) — детальный анализ
+**Проверено:** каждая директория `tests/sources/<source>/` содержит обязательные файлы (`test_client.py`, `test_parser.py`,
+`test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`). Опциональные сценарии (pagination, merge) вынесены в отдельные
+файлы внутри того же каталога.
 
 **Рекомендации:**
 
