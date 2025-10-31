@@ -109,8 +109,8 @@ CLI: `python -m bioetl.sources.<source>.pipeline --config ...`
 
 ## 5) Конфигурация и валидация конфигов (@test_refactoring_32)
 
-Конфиг каждого источника: `src/bioetl/configs/pipelines/<source>.yaml` (MUST). Общие блоки допускается выносить в include-модули,
-например `includes/chembl_source.yaml`, чтобы исключить дублирование параметров. Итоговый YAML автоматически валидируется через
+Конфиг каждого источника: `configs/sources/<source>/pipeline.yaml` (MUST). Общие блоки допускается выносить в include-модули,
+например `../_shared/chembl_source.yaml`, чтобы исключить дублирование параметров. Итоговый YAML автоматически валидируется через
 `PipelineConfig`; несоответствие схеме немедленно завершает запуск с ошибкой (MUST NOT продолжать работу).
 
 Обязательные ключи: сетевые таймауты/повторы/лимиты, параметры пагинации, поле идентификации клиента (где требуется), фильтры/поля.
@@ -140,7 +140,10 @@ src/bioetl/sources/<source>/
  output/writer.py
  pipeline.py
 configs/sources/<source>/
- <source>.yaml
+ pipeline.yaml
+ schema.yaml
+ includes/
+  _shared_blocks.yaml
 tests/sources/<source>/
  test_client.py
  test_parser.py
