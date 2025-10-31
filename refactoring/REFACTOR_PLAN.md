@@ -41,7 +41,13 @@ source: из дерева src/bioetl/sources/<source>/… или имени фа
 
 Конвейер: inventory → clusters → отчёт (см. п.3).
 
-Норматив: требования трактуются по RFC 2119/BCP 14 (MUST/SHOULD/MAY). 
+Контрольная точка (baseline) перед миграцией:
+
+- [Inventory CSV](../artifacts/baselines/pre_migration/PIPELINES.inventory.csv)
+- [Inventory clusters](../artifacts/baselines/pre_migration/PIPELINES.inventory.clusters.md)
+- [Golden-тесты pipelines (pytest лог + coverage)](../artifacts/baselines/golden_tests/)
+
+Норматив: требования трактуются по RFC 2119/BCP 14 (MUST/SHOULD/MAY).
 datatracker.ietf.org
 +1
 
