@@ -74,7 +74,7 @@ schema:
 
 ```
 
-  column_order: [index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at, fallback_reason, fallback_error_type, fallback_error_code, fallback_error_message, fallback_http_status, fallback_retry_after_sec, fallback_attempt, fallback_timestamp, assay_chembl_id, assay_type, assay_category, assay_cell_type, assay_classifications, assay_group, assay_organism, assay_parameters_json, assay_strain, assay_subcellular_fraction, assay_tax_id, assay_test_type, assay_tissue, assay_type_description, bao_format, bao_label, bao_endpoint, cell_chembl_id, confidence_description, confidence_score, assay_description, document_chembl_id, relationship_description, relationship_type, src_assay_id, src_id, target_chembl_id, tissue_chembl_id, variant_sequence_json, pref_name, organism, target_type, species_group_flag, tax_id, component_count, assay_param_type, assay_param_relation, assay_param_value, assay_param_units, assay_param_text_value, assay_param_standard_type, assay_param_standard_value, assay_param_standard_units, assay_class_id, assay_class_bao_id, assay_class_type, assay_class_l1, assay_class_l2, assay_class_l3, assay_class_description, variant_id, variant_base_accession, variant_mutation, variant_sequence, variant_accession_reported]
+  column_order: [index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at, fallback_reason, fallback_error_type, fallback_error_code, fallback_error_message, fallback_http_status, fallback_retry_after_sec, fallback_attempt, fallback_timestamp, assay_chembl_id, assay_type, assay_category, assay_cell_type, assay_classifications, assay_group, assay_organism, assay_parameters_json, assay_strain, assay_subcellular_fraction, assay_tax_id, assay_test_type, assay_tissue, assay_type_description, bao_format, bao_label, cell_chembl_id, confidence_description, confidence_score, assay_description, document_chembl_id, relationship_description, relationship_type, src_assay_id, src_id, target_chembl_id, tissue_chembl_id, variant_sequence_json, pref_name, organism, target_type, species_group_flag, tax_id, component_count, assay_param_type, assay_param_relation, assay_param_value, assay_param_units, assay_param_text_value, assay_param_standard_type, assay_param_standard_value, assay_param_standard_units, assay_class_id, assay_class_bao_id, assay_class_type, assay_class_l1, assay_class_l2, assay_class_l3, assay_class_description, variant_id, variant_base_accession, variant_mutation, variant_sequence, variant_accession_reported]
   fields:
 
 ```text
@@ -267,18 +267,6 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Описание ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
-
-- name: bao_endpoint
-
-  dtype: string
-  required: false
-  units: null
-  allowed_values: []
-  constraints:
-    regex: '^BAO_\\d{7}$'
-  na_policy: allow
-  notes: "BAO endpoint"
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: bao_format

@@ -56,7 +56,6 @@ class AssayNormalizer:
             "assay_type_description": assay.get("assay_type_description"),
             "bao_format": registry.normalize("chemistry.bao_id", assay.get("bao_format")),
             "bao_label": registry.normalize("chemistry.string", assay.get("bao_label"), max_length=128),
-            "bao_endpoint": registry.normalize("chemistry.bao_id", assay.get("bao_endpoint")),
             "cell_chembl_id": registry.normalize("chemistry.chembl_id", assay.get("cell_chembl_id")),
             "confidence_description": assay.get("confidence_description"),
             "confidence_score": assay.get("confidence_score"),

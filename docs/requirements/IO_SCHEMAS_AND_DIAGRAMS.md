@@ -105,7 +105,6 @@ schema:
     - assay_type_description
     - bao_format
     - bao_label
-    - bao_endpoint
     - cell_chembl_id
     - confidence_description
     - confidence_score
@@ -313,18 +312,6 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Описание ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
-
-- name: bao_endpoint
-
-  dtype: string
-  required: false
-  units: null
-  allowed_values: []
-  constraints:
-    regex: '^BAO_\\d{7}$'
-  na_policy: allow
-  notes: "BAO endpoint"
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: bao_format
