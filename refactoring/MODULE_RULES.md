@@ -69,7 +69,7 @@ datatracker.ietf.org
 
 ## 3. Конфиги
 
-Конфиги источника MUST лежать в `configs/sources/<source>/pipeline.yaml`.
+Конфиги источника MUST лежать в `src/bioetl/configs/pipelines/<source>.yaml`.
 
 Каждый YAML допускает include-модули (например, `../_shared/chembl_source.yaml`) для повторного использования общих блоков настроек
 между пайплайнами (SHOULD документировать все включения). Результирующий конфиг прогоняется через `PipelineConfig`

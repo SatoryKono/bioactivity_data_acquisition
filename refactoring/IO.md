@@ -378,7 +378,7 @@ src/bioetl/configs/pipelines/<source>.yaml
 ### 4.2 YAML-пример конфига (Crossref)
 
 ```yaml
-# src/bioetl/configs/pipelines/crossref.yaml
+# src/bioetl/configs/pipelines/document.yaml (секция источника Crossref)
 
 api_base_url: "https://api.crossref.org/works"
 auth: { api_key: null }
