@@ -55,11 +55,21 @@ Hypothesis
 
 CLI
 
-MUST: единая команда запуска — bioetl pipeline run с унифицированными флагами (--golden, --fail-on-schema-drift, --extended, и т.п.).
-Старые CLI-входы допускаются только как временные совместимые «шины» с DeprecationWarning и снимаются по графику депрекаций; финальное удаление — в ближайшем MAJOR релизе по SemVer. 
-Semantic Versioning
+MUST: Typer-команды CLI регистрируются автоматически на основе `scripts.PIPELINE_COMMAND_REGISTRY` и доступны через единый вход `python -m bioetl.cli.main <pipeline>`; поддерживаемый реестр хранится в `src/scripts/__init__.py`.
+Typer documentation
 
-SHOULD: единый механизм overrides: --set key=value и ENV-переменные; приоритет разрешений CLI > ENV > config. Хранить конфиг в окружении соответствует 12-Factor. 
+SHOULD: раздел FAQ ссылается на актуальный список команд из [README.md#cli-usage](../README.md#cli-usage) и перечисляет флаги общего назначения: `--config`, `--dry-run`, `--mode`.
+Project README
+
+SHOULD: приведённые примеры команд проходят дымовую проверку `python -m bioetl.cli.main list` в отдельном CI-джобе.
+
+Примеры вызовов:
+`python -m bioetl.cli.main list`
+`python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml --dry-run --mode ci`
+
+MAY: флаги, специфичные для пайплайнов, документируются локально, но базовые команды (`--help`, `list`, `activity`, `assay`, и т.д.) обязаны совпадать с выводом Typer.
+
+SHOULD: единый механизм overrides: --set key=value и ENV-переменные; приоритет разрешений CLI > ENV > config. Хранить конфиг в окружении соответствует 12-Factor.
 12factor.net
 +1
 
