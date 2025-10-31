@@ -1,3 +1,5 @@
+"""IUPHAR pipeline end-to-end tests."""
+
 from __future__ import annotations
 
 from pathlib import Path
