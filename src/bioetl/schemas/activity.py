@@ -84,6 +84,7 @@ COLUMN_ORDER = [
     "activity_id",
     "molecule_chembl_id",
     "assay_chembl_id",
+    "assay_id",
     "target_chembl_id",
     "document_chembl_id",
     "published_type",
@@ -141,6 +142,10 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
         nullable=True,
         regex=r'^CHEMBL\d+$',
         description="FK на ассай",
+    )
+    assay_id: Series[pd.Int64Dtype] = pa.Field(
+        nullable=True,
+        description="Внутренний числовой идентификатор ассая",
     )
     target_chembl_id: Series[str] = pa.Field(
         nullable=True,

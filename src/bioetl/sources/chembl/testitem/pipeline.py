@@ -11,6 +11,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
+from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.testitem.client import TestItemChEMBLClient
 from bioetl.sources.chembl.testitem.normalizer import (
     coerce_boolean_and_integer_columns,
@@ -31,6 +32,8 @@ from bioetl.utils.qc import (
     update_summary_section,
     update_validation_issue_summary,
 )
+
+schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
 
 __all__ = ["TestItemPipeline"]
 

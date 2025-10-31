@@ -11,3 +11,4 @@ def test_activity_column_order_contains_business_key() -> None:
     columns = _get_activity_column_order()
     assert "activity_id" in columns
     assert "molecule_chembl_id" in columns
+    assert "assay_id" in columns
