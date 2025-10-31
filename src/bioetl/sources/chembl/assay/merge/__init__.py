@@ -1,3 +1,5 @@
 """Assay merge module namespace."""
 
-__all__ = []
+from .assay_merge import AssayMergeService
+
+__all__ = ["AssayMergeService"]

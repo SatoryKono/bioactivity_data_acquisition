@@ -1,3 +1,5 @@
 """Assay parser module namespace."""
 
-__all__ = []
+from .assay_parser import AssayParser
+
+__all__ = ["AssayParser"]
