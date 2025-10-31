@@ -7,7 +7,7 @@ from collections import Counter
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -24,7 +24,7 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 
-__all__ = ["AssayPipeline"]
+__all__: Final[tuple[str, ...]] = ("AssayPipeline",)
 
 logger = UnifiedLogger.get(__name__)
 
