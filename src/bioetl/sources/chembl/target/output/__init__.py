@@ -1,3 +1,5 @@
-"""Target output module namespace."""
+"""Output services for the ChEMBL target pipeline."""
 
-__all__ = []
+from .services import TargetOutputService
+
+__all__ = ["TargetOutputService"]
