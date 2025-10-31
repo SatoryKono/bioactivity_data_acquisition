@@ -144,6 +144,7 @@ def test_pipeline_constructors_use_factory(
     config = _build_pipeline_config(tmp_path)
     module = importlib.import_module(module_path)
     base_module = importlib.import_module("bioetl.pipelines.base")
+    chembl_module = importlib.import_module("bioetl.core.chembl")
     captured: list[Any] = []
 
     class DummyClient:
@@ -154,7 +155,7 @@ def test_pipeline_constructors_use_factory(
         def request_json(self, url, params=None, method="GET", **kwargs):
             return {"chembl_db_version": "CHEMBL_TEST"}
 
-    original_builder = base_module._build_chembl_client_context
+    original_builder = chembl_module.build_chembl_client_context
 
     def recording_helper(self, *, defaults=None, batch_size_cap=None):  # type: ignore[override]
         context = original_builder(
@@ -162,7 +163,7 @@ def test_pipeline_constructors_use_factory(
             defaults=defaults,
             batch_size_cap=batch_size_cap,
         )
-        return base_module.ChemblClientContext(
+        return chembl_module.ChemblClientContext(
             client=DummyClient(context.client.config),
             source_config=context.source_config,
             batch_size=context.batch_size,
