@@ -1248,7 +1248,7 @@ def is_compatible(from_version: str, to_version: str) -> bool:
 
 **Хранение column_order в схеме (источник истины):**
 
-**Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме — fail-fast до записи; NA-policy обязательна для всех таблиц.
+**Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме фиксируется в `PipelineBase.export()` как fail-fast до записи; NA-policy обязательна для всех таблиц.【F:src/bioetl/pipelines/base.py†L826-L855】
 
 ```python
 # schema.py (Schema Registry) — источник истины
@@ -1256,10 +1256,7 @@ class DocumentSchema(BaseSchema):
     column_order = ["document_chembl_id", "title", "journal", ...]
 
 # При экспорте
-df = df[schema.column_order]  # используем order из схемы
-
-# Валидация перед записью
-assert list(df.columns) == schema.column_order, "Column order mismatch!"
+PipelineBase.export(df, output_path)
 
 # В meta.yaml (только для справки)
 meta = {

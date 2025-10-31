@@ -10,7 +10,7 @@
 
 `transform()` и `validate()` обязаны принимать и возвращать `pd.DataFrame`, обеспечивая единый поток данных между стадиями, а `export()` фиксирует результат через `UnifiedOutputWriter` c учётом детерминизма и QC-метрик.【F:src/bioetl/pipelines/base.py†L785-L880】
 
-Полученный датафрейм сразу связывается со схемой из централизованного `schema_registry`. Реестр фиксирует `schema_id`, `schema_version`, `column_order`, `na_policy` и `precision_policy`, что затем попадает в метаданные и используется для fail-fast проверки дрейфа колонок.【F:src/bioetl/schemas/registry.py†L22-L109】【F:tests/unit/test_output_writer.py†L520-L571】
+Полученный датафрейм сразу связывается со схемой из централизованного `schema_registry`. Реестр фиксирует `schema_id`, `schema_version`, `column_order`, `na_policy` и `precision_policy`, что затем попадает в метаданные. Fail-fast проверку дрейфа колонок выполняет `PipelineBase.export()`, сравнивающая `df.columns` с порядком из реестра до записи файлов.【F:src/bioetl/schemas/registry.py†L22-L109】【F:src/bioetl/pipelines/base.py†L826-L855】
 
 Форматы ответа: JSON по умолчанию; для NCBI E-utilities поддерживается XML/Medline (efetch, esummary), что отражается в парсере. Идентификация клиента для Crossref/OpenAlex должна включать mailto и корректный User-Agent — это влияет на квоты и «polite pool».
 

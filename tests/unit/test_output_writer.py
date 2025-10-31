@@ -21,6 +21,7 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.pandera_pandas import DataFrameModel
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pandera_typing import Series
 from bioetl.schemas.base import BaseSchema
@@ -396,6 +397,54 @@ def test_pipeline_export_metadata_receives_checksums(tmp_path, monkeypatch):
     assert artifacts.quality_report.name in checksums
     assert pipeline.export_metadata.checksums == checksums
     assert pipeline.export_metadata.checksums
+
+
+def test_pipeline_export_fails_when_column_order_differs(tmp_path):
+    """Export should fail-fast when dataframe columns drift from schema order."""
+
+    class _OrderSchema(DataFrameModel):
+        first: Series[int]
+        second: Series[int]
+
+        @classmethod
+        def get_column_order(cls) -> list[str]:
+            return ["first", "second"]
+
+        _column_order = ["first", "second"]
+
+    entity = "unit.order-check"
+    version = "1.0.0"
+    schema_registry.register(entity, version, _OrderSchema)
+
+    class _OrderPipeline(PipelineBase):
+        def extract(self, *args, **kwargs):  # noqa: D401, ANN001 - abstract contract stub
+            raise NotImplementedError
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401
+            return df
+
+        def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401
+            return df
+
+        def close_resources(self) -> None:  # noqa: D401
+            return None
+
+    try:
+        config = load_config("configs/pipelines/assay.yaml")
+        pipeline = _OrderPipeline(config, "run-order-mismatch")
+        pipeline.primary_schema = _OrderSchema
+
+        df = pd.DataFrame({"first": [1], "second": [2]})[["second", "first"]]
+
+        with pytest.raises(ValueError, match="columns do not match"):
+            pipeline.export(df, tmp_path / "order.csv")
+    finally:
+        registry_entry = schema_registry._registry.get(entity)
+        if registry_entry is not None:
+            registry_entry.pop(version, None)
+            if not registry_entry:
+                schema_registry._registry.pop(entity, None)
+        schema_registry._metadata.pop((entity, version), None)
 
 
 def test_calculate_checksums_supports_multi_chunk_files(tmp_path):
