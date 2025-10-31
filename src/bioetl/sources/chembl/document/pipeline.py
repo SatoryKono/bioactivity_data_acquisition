@@ -7,8 +7,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
-from pandera.errors import SchemaErrors  # type: ignore[attr-defined]
+import pandera.errors as pa_errors
 import requests
+
+# Runtime compatibility for older Pandera releases
+try:
+    SchemaErrors = pa_errors.SchemaErrors  # type: ignore[attr-defined]
+except AttributeError:
+    SchemaErrors = pa_errors.SchemaError  # type: ignore[assignment]
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
@@ -790,7 +796,7 @@ class DocumentPipeline(PipelineBase):
         }
         coverage_stats = compute_field_coverage(
             validated_df,
-            tuple(coverage_columns.values()),
+            list(coverage_columns.values()),
         )
         coverage_payload = {
             key: coverage_stats.get(column, 0.0) for key, column in coverage_columns.items()
