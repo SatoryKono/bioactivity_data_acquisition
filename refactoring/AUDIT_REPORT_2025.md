@@ -365,10 +365,10 @@
 **Фактическое состояние:**
 - ✅ Unit тесты существуют и покрывают основные компоненты
 - ✅ E2E тесты существуют: `tests/integration/pipelines/`
-- ❌ Property-based тесты (Hypothesis): **НЕ НАЙДЕНЫ** — в коде нет использования Hypothesis
+- ✅ Property-based тесты (Hypothesis): покрывают нормализаторы (`tests/unit/normalizers/test_*_properties.py`), API-клиент (`tests/unit/core/test_api_client_properties.py`), источники (`tests/unit/sources/iuphar/test_pagination_properties.py`, `tests/unit/sources/chembl/testitem/test_*_properties.py`), а также утилиты (`tests/unit/test_json_utils.py`, `tests/unit/utils/test_*_properties.py`). **Минимальное требование:** поддерживать property-based тесты для нормализаторов, критичных HTTP-клиентов и каждого публичного источника.
 - ✅ Golden тесты: частично (например, `tests/integration/pipelines/golden/activity_column_order.json`)
 
-**Статус:** Частично соответствует (отсутствуют property-based тесты)
+**Статус:** Соответствует (property-based тесты выполняются)
 
 ## Итоговая таблица проблем
 
@@ -383,7 +383,7 @@
 | P0-7 | **P0** | CLI | Описание команды `bioetl pipeline run` не соответствует реализации | FAQ.md | 71 | Критично |
 | P1-1 | **P1** | Компоненты | `FallbackManager` описан в планах, но не реализован | REFACTOR_PLAN.md | 462-503 | Важно |
 | P1-2 | **P1** | CLI | Расхождения в описании флагов CLI | FAQ.md | 58-70 | Важно |
-| P1-3 | **P1** | Тесты | Отсутствуют property-based тесты (Hypothesis) | ACCEPTANCE_CRITERIA.md | J | Важно |
+| P1-3 | **P1** | Тесты | Property-based тесты (Hypothesis) зафиксированы для нормализаторов, API-клиента и источников | ACCEPTANCE_CRITERIA.md | J | ✅ **ИСПРАВЛЕНО (2025-02-17)** |
 | P1-4 | **P1** | API | Не все пайплайны имеют явный `__all__` для публичного API | - | - | Важно |
 | P1-5 | **P1** | Тесты | Нет автоматических тестов на бит-идентичность golden-файлов | ACCEPTANCE_CRITERIA.md | C | Важно |
 | P2-1 | **P2** | Конфигурация | Расхождения в описании fallback стратегий (network/timeout/5xx vs cache/partial_retry) | REFACTOR_PLAN.md vs models.py | - | ✅ **ИСПРАВЛЕНО** |
