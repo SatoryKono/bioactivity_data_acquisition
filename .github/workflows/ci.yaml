@@ -15,6 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify deprecations register present
+        run: |
+          test -s DEPRECATIONS.md
+          grep -q '^# ' DEPRECATIONS.md
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
