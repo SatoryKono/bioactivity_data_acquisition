@@ -144,6 +144,36 @@ python src\scripts\run_testitem.py --input-file data\input\testitem.csv --config
 
 ---
 
+## /run-inventory
+
+Goal: regenerate the pipeline inventory snapshot and cluster report artifacts.
+
+Defaults:
+
+- CONFIG: configs/inventory.yaml
+- OUTPUT: docs/requirements/PIPELINES.inventory.csv
+- CLUSTERS: docs/requirements/PIPELINES.inventory.clusters.md
+
+Bash:
+
+```bash
+
+python src/scripts/run_inventory.py --config "configs/inventory.yaml"
+
+```
+
+PowerShell:
+
+```powershell
+
+python src\scripts\run_inventory.py --config configs\inventory.yaml
+
+```
+
+To verify the committed snapshot without rewriting files, append `--check` to the command.
+
+---
+
 ## /validate-columns
 
 Goal: validate output columns against requirements for specific pipeline.
