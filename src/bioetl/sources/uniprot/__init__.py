@@ -1,5 +1,5 @@
-"""UniProt data access helpers and services."""
+"""UniProt pipeline exports."""
 
-from .service import UniProtEnrichmentResult, UniProtService
+from .pipeline import UniProtPipeline
 
-__all__ = ["UniProtService", "UniProtEnrichmentResult"]
+__all__ = ["UniProtPipeline"]
