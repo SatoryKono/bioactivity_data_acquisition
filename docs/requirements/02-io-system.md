@@ -859,6 +859,20 @@ checksums:
   quality: "sha256:def456..."
   correlation: "sha256:ghi789..."  # Опционально, только если correlation enabled
 git_commit: "a1b2c3d"
+config_version: "1"
+stage_durations_ms:
+  extract: 1523.4
+  transform: 743.8
+  validate: 211.0
+  load: 982.6
+sort_keys:
+  by: ["chembl_id", "assay_id"]
+  ascending: [true, true]
+  stable: true
+pii_secrets_policy:
+  redaction: "enabled"
+  artifact_secrets: "forbidden"
+  policy_reference: "docs/acceptance-criteria-document.md#pii-and-secrets"
 generated_at: "2025-01-28T14:23:15.123Z"
 lineage:
   source_files:
@@ -872,11 +886,15 @@ lineage:
 
 ```
 
-**Обязательные поля lineage конфигурации:**
+**Обязательные поля lineage конфигурации и контроля детерминизма:**
 
 - `run_id`: уникальный идентификатор запуска (UUID8 или timestamp-based)
 - `config_hash`: SHA256 хеш конфигурации (после резолва переменных окружения)
 - `config_snapshot`: путь и хеш исходного файла конфигурации
+- `config_version`: версия конфигурационной схемы (`PipelineConfig.version`)
+- `stage_durations_ms`: длительности стадий `extract`, `transform`, `validate`, `load`
+- `sort_keys`: фиксирует ключи стабильной сортировки и направление (для аудита детерминизма)
+- `pii_secrets_policy`: ссылка на действующую политику по PII/секретам и режимы редактирования
 
 **Обоснование:** Обеспечивает полную воспроизводимость и аудит запусков, закрывает требование R2 из gap-анализа.
 
