@@ -1,6 +1,5 @@
 """PubMed E-utilities API adapter."""
 
-import os
 import re
 from typing import Any
 from xml.etree import ElementTree as ET
@@ -9,6 +8,7 @@ from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
+from bioetl.sources.pubmed.request import PubMedRequestBuilder
 
 NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
 
@@ -26,45 +26,33 @@ class PubMedAdapter(ExternalAdapter):
         """Initialize PubMed adapter."""
         super().__init__(api_config, adapter_config)
 
-        # Get required parameters from env or config
         self.tool = adapter_config.__dict__.get("tool", "bioactivity_etl")
-        self.email = adapter_config.__dict__.get("email", os.getenv("PUBMED_EMAIL", ""))
-        self.api_key = adapter_config.__dict__.get("api_key", os.getenv("PUBMED_API_KEY", ""))
+        self.email = adapter_config.__dict__.get("email", "")
+        self.api_key = adapter_config.__dict__.get("api_key", "")
 
         if not self.email:
             self.logger.warning("pubmed_email_missing", note="PubMed requires 'email' parameter")
 
-        # Add required parameters to API client
-        self.common_params = {
-            "tool": self.tool,
-            "email": self.email,
-        }
-        if self.api_key:
-            self.common_params["api_key"] = self.api_key
+        self.request_builder = PubMedRequestBuilder(api_config, adapter_config)
+        self.api_client.session.headers.update(self.request_builder.base_headers)
 
     def _fetch_batch(self, pmids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of PMIDs using EFetch directly."""
-        # EFetch URL
-        efetch_url = f"{self.api_config.base_url}/efetch.fcgi"
-        params = {
-            **self.common_params,
-            "db": "pubmed",
-            "id": ",".join(pmids),
-            "retmode": "xml",
-            "rettype": "abstract",
-        }
+        request_spec = self.request_builder.efetch(pmids)
 
         try:
             xml_content = self.api_client.request_text(
-                efetch_url,
-                params=params,
+                request_spec.url,
+                params=request_spec.params,
                 method="GET",
+                headers=request_spec.headers,
             )
         except Exception as exc:
             self.logger.error(
                 "fetch_batch_error",
                 error=str(exc),
                 pmids=pmids[:3],
+                request_id=request_spec.metadata.get("request_id"),
             )
             return []
 

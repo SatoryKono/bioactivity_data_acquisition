@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, TypeVar, cast
+from typing import Any, Mapping, TypeVar, cast
 
 import backoff
 import requests
@@ -570,6 +570,7 @@ class UnifiedAPIClient:
         method: str = "GET",
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         """Выполняет JSON-запрос с защитами: CB, rate-limit, retry, Retry-After и fallback."""
 
@@ -585,6 +586,7 @@ class UnifiedAPIClient:
             method=method,
             data=data,
             json_payload=json,
+            headers=headers,
             cacheable=True,
             response_parser=_parse_json,
             stream=False,
@@ -601,6 +603,7 @@ class UnifiedAPIClient:
         stream: bool = False,
         encoding: str | None = None,
         chunk_size: int = 8192,
+        headers: Mapping[str, str] | None = None,
     ) -> str | Iterator[str]:
         """Выполняет запрос и возвращает текстовый ответ либо поток строк."""
 
@@ -627,6 +630,7 @@ class UnifiedAPIClient:
             method=method,
             data=data,
             json_payload=json,
+            headers=headers,
             cacheable=not stream,
             response_parser=_parse_text,
             stream=stream,
@@ -640,6 +644,7 @@ class UnifiedAPIClient:
         method: str,
         data: dict[str, Any] | None,
         json_payload: dict[str, Any] | None,
+        headers: Mapping[str, str] | None,
         cacheable: bool,
         response_parser: Callable[[requests.Response], PayloadT],
         stream: bool,
@@ -703,6 +708,7 @@ class UnifiedAPIClient:
                 data=data_payload,
                 json=json_payload,
                 stream=stream,
+                headers=headers,
             )
 
         def _request_operation() -> PayloadT:
@@ -1107,6 +1113,7 @@ class UnifiedAPIClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         stream: bool = False,
+        headers: Mapping[str, str] | None = None,
     ) -> requests.Response:
         """Execute a single HTTP request respecting Retry-After semantics."""
 
@@ -1121,6 +1128,9 @@ class UnifiedAPIClient:
             "timeout": (self.config.timeout_connect, self.config.timeout_read),
             "stream": stream,
         }
+
+        if headers:
+            request_kwargs["headers"] = dict(headers)
 
         response = self.session.request(**request_kwargs)
 

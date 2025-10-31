@@ -18,5 +18,6 @@ OPENALEX_ADAPTER_DEFINITION = AdapterDefinition(
     adapter_fields={
         "batch_size": FieldSpec(default=100),
         "workers": FieldSpec(default=4),
+        "mailto": FieldSpec(default="", env="OPENALEX_MAILTO"),
     },
 )

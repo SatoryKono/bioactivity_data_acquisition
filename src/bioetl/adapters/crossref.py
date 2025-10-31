@@ -1,12 +1,12 @@
 """Crossref REST API adapter."""
 
-import os
 from typing import Any
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
+from bioetl.sources.crossref.request import CrossrefRequestBuilder
 
 NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
 
@@ -23,12 +23,8 @@ class CrossrefAdapter(ExternalAdapter):
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize Crossref adapter."""
         super().__init__(api_config, adapter_config)
-
-        # Get mailto for polite pool
-        self.mailto = adapter_config.__dict__.get("mailto", os.getenv("CROSSREF_MAILTO", ""))
-        if self.mailto:
-            # Add to headers for polite pool
-            self.api_client.session.headers["User-Agent"] = f"bioactivity_etl/1.0 (mailto:{self.mailto})"
+        self.request_builder = CrossrefRequestBuilder(api_config, adapter_config)
+        self.api_client.session.headers.update(self.request_builder.base_headers)
 
     def _fetch_batch(self, dois: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of DOIs."""
@@ -37,12 +33,22 @@ class CrossrefAdapter(ExternalAdapter):
         all_items = []
         for doi in dois:
             url = f"/works/{doi}"
+            request_spec = self.request_builder.build(url)
             try:
-                response = self.api_client.request_json(url, params={})
+                response = self.api_client.request_json(
+                    request_spec.url,
+                    params=request_spec.params,
+                    headers=request_spec.headers,
+                )
                 if isinstance(response, dict) and "message" in response:
                     all_items.append(response["message"])
             except Exception as e:
-                self.logger.warning("fetch_doi_failed", doi=doi, error=str(e))
+                self.logger.warning(
+                    "fetch_doi_failed",
+                    doi=doi,
+                    error=str(e),
+                    request_id=request_spec.metadata.get("request_id"),
+                )
 
         return all_items
 
