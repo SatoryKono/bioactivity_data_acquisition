@@ -72,11 +72,8 @@ SHOULD: приведённые примеры команд проходят ды
 python -m bioetl.cli.main list
 
 # Запуск конкретного пайплайна
-python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml
-python -m bioetl.cli.main assay --config configs/pipelines/assay.yaml
-python -m bioetl.cli.main target --config configs/pipelines/target.yaml
-python -m bioetl.cli.main document --config configs/pipelines/document.yaml
-python -m bioetl.cli.main testitem --config configs/pipelines/testitem.yaml
+python -m bioetl.cli.main activity --config <path-to-config>
+python -m bioetl.cli.main assay --config <path-to-config>
 ```
 
 **Примеры вызовов:**
