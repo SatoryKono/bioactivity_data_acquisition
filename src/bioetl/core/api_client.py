@@ -6,20 +6,21 @@ import json
 import random
 import threading
 import time
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from typing import Any, TypeVar, cast
 from urllib.parse import urlparse
-from typing import Any, Mapping, TypeVar, cast
 
 import backoff
 import requests
-from cachetools import TTLCache  # type: ignore
 from requests.exceptions import HTTPError, RequestException
 
 from bioetl.core.fallback_manager import FallbackManager
 from bioetl.core.logger import UnifiedLogger
+from cachetools import TTLCache
 
 logger = UnifiedLogger.get(__name__)
 
@@ -647,7 +648,7 @@ class _RequestRetryContext:
                 timestamp=self.last_attempt_timestamp or time.time(),
             )
 
-    def http_log_context(self, **overrides: Any):
+    def http_log_context(self, **overrides: Any) -> AbstractContextManager[None]:
         payload: dict[str, Any] = {
             "endpoint": self.url,
             "attempt": self.attempt,
@@ -1210,7 +1211,7 @@ class UnifiedAPIClient:
             ),
         )
 
-        return cast(PayloadT, payload)
+        return payload
 
     def _build_manager_fallback_payload(
         self,
@@ -1224,10 +1225,12 @@ class UnifiedAPIClient:
         response = getattr(error, "response", None)
         status_code: int | None = None
         if response is not None:
-            try:
-                status_code = int(getattr(response, "status_code", None))
-            except (TypeError, ValueError):  # pragma: no cover - defensive
-                status_code = None
+            status_code_attr = getattr(response, "status_code", None)
+            if status_code_attr is not None:
+                try:
+                    status_code = int(status_code_attr)
+                except (TypeError, ValueError):  # pragma: no cover - defensive
+                    status_code = None
 
         retry_after_seconds = context.last_retry_after_seconds
         if retry_after_seconds is None:

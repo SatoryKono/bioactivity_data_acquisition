@@ -85,6 +85,11 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
 
 def __getattr__(name: str) -> Any:
     """Resolve schema exports lazily to avoid import-time side effects."""
+    # ActivitySchema is explicitly imported, so skip lazy loading
+    if name == "ActivitySchema":
+        # This should never be reached since ActivitySchema is explicitly imported
+        from bioetl.schemas.activity import ActivitySchema
+        return ActivitySchema
 
     try:
         module_name = _SCHEMA_EXPORTS[name]
