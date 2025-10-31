@@ -33,7 +33,7 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
-__all__ = ["TestItemPipeline"]
+__all__ = ("TestItemPipeline",)
 
 logger = UnifiedLogger.get(__name__)
 
