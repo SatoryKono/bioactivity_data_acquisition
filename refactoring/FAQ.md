@@ -67,30 +67,62 @@ SHOULD: приведённые примеры команд проходят ды
 
 **Фактическая структура команд:**
 
-Все команды доступны через единый вход `python -m bioetl.cli.main`:
+Все команды доступны через единый вход `python -m bioetl.cli.main` и формируются на основе `scripts.PIPELINE_COMMAND_REGISTRY`:
+
+| Команда | Описание | Конфигурация по умолчанию | Входные данные | Каталог вывода | Допустимые `--mode` |
+| --- | --- | --- | --- | --- | --- |
+| `activity` | ChEMBL activity data | `src/bioetl/configs/pipelines/activity.yaml` | `data/input/activity.csv` | `data/output/activity` | `default` |
+| `assay` | ChEMBL assay data | `src/bioetl/configs/pipelines/assay.yaml` | `data/input/assay.csv` | `data/output/assay` | `default` |
+| `target` | ChEMBL + UniProt + IUPHAR | `src/bioetl/configs/pipelines/target.yaml` | `data/input/target.csv` | `data/output/target` | `default`, `smoke` |
+| `document` | ChEMBL + external sources | `src/bioetl/configs/pipelines/document.yaml` | `data/input/document.csv` | `data/output/documents` | `chembl`, `all` (по умолчанию `all`) |
+| `testitem` | ChEMBL molecules + PubChem | `src/bioetl/configs/pipelines/testitem.yaml` | `data/input/testitem.csv` | `data/output/testitems` | `default` |
+| `gtp_iuphar` | Guide to Pharmacology targets | `src/bioetl/configs/pipelines/iuphar.yaml` | `data/input/iuphar_targets.csv` | `data/output/iuphar` | `default` |
+| `uniprot` | Standalone UniProt enrichment | `src/bioetl/configs/pipelines/uniprot.yaml` | `data/input/uniprot.csv` | `data/output/uniprot` | `default` |
+
+**Глобальные флаги CLI**
+
+| Флаг | Назначение | Значение по умолчанию |
+| --- | --- | --- |
+| `-i, --input-file PATH` | Альтернативный seed-файл для стадий extract. Если не указан, используется путь из таблицы выше. | См. реестр команд |
+| `-o, --output-dir PATH` | Каталог, куда будет записан результат и QC-артефакты. Создаётся автоматически. | См. реестр команд |
+| `--config PATH` | Явный путь к YAML-конфигу пайплайна. | См. реестр команд |
+| `--golden PATH` | CSV-файл golden-набора для детерминированных сравнений. | `None` |
+| `--limit INTEGER` | Устаревший синоним `--sample`. При совместном использовании с `--sample` значения должны совпадать. | `None` |
+| `--sample INTEGER` | Ограничить количество обрабатываемых записей (smoke-тест). Требует значение ≥ 1. | `None` |
+| `--fail-on-schema-drift / --allow-schema-drift` | Прерывать выполнение при обнаружении дрейфа схемы. | `--fail-on-schema-drift` |
+| `--extended / --no-extended` | Управление генерацией расширенных QC-отчётов (корреляции, метрики качества). | `--no-extended` |
+| `--mode TEXT` | Режим работы пайплайна. Допустимые значения указаны в таблице команд. | Значение `default` либо указанное в реестре |
+| `-d, --dry-run` | Загрузить конфигурацию, не запуская пайплайн; выводит метаданные и hash конфига. | `False` |
+| `-v, --verbose` | Включить подробное логирование (`UnifiedLogger` в dev-режиме). | `False` |
+| `--validate-columns / --no-validate-columns` | Управление финальной проверкой колонок против требований (`ColumnValidator`). | `--validate-columns` |
+| `-S, --set KEY=VALUE` | Перегрузка значений конфигурации. Флаг повторяемый; пары записываются в секцию `cli`. | `[]` |
+
+> ⚠️ При указании `--limit` выводится предупреждение и рекомендация переходить на `--sample`.
+
+**Примеры вызовов:**
 
 ```bash
 # Список доступных пайплайнов
 python -m bioetl.cli.main list
 
-# Запуск конкретного пайплайна
-python -m bioetl.cli.main activity --config <path-to-config>
-python -m bioetl.cli.main assay --config <path-to-config>
+# Dry-run с кастомным конфигом и verbose-логированием
+python -m bioetl.cli.main activity \
+  --config src/bioetl/configs/pipelines/activity.yaml \
+  --dry-run \
+  --verbose
+
+# Smoke-тест с ограничением выборки и расширенными QC-отчётами
+python -m bioetl.cli.main target \
+  --mode smoke \
+  --sample 1000 \
+  --extended
 ```
 
-**Примеры вызовов:**
-```bash
-python -m bioetl.cli.main list
-python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml --dry-run --mode ci
-python -m bioetl.cli.main assay --config configs/pipelines/assay.yaml
-```
-
-MAY: флаги, специфичные для пайплайнов, документируются локально, но базовые команды (`--help`, `list`, `activity`, `assay`, `target`, `document`, `testitem`) обязаны совпадать с выводом Typer.
+MAY: флаги, специфичные для пайплайнов, документируются локально, но базовые команды (`--help`, `list`, `activity`, `assay`, `target`, `document`, `testitem`, `gtp_iuphar`, `uniprot`) обязаны совпадать с выводом Typer.
 
 Общие флаги CLI
 
-SHOULD: поддерживаемые общие флаги (`--config`, `--dry-run`, `--mode`) синхронизируются с [README.md#cli-usage](../README.md#cli-usage) и документацией в исходном коде ([ref: repo:src/scripts/__init__.py@test_refactoring_32]).
-TODO: дополнить раздел конкретными флагами отдельных пайплайнов по мере миграции.
+SHOULD: поддерживаемые общие флаги синхронизируются с [README.md#cli-usage](../README.md#cli-usage) и документацией в исходном коде ([ref: repo:src/scripts/__init__.py@test_refactoring_32]).
 Старые CLI-входы допускаются только как временные совместимые «шины» с DeprecationWarning и снимаются по графику депрекаций; финальное удаление — в ближайшем MAJOR релизе по SemVer. Процесс обновления SemVer: синхронное обновление версии в `pyproject.toml`, записи в `CHANGELOG.md` и строки в [DEPRECATIONS.md](../DEPRECATIONS.md) в рамках одного PR.
 Semantic Versioning
 
