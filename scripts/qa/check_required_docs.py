@@ -23,9 +23,9 @@ REQUIREMENTS: Sequence[DocumentationRequirement] = (
     DocumentationRequirement(
         path=REPOSITORY_ROOT / "docs" / "requirements" / "PIPELINES.metrics.md",
         markers=(
-            "# Pipeline Metrics Baseline",
-            "## Baseline KPIs",
-            "## Runtime Snapshot",
+            "# Pipeline Metrics Report",
+            "## Code Footprint",
+            "## Test Execution Time",
         ),
     ),
 )

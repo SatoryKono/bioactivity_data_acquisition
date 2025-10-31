@@ -1,45 +1,29 @@
-# Pipeline Metrics Baseline
+# Pipeline Metrics Report
 
-## Baseline KPIs
+Generated on 2025-10-31T15:46:36+00:00
 
-Исходные метрики рассчитаны из [`docs/requirements/PIPELINES.inventory.csv`](PIPELINES.inventory.csv), собранного инвентаризационным скриптом `src/scripts/run_inventory.py` с конфигом `configs/inventory.yaml`; актуальная метка времени снимка доступна в столбце `mtime` CSV. Они фиксируют текущее состояние монолитных пайплайнов в `src/bioetl/pipelines/` и вспомогательных прокси в `src/bioetl/sources/chembl/`.
+## Code Footprint
 
-### Монолитные пайплайны (`src/bioetl/pipelines/`)
+| Category | Files (baseline) | Files (current) | Δ | LOC (baseline) | LOC (current) | Δ | Public symbols (baseline) | Public symbols (current) | Δ |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Monolithic pipelines | 9 | 9 | +0 | 8 036 | 1 441 | -6 595 | 31 | 27 | -4 |
+| ChEMBL proxies | 0 | 79 | +79 | 0 | 6 874 | +6 874 | 0 | 109 | +109 |
+| Combined | 9 | 88 | +79 | 8 036 | 8 315 | +279 | 31 | 136 | +105 |
 
-| Модуль | Файлов | LOC | Экспортируемые символы |
-| --- | --- | --- | --- |
-| `pipelines.__init__` | 1 | 52 | 9 |
-| `activity` | 1 | 1 107 | 1 |
-| `assay` | 1 | 935 | 1 |
-| `base` | 1 | 891 | 3 |
-| `document` | 1 | 1 067 | 1 |
-| `document_enrichment` | 1 | 13 | 4 |
-| `pubchem` | 1 | 306 | 1 |
-| `target` | 1 | 1 124 | 1 |
-| `target_gold` | 1 | 391 | 6 |
-| `testitem` | 1 | 1 173 | 1 |
-| **Итого** | **10** | **7 059** | **28** |
+## Pandera Validation Coverage
 
-### Прокси для ChEMBL (`src/bioetl/sources/chembl/`)
+| Scope | Baseline | Current | Δ |
+| --- | ---: | ---: | ---: |
+| Pipeline family | 79.0% | 40.3% | -38.6% |
 
-| Сегмент | Файлов | LOC | Экспортируемые символы |
-| --- | --- | --- | --- |
-| `chembl` | 46 | 5 604 | 10 |
-| **Итого** | **46** | **5 604** | **10** |
+## Test Execution Time
 
-### Совокупные показатели
+| Test suite | Baseline | Current | Δ |
+| --- | ---: | ---: | ---: |
+| pytest (tests) | 9.09s | 3.69s | -5.40s |
 
-- Всего файлов в семействе пайплайнов (монолит + прокси): **56**.
-- Суммарный объём кода: **12 663 LOC**.
-- Совокупное количество экспортируемых публичных символов: **38**.
+### Methodology
 
-Эти значения используются в критериях приёмки для отслеживания сокращения дублирующих файлов (≥30% от 56) и контроля за усложнением публичного API.
-
-## Runtime Snapshot
-
-Сводка последнего полного прогона пайплайнов (ограничение по данным — 10 строк) доступна в [RUN_RESULTS_SUMMARY.md](../RUN_RESULTS_SUMMARY.md):
-
-- Время выполнения набора pipeline-джобов — около **1 минуты**.
-- Все три целевых пайплайна (`assay`, `activity`, `testitem`) завершились успешно и обеспечили детерминированные артефакты.
-
-Детализированный отчёт по финальному прогону (`docs/FINAL_RUN_RESULTS.md`) подтверждает корректное формирование выходных CSV и временные метки завершения каждого пайплайна.
+- Inventory metrics are derived from `PIPELINES.inventory.csv` snapshots (baseline vs. current). Public symbols count exported names captured during inventory collection.
+- Pandera coverage estimates weight the share of lines of code importing Pandera schemas within monolithic pipelines and ChEMBL proxies.
+- Test duration measures `pytest --maxfail=1 --disable-warnings -q tests` wall-clock time.

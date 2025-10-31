@@ -1,7 +1,7 @@
 """Collect and analyse metadata for source code inventory reporting."""
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 import ast
 import re
@@ -422,13 +422,68 @@ def _build_cluster_summary(component: Sequence[InventoryRecord]) -> Cluster:
         sum(import_scores) / len(import_scores) if import_scores else 0.0
     )
 
+    responsibility = _summarise_responsibility(component)
+    divergence_points = _identify_divergence_points(component)
+
     return Cluster(
         members=tuple(component),
         common_ngrams=common_ngrams,
         common_imports=common_imports,
         average_jaccard=average_jaccard,
         average_import_overlap=average_import_overlap,
+        responsibility=responsibility,
+        divergence_points=divergence_points,
     )
+
+
+def _summarise_responsibility(component: Sequence[InventoryRecord]) -> str:
+    counts = Counter(record.source for record in component)
+    if not counts:
+        return "unknown"
+
+    total = sum(counts.values())
+    primary, primary_count = counts.most_common(1)[0]
+    top_sources = counts.most_common(5)
+    fragments = [f"{source}={count}" for source, count in top_sources]
+    if len(counts) > len(top_sources):
+        remaining = sum(count for _, count in counts.items()) - sum(count for _, count in top_sources)
+        fragments.append(f"others={remaining}")
+    distribution = ", ".join(fragments)
+    return f"primary={primary} ({primary_count}/{total}); top sources: {distribution}"
+
+
+def _identify_divergence_points(component: Sequence[InventoryRecord]) -> tuple[str, ...]:
+    divergence: set[str] = set()
+    python_members = [record for record in component if record.is_python]
+
+    if python_members:
+        symbol_sets = {record.top_symbols for record in python_members}
+        if len(symbol_sets) > 1:
+            divergence.add("public_api")
+
+        import_sets = {record.import_tokens for record in python_members}
+        if len(import_sets) > 1:
+            divergence.add("dependencies")
+
+    config_sets = {record.config_keys for record in component if record.config_keys}
+    if len(config_sets) > 1:
+        divergence.add("config_keys")
+
+    extension_set = {record.file_extension for record in component}
+    if len(extension_set) > 1:
+        divergence.add("data_formats")
+
+    path_tokens = [record.path.as_posix().lower() for record in component]
+    if any("schema" in token for token in path_tokens):
+        divergence.add("schemas")
+    elif any("schema" in token for record in python_members for token in record.import_tokens):
+        divergence.add("schemas")
+
+    io_keywords = ("output", "writer", "log", "logger")
+    if any(any(keyword in token for keyword in io_keywords) for token in path_tokens):
+        divergence.add("io_logging")
+
+    return tuple(sorted(divergence))
 
 
 def _jaccard(left: Iterable[str], right: Iterable[str]) -> float:
