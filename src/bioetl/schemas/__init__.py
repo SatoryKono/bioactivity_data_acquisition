@@ -65,12 +65,12 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
         XrefSchema,
     )
     from bioetl.schemas.testitem import TestItemSchema
+    from bioetl.schemas.uniprot import UniProtSchema
     from bioetl.sources.iuphar.schema import (
         IupharClassificationSchema,
         IupharGoldSchema,
         IupharTargetSchema,
     )
-    from bioetl.schemas.uniprot import UniProtSchema
 
 
 def __getattr__(name: str) -> Any:

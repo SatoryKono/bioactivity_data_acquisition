@@ -32,10 +32,10 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
     from bioetl.pipelines.assay import AssayPipeline
     from bioetl.pipelines.base import PipelineBase
     from bioetl.pipelines.document import DocumentPipeline
-    from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
     from bioetl.pipelines.target import TargetPipeline
     from bioetl.pipelines.testitem import TestItemPipeline
     from bioetl.pipelines.uniprot import UniProtPipeline
+    from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 
 
 def __getattr__(name: str) -> Any:
