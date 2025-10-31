@@ -181,6 +181,30 @@ class SchemaRegistry:
         return None
 
     @classmethod
+    def find_registration_by_schema_id(
+        cls,
+        schema_id: str,
+        *,
+        version: str | None = None,
+    ) -> SchemaRegistration | None:
+        """Return the registration matching ``schema_id`` and optional ``version``."""
+
+        for (entity, schema_version), registration in cls._metadata.items():
+            if registration.schema_id != schema_id:
+                continue
+            if version is not None and schema_version != version:
+                continue
+            return registration
+
+        if version is not None:
+            return None
+
+        for registration in cls._metadata.values():
+            if registration.schema_id == schema_id:
+                return registration
+        return None
+
+    @classmethod
     def validate_compatibility(cls, entity: str, old_version: str, new_version: str) -> bool:
         """
         Проверяет совместимость версий схем.

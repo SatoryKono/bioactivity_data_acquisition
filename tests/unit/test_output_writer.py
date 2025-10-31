@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -20,6 +21,8 @@ from bioetl.core.output_writer import (
     AtomicWriter,
     OutputMetadata,
     UnifiedOutputWriter,
+    hash_business_key,
+    hash_row,
 )
 from bioetl.pandera_pandas import DataFrameModel
 from bioetl.pipelines.base import PipelineBase
@@ -88,6 +91,8 @@ def test_unified_output_writer_writes_deterministic_outputs(tmp_path, monkeypatc
 
 def test_unified_output_writer_writes_parquet_outputs(tmp_path, monkeypatch):
     """Parquet datasets should include QC reports and metadata."""
+
+    pytest.importorskip("pyarrow")
 
     _freeze_datetime(monkeypatch)
 
@@ -261,6 +266,8 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
 def test_additional_tables_written_in_multiple_formats(tmp_path, monkeypatch):
     """Additional tables can be materialised as CSV and Parquet with checksums."""
 
+    pytest.importorskip("pyarrow")
+
     _freeze_datetime(monkeypatch)
 
     df = pd.DataFrame({"value": [1]}).convert_dtypes()
@@ -301,6 +308,69 @@ def test_additional_tables_written_in_multiple_formats(tmp_path, monkeypatch):
     checksums = metadata["file_checksums"]
     assert Path(csv_path).name in checksums
     assert Path(parquet_path).name in checksums
+
+
+def test_unified_output_writer_includes_hash_summary(tmp_path, monkeypatch):
+    """Metadata and manifest should include hash summaries when present."""
+
+    _freeze_datetime(monkeypatch)
+
+    df = pd.DataFrame(
+        {
+            "compound_id": ["CHEMBL1", "CHEMBL2"],
+            "result_value": [1.0, 2.5],
+        }
+    )
+    df["hash_business_key"] = df["compound_id"].apply(hash_business_key)
+    df["hash_row"] = [
+        hash_row({"compound_id": row.compound_id, "result_value": row.result_value})
+        for row in df.itertuples()
+    ]
+
+    writer = UnifiedOutputWriter("run-hash-summary")
+    output_path = (
+        tmp_path
+        / "run-hash-summary"
+        / "hash"
+        / "datasets"
+        / "hash_summary.csv"
+    )
+
+    artifacts = writer.write(df, output_path, extended=True)
+
+    assert artifacts.hash_summary is not None
+    assert set(artifacts.hash_summary) == {"hash_row", "hash_business_key"}
+
+    def _expected_summary(series: pd.Series) -> dict[str, Any]:
+        values = [str(value) for value in series if pd.notna(value)]
+        digest = hashlib.sha256()
+        for value in values:
+            digest.update(value.encode("utf-8"))
+            digest.update(b"\n")
+        return {
+            "count": len(values),
+            "unique": len(set(values)),
+            "null_count": int(series.isna().sum()),
+            "sha256": digest.hexdigest(),
+        }
+
+    expected_hash_row = _expected_summary(df["hash_row"])
+    expected_hash_bk = _expected_summary(df["hash_business_key"])
+
+    assert artifacts.hash_summary["hash_row"] == expected_hash_row
+    assert artifacts.hash_summary["hash_business_key"] == expected_hash_bk
+
+    assert artifacts.metadata is not None and artifacts.metadata.exists()
+    with artifacts.metadata.open("r", encoding="utf-8") as handle:
+        metadata = yaml.safe_load(handle)
+
+    assert metadata["hash_summary"]["hash_row"] == expected_hash_row
+    assert metadata["hash_summary"]["hash_business_key"] == expected_hash_bk
+
+    assert artifacts.manifest is not None and artifacts.manifest.exists()
+    manifest = json.loads(artifacts.manifest.read_text(encoding="utf-8"))
+    assert manifest["hash_summary"]["hash_row"] == expected_hash_row
+    assert manifest["hash_summary"]["hash_business_key"] == expected_hash_bk
 
 
 def test_unified_output_writer_metadata_write_is_atomic(tmp_path, monkeypatch):
@@ -364,6 +434,9 @@ def test_pipeline_export_metadata_receives_checksums(tmp_path, monkeypatch):
 
         def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
             return df
+
+        def close_resources(self) -> None:  # noqa: D401 - test stub
+            return None
 
     config = load_config("configs/pipelines/assay.yaml")
     pipeline = _StubPipeline(config, "run-pipeline-meta")
