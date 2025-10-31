@@ -14,10 +14,10 @@
 
 ### Базовый интерфейс: (@test_refactoring_32)
 **PipelineBase:**
-- `extract() -> Iterable[dict]`
-- `normalize(rows: Iterable[dict]) -> Iterable[dict]`
-- `validate(rows: Iterable[dict]) -> Iterable[dict]`
-- `write(rows: Iterable[dict]) -> WriteResult`
+- `extract() -> pd.DataFrame`
+- `transform(df: pd.DataFrame) -> pd.DataFrame`
+- `validate(df: pd.DataFrame) -> pd.DataFrame`
+- `export(df: pd.DataFrame, output_path: Path, extended: bool = False) -> OutputArtifacts`
 - `run() -> RunResult`
 
 [ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
@@ -44,7 +44,7 @@
 - **PubChem (PUG REST/PUG View):** REST-интерфейсы, множество пространств идентификаторов; использовать официальные эндпоинты и руководства. [PubChem @test_refactoring_32](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest), [PubChem @test_refactoring_32](https://pubchem.ncbi.nlm.nih.gov/docs/pug-view)
 - **IUPHAR/BPS GtoP:** REST-сервисы, JSON-ответы. [Guide to Pharmacology @test_refactoring_32](https://www.guidetopharmacology.org/DATA/)
 
-#### normalize (@test_refactoring_32)
+#### transform (@test_refactoring_32)
 **Назначение:** приведение сырых записей к UnifiedSchema.
 
 **Требования:**
@@ -52,6 +52,7 @@
 - Нормализация единиц, дат, имен авторов/аффилиаций, ссылок на полнотексты.
 - Семантические маппинги (например, онтологии) фиксируются явными таблицами соответствий.
 - Поля, не попадающие в контракт, переносятся в extras без потери информации; порядок ключей в итоговом объекте стабилен.
+- Возврат `pd.DataFrame` обязателен: все обогащения и фильтрации сохраняют табличную форму для совместимости со стадиями `validate` и `export`.
 
 #### validate (@test_refactoring_32)
 **Назначение:** раннее обнаружение отклонений от контракта.
@@ -60,16 +61,17 @@
 - Жёсткая проверка типов, диапазонов, обязательных полей и категориальных множества через Pandera; ошибки блокируют прохождение шага.
 - Схемы регистрируются централизованно и переиспользуются; допускаются backend-совместимые датафреймы. [pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io)
 
-#### write (@test_refactoring_32)
+#### export (@test_refactoring_32)
 **Назначение:** детерминированная фиксация вывода.
 
 **Требования:**
 - Фиксированный column_order, стабильная сортировка по бизнес-ключам, форматы чисел/дат и сериализация строк без неоднозначности.
 - Контрольные хеши на строку и бизнес-ключ (например, BLAKE2) включаются в метаданные.
 - Запись выполняется атомарно: временный файл на той же ФС, затем атомарная замена (replace/move_atomic); синхронизация буферов перед коммитом. [python-atomicwrites.readthedocs.io @test_refactoring_32](https://python-atomicwrites.readthedocs.io)
+- Вызов `export()` использует `UnifiedOutputWriter` и ожидает `pd.DataFrame` на вход, обеспечивая детерминированный экспорт и генерацию QC-артефактов из единого места.
 
 #### run (@test_refactoring_32)
-Оркестрация extract → normalize → validate → write. Возвращает агрегированную сводку: числа вход/выход, ошибки валидации, контрольные суммы, путь и размеры артефактов; эта сводка пишется в meta.yaml.
+Оркестрация extract → transform → validate → export. Возвращает агрегированную сводку: числа вход/выход, ошибки валидации, контрольные суммы, путь и размеры артефактов; эта сводка пишется в meta.yaml.
 
 ## 2) Минимальный состав модулей на один источник (MUST) (@test_refactoring_32)
 
@@ -216,7 +218,7 @@ src/bioetl/core/
 ## 10) Отказоустойчивость и предсказуемость (@test_refactoring_32)
 
 - Границы ретраев/бэкоффа фиксируются в конфиге источника; превышение лимитов переводит пайплайн в явный FAIL с диагностикой (MUST).
-- Ошибки делятся на сетевые, парсинга, нормализации, валидации и записи; в RunResult отражается категория и контекст.
+- Ошибки делятся на сетевые, парсинга, трансформации, валидации и экспорта; в RunResult отражается категория и контекст.
 - Частичные повторные прогоны допустимы только если не нарушают инвариант идемпотентности и детерминизма.
 
 
@@ -229,7 +231,7 @@ src/bioetl/core/
 | Поле | Обязательность | Описание |
 |------|----------------|----------|
 | `run_id` | Всегда | UUID идентификатор запуска пайплайна |
-| `stage` | Всегда | Текущий этап (extract, normalize, validate, write) |
+| `stage` | Всегда | Текущий этап (extract, transform, validate, export) |
 | `actor` | Всегда | Инициатор (system, scheduler, username) |
 | `source` | Всегда | Источник данных (chembl, pubmed, и т.п.) |
 | `generated_at` | Всегда | UTC timestamp ISO8601 |
