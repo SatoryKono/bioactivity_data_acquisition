@@ -209,19 +209,16 @@ docs/requirements/sources/<source>/
 `tests/sources/<source>/`.
 
 Дополнительно для общих компонентов:
-```
-src/bioetl/core/
- http/...
- pagination/...
- schema_registry.py
- unified_schema.py
- output/writer.py
- logging/logger.py
-```
 
-[ref: repo:src/bioetl/core/output/writer.py@test_refactoring_32]
-[ref: repo:src/bioetl/core/pagination/strategy.py@test_refactoring_32]
-[ref: repo:src/bioetl/core/schema_registry.py@test_refactoring_32]
+- [ref: repo:src/bioetl/sources/crossref/pagination/__init__.py@test_refactoring_32]
+- [ref: repo:src/bioetl/sources/openalex/pagination/__init__.py@test_refactoring_32]
+- [ref: repo:src/bioetl/sources/pubmed/pagination/__init__.py@test_refactoring_32]
+- [ref: repo:src/bioetl/sources/semantic_scholar/pagination/__init__.py@test_refactoring_32]
+- [ref: repo:src/bioetl/sources/iuphar/pagination/__init__.py@test_refactoring_32]
+- [ref: repo:src/bioetl/schemas/registry.py@test_refactoring_32]
+
+Примечание: централизованная логика пагинации остаётся задачей в дорожной карте; пакеты
+`src/bioetl/sources/{chembl,document,pubchem,uniprot}/pagination` ещё не созданы.
 
 ## 8) Инварианты (MUST) (@test_refactoring_32)
 

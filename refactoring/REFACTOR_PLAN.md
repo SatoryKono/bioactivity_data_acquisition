@@ -229,8 +229,14 @@ Current
 Ручные циклы, разная семантика page/size/cursor.
 
 Target
-[ref: repo:src/bioetl/core/pagination/strategy.py@HEAD]
-Стратегии: PageNumber, Cursor, OffsetLimit, Token. Инварианты порядка, дедупликация.
+Текущее состояние: стратегии пагинации инкапсулированы в пакетах
+`src/bioetl/sources/{crossref,openalex,pubmed,semantic_scholar,iuphar}/pagination/__init__.py`,
+которые оборачивают `CursorPaginationStrategy`, `TokenPaginationStrategy`,
+`OffsetPaginationStrategy` и `PageNumberPaginationStrategy` из `bioetl.core.pagination`.
+Дальнейшая обработка данных синхронизирована через централизованный `SchemaRegistry`
+(`src/bioetl/schemas/registry.py`).
+Примечание: централизованный перенос логики пагинации в `bioetl.core.pagination` остаётся в
+планах; отсутствуют пакеты `src/bioetl/sources/{chembl,document,pubchem,uniprot}/pagination`.
 
 Steps
 
