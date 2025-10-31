@@ -42,6 +42,14 @@ repos:
           ]
         pass_filenames: false
 
+  - repo: local
+    hooks:
+      - id: pipeline-inventory
+        name: Generate pipeline inventory snapshot
+        entry: python src/scripts/run_inventory.py
+        language: system
+        pass_filenames: false
+
 default_language_version:
   python: python3.11
 

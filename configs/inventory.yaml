@@ -1,0 +1,32 @@
+# Inventory generation settings for pipeline sources
+csv_output: docs/requirements/PIPELINES.inventory.csv
+cluster_report: docs/requirements/PIPELINES.inventory.clusters.md
+root_dirs:
+  - src/bioetl
+  - src/library
+  - src/scripts
+  - tests
+  - docs/requirements
+config_dirs:
+  - src/bioetl/configs/pipelines
+include_extensions:
+  - .py
+  - .yaml
+  - .yml
+  - .md
+cluster:
+  ngram_sizes: [2, 3]
+  min_jaccard: 0.3
+  min_import_overlap: 0.25
+  min_shared_ngrams: 2
+  min_shared_imports: 1
+  focus_keywords:
+    - client
+    - adapter
+    - parser
+    - normalizer
+    - schema
+    - pipeline
+    - validator
+    - io
+    - logger
