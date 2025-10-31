@@ -1124,20 +1124,7 @@ class PipelineConfig(BaseModel):
         return value
 ```
 
-**CLI Interface Specification:**
-
-Унифицированные CLI флаги для всех пайплайнов:
-
-| Флаг | Тип | Обязательность | Описание |
-|---|---|---|---|
-| `--config` | path | Опционально | Путь к YAML конфигурации (default: `src/bioetl/configs/base.yaml`) |
-| `--golden` | path | Опционально | Путь к golden-файлу для детерминированного сравнения |
-| `--sample` | int | Опционально | Ограничить входные данные до N записей (для тестирования) |
-| `--fail-on-schema-drift` | flag | Опционально | Fail-fast при major-версии схемы (default: `True` в production) |
-| `--extended` | flag | Опционально | Включить расширенные артефакты (correlation_report, meta.yaml, manifest) |
-| `--mode` | str | Опционально | Режим работы (для Document: `chembl` \| `all`) |
-| `--dry-run` | flag | Опционально | Проверка конфигурации без выполнения |
-| `--verbose` / `-v` | flag | Опционально | Детальное логирование |
+**CLI Interface Specification:** единый перечень флагов ведётся в [FAQ — глобальные флаги CLI](FAQ.md#cli-global-flags).
 
 **Переопределения через CLI:**
 

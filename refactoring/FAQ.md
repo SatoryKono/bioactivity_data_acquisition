@@ -65,6 +65,8 @@ Project README
 
 SHOULD: приведённые примеры команд проходят дымовую проверку `python -m bioetl.cli.main list` в отдельном CI-джобе (`link-check` или `tests`).
 
+### CLI команды {#cli-commands}
+
 **Фактическая структура команд:**
 
 Все команды доступны через единый вход `python -m bioetl.cli.main` и формируются на основе `scripts.PIPELINE_COMMAND_REGISTRY`:
@@ -80,7 +82,7 @@ SHOULD: приведённые примеры команд проходят ды
 | `gtp_iuphar` | Guide to Pharmacology targets | `src/bioetl/configs/pipelines/iuphar.yaml` | `data/input/iuphar_targets.csv` | `data/output/iuphar` | `default` |
 | `uniprot` | Standalone UniProt enrichment | `src/bioetl/configs/pipelines/uniprot.yaml` | `data/input/uniprot.csv` | `data/output/uniprot` | `default` |
 
-**Глобальные флаги CLI**
+### Глобальные флаги CLI {#cli-global-flags}
 
 | Флаг | Назначение | Значение по умолчанию |
 | --- | --- | --- |
