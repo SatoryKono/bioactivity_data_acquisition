@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-
 from unittest.mock import Mock
 
 import pytest
@@ -21,7 +20,7 @@ def test_fallback_manager_strategies() -> None:
 
     config = api_client.APIConfig(name="chembl", base_url="https://chembl/api")
 
-    assert set(strategy.lower() for strategy in config.fallback_strategies) == expected
+    assert {strategy.lower() for strategy in config.fallback_strategies} == expected
 
     assert api_client.FALLBACK_MANAGER_SUPPORTED_STRATEGIES == {
         "network",
@@ -40,7 +39,7 @@ class _SpyLock:
     def __init__(self) -> None:
         self.enter_count = 0
 
-    def __enter__(self) -> "_SpyLock":
+    def __enter__(self) -> _SpyLock:
         self.enter_count += 1
         return self
 
