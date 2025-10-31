@@ -1,0 +1,3 @@
+"""Assay merge module namespace."""
+
+__all__ = []
