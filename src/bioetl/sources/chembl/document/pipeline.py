@@ -32,7 +32,6 @@ from bioetl.schemas.document import (
     DocumentRawSchema,
     DocumentSchema,
 )
-from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
@@ -62,10 +61,6 @@ _ADAPTER_DEFINITIONS: dict[str, AdapterDefinition] = {
     "openalex": OPENALEX_ADAPTER_DEFINITION,
     "semantic_scholar": SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
 }
-
-# Register schema
-schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
-
 
 class DocumentPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL document data.

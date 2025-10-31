@@ -26,6 +26,7 @@ from bioetl.core.chembl import (
     create_chembl_client as _core_create_chembl_client,
     create_pipeline_output_writer,
 )
+from bioetl.core.unified_schema import get_schema, get_schema_metadata
 from bioetl.utils.chembl import ChemblRelease, SupportsRequestJson, fetch_chembl_release
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset
@@ -794,12 +795,59 @@ class PipelineBase(ABC):
             f"{type(self).__name__} must implement the transform() method"
         )
 
-    @abstractmethod
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Валидирует данные через Pandera."""
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement the validate() method"
+        """Validate output data against the UnifiedSchema registry."""
+
+        entity = getattr(self.config.pipeline, "entity", "").strip()
+        if not entity:
+            raise ValueError("Pipeline configuration must define pipeline.entity")
+
+        metadata = get_schema_metadata(entity)
+        if metadata is None:
+            raise ValueError(f"No schema registered for entity '{entity}'")
+
+        schema_version = metadata.version
+        schema_cls = get_schema(entity, schema_version)
+        self.primary_schema = schema_cls
+
+        working_df = df.copy()
+
+        try:
+            from bioetl.utils.dataframe import resolve_schema_column_order  # noqa: PLC0415
+        except Exception:  # pragma: no cover - defensive import guard
+            resolve_schema_column_order = None  # type: ignore[assignment]
+
+        canonical_order: list[str] = []
+        if resolve_schema_column_order is not None:
+            try:
+                canonical_order = list(resolve_schema_column_order(schema_cls))
+            except Exception:  # pragma: no cover - defensive guard
+                canonical_order = []
+
+        if not canonical_order:
+            try:
+                canonical_order = list(schema_cls.get_column_order())
+            except Exception:  # pragma: no cover - defensive guard
+                canonical_order = []
+
+        if canonical_order:
+            missing = [column for column in canonical_order if column not in working_df.columns]
+            for column in missing:
+                working_df[column] = pd.NA
+
+            ordered_columns = [column for column in canonical_order if column in working_df.columns]
+            working_df = working_df.loc[:, ordered_columns]
+
+        validated = self.run_schema_validation(
+            working_df,
+            schema_cls,
+            dataset_name=entity,
+            severity="error",
+            metric_name=f"schema.{entity}",
         )
+
+        self.refresh_validation_issue_summary()
+        return validated
 
     def export(
         self,

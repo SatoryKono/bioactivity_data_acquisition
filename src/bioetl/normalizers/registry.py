@@ -1,34 +1,58 @@
-"""Normalizer registry."""
+"""Centralised registry for data normalisers used across the ETL runtime."""
 
-from typing import Any
+from __future__ import annotations
+
+from typing import Any, Iterable
 
 from bioetl.normalizers.base import BaseNormalizer
 
 
 class NormalizerRegistry:
-    """Реестр нормализаторов."""
+    """Store and expose normalisers by symbolic name."""
 
-    _registry: dict[str, BaseNormalizer] = {}
+    def __init__(self) -> None:
+        # ``dict`` preserves insertion order in CPython which keeps registry dumps
+        # deterministic for golden tests.
+        self._registry: dict[str, BaseNormalizer] = {}
 
-    @classmethod
-    def register(cls, name: str, normalizer: BaseNormalizer) -> None:
-        """Регистрирует нормализатор."""
-        cls._registry[name] = normalizer
+    def register(self, name: str, normalizer: BaseNormalizer) -> None:
+        """Register *normalizer* under ``name`` replacing previous entries."""
 
-    @classmethod
-    def get(cls, name: str) -> BaseNormalizer:
-        """Получает нормализатор по имени."""
-        if name not in cls._registry:
-            raise ValueError(f"Normalizer {name} not found")
-        return cls._registry[name]
+        if not isinstance(name, str) or not name:
+            raise ValueError("Normalizer name must be a non-empty string")
+        if not isinstance(normalizer, BaseNormalizer):
+            raise TypeError(
+                "normalizer must inherit from BaseNormalizer"
+            )
+        self._registry[name] = normalizer
 
-    @classmethod
-    def normalize(cls, name: str, value: Any, **kwargs: Any) -> Any:
-        """Нормализует значение через нормализатор."""
-        normalizer = cls.get(name)
+    def register_many(self, mapping: dict[str, BaseNormalizer]) -> None:
+        """Bulk-register multiple normalisers."""
+
+        for name, normalizer in mapping.items():
+            self.register(name, normalizer)
+
+    def get(self, name: str) -> BaseNormalizer:
+        """Return the normaliser previously registered under ``name``."""
+
+        try:
+            return self._registry[name]
+        except KeyError as exc:  # pragma: no cover - defensive guard
+            raise ValueError(f"Normalizer {name} not found") from exc
+
+    def normalize(self, name: str, value: Any, **kwargs: Any) -> Any:
+        """Normalise ``value`` using the registered normaliser ``name``."""
+
+        normalizer = self.get(name)
         return normalizer.safe_normalize(value, **kwargs)
 
+    def __contains__(self, name: str) -> bool:  # pragma: no cover - trivial proxy
+        return name in self._registry
 
-# Инициализация
+    def __iter__(self) -> Iterable[str]:  # pragma: no cover - trivial proxy
+        return iter(self._registry)
+
+
+# Global registry instance shared across the project.
 registry = NormalizerRegistry()
 

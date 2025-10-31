@@ -21,7 +21,6 @@ from bioetl.schemas import (
     TargetSchema,
     XrefSchema,
 )
-from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 from bioetl.sources.uniprot.client import (
@@ -47,10 +46,6 @@ from bioetl.sources.chembl.target.request import IupharRequestBuilder
 __all__ = ["TargetPipeline"]
 
 logger = UnifiedLogger.get(__name__)
-
-# Register schema
-schema_registry.register("target", "1.0.0", TargetSchema)  # type: ignore[arg-type]
-
 
 class TargetPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL target data with multi-stage enrichment.

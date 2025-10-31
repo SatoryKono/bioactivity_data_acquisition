@@ -15,7 +15,6 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
-from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
@@ -31,10 +30,6 @@ from .request.activity_request import ActivityRequestBuilder
 __all__ = ["ActivityPipeline"]
 
 logger = UnifiedLogger.get(__name__)
-
-# Register schema
-schema_registry.register("activity", "1.0.0", ActivitySchema)
-
 
 INTEGER_COLUMNS: tuple[str, ...] = (
     "standard_flag",

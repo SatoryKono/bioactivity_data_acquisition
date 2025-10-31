@@ -17,6 +17,7 @@ from bioetl.normalizers.chemistry import (
     NonNegativeFloatNormalizer,
     TargetOrganismNormalizer,
 )
+from bioetl.normalizers.date import DateNormalizer
 from bioetl.normalizers.identifier import IdentifierNormalizer
 from bioetl.normalizers.numeric import BooleanNormalizer, NumericNormalizer
 from bioetl.normalizers.registry import NormalizerRegistry, registry
@@ -36,6 +37,7 @@ registry.register("chemistry.non_negative_float", NonNegativeFloatNormalizer())
 registry.register("chemistry.ligand_efficiency", LigandEfficiencyNormalizer())
 registry.register("numeric", NumericNormalizer())
 registry.register("boolean", BooleanNormalizer())
+registry.register("date", DateNormalizer())
 
 __all__ = [
     "BaseNormalizer",
@@ -52,6 +54,7 @@ __all__ = [
     "LigandEfficiencyNormalizer",
     "NumericNormalizer",
     "BooleanNormalizer",
+    "DateNormalizer",
     "NormalizerRegistry",
     "registry",
     "normalize_doi",
