@@ -89,6 +89,7 @@ def test_merge_with_precedence_prioritizes_sources():
             "influential_citations": [7],
             "fields_of_study": [["Biology", "Chemistry"]],
             "authors": ["Semantic Authors"],
+            "pubmed_id": [456],
             "semantic_scholar_pmid": [456],
         }
     )
@@ -173,6 +174,8 @@ def test_merge_with_precedence_handles_missing_sources():
             "chembl_year": [2005],
             "chembl_volume": ["12"],
             "chembl_issue": ["2"],
+            "chembl_first_page": ["1"],
+            "chembl_last_page": ["10"],
         }
     )
 
@@ -190,6 +193,10 @@ def test_merge_with_precedence_handles_missing_sources():
     assert merged.loc[0, "pmid_source"] == "chembl"
     assert merged.loc[0, "doi_clean"] == "10.2000/solo"
     assert merged.loc[0, "doi_clean_source"] == "chembl"
+    assert merged.loc[0, "first_page"] == "1"
+    assert merged.loc[0, "first_page_source"] == "chembl"
+    assert merged.loc[0, "last_page"] == "10"
+    assert merged.loc[0, "last_page_source"] == "chembl"
     assert bool(merged.loc[0, "conflict_doi"]) is False
     assert bool(merged.loc[0, "conflict_pmid"]) is False
     assert pd.isna(merged.loc[0, "concepts_top3"])
