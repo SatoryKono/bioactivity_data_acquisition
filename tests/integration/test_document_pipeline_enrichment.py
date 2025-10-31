@@ -7,7 +7,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import requests
-from pytest_httpserver import HTTPServer
+
+pytest_httpserver = pytest.importorskip("pytest_httpserver")
+HTTPServer = pytest_httpserver.HTTPServer
 
 from bioetl.config.loader import load_config
 from bioetl.config.paths import get_config_path

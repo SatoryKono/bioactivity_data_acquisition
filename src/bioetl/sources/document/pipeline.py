@@ -1,7 +1,5 @@
 """Shared document source pipeline utilities."""
 
-"""Shared document source pipeline utilities."""
-
 from __future__ import annotations
 
 from copy import deepcopy

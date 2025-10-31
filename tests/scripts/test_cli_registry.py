@@ -17,6 +17,7 @@ from scripts import PIPELINE_COMMAND_REGISTRY
         ("target", "bioetl.sources.chembl.target.pipeline", "TargetPipeline"),
         ("document", "bioetl.sources.chembl.document.pipeline", "DocumentPipeline"),
         ("testitem", "bioetl.sources.chembl.testitem.pipeline", "TestItemPipeline"),
+        ("pubchem", "bioetl.sources.pubchem.pipeline", "PubChemPipeline"),
     ],
 )
 def test_cli_registry_resolves_pipeline_imports(key: str, module_path: str, attr_name: str) -> None:

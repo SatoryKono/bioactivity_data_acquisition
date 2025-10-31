@@ -1886,7 +1886,6 @@ class TestTestItemPipeline:
 
         monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
         pipeline = TestItemPipeline(testitem_config, run_id="canonical")
-        pipeline.external_adapters.clear()
 
         monkeypatch.setattr(pipeline, "_fetch_molecule_data", lambda ids: pd.DataFrame())
 
@@ -1902,11 +1901,25 @@ class TestTestItemPipeline:
         assert "canonical_smiles" not in result.columns
         assert result.loc[result.index[0], "standardized_smiles"] == "CCO"
 
-    def test_transform_coerces_nullable_int_columns(self, testitem_config, monkeypatch):
+    def test_transform_coerces_nullable_int_columns(self, testitem_config, monkeypatch, tmp_path):
         """String or float encoded integers should normalise to nullable Int64."""
 
         monkeypatch.setattr(TestItemPipeline, "_get_chembl_release", lambda self: "ChEMBL_TEST")
-        pipeline = TestItemPipeline(testitem_config, run_id="dtype")
+
+        config = testitem_config.model_copy(deep=True)
+        pubchem_path = tmp_path / "pubchem_lookup.csv"
+        pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "standard_inchi_key": ["ABCDEFGHIJKLMN-OPQRSTUVWX-Y"],
+                "pubchem_cid": ["12345"],
+                "pubchem_enrichment_attempt": ["1"],
+                "pubchem_lookup_inchikey": ["ABCDEFGHIJKLMN-OPQRSTUVWX-Y"],
+            }
+        ).to_csv(pubchem_path, index=False)
+        config.postprocess.enrichment["pubchem_dataset"] = str(pubchem_path)
+
+        pipeline = TestItemPipeline(config, run_id="dtype")
 
         def fake_fetch(molecule_ids):
             return pd.DataFrame(
@@ -1929,15 +1942,12 @@ class TestTestItemPipeline:
                     "hbd_lipinski": ["1.0"],
                     "num_lipinski_ro5_violations": ["0"],
                     "lipinski_ro5_violations": ["0"],
-                    "pubchem_cid": ["12345"],
-                    "pubchem_enrichment_attempt": ["1"],
                     "fallback_http_status": ["404"],
                     "fallback_attempt": ["2"],
                 }
             )
 
         monkeypatch.setattr(pipeline, "_fetch_molecule_data", fake_fetch)
-        pipeline.external_adapters.clear()
 
         df = pd.DataFrame({"molecule_chembl_id": ["CHEMBL1"]})
 

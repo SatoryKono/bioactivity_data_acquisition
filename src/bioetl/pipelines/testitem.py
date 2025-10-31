@@ -1,7 +1,7 @@
 """Compatibility proxy for the ChEMBL test item pipeline."""
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -9,16 +9,12 @@ from urllib.parse import urlencode
 import pandas as pd
 import requests  # type: ignore[import-untyped]
 
-from bioetl.adapters import PubChemAdapter
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.config import coerce_float_config, coerce_int_config
 from bioetl.utils.dtypes import (
     coerce_nullable_int,
     coerce_optional_bool,
@@ -178,6 +174,7 @@ class TestItemPipeline(PipelineBase):
         "pubchem_cid_source",
         "pubchem_fallback_used",
         "pubchem_enrichment_attempt",
+        "pubchem_lookup_inchikey",
     ]
 
     _FALLBACK_FIELDS: list[str] = [
@@ -481,8 +478,6 @@ class TestItemPipeline(PipelineBase):
         self.configured_max_url_length = chembl_context.max_url_length
 
         # Initialize external adapters (PubChem)
-        self.external_adapters: dict[str, ExternalAdapter] = {}
-        self._init_external_adapters()
 
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
@@ -942,14 +937,11 @@ class TestItemPipeline(PipelineBase):
 
             df = df.drop(columns=[canonical_column], errors="ignore")
 
-        # PubChem enrichment (optional)
-        if "pubchem" in self.external_adapters:
-            logger.info("pubchem_enrichment_enabled")
-            try:
-                df = self._enrich_with_pubchem(df)
-            except Exception as e:
-                logger.error("pubchem_enrichment_failed", error=str(e))
-                # Continue with original data - graceful degradation
+        # PubChem enrichment via precomputed dataset
+        try:
+            df = self._merge_pubchem_dataset(df)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error("pubchem_enrichment_failed", error=str(exc))
 
         extraneous_columns = [
             "inchi_key_from_mol",
@@ -992,238 +984,129 @@ class TestItemPipeline(PipelineBase):
 
         return df
 
-    def _init_external_adapters(self) -> None:
-        """Initialize external API adapters."""
-        sources = self.config.sources
+    def _ensure_pubchem_columns_present(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure the dataframe exposes all expected ``pubchem_*`` columns."""
 
-        default_base_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-        default_batch_size = 100
-        default_rate_limit_max_calls = 5
-        default_rate_limit_period = 1.0
+        working = df.copy()
+        for column in self._PUBCHEM_FIELDS:
+            if column not in working.columns:
+                working[column] = pd.NA
+        return working
 
-        def _source_attr(source: Any, attr: str, default: Any) -> Any:
-            if isinstance(source, dict):
-                return source.get(attr, default)
-            if source is None:
-                return default
-            return getattr(source, attr, default)
+    def _resolve_pubchem_dataset_path(self) -> Path | None:
+        """Resolve the configured path for the precomputed PubChem dataset."""
 
-        def _log(event: str, **kwargs: Any) -> None:
-            logger.warning(event, source="pubchem", **kwargs)
+        enrichment_cfg = getattr(self.config.postprocess, "enrichment", {})
+        if not isinstance(enrichment_cfg, Mapping):
+            return None
 
-        pubchem_source = sources.get("pubchem") if sources is not None else None
+        dataset_value = enrichment_cfg.get("pubchem_dataset")
+        if not dataset_value:
+            return None
 
-        base_url = _source_attr(pubchem_source, "base_url", default_base_url)
-        rate_limit_max_calls_raw = _source_attr(
-            pubchem_source, "rate_limit_max_calls", default_rate_limit_max_calls
-        )
-        rate_limit_period_raw = _source_attr(
-            pubchem_source, "rate_limit_period", default_rate_limit_period
-        )
-        batch_size_raw = _source_attr(pubchem_source, "batch_size", default_batch_size)
-        headers_raw = _source_attr(pubchem_source, "headers", {})
-        rate_limit_jitter = bool(_source_attr(pubchem_source, "rate_limit_jitter", True))
+        candidate = Path(str(dataset_value))
+        if candidate.is_absolute():
+            return candidate
+        return (Path.cwd() / candidate).resolve(strict=False)
 
-        if pubchem_source is not None and not _source_attr(pubchem_source, "enabled", True):
-            logger.warning("pubchem_adapter_force_enabled", reason="explicit_disable_ignored")
-
-        headers: dict[str, Any]
-        if isinstance(headers_raw, dict):
-            headers = dict(headers_raw)
-        else:
-            headers = {}
-            logger.warning("pubchem_config_invalid_headers", headers_type=type(headers_raw).__name__)
-
-        http_profile = _source_attr(pubchem_source, "http", None)
-        if http_profile is not None:
-            http_headers = _source_attr(http_profile, "headers", None)
-            if isinstance(http_headers, dict):
-                headers.update({str(key): str(value) for key, value in http_headers.items()})
-
-            http_rate_limit = _source_attr(http_profile, "rate_limit", None)
-            if http_rate_limit is not None:
-                rate_limit_max_calls_raw = _source_attr(
-                    http_rate_limit, "max_calls", rate_limit_max_calls_raw
-                )
-                rate_limit_period_raw = _source_attr(
-                    http_rate_limit, "period", rate_limit_period_raw
-                )
-
-        cache_maxsize = getattr(self.config.cache, "maxsize", None)
-        if cache_maxsize is None:
-            cache_maxsize = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
-
-        rate_limit_max_calls = coerce_int_config(
-            rate_limit_max_calls_raw,
-            default_rate_limit_max_calls,
-            field="rate_limit_max_calls",
-            minimum=1,
-            log=_log,
-            invalid_event="pubchem_config_invalid_int",
-            out_of_range_event="pubchem_config_out_of_range",
-        )
-        rate_limit_period = coerce_float_config(
-            rate_limit_period_raw,
-            default_rate_limit_period,
-            field="rate_limit_period",
-            minimum=0.0,
-            exclusive_minimum=True,
-            log=_log,
-            invalid_event="pubchem_config_invalid_float",
-            out_of_range_event="pubchem_config_out_of_range",
-        )
-        batch_size = coerce_int_config(
-            batch_size_raw,
-            default_batch_size,
-            field="batch_size",
-            minimum=1,
-            log=_log,
-            invalid_event="pubchem_config_invalid_int",
-            out_of_range_event="pubchem_config_out_of_range",
-        )
-
-        workers_raw = _source_attr(pubchem_source, "workers", 1)
-        workers = coerce_int_config(
-            workers_raw,
-            1,
-            field="workers",
-            minimum=1,
-            log=_log,
-            invalid_event="pubchem_config_invalid_int",
-            out_of_range_event="pubchem_config_out_of_range",
-        )
-
-        adapter_kwargs: dict[str, Any] = {
-            "enabled": True,
-            "batch_size": batch_size,
-            "workers": workers,
-        }
-        for optional_field in ("tool", "email", "api_key", "mailto"):
-            optional_value = _source_attr(pubchem_source, optional_field, None)
-            if optional_value:
-                adapter_kwargs[optional_field] = optional_value
-
-        pubchem_config = APIConfig(
-            name="pubchem",
-            base_url=base_url,
-            headers=headers,
-            cache_enabled=self.config.cache.enabled,
-            cache_ttl=self.config.cache.ttl,
-            cache_maxsize=cache_maxsize,
-            rate_limit_max_calls=rate_limit_max_calls,
-            rate_limit_period=rate_limit_period,
-            rate_limit_jitter=rate_limit_jitter,
-        )
-
-        adapter_config = AdapterConfig(**adapter_kwargs)
-        self.external_adapters["pubchem"] = PubChemAdapter(pubchem_config, adapter_config)
-        logger.info(
-            "pubchem_adapter_initialized",
-            base_url=base_url,
-            batch_size=batch_size,
-            rate_limit_max_calls=rate_limit_max_calls,
-            rate_limit_period=rate_limit_period,
-        )
-
-        logger.info("adapters_initialized", count=len(self.external_adapters))
-
-    def close_resources(self) -> None:
-        """Close the PubChem adapter alongside inherited resources."""
-
-        for name, adapter in getattr(self, "external_adapters", {}).items():
-            self._close_resource(adapter, resource_name=f"external_adapter.{name}")
-
-    def _enrich_with_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrich testitem data with PubChem properties.
-
-        Args:
-            df: DataFrame with molecule data from ChEMBL
-
-        Returns:
-            DataFrame enriched with pubchem_* fields
-        """
-        if "pubchem" not in self.external_adapters:
-            logger.warning("pubchem_adapter_not_available")
-            return df
+    def _merge_pubchem_dataset(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Merge the pre-generated PubChem dataset into the molecule dataframe."""
 
         if df.empty:
-            logger.warning("enrichment_skipped", reason="empty_dataframe")
-            return df
+            return self._ensure_pubchem_columns_present(df)
 
-        # Check if we have InChI Keys for enrichment
-        if "standard_inchi_key" not in df.columns:
-            logger.warning("enrichment_skipped", reason="missing_standard_inchi_key_column")
-            return df
+        working = df.copy()
+        if "standard_inchi_key" in working.columns:
+            working["standard_inchi_key"] = (
+                working["standard_inchi_key"].astype("string").str.upper().str.strip()
+            )
+        else:
+            working["standard_inchi_key"] = pd.Series(pd.NA, index=working.index, dtype="string")
 
-        # Pre-enrichment coverage logging and QC metric
-        total_rows = int(len(df))
-        inchi_present = int(df["standard_inchi_key"].notna().sum())
-        inchi_coverage = float(inchi_present / total_rows) if total_rows else 0.0
-        logger.info(
-            "pubchem_inchikey_coverage",
-            total_rows=total_rows,
-            present=inchi_present,
-            coverage=inchi_coverage,
+        dataset_path = self._resolve_pubchem_dataset_path()
+        default_filename: Path | str
+        if dataset_path is None:
+            default_filename = Path("pubchem_lookup.csv")
+        else:
+            default_filename = dataset_path
+
+        expected_columns = ["molecule_chembl_id", "standard_inchi_key"] + self._PUBCHEM_FIELDS
+        lookup_df, resolved_path = self.read_input_table(
+            default_filename=default_filename,
+            expected_columns=expected_columns,
+            apply_limit=False,
+        )
+        lookup_df = lookup_df.convert_dtypes()
+
+        if not resolved_path.exists():
+            logger.warning("pubchem_lookup_missing", path=str(resolved_path))
+
+        if not lookup_df.empty:
+            lookup_df = lookup_df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")
+            if "standard_inchi_key" in lookup_df.columns:
+                lookup_df["standard_inchi_key"] = (
+                    lookup_df["standard_inchi_key"].astype("string").str.upper().str.strip()
+                )
+            if "pubchem_lookup_inchikey" in lookup_df.columns:
+                lookup_df["pubchem_lookup_inchikey"] = (
+                    lookup_df["pubchem_lookup_inchikey"].astype("string").str.upper().str.strip()
+                )
+            lookup_df = lookup_df.rename(columns={"standard_inchi_key": "pubchem_standard_inchi_key"})
+
+        merged = working.merge(
+            lookup_df,
+            on="molecule_chembl_id",
+            how="left",
+            suffixes=("", "_pubchem_lookup"),
         )
 
-        qc_cfg = getattr(self.config, "qc", None)
-        thresholds: dict[str, Any] = getattr(qc_cfg, "thresholds", {}) if qc_cfg is not None else {}
-        min_inchikey_cov = float(thresholds.get("testitem.pubchem_min_inchikey_coverage", 0.0))
-        inchikey_metric = {
+        if "pubchem_standard_inchi_key" in merged.columns:
+            merged["standard_inchi_key"] = merged["standard_inchi_key"].fillna(
+                merged.pop("pubchem_standard_inchi_key")
+            )
+
+        merged = self._ensure_pubchem_columns_present(merged)
+
+        thresholds = getattr(self.config.qc, "thresholds", {}) if getattr(self.config, "qc", None) else {}
+        min_cov = float(thresholds.get("testitem.pubchem_min_inchikey_coverage", 0.0))
+        min_rate = float(thresholds.get("testitem.pubchem_min_enrichment_rate", 0.0))
+
+        total_rows = int(len(merged))
+        inchi_present = int(merged["standard_inchi_key"].notna().sum())
+        coverage = float(inchi_present / total_rows) if total_rows else 0.0
+
+        coverage_metric = {
             "count": inchi_present,
-            "value": inchi_coverage,
-            "threshold": min_inchikey_cov,
-            "passed": inchi_coverage >= min_inchikey_cov,
-            "severity": "warning" if inchi_coverage < min_inchikey_cov else "info",
+            "value": coverage,
+            "threshold": min_cov,
+            "passed": coverage >= min_cov,
+            "severity": "warning" if coverage < min_cov else "info",
         }
-        update_summary_metrics(self.qc_summary_data, {"pubchem.inchikey_coverage": inchikey_metric})
 
-        if inchi_present == 0:
-            logger.warning(
-                "pubchem_enrichment_skipped_no_inchikey",
-                advice="Убедитесь, что из ChEMBL приходит molecule_structures.standard_inchi_key",
-            )
-            return df
+        enriched_rows = int(merged["pubchem_cid"].notna().sum()) if "pubchem_cid" in merged.columns else 0
+        enrichment_rate = float(enriched_rows / total_rows) if total_rows else 0.0
+        enrichment_metric = {
+            "count": enriched_rows,
+            "value": enrichment_rate,
+            "threshold": min_rate,
+            "passed": enrichment_rate >= min_rate,
+            "severity": "warning" if enrichment_rate < min_rate else "info",
+        }
 
-        pubchem_adapter = self.external_adapters["pubchem"]
+        update_summary_metrics(
+            self.qc_summary_data,
+            {
+                "pubchem.inchikey_coverage": coverage_metric,
+                "pubchem.enrichment_rate": enrichment_metric,
+            },
+        )
 
-        try:
-            # Type cast to PubChemAdapter for specific method access
-            enriched_df = cast(PubChemAdapter, pubchem_adapter).enrich_with_pubchem(
-                df, inchi_key_col="standard_inchi_key"
-            )
-            # Post-enrichment metrics
-            if "pubchem_cid" in enriched_df.columns:
-                enriched_rows = int(enriched_df["pubchem_cid"].notna().sum())
-                enrichment_rate = float(enriched_rows / len(enriched_df)) if len(enriched_df) else 0.0
-                logger.info(
-                    "pubchem_enrichment_metrics",
-                    enriched_rows=enriched_rows,
-                    total_rows=int(len(enriched_df)),
-                    enrichment_rate=enrichment_rate,
-                )
-                update_summary_metrics(
-                    self.qc_summary_data,
-                    {
-                        "pubchem.enrichment_rate": {
-                            "count": enriched_rows,
-                            "value": enrichment_rate,
-                            "threshold": float(thresholds.get("testitem.pubchem_min_enrichment_rate", 0.0)),
-                            "passed": enrichment_rate >= float(
-                                thresholds.get("testitem.pubchem_min_enrichment_rate", 0.0)
-                            ),
-                            "severity": "warning"
-                            if enrichment_rate
-                            < float(thresholds.get("testitem.pubchem_min_enrichment_rate", 0.0))
-                            else "info",
-                        }
-                    },
-                )
-            return enriched_df  # type: ignore[no-any-return]
-        except Exception as e:
-            logger.error("pubchem_enrichment_error", error=str(e))
-            # Return original dataframe on error - graceful degradation
-            return df
+        return merged
+
+    def close_resources(self) -> None:
+        """TestItem pipeline does not allocate external adapters."""
+
+        return None
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate molecule data against schema and QC policies."""
