@@ -812,7 +812,7 @@ schema:
 | hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 | hash_business_key | assay_chembl_id | SHA256(assay_chembl_id) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
 
-**Note:** Assay schema содержит все поля из data/output/assay/assay_*.csv включая src_id, src_name, assay_type, assay_organism, assay_tax_id и др. Полный список см. в requirements:05-assay-extraction.md
+**Note:** Assay schema содержит 70+ полей включая все assay_*, assay_param_*, assay_class_*, variant_* поля, whitelist enrichment (pref_name, organism, target_type, species_group_flag, tax_id, component_count), fallback metadata. Полный список полей и их порядок см. в AssaySchema._column_order в `src/bioetl/schemas/assay.py`
 
 ---
 
@@ -1228,15 +1228,15 @@ schema:
   notes: "Тип действия лиганда"
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
-- name: activity_properties_json
+- name: pipeline_version
 
   dtype: StringDtype
-  required: false
+  required: true
   units: null
   allowed_values: []
   constraints: {}
-  na_policy: allow
-  notes: "Свойства активности в формате JSON"
+  na_policy: forbid
+  notes: "Версия пайплайна"
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
 
 - name: bei
@@ -1474,6 +1474,8 @@ schema:
 | hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
 | hash_business_key | activity_id | SHA256(activity_id) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
 
+**Note:** Activity schema содержит 50+ полей включая published_*, standard_*, BAO annotations, ligand efficiency (bei, sei, le, lle), citation flags, activity properties, fallback metadata. Полный список полей и их порядок см. в ActivitySchema.COLUMN_ORDER в `src/bioetl/schemas/activity.py`
+
 ---
 
 ### F) Контракты и детерминизм (Activity)
@@ -1705,7 +1707,7 @@ schema:
 | hash_row | canonicalized row | SHA256 | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
 | hash_business_key | molecule_chembl_id | SHA256(molecule_chembl_id) | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
 
-**Note:** Testitem schema содержит ~81 поле включая все физико-химические свойства, флаги, drug_*, структуры из requirements:07a-testitem-extraction.md. Полный список полей см. в data/output/testitem/testitem_*.csv
+**Note:** Testitem schema содержит 150+ полей включая все физико-химические свойства, флаги, drug_*, pubchem_* enrichment, структуры. Полный список полей и их порядок см. в TestItemSchema._column_order в `src/bioetl/schemas/testitem.py`
 
 ---
 
@@ -2097,7 +2099,7 @@ schema:
   name: document/output
   primary_key: [document_chembl_id]
   foreign_keys: []
-  column_order: [index, extracted_at, hash_business_key, hash_row, document_chembl_id, document_pubmed_id, document_classification, referenses_on_previous_experiments, original_experimental_document, document_citation, pubmed_mesh_descriptors, pubmed_mesh_qualifiers, pubmed_chemical_list, crossref_subject, chembl_pmid, openalex_pmid, pubmed_pmid, semantic_scholar_pmid, chembl_title, crossref_title, openalex_title, pubmed_article_title, semantic_scholar_title, chembl_abstract, pubmed_abstract, chembl_authors, crossref_authors, openalex_authors, pubmed_authors, semantic_scholar_authors, chembl_doi, crossref_doi, openalex_doi, pubmed_doi, semantic_scholar_doi, chembl_doc_type, crossref_doc_type, openalex_doc_type, openalex_crossref_doc_type, pubmed_doc_type, semantic_scholar_doc_type, openalex_issn, pubmed_issn, semantic_scholar_issn, chembl_journal, pubmed_journal, semantic_scholar_journal, chembl_year, openalex_year, chembl_volume, pubmed_volume, chembl_issue, pubmed_issue, pubmed_first_page, pubmed_last_page, crossref_error, openalex_error, pubmed_error, semantic_scholar_error, pubmed_year_completed, pubmed_month_completed, pubmed_day_completed, pubmed_year_revised, pubmed_month_revised, pubmed_day_revised, publication_date, document_sortorder, valid_doi, valid_journal, valid_year, valid_volume, valid_issue, invalid_doi, invalid_journal, invalid_year, invalid_volume, invalid_issue]
+  column_order: [index, hash_row, hash_business_key, pipeline_version, run_id, source_system, chembl_release, extracted_at, document_chembl_id, document_pubmed_id, document_classification, referenses_on_previous_experiments, original_experimental_document, pmid, pmid_source, doi_clean, doi_clean_source, title, title_source, abstract, abstract_source, journal, journal_source, journal_abbrev, journal_abbrev_source, authors, authors_source, year, year_source, volume, volume_source, issue, issue_source, first_page, first_page_source, last_page, last_page_source, issn_print, issn_print_source, issn_electronic, issn_electronic_source, is_oa, is_oa_source, oa_status, oa_status_source, oa_url, oa_url_source, citation_count, citation_count_source, influential_citations, influential_citations_source, fields_of_study, fields_of_study_source, concepts_top3, concepts_top3_source, mesh_terms, mesh_terms_source, chemicals, chemicals_source, conflict_doi, conflict_pmid, chembl_pmid, pubmed_pmid, openalex_pmid, semantic_scholar_pmid, chembl_title, crossref_title, openalex_title, pubmed_article_title, semantic_scholar_title, chembl_abstract, pubmed_abstract, chembl_authors, crossref_authors, openalex_authors, pubmed_authors, semantic_scholar_authors, chembl_doi, crossref_doi, openalex_doi, pubmed_doi, semantic_scholar_doi, chembl_doc_type, crossref_doc_type, openalex_doc_type, openalex_crossref_doc_type, pubmed_doc_type, semantic_scholar_doc_type, chembl_journal, pubmed_journal, semantic_scholar_journal, chembl_year, openalex_year, chembl_volume, pubmed_volume, chembl_issue, pubmed_issue, pubmed_first_page, pubmed_last_page, openalex_issn, pubmed_issn, semantic_scholar_issn, pubmed_mesh_descriptors, pubmed_mesh_qualifiers, pubmed_chemical_list, pubmed_year_completed, pubmed_month_completed, pubmed_day_completed, pubmed_year_revised, pubmed_month_revised, pubmed_day_revised, crossref_subject, crossref_error, openalex_error, pubmed_error, semantic_scholar_error, fallback_reason, fallback_error_type, fallback_error_code, fallback_error_message, fallback_http_status, fallback_retry_after_sec, fallback_attempt, fallback_timestamp]
   fields:
 
 ```text
@@ -2546,6 +2548,8 @@ schema:
 | hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
 | hash_business_key | document_chembl_id | SHA256(document_chembl_id) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
 
+**Note:** Document schema содержит 130+ полей включая resolved поля (title, abstract, journal, authors, year, volume, issue и т.д. без префиксов), source-specific поля (chembl_*, pubmed_*, crossref_*, openalex_*, semantic_scholar_*), source tracking поля (*_source), conflict flags, fallback metadata. Полный список полей и их порядок см. в DocumentSchema._column_order в `src/bioetl/schemas/document.py`
+
 ---
 
 ### F) Контракты и детерминизм (Document)
@@ -2554,4 +2558,3 @@ schema:
 - mode=all запускает независимые адаптеры с rate limits (PubMed batch 200, Crossref cursor rows≤1000, OpenAlex per_page≤200, Semantic Scholar graceful degradation). [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 - QC отчёты: coverage (doi_coverage, pmid_coverage, title_coverage, journal_coverage), conflicts (doi, pmid), duplicates (CHEMBL, DOI+year, PMID), access_denied; meta.yaml фиксирует metrics и checksum. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
 - AtomicWriter `.tmp` per run, deterministic CSV/Parquet; correlation report опционален. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_11] [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
-
