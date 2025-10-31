@@ -1,1 +1,5 @@
-"""Source-specific pipeline integrations and helpers."""
+"""Source-oriented pipeline namespace."""
+
+__all__ = [
+    "chembl",
+]

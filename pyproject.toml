@@ -91,7 +91,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["bioetl"]
+known-first-party = [
+    "bioetl",
+    "bioetl.sources",
+]
 
 [tool.mypy]
 python_version = "3.10"
@@ -111,8 +114,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "bioetl.adapters.*",
-    "bioetl.pipelines.*",
+    "bioetl.sources.*",
     "bioetl.schemas.*",
 ]
 ignore_errors = true
