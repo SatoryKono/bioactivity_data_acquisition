@@ -31,6 +31,15 @@ class TestItemRequestBuilder:
         self.batch_size = batch_size
         self.max_url_length = max_url_length
 
+    def build_filter_params(self, molecule_ids: Sequence[str]) -> dict[str, str]:
+        """Return query parameters for a molecule batch request."""
+
+        limit = min(len(molecule_ids), self.batch_size)
+        return {
+            "molecule_chembl_id__in": ",".join(molecule_ids),
+            "limit": str(limit),
+        }
+
     def build_url(self, molecule_ids: Sequence[str]) -> str:
         """Build request URL for molecule IDs.
 
@@ -42,10 +51,7 @@ class TestItemRequestBuilder:
         """
         base = str(self.api_client.config.base_url).rstrip("/")
         url = f"{base}/molecule.json"
-        params = {
-            "molecule_chembl_id__in": ",".join(molecule_ids),
-            "limit": min(len(molecule_ids), self.batch_size),
-        }
+        params = self.build_filter_params(molecule_ids)
         query_string = urlencode(params)
         return f"{url}?{query_string}"
 
