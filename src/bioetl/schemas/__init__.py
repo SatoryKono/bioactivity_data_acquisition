@@ -1,4 +1,11 @@
-"""Pandera schema exports and registry accessors."""
+"""Pandera schema exports and registry accessors.
+
+The canonical facade for registry lookups lives in
+``bioetl.core.unified_schema``; this module keeps backward compatible
+re-exports of the concrete Pandera models for callers that need direct access
+to the schema classes.  Importing via the facade keeps the public API surface
+stable while avoiding heavy imports during module initialisation.
+"""
 
 from __future__ import annotations
 

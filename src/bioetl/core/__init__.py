@@ -9,6 +9,15 @@ from bioetl.core.output_writer import (
     OutputMetadata,
     UnifiedOutputWriter,
 )
+from bioetl.core.unified_schema import (
+    SchemaRegistration,
+    SchemaRegistry,
+    get_registry as get_schema_registry,
+    get_schema,
+    get_schema_metadata,
+    is_registered as is_schema_registered,
+    register_schema,
+)
 
 __all__ = [
     "UnifiedLogger",
@@ -20,5 +29,12 @@ __all__ = [
     "UnifiedOutputWriter",
     "OutputArtifacts",
     "OutputMetadata",
+    "SchemaRegistry",
+    "SchemaRegistration",
+    "get_schema_registry",
+    "get_schema",
+    "get_schema_metadata",
+    "is_schema_registered",
+    "register_schema",
 ]
 
