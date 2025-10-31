@@ -16,7 +16,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.core.chembl import create_chembl_client
 from bioetl.core.materialization import MaterializationManager
 from bioetl.core.output_writer import UnifiedOutputWriter
-from bioetl.sources.uniprot import UniProtService
+from bioetl.sources.uniprot.merge.service import UniProtService
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
@@ -53,7 +53,7 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
-__all__ = ("TargetPipeline",)
+__all__ = ["TargetPipeline"]
 
 logger = UnifiedLogger.get(__name__)
 
