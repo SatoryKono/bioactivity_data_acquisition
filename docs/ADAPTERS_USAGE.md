@@ -86,7 +86,7 @@ sources:
 ```python
 
 from bioetl.config import PipelineConfig
-from bioetl.sources.document.pipeline import DocumentPipeline
+from bioetl.sources.chembl.document.pipeline import DocumentPipeline
 
 config = PipelineConfig.from_yaml("configs/pipelines/document.yaml")
 pipeline = DocumentPipeline(config, run_id="test")
@@ -96,6 +96,8 @@ pipeline = DocumentPipeline(config, run_id="test")
 df = pipeline.extract("data/input/documents.csv")
 
 ```
+
+> **Совместимость:** исторический импорт `from bioetl.pipelines.document import DocumentPipeline` остаётся валидным благодаря прокси `src/bioetl/pipelines/document.py`.
 
 ### Прямое использование
 

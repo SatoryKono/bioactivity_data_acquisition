@@ -2,7 +2,7 @@
 
 ## Public API
 - `from bioetl.sources.document.adapters.crossref import CrossrefAdapter`
-- `from bioetl.sources.document.pipeline import DocumentPipeline` (enrichment stage integration)
+- `from bioetl.sources.chembl.document.pipeline import DocumentPipeline` (enrichment stage integration; совместимость старого API — `bioetl.pipelines.document.DocumentPipeline`)
 
 ## CLI entrypoint
 - Внешнее обогащение Crossref запускается через публичный пайплайн `document`:

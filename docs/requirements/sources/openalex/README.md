@@ -2,7 +2,7 @@
 
 ## Public API
 - `from bioetl.sources.document.adapters.openalex import OpenAlexAdapter`
-- `from bioetl.sources.document.pipeline import DocumentPipeline` (enrichment stage integration)
+- `from bioetl.sources.chembl.document.pipeline import DocumentPipeline` (enrichment stage integration; совместимость старого API — `bioetl.pipelines.document.DocumentPipeline`)
 
 ## CLI entrypoint
 - Адаптер OpenAlex исполняется через `python -m bioetl.cli.main document`.
