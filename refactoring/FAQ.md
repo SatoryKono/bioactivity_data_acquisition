@@ -1,11 +1,11 @@
-Инвентаризация (src/scripts/run_inventory.py)
+Инвентаризация (`src/scripts/run_inventory.py`)
 
 MUST: автоматизированный инструмент инвентаризации должен существовать. Ручной отчёт допустим единожды для бутстрапа, но артефакт инвентаризации обязан генерироваться детерминированно и повторяемо.
 Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:src/scripts/run_inventory.py@test_refactoring_32]; конфигурация: [ref: repo:configs/inventory.yaml@test_refactoring_32].
 Запись файла — атомарная: tmp → os.replace. 
 Python documentation
 
-MUST: формат вывода — CSV по RFC 4180 с фиксированной сортировкой строк (рекомендуется source, path, module). Поля:
+MUST: формат вывода — CSV по RFC 4180 с фиксированной сортировкой строк (рекомендуется source, path, module). Артефакт генерируется командой `python src/scripts/run_inventory.py --check`. Поля:
 source|path|module|size_kb|loc|mtime|top_symbols|imports_top|docstring_first_line|config_keys.
 Обязаны соблюдаться правила кавычек/экранирования и CRLF как каноничный перевод строки. 
 IETF
@@ -55,13 +55,13 @@ Hypothesis
 
 CLI
 
-MUST: Typer-команды CLI регистрируются автоматически на основе `scripts.PIPELINE_COMMAND_REGISTRY` и доступны через единый вход `python -m bioetl.cli.main <pipeline>`; поддерживаемый реестр хранится в `src/scripts/__init__.py`.
+MUST: Typer-команды CLI формируются из реестра `scripts.PIPELINE_COMMAND_REGISTRY` и доступны через единый вход `python -m bioetl.cli.main <pipeline>`; поддерживаемый реестр хранится в `src/scripts/__init__.py`.
 Typer documentation
 
 SHOULD: раздел FAQ ссылается на актуальный список команд из [README.md#cli-usage](../README.md#cli-usage) и перечисляет флаги общего назначения: `--config`, `--dry-run`, `--mode`.
 Project README
 
-SHOULD: приведённые примеры команд проходят дымовую проверку `python -m bioetl.cli.main list` в отдельном CI-джобе.
+SHOULD: приведённые примеры команд проходят дымовую проверку `python -m bioetl.cli.main list` в отдельном CI-джобе (`link-check` или `tests`).
 
 **Фактическая структура команд:**
 
@@ -87,6 +87,13 @@ python -m bioetl.cli.main assay --config configs/pipelines/assay.yaml
 ```
 
 MAY: флаги, специфичные для пайплайнов, документируются локально, но базовые команды (`--help`, `list`, `activity`, `assay`, `target`, `document`, `testitem`) обязаны совпадать с выводом Typer.
+
+Общие флаги CLI
+
+SHOULD: поддерживаемые общие флаги (`--config`, `--dry-run`, `--mode`) синхронизируются с [README.md#cli-usage](../README.md#cli-usage) и документацией в исходном коде ([ref: repo:src/scripts/__init__.py@test_refactoring_32]).
+TODO: дополнить раздел конкретными флагами отдельных пайплайнов по мере миграции.
+Старые CLI-входы допускаются только как временные совместимые «шины» с DeprecationWarning и снимаются по графику депрекаций; финальное удаление — в ближайшем MAJOR релизе по SemVer. Процесс обновления SemVer: синхронное обновление версии в `pyproject.toml`, записи в `CHANGELOG.md` и строки в [DEPRECATIONS.md](../DEPRECATIONS.md) в рамках одного PR.
+Semantic Versioning
 
 SHOULD: единый механизм overrides: --set key=value и ENV-переменные; приоритет разрешений CLI > ENV > config. Хранить конфиг в окружении соответствует 12-Factor.
 12factor.net
