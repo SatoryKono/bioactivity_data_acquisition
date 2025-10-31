@@ -24,6 +24,7 @@ datatracker.ietf.org
 ## Источники истины (@test_refactoring_32)
 
 - [ref: repo:docs/requirements/PIPELINES.inventory.csv@test_refactoring_32] — список источников и пайплайнов.
+- [ref: repo:docs/requirements/SOURCES_AND_INTERFACES.md@test_refactoring_32] — витрина спецификаций источников и интерфейсов.
 - [ref: repo:docs/requirements/PIPELINES.inventory.clusters.md@test_refactoring_32] — кластеры по компонентам пайплайнов.
 - [ref: repo:configs/inventory.yaml@test_refactoring_32] — конфигурация генерации инвентаризации.
 - [ref: repo:tests/unit/test_inventory.py@test_refactoring_32] — проверки артефактов инвентаризации.
@@ -68,7 +69,7 @@ public_api: имя публичного класса/фасада и файл pi
 
 config_keys: список ключей конфигурации
 
-config_path: `src/bioetl/configs/pipelines/<source>.yaml` (MUST). Допускается подключать include-модули из `src/bioetl/configs/includes/` (например, `_shared/chembl_source.yaml`) для общих параметров; итоговая конфигурация проходит автоматическую валидацию `PipelineConfig`.
+config_path: `src/bioetl/configs/pipelines/<source>.yaml` (MUST). Допускается подключать include-модули из `src/bioetl/configs/includes/` (например, `configs/includes/chembl_source.yaml`) для общих параметров; итоговая конфигурация проходит автоматическую валидацию `PipelineConfig`.
 
 entities: извлекаемые сущности и обязательные поля
 

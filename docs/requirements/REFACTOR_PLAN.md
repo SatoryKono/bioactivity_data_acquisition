@@ -9,6 +9,13 @@
 - [NORMALIZATION_RULES.md](NORMALIZATION_RULES.md) — единые правила нормализации.
 - [VALIDATION_RULES.md](VALIDATION_RULES.md) — спецификация валидации и QC.
 
+## Источники истины
+
+- [SOURCES_AND_INTERFACES.md](SOURCES_AND_INTERFACES.md) — витрина спецификаций источников и интерфейсов.
+- [PIPELINES.inventory.csv](PIPELINES.inventory.csv) — инвентаризация пайплайнов. [ref: repo:docs/requirements/PIPELINES.inventory.csv@test_refactoring_32]
+- [../configs/inventory.yaml](../../configs/inventory.yaml) — конфигурация генератора инвентаризации. [ref: repo:configs/inventory.yaml@test_refactoring_32]
+- [../src/scripts/run_inventory.py](../../src/scripts/run_inventory.py) — CLI для генерации артефактов. [ref: repo:src/scripts/run_inventory.py@test_refactoring_32]
+
 ## Этапы
 
 | Этап | Цель | Основные задачи | Контроль качества |
