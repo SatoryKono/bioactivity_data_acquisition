@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from time import perf_counter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 import typing as _typing
 
 import pandas as pd
@@ -31,6 +31,8 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
     from bioetl.config import PipelineConfig
     from bioetl.schemas.base import BaseSchema
+else:
+    BaseSchema = Any  # type: ignore[assignment, misc]
 
 logger = UnifiedLogger.get(__name__)
 
@@ -369,7 +371,8 @@ class AtomicWriter:
         self.run_id = run_id
         self.determinism = determinism or DeterminismConfig()
 
-    def _logger(self):
+    def _logger(self) -> Any:
+        """Return a logger bound with atomic write stage context."""
         return logger.bind(stage=OutputWriterStage.ATOMIC_WRITE.value, run_id=self.run_id)
 
     def write(
@@ -550,7 +553,7 @@ class UnifiedOutputWriter:
         self.quality_generator = QualityReportGenerator()
         self.pipeline_config: PipelineConfig | None = pipeline_config
 
-    def _stage_logger(self, stage: OutputWriterStage):
+    def _stage_logger(self, stage: OutputWriterStage) -> Any:
         """Return a logger bound with the output writer stage."""
 
         return logger.bind(stage=stage.value, run_id=self.run_id)
@@ -576,7 +579,8 @@ class UnifiedOutputWriter:
             return []
 
         try:
-            return resolve_schema_column_order(registration.schema)
+            schema_type = cast("type[BaseSchema]", registration.schema)
+            return resolve_schema_column_order(schema_type)
         except Exception:  # pragma: no cover - defensive guard
             return []
 
@@ -606,7 +610,8 @@ class UnifiedOutputWriter:
             return []
 
         try:
-            return resolve_schema_column_order(registration.schema)
+            schema_type = cast("type[BaseSchema]", registration.schema)
+            return resolve_schema_column_order(schema_type)
         except Exception:  # pragma: no cover - defensive guard
             return []
 
@@ -978,11 +983,11 @@ class UnifiedOutputWriter:
                     dataset_metrics_path,
                     float_format=float_format,
                 )
-                dataset_metrics_payload = {
-                    str(row["metric"]): row["value"]
-                    for row in dataset_metrics_df.to_dict("records")
-                    if isinstance(row, dict) and "metric" in row and "value" in row
-                }
+                dataset_metrics_payload = {}
+                for row in dataset_metrics_df.to_dict("records"):
+                    if isinstance(row, dict) and "metric" in row and "value" in row:
+                        metric_key = str(row["metric"])
+                        dataset_metrics_payload[metric_key] = row["value"]
 
         checksum_targets: list[Path] = [
             dataset_path,

@@ -16,9 +16,11 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
+
 from .client.activity_client import ActivityChEMBLClient
 from .normalizer.activity_normalizer import ActivityNormalizer
 from .output.activity_output import ActivityOutputWriter
@@ -186,7 +188,8 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
 
-        release = self._fetch_chembl_release_info(self.api_client)
+        client = cast(SupportsRequestJson, self.api_client)
+        release = self._fetch_chembl_release_info(client)
         status = release.status
         if isinstance(status, Mapping):
             self._status_snapshot = dict(status) if not isinstance(status, dict) else status

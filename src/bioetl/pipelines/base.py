@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -758,7 +758,7 @@ class PipelineBase(ABC):
             return df
 
         try:
-            validated = schema.validate(df, lazy=True)
+            validated = cast(pd.DataFrame, schema.validate(df, lazy=True))
         except Exception as exc:
             failure_cases = getattr(exc, "failure_cases", None)
             error_count: int | None = None
@@ -860,20 +860,24 @@ class PipelineBase(ABC):
         working_df = df.copy()
 
         try:
+            from bioetl.schemas.base import BaseSchema  # noqa: PLC0415
             from bioetl.utils.dataframe import resolve_schema_column_order  # noqa: PLC0415
-        except Exception:  # pragma: no cover - defensive import guard
-            resolve_schema_column_order = None  # type: ignore[assignment]
 
-        canonical_order: list[str] = []
-        if resolve_schema_column_order is not None:
+            canonical_order: list[str] = []
             try:
-                canonical_order = list(resolve_schema_column_order(schema_cls))
+                # Schemas from registry are always BaseSchema subclasses
+                base_schema_cls = cast(type[BaseSchema], schema_cls)
+                canonical_order = list(resolve_schema_column_order(base_schema_cls))
             except Exception:  # pragma: no cover - defensive guard
                 canonical_order = []
+        except Exception:  # pragma: no cover - defensive import guard
+            canonical_order = []
 
         if not canonical_order:
             try:
-                canonical_order = list(schema_cls.get_column_order())
+                get_column_order_method = getattr(schema_cls, "get_column_order", None)
+                if get_column_order_method is not None and callable(get_column_order_method):
+                    canonical_order = list(get_column_order_method())
             except Exception:  # pragma: no cover - defensive guard
                 canonical_order = []
 
@@ -909,25 +913,30 @@ class PipelineBase(ABC):
         primary_schema = getattr(self, "primary_schema", None)
         if primary_schema is not None:
             try:
+                from bioetl.pandera_pandas import DataFrameModel  # noqa: PLC0415
                 from bioetl.schemas.registry import SchemaRegistry  # noqa: PLC0415
                 from bioetl.utils.dataframe import (  # noqa: PLC0415
                     resolve_schema_column_order,
                 )
-            except Exception:  # pragma: no cover - defensive import guard
-                SchemaRegistry = None  # type: ignore[assignment]
-                resolve_schema_column_order = None  # type: ignore[assignment]
-            else:
+
                 if not isinstance(primary_schema, type):
                     schema_cls = type(primary_schema)
                 else:
                     schema_cls = primary_schema
 
-                registration = SchemaRegistry.find_registration(schema_cls)
+                # Convert schema class to DataFrameModel for registry lookup
+                schema_for_registry = cast(DataFrameModel, schema_cls)
+                registration = SchemaRegistry.find_registration(schema_for_registry)
                 target_schema = (
                     registration.schema if registration is not None else schema_cls
                 )
                 if resolve_schema_column_order is not None:
-                    schema_order = resolve_schema_column_order(target_schema)
+                    from bioetl.schemas.base import BaseSchema  # noqa: PLC0415
+                    # Convert target_schema to BaseSchema type for resolve_schema_column_order
+                    base_schema_target = cast(type[BaseSchema], target_schema)
+                    schema_order = resolve_schema_column_order(base_schema_target)
+            except Exception:  # pragma: no cover - defensive import guard
+                pass
 
         if schema_order:
             actual_columns = list(df.columns)

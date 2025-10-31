@@ -59,8 +59,11 @@ _SCHEMA_EXPORTS: dict[str, str] = {
 # Explicit import for ActivitySchema to ensure static type checkers can resolve it
 from bioetl.schemas.activity import ActivitySchema  # noqa: PLC0415
 
+# Explicit import for TestItemSchema to ensure static type checkers can resolve it
+from bioetl.schemas.testitem import TestItemSchema  # noqa: PLC0415
+
 if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
-    # ActivitySchema is already imported above
+    # ActivitySchema and TestItemSchema are already imported above
     from bioetl.schemas.assay import AssaySchema
     from bioetl.schemas.base import BaseSchema
     from bioetl.schemas.document import (
@@ -76,7 +79,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
         TargetSchema,
         XrefSchema,
     )
-    from bioetl.schemas.testitem import TestItemSchema
+    # TestItemSchema is already imported above
     from bioetl.schemas.uniprot import UniProtSchema
     from bioetl.sources.pubchem.schema import PubChemSchema
     from bioetl.sources.iuphar.schema import (
@@ -98,6 +101,12 @@ def __getattr__(name: str) -> Any:
     if name == "AssaySchema":
         from bioetl.schemas.assay import AssaySchema
         return AssaySchema
+
+    # TestItemSchema is explicitly imported above, so this should never be reached
+    if name == "TestItemSchema":
+        # Fallback for runtime access (should not be needed due to explicit import)
+        from bioetl.schemas.testitem import TestItemSchema
+        return TestItemSchema
 
     try:
         module_name = _SCHEMA_EXPORTS[name]

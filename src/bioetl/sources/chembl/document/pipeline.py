@@ -10,9 +10,9 @@ import pandera.errors as pa_errors
 import requests
 
 if TYPE_CHECKING:
-    from pandera.errors import SchemaError as SchemaErrors
+    from pandera.errors import SchemaError
 else:  # pragma: no cover - runtime compatibility for older Pandera releases
-    SchemaErrors = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
+    SchemaError = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -151,7 +151,7 @@ class DocumentPipeline(PipelineBase):
         self._adapter_initialization_mode: str | None = None
 
         configured_mode = getattr(self.config.cli, "mode", None)
-        self.mode = self._resolve_mode(configured_mode)
+        self.mode: str = self._resolve_mode(configured_mode)
         self.runtime_options["mode"] = self.mode
         self._prepare_enrichment_adapters()
 
@@ -219,7 +219,7 @@ class DocumentPipeline(PipelineBase):
                 previous=self.mode,
                 current=resolved_mode,
             )
-            self.mode = resolved_mode
+            self.mode: str = resolved_mode
 
         self.runtime_options["mode"] = self.mode
         self._prepare_enrichment_adapters()
@@ -451,7 +451,7 @@ class DocumentPipeline(PipelineBase):
 
             logger.info("raw_schema_validation_passed", rows=len(validated))
             return validated
-        except SchemaErrors as exc:
+        except SchemaError as exc:
             failure_cases = getattr(exc, "failure_cases", None)
             details = None
             if isinstance(failure_cases, pd.DataFrame):
@@ -545,7 +545,7 @@ class DocumentPipeline(PipelineBase):
             Version string (e.g., 'ChEMBL_36') or None
         """
         client = cast(SupportsRequestJson, self.api_client)
-        release = self._fetch_chembl_release_info(client)
+        release = self._fetch_chembl_release_info(client)  # type: ignore[arg-type]
         return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -796,7 +796,7 @@ class DocumentPipeline(PipelineBase):
         }
         coverage_stats = compute_field_coverage(
             validated_df,
-            tuple(coverage_columns.values()),
+            list(coverage_columns.values()),
         )
         coverage_payload = {
             key: coverage_stats.get(column, 0.0)
@@ -890,8 +890,18 @@ class DocumentPipeline(PipelineBase):
 
             min_raw = config.get("min")
             max_raw = config.get("max")
-            min_threshold = float(min_raw) if min_raw is not None else None
-            max_threshold = float(max_raw) if max_raw is not None else None
+            min_threshold: float | None = None
+            max_threshold: float | None = None
+            if min_raw is not None:
+                try:
+                    min_threshold = float(min_raw)  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    pass
+            if max_raw is not None:
+                try:
+                    max_threshold = float(max_raw)  # type: ignore[arg-type]
+                except (TypeError, ValueError):
+                    pass
             severity = str(config.get("severity", "warning"))
 
             passed = True
