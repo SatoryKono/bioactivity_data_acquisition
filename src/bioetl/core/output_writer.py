@@ -757,18 +757,18 @@ class UnifiedOutputWriter:
                 hash_policy_version=getattr(self.determinism, "hash_policy_version", None),
             )
         else:
-            metadata_updates: dict[str, Any] = {}
+            initial_metadata_updates: dict[str, Any] = {}
             if metadata.run_id is None:
-                metadata_updates["run_id"] = self.run_id
+                initial_metadata_updates["run_id"] = self.run_id
             if metadata.column_order != column_order:
-                metadata_updates["column_order"] = column_order
+                initial_metadata_updates["column_order"] = column_order
             if metadata.column_count != len(column_order):
-                metadata_updates["column_count"] = len(column_order)
+                initial_metadata_updates["column_count"] = len(column_order)
             if metadata.row_count != len(dataset_df):
-                metadata_updates["row_count"] = len(dataset_df)
+                initial_metadata_updates["row_count"] = len(dataset_df)
 
-            if metadata_updates:
-                metadata = replace(metadata, **metadata_updates)
+            if initial_metadata_updates:
+                metadata = replace(metadata, **initial_metadata_updates)
 
         metadata_defaults: dict[str, Any] = {}
         if metadata.na_policy is None:
@@ -979,9 +979,9 @@ class UnifiedOutputWriter:
                     float_format=float_format,
                 )
                 dataset_metrics_payload = {
-                    str(row.get("metric")): row.get("value")
+                    str(row["metric"]): row["value"]
                     for row in dataset_metrics_df.to_dict("records")
-                    if "metric" in row and "value" in row
+                    if isinstance(row, dict) and "metric" in row and "value" in row
                 }
 
         checksum_targets: list[Path] = [
@@ -1020,18 +1020,18 @@ class UnifiedOutputWriter:
         load_duration_ms = (perf_counter() - load_stage_start) * 1000.0
         stage_duration_payload["load"] = load_duration_ms
 
-        metadata_updates: dict[str, Any] = {
+        final_metadata_updates: dict[str, Any] = {
             "checksums": checksums,
             "stage_durations_ms": stage_duration_payload,
         }
 
         if metadata.sort_keys is None and sort_definition is not None:
-            metadata_updates["sort_keys"] = dict(sort_definition)
+            final_metadata_updates["sort_keys"] = dict(sort_definition)
 
         if metadata.pii_secrets_policy is None and pii_secrets_policy is not None:
-            metadata_updates["pii_secrets_policy"] = dict(pii_secrets_policy)
+            final_metadata_updates["pii_secrets_policy"] = dict(pii_secrets_policy)
 
-        metadata = replace(metadata, **metadata_updates)
+        metadata = replace(metadata, **final_metadata_updates)
 
         metadata_filename = f"{dataset_path.stem}_meta.yaml"
         metadata_path = run_directory / metadata_filename

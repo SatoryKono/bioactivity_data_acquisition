@@ -974,10 +974,14 @@ class PipelineBase(ABC):
                         sort_ascending.append(True)
 
         if self.export_metadata is not None:
+            sort_definition_dict: dict[str, Any] = {
+                "by": list(sort_columns),
+                "ascending": [bool(value) for value in sort_ascending],
+                "stable": bool(sort_columns),
+            }
             self.export_metadata = replace(
                 self.export_metadata,
-                sort_keys=list(sort_columns),
-                sort_directions=[bool(value) for value in sort_ascending],
+                sort_keys=sort_definition_dict,
             )
 
         export_frame = df
