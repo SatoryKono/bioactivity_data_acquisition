@@ -19,28 +19,19 @@ from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pandera_pandas import DataFrameModel
-from bioetl.pipelines.base import (
-    EnrichmentStage,
-    PipelineBase,
-    enrichment_stage_registry,
-)
-from bioetl.schemas.document import (
-    DocumentNormalizedSchema,
-    DocumentRawSchema,
-    DocumentSchema,
-)
+from bioetl.pipelines.base import (EnrichmentStage, PipelineBase,
+                                   enrichment_stage_registry)
+from bioetl.schemas.document import (DocumentNormalizedSchema,
+                                     DocumentRawSchema, DocumentSchema)
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.crossref.pipeline import CROSSREF_ADAPTER_DEFINITION
 from bioetl.sources.document.merge.policy import merge_with_precedence
-from bioetl.sources.document.pipeline import (
-    AdapterDefinition,
-    ExternalEnrichmentResult,
-)
+from bioetl.sources.document.pipeline import (AdapterDefinition,
+                                              ExternalEnrichmentResult)
 from bioetl.sources.openalex.pipeline import OPENALEX_ADAPTER_DEFINITION
 from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
-from bioetl.sources.semantic_scholar.pipeline import (
-    SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
-)
+from bioetl.sources.semantic_scholar.pipeline import \
+    SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
 from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
@@ -50,14 +41,9 @@ from .merge import merge_enrichment_results
 from .normalizer import normalize_document_frame
 from .output import append_qc_sections, persist_rejected_inputs
 from .parser import prepare_document_input_ids
-from .request import (
-    build_adapter_configs as request_build_adapter_configs,
-)
-from .request import (
-    collect_enrichment_metrics,
-    init_external_adapters,
-    run_enrichment_requests,
-)
+from .request import build_adapter_configs as request_build_adapter_configs
+from .request import (collect_enrichment_metrics, init_external_adapters,
+                      run_enrichment_requests)
 from .schema import build_document_fallback_row
 
 schema_registry.register(
@@ -85,6 +71,7 @@ DOCUMENT_EXTERNAL_ADAPTER_DEFINITIONS: dict[str, AdapterDefinition] = {
     "openalex": OPENALEX_ADAPTER_DEFINITION,
     "semantic_scholar": SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
 }
+
 
 class DocumentPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL document data.
@@ -294,9 +281,7 @@ class DocumentPipeline(PipelineBase):
 
         return request_build_adapter_configs(self.config, source_name, source_cfg, definition)
 
-    def _enrich_with_external_sources(
-        self, chembl_df: pd.DataFrame
-    ) -> ExternalEnrichmentResult:
+    def _enrich_with_external_sources(self, chembl_df: pd.DataFrame) -> ExternalEnrichmentResult:
         """Enrich ChEMBL data with external sources."""
         self._sync_mode_runtime()
         self._prepare_enrichment_adapters()
@@ -368,7 +353,9 @@ class DocumentPipeline(PipelineBase):
             semantic_scholar_df=semantic_scholar_df,
         )
 
-        logger.info("after_merge", enriched_cols=len(enriched_df.columns), enriched_rows=len(enriched_df))
+        logger.info(
+            "after_merge", enriched_cols=len(enriched_df.columns), enriched_rows=len(enriched_df)
+        )
 
         if adapter_errors:
             logger.error("external_enrichment_failed", errors=adapter_errors)
@@ -493,7 +480,7 @@ class DocumentPipeline(PipelineBase):
 
         try:
             # Check for pandas NA values
-            if hasattr(value, '__class__') and pd.isna(value):
+            if hasattr(value, "__class__") and pd.isna(value):
                 return None
         except (TypeError, ValueError):
             pass
@@ -670,7 +657,9 @@ class DocumentPipeline(PipelineBase):
 
         canonical_order = DocumentSchema.get_column_order()
         if canonical_order:
-            missing_columns = [column for column in canonical_order if column not in working_df.columns]
+            missing_columns = [
+                column for column in canonical_order if column not in working_df.columns
+            ]
             for column in missing_columns:
                 if column == "fallback_retry_after_sec":
                     working_df[column] = pd.Series(
@@ -684,7 +673,9 @@ class DocumentPipeline(PipelineBase):
             if "fallback_retry_after_sec" in working_df.columns:
                 working_df = working_df.astype({"fallback_retry_after_sec": "Float64"})
 
-            extra_columns = [column for column in working_df.columns if column not in canonical_order]
+            extra_columns = [
+                column for column in working_df.columns if column not in canonical_order
+            ]
             if extra_columns:
                 working_df = working_df.drop(columns=extra_columns)
 
@@ -743,7 +734,10 @@ class DocumentPipeline(PipelineBase):
 
             if has_source_data:
                 for required_field in required_fields:
-                    if required_field not in working_df.columns or working_df[required_field].isna().all():
+                    if (
+                        required_field not in working_df.columns
+                        or working_df[required_field].isna().all()
+                    ):
                         validation_errors.append(
                             f"{source_name}: {required_field} обязателен при наличии данных"
                         )
@@ -803,8 +797,7 @@ class DocumentPipeline(PipelineBase):
             tuple(coverage_columns.values()),
         )
         coverage_payload = {
-            key: coverage_stats.get(column, 0.0)
-            for key, column in coverage_columns.items()
+            key: coverage_stats.get(column, 0.0) for key, column in coverage_columns.items()
         }
         append_qc_sections(
             self.add_qc_summary_section,
@@ -818,7 +811,9 @@ class DocumentPipeline(PipelineBase):
 
         self.refresh_validation_issue_summary()
 
-        logger.info("validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count)
+        logger.info(
+            "validation_completed", rows=len(validated_df), duplicates_removed=duplicate_count
+        )
         return validated_df
 
     def _compute_qc_metrics(self, df: pd.DataFrame) -> dict[str, float]:
@@ -864,10 +859,7 @@ class DocumentPipeline(PipelineBase):
 
         if "title_source" in df.columns:
             fallback_mask = (
-                df["title_source"]
-                .fillna("")
-                .astype(str)
-                .str.contains("fallback", case=False)
+                df["title_source"].fillna("").astype(str).str.contains("fallback", case=False)
             )
             metrics["title_fallback_rate"] = float(fallback_mask.sum() / total)
         else:
@@ -968,9 +960,7 @@ def _document_should_run_pubmed(
     return True, None
 
 
-def _document_run_pubmed_stage(
-    pipeline: PipelineBase, df: pd.DataFrame
-) -> pd.DataFrame:
+def _document_run_pubmed_stage(pipeline: PipelineBase, df: pd.DataFrame) -> pd.DataFrame:
     """Run external enrichment for the document pipeline."""
 
     if not isinstance(pipeline, DocumentPipeline):  # pragma: no cover - defensive
@@ -1035,4 +1025,3 @@ def _register_document_enrichment_stages() -> None:
 
 
 _register_document_enrichment_stages()
-

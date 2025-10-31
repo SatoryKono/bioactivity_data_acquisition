@@ -171,11 +171,8 @@ class TargetPipeline(PipelineBase):
     def close_resources(self) -> None:
         """Close API clients constructed by the target pipeline."""
 
-        try:
-            for name, client in getattr(self, "api_clients", {}).items():
-                self._close_resource(client, resource_name=f"api_client.{name}")
-        finally:
-            super().close_resources()
+        for name, client in getattr(self, "api_clients", {}).items():
+            self._close_resource(client, resource_name=f"api_client.{name}")
 
     def _record_missing_mapping(
         self,

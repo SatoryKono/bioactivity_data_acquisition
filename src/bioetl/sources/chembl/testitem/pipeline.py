@@ -524,7 +524,6 @@ class TestItemPipeline(PipelineBase):
 
         if self._pubchem_api_client is not None:
             self._close_resource(self._pubchem_api_client, resource_name="api_client.pubchem")
-        super().close_resources()
 
     def _enrich_with_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich testitem data with PubChem properties.
