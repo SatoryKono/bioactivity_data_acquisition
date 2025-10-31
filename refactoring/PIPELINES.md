@@ -14,10 +14,11 @@
 
 ### Базовый интерфейс: (@test_refactoring_32)
 **PipelineBase:**
-- `extract() -> Iterable[dict]`
-- `normalize(rows: Iterable[dict]) -> Iterable[dict]`
-- `validate(rows: Iterable[dict]) -> Iterable[dict]`
-- `write(rows: Iterable[dict]) -> WriteResult`
+- `extract() -> pd.DataFrame`
+- `transform(df: pd.DataFrame) -> pd.DataFrame`
+- `validate(df: pd.DataFrame) -> pd.DataFrame`
+- `export(df: pd.DataFrame, output_path: Path, extended: bool = False) -> OutputArtifacts`
+- `run(output_path: Path, extended: bool = False, *args, **kwargs) -> OutputArtifacts`
 - `run() -> RunResult`
 
 [ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
@@ -30,6 +31,7 @@
 **Назначение:** сетевое извлечение сырья из API источника с контролем отказов и лимитов.
 
 **Требования:**
+- Выходной контракт — `pd.DataFrame` с именованными колонками, совместимый со Schema Registry и `PipelineBase.run()`. [ref: repo:refactoring/IO.md@test_refactoring_32]
 - Политики retry/backoff и обработка HTTP 429/5xx обязательны; Retry-After учитывается при наличии.
 - Пагинация инкапсулируется в стратегиях: Page/Size, Cursor, Offset/Limit, Token.
 - Запросы маркируются request_id; на выход добавляются метаданные: request_id, page|cursor, retry_count, elapsed_ms, status.
@@ -44,7 +46,7 @@
 - **PubChem (PUG REST/PUG View):** REST-интерфейсы, множество пространств идентификаторов; использовать официальные эндпоинты и руководства. [PubChem @test_refactoring_32](https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest), [PubChem @test_refactoring_32](https://pubchem.ncbi.nlm.nih.gov/docs/pug-view)
 - **IUPHAR/BPS GtoP:** REST-сервисы, JSON-ответы. [Guide to Pharmacology @test_refactoring_32](https://www.guidetopharmacology.org/DATA/)
 
-#### normalize (@test_refactoring_32)
+#### transform (@test_refactoring_32)
 **Назначение:** приведение сырых записей к UnifiedSchema.
 
 **Требования:**
@@ -52,6 +54,7 @@
 - Нормализация единиц, дат, имен авторов/аффилиаций, ссылок на полнотексты.
 - Семантические маппинги (например, онтологии) фиксируются явными таблицами соответствий.
 - Поля, не попадающие в контракт, переносятся в extras без потери информации; порядок ключей в итоговом объекте стабилен.
+- Возврат `pd.DataFrame` обязателен: все обогащения и фильтрации сохраняют табличную форму для совместимости со стадиями `validate` и `export`.
 
 #### validate (@test_refactoring_32)
 **Назначение:** раннее обнаружение отклонений от контракта.
@@ -60,16 +63,17 @@
 - Жёсткая проверка типов, диапазонов, обязательных полей и категориальных множества через Pandera; ошибки блокируют прохождение шага.
 - Схемы регистрируются централизованно и переиспользуются; допускаются backend-совместимые датафреймы. [pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io)
 
-#### write (@test_refactoring_32)
+#### export (@test_refactoring_32)
 **Назначение:** детерминированная фиксация вывода.
 
 **Требования:**
 - Фиксированный column_order, стабильная сортировка по бизнес-ключам, форматы чисел/дат и сериализация строк без неоднозначности.
 - Контрольные хеши на строку и бизнес-ключ (например, BLAKE2) включаются в метаданные.
 - Запись выполняется атомарно: временный файл на той же ФС, затем атомарная замена (replace/move_atomic); синхронизация буферов перед коммитом. [python-atomicwrites.readthedocs.io @test_refactoring_32](https://python-atomicwrites.readthedocs.io)
+- Вызов `export()` использует `UnifiedOutputWriter` и ожидает `pd.DataFrame` на вход, обеспечивая детерминированный экспорт и генерацию QC-артефактов из единого места.
 
 #### run (@test_refactoring_32)
-Оркестрация extract → normalize → validate → write. Возвращает агрегированную сводку: числа вход/выход, ошибки валидации, контрольные суммы, путь и размеры артефактов; эта сводка пишется в meta.yaml.
+Оркестрация extract → transform → validate → export. Возвращает агрегированную сводку: числа вход/выход, ошибки валидации, контрольные суммы, путь и размеры артефактов; эта сводка пишется в meta.yaml.
 
 ## 2) Минимальный состав модулей на один источник (MUST) (@test_refactoring_32)
 
@@ -81,7 +85,8 @@
 - **schema/** — Pandera-схемы и helper-валидаторы; никакой трансформации данных. [pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io)
 - **merge/** — MergePolicy с явными ключами слияния, стратегиями конфликтов (prefer_source, prefer_fresh, concat_unique).
 - **output/** — детерминизм, атомарная запись, контрольные хеши, meta.yaml. [python-atomicwrites.readthedocs.io @test_refactoring_32](https://python-atomicwrites.readthedocs.io)
-- **pipeline.py** — реализация PipelineBase, CLI-вход: `python -m bioetl.sources.<source>.pipeline --config ....`
+- **pipeline.py** — реализация PipelineBase; команды CLI регистрируются в `scripts.PIPELINE_COMMAND_REGISTRY`,
+  единый вход: `python -m bioetl.cli.main <pipeline>`.
 
 Конфигурация пайплайна описывается файлом `src/bioetl/configs/pipelines/<source>.yaml` (MUST); допускаются include-блоки из `src/bioetl/configs/includes/`.
 
@@ -89,7 +94,42 @@
 ```python
 from bioetl.sources.<source>.pipeline import <Source>Pipeline
 ```
-CLI: `python -m bioetl.sources.<source>.pipeline --config ...`
+CLI: `python -m bioetl.cli.main <pipeline> --config ...` (Typer формирует команды на основе
+`scripts.PIPELINE_COMMAND_REGISTRY`).
+
+**Список доступных команд (MUST):**
+
+Актуальные команды Typer обязаны совпадать с [README.md#cli-usage](../README.md#cli-usage) и разделом "CLI"
+в [FAQ](FAQ.md); источник истины — `scripts.PIPELINE_COMMAND_REGISTRY`.
+
+| Команда | Описание | Конфигурация по умолчанию | Входные данные | Каталог вывода | Допустимые `--mode` |
+| --- | --- | --- | --- | --- | --- |
+| `activity` | ChEMBL activity data | `src/bioetl/configs/pipelines/activity.yaml` | `data/input/activity.csv` | `data/output/activity` | `default` |
+| `assay` | ChEMBL assay data | `src/bioetl/configs/pipelines/assay.yaml` | `data/input/assay.csv` | `data/output/assay` | `default` |
+| `target` | ChEMBL + UniProt + IUPHAR | `src/bioetl/configs/pipelines/target.yaml` | `data/input/target.csv` | `data/output/target` | `default`, `smoke` |
+| `document` | ChEMBL + external sources | `src/bioetl/configs/pipelines/document.yaml` | `data/input/document.csv` | `data/output/documents` | `chembl`, `all` (по умолчанию `all`) |
+| `testitem` | ChEMBL molecules + PubChem | `src/bioetl/configs/pipelines/testitem.yaml` | `data/input/testitem.csv` | `data/output/testitems` | `default` |
+| `gtp_iuphar` | Guide to Pharmacology targets | `src/bioetl/configs/pipelines/iuphar.yaml` | `data/input/iuphar_targets.csv` | `data/output/iuphar` | `default` |
+| `uniprot` | Standalone UniProt enrichment | `src/bioetl/configs/pipelines/uniprot.yaml` | `data/input/uniprot.csv` | `data/output/uniprot` | `default` |
+
+**Примеры вызовов (SHOULD):**
+
+```bash
+# Список доступных пайплайнов
+python -m bioetl.cli.main list
+
+# Dry-run с кастомным конфигом и verbose-логированием
+python -m bioetl.cli.main activity \
+  --config src/bioetl/configs/pipelines/activity.yaml \
+  --dry-run \
+  --verbose
+
+# Smoke-тест с ограничением выборки и расширенными QC-отчётами
+python -m bioetl.cli.main target \
+  --mode smoke \
+  --sample 1000 \
+  --extended
+```
 
 ## 3) Детерминизм и идемпотентность (@test_refactoring_32)
 
@@ -216,7 +256,7 @@ src/bioetl/core/
 ## 10) Отказоустойчивость и предсказуемость (@test_refactoring_32)
 
 - Границы ретраев/бэкоффа фиксируются в конфиге источника; превышение лимитов переводит пайплайн в явный FAIL с диагностикой (MUST).
-- Ошибки делятся на сетевые, парсинга, нормализации, валидации и записи; в RunResult отражается категория и контекст.
+- Ошибки делятся на сетевые, парсинга, трансформации, валидации и экспорта; в RunResult отражается категория и контекст.
 - Частичные повторные прогоны допустимы только если не нарушают инвариант идемпотентности и детерминизма.
 
 
@@ -229,7 +269,7 @@ src/bioetl/core/
 | Поле | Обязательность | Описание |
 |------|----------------|----------|
 | `run_id` | Всегда | UUID идентификатор запуска пайплайна |
-| `stage` | Всегда | Текущий этап (extract, normalize, validate, write) |
+| `stage` | Всегда | Текущий этап (extract, transform, validate, export) |
 | `actor` | Всегда | Инициатор (system, scheduler, username) |
 | `source` | Всегда | Источник данных (chembl, pubmed, и т.п.) |
 | `generated_at` | Всегда | UTC timestamp ISO8601 |

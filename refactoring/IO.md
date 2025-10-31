@@ -6,7 +6,9 @@
 
 Источник истины ввода — официальные REST-интерфейсы провайдеров. Извлечение выполняется только через client/ с учётом лимитов, ретраев и этикета API.
 
-`extract()` каждого пайплайна возвращает табличное представление данных — строго `pd.DataFrame` с именованными колонками. Тип контракта закреплён в базовом классе пайплайна, поэтому все реализации наследников (`document`, `activity`, `target`, `testitem`, …) выдают именно таблицу, даже если промежуточно работают со словарями/JSON.【F:src/bioetl/pipelines/base.py†L847-L877】
+`extract()` каждого пайплайна возвращает табличное представление данных — строго `pd.DataFrame` с именованными колонками. Тип контракта закреплён в базовом классе пайплайна, поэтому все реализации наследников (`document`, `activity`, `target`, `testitem`, …) выдают именно таблицу, даже если промежуточно работают со словарями/JSON.【F:src/bioetl/pipelines/base.py†L785-L880】
+
+`transform()` и `validate()` обязаны принимать и возвращать `pd.DataFrame`, обеспечивая единый поток данных между стадиями, а `export()` фиксирует результат через `UnifiedOutputWriter` c учётом детерминизма и QC-метрик.【F:src/bioetl/pipelines/base.py†L785-L880】
 
 Полученный датафрейм сразу связывается со схемой из централизованного `schema_registry`. Реестр фиксирует `schema_id`, `schema_version`, `column_order`, `na_policy` и `precision_policy`, что затем попадает в метаданные и используется для fail-fast проверки дрейфа колонок.【F:src/bioetl/schemas/registry.py†L22-L109】【F:tests/unit/test_output_writer.py†L520-L571】
 
@@ -107,7 +109,7 @@ lineage:
   source_files:
     - "input/documents.csv"
   transformations:
-    - "normalize_titles"
+    - "transform_titles"
     - "validate_dois"
 ```
 
