@@ -190,8 +190,16 @@ class ActivityChEMBLClient:
         if self._fallback_factory is None:
             raise RuntimeError("Fallback factory must be configured before fetching batches")
 
+        batch_ids = tuple(batch_ids)
         ids_str = ",".join(map(str, batch_ids))
-        response = self.api_client.request_json("/activity.json", params={"activity_id__in": ids_str})
+        # ``limit`` defaults to 20 in the ChEMBL API which is lower than our batch size;
+        # explicitly request ``len(batch_ids)`` (capped to the documented maximum of 1000)
+        # so that all activities for the current batch are returned in a single response.
+        limit = min(len(batch_ids), 1000)
+        response = self.api_client.request_json(
+            "/activity.json",
+            params={"activity_id__in": ids_str, "limit": limit},
+        )
 
         activities = response.get("activities", [])
         metrics = {"success": 0, "fallback": 0, "error": 0}
