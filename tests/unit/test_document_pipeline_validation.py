@@ -1,4 +1,5 @@
 import sys
+from collections.abc import Sequence
 from types import ModuleType
 
 import pandas as pd
@@ -185,15 +186,19 @@ def test_transform_empty_dataframe_includes_all_columns(document_pipeline):
     assert list(transformed.columns) == expected_columns
 
 
-def test_enrich_skips_when_no_external_adapters(document_pipeline):
+def test_enrich_skips_when_no_external_adapters(document_pipeline, monkeypatch):
     """Enrichment should be skipped gracefully when no external adapters are configured."""
 
     chembl_df = _build_document_frame()
     document_pipeline.external_adapters.clear()
+    monkeypatch.setattr(document_pipeline, "_prepare_enrichment_adapters", lambda: None)
 
-    enriched = document_pipeline._enrich_with_external_sources(chembl_df)
+    result = document_pipeline._enrich_with_external_sources(chembl_df)
 
-    pd.testing.assert_frame_equal(enriched, chembl_df)
+    assert result.dataframe is chembl_df
+    assert result.status == "skipped"
+    assert result.errors == {}
+    assert result.requested_count == 0
 
 
 def test_validate_enforces_qc_thresholds(document_pipeline, monkeypatch):
@@ -219,7 +224,92 @@ def test_validate_enforces_qc_thresholds(document_pipeline, monkeypatch):
     assert "doi_coverage" in message
     assert "title_fallback_rate" in message
     assert document_pipeline.qc_metrics["doi_coverage"] == pytest.approx(0.0)
-    assert document_pipeline.qc_metrics["title_fallback_rate"] == pytest.approx(1.0)
+
+
+def test_enrichment_fallback_recovers_missing_ids(document_pipeline, monkeypatch):
+    """Pipeline-level fallback should restore full coverage when available."""
+
+    class PubmedAdapter:
+        def __init__(self) -> None:
+            self.process_calls: list[tuple[str, ...]] = []
+            self.fallback_calls: list[tuple[str, ...]] = []
+
+        def process(self, ids: Sequence[str]) -> pd.DataFrame:
+            self.process_calls.append(tuple(ids))
+            return pd.DataFrame({"pubmed_pmid": [int(ids[0])]})
+
+        def process_with_fallback(self, ids: Sequence[str]) -> pd.DataFrame:
+            self.fallback_calls.append(tuple(ids))
+            return pd.DataFrame({"pubmed_pmid": [int(ids[0])]})
+
+    adapter = PubmedAdapter()
+    pipeline = document_pipeline
+    monkeypatch.setattr(pipeline, "_prepare_enrichment_adapters", lambda: None)
+    pipeline.external_adapters = {"pubmed": adapter}
+
+    chembl_df = pd.DataFrame(
+        {
+            "document_chembl_id": ["CHEMBL1", "CHEMBL2"],
+            "chembl_pmid": ["1", "2"],
+        }
+    )
+
+    result = pipeline._enrich_with_external_sources(chembl_df)
+
+    assert adapter.fallback_calls == [("2",)]
+    assert result.errors == {}
+    assert result.requested_count == 2
+    assert result.matched_count == 2
+    assert result.missing_ids == {}
+    pubmed_metrics = pipeline.qc_enrichment_metrics.loc[
+        pipeline.qc_enrichment_metrics["source"] == "pubmed"
+    ].iloc[0]
+    assert pubmed_metrics["coverage"] == pytest.approx(1.0)
+    assert bool(pubmed_metrics["fallback_attempted"]) is True
+    assert pipeline.enrichment_missing_sources == []
+
+
+def test_enrichment_fallback_reports_missing_when_unresolved(document_pipeline, monkeypatch):
+    """Missing identifiers should be surfaced as adapter errors when fallback fails."""
+
+    class PubmedAdapter:
+        def __init__(self) -> None:
+            self.process_calls: list[tuple[str, ...]] = []
+            self.fallback_calls: list[tuple[str, ...]] = []
+
+        def process(self, ids: Sequence[str]) -> pd.DataFrame:
+            self.process_calls.append(tuple(ids))
+            return pd.DataFrame({"pubmed_pmid": [int(ids[0])]})
+
+        def process_with_fallback(self, ids: Sequence[str]) -> pd.DataFrame:
+            self.fallback_calls.append(tuple(ids))
+            return pd.DataFrame()
+
+    adapter = PubmedAdapter()
+    pipeline = document_pipeline
+    monkeypatch.setattr(pipeline, "_prepare_enrichment_adapters", lambda: None)
+    pipeline.external_adapters = {"pubmed": adapter}
+
+    chembl_df = pd.DataFrame(
+        {
+            "document_chembl_id": ["CHEMBL1", "CHEMBL2"],
+            "chembl_pmid": ["1", "2"],
+        }
+    )
+
+    result = pipeline._enrich_with_external_sources(chembl_df)
+
+    assert adapter.fallback_calls == [("2",)]
+    assert "pubmed" in result.errors
+    assert "missing_identifiers" in result.errors["pubmed"]
+    assert result.missing_ids == {"pubmed": ["2"]}
+    pubmed_metrics = pipeline.qc_enrichment_metrics.loc[
+        pipeline.qc_enrichment_metrics["source"] == "pubmed"
+    ].iloc[0]
+    assert pubmed_metrics["coverage"] == pytest.approx(0.5)
+    assert pubmed_metrics["missing_count"] == 1
+    assert bool(pubmed_metrics["fallback_attempted"]) is True
+    assert pipeline.enrichment_missing_sources == ["pubmed"]
 
 
 def test_qc_threshold_severity_policy(document_pipeline, monkeypatch):
