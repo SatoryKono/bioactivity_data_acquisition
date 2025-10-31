@@ -1,3 +1,5 @@
 """Activity request module namespace."""
 
-__all__ = []
+from .activity_request import ActivityRequestBuilder
+
+__all__ = ["ActivityRequestBuilder"]
