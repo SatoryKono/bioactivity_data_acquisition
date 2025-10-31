@@ -229,14 +229,29 @@ Current
 Ручные циклы, разная семантика page/size/cursor.
 
 Target
+
 Текущее состояние: стратегии пагинации инкапсулированы в пакетах
 `src/bioetl/sources/{crossref,openalex,pubmed,semantic_scholar,iuphar}/pagination/__init__.py`,
-которые оборачивают `CursorPaginationStrategy`, `TokenPaginationStrategy`,
-`OffsetPaginationStrategy` и `PageNumberPaginationStrategy` из `bioetl.core.pagination`.
+которые оборачивают базовые стратегии из `bioetl.core.pagination`:
+
+- `CursorPaginationStrategy` — [ref: repo:src/bioetl/sources/crossref/pagination/__init__.py]
+- `TokenPaginationStrategy` — [ref: repo:src/bioetl/sources/pubmed/pagination/__init__.py]
+- `OffsetPaginationStrategy` — [ref: repo:src/bioetl/sources/semantic_scholar/pagination/__init__.py]
+- `PageNumberPaginationStrategy` — [ref: repo:src/bioetl/sources/iuphar/pagination/__init__.py]
+- Cursor (OpenAlex) — [ref: repo:src/bioetl/sources/openalex/pagination/__init__.py]
+
 Дальнейшая обработка данных синхронизирована через централизованный `SchemaRegistry`
 (`src/bioetl/schemas/registry.py`).
-Примечание: централизованный перенос логики пагинации в `bioetl.core.pagination` остаётся в
-планах; отсутствуют пакеты `src/bioetl/sources/{chembl,document,pubchem,uniprot}/pagination`.
+
+**Примечание:** централизованные стратегии находятся в `src/bioetl/core/pagination/strategy.py`;
+отсутствуют пакеты `src/bioetl/sources/{chembl,document,pubchem,uniprot}/pagination` (ChEMBL использует batch IDs).
+
+План централизации:
+
+- Сформировать общий интерфейс стратегий в `src/bioetl/core/pagination` и начать выносить туда повторяющиеся реализации.
+- Добавить адаптационный слой в источниках, чтобы сохранить совместимость существующих конфигов и golden-тестов.
+- Зафиксировать единый каталог контрактных тестов для пагинации в `tests/core/test_pagination_strategies.py` и мигрировать текущие тесты источников.
+- После стабилизации — перевести пайплайны на использование `bioetl.core.pagination` и объявить устаревшими локальные реализации.
 
 Steps
 
