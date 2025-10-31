@@ -384,7 +384,7 @@
 | P1-3 | **P1** | Тесты | Отсутствуют property-based тесты (Hypothesis) | ACCEPTANCE_CRITERIA.md | J | Важно |
 | P1-4 | **P1** | API | Не все пайплайны имеют явный `__all__` для публичного API | - | - | Важно |
 | P1-5 | **P1** | Тесты | Нет автоматических тестов на бит-идентичность golden-файлов | ACCEPTANCE_CRITERIA.md | C | Важно |
-| P2-1 | **P2** | Конфигурация | Расхождения в описании fallback стратегий (network/timeout/5xx vs cache/partial_retry) | REFACTOR_PLAN.md vs models.py | - | Средне |
+| P2-1 | **P2** | Конфигурация | Расхождения в описании fallback стратегий (network/timeout/5xx vs cache/partial_retry) | REFACTOR_PLAN.md vs models.py | - | ✅ **ИСПРАВЛЕНО** |
 | P2-2 | **P2** | Конфигурация | `APIConfig` в планах vs `TargetSourceConfig` в коде | REFACTOR_PLAN.md vs models.py | - | Средне |
 
 ## Рекомендуемый план действий
@@ -489,7 +489,7 @@
 
 | ID | Проблема | Статус |
 |----|----------|--------|
-| P2-1 | Расхождения в fallback стратегиях | ❌ **НЕ ИСПРАВЛЕНО** |
+| P2-1 | Расхождения в fallback стратегиях | ✅ **ИСПРАВЛЕНО** | Описание синхронизировано с учётом двух уровней fallback стратегий в REFACTOR_PLAN.md, MODULE_RULES.md, docs/requirements/03-data-extraction.md |
 | P2-2 | `APIConfig` vs `TargetSourceConfig` | ❌ **НЕ ИСПРАВЛЕНО** |
 
 ### Сравнение с первым аудитом (AUDIT_REPORT.md)
