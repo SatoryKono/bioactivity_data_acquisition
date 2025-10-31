@@ -16,9 +16,9 @@
 
 ### 1.1 Инвентаризация пайплайнов
 
-Для контроля актуальности конфигураций и связанных с ними модулей введён детерминированный отчёт `docs/requirements/PIPELINES.inventory.csv`. Он формируется командой `python src/scripts/run_inventory.py`, которая анализирует дерево `src/`, `tests/`, `docs/requirements/` и каталог конфигураций `src/bioetl/configs/pipelines`. Скрипт вычисляет LOC, публичные символы, импорты и ключи YAML-файлов, а также строит кластеризацию по n-граммам и импортам. Результат кластеризации сохраняется в `docs/requirements/PIPELINES.inventory.clusters.md` и обновляется вместе с CSV.
+Для контроля актуальности конфигураций и связанных с ними модулей введён детерминированный отчёт `docs/requirements/PIPELINES.inventory.csv`. Артефакт фиксирует текущее состояние модулей и конфигураций и генерируется командой `python src/scripts/run_inventory.py --config configs/inventory.yaml`, которая анализирует дерево `src/`, `tests/`, `docs/requirements/` и каталог конфигураций `src/bioetl/configs/pipelines`. Скрипт вычисляет LOC, публичные символы, импорты и ключи YAML-файлов, а также строит кластеризацию по n-граммам и импортам. Результат кластеризации сохраняется в `docs/requirements/PIPELINES.inventory.clusters.md` и обновляется вместе с CSV.
 
-Хук pre-commit и пайплайн CI (`python src/scripts/run_inventory.py --check`) гарантируют, что коммиты не нарушают слепок инвентаризации. Таким образом документация и конфигурации всегда согласованы с текущим состоянием кода.
+Хук pre-commit и пайплайн CI (`python src/scripts/run_inventory.py --check --config configs/inventory.yaml`) гарантируют, что коммиты не нарушают слепок инвентаризации. Таким образом документация и конфигурации всегда согласованы с текущим состоянием кода.
 
 ## 2. Базовая схема YAML
 
