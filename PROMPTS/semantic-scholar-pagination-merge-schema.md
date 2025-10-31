@@ -7,13 +7,14 @@
 **Статус:** ⚠️ **ЧАСТИЧНО РЕАЛИЗОВАНО** (базовая структура есть, опциональные модули отсутствуют)
 
 **Ссылки:**
+
 - `refactoring/MODULE_RULES.md` (строки 24-28): Опциональные подпапки (SHOULD): `schema/`, `merge/`, `pagination/`
 - `refactoring/AUDIT_REPORT_2025.md` (строка 1077): "Semantic Scholar: ✅ Базовая структура, ⚠️ Нет pagination/, merge/, schema/"
 - `refactoring/DATA_SOURCES.md` (строки 218-237): Требования к Semantic Scholar источнику
 
 ## Текущая структура
 
-```
+```text
 src/bioetl/sources/semantic_scholar/
 ├── __init__.py
 ├── client/
@@ -30,6 +31,7 @@ src/bioetl/sources/semantic_scholar/
 ```
 
 **Отсутствует:**
+
 - `pagination/` - опциональная стратегия для search endpoint
 - `merge/` - политика объединения с document pipeline
 - `schema/` - Pandera схемы для валидации Semantic Scholar данных
@@ -41,17 +43,20 @@ src/bioetl/sources/semantic_scholar/
 **Источник:** `src/bioetl/adapters/semantic_scholar.py`
 
 **Pagination:**
+
 - Semantic Scholar API не имеет традиционной пагинации для paper endpoint
 - Использует ID-based поиск (DOI, PMID, ArXiv ID)
 - Search endpoint поддерживает limit/offset (опционально)
 - Rate limit: низкий без API key (1 req/1.25s), выше с API key
 
 **Merge Policy:**
+
 - Join по `doi_clean` и `pmid` (pubmed_id) с fallback на title matching
 - Приоритет Semantic Scholar для citation metrics и fields of study
 - Используется в document pipeline для обогащения ChEMBL документов
 
 **Schema:**
+
 - Документы Semantic Scholar включают: paperId, externalIds (DOI, PMID), title, abstract, venue, year, citation_count, influential_citations, fields_of_study, isOpenAccess
 - Нормализация: DOI, PMID, paperId, citation metrics, publication types
 
@@ -411,6 +416,7 @@ class SemanticScholarNormalizedSchema(BaseSchema):
 ## Тесты
 
 Создать тесты аналогично Crossref/PubMed:
+
 - `tests/sources/semantic_scholar/test_pagination.py`
 - `tests/sources/semantic_scholar/test_merge.py`
 - `tests/sources/semantic_scholar/test_schema.py`

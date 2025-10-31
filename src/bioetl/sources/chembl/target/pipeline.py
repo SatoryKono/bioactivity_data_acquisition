@@ -24,12 +24,8 @@ from bioetl.schemas import (
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
-from bioetl.sources.uniprot.client import (
-    UniProtIdMappingClient,
-    UniProtOrthologsClient,
-)
-# Import UniProtSearchClient directly from client.py module (not from client package)
-# The client package __init__.py exports from search_client.py which has different API
+# Import UniProtSearchClient, UniProtIdMappingClient and UniProtOrthologClient directly from client.py module (not from client package)
+# The client package __init__.py exports from search_client.py/idmapping_client.py/orthologs_client.py which have different APIs
 # We need the version from client.py which has (client, fields, batch_size) API
 try:
     import sys
@@ -60,11 +56,18 @@ try:
             else:
                 raise ImportError("Could not create module spec")
         UniProtSearchClient = client_module.UniProtSearchClient
+        UniProtIdMappingClient = client_module.UniProtIdMappingClient
+        # In client.py, the class is called UniProtOrthologClient (without 's')
+        UniProtOrthologsClient = client_module.UniProtOrthologClient
     else:
         raise FileNotFoundError(f"client.py not found at {client_py_file}")
 except Exception:
-    # Fallback to package import (will use search_client.py version)
-    from bioetl.sources.uniprot.client import UniProtSearchClient
+    # Fallback to package import (will use search_client.py/idmapping_client.py/orthologs_client.py versions)
+    from bioetl.sources.uniprot.client import (
+        UniProtIdMappingClient,
+        UniProtOrthologsClient,
+        UniProtSearchClient,
+    )
 from bioetl.utils.qc import (
     prepare_missing_mappings,
     update_summary_metrics,

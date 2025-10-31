@@ -2,18 +2,14 @@
 
 from bioetl.core.deprecation import warn_legacy_client
 
-from .idmapping_client import UniProtIdMappingClient
 from .orthologs_client import UniProtOrthologsClient
 
-# Import UniProtSearchClient from parent module client.py, not from search_client.py
-# The client.py version has the correct API (client, fields, batch_size, fetch_entries)
-# while search_client.py has different API (api, fetch)
+# Import UniProtSearchClient and UniProtIdMappingClient from parent module client.py
+# The client.py versions have the correct API (client, fields, batch_size, fetch_entries)
+# while search_client.py and idmapping_client.py have different APIs
 try:
     # Import from parent module using relative import with different name to avoid conflict
     # This imports from ../client.py, not from ./ (current package)
-    import sys
-    import types
-
     # Create a new module name to avoid conflict with package 'client'
     _parent_module_name = "bioetl.sources.uniprot._client_py"
 
@@ -34,13 +30,18 @@ try:
                 UniProtSearchClient = _client_module.UniProtSearchClient
             else:
                 raise AttributeError("UniProtSearchClient not found in client.py")
+            if hasattr(_client_module, "UniProtIdMappingClient"):
+                UniProtIdMappingClient = _client_module.UniProtIdMappingClient
+            else:
+                raise AttributeError("UniProtIdMappingClient not found in client.py")
         else:
             raise ImportError("Could not create module spec for client.py")
     else:
         raise FileNotFoundError(f"client.py not found at {client_py_path}")
-except Exception as e:
-    # Fallback to search_client.py if import fails
+except Exception:
+    # Fallback to package imports if import fails
     from .search_client import UniProtSearchClient
+    from .idmapping_client import UniProtIdMappingClient
 
 warn_legacy_client(__name__, replacement="bioetl.adapters.uniprot")
 
