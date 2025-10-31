@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from bioetl.adapters.crossref import CrossrefAdapter
+from bioetl.sources.crossref.pipeline import CROSSREF_ADAPTER_DEFINITION
 from tests.sources._mixins import AdapterTestMixin
 
 __all__ = ["CrossrefAdapterTestCase"]
@@ -13,7 +13,7 @@ __all__ = ["CrossrefAdapterTestCase"]
 class CrossrefAdapterTestCase(AdapterTestMixin, unittest.TestCase):
     """Shared fixture base for Crossref adapter tests."""
 
-    ADAPTER_CLASS = CrossrefAdapter
+    ADAPTER_DEFINITION = CROSSREF_ADAPTER_DEFINITION
     API_CONFIG_OVERRIDES = {
         "name": "crossref",
         "base_url": "https://api.crossref.org",

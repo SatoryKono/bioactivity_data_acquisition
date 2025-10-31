@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
+from bioetl.sources.semantic_scholar.pipeline import SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
 from tests.sources._mixins import AdapterTestMixin
 
 __all__ = ["SemanticScholarAdapterTestCase"]
@@ -13,7 +13,7 @@ __all__ = ["SemanticScholarAdapterTestCase"]
 class SemanticScholarAdapterTestCase(AdapterTestMixin, unittest.TestCase):
     """Shared fixture base for Semantic Scholar adapter tests."""
 
-    ADAPTER_CLASS = SemanticScholarAdapter
+    ADAPTER_DEFINITION = SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
     API_CONFIG_OVERRIDES = {
         "name": "semantic_scholar",
         "base_url": "https://api.semanticscholar.org/graph/v1",

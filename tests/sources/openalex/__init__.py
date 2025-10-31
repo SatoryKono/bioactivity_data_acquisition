@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from bioetl.adapters.openalex import OpenAlexAdapter
+from bioetl.sources.openalex.pipeline import OPENALEX_ADAPTER_DEFINITION
 from tests.sources._mixins import AdapterTestMixin
 
 __all__ = ["OpenAlexAdapterTestCase"]
@@ -13,7 +13,7 @@ __all__ = ["OpenAlexAdapterTestCase"]
 class OpenAlexAdapterTestCase(AdapterTestMixin, unittest.TestCase):
     """Shared fixture base for OpenAlex adapter tests."""
 
-    ADAPTER_CLASS = OpenAlexAdapter
+    ADAPTER_DEFINITION = OPENALEX_ADAPTER_DEFINITION
     API_CONFIG_OVERRIDES = {
         "name": "openalex",
         "base_url": "https://api.openalex.org",
