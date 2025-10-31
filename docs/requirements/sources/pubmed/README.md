@@ -4,6 +4,12 @@
 - `from bioetl.sources.document.adapters.pubmed import PubMedAdapter`
 - `from bioetl.sources.document.pipeline import DocumentPipeline` (enrichment stage integration)
 
+## CLI entrypoint
+- Обогащение PubMed доступно через общий пайплайн `document`.
+  Запускайте: `python -m bioetl.cli.main document --mode all` (или `chembl` для
+  отключения внешних адаптеров) с конфигурацией `configs/pipelines/document.yaml`.
+  Отдельной команды CLI для PubMed не предусмотрено.
+
 ## Configuration keys (`configs/pipelines/document.yaml`)
 - `sources.pubmed.enabled`
 - `sources.pubmed.base_url`
