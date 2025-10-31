@@ -12,9 +12,9 @@ import requests
 from pandas.api.types import Float64Dtype
 
 if TYPE_CHECKING:
-    from pandera.errors import SchemaError as _PanderaSchemaError
+    from pandera.errors import SchemaError
 
-    SchemaErrors: type[Exception] = _PanderaSchemaError
+    SchemaErrors: type[Exception] = SchemaError
 else:  # pragma: no cover - runtime compatibility for older Pandera releases
     SchemaErrors = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
 
