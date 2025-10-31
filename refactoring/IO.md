@@ -1,6 +1,7 @@
 # Ввод и вывод: договоры, схемы и конфиг
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, pagination/, parser/, normalizer/, schema/, merge/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, pagination/, parser/, normalizer/, schema/, merge/, output/, pipeline.py).
+> Для ChEMBL исторические файлы в `src/bioetl/pipelines/*.py` выступают совместимыми реэкспортами (например, `src/bioetl/pipelines/activity.py` перенаправляет на `src/bioetl/sources/chembl/activity/pipeline.py`, `src/bioetl/pipelines/target.py` — на `src/bioetl/sources/chembl/target/pipeline.py`). Целевая структура закреплена в `src/bioetl/sources/chembl/<entity>/pipeline.py`.
 
 ## 1) Ввод (Input Contract)
 
