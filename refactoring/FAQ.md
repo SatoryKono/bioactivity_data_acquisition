@@ -55,6 +55,8 @@ SHOULD: property-based тесты на нормализацию, пагинац�
 Hypothesis
 +1
 
+<a id="cli"></a>
+
 CLI
 
 MUST: Typer-команды CLI формируются из реестра `scripts.PIPELINE_COMMAND_REGISTRY` и доступны через единый вход `python -m bioetl.cli.main <pipeline>`; поддерживаемый реестр хранится в `src/scripts/__init__.py`.
@@ -72,12 +74,12 @@ SHOULD: приведённые примеры команд проходят ды
 | Команда | Описание | Конфигурация по умолчанию | Входные данные | Каталог вывода | Допустимые `--mode` |
 | --- | --- | --- | --- | --- | --- |
 | `activity` | ChEMBL activity data | `src/bioetl/configs/pipelines/activity.yaml` | `data/input/activity.csv` | `data/output/activity` | `default` |
-| `pubchem` | Standalone PubChem enrichment dataset | `src/bioetl/configs/pipelines/pubchem.yaml` | `data/input/pubchem_lookup.csv` | `data/output/pubchem` | `default` |
 | `assay` | ChEMBL assay data | `src/bioetl/configs/pipelines/assay.yaml` | `data/input/assay.csv` | `data/output/assay` | `default` |
-| `target` | ChEMBL + UniProt + IUPHAR | `src/bioetl/configs/pipelines/target.yaml` | `data/input/target.csv` | `data/output/target` | `default`, `smoke` |
 | `document` | ChEMBL + external sources | `src/bioetl/configs/pipelines/document.yaml` | `data/input/document.csv` | `data/output/documents` | `chembl`, `all` (по умолчанию `all`) |
-| `testitem` | ChEMBL molecules + PubChem | `src/bioetl/configs/pipelines/testitem.yaml` | `data/input/testitem.csv` | `data/output/testitems` | `default` |
 | `gtp_iuphar` | Guide to Pharmacology targets | `src/bioetl/configs/pipelines/iuphar.yaml` | `data/input/iuphar_targets.csv` | `data/output/iuphar` | `default` |
+| `pubchem` | Standalone PubChem enrichment dataset | `src/bioetl/configs/pipelines/pubchem.yaml` | `data/input/pubchem_lookup.csv` | `data/output/pubchem` | `default` |
+| `target` | ChEMBL + UniProt + IUPHAR | `src/bioetl/configs/pipelines/target.yaml` | `data/input/target.csv` | `data/output/target` | `default`, `smoke` |
+| `testitem` | ChEMBL molecules + PubChem | `src/bioetl/configs/pipelines/testitem.yaml` | `data/input/testitem.csv` | `data/output/testitems` | `default` |
 | `uniprot` | Standalone UniProt enrichment | `src/bioetl/configs/pipelines/uniprot.yaml` | `data/input/uniprot.csv` | `data/output/uniprot` | `default` |
 
 **Глобальные флаги CLI**

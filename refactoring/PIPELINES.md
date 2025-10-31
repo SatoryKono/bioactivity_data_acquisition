@@ -1,4 +1,4 @@
-Единый принцип: один внешний источник данных соответствует одному публичному контракту, однако сами внешние обогащения инкапсулированы в адаптерах. Консьюмер-пайплайн `DocumentPipeline` агрегирует адаптеры Crossref, PubMed, OpenAlex и Semantic Scholar и экспонируется единственной CLI-командой `document`. Все пути и ссылки указываются на ветку @test_refactoring_32.
+Единый принцип: один внешний источник данных соответствует одному публичному контракту, однако сами внешние обогащения инкапсулированы в адаптерах. Консьюмер-пайплайн `DocumentPipeline` агрегирует адаптеры Crossref, PubMed, OpenAlex и Semantic Scholar и экспонируется через команду `document`, зарегистрированную в общем реестре CLI. Все пути и ссылки указываются на ветку @test_refactoring_32.
 
 > **Обновление:** Структура `src/bioetl/sources/` остаётся канонической для внешних источников данных. Модульные реализации ChEMBL находятся в `src/bioetl/sources/chembl/<entity>/`, а файлы `src/bioetl/pipelines/*.py` сохранены как совместимые прокси, которые реэкспортируют новые пайплайны. Для внешних обогащений каждый адаптер публикует `*_ADAPTER_DEFINITION` (см. `bioetl/sources/{crossref,pubmed,openalex,semantic_scholar}/pipeline.py`), который регистрируется потребителем `bioetl.sources.document.pipeline.DocumentPipeline`.
 
@@ -6,7 +6,7 @@
 
 - **Адаптеры:** `CrossrefAdapter`, `PubMedAdapter`, `OpenAlexAdapter`, `SemanticScholarAdapter` живут в `src/bioetl/sources/document/adapters/` и декларируют публичные профили в `src/bioetl/sources/{crossref,pubmed,openalex,semantic_scholar}/pipeline.py`.
 - **Конфигурация:** файл `configs/pipelines/document.yaml` управляет включением/отключением адаптеров (`sources.<adapter>.enabled`) и их параметрами (`batch_size`, `rate_limit_*`, `mailto` и т.д.).
-- **CLI:** реестр `scripts.PIPELINE_COMMAND_REGISTRY` содержит только запись `"document"`, поэтому запуск всех обогащений осуществляется через `python -m bioetl.cli.main document ...` или `src/scripts/run_document.py`. Режим `--mode chembl|all` переключает использование адаптеров.
+- **CLI:** реестр `scripts.PIPELINE_COMMAND_REGISTRY`, определённый в `src/scripts/__init__.py`, агрегирует команды Typer. Запуск осуществляется через `python -m bioetl.cli.main <pipeline> ...`, а режим `--mode chembl|all` управляет использованием внешних адаптеров.
 
 ## Источники истины (@test_refactoring_32)
 
@@ -106,18 +106,8 @@ CLI: `python -m bioetl.cli.main <pipeline> --config ...` (Typer формируе
 **Список доступных команд (MUST):**
 
 Актуальные команды Typer обязаны совпадать с [README.md#cli-usage](../README.md#cli-usage) и разделом "CLI"
-в [FAQ](FAQ.md); источник истины — `scripts.PIPELINE_COMMAND_REGISTRY`.
-
-| Команда | Описание | Конфигурация по умолчанию | Входные данные | Каталог вывода | Допустимые `--mode` |
-| --- | --- | --- | --- | --- | --- |
-| `activity` | ChEMBL activity data | `src/bioetl/configs/pipelines/activity.yaml` | `data/input/activity.csv` | `data/output/activity` | `default` |
-| `pubchem` | Standalone PubChem enrichment dataset | `src/bioetl/configs/pipelines/pubchem.yaml` | `data/input/pubchem_lookup.csv` | `data/output/pubchem` | `default` |
-| `assay` | ChEMBL assay data | `src/bioetl/configs/pipelines/assay.yaml` | `data/input/assay.csv` | `data/output/assay` | `default` |
-| `target` | ChEMBL + UniProt + IUPHAR | `src/bioetl/configs/pipelines/target.yaml` | `data/input/target.csv` | `data/output/target` | `default`, `smoke` |
-| `document` | ChEMBL + external sources | `src/bioetl/configs/pipelines/document.yaml` | `data/input/document.csv` | `data/output/documents` | `chembl`, `all` (по умолчанию `all`) |
-| `testitem` | ChEMBL molecules + PubChem | `src/bioetl/configs/pipelines/testitem.yaml` | `data/input/testitem.csv` | `data/output/testitems` | `default` |
-| `gtp_iuphar` | Guide to Pharmacology targets | `src/bioetl/configs/pipelines/iuphar.yaml` | `data/input/iuphar_targets.csv` | `data/output/iuphar` | `default` |
-| `uniprot` | Standalone UniProt enrichment | `src/bioetl/configs/pipelines/uniprot.yaml` | `data/input/uniprot.csv` | `data/output/uniprot` | `default` |
+в [FAQ](FAQ.md). Канонический источник — `scripts.PIPELINE_COMMAND_REGISTRY` (см.
+`src/scripts/__init__.py`), а для проверки синхронизации используется `python -m bioetl.cli.main list`.
 
 **Примеры вызовов (SHOULD):**
 
