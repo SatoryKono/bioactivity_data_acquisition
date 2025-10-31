@@ -983,79 +983,12 @@ Output использует схемы для валидации перед за
 
 ### Централизованная политика NA-policy и Precision-policy (AUD-2)
 
-**Инвариант:** Единый источник истины для NA-policy и precision-policy — Pandera схема. Все пайплайны обязаны следовать этим правилам при нормализации данных и генерации хешей.
+Нормативное описание вынесено в [docs/requirements/02-io-system.md](../docs/requirements/02-io-system.md#na-precision-policy). Модульные правила фиксируют применение:
 
-#### NA-policy (Null Availability Policy)
-
-**Определение:** Политика обработки пропущенных значений для детерминированной сериализации и хеширования.
-
-| Тип данных | NA-значение | JSON сериализация | Применение |
-|---|---|---|---|
-| `str` / `StringDtype` | `""` (пустая строка) | `""` | Все текстовые поля |
-| `int` / `Int64Dtype` | `None` → `null` | `null` | Все целочисленные поля |
-| `float` / `Float64Dtype` | `None` → `null` | `null` | Все числовые поля |
-| `bool` / `BooleanDtype` | `None` → `null` | `null` | Логические флаги |
-| `datetime` | `None` → ISO8601 UTC | ISO8601 string | Временные метки |
-| `dict` / JSON | `None` или `{}` | Canonical JSON | Вложенные структуры |
-
-**Каноническая сериализация:**
-
-```python
-def canonicalize_for_hash(value: Any, dtype: str) -> Any:
-    """Приводит значение к канонической форме для хеширования."""
-    if value is None:
-        if dtype == "string":
-            return ""
-        elif dtype == "datetime":
-            return None  # ISO8601 не применим
-        else:
-            return None
-
-    if dtype == "datetime" and isinstance(value, (datetime.date, datetime.datetime)):
-        return value.isoformat()
-
-    if dtype == "json" and isinstance(value, dict):
-        return json.dumps(value, sort_keys=True, separators=(",", ":"))
-
-    return value
-```
-
-#### Precision-policy
-
-**Определение:** Политика округления для числовых полей, обеспечивающая детерминизм и научную точность.
-
-| Тип поля | Точность (decimal places) | Применение |
-|---|---|---|
-| `standard_value` | 6 | Экспериментальные значения активностей |
-| `pchembl_value` | 2 | log10-значения |
-| `molecular_weight` | 2 | Молекулярный вес в Da |
-| `logp` | 3 | Коэффициент распределения |
-| `rotatable_bonds` | 0 | Целочисленные дескрипторы |
-| `tpsa` | 2 | Polar surface area |
-| Default (остальные `float`) | 6 | По умолчанию |
-
-**Применение:**
-
-```python
-def format_float(value: float, field_name: str) -> str:
-    """Форматирует float согласно precision_policy."""
-    precision_policy = {
-        "standard_value": 6,
-        "pchembl_value": 2,
-        "molecular_weight": 2,
-        "logp": 3,
-        "rotatable_bonds": 0,
-        "tpsa": 2,
-    }
-    decimals = precision_policy.get(field_name, 6)  # Default 6
-    return f"{value:.{decimals}f}"
-```
-
-**Обоснование:**
-
-- Детерминизм: одинаковое округление даёт одинаковый хеш
-- Научная точность: 6 decimal places достаточно для IC50/Ki
-- Экономия памяти: разумный баланс
+- Pandera-схемы объявляют nullable типы и precision map; нормализаторы не переопределяют значения локально.
+- `UnifiedOutputWriter` использует `schema.enforce_na_policy()` и `PrecisionFormatter` до сериализации CSV/JSON/QC.
+- `meta.yaml` и `run_manifest.json` копируют актуальные политики для аудита (AUD-2).
+- Snapshot/golden тесты подтверждают `""` только для строк и `null` для остальных типов; несоответствия приводят к падению CI.
 
 ### Retry-policy
 

@@ -1285,156 +1285,16 @@ def validate_column_order(df: pd.DataFrame, schema: BaseSchema) -> None:
 
 13) NA-policy и precision-policy (MUST)
 
-Единый источник истины для NA-policy и precision-policy — Pandera схема. Все пайплайны обязаны следовать этим правилам при нормализации данных и генерации хешей.
+Единый источник истины для NA и precision политик — [docs/requirements/02-io-system.md](../docs/requirements/02-io-system.md#na-precision-policy). Pandera-схемы наследуют эту спецификацию и применяют её в `normalize → validate → write`.
 
-**Инвариант:** Единый источник истины для NA-policy и precision-policy — Pandera схема. Все пайплайны обязаны следовать этим правилам при нормализации данных и генерации хешей.
+**Ключевые действия при рефакторинге:**
 
-**NA-policy (Null Availability Policy):**
+- Нормализаторы и `UnifiedOutputWriter` используют Pandera типы, чтобы применять `""` только к строкам и `pd.NA` ко всем прочим типам.
+- Precision map хранится в схеме и прокидывается в форматтер вывода (`PrecisionFormatter`).
+- `meta.yaml` и QC отчёты копируют актуальные NA/precision политики (AUD-2).
+- Тесты (`tests/golden/**`, `tests/unit/test_output_writer.py`) служат регрессией против отклонений.
 
-Определение: Политика обработки пропущенных значений для детерминированной сериализации и хеширования.
-
-| Тип данных | NA-значение | JSON сериализация | Применение |
-|------------|-------------|-------------------|------------|
-| `str` / `StringDtype` | `""` (пустая строка) | `""` | Все текстовые поля |
-| `int` / `Int64Dtype` | `None` → `null` | `null` | Все целочисленные поля |
-| `float` / `Float64Dtype` | `None` → `null` | `null` | Все числовые поля |
-| `bool` / `BooleanDtype` | `None` → `null` | `null` | Логические флаги |
-| `datetime` | `None` → ISO8601 UTC | ISO8601 string | Временные метки |
-| `dict` / JSON | `None` или `{}` | Canonical JSON | Вложенные структуры |
-
-Применяется при:
-- Нормализации данных
-- Канонической сериализации для хеширования
-- Записи в CSV/JSON/Parquet
-
-**Precision-policy:**
-
-Определение: Политика округления для числовых полей, обеспечивающая детерминизм и научную точность.
-
-Единая карта точности для числовых полей:
-
-| Поле | Precision | Формат | Обоснование |
-|------|-----------|--------|-------------|
-| `standard_value` | 6 | `%.6f` | Научная точность |
-| `pic50` | 6 | `%.6f` | Фармакологические расчеты |
-| `pchembl_value` | 2 | `%.2f` | log10-значения |
-| `molecular_weight` | 2 | `%.2f` | Достаточно для молекул |
-| `logp` | 3 | `%.3f` | Коэффициент распределения |
-| `rotatable_bonds` | 0 | `%.0f` | Целочисленные дескрипторы |
-| `tpsa` | 2 | `%.2f` | Polar surface area |
-| Default (остальные `float`) | 6 | `%.6f` | Default для детерминизма |
-
-Применяется при:
-- Форматировании float значений
-- Сериализации для хеширования
-- Записи в CSV/JSON
-
-Пример применения:
-
-```python
-def format_float(value: float, field_name: str) -> str:
-    """Форматирует float согласно precision_policy."""
-    precision_policy = {
-        "standard_value": 6,
-        "pic50": 6,
-        "pchembl_value": 2,
-        "molecular_weight": 2,
-        "logp": 3,
-        "rotatable_bonds": 0,
-        "tpsa": 2,
-    }
-    decimals = precision_policy.get(field_name, 6)  # Default 6
-    return f"{value:.{decimals}f}"
-```
-
-Обоснование:
-- Детерминизм: одинаковое округление даёт одинаковый хеш
-- Научная точность: 6 decimal places достаточно для IC50/Ki
-- Экономия памяти: разумный баланс
-
-**Каноническая сериализация для hash_row:**
-
-Правила для детерминированного хеширования:
-
-```python
-def canonicalize_row_for_hash(
-    row: dict[str, Any],
-    column_order: list[str],
-    *,
-    string_columns: Collection[str],
-) -> str:
-    """
-    Каноническая сериализация строки для детерминированного хеширования.
-    
-    Правила:
-    1. JSON с sort_keys=True, separators=(',', ':')
-    2. ISO8601 UTC для всех datetime с суффиксом 'Z'
-    3. Float формат: %.6f
-    4. NA-policy: строковые → "", остальные → None
-    5. Column order: строго по column_order
-    """
-    from collections.abc import Collection
-    from datetime import datetime, timezone
-    import json
-    import pandas as pd
-
-    canonical = {}
-
-    for col in column_order:
-        value = row.get(col)
-
-        # Применяем NA-policy: строковые → "", остальные → None
-        if pd.isna(value):
-            canonical[col] = "" if col in string_columns else None
-            continue
-
-        elif isinstance(value, float):
-            canonical[col] = float(f"{value:.6f}")  # Фиксированная точность
-
-        elif isinstance(value, datetime):
-            canonical[col] = value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-        elif isinstance(value, (dict, list)):
-            canonical[col] = json.loads(json.dumps(value, sort_keys=True))  # Нормализация
-
-        else:
-            canonical[col] = value
-
-    return json.dumps(canonical, sort_keys=True, ensure_ascii=False)
-```
-
-Правила канонической сериализации:
-1. JSON с `sort_keys=True`, `separators=(',', ':')`
-2. ISO8601 UTC для всех datetime с суффиксом 'Z'
-3. Float формат: `%.6f`
-4. NA-policy: строковые → `""`, остальные → `null`
-5. Column order: строго по `schema.column_order`
-
-**Проверка соответствия meta.yaml → schema:**
-
-Meta.yaml должна содержать копию NA-policy и precision-policy из схемы для аудита:
-
-```python
-def generate_meta_with_policies(schema: BaseSchema, df: pd.DataFrame) -> dict:
-    """Генерирует meta.yaml с копией политик из схемы."""
-    return {
-        "column_order": schema.column_order,  # Копия
-        "na_policy": schema.na_policy,  # Копия
-        "precision_policy": schema.precision_policy,  # Копия
-        "pipeline_version": schema.schema_version,
-        "row_count": len(df),
-        # ... остальные метаданные
-    }
-```
-
-Валидация:
-
-```python
-def validate_meta_policies(meta: dict, schema: BaseSchema) -> None:
-    """Проверяет соответствие политик в meta.yaml схеме."""
-    assert meta["column_order"] == schema.column_order
-    assert meta.get("na_policy") == schema.na_policy
-    assert meta.get("precision_policy") == schema.precision_policy
-```
+> Примеры канонической сериализации, карты precision и фрагменты `meta.yaml` приведены в нормативной секции IO System. Здесь храним только ссылки, чтобы избежать рассинхронизации.
 
 14) Стратегия тестирования (MUST)
 
