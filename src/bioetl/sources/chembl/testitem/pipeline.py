@@ -1,6 +1,7 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
 import re
+from collections.abc import Hashable
 from pathlib import Path
 from typing import Any, cast
 
@@ -33,7 +34,7 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
-schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
+schema_registry.register("testitem", "1.0.0", TestItemSchema)
 
 __all__ = ["TestItemPipeline"]
 
@@ -399,14 +400,26 @@ class TestItemPipeline(PipelineBase):
                 deduplicated_input = input_indexed
 
                 if input_indexed.index.has_duplicates:
-                    duplicated_ids = (
-                        input_indexed.index[input_indexed.index.duplicated()].unique().tolist()
-                    )
-                    logger.warning(
-                        "duplicate_molecule_ids_in_input",
-                        count=len(duplicated_ids),
-                        sample=[str(mol_id) for mol_id in duplicated_ids[:5]],
-                    )
+                    duplicate_counts: dict[Hashable, int] = {}
+                    duplicated_ids: list[str] = []
+                    for label in input_indexed.index.tolist():
+                        if not isinstance(label, Hashable):
+                            logger.debug(
+                                "non_hashable_index_label",
+                                label_type=type(label).__name__,
+                            )
+                            continue
+                        count = duplicate_counts.get(label, 0) + 1
+                        duplicate_counts[label] = count
+                        if count == 2:
+                            duplicated_ids.append(str(label))
+
+                    if duplicated_ids:
+                        logger.warning(
+                            "duplicate_molecule_ids_in_input",
+                            count=len(duplicated_ids),
+                            sample=duplicated_ids[:5],
+                        )
                     deduplicated_input = input_indexed[
                         ~input_indexed.index.duplicated(keep="first")
                     ]

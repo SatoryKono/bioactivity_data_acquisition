@@ -58,6 +58,9 @@ _SCHEMA_EXPORTS: dict[str, str] = {
 
 # Explicit import for ActivitySchema to ensure static type checkers can resolve it
 from bioetl.schemas.activity import ActivitySchema  # noqa: PLC0415
+# TestItemSchema is used widely and static analyzers struggle with the dynamic
+# ``__getattr__`` fallback, so import it eagerly as well for improved typing
+from bioetl.schemas.testitem import TestItemSchema  # noqa: PLC0415
 
 if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
     # ActivitySchema is already imported above
