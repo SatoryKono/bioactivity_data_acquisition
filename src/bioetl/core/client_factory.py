@@ -113,11 +113,13 @@ class APIClientFactory:
             if source_config.cache_ttl is not None
             else self._cache.ttl
         )
-        cache_maxsize = (
+        cache_maxsize_raw = (
             source_config.cache_maxsize
             if source_config.cache_maxsize is not None
             else getattr(self._cache, "maxsize", 1024)
         )
+        # Explicitly cast to int to satisfy static type checkers
+        cache_maxsize: int = int(cache_maxsize_raw)
 
         fallback_config = self._fallbacks
         fallback_enabled = fallback_config.enabled

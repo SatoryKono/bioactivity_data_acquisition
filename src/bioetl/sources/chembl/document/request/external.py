@@ -52,7 +52,7 @@ def build_adapter_configs(
     if cache_maxsize_default is None:
         cache_maxsize_default = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
     cache_maxsize_raw = _get_source_attribute(source_cfg, "cache_maxsize")
-    cache_maxsize = coerce_int_config(
+    cache_maxsize: int = coerce_int_config(
         cache_maxsize_raw,
         int(cache_maxsize_default),
         field="cache_maxsize",

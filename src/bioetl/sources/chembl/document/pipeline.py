@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
-from pandas import Float64Dtype
 import pandera.errors as pa_errors
 import requests
 
@@ -545,7 +544,7 @@ class DocumentPipeline(PipelineBase):
             Version string (e.g., 'ChEMBL_36') or None
         """
         client = cast(SupportsRequestJson, self.api_client)
-        release = self._fetch_chembl_release_info(client)  # type: ignore[arg-type]
+        release = self._fetch_chembl_release_info(client)
         return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -672,7 +671,7 @@ class DocumentPipeline(PipelineBase):
                     working_df[column] = pd.Series(
                         pd.NA,
                         index=working_df.index,
-                        dtype=Float64Dtype(),
+                        dtype=pd.Float64Dtype(),
                     )
                 else:
                     working_df[column] = pd.NA
