@@ -53,6 +53,12 @@ source: из дерева src/bioetl/sources/<source>/… или имени фа
 - [Inventory clusters](../artifacts/baselines/pre_migration/PIPELINES.inventory.clusters.md)
 - [Golden-тесты pipelines (pytest лог + coverage)](../artifacts/baselines/golden_tests/)
 
+### Регулярность генерации артефактов инвентаризации
+
+- **Baseline:** ежегодно переопределяется из директории `artifacts/baselines/pre_migration/` перед стартом крупных миграций (см. файлы выше).
+- **CI:** job `inventory-check` в `.github/workflows/ci.yaml` выполняет `python src/scripts/run_inventory.py --check --config configs/inventory.yaml` на каждом push/PR.
+- **Актуальный артефакт:** `docs/requirements/PIPELINES.inventory.csv` и `docs/requirements/PIPELINES.inventory.clusters.md` пересобираются job `inventory-snapshot` и публикуются как GitHub artifact.
+
 Норматив: требования трактуются по RFC 2119/BCP 14 (MUST/SHOULD/MAY).
 datatracker.ietf.org
 +1

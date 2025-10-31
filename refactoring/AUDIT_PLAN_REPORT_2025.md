@@ -79,10 +79,11 @@ CSV `docs/requirements/PIPELINES.inventory.csv` отсутствует, хотя
 
 **Фактическое состояние (обновлено 2025-10-31):**
 
-✅ Скрипт существует: `src/scripts/run_inventory.py`  
-✅ Конфигурация существует: `configs/inventory.yaml`  
-✅ CSV артефакт сгенерирован: `docs/requirements/PIPELINES.inventory.csv` (2025-10-31)  
+✅ Скрипт существует: `src/scripts/run_inventory.py`
+✅ Конфигурация существует: `configs/inventory.yaml`
+✅ CSV артефакт сгенерирован: `docs/requirements/PIPELINES.inventory.csv` (2025-10-31)
 ✅ Cluster report создан: `docs/requirements/PIPELINES.inventory.clusters.md`
+✅ Актуальность подтверждается запуском `python src/scripts/run_inventory.py --check --config configs/inventory.yaml` (локально и в CI job `inventory-check`).
 
 **Затронутые документы:**
 - `REFACTOR_PLAN.md` (строки 13, 199-210) — требует артефакт как источник истины
