@@ -63,7 +63,7 @@
 
 Файлы данных: нормализованные таблицы по сущностям (см. схемы ниже), форматы CSV и/или Parquet. Порядок столбцов фиксирован, сортировка по бизнес-ключам, одинаковые правила сериализации чисел/дат/строк.
 
-Контроль целостности: хеши строк и наборов бизнес-ключей (единственный поддерживаемый алгоритм — SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) фиксируются в метаданых экспорта; выбор жёстко зафиксирован через `determinism.hash_algorithm` (см. [src/bioetl/configs/includes/determinism.yaml](../src/bioetl/configs/includes/determinism.yaml)) и подробно описан в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
+Контроль целостности: хеши строк и наборов бизнес-ключей (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) фиксируются в метаданых экспорта. Активный алгоритм определяется конфигурацией `determinism.hash_algorithm` (см. [src/bioetl/configs/includes/determinism.yaml](../src/bioetl/configs/includes/determinism.yaml)) и по умолчанию равен `"sha256"`, что синхронизирует политику сериализации и проверку целостности в пайплайне. Подробно описано в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).[^determinism-hash]
 
 Атомарная запись: запись во временный файл на той же ФС и атомарная замена целевого файла (replace/move_atomic). На POSIX это rename/replace, на Windows — соответствующий безопасный вызов; библиотека atomicwrites документирует детали.
 
@@ -326,7 +326,7 @@ src/bioetl/configs/pipelines/<source>.yaml
 
 Валидация конфигурации построена на модели `PipelineConfig` и дочерних классах Pydantic, что исключает расхождения между документацией и реальным кодом.【F:src/bioetl/config/models.py†L691-L739】 Основные узлы:
 
-- `pipeline` — метаданные пайплайна (`PipelineMetadata`), включающие имя, сущность и семантическую версию, прошедшую проверку по PEP 440.【F:src/bioetl/config/models.py†L321-L340】
+- `pipeline` — метаданные пайплайна (`PipelineMetadata`), включающие имя, сущность и семантическую версию, прошедшую проверку по PEP 440.【F:src/bioetl/config/models.py†L321-L340】
 - `http.global` — дефолтный профиль HTTP с таймаутами, ретраями и лимитами (`HttpConfig` и связанные `RetryConfig`/`RateLimitConfig`). Конфигурация задаётся словарём профилей, где ключ `global` доступен всем источникам как базовый шаблон.【F:src/bioetl/config/models.py†L44-L101】【F:src/bioetl/config/models.py†L691-L701】
 - `sources` — каталог подключённых источников (`TargetSourceConfig`). Здесь описываются базовые URL, ключи API (с поддержкой `env:` ссылок), лимиты, стратегии резервирования и дополнительные заголовки.【F:src/bioetl/config/models.py†L103-L239】
 - `determinism` — политика воспроизводимости (`DeterminismConfig`), фиксирующая алгоритм хеширования, сортировку, порядок колонок и исключения для валидации колонок.【F:src/bioetl/config/models.py†L248-L289】
@@ -468,4 +468,6 @@ Pydantic BaseModel (`src/bioetl/config/models.py`).
 Pandera DataFrameSchema/Checks.
 
 Python hashlib SHA256 (`src/bioetl/core/hashing.py`) и `determinism.hash_algorithm` (`src/bioetl/configs/includes/determinism.yaml`).
+
+[^determinism-hash]: Конфигурация алгоритма детерминизма хранится в [src/bioetl/configs/includes/determinism.yaml](../src/bioetl/configs/includes/determinism.yaml) и устанавливает значение `sha256` для поля `hash_algorithm`.
 

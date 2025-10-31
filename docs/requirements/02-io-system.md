@@ -644,60 +644,71 @@ schema_version: "2.1.0"
 
 **Acceptance Criteria AC-03:** При валидации `df.columns.tolist() == schema.column_order` должно быть истиной.
 
-### NA Policy
+### Централизованная политика NA/precision {#na-precision-policy}
 
-**Критический инвариант (v3.0):** Политика пропусков опирается на Pandera-тип колонки.
+**Назначение:** единая спецификация обработки пропусков и числовой точности для всех пайплайнов. Политика обязательна к применению в `extract → normalize → validate → write` и контролируется Pandera-схемами.
 
-**Правила для пропущенных значений:**
+#### Область действия
 
-- **Строковые поля** → `""` (пустая строка в CSV и canonical JSON)
-- **Числовые/даты/boolean** → `pd.NA` или `None` (пустая ячейка в CSV, `null` в canonical JSON)
+- **Источник истины:** Pandera OutputSchema/MetaSchema.
+- **Артефакты:** CSV, canonical JSON, QC отчёты, `meta.yaml`, `run_manifest.json`.
+- **Контроль:** `UnifiedOutputWriter` + тесты AC-05/AC-10 + `tests/integration/pipelines/test_extended_mode_outputs.py`.
+
+#### NA Policy {#na-policy}
+
+**Инвариант:** тип Pandera определяет представление пропусков. Любые отступления трактуются как нарушение схемы.
+
+| Тип данных Pandera | Значение в DataFrame | CSV/Parquet | Canonical JSON | Применение |
+| --- | --- | --- | --- | --- |
+| `StringDtype` | `""` (пустая строка) | `""` | `""` | Все текстовые поля, идентификаторы |
+| `Int64Dtype`/`Float64Dtype` | `pd.NA` | Пустая ячейка | `null` | Целочисленные и вещественные показатели |
+| `BooleanDtype` | `pd.NA` | Пустая ячейка | `null` | Логические флаги |
+| `Datetime64[ns, UTC]` | `pd.NaT` | Пустая ячейка | `null` (значения сериализуются в ISO8601) | Временные метки |
+| `JSON`/`dict` поля | `None` или `{}` | Canonical JSON | Canonical JSON | Вложенные структуры |
 
 ```python
-
 string_columns = {
     name
     for name, field in schema.__fields__.items()
     if pd.api.types.is_string_dtype(field.dtype)
 }
 df[string_columns] = df[string_columns].fillna("")
+
 non_string = df.columns.difference(string_columns)
 df[non_string] = df[non_string].astype(schema.to_schema().dtype)
-
 ```
 
-**Обоснование:** Типовая политика сохраняет семантику `null` для числовых/булевых колонок и предотвращает дрейф хешей для строк.
+**Ключевые проверки:**
 
-**См. также**: [00-architecture-overview.md](00-architecture-overview.md) — NA-policy: "" для строк, null для чисел.
+- `schema.validate(..., lazy=True)` обеспечивает наличие nullable типов.
+- Snapshot тесты (`tests/golden/**`) фиксируют, что `""` используется только для строк.
+- `meta.yaml` копирует NA-policy и precision-policy для аудита (AUD-2).
 
-### Точность чисел
+#### Каноническая сериализация
 
-**Критический инвариант (v3.0):** Единый формат `%.6f` для всех float значений.
+- JSON: `sort_keys=True`, `separators=(",", ":")`, `ensure_ascii=False`.
+- Даты: `datetime.isoformat()` в UTC.
+- Коллекции: `json.dumps(value, sort_keys=True, separators=(",", ":"))`.
+- Хеширование использует нормализованную проекцию (`hash_row`).
 
-**Правило:**
+#### Precision Policy {#precision-policy}
 
-- Все float значения форматируются с 6 знаками после запятой
+**Инвариант:** числовые поля сериализуются детерминированно по карте точности.
 
-- Применяется ко всем контекстам: хеширование, вывод, сериализация
+| Категория полей | Формат | Примеры | Обоснование |
+| --- | --- | --- | --- |
+| Фармакологические метрики | `%.6f` | `standard_value`, `pic50`, `activity_value` | Научная точность, стабильные сравнения |
+| Логарифмические показатели | `%.2f` | `pchembl_value`, `selectivity_score` | Совместимость с отчётами ChEMBL |
+| Проценты/доли | `%.4f` | `missing_fraction`, `duplicate_ratio` | Читаемость QC |
+| Прочие float поля | `%.6f` | `molecular_weight`, `confidence_score` | Единый default |
 
-**Обоснование:**
+**Применение:**
 
-- Обеспечивает детерминизм канонической сериализации
+- `schema.field_precision` → `PrecisionFormatter` в `UnifiedOutputWriter`.
+- Тесты `tests/unit/test_output_writer.py::test_unified_output_writer_writes_extended_metadata` проверяют точность.
+- Любое новое поле требует явного precision в схеме или документа валидации (AUD-3).
 
-- Единообразие обработки данных
-
-- Достаточная точность для научных вычислений
-
-```python
-
-# В схеме
-
-class ActivitySchema(BaseSchema):
-    pic50: float = pa.Field()  # Используется %.6f при сериализации
-
-    molecular_weight: float = pa.Field()  # Используется %.6f при сериализации
-
-```
+**См. также:** [00-architecture-overview.md](00-architecture-overview.md#инварианты-канонизации) для общей канонической сериализации.
 
 ### Сортировка
 
