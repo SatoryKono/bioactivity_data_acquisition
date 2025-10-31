@@ -159,6 +159,8 @@ Target ETL Pipeline
 
 Каждый fallback логируется с уровнем `WARNING`, добавляется в QC-отчёт (`qc_missing_mappings.csv`) и фиксируется в `meta.yaml` (`fallback_counts`).
 
+Конфигурация пайплайна (`configs/pipelines/target.yaml`) должна перечислять полный набор fallback-стратегий (`cache`, `partial_retry`, `network`, `timeout`, `5xx`), чтобы единая связка UnifiedAPIClient + FallbackManager могла корректно разруливать повторные запросы и детерминированные плейсхолдеры.
+
 ### Stage 2: UniProt Enrichment — детализация
 
 Stage 2 отвечает за нормализацию и обогащение белковых компонентов через UniProt REST API. Этот этап запускается для всех компонентов с валидным `accession` из ChEMBL и материализует данные в `data/silver/targets_uniprot.parquet`.
