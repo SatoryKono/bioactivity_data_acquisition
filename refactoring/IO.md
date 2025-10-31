@@ -85,7 +85,7 @@ run_id: "abc123"
 pipeline_version: "2.1.0"
 config_hash: "sha256:deadbeef..."
 config_snapshot:
-  path: "configs/pipelines/document.yaml"
+  path: "src/bioetl/configs/pipelines/document.yaml"
   sha256: "sha256:d1c2..."
 chembl_release: "33"
 row_count: 12345
@@ -287,10 +287,12 @@ class DocumentSchema(BaseSchema):
 
 Конфиг источника лежит в:
 ```
-configs/sources/<source>/<source>.yaml
+src/bioetl/configs/pipelines/<source>.yaml
 ```
 
-Цели: единые ключи, чёткая типизация, проверка совместимости; ошибки конфигурации MUST прерывать запуск.
+Допускаются include-модули (например, `includes/chembl_source.yaml`) для вынесения общих блоков и сокращения дублирования между
+пайплайнами. После подстановки всех include-файлов итоговый YAML автоматически валидируется объектом `PipelineConfig`; ошибки
+схемы или несовместимые ключи MUST прерывать запуск.
 
 ### 4.1 JSON Schema для базового конфига
 

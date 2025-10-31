@@ -107,10 +107,13 @@ CLI: `python -m bioetl.sources.<source>.pipeline --config ...`
 
 ## 5) Конфигурация и валидация конфигов (@test_refactoring_32)
 
-Конфиг каждого источника: `configs/sources/<source>/<source>.yaml`.
+Конфиг каждого источника: `src/bioetl/configs/pipelines/<source>.yaml` (MUST). Общие блоки допускается выносить в include-модули,
+например `includes/chembl_source.yaml`, чтобы исключить дублирование параметров. Итоговый YAML автоматически валидируется через
+`PipelineConfig`; несоответствие схеме немедленно завершает запуск с ошибкой (MUST NOT продолжать работу).
 
 Обязательные ключи: сетевые таймауты/повторы/лимиты, параметры пагинации, поле идентификации клиента (где требуется), фильтры/поля.
 
+Для Crossref/OpenAlex в конфиге хранится mailto; билдер запросов обеспечивает его присутствие. [www.crossref.org](https://www.crossref.org)
 Валидация конфигов строго типизирована; несовместимые ключи/значения вызывают ошибку запуска (MUST NOT продолжать работу).
 
 Для Crossref/OpenAlex в конфиге хранится mailto; билдер запросов обеспечивает его присутствие. [www.crossref.org @test_refactoring_32](https://www.crossref.org)
