@@ -345,6 +345,7 @@ class _RequestRetryContext:
     sleep_wait: float = 0.0
     last_error_text: str | None = None
     last_attempt_timestamp: float | None = None
+    last_duration_ms: float | None = None
 
     def start_attempt(self) -> None:
         """Record that a new attempt is starting."""
@@ -352,6 +353,7 @@ class _RequestRetryContext:
         self.attempt += 1
         self.wait_time = 0.0
         self.sleep_wait = 0.0
+        self.last_duration_ms = None
 
     def record_failure(self, exc: RequestException) -> None:
         """Capture context about a failure before raising for backoff handling."""
@@ -382,14 +384,11 @@ class _RequestRetryContext:
     def record_unhandled_exception(self, exc: Exception) -> None:
         """Log unexpected errors that should not trigger retry."""
 
-        logger.error(
-            "request_error",
-            attempt=self.attempt,
-            url=self.url,
-            method=self.method,
-            params=self.params,
-            error=str(exc),
-        )
+        with self.http_log_context():
+            logger.error(
+                "request_error",
+                error=str(exc),
+            )
 
     def should_giveup(self, exc: Exception) -> bool:
         """Delegate giveup decision to retry policy with side effects for logging."""
@@ -403,16 +402,13 @@ class _RequestRetryContext:
             status_code = (
                 self.last_response.status_code if self.last_response is not None else None
             )
-            logger.error(
-                "request_exception_giveup",
-                attempt=self.attempt,
-                url=self.url,
-                method=self.method,
-                params=self.params,
-                error=str(exc),
-                exception_type=type(exc).__name__,
-                status_code=status_code,
-            )
+            with self.http_log_context():
+                logger.error(
+                    "request_exception_giveup",
+                    error=str(exc),
+                    exception_type=type(exc).__name__,
+                    status_code=status_code,
+                )
         return should_stop
 
     def on_backoff(self, details: dict[str, Any]) -> None:
@@ -431,36 +427,36 @@ class _RequestRetryContext:
         )
 
         if isinstance(exc, HTTPError):
-            logger.warning(
-                "retrying_request",
-                attempt=self.attempt,
-                wait_seconds=self.wait_time,
-                sleep_seconds=self.sleep_wait,
-                error=str(exc),
-                status_code=status_code,
-                retry_after=self.last_retry_after_header,
-            )
+            with self.http_log_context():
+                logger.warning(
+                    "retrying_request",
+                    wait_seconds=self.wait_time,
+                    sleep_seconds=self.sleep_wait,
+                    error=str(exc),
+                    status_code=status_code,
+                    retry_after=self.last_retry_after_header,
+                )
         else:
-            logger.warning(
-                "retrying_request_exception",
-                attempt=self.attempt,
-                wait_seconds=self.wait_time,
-                sleep_seconds=self.sleep_wait,
-                error=str(exc) if exc is not None else None,
-                exception_type=type(exc).__name__ if exc is not None else None,
-                status_code=status_code,
-                retry_after=self.last_retry_after_header,
-            )
+            with self.http_log_context():
+                logger.warning(
+                    "retrying_request_exception",
+                    wait_seconds=self.wait_time,
+                    sleep_seconds=self.sleep_wait,
+                    error=str(exc) if exc is not None else None,
+                    exception_type=type(exc).__name__ if exc is not None else None,
+                    status_code=status_code,
+                    retry_after=self.last_retry_after_header,
+                )
 
         if self.wait_time > 0:
             actual_sleep = float(self.wait_time)
-            logger.debug(
-                "retry_wait_sleep",
-                attempt=self.attempt,
-                sleep_seconds=actual_sleep,
-                status_code=status_code,
-                retry_after=self.last_retry_after_header,
-            )
+            with self.http_log_context():
+                logger.debug(
+                    "retry_wait_sleep",
+                    sleep_seconds=actual_sleep,
+                    status_code=status_code,
+                    retry_after=self.last_retry_after_header,
+                )
             time.sleep(actual_sleep)
 
     def on_giveup(self, details: dict[str, Any]) -> None:
@@ -490,22 +486,31 @@ class _RequestRetryContext:
             }
             cast(Any, exc).retry_metadata = metadata
 
-        logger.error(
-            "request_failed_after_retries",
-            url=self.url,
-            method=self.method,
-            params=self.params,
-            data_present=self.data_present,
-            json_present=self.json_present,
-            attempt=self.attempt,
-            status_code=(
-                self.last_response.status_code if self.last_response is not None else None
-            ),
-            retry_after=self.last_retry_after_header,
-            error=str(exc) if exc is not None else None,
-            exception_type=type(exc).__name__ if exc is not None else None,
-            timestamp=self.last_attempt_timestamp or time.time(),
-        )
+        with self.http_log_context():
+            logger.error(
+                "request_failed_after_retries",
+                data_present=self.data_present,
+                json_present=self.json_present,
+                status_code=(
+                    self.last_response.status_code
+                    if self.last_response is not None
+                    else None
+                ),
+                error=str(exc) if exc is not None else None,
+                exception_type=type(exc).__name__ if exc is not None else None,
+                timestamp=self.last_attempt_timestamp or time.time(),
+            )
+
+    def http_log_context(self, **overrides: Any):
+        payload: dict[str, Any] = {
+            "endpoint": self.url,
+            "attempt": self.attempt,
+            "params": self.params,
+            "duration_ms": self.last_duration_ms,
+            "retry_after": self.last_retry_after_seconds,
+        }
+        payload.update(overrides)
+        return UnifiedLogger.http_context(**payload)
 
 
 class UnifiedAPIClient:
@@ -703,32 +708,48 @@ class UnifiedAPIClient:
                 data=data_payload,
                 json=json_payload,
                 stream=stream,
+                context=context,
             )
 
         def _request_operation() -> PayloadT:
             context.start_attempt()
-            try:
+            with context.http_log_context():
+                start_time = time.perf_counter()
                 try:
                     response = self.circuit_breaker.call(_perform_request)
                 except RequestException as exc:
+                    context.last_duration_ms = (time.perf_counter() - start_time) * 1000.0
+                    UnifiedLogger.set_context(duration_ms=context.last_duration_ms)
                     context.record_failure(exc)
                     raise
+
+                context.last_duration_ms = (time.perf_counter() - start_time) * 1000.0
+                context.last_attempt_timestamp = time.time()
+                UnifiedLogger.set_context(duration_ms=context.last_duration_ms)
 
                 try:
                     response.raise_for_status()
                 except HTTPError as exc:
                     context.record_failure(exc)
+                    UnifiedLogger.set_context(
+                        retry_after=context.last_retry_after_seconds,
+                        duration_ms=context.last_duration_ms,
+                    )
                     raise
+
+                context.last_response = response
+                context.last_retry_after_header = None
+                context.last_retry_after_seconds = None
+                context.last_error_text = None
 
                 try:
                     payload = response_parser(response)
                 except Exception as exc:
                     context.record_unhandled_exception(exc)
+                    UnifiedLogger.set_context(duration_ms=context.last_duration_ms)
                     raise
 
                 return payload
-            except Exception:
-                raise
 
         max_tries = max(1, self.retry_policy.total)
 
@@ -1107,6 +1128,7 @@ class UnifiedAPIClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         stream: bool = False,
+        context: _RequestRetryContext | None = None,
     ) -> requests.Response:
         """Execute a single HTTP request respecting Retry-After semantics."""
 
@@ -1130,19 +1152,46 @@ class UnifiedAPIClient:
         retry_after_seconds = self._retry_after_seconds(response)
         retry_after_raw = response.headers.get("Retry-After") if response.headers else None
 
+        if context is not None:
+            context.last_retry_after_seconds = retry_after_seconds
+            context.last_retry_after_header = retry_after_raw
+            UnifiedLogger.set_context(retry_after=retry_after_seconds)
+
         if retry_after_seconds is None:
             if retry_after_raw:
-                logger.warning(
-                    "retry_after_header_invalid",
-                    retry_after_raw=retry_after_raw,
+                cm = (
+                    context.http_log_context(retry_after=retry_after_seconds)
+                    if context is not None
+                    else UnifiedLogger.http_context(
+                        endpoint=url,
+                        attempt=context.attempt if context is not None else 0,
+                        params=params,
+                        retry_after=retry_after_seconds,
+                    )
                 )
+                with cm:
+                    logger.warning(
+                        "retry_after_header_invalid",
+                        retry_after_raw=retry_after_raw,
+                    )
             return response
 
-        logger.warning(
-            "retry_after_header",
-            wait_seconds=retry_after_seconds,
-            retry_after_raw=retry_after_raw,
+        cm = (
+            context.http_log_context()
+            if context is not None
+            else UnifiedLogger.http_context(
+                endpoint=url,
+                attempt=context.attempt if context is not None else 0,
+                params=params,
+                retry_after=retry_after_seconds,
+            )
         )
+        with cm:
+            logger.warning(
+                "retry_after_header",
+                wait_seconds=retry_after_seconds,
+                retry_after_raw=retry_after_raw,
+            )
 
         time.sleep(retry_after_seconds)
 

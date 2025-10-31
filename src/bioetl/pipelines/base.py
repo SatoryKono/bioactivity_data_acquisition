@@ -1093,6 +1093,12 @@ class PipelineBase(ABC):
         self, output_path: Path, extended: bool = False, *args: Any, **kwargs: Any
     ) -> OutputArtifacts:
         """Запускает полный пайплайн: extract → transform → validate → export."""
+        UnifiedLogger.set_context(
+            run_id=self.run_id,
+            stage="bootstrap",
+            actor=type(self).__name__,
+            source=self.config.pipeline.entity,
+        )
         logger.info("pipeline_started", pipeline=self.config.pipeline.name)
 
         previous_runtime_options = dict(self.runtime_options)
@@ -1105,20 +1111,24 @@ class PipelineBase(ABC):
             self.export_metadata = None
             self.debug_dataset_path = None
             # Extract
+            UnifiedLogger.set_context(stage="extract")
             df = self.extract(*args, **kwargs)
             logger.info("extraction_completed", rows=len(df))
 
             # Transform
+            UnifiedLogger.set_context(stage="transform")
             df = self.transform(df)
             logger.info("transformation_completed", rows=len(df))
 
             # Validate
+            UnifiedLogger.set_context(stage="validate")
             df = self.validate(df)
             logger.info("validation_completed", rows=len(df))
 
             self.debug_dataset_path = self._dump_debug_output(df, output_path)
 
             # Export
+            UnifiedLogger.set_context(stage="load")
             self.runtime_options["extended"] = extended
             artifacts = self.export(df, output_path, extended=extended)
             logger.info("pipeline_completed", artifacts=str(artifacts.dataset))
@@ -1129,6 +1139,7 @@ class PipelineBase(ABC):
             logger.error("pipeline_failed", error=str(e), exc_info=True)
             raise
         finally:
+            UnifiedLogger.set_context(stage="cleanup")
             self.runtime_options.pop("limit", None)
             self.runtime_options.pop("sample", None)
             self.close()

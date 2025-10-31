@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
-import logging
 from typing import Any, TypeVar, cast
 
 from requests import Response
 from requests import exceptions as req_exc
 
+from bioetl.core.logger import UnifiedLogger
+
 PayloadT = TypeVar("PayloadT")
 
 
-logger = logging.getLogger(__name__)
+logger = UnifiedLogger.get(__name__)
 
 
 class FallbackManager:
