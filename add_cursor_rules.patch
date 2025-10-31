@@ -1,0 +1,231 @@
+diff --git a/.cursor/rules/000-core-standards.mdc b/.cursor/rules/000-core-standards.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/000-core-standards.mdc
+@@ -0,0 +1,29 @@
++---
++description: Базовые инварианты проекта — детерминизм, стабильные контракты, явные изменения
++alwaysApply: true
++tags: [core, determinism, contracts]
++version: "1.0.0"
++---
++
++# context
++Применяется ко всему проекту. Обеспечивает общие правила поведения агента.
++
++# requirements
++- ДОЛЖЕН обеспечивать детерминизм артефактов: фиксированный порядок колонок/строк, UTC-время, каноническая сериализация.
++- ДОЛЖЕН использовать атомарную запись (temp → os.replace) для файлов с данными/артефактами.
++- НЕЛЬЗЯ вносить silent-изменения публичных API/CLI/схем. Любой breaking change сопровождается миграционной заметкой и изменением версий.
++- ДОЛЖЕН объяснять план действий, перечислять изменяемые файлы и показывать диффы при модификациях.
++
++# examples
++## valid
++```py
++tmp = path.with_suffix(".tmp")
++tmp.write_text(payload, encoding="utf-8")
++os.replace(tmp, path)
++```
++
++## invalid
++```py
++# теряем атомарность и порядок
++path.write_text(payload, encoding="utf-8")
++```
+
+diff --git a/.cursor/rules/005-agent-decides.mdc b/.cursor/rules/005-agent-decides.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/005-agent-decides.mdc
+@@ -0,0 +1,26 @@
++---
++description: Agent Decides — детерминированная стратегия действий Agent во всём проекте
++alwaysApply: true
++version: "1.0.0"
++---
++
++# purpose
++Единый сценарий решений для репозитория `bioactivity_data_acquisition` (ветка `test_refactoring_32`).
++
++# decision-model
++0) Grounding: прочитать структуру (`pyproject.toml`, `src/`/`bioetl/`, `configs/`, `tests/`, `docs/`, `.cursor/rules/`), сопоставить задачу с файлами и правилами.
++1) Classify: REFactor / FEATURE / BUGFIX / DATA/SCHEMA / DOCS / TESTS.
++2) Plan: список файлов к изменению, ожидаемый результат, риски, конфликт-чек с core/io/schemas/testing.
++3) Edit: детерминизм IO, Pandera-валидация до записи, централизованный логгер, без silent-breaking.
++4) Verify: унифицированный diff, команды для линта/типов/тестов без сети, ожидания по артефактам.
++5) Docs & Changelog: обновить docs/; при изменении контракта — запись в DEPRECATIONS.md.
++6) Fallbacks: остановиться и указать недостающие входы (путь/ключ/переменная/схема), не гадать.
++
++# outputs
++- План с путями; патчи; команды проверки; список обновлённых docs; риски и как ловит CI.
++
++# examples
++## valid
++Сначала план → затем патчи → затем команды проверки → затем обновления docs и депрекации.
++## invalid
++Генерировать длинные файлы без плана; менять CLI без депрекации; ходить в сеть из юнит-тестов.
+
+diff --git a/.cursor/rules/010-python-style.mdc b/.cursor/rules/010-python-style.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/010-python-style.mdc
+@@ -0,0 +1,12 @@
++---
++description: Python-стиль: совместимость с ruff/black/mypy; композиция > множественного наследования
++globs:
++  - "src/**/*.py"
++  - "bioetl/**/*.py"
++  - "scripts/**/*.py"
++  - "tests/**/*.py"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Код совместим с конфигами линтеров из репо; зависимости не добавлять без правки конфигов.
+
+diff --git a/.cursor/rules/020-logging.mdc b/.cursor/rules/020-logging.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/020-logging.mdc
+@@ -0,0 +1,10 @@
++---
++description: Централизованное логирование; запрет print
++globs:
++  - "src/**/*.py"
++  - "bioetl/**/*.py"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Только проектный логгер; обязательные поля: time=UTC, level, module, msg, extras.
+
+diff --git a/.cursor/rules/030-io-determinism.mdc b/.cursor/rules/030-io-determinism.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/030-io-determinism.mdc
+@@ -0,0 +1,12 @@
++---
++description: IO — порядок колонок/строк, ISO-UTC, атомарная запись; запрет молчаливых пропусков
++globs:
++  - "src/**/*.py"
++  - "bioetl/**/*.py"
++  - "artifacts/**/*.csv"
++  - "artifacts/**/*.parquet"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Явная колонка-order; сортировка строк по ключам; temp + os.replace.
+
+diff --git a/.cursor/rules/040-schemas-pandera.mdc b/.cursor/rules/040-schemas-pandera.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/040-schemas-pandera.mdc
+@@ -0,0 +1,11 @@
++---
++description: Схемы данных — Pandera-валидация до записи; никаких silent-изменений типов/колонок
++globs:
++  - "src/**/*.py"
++  - "bioetl/**/*.py"
++  - "tests/**/*.py"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Все табличные артефакты валидируются Pandera перед IO.
+
+diff --git a/.cursor/rules/050-cli-contracts.mdc b/.cursor/rules/050-cli-contracts.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/050-cli-contracts.mdc
+@@ -0,0 +1,11 @@
++---
++description: CLI-контракты — явные флаги, проверка путей, читаемые ошибки
++globs:
++  - "src/**/cli/**/*.py"
++  - "scripts/**/*.py"
++  - "src/**/*.py"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Поддержка флагов (--config/--limit/--dry-run/--golden/--sample), валидация входов.
+
+diff --git a/.cursor/rules/060-testing.mdc b/.cursor/rules/060-testing.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/060-testing.mdc
+@@ -0,0 +1,9 @@
++---
++description: Тесты без сети; golden-наборы; property-based для чистых функций
++globs:
++  - "tests/**/*.py"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Сетевые вызовы в юнитах запрещены.
+
+diff --git a/.cursor/rules/070-docs.mdc b/.cursor/rules/070-docs.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/070-docs.mdc
+@@ -0,0 +1,12 @@
++---
++description: Документация синхронизирована с кодом/схемами; автогенерируемые блоки не править вручную
++globs:
++  - "docs/**/*.md"
++  - "README.md"
++  - "PROJECT_RULES.md"
++  - "USER_RULES.md"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Любые изменения схем/CLI сопровождаются правками docs/.
+
+diff --git a/.cursor/rules/080-etl-sources.mdc b/.cursor/rules/080-etl-sources.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/080-etl-sources.mdc
+@@ -0,0 +1,10 @@
++---
++description: Один источник — один публичный пайплайн; унифицированные клиенты/адаптеры/пагинации/merge-ключи
++globs:
++  - "src/bioetl/**/*.py"
++  - "bioetl/**/*.py"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Пагинация инкапсулируется стратегиями; merge-ключи объявлены явно; дубли логики запрещены.
+
+diff --git a/.cursor/rules/090-secrets-config.mdc b/.cursor/rules/090-secrets-config.mdc
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/rules/090-secrets-config.mdc
+@@ -0,0 +1,12 @@
++---
++description: Секреты и конфиги — только .env/секрет-менеджер; ноль хардкода
++globs:
++  - ".env.example"
++  - "configs/**/*.yaml"
++  - "src/**/*.py"
++  - "bioetl/**/*.py"
++alwaysApply: false
++version: "1.0.0"
++---
++# requirements
++- Секреты из окружения; при отсутствии — понятная ошибка на старте.
+

@@ -1,0 +1,175 @@
+diff --git a/.cursor/commands/review-pipeline.md b/.cursor/commands/review-pipeline.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/review-pipeline.md
+@@ -0,0 +1,18 @@
++# /review-pipeline
++**Goal:** Провести ревью выбранного пайплайна (`src/bioetl/pipelines/<source>/`).
++
++**Inputs**
++- Путь к пайплайну
++- Ссылка на конфиг(и) в `configs/`
++
++**Steps**
++1) Проверить `extract/normalize/validate/write` на соответствие проектным правилам (детерминизм IO, Pandera-валидация до записи, централизованный логгер).
++2) Проверить пагинацию (стратегии), merge-ключи, отсутствие `print`.
++3) Сформировать список минимальных патчей. Показывать дифы.
++
++**Constraints**
++- Не менять публичные контракты молча; при необходимости — миграция и запись в `DEPRECATIONS.md`.
++
++**Outputs**
++- Список замечаний
++- Патчи к коду/тестам/докам
+
+diff --git a/.cursor/commands/gen-pandera-for-artifact.md b/.cursor/commands/gen-pandera-for-artifact.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/gen-pandera-for-artifact.md
+@@ -0,0 +1,16 @@
++# /gen-pandera-for-artifact
++**Goal:** Сгенерировать/актуализировать Pandera-схему для табличного артефакта.
++
++**Inputs**
++- Путь к writer/reader-коду
++- Пример артефакта (`artifacts/*.csv|parquet`) при наличии
++
++**Steps**
++1) Проинферить колонки/типы/nullable.
++2) Сгенерировать `SchemaModel` с проверками.
++3) Вставить в пайплайн валидацию до записи; добавить юнит-тесты valid/invalid.
++
++**Outputs**
++- Файл со схемой
++- Патчи в пайплайне
++- Тесты
+
+diff --git a/.cursor/commands/enforce-io-determinism.md b/.cursor/commands/enforce-io-determinism.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/enforce-io-determinism.md
+@@ -0,0 +1,12 @@
++# /enforce-io-determinism
++**Goal:** Обеспечить фиксированный порядок колонок/строк, ISO-UTC и атомарную запись.
++
++**Steps**
++1) Вставить `column_order` и сортировку строк по ключам.
++2) Привести даты/время к ISO-UTC.
++3) Реализовать temp → `os.replace`.
++4) Запретить silent-drop колонок.
++
++**Outputs**
++- Патч к IO-модулю
++- Тест на стабильный вывод
+
+diff --git a/.cursor/commands/check-cli-contract.md b/.cursor/commands/check-cli-contract.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/check-cli-contract.md
+@@ -0,0 +1,11 @@
++# /check-cli-contract
++**Goal:** Проверить CLI-контракты и UX.
++
++**Steps**
++1) Проверить наличие флагов: `--config`, `--limit`, `--dry-run`, `--golden`, `--sample` (если применимо).
++2) Проверка путей/переменных окружения/прав доступа с понятными ошибками.
++3) Обновить README/docs про актуальные флаги и примеры.
++
++**Outputs**
++- Отчёт и патчи к CLI
++- Обновления документации
+
+diff --git a/.cursor/commands/write-tests-for-pipeline.md b/.cursor/commands/write-tests-for-pipeline.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/write-tests-for-pipeline.md
+@@ -0,0 +1,11 @@
++# /write-tests-for-pipeline
++**Goal:** Добавить pytest-скелеты для пайплайна без live-сети.
++
++**Steps**
++1) Моки клиента/фикстуры/заглушки.
++2) Golden-наборы для стабильных артефактов.
++3) Property-based для чистых трансформаций.
++
++**Outputs**
++- Тест-файлы
++- Инструкции запуска
+
+diff --git a/.cursor/commands/update-docs-from-code.md b/.cursor/commands/update-docs-from-code.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/update-docs-from-code.md
+@@ -0,0 +1,10 @@
++# /update-docs-from-code
++**Goal:** Синхронизировать `docs/` и `README.md` с кодом/CLI/схемами.
++
++**Steps**
++1) Определить затронутые разделы.
++2) Сгенерировать патчи Markdown.
++3) Согласовать ссылки на исходники и тесты.
++
++**Outputs**
++- Патчи к `docs/` и README
+
+diff --git a/.cursor/commands/pipeline-skeleton.md b/.cursor/commands/pipeline-skeleton.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/pipeline-skeleton.md
+@@ -0,0 +1,11 @@
++# /pipeline-skeleton
++**Goal:** Создать каркас пайплайна (один источник — один публичный пайплайн).
++
++**Steps**
++1) Сгенерировать модули: `client/`, `request/`, `pagination/`, `parser/`, `normalizer/`, `schema/`, `merge/`, `output/`, `pipeline.py`.
++2) Добавить минимальные тесты и пример конфигурации.
++3) Подключить логирование и валидацию.
++
++**Outputs**
++- Набор файлов каркаса
++- Тесты и пример конфигурации
+
+diff --git a/.cursor/commands/secrets-audit.md b/.cursor/commands/secrets-audit.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/secrets-audit.md
+@@ -0,0 +1,12 @@
++# /secrets-audit
++**Goal:** Аудит секретов/конфигов.
++
++**Steps**
++1) Убедиться, что секреты читаются из `.env`/секрет-менеджера.
++2) Обновить `.env.example`.
++3) Найти и убрать хардкод.
++
++**Outputs**
++- Список находок
++- Патчи
++- Обновлённый `.env.example`
+
+diff --git a/.cursor/commands/migrate-cursorrules-to-mdc.md b/.cursor/commands/migrate-cursorrules-to-mdc.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/.cursor/commands/migrate-cursorrules-to-mdc.md
+@@ -0,0 +1,11 @@
++# /migrate-cursorrules-to-mdc
++**Goal:** Разложить legacy `.cursorrules` в тематические `.mdc` под `.cursor/rules/`.
++
++**Steps**
++1) Разбить монолит по темам: core/style/logging/io/schemas/cli/tests/docs/secrets/pipelines.
++2) Создать файлы `.mdc` и заполнить фронт-маттер (description, globs/alwaysApply).
++3) Проверить видимость правил в Cursor, затем удалить легаси-файл.
++
++**Outputs**
++- Набор `.mdc`
++- Инструкции проверки и удаления легаси
+

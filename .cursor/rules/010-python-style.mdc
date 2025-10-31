@@ -1,0 +1,12 @@
+---
+description: Python-стиль: совместимость с ruff/black/mypy; композиция > множественного наследования
+globs:
+  - "src/**/*.py"
+  - "bioetl/**/*.py"
+  - "scripts/**/*.py"
+  - "tests/**/*.py"
+alwaysApply: false
+version: "1.0.0"
+---
+# requirements
+- Код совместим с конфигами линтеров из репо; зависимости не добавлять без правки конфигов.

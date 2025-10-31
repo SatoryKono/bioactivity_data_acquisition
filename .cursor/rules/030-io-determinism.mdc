@@ -1,0 +1,12 @@
+---
+description: IO — порядок колонок/строк, ISO-UTC, атомарная запись; запрет молчаливых пропусков
+globs:
+  - "src/**/*.py"
+  - "bioetl/**/*.py"
+  - "artifacts/**/*.csv"
+  - "artifacts/**/*.parquet"
+alwaysApply: false
+version: "1.0.0"
+---
+# requirements
+- Явная колонка-order; сортировка строк по ключам; temp + os.replace.

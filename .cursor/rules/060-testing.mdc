@@ -1,0 +1,9 @@
+---
+description: Тесты без сети; golden-наборы; property-based для чистых функций
+globs:
+  - "tests/**/*.py"
+alwaysApply: false
+version: "1.0.0"
+---
+# requirements
+- Сетевые вызовы в юнитах запрещены.

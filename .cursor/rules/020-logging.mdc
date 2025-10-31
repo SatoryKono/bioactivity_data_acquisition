@@ -1,0 +1,10 @@
+---
+description: Централизованное логирование; запрет print
+globs:
+  - "src/**/*.py"
+  - "bioetl/**/*.py"
+alwaysApply: false
+version: "1.0.0"
+---
+# requirements
+- Только проектный логгер; обязательные поля: time=UTC, level, module, msg, extras.

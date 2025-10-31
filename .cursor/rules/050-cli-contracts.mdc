@@ -1,0 +1,11 @@
+---
+description: CLI-контракты — явные флаги, проверка путей, читаемые ошибки
+globs:
+  - "src/**/cli/**/*.py"
+  - "scripts/**/*.py"
+  - "src/**/*.py"
+alwaysApply: false
+version: "1.0.0"
+---
+# requirements
+- Поддержка флагов (--config/--limit/--dry-run/--golden/--sample), валидация входов.

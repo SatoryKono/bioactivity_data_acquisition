@@ -1,0 +1,11 @@
+---
+description: Схемы данных — Pandera-валидация до записи; никаких silent-изменений типов/колонок
+globs:
+  - "src/**/*.py"
+  - "bioetl/**/*.py"
+  - "tests/**/*.py"
+alwaysApply: false
+version: "1.0.0"
+---
+# requirements
+- Все табличные артефакты валидируются Pandera перед IO.
