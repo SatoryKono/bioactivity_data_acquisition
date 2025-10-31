@@ -5,7 +5,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -45,7 +45,7 @@ from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
-__all__ = ["DocumentPipeline"]
+__all__: Final[tuple[str, ...]] = ("DocumentPipeline",)
 
 NAType = type(pd.NA)
 
