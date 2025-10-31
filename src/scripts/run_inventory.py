@@ -46,7 +46,7 @@ def _write_file(path: Path, content: str, label: str) -> None:
 
 def _render_csv(records: Sequence[InventoryRecord]) -> str:
     buffer = io.StringIO()
-    writer = csv.writer(buffer)
+    writer = csv.writer(buffer, lineterminator="\n")
     writer.writerow(
         [
             "source",
@@ -67,7 +67,11 @@ def _render_csv(records: Sequence[InventoryRecord]) -> str:
 
 
 def _render_cluster_report(records: Sequence[InventoryRecord], config: InventoryConfig) -> str:
-    timestamp = datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
+    if records:
+        timestamp_value = max(record.mtime for record in records)
+    else:
+        timestamp_value = datetime.now(tz=timezone.utc)
+    timestamp = timestamp_value.isoformat(timespec="seconds")
     lines = [
         "# Pipeline Inventory Clusters",
         "",
