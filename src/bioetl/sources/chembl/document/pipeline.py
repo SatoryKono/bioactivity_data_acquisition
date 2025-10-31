@@ -294,8 +294,23 @@ class DocumentPipeline(PipelineBase):
 
     def _enrich_with_external_sources(
         self, chembl_df: pd.DataFrame
-    ) -> ExternalEnrichmentResult:
+    ) -> ExternalEnrichmentResult | pd.DataFrame:
         """Enrich ChEMBL data with external sources."""
+
+        manually_disabled = (
+            not self.external_adapters
+            and self._adapter_initialization_mode == "all"
+        )
+
+        if manually_disabled:
+            logger.info(
+                "external_enrichment_skipped",
+                reason="external_adapters_manually_disabled",
+                chembl_rows=len(chembl_df),
+            )
+            self.qc_enrichment_metrics = pd.DataFrame()
+            return chembl_df
+
         self._sync_mode_runtime()
         self._prepare_enrichment_adapters()
         if not self.external_adapters:
@@ -305,7 +320,7 @@ class DocumentPipeline(PipelineBase):
                 chembl_rows=len(chembl_df),
             )
             self.qc_enrichment_metrics = pd.DataFrame()
-            return ExternalEnrichmentResult(chembl_df, "skipped", {})
+            return chembl_df
 
         pmids: list[str] = []
         dois: list[str] = []
@@ -987,35 +1002,40 @@ def _document_run_pubmed_stage(
         )
         raise
 
-    enriched_df = result.dataframe
-    pipeline.stage_context["pubmed"] = {
-        "executed": True,
-        "errors": result.errors,
-        "status": result.status,
-    }
+    if isinstance(result, ExternalEnrichmentResult):
+        enriched_df = result.dataframe
+        pipeline.stage_context["pubmed"] = {
+            "executed": True,
+            "errors": result.errors,
+            "status": result.status,
+        }
 
-    if result.has_errors():
-        pipeline.set_stage_summary(
-            "pubmed",
-            result.status,
-            rows=int(len(enriched_df)),
-            errors=result.errors,
-            error_count=len(result.errors),
-        )
-        pipeline.record_validation_issue(
-            {
-                "metric": "enrichment.pubmed",
-                "issue_type": "enrichment",
-                "severity": "error",
-                "status": "failed",
-                "errors": result.errors,
-                "error_count": len(result.errors),
-            }
-        )
-    else:
-        pipeline.set_stage_summary("pubmed", result.status, rows=int(len(enriched_df)))
+        if result.has_errors():
+            pipeline.set_stage_summary(
+                "pubmed",
+                result.status,
+                rows=int(len(enriched_df)),
+                errors=result.errors,
+                error_count=len(result.errors),
+            )
+            pipeline.record_validation_issue(
+                {
+                    "metric": "enrichment.pubmed",
+                    "issue_type": "enrichment",
+                    "severity": "error",
+                    "status": "failed",
+                    "errors": result.errors,
+                    "error_count": len(result.errors),
+                }
+            )
+        else:
+            pipeline.set_stage_summary("pubmed", result.status, rows=int(len(enriched_df)))
 
-    return enriched_df
+        return enriched_df
+
+    # Backward compatibility: when enrichment is skipped the pipeline still returns
+    # the original DataFrame to match historical callers.
+    return result
 
 
 def _register_document_enrichment_stages() -> None:
