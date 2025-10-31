@@ -1144,7 +1144,7 @@ class DocumentPipeline(PipelineBase):
         # Defensive: гарантируем float64 для retry-after перед Pandera-валидацией
         if "fallback_retry_after_sec" in working_df.columns:
             numeric_retry = pd.to_numeric(working_df["fallback_retry_after_sec"], errors="coerce")
-            working_df.loc[:, "fallback_retry_after_sec"] = numeric_retry.astype("Float64")
+            working_df.loc[:, "fallback_retry_after_sec"] = numeric_retry.astype(pd.Float64Dtype())
 
         duplicate_count = (
             working_df["document_chembl_id"].duplicated().sum()
