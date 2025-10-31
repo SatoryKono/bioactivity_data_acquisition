@@ -1,6 +1,6 @@
 Единый принцип: один внешний источник данных соответствует одному публичному пайплайну с минимальным набором модулей и стабильным контрактом. Все пути и ссылки указываются на ветку @test_refactoring_32.
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, pagination/, parser/, normalizer/, schema/, merge/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
 
 ## Источники истины (@test_refactoring_32)
 
@@ -81,8 +81,9 @@
 - **schema/** — Pandera-схемы и helper-валидаторы; никакой трансформации данных. [pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io)
 - **merge/** — MergePolicy с явными ключами слияния, стратегиями конфликтов (prefer_source, prefer_fresh, concat_unique).
 - **output/** — детерминизм, атомарная запись, контрольные хеши, meta.yaml. [python-atomicwrites.readthedocs.io @test_refactoring_32](https://python-atomicwrites.readthedocs.io)
-- **config/** — строгая схема конфигов; несовместимые ключи запрещены, алиасы допустимы только в переходный период с DeprecationWarning.
 - **pipeline.py** — реализация PipelineBase, CLI-вход: `python -m bioetl.sources.<source>.pipeline --config ....`
+
+Конфигурация пайплайна описывается файлом `src/bioetl/configs/pipelines/<source>.yaml` (MUST); допускаются include-блоки из `src/bioetl/configs/includes/`.
 
 **Публичный API (MUST):**
 ```python
@@ -109,8 +110,7 @@ CLI: `python -m bioetl.sources.<source>.pipeline --config ...`
 
 ## 5) Конфигурация и валидация конфигов (@test_refactoring_32)
 
-Конфиг каждого источника: `configs/sources/<source>/pipeline.yaml` (MUST). Общие блоки допускается выносить в include-модули,
-например `../_shared/chembl_source.yaml`, чтобы исключить дублирование параметров. Итоговый YAML автоматически валидируется через
+Конфиг каждого источника: `src/bioetl/configs/pipelines/<source>.yaml` (MUST). Общие блоки допускается выносить в include-модули из `src/bioetl/configs/includes/`, например `_shared/chembl_source.yaml`, чтобы исключить дублирование параметров. Итоговый YAML автоматически валидируется через
 `PipelineConfig`; несоответствие схеме немедленно завершает запуск с ошибкой (MUST NOT продолжать работу).
 
 Обязательные ключи: сетевые таймауты/повторы/лимиты, параметры пагинации, поле идентификации клиента (где требуется), фильтры/поля.
@@ -139,9 +139,9 @@ src/bioetl/sources/<source>/
  merge/policy.py
  output/writer.py
  pipeline.py
-configs/sources/<source>/
- pipeline.yaml
- schema.yaml
+src/bioetl/configs/
+ pipelines/
+  <source>.yaml
  includes/
   _shared_blocks.yaml
 tests/sources/<source>/

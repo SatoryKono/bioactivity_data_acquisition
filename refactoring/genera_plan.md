@@ -1,6 +1,6 @@
 # 1. Область действия и принципы (@test_refactoring_32)
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, pagination/, parser/, normalizer/, schema/, merge/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
 
 Объект: пайплайны загрузки и нормализации данных из внешних источников, размещённые в `src/bioetl/sources/<source>/` с общими слоями в `src/bioetl/core/`.
 
@@ -45,16 +45,17 @@
 
 **Директория**: `src/bioetl/sources/<source>/`
 
-- `client.py`   # HTTP-клиент: ретраи/бэкофф, rate-limit, Retry-After, телеметрия
-- `request.py`   # RequestBuilder: paths/templates, params, auth, headers
-- `paginator.py`  # Стратегии: cursor | page | offset | token | datewindow
-- `parser.py`   # JSON/CSV/XML/NDJSON парсинг, streaming-safe
-- `normalizer.py` # Нормализация ID/единиц/онтологий; дедупликация
-- `schema.py`   # Pandera-схемы (вход/выход), строгие типы/домены
-- `merge.py`    # MergePolicy: ключи, приоритеты источников, conflict-resolution
+- `client/`      # HTTP-клиент: ретраи/бэкофф, rate-limit, Retry-After, телеметрия
+- `request/`     # RequestBuilder: paths/templates, params, auth, headers
+- `pagination/`  # Стратегии: cursor | page | offset | token | datewindow
+- `parser/`      # JSON/CSV/XML/NDJSON парсинг, streaming-safe
+- `normalizer/`  # Нормализация ID/единиц/онтологий; дедупликация
+- `schema/`      # Pandera-схемы (вход/выход), строгие типы/домены
+- `merge/`       # MergePolicy: ключи, приоритеты источников, conflict-resolution
+- `output/`      # Writer: детерминизм, атомарная запись, meta.yaml
 - `pipeline.py`  # Реализация PipelineBase с хуками
-- `config.py`   # Pydantic-совместимые модели конфигов + JSON Schema
-- `__init__.py`  # Публичный re-export пайплайна
+
+Конфигурация источника описывается файлом `src/bioetl/configs/pipelines/<source>.yaml` (MUST) с включениями из `src/bioetl/configs/includes/` при необходимости.
 
 **Общие слои**: [ref: repo:src/bioetl/core/@test_refactoring_32].
 
@@ -86,7 +87,7 @@ class PipelineBase(Protocol):
 
 | source | target_layout | public_api | config_keys (MUST) | merge_policy (MUST) | tests_required (SHOULD) | risks |
 |--------|---------------|------------|-------------------|---------------------|-------------------------|-------|
-| Crossref | `src/bioetl/sources/crossref/{client,request,paginator,parser,normalizer,schema,merge,pipeline,config}.py` | `from bioetl.sources.crossref import CrossrefPipeline` | `api_base, mailto, rate_limit_rps, retries, backoff, query, filter, rows, select, cursor` | первичный ключ DOI; при конфликте метаданных приоритет Crossref → PubMed | unit: client/paginator/parser/normalizer/schema; integ: smoke + golden (articles.jsonl, refs.jsonl) | нестабильные поля авторов |
+| Crossref | `src/bioetl/sources/crossref/{client,request,pagination,parser,normalizer,schema,merge,output,pipeline.py}` | `from bioetl.sources.crossref import CrossrefPipeline` | `api_base, mailto, rate_limit_rps, retries, backoff, query, filter, rows, select, cursor` | первичный ключ DOI; при конфликте метаданных приоритет Crossref → PubMed | unit: client/pagination/parser/normalizer/schema; integ: smoke + golden (articles.jsonl, refs.jsonl) | нестабильные поля авторов |
 | PubChem | `src/bioetl/sources/pubchem/...` | `from bioetl.sources.pubchem import PubChemPipeline` | `` `api_base, namespace(inchikey` `` `cid), chunk_size, retries, backoff` | ключ InChIKey, fallback CID; при конфликте с ChEMBL: ChEMBL первичен для bioactivity, PubChem для identifiers | unit: parsers JSON/CSV/SD; integ: CID→InChIKey, golden (compounds.ndjson) | |
 | ChEMBL | `src/bioetl/sources/chembl/...` | `from bioetl.sources.chembl import ChEMBLPipeline` | `api_base, page_size, retries, backoff, activity_filters, targets_filters` | ключи assay_id/activity_id; конфликт с GtoP: приоритет ChEMBL | unit: paginator page; integ: activity_fact schema, golden (activities.parquet) | изменение схем API |
 | UniProt | `src/bioetl/sources/uniprot/...` | `from bioetl.sources.uniprot import UniProtPipeline` | `api_base, fields, batch_size, retries` | ключ uniprot_id; merge с ChEMBL targets по uniprot_id | unit: TSV/JSON parser; integ: mapping, golden (targets.tsv) | колебания набора полей |
@@ -216,7 +217,7 @@ class PipelineBase(Protocol):
 
 # 8. Конфигурации (@test_refactoring_32)
 
-**Расположение**: `configs/<source>.yaml`.
+**Расположение**: `src/bioetl/configs/pipelines/<source>.yaml`.
 
 **Модель**: `sources/<source>/config.py`.
 

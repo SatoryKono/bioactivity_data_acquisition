@@ -1,6 +1,6 @@
 # Ввод и вывод: договоры, схемы и конфиг
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, pagination/, parser/, normalizer/, schema/, merge/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
 
 ## 1) Ввод (Input Contract)
 
@@ -87,7 +87,7 @@ run_id: "abc123"
 pipeline_version: "2.1.0"
 config_hash: "sha256:deadbeef..."
 config_snapshot:
-  path: "configs/sources/document/pipeline.yaml"
+  path: "src/bioetl/configs/pipelines/document.yaml"
   sha256: "sha256:d1c2..."
 chembl_release: "33"
 row_count: 12345
@@ -287,12 +287,12 @@ class DocumentSchema(BaseSchema):
 
 ## 4) Структура config и её валидация
 
-Конфиг источника лежит в каталоге:
+Конфиг источника хранится в файле:
 ```
-configs/sources/<source>/pipeline.yaml
+src/bioetl/configs/pipelines/<source>.yaml
 ```
 
-Допускается выносить общие блоки в `configs/sources/_shared/*.yaml` и подключать их через include-директивы (например, `../_shared/chembl_source.yaml`). После подстановки всех include-файлов итоговый YAML автоматически валидируется объектом `PipelineConfig`; ошибки схемы или несовместимые ключи MUST прерывать запуск.
+Допускается выносить общие блоки в `src/bioetl/configs/includes/*.yaml` и подключать их через include-директивы (например, `_shared/chembl_source.yaml`). После подстановки всех include-файлов итоговый YAML автоматически валидируется объектом `PipelineConfig`; ошибки схемы или несовместимые ключи MUST прерывать запуск.
 
 ### 4.1 JSON Schema для базового конфига
 
@@ -378,7 +378,7 @@ configs/sources/<source>/pipeline.yaml
 ### 4.2 YAML-пример конфига (Crossref)
 
 ```yaml
-# configs/sources/crossref/pipeline.yaml
+# src/bioetl/configs/pipelines/crossref.yaml
 
 api_base_url: "https://api.crossref.org/works"
 auth: { api_key: null }
@@ -417,7 +417,7 @@ pagination.type: cursor согласуется с рекомендуемым р�
 ### 4.3 Пример для PubMed (E-utilities)
 
 ```yaml
-# configs/sources/pubmed/pipeline.yaml
+# src/bioetl/configs/pipelines/pubmed.yaml
 
 api_base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 http:
