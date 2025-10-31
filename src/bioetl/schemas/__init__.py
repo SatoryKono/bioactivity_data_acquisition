@@ -58,12 +58,8 @@ _SCHEMA_EXPORTS: dict[str, str] = {
 
 # Explicit imports to ensure static type checkers can resolve them
 # These are imported eagerly to avoid issues with __getattr__ fallback
-from bioetl.schemas.activity import ActivitySchema as _ActivitySchema  # noqa: PLC0415
-from bioetl.schemas.testitem import TestItemSchema as _TestItemSchema  # noqa: PLC0415
-
-# Assign to module namespace so mypy can see them
-ActivitySchema = _ActivitySchema
-TestItemSchema = _TestItemSchema
+from bioetl.schemas.activity import ActivitySchema  # noqa: PLC0415
+from bioetl.schemas.testitem import TestItemSchema  # noqa: PLC0415
 
 if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
     # Re-imports for type checking (already imported above at runtime)
@@ -97,7 +93,7 @@ def __getattr__(name: str) -> Any:
     """Resolve schema exports lazily to avoid import-time side effects."""
     # ActivitySchema and TestItemSchema are explicitly imported above, so should never reach here
     # This fallback is only for other schemas that use lazy loading
-    
+
     # AssaySchema - ensure it's available for static analyzers
     if name == "AssaySchema":
         from bioetl.schemas.assay import AssaySchema
