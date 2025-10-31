@@ -5,6 +5,7 @@ from collections.abc import Callable
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.sources.crossref.merge import merge_crossref_with_base
 from bioetl.sources.pubmed.merge import merge_pubmed_with_base
 
 __all__ = [
@@ -229,17 +230,11 @@ def merge_with_precedence(
         )
 
     if crossref_df is not None and not crossref_df.empty:
-        if "doi_clean" in crossref_df.columns and "chembl_doi" in merged_df.columns:
-            crossref_prefixed = crossref_df.add_prefix("crossref_")
-            if "crossref_doi_clean" in crossref_prefixed.columns:
-                crossref_prefixed["crossref_doi"] = crossref_prefixed["crossref_doi_clean"]
-
-            merged_df = merged_df.merge(
-                crossref_prefixed,
-                left_on="chembl_doi",
-                right_on="crossref_doi_clean",
-                how="left",
-            )
+        merged_df = merge_crossref_with_base(
+            merged_df,
+            crossref_df,
+            base_doi_column="chembl_doi",
+        )
 
     if openalex_df is not None and not openalex_df.empty:
         if "doi_clean" in openalex_df.columns and "chembl_doi" in merged_df.columns:
