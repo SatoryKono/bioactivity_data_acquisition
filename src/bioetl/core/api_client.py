@@ -24,6 +24,8 @@ logger = UnifiedLogger.get(__name__)
 
 PayloadT = TypeVar("PayloadT")
 
+_CACHE_MISS = object()
+
 FALLBACK_MANAGER_SUPPORTED_STRATEGIES: frozenset[str] = frozenset({
     "network",
     "timeout",
@@ -553,11 +555,13 @@ class UnifiedAPIClient:
 
         # Initialize cache if enabled
         self.cache: TTLCache[str, Any] | None = None
+        self._cache_lock: threading.RLock | None = None
         if config.cache_enabled:
             self.cache = TTLCache(
                 maxsize=config.cache_maxsize,
                 ttl=config.cache_ttl,
             )
+            self._cache_lock = threading.RLock()
 
     def request_json(
         self,
@@ -658,6 +662,7 @@ class UnifiedAPIClient:
         request_has_no_body = not request_has_body
 
         cache = self.cache
+        cache_lock = self._cache_lock
         use_cache = (
             cacheable
             and cache is not None
@@ -667,13 +672,19 @@ class UnifiedAPIClient:
         )
 
         cache_key: str | None = None
+        cached_value: PayloadT | object = _CACHE_MISS
         if use_cache:
             assert cache is not None
             cache_key = self._cache_key(url, query_params)
-            if cache_key in cache:
+            if cache_lock is None:
+                cached_value = cache.get(cache_key, _CACHE_MISS)
+            else:
+                with cache_lock:
+                    cached_value = cache.get(cache_key, _CACHE_MISS)
+
+            if cached_value is not _CACHE_MISS:
                 logger.debug("cache_hit", url=url)
-                cached_value: PayloadT = cast(PayloadT, cache[cache_key])
-                return self._clone_payload(cached_value)
+                return self._clone_payload(cast(PayloadT, cached_value))
 
         context = _RequestRetryContext(
             client=self,
@@ -747,7 +758,12 @@ class UnifiedAPIClient:
             )
 
         if use_cache and cache_key is not None and cache is not None:
-            cache[cache_key] = self._clone_payload(payload)
+            cloned_payload = self._clone_payload(payload)
+            if cache_lock is None:
+                cache[cache_key] = cloned_payload
+            else:
+                with cache_lock:
+                    cache[cache_key] = cloned_payload
 
         return payload
 
@@ -768,14 +784,15 @@ class UnifiedAPIClient:
 
         for strategy in strategies:
             if strategy == "cache":
-                if cache is not None and cache_key and request_has_no_body and cache_key in cache:
-                    logger.warning(
-                        "fallback_cache_hit",
-                        url=context.url,
-                        method=context.method,
-                    )
-                    cached_value: PayloadT = cast(PayloadT, cache[cache_key])
-                    return self._clone_payload(cached_value)
+                if cache_key and request_has_no_body:
+                    cached_value = self._cache_lookup(cache_key)
+                    if cached_value is not _CACHE_MISS:
+                        logger.warning(
+                            "fallback_cache_hit",
+                            url=context.url,
+                            method=context.method,
+                        )
+                        return self._clone_payload(cast(PayloadT, cached_value))
 
                 logger.debug(
                     "fallback_cache_miss",
@@ -1202,6 +1219,20 @@ class UnifiedAPIClient:
             params_str = json.dumps(normalized_params, sort_keys=True, separators=(",", ":"))
             key_parts.append(params_str)
         return hashlib.sha256("|".join(key_parts).encode()).hexdigest()
+
+    def _cache_lookup(self, key: str) -> Any:
+        """Return cached value if present, guarding against concurrent access."""
+
+        cache = self.cache
+        if cache is None:
+            return _CACHE_MISS
+
+        cache_lock = self._cache_lock
+        if cache_lock is None:
+            return cache.get(key, _CACHE_MISS)
+
+        with cache_lock:
+            return cache.get(key, _CACHE_MISS)
 
     def close(self) -> None:
         """Close session and cleanup resources."""
