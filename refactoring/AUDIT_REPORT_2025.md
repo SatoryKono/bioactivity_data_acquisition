@@ -10,7 +10,7 @@
 ### Критические находки (P0)
 
 1. **Структурное расхождение**: Документы описывают `src/bioetl/sources/<source>/` с подпапками, но код использует монолитные файлы `src/bioetl/pipelines/*.py`
-2. **Устаревшие ссылки на ветки**: Множественные ссылки на `@Pipeline_Unification` и `@test_refactoring_11` вместо `@test_refactoring_32`
+2. **Устаревшие ссылки на ветки**: Множественные ссылки на ветки Pipeline_Unification и test_refactoring_11 вместо `@test_refactoring_32`
 3. **Отсутствие артефакта инвентаризации**: CSV `docs/requirements/PIPELINES.inventory.csv` отсутствует, хотя скрипт существует
 4. **Расхождения в путях конфигов**: Некоторые документы указывают `configs/sources/`, но реальные конфиги в `src/bioetl/configs/pipelines/`
 
@@ -149,10 +149,10 @@
 #### Проблема 3.1: Устаревшие ссылки на ветки
 
 **Найдено упоминаний:**
-- `@Pipeline_Unification`: 2 упоминания
+- Ветка Pipeline_Unification: 2 упоминания
   - `refactoring/FAQ.md` (строка 4)
   - `refactoring/AUDIT_REPORT.md` (строка 123)
-- `@test_refactoring_11`: **264 упоминания** (преимущественно в `IO_SCHEMAS_AND_DIAGRAMS.md`)
+- Ветка test_refactoring_11: **264 упоминания** (преимущественно в `IO_SCHEMAS_AND_DIAGRAMS.md`)
 
 **Затронутые файлы:**
 - `refactoring/DATA_SOURCES.md` (строки 55-56)
@@ -160,8 +160,8 @@
 - `refactoring/FAQ.md` (строка 4)
 
 **Рекомендации:**
-- Массовая замена `@test_refactoring_11` → `@test_refactoring_32` (264 вхождения)
-- Замена `@Pipeline_Unification` → `@test_refactoring_32` (2 вхождения)
+- Массовая замена ссылок на ветку test_refactoring_11 на `@test_refactoring_32` (264 вхождения)
+- Замена ссылок на ветку Pipeline_Unification на `@test_refactoring_32` (2 вхождения)
 
 #### Проблема 3.2: Ссылки на несуществующие структуры
 
@@ -373,8 +373,8 @@
 | ID | Приоритет | Категория | Проблема | Файлы | Строки | Статус |
 |----|-----------|-----------|----------|-------|--------|--------|
 | P0-1 | **P0** | Структура | `src/bioetl/sources/<source>/` не существует, используется `pipelines/` | MODULE_RULES.md, PIPELINES.md, REFACTOR_PLAN.md, DATA_SOURCES.md, genera_plan.md | 27 ссылок | Критично |
-| P0-2 | **P0** | Ссылки | 264 упоминания `@test_refactoring_11` вместо `@test_refactoring_32` | IO_SCHEMAS_AND_DIAGRAMS.md, DATA_SOURCES.md | Множественные | Критично |
-| P0-3 | **P0** | Ссылки | 2 упоминания `@Pipeline_Unification` | FAQ.md, AUDIT_REPORT.md | 2 | Критично |
+| P0-2 | **P0** | Ссылки | 264 упоминания ветки test_refactoring_11 вместо `@test_refactoring_32` | IO_SCHEMAS_AND_DIAGRAMS.md, DATA_SOURCES.md | Множественные | Критично |
+| P0-3 | **P0** | Ссылки | 2 упоминания ветки Pipeline_Unification | FAQ.md, AUDIT_REPORT.md | 2 | Критично |
 | P0-4 | **P0** | Артефакты | Отсутствует `docs/requirements/PIPELINES.inventory.csv` | REFACTOR_PLAN.md | - | Критично |
 | P0-5 | **P0** | Структура | `tests/sources/<source>/` не существует | MODULE_RULES.md, PIPELINES.md, REFACTOR_PLAN.md | 5 ссылок | Критично |
 | P0-6 | **P0** | Пути | Упоминание `configs/sources/` вместо фактического пути | REFACTOR_PLAN.md | 689 | Критично |
@@ -397,8 +397,8 @@
    - Обновить описание структуры тестов
 
 2. **Исправление ссылок (P0-2, P0-3)**
-   - Массовая замена `@test_refactoring_11` → `@test_refactoring_32` (264 вхождения)
-   - Замена `@Pipeline_Unification` → `@test_refactoring_32` (2 вхождения)
+   - Массовая замена ссылок на ветку test_refactoring_11 на `@test_refactoring_32` (264 вхождения)
+   - Замена ссылок на ветку Pipeline_Unification на `@test_refactoring_32` (2 вхождения)
 
 3. **Генерация артефакта (P0-4)**
    - Запустить `python src/scripts/run_inventory.py` для генерации CSV
@@ -525,7 +525,7 @@
 - **Статус:** ✅ **ИСПРАВЛЕНО**
 - **Найдено:**
   - Все ссылки обновлены на `@test_refactoring_32`
-  - Упоминания `@test_refactoring_11` и `@Pipeline_Unification` в отчётах — исторические (описывают состояние на момент аудита)
+  - Упоминания веток test_refactoring_11 и Pipeline_Unification в отчётах — исторические (описывают состояние на момент аудита)
 - **Действие:** ✅ Выполнено — все актуальные ссылки обновлены
 
 #### Проверка 2: Структурные расхождения
