@@ -45,7 +45,7 @@ from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
 from bioetl.utils.fallback import build_fallback_payload
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
-__all__ = ("DocumentPipeline",)
+__all__ = ["DocumentPipeline"]
 
 NAType = type(pd.NA)
 
