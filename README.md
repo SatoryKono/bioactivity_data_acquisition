@@ -60,6 +60,7 @@ ${SHELL:-bash} -lc 'set -a; source .env; set +a'
 CI/CD можно использовать аналогичный подход (например, `python -m dotenv load`
 или встроенные менеджеры секретов) до вызова CLI.
 
+<!-- markdownlint-disable MD013 -->
 | Переменная | Назначение | Обязательность |
 | --- | --- | --- |
 | `PUBMED_TOOL` | Значение параметра `tool` для обращения к NCBI E-utilities. | Да — требуется документному пайплайну. |
@@ -68,6 +69,7 @@ CI/CD можно использовать аналогичный подход (�
 | `CROSSREF_MAILTO` | E-mail для polite pool Crossref API. | Да — требуется документному пайплайну. |
 | `SEMANTIC_SCHOLAR_API_KEY` | Токен Semantic Scholar Graph API. | Необязательная локально, обязательна для production. |
 | `IUPHAR_API_KEY` | Ключ доступа к Guide to Pharmacology API. | Да — требуется target-пайплайну. |
+<!-- markdownlint-enable MD013 -->
 
 Если `IUPHAR_API_KEY` не задан, загрузчик конфигурации завершится ошибкой,
 предотвращая случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
@@ -102,9 +104,23 @@ python -m bioetl.cli.main activity \
 src/bioetl/
   ├── core/          # Logger, API client, output writer
   ├── config/        # Configuration system
+  ├── configs/
+  │   ├── includes/  # Shared YAML fragments for pipelines
+  │   └── pipelines/ # Per-source configs (<source>.yaml)
   ├── normalizers/   # Data normalizers
   ├── schemas/       # Pandera schemas
   ├── pipelines/     # Pipeline implementations
+  ├── sources/
+  │   └── <source>/
+  │       ├── client/       # HTTP clients with retry/backoff
+  │       ├── request/      # Request builders and API etiquette
+  │       ├── pagination/   # Pagination strategies (page, cursor, ...)
+  │       ├── parser/       # Response parsing without side effects
+  │       ├── normalizer/   # Converts payloads to UnifiedSchema
+  │       ├── schema/       # Pandera schemas (optional)
+  │       ├── merge/        # Merge policies (optional)
+  │       ├── output/       # Deterministic writers, hashes, meta.yaml
+  │       └── pipeline.py   # PipelineBase orchestration entrypoint
   └── cli/           # CLI interface
 
 configs/
@@ -178,7 +194,7 @@ Column layout drift is caught automatically in CI by running
 `python -m scripts.validate_columns compare-all`. The helper now raises an
 assertion if a CSV filename does not start with its registered entity prefix or
 if the materialised columns diverge from the Pandera schema, keeping the I/O
-contracts in sync with `bioetl.schemas.*`. 
+contracts in sync with `bioetl.schemas.*`.
 
 ### Extract-stage conventions
 
@@ -228,4 +244,3 @@ contracts in sync with `bioetl.schemas.*`.
 ## License
 
 MIT
-
