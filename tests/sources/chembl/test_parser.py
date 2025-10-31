@@ -1,20 +1,54 @@
-"""Tests for ChEMBL parsing helpers."""
+"""Tests for ChEMBL activity parser helpers."""
 
 from __future__ import annotations
 
-from bioetl.sources.chembl.activity.pipeline import _normalize_output_value
+from bioetl.sources.chembl.activity.normalizer import ActivityNormalizer
+from bioetl.sources.chembl.activity.parser import ActivityParser
 
 
-def test_normalize_output_value_flattens_iterables() -> None:
-    """Lists and tuples should be joined into deterministic strings."""
+def test_parser_normalizes_activity_properties_and_citations() -> None:
+    """Activity parser should canonicalize properties and derive metadata."""
 
-    values = ["Alpha", None, "Beta"]
-    assert _normalize_output_value(values) == "Alpha; Beta"
-    assert _normalize_output_value(()) is None
+    parser = ActivityParser(normalizer=ActivityNormalizer(), chembl_release="33")
 
+    record = parser.parse(
+        {
+            "activity_id": "123",
+            "molecule_chembl_id": "CHEMBL1",
+            "assay_chembl_id": "CHEMBL2",
+            "target_chembl_id": "CHEMBL3",
+            "document_chembl_id": "CHEMBL4",
+            "type": "IC50",
+            "relation": "=",
+            "value": "12.5",
+            "units": "nM",
+            "standard_type": "IC50",
+            "standard_relation": "=",
+            "standard_value": "12.5",
+            "standard_units": "nM",
+            "standard_flag": "1",
+            "standard_lower_value": "10",
+            "standard_upper_value": "15",
+            "activity_properties": [
+                {"name": "Exact Data Citation", "value": True},
+                {"name": "Citation Count", "value": 51},
+            ],
+            "data_validity_comment": "Rounded data citation present",
+            "target_organism": "Homo sapiens",
+            "target_tax_id": "9606",
+            "src_id": "2",
+        }
+    )
 
-def test_normalize_output_value_returns_scalars_as_is() -> None:
-    """Scalar values are returned untouched."""
-
-    assert _normalize_output_value("text") == "text"
-    assert _normalize_output_value(123) == 123
+    assert record["activity_id"] == 123
+    assert record["compound_key"] == "CHEMBL1|IC50|CHEMBL3"
+    assert record["is_citation"] is True
+    assert record["exact_data_citation"] is True
+    assert record["rounded_data_citation"] is True
+    assert record["high_citation_rate"] is True
+    assert record["chembl_release"] == "33"
+    expected_properties = (
+        '[{"name":"Citation Count","value":51},'
+        '{"name":"Exact Data Citation","value":true}]'
+    )
+    assert record["activity_properties"] == expected_properties
