@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 
@@ -17,7 +17,6 @@ from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dtypes import coerce_nullable_int
-from bioetl.utils.chembl import SupportsRequestJson
 
 from ..parser.activity_parser import ActivityParser
 from ..request.activity_request import ActivityRequestBuilder
