@@ -68,7 +68,7 @@
 
 **Требования:**
 - Фиксированный column_order, стабильная сортировка по бизнес-ключам, форматы чисел/дат и сериализация строк без неоднозначности.
-- Контрольные хеши на строку и бизнес-ключ (например, BLAKE2) включаются в метаданные.
+- Контрольные хеши на строку и бизнес-ключ (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) включаются в метаданные; см. каноническое описание в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
 - Запись выполняется атомарно: временный файл на той же ФС, затем атомарная замена (replace/move_atomic); синхронизация буферов перед коммитом. [python-atomicwrites.readthedocs.io @test_refactoring_32](https://python-atomicwrites.readthedocs.io)
 - Вызов `export()` использует `UnifiedOutputWriter` и ожидает `pd.DataFrame` на вход, обеспечивая детерминированный экспорт и генерацию QC-артефактов из единого места.
 
