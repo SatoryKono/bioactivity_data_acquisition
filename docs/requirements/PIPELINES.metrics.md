@@ -2,7 +2,7 @@
 
 ## Baseline KPIs
 
-Исходные метрики рассчитаны из [PIPELINES.inventory.csv](PIPELINES.inventory.csv), собранного инвентаризационным скриптом `src/scripts/run_inventory.py` с конфигом `configs/inventory.yaml` (снимок от 2025-10-31T11:38:00Z). Они фиксируют текущее состояние монолитных пайплайнов в `src/bioetl/pipelines/` и вспомогательных прокси в `src/bioetl/sources/chembl/`.
+Исходные метрики рассчитаны из [`docs/requirements/PIPELINES.inventory.csv`](PIPELINES.inventory.csv), собранного инвентаризационным скриптом `src/scripts/run_inventory.py` с конфигом `configs/inventory.yaml`; актуальная метка времени снимка доступна в столбце `mtime` CSV. Они фиксируют текущее состояние монолитных пайплайнов в `src/bioetl/pipelines/` и вспомогательных прокси в `src/bioetl/sources/chembl/`.
 
 ### Монолитные пайплайны (`src/bioetl/pipelines/`)
 
