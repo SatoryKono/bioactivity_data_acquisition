@@ -2,4 +2,6 @@
 
 from bioetl.sources.chembl.activity.pipeline import ActivityPipeline
 
-__all__ = ["ActivityPipeline"]
+__all__ = [
+    "ActivityPipeline"
+    ]

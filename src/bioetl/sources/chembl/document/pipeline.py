@@ -7,13 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
-import pandera.errors as pa_errors
+from pandera.errors import SchemaErrors  # type: ignore[attr-defined]
 import requests
-
-if TYPE_CHECKING:
-    from pandera.errors import SchemaError as SchemaErrors
-else:  # pragma: no cover - runtime compatibility for older Pandera releases
-    SchemaErrors = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
@@ -876,8 +871,10 @@ class DocumentPipeline(PipelineBase):
         if raw_value is None or raw_value is MISSING:
             return None
 
+        # Type narrowing: exclude MISSING after the check above
         if isinstance(raw_value, Real):
-            return float(raw_value)
+            # Real types (int, float) are safe to convert to float
+            return float(cast(Real, raw_value))
 
         if isinstance(raw_value, str):
             candidate = raw_value.strip()

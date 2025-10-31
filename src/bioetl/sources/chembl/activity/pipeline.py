@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -187,7 +187,7 @@ class ActivityPipeline(PipelineBase):
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
 
-        client = self.api_client
+        client = cast(SupportsRequestJson, self.api_client)
         release = self._fetch_chembl_release_info(client)
         status = release.status
         if isinstance(status, Mapping):
@@ -212,7 +212,7 @@ class ActivityPipeline(PipelineBase):
         else:
             df["source_system"] = default_source
 
-        release_value: str | None = self._chembl_release
+        release_value = self._chembl_release
         if isinstance(release_value, str):
             release_value = release_value.strip() or None
 
