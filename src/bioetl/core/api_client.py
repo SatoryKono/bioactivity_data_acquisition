@@ -17,11 +17,18 @@ import requests
 from cachetools import TTLCache  # type: ignore
 from requests.exceptions import HTTPError, RequestException
 
+from bioetl.core.fallback_manager import FallbackManager
 from bioetl.core.logger import UnifiedLogger
 
 logger = UnifiedLogger.get(__name__)
 
 PayloadT = TypeVar("PayloadT")
+
+FALLBACK_MANAGER_SUPPORTED_STRATEGIES: frozenset[str] = frozenset({
+    "network",
+    "timeout",
+    "5xx",
+})
 
 
 def _current_utc_time() -> datetime:
@@ -109,7 +116,13 @@ class APIConfig:
     cb_timeout: float = 60.0
     fallback_enabled: bool = True
     fallback_strategies: list[str] = field(
-        default_factory=lambda: ["cache", "partial_retry"]
+        default_factory=lambda: [
+            "cache",
+            "partial_retry",
+            "network",
+            "timeout",
+            "5xx",
+        ]
     )
 
 
@@ -524,6 +537,15 @@ class UnifiedAPIClient:
             status_codes=config.retry_status_codes,
         )
 
+        manager_strategies = [
+            strategy
+            for strategy in config.fallback_strategies
+            if strategy in FALLBACK_MANAGER_SUPPORTED_STRATEGIES
+        ]
+        self.fallback_manager: FallbackManager | None = None
+        if manager_strategies:
+            self.fallback_manager = FallbackManager(strategies=manager_strategies)
+
         # Initialize cache if enabled
         self.cache: TTLCache[str, Any] | None = None
         if config.cache_enabled:
@@ -771,6 +793,16 @@ class UnifiedAPIClient:
                     last_error = exc
                     continue
 
+            if strategy in FALLBACK_MANAGER_SUPPORTED_STRATEGIES:
+                payload = self._fallback_via_manager(
+                    strategy=strategy,
+                    context=context,
+                    last_exception=last_error,
+                )
+                if payload is not None:
+                    return payload
+                continue
+
             logger.warning(
                 "fallback_strategy_unknown",
                 strategy=strategy,
@@ -853,6 +885,104 @@ class UnifiedAPIClient:
             raise last_error
 
         raise RequestException("partial retry failed without exception")
+
+    def _fallback_via_manager(
+        self,
+        *,
+        strategy: str,
+        context: _RequestRetryContext,
+        last_exception: RequestException,
+    ) -> PayloadT | None:
+        """Delegate fallback creation to :class:`FallbackManager` when configured."""
+
+        manager = self.fallback_manager
+        if manager is None:
+            logger.debug(
+                "fallback_manager_not_configured",
+                strategy=strategy,
+                url=context.url,
+                method=context.method,
+            )
+            return None
+
+        error = context.last_exc or last_exception
+        resolved_strategy = manager.get_strategy_for_error(error)
+        if resolved_strategy is None:
+            logger.debug(
+                "fallback_manager_strategy_not_applicable",
+                configured=list(manager.strategies),
+                strategy=strategy,
+                url=context.url,
+                method=context.method,
+            )
+            return None
+
+        if resolved_strategy != strategy:
+            logger.debug(
+                "fallback_manager_strategy_mismatch",
+                resolved_strategy=resolved_strategy,
+                requested_strategy=strategy,
+                url=context.url,
+                method=context.method,
+            )
+            return None
+
+        def _raise_error() -> PayloadT:
+            raise error
+
+        payload = manager.execute_with_fallback(
+            _raise_error,
+            fallback_data=lambda: self._build_manager_fallback_payload(
+                strategy=strategy,
+                context=context,
+                error=error,
+            ),
+        )
+
+        return cast(PayloadT, payload)
+
+    def _build_manager_fallback_payload(
+        self,
+        *,
+        strategy: str,
+        context: _RequestRetryContext,
+        error: RequestException,
+    ) -> dict[str, Any]:
+        """Construct deterministic fallback payload for manager-handled errors."""
+
+        response = getattr(error, "response", None)
+        status_code: int | None = None
+        if response is not None:
+            try:
+                status_code = int(getattr(response, "status_code", None))
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                status_code = None
+
+        retry_after_seconds = context.last_retry_after_seconds
+        if retry_after_seconds is None:
+            retry_after_source: float | int | str | None = context.last_retry_after_header
+            if retry_after_source is None and response is not None and response.headers:
+                retry_after_source = response.headers.get("Retry-After")
+            retry_after_seconds = parse_retry_after(retry_after_source)
+
+        attempt = context.attempt if context.attempt > 0 else None
+        error_text = context.last_error_text or str(error)
+        message = (error_text or str(error) or "Fallback triggered").strip()
+        fallback_label = f"{self.config.name.upper()}_FALLBACK" if self.config.name else "FALLBACK"
+
+        payload: dict[str, Any] = {
+            "source_system": fallback_label,
+            "fallback_reason": strategy,
+            "fallback_error_type": type(error).__name__,
+            "fallback_error_code": strategy,
+            "fallback_error_message": message,
+            "fallback_http_status": status_code,
+            "fallback_retry_after_sec": retry_after_seconds,
+            "fallback_attempt": attempt,
+            "fallback_timestamp": _current_utc_time().isoformat(),
+        }
+
+        return payload
 
     @staticmethod
     def _retry_after_seconds(response: requests.Response | None) -> float | None:

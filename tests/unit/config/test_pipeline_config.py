@@ -100,9 +100,9 @@ def test_pipeline_config_rejects_unknown_fallback_strategy(tmp_path: Path) -> No
     """Unsupported fallback strategies should be rejected during validation."""
 
     payload = _base_config(tmp_path)
-    payload["fallbacks"] = {"strategies": ["cache", "network"]}
+    payload["fallbacks"] = {"strategies": ["cache", "bogus"]}
 
-    with pytest.raises(ValueError, match="Unknown fallback strategy 'network'"):
+    with pytest.raises(ValueError, match="Unknown fallback strategy 'bogus'"):
         PipelineConfig.model_validate(payload)
 
 
@@ -121,6 +121,17 @@ def test_pipeline_config_normalizes_fallback_strategies(tmp_path: Path) -> None:
 
     assert config.fallbacks.strategies == ["cache", "partial_retry"]
     assert config.sources["chembl"].fallback_strategies == ["partial_retry", "cache"]
+
+
+def test_pipeline_config_supports_manager_fallbacks(tmp_path: Path) -> None:
+    """Network/timeout/5xx strategies should be accepted and normalized."""
+
+    payload = _base_config(tmp_path)
+    payload["fallbacks"] = {"strategies": ["network", "timeout", "5xx", "network"]}
+
+    config = PipelineConfig.model_validate(payload)
+
+    assert config.fallbacks.strategies == ["network", "timeout", "5xx"]
 
 
 def test_materialization_resolves_relative_dataset_paths(tmp_path: Path) -> None:
