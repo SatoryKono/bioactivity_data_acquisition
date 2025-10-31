@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Sequence
 
 from bioetl.core.api_client import UnifiedAPIClient
@@ -26,9 +26,14 @@ class CursorPaginator:
 
     client: UnifiedAPIClient
     page_size: int = 100
+    _strategy: CursorPaginationStrategy = field(init=False)
 
     def __post_init__(self) -> None:
-        self._strategy = CursorPaginationStrategy(self.client, page_size_param="rows")
+        object.__setattr__(
+            self,
+            "_strategy",
+            CursorPaginationStrategy(self.client, page_size_param="rows"),
+        )
 
     def fetch_all(
         self,

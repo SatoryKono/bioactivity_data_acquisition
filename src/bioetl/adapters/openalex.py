@@ -3,8 +3,10 @@
 from typing import Any
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.base import ExternalAdapter
+from bioetl.adapters.base import AdapterConfig, ExternalAdapter
+from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
+from bioetl.sources.openalex.request import OpenAlexRequestBuilder
 
 NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
 
@@ -16,6 +18,11 @@ class OpenAlexAdapter(ExternalAdapter):
     """
 
     DEFAULT_BATCH_SIZE = 100
+
+    def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
+        super().__init__(api_config, adapter_config)
+        self.request_builder = OpenAlexRequestBuilder(api_config, adapter_config)
+        self.api_client.session.headers.update(self.request_builder.base_headers)
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of works."""
@@ -61,7 +68,12 @@ class OpenAlexAdapter(ExternalAdapter):
     def _fetch_works(self, url: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Fetch works from OpenAlex API."""
         try:
-            response = self.api_client.request_json(url, params=params or {})
+            spec = self.request_builder.build(url, params=params or {})
+            response = self.api_client.request_json(
+                spec.url,
+                params=spec.params,
+                headers=spec.headers,
+            )
             # OpenAlex returns single object for /works/{id}
             if isinstance(response, dict):
                 if "results" in response:
@@ -71,7 +83,12 @@ class OpenAlexAdapter(ExternalAdapter):
                     return [response]
             return []
         except Exception as e:
-            self.logger.error("fetch_works_error", error=str(e), url=url)
+            self.logger.error(
+                "fetch_works_error",
+                error=str(e),
+                url=url,
+                request_id=spec.metadata.get("request_id"),
+            )
             return []
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
