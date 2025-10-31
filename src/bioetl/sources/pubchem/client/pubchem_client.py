@@ -8,6 +8,7 @@ from typing import Any
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.core.deprecation import warn_legacy_client
 from bioetl.core.logger import UnifiedLogger
 
 from ..parser.pubchem_parser import PubChemParser
@@ -17,6 +18,8 @@ __all__ = ["PubChemClient"]
 
 
 logger = UnifiedLogger.get(__name__)
+
+warn_legacy_client(__name__, replacement="bioetl.adapters.pubchem")
 
 
 class PubChemClient:

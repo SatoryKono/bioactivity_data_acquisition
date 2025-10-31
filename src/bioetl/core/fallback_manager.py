@@ -55,8 +55,10 @@ class FallbackManager:
             strategy = self.get_strategy_for_error(exc)
             logger.warning(
                 "fallback_manager_fallback_used",
-                strategy=strategy,
-                error=str(exc),
+                extra={
+                    "strategy": strategy,
+                    "error": str(exc),
+                },
             )
 
             resolved = self._resolve_fallback_data(fallback_data)

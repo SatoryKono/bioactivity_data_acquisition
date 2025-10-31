@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.deprecation import warn_legacy_client
+
+warn_legacy_client(__name__, replacement="bioetl.adapters.iuphar")
 
 __all__ = ["DEFAULT_IUPHAR_BASE_URL", "IupharClient"]
 

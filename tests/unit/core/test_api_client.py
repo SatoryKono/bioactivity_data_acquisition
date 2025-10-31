@@ -89,3 +89,40 @@ def test_cache_thread_safety_guard(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(execute_calls) == 1
     # Lock must wrap cache read (miss), write, and subsequent read (hit).
     assert spy_lock.enter_count >= 3
+
+
+def test_api_config_validates_base_url_and_headers() -> None:
+    """APIConfig should normalise headers and validate base URLs."""
+
+    with pytest.raises(ValueError):
+        APIConfig(name="demo", base_url="api.example.com")
+
+    with pytest.raises(ValueError):
+        APIConfig(name="demo", base_url="https://api.example.com", headers={" ": "1"})
+
+    config = APIConfig(
+        name="demo",
+        base_url="https://api.example.com/ ",
+        headers={"X-Token": "value", " X-Request-ID ": 123},
+        retry_status_codes=["429", 503, 503],
+    )
+
+    assert config.base_url == "https://api.example.com/"
+    assert config.headers == {"X-Token": "value", "X-Request-ID": "123"}
+    assert config.retry_status_codes == [429, 503]
+
+
+def test_api_config_rejects_invalid_numerics() -> None:
+    """Numeric settings should reject negative and zero values where forbidden."""
+
+    with pytest.raises(ValueError):
+        APIConfig(name="demo", base_url="https://api.example.com", rate_limit_max_calls=0)
+
+    with pytest.raises(ValueError):
+        APIConfig(name="demo", base_url="https://api.example.com", rate_limit_period=0)
+
+    with pytest.raises(ValueError):
+        APIConfig(name="demo", base_url="https://api.example.com", timeout_connect=0)
+
+    with pytest.raises(TypeError):
+        APIConfig(name="demo", base_url="https://api.example.com", retry_giveup_on=["ValueError"])  # type: ignore[list-item]

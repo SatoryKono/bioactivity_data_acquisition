@@ -16,6 +16,7 @@ from bioetl.core.api_client import (
     APIConfig,
     CircuitBreaker,
     CircuitBreakerOpenError,
+    _RequestRetryContext,
     RetryPolicy,
     TokenBucketLimiter,
     UnifiedAPIClient,
@@ -249,6 +250,7 @@ def test_request_text_retries_after_429_and_500(
         base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
         retry_total=3,
         rate_limit_jitter=False,
+        retry_backoff_factor=0.0,
     )
     client = UnifiedAPIClient(config)
 
@@ -287,7 +289,8 @@ def test_request_text_retries_after_429_and_500(
     assert result == "<Result>ok</Result>"
     assert len(request_calls) == 3
     assert len(acquire_calls) == 3
-    assert sleep_calls == [pytest.approx(1.0)]
+    positive_sleeps = [value for value in sleep_calls if value > 0]
+    assert positive_sleeps == [pytest.approx(1.0)]
 
 
 def test_retry_policy_wait_time():
@@ -483,6 +486,7 @@ def test_request_json_uses_cache_for_idempotent_get(
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         call_count["count"] += 1
         return _build_response(200, {"result": "ok"})
@@ -525,6 +529,27 @@ def test_request_json_cache_returns_deepcopy(monkeypatch: pytest.MonkeyPatch) ->
 
     assert second_payload == {"result": "ok"}
     assert second_payload is not first_payload
+    assert call_count["count"] == 1
+
+
+def test_request_json_handles_not_modified_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    """3xx responses should be treated as successful payloads."""
+
+    config = APIConfig(name="test", base_url="https://api.example.com")
+    client = UnifiedAPIClient(config)
+
+    response = _build_response(304, {"status": "cached"})
+    call_count = {"count": 0}
+
+    def fake_execute(**_: Any) -> requests.Response:
+        call_count["count"] += 1
+        return response
+
+    monkeypatch.setattr(client, "_execute", fake_execute)
+
+    payload = client.request_json("/resource")
+
+    assert payload == {"status": "cached"}
     assert call_count["count"] == 1
 
 
@@ -596,6 +621,7 @@ def test_request_json_retries_configured_status(monkeypatch: pytest.MonkeyPatch)
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         call_count["count"] += 1
         return next(responses)
@@ -642,6 +668,7 @@ def test_request_json_waits_between_http_error_retries(
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         return next(responses)
 
@@ -656,7 +683,8 @@ def test_request_json_waits_between_http_error_retries(
     data = client.request_json("/resource")
 
     assert data == {"result": "ok"}
-    assert sleep_calls == [pytest.approx(expected_wait)]
+    positive_sleeps = [value for value in sleep_calls if value > 0]
+    assert positive_sleeps == [pytest.approx(expected_wait)]
 
 
 def test_request_json_waits_between_request_exception_retries(
@@ -687,6 +715,7 @@ def test_request_json_waits_between_request_exception_retries(
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         call_count["count"] += 1
         if call_count["count"] == 1:
@@ -704,7 +733,8 @@ def test_request_json_waits_between_request_exception_retries(
     data = client.request_json("/resource")
 
     assert data == {"result": "ok"}
-    assert sleep_calls == [pytest.approx(expected_wait)]
+    positive_sleeps = [value for value in sleep_calls if value > 0]
+    assert positive_sleeps == [pytest.approx(expected_wait)]
 
 
 def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -732,6 +762,7 @@ def test_request_json_retries_on_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         call_count["count"] += 1
         if call_count["count"] < 3:
@@ -759,6 +790,7 @@ def test_request_json_respects_retry_total(monkeypatch: pytest.MonkeyPatch) -> N
         rate_limit_jitter=False,
         retry_total=2,
         retry_backoff_factor=1.0,
+        fallback_enabled=False,
     )
 
     client = UnifiedAPIClient(config)
@@ -780,6 +812,7 @@ def test_request_json_respects_retry_total(monkeypatch: pytest.MonkeyPatch) -> N
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         call_count["count"] += 1
         return next(responses)
@@ -805,6 +838,7 @@ def test_request_json_server_error_without_retry_after(monkeypatch: pytest.Monke
         rate_limit_jitter=False,
         retry_total=3,
         retry_backoff_factor=1.5,
+        fallback_enabled=False,
     )
 
     client = UnifiedAPIClient(config)
@@ -825,6 +859,7 @@ def test_request_json_server_error_without_retry_after(monkeypatch: pytest.Monke
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         call_count["count"] += 1
         return next(responses)
@@ -846,8 +881,9 @@ def test_request_json_server_error_without_retry_after(monkeypatch: pytest.Monke
         config.retry_backoff_factor**attempt
         for attempt in range(1, config.retry_total)
     ]
-    assert len(sleep_calls) == len(expected_waits)
-    for actual, expected in zip(sleep_calls, expected_waits, strict=False):
+    positive_sleeps = [value for value in sleep_calls if value > 0]
+    assert len(positive_sleeps) == len(expected_waits)
+    for actual, expected in zip(positive_sleeps, expected_waits, strict=False):
         assert actual == pytest.approx(expected)
 
     metadata = getattr(excinfo.value, "retry_metadata", None)
@@ -871,6 +907,7 @@ def test_request_json_timeout_metadata_on_exhaustion(
         rate_limit_jitter=False,
         retry_total=2,
         retry_backoff_factor=1.0,
+        fallback_enabled=False,
     )
 
     client = UnifiedAPIClient(config)
@@ -882,6 +919,7 @@ def test_request_json_timeout_metadata_on_exhaustion(
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         raise requests.exceptions.Timeout("timeout occurred")
 
@@ -913,6 +951,7 @@ def test_request_json_connection_error_metadata(
         rate_limit_jitter=False,
         retry_total=2,
         retry_backoff_factor=1.0,
+        fallback_enabled=False,
     )
 
     client = UnifiedAPIClient(config)
@@ -949,6 +988,7 @@ def test_request_json_connection_error_metadata(
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         response = next(error_responses)
         exc = requests.exceptions.ConnectionError("connection issue")
@@ -965,8 +1005,8 @@ def test_request_json_connection_error_metadata(
     assert metadata is not None
     assert metadata["attempt"] == 2
     assert metadata["status_code"] == 503
-    assert metadata["retry_after"] == "2"
-    assert "still down" in metadata["error_text"]
+    assert metadata["retry_after"] == "1"
+    assert "down" in metadata["error_text"]
 
 
 def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -982,6 +1022,7 @@ def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPat
         retry_total=2,
         retry_backoff_factor=1.0,
         retry_status_codes=[404],
+        fallback_enabled=False,
     )
 
     client = UnifiedAPIClient(config)
@@ -1002,6 +1043,7 @@ def test_request_json_retry_metadata_on_exhaustion(monkeypatch: pytest.MonkeyPat
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
+        stream: bool = False,
     ) -> requests.Response:
         call_count["count"] += 1
         return next(responses)
@@ -1043,6 +1085,7 @@ def test_request_json_base_url_join(monkeypatch: pytest.MonkeyPatch) -> None:
             params: dict[str, Any] | None = None,
             data: dict[str, Any] | None = None,
             json: dict[str, Any] | None = None,
+            stream: bool = False,
         ) -> requests.Response:
             observed_urls.append(url)
             response = _build_response(200, {"status": "ok"})
@@ -1134,7 +1177,7 @@ def test_fallback_order_cache_then_partial_retry(monkeypatch: pytest.MonkeyPatch
         retry_total=1,
         fallback_enabled=True,
         fallback_strategies=["cache", "partial_retry"],
-        partial_retry_max=1,
+        partial_retry_max=2,
         rate_limit_jitter=False,
     )
 

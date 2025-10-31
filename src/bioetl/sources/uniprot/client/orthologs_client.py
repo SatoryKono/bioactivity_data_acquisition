@@ -6,9 +6,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.deprecation import warn_legacy_client
 from bioetl.sources.uniprot.request import build_ortholog_query
 
 __all__ = ["UniProtOrthologsClient"]
+
+
+warn_legacy_client(__name__, replacement="bioetl.adapters.uniprot")
 
 
 @dataclass(slots=True)
