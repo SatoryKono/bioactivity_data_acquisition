@@ -397,11 +397,6 @@ class TestItemPipeline(PipelineBase):
                 )
 
                 input_indexed = df.set_index("molecule_chembl_id")
-                duplicated_mask = pd.Series(
-                    input_indexed.index.duplicated(),
-                    index=input_indexed.index,
-                    dtype="bool",
-                )
 
                 deduplicated_input = input_indexed
 
