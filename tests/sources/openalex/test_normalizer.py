@@ -1,30 +1,20 @@
-"""Unit tests for OpenAlexAdapter."""
+"""OpenAlex normalizer tests."""
 
-import unittest
+from __future__ import annotations
+
 from unittest.mock import patch
 
 import bioetl.adapters.openalex as openalex_module
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.openalex import OpenAlexAdapter
-from tests.sources._mixins import AdapterTestMixin
+from tests.sources.openalex import OpenAlexAdapterTestCase
 
 
-class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):
-    """Test OpenAlexAdapter."""
+class TestOpenAlexNormalizer(OpenAlexAdapterTestCase):
+    """Validate normalization logic for OpenAlex adapter."""
 
-    ADAPTER_CLASS = OpenAlexAdapter
-    API_CONFIG_OVERRIDES = {
-        "name": "openalex",
-        "base_url": "https://api.openalex.org",
-        "rate_limit_max_calls": 10,
-    }
-    ADAPTER_CONFIG_OVERRIDES = {
-        "batch_size": 100,
-        "workers": 4,
-    }
+    def test_normalize_record(self) -> None:
+        """Normalization adds OpenAlex identifiers and OA metadata."""
 
-    def test_normalize_record(self):
-        """Test record normalization."""
         record = {
             "id": "https://openalex.org/W123456789",
             "doi": "https://doi.org/10.1371/journal.pone.0123456",
@@ -36,7 +26,7 @@ class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):
             "open_access": {
                 "is_oa": True,
                 "oa_status": "gold",
-                "oa_url": "https://example.com/article"
+                "oa_url": "https://example.com/article",
             },
             "concepts": [
                 {"display_name": "Medicine", "score": 0.9},
@@ -46,10 +36,10 @@ class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):
             "primary_location": {
                 "source": {
                     "display_name": "PLoS ONE",
-                    "name": "PLoS ONE"
+                    "name": "PLoS ONE",
                 },
-                "landing_page_url": "https://journals.plos.org/plosone/article"
-            }
+                "landing_page_url": "https://journals.plos.org/plosone/article",
+            },
         }
 
         normalized = self.adapter.normalize_record(record)
@@ -101,25 +91,3 @@ class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):
 
         self.assertIs(openalex_module.NORMALIZER_ID, identifier)
         self.assertIs(openalex_module.NORMALIZER_STRING, string)
-
-    def test_fetch_by_ids_batches_using_class_default(self) -> None:
-        """Batch helper falls back to ``DEFAULT_BATCH_SIZE``."""
-
-        adapter = self.ADAPTER_CLASS(
-            self.api_config,
-            self.make_adapter_config(batch_size=0),
-        )
-
-        total = adapter.DEFAULT_BATCH_SIZE * 2 + 5
-        identifiers = [f"10.1234/openalex{i}" for i in range(total)]
-
-        with patch.object(adapter, "_fetch_batch", return_value=[], autospec=True) as batch_mock:
-            adapter.fetch_by_ids(identifiers)
-
-        expected_calls = -(-total // adapter.DEFAULT_BATCH_SIZE)
-        self.assertEqual(batch_mock.call_count, expected_calls)
-        self.assertEqual(len(batch_mock.call_args_list[0].args[1]), adapter.DEFAULT_BATCH_SIZE)
-        remainder = total % adapter.DEFAULT_BATCH_SIZE
-        expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
-        self.assertEqual(len(batch_mock.call_args_list[-1].args[1]), expected_last)
-

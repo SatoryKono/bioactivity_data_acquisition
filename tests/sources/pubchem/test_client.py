@@ -1,27 +1,14 @@
-"""Unit tests for the PubChem adapter."""
+"""PubChem client tests."""
 
-import unittest
+from __future__ import annotations
+
 from unittest.mock import patch
 
-from bioetl.adapters.pubchem import PubChemAdapter
-from bioetl.utils.json import canonical_json
-from tests.sources._mixins import AdapterTestMixin
+from tests.sources.pubchem import PubChemAdapterTestCase
 
 
-class TestPubChemAdapter(AdapterTestMixin, unittest.TestCase):
-    """Validate the PubChemAdapter contract."""
-
-    ADAPTER_CLASS = PubChemAdapter
-    API_CONFIG_OVERRIDES = {
-        "name": "pubchem",
-        "base_url": "https://pubchem.ncbi.nlm.nih.gov/rest/pug",
-        "rate_limit_max_calls": 5,
-        "rate_limit_period": 1.0,
-    }
-    ADAPTER_CONFIG_OVERRIDES = {
-        "batch_size": 50,
-        "workers": 1,
-    }
+class TestPubChemClient(PubChemAdapterTestCase):
+    """Validate PubChem client batching and fetch helpers."""
 
     def test_fetch_by_ids_delegates_to_batch_helper(self) -> None:
         """The custom fetcher still leverages the shared batching helper."""
@@ -70,23 +57,3 @@ class TestPubChemAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(len(results), len(identifiers))
         self.assertEqual(results[0]["CID"], 123)
         self.assertEqual(results[1]["_source_identifier"], "BBB")
-
-    def test_normalize_record_serializes_synonyms_with_canonical_json(self) -> None:
-        """Synonym collections should be serialized deterministically."""
-
-        adapter = self.adapter
-        synonyms = [
-            {"name": "beta", "type": "primary"},
-            {"name": "alpha", "type": "alternate"},
-        ]
-        record = {
-            "Synonyms": synonyms,
-            "CID": 42,
-            "_source_identifier": "ABC",
-        }
-
-        normalized = adapter.normalize_record(record)
-
-        expected = canonical_json(synonyms)
-        self.assertEqual(normalized["pubchem_synonyms"], expected)
-

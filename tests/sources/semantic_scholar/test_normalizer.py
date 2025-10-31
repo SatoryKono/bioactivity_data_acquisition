@@ -1,44 +1,27 @@
-"""Unit tests for SemanticScholarAdapter."""
+"""Semantic Scholar normalizer tests."""
 
-import unittest
+from __future__ import annotations
+
 from unittest.mock import patch
 
 import pandas as pd
 
 import bioetl.adapters.semantic_scholar as semantic_module
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
-from tests.sources._mixins import AdapterTestMixin
+from tests.sources.semantic_scholar import SemanticScholarAdapterTestCase
 
 
-class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
-    """Test SemanticScholarAdapter."""
-
-    ADAPTER_CLASS = SemanticScholarAdapter
-    API_CONFIG_OVERRIDES = {
-        "name": "semantic_scholar",
-        "base_url": "https://api.semanticscholar.org/graph/v1",
-        "rate_limit_period": 1.25,
-    }
-    ADAPTER_CONFIG_OVERRIDES = {
-        "batch_size": 50,
-        "workers": 1,
-        "api_key": "test_key",
-    }
-
-    def test_format_paper_id(self):
-        """Test paper ID formatting."""
-        self.assertEqual(self.adapter._format_paper_id("10.1371/journal.pone.0123456"), "10.1371/journal.pone.0123456")
-        self.assertEqual(self.adapter._format_paper_id("12345678"), "PMID:12345678")
-        self.assertEqual(self.adapter._format_paper_id("arXiv:1234.5678"), "arXiv:1234.5678")
+class TestSemanticScholarNormalizer(SemanticScholarAdapterTestCase):
+    """Validate normalization logic for Semantic Scholar."""
 
     def test_normalize_record(self):
         """Test record normalization."""
+
         record = {
             "paperId": "1234567890abcdef",
             "externalIds": {
                 "DOI": "10.1371/journal.pone.0123456",
-                "PubMed": "12345678"
+                "PubMed": "12345678",
             },
             "title": "Test Article",
             "abstract": "Test abstract",
@@ -50,7 +33,7 @@ class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
             "referenceCount": 45,
             "isOpenAccess": True,
             "publicationTypes": ["JournalArticle"],
-            "fieldsOfStudy": ["Medicine", "Biology"]
+            "fieldsOfStudy": ["Medicine", "Biology"],
         }
 
         normalized = self.adapter.normalize_record(record)
@@ -103,34 +86,13 @@ class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertIs(semantic_module.NORMALIZER_ID, identifier)
         self.assertIs(semantic_module.NORMALIZER_STRING, string)
 
-    def test_fetch_by_ids_batches_using_class_default(self) -> None:
-        """Batch helper respects ``DEFAULT_BATCH_SIZE`` fallback."""
-
-        adapter = self.ADAPTER_CLASS(
-            self.api_config,
-            self.make_adapter_config(batch_size=0, api_key="test_key"),
-        )
-
-        total = adapter.DEFAULT_BATCH_SIZE * 2 + 5
-        identifiers = [f"DOI:{i}" for i in range(total)]
-
-        with patch.object(adapter, "_fetch_batch", return_value=[], autospec=True) as batch_mock:
-            adapter.fetch_by_ids(identifiers)
-
-        expected_calls = -(-total // adapter.DEFAULT_BATCH_SIZE)
-        self.assertEqual(batch_mock.call_count, expected_calls)
-        self.assertEqual(len(batch_mock.call_args_list[0].args[1]), adapter.DEFAULT_BATCH_SIZE)
-        remainder = total % adapter.DEFAULT_BATCH_SIZE
-        expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
-        self.assertEqual(len(batch_mock.call_args_list[-1].args[1]), expected_last)
-
-    def test_process_uses_shared_helper(self) -> None:
-        """``process`` delegates to :meth:`_process_collection`."""
+    def test_process_helpers_delegate(self) -> None:
+        """``process`` utilities reuse the shared collection helper."""
 
         adapter = self.adapter
 
         with patch.object(
-            SemanticScholarAdapter,
+            semantic_module.SemanticScholarAdapter,
             "_process_collection",
             autospec=True,
             return_value=pd.DataFrame(),
@@ -147,13 +109,11 @@ class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(kwargs["no_items_event"], "no_ids_provided")
         self.assertEqual(kwargs["empty_event"], "no_records_fetched")
 
-    def test_process_titles_uses_shared_helper(self) -> None:
-        """``process_titles`` delegates to :meth:`_process_collection`."""
-
+    def test_process_titles_helpers_delegate(self) -> None:
         adapter = self.adapter
 
         with patch.object(
-            SemanticScholarAdapter,
+            semantic_module.SemanticScholarAdapter,
             "_process_collection",
             autospec=True,
             return_value=pd.DataFrame(),
@@ -169,4 +129,3 @@ class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):
         self.assertEqual(kwargs["start_event"], "starting_fetch_by_titles")
         self.assertEqual(kwargs["no_items_event"], "no_titles_provided")
         self.assertEqual(kwargs["empty_event"], "no_records_fetched")
-
