@@ -14,7 +14,7 @@ import pandas as pd
 from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas import ActivitySchema
+from bioetl.schemas.activity import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dataframe import resolve_schema_column_order
