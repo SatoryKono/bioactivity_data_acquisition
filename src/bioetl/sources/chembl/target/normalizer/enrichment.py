@@ -23,18 +23,25 @@ try:
     client_py_file = uniprot_dir / "client.py"
     
     if client_py_file.exists():
+        # Check if already loaded by checking both the file path and the module name
         module_key = str(client_py_file)
+        module_name = "bioetl.sources.uniprot._client_py_module"
+        # Check if already loaded in sys.modules by file path or module name
         if module_key in sys.modules:
             client_module = sys.modules[module_key]
+        elif module_name in sys.modules:
+            client_module = sys.modules[module_name]
         else:
             # Use a different name in sys.modules to avoid overwriting the package
-            spec = importlib.util.spec_from_file_location("bioetl.sources.uniprot._client_py_module", client_py_file)
+            spec = importlib.util.spec_from_file_location(module_name, client_py_file)
             if spec and spec.loader:
                 client_module = importlib.util.module_from_spec(spec)
-                client_module.__name__ = "bioetl.sources.uniprot._client_py_module"
+                client_module.__name__ = module_name
                 client_module.__package__ = "bioetl.sources.uniprot"
                 client_module.__file__ = str(client_py_file)
-                sys.modules["bioetl.sources.uniprot._client_py_module"] = client_module
+                # Register in sys.modules under both file path and module name
+                sys.modules[module_key] = client_module
+                sys.modules[module_name] = client_module
                 spec.loader.exec_module(client_module)
             else:
                 raise ImportError("Could not create module spec")
