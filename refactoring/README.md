@@ -166,7 +166,7 @@ REFACTOR_PLAN.md (основной)
 
 ## Источники истины
 
-- **[docs/requirements/PIPELINES.inventory.csv](../docs/requirements/PIPELINES.inventory.csv)** — инвентаризация пайплайнов (требуется генерация)
+- **[docs/requirements/PIPELINES.inventory.csv](../docs/requirements/PIPELINES.inventory.csv)** и **[docs/requirements/PIPELINES.inventory.clusters.md](../docs/requirements/PIPELINES.inventory.clusters.md)** — актуальные артефакты инвентаризации; актуальность подтверждается командой `python src/scripts/run_inventory.py --check --config configs/inventory.yaml` (локально и в CI job `inventory-check`)
 - **[docs/requirements/SOURCES_AND_INTERFACES.md](../docs/requirements/SOURCES_AND_INTERFACES.md)** — витрина спецификаций источников и интерфейсов
 - **[configs/inventory.yaml](../configs/inventory.yaml)** — конфигурация генератора инвентаризации
 - **[src/scripts/run_inventory.py](../src/scripts/run_inventory.py)** — CLI для генерации артефактов
