@@ -4,9 +4,11 @@
 
 ### Консьюмер документного пайплайна (@test_refactoring_32)
 
-- **Адаптеры:** `CrossrefAdapter`, `PubMedAdapter`, `OpenAlexAdapter`, `SemanticScholarAdapter` живут в `src/bioetl/sources/document/adapters/` и декларируют публичные профили в `src/bioetl/sources/{crossref,pubmed,openalex,semantic_scholar}/pipeline.py`.
+- **Адаптеры:** `CrossrefAdapter`, `PubMedAdapter`, `OpenAlexAdapter`, `SemanticScholarAdapter` живут в `src/bioetl/adapters/`, а их `*_ADAPTER_DEFINITION` задаются в `bioetl.sources.{crossref,pubmed,openalex,semantic_scholar}.pipeline`. [ref: repo:src/bioetl/adapters/__init__.py@test_refactoring_32] [ref: repo:src/bioetl/sources/crossref/pipeline.py@test_refactoring_32] [ref: repo:src/bioetl/sources/pubmed/pipeline.py@test_refactoring_32] [ref: repo:src/bioetl/sources/openalex/pipeline.py@test_refactoring_32] [ref: repo:src/bioetl/sources/semantic_scholar/pipeline.py@test_refactoring_32]
 - **Конфигурация:** файл `configs/pipelines/document.yaml` управляет включением/отключением адаптеров (`sources.<adapter>.enabled`) и их параметрами (`batch_size`, `rate_limit_*`, `mailto` и т.д.).
 - **CLI:** реестр `scripts.PIPELINE_COMMAND_REGISTRY` содержит только запись `"document"`, поэтому запуск всех обогащений осуществляется через `python -m bioetl.cli.main document ...` или `src/scripts/run_document.py`. Режим `--mode chembl|all` переключает использование адаптеров.
+
+Реализация `DocumentPipeline` находится в `bioetl.sources.chembl.document.pipeline` и доступна через прокси `bioetl.pipelines.document`. [ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32] [ref: repo:src/bioetl/pipelines/document.py@test_refactoring_32]
 
 ## Источники истины (@test_refactoring_32)
 
