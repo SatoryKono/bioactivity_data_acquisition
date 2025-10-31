@@ -42,6 +42,8 @@
 
 `OutputWriter` применён во всех пайплайнах; зафиксированы `column_order`, сортировка по бизнес-ключам, `hash_row` и `hash_business_key` (BLAKE2); диалект CSV, порядок JSON-ключей и поведение по NaN/Null стабильны. Атомарная запись — обязательна. [python-atomicwrites](https://python-atomicwrites.readthedocs.io)
 
+Extended-режим с генерацией `meta.yaml`, correlation и QC отчётов проверяется интеграционным тестом `tests/integration/pipelines/test_extended_mode_outputs.py`, который валидирует содержимое артефактов и ключевые поля метаданных.
+
 ## I. MergePolicy
 
 Для всех объединений задокументированы ключи слияния и стратегия разрешения конфликтов (prefer_source, prefer_fresh, concat_unique, score_based); слияния выполняются после валидации обеих сторон.
