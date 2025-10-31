@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, cast
 import pandas as pd
 import pandera.errors as pa_errors
 import requests
-from pandas.api.types import Float64Dtype
 
 if TYPE_CHECKING:
     from pandera.errors import SchemaError as SchemaErrors
@@ -19,11 +18,18 @@ else:  # pragma: no cover - runtime compatibility for older Pandera releases
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pandera_pandas import DataFrameModel
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
     enrichment_stage_registry,
 )
+from bioetl.schemas.document import (
+    DocumentNormalizedSchema,
+    DocumentRawSchema,
+    DocumentSchema,
+)
+from bioetl.schemas.registry import schema_registry
 from bioetl.sources.crossref.pipeline import CROSSREF_ADAPTER_DEFINITION
 from bioetl.sources.document.merge.policy import merge_with_precedence
 from bioetl.sources.document.pipeline import (
@@ -35,13 +41,6 @@ from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
 from bioetl.sources.semantic_scholar.pipeline import (
     SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
 )
-from bioetl.pandera_pandas import DataFrameModel
-from bioetl.schemas.document import (
-    DocumentNormalizedSchema,
-    DocumentRawSchema,
-    DocumentSchema,
-)
-from bioetl.schemas.registry import schema_registry
 from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
@@ -53,6 +52,8 @@ from .output import append_qc_sections, persist_rejected_inputs
 from .parser import prepare_document_input_ids
 from .request import (
     build_adapter_configs as request_build_adapter_configs,
+)
+from .request import (
     collect_enrichment_metrics,
     init_external_adapters,
     run_enrichment_requests,
@@ -282,9 +283,6 @@ class DocumentPipeline(PipelineBase):
         """Close external adapters and the primary API client."""
 
         self._release_external_adapters()
-        super_close = getattr(super(), "close_resources", None)
-        if callable(super_close):
-            super_close()
 
     def _build_adapter_configs(
         self,
@@ -678,7 +676,7 @@ class DocumentPipeline(PipelineBase):
                     working_df[column] = pd.Series(
                         pd.NA,
                         index=working_df.index,
-                        dtype=Float64Dtype(),
+                        dtype="Float64",
                     )
                 else:
                     working_df[column] = pd.NA
