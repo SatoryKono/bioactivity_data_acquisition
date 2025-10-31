@@ -82,46 +82,72 @@ data/<source>/
 
 ### Обязательные поля meta.yaml
 
+`UnifiedOutputWriter._write_metadata()` формирует `meta.yaml`, объединяя обязательные атрибуты пайплайна и вычисленные артефакты.【F:src/bioetl/core/output_writer.py†L992-L1043】 Минимальный контракт включает:
+
+- `run_id` — идентификатор запуска, совпадает с `PipelineBase.run_id` и попадает в checksum-namespace.【F:src/bioetl/core/output_writer.py†L992-L1001】
+- `pipeline_version`, `source_system`, `chembl_release` — версия пайплайна, источник данных и релиз ChEMBL, передаваемые через `OutputMetadata`. Для ad-hoc тестов они берутся из `config.pipeline` и проверяются интеграционным сценарием.【F:src/bioetl/core/output_writer.py†L992-L1000】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L109-L115】
+- `extraction_timestamp` — временная метка генерации в формате ISO 8601 с таймзоной (UTC `Z` или `+00:00`).【F:src/bioetl/core/output_writer.py†L997-L998】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L122-L123】
+- `row_count`, `column_count`, `column_order` — фактическая форма датасета после применения детерминизма.【F:src/bioetl/core/output_writer.py†L998-L1001】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L118-L120】
+- `file_checksums` — словарь SHA256 по всем обязательным и дополнительным файлам (`dataset`, `quality_report`, дополнительные таблицы, QC-отчёты). Контрольная сумма вычисляется для каждого файла, который попал в артефакты.【F:src/bioetl/core/output_writer.py†L745-L768】
+- `config_hash`, `git_commit`, `sources` — слепок конфигурации, Git-коммит (может быть `null`) и список включённых источников. Источники сортируются детерминированно.【F:src/bioetl/core/output_writer.py†L1002-L1004】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L113-L116】
+- `schema_id`, `schema_version`, `column_order_source`, `na_policy`, `precision_policy` — атрибуты из `SchemaRegistry`, фиксирующие происхождение и правила сериализации колонок.【F:src/bioetl/core/output_writer.py†L1005-L1009】
+
+Дополнительно в файл автоматически добавляются:
+
+- `hash_policy_version`, если активирована политика хеширования детерминизма.【F:src/bioetl/core/output_writer.py†L1012-L1013】
+- `config_snapshot` с путём и SHA256 исходного `config.yaml`, если конфигурация прикреплена к пайплайну.【F:src/bioetl/core/output_writer.py†L1015-L1033】
+- `artifacts`, содержащий пути до основного датасета, quality report, дополнительных таблиц и QC-блока. При расширенном режиме (`extended=True`) в `artifacts.qc` всегда присутствуют `correlation_report`, `summary_statistics`, `dataset_metrics`, что закреплено интеграционным тестом.【F:src/bioetl/core/output_writer.py†L1020-L1043】【F:src/bioetl/core/output_writer.py†L695-L808】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L127-L130】
+- `qc_summary`, `qc_metrics`, `validation_issues`, `runtime_options` — только если пайплайн их произвёл.【F:src/bioetl/core/output_writer.py†L1045-L1055】
+- `lineage` — всегда присутствует блок с массивами `source_files` и `transformations`; при отсутствии пользовательских данных создаётся пустой каркас.【F:src/bioetl/core/output_writer.py†L1057-L1063】
+
+Пример `meta.yaml`, отражающий контракт:
+
 ```yaml
-# meta.yaml
-
-run_id: "abc123"
-pipeline_version: "2.1.0"
-config_hash: "sha256:deadbeef..."
-config_snapshot:
-  path: "src/bioetl/configs/pipelines/document.yaml"
-  sha256: "sha256:d1c2..."
-chembl_release: "33"
-row_count: 12345
-column_count: 42
+run_id: "integration-test"
+pipeline_version: "1.2.3"
+source_system: "integration"
+chembl_release: null
+extraction_timestamp: "2025-10-31T13:32:28.337531+00:00"
+row_count: 4
+column_count: 3
 column_order:
-  - "document_chembl_id"
-  - "title"
-  # ... все колонки
-
-checksums:
-  dataset: "sha256:abc123..."
-  quality: "sha256:def456..."
-  correlation: "sha256:ghi789..."  # Опционально, только если correlation enabled
-git_commit: "a1b2c3d"
-generated_at: "2025-01-28T14:23:15.123Z"
+  - "numeric_a"
+  - "numeric_b"
+  - "category"
+file_checksums:
+  integration.csv: "sha256:..."
+  integration_quality_report.csv: "sha256:..."
+  integration_correlation_report.csv: "sha256:..."
+  integration_summary_statistics.csv: "sha256:..."
+  integration_dataset_metrics.csv: "sha256:..."
+config_hash: "integration-hash"
+git_commit: null
+sources:
+  - "chembl"
+schema_id: null
+schema_version: null
+column_order_source: "dataframe"
+na_policy: "allow"
+precision_policy: "%.6f"
+artifacts:
+  dataset: "integration/datasets/integration.csv"
+  quality_report: "integration/qc/integration_quality_report.csv"
+  qc:
+    correlation_report: "integration/qc/integration_correlation_report.csv"
+    summary_statistics: "integration/qc/integration_summary_statistics.csv"
+    dataset_metrics: "integration/qc/integration_dataset_metrics.csv"
 lineage:
-  source_files:
-    - "input/documents.csv"
-  transformations:
-    - "transform_titles"
-    - "validate_dois"
+  source_files: []
+  transformations: []
 ```
 
-Фактическая реализация `UnifiedOutputWriter._write_metadata()` добавляет в файл ключи `file_checksums` и `artifacts` (dataset, quality_report, дополнительные наборы, QC-артефакты), копирует `schema_id`, `schema_version`, `column_order_source`, `na_policy`, `precision_policy` из registry, прикладывает `config_snapshot` (если доступен) и опциональные блоки `qc_summary`, `qc_metrics`, `validation_issues`, `runtime_options`. Даже при отсутствии пользовательской lineage функция создаёт структуру `source_files`/`transformations`, сохраняя run_id, pipeline_version, config_hash, git_commit, список sources и отметку времени генерации.【F:src/bioetl/core/output_writer.py†L962-L1058】
+Раздел QC дополняется тремя файлами:
 
-**Обязательные поля lineage конфигурации:**
+- `*_correlation_report.csv` — tidy-матрица корреляций `feature_x`, `feature_y`, `correlation` для всех числовых столбцов.【F:src/bioetl/core/output_writer.py†L695-L708】【F:src/bioetl/core/output_writer.py†L895-L917】
+- `*_summary_statistics.csv` — транпонированный `describe(include="all")` со столбцом `column` и статистиками по типам данных.【F:src/bioetl/core/output_writer.py†L715-L937】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L96-L99】
+- `*_dataset_metrics.csv` — агрегированные QC-метрики (`row_count`, `null_fraction_total`, `memory_usage_bytes` и др.).【F:src/bioetl/core/output_writer.py†L731-L973】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L100-L102】
 
-- `run_id`: уникальный идентификатор запуска (UUID8 или timestamp-based)
-- `config_hash`: SHA256 хеш конфигурации (после резолва переменных окружения)
-- `config_snapshot`: путь и хеш исходного файла конфигурации
-
-**Обоснование:** Обеспечивает полную воспроизводимость и аудит запусков.
+**Обоснование:** Полный набор полей обеспечивает воспроизводимость, аудит конфигураций и трассировку детерминизма для downstream-консьюмеров.
 
 ## 3) Схемы данных (UnifiedSchema)
 
