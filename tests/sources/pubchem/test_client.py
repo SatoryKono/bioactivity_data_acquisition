@@ -1,59 +1,64 @@
-"""PubChem client tests."""
+"""Tests for the PubChem API client wrapper."""
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from bioetl.config.loader import load_config
+from bioetl.sources.pubchem.client.pubchem_client import PubChemClient
+from tests.sources.pubchem import StubUnifiedAPIClient
 
-from tests.sources.pubchem import PubChemAdapterTestCase
+
+def test_resolve_cids_batch_uppercases_inchikeys() -> None:
+    stub = StubUnifiedAPIClient(
+        responses={"/compound/inchikey/ABCDEF/cids/JSON": {"IdentifierList": {"CID": [42]}}}
+    )
+    client = PubChemClient(stub)
+
+    results = client.resolve_cids_batch(["abcdef"])
+
+    assert results["ABCDEF"]["cid"] == 42
+    assert stub.requests == ["/compound/inchikey/ABCDEF/cids/JSON"]
 
 
-class TestPubChemClient(PubChemAdapterTestCase):
-    """Validate PubChem client batching and fetch helpers."""
-
-    def test_fetch_by_ids_delegates_to_batch_helper(self) -> None:
-        """The custom fetcher still leverages the shared batching helper."""
-
-        adapter = self.ADAPTER_CLASS(
-            self.api_config,
-            self.make_adapter_config(batch_size=25),
-        )
-        identifiers = ["AAA", "BBB"]
-
-        with (
-            patch.object(adapter, "_fetch_batch", return_value=[{"CID": 1}]) as batch_mock,
-            patch.object(adapter, "_fetch_in_batches", wraps=adapter._fetch_in_batches) as helper_mock,
-        ):
-            result = adapter.fetch_by_ids(identifiers)
-
-        helper_mock.assert_called_once_with(
-            identifiers,
-            batch_size=25,
-            log_event="pubchem_batch_fetch_failed",
-        )
-        batch_mock.assert_called_once()
-        self.assertEqual(result, [{"CID": 1}])
-
-    def test_fetch_by_ids_uses_non_recursive_batch_impl(self) -> None:
-        """Ensure ``_fetch_batch`` does not recurse back into ``_fetch_in_batches``."""
-
-        adapter = self.adapter
-        identifiers = ["AAA", "BBB"]
-        resolution = {
-            "AAA": {"cid": 123, "cid_source": "inchikey", "attempt": 1, "fallback_used": False},
-            "BBB": {"cid": None, "cid_source": "failed", "attempt": 2, "fallback_used": True},
+def test_fetch_properties_batch_returns_records() -> None:
+    payload = {
+        "PropertyTable": {
+            "Properties": [
+                {"CID": 1, "SMILES": "C"},
+                {"CID": 2, "SMILES": "CC"},
+            ]
         }
-        property_records = [{"CID": 123, "Some": "value"}]
+    }
+    stub = StubUnifiedAPIClient(responses={"/compound/cid/1,2/property/MolecularFormula,MolecularWeight,SMILES,ConnectivitySMILES,InChI,InChIKey,IUPACName,RegistryID,RN,Synonym/JSON": payload})
+    client = PubChemClient(stub)
 
-        with (
-            patch.object(adapter, "_resolve_cids_batch", return_value=resolution) as resolve_mock,
-            patch.object(adapter, "_fetch_properties_batch", return_value=property_records) as properties_mock,
-            patch.object(adapter, "_fetch_in_batches", wraps=adapter._fetch_in_batches) as helper_mock,
-        ):
-            results = adapter.fetch_by_ids(identifiers)
+    records = client.fetch_properties_batch([1, 2])
 
-        helper_mock.assert_called_once()
-        resolve_mock.assert_called_once_with(identifiers)
-        properties_mock.assert_called_once_with([123])
-        self.assertEqual(len(results), len(identifiers))
-        self.assertEqual(results[0]["CID"], 123)
-        self.assertEqual(results[1]["_source_identifier"], "BBB")
+    assert len(records) == 2
+
+
+def test_enrich_batch_combines_resolution_and_properties() -> None:
+    stub = StubUnifiedAPIClient(
+        responses={
+            "/compound/inchikey/KEYONE/cids/JSON": {"IdentifierList": {"CID": [111]}},
+            "/compound/cid/111/property/MolecularFormula,MolecularWeight,SMILES,ConnectivitySMILES,InChI,InChIKey,IUPACName,RegistryID,RN,Synonym/JSON": {
+                "PropertyTable": {"Properties": [{"CID": 111, "SMILES": "CC"}]}
+            },
+        }
+    )
+    client = PubChemClient(stub, batch_size=10)
+
+    records = client.enrich_batch(["keyone"])
+
+    assert records[0]["CID"] == 111
+    assert records[0]["SMILES"] == "CC"
+    assert records[0]["_source_identifier"] == "KEYONE"
+
+
+def test_from_config_respects_disabled_source(monkeypatch) -> None:
+    config = load_config("configs/pipelines/pubchem.yaml").model_copy(deep=True)
+    config.sources["pubchem"].enabled = False
+
+    client, api_client = PubChemClient.from_config(config)
+
+    assert client is None
+    assert api_client is None

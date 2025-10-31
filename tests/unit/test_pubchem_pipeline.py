@@ -1,14 +1,30 @@
+"""Integration tests for the modular PubChem pipeline."""
+
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Iterable
 from unittest.mock import MagicMock
 
 import pandas as pd
 
 from bioetl.config.loader import load_config
-from bioetl.pipelines.pubchem import PubChemPipeline
+from bioetl.sources.pubchem.pipeline import PubChemPipeline
 
 
-def _build_pubchem_pipeline(tmp_path, monkeypatch, *, adapter: MagicMock | None):
+class StubPubChemClient:
+    """Collects batch enrichment requests for verification."""
+
+    def __init__(self, records: Iterable[dict[str, object]]):
+        self.records = list(records)
+        self.calls: list[list[str]] = []
+
+    def enrich_batch(self, inchikeys: list[str]) -> list[dict[str, object]]:
+        self.calls.append(inchikeys)
+        return self.records
+
+
+def _prepare_pipeline(monkeypatch, tmp_path: Path, client: StubPubChemClient | None) -> PubChemPipeline:
     config = load_config("configs/pipelines/pubchem.yaml").model_copy(deep=True)
     lookup_path = tmp_path / "lookup.csv"
     pd.DataFrame(
@@ -19,58 +35,60 @@ def _build_pubchem_pipeline(tmp_path, monkeypatch, *, adapter: MagicMock | None)
     ).to_csv(lookup_path, index=False)
     config.postprocess.enrichment["pubchem_lookup_input"] = str(lookup_path)
 
-    if adapter is not None:
-        monkeypatch.setattr(PubChemPipeline, "_create_pubchem_adapter", lambda self: adapter)
+    if client is not None:
+        api_client = MagicMock()
+        monkeypatch.setattr(
+            "bioetl.sources.pubchem.pipeline.PubChemClient.from_config",
+            lambda cfg: (client, api_client),
+        )
     else:
-        monkeypatch.setattr(PubChemPipeline, "_create_pubchem_adapter", lambda self: None)
+        monkeypatch.setattr(
+            "bioetl.sources.pubchem.pipeline.PubChemClient.from_config",
+            lambda cfg: (None, None),
+        )
 
-    return PubChemPipeline(config, run_id="pubchem-test")
+    pipeline = PubChemPipeline(config, run_id="pubchem-test")
+    pipeline.normalizer._timestamp_factory = lambda: "2024-01-01T00:00:00+00:00"
+    return pipeline
 
 
 def test_pubchem_pipeline_enriches_and_exports(monkeypatch, tmp_path):
-    mock_adapter = MagicMock()
+    client = StubPubChemClient(
+        [
+            {
+                "CID": 123,
+                "MolecularWeight": 321.5,
+                "_source_identifier": "ABCDEFGHIJKLMN-OPQRSTUVWX-Y",
+                "_cid_source": "inchikey",
+                "_enrichment_attempt": 1,
+                "_fallback_used": False,
+                "InChIKey": "ABCDEFGHIJKLMN-OPQRSTUVWX-Y",
+            }
+        ]
+    )
 
-    def _enrich(df, inchi_key_col="standard_inchi_key"):
-        enriched = df.copy()
-        enriched["pubchem_cid"] = [123]
-        enriched["pubchem_molecular_weight"] = [321.5]
-        enriched["pubchem_enrichment_attempt"] = [1]
-        enriched["pubchem_lookup_inchikey"] = df[inchi_key_col]
-        enriched["pubchem_enriched_at"] = ["2024-01-01T00:00:00+00:00"]
-        enriched["pubchem_cid_source"] = ["inchikey"]
-        enriched["pubchem_fallback_used"] = [False]
-        return enriched
-
-    mock_adapter.enrich_with_pubchem.side_effect = _enrich
-    mock_adapter.api_client = MagicMock()
-
-    pipeline = _build_pubchem_pipeline(tmp_path, monkeypatch, adapter=mock_adapter)
+    pipeline = _prepare_pipeline(monkeypatch, tmp_path, client)
 
     extracted = pipeline.extract()
-    assert not extracted.empty
-
     transformed = pipeline.transform(extracted)
-    assert int(transformed.loc[transformed.index[0], "pubchem_cid"]) == 123
-
     validated = pipeline.validate(transformed)
     output_path = tmp_path / "pubchem_output.csv"
     artifacts = pipeline.export(validated, output_path)
 
+    assert int(transformed.loc[transformed.index[0], "pubchem_cid"]) == 123
+    assert float(transformed.loc[transformed.index[0], "pubchem_molecular_weight"]) == 321.5
     assert output_path.exists()
-    assert mock_adapter.enrich_with_pubchem.called
     assert artifacts.dataset.exists()
+    assert client.calls == [["ABCDEFGHIJKLMN-OPQRSTUVWX-Y"]]
 
 
-def test_pubchem_pipeline_handles_missing_adapter(monkeypatch, tmp_path):
-    pipeline = _build_pubchem_pipeline(tmp_path, monkeypatch, adapter=None)
+def test_pubchem_pipeline_handles_missing_client(monkeypatch, tmp_path):
+    pipeline = _prepare_pipeline(monkeypatch, tmp_path, client=None)
 
     extracted = pipeline.extract()
     transformed = pipeline.transform(extracted)
 
     assert "pubchem_cid" in transformed.columns
     assert transformed["pubchem_cid"].isna().all()
-
-    validated = pipeline.validate(transformed)
     metrics = pipeline.qc_summary_data.get("metrics", {})
     assert metrics.get("pubchem.enrichment_rate", {}).get("count") == 0
-
