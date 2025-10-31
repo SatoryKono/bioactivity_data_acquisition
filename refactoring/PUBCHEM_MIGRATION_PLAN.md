@@ -1,6 +1,8 @@
 # План миграции PubChem к структуре sources/<source>/
 
-**Дата:** 2025-01-29  
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) уже следуют модульной схеме (client/, request/, parser/, normalizer/, output/, pipeline.py; дополнительно schema/, merge/, pagination/ при необходимости). Для ChEMBL исторические файлы в `src/bioetl/pipelines/*.py` выступают совместимыми реэкспортами (например, `src/bioetl/pipelines/activity.py` перенаправляет на `src/bioetl/sources/chembl/activity/pipeline.py`, `src/bioetl/pipelines/document.py` — на `src/bioetl/sources/chembl/document/pipeline.py`). Целевая структура закреплена в `src/bioetl/sources/chembl/<entity>/pipeline.py`.
+
+**Дата:** 2025-01-29
 **Цель:** Миграция всех компонентов PubChem из `pipelines/pubchem.py` и `adapters/pubchem.py` в модульную структуру `sources/pubchem/` согласно MODULE_RULES.md, без поддержки обратной совместимости.
 
 ## Текущее состояние
