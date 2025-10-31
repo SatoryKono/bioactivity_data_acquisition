@@ -1379,6 +1379,40 @@ def test_fallback_enabled_without_strategies_raises(
         client.request_json("/endpoint")
 
 
+def test_fallback_manager_returns_metadata_for_network_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fallback manager should provide structured payload for network failures."""
+
+    config = APIConfig(
+        name="chembl",
+        base_url="https://api.example.com",
+        retry_total=1,
+        fallback_enabled=True,
+        fallback_strategies=["network"],
+        rate_limit_jitter=False,
+    )
+
+    client = UnifiedAPIClient(config)
+
+    def always_fail(**_: Any) -> requests.Response:
+        raise requests.exceptions.ConnectionError("offline")
+
+    monkeypatch.setattr(client, "_execute", always_fail)
+    monkeypatch.setattr("bioetl.core.api_client.time.sleep", lambda *_: None)
+
+    payload = client.request_json("/resource")
+
+    assert payload["fallback_reason"] == "network"
+    assert payload["fallback_error_type"] == "ConnectionError"
+    assert payload["fallback_error_message"] == "offline"
+    assert payload["source_system"] == "CHEMBL_FALLBACK"
+    assert payload["fallback_attempt"] == 1
+    assert payload["fallback_http_status"] is None
+    assert payload["fallback_retry_after_sec"] is None
+    assert payload["fallback_timestamp"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 

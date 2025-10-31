@@ -24,7 +24,7 @@ from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 
-__all__ = ["AssayPipeline"]
+__all__ = ("AssayPipeline",)
 
 logger = UnifiedLogger.get(__name__)
 
