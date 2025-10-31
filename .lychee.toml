@@ -1,11 +1,13 @@
-# Link checking configuration scoped to refactoring docs
+# Link checking configuration for documentation set
 inputs = [
-  "refactoring/PIPELINES.md",
-  "refactoring/DATA_SOURCES.md",
-  "refactoring/genera_plan.md",
-  "refactoring/REFACTOR_PLAN.md",
-  "refactoring/MODULE_RULES.md",
-  "docs/requirements/02-io-system.md"
+  "README.md",
+  "docs/INDEX.md",
+  "docs/requirements/00-architecture-overview.md",
+  "docs/requirements/03-data-sources-and-spec.md",
+  "docs/pipelines/PIPELINES.md",
+  "docs/configs/CONFIGS.md",
+  "docs/cli/CLI.md",
+  "docs/qc/QA_QC.md"
 ]
 
 exclude = [

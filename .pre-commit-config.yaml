@@ -12,6 +12,20 @@ repos:
       - id: check-merge-conflict
       - id: detect-private-key
 
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: v0.9.24
+    hooks:
+      - id: pymarkdown
+        args: ["--disable-rules", "md013", "scan"]
+        files: >-
+          ^(README\.md|docs/(INDEX|requirements/00-architecture-overview|requirements/03-data-sources-and-spec|pipelines/PIPELINES|configs/CONFIGS|cli/CLI|qc/QA_QC)\.md)$
+
+  - repo: https://github.com/lycheeverse/lychee
+    rev: v0.15.1
+    hooks:
+      - id: lychee
+        args: ["--config", ".lychee.toml"]
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.8
     hooks:
