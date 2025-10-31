@@ -1,4 +1,4 @@
-"""Tests for adapter normalizer helpers."""
+"""Tests for adapter normalizer helper caching."""
 
 import unittest
 from unittest.mock import Mock, patch
