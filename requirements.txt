@@ -10,3 +10,4 @@ pyyaml==6.0.3
 cachetools==6.2.1
 click==8.2.1
 faker==30.8.2
+hypothesis==6.82.0
