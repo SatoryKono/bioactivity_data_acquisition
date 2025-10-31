@@ -17,11 +17,14 @@ from typer.main import get_command
 from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
 from bioetl.config.loader import load_config
 from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
+from bioetl.core.output_writer import OutputArtifacts
 from bioetl.pandera_typing import Series
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
 from scripts import PIPELINE_COMMAND_REGISTRY, create_pipeline_app
+
+from tests.golden.helpers import snapshot_artifacts, verify_bit_identical_outputs
 
 RUNNER = CliRunner()
 
@@ -102,6 +105,10 @@ class GoldenStubPipeline(PipelineBase):
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401 - test stub
         return df
 
+    def close_resources(self) -> None:  # noqa: D401 - test stub
+        """Release resources; stub pipeline does not allocate external handles."""
+        return None
+
 
 class ColumnValidationStubPipeline(GoldenStubPipeline):
     """Stub pipeline ensuring CLI column validation succeeds."""
@@ -161,6 +168,43 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _load_cli_artifacts(output_dir: Path) -> OutputArtifacts:
+    datasets = sorted(
+        path
+        for path in output_dir.glob("*.csv")
+        if not path.name.endswith("_quality_report.csv")
+    )
+    assert datasets, "CLI should materialise a dataset CSV"
+
+    dataset_path = datasets[0]
+    qc_dir = output_dir / "qc"
+    quality_path = qc_dir / f"{dataset_path.stem}_quality_report.csv"
+    metadata_path = output_dir / f"{dataset_path.stem}_meta.yaml"
+
+    if not quality_path.exists():
+        raise AssertionError(f"Missing quality report at {quality_path}")
+    if not metadata_path.exists():
+        raise AssertionError(f"Missing metadata at {metadata_path}")
+
+    def _optional(path: Path) -> Path | None:
+        return path if path.exists() else None
+
+    return OutputArtifacts(
+        dataset=dataset_path,
+        quality_report=quality_path,
+        run_directory=output_dir,
+        additional_datasets={},
+        correlation_report=_optional(qc_dir / f"{dataset_path.stem}_correlation_report.csv"),
+        metadata=metadata_path,
+        qc_summary=_optional(qc_dir / "qc_summary.json"),
+        qc_missing_mappings=_optional(qc_dir / "qc_missing_mappings.csv"),
+        qc_enrichment_metrics=_optional(qc_dir / "qc_enrichment_metrics.csv"),
+        qc_summary_statistics=_optional(qc_dir / f"{dataset_path.stem}_summary_statistics.csv"),
+        qc_dataset_metrics=_optional(qc_dir / f"{dataset_path.stem}_dataset_metrics.csv"),
+        debug_dataset=_optional(output_dir / f"{dataset_path.stem}.json"),
+    )
+
+
 def test_create_pipeline_app_registers_command() -> None:
     """Helper should build Typer app with the requested pipeline command."""
 
@@ -202,6 +246,39 @@ def test_cli_run_matches_expected_csv_hash(tmp_path: Path) -> None:
     expected_hash = _sha256(artifacts.dataset)
 
     assert actual_hash == expected_hash
+
+
+@pytest.mark.integration
+@pytest.mark.golden
+@pytest.mark.determinism
+def test_cli_repeated_runs_are_bit_identical(tmp_path: Path, frozen_time) -> None:
+    """Two CLI runs with identical input should produce bit-identical artefacts."""
+
+    command, config = _build_cli_command(GoldenStubPipeline)
+    output_dir = tmp_path / "cli-bit-identical"
+
+    args = [
+        "--config",
+        str(config.default_config.resolve()),
+        "--output-dir",
+        str(output_dir),
+        "--no-validate-columns",
+    ]
+
+    first_result = RUNNER.invoke(command, args, catch_exceptions=False)
+    assert first_result.exit_code == 0, first_result.stdout
+    first_artifacts = snapshot_artifacts(
+        _load_cli_artifacts(output_dir), tmp_path / "cli-snapshot-first"
+    )
+
+    second_result = RUNNER.invoke(command, args, catch_exceptions=False)
+    assert second_result.exit_code == 0, second_result.stdout
+    second_artifacts = snapshot_artifacts(
+        _load_cli_artifacts(output_dir), tmp_path / "cli-snapshot-second"
+    )
+
+    identical, errors = verify_bit_identical_outputs(first_artifacts, second_artifacts)
+    assert identical, "CLI outputs diverged:\n- " + "\n- ".join(errors)
 
 
 @pytest.mark.integration

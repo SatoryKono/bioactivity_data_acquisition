@@ -6,6 +6,7 @@ import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.sources.crossref.merge import merge_crossref_with_base
+from bioetl.sources.pubmed.merge import merge_pubmed_with_base
 
 __all__ = [
     "FIELD_PRECEDENCE",
@@ -220,26 +221,13 @@ def merge_with_precedence(
 
     # Merge each source by their join key
     if pubmed_df is not None and not pubmed_df.empty:
-        pubmed_prefixed = pubmed_df.add_prefix("pubmed_")
-
-        rename_map = {}
-        for col in pubmed_prefixed.columns:
-            if col.startswith("pubmed_pubmed_"):
-                rename_map[col] = "pubmed_" + col.replace("pubmed_pubmed_", "")
-
-        if "pubmed_title" in pubmed_prefixed.columns:
-            rename_map["pubmed_title"] = "pubmed_article_title"
-
-        if rename_map:
-            pubmed_prefixed = pubmed_prefixed.rename(columns=rename_map)
-
-        if "pubmed_pmid" in pubmed_prefixed.columns and "chembl_pmid" in merged_df.columns:
-            merged_df = merged_df.merge(
-                pubmed_prefixed,
-                left_on="chembl_pmid",
-                right_on="pubmed_pmid",
-                how="left",
-            )
+        merged_df = merge_pubmed_with_base(
+            merged_df,
+            pubmed_df,
+            base_pmid_column="chembl_pmid",
+            base_doi_column="chembl_doi",
+            conflict_detection=False,
+        )
 
     if crossref_df is not None and not crossref_df.empty:
         merged_df = merge_crossref_with_base(
