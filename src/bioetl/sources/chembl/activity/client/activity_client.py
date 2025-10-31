@@ -16,6 +16,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.utils.dtypes import coerce_nullable_int
+from bioetl.utils.chembl import SupportsRequestJson
 
 from ..parser.activity_parser import ActivityParser
 from ..request.activity_request import ActivityRequestBuilder
@@ -49,7 +50,7 @@ class ActivityChEMBLClient:
             },
             batch_size_cap=25,
         )
-        self.api_client = chembl_context.client
+        self.api_client: SupportsRequestJson = chembl_context.client
         self.batch_size = chembl_context.batch_size
         self.max_url_length = chembl_context.max_url_length
         self._chembl_release: str | None = None
