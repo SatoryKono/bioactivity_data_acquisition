@@ -24,7 +24,13 @@ from bioetl.utils.column_constants import (
     normalise_ignore_suffixes,
 )
 
-SUPPORTED_FALLBACK_STRATEGIES: tuple[str, ...] = ("cache", "partial_retry")
+SUPPORTED_FALLBACK_STRATEGIES: tuple[str, ...] = (
+    "cache",
+    "partial_retry",
+    "network",
+    "timeout",
+    "5xx",
+)
 
 
 def _normalise_fallback_strategies(strategies: Iterable[str]) -> list[str]:
