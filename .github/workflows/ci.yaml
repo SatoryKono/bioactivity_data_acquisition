@@ -194,6 +194,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Run IO contract focused tests
+        run: |
+          pytest \
+            tests/integration/pipelines/test_extended_mode_outputs.py \
+            tests/unit/test_output_writer.py::test_unified_output_writer_writes_extended_metadata
+
       - name: Test with pytest
         env:
           BIOETL__LOGGING__LEVEL: DEBUG
