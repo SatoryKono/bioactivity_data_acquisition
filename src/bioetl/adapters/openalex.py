@@ -18,6 +18,10 @@ class OpenAlexAdapter(ExternalAdapter):
     """
 
     DEFAULT_BATCH_SIZE = 100
+    DEFAULT_WORK_FIELDS = (
+        "id,doi,title,authorships,primary_location,publication_date,"
+        "publication_year,type,language,open_access,concepts,ids,cited_by_count"
+    )
 
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         super().__init__(api_config, adapter_config)
@@ -36,10 +40,13 @@ class OpenAlexAdapter(ExternalAdapter):
         # Fetch by DOI - OpenAlex requires single DOI per request
         if dois:
             for doi in dois:
-                # Remove https://doi.org/ prefix if present
                 clean_doi = doi.replace("https://doi.org/", "")
                 url = f"/works/https://doi.org/{clean_doi}"
-                item = self._fetch_works(url)
+                try:
+                    item = self._fetch_works(url)
+                except Exception as exc:  # pragma: no cover - defensive
+                    self.logger.error("fetch_works_error", error=str(exc), url=url)
+                    continue
                 if item:
                     all_items.extend(item)
 
@@ -47,7 +54,11 @@ class OpenAlexAdapter(ExternalAdapter):
         if pmids:
             for pmid in pmids:
                 url = f"/works/pmid:{pmid}"
-                item = self._fetch_works(url)
+                try:
+                    item = self._fetch_works(url)
+                except Exception as exc:  # pragma: no cover - defensive
+                    self.logger.error("fetch_works_error", error=str(exc), url=url)
+                    continue
                 if item:
                     all_items.extend(item)
 
@@ -59,7 +70,11 @@ class OpenAlexAdapter(ExternalAdapter):
                 if not oa_id.startswith("https://"):
                     oa_id = f"https://openalex.org/{oa_id}"
                 url = f"/works/{oa_id.split('/')[-1]}"
-                item = self._fetch_works(url)
+                try:
+                    item = self._fetch_works(url)
+                except Exception as exc:  # pragma: no cover - defensive
+                    self.logger.error("fetch_works_error", error=str(exc), url=url)
+                    continue
                 if item:
                     all_items.extend(item)
 
@@ -68,7 +83,9 @@ class OpenAlexAdapter(ExternalAdapter):
     def _fetch_works(self, url: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Fetch works from OpenAlex API."""
         try:
-            spec = self.request_builder.build(url, params=params or {})
+            query_params = dict(params or {})
+            query_params.setdefault("fields", self.DEFAULT_WORK_FIELDS)
+            spec = self.request_builder.build(url, params=query_params)
             response = self.api_client.request_json(
                 spec.url,
                 params=spec.params,
@@ -122,6 +139,7 @@ class OpenAlexAdapter(ExternalAdapter):
         doi_clean = common.get("doi_clean")
         if doi_clean:
             normalized["openalex_doi"] = doi_clean
+            normalized["openalex_doi_clean"] = doi_clean
 
         # PMID from ids
         if "ids" in record:
@@ -191,6 +209,9 @@ class OpenAlexAdapter(ExternalAdapter):
         # Doc type from record
         if "type" in normalized:
             normalized["doc_type"] = normalized["type"]
+
+        if "cited_by_count" in record:
+            normalized["openalex_citation_count"] = record.get("cited_by_count")
 
         return normalized
 
