@@ -24,7 +24,8 @@ UnifiedAPIClient
 ├── Circuit Breaker Layer
 │   └── CircuitBreaker (half-open state, timeout tracking)
 ├── Fallback Layer
-│   └── FallbackManager (strategies: network error, timeout, 5xx)
+│   └── Fallback strategies (strategies: cache, partial_retry)
+│       └── FallbackManager (отдельный компонент, strategies: network, timeout, 5xx; не интегрирован)
 ├── Rate Limiting Layer
 │   └── TokenBucketLimiter (with jitter, per-API)
 ├── Retry Layer
@@ -90,9 +91,24 @@ class APIConfig:
     # Fallback
 
     fallback_enabled: bool = True
-    fallback_strategies: list[str] = field(default_factory=lambda: ["network", "timeout"])
+    fallback_strategies: list[str] = field(default_factory=lambda: ["cache", "partial_retry"])
 
 ```
+
+**Примечание о fallback стратегиях:**
+
+В системе существуют два уровня fallback стратегий:
+
+1. **Стратегии поведения в UnifiedAPIClient** (`fallback_strategies` в `APIConfig`):
+   - `"cache"` — использование кэшированных данных при ошибках запроса
+   - `"partial_retry"` — частичный повтор запроса с уменьшением объёма данных
+
+2. **FallbackManager** (отдельный компонент в `src/bioetl/core/fallback_manager.py`, не интегрирован):
+   - Стратегии типов ошибок: `"network"`, `"timeout"`, `"5xx"`
+   - Определяет, на какие типы ошибок реагировать (ConnectionError, Timeout, HTTP 5xx)
+   - В настоящее время не используется в UnifiedAPIClient
+
+Реализация: UnifiedAPIClient использует встроенные стратегии `["cache", "partial_retry"]` через метод `_apply_fallback_strategies()`.
 
 ### 2. CircuitBreaker
 
