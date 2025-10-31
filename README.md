@@ -140,6 +140,10 @@ tests/
 
 ```bash
 
+# Validate documentation references
+
+python scripts/qa/check_required_docs.py
+
 # Run linting (same as CI)
 
 ruff check src/bioetl src/library tests
