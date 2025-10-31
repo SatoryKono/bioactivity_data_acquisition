@@ -65,13 +65,42 @@
 
 ```python
 # [ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
-class PipelineBase(Protocol):
-  def extract(self) -> Iterable[dict]: ...
-  def normalize(self, rows: Iterable[dict]) -> Iterable[dict]: ...
-  def validate(self, rows: Iterable[dict]) -> Iterable[dict]: ...
-  def write(self, rows: Iterable[dict]) -> "WriteResult": ...
-  def run(self) -> "RunResult": ...
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from bioetl.core.output_writer import OutputArtifacts
+
+
+class PipelineBase(ABC):
+    @abstractmethod
+    def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame: ...
+
+    @abstractmethod
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
+
+    @abstractmethod
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame: ...
+
+    def export(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        extended: bool = False,
+    ) -> OutputArtifacts: ...
+
+    def run(
+        self,
+        output_path: Path,
+        extended: bool = False,
+        *args: Any,
+        **kwargs: Any,
+    ) -> OutputArtifacts: ...
 ```
+
+> **Табличный контракт:** все стадии передают данные в виде `pd.DataFrame` и обязаны возвращать DataFrame, совместимый с Pandera-схемами и `PipelineBase.run()`. Общие определения и поведение описаны в `PipelineBase` (`src/bioetl/pipelines/base.py`).
 
 **Обязательные общие компоненты**:
 
