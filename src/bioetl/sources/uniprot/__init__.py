@@ -1,16 +1,6 @@
-"""UniProt pipeline exports."""
+"""UniProt data access helpers and pipeline exports."""
 
-from .client import (
-    UniProtIdMappingClient,
-    UniProtOrthologsClient,
-    UniProtSearchClient,
-)
-from .merge.service import UniProtEnrichmentResult, UniProtService
+from .normalizer import UniProtEnrichmentResult, UniProtNormalizer
+from .pipeline import UniProtPipeline
 
-__all__ = [
-    "UniProtService",
-    "UniProtEnrichmentResult",
-    "UniProtSearchClient",
-    "UniProtIdMappingClient",
-    "UniProtOrthologsClient",
-]
+__all__ = ["UniProtNormalizer", "UniProtEnrichmentResult", "UniProtPipeline"]

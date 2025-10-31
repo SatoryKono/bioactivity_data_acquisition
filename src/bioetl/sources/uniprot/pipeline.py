@@ -1,8 +1,7 @@
-"""Standalone UniProt enrichment pipeline implementation."""
+"""UniProt pipeline for standalone enrichment and export."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +14,6 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import UniProtSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.sources.uniprot.merge.service import UniProtService
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     prepare_enrichment_metrics,
@@ -24,6 +22,13 @@ from bioetl.utils.qc import (
     update_summary_section,
     update_validation_issue_summary,
 )
+
+from .client import (
+    UniProtIdMappingClient,
+    UniProtOrthologClient,
+    UniProtSearchClient,
+)
+from .normalizer import UniProtNormalizer
 
 logger = UnifiedLogger.get(__name__)
 
@@ -63,21 +68,31 @@ class UniProtPipeline(PipelineBase):
             self.api_clients[name] = client
             self.register_client(client)
 
-        self.uniprot_client = self.api_clients.get("uniprot")
-        self.uniprot_idmapping_client = self.api_clients.get("uniprot_idmapping")
-        self.uniprot_orthologs_client = self.api_clients.get("uniprot_orthologs")
+        search_client = self.api_clients.get("uniprot")
+        id_mapping_client = self.api_clients.get("uniprot_idmapping")
+        ortholog_client = self.api_clients.get("uniprot_orthologs") or search_client
 
-        self.uniprot_service = UniProtService(
-            search_client=self.uniprot_client,
-            id_mapping_client=self.uniprot_idmapping_client,
-            orthologs_client=self.uniprot_orthologs_client,
+        self.search_client = UniProtSearchClient(
+            client=search_client,
+            fields=self._UNIPROT_FIELDS,
             batch_size=self._UNIPROT_BATCH_SIZE,
-            id_mapping_batch_size=self._IDMAPPING_BATCH_SIZE,
-            id_mapping_poll_interval=self._IDMAPPING_POLL_INTERVAL,
-            id_mapping_max_wait=self._IDMAPPING_MAX_WAIT,
-            uniprot_fields=self._UNIPROT_FIELDS,
-            ortholog_fields=self._ORTHOLOG_FIELDS,
-            ortholog_priority=self._ORTHOLOG_PRIORITY,
+        )
+        self.id_mapping_client = UniProtIdMappingClient(
+            client=id_mapping_client,
+            batch_size=self._IDMAPPING_BATCH_SIZE,
+            poll_interval=self._IDMAPPING_POLL_INTERVAL,
+            max_wait=self._IDMAPPING_MAX_WAIT,
+        )
+        self.ortholog_client = UniProtOrthologClient(
+            client=ortholog_client,
+            fields=self._ORTHOLOG_FIELDS,
+            priority_map=self._ORTHOLOG_PRIORITY,
+        )
+
+        self.normalizer = UniProtNormalizer(
+            search_client=self.search_client,
+            id_mapping_client=self.id_mapping_client,
+            ortholog_client=self.ortholog_client,
         )
 
     def close_resources(self) -> None:
@@ -88,33 +103,6 @@ class UniProtPipeline(PipelineBase):
                 self._close_resource(client, resource_name=f"api_client.{name}")
         finally:
             super().close_resources()
-
-    def _record_missing_mapping(
-        self,
-        *,
-        stage: str,
-        target_id: Any | None,
-        accession: Any | None,
-        resolution: str,
-        status: str,
-        resolved_accession: Any | None = None,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        record: dict[str, Any] = {
-            "stage": stage,
-            "input_accession": accession,
-            "resolved_accession": resolved_accession,
-            "resolution": resolution,
-            "status": status,
-        }
-        if target_id is not None:
-            record["submitted_id"] = target_id
-        if details:
-            try:
-                record["details"] = json.dumps(details, ensure_ascii=False, sort_keys=True)
-            except TypeError:
-                record["details"] = str(details)
-        self._qc_missing_mapping_records.append(record)
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Read seed dataset for UniProt enrichment."""
@@ -137,7 +125,7 @@ class UniProtPipeline(PipelineBase):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich with UniProt metadata and prepare QC artifacts."""
 
-        result = self.uniprot_service.enrich_targets(
+        result = self.normalizer.enrich_targets(
             df,
             accession_column="uniprot_accession",
             target_id_column=None,
@@ -148,7 +136,7 @@ class UniProtPipeline(PipelineBase):
 
         self._qc_missing_mapping_records.clear()
         for record in result.missing_mappings:
-            self._record_missing_mapping(**record)
+            self._qc_missing_mapping_records.append(record)
         for issue in result.validation_issues:
             self.record_validation_issue(issue)
 
@@ -241,6 +229,3 @@ class UniProtPipeline(PipelineBase):
             dataset_name="uniprot",
             severity="critical",
         )
-
-
-__all__ = ["UniProtPipeline"]
