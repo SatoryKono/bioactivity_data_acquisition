@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+import pytest
+
 from bioetl.utils.chembl import ChemblRelease, _resolve_release_name, fetch_chembl_release
 
 
@@ -95,3 +97,22 @@ def test_fetch_release_uses_fallback_keys():
 
     assert release.version == "ChEMBL_ALT"
     assert release.status is payload
+
+
+@pytest.mark.parametrize(
+    "key",
+    (
+        "chembl_db_version",
+        "chembl_db_release",
+        "chembl_release",
+        "chembl_release_version",
+        "version",
+        "name",
+    ),
+)
+def test_resolve_release_name_handles_alternative_keys(key: str):
+    """All supported status keys should resolve to a trimmed version string."""
+
+    payload = {key: "  ChEMBL_999  "}
+
+    assert _resolve_release_name(payload) == "ChEMBL_999"
