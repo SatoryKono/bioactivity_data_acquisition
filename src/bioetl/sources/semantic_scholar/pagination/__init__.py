@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.pagination import OffsetPaginationStrategy
 
 __all__ = ["OffsetPaginator"]
 
@@ -17,6 +18,9 @@ class OffsetPaginator:
     client: UnifiedAPIClient
     page_size: int = 100
 
+    def __post_init__(self) -> None:
+        self._strategy = OffsetPaginationStrategy(self.client)
+
     def fetch_all(
         self,
         path: str,
@@ -26,32 +30,16 @@ class OffsetPaginator:
     ) -> list[dict[str, Any]]:
         """Fetch and aggregate all pages from the search endpoint."""
 
-        collected: list[dict[str, Any]] = []
-        offset = 0
-
-        while True:
-            query: dict[str, Any] = dict(params or {})
-            query["limit"] = self.page_size
-            query["offset"] = offset
-
-            payload = self.client.request_json(path, params=query)
-            if not isinstance(payload, Mapping):
-                break
-
+        def extract_items(payload: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
             items = payload.get("data", [])
-            if not isinstance(items, list) or not items:
-                break
+            if isinstance(items, Sequence):
+                return [item for item in items if isinstance(item, Mapping)]
+            return []
 
-            for item in items:
-                if isinstance(item, Mapping):
-                    collected.append(dict(item))
-
-            if max_items is not None and len(collected) >= max_items:
-                return collected[:max_items]
-
-            if len(items) < self.page_size:
-                break
-
-            offset += self.page_size
-
-        return collected
+        return self._strategy.collect(
+            path,
+            page_size=self.page_size,
+            params=params,
+            max_items=max_items,
+            extract_items=extract_items,
+        )

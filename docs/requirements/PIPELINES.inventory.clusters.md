@@ -1,9 +1,9 @@
 # Pipeline Inventory Clusters
 
-Generated on 2025-10-31T14:38:04+00:00
+Generated on 2025-10-31T14:38:34+00:00
 
 ## Cluster 1
-Cluster size: 302
+Cluster size: 303
 - src/bioetl/adapters/__init__.py (source: adapters)
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
@@ -29,6 +29,8 @@ Cluster size: 302
 - src/bioetl/core/logger.py (source: core)
 - src/bioetl/core/materialization.py (source: core)
 - src/bioetl/core/output_writer.py (source: core)
+- src/bioetl/core/pagination/__init__.py (source: pagination)
+- src/bioetl/core/pagination/strategy.py (source: pagination)
 - src/bioetl/core/unified_schema.py (source: core)
 - src/bioetl/inventory/collector.py (source: inventory)
 - src/bioetl/inventory/config.py (source: inventory)
@@ -264,6 +266,7 @@ Cluster size: 302
 - tests/unit/normalizers/test_identifier_normalizer_properties.py (source: tests)
 - tests/unit/normalizers/test_numeric_normalizer_properties.py (source: tests)
 - tests/unit/normalizers/test_string_normalizer_properties.py (source: tests)
+- tests/unit/pagination/test_strategies.py (source: tests)
 - tests/unit/sources/chembl/testitem/test_client.py (source: testitem)
 - tests/unit/sources/chembl/testitem/test_parser.py (source: testitem)
 - tests/unit/sources/chembl/testitem/test_parser_properties.py (source: testitem)
