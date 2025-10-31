@@ -251,7 +251,7 @@ Current
 
 Target
 Шаблонный парсер; нормализатор на UnifiedSchema.
-[ref: repo:src/bioetl/core/unified_schema.py@test_refactoring_32]
+[ref: repo:src/bioetl/core/unified_schema.py]
 
 UnifiedSchema — система нормализации и валидации, объединяющая:
 
@@ -344,12 +344,12 @@ Current
 Схемы распылены, расхождения типов/единиц.
 
 Target
-Реестр: [ref: repo:src/bioetl/schemas/@test_refactoring_32]
+Реестр: [ref: repo:src/bioetl/core/unified_schema.py]
 Сущности: documents, targets, assays, testitems, activities.
 
 Schema Registry:
 
-Централизованный реестр Pandera-схем с версионированием. Каждая схема содержит:
+Централизованный реестр Pandera-схем с версионированием. Официальный фасад (`bioetl.core.unified_schema`) инкапсулирует операции `register_schema()`, `get_schema()` и `get_schema_metadata()`, чтобы пайплайны не зависели от внутренних структур `SchemaRegistry`. Каждая схема содержит:
 
 - `schema_id`: уникальный идентификатор (например, `document.chembl`)
 - `schema_version`: семантическая версия (semver: MAJOR.MINOR.PATCH)

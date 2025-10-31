@@ -10,7 +10,7 @@
 
 `transform()` и `validate()` обязаны принимать и возвращать `pd.DataFrame`, обеспечивая единый поток данных между стадиями, а `export()` фиксирует результат через `UnifiedOutputWriter` c учётом детерминизма и QC-метрик.【F:src/bioetl/pipelines/base.py†L785-L880】
 
-Полученный датафрейм сразу связывается со схемой из централизованного `schema_registry`. Реестр фиксирует `schema_id`, `schema_version`, `column_order`, `na_policy` и `precision_policy`, что затем попадает в метаданные. Fail-fast проверку дрейфа колонок выполняет `PipelineBase.export()`, сравнивающая `df.columns` с порядком из реестра до записи файлов.【F:src/bioetl/schemas/registry.py†L22-L109】【F:src/bioetl/pipelines/base.py†L826-L855】
+Полученный датафрейм сразу связывается со схемой из централизованного `schema_registry` (фасад `bioetl.core.unified_schema`). Реестр фиксирует `schema_id`, `schema_version`, `column_order`, `na_policy` и `precision_policy`, что затем попадает в метаданные. Fail-fast проверку дрейфа колонок выполняет `PipelineBase.export()`, сравнивающая `df.columns` с порядком из реестра до записи файлов.【F:src/bioetl/core/unified_schema.py†L19-L82】【F:src/bioetl/schemas/registry.py†L22-L109】【F:src/bioetl/pipelines/base.py†L826-L855】
 
 Форматы ответа: JSON по умолчанию; для NCBI E-utilities поддерживается XML/Medline (efetch, esummary), что отражается в парсере. Идентификация клиента для Crossref/OpenAlex должна включать mailto и корректный User-Agent — это влияет на квоты и «polite pool».
 
@@ -90,7 +90,7 @@ data/<source>/
 - `row_count`, `column_count`, `column_order` — фактическая форма датасета после применения детерминизма.【F:src/bioetl/core/output_writer.py†L998-L1001】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L118-L120】
 - `file_checksums` — словарь SHA256 по всем обязательным и дополнительным файлам (`dataset`, `quality_report`, дополнительные таблицы, QC-отчёты). Контрольная сумма вычисляется для каждого файла, который попал в артефакты.【F:src/bioetl/core/output_writer.py†L745-L768】
 - `config_hash`, `git_commit`, `sources` — слепок конфигурации, Git-коммит (может быть `null`) и список включённых источников. Источники сортируются детерминированно.【F:src/bioetl/core/output_writer.py†L1002-L1004】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L113-L116】
-- `schema_id`, `schema_version`, `column_order_source`, `na_policy`, `precision_policy` — атрибуты из `SchemaRegistry`, фиксирующие происхождение и правила сериализации колонок.【F:src/bioetl/core/output_writer.py†L1005-L1009】
+- `schema_id`, `schema_version`, `column_order_source`, `na_policy`, `precision_policy` — атрибуты из `SchemaRegistry`, фиксирующие происхождение и правила сериализации колонок (см. фасад `bioetl.core.unified_schema`).【F:src/bioetl/core/output_writer.py†L1005-L1009】【F:src/bioetl/core/unified_schema.py†L19-L82】
 
 Дополнительно в файл автоматически добавляются:
 
@@ -155,7 +155,7 @@ lineage:
 
 ### Schema Registry
 
-Централизованный реестр Pandera-схем с версионированием.
+Централизованный реестр Pandera-схем с версионированием. Официальная точка входа — фасад `bioetl.core.unified_schema`, предоставляющий `register_schema()`, `get_schema()` и `get_schema_metadata()` для доступа к данным реестра без прямых зависимостей от конкретных модулей схем.【F:src/bioetl/core/unified_schema.py†L19-L82】
 
 #### Структура схемы
 
