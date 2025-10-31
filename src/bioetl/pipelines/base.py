@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 from abc import ABC, abstractmethod
 from datetime import datetime
+from time import perf_counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -127,6 +128,7 @@ class PipelineBase(ABC):
         self.export_metadata: OutputMetadata | None = None
         self.debug_dataset_path: Path | None = None
         self.stage_context: dict[str, Any] = {}
+        self.stage_durations: dict[str, float] = {}
         self._clients: list[UnifiedAPIClient] = []
         logger.info("pipeline_initialized", pipeline=config.pipeline.name, run_id=run_id)
 
@@ -158,6 +160,35 @@ class PipelineBase(ABC):
         """Clear any data cached by enrichment stages."""
 
         self.stage_context.clear()
+
+    def _record_stage_duration(self, stage: str, duration: float) -> None:
+        """Persist elapsed wall-clock time for ``stage`` and update metadata."""
+
+        safe_duration = round(float(duration), 6)
+        self.stage_durations[stage] = safe_duration
+
+        if self.export_metadata is not None:
+            self.export_metadata = replace(
+                self.export_metadata,
+                stage_durations=dict(self.stage_durations),
+            )
+
+    def _build_pii_secrets_policy(self) -> dict[str, Any]:
+        """Assemble a per-run policy description for PII and secret handling."""
+
+        policy = OutputMetadata.default_pii_policy()
+        policy.update(
+            {
+                "pii_review": "Schema registry audits enforce absence of personal identifiers.",
+                "secret_storage": "Operational secrets remain in environment variables/.env; config hashes track rotation.",
+            }
+        )
+
+        config_hash = getattr(self.config, "config_hash", None)
+        if config_hash:
+            policy["config_hash_reference"] = config_hash
+
+        return policy
 
     def reset_run_state(self) -> None:
         """Reset per-run quality control tracking containers."""
@@ -380,6 +411,8 @@ class PipelineBase(ABC):
 
             schema=resolved_schema,
             hash_policy_version=resolved_hash_policy_version,
+            stage_durations=self.stage_durations,
+            pii_secrets_policy=self._build_pii_secrets_policy(),
         )
 
         self.set_export_metadata(metadata)
@@ -926,6 +959,13 @@ class PipelineBase(ABC):
                     else:
                         sort_ascending.append(True)
 
+        if self.export_metadata is not None:
+            self.export_metadata = replace(
+                self.export_metadata,
+                sort_keys=list(sort_columns),
+                sort_directions=[bool(value) for value in sort_ascending],
+            )
+
         export_frame = df
         if configured_order:
             export_frame = df.copy()
@@ -972,6 +1012,7 @@ class PipelineBase(ABC):
 
         if artifacts.metadata_model is not None:
             self.export_metadata = artifacts.metadata_model
+            self.stage_durations = dict(artifacts.metadata_model.stage_durations)
 
         return artifacts
 
@@ -1154,23 +1195,36 @@ class PipelineBase(ABC):
         try:
             self.reset_run_state()
             self.reset_additional_tables()
+            self.stage_durations.clear()
             if previous_runtime_options:
                 self.runtime_options.update(previous_runtime_options)
             self.export_metadata = None
             self.debug_dataset_path = None
             # Extract
             UnifiedLogger.set_context(stage="extract")
-            df = self.extract(*args, **kwargs)
+            extract_start = perf_counter()
+            try:
+                df = self.extract(*args, **kwargs)
+            finally:
+                self._record_stage_duration("extract", perf_counter() - extract_start)
             logger.info("extraction_completed", rows=len(df))
 
             # Transform
             UnifiedLogger.set_context(stage="transform")
-            df = self.transform(df)
+            transform_start = perf_counter()
+            try:
+                df = self.transform(df)
+            finally:
+                self._record_stage_duration("transform", perf_counter() - transform_start)
             logger.info("transformation_completed", rows=len(df))
 
             # Validate
             UnifiedLogger.set_context(stage="validate")
-            df = self.validate(df)
+            validate_start = perf_counter()
+            try:
+                df = self.validate(df)
+            finally:
+                self._record_stage_duration("validate", perf_counter() - validate_start)
             logger.info("validation_completed", rows=len(df))
 
             self.debug_dataset_path = self._dump_debug_output(df, output_path)

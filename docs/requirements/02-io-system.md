@@ -858,6 +858,23 @@ checksums:
   dataset: "sha256:abc123..."
   quality: "sha256:def456..."
   correlation: "sha256:ghi789..."  # Опционально, только если correlation enabled
+checksum_algorithm: "sha256"
+quantitative_metrics:
+  row_count: 12345
+  column_count: 42
+  duplicate_rows: 12
+stage_durations:
+  extract: 1.23
+  transform: 0.87
+  validate: 0.44
+  load: 2.65
+sort_keys: []
+sort_directions: []
+pii_secrets_policy:
+  pii_expected: false
+  pii_controls: "Derived from public ChEMBL records; personal identifiers are removed upstream."
+  secret_management: "API credentials via env / secrets manager"
+  pii_review: "Schema registry audits enforce absence of personal identifiers."
 git_commit: "a1b2c3d"
 generated_at: "2025-01-28T14:23:15.123Z"
 lineage:
@@ -877,6 +894,11 @@ lineage:
 - `run_id`: уникальный идентификатор запуска (UUID8 или timestamp-based)
 - `config_hash`: SHA256 хеш конфигурации (после резолва переменных окружения)
 - `config_snapshot`: путь и хеш исходного файла конфигурации
+- `checksum_algorithm`: алгоритм, которым рассчитаны `file_checksums`
+- `quantitative_metrics`: числовые показатели качества (объём, дубликаты, пропуски)
+- `stage_durations`: длительность стадий ETL (extract/transform/validate/load)
+- `sort_keys`/`sort_directions`: применённая детерминированная сортировка
+- `pii_secrets_policy`: политика обращения с PII и секретами для трассируемости аудита
 
 **Обоснование:** Обеспечивает полную воспроизводимость и аудит запусков, закрывает требование R2 из gap-анализа.
 
