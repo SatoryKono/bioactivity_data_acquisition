@@ -97,7 +97,7 @@ datatracker.ietf.org
 
 ### Хеши (MUST)
 
-`hash_row` и `hash_business_key` — BLAKE2 (hex), перед хешированием применять нормализацию типов/локали/регистров, исключить нестабильные поля (время генерации, случайные ID).
+`hash_row` и `hash_business_key` — SHA256 (hex) из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py); перед хешированием применять нормализацию типов/локали/регистров, исключить нестабильные поля (время генерации, случайные ID). Каноническая политика описана в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
 
 ### Атомарная запись (MUST)
 
