@@ -14,20 +14,25 @@ datatracker.ietf.org
 
 `src/bioetl/sources/<source>/` с подпапками:
 
-- `client/`        # сетевые вызовы и политики отказоустойчивости
-- `request/`       # сборка запросов (URL/headers/params) и "этикет" API
-- `pagination/`    # стратегии пагинации (PageNumber/Cursor/OffsetLimit/Token)
-- `parser/`        # разбор ответов API (чистые функции, без IO)
-- `normalizer/`    # приведение к UnifiedSchema, единицы/идентификаторы
+- `client/`        # сетевые вызовы и политики отказоустойчивости (MUST)
+- `request/`       # сборка запросов (URL/headers/params) и "этикет" API (MUST)
+- `parser/`        # разбор ответов API (чистые функции, без IO) (MUST)
+- `normalizer/`    # приведение к UnifiedSchema, единицы/идентификаторы (MUST)
+- `output/`        # детерминированная запись, хеши, meta.yaml (MUST)
+- `pipeline.py`    # координация шагов PipelineBase (MUST)
+
+Опциональные подпапки (SHOULD, если применимо к источнику):
+
 - `schema/`        # Pandera-схемы и helper-валидаторы
 - `merge/`         # MergePolicy: ключи и стратегии объединения
-- `output/`        # детерминированная запись, хеши, meta.yaml
-- `pipeline.py`    # координация шагов PipelineBase
+- `pagination/`    # стратегии пагинации (PageNumber/Cursor/OffsetLimit/Token)
+
+Фактическое дерево поддерживается артефактом инвентаризации и генерируется командой `python src/scripts/run_inventory.py --config configs/inventory.yaml`, результат доступен в `docs/requirements/PIPELINES.inventory.csv`.
 
 
 ### Именование файлов (MUST)
 
-Говорящие, стабильные имена: `<source>_parser.py`, `<source>_schema.py`, `<source>_normalizer.py`. Экспортируемые символы фиксируются через `__all__` (MUST) для явного публичного API. Общие компоненты размещаются под `src/bioetl/core/` и MUST NOT содержать логики конкретных источников. Стиль имён — PEP 8: `snake_case` для функций/переменных, `CapWords` для классов. 
+Говорящие, стабильные имена: `<source>_parser.py`, `<source>_schema.py`, `<source>_normalizer.py`. Экспортируемые символы фиксируются через `__all__` (MUST) для явного публичного API. Общие компоненты размещаются под `src/bioetl/core/` и MUST NOT содержать логики конкретных источников. Для источников без выделенных слоёв допускается использование общих реализаций (например, Pandera-схем из `src/bioetl/schemas`) с явной документацией ссылок на переиспользуемые компоненты. Стиль имён — PEP 8: `snake_case` для функций/переменных, `CapWords` для классов.
 
 ### Тесты и доки (MUST)
 
