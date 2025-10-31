@@ -56,8 +56,11 @@ _SCHEMA_EXPORTS: dict[str, str] = {
     "schema_registry": "bioetl.schemas.registry",
 }
 
+# Explicit import for ActivitySchema to ensure static type checkers can resolve it
+from bioetl.schemas.activity import ActivitySchema  # noqa: PLC0415
+
 if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
-    from bioetl.schemas.activity import ActivitySchema
+    # ActivitySchema is already imported above
     from bioetl.schemas.assay import AssaySchema
     from bioetl.schemas.base import BaseSchema
     from bioetl.schemas.document import (
@@ -85,9 +88,9 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
 
 def __getattr__(name: str) -> Any:
     """Resolve schema exports lazily to avoid import-time side effects."""
-    # ActivitySchema is explicitly imported, so skip lazy loading
+    # ActivitySchema is explicitly imported above, so this should never be reached
     if name == "ActivitySchema":
-        # This should never be reached since ActivitySchema is explicitly imported
+        # Fallback for runtime access (should not be needed due to explicit import)
         from bioetl.schemas.activity import ActivitySchema
         return ActivitySchema
 
