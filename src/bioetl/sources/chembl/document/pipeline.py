@@ -226,7 +226,7 @@ class DocumentPipeline(PipelineBase):
     def _prepare_enrichment_adapters(self) -> None:
         """Ensure external adapters reflect the active execution mode."""
 
-        if isinstance(self.mode, str) and self.mode != "all":
+        if self.mode != "all":
             if self._adapter_initialization_mode == "all" and self.external_adapters:
                 logger.info("external_adapters_released", mode=self.mode)
                 self._release_external_adapters()
