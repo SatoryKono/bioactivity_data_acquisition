@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Iterable
 from typing import Any
+import pandas as pd
 
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.deprecation import warn_legacy_client
@@ -90,3 +91,42 @@ class UniProtIdMappingClient:
                 or []
             )
         return result
+
+    # Compatibility shim for legacy client API
+    def map_accessions(self, identifiers: Iterable[str | int | float | None]) -> pd.DataFrame:
+        """Backwards-compatible helper that maps accessions to canonical IDs.
+
+        Returns a dataframe with columns: submitted_id, canonical_accession, isoform_accession.
+        """
+        values = [str(v).strip() for v in identifiers if v is not None and str(v).strip()]
+        if not values:
+            return pd.DataFrame(
+                columns=["submitted_id", "canonical_accession", "isoform_accession"]
+            )
+        job_id = self.map(values)
+        if not job_id:
+            return pd.DataFrame(
+                columns=["submitted_id", "canonical_accession", "isoform_accession"]
+            )
+        payload = self.poll(job_id)
+        results = payload.get("results") or payload.get("mappedTo") or []
+        rows: list[dict[str, Any]] = []
+        for item in results:
+            submitted = item.get("from") or item.get("accession") or item.get("input")
+            to_entry = item.get("to") or item.get("mappedTo") or {}
+            canonical: Any | None
+            isoform: Any | None
+            if isinstance(to_entry, dict):
+                canonical = to_entry.get("primaryAccession") or to_entry.get("accession")
+                isoform = to_entry.get("isoformAccession") or to_entry.get("isoform")
+            else:
+                canonical = to_entry
+                isoform = None
+            rows.append(
+                {
+                    "submitted_id": submitted,
+                    "canonical_accession": canonical,
+                    "isoform_accession": isoform,
+                }
+            )
+        return pd.DataFrame(rows).convert_dtypes()

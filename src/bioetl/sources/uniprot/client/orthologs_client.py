@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+import pandas as pd
 
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.deprecation import warn_legacy_client
@@ -54,3 +55,51 @@ class UniProtOrthologsClient:
             return []
 
         return [entry for entry in entries if isinstance(entry, dict)]
+
+
+@dataclass(slots=True)
+class UniProtOrthologClientAdapter:
+    """Compatibility adapter exposing legacy ``fetch(accession, taxonomy_id)``.
+
+    Wraps a ``UniProtOrthologsClient`` and converts results to a dataframe with
+    priority scoring using a provided priority map.
+    """
+
+    client: UniProtOrthologsClient
+    priority_map: dict[str, int]
+
+    def fetch(self, accession: str, taxonomy_id: Any | None = None) -> pd.DataFrame:
+        entries = self.client.fetch(accession)
+        records: list[dict[str, Any]] = []
+        for item in entries:
+            ortholog_acc = item.get("primaryAccession") or item.get("accession")
+            organism = item.get("organism", {}) if isinstance(item.get("organism"), dict) else item.get("organism")
+            if isinstance(organism, dict):
+                organism_name = organism.get("scientificName") or organism.get("commonName")
+                organism_id = organism.get("taxonId") or organism.get("taxonIdentifier")
+            else:
+                organism_name = organism
+                organism_id = item.get("organismId")
+            organism_id_str = str(organism_id) if organism_id is not None else None
+            priority = self.priority_map.get(organism_id_str or "", 99)
+            records.append(
+                {
+                    "source_accession": accession,
+                    "ortholog_accession": ortholog_acc,
+                    "organism": organism_name,
+                    "organism_id": organism_id,
+                    "priority": priority,
+                }
+            )
+
+        if taxonomy_id is not None:
+            try:
+                taxonomy_str = str(int(taxonomy_id))
+            except (TypeError, ValueError):
+                taxonomy_str = None
+            if taxonomy_str:
+                for record in records:
+                    if str(record.get("organism_id")) == taxonomy_str:
+                        record["priority"] = min(int(record.get("priority", 99)), -1)
+
+        return pd.DataFrame(records).convert_dtypes()

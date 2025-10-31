@@ -24,56 +24,12 @@ from bioetl.schemas import (
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
-# Import UniProtSearchClient, UniProtIdMappingClient and UniProtOrthologClient directly from client.py module (not from client package)
-# The client package __init__.py exports from search_client.py/idmapping_client.py/orthologs_client.py which have different APIs
-# We need the version from client.py which has (client, fields, batch_size) API
-try:
-    import sys
-    import importlib.util
-
-    # Get the path to client.py
-    uniprot_dir = Path(__file__).parent.parent.parent / "uniprot"
-    client_py_file = uniprot_dir / "client.py"
-
-    if client_py_file.exists():
-        # Check if already loaded by checking both the file path and the module name
-        module_key = str(client_py_file)
-        module_name = "bioetl.sources.uniprot._client_py_module"
-        # Check if already loaded in sys.modules by file path or module name
-        if module_key in sys.modules:
-            client_module = sys.modules[module_key]
-        elif module_name in sys.modules:
-            client_module = sys.modules[module_name]
-        else:
-            # Load the module directly from the file
-            # Use a different name in sys.modules to avoid overwriting the package
-            spec = importlib.util.spec_from_file_location(module_name, client_py_file)
-            if spec and spec.loader:
-                client_module = importlib.util.module_from_spec(spec)
-                # Set proper module attributes for imports to work
-                client_module.__name__ = module_name
-                client_module.__package__ = "bioetl.sources.uniprot"
-                client_module.__file__ = str(client_py_file)
-                # Register in sys.modules under both file path and module name
-                sys.modules[module_key] = client_module
-                sys.modules[module_name] = client_module
-                # Execute the module
-                spec.loader.exec_module(client_module)
-            else:
-                raise ImportError("Could not create module spec")
-        UniProtSearchClient = client_module.UniProtSearchClient
-        UniProtIdMappingClient = client_module.UniProtIdMappingClient
-        # In client.py, the class is called UniProtOrthologClient (without 's')
-        UniProtOrthologsClient = client_module.UniProtOrthologClient
-    else:
-        raise FileNotFoundError(f"client.py not found at {client_py_file}")
-except Exception:
-    # Fallback to package import (will use search_client.py/idmapping_client.py/orthologs_client.py versions)
-    from bioetl.sources.uniprot.client import (
-        UniProtIdMappingClient,
-        UniProtOrthologsClient,
-        UniProtSearchClient,
-    )
+from bioetl.sources.uniprot.client.search_client import UniProtSearchClient
+from bioetl.sources.uniprot.client.idmapping_client import UniProtIdMappingClient
+from bioetl.sources.uniprot.client.orthologs_client import (
+    UniProtOrthologsClient,
+    UniProtOrthologClientAdapter,
+)
 from bioetl.utils.qc import (
     prepare_missing_mappings,
     update_summary_metrics,
@@ -167,23 +123,28 @@ class TargetPipeline(PipelineBase):
             record_missing_mapping=self._record_missing_mapping,
         )
 
-        self.uniprot_search_client = UniProtSearchClient(
-            client=self.uniprot_client,
-            fields=self._UNIPROT_FIELDS,
-            batch_size=self._UNIPROT_BATCH_SIZE,
+        self.uniprot_search_client = (
+            UniProtSearchClient(api=self.uniprot_client, default_fields=self._UNIPROT_FIELDS)
+            if self.uniprot_client is not None
+            else None
         )
-        self.uniprot_id_mapping_client = UniProtIdMappingClient(
-            client=self.uniprot_idmapping_client,
-            batch_size=self._IDMAPPING_BATCH_SIZE,
-            poll_interval=self._IDMAPPING_POLL_INTERVAL,
-            max_wait=self._IDMAPPING_MAX_WAIT,
+        self.uniprot_id_mapping_client = (
+            UniProtIdMappingClient(api=self.uniprot_idmapping_client)
+            if self.uniprot_idmapping_client is not None
+            else None
         )
         ortholog_base_client = self.uniprot_orthologs_client or self.uniprot_client
-        self.uniprot_ortholog_client = UniProtOrthologsClient(
-            client=ortholog_base_client,
-            fields=self._ORTHOLOG_FIELDS,
-            priority_map=self._ORTHOLOG_PRIORITY,
-        )
+        if ortholog_base_client is not None:
+            base_ortholog_client = UniProtOrthologsClient(
+                api=ortholog_base_client,
+                default_fields=self._ORTHOLOG_FIELDS,
+            )
+            self.uniprot_ortholog_client = UniProtOrthologClientAdapter(
+                client=base_ortholog_client,
+                priority_map=self._ORTHOLOG_PRIORITY,
+            )
+        else:
+            self.uniprot_ortholog_client = None
         self.missing_mapping_recorder = MissingMappingRecorder()
         self.enricher = TargetEnricher(
             uniprot_search_client=self.uniprot_search_client,

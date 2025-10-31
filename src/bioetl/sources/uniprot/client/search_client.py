@@ -74,6 +74,16 @@ class UniProtSearchClient:
             result[str(primary)] = item
         return result
 
+    # Compatibility shim for legacy client API
+    def fetch_entries(
+        self, accessions: Iterable[str | int | float | None]
+    ) -> dict[str, dict[str, Any]]:
+        """Backwards-compatible alias that delegates to ``fetch``.
+
+        Matches legacy ``UniProtSearchClient.fetch_entries`` used by normalizers.
+        """
+        return self.fetch(accessions)
+
     def search_by_gene(
         self,
         gene_symbol: str,

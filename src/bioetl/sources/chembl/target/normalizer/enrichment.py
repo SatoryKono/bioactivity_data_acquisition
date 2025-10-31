@@ -9,55 +9,12 @@ import pandas as pd
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.parser import parse_api_response
 from bioetl.sources.iuphar.service import IupharService
-# Import UniProtSearchClient, UniProtIdMappingClient and UniProtOrthologClient from parent module client.py (not from client package)
-# The client.py versions have the correct API (client, fields, batch_size, fetch_entries)
-# while idmapping_client.py and orthologs_client.py have different APIs
-try:
-    import sys
-    import importlib.util
-    from pathlib import Path
-    
-    # Get the path to client.py
-    # enrichment.py is in normalizer/ subdirectory, so we need one more parent
-    uniprot_dir = Path(__file__).parent.parent.parent.parent / "uniprot"
-    client_py_file = uniprot_dir / "client.py"
-    
-    if client_py_file.exists():
-        # Check if already loaded by checking both the file path and the module name
-        module_key = str(client_py_file)
-        module_name = "bioetl.sources.uniprot._client_py_module"
-        # Check if already loaded in sys.modules by file path or module name
-        if module_key in sys.modules:
-            client_module = sys.modules[module_key]
-        elif module_name in sys.modules:
-            client_module = sys.modules[module_name]
-        else:
-            # Use a different name in sys.modules to avoid overwriting the package
-            spec = importlib.util.spec_from_file_location(module_name, client_py_file)
-            if spec and spec.loader:
-                client_module = importlib.util.module_from_spec(spec)
-                client_module.__name__ = module_name
-                client_module.__package__ = "bioetl.sources.uniprot"
-                client_module.__file__ = str(client_py_file)
-                # Register in sys.modules under both file path and module name
-                sys.modules[module_key] = client_module
-                sys.modules[module_name] = client_module
-                spec.loader.exec_module(client_module)
-            else:
-                raise ImportError("Could not create module spec")
-        UniProtSearchClient = client_module.UniProtSearchClient
-        UniProtIdMappingClient = client_module.UniProtIdMappingClient
-        # In client.py, the class is called UniProtOrthologClient (without 's')
-        UniProtOrthologsClient = client_module.UniProtOrthologClient
-    else:
-        raise FileNotFoundError(f"client.py not found at {client_py_file}")
-except Exception:
-    # Fallback to package import (will use idmapping_client.py/orthologs_client.py versions)
-    from bioetl.sources.uniprot.client import (
-        UniProtIdMappingClient,
-        UniProtOrthologsClient,
-        UniProtSearchClient,
-    )
+from bioetl.sources.uniprot.client.search_client import UniProtSearchClient
+from bioetl.sources.uniprot.client.idmapping_client import UniProtIdMappingClient
+from bioetl.sources.uniprot.client.orthologs_client import (
+    UniProtOrthologsClient,
+    UniProtOrthologClientAdapter,
+)
 from bioetl.sources.uniprot.normalizer import UniProtNormalizer
 
 __all__ = [
@@ -108,7 +65,7 @@ class TargetEnricher:
 
     uniprot_search_client: UniProtSearchClient | None
     uniprot_id_mapping_client: UniProtIdMappingClient | None
-    uniprot_ortholog_client: UniProtOrthologsClient | None
+    uniprot_ortholog_client: UniProtOrthologsClient | UniProtOrthologClientAdapter | None
     iuphar_service: IupharService
     iuphar_paginator: PageNumberPaginator | None = None
     uniprot_normalizer: UniProtNormalizer | None = field(init=False, default=None)

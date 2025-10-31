@@ -30,19 +30,9 @@ from .parser_utils import (
     extract_taxonomy_id,
 )
 
+from .normalizer.types import UniProtEnrichmentResult
+
 logger = UnifiedLogger.get(__name__)
-
-
-@dataclass(slots=True)
-class UniProtEnrichmentResult:
-    """Container holding UniProt enrichment artefacts."""
-
-    dataframe: pd.DataFrame
-    silver: pd.DataFrame
-    components: pd.DataFrame
-    metrics: dict[str, Any]
-    missing_mappings: list[dict[str, Any]] = field(default_factory=list)
-    validation_issues: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
