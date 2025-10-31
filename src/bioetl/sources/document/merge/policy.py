@@ -6,6 +6,7 @@ import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.sources.crossref.merge import merge_crossref_with_base
+from bioetl.sources.openalex.merge import merge_openalex_with_base
 from bioetl.sources.pubmed.merge import merge_pubmed_with_base
 
 __all__ = [
@@ -237,17 +238,13 @@ def merge_with_precedence(
         )
 
     if openalex_df is not None and not openalex_df.empty:
-        if "doi_clean" in openalex_df.columns and "chembl_doi" in merged_df.columns:
-            openalex_prefixed = openalex_df.add_prefix("openalex_")
-            if "openalex_doi_clean" in openalex_prefixed.columns:
-                openalex_prefixed["openalex_doi"] = openalex_prefixed["openalex_doi_clean"]
-
-            merged_df = merged_df.merge(
-                openalex_prefixed,
-                left_on="chembl_doi",
-                right_on="openalex_doi_clean",
-                how="left",
-            )
+        merged_df = merge_openalex_with_base(
+            merged_df,
+            openalex_df,
+            base_doi_column="chembl_doi",
+            base_pmid_column="chembl_pmid",
+            conflict_detection=False,
+        )
 
     if semantic_scholar_df is not None and not semantic_scholar_df.empty:
         ss_prefixed = semantic_scholar_df.add_prefix("semantic_scholar_")
