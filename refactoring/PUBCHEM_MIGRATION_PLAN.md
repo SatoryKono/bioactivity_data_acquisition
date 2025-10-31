@@ -2,21 +2,24 @@
 
 > **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) уже следуют модульной схеме (client/, request/, parser/, normalizer/, output/, pipeline.py; дополнительно schema/, merge/, pagination/ при необходимости). Для ChEMBL исторические файлы в `src/bioetl/pipelines/*.py` выступают совместимыми реэкспортами (например, `src/bioetl/pipelines/activity.py` перенаправляет на `src/bioetl/sources/chembl/activity/pipeline.py`, `src/bioetl/pipelines/document.py` — на `src/bioetl/sources/chembl/document/pipeline.py`). Целевая структура закреплена в `src/bioetl/sources/chembl/<entity>/pipeline.py`.
 
-**Дата:** 2025-01-29
-**Цель:** Миграция всех компонентов PubChem из `pipelines/pubchem.py` и `adapters/pubchem.py` в модульную структуру `sources/pubchem/` согласно MODULE_RULES.md, без поддержки обратной совместимости.
+**Дата обновления:** 2025-01-29
+**Цель:** Зафиксировать факт завершённой миграции компонентов PubChem из `pipelines/pubchem.py` и `adapters/pubchem.py` в модульную структуру `sources/pubchem/` согласно MODULE_RULES.md, а также определить оставшиеся пост-миграционные задачи (QC, валидация, smoke-тесты).
 
 ## Текущее состояние
 
-### Монолитные компоненты
-- `src/bioetl/pipelines/pubchem.py` (360 строк) — пайплайн с логикой extract/transform/validate
-- `src/bioetl/adapters/pubchem.py` (377 строк) — адаптер с client/parser/normalizer логикой
-- `src/bioetl/sources/pubchem/pipeline.py` — только прокси-файл для совместимости
+### Модульный пайплайн (факт)
+- `src/bioetl/sources/pubchem/pipeline.py` наследуется от `PipelineBase` и инкапсулирует стадии extract/transform/load.
+- `src/bioetl/sources/pubchem/client/pubchem_client.py` реализует HTTP-доступ через `UnifiedAPIClient`.
+- `src/bioetl/sources/pubchem/parser/pubchem_parser.py` и `normalizer/pubchem_normalizer.py` отвечают за разбор и нормализацию данных.
+- `src/bioetl/sources/pubchem/output/pubchem_output.py` обеспечивает детерминированную запись и отчёты QC.
+- `src/bioetl/sources/pubchem/schema/pubchem_schema.py` содержит Pandera-схемы, используемые валидацией.
+- Тестовый каркас перенесён в `tests/sources/pubchem/` и использует новую модульную архитектуру.
 
-### Существующие модули
-- `src/bioetl/schemas/pubchem.py` — Pandera-схема (сохранить)
-- `tests/sources/pubchem/` — частичные тесты (расширить)
+### Наследие (исторически)
+- `src/bioetl/pipelines/pubchem.py` и `src/bioetl/adapters/pubchem.py` удалены из актуального дерева.
+- Документация и вспомогательные скрипты всё ещё ссылаются на монолит и нуждаются в корректировке.
 
-## Целевая структура
+## Целевая структура (достигнута)
 
 ```
 src/bioetl/sources/pubchem/
@@ -36,13 +39,15 @@ src/bioetl/sources/pubchem/
 │   └── pubchem_normalizer.py      # Нормализация к UnifiedSchema
 ├── schema/
 │   ├── __init__.py
-│   └── pubchem_schema.py          # Pandera-схема (переместить из schemas/)
+│   └── pubchem_schema.py          # Pandera-схема (перенесено из schemas/)
 └── output/
     ├── __init__.py
-    └── pubchem_output.py          # Детерминированная запись (опционально)
+    └── pubchem_output.py          # Детерминированная запись и QC
 ```
 
-## Этапы миграции
+## Этапы миграции (архив)
+
+> Секция сохранена как исторический план миграции 2025-01. Все перечисленные задачи выполнены; используйте как справку при анализе решенных решений.
 
 ### Этап 1: Анализ и декомпозиция
 
@@ -77,9 +82,9 @@ src/bioetl/sources/pubchem/
 | `schema/` | `core/schema_registry` | BaseSchema |
 | `pipeline.py` | все модули | Все |
 
-### Этап 2: Создание модульной структуры
+## Компоненты модульного пайплайна
 
-#### 2.1 Client модуль (`client/pubchem_client.py`)
+#### Client (`client/pubchem_client.py`)
 
 **Ответственность:**
 - HTTP-запросы к PubChem PUG-REST API
@@ -101,13 +106,15 @@ class PubChemClient:
     def from_config(cls, config: PipelineConfig) -> PubChemClient | None
 ```
 
-**Миграция:**
-- Извлечь `_resolve_cid_by_inchikey()`, `_resolve_cids_batch()`, `_fetch_properties_batch()` из адаптера
-- Заменить `_rate_limit()` на UnifiedAPIClient rate limiting
-- Использовать `UnifiedAPIClient.request_json()` для запросов
-- Интегрировать с `APIClientFactory.from_pipeline_config()`
+**Статус:**
+- Реализован, использует `UnifiedAPIClient` и backoff-ретраи.
+- Поддерживает построение батчей CID/свойств и отдаёт JSON-ответы парсеру.
 
-#### 2.2 Request модуль (`request/builder.py`)
+**Пост-миграционные действия:**
+- Добавить smoke-тесты `PubChemPipeline` с моками клиента, чтобы зафиксировать основные HTTP последовательности.
+- Задокументировать лимиты PubChem API (строка/мин) в `docs/requirements/sources/pubchem/README.md`.
+
+#### Request (`request/builder.py`)
 
 **Ответственность:**
 - Построение URL для PubChem endpoints
@@ -124,10 +131,13 @@ class PubChemRequestBuilder:
     def get_default_properties() -> list[str]
 ```
 
-**Миграция:**
-- Извлечь URL-строительство из `client/` методов
+**Статус:**
+- Вынесен в отдельный модуль; методы используются клиентом и тестируются юнит-тестами.
 
-#### 2.3 Parser модуль (`parser/pubchem_parser.py`)
+**Пост-миграционные действия:**
+- Дополнить покрытие негативными кейсами (невалидные идентификаторы) в `tests/sources/pubchem/test_client.py`.
+
+#### Parser (`parser/pubchem_parser.py`)
 
 **Ответственность:**
 - Парсинг JSON ответов PubChem API
@@ -147,11 +157,13 @@ class PubChemParser:
     def extract_properties_from_table(data: dict[str, Any]) -> list[dict[str, Any]]
 ```
 
-**Миграция:**
-- Извлечь логику парсинга из `_resolve_cid_by_inchikey()` и `_fetch_properties_batch()`
-- Убрать сетевые вызовы, оставить только трансформации
+**Статус:**
+- Парсинг вынесен в чистые функции; покрыт тестами `tests/sources/pubchem/test_parser.py`.
 
-#### 2.4 Normalizer модуль (`normalizer/pubchem_normalizer.py`)
+**Пост-миграционные действия:**
+- Добавить проверку на пустые `PropertyTable` с логированием предупреждения в pipeline (см. QC задачи).
+
+#### Normalizer (`normalizer/pubchem_normalizer.py`)
 
 **Ответственность:**
 - Нормализация PubChem записей к UnifiedSchema
@@ -173,24 +185,27 @@ class PubChemNormalizer:
     ) -> pd.DataFrame
 ```
 
-**Миграция:**
-- Извлечь `normalize_record()` из адаптера
-- Извлечь `_normalise_pubchem_types()`, `_ensure_pubchem_columns()` из пайплайна
-- Извлечь `enrich_with_pubchem()` логику из адаптера
-- Использовать UnifiedSchema нормализаторы где возможно
+**Статус:**
+- Нормализация и детерминизм перенесены; класс предоставляет `ensure_columns()` и `normalize_types()`.
 
-#### 2.5 Schema модуль (`schema/pubchem_schema.py`)
+**Пост-миграционные действия:**
+- Расширить QC-показатели (расхождение типов, доля null-значений) и выгружать их через `pubchem_output`.
+- Проверить Pandera-валидацию enrich-результатов на наборах >10k записей (нагрузочное тестирование).
+
+#### Schema (`schema/pubchem_schema.py`)
 
 **Ответственность:**
 - Pandera-схема для PubChem данных
 - Валидация выходных данных
 
-**Миграция:**
-- Переместить `src/bioetl/schemas/pubchem.py` → `sources/pubchem/schema/pubchem_schema.py`
-- Обновить импорты в `__init__.py`
-- Сохранить `_column_order` и все поля
+**Статус:**
+- Схема перенесена, зарегистрирована в `schema_registry` и используется pipeline.
 
-#### 2.6 Pipeline модуль (`pipeline.py`)
+**Пост-миграционные действия:**
+- Уточнить ограничения (nullable/unique) в соответствии с фактическими данными 2025 года.
+- Добавить экспорт схемы в QC-отчёт (версия, дата обновления).
+
+#### Pipeline (`pipeline.py`)
 
 **Ответственность:**
 - Координация extract/transform/validate
@@ -207,257 +222,62 @@ class PubChemPipeline(PipelineBase):
     def close_resources(self) -> None
 ```
 
-**Миграция:**
-- Упростить `extract()` — только чтение входной таблицы
-- Декомпозировать `transform()`:
-  - Создать PubChemClient через `PubChemClient.from_config()`
-  - Использовать PubChemNormalizer для обогащения
-  - Применить UnifiedOutputWriter для финализации
-- Упростить `validate()` — использовать UnifiedOutputWriter валидацию
-- Удалить `_create_pubchem_adapter()` — заменить на `PubChemClient.from_config()`
-- Удалить helper методы — переместить в нормализатор
+**Статус:**
+- Реализован на базе `PipelineBase`; интегрирует QC-метрики и детерминированную выгрузку.
 
-### Этап 3: Обновление тестов
+**Пост-миграционные действия:**
+- Настроить smoke-тест `tests/sources/pubchem/test_pipeline_smoke.py` с использованием фикстуры моков HTTP.
+- Расширить отчёт QC метриками покрытия InChIKey и процента успешного обогащения (порог из конфигурации).
 
-#### 3.1 Структура тестов
+## Тестирование и контроль качества
 
-```
-tests/sources/pubchem/
-├── __init__.py
-├── test_client.py                 # Расширить существующие тесты
-├── test_parser.py                 # Новый модуль
-├── test_normalizer.py             # Расширить существующие тесты
-├── test_schema.py                 # Новый модуль (из schemas/)
-└── test_pipeline_e2e.py           # Новый модуль
-```
+### Текущее покрытие
+- `tests/sources/pubchem/test_client.py` — мокирует HTTP-вызовы и проверяет CID/property батчи.
+- `tests/sources/pubchem/test_parser.py` — покрывает позитивные и негативные сценарии парсинга JSON.
+- `tests/sources/pubchem/test_normalizer.py` — проверяет enrich, нормализацию типов и полноту колонок.
+- `tests/sources/pubchem/test_schema.py` — гарантирует соответствие Pandera-схемы и нормализатора.
 
-#### 3.2 Тестовые случаи
+### План расширения (Q2 2025)
+1. Добавить smoke-тест `tests/sources/pubchem/test_pipeline_smoke.py` с моками `PubChemClient` и фиксацией QC-метрик.
+2. Подготовить e2e-тест с небольшим фиктивным входным CSV (10–20 молекул) и golden-выходом для проверки детерминизма.
+3. Вынести генерацию QC-отчёта в `src/bioetl/sources/pubchem/output/pubchem_output.py` и покрыть его unit-тестом.
+4. Настроить property-based тесты для `PubChemNormalizer.enrich_dataframe()` (hypothesis) с рандомизированными наборами InChIKey.
 
-**test_client.py:**
-- `test_resolve_cid()` — единичный InChIKey lookup
-- `test_resolve_cids_batch()` — батч lookup
-- `test_fetch_properties_batch()` — батч properties
-- `test_rate_limiting()` — проверка UnifiedAPIClient integration
-- `test_from_config()` — создание из конфига
+## Пост-миграционные задачи (backlog)
 
-**test_parser.py:**
-- `test_parse_cid_response()` — парсинг IdentifierList
-- `test_parse_properties_response()` — парсинг PropertyTable
-- `test_extract_cids_empty()` — edge cases
-- `test_extract_properties_empty()` — edge cases
+| Статус | Задача | Детали |
+|--------|--------|--------|
+| ⏳ | QC отчёт | Расширить `pubchem_output` метриками покрытия InChIKey, уровня обогащения и версией схемы. |
+| ⏳ | Smoke-тесты | Создать `test_pipeline_smoke.py` + зафиксировать последовательность логов/метрик. |
+| ⏳ | Валидация на объёмах | Прогнать pipeline на 100k записей, оценить производительность и ошибки Pandera. |
+| ⏳ | Документация | Обновить `docs/requirements/sources/pubchem/README.md` с описанием модульной архитектуры и лимитов API. |
+| ⏳ | Конфигурация | Синхронизировать `configs/pipelines/pubchem.yaml` с новыми порогами QC (`pubchem.min_*`). |
 
-**test_normalizer.py:**
-- `test_normalize_record()` — единичная запись
-- `test_normalize_types()` — типы DataFrame
-- `test_ensure_columns()` — полнота колонок
-- `test_enrich_dataframe()` — обогащение DataFrame
-- `test_enrich_empty()` — edge cases
+## Критерии приемки пост-миграции
 
-**test_schema.py:**
-- Переместить из `tests/schemas/test_pubchem.py`
-- Валидация всех полей
-- Проверка `_column_order`
-
-**test_pipeline_e2e.py:**
-- Полный цикл extract → transform → validate
-- Проверка интеграции всех модулей
-- Golden тесты для детерминизма
-
-### Этап 4: Обновление зависимостей
-
-#### 4.1 Удаление монолитных импортов
-
-**Файлы для обновления:**
-- `src/bioetl/pipelines/__init__.py` — удалить PubChemPipeline
-- `src/bioetl/adapters/__init__.py` — удалить PubChemAdapter
-- `src/scripts/run_*.py` — обновить импорты на `sources/pubchem/pipeline`
-- `tests/unit/test_pubchem_pipeline.py` — обновить импорты
-- `tests/unit/test_pipelines.py` — удалить PubChem тесты
-
-#### 4.2 Обновление конфигурации
-
-**Конфиг:**
-- `src/bioetl/configs/pipelines/pubchem.yaml` — проверить совместимость
-- Использовать `APIClientFactory` для создания клиентов
-
-#### 4.3 Обновление документации
-
-**Файлы:**
-- `docs/requirements/sources/pubchem/README.md` — создать/обновить
-- Описать структуру модулей
-- Примеры использования
-- Контракты API
-
-### Этап 5: Удаление старого кода
-
-#### 5.1 Удаление файлов
-
-- `src/bioetl/pipelines/pubchem.py` — удалить после миграции
-- `src/bioetl/adapters/pubchem.py` — удалить после миграции
-- `src/bioetl/sources/pubchem/pipeline.py` (старый прокси) — заменить новым
-
-#### 5.2 Обновление экспортов
-
-- `src/bioetl/sources/pubchem/__init__.py` — экспортировать PubChemPipeline
-- Удалить из `pipelines/__init__.py` и `adapters/__init__.py`
-
-## Детали реализации
-
-### Client: CID Resolution Strategy
-
-**Текущая логика:**
-- InChIKey → `/compound/inchikey/{inchikey}/cids/JSON`
-- Response: `{"IdentifierList": {"CID": [1234567]}}`
-
-**Новая реализация:**
-```python
-class PubChemClient:
-    def resolve_cid(self, inchikey: str) -> int | None:
-        url = PubChemRequestBuilder.build_cid_lookup_url(inchikey)
-        response = self.api_client.request_json(url)
-        return PubChemParser.parse_cid_response(response)
-```
-
-### Parser: JSON Response Parsing
-
-**Текущая логика:**
-- Встроена в client методы
-- Прямое извлечение из response dict
-
-**Новая реализация:**
-```python
-class PubChemParser:
-    @staticmethod
-    def parse_cid_response(response: dict[str, Any]) -> int | None:
-        if "IdentifierList" not in response:
-            return None
-        identifier_list = response["IdentifierList"]
-        if "CID" not in identifier_list:
-            return None
-        cids = identifier_list["CID"]
-        return int(cids[0]) if cids else None
-```
-
-### Normalizer: Record Normalization
-
-**Текущая логика:**
-- `normalize_record()` в адаптере
-- Прямое преобразование полей
-
-**Новая реализация:**
-```python
-class PubChemNormalizer:
-    def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
-        normalized = dict.fromkeys(self._PUBCHEM_COLUMNS)
-        # Использовать UnifiedSchema нормализаторы
-        cid = record.get("CID")
-        if cid is not None:
-            normalized["pubchem_cid"] = NORMALIZER_ID.normalize_int(cid)
-        # ... остальные поля
-        return normalized
-```
-
-### Pipeline: Integration
-
-**Текущая логика:**
-- Монолитный `transform()` с встроенным адаптером
-
-**Новая реализация:**
-```python
-class PubChemPipeline(PipelineBase):
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        # Создать клиент
-        client = PubChemClient.from_config(self.config)
-        if client is None:
-            return self._handle_disabled_enrichment(df)
-        
-        # Обогащение через нормализатор
-        normalizer = PubChemNormalizer()
-        enriched = normalizer.enrich_dataframe(
-            df,
-            inchi_key_col="standard_inchi_key",
-            client=client
-        )
-        
-        # Нормализация типов
-        enriched = normalizer.normalize_types(enriched)
-        enriched = normalizer.ensure_columns(enriched)
-        
-        # Финализация через UnifiedOutputWriter
-        return finalize_output_dataset(
-            enriched,
-            business_key="molecule_chembl_id",
-            schema=PubChemSchema,
-            ...
-        )
-```
-
-## Критерии приемки
-
-1. ✅ Все модули созданы согласно MODULE_RULES.md
-2. ✅ Матрица зависимостей соблюдена
-3. ✅ Тесты покрывают все модули
-4. ✅ E2E тесты проходят
-5. ✅ Старый код удален
-6. ✅ Импорты обновлены
-7. ✅ Конфигурация совместима
-8. ✅ Документация обновлена
-9. ✅ CI/CD проходит (ruff, black, mypy, pytest)
-10. ✅ Детерминизм сохранен (golden тесты)
+1. ✅ Модульный пайплайн зарегистрирован в `schema_registry` и используется pipeline.
+2. ✅ Наследные файлы `pipelines/pubchem.py` и `adapters/pubchem.py` удалены.
+3. ⏳ Smoke-тест и golden-тест фиксируют детерминизм и критичные метрики.
+4. ⏳ QC-отчёт содержит coverage/enrichment и версию схемы.
+5. ⏳ Документация и конфигурация синхронизированы с новой архитектурой.
+6. ✅ CI (ruff, mypy, pytest) проходит на модульной реализации.
 
 ## Риски и митигация
 
-### Риск 1: Нарушение детерминизма
-- **Митигация:** Golden тесты до/после миграции
+- **Недостаточный QC (⏳):** пока не все метрики выводятся. *Митигация:* добавить контроль порогов в smoke-тест и отчёт.
+- **Регрессии на больших объёмах (⏳):** нет нагрузочных проверок. *Митигация:* выполнить прогон на 100k записей и задокументировать результаты в `reports/pubchem_load_test.md`.
+- **Документационные расхождения (⏳):** часть руководств ссылается на монолит. *Митигация:* обновить `docs/requirements/sources/pubchem/README.md` и ссылаться на модульный пайплайн.
 
-### Риск 2: Регрессия функциональности
-- **Митигация:** E2E тесты с реальными данными
+## Рекомендованный порядок работ
 
-### Риск 3: Производительность
-- **Митигация:** Benchmark тесты для критичных путей
-
-### Риск 4: Зависимости между модулями
-- **Митигация:** Строгая проверка матрицы импортов
-
-## Порядок выполнения
-
-1. **Подготовка** (1 день)
-   - Создать структуру директорий
-   - Написать заглушки модулей
-
-2. **Миграция Client** (1 день)
-   - Извлечь и рефакторить client логику
-   - Тесты
-
-3. **Миграция Parser** (0.5 дня)
-   - Извлечь парсинг
-   - Тесты
-
-4. **Миграция Normalizer** (1 день)
-   - Извлечь нормализацию
-   - Интеграция с UnifiedSchema
-   - Тесты
-
-5. **Миграция Schema** (0.5 дня)
-   - Переместить схему
-   - Обновить импорты
-
-6. **Миграция Pipeline** (1 день)
-   - Рефакторинг pipeline.py
-   - Интеграция модулей
-   - E2E тесты
-
-7. **Очистка** (1 день)
-   - Удаление старого кода
-   - Обновление импортов
-   - Обновление документации
-
-**Итого:** ~6 дней
+1. **QC и отчёты** — расширить `pubchem_output` + обновить конфигурацию порогов.
+2. **Smoke / e2e тесты** — добавить тесты и golden-наборы; интегрировать в CI.
+3. **Документация** — обновить требования и developer guide.
+4. **Нагрузочное тестирование** — прогон на 100k записей, собрать отчёт.
 
 ## Следующие шаги
 
-1. Создать ветку `migrate/pubchem-modular`
-2. Начать с Этапа 1 (анализ)
-3. Поэтапная реализация с проверками на каждом этапе
-4. Code review перед merge
-5. Обновление CHANGELOG.md
+1. Создать задачу "PubChem QC & Smoke Tests" (интегрирует пункты backlog).
+2. Подготовить фиктивный входной CSV и golden-выход для smoke/e2e тестов.
+3. Обновить документацию и конфиги после внедрения тестов и расширенного QC.
+
