@@ -10,6 +10,8 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
+from bioetl.schemas import TestItemSchema
+from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.testitem.client import TestItemChEMBLClient
 from bioetl.sources.chembl.testitem.normalizer import (
     coerce_boolean_and_integer_columns,
@@ -21,14 +23,15 @@ from bioetl.sources.chembl.testitem.output import (
 )
 from bioetl.sources.chembl.testitem.parser import TestItemParser
 from bioetl.sources.chembl.testitem.request import TestItemRequestBuilder
-from bioetl.schemas import TestItemSchema
-from bioetl.schemas.registry import schema_registry
-from bioetl.utils.config import coerce_float_config, coerce_int_config
-from bioetl.utils.dtypes import coerce_retry_after
-from bioetl.utils.fallback import FallbackRecordBuilder
-from bioetl.utils.qc import update_summary_metrics, update_summary_section, update_validation_issue_summary
 from bioetl.sources.pubchem.client.pubchem_client import PubChemClient
 from bioetl.sources.pubchem.normalizer.pubchem_normalizer import PubChemNormalizer
+from bioetl.utils.dtypes import coerce_retry_after
+from bioetl.utils.fallback import FallbackRecordBuilder
+from bioetl.utils.qc import (
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
 
 __all__ = ["TestItemPipeline"]
 
@@ -471,7 +474,6 @@ class TestItemPipeline(PipelineBase):
         ]
         df = df.drop(columns=extraneous_columns, errors="ignore")
 
-        pipeline_version = self.config.pipeline.version
         default_source = "chembl"
 
         release_value: str | None = self._chembl_release
