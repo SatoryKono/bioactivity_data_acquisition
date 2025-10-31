@@ -1,10 +1,11 @@
 # Pipeline Inventory Clusters
 
-Generated on 2025-10-31T15:15:32+00:00
+Generated on 2025-10-31T15:43:57+00:00
 
 ## Cluster 1
-Cluster size: 306
-- src/bioetl/adapters/__init__.py (source: adapters)
+Cluster size: 320
+responsibility: primary=tests (99/320); top sources: tests=99, document=28, uniprot=22, iuphar=18, testitem=15, others=138
+divergence points: config_keys, dependencies, io_logging, public_api, schemas
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
 - src/bioetl/adapters/crossref.py (source: adapters)
@@ -39,6 +40,7 @@ Cluster size: 306
 - src/bioetl/normalizers/base.py (source: base)
 - src/bioetl/normalizers/bibliography.py (source: normalizers)
 - src/bioetl/normalizers/chemistry.py (source: normalizers)
+- src/bioetl/normalizers/date.py (source: normalizers)
 - src/bioetl/normalizers/helpers.py (source: normalizers)
 - src/bioetl/normalizers/identifier.py (source: normalizers)
 - src/bioetl/normalizers/numeric.py (source: normalizers)
@@ -99,9 +101,11 @@ Cluster size: 306
 - src/bioetl/sources/chembl/testitem/parser/parser.py (source: testitem)
 - src/bioetl/sources/chembl/testitem/pipeline.py (source: testitem)
 - src/bioetl/sources/chembl/testitem/request/request.py (source: testitem)
+- src/bioetl/sources/common/request.py (source: common)
 - src/bioetl/sources/crossref/merge/__init__.py (source: merge)
 - src/bioetl/sources/crossref/pagination/__init__.py (source: pagination)
 - src/bioetl/sources/crossref/pipeline.py (source: crossref)
+- src/bioetl/sources/crossref/request/builder.py (source: request)
 - src/bioetl/sources/crossref/schema/__init__.py (source: schema)
 - src/bioetl/sources/document/merge/policy.py (source: document)
 - src/bioetl/sources/document/pipeline.py (source: document)
@@ -116,6 +120,7 @@ Cluster size: 306
 - src/bioetl/sources/openalex/merge/__init__.py (source: merge)
 - src/bioetl/sources/openalex/pagination/__init__.py (source: pagination)
 - src/bioetl/sources/openalex/pipeline.py (source: openalex)
+- src/bioetl/sources/openalex/request/builder.py (source: request)
 - src/bioetl/sources/openalex/schema/__init__.py (source: schema)
 - src/bioetl/sources/pubchem/client/pubchem_client.py (source: pubchem)
 - src/bioetl/sources/pubchem/normalizer/pubchem_normalizer.py (source: pubchem)
@@ -127,6 +132,7 @@ Cluster size: 306
 - src/bioetl/sources/pubmed/pagination/__init__.py (source: pagination)
 - src/bioetl/sources/pubmed/parser/__init__.py (source: parser)
 - src/bioetl/sources/pubmed/pipeline.py (source: pubmed)
+- src/bioetl/sources/pubmed/request/builder.py (source: request)
 - src/bioetl/sources/pubmed/schema/__init__.py (source: schema)
 - src/bioetl/sources/semantic_scholar/merge/__init__.py (source: merge)
 - src/bioetl/sources/semantic_scholar/pagination/__init__.py (source: pagination)
@@ -158,6 +164,7 @@ Cluster size: 306
 - src/bioetl/utils/validation.py (source: utils)
 - src/library/__init__.py (source: library)
 - src/scripts/__init__.py (source: scripts)
+- src/scripts/generate_pipeline_metrics.py (source: scripts)
 - src/scripts/run_activity.py (source: activity)
 - src/scripts/run_assay.py (source: assay)
 - src/scripts/run_document.py (source: document)
@@ -169,8 +176,10 @@ Cluster size: 306
 - src/scripts/run_uniprot.py (source: uniprot)
 - src/scripts/validate_columns.py (source: scripts)
 - tests/conftest.py (source: tests)
+- tests/core/test_pagination_strategies.py (source: tests)
 - tests/golden/helpers.py (source: tests)
 - tests/golden/test_cli_golden.py (source: tests)
+- tests/golden/test_unified_schema_golden.py (source: tests)
 - tests/integration/pipelines/test_activity_pipeline.py (source: test_activity_pipeline)
 - tests/integration/pipelines/test_bit_identical_output.py (source: test_bit_identical_output)
 - tests/integration/pipelines/test_enrichment_stages.py (source: test_enrichment_stages)
@@ -198,6 +207,7 @@ Cluster size: 306
 - tests/sources/crossref/test_pagination.py (source: tests)
 - tests/sources/crossref/test_parser.py (source: tests)
 - tests/sources/crossref/test_pipeline_e2e.py (source: tests)
+- tests/sources/crossref/test_request_builder.py (source: tests)
 - tests/sources/crossref/test_schema.py (source: tests)
 - tests/sources/document/test_client.py (source: document)
 - tests/sources/document/test_merge.py (source: document)
@@ -217,6 +227,7 @@ Cluster size: 306
 - tests/sources/openalex/test_pagination.py (source: tests)
 - tests/sources/openalex/test_parser.py (source: tests)
 - tests/sources/openalex/test_pipeline_e2e.py (source: tests)
+- tests/sources/openalex/test_request_builder.py (source: tests)
 - tests/sources/openalex/test_schema.py (source: tests)
 - tests/sources/pubchem/__init__.py (source: pubchem)
 - tests/sources/pubchem/test_client.py (source: pubchem)
@@ -231,6 +242,7 @@ Cluster size: 306
 - tests/sources/pubmed/test_pagination.py (source: tests)
 - tests/sources/pubmed/test_parser.py (source: tests)
 - tests/sources/pubmed/test_pipeline_e2e.py (source: tests)
+- tests/sources/pubmed/test_request_builder.py (source: tests)
 - tests/sources/pubmed/test_schema.py (source: tests)
 - tests/sources/semantic_scholar/__init__.py (source: tests)
 - tests/sources/semantic_scholar/test_client.py (source: tests)
@@ -263,11 +275,14 @@ Cluster size: 306
 - tests/unit/normalizers/test_bibliography_helpers_cache.py (source: tests)
 - tests/unit/normalizers/test_boolean_normalizers.py (source: tests)
 - tests/unit/normalizers/test_chemistry_normalizer_properties.py (source: tests)
+- tests/unit/normalizers/test_date_normalizer_properties.py (source: tests)
 - tests/unit/normalizers/test_helpers.py (source: tests)
 - tests/unit/normalizers/test_identifier_normalizer_properties.py (source: tests)
 - tests/unit/normalizers/test_numeric_normalizer_properties.py (source: tests)
 - tests/unit/normalizers/test_string_normalizer_properties.py (source: tests)
 - tests/unit/pagination/test_strategies.py (source: tests)
+- tests/unit/pipelines/test_base_pipeline_validation.py (source: test_base_pipeline_validation)
+- tests/unit/schemas/test_unified_schema_properties.py (source: tests)
 - tests/unit/sources/chembl/testitem/test_client.py (source: testitem)
 - tests/unit/sources/chembl/testitem/test_parser.py (source: testitem)
 - tests/unit/sources/chembl/testitem/test_parser_properties.py (source: testitem)
@@ -293,6 +308,7 @@ Cluster size: 306
 - tests/unit/test_json_utils.py (source: tests)
 - tests/unit/test_logger.py (source: tests)
 - tests/unit/test_materialization_manager.py (source: test_materialization_manager)
+- tests/unit/test_merge_policy.py (source: tests)
 - tests/unit/test_numeric_normalizer.py (source: tests)
 - tests/unit/test_output_writer.py (source: tests)
 - tests/unit/test_pipeline_extract_helper.py (source: tests)
@@ -316,6 +332,8 @@ avg jaccard=0.00; avg import overlap=0.14
 
 ## Cluster 2
 Cluster size: 8
+responsibility: primary=activity (1/8); top sources: activity=1, assay=1, document=1, target=1, testitem=1, others=3
+divergence points: config_keys, dependencies, public_api
 - src/bioetl/sources/chembl/activity/__init__.py (source: activity)
 - src/bioetl/sources/chembl/assay/__init__.py (source: assay)
 - src/bioetl/sources/chembl/document/__init__.py (source: document)
@@ -329,17 +347,43 @@ common imports: .pipeline
 avg jaccard=0.00; avg import overlap=0.72
 
 ## Cluster 3
+Cluster size: 4
+responsibility: primary=request (3/4); top sources: request=3, uniprot=1
+divergence points: public_api
+- src/bioetl/sources/crossref/request/__init__.py (source: request)
+- src/bioetl/sources/openalex/request/__init__.py (source: request)
+- src/bioetl/sources/pubmed/request/__init__.py (source: request)
+- src/bioetl/sources/uniprot/request/__init__.py (source: uniprot)
+common n-grams: —
+common imports: .builder
+avg jaccard=0.00; avg import overlap=1.00
+
+## Cluster 4
 Cluster size: 2
+responsibility: primary=document (1/2); top sources: document=1, target=1
+divergence points: config_keys, public_api
 - src/bioetl/sources/chembl/document/merge/__init__.py (source: document)
 - src/bioetl/sources/chembl/target/normalizer/__init__.py (source: target)
 common n-grams: —
 common imports: .enrichment
 avg jaccard=0.00; avg import overlap=1.00
 
-## Cluster 4
+## Cluster 5
 Cluster size: 2
+responsibility: primary=testitem (2/2); top sources: testitem=2
+divergence points: io_logging, public_api
 - src/bioetl/sources/chembl/testitem/normalizer/__init__.py (source: testitem)
 - src/bioetl/sources/chembl/testitem/output/__init__.py (source: testitem)
 common n-grams: —
 common imports: .dataframe
+avg jaccard=0.00; avg import overlap=1.00
+
+## Cluster 6
+Cluster size: 2
+responsibility: primary=testitem (1/2); top sources: testitem=1, common=1
+divergence points: public_api
+- src/bioetl/sources/chembl/testitem/request/__init__.py (source: testitem)
+- src/bioetl/sources/common/__init__.py (source: common)
+common n-grams: —
+common imports: .request
 avg jaccard=0.00; avg import overlap=1.00

@@ -56,6 +56,8 @@ class Cluster:
     common_imports: tuple[str, ...]
     average_jaccard: float
     average_import_overlap: float
+    responsibility: str
+    divergence_points: tuple[str, ...]
 
     def iter_paths(self) -> Iterable[Path]:
         for record in self.members:
@@ -71,4 +73,9 @@ class Cluster:
             f"avg jaccard={self.average_jaccard:.2f}; "
             f"avg import overlap={self.average_import_overlap:.2f}"
         )
-        return (header, *members, ngrams, imports, scores)
+        divergence = (
+            "divergence points: "
+            + (", ".join(self.divergence_points) if self.divergence_points else "—")
+        )
+        responsibility = f"responsibility: {self.responsibility}"
+        return (header, responsibility, divergence, *members, ngrams, imports, scores)
