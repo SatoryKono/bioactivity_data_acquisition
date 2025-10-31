@@ -810,6 +810,51 @@ class PipelineBase(ABC):
         """Экспортирует данные с QC отчетами."""
         logger.info("exporting_data", path=output_path, rows=len(df))
 
+        schema_order: list[str] | None = None
+        primary_schema = getattr(self, "primary_schema", None)
+        if primary_schema is not None:
+            try:
+                from bioetl.schemas.registry import SchemaRegistry  # noqa: PLC0415
+                from bioetl.utils.dataframe import (  # noqa: PLC0415
+                    resolve_schema_column_order,
+                )
+            except Exception:  # pragma: no cover - defensive import guard
+                SchemaRegistry = None  # type: ignore[assignment]
+                resolve_schema_column_order = None  # type: ignore[assignment]
+            else:
+                if not isinstance(primary_schema, type):
+                    schema_cls = type(primary_schema)
+                else:
+                    schema_cls = primary_schema
+
+                registration = SchemaRegistry.find_registration(schema_cls)
+                target_schema = (
+                    registration.schema if registration is not None else schema_cls
+                )
+                if resolve_schema_column_order is not None:
+                    schema_order = resolve_schema_column_order(target_schema)
+
+        if schema_order:
+            actual_columns = list(df.columns)
+            if actual_columns != schema_order:
+                missing_columns = [
+                    column for column in schema_order if column not in actual_columns
+                ]
+                unexpected_columns = [
+                    column for column in actual_columns if column not in schema_order
+                ]
+                logger.error(
+                    "export_column_order_mismatch",
+                    expected=schema_order,
+                    actual=actual_columns,
+                    missing=missing_columns,
+                    unexpected=unexpected_columns,
+                )
+                raise ValueError(
+                    "Dataframe columns do not match SchemaRegistry order: "
+                    f"expected {schema_order}, got {actual_columns}"
+                )
+
         configured_order: list[str] = []
         sort_columns: list[str] = []
         sort_ascending: list[bool] = []

@@ -7,7 +7,10 @@ import pandas as pd
 import pytest
 import yaml
 
+from bioetl.pandera_pandas import DataFrameModel
+from bioetl.pandera_typing import Series
 from bioetl.pipelines.base import PipelineBase
+from bioetl.schemas.registry import schema_registry
 
 
 pytestmark = pytest.mark.integration
@@ -43,6 +46,36 @@ class _ExtendedArtifactsPipeline(PipelineBase):
     def close_resources(self) -> None:  # type: ignore[override]
         """No-op resource cleanup for the test pipeline."""
         return None
+
+
+@pytest.fixture
+def integration_schema_registration() -> type[DataFrameModel]:
+    """Register a minimal schema for integration order checks."""
+
+    class IntegrationSchema(DataFrameModel):
+        numeric_a: Series[int]
+        numeric_b: Series[int]
+        category: Series[str]
+
+        @classmethod
+        def get_column_order(cls) -> list[str]:
+            return ["numeric_a", "numeric_b", "category"]
+
+        _column_order = ["numeric_a", "numeric_b", "category"]
+
+    entity = "integration.order-check"
+    version = "1.0.0"
+    schema_registry.register(entity, version, IntegrationSchema)
+
+    try:
+        yield IntegrationSchema
+    finally:
+        registry_entry = schema_registry._registry.get(entity)
+        if registry_entry is not None:
+            registry_entry.pop(version, None)
+            if not registry_entry:
+                schema_registry._registry.pop(entity, None)
+        schema_registry._metadata.pop((entity, version), None)
 
 
 def _make_config() -> types.SimpleNamespace:
@@ -128,3 +161,27 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     assert "correlation_report" in qc_artifacts
     assert "summary_statistics" in qc_artifacts
     assert "dataset_metrics" in qc_artifacts
+
+
+@pytest.mark.integration
+def test_pipeline_run_fails_on_schema_registry_order_mismatch(
+    tmp_path: Path, integration_schema_registration: type[DataFrameModel]
+) -> None:
+    """Pipelines with registered schemas should fail-fast on column order drift."""
+
+    config = _make_config()
+
+    class _OrderSensitivePipeline(_ExtendedArtifactsPipeline):
+        def __init__(self, config, run_id):
+            super().__init__(config, run_id)
+            self.primary_schema = integration_schema_registration
+
+        def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
+            df = super().transform(df)
+            return df[["category", "numeric_a", "numeric_b"]]
+
+    pipeline = _OrderSensitivePipeline(config, run_id="integration-order-mismatch")
+    output_path = tmp_path / "integration" / "datasets" / "integration.csv"
+
+    with pytest.raises(ValueError, match="columns do not match"):
+        pipeline.run(output_path)
