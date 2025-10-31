@@ -1,17 +1,22 @@
 """Document Pipeline - ChEMBL document extraction with external enrichment."""
 
 from collections.abc import Mapping, Sequence
+from dataclasses import MISSING
+from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 import pandera.errors as pa_errors
 import requests
+from pandas.api.types import Float64Dtype
 
 if TYPE_CHECKING:
-    from pandera.errors import SchemaError
+    from pandera.errors import SchemaError as _PanderaSchemaError
+
+    SchemaErrors: type[Exception] = _PanderaSchemaError
 else:  # pragma: no cover - runtime compatibility for older Pandera releases
-    SchemaError = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
+    SchemaErrors = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -279,6 +284,9 @@ class DocumentPipeline(PipelineBase):
         """Close external adapters and the primary API client."""
 
         self._release_external_adapters()
+        super_close = getattr(super(), "close_resources", None)
+        if callable(super_close):
+            super_close()
 
     def _build_adapter_configs(
         self,
@@ -450,7 +458,7 @@ class DocumentPipeline(PipelineBase):
 
             logger.info("raw_schema_validation_passed", rows=len(validated))
             return validated
-        except SchemaError as exc:
+        except SchemaErrors as exc:
             failure_cases = getattr(exc, "failure_cases", None)
             details = None
             if isinstance(failure_cases, pd.DataFrame):
@@ -672,7 +680,7 @@ class DocumentPipeline(PipelineBase):
                     working_df[column] = pd.Series(
                         pd.NA,
                         index=working_df.index,
-                        dtype=pd.Float64Dtype(),
+                        dtype=Float64Dtype(),
                     )
                 else:
                     working_df[column] = pd.NA
@@ -796,7 +804,7 @@ class DocumentPipeline(PipelineBase):
         }
         coverage_stats = compute_field_coverage(
             validated_df,
-            list(coverage_columns.values()),
+            tuple(coverage_columns.values()),
         )
         coverage_payload = {
             key: coverage_stats.get(column, 0.0)
@@ -872,6 +880,33 @@ class DocumentPipeline(PipelineBase):
         logger.debug("qc_metrics_computed", metrics=metrics)
         return metrics
 
+    @staticmethod
+    def _coerce_threshold_value(raw_value: Any) -> float | None:
+        """Normalize a configuration threshold to a float or ``None``."""
+
+        if raw_value is None or raw_value is MISSING:
+            return None
+
+        if isinstance(raw_value, Real):
+            return float(raw_value)
+
+        if isinstance(raw_value, str):
+            candidate = raw_value.strip()
+            if not candidate:
+                return None
+            try:
+                return float(candidate)
+            except ValueError as exc:  # pragma: no cover - configuration error
+                raise ValueError(f"Invalid QC threshold value: {raw_value!r}") from exc
+
+        try:
+            if pd.isna(raw_value):
+                return None
+        except TypeError:
+            pass
+
+        raise TypeError(f"Unsupported QC threshold type: {type(raw_value)!r}")
+
     def _enforce_qc_thresholds(self, metrics: dict[str, float]) -> None:
         """Validate QC metrics against configured thresholds."""
 
@@ -888,22 +923,8 @@ class DocumentPipeline(PipelineBase):
             if value is None:
                 continue
 
-            min_raw = config.get("min")
-            max_raw = config.get("max")
-            min_threshold: float | None = None
-            max_threshold: float | None = None
-            if min_raw is not None:
-                try:
-                    if isinstance(min_raw, (int, float, str)):
-                        min_threshold = float(min_raw)
-                except (TypeError, ValueError):
-                    pass
-            if max_raw is not None:
-                try:
-                    if isinstance(max_raw, (int, float, str)):
-                        max_threshold = float(max_raw)
-                except (TypeError, ValueError):
-                    pass
+            min_threshold = self._coerce_threshold_value(config.get("min"))
+            max_threshold = self._coerce_threshold_value(config.get("max"))
             severity = str(config.get("severity", "warning"))
 
             passed = True
