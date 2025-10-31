@@ -1,9 +1,9 @@
 # Pipeline Inventory Clusters
 
-Generated on 2025-10-31T14:34:27+00:00
+Generated on 2025-10-31T14:38:04+00:00
 
 ## Cluster 1
-Cluster size: 300
+Cluster size: 302
 - src/bioetl/adapters/__init__.py (source: adapters)
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
@@ -29,6 +29,7 @@ Cluster size: 300
 - src/bioetl/core/logger.py (source: core)
 - src/bioetl/core/materialization.py (source: core)
 - src/bioetl/core/output_writer.py (source: core)
+- src/bioetl/core/unified_schema.py (source: core)
 - src/bioetl/inventory/collector.py (source: inventory)
 - src/bioetl/inventory/config.py (source: inventory)
 - src/bioetl/inventory/models.py (source: inventory)
@@ -295,6 +296,7 @@ Cluster size: 300
 - tests/unit/test_pubchem_pipeline.py (source: pubchem)
 - tests/unit/test_rate_limiter.py (source: tests)
 - tests/unit/test_target_gold.py (source: target)
+- tests/unit/test_unified_schema_facade.py (source: tests)
 - tests/unit/test_utils_chembl.py (source: tests)
 - tests/unit/test_utils_dataframe.py (source: tests)
 - tests/unit/test_utils_dtypes.py (source: tests)
