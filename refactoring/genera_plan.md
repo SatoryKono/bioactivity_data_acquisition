@@ -1,24 +1,32 @@
-# 1. Область действия и принципы
+# 1. Область действия и принципы (@test_refactoring_32)
 
 Объект: пайплайны загрузки и нормализации данных из внешних источников, размещённые в `src/bioetl/sources/<source>/` с общими слоями в `src/bioetl/core/`.
 
 **Принцип единообразия**: для каждого источника существует ровно один публичный пайплайн, собранный из минимального набора повторно используемых модулей с единым контрактом API. Это обязательство является проверяемым требованием (см. §2).
 
 **Детерминизм вывода**: порядок колонок/ключей и строк должен быть стабилен; запись артефактов осуществляется атомарно: temp-файл → `os.replace`. Операция замены должна выполняться как единое атомарное действие на целевом файловом объекте.
-[Python documentation](https://docs.python.org/3/library/os.html#os.replace)
+[Python documentation @test_refactoring_32](https://docs.python.org/3/library/os.html#os.replace)
 
 **Строгая валидация**:
 - данные валидируются Pandera-схемами на уровне DataFrame/Series;
 - конфигурации валидируются Pydantic-совместимыми моделями с автогенерацией JSON Schema.
-[pandera.readthedocs.io](https://pandera.readthedocs.io/)
-[pandera.readthedocs.io](https://pandera.readthedocs.io/)
+[pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io/)
+[pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io/)
 
 **Backoff/Retry**: клиенты обязаны уважать HTTP Retry-After и корректно обрабатывать 429/503 при троттлинге и деградации сервиса.
-[datatracker.ietf.org](https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.3)
+[datatracker.ietf.org @test_refactoring_32](https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.3)
 
-**Источники истины**: [ref: repo:src/@Pipeline_Unification], [ref: repo:configs/@Pipeline_Unification], [ref: repo:tests/@Pipeline_Unification], [ref: repo:docs/requirements/@Pipeline_Unification].
 
-# 2. Цели унификации (проверяемые требования)
+
+## Источники истины (@test_refactoring_32)
+
+- [ref: repo:docs/requirements/PIPELINES.inventory.csv@test_refactoring_32] — актуальный CSV-слепок пайплайнов.
+- [ref: repo:docs/requirements/PIPELINES.inventory.clusters.md@test_refactoring_32] — отчёт о кластеризации компонентов.
+- [ref: repo:configs/inventory.yaml@test_refactoring_32] — конфигурация генератора инвентаризации.
+- [ref: repo:src/scripts/run_inventory.py@test_refactoring_32] — CLI для генерации и проверки артефактов.
+- [ref: repo:tests/unit/test_inventory.py@test_refactoring_32] — тесты для слепка инвентаризации.
+
+# 2. Цели унификации (проверяемые требования) (@test_refactoring_32)
 
 **MUST**: для каждого источника существует ровно один публичный пайплайн с детерминированным выводом и строгой валидацией.
 
@@ -30,48 +38,49 @@
 
 **MUST NOT**: дублирующие реализации client/adapter/normalizer/schema/output за пределами `core/` и шаблона источника.
 
-# 3. Базовая структура каждого пайплайна
+
+# 3. Базовая структура каждого пайплайна (@test_refactoring_32)
 
 **Директория**: `src/bioetl/sources/<source>/`
 
-- `client.py`      # HTTP-клиент: ретраи/бэкофф, rate-limit, Retry-After, телеметрия
-- `request.py`     # RequestBuilder: paths/templates, params, auth, headers
-- `paginator.py`   # Стратегии: cursor | page | offset | token | datewindow
-- `parser.py`      # JSON/CSV/XML/NDJSON парсинг, streaming-safe
-- `normalizer.py`  # Нормализация ID/единиц/онтологий; дедупликация
-- `schema.py`      # Pandera-схемы (вход/выход), строгие типы/домены
-- `merge.py`       # MergePolicy: ключи, приоритеты источников, conflict-resolution
-- `pipeline.py`    # Реализация PipelineBase с хуками
-- `config.py`      # Pydantic-совместимые модели конфигов + JSON Schema
-- `__init__.py`    # Публичный re-export пайплайна
+- `client.py`   # HTTP-клиент: ретраи/бэкофф, rate-limit, Retry-After, телеметрия
+- `request.py`   # RequestBuilder: paths/templates, params, auth, headers
+- `paginator.py`  # Стратегии: cursor | page | offset | token | datewindow
+- `parser.py`   # JSON/CSV/XML/NDJSON парсинг, streaming-safe
+- `normalizer.py` # Нормализация ID/единиц/онтологий; дедупликация
+- `schema.py`   # Pandera-схемы (вход/выход), строгие типы/домены
+- `merge.py`    # MergePolicy: ключи, приоритеты источников, conflict-resolution
+- `pipeline.py`  # Реализация PipelineBase с хуками
+- `config.py`   # Pydantic-совместимые модели конфигов + JSON Schema
+- `__init__.py`  # Публичный re-export пайплайна
 
-**Общие слои**: [ref: repo:src/bioetl/core/@Pipeline_Unification].
+**Общие слои**: [ref: repo:src/bioetl/core/@test_refactoring_32].
 
-# 4. Единый публичный API
+# 4. Единый публичный API (@test_refactoring_32)
 
 Пайплайн обязан реализовывать следующий контракт:
 
 ```python
-# [ref: repo:src/bioetl/pipelines/base.py@Pipeline_Unification]
+# [ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
 class PipelineBase(Protocol):
-    def extract(self) -> Iterable[dict]: ...
-    def normalize(self, rows: Iterable[dict]) -> Iterable[dict]: ...
-    def validate(self, rows: Iterable[dict]) -> Iterable[dict]: ...
-    def write(self, rows: Iterable[dict]) -> "WriteResult": ...
-    def run(self) -> "RunResult": ...
+  def extract(self) -> Iterable[dict]: ...
+  def normalize(self, rows: Iterable[dict]) -> Iterable[dict]: ...
+  def validate(self, rows: Iterable[dict]) -> Iterable[dict]: ...
+  def write(self, rows: Iterable[dict]) -> "WriteResult": ...
+  def run(self) -> "RunResult": ...
 ```
 
 **Обязательные общие компоненты**:
 
 - **Writer** с атомарной записью и стабильной сортировкой:
-  [ref: repo:src/bioetl/core/output_writer.py@Pipeline_Unification],
-  [ref: repo:src/bioetl/core/io_atomic.py@Pipeline_Unification].
-  [Python documentation](https://docs.python.org/3/library/os.html#os.replace)
+ [ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32],
+ [ref: repo:src/bioetl/core/io_atomic.py@test_refactoring_32].
+ [Python documentation @test_refactoring_32](https://docs.python.org/3/library/os.html#os.replace)
 
 - **Логгер** с run_id и структурированными событиями:
-  [ref: repo:src/bioetl/core/logger.py@Pipeline_Unification].
+ [ref: repo:src/bioetl/core/logger.py@test_refactoring_32].
 
-# 5. Таблица источников и целевой модульный состав
+# 5. Таблица источников и целевой модульный состав (@test_refactoring_32)
 
 | source | target_layout | public_api | config_keys (MUST) | merge_policy (MUST) | tests_required (SHOULD) | risks |
 |--------|---------------|------------|-------------------|---------------------|-------------------------|-------|
@@ -85,74 +94,74 @@ class PipelineBase(Protocol):
 | Semantic Scholar | `src/bioetl/sources/semanticscholar/...` | `from bioetl.sources.semanticscholar import SemanticScholarPipeline` | `api_base, fields, per_page, retries` | ключ PaperId; merge с DOI-метаданными Crossref | unit: parser; integ: DOI↔PaperId consistency | лимиты API |
 
 Ссылки на код/тесты каждого источника обязаны указываться в документации к источнику:
-[ref: repo:src/bioetl/sources/<source>/@Pipeline_Unification],
-[ref: repo:tests/bioetl/sources/<source>/@Pipeline_Unification].
+[ref: repo:src/bioetl/sources/<source>/@test_refactoring_32],
+[ref: repo:tests/bioetl/sources/<source>/@test_refactoring_32].
 
-# 6. Требования к слоям
+# 6. Требования к слоям (@test_refactoring_32)
 
-## 6.1 client.py
+## 6.1 client.py (@test_refactoring_32)
 
 **MUST**: поддерживать ретраи/экспоненциальный бэкофф; уважать Retry-After для статусов 429/503; обеспечивать rate-limit (token bucket или фиксированный RPS).
-[datatracker.ietf.org](https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.3)
+[datatracker.ietf.org @test_refactoring_32](https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.3)
 
 **SHOULD**: телеметрия запросов с корреляцией по run_id.
 
-## 6.2 request.py
+## 6.2 request.py (@test_refactoring_32)
 
 **MUST**: декларативная сборка путей/параметров; унифицированные правила auth/headers.
 
 **SHOULD**: шаблоны эндпоинтов и версионирование.
 
-## 6.3 paginator.py
+## 6.3 paginator.py (@test_refactoring_32)
 
 **MUST**: стратегии cursor|page|offset|token|datewindow с единым интерфейсом.
 
 **SHOULD**: восстановление по чекпоинту после сбоев.
 
-## 6.4 parser.py
+## 6.4 parser.py (@test_refactoring_32)
 
 **MUST**: корректный разбор JSON/CSV/XML/NDJSON; потоковая обработка крупных ответов.
 
 **SHOULD**: унифицированные ошибки парсинга.
 
-## 6.5 normalizer.py
+## 6.5 normalizer.py (@test_refactoring_32)
 
 **MUST**: нормализация идентификаторов, единиц, онтологий; детерминированная сортировка и дедупликация.
 
 **SHOULD**: отчёт о преобразованиях.
 
-## 6.6 schema.py
+## 6.6 schema.py (@test_refactoring_32)
 
 **MUST**: Pandera-схемы входа/выхода с жёсткими типами и доменами значений.
-[pandera.readthedocs.io](https://pandera.readthedocs.io/)
+[pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io/)
 
 **SHOULD**: версионирование схем и «заморозка» набора колонок.
 
-## 6.7 merge.py
+## 6.7 merge.py (@test_refactoring_32)
 
 **MUST**: явные ключи слияния, приоритеты источников, политика разрешения конфликтов; фиксация обоснований решений.
 
 **SHOULD**: трассировка lineage для конфликтов.
 
-## 6.8 pipeline.py
+## 6.8 pipeline.py (@test_refactoring_32)
 
 **MUST**: реализовать хуки extract → normalize → validate → write → run из PipelineBase.
 
 **SHOULD**: --dry-run, лимиты и сэмплинг для отладки.
 
-## 6.9 config.py
+## 6.9 config.py (@test_refactoring_32)
 
 **MUST**: Pydantic-совместимые модели; автогенерация и публикация JSON Schema конфигов; валидация при старте.
-[docs.pydantic.dev](https://docs.pydantic.dev/)
+[docs.pydantic.dev @test_refactoring_32](https://docs.pydantic.dev/)
 
 **MUST NOT**: расходящиеся имена ключей при одинаковой семантике между источниками.
 
-## 6.10 output_writer
+## 6.10 output_writer (@test_refactoring_32)
 
 **MUST**: атомарная запись через temp-файл и `os.replace`; фикс-сортировка и формат.
-[Python documentation](https://docs.python.org/3/library/os.html#os.replace)
+[Python documentation @test_refactoring_32](https://docs.python.org/3/library/os.html#os.replace)
 
-# 7. Правила мерджа (MergePolicy)
+# 7. Правила мерджа (MergePolicy) (@test_refactoring_32)
 
 **Ключи идентичности**:
 
@@ -201,9 +210,9 @@ class PipelineBase(Protocol):
 
 **SHOULD**: несогласованные значения выносятся в «расхождения» с указанием источника-победителя.
 
-📄 **Полное описание**: [docs/requirements/99-data-sources-and-data-spec.md](../docs/requirements/99-data-sources-and-data-spec.md)
+📄 **Полное описание**: [docs/requirements/99-data-sources-and-data-spec.md @test_refactoring_32](../docs/requirements/99-data-sources-and-data-spec.md)
 
-# 8. Конфигурации
+# 8. Конфигурации (@test_refactoring_32)
 
 **Расположение**: `configs/<source>.yaml`.
 
@@ -212,21 +221,21 @@ class PipelineBase(Protocol):
 **Требования**:
 
 - **MUST**: строгая валидация Pydantic-совместимыми моделями, генерация JSON Schema и проверка при запуске.
-  [docs.pydantic.dev](https://docs.pydantic.dev/)
+ [docs.pydantic.dev @test_refactoring_32](https://docs.pydantic.dev/)
 - **MUST**: единые имена ключей для одинаковых концептов (rate_limit_rps, retries, backoff и т.п.).
 - **MUST NOT**: нераспознанные ключи.
 
-# 9. Тестирование
+# 9. Тестирование (@test_refactoring_32)
 
 - **Unit-тесты** (SHOULD): на каждый слой (client|paginator|parser|normalizer|schema|merge).
 - **Integration-тесты** (SHOULD): на целый пайплайн; smoke-прогон и проверка golden-артефактов.
 - **Контрактные тесты** (MUST):
-  - валидация данных Pandera-схемами;
-  - валидация конфигов Pydantic-моделями и соответствующих JSON Schema.
-  [pandera.readthedocs.io](https://pandera.readthedocs.io/)
+ - валидация данных Pandera-схемами;
+ - валидация конфигов Pydantic-моделями и соответствующих JSON Schema.
+ [pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io/)
 - **Детерминизм** (MUST): повторные прогоны сравниваются с golden-файлами побайтно.
 
-# 10. Метрики и контроль регресса
+# 10. Метрики и контроль регресса (@test_refactoring_32)
 
 Для каждого источника фиксируются в `docs/requirements/PIPELINES.md`:
 
@@ -235,57 +244,61 @@ class PipelineBase(Protocol):
 
 **Порог**: сокращение числа файлов в затронутых «семьях» не менее 30% без потери функционала; покрытие тестами не ниже базовой линии ветки.
 
-# 11. Шаблоны разделов
+# 11. Шаблоны разделов (@test_refactoring_32)
 
-## 11.1 Карта источников
+
+## 11.1 Карта источников (@test_refactoring_32)
 
 ```markdown
-## Источники
+## Источники (@test_refactoring_32)
 | source | owner | data domain | endpoints | rate limits | auth | notes |
 |--------|-------|-------------|-----------|-------------|------|-------|
 | Crossref | publications | metadata | /works, /funders | RPS=N | none | ... |
 ...
 ```
 
-## 11.2 Спецификация пайплайна <source>
+
+## 11.2 Спецификация пайплайна <source> (@test_refactoring_32)
 
 ```markdown
-### <source>
+### <source> (@test_refactoring_32)
 Layout: src/bioetl/sources/<source>/{client,request,paginator,parser,normalizer,schema,merge,pipeline,config}.py
 Public API: from bioetl.sources.<source> import <Source>Pipeline
 Config (MUST): <перечень ключей + типы>
 MergePolicy (MUST): <ключи, приоритеты, правила конфликтов>
 Tests: <unit по слоям, integ + golden>
 Risks: <лимиты, нестабильные поля, схемные расхождения>
-Links: [ref: repo:src/bioetl/sources/<source>/@Pipeline_Unification],
-       [ref: repo:tests/bioetl/sources/<source>/@Pipeline_Unification]
+Links: [ref: repo:src/bioetl/sources/<source>/@test_refactoring_32],
+    [ref: repo:tests/bioetl/sources/<source>/@test_refactoring_32]
 ```
 
-## 11.3 Единые правила именования и раскладки
+
+## 11.3 Единые правила именования и раскладки (@test_refactoring_32)
 
 - Файлы слоёв: строго как в шаблоне (§3).
 - Публичный API: реэкспорт пайплайна только из `__init__.py` источника.
-- Общие абстракции: размещаются в [ref: repo:src/bioetl/core/@Pipeline_Unification].
+- Общие абстракции: размещаются в [ref: repo:src/bioetl/core/@test_refactoring_32].
 - Запрещены циклические импорты и зависимость одного источника от другого (общие части выносить в `core/`).
 
-# 12. Acceptance Criteria
+# 12. Acceptance Criteria (@test_refactoring_32)
 
 - **MUST**: для каждого источника создан единый пайплайн по шаблону (§3) и контракту (§4).
 - **MUST**: конфиги валидируются Pydantic-моделями; JSON Schema опубликованы.
-  [docs.pydantic.dev](https://docs.pydantic.dev/)
+ [docs.pydantic.dev @test_refactoring_32](https://docs.pydantic.dev/)
 - **MUST**: данные валидируются Pandera-схемами.
-  [pandera.readthedocs.io](https://pandera.readthedocs.io/)
+ [pandera.readthedocs.io @test_refactoring_32](https://pandera.readthedocs.io/)
 - **MUST**: вывод детерминирован; запись атомарна.
-  [Python documentation](https://docs.python.org/3/library/os.html#os.replace)
+ [Python documentation @test_refactoring_32](https://docs.python.org/3/library/os.html#os.replace)
 - **MUST**: нет дублирующих реализаций слоёв; различия выражены стратегиями/параметрами.
 - **SHOULD**: модульные и интеграционные тесты зелёные; golden-артефакты стабильны.
 - **SHOULD**: достигнуты целевые метрики сокращения дубликатов (§10).
 
-# 13. Архитектурные компоненты
+# 13. Архитектурные компоненты (@test_refactoring_32)
 
 Все пайплайны используют унифицированные компоненты из `src/bioetl/core/`:
 
-## 13.1 UnifiedLogger
+
+## 13.1 UnifiedLogger (@test_refactoring_32)
 
 **Назначение**: структурированное, безопасное, воспроизводимое логирование.
 
@@ -305,9 +318,10 @@ Links: [ref: repo:src/bioetl/sources/<source>/@Pipeline_Unification],
 - production: JSON, INFO, telemetry on, rotation
 - testing: text, WARNING, telemetry off
 
-📄 **Полное описание**: [docs/requirements/01-logging-system.md](../docs/requirements/01-logging-system.md)
+📄 **Полное описание**: [docs/requirements/01-logging-system.md @test_refactoring_32](../docs/requirements/01-logging-system.md)
 
-## 13.2 UnifiedOutputWriter
+
+## 13.2 UnifiedOutputWriter (@test_refactoring_32)
 
 **Назначение**: детерминированный вывод данных с качественными метриками.
 
@@ -331,9 +345,10 @@ Links: [ref: repo:src/bioetl/sources/<source>/@Pipeline_Unification],
 - NA-policy: `""` для строк, `null` для чисел
 - Каноническая сериализация (JSON+ISO8601, float=%.6f)
 
-📄 **Полное описание**: [docs/requirements/02-io-system.md](../docs/requirements/02-io-system.md)
+📄 **Полное описание**: [docs/requirements/02-io-system.md @test_refactoring_32](../docs/requirements/02-io-system.md)
 
-## 13.3 UnifiedAPIClient
+
+## 13.3 UnifiedAPIClient (@test_refactoring_32)
 
 **Назначение**: надежный, масштабируемый доступ к внешним API.
 
@@ -351,9 +366,10 @@ Links: [ref: repo:src/bioetl/sources/<source>/@Pipeline_Unification],
 - 4xx (кроме 429): fail-fast
 - 5xx: exponential backoff, retry
 
-📄 **Полное описание**: [docs/requirements/03-data-extraction.md](../docs/requirements/03-data-extraction.md)
+📄 **Полное описание**: [docs/requirements/03-data-extraction.md @test_refactoring_32](../docs/requirements/03-data-extraction.md)
 
-## 13.4 UnifiedSchema
+
+## 13.4 UnifiedSchema (@test_refactoring_32)
 
 **Назначение**: строгая валидация и стандартизация данных.
 
@@ -370,26 +386,25 @@ Links: [ref: repo:src/bioetl/sources/<source>/@Pipeline_Unification],
 - Identifier (DOI, PMID, ChEMBL ID, UniProt, PubChem CID)
 - Ontology (MeSH, GO terms)
 
-📄 **Полное описание**: [docs/requirements/04-normalization-validation.md](../docs/requirements/04-normalization-validation.md)
+📄 **Полное описание**: [docs/requirements/04-normalization-validation.md @test_refactoring_32](../docs/requirements/04-normalization-validation.md)
 
-# 14. Ссылки на детальные спецификации
+# 14. Ссылки на детальные спецификации (@test_refactoring_32)
 
 Все компоненты имеют детальные спецификации в `docs/requirements/`:
 
 | Документ | Описание |
 |----------|----------|
-| [00-architecture-overview.md](../docs/requirements/00-architecture-overview.md) | Архитектурные принципы и обзор компонентов |
-| [01-logging-system.md](../docs/requirements/01-logging-system.md) | UnifiedLogger: структура, контекст, режимы |
-| [02-io-system.md](../docs/requirements/02-io-system.md) | UnifiedOutputWriter: атомарная запись, QC, метаданные |
-| [03-data-extraction.md](../docs/requirements/03-data-extraction.md) | UnifiedAPIClient: отказоустойчивость, пагинация |
-| [04-normalization-validation.md](../docs/requirements/04-normalization-validation.md) | UnifiedSchema: нормализаторы, Pandera схемы |
-| [05-assay-extraction.md](../docs/requirements/05-assay-extraction.md) | Assay pipeline спецификация |
-| [06-activity-data-extraction.md](../docs/requirements/06-activity-data-extraction.md) | Activity pipeline спецификация |
-| [07a-testitem-extraction.md](../docs/requirements/07a-testitem-extraction.md) | Testitem extraction спецификация |
-| [07b-testitem-data-extraction.md](../docs/requirements/07b-testitem-data-extraction.md) | Testitem data extraction спецификация |
-| [08-target-data-extraction.md](../docs/requirements/08-target-data-extraction.md) | Target pipeline спецификация |
-| [09-document-chembl-extraction.md](../docs/requirements/09-document-chembl-extraction.md) | Document pipeline спецификация |
-| [10-configuration.md](../docs/requirements/10-configuration.md) | Конфигурация: YAML, Pydantic, CLI |
-| [99-data-sources-and-data-spec.md](../docs/requirements/99-data-sources-and-data-spec.md) | Спецификация источников данных и требований |
-| [99-final-tech-spec.md](../docs/requirements/99-final-tech-spec.md) | Итоговая техническая спецификация |
-
+| [00-architecture-overview.md @test_refactoring_32](../docs/requirements/00-architecture-overview.md) | Архитектурные принципы и обзор компонентов |
+| [01-logging-system.md @test_refactoring_32](../docs/requirements/01-logging-system.md) | UnifiedLogger: структура, контекст, режимы |
+| [02-io-system.md @test_refactoring_32](../docs/requirements/02-io-system.md) | UnifiedOutputWriter: атомарная запись, QC, метаданные |
+| [03-data-extraction.md @test_refactoring_32](../docs/requirements/03-data-extraction.md) | UnifiedAPIClient: отказоустойчивость, пагинация |
+| [04-normalization-validation.md @test_refactoring_32](../docs/requirements/04-normalization-validation.md) | UnifiedSchema: нормализаторы, Pandera схемы |
+| [05-assay-extraction.md @test_refactoring_32](../docs/requirements/05-assay-extraction.md) | Assay pipeline спецификация |
+| [06-activity-data-extraction.md @test_refactoring_32](../docs/requirements/06-activity-data-extraction.md) | Activity pipeline спецификация |
+| [07a-testitem-extraction.md @test_refactoring_32](../docs/requirements/07a-testitem-extraction.md) | Testitem extraction спецификация |
+| [07b-testitem-data-extraction.md @test_refactoring_32](../docs/requirements/07b-testitem-data-extraction.md) | Testitem data extraction спецификация |
+| [08-target-data-extraction.md @test_refactoring_32](../docs/requirements/08-target-data-extraction.md) | Target pipeline спецификация |
+| [09-document-chembl-extraction.md @test_refactoring_32](../docs/requirements/09-document-chembl-extraction.md) | Document pipeline спецификация |
+| [10-configuration.md @test_refactoring_32](../docs/requirements/10-configuration.md) | Конфигурация: YAML, Pydantic, CLI |
+| [99-data-sources-and-data-spec.md @test_refactoring_32](../docs/requirements/99-data-sources-and-data-spec.md) | Спецификация источников данных и требований |
+| [99-final-tech-spec.md @test_refactoring_32](../docs/requirements/99-final-tech-spec.md) | Итоговая техническая спецификация |
