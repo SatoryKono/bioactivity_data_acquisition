@@ -1,3 +1,5 @@
-"""Document normalizer module namespace."""
+"""Normalizers for ChEMBL document payloads."""
 
-__all__ = []
+from .document_normalizer import normalize_document_frame
+
+__all__ = ["normalize_document_frame"]
