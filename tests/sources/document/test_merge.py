@@ -56,7 +56,7 @@ def test_enrichment_merges_independent_sources(monkeypatch: pytest.MonkeyPatch) 
     """External adapters are merged using the policy when enriching documents."""
 
     config = load_config(get_config_path("profiles/document_test.yaml"))
-    monkeypatch.setattr(DocumentPipeline, "_init_external_adapters", lambda self: None)
+    monkeypatch.setattr(DocumentPipeline, "_prepare_enrichment_adapters", lambda self: None)
     pipeline = DocumentPipeline(config, run_id="merge-policy-test")
 
     chembl_df = pd.DataFrame(
