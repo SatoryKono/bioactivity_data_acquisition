@@ -12,14 +12,12 @@ import requests
 from pandas.api.types import Float64Dtype
 
 if TYPE_CHECKING:
-    from pandera.errors import SchemaError
-
-    SchemaErrors: type[Exception] = SchemaError
+    from pandera.errors import SchemaError as SchemaErrors
 else:  # pragma: no cover - runtime compatibility for older Pandera releases
     SchemaErrors = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import CircuitBreakerOpenError
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
@@ -134,7 +132,7 @@ class DocumentPipeline(PipelineBase):
         default_max_url_length = 1800
         self.max_batch_size = 25
 
-        self.document_client = DocumentChEMBLClient(
+        self.document_client: DocumentChEMBLClient = DocumentChEMBLClient(
             config,
             defaults={
                 "enabled": True,
@@ -145,10 +143,10 @@ class DocumentPipeline(PipelineBase):
             batch_size_cap=self.max_batch_size,
         )
 
-        self.api_client = self.document_client.api_client
+        self.api_client: UnifiedAPIClient = self.document_client.api_client
         self.register_client(self.api_client)
-        self.batch_size = self.document_client.batch_size
-        self.max_url_length = max(1, int(self.document_client.max_url_length))
+        self.batch_size: int = int(self.document_client.batch_size)
+        self.max_url_length: int = max(1, int(self.document_client.max_url_length))
 
         # Initialize external adapter state; adapters are prepared lazily per mode
         self.external_adapters: dict[str, Any] = {}
