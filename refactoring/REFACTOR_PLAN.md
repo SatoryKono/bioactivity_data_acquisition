@@ -223,7 +223,7 @@ Current
 Ручные циклы, разная семантика page/size/cursor.
 
 Target
-[ref: repo:src/bioetl/core/pagination/strategy.py@test_refactoring_32]
+[ref: repo:src/bioetl/core/pagination/strategy.py@HEAD]
 Стратегии: PageNumber, Cursor, OffsetLimit, Token. Инварианты порядка, дедупликация.
 
 Steps
@@ -242,7 +242,7 @@ Risks
 Cursor-дрифты: хранить последний курсор в meta.yaml (см. Output).
 
 Acceptance
-Ни одного ручного цикла пагинации в коде источников.
+Ни одного ручного цикла пагинации в коде источников; адаптеры используют стратегии из `bioetl.core.pagination`.
 
 1.3 Parser/Normalizer
 
