@@ -12,17 +12,16 @@ class PubChemRequestBuilder:
 
     _CID_LOOKUP_TEMPLATE: Final[str] = "/compound/inchikey/{inchikey}/cids/JSON"
     _PROPERTIES_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/property/{properties}/JSON"
+    _SYNONYMS_TEMPLATE: Final[str] = "/compound/cid/{cid}/synonyms/JSON"
+    _REGISTRY_XREFS_TEMPLATE: Final[str] = "/compound/cid/{cid}/xrefs/RegistryID,RN/JSON"
     _DEFAULT_PROPERTIES: Final[tuple[str, ...]] = (
         "MolecularFormula",
         "MolecularWeight",
-        "SMILES",
-        "ConnectivitySMILES",
+        "CanonicalSMILES",
+        "IsomericSMILES",
         "InChI",
         "InChIKey",
         "IUPACName",
-        "RegistryID",
-        "RN",
-        "Synonym",
     )
 
     @classmethod
@@ -45,6 +44,20 @@ class PubChemRequestBuilder:
         property_tokens = list(properties or cls._DEFAULT_PROPERTIES)
         property_list = ",".join(property_tokens)
         return cls._PROPERTIES_TEMPLATE.format(cid_list=cid_list, properties=property_list)
+
+    @classmethod
+    def build_synonyms_url(cls, cid: int | str) -> str:
+        """Return the endpoint for retrieving synonym data for a single CID."""
+
+        cid_token = str(cid).strip()
+        return cls._SYNONYMS_TEMPLATE.format(cid=cid_token)
+
+    @classmethod
+    def build_registry_xrefs_url(cls, cid: int | str) -> str:
+        """Return the endpoint for retrieving registry and RN identifiers."""
+
+        cid_token = str(cid).strip()
+        return cls._REGISTRY_XREFS_TEMPLATE.format(cid=cid_token)
 
     @classmethod
     def get_default_properties(cls) -> tuple[str, ...]:

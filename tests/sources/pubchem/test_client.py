@@ -23,12 +23,16 @@ def test_fetch_properties_batch_returns_records() -> None:
     payload = {
         "PropertyTable": {
             "Properties": [
-                {"CID": 1, "SMILES": "C"},
-                {"CID": 2, "SMILES": "CC"},
+                {"CID": 1, "CanonicalSMILES": "C"},
+                {"CID": 2, "CanonicalSMILES": "CC"},
             ]
         }
     }
-    stub = StubUnifiedAPIClient(responses={"/compound/cid/1,2/property/MolecularFormula,MolecularWeight,SMILES,ConnectivitySMILES,InChI,InChIKey,IUPACName,RegistryID,RN,Synonym/JSON": payload})
+    stub = StubUnifiedAPIClient(
+        responses={
+            "/compound/cid/1,2/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName/JSON": payload
+        }
+    )
     client = PubChemClient(stub)
 
     records = client.fetch_properties_batch([1, 2])
@@ -40,8 +44,37 @@ def test_enrich_batch_combines_resolution_and_properties() -> None:
     stub = StubUnifiedAPIClient(
         responses={
             "/compound/inchikey/KEYONE/cids/JSON": {"IdentifierList": {"CID": [111]}},
-            "/compound/cid/111/property/MolecularFormula,MolecularWeight,SMILES,ConnectivitySMILES,InChI,InChIKey,IUPACName,RegistryID,RN,Synonym/JSON": {
-                "PropertyTable": {"Properties": [{"CID": 111, "SMILES": "CC"}]}
+            "/compound/cid/111/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName/JSON": {
+                "PropertyTable": {
+                    "Properties": [
+                        {
+                            "CID": 111,
+                            "CanonicalSMILES": "CC",
+                            "IsomericSMILES": "C[C@H]H",
+                        }
+                    ]
+                }
+            },
+            "/compound/cid/111/synonyms/JSON": {
+                "InformationList": {
+                    "Information": [
+                        {
+                            "CID": 111,
+                            "Synonym": ["ethane"],
+                        }
+                    ]
+                }
+            },
+            "/compound/cid/111/xrefs/RegistryID,RN/JSON": {
+                "InformationList": {
+                    "Information": [
+                        {
+                            "CID": 111,
+                            "RN": ["64-17-5"],
+                            "RegistryID": ["64-17-5"],
+                        }
+                    ]
+                }
             },
         }
     )
@@ -50,7 +83,10 @@ def test_enrich_batch_combines_resolution_and_properties() -> None:
     records = client.enrich_batch(["keyone"])
 
     assert records[0]["CID"] == 111
-    assert records[0]["SMILES"] == "CC"
+    assert records[0]["CanonicalSMILES"] == "CC"
+    assert records[0]["RegistryID"] == "64-17-5"
+    assert records[0]["RN"] == "64-17-5"
+    assert records[0]["Synonym"] == ["ethane"]
     assert records[0]["_source_identifier"] == "KEYONE"
 
 

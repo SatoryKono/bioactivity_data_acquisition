@@ -136,7 +136,63 @@ class PubChemClient:
                     records[int(cid)] = dict(entry)
             except (TypeError, ValueError):
                 continue
+
+        synonyms_map = self._fetch_synonyms(chunk)
+        for cid, synonyms in synonyms_map.items():
+            if not synonyms:
+                continue
+            records.setdefault(cid, {})["Synonym"] = list(synonyms)
+
+        registry_ids_map, rn_map = self._fetch_registry_and_rn(chunk)
+        for cid, registry_ids in registry_ids_map.items():
+            if not registry_ids:
+                continue
+            first = next((value for value in registry_ids if value is not None), None)
+            if first is None:
+                continue
+            records.setdefault(cid, {})["RegistryID"] = str(first)
+
+        for cid, rns in rn_map.items():
+            if not rns:
+                continue
+            first = next((value for value in rns if value is not None), None)
+            if first is None:
+                continue
+            records.setdefault(cid, {})["RN"] = str(first)
         return records
+
+    def _fetch_synonyms(self, chunk: Sequence[int]) -> Mapping[int, list[Any]]:
+        """Fetch synonym lists for each provided CID individually."""
+
+        results: dict[int, list[Any]] = {}
+        for cid in chunk:
+            try:
+                cid_int = int(cid)
+            except (TypeError, ValueError):
+                continue
+            endpoint = PubChemRequestBuilder.build_synonyms_url(cid_int)
+            payload = self._request_json(endpoint)
+            parsed = PubChemParser.parse_synonyms_response(payload)
+            results.update(parsed)
+        return results
+
+    def _fetch_registry_and_rn(
+        self, chunk: Sequence[int]
+    ) -> tuple[Mapping[int, list[Any]], Mapping[int, list[Any]]]:
+        """Fetch registry identifiers and RN numbers for each CID."""
+
+        registry_results: dict[int, list[Any]] = {}
+        rn_results: dict[int, list[Any]] = {}
+        for cid in chunk:
+            try:
+                cid_int = int(cid)
+            except (TypeError, ValueError):
+                continue
+            endpoint = PubChemRequestBuilder.build_registry_xrefs_url(cid_int)
+            payload = self._request_json(endpoint)
+            registry_results.update(PubChemParser.parse_registry_ids_response(payload))
+            rn_results.update(PubChemParser.parse_rn_response(payload))
+        return registry_results, rn_results
 
     def _request_json(self, endpoint: str) -> dict[str, Any] | None:
         """Wrapper around :meth:`UnifiedAPIClient.request_json` with logging."""
