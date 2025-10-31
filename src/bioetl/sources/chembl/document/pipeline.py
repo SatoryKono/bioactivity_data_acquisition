@@ -223,7 +223,6 @@ class DocumentPipeline(PipelineBase):
             self.mode = resolved_mode
 
         self.runtime_options["mode"] = self.mode
-        self._prepare_enrichment_adapters()
 
     def _prepare_enrichment_adapters(self) -> None:
         """Ensure external adapters reflect the active execution mode."""
@@ -294,9 +293,18 @@ class DocumentPipeline(PipelineBase):
 
     def _enrich_with_external_sources(
         self, chembl_df: pd.DataFrame
-    ) -> ExternalEnrichmentResult:
+    ) -> ExternalEnrichmentResult | pd.DataFrame:
         """Enrich ChEMBL data with external sources."""
         self._sync_mode_runtime()
+        if not self.external_adapters and self._adapter_initialization_mode == "all":
+            logger.info(
+                "external_enrichment_skipped",
+                reason="no_external_adapters",
+                chembl_rows=len(chembl_df),
+            )
+            self.qc_enrichment_metrics = pd.DataFrame()
+            return chembl_df
+
         self._prepare_enrichment_adapters()
         if not self.external_adapters:
             logger.info(
@@ -305,7 +313,7 @@ class DocumentPipeline(PipelineBase):
                 chembl_rows=len(chembl_df),
             )
             self.qc_enrichment_metrics = pd.DataFrame()
-            return ExternalEnrichmentResult(chembl_df, "skipped", {})
+            return chembl_df
 
         pmids: list[str] = []
         dois: list[str] = []
@@ -986,6 +994,9 @@ def _document_run_pubmed_stage(
             }
         )
         raise
+
+    if not isinstance(result, ExternalEnrichmentResult):
+        return result
 
     enriched_df = result.dataframe
     pipeline.stage_context["pubmed"] = {
