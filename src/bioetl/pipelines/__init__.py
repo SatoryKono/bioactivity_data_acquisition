@@ -24,7 +24,7 @@ _PIPELINE_EXPORTS: dict[str, str] = {
     "TargetPipeline": "bioetl.pipelines.target",
     "DocumentPipeline": "bioetl.pipelines.document",
     "GtpIupharPipeline": "bioetl.sources.iuphar.pipeline",
-    "UniProtPipeline": "bioetl.pipelines.uniprot",
+    "UniProtPipeline": "bioetl.sources.uniprot.pipeline",
 }
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
@@ -34,7 +34,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
     from bioetl.pipelines.document import DocumentPipeline
     from bioetl.pipelines.target import TargetPipeline
     from bioetl.pipelines.testitem import TestItemPipeline
-    from bioetl.pipelines.uniprot import UniProtPipeline
+    from bioetl.sources.uniprot.pipeline import UniProtPipeline
     from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 
 

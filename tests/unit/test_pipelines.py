@@ -2190,8 +2190,14 @@ class TestTargetPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = TargetPipeline(target_config, run_id)
         pipeline.uniprot_client = None
+        pipeline.uniprot_search_client.client = None
         pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_id_mapping_client.client = None
         pipeline.uniprot_orthologs_client = None
+        pipeline.uniprot_ortholog_client.client = None
+        pipeline.uniprot_normalizer.search_client = pipeline.uniprot_search_client
+        pipeline.uniprot_normalizer.id_mapping_client = pipeline.uniprot_id_mapping_client
+        pipeline.uniprot_normalizer.ortholog_client = pipeline.uniprot_ortholog_client
         pipeline.iuphar_client = None
         monkeypatch.setattr(
             TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None
@@ -2226,8 +2232,14 @@ class TestTargetPipeline:
         run_id = str(uuid.uuid4())[:8]
         pipeline = TargetPipeline(target_config, run_id)
         pipeline.uniprot_client = None
+        pipeline.uniprot_search_client.client = None
         pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_id_mapping_client.client = None
         pipeline.uniprot_orthologs_client = None
+        pipeline.uniprot_ortholog_client.client = None
+        pipeline.uniprot_normalizer.search_client = pipeline.uniprot_search_client
+        pipeline.uniprot_normalizer.id_mapping_client = pipeline.uniprot_id_mapping_client
+        pipeline.uniprot_normalizer.ortholog_client = pipeline.uniprot_ortholog_client
         pipeline.iuphar_client = None
         monkeypatch.setattr(
             TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None
@@ -2323,8 +2335,14 @@ class TestTargetPipeline:
                 }
 
         pipeline.uniprot_client = DummyUniProtClient()
+        pipeline.uniprot_search_client.client = pipeline.uniprot_client
         pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_id_mapping_client.client = None
         pipeline.uniprot_orthologs_client = None
+        pipeline.uniprot_ortholog_client.client = None
+        pipeline.uniprot_normalizer.search_client = pipeline.uniprot_search_client
+        pipeline.uniprot_normalizer.id_mapping_client = pipeline.uniprot_id_mapping_client
+        pipeline.uniprot_normalizer.ortholog_client = pipeline.uniprot_ortholog_client
         pipeline.iuphar_client = None
         pipeline.config.materialization.silver = tmp_path / "targets_uniprot.parquet"
 
@@ -2355,8 +2373,14 @@ class TestTargetPipeline:
         pipeline = TargetPipeline(target_config, run_id)
 
         pipeline.uniprot_client = None
+        pipeline.uniprot_search_client.client = None
         pipeline.uniprot_idmapping_client = None
+        pipeline.uniprot_id_mapping_client.client = None
         pipeline.uniprot_orthologs_client = None
+        pipeline.uniprot_ortholog_client.client = None
+        pipeline.uniprot_normalizer.search_client = pipeline.uniprot_search_client
+        pipeline.uniprot_normalizer.id_mapping_client = pipeline.uniprot_id_mapping_client
+        pipeline.uniprot_normalizer.ortholog_client = pipeline.uniprot_ortholog_client
         monkeypatch.setattr(
             TargetPipeline, "_materialize_gold_outputs", lambda self, *args, **kwargs: None
         )

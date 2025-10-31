@@ -16,7 +16,6 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.core.chembl import create_chembl_client
 from bioetl.core.materialization import MaterializationManager
 from bioetl.core.output_writer import UnifiedOutputWriter
-from bioetl.sources.uniprot import UniProtService
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
@@ -44,6 +43,12 @@ from bioetl.sources.iuphar.request import (
     build_targets_request,
 )
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
+from bioetl.sources.uniprot.client import (
+    UniProtIdMappingClient,
+    UniProtOrthologClient,
+    UniProtSearchClient,
+)
+from bioetl.sources.uniprot.normalizer import UniProtNormalizer
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     prepare_enrichment_metrics,
@@ -148,17 +153,27 @@ class TargetPipeline(PipelineBase):
             record_missing_mapping=self._record_missing_mapping,
         )
 
-        self.uniprot_service = UniProtService(
-            search_client=self.uniprot_client,
-            id_mapping_client=self.uniprot_idmapping_client,
-            orthologs_client=self.uniprot_orthologs_client,
+        self.uniprot_search_client = UniProtSearchClient(
+            client=self.uniprot_client,
+            fields=self._UNIPROT_FIELDS,
             batch_size=self._UNIPROT_BATCH_SIZE,
-            id_mapping_batch_size=self._IDMAPPING_BATCH_SIZE,
-            id_mapping_poll_interval=self._IDMAPPING_POLL_INTERVAL,
-            id_mapping_max_wait=self._IDMAPPING_MAX_WAIT,
-            uniprot_fields=self._UNIPROT_FIELDS,
-            ortholog_fields=self._ORTHOLOG_FIELDS,
-            ortholog_priority=self._ORTHOLOG_PRIORITY,
+        )
+        self.uniprot_id_mapping_client = UniProtIdMappingClient(
+            client=self.uniprot_idmapping_client,
+            batch_size=self._IDMAPPING_BATCH_SIZE,
+            poll_interval=self._IDMAPPING_POLL_INTERVAL,
+            max_wait=self._IDMAPPING_MAX_WAIT,
+        )
+        ortholog_base_client = self.uniprot_orthologs_client or self.uniprot_client
+        self.uniprot_ortholog_client = UniProtOrthologClient(
+            client=ortholog_base_client,
+            fields=self._ORTHOLOG_FIELDS,
+            priority_map=self._ORTHOLOG_PRIORITY,
+        )
+        self.uniprot_normalizer = UniProtNormalizer(
+            search_client=self.uniprot_search_client,
+            id_mapping_client=self.uniprot_id_mapping_client,
+            ortholog_client=self.uniprot_ortholog_client,
         )
 
         # Backwards compatibility
@@ -500,7 +515,7 @@ class TargetPipeline(PipelineBase):
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich the target dataframe using UniProt entries via the shared service."""
 
-        result = self.uniprot_service.enrich_targets(
+        result = self.uniprot_normalizer.enrich_targets(
             df,
             accession_column="uniprot_accession",
             target_id_column="target_chembl_id",

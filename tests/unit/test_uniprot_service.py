@@ -5,7 +5,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.sources.uniprot import UniProtService
+from bioetl.sources.uniprot.client import UniProtIdMappingClient, UniProtSearchClient
+from bioetl.sources.uniprot.normalizer import UniProtNormalizer
 
 
 @pytest.fixture()
@@ -44,13 +45,14 @@ def sample_entry() -> dict[str, object]:
 
 
 def test_enrich_targets_populates_enrichment(sample_entry: dict[str, object]) -> None:
-    search_client = MagicMock()
-    search_client.request_json.return_value = {"results": [sample_entry]}
-    service = UniProtService(search_client=search_client)
+    raw_client = MagicMock()
+    raw_client.request_json.return_value = {"results": [sample_entry]}
+    search_client = UniProtSearchClient(client=raw_client, fields="accession")
+    normalizer = UniProtNormalizer(search_client=search_client)
 
     df = pd.DataFrame({"uniprot_accession": ["P12345"], "gene_symbol": ["ABC1"]})
 
-    result = service.enrich_targets(df)
+    result = normalizer.enrich_targets(df)
 
     assert result.dataframe.loc[0, "uniprot_canonical_accession"] == "P12345"
     assert result.metrics["enrichment_success.uniprot"] == pytest.approx(1.0)
@@ -60,13 +62,14 @@ def test_enrich_targets_populates_enrichment(sample_entry: dict[str, object]) ->
 
 
 def test_enrich_targets_records_missing_mapping_when_unresolved() -> None:
-    search_client = MagicMock()
-    search_client.request_json.return_value = {"results": []}
-    service = UniProtService(search_client=search_client)
+    raw_client = MagicMock()
+    raw_client.request_json.return_value = {"results": []}
+    search_client = UniProtSearchClient(client=raw_client, fields="accession")
+    normalizer = UniProtNormalizer(search_client=search_client)
 
     df = pd.DataFrame({"uniprot_accession": ["UNKNOWN"]})
 
-    result = service.enrich_targets(df)
+    result = normalizer.enrich_targets(df)
 
     assert result.missing_mappings, "Expected unresolved accession to be recorded"
     record = result.missing_mappings[0]
@@ -81,9 +84,9 @@ def test_run_id_mapping_returns_canonical_accession() -> None:
         {"jobStatus": "FINISHED"},
         {"results": [{"from": "OLD", "to": {"primaryAccession": "NEW"}}]},
     ]
-    service = UniProtService(id_mapping_client=id_client)
+    id_mapping_client = UniProtIdMappingClient(client=id_client)
 
-    result = service.run_id_mapping(["OLD"])
+    result = id_mapping_client.map_accessions(["OLD"])
 
     assert result.loc[0, "canonical_accession"] == "NEW"
     assert id_client.request_json.call_count == 3

@@ -6,8 +6,8 @@ import pandas as pd
 import pytest
 
 from bioetl.config.loader import load_config
-from bioetl.pipelines.uniprot import UniProtPipeline
 from bioetl.sources.uniprot import UniProtEnrichmentResult
+from bioetl.sources.uniprot.pipeline import UniProtPipeline
 
 
 @pytest.fixture()
@@ -19,7 +19,7 @@ def test_transform_uses_service(monkeypatch, uniprot_config) -> None:
     pipeline = UniProtPipeline(uniprot_config, "test-run")
 
     monkeypatch.setattr(
-        "bioetl.pipelines.uniprot.finalize_output_dataset",
+        "bioetl.sources.uniprot.pipeline.finalize_output_dataset",
         lambda df, **_: df.copy(),
     )
 
@@ -42,7 +42,7 @@ def test_transform_uses_service(monkeypatch, uniprot_config) -> None:
 
     service_mock = MagicMock()
     service_mock.enrich_targets.return_value = enrichment_result
-    pipeline.uniprot_service = service_mock
+    pipeline.normalizer = service_mock
 
     df = pd.DataFrame({"uniprot_accession": ["P12345"]})
     transformed = pipeline.transform(df)
