@@ -15,7 +15,6 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
-from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 
@@ -34,10 +33,6 @@ from .request import AssayRequestBuilder
 __all__ = ["AssayPipeline"]
 
 logger = UnifiedLogger.get(__name__)
-
-# Register schema
-schema_registry.register("assay", "1.0.0", AssaySchema)
-
 
 # _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
 
