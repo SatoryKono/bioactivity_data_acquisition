@@ -362,6 +362,7 @@ tests/
 
 2. Добавить примеры использования каждого уровня
 3. Указать, что FallbackManager интегрирован в UnifiedAPIClient (согласно AUDIT_REPORT_2025.md строки 507, 629)
+4. Внести в чек-лист аудита проверку YAML-конфигураций (`configs/**/*.yaml`) на наличие полного списка стратегий (`cache`, `partial_retry`, `network`, `timeout`, `5xx`) и соответствие `APIConfig.fallback_strategies`.
 
 **Приоритет:** Средний — влияет на понимание архитектуры
 

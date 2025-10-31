@@ -314,7 +314,8 @@ UnifiedAPIClient объединяет следующие слои защиты:
   - Giveup условия для невосстановимых ошибок
 
 4. **FallbackManager** — стратегии отката
-  - Обработка network errors, timeouts, 5xx
+  - Единый список стратегий: `cache`, `partial_retry`, `network`, `timeout`, `5xx`
+  - Обработка network errors, timeouts, 5xx + делегирование `cache`/`partial_retry` в UnifiedAPIClient
   - Использование кэшированных или fallback данных
 
 5. **TTL-кэш** (опционально)
