@@ -480,7 +480,7 @@ class _RequestRetryContext:
     client: "UnifiedAPIClient"
     url: str
     method: str
-    params: dict[str, Any] | None
+    params: Mapping[str, Any] | None
     data_present: bool
     json_present: bool
     attempt: int = 0
@@ -718,10 +718,10 @@ class UnifiedAPIClient:
     def request_json(
         self,
         url: str,
-        params: dict[str, Any] | None = None,
+        params: Mapping[str, Any] | None = None,
         method: str = "GET",
-        data: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
+        json: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         """Выполняет JSON-запрос с защитами: CB, rate-limit, retry, Retry-After и fallback."""
@@ -802,10 +802,10 @@ class UnifiedAPIClient:
         self,
         *,
         url: str,
-        params: dict[str, Any] | None,
+        params: Mapping[str, Any] | None,
         method: str,
-        data: dict[str, Any] | None,
-        json_payload: dict[str, Any] | None,
+        data: Mapping[str, Any] | None,
+        json_payload: Mapping[str, Any] | None,
         headers: Mapping[str, str] | None,
         cacheable: bool,
         response_parser: Callable[[requests.Response], PayloadT],
@@ -823,8 +823,11 @@ class UnifiedAPIClient:
             # to preserve the relative path exactly as provided by the adapter.
             url = f"{base_url}/{relative_path}"
 
-        query_params = copy.deepcopy(params) if params is not None else None
-        data_payload = data
+        if params is not None:
+            query_params: Mapping[str, Any] | None = copy.deepcopy(dict(params))
+        else:
+            query_params = None
+        data_payload: Mapping[str, Any] | None = data
         request_has_body = bool(data_payload or json_payload)
         request_has_no_body = not request_has_body
 
@@ -1289,9 +1292,9 @@ class UnifiedAPIClient:
         *,
         method: str,
         url: str,
-        params: dict[str, Any] | None = None,
-        data: dict[str, Any] | None = None,
-        json: dict[str, Any] | None = None,
+        params: Mapping[str, Any] | None = None,
+        data: Mapping[str, Any] | None = None,
+        json: Mapping[str, Any] | None = None,
         stream: bool = False,
         headers: Mapping[str, str] | None = None,
         context: _RequestRetryContext | None = None,
@@ -1388,7 +1391,7 @@ class UnifiedAPIClient:
 
             return cast(PayloadT, cloned)
 
-    def _cache_key(self, url: str, params: dict[str, Any] | None) -> str:
+    def _cache_key(self, url: str, params: Mapping[str, Any] | None) -> str:
         """Generate cache key for request."""
 
         def _stringify(value: Any) -> Any:
@@ -1406,18 +1409,14 @@ class UnifiedAPIClient:
                 if isinstance(value, (list, tuple)):
                     return [_stringify(item) for item in value]
 
-                if isinstance(value, dict):
-                    def _sort_key_dict_item(item: tuple[Any, Any]) -> tuple[str, str]:
-                        key_obj = item[0]
-                        # Детерминированная сортировка: тип + repr
-                        return (type(key_obj).__name__, repr(key_obj))
-
-                    # Представляем словарь как список пар [key, value] с сохранением типов ключей
-                    items = [
+                if isinstance(value, Mapping):
+                    normalized_items = [
                         [_stringify(k), _stringify(v)] for k, v in value.items()
                     ]
-                    items.sort(key=lambda pair: (type(pair[0]).__name__, repr(pair[0])))
-                    return items
+                    normalized_items.sort(
+                        key=lambda pair: (type(pair[0]).__name__, repr(pair[0]))
+                    )
+                    return normalized_items
 
                 return value
             except Exception:
