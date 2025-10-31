@@ -2,15 +2,17 @@
 
 ## 1) Ввод (Input Contract)
 
-Источник истины ввода — официальные REST-интерфейсы провайдеров. Пайплайн MUST извлекать данные только через client/ с учётом лимитов, ретраев и этикета API.
+Источник истины ввода — официальные REST-интерфейсы провайдеров. Извлечение выполняется только через client/ с учётом лимитов, ретраев и этикета API.
 
-Форматы ответа: JSON по умолчанию; для NCBI E-utilities поддерживается XML/Medline (efetch, esummary), что отражается в парсере.
+`extract()` каждого пайплайна возвращает табличное представление данных — строго `pd.DataFrame` с именованными колонками. Тип контракта закреплён в базовом классе пайплайна, поэтому все реализации наследников (`document`, `activity`, `target`, `testitem`, …) выдают именно таблицу, даже если промежуточно работают со словарями/JSON.【F:src/bioetl/pipelines/base.py†L847-L877】
 
-Идентификация клиента: для Crossref/OpenAlex пайплайн SHOULD указывать контакт (mailto) и корректный User-Agent; это соответствует их рекомендациям и влияет на квоты/«polite pool».
+Полученный датафрейм сразу связывается со схемой из централизованного `schema_registry`. Реестр фиксирует `schema_id`, `schema_version`, `column_order`, `na_policy` и `precision_policy`, что затем попадает в метаданные и используется для fail-fast проверки дрейфа колонок.【F:src/bioetl/schemas/registry.py†L22-L109】【F:tests/unit/test_output_writer.py†L520-L571】
 
-Пагинация: Page/Size, Cursor, Offset/Limit, Token — реализуется стратегиями; порядок результатов фиксируется и документируется per-источник (см. docs провайдеров).
+Форматы ответа: JSON по умолчанию; для NCBI E-utilities поддерживается XML/Medline (efetch, esummary), что отражается в парсере. Идентификация клиента для Crossref/OpenAlex должна включать mailto и корректный User-Agent — это влияет на квоты и «polite pool».
 
-Минимальная форма сырой записи (RawRecord), которую extract() обязан выдать в parser/:
+Пагинация (Page/Size, Cursor, Offset/Limit, Token) реализуется стратегиями; порядок результатов фиксируется и документируется per-источник.
+
+Сырые ответы API могут храниться для отладки, но в публичный контракт попадает таблица. Минимальная форма записи, которую клиент отдаёт в parser/ (RawRecord), остаётся прежней:
 
 ```json
 {
@@ -28,6 +30,10 @@
   "payload": { /* неизменённый ответ API (JSON/XML to-be-parsed) */ }
 }
 ```
+
+### Логирование HTTP-запросов
+
+Все сетевые вызовы проходят через `UnifiedAPIClient`. Контекст `_RequestRetryContext` автоматически логирует каждую попытку (`retrying_request`, `retrying_request_exception`) с номером попытки, `status_code`, `Retry-After`, рассчитанными задержками и текстом ошибки, а при полном исчерпании ретраев пишет `request_failed_after_retries` вместе с признаками тела (`data_present`/`json_present`). Такой же слой фиксирует принудительные остановки (`request_exception_giveup`) и успешные частичные ретраи. Благодаря этому в логах оказываются URL, HTTP-метод, параметры запроса и метаданные ожиданий без дублирования в коде адаптеров.【F:src/bioetl/core/api_client.py†L317-L463】
 
 ### Примечания по ключевым источникам:
 
@@ -79,7 +85,7 @@ run_id: "abc123"
 pipeline_version: "2.1.0"
 config_hash: "sha256:deadbeef..."
 config_snapshot:
-  path: "configs/pipelines/document.yaml"
+  path: "src/bioetl/configs/pipelines/document.yaml"
   sha256: "sha256:d1c2..."
 chembl_release: "33"
 row_count: 12345
@@ -102,6 +108,8 @@ lineage:
     - "normalize_titles"
     - "validate_dois"
 ```
+
+Фактическая реализация `UnifiedOutputWriter._write_metadata()` добавляет в файл ключи `file_checksums` и `artifacts` (dataset, quality_report, дополнительные наборы, QC-артефакты), копирует `schema_id`, `schema_version`, `column_order_source`, `na_policy`, `precision_policy` из registry, прикладывает `config_snapshot` (если доступен) и опциональные блоки `qc_summary`, `qc_metrics`, `validation_issues`, `runtime_options`. Даже при отсутствии пользовательской lineage функция создаёт структуру `source_files`/`transformations`, сохраняя run_id, pipeline_version, config_hash, git_commit, список sources и отметку времени генерации.【F:src/bioetl/core/output_writer.py†L962-L1058】
 
 **Обязательные поля lineage конфигурации:**
 
@@ -279,10 +287,12 @@ class DocumentSchema(BaseSchema):
 
 Конфиг источника лежит в:
 ```
-configs/sources/<source>/<source>.yaml
+src/bioetl/configs/pipelines/<source>.yaml
 ```
 
-Цели: единые ключи, чёткая типизация, проверка совместимости; ошибки конфигурации MUST прерывать запуск.
+Допускаются include-модули (например, `includes/chembl_source.yaml`) для вынесения общих блоков и сокращения дублирования между
+пайплайнами. После подстановки всех include-файлов итоговый YAML автоматически валидируется объектом `PipelineConfig`; ошибки
+схемы или несовместимые ключи MUST прерывать запуск.
 
 ### 4.1 JSON Schema для базового конфига
 

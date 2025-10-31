@@ -6,7 +6,7 @@
 
 Скрипт и выход:
 
-Скрипт: [ref: repo:tools/inventory/inventory_sources.py@test_refactoring_32]
+Скрипт: [ref: repo:src/scripts/run_inventory.py@test_refactoring_32]
 
 Выходной CSV: [ref: repo:docs/requirements/PIPELINES.inventory.csv@test_refactoring_32]
 
@@ -31,11 +31,13 @@ source: из дерева src/bioetl/sources/<source>/… или имени фа
 
 Код: Jaccard по сигнатурам функций/методов; строковые шинглы; доля общих импортов.
 
-Пороговые значения и эвристики: [ref: repo:tools/inventory/config.yaml@test_refactoring_32].
+Пороговые значения и эвристики: [ref: repo:configs/inventory.yaml@test_refactoring_32].
 
 Протокол:
 
 Запуск локально и в CI; рассинхрон с репозиторием — FAIL.
+
+Шаг CI: `python src/scripts/run_inventory.py --check --config configs/inventory.yaml`.
 
 Конвейер: inventory → clusters → отчёт (см. п.3).
 

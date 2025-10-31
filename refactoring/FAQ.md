@@ -1,7 +1,7 @@
-Инвентаризация (tools/inventory/inventory_sources.py)
+Инвентаризация (src/scripts/run_inventory.py)
 
 MUST: автоматизированный инструмент инвентаризации должен существовать. Ручной отчёт допустим единожды для бутстрапа, но артефакт инвентаризации обязан генерироваться детерминированно и повторяемо.
-Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:tools/inventory/inventory_sources.py@Pipeline_Unification].
+Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:src/scripts/run_inventory.py@Pipeline_Unification]; конфигурация: [ref: repo:configs/inventory.yaml@Pipeline_Unification].
 Запись файла — атомарная: tmp → os.replace. 
 Python documentation
 
@@ -19,13 +19,13 @@ Python documentation
 
 Депрециированные реэкспорты
 
-MUST: совместимость обеспечивается централизованными реэкспортами с DeprecationWarning (фазы: Warn → Deprecated → Removed). Канонический список только в DEPRECATIONS.md; иных параллельных списков быть не должно. 
+MUST: совместимость обеспечивается централизованными реэкспортами с DeprecationWarning (фазы: Warn → Deprecated → Removed). Канонический список фиксируется в [DEPRECATIONS.md](../DEPRECATIONS.md); иных параллельных списков быть не должно.
 Python Enhancement Proposals (PEPs)
 
 MUST: единая точка реэкспортов и эмиттер предупреждений, основанные на стандартном модуле warnings; политика обратной совместимости и снятия — по духу PEP 387. 
 Python Enhancement Proposals (PEPs)
 
-MUST: удаление несовместимых публичных API проводится в MAJOR версии согласно SemVer; до удаления сохраняются предупреждения и окно миграции. SHOULD: дефолтное окно депрекации — не менее двух MINOR-релизов; MAY: продление окна по change-control с фиксацией в DEPRECATIONS.md. 
+MUST: удаление несовместимых публичных API проводится в MAJOR версии согласно SemVer; до удаления сохраняются предупреждения и окно миграции. SHOULD: дефолтное окно депрекации — не менее двух MINOR-релизов; MAY: продление окна по change-control с фиксацией в [DEPRECATIONS.md](../DEPRECATIONS.md). Любые новые предупреждения сопровождаются обновлением версии по SemVer (инкремент MINOR) и записью в CHANGELOG.
 Semantic Versioning
 
 Форматы вывода (CSV vs Parquet)
@@ -55,11 +55,24 @@ Hypothesis
 
 CLI
 
+MUST: Typer-команды CLI регистрируются автоматически на основе `scripts.PIPELINE_COMMAND_REGISTRY` и доступны через единый вход `python -m bioetl.cli.main <pipeline>`; поддерживаемый реестр хранится в `src/scripts/__init__.py`.
+Typer documentation
+
+SHOULD: раздел FAQ ссылается на актуальный список команд из [README.md#cli-usage](../README.md#cli-usage) и перечисляет флаги общего назначения: `--config`, `--dry-run`, `--mode`.
+Project README
+
+SHOULD: приведённые примеры команд проходят дымовую проверку `python -m bioetl.cli.main list` в отдельном CI-джобе.
+
+Примеры вызовов:
+`python -m bioetl.cli.main list`
+`python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml --dry-run --mode ci`
+
+MAY: флаги, специфичные для пайплайнов, документируются локально, но базовые команды (`--help`, `list`, `activity`, `assay`, и т.д.) обязаны совпадать с выводом Typer.
 MUST: единая команда запуска — bioetl pipeline run с унифицированными флагами (--golden, --fail-on-schema-drift, --extended, и т.п.).
-Старые CLI-входы допускаются только как временные совместимые «шины» с DeprecationWarning и снимаются по графику депрекаций; финальное удаление — в ближайшем MAJOR релизе по SemVer. 
+Старые CLI-входы допускаются только как временные совместимые «шины» с DeprecationWarning и снимаются по графику депрекаций; финальное удаление — в ближайшем MAJOR релизе по SemVer. Процесс обновления SemVer: синхронное обновление версии в `pyproject.toml`, записи в `CHANGELOG.md` и строки в [DEPRECATIONS.md](../DEPRECATIONS.md) в рамках одного PR.
 Semantic Versioning
 
-SHOULD: единый механизм overrides: --set key=value и ENV-переменные; приоритет разрешений CLI > ENV > config. Хранить конфиг в окружении соответствует 12-Factor. 
+SHOULD: единый механизм overrides: --set key=value и ENV-переменные; приоритет разрешений CLI > ENV > config. Хранить конфиг в окружении соответствует 12-Factor.
 12factor.net
 +1
 

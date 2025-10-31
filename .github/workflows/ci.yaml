@@ -10,10 +10,25 @@ env:
   PYTHON_VERSION: "3.11"
 
 jobs:
+
+  link-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check documentation links with lychee
+        uses: lycheeverse/lychee-action@v1.10.0
+        with:
+          args: --config .lychee.toml --no-progress --verbose
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify deprecations register present
+        run: |
+          test -s DEPRECATIONS.md
+          grep -q '^# ' DEPRECATIONS.md
 
       - name: Set up Python
         uses: actions/setup-python@v5
