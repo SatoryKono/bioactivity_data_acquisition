@@ -31,7 +31,7 @@ class EntryPoint:
 
 
 def _build_registry_entrypoints() -> list[EntryPoint]:
-    ordered_keys = ("assay", "activity", "testitem", "target", "document")
+    ordered_keys = ("assay", "activity", "testitem", "target", "document", "gtp_iuphar")
     entries: list[EntryPoint] = []
     for key in ordered_keys:
         config = PIPELINE_COMMAND_REGISTRY[key]
@@ -179,6 +179,8 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     if entry.name == "document":
         monkeypatch.setenv("PUBMED_API_KEY", "contract")
         monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "contract")
+    if entry.name == "gtp_iuphar":
+        monkeypatch.setenv("IUPHAR_API_KEY", "contract")
 
     result = runner.invoke(module.app, args)
 

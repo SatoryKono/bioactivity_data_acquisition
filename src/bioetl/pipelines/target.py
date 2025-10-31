@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import time
 from collections import defaultdict
 from collections.abc import Iterable, Iterator
@@ -39,6 +38,7 @@ from bioetl.schemas import (
     XrefSchema,
 )
 from bioetl.schemas.registry import schema_registry
+from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     prepare_enrichment_metrics,
@@ -81,8 +81,6 @@ class TargetPipeline(PipelineBase):
         "10116": 2,  # Rattus norvegicus
     }
     _IUPHAR_PAGE_SIZE = 200
-    _NAME_CLEAN_RE = re.compile(r"[^a-z0-9]+")
-
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         self.primary_schema = TargetSchema
@@ -123,6 +121,17 @@ class TargetPipeline(PipelineBase):
         self.uniprot_idmapping_client = self.api_clients.get("uniprot_idmapping")
         self.uniprot_orthologs_client = self.api_clients.get("uniprot_orthologs")
         self.iuphar_client = self.api_clients.get("iuphar")
+        self.iuphar_service = IupharService(
+            self.iuphar_client,
+            config=IupharServiceConfig(
+                page_size=self._IUPHAR_PAGE_SIZE,
+                identifier_column="target_chembl_id",
+                candidate_columns=("pref_name", "target_names"),
+                gene_symbol_columns=("uniprot_gene_primary", "gene_symbol"),
+                fallback_source="chembl",
+            ),
+            record_missing_mapping=self._record_missing_mapping,
+        )
 
         # Backwards compatibility
         self.api_client = self.chembl_client
@@ -773,214 +782,8 @@ class TargetPipeline(PipelineBase):
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich target dataframe with IUPHAR classifications."""
 
-        working_df = df.reset_index(drop=True).copy()
-        working_df = working_df.convert_dtypes()
-
-        targets = self._fetch_iuphar_collection(
-            "/targets",
-            unique_key="targetId",
-            params={"annotationStatus": "CURATED"},
-        )
-        families = self._fetch_iuphar_collection(
-            "/targets/families",
-            unique_key="familyId",
-        )
-
-        if not targets or not families:
-            logger.info(
-                "iuphar_enrichment_no_data",
-                targets=len(targets),
-                families=len(families),
-            )
-            return working_df, pd.DataFrame(), pd.DataFrame(), {
-                "enrichment_success.iuphar": 0.0,
-                "iuphar_coverage": 0.0,
-                "enrichment.iuphar.total": 0,
-                "enrichment.iuphar.matched": 0,
-            }
-
-        family_index: dict[int, dict[str, Any]] = {}
-        for raw_family in families:
-            try:
-                family_id = int(raw_family.get("familyId") or 0)
-            except (TypeError, ValueError):
-                continue
-            family_index[family_id] = raw_family
-
-        family_paths = self._build_family_hierarchy(family_index)
-
-        classification_map: dict[int, dict[str, Any]] = {}
-        normalized_index: dict[str, list[int]] = {}
-
-        for target in targets:
-            target_id = target.get("targetId")
-            if target_id is None:
-                continue
-
-            try:
-                target_id_int = int(target_id)
-            except (TypeError, ValueError):
-                continue
-
-            families_ids = target.get("familyIds") or []
-            if isinstance(families_ids, int):
-                families_ids = [families_ids]
-
-            family_records: list[dict[str, Any]] = []
-            for family_id in families_ids:
-                try:
-                    family_id_int = int(family_id)
-                except (TypeError, ValueError):
-                    continue
-
-                path_info = family_paths.get(family_id_int)
-                if not path_info:
-                    continue
-
-                path_names = path_info.get("path_names", [])
-                if not path_names:
-                    continue
-
-                record = {
-                    "iuphar_family_id": family_id_int,
-                    "iuphar_family_name": family_index.get(family_id_int, {}).get("name"),
-                    "classification_path": " > ".join(path_names),
-                    "classification_depth": len(path_names),
-                    "iuphar_type": path_names[0] if len(path_names) > 0 else None,
-                    "iuphar_class": path_names[1] if len(path_names) > 1 else None,
-                    "iuphar_subclass": path_names[2] if len(path_names) > 2 else None,
-                }
-                family_records.append(record)
-
-            classification_map[target_id_int] = {
-                "target": target,
-                "families": sorted(
-                    family_records,
-                    key=lambda item: (
-                        -(item.get("classification_depth") or 0),
-                        item.get("iuphar_family_id", 0),
-                    ),
-                ),
-            }
-
-            normalized_name = self._normalize_iuphar_name(str(target.get("name")))
-            if normalized_name:
-                normalized_index.setdefault(normalized_name, []).append(target_id_int)
-
-        classification_records: list[dict[str, Any]] = []
-        gold_records: list[dict[str, Any]] = []
-
-        matched = 0
-        total_candidates = 0
-
-        for idx, row in working_df.iterrows():
-            candidate_names = self._candidate_names_from_row(row)
-            if not candidate_names:
-                fallback = self._fallback_classification_record(row)
-                classification_records.append(fallback)
-                gold_records.append({
-                    "target_chembl_id": row.get("target_chembl_id"),
-                    "iuphar_target_id": None,
-                    "iuphar_type": None,
-                    "iuphar_class": None,
-                    "iuphar_subclass": None,
-                    "classification_source": "chembl",
-                })
-                self._record_missing_mapping(
-                    stage="iuphar",
-                    target_id=row.get("target_chembl_id"),
-                    accession=None,
-                    resolution="chembl_fallback",
-                    status="fallback",
-                    details={"reason": "no_candidate_names"},
-                )
-                continue
-
-            total_candidates += 1
-
-            matched_id: int | None = None
-            for candidate in candidate_names:
-                norm_candidate = self._normalize_iuphar_name(candidate)
-                if not norm_candidate:
-                    continue
-                candidate_ids = normalized_index.get(norm_candidate)
-                if candidate_ids:
-                    matched_id = candidate_ids[0]
-                    break
-
-            if matched_id is None:
-                fallback = self._fallback_classification_record(row)
-                classification_records.append(fallback)
-                gold_records.append({
-                    "target_chembl_id": row.get("target_chembl_id"),
-                    "iuphar_target_id": None,
-                    "iuphar_type": None,
-                    "iuphar_class": None,
-                    "iuphar_subclass": None,
-                    "classification_source": "chembl",
-                })
-                self._record_missing_mapping(
-                    stage="iuphar",
-                    target_id=row.get("target_chembl_id"),
-                    accession=None,
-                    resolution="chembl_fallback",
-                    status="fallback",
-                    details={"candidates": candidate_names},
-                )
-                continue
-
-            matched += 1
-            target_entry = classification_map.get(matched_id, {})
-            families_for_target = target_entry.get("families", [])
-            best_classification = self._select_best_classification(families_for_target)
-
-            working_df.at[idx, "iuphar_target_id"] = matched_id
-            if best_classification is not None:
-                working_df.at[idx, "iuphar_type"] = best_classification.get("iuphar_type")
-                working_df.at[idx, "iuphar_class"] = best_classification.get("iuphar_class")
-                working_df.at[idx, "iuphar_subclass"] = best_classification.get("iuphar_subclass")
-
-            for record in families_for_target:
-                enriched_record = record.copy()
-                enriched_record.update(
-                    {
-                        "target_chembl_id": row.get("target_chembl_id"),
-                        "iuphar_target_id": matched_id,
-                        "classification_source": "iuphar",
-                    }
-                )
-                classification_records.append(enriched_record)
-
-            gold_records.append(
-                {
-                    "target_chembl_id": row.get("target_chembl_id"),
-                    "iuphar_target_id": matched_id,
-                    "iuphar_type": best_classification.get("iuphar_type") if best_classification else None,
-                    "iuphar_class": best_classification.get("iuphar_class") if best_classification else None,
-                    "iuphar_subclass": best_classification.get("iuphar_subclass") if best_classification else None,
-                    "classification_source": "iuphar",
-                }
-            )
-
-        classification_df = pd.DataFrame(classification_records).convert_dtypes()
-        gold_df = pd.DataFrame(gold_records).convert_dtypes()
-
-        coverage = matched / total_candidates if total_candidates else 0.0
-        metrics = {
-            "enrichment_success.iuphar": coverage,
-            "iuphar_coverage": coverage,
-            "enrichment.iuphar.total": total_candidates,
-            "enrichment.iuphar.matched": matched,
-        }
-
-        logger.info(
-            "iuphar_enrichment_completed",
-            matched=matched,
-            total=total_candidates,
-            coverage=coverage,
-        )
-
-        return working_df, classification_df, gold_df, metrics
+        self.iuphar_service.client = self.iuphar_client
+        return self.iuphar_service.enrich_targets(df)
 
     def _fetch_iuphar_collection(
         self,
@@ -988,178 +791,38 @@ class TargetPipeline(PipelineBase):
         unique_key: str,
         params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        """Fetch a paginated IUPHAR collection safely handling duplicates."""
+        """Delegate collection fetches to :class:`IupharService`."""
 
-        if self.iuphar_client is None:
-            return []
-
-        collected: list[dict[str, Any]] = []
-        seen: set[Any] = set()
-        page = 1
-
-        while True:
-            query: dict[str, Any] = dict(params or {})
-            query.setdefault("page", page)
-            query.setdefault("pageSize", self._IUPHAR_PAGE_SIZE)
-            query.setdefault("offset", (page - 1) * self._IUPHAR_PAGE_SIZE)
-            query.setdefault("limit", self._IUPHAR_PAGE_SIZE)
-
-            payload = self.iuphar_client.request_json(path, params=query)
-
-            if isinstance(payload, list):
-                items = payload
-            elif isinstance(payload, dict):
-                items = (
-                    payload.get("results")
-                    or payload.get("data")
-                    or payload.get("items")
-                    or payload.get("records")
-                )
-                if items is None and unique_key in payload:
-                    items = [payload]
-                if items is None:
-                    # Attempt to coerce nested dict values into a flat list
-                    items = [value for value in payload.values() if isinstance(value, dict)]
-            else:
-                items = []
-
-            if items is None:
-                items = []
-
-            new_items = 0
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                key_value = item.get(unique_key)
-                if key_value is not None and key_value in seen:
-                    continue
-                if key_value is not None:
-                    seen.add(key_value)
-                collected.append(item)
-                new_items += 1
-
-            if new_items == 0 or len(items) < self._IUPHAR_PAGE_SIZE:
-                break
-
-            page += 1
-
-        return collected
+        self.iuphar_service.client = self.iuphar_client
+        return self.iuphar_service.fetch_collection(path, unique_key=unique_key, params=params or {})
 
     def _build_family_hierarchy(
         self, families: dict[int, dict[str, Any]]
     ) -> dict[int, dict[str, list[Any]]]:
-        """Construct hierarchical paths for IUPHAR families."""
-
-        cache: dict[int, dict[str, list[Any]]] = {}
-
-        def _resolve(family_id: int) -> dict[str, list[Any]]:
-            if family_id in cache:
-                return cache[family_id]
-
-            family = families.get(family_id)
-            if not family:
-                cache[family_id] = {"path_ids": [], "path_names": []}
-                return cache[family_id]
-
-            parents = family.get("parentFamilyIds") or []
-            if isinstance(parents, int):
-                parents = [parents]
-
-            path_ids: list[int] = []
-            path_names: list[str] = []
-
-            if isinstance(parents, list) and parents:
-                parent_paths: list[dict[str, list[Any]]] = []
-                for parent in parents:
-                    try:
-                        parent_id = int(parent)
-                    except (TypeError, ValueError):
-                        continue
-                    parent_paths.append(_resolve(parent_id))
-
-                if parent_paths:
-                    parent_paths.sort(key=lambda info: len(info.get("path_ids", [])), reverse=True)
-                    best_parent = parent_paths[0]
-                    path_ids.extend(best_parent.get("path_ids", []))
-                    path_names.extend(best_parent.get("path_names", []))
-
-            path_ids.append(family_id)
-            name = family.get("name")
-            if name is not None:
-                path_names.append(str(name))
-
-            cache[family_id] = {"path_ids": path_ids, "path_names": path_names}
-            return cache[family_id]
-
-        for fam_id in families:
-            _resolve(fam_id)
-
-        return cache
+        return self.iuphar_service.build_family_hierarchy(families)
 
     def _normalize_iuphar_name(self, value: str | None) -> str:
         """Normalize identifiers for fuzzy matching."""
 
-        if value is None:
-            return ""
-        normalized = str(value).lower()
-        return self._NAME_CLEAN_RE.sub("", normalized)
+        return self.iuphar_service.normalize_name(value)
 
     def _candidate_names_from_row(self, row: pd.Series) -> list[str]:
         """Extract candidate names for IUPHAR matching from a row."""
 
-        candidates: list[str] = []
-
-        for column in ("pref_name", "target_names"):
-            value = row.get(column)
-            if value is None or (isinstance(value, float) and pd.isna(value)):
-                continue
-            if column == "target_names":
-                names = [part.strip() for part in str(value).split("|") if part and part.strip()]
-                candidates.extend(names)
-            else:
-                candidates.append(str(value).strip())
-
-        gene_symbol = row.get("uniprot_gene_primary") or row.get("gene_symbol")
-        if gene_symbol is not None and not (isinstance(gene_symbol, float) and pd.isna(gene_symbol)):
-            candidates.append(str(gene_symbol).strip())
-
-        result: list[str] = []
-        seen: set[str] = set()
-        for candidate in candidates:
-            if not candidate:
-                continue
-            key = candidate.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            result.append(candidate)
-
-        return result
+        return self.iuphar_service.candidate_names_from_row(row)
 
     def _fallback_classification_record(self, row: pd.Series) -> dict[str, Any]:
         """Construct a fallback classification record for unmatched targets."""
 
-        return {
-            "target_chembl_id": row.get("target_chembl_id"),
-            "iuphar_target_id": None,
-            "iuphar_family_id": None,
-            "iuphar_family_name": None,
-            "classification_path": None,
-            "classification_depth": 0,
-            "iuphar_type": None,
-            "iuphar_class": None,
-            "iuphar_subclass": None,
-            "classification_source": "chembl",
-        }
+        return self.iuphar_service.fallback_classification_record(row)
 
     def _select_best_classification(
         self, records: list[dict[str, Any]]
     ) -> dict[str, Any] | None:
         """Select the best classification entry for a matched target."""
 
-        if not records:
-            return None
-        return records[0]
+        result = self.iuphar_service.select_best_classification(records)
+        return dict(result) if isinstance(result, dict) else result
 
     def _apply_entry_enrichment(
         self,
