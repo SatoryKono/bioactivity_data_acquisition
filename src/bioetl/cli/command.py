@@ -6,14 +6,15 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+
 import pandas as pd
 import typer
 
+from bioetl.cli.limits import apply_sample_limit
 from bioetl.config.loader import load_config, parse_cli_overrides
 from bioetl.config.models import DeterminismConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
-from bioetl.cli.limits import apply_sample_limit
 
 
 @dataclass(frozen=True)

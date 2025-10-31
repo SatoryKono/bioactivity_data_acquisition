@@ -58,7 +58,9 @@ def _get_activity_column_order() -> list[str]:
         except AttributeError:  # pragma: no cover - defensive safeguard
             columns = []
     return list(columns)
-class ActivityPipeline(PipelineBase):  # type: ignore[misc]
+
+
+class ActivityPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL activity data."""
 
     def __init__(

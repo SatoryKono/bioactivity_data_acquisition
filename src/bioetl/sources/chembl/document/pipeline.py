@@ -19,19 +19,15 @@ from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pandera_pandas import DataFrameModel
-from bioetl.pipelines.base import (EnrichmentStage, PipelineBase,
-                                   enrichment_stage_registry)
-from bioetl.schemas.document import (DocumentNormalizedSchema,
-                                     DocumentRawSchema, DocumentSchema)
+from bioetl.pipelines.base import EnrichmentStage, PipelineBase, enrichment_stage_registry
+from bioetl.schemas.document import DocumentNormalizedSchema, DocumentRawSchema, DocumentSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.crossref.pipeline import CROSSREF_ADAPTER_DEFINITION
 from bioetl.sources.document.merge.policy import merge_with_precedence
-from bioetl.sources.document.pipeline import (AdapterDefinition,
-                                              ExternalEnrichmentResult)
+from bioetl.sources.document.pipeline import AdapterDefinition, ExternalEnrichmentResult
 from bioetl.sources.openalex.pipeline import OPENALEX_ADAPTER_DEFINITION
 from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
-from bioetl.sources.semantic_scholar.pipeline import \
-    SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
+from bioetl.sources.semantic_scholar.pipeline import SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
 from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
@@ -42,8 +38,7 @@ from .normalizer import normalize_document_frame
 from .output import append_qc_sections, persist_rejected_inputs
 from .parser import prepare_document_input_ids
 from .request import build_adapter_configs as request_build_adapter_configs
-from .request import (collect_enrichment_metrics, init_external_adapters,
-                      run_enrichment_requests)
+from .request import collect_enrichment_metrics, init_external_adapters, run_enrichment_requests
 from .schema import build_document_fallback_row
 
 schema_registry.register(
@@ -250,7 +245,13 @@ class DocumentPipeline(PipelineBase):
         candidate = ""
         if isinstance(value, str):
             candidate = value.strip().lower()
-        elif value is not None:
+        elif value is None:
+            pass  # Skip None values
+        elif isinstance(value, (pd.Series, pd.DataFrame)):
+            pass  # Skip pandas container types
+        elif hasattr(pd, "NA") and value is pd.NA:
+            pass  # Skip pandas NA singleton
+        else:
             candidate = str(value).strip().lower()
 
         if not candidate or candidate == "default":
