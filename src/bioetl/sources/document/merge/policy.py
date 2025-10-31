@@ -490,6 +490,7 @@ DOCUMENT_RULES: tuple[MergeRule, ...] = (
         candidates=(
             MergeCandidate("pubmed", "pubmed_first_page"),
             MergeCandidate("crossref", "crossref_first_page"),
+            MergeCandidate("chembl", "chembl_first_page"),
         ),
     ),
     MergeRule(
@@ -498,6 +499,7 @@ DOCUMENT_RULES: tuple[MergeRule, ...] = (
         candidates=(
             MergeCandidate("pubmed", "pubmed_last_page"),
             MergeCandidate("crossref", "crossref_last_page"),
+            MergeCandidate("chembl", "chembl_last_page"),
         ),
     ),
     MergeRule(
