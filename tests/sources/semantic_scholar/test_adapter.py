@@ -8,7 +8,7 @@ import pandas as pd
 import bioetl.adapters.semantic_scholar as semantic_module
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
-from tests.unit.adapters._mixins import AdapterTestMixin
+from tests.sources._mixins import AdapterTestMixin
 
 
 class TestSemanticScholarAdapter(AdapterTestMixin, unittest.TestCase):

@@ -13,15 +13,18 @@ from typing import Any
 import pandas as pd
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import (
     AdditionalTableSpec,
     OutputArtifacts,
     OutputMetadata,
-    UnifiedOutputWriter,
+)
+from bioetl.core.chembl import (
+    ChemblClientContext,
+    build_chembl_client_context as _core_build_chembl_client_context,
+    create_chembl_client as _core_create_chembl_client,
+    create_pipeline_output_writer,
 )
 from bioetl.utils.chembl import ChemblRelease, SupportsRequestJson, fetch_chembl_release
 from bioetl.utils.io import load_input_frame, resolve_input_path
@@ -39,75 +42,9 @@ logger = UnifiedLogger.get(__name__)
 PredicateResult = bool | tuple[bool, str | None]
 
 
-@dataclass
-class ChemblClientContext:
-    """Resolved ChEMBL client configuration returned by :func:`create_chembl_client`."""
-
-    client: UnifiedAPIClient
-    source_config: TargetSourceConfig
-    batch_size: int
-    max_url_length: int | None
-    base_url: str
-
-
-def _build_chembl_client_context(
-    config: PipelineConfig,
-    *,
-    defaults: Mapping[str, Any] | None = None,
-    batch_size_cap: int | None = None,
-) -> ChemblClientContext:
-    """Create a :class:`ChemblClientContext` for the provided configuration."""
-
-    resolved_defaults: dict[str, Any] = {
-        "enabled": True,
-        "base_url": "https://www.ebi.ac.uk/chembl/api/data",
-    }
-    if defaults:
-        resolved_defaults.update(defaults)
-
-    factory = APIClientFactory.from_pipeline_config(config)
-    chembl_source = ensure_target_source_config(
-        config.sources.get("chembl"),
-        defaults=resolved_defaults,
-    )
-
-    api_config = factory.create("chembl", chembl_source)
-    client = UnifiedAPIClient(api_config)
-
-    batch_default = resolved_defaults.get("batch_size")
-    resolved_batch_size = chembl_source.batch_size or batch_default or 1
-    resolved_batch_size = max(1, int(resolved_batch_size))
-    if batch_size_cap is not None:
-        resolved_batch_size = min(resolved_batch_size, int(batch_size_cap))
-
-    max_url_default = resolved_defaults.get("max_url_length")
-    resolved_max_url = chembl_source.max_url_length or max_url_default
-    max_url_length: int | None = None
-    if resolved_max_url is not None:
-        max_url_length = max(1, int(resolved_max_url))
-
-    return ChemblClientContext(
-        client=client,
-        source_config=chembl_source,
-        batch_size=resolved_batch_size,
-        max_url_length=max_url_length,
-        base_url=str(chembl_source.base_url),
-    )
-
-
-def create_chembl_client(
-    config: PipelineConfig,
-    *,
-    defaults: Mapping[str, Any] | None = None,
-    batch_size_cap: int | None = None,
-) -> ChemblClientContext:
-    """Construct a ``UnifiedAPIClient`` for the ChEMBL source with shared defaults."""
-
-    return _build_chembl_client_context(
-        config,
-        defaults=defaults,
-        batch_size_cap=batch_size_cap,
-    )
+build_chembl_client_context = _core_build_chembl_client_context
+create_chembl_client = _core_create_chembl_client
+_build_chembl_client_context = build_chembl_client_context
 
 
 @dataclass(frozen=True)
@@ -173,7 +110,7 @@ class PipelineBase(ABC):
         self.config = config
         self.run_id = run_id
         self.determinism = config.determinism
-        self.output_writer = UnifiedOutputWriter(
+        self.output_writer = create_pipeline_output_writer(
             run_id,
             determinism=self.determinism,
             pipeline_config=config,
@@ -202,7 +139,7 @@ class PipelineBase(ABC):
     ) -> ChemblClientContext:
         """Return a configured ChEMBL client context for the pipeline instance."""
 
-        return _build_chembl_client_context(
+        return build_chembl_client_context(
             self.config,
             defaults=defaults,
             batch_size_cap=batch_size_cap,

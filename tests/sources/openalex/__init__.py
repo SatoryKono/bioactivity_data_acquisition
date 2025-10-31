@@ -1,0 +1,1 @@
+"""OpenAlex adapter unit tests."""

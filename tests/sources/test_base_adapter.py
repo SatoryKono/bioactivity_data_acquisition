@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from bioetl.adapters.base import ExternalAdapter
-from tests.unit.adapters._mixins import AdapterTestMixin
+from tests.sources._mixins import AdapterTestMixin
 
 
 class DummyAdapter(ExternalAdapter):

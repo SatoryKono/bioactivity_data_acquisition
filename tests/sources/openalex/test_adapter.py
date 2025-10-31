@@ -6,7 +6,7 @@ from unittest.mock import patch
 import bioetl.adapters.openalex as openalex_module
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.openalex import OpenAlexAdapter
-from tests.unit.adapters._mixins import AdapterTestMixin
+from tests.sources._mixins import AdapterTestMixin
 
 
 class TestOpenAlexAdapter(AdapterTestMixin, unittest.TestCase):

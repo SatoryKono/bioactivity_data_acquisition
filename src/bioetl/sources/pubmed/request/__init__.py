@@ -1,0 +1,1 @@
+"""Pubmed request components."""

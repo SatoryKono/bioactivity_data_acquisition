@@ -17,12 +17,12 @@ from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.chembl import create_chembl_client
 from bioetl.core.materialization import MaterializationManager
 from bioetl.core.output_writer import UnifiedOutputWriter
 from bioetl.pipelines.base import (
     EnrichmentStage,
     PipelineBase,
-    create_chembl_client,
     enrichment_stage_registry,
 )
 from bioetl.pipelines.target_gold import (

@@ -1,0 +1,1 @@
+"""Openalex output components."""

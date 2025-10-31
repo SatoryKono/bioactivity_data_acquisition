@@ -2,10 +2,8 @@
 
 import os
 import re
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -14,12 +12,6 @@ import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
 
-from bioetl.adapters import (
-    CrossrefAdapter,
-    OpenAlexAdapter,
-    PubMedAdapter,
-    SemanticScholarAdapter,
-)
 from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError
@@ -29,7 +21,18 @@ from bioetl.pipelines.base import (
     PipelineBase,
     enrichment_stage_registry,
 )
-from bioetl.pipelines.document_enrichment import merge_with_precedence
+from bioetl.sources.crossref.pipeline import CROSSREF_ADAPTER_DEFINITION
+from bioetl.sources.document.merge.policy import merge_with_precedence
+from bioetl.sources.document.pipeline import (
+    AdapterDefinition,
+    ExternalEnrichmentResult,
+    FieldSpec,
+)
+from bioetl.sources.openalex.pipeline import OPENALEX_ADAPTER_DEFINITION
+from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
+from bioetl.sources.semantic_scholar.pipeline import (
+    SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
+)
 from bioetl.schemas.document import (
     DocumentNormalizedSchema,
     DocumentRawSchema,
@@ -47,116 +50,11 @@ NAType = type(pd.NA)
 logger = UnifiedLogger.get(__name__)
 
 
-@dataclass
-class ExternalEnrichmentResult:
-    """Container describing the outcome of an external enrichment request."""
-
-    dataframe: pd.DataFrame
-    status: str
-    errors: dict[str, str]
-
-    def has_errors(self) -> bool:
-        """Return True when at least one adapter reported an error."""
-
-        return bool(self.errors)
-
-# ---------------------------------------------------------------------------
-# External adapter configuration profiles
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class FieldSpec:
-    """Specification describing how to resolve a configuration attribute."""
-
-    default: Any | None = None
-    default_factory: Callable[[], Any] | None = None
-    env: str | None = None
-    coalesce_default_on_blank: bool = False
-
-    def get_default(self) -> Any:
-        """Return a copy of the default value for this field."""
-
-        if self.default_factory is not None:
-            return self.default_factory()
-        return deepcopy(self.default)
-
-
-@dataclass(frozen=True)
-class AdapterDefinition:
-    """Definition for constructing external enrichment adapters."""
-
-    adapter_cls: type[Any]
-    api_fields: dict[str, FieldSpec]
-    adapter_fields: dict[str, FieldSpec]
-
-
 _ADAPTER_DEFINITIONS: dict[str, AdapterDefinition] = {
-    "pubmed": AdapterDefinition(
-        adapter_cls=PubMedAdapter,
-        api_fields={
-            "base_url": FieldSpec(default="https://eutils.ncbi.nlm.nih.gov/entrez/eutils"),
-            "rate_limit_max_calls": FieldSpec(default=3),
-            "rate_limit_period": FieldSpec(default=1.0),
-            "rate_limit_jitter": FieldSpec(default=True),
-            "headers": FieldSpec(default_factory=dict),
-        },
-        adapter_fields={
-            "batch_size": FieldSpec(default=200),
-            "workers": FieldSpec(default=1),
-            "tool": FieldSpec(
-                default="bioactivity_etl",
-                env="PUBMED_TOOL",
-                coalesce_default_on_blank=True,
-            ),
-            "email": FieldSpec(default="", env="PUBMED_EMAIL"),
-            "api_key": FieldSpec(default="", env="PUBMED_API_KEY"),
-        },
-    ),
-    "crossref": AdapterDefinition(
-        adapter_cls=CrossrefAdapter,
-        api_fields={
-            "base_url": FieldSpec(default="https://api.crossref.org"),
-            "rate_limit_max_calls": FieldSpec(default=2),
-            "rate_limit_period": FieldSpec(default=1.0),
-            "rate_limit_jitter": FieldSpec(default=True),
-            "headers": FieldSpec(default_factory=dict),
-        },
-        adapter_fields={
-            "batch_size": FieldSpec(default=100),
-            "workers": FieldSpec(default=2),
-            "mailto": FieldSpec(default="", env="CROSSREF_MAILTO"),
-        },
-    ),
-    "openalex": AdapterDefinition(
-        adapter_cls=OpenAlexAdapter,
-        api_fields={
-            "base_url": FieldSpec(default="https://api.openalex.org"),
-            "rate_limit_max_calls": FieldSpec(default=10),
-            "rate_limit_period": FieldSpec(default=1.0),
-            "rate_limit_jitter": FieldSpec(default=True),
-            "headers": FieldSpec(default_factory=dict),
-        },
-        adapter_fields={
-            "batch_size": FieldSpec(default=100),
-            "workers": FieldSpec(default=4),
-        },
-    ),
-    "semantic_scholar": AdapterDefinition(
-        adapter_cls=SemanticScholarAdapter,
-        api_fields={
-            "base_url": FieldSpec(default="https://api.semanticscholar.org/graph/v1"),
-            "rate_limit_max_calls": FieldSpec(default=1),
-            "rate_limit_period": FieldSpec(default=1.25),
-            "rate_limit_jitter": FieldSpec(default=True),
-            "headers": FieldSpec(default_factory=dict),
-        },
-        adapter_fields={
-            "batch_size": FieldSpec(default=50),
-            "workers": FieldSpec(default=1),
-            "api_key": FieldSpec(default="", env="SEMANTIC_SCHOLAR_API_KEY"),
-        },
-    ),
+    "pubmed": PUBMED_ADAPTER_DEFINITION,
+    "crossref": CROSSREF_ADAPTER_DEFINITION,
+    "openalex": OPENALEX_ADAPTER_DEFINITION,
+    "semantic_scholar": SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
 }
 
 # Register schema
