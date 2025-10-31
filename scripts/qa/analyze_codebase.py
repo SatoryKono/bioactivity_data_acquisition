@@ -1,7 +1,9 @@
 """Utilities for generating quality-analysis artifacts.
 
 This module provides a CLI that inspects the repository source tree and
-produces a collection of reproducible reports:
+produces a collection of reproducible reports. The reports currently checked
+into ``reports/`` are preserved as historical artifacts – see ``reports/README.md``
+for details:
 
 * ``artifacts/module_map.json`` – mapping of python modules to their files
   and import dependencies.
