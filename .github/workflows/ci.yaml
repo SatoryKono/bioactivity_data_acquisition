@@ -30,7 +30,7 @@ jobs:
           test -s DEPRECATIONS.md
           grep -q '^# ' DEPRECATIONS.md
 
-      - name: Ensure required documentation is present
+      - name: Ensure documentation requirements and refactoring references
         run: |
           python scripts/qa/check_required_docs.py
 
