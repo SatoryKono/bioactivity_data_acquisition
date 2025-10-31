@@ -16,6 +16,12 @@ sources:
     batch_size: 25
     headers:
       User-Agent: "bioetl-testitem-pipeline/1.0"
+  pubchem:
+    rate_limit:
+      max_calls: 5
+      period: 1.0
+    headers:
+      User-Agent: "bioetl-testitem-pipeline/1.0"
 
 postprocess:
   enrichment:
