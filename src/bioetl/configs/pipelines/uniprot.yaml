@@ -1,0 +1,140 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+
+pipeline:
+  name: uniprot
+  entity: uniprot
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "uniprot"
+  stages:
+    silver:
+      format: "parquet"
+      directory: "."
+      datasets:
+        uniprot_entries:
+          filename: "uniprot_entries"
+        uniprot_isoforms:
+          filename: "uniprot_isoforms"
+    gold:
+      format: "parquet"
+      directory: "."
+      datasets:
+        uniprot:
+          filename: "uniprot_final"
+    qc:
+      format: "csv"
+      directory: "."
+      datasets:
+        qc_report:
+          filename: "uniprot_qc"
+
+http:
+  uniprot:
+    timeout_sec: 60.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 60.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 90.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 3
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-uniprot-pipeline/1.0"
+  uniprot_idmapping:
+    timeout_sec: 60.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 60.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 90.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 2
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-uniprot-pipeline/1.0"
+  uniprot_orthologs:
+    timeout_sec: 60.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 60.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 90.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 2
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-uniprot-pipeline/1.0"
+
+sources:
+  uniprot:
+    enabled: true
+    base_url: "https://rest.uniprot.org/uniprotkb"
+    http_profile: uniprot
+    stage: enrichment
+    cache_enabled: true
+    cache_ttl: 21600
+  uniprot_idmapping:
+    enabled: true
+    base_url: "https://rest.uniprot.org/idmapping"
+    http_profile: uniprot_idmapping
+    stage: enrichment
+    cache_enabled: true
+    cache_ttl: 21600
+  uniprot_orthologs:
+    enabled: false
+    base_url: "https://rest.uniprot.org/uniprotkb/stream"
+    http_profile: uniprot_orthologs
+    stage: optional
+
+determinism:
+  sort:
+    by: ["uniprot_accession"]
+    ascending: [true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "run_id"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "uniprot_accession"
+    - "gene_symbol"
+    - "organism"
+    - "taxonomy_id"
+    - "uniprot_canonical_accession"
+    - "uniprot_merge_strategy"
+    - "uniprot_gene_primary"
+    - "uniprot_gene_synonyms"
+    - "uniprot_protein_name"
+    - "uniprot_sequence_length"
+    - "uniprot_taxonomy_id"
+    - "uniprot_taxonomy_name"
+    - "uniprot_lineage"
+    - "uniprot_secondary_accessions"
+    - "ortholog_source"
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  thresholds:
+    enrichment_success.uniprot:
+      min: 0.8
+      severity: warning

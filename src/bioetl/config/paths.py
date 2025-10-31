@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from importlib import resources
 from pathlib import Path
@@ -21,15 +22,25 @@ def get_configs_root() -> Path:
             )
         return root
 
-    package_root = resources.files("bioetl") / "configs"
-    try:
-        return Path(package_root)
-    except TypeError as exc:  # pragma: no cover - zipimport fallback
-        raise RuntimeError(
-            "Configuration resources are not available as filesystem paths. "
-            f"Set the {CONFIGS_ENV_VAR} environment variable to point to a directory "
-            "containing the configuration bundle."
-        ) from exc
+    package_candidates = ("bioetl.configs", "bioetl")
+    for package_name in package_candidates:
+        try:
+            package_root = resources.files(package_name)
+        except ModuleNotFoundError:  # pragma: no cover - defensive guard
+            continue
+
+        candidate = package_root if package_name.endswith(".configs") else package_root / "configs"
+
+        with contextlib.suppress(TypeError):  # pragma: no cover - zipimport fallback
+            candidate_path = Path(candidate)
+            if candidate_path.exists():
+                return candidate_path
+
+    raise RuntimeError(
+        "Configuration resources are not available as filesystem paths. "
+        f"Set the {CONFIGS_ENV_VAR} environment variable to point to a directory "
+        "containing the configuration bundle."
+    )
 
 
 def get_config_path(relative_path: str | Path) -> Path:

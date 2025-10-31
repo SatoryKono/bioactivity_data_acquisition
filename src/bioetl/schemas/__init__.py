@@ -21,6 +21,7 @@ __all__ = (
     "IupharTargetSchema",
     "IupharClassificationSchema",
     "IupharGoldSchema",
+    "UniProtSchema",
     "SchemaRegistry",
     "schema_registry",
 )
@@ -41,6 +42,7 @@ _SCHEMA_EXPORTS: dict[str, str] = {
     "IupharTargetSchema": "bioetl.schemas.iuphar",
     "IupharClassificationSchema": "bioetl.schemas.iuphar",
     "IupharGoldSchema": "bioetl.schemas.iuphar",
+    "UniProtSchema": "bioetl.schemas.uniprot",
     "SchemaRegistry": "bioetl.schemas.registry",
     "schema_registry": "bioetl.schemas.registry",
 }
@@ -68,6 +70,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
         IupharGoldSchema,
         IupharTargetSchema,
     )
+    from bioetl.schemas.uniprot import UniProtSchema
 
 
 def __getattr__(name: str) -> Any:

@@ -15,6 +15,7 @@ from bioetl.sources.chembl.document.pipeline import DocumentPipeline
 from bioetl.sources.chembl.target.pipeline import TargetPipeline
 from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
+from bioetl.sources.uniprot.pipeline import UniProtPipeline
 
 PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
     "activity": PipelineCommandConfig(
@@ -67,6 +68,14 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_input=Path("data/input/iuphar_targets.csv"),
         default_output_dir=Path("data/output/iuphar"),
         description="Guide to Pharmacology targets",
+    ),
+    "uniprot": PipelineCommandConfig(
+        pipeline_name="uniprot",
+        pipeline_factory=lambda: UniProtPipeline,
+        default_config=get_config_path("pipelines/uniprot.yaml"),
+        default_input=Path("data/input/uniprot.csv"),
+        default_output_dir=Path("data/output/uniprot"),
+        description="Standalone UniProt enrichment",
     ),
 }
 
