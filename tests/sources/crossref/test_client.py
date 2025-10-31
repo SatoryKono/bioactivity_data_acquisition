@@ -26,9 +26,11 @@ class TestCrossrefClient(CrossrefAdapterTestCase):
 
         expected_calls = -(-total // adapter.DEFAULT_BATCH_SIZE)
         self.assertEqual(batch_mock.call_count, expected_calls)
-        first_batch = batch_mock.call_args_list[0].args[1]
+        first_call = batch_mock.call_args_list[0]
+        first_batch = first_call.args[-1]
         self.assertEqual(len(first_batch), adapter.DEFAULT_BATCH_SIZE)
-        last_batch = batch_mock.call_args_list[-1].args[1]
+        last_call = batch_mock.call_args_list[-1]
+        last_batch = last_call.args[-1]
         remainder = total % adapter.DEFAULT_BATCH_SIZE
         expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
         self.assertEqual(len(last_batch), expected_last)
