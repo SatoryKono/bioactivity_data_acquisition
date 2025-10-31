@@ -90,7 +90,7 @@ python -m bioetl.cli.main list
 # Пример запуска пайплайна в режиме dry-run
 
 python -m bioetl.cli.main activity \
-  --config src/bioetl/configs/pipelines/activity.yaml \
+  --config configs/sources/activity/pipeline.yaml \
   --dry-run \
   --verbose
 
@@ -110,7 +110,7 @@ src/bioetl/
 configs/
   ├── base.yaml      # Base configuration
   ├── profiles/      # dev.yaml, prod.yaml, test.yaml
-  └── pipelines/     # Pipeline-specific configs
+  └── sources/       # Per-source configs (pipeline.yaml, schema.yaml, includes/)
 
 tests/
   ├── unit/          # Unit tests
