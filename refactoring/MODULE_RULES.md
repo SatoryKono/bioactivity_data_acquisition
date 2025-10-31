@@ -1,8 +1,6 @@
 # MODULE_RULES.md
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). 
-> 
-> **Для ChEMBL:** существует дублирование — основная реализация в монолитных файлах `src/bioetl/pipelines/*.py` (activity.py, assay.py, document.py, target.py, testitem.py), а `src/bioetl/sources/chembl/<entity>/pipeline.py` содержит прокси-файлы для совместимости со структурой sources/. В будущем планируется миграция полной реализации из `pipelines/` в `sources/chembl/<entity>/` с полной модульной структурой согласно правилам.
+> **Обновление:** Структура `src/bioetl/sources/` остаётся канонической для внешних источников данных. Модульные реализации ChEMBL находятся в `src/bioetl/sources/chembl/<entity>/`, а файлы `src/bioetl/pipelines/*.py` сохранены как совместимые прокси, которые реэкспортируют новые пайплайны.
 
 Нормативные правила раскладки, зависимостей и границ ответственности модулей для всех источников. Ключевые слова MUST/SHOULD/MAY трактуются по RFC 2119/BCP 14. 
 datatracker.ietf.org
