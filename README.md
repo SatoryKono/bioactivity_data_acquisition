@@ -188,6 +188,18 @@ contracts in sync with `bioetl.schemas.*`.
   так и разрешённый путь. Это гарантирует единообразное поведение при
   отсутствии файла и упрощает написание новых пайплайнов.
 
+### Transform-stage conventions
+
+- `transform()` обязан принимать и возвращать `pd.DataFrame`, сохраняя табличный
+  контракт между стадиями и позволяя повторно применять схемы валидации без
+  дополнительных адаптеров.【F:src/bioetl/pipelines/base.py†L785-L802】
+
+### Export-stage conventions
+
+- `export()` использует `UnifiedOutputWriter` для детерминированной фиксации
+  данных и побочных артефактов QC, поэтому на вход всегда подаётся
+  `pd.DataFrame`, уже прошедший валидацию.【F:src/bioetl/pipelines/base.py†L804-L880】
+
 ### Extended output mode
 
 Флаг `--extended` в CLI добавляет к стандартному набору артефактов
