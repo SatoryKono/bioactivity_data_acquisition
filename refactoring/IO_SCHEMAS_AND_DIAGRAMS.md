@@ -5,18 +5,18 @@
 ### A) Паспорт пайплайна (Assay)
 
 - **Название:** AssayPipeline
-- **Назначение:** детерминированное извлечение, нормализация и выгрузка данных ассая из ChEMBL с whitelist обогащением. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
+- **Назначение:** детерминированное извлечение, нормализация и выгрузка данных ассая из ChEMBL с whitelist обогащением. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]
 
 ### B) Диаграмма I/O (Assay)
 
 ```mermaid
 
 flowchart TB
-  IN["Input: assay_ids.csv<br/>assay_chembl_id, target_chembl_id<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"] --> EX["Extract: ChEMBL /assay.json batch≤25<br/>Cache, Retry, Fallback<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
-  EX --> EN["Enrich: /target & /assay_class whitelist<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
-  EN --> TR["Transform: explode nested structures<br/>row_subtype/row_index assignment<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
-  TR --> VL["Validate: Pandera schema + RI checks<br/>QC profile<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
-  VL --> LD["Load: UnifiedOutputWriter CSV/QC/meta<br/>Atomic write, hashes<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"]
+  IN["Input: assay_ids.csv<br/>assay_chembl_id, target_chembl_id<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"] --> EX["Extract: ChEMBL /assay.json batch≤25<br/>Cache, Retry, Fallback<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"]
+  EX --> EN["Enrich: /target & /assay_class whitelist<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"]
+  EN --> TR["Transform: explode nested structures<br/>row_subtype/row_index assignment<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"]
+  TR --> VL["Validate: Pandera schema + RI checks<br/>QC profile<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"]
+  VL --> LD["Load: UnifiedOutputWriter CSV/QC/meta<br/>Atomic write, hashes<br/>[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"]
 
 ```
 
@@ -41,7 +41,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Основной идентификатор ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: target_chembl_id
 
@@ -53,7 +53,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "Опциональный фильтр по таргету"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -87,7 +87,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Первичный ключ ассая из ChEMBL API"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: row_subtype
 
@@ -98,7 +98,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Тип развёрнутой строки"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: row_index
 
@@ -110,7 +110,7 @@ schema:
     min: 0
   na_policy: forbid
   notes: "Индекс для детерминизма"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_type
 
@@ -121,7 +121,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Тип ассая (B, F, A, P, T, U)"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_category
 
@@ -132,7 +132,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Категория ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_cell_type
 
@@ -143,7 +143,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Тип клеток для ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_classifications
 
@@ -154,7 +154,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Классификации ассая (JSON)"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_group
 
@@ -165,7 +165,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Группа ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_organism
 
@@ -176,7 +176,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Организм для ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_parameters_json
 
@@ -187,7 +187,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Параметры ассая (JSON)"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_strain
 
@@ -198,7 +198,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Штамм организма"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_subcellular_fraction
 
@@ -209,7 +209,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Субклеточная фракция"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_tax_id
 
@@ -221,7 +221,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Таксономический ID организма"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_test_type
 
@@ -232,7 +232,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Тип теста ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_tissue
 
@@ -243,7 +243,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Ткань для ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_type_description
 
@@ -254,7 +254,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Описание типа ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_description
 
@@ -265,7 +265,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Описание ассая"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: bao_endpoint
 
@@ -277,7 +277,7 @@ schema:
     regex: '^BAO_\\d{7}$'
   na_policy: allow
   notes: "BAO endpoint"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: bao_format
 
@@ -289,7 +289,7 @@ schema:
     regex: '^BAO_\\d+$'
   na_policy: allow
   notes: "BAO format классификация"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: bao_label
 
@@ -300,7 +300,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "BAO label классификация"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: cell_chembl_id
 
@@ -312,7 +312,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "ChEMBL ID клетки"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: confidence_description
 
@@ -323,7 +323,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Описание уверенности"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: confidence_score
 
@@ -336,7 +336,7 @@ schema:
     max: 9
   na_policy: allow
   notes: "Уровень уверенности (0-9)"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: document_chembl_id
 
@@ -348,7 +348,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "ChEMBL ID документа"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: relationship_description
 
@@ -359,7 +359,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Описание связи"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: relationship_type
 
@@ -370,7 +370,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Тип связи с таргетом"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: src_assay_id
 
@@ -381,7 +381,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "ID ассая в источнике"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: src_id
 
@@ -392,7 +392,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "ID источника"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: target_chembl_id
 
@@ -404,7 +404,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "FK на таргет"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: tissue_chembl_id
 
@@ -416,7 +416,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "ChEMBL ID ткани"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: variant_sequence_json
 
@@ -427,7 +427,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Последовательность варианта (JSON)"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_type
 
@@ -438,7 +438,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Тип параметра ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_relation
 
@@ -449,7 +449,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Отношение параметра"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_value
 
@@ -460,7 +460,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Значение параметра"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_units
 
@@ -471,7 +471,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Единицы параметра"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_text_value
 
@@ -482,7 +482,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Текстовое значение параметра"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_standard_type
 
@@ -493,7 +493,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Стандартизованный тип параметра"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_standard_value
 
@@ -504,7 +504,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Стандартизованное значение параметра"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_param_standard_units
 
@@ -515,7 +515,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Единицы стандартизованного параметра"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_class_id
 
@@ -526,7 +526,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Идентификатор класса ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_class_bao_id
 
@@ -538,7 +538,7 @@ schema:
     regex: '^BAO_\\d{7}$'
   na_policy: allow
   notes: "BAO ID класса ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_class_type
 
@@ -549,7 +549,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Тип класса ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_class_l1
 
@@ -560,7 +560,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Иерархия 1 класса ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_class_l2
 
@@ -571,7 +571,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Иерархия 2 класса ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_class_l3
 
@@ -582,7 +582,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Иерархия 3 класса ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_class_description
 
@@ -593,7 +593,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Описание класса ассея"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: variant_id
 
@@ -604,7 +604,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Идентификатор варианта"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: variant_base_accession
 
@@ -616,7 +616,7 @@ schema:
     regex: '^[A-Z0-9]{6,10}(-[0-9]+)?$'
   na_policy: allow
   notes: "UniProt акцессия базовой последовательности"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: variant_mutation
 
@@ -627,7 +627,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Мутация варианта"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: variant_sequence
 
@@ -639,7 +639,7 @@ schema:
     regex: '^[A-Z\\*]+$'
   na_policy: allow
   notes: "Аминокислотная последовательность варианта"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: variant_accession_reported
 
@@ -650,7 +650,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Сообщённая акцессия варианта"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: pipeline_version
 
@@ -661,7 +661,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Версия пайплайна"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: source_system
 
@@ -672,7 +672,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Источник данных"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: chembl_release
 
@@ -683,7 +683,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Версия источника"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: extracted_at
 
@@ -694,7 +694,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "ISO8601 метка времени извлечения"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: hash_business_key
 
@@ -706,7 +706,7 @@ schema:
     regex: '^[0-9a-f]{64}$'
   na_policy: forbid
   notes: "SHA256 от assay_chembl_id"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: hash_row
 
@@ -718,7 +718,7 @@ schema:
     regex: '^[0-9a-f]{64}$'
   na_policy: forbid
   notes: "SHA256 канонической строки"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: index
 
@@ -730,7 +730,7 @@ schema:
     min: 0
   na_policy: forbid
   notes: "Детерминированный индекс строки"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: run_id
 
@@ -741,7 +741,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Идентификатор запуска пайплайна"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: pref_name
 
@@ -752,7 +752,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Whitelisted target preferred name"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: organism
 
@@ -763,7 +763,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Whitelisted organism name"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: target_type
 
@@ -774,7 +774,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Whitelisted target type"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: species_group_flag
 
@@ -785,7 +785,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Whitelisted species group flag"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: component_count
 
@@ -797,7 +797,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Whitelisted component count"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -805,12 +805,12 @@ schema:
 
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
-| assay_chembl_id | assay_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
-| row_subtype | derived from nested structure type | assign literal per explode stage | none | value in {assay,param,variant} | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
-| row_index | enumerate within subtype | enumerate starting 0 | none | integer >=0 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
-| description | ChEMBL assay record.description | whitespace trim | none | optional string | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
-| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
-| hash_business_key | assay_chembl_id | SHA256(assay_chembl_id) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11] |
+| assay_chembl_id | assay_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
+| row_subtype | derived from nested structure type | assign literal per explode stage | none | value in {assay,param,variant} | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
+| row_index | enumerate within subtype | enumerate starting 0 | none | integer >=0 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
+| description | ChEMBL assay record.description | whitespace trim | none | optional string | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
+| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
+| hash_business_key | assay_chembl_id | SHA256(assay_chembl_id) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
 
 **Note:** Assay schema содержит 70+ полей включая все assay_*, assay_param_*, assay_class_*, variant_* поля, whitelist enrichment (pref_name, organism, target_type, species_group_flag, tax_id, component_count), fallback metadata. Полный список полей и их порядок см. в AssaySchema._column_order в `src/bioetl/schemas/assay.py`
 
@@ -818,9 +818,9 @@ schema:
 
 ### F) Контракты и детерминизм (Assay)
 
-- Batch запросы `≤25` ID, при превышении — откат к POST+Override; circuit breaker 5/60, retries уважают `Retry-After`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
-- Сортировка `assay_chembl_id,row_subtype,row_index`, nullable dtypes, NA-policy `""/null`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_11]
-- AtomicWriter `os.replace`, run-scoped `.tmp_run_{run_id}`, meta.yaml с SHA256. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_11]
+- Batch запросы `≤25` ID, при превышении — откат к POST+Override; circuit breaker 5/60, retries уважают `Retry-After`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]
+- Сортировка `assay_chembl_id,row_subtype,row_index`, nullable dtypes, NA-policy `""/null`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]
+- AtomicWriter `os.replace`, run-scoped `.tmp_run_{run_id}`, meta.yaml с SHA256. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_32]
 
 ---
 
@@ -829,17 +829,17 @@ schema:
 ### A) Паспорт пайплайна (Activity)
 
 - **Название:** ActivityPipeline
-- **Назначение:** извлечение и нормализация ChEMBL activity c детерминированной выгрузкой и QC. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
+- **Назначение:** извлечение и нормализация ChEMBL activity c детерминированной выгрузкой и QC. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]
 
 ### B) Диаграмма I/O (Activity)
 
 ```mermaid
 
 flowchart TB
-  IN["Input: filters/activity_id list<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"] --> EX["Extract: /activity.json activity_id__in batch≤25<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
-  EX --> TR["Transform: normalization + derived compound_key<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
-  TR --> VL["Validate: Pandera schema + duplicate check<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
-  VL --> LD["Load: dataset/qc/(corr)/meta via UnifiedOutputWriter<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"]
+  IN["Input: filters/activity_id list<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"] --> EX["Extract: /activity.json activity_id__in batch≤25<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"]
+  EX --> TR["Transform: normalization + derived compound_key<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"]
+  TR --> VL["Validate: Pandera schema + duplicate check<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"]
+  VL --> LD["Load: dataset/qc/(corr)/meta via UnifiedOutputWriter<br/>[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"]
 
 ```
 
@@ -864,7 +864,7 @@ schema:
     min: 1
   na_policy: allow
   notes: "Опциональный список идентификаторов для batch извлечения"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: filter_params
 
@@ -875,7 +875,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Параметры фильтрации (molecule_chembl_id, target_chembl_id, etc.)"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -921,7 +921,7 @@ schema:
     min: 1
   na_policy: forbid
   notes: "Уникальный идентификатор активности"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: molecule_chembl_id
 
@@ -933,7 +933,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "FK на молекулу"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: assay_chembl_id
 
@@ -945,7 +945,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "FK на ассай"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: target_chembl_id
 
@@ -957,7 +957,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "FK на таргет"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: document_chembl_id
 
@@ -969,7 +969,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "FK на документ"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: published_type
 
@@ -980,7 +980,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Оригинальный тип опубликованных данных"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: published_relation
 
@@ -991,7 +991,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Соотношение для published_value"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: published_value
 
@@ -1003,7 +1003,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Оригинальное опубликованное значение"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: published_units
 
@@ -1014,7 +1014,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Единицы published_value"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: standard_type
 
@@ -1025,7 +1025,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Стандартизированный тип активности"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: standard_relation
 
@@ -1036,7 +1036,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Соотношение для standard_value (=, >, <, >=, <=)"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: standard_value
 
@@ -1048,7 +1048,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Стандартизированное значение"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: standard_units
 
@@ -1059,7 +1059,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Единицы стандартизированного значения"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: standard_flag
 
@@ -1070,7 +1070,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Флаг стандартизации (0/1)"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: lower_bound
 
@@ -1081,7 +1081,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Нижняя граница стандартизированного значения"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: upper_bound
 
@@ -1092,7 +1092,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Верхняя граница стандартизированного значения"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: is_censored
 
@@ -1103,7 +1103,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Флаг цензурирования данных"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: pchembl_value
 
@@ -1115,7 +1115,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "-log10 нормированное значение"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: activity_comment
 
@@ -1126,7 +1126,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Комментарий к активности"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: data_validity_comment
 
@@ -1137,7 +1137,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Комментарий о валидности данных"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: bao_endpoint
 
@@ -1148,7 +1148,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "BAO endpoint (Bioassay Ontology)"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: bao_format
 
@@ -1159,7 +1159,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "BAO format (Bioassay Ontology)"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: bao_label
 
@@ -1170,7 +1170,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "BAO label (Bioassay Ontology)"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: potential_duplicate
 
@@ -1181,7 +1181,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Возможный дубликат активности"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: uo_units
 
@@ -1193,7 +1193,7 @@ schema:
     regex: '^UO_\\d{7}$'
   na_policy: allow
   notes: "Unit Ontology ID"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: qudt_units
 
@@ -1204,7 +1204,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "QUDT URI для единиц измерения"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: src_id
 
@@ -1215,7 +1215,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "ID источника данных"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: action_type
 
@@ -1226,7 +1226,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Тип действия лиганда"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: pipeline_version
 
@@ -1237,7 +1237,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Версия пайплайна"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: bei
 
@@ -1248,7 +1248,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Binding Efficiency Index"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: sei
 
@@ -1259,7 +1259,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Surface Efficiency Index"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: le
 
@@ -1270,7 +1270,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Ligand Efficiency"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: lle
 
@@ -1281,7 +1281,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Lipophilic Ligand Efficiency"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: extracted_at
 
@@ -1292,7 +1292,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "ISO8601 метка времени извлечения"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: hash_business_key
 
@@ -1304,7 +1304,7 @@ schema:
     regex: '^[0-9a-f]{64}$'
   na_policy: forbid
   notes: "SHA256 от activity_id"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: hash_row
 
@@ -1316,7 +1316,7 @@ schema:
     regex: '^[0-9a-f]{64}$'
   na_policy: forbid
   notes: "SHA256 канонической строки"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: index
 
@@ -1327,7 +1327,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Индекс для детерминизма"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: source_system
 
@@ -1338,7 +1338,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Источник данных (ChEMBL, ChEMBL_FALLBACK)"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: chembl_release
 
@@ -1349,7 +1349,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Версия ChEMBL источника"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: run_id
 
@@ -1360,7 +1360,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Идентификатор запуска пайплайна"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: canonical_smiles
 
@@ -1371,7 +1371,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Канонический SMILES лиганда"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: target_organism
 
@@ -1382,7 +1382,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Организм таргета"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: target_tax_id
 
@@ -1394,7 +1394,7 @@ schema:
     min: 1
   na_policy: allow
   notes: "NCBI Taxonomy ID таргета"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: activity_properties
 
@@ -1405,7 +1405,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Свойства активности в каноническом виде"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: compound_key
 
@@ -1416,7 +1416,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Бизнес-ключ для связывания активности"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: is_citation
 
@@ -1427,7 +1427,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Флаг наличия цитирования"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: high_citation_rate
 
@@ -1438,7 +1438,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Высокая частота цитирований"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: exact_data_citation
 
@@ -1449,7 +1449,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Флаг точного цитирования"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 - name: rounded_data_citation
 
@@ -1460,7 +1460,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Флаг округленного цитирования"
-  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -1468,11 +1468,11 @@ schema:
 
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
-| activity_id | API activity_id | passthrough | none | unique, >=1 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
-| standard_value | API standard_value | to Float64 with NaN handling | none | >=0 or null | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
-| standard_units | API standard_units | normalize synonyms | convert synonyms to canonical tokens | isin allowed list | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
-| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
-| hash_business_key | activity_id | SHA256(activity_id) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11] |
+| activity_id | API activity_id | passthrough | none | unique, >=1 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32] |
+| standard_value | API standard_value | to Float64 with NaN handling | none | >=0 or null | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32] |
+| standard_units | API standard_units | normalize synonyms | convert synonyms to canonical tokens | isin allowed list | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32] |
+| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32] |
+| hash_business_key | activity_id | SHA256(activity_id) | none | length 64 | [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32] |
 
 **Note:** Activity schema содержит 50+ полей включая published_*, standard_*, BAO annotations, ligand efficiency (bei, sei, le, lle), citation flags, activity properties, fallback metadata. Полный список полей и их порядок см. в ActivitySchema.COLUMN_ORDER в `src/bioetl/schemas/activity.py`
 
@@ -1480,9 +1480,9 @@ schema:
 
 ### F) Контракты и детерминизм (Activity)
 
-- Batch `activity_id__in` ≤25, fallback split, respect Retry-After, duplicates запрещены (`duplicated()==0`). [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
-- Сортировка `activity_id`, QC отчёты фиксируют duplicates и coverage. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
-- OutputWriter стандарт/extended режимы с correlation по feature flag. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_11]
+- Batch `activity_id__in` ≤25, fallback split, respect Retry-After, duplicates запрещены (`duplicated()==0`). [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]
+- Сортировка `activity_id`, QC отчёты фиксируют duplicates и coverage. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]
+- OutputWriter стандарт/extended режимы с correlation по feature flag. [ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]
 
 ---
 
@@ -1491,20 +1491,20 @@ schema:
 ### A) Паспорт пайплайна (Testitem)
 
 - **Название:** TestitemPipeline
-- **Назначение:** извлечение молекул ChEMBL с опциональным PubChem enrichment и строгой нормализацией. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
+- **Назначение:** извлечение молекул ChEMBL с опциональным PubChem enrichment и строгой нормализацией. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]
 
 ### B) Диаграмма I/O (Testitem)
 
 ```mermaid
 
 flowchart TB
-  IN["Input: testitem_ids.csv<br/>molecule_chembl_id (+nstereo, salt_chembl_id)<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"] --> EX["Extract: ChEMBL /molecule.json batch≤25<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
-  EX --> PC{PubChem enabled?<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]}
-  PC -->|Yes| EN["PubChem enrichment (CID resolve, properties)<br/>batch≤100, rate≤5/sec<br/>[ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11]"]
+  IN["Input: testitem_ids.csv<br/>molecule_chembl_id (+nstereo, salt_chembl_id)<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"] --> EX["Extract: ChEMBL /molecule.json batch≤25<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"]
+  EX --> PC{PubChem enabled?<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]}
+  PC -->|Yes| EN["PubChem enrichment (CID resolve, properties)<br/>batch≤100, rate≤5/sec<br/>[ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_32]"]
   PC -->|No| TR
-  EN --> TR["Transform: flatten hierarchies, merge pubchem_*, apply NA policy<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
-  TR --> VL["Validate: Pandera output schema, QC fail_on duplicates<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
-  VL --> LD["Load: deterministic CSV/QC/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"]
+  EN --> TR["Transform: flatten hierarchies, merge pubchem_*, apply NA policy<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"]
+  TR --> VL["Validate: Pandera output schema, QC fail_on duplicates<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"]
+  VL --> LD["Load: deterministic CSV/QC/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"]
 
 ```
 
@@ -1529,7 +1529,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Уникальный идентификатор молекулы"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: nstereo
 
@@ -1541,7 +1541,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Количество стереоизомеров"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: salt_chembl_id
 
@@ -1553,7 +1553,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "Идентификатор соли"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -1587,7 +1587,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Первичный ключ"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: molregno
 
@@ -1599,7 +1599,7 @@ schema:
     min: 1
   na_policy: forbid
   notes: "Внутренний регистровый номер"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: pref_name
 
@@ -1610,7 +1610,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Предпочтительное название"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: parent_chembl_id
 
@@ -1622,7 +1622,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: allow
   notes: "Связь с родительской молекулой"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: max_phase
 
@@ -1634,7 +1634,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Максимальная стадия разработки"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: mw_freebase
 
@@ -1646,7 +1646,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Молекулярная масса"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: pubchem_cid
 
@@ -1658,7 +1658,7 @@ schema:
     min: 1
   na_policy: allow
   notes: "Идентификатор PubChem (enrichment)"
-  evidence: "[ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_32]"
 
 - name: standardized_smiles
 
@@ -1669,7 +1669,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Стандартизированная структура"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: hash_row
 
@@ -1681,7 +1681,7 @@ schema:
     regex: '^[0-9a-f]{64}$'
   na_policy: forbid
   notes: "SHA256 канонической записи"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 - name: chembl_release
 
@@ -1692,7 +1692,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Версия источника"
-  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -1700,12 +1700,12 @@ schema:
 
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
-| molecule_chembl_id | molecule_chembl_id | uppercase & trim | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
-| molregno | ChEMBL response.molregno | passthrough | none | integer >=1 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
-| pubchem_cid | PubChem properties.CID | first successful CID | none | integer >=1 or null | [ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11] |
-| standardized_smiles | molecule_structures + chemistry normalizer | canonicalize SMILES | none | non-empty or null | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
-| hash_row | canonicalized row | SHA256 | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
-| hash_business_key | molecule_chembl_id | SHA256(molecule_chembl_id) | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] |
+| molecule_chembl_id | molecule_chembl_id | uppercase & trim | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32] |
+| molregno | ChEMBL response.molregno | passthrough | none | integer >=1 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32] |
+| pubchem_cid | PubChem properties.CID | first successful CID | none | integer >=1 or null | [ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_32] |
+| standardized_smiles | molecule_structures + chemistry normalizer | canonicalize SMILES | none | non-empty or null | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32] |
+| hash_row | canonicalized row | SHA256 | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32] |
+| hash_business_key | molecule_chembl_id | SHA256(molecule_chembl_id) | none | length 64 | [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32] |
 
 **Note:** Testitem schema содержит 150+ полей включая все физико-химические свойства, флаги, drug_*, pubchem_* enrichment, структуры. Полный список полей и их порядок см. в TestItemSchema._column_order в `src/bioetl/schemas/testitem.py`
 
@@ -1713,9 +1713,9 @@ schema:
 
 ### F) Контракты и детерминизм (Testitem)
 
-- ChEMBL batch ≤25, PubChem batch ≤100 (5 req/sec), многоуровневый cache и graceful degradation. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11] [ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_11]
-- Сортировка `molecule_chembl_id`, column_order фиксирован, NA-policy строгая (nullable dtypes). [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
-- QC fail_on `missing_molecule_chembl_id`, `duplicate_primary_keys`; optional correlation выключен по умолчанию. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_11]
+- ChEMBL batch ≤25, PubChem batch ≤100 (5 req/sec), многоуровневый cache и graceful degradation. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32] [ref: repo:docs/requirements/07b-testitem-data-extraction.md@test_refactoring_32]
+- Сортировка `molecule_chembl_id`, column_order фиксирован, NA-policy строгая (nullable dtypes). [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]
+- QC fail_on `missing_molecule_chembl_id`, `duplicate_primary_keys`; optional correlation выключен по умолчанию. [ref: repo:docs/requirements/07a-testitem-extraction.md@test_refactoring_32]
 
 ---
 
@@ -1724,21 +1724,21 @@ schema:
 ### A) Паспорт пайплайна (Target)
 
 - **Название:** TargetPipeline
-- **Назначение:** объединение ChEMBL таргетов с UniProt и IUPHAR enrichment в четыре согласованные таблицы. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
+- **Назначение:** объединение ChEMBL таргетов с UniProt и IUPHAR enrichment в четыре согласованные таблицы. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]
 
 ### B) Диаграмма I/O (Target)
 
 ```mermaid
 
 flowchart TB
-  IN["Input: target_ids.csv<br/>target_chembl_id (+filters)<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"] --> EX["Stage1: ChEMBL /target,* resources<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
-  EX --> UN["Stage2: UniProt ID mapping + stream (batch≤10000, rate≤3/sec)<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
-  UN --> IU["Stage3: IUPHAR classification merge<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
-  IU --> PP["Stage4: Post-process (orthologs, isoforms, priority merge)<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
-  PP --> OUT1["Output: targets.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
-  PP --> OUT2["Output: target_components.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
-  PP --> OUT3["Output: protein_class.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
-  PP --> OUT4["Output: xref.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"]
+  IN["Input: target_ids.csv<br/>target_chembl_id (+filters)<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"] --> EX["Stage1: ChEMBL /target,* resources<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
+  EX --> UN["Stage2: UniProt ID mapping + stream (batch≤10000, rate≤3/sec)<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
+  UN --> IU["Stage3: IUPHAR classification merge<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
+  IU --> PP["Stage4: Post-process (orthologs, isoforms, priority merge)<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
+  PP --> OUT1["Output: targets.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
+  PP --> OUT2["Output: target_components.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
+  PP --> OUT3["Output: protein_class.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
+  PP --> OUT4["Output: xref.parquet<br/>[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"]
 
 ```
 
@@ -1763,7 +1763,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Уникальный идентификатор таргета"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: organism
 
@@ -1774,7 +1774,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Опциональный фильтр"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: target_type
 
@@ -1785,7 +1785,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Опциональный фильтр (SINGLE PROTEIN, COMPLEX и др.)"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -1810,7 +1810,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Первичный ключ"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: pref_name
 
@@ -1821,7 +1821,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Название таргета"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: organism
 
@@ -1832,7 +1832,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Организм"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: uniprot_id_primary
 
@@ -1844,7 +1844,7 @@ schema:
     regex: '^[A-Z0-9]{6,10}(-[0-9]+)?$'
   na_policy: allow
   notes: "Основной UniProt accession"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: protein_class_pred_L1
 
@@ -1855,7 +1855,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Классификация верхнего уровня"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: isoform_count
 
@@ -1867,7 +1867,7 @@ schema:
     min: 0
   na_policy: allow
   notes: "Количество изоформ"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: chembl_release
 
@@ -1878,7 +1878,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Версия источника"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -1912,7 +1912,7 @@ schema:
     min: 0
   na_policy: forbid
   notes: "Идентификатор компонента"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: accession
 
@@ -1924,7 +1924,7 @@ schema:
     regex: '^[A-Z0-9]{6,10}(-[0-9]+)?$'
   na_policy: allow
   notes: "UniProt accession (canonical/isoform/ortholog)"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: data_origin
 
@@ -1935,7 +1935,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Источник компонента"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -1969,7 +1969,7 @@ schema:
     min: 1
   na_policy: forbid
   notes: "Уровень иерархии"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: full_path
 
@@ -1980,7 +1980,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Полный путь классификации"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -2013,7 +2013,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Источник внешней ссылки"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 - name: xref_id
 
@@ -2024,7 +2024,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Идентификатор во внешней БД"
-  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -2032,17 +2032,17 @@ schema:
 
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
-| target_chembl_id | input.target_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11] |
-| uniprot_id_primary | UniProt stream.accession | prefer canonical > secondary > ortholog | none | regex UniProt | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11] |
-| protein_class_pred_L1 | ChEMBL protein_classification.l1 | map to predicted levels | none | string | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11] |
-| accession (components) | UniProt/ChEMBL mapping | select per priority, mark data_origin | none | regex UniProt or null | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11] |
-| xref_id | ChEMBL cross_references + UniProt xrefs | normalize IDs, dedupe | none | non-empty string | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11] |
+| target_chembl_id | input.target_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32] |
+| uniprot_id_primary | UniProt stream.accession | prefer canonical > secondary > ortholog | none | regex UniProt | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32] |
+| protein_class_pred_L1 | ChEMBL protein_classification.l1 | map to predicted levels | none | string | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32] |
+| accession (components) | UniProt/ChEMBL mapping | select per priority, mark data_origin | none | regex UniProt or null | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32] |
+| xref_id | ChEMBL cross_references + UniProt xrefs | normalize IDs, dedupe | none | non-empty string | [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32] |
 
 ### F) Контракты и детерминизм (Target)
 
-- ChEMBL pagination (`limit/offset` with adaptive chunking); UniProt idmapping batch ≤10000 with 5s polling; rate ≤3/sec. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
-- Merge priority: chembl > uniprot > iuphar > ortholog; fallback taxonomy/gene symbol logged WARNING. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
-- AtomicWriter для всех parquet, referential integrity между таблицами, QC coverage ≥80% UniProt, duplicates=0. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_11]
+- ChEMBL pagination (`limit/offset` with adaptive chunking); UniProt idmapping batch ≤10000 with 5s polling; rate ≤3/sec. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]
+- Merge priority: chembl > uniprot > iuphar > ortholog; fallback taxonomy/gene symbol logged WARNING. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]
+- AtomicWriter для всех parquet, referential integrity между таблицами, QC coverage ≥80% UniProt, duplicates=0. [ref: repo:docs/requirements/08-target-data-extraction.md@test_refactoring_32]
 
 ---
 
@@ -2051,20 +2051,20 @@ schema:
 ### A) Паспорт пайплайна (Document)
 
 - **Название:** DocumentPipeline
-- **Назначение:** извлечение метаданных документов из ChEMBL и внешних источников с детерминированным экспортом. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
+- **Назначение:** извлечение метаданных документов из ChEMBL и внешних источников с детерминированным экспортом. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]
 
 ### B) Диаграмма I/O
 
 ```mermaid
 
 flowchart TB
-  IN["Input: document_ids.csv<br/>document_chembl_id<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"] --> EX["Extract: ChEMBL /document.json batch≤25<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
-  EX --> EN{mode = all?<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]}
-  EN -->|Yes| EXT["Enrichment adapters: PubMed, Crossref, OpenAlex, S2<br/>independent fetchers<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
+  IN["Input: document_ids.csv<br/>document_chembl_id<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"] --> EX["Extract: ChEMBL /document.json batch≤25<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"]
+  EX --> EN{mode = all?<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]}
+  EN -->|Yes| EXT["Enrichment adapters: PubMed, Crossref, OpenAlex, S2<br/>independent fetchers<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"]
   EN -->|No| TR
-  EXT --> TR["Normalize & merge by DOI/PMID priority<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
-  TR --> VL["Validate: Pandera raw/normalized schemas, QC coverage/conflicts<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
-  VL --> LD["Load: dataset/qc/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"]
+  EXT --> TR["Normalize & merge by DOI/PMID priority<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"]
+  TR --> VL["Validate: Pandera raw/normalized schemas, QC coverage/conflicts<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"]
+  VL --> LD["Load: dataset/qc/(corr)/meta via AtomicWriter<br/>[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"]
 
 ```
 
@@ -2089,7 +2089,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Уникальный идентификатор документа"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -2113,7 +2113,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "Индекс строки"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: extracted_at
 
@@ -2124,7 +2124,7 @@ schema:
   constraints: {}
   na_policy: forbid
   notes: "ISO8601 метка времени извлечения"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: hash_business_key
 
@@ -2136,7 +2136,7 @@ schema:
     regex: '^[0-9a-f]{64}$'
   na_policy: forbid
   notes: "SHA256 от document_chembl_id"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: hash_row
 
@@ -2148,7 +2148,7 @@ schema:
     regex: '^[0-9a-f]{64}$'
   na_policy: forbid
   notes: "SHA256 канонической строки"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: document_chembl_id
 
@@ -2160,7 +2160,7 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Первичный ключ"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_title
 
@@ -2171,7 +2171,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Заголовок из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: crossref_title
 
@@ -2182,7 +2182,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Заголовок из Crossref"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: openalex_title
 
@@ -2193,7 +2193,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Заголовок из OpenAlex"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_article_title
 
@@ -2204,7 +2204,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Заголовок из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: semantic_scholar_title
 
@@ -2215,7 +2215,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Заголовок из Semantic Scholar"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_abstract
 
@@ -2226,7 +2226,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Аннотация из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_abstract
 
@@ -2237,7 +2237,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Аннотация из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_authors
 
@@ -2248,7 +2248,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Авторы из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: crossref_authors
 
@@ -2259,7 +2259,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Авторы из Crossref"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: openalex_authors
 
@@ -2270,7 +2270,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Авторы из OpenAlex"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_authors
 
@@ -2281,7 +2281,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Авторы из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: semantic_scholar_authors
 
@@ -2292,7 +2292,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Авторы из Semantic Scholar"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_doi
 
@@ -2303,7 +2303,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "DOI из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: crossref_doi
 
@@ -2314,7 +2314,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "DOI из Crossref"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: openalex_doi
 
@@ -2325,7 +2325,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "DOI из OpenAlex"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_doi
 
@@ -2336,7 +2336,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "DOI из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: semantic_scholar_doi
 
@@ -2347,7 +2347,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "DOI из Semantic Scholar"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_pmid
 
@@ -2358,7 +2358,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "PMID из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_pmid
 
@@ -2369,7 +2369,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "PMID из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_year
 
@@ -2382,7 +2382,7 @@ schema:
     max: 2100
   na_policy: allow
   notes: "Год публикации из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: openalex_year
 
@@ -2393,7 +2393,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Год публикации из OpenAlex"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_journal
 
@@ -2404,7 +2404,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Название журнала из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_journal
 
@@ -2415,7 +2415,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Название журнала из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: semantic_scholar_journal
 
@@ -2426,7 +2426,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Название журнала из Semantic Scholar"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_volume
 
@@ -2437,7 +2437,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Том журнала из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_volume
 
@@ -2448,7 +2448,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Том журнала из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: chembl_issue
 
@@ -2459,7 +2459,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Выпуск журнала из ChEMBL"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_issue
 
@@ -2470,7 +2470,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Выпуск журнала из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_first_page
 
@@ -2481,7 +2481,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Первая страница из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_last_page
 
@@ -2492,7 +2492,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Последняя страница из PubMed"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: crossref_error
 
@@ -2503,7 +2503,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Ошибка Crossref адаптера"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: openalex_error
 
@@ -2514,7 +2514,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Ошибка OpenAlex адаптера"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: pubmed_error
 
@@ -2525,7 +2525,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Ошибка PubMed адаптера"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 - name: semantic_scholar_error
 
@@ -2536,7 +2536,7 @@ schema:
   constraints: {}
   na_policy: allow
   notes: "Ошибка Semantic Scholar адаптера"
-  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]"
+  evidence: "[ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]"
 
 ```
 
@@ -2544,9 +2544,9 @@ schema:
 
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
-| document_chembl_id | input.document_chembl_id | uppercase & trim | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
-| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
-| hash_business_key | document_chembl_id | SHA256(document_chembl_id) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11] |
+| document_chembl_id | input.document_chembl_id | uppercase & trim | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32] |
+| hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32] |
+| hash_business_key | document_chembl_id | SHA256(document_chembl_id) | none | length 64 | [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32] |
 
 **Note:** Document schema содержит 130+ полей включая resolved поля (title, abstract, journal, authors, year, volume, issue и т.д. без префиксов), source-specific поля (chembl_*, pubmed_*, crossref_*, openalex_*, semantic_scholar_*), source tracking поля (*_source), conflict flags, fallback metadata. Полный список полей и их порядок см. в DocumentSchema._column_order в `src/bioetl/schemas/document.py`
 
@@ -2554,7 +2554,7 @@ schema:
 
 ### F) Контракты и детерминизм (Document)
 
-- Batch ≤25, recursive split на timeouts, respect Retry-After, circuit breaker 5/60. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
-- mode=all запускает независимые адаптеры с rate limits (PubMed batch 200, Crossref cursor rows≤1000, OpenAlex per_page≤200, Semantic Scholar graceful degradation). [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
-- QC отчёты: coverage (doi_coverage, pmid_coverage, title_coverage, journal_coverage), conflicts (doi, pmid), duplicates (CHEMBL, DOI+year, PMID), access_denied; meta.yaml фиксирует metrics и checksum. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
-- AtomicWriter `.tmp` per run, deterministic CSV/Parquet; correlation report опционален. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_11] [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_11]
+- Batch ≤25, recursive split на timeouts, respect Retry-After, circuit breaker 5/60. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]
+- mode=all запускает независимые адаптеры с rate limits (PubMed batch 200, Crossref cursor rows≤1000, OpenAlex per_page≤200, Semantic Scholar graceful degradation). [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]
+- QC отчёты: coverage (doi_coverage, pmid_coverage, title_coverage, journal_coverage), conflicts (doi, pmid), duplicates (CHEMBL, DOI+year, PMID), access_denied; meta.yaml фиксирует metrics и checksum. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]
+- AtomicWriter `.tmp` per run, deterministic CSV/Parquet; correlation report опционален. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_32] [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]

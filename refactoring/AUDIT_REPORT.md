@@ -120,7 +120,7 @@
 -MUST: единая команда запуска — bioetl pipeline run ...
 +MUST: CLI команды регистрируются через Typer (`python -m bioetl.cli.main <pipeline>`); раздел должен ссылаться на актуальный реестр `PIPELINE_COMMAND_REGISTRY`.
 @@
--Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:tools/inventory/inventory_sources.py@Pipeline_Unification].
+-Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:tools/inventory/inventory_sources.py@test_refactoring_32].
 +Артефакт: docs/requirements/PIPELINES.inventory.csv (создать). Скрипт-генератор будет размещён в `scripts/qa/inventory_sources.py`.
 ```
 ```diff

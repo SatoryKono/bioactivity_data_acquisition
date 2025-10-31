@@ -86,7 +86,7 @@ sources:
 ```python
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.document import DocumentPipeline
+from bioetl.sources.document.pipeline import DocumentPipeline
 
 config = PipelineConfig.from_yaml("configs/pipelines/document.yaml")
 pipeline = DocumentPipeline(config, run_id="test")
@@ -101,8 +101,9 @@ df = pipeline.extract("data/input/documents.csv")
 
 ```python
 
-from bioetl.adapters import PubMedAdapter, CrossrefAdapter
-from bioetl.adapters.base import AdapterConfig
+from bioetl.sources.document.adapters.config import AdapterConfig
+from bioetl.sources.document.adapters.crossref import CrossrefAdapter
+from bioetl.sources.document.adapters.pubmed import PubMedAdapter
 from bioetl.core.api_client import APIConfig
 
 # Настройка PubMed
