@@ -1,6 +1,6 @@
 Требования к перечню источников данных
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, pagination/, parser/, normalizer/, schema/, merge/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
 
 0. Нормативная база
 
@@ -68,8 +68,7 @@ public_api: имя публичного класса/фасада и файл pi
 
 config_keys: список ключей конфигурации
 
-config_path: `configs/sources/<source>/pipeline.yaml` (MUST). Допускается подключать include-модули вроде
-`../_shared/chembl_source.yaml` для общих параметров; итоговая конфигурация проходит автоматическую валидацию `PipelineConfig`.
+config_path: `src/bioetl/configs/pipelines/<source>.yaml` (MUST). Допускается подключать include-модули из `src/bioetl/configs/includes/` (например, `_shared/chembl_source.yaml`) для общих параметров; итоговая конфигурация проходит автоматическую валидацию `PipelineConfig`.
 
 entities: извлекаемые сущности и обязательные поля
 

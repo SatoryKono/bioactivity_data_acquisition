@@ -1,6 +1,6 @@
 План рефакторинга по «семьям файлов» и по источникам. Все пути — ветка test_refactoring_32.
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, pagination/, parser/, normalizer/, schema/, merge/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
 
 0) Методика инвентаризации (MUST)
 
@@ -23,7 +23,7 @@ top_symbols: экспортируемые классы/функции/конст
 
 imports_top: нормализованные первые импортные директивы (без локальных алиасов).
 
-config_keys: объединение ключей из YAML [ref: repo:configs/**/*.yaml@test_refactoring_32] и типовых спецификаций в коде.
+config_keys: объединение ключей из YAML [ref: repo:src/bioetl/configs/**/*.yaml@test_refactoring_32] и типовых спецификаций в коде.
 
 source: из дерева src/bioetl/sources/<source>/… или имени файла конфига.
 
@@ -710,7 +710,7 @@ Target
 
 Current
 [ref: repo:src/bioetl/sources/crossref/@test_refactoring_32]
-[ref: repo:configs/sources/crossref/@test_refactoring_32]
+[ref: repo:src/bioetl/configs/pipelines/crossref.yaml@test_refactoring_32]
 [ref: repo:tests/sources/crossref/*@test_refactoring_32]
 
 Target
@@ -917,9 +917,9 @@ Hypothesis
 
 **Базовая схема YAML:**
 
-Все пайплайны используют единую систему конфигурации на базе YAML и Pydantic. Базовый файл `configs/base.yaml` описывает обязательные секции, а профильные конфигурации расширяют его через механизм наследования.
+Все пайплайны используют единую систему конфигурации на базе YAML и Pydantic. Базовый файл `src/bioetl/configs/base.yaml` описывает обязательные секции, а профильные конфигурации расширяют его через механизм наследования.
 
-Базовый файл `configs/base.yaml`:
+Базовый файл `src/bioetl/configs/base.yaml`:
 
 ```yaml
 version: 1
@@ -957,7 +957,7 @@ postprocess:
 qc:
   severity_threshold: "warning"
 cli:
-  default_config: "configs/base.yaml"
+  default_config: "src/bioetl/configs/base.yaml"
 ```
 
 **Обязательные поля и их назначение:**
@@ -979,7 +979,7 @@ cli:
 Профильные конфигурации расширяют базовые через ключ `extends`:
 
 ```yaml
-# configs/pipelines/assay.yaml
+# src/bioetl/configs/pipelines/assay.yaml
 extends:
   - "../base.yaml"
   - "../includes/determinism.yaml"
@@ -1082,7 +1082,7 @@ class PipelineConfig(BaseModel):
 
 | Флаг | Тип | Обязательность | Описание |
 |---|---|---|---|
-| `--config` | path | Опционально | Путь к YAML конфигурации (default: `configs/base.yaml`) |
+| `--config` | path | Опционально | Путь к YAML конфигурации (default: `src/bioetl/configs/base.yaml`) |
 | `--golden` | path | Опционально | Путь к golden-файлу для детерминированного сравнения |
 | `--sample` | int | Опционально | Ограничить входные данные до N записей (для тестирования) |
 | `--fail-on-schema-drift` | flag | Опционально | Fail-fast при major-версии схемы (default: `True` в production) |
@@ -1097,7 +1097,7 @@ CLI (`bioetl pipeline run`) поддерживает опцию `--set <path>=<v
 
 ```bash
 bioetl pipeline run \
-  --config configs/pipelines/assay.yaml \
+  --config src/bioetl/configs/pipelines/assay.yaml \
   --set sources.chembl.batch_size=20 \
   --set http.global.timeout_sec=45
 ```
