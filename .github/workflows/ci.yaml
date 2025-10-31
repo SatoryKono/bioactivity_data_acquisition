@@ -114,7 +114,7 @@ jobs:
 
       - name: Verify pipeline inventory snapshot
         run: |
-          python src/scripts/run_inventory.py --check
+          python src/scripts/run_inventory.py --config configs/inventory.yaml --check
 
       - name: Upload pipeline inventory artifact
         uses: actions/upload-artifact@v4
