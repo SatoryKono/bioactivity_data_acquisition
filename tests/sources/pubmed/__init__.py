@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from bioetl.adapters.pubmed import PubMedAdapter
+from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
 from tests.sources._mixins import AdapterTestMixin
 
 __all__ = ["PubMedAdapterTestCase"]
@@ -13,7 +13,7 @@ __all__ = ["PubMedAdapterTestCase"]
 class PubMedAdapterTestCase(AdapterTestMixin, unittest.TestCase):
     """Shared fixture base for PubMed adapter tests."""
 
-    ADAPTER_CLASS = PubMedAdapter
+    ADAPTER_DEFINITION = PUBMED_ADAPTER_DEFINITION
     API_CONFIG_OVERRIDES = {
         "name": "pubmed",
         "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
