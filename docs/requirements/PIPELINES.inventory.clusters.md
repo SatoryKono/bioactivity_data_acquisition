@@ -1,14 +1,14 @@
 # Pipeline Inventory Clusters
 
-Generated on 2025-10-31T11:38:00+00:00
+Generated on 2025-10-31T14:01:57+00:00
 
 ## Cluster 1
-Cluster size: 224
+Cluster size: 289
+- src/bioetl/adapters/__init__.py (source: adapters)
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
 - src/bioetl/adapters/crossref.py (source: adapters)
 - src/bioetl/adapters/openalex.py (source: adapters)
-- src/bioetl/adapters/pubchem.py (source: pubchem)
 - src/bioetl/adapters/pubmed.py (source: adapters)
 - src/bioetl/adapters/semantic_scholar.py (source: adapters)
 - src/bioetl/cli/__init__.py (source: cli)
@@ -19,6 +19,7 @@ Cluster size: 224
 - src/bioetl/config/loader.py (source: config)
 - src/bioetl/config/models.py (source: config)
 - src/bioetl/config/paths.py (source: config)
+- src/bioetl/core/__init__.py (source: core)
 - src/bioetl/core/api_client.py (source: core)
 - src/bioetl/core/chembl/client.py (source: chembl)
 - src/bioetl/core/chembl/output.py (source: chembl)
@@ -44,12 +45,8 @@ Cluster size: 224
 - src/bioetl/pandera_typing.py (source: bioetl)
 - src/bioetl/pipelines/__init__.py (source: __init__)
 - src/bioetl/pipelines/activity.py (source: activity)
-- src/bioetl/pipelines/assay.py (source: assay)
 - src/bioetl/pipelines/base.py (source: base)
-- src/bioetl/pipelines/document.py (source: document)
 - src/bioetl/pipelines/document_enrichment.py (source: document_enrichment)
-- src/bioetl/pipelines/pubchem.py (source: pubchem)
-- src/bioetl/pipelines/target.py (source: target)
 - src/bioetl/pipelines/target_gold.py (source: target_gold)
 - src/bioetl/pipelines/testitem.py (source: testitem)
 - src/bioetl/schemas/__init__.py (source: schemas)
@@ -58,16 +55,51 @@ Cluster size: 224
 - src/bioetl/schemas/base.py (source: base)
 - src/bioetl/schemas/document.py (source: document)
 - src/bioetl/schemas/document_input.py (source: document)
-- src/bioetl/schemas/pubchem.py (source: pubchem)
 - src/bioetl/schemas/target.py (source: target)
 - src/bioetl/schemas/testitem.py (source: testitem)
 - src/bioetl/schemas/uniprot.py (source: uniprot)
+- src/bioetl/sources/chembl/activity/client/activity_client.py (source: activity)
+- src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py (source: activity)
+- src/bioetl/sources/chembl/activity/output/activity_output.py (source: activity)
+- src/bioetl/sources/chembl/activity/parser/activity_parser.py (source: activity)
 - src/bioetl/sources/chembl/activity/pipeline.py (source: activity)
+- src/bioetl/sources/chembl/activity/request/activity_request.py (source: activity)
+- src/bioetl/sources/chembl/assay/client/assay_client.py (source: assay)
+- src/bioetl/sources/chembl/assay/constants.py (source: assay)
+- src/bioetl/sources/chembl/assay/merge/assay_merge.py (source: assay)
+- src/bioetl/sources/chembl/assay/normalizer/assay_normalizer.py (source: assay)
+- src/bioetl/sources/chembl/assay/output/assay_output.py (source: assay)
+- src/bioetl/sources/chembl/assay/parser/assay_parser.py (source: assay)
 - src/bioetl/sources/chembl/assay/pipeline.py (source: assay)
+- src/bioetl/sources/chembl/assay/request/assay_request.py (source: assay)
+- src/bioetl/sources/chembl/document/client/document_client.py (source: document)
+- src/bioetl/sources/chembl/document/merge/enrichment.py (source: document)
+- src/bioetl/sources/chembl/document/normalizer/document_normalizer.py (source: document)
+- src/bioetl/sources/chembl/document/output/qc.py (source: document)
+- src/bioetl/sources/chembl/document/output/rejections.py (source: document)
+- src/bioetl/sources/chembl/document/parser/input_parser.py (source: document)
 - src/bioetl/sources/chembl/document/pipeline.py (source: document)
+- src/bioetl/sources/chembl/document/request/external.py (source: document)
+- src/bioetl/sources/chembl/document/schema/fallback.py (source: document)
+- src/bioetl/sources/chembl/target/client/chembl_client.py (source: target)
+- src/bioetl/sources/chembl/target/merge/gold.py (source: target)
+- src/bioetl/sources/chembl/target/normalizer/enrichment.py (source: target)
+- src/bioetl/sources/chembl/target/output/services.py (source: target)
+- src/bioetl/sources/chembl/target/parser/json_parser.py (source: target)
 - src/bioetl/sources/chembl/target/pipeline.py (source: target)
+- src/bioetl/sources/chembl/target/request/chembl.py (source: target)
+- src/bioetl/sources/chembl/target/request/iuphar.py (source: iuphar)
+- src/bioetl/sources/chembl/target/request/uniprot.py (source: target)
+- src/bioetl/sources/chembl/testitem/client/client.py (source: testitem)
+- src/bioetl/sources/chembl/testitem/normalizer/dataframe.py (source: testitem)
+- src/bioetl/sources/chembl/testitem/output/dataframe.py (source: testitem)
+- src/bioetl/sources/chembl/testitem/parser/parser.py (source: testitem)
 - src/bioetl/sources/chembl/testitem/pipeline.py (source: testitem)
+- src/bioetl/sources/chembl/testitem/request/request.py (source: testitem)
+- src/bioetl/sources/crossref/merge/__init__.py (source: merge)
+- src/bioetl/sources/crossref/pagination/__init__.py (source: pagination)
 - src/bioetl/sources/crossref/pipeline.py (source: crossref)
+- src/bioetl/sources/crossref/schema/__init__.py (source: schema)
 - src/bioetl/sources/document/merge/policy.py (source: document)
 - src/bioetl/sources/document/pipeline.py (source: document)
 - src/bioetl/sources/iuphar/client/__init__.py (source: iuphar)
@@ -79,7 +111,17 @@ Cluster size: 224
 - src/bioetl/sources/iuphar/schema/__init__.py (source: iuphar)
 - src/bioetl/sources/iuphar/service.py (source: iuphar)
 - src/bioetl/sources/openalex/pipeline.py (source: openalex)
+- src/bioetl/sources/pubchem/client/pubchem_client.py (source: pubchem)
+- src/bioetl/sources/pubchem/normalizer/pubchem_normalizer.py (source: pubchem)
+- src/bioetl/sources/pubchem/parser/pubchem_parser.py (source: pubchem)
+- src/bioetl/sources/pubchem/pipeline.py (source: pubchem)
+- src/bioetl/sources/pubchem/request/builder.py (source: pubchem)
+- src/bioetl/sources/pubchem/schema/pubchem_schema.py (source: pubchem)
+- src/bioetl/sources/pubmed/merge/__init__.py (source: merge)
+- src/bioetl/sources/pubmed/pagination/__init__.py (source: pagination)
+- src/bioetl/sources/pubmed/parser/__init__.py (source: parser)
 - src/bioetl/sources/pubmed/pipeline.py (source: pubmed)
+- src/bioetl/sources/pubmed/schema/__init__.py (source: schema)
 - src/bioetl/sources/semantic_scholar/pipeline.py (source: semantic_scholar)
 - src/bioetl/sources/uniprot/client.py (source: uniprot)
 - src/bioetl/sources/uniprot/client/idmapping_client.py (source: uniprot)
@@ -118,8 +160,10 @@ Cluster size: 224
 - src/scripts/run_uniprot.py (source: uniprot)
 - src/scripts/validate_columns.py (source: scripts)
 - tests/conftest.py (source: tests)
+- tests/golden/helpers.py (source: tests)
 - tests/golden/test_cli_golden.py (source: tests)
 - tests/integration/pipelines/test_activity_pipeline.py (source: test_activity_pipeline)
+- tests/integration/pipelines/test_bit_identical_output.py (source: test_bit_identical_output)
 - tests/integration/pipelines/test_enrichment_stages.py (source: test_enrichment_stages)
 - tests/integration/pipelines/test_extended_mode_outputs.py (source: test_extended_mode_outputs)
 - tests/integration/qc/test_unified_qc.py (source: tests)
@@ -141,7 +185,9 @@ Cluster size: 224
 - tests/sources/chembl/test_schema.py (source: tests)
 - tests/sources/crossref/__init__.py (source: tests)
 - tests/sources/crossref/test_client.py (source: tests)
+- tests/sources/crossref/test_merge.py (source: tests)
 - tests/sources/crossref/test_normalizer.py (source: tests)
+- tests/sources/crossref/test_pagination.py (source: tests)
 - tests/sources/crossref/test_parser.py (source: tests)
 - tests/sources/crossref/test_pipeline_e2e.py (source: tests)
 - tests/sources/crossref/test_schema.py (source: tests)
@@ -164,9 +210,13 @@ Cluster size: 224
 - tests/sources/pubchem/__init__.py (source: pubchem)
 - tests/sources/pubchem/test_client.py (source: pubchem)
 - tests/sources/pubchem/test_normalizer.py (source: pubchem)
+- tests/sources/pubchem/test_parser.py (source: pubchem)
+- tests/sources/pubchem/test_schema.py (source: pubchem)
 - tests/sources/pubmed/__init__.py (source: tests)
 - tests/sources/pubmed/test_client.py (source: tests)
+- tests/sources/pubmed/test_merge.py (source: tests)
 - tests/sources/pubmed/test_normalizer.py (source: tests)
+- tests/sources/pubmed/test_pagination.py (source: tests)
 - tests/sources/pubmed/test_parser.py (source: tests)
 - tests/sources/pubmed/test_pipeline_e2e.py (source: tests)
 - tests/sources/pubmed/test_schema.py (source: tests)
@@ -190,11 +240,25 @@ Cluster size: 224
 - tests/unit/core/test_fallback_manager.py (source: tests)
 - tests/unit/core/test_unified_api_client_fallbacks.py (source: tests)
 - tests/unit/docs/test_data_sources_spec.py (source: tests)
+- tests/unit/document/test_document_client.py (source: document)
+- tests/unit/document/test_normalizer.py (source: document)
+- tests/unit/document/test_parser.py (source: document)
+- tests/unit/document/test_request.py (source: document)
 - tests/unit/normalizers/test_bibliography.py (source: tests)
 - tests/unit/normalizers/test_bibliography_helpers_cache.py (source: tests)
 - tests/unit/normalizers/test_boolean_normalizers.py (source: tests)
+- tests/unit/normalizers/test_chemistry_normalizer_properties.py (source: tests)
 - tests/unit/normalizers/test_helpers.py (source: tests)
+- tests/unit/normalizers/test_identifier_normalizer_properties.py (source: tests)
+- tests/unit/normalizers/test_numeric_normalizer_properties.py (source: tests)
 - tests/unit/normalizers/test_string_normalizer_properties.py (source: tests)
+- tests/unit/sources/chembl/testitem/test_client.py (source: testitem)
+- tests/unit/sources/chembl/testitem/test_parser.py (source: testitem)
+- tests/unit/sources/chembl/testitem/test_parser_properties.py (source: testitem)
+- tests/unit/sources/chembl/testitem/test_request_builder.py (source: testitem)
+- tests/unit/sources/chembl/testitem/test_request_builder_properties.py (source: testitem)
+- tests/unit/sources/iuphar/test_pagination_properties.py (source: iuphar)
+- tests/unit/sources/uniprot/test_idmapping_parser_properties.py (source: uniprot)
 - tests/unit/test_api_client.py (source: tests)
 - tests/unit/test_chemistry_normalizers.py (source: tests)
 - tests/unit/test_cli_contract.py (source: tests)
@@ -227,10 +291,11 @@ Cluster size: 224
 - tests/unit/test_utils_output.py (source: tests)
 - tests/unit/utils/test_column_constants_properties.py (source: tests)
 - tests/unit/utils/test_config_coercion.py (source: tests)
+- tests/unit/utils/test_validation_properties.py (source: tests)
 - tests/unit/validation/test_schema_validation.py (source: tests)
 common n-grams: —
 common imports: —
-avg jaccard=0.00; avg import overlap=0.12
+avg jaccard=0.00; avg import overlap=0.14
 
 ## Cluster 2
 Cluster size: 8
@@ -245,3 +310,19 @@ Cluster size: 8
 common n-grams: —
 common imports: .pipeline
 avg jaccard=0.00; avg import overlap=0.72
+
+## Cluster 3
+Cluster size: 2
+- src/bioetl/sources/chembl/document/merge/__init__.py (source: document)
+- src/bioetl/sources/chembl/target/normalizer/__init__.py (source: target)
+common n-grams: —
+common imports: .enrichment
+avg jaccard=0.00; avg import overlap=1.00
+
+## Cluster 4
+Cluster size: 2
+- src/bioetl/sources/chembl/testitem/normalizer/__init__.py (source: testitem)
+- src/bioetl/sources/chembl/testitem/output/__init__.py (source: testitem)
+common n-grams: —
+common imports: .dataframe
+avg jaccard=0.00; avg import overlap=1.00
