@@ -1,6 +1,6 @@
 # PROJECT_RULES.md — правила проекта для Cursor
 
-Репозиторий: SatoryKono/bioactivity_data_acquisition (ветка `test_refactoring_11`)
+Репозиторий: SatoryKono/bioactivity_data_acquisition (ветка `@test_refactoring_32`)
 Дата: 2025-10-29
 
 > Нормативные ключевые слова трактуются по RFC 2119.
