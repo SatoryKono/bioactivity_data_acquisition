@@ -16,6 +16,7 @@ from bioetl.sources.chembl.target.pipeline import TargetPipeline
 from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
 from bioetl.sources.uniprot.pipeline import UniProtPipeline
+from bioetl.sources.pubchem.pipeline import PubChemPipeline
 
 PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
     "activity": PipelineCommandConfig(
@@ -25,6 +26,14 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_input=Path("data/input/activity.csv"),
         default_output_dir=Path("data/output/activity"),
         description="ChEMBL activity data",
+    ),
+    "pubchem": PipelineCommandConfig(
+        pipeline_name="pubchem",
+        pipeline_factory=lambda: PubChemPipeline,
+        default_config=get_config_path("pipelines/pubchem.yaml"),
+        default_input=Path("data/input/pubchem_lookup.csv"),
+        default_output_dir=Path("data/output/pubchem"),
+        description="Standalone PubChem enrichment dataset",
     ),
     "assay": PipelineCommandConfig(
         pipeline_name="assay",

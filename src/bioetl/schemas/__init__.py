@@ -22,6 +22,7 @@ __all__ = (
     "IupharClassificationSchema",
     "IupharGoldSchema",
     "UniProtSchema",
+    "PubChemSchema",
     "SchemaRegistry",
     "schema_registry",
 )
@@ -43,6 +44,7 @@ _SCHEMA_EXPORTS: dict[str, str] = {
     "IupharClassificationSchema": "bioetl.sources.iuphar.schema",
     "IupharGoldSchema": "bioetl.sources.iuphar.schema",
     "UniProtSchema": "bioetl.schemas.uniprot",
+    "PubChemSchema": "bioetl.schemas.pubchem",
     "SchemaRegistry": "bioetl.schemas.registry",
     "schema_registry": "bioetl.schemas.registry",
 }
@@ -66,6 +68,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
     )
     from bioetl.schemas.testitem import TestItemSchema
     from bioetl.schemas.uniprot import UniProtSchema
+    from bioetl.schemas.pubchem import PubChemSchema
     from bioetl.sources.iuphar.schema import (
         IupharClassificationSchema,
         IupharGoldSchema,

@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from pytest_httpserver import HTTPServer
+
+pytest_httpserver = pytest.importorskip("pytest_httpserver")
+HTTPServer = pytest_httpserver.HTTPServer
 
 from bioetl.config.loader import load_config
 from bioetl.sources.iuphar.pipeline import GtpIupharPipeline

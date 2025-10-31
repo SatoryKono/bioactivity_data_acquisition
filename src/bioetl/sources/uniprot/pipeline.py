@@ -25,10 +25,12 @@ from bioetl.utils.qc import (
 
 from .client import (
     UniProtIdMappingClient,
-    UniProtOrthologClient,
+    UniProtOrthologsClient,
     UniProtSearchClient,
 )
-from .normalizer import UniProtNormalizer
+from .normalizer_service import UniProtNormalizer
+
+UniProtOrthologClient = UniProtOrthologsClient
 
 logger = UnifiedLogger.get(__name__)
 

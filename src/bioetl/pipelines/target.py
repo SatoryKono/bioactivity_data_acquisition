@@ -45,10 +45,12 @@ from bioetl.sources.iuphar.request import (
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 from bioetl.sources.uniprot.client import (
     UniProtIdMappingClient,
-    UniProtOrthologClient,
+    UniProtOrthologsClient,
     UniProtSearchClient,
 )
-from bioetl.sources.uniprot.normalizer import UniProtNormalizer
+from bioetl.sources.uniprot.normalizer_service import UniProtNormalizer
+
+UniProtOrthologClient = UniProtOrthologsClient
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
     prepare_enrichment_metrics,

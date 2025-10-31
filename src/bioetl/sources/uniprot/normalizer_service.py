@@ -12,10 +12,12 @@ from bioetl.core.logger import UnifiedLogger
 
 from .client import (
     UniProtIdMappingClient,
-    UniProtOrthologClient,
+    UniProtOrthologsClient,
     UniProtSearchClient,
 )
-from .parser import (
+
+UniProtOrthologClient = UniProtOrthologsClient
+from .parser_utils import (
     build_silver_record,
     expand_isoforms,
     extract_gene_primary,
