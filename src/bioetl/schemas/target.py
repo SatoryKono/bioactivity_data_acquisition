@@ -66,6 +66,14 @@ class TargetSchema(BaseSchema):
     iuphar_subclass: Series[str] = pa.Field(nullable=True)
     iuphar_name: Series[str] = pa.Field(nullable=True)
     data_origin: Series[str] = pa.Field(nullable=True)
+    # Source origin tracking columns (created by coalesce_by_priority with _origin suffix)
+    pref_name_origin: Series[str] = pa.Field(nullable=True)
+    organism_origin: Series[str] = pa.Field(nullable=True)
+    tax_id_origin: Series[str] = pa.Field(nullable=True)
+    gene_symbol_origin: Series[str] = pa.Field(nullable=True)
+    hgnc_id_origin: Series[str] = pa.Field(nullable=True)
+    lineage_origin: Series[str] = pa.Field(nullable=True)
+    uniprot_id_primary_origin: Series[str] = pa.Field(nullable=True)
 
     class Config:
         strict = True
@@ -129,6 +137,13 @@ class TargetSchema(BaseSchema):
         "iuphar_subclass",
         "iuphar_name",
         "data_origin",
+        "pref_name_origin",
+        "organism_origin",
+        "tax_id_origin",
+        "gene_symbol_origin",
+        "hgnc_id_origin",
+        "lineage_origin",
+        "uniprot_id_primary_origin",
     ]
 
 
