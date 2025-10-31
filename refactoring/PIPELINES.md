@@ -18,6 +18,7 @@
 - `transform(df: pd.DataFrame) -> pd.DataFrame`
 - `validate(df: pd.DataFrame) -> pd.DataFrame`
 - `export(df: pd.DataFrame, output_path: Path, extended: bool = False) -> OutputArtifacts`
+- `run(output_path: Path, extended: bool = False, *args, **kwargs) -> OutputArtifacts`
 - `run() -> RunResult`
 
 [ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
@@ -30,6 +31,7 @@
 **Назначение:** сетевое извлечение сырья из API источника с контролем отказов и лимитов.
 
 **Требования:**
+- Выходной контракт — `pd.DataFrame` с именованными колонками, совместимый со Schema Registry и `PipelineBase.run()`. [ref: repo:refactoring/IO.md@test_refactoring_32]
 - Политики retry/backoff и обработка HTTP 429/5xx обязательны; Retry-After учитывается при наличии.
 - Пагинация инкапсулируется в стратегиях: Page/Size, Cursor, Offset/Limit, Token.
 - Запросы маркируются request_id; на выход добавляются метаданные: request_id, page|cursor, retry_count, elapsed_ms, status.
