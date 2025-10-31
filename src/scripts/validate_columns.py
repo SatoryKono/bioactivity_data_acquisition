@@ -89,6 +89,12 @@ def validate(
 
     typer.echo()
 
+    try:
+        validator.assert_expected_layout(results)
+    except AssertionError as exc:
+        typer.secho(f"CI layout assertion failed: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(1) from exc
+
     # Сгенерировать отчет
     report_path = validator.generate_report(results, report_dir)
 
@@ -167,6 +173,12 @@ def compare_all(
     if not all_results:
         typer.echo("Не найдено данных для валидации")
         return
+
+    try:
+        validator.assert_expected_layout(all_results)
+    except AssertionError as exc:
+        typer.secho(f"CI layout assertion failed: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(1) from exc
 
     # Сгенерировать общий отчет
     report_path = validator.generate_report(all_results, report_dir)

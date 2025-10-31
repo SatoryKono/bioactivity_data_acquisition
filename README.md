@@ -174,6 +174,12 @@ For example, the default workflow sets `BIOETL__LOGGING__LEVEL=DEBUG` and
 accepts the legacy `BIOACTIVITY__` prefix to keep existing secrets working
 while pipelines migrate to the new namespace.
 
+Column layout drift is caught automatically in CI by running
+`python -m scripts.validate_columns compare-all`. The helper now raises an
+assertion if a CSV filename does not start with its registered entity prefix or
+if the materialised columns diverge from the Pandera schema, keeping the I/O
+contracts in sync with `bioetl.schemas.*`. 
+
 ### Extract-stage conventions
 
 \1- Всегда используйте `PipelineBase.read_input_table` для чтения исходных CSV.

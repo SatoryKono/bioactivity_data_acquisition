@@ -80,6 +80,8 @@ class ColumnComparisonResult:
         empty_columns: list[str],
         non_empty_columns: list[str],
         duplicate_columns: dict[str, int],
+        *,
+        source_file: Path | None = None,
     ):
         self.entity = entity
         self.expected_columns = expected_columns
@@ -91,6 +93,7 @@ class ColumnComparisonResult:
         self.empty_columns = empty_columns
         self.non_empty_columns = non_empty_columns
         self.duplicate_columns = duplicate_columns
+        self.source_file = source_file
         self.overall_match = (
             len(missing_columns) == 0
             and len(extra_columns) == 0
@@ -118,6 +121,7 @@ class ColumnComparisonResult:
             "non_empty_count": len(self.non_empty_columns),
             "duplicate_unique_count": len(self.duplicate_columns),
             "duplicate_total": sum(count - 1 for count in self.duplicate_columns.values()),
+            "source_file": str(self.source_file) if self.source_file else None,
         }
 
 
@@ -139,6 +143,7 @@ class ColumnValidator:
         schema_version: str = "latest",
         *,
         column_non_null_counts: Sequence[tuple[str, int]] | None = None,
+        source_file: Path | None = None,
     ) -> ColumnComparisonResult:
         """
         Сравнить колонки в DataFrame с ожидаемой схемой.
@@ -196,6 +201,7 @@ class ColumnValidator:
                 empty_columns=empty_columns,
                 non_empty_columns=non_empty_columns,
                 duplicate_columns=duplicate_columns,
+                source_file=source_file,
             )
 
             self.logger.info(
@@ -495,6 +501,7 @@ class ColumnValidator:
                     None,
                     schema_version,
                     column_non_null_counts=non_null_counts,
+                    source_file=csv_file,
                 )
                 results.append(result)
 
@@ -548,6 +555,54 @@ class ColumnValidator:
                 return entity
 
         return base_name
+
+    def assert_expected_layout(
+        self,
+        results: Sequence[ColumnComparisonResult],
+        *,
+        allow_empty: bool = False,
+    ) -> None:
+        """Проверить, что имена файлов и состав колонок соответствуют ожиданиям."""
+
+        if not results:
+            if allow_empty:
+                return
+            raise AssertionError(
+                "column validation produced no results – ensure CSV artifacts are present"
+            )
+
+        issues: list[str] = []
+
+        for result in results:
+            source_file = result.source_file
+            if source_file is not None:
+                stem = source_file.stem.lower()
+                entity = result.entity.lower()
+                if not stem.startswith(entity):
+                    issues.append(
+                        "file '{file}' is expected to start with entity '{entity}'".format(
+                            file=source_file.name,
+                            entity=result.entity,
+                        )
+                    )
+
+            if result.missing_columns or result.extra_columns:
+                issues.append(
+                    "entity '{entity}' mismatch: missing={missing} extra={extra}".format(
+                        entity=result.entity,
+                        missing=sorted(result.missing_columns),
+                        extra=sorted(result.extra_columns),
+                    )
+                )
+            elif not result.order_matches or not result.column_count_matches:
+                issues.append(
+                    "entity '{entity}' column order/count mismatch".format(
+                        entity=result.entity,
+                    )
+                )
+
+        if issues:
+            raise AssertionError("; ".join(issues))
 
     def _should_skip_file(self, path: Path) -> bool:
         """Определить, следует ли пропустить CSV файл при валидации."""

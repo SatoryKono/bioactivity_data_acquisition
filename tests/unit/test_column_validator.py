@@ -75,7 +75,13 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
     validator = ColumnValidator()
     processed_entities: list[str] = []
 
-    def fake_compare_columns(self, entity, actual_df, schema_version="latest", **kwargs):
+    def fake_compare_columns(
+        self,
+        entity,
+        actual_df,
+        schema_version="latest",
+        **kwargs,
+    ):
         processed_entities.append(entity)
         column_non_null_counts = kwargs.get("column_non_null_counts", [])
         if actual_df is not None:
@@ -93,6 +99,7 @@ def test_validate_pipeline_output_processes_files_in_sorted_order(
             empty_columns=[],
             non_empty_columns=actual_columns,
             duplicate_columns={},
+            source_file=kwargs.get("source_file"),
         )
 
     monkeypatch.setattr(ColumnValidator, "compare_columns", fake_compare_columns)
@@ -226,3 +233,75 @@ def test_compare_columns_detects_duplicate_columns(monkeypatch: pytest.MonkeyPat
     assert result_dict["duplicate_columns"] == {"col_a": 2}
     assert result_dict["duplicate_unique_count"] == 1
     assert result_dict["duplicate_total"] == 1
+
+
+def test_assert_expected_layout_passes_for_matching_results(tmp_path: Path) -> None:
+    validator = ColumnValidator()
+    dataset = tmp_path / "assay_output.csv"
+    dataset.write_text("col_a,col_b\n1,2\n", encoding="utf-8")
+
+    result = ColumnComparisonResult(
+        entity="assay",
+        expected_columns=["col_a", "col_b"],
+        actual_columns=["col_a", "col_b"],
+        missing_columns=[],
+        extra_columns=[],
+        order_matches=True,
+        column_count_matches=True,
+        empty_columns=[],
+        non_empty_columns=["col_a", "col_b"],
+        duplicate_columns={},
+        source_file=dataset,
+    )
+
+    validator.assert_expected_layout([result])
+
+
+def test_assert_expected_layout_raises_on_name_mismatch(tmp_path: Path) -> None:
+    validator = ColumnValidator()
+    dataset = tmp_path / "unexpected_output.csv"
+    dataset.write_text("col\n", encoding="utf-8")
+
+    result = ColumnComparisonResult(
+        entity="assay",
+        expected_columns=["col"],
+        actual_columns=["col"],
+        missing_columns=[],
+        extra_columns=[],
+        order_matches=True,
+        column_count_matches=True,
+        empty_columns=[],
+        non_empty_columns=["col"],
+        duplicate_columns={},
+        source_file=dataset,
+    )
+
+    with pytest.raises(AssertionError) as exc_info:
+        validator.assert_expected_layout([result])
+
+    assert "unexpected_output.csv" in str(exc_info.value)
+
+
+def test_assert_expected_layout_raises_on_column_mismatch(tmp_path: Path) -> None:
+    validator = ColumnValidator()
+    dataset = tmp_path / "assay_output.csv"
+    dataset.write_text("col\n", encoding="utf-8")
+
+    result = ColumnComparisonResult(
+        entity="assay",
+        expected_columns=["col_a"],
+        actual_columns=["col"],
+        missing_columns=["col_a"],
+        extra_columns=["col"],
+        order_matches=False,
+        column_count_matches=False,
+        empty_columns=[],
+        non_empty_columns=["col"],
+        duplicate_columns={},
+        source_file=dataset,
+    )
+
+    with pytest.raises(AssertionError) as exc_info:
+        validator.assert_expected_layout([result])
+
+    assert "mismatch" in str(exc_info.value)
