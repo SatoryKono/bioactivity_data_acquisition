@@ -111,6 +111,7 @@ class TargetEnricher:
     uniprot_ortholog_client: UniProtOrthologsClient | None
     iuphar_service: IupharService
     iuphar_paginator: PageNumberPaginator | None = None
+    uniprot_normalizer: UniProtNormalizer | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self.uniprot_normalizer = UniProtNormalizer(

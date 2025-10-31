@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
@@ -23,6 +23,8 @@ class TargetOutputService:
     stage_context: dict[str, Any]
     determinism: Any
     runtime_config: Any | None = None
+    writer: UnifiedOutputWriter | None = field(init=False, default=None)
+    materialization_manager: MaterializationManager | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         determinism_copy = self.determinism.model_copy()
