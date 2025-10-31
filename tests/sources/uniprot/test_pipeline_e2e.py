@@ -15,7 +15,7 @@ def uniprot_config():
     return load_config("configs/pipelines/uniprot.yaml")
 
 
-def test_transform_uses_service(monkeypatch, uniprot_config) -> None:
+def test_transform_uses_service(monkeypatch: pytest.MonkeyPatch, uniprot_config) -> None:
     pipeline = UniProtPipeline(uniprot_config, "test-run")
 
     monkeypatch.setattr(
