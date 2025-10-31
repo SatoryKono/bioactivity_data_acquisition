@@ -1,9 +1,9 @@
 # Pipeline Inventory Clusters
 
-Generated on 2025-10-31T08:25:56+00:00
+Generated on 2025-10-31T09:45:21+00:00
 
 ## Cluster 1
-Cluster size: 138
+Cluster size: 172
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
 - src/bioetl/adapters/crossref.py (source: adapters)
@@ -59,8 +59,30 @@ Cluster size: 138
 - src/bioetl/schemas/document_input.py (source: document)
 - src/bioetl/schemas/target.py (source: target)
 - src/bioetl/schemas/testitem.py (source: testitem)
+- src/bioetl/schemas/uniprot.py (source: uniprot)
 - src/bioetl/sources/document/merge/policy.py (source: document)
 - src/bioetl/sources/document/pipeline.py (source: document)
+- src/bioetl/sources/iuphar/client/__init__.py (source: iuphar)
+- src/bioetl/sources/iuphar/normalizer/__init__.py (source: iuphar)
+- src/bioetl/sources/iuphar/pagination/__init__.py (source: iuphar)
+- src/bioetl/sources/iuphar/parser/__init__.py (source: iuphar)
+- src/bioetl/sources/iuphar/pipeline.py (source: iuphar)
+- src/bioetl/sources/iuphar/request/__init__.py (source: iuphar)
+- src/bioetl/sources/iuphar/schema/__init__.py (source: iuphar)
+- src/bioetl/sources/iuphar/service.py (source: iuphar)
+- src/bioetl/sources/uniprot/client.py (source: uniprot)
+- src/bioetl/sources/uniprot/client/idmapping_client.py (source: uniprot)
+- src/bioetl/sources/uniprot/client/orthologs_client.py (source: uniprot)
+- src/bioetl/sources/uniprot/client/search_client.py (source: uniprot)
+- src/bioetl/sources/uniprot/merge/service.py (source: uniprot)
+- src/bioetl/sources/uniprot/normalizer.py (source: uniprot)
+- src/bioetl/sources/uniprot/normalizer/normalizer.py (source: uniprot)
+- src/bioetl/sources/uniprot/parser.py (source: uniprot)
+- src/bioetl/sources/uniprot/parser/entry_parser.py (source: uniprot)
+- src/bioetl/sources/uniprot/parser/extractors.py (source: uniprot)
+- src/bioetl/sources/uniprot/parser/idmapping_parser.py (source: uniprot)
+- src/bioetl/sources/uniprot/pipeline.py (source: uniprot)
+- src/bioetl/sources/uniprot/request/builder.py (source: uniprot)
 - src/bioetl/utils/chembl.py (source: utils)
 - src/bioetl/utils/column_constants.py (source: utils)
 - src/bioetl/utils/config.py (source: utils)
@@ -78,9 +100,11 @@ Cluster size: 138
 - src/scripts/run_assay.py (source: assay)
 - src/scripts/run_document.py (source: document)
 - src/scripts/run_fix_markdown.py (source: scripts)
+- src/scripts/run_gtp_iuphar.py (source: iuphar)
 - src/scripts/run_inventory.py (source: scripts)
 - src/scripts/run_target.py (source: target)
 - src/scripts/run_testitem.py (source: testitem)
+- src/scripts/run_uniprot.py (source: uniprot)
 - src/scripts/validate_columns.py (source: scripts)
 - tests/conftest.py (source: tests)
 - tests/golden/test_cli_golden.py (source: tests)
@@ -90,6 +114,8 @@ Cluster size: 138
 - tests/integration/qc/test_unified_qc.py (source: tests)
 - tests/integration/test_document_pipeline_enrichment.py (source: document)
 - tests/integration/test_document_pipeline_merge_policy.py (source: document)
+- tests/integration/test_iuphar_pipeline.py (source: iuphar)
+- tests/integration/test_uniprot_pipeline.py (source: uniprot)
 - tests/perf/test_dataframe_hash.py (source: tests)
 - tests/perf/test_quality_report_generator.py (source: tests)
 - tests/pipelines/test_materialization_manager.py (source: test_materialization_manager)
@@ -105,12 +131,18 @@ Cluster size: 138
 - tests/sources/semantic_scholar/test_adapter.py (source: tests)
 - tests/sources/test_base_adapter.py (source: base)
 - tests/sources/test_normalizer_helpers.py (source: tests)
+- tests/sources/uniprot/conftest.py (source: uniprot)
+- tests/sources/uniprot/test_client.py (source: uniprot)
+- tests/sources/uniprot/test_normalizer.py (source: uniprot)
+- tests/sources/uniprot/test_parser.py (source: uniprot)
+- tests/sources/uniprot/test_pipeline_e2e.py (source: uniprot)
 - tests/test_fixtures_smoke.py (source: tests)
 - tests/unit/adapters/test_pubchem_adapter.py (source: tests)
 - tests/unit/config/test_pipeline_config.py (source: tests)
 - tests/unit/core/test_client_factory.py (source: tests)
 - tests/unit/core/test_fallback_manager.py (source: tests)
 - tests/unit/docs/test_data_sources_spec.py (source: tests)
+- tests/unit/normalizers/test_bibliography.py (source: tests)
 - tests/unit/normalizers/test_boolean_normalizers.py (source: tests)
 - tests/unit/normalizers/test_helpers.py (source: tests)
 - tests/unit/test_api_client.py (source: tests)
@@ -126,6 +158,8 @@ Cluster size: 138
 - tests/unit/test_hashing.py (source: tests)
 - tests/unit/test_identifier_normalizer.py (source: tests)
 - tests/unit/test_inventory.py (source: tests)
+- tests/unit/test_iuphar_pipeline.py (source: iuphar)
+- tests/unit/test_iuphar_service.py (source: iuphar)
 - tests/unit/test_json_utils.py (source: tests)
 - tests/unit/test_logger.py (source: tests)
 - tests/unit/test_materialization_manager.py (source: test_materialization_manager)
@@ -144,18 +178,21 @@ Cluster size: 138
 - tests/unit/validation/test_schema_validation.py (source: tests)
 common n-grams: —
 common imports: —
-avg jaccard=0.01; avg import overlap=0.11
+avg jaccard=0.00; avg import overlap=0.12
 
 ## Cluster 2
-Cluster size: 5
+Cluster size: 8
 - src/bioetl/sources/chembl/activity/__init__.py (source: activity)
 - src/bioetl/sources/chembl/assay/__init__.py (source: assay)
 - src/bioetl/sources/chembl/document/__init__.py (source: document)
 - src/bioetl/sources/chembl/target/__init__.py (source: target)
 - src/bioetl/sources/chembl/testitem/__init__.py (source: testitem)
+- src/bioetl/sources/iuphar/__init__.py (source: iuphar)
+- src/bioetl/sources/uniprot/__init__.py (source: uniprot)
+- src/bioetl/sources/uniprot/normalizer/__init__.py (source: uniprot)
 common n-grams: —
-common imports: .pipeline
-avg jaccard=0.00; avg import overlap=1.00
+common imports: —
+avg jaccard=0.00; avg import overlap=0.57
 
 ## Cluster 3
 Cluster size: 4

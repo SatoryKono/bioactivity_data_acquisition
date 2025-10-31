@@ -108,9 +108,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Generate pipeline inventory snapshot
+        run: |
+          python src/scripts/run_inventory.py --config configs/inventory.yaml
+
       - name: Verify pipeline inventory snapshot
         run: |
           python src/scripts/run_inventory.py --check
+
+      - name: Upload pipeline inventory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-inventory
+          path: |
+            docs/requirements/PIPELINES.inventory.csv
+            docs/requirements/PIPELINES.inventory.clusters.md
 
   security:
     runs-on: ubuntu-latest
