@@ -141,6 +141,30 @@ def sample_chembl_data() -> pd.DataFrame:
 
 
 @pytest.fixture
+def frozen_time(monkeypatch: pytest.MonkeyPatch):
+    """Freeze ``datetime.now`` for deterministic metadata generation."""
+
+    from datetime import datetime, timezone
+
+    frozen = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz: timezone | None = None):  # type: ignore[override]
+            if tz is None:
+                return frozen.replace(tzinfo=None)
+            return frozen.astimezone(tz)
+
+        @classmethod
+        def utcnow(cls):  # type: ignore[override]
+            return frozen.astimezone(timezone.utc).replace(tzinfo=None)
+
+    monkeypatch.setattr("bioetl.core.output_writer.datetime", _FrozenDateTime)
+    monkeypatch.setattr("bioetl.pipelines.base.datetime", _FrozenDateTime)
+    return frozen
+
+
+@pytest.fixture
 def sample_activity_data() -> pd.DataFrame:
     """Sample activity data for testing."""
     return pd.DataFrame(
