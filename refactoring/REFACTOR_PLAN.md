@@ -53,6 +53,10 @@ source: из дерева src/bioetl/sources/<source>/… или имени фа
 datatracker.ietf.org
 +1
 
+Тестовая иерархия синхронизирована с `MODULE_RULES.md`: обязательные проверки для каждого источника находятся в
+`tests/sources/<source>/`, а каталог `tests/integration/pipelines/` зарезервирован для общих многоисточниковых E2E-сценариев
+(golden, QC, bit-identical).
+
 1) Семьи файлов и целевые объединения
 1.1 HTTP-клиенты
 

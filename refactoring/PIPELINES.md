@@ -198,6 +198,10 @@ docs/requirements/sources/<source>/
  README.md
 ```
 
+`tests/integration/pipelines/` хранит только общие сквозные сценарии (bit-identical, QC, golden) для нескольких источников.
+Повторение тестов конкретного источника внутри `tests/integration/` запрещено — соответствующие проверки располагаются в
+`tests/sources/<source>/`.
+
 Дополнительно для общих компонентов:
 ```
 src/bioetl/core/

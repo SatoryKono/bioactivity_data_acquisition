@@ -107,7 +107,7 @@ pytest tests/unit/ -v
 - `tests/conftest.py` — общие фикстуры и настройки пути
 - Интеграционные тесты документного пайплайна используют профиль `configs/profiles/document_test.yaml`,
 
-  в котором отключены внешние API и заданы фиктивные ключи. Благодаря этому `pytest tests/integration/test_document_pipeline_enrichment.py -v`
+  в котором отключены внешние API и заданы фиктивные ключи. Благодаря этому `pytest tests/sources/document/test_pipeline_e2e.py -v`
   выполняется без реальных секретов и сетевого доступа. При необходимости профиль можно загрузить вручную:
 
 ```bash
@@ -121,15 +121,20 @@ pytest tests/unit/ -v
 
 tests/
 ├── conftest.py                 # Общие фикстуры
-├── unit/                       # Юнит-тесты
-│   ├── test_pipelines.py       # Тесты пайплайнов
-│   ├── test_config_loader.py   # Тесты конфигурации
-│   ├── test_api_client.py      # Тесты API клиента
-│   ├── test_logger.py          # Тесты логирования
-│   ├── test_hashing.py         # Тесты хеширования
-│   └── adapters/               # Тесты адаптеров
-└── integration/                # Интеграционные тесты
-    └── test_document_pipeline_enrichment.py
+├── sources/                    # Тесты по источникам (client/parser/normalizer/schema/pipeline)
+│   ├── document/
+│   │   ├── test_pipeline_e2e.py
+│   │   └── test_merge.py
+│   └── …                       # Остальные источники
+├── integration/                # Общие E2E-сценарии (golden, QC, bit-identical)
+│   └── pipelines/
+└── unit/                       # Юнит-тесты
+    ├── test_pipelines.py       # Тесты пайплайнов
+    ├── test_config_loader.py   # Тесты конфигурации
+    ├── test_api_client.py      # Тесты API клиента
+    ├── test_logger.py          # Тесты логирования
+    ├── test_hashing.py         # Тесты хеширования
+    └── adapters/               # Тесты адаптеров
 
 ```
 
