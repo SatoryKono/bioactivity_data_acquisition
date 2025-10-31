@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from bioetl.utils.chembl import ChemblRelease, fetch_chembl_release
+from bioetl.utils.chembl import ChemblRelease, _resolve_release_name, fetch_chembl_release
 
 
 class _StubClient:
@@ -60,3 +60,38 @@ def test_fetch_chembl_release_with_url(monkeypatch):
     assert release.status == {"chembl_db_version": "ChEMBL_Y"}
     assert captured["url"].endswith("/status.json")
     assert captured["timeout"] == 30
+
+
+def test_resolve_release_name_prefers_known_keys():
+    """Alternative key names should still yield a release identifier."""
+
+    payload = {
+        "chembl_db_release": "",
+        "chembl_release": "  ChEMBL_36  ",
+        "version": "ChEMBL_OLD",
+    }
+
+    assert _resolve_release_name(payload) == "ChEMBL_36"
+
+
+def test_resolve_release_name_handles_nested_payloads():
+    """Nested objects or non-string values should be coerced to strings."""
+
+    payload = {
+        "chembl_release": {"name": ""},
+        "version": 37,
+    }
+
+    assert _resolve_release_name(payload) == "37"
+
+
+def test_fetch_release_uses_fallback_keys():
+    """``fetch_chembl_release`` should use any supported key name."""
+
+    payload = {"version": " ChEMBL_ALT "}
+    client = _StubClient(payload)
+
+    release = fetch_chembl_release(client)
+
+    assert release.version == "ChEMBL_ALT"
+    assert release.status is payload

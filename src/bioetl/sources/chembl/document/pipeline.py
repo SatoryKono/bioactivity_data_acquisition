@@ -1,6 +1,6 @@
 """Document Pipeline - ChEMBL document extraction with external enrichment."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import MISSING
 from numbers import Real
 from pathlib import Path
@@ -29,7 +29,7 @@ from bioetl.sources.document.pipeline import AdapterDefinition, ExternalEnrichme
 from bioetl.sources.openalex.pipeline import OPENALEX_ADAPTER_DEFINITION
 from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
 from bioetl.sources.semantic_scholar.pipeline import SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
-from bioetl.utils.chembl import SupportsRequestJson
+from bioetl.utils.chembl import SupportsRequestJson, _resolve_release_name
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
@@ -473,34 +473,6 @@ class DocumentPipeline(PipelineBase):
         )
         return self.document_client.fetch_documents(ids, callbacks)
 
-    @staticmethod
-    def _normalise_chembl_release_value(value: Any) -> str | None:
-        """Return a canonical ChEMBL release string or ``None`` for missing values."""
-
-        if value is None:
-            return None
-
-        try:
-            # Check for pandas NA values
-            if hasattr(value, "__class__") and pd.isna(value):
-                return None
-        except (TypeError, ValueError):
-            pass
-
-        if isinstance(value, str):
-            stripped = value.strip()
-            return stripped or None
-
-        if isinstance(value, Mapping):
-            candidate = value.get("chembl_release") or value.get("version") or value.get("name")
-            if isinstance(candidate, str):
-                stripped_candidate = candidate.strip()
-                return stripped_candidate or None
-            return None
-
-        normalised = str(value).strip()
-        return normalised or None
-
     def _classify_error(self, exc: Exception) -> str:
         if isinstance(exc, requests.exceptions.ReadTimeout):
             return "E_TIMEOUT"
@@ -595,9 +567,9 @@ class DocumentPipeline(PipelineBase):
         default_source = "chembl"
 
         if "chembl_release" in df.columns:
-            df["chembl_release"] = df["chembl_release"].apply(self._normalise_chembl_release_value)
+            df["chembl_release"] = df["chembl_release"].apply(_resolve_release_name)
 
-        release_value = self._normalise_chembl_release_value(self._chembl_release)
+        release_value = _resolve_release_name(self._chembl_release)
 
         if "fallback_reason" in df.columns:
             fallback_mask = df["fallback_reason"].notna()
