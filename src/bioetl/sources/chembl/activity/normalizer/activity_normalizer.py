@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from bioetl.normalizers import registry
+
+from ..constants import (
+    ACTIVITY_TYPE_ALIASES,
+    QUDT_UNITS_TO_STANDARD,
+    UO_UNITS_TO_STANDARD,
+)
 
 __all__ = ["ActivityNormalizer"]
 
@@ -24,6 +31,69 @@ class ActivityNormalizer:
             return int(text)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _canonicalize_activity_token(value: str) -> str:
+        """Return a lower-cased token with spaces, dashes and underscores removed."""
+
+        collapsed = re.sub(r"[\s_-]+", "", value)
+        return collapsed.lower()
+
+    def normalize_activity_type(self, value: Any) -> str | None:
+        """Normalise activity type labels to the canonical casing used by ChEMBL."""
+
+        text = registry.normalize("chemistry.string", value)
+        if not text:
+            return None
+
+        token = self._canonicalize_activity_token(text)
+        if not token:
+            return None
+
+        # Handle prefixed measures like pIC50 explicitly by removing the prefix
+        # and mapping the suffix through the alias table.
+        if token.startswith("p") and token[1:] in ACTIVITY_TYPE_ALIASES:
+            suffix = ACTIVITY_TYPE_ALIASES[token[1:]]
+            if suffix.startswith("p"):
+                return suffix
+            return f"p{suffix}"
+
+        alias = ACTIVITY_TYPE_ALIASES.get(token)
+        if alias:
+            return alias
+
+        # Fallback: return the original text with collapsed spacing while
+        # preserving the original casing for clarity.
+        collapsed_original = re.sub(r"[\s_-]+", " ", text).strip()
+        if collapsed_original:
+            return collapsed_original
+        return text
+
+    def normalize_units(self, *values: Any, default: str | None = None) -> str | None:
+        """Return the first successfully normalised unit from ``values``."""
+
+        for candidate in values:
+            # Prefer textual units provided directly by the API response.
+            normalised = registry.normalize("chemistry.units", candidate)
+            if normalised:
+                if isinstance(normalised, str):
+                    stripped = normalised.strip()
+                    if stripped in UO_UNITS_TO_STANDARD:
+                        return UO_UNITS_TO_STANDARD[stripped]
+                    lookup = QUDT_UNITS_TO_STANDARD.get(stripped.lower())
+                    if lookup:
+                        return lookup
+                return normalised
+
+            if isinstance(candidate, str):
+                key = candidate.strip()
+                if key in UO_UNITS_TO_STANDARD:
+                    return UO_UNITS_TO_STANDARD[key]
+                lookup = QUDT_UNITS_TO_STANDARD.get(key.lower())
+                if lookup:
+                    return lookup
+
+        return default
 
     def derive_compound_key(
         self,

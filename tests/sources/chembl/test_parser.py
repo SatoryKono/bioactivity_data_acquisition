@@ -16,16 +16,17 @@ def test_parser_normalizes_activity_properties_and_citations() -> None:
             "activity_id": "123",
             "molecule_chembl_id": "CHEMBL1",
             "assay_chembl_id": "CHEMBL2",
+            "assay_id": "456",
             "target_chembl_id": "CHEMBL3",
             "document_chembl_id": "CHEMBL4",
-            "type": "IC50",
+            "type": "ic 50",
             "relation": "=",
             "value": "12.5",
-            "units": "nM",
+            "units": "nanomolar",
             "standard_type": "IC50",
             "standard_relation": "=",
             "standard_value": "12.5",
-            "standard_units": "nM",
+            "standard_units": None,
             "standard_flag": "1",
             "standard_lower_value": "10",
             "standard_upper_value": "15",
@@ -37,15 +38,20 @@ def test_parser_normalizes_activity_properties_and_citations() -> None:
             "target_organism": "Homo sapiens",
             "target_tax_id": "9606",
             "src_id": "2",
+            "uo_units": "UO:0000064",
         }
     )
 
     assert record["activity_id"] == 123
+    assert record["assay_id"] == 456
     assert record["compound_key"] == "CHEMBL1|IC50|CHEMBL3"
     assert record["is_citation"] is True
     assert record["exact_data_citation"] is True
     assert record["rounded_data_citation"] is True
     assert record["high_citation_rate"] is True
+    assert record["published_type"] == "IC50"
+    assert record["published_units"] == "nM"
+    assert record["standard_units"] == "µM"
     assert record["chembl_release"] == "33"
     expected_properties = (
         '[{"name":"Citation Count","value":51},'

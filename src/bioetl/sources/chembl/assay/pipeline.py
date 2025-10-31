@@ -15,6 +15,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import AssaySchema
+from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 
@@ -29,6 +30,8 @@ from .normalizer import AssayNormalizer
 from .output import AssayOutputWriter
 from .parser import AssayParser
 from .request import AssayRequestBuilder
+
+schema_registry.register("assay", "1.0.0", AssaySchema)  # type: ignore[arg-type]
 
 __all__ = ["AssayPipeline"]
 

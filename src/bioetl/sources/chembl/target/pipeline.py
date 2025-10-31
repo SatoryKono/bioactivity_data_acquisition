@@ -21,6 +21,7 @@ from bioetl.schemas import (
     TargetSchema,
     XrefSchema,
 )
+from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 from bioetl.sources.uniprot.client import (
@@ -42,6 +43,8 @@ from bioetl.sources.chembl.target.normalizer import (
 )
 from bioetl.sources.chembl.target.output import TargetOutputService
 from bioetl.sources.chembl.target.request import IupharRequestBuilder
+
+schema_registry.register("target", "1.0.0", TargetSchema)  # type: ignore[arg-type]
 
 __all__ = ["TargetPipeline"]
 

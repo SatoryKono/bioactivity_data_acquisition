@@ -20,3 +20,13 @@ def test_derive_compound_key_requires_all_components() -> None:
 
     assert normalizer.derive_compound_key("CHEMBL1", "IC50", "CHEMBL2") == "CHEMBL1|IC50|CHEMBL2"
     assert normalizer.derive_compound_key("CHEMBL1", None, "CHEMBL2") is None
+
+
+def test_normalize_units_prefers_explicit_textual_values() -> None:
+    """Unit normalisation should honour standard, published and ontology inputs."""
+
+    normalizer = ActivityNormalizer()
+
+    assert normalizer.normalize_units("nm", "UO:0000065") == "nM"
+    assert normalizer.normalize_units(None, "UO:0000064") == "µM"
+    assert normalizer.normalize_units(None, None, "nanomolar") == "nM"

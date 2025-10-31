@@ -32,6 +32,7 @@ from bioetl.schemas.document import (
     DocumentRawSchema,
     DocumentSchema,
 )
+from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
@@ -47,6 +48,8 @@ from .request import (
     run_enrichment_requests,
 )
 from .schema import build_document_fallback_row
+
+schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
 
 __all__ = ["DocumentPipeline"]
 

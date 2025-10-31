@@ -20,6 +20,7 @@ ACTIVITY_FALLBACK_BUSINESS_COLUMNS: tuple[str, ...] = (
     "activity_id",
     "molecule_chembl_id",
     "assay_chembl_id",
+    "assay_id",
     "target_chembl_id",
     "document_chembl_id",
     "published_type",
@@ -96,14 +97,13 @@ class ActivityParser:
 
         activity_id = normalizer.normalize_int_scalar(activity.get("activity_id"))
         molecule_id = registry.normalize("chemistry.chembl_id", activity.get("molecule_chembl_id"))
-        assay_id = registry.normalize("chemistry.chembl_id", activity.get("assay_chembl_id"))
+        assay_chembl_id = registry.normalize("chemistry.chembl_id", activity.get("assay_chembl_id"))
+        assay_numeric_id = normalizer.normalize_int_scalar(activity.get("assay_id"))
         target_id = registry.normalize("chemistry.chembl_id", activity.get("target_chembl_id"))
         document_id = registry.normalize("chemistry.chembl_id", activity.get("document_chembl_id"))
 
-        published_type = registry.normalize(
-            "chemistry.string",
-            activity.get("type") or activity.get("published_type"),
-            uppercase=True,
+        published_type = normalizer.normalize_activity_type(
+            activity.get("type") or activity.get("published_type")
         )
         published_relation = registry.normalize(
             "chemistry.relation",
@@ -115,16 +115,12 @@ class ActivityParser:
             activity.get("value") or activity.get("published_value"),
             column="published_value",
         )
-        published_units = registry.normalize(
-            "chemistry.units",
-            activity.get("units") or activity.get("published_units"),
+        published_units = normalizer.normalize_units(
+            activity.get("units"),
+            activity.get("published_units"),
         )
 
-        standard_type = registry.normalize(
-            "chemistry.string",
-            activity.get("standard_type"),
-            uppercase=True,
-        )
+        standard_type = normalizer.normalize_activity_type(activity.get("standard_type"))
         standard_relation = registry.normalize(
             "chemistry.relation",
             activity.get("standard_relation"),
@@ -135,9 +131,12 @@ class ActivityParser:
             activity.get("standard_value"),
             column="standard_value",
         )
-        standard_units = registry.normalize(
-            "chemistry.units",
+        standard_units = normalizer.normalize_units(
             activity.get("standard_units"),
+            activity.get("uo_units"),
+            activity.get("qudt_units"),
+            activity.get("units"),
+            activity.get("published_units"),
             default="nM",
         )
         standard_flag = normalizer.normalize_int_scalar(activity.get("standard_flag"))
@@ -214,7 +213,8 @@ class ActivityParser:
         record: dict[str, Any] = {
             "activity_id": activity_id,
             "molecule_chembl_id": molecule_id,
-            "assay_chembl_id": assay_id,
+            "assay_chembl_id": assay_chembl_id,
+            "assay_id": assay_numeric_id,
             "target_chembl_id": target_id,
             "document_chembl_id": document_id,
             "published_type": published_type,

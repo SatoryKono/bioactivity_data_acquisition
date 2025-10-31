@@ -37,3 +37,13 @@ def test_derive_high_citation_rate_threshold() -> None:
 
     low_props = [{"name": "Citation Count", "value": 10}]
     assert normalizer.derive_high_citation_rate(low_props) is False
+
+
+def test_normalize_activity_type_collapses_aliases() -> None:
+    """Common synonyms should be transformed into canonical ChEMBL labels."""
+
+    normalizer = ActivityNormalizer()
+
+    assert normalizer.normalize_activity_type("ic 50") == "IC50"
+    assert normalizer.normalize_activity_type("pKi") == "pKi"
+    assert normalizer.normalize_activity_type("Residual_Activity") == "Residual Activity"
