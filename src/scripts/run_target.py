@@ -208,6 +208,13 @@ def run(  # noqa: PLR0913 - CLI functions naturally accept many parameters
     config.cli["run_id"] = resolved_run_id
     config.cli["output_root"] = str(output_root)
 
+    UnifiedLogger.set_context(
+        run_id=resolved_run_id,
+        stage="cli",
+        actor="cli",
+        source=config.pipeline.entity,
+    )
+
     logger.info(
         "pipeline_run_configured",
         run_id=resolved_run_id,

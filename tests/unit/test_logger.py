@@ -66,7 +66,7 @@ def reset_logging_state():
 
     structlog.reset_defaults()
     structlog.contextvars.clear_contextvars()
-    logger_module._log_context.set(None)  # type: ignore[attr-defined]
+    logger_module.clear_context()
 
     yield
 
@@ -76,7 +76,7 @@ def reset_logging_state():
 
     structlog.reset_defaults()
     structlog.contextvars.clear_contextvars()
-    logger_module._log_context.set(None)  # type: ignore[attr-defined]
+    logger_module.clear_context()
 
 
 @pytest.fixture
@@ -130,6 +130,7 @@ def test_structlog_event_includes_context_and_timestamp(fixed_timestamp):
     assert event["actor"] == "etl"
     assert event["source"] == "chembl"
     assert event["timestamp"] == fixed_timestamp.isoformat()
+    assert event["generated_at"] == fixed_timestamp.isoformat()
 
 
 @pytest.mark.parametrize(
@@ -158,6 +159,7 @@ def test_processors_inject_context_in_all_modes(fixed_timestamp, mode, log_metho
     assert event["actor"] == "pipeline"
     assert event["source"] == "chembl"
     assert event["timestamp"] == fixed_timestamp.isoformat()
+    assert event["generated_at"] == fixed_timestamp.isoformat()
 
 
 def test_safe_formatting_filter():
@@ -185,6 +187,36 @@ def test_security_processor_in_structlog(fixed_timestamp):
     event = _apply_core_processors(log, "info", logs[0])
     assert event["api_key"] == "***REDACTED***"
     assert event["timestamp"] == fixed_timestamp.isoformat()
+    assert event["generated_at"] == fixed_timestamp.isoformat()
+
+
+def test_http_context_manager_injects_fields(fixed_timestamp):
+    """HTTP context manager decorates log events with request metadata."""
+
+    run_id = "http-test"
+    UnifiedLogger.setup(mode="development", run_id=run_id)
+    UnifiedLogger.set_context(run_id=run_id, stage="extract", actor="etl", source="chembl")
+    log = UnifiedLogger.get("test")
+
+    params = {"limit": 25}
+    with capture_logs() as logs:
+        with UnifiedLogger.http_context(endpoint="/api/test", attempt=2, params=params):
+            UnifiedLogger.set_context(duration_ms=123.45, retry_after=0.5)
+            log.warning("http_warning")
+            http_event = _apply_core_processors(log, "warning", logs[0])
+
+        log.info("plain_event")
+
+    assert len(logs) >= 2
+    assert http_event["endpoint"] == "/api/test"
+    assert http_event["attempt"] == 2
+    assert http_event["duration_ms"] == pytest.approx(123.45)
+    assert http_event["retry_after"] == pytest.approx(0.5)
+    assert http_event["params"] == params
+
+    plain_event = _apply_core_processors(log, "info", logs[1])
+    assert "endpoint" not in plain_event
+    assert "attempt" not in plain_event
 
 
 def test_get_run_id():
